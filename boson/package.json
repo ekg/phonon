@@ -1,0 +1,22 @@
+{
+  "name": "boson",
+  "version": "1.0.0",
+  "description": "Boson: Pattern engine for Phonon Forge",
+  "main": "boson.js",
+  "scripts": {
+    "start": "node boson.js",
+    "watch": "node boson.js watch"
+  },
+  "keywords": [
+    "live-coding",
+    "patterns",
+    "strudel"
+  ],
+  "author": "Erik Garrison <erik.garrison@gmail.com>",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@strudel/core": "^1.2.3",
+    "osc-js": "^2.4.1"
+  }
+}
