@@ -1,29 +1,22 @@
 # Rust
-target/
-Cargo.lock
+fermion/target/
 **/*.rs.bk
 
 # Node
 node_modules/
-npm-debug.log*
-package-lock.json
+npm-debug.log
+*.log
 
 # Audio files
 *.wav
 *.mp3
-*.ogg
+*.aiff
 
-# Temp files
+# Temporary files
 *.tmp
-.DS_Store
+*.swp
 *~
 
-# IDE
-.vscode/
-.idea/
-
-# Logs
-*.log
-
-# Sessions
-sessions/*.phonon.bak
+# Downloaded samples
+dirt-samples/
+samples/
