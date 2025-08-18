@@ -1,0 +1,29 @@
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+
+# Node
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# Audio files
+*.wav
+*.mp3
+*.ogg
+
+# Temp files
+*.tmp
+.DS_Store
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Sessions
+sessions/*.phonon.bak
