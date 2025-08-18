@@ -104,9 +104,9 @@ impl OscServer {
                         duration = *f;
                     }
                 }
-                OscType::Int(i) => {
-                    if i == &0 {
-                        freq = *i as f32;
+                OscType::Int(val) => {
+                    if i == 0 {
+                        freq = *val as f32;
                     }
                 }
                 _ => {}
