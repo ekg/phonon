@@ -1,0 +1,36 @@
+🎵 HOUSE BEAT PATTERN - 120 BPM (10 seconds)
+==========================================
+
+Pattern: "bd bd bd bd sn ~ sn ~ hh ~ hh ~ hh ~ hh ~"
+
+Beat visualization (16 steps, loops 5 times in 10 seconds):
+
+Step:  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Kick:  ●  ●  ●  ●  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·
+Snare: ·  ·  ·  ·  ●  ·  ●  ·  ·  ·  ·  ·  ·  ·  ·  ·
+HiHat: ·  ·  ·  ·  ·  ·  ·  ·  ●  ·  ●  ·  ●  ·  ●  ·
+
+Timing:
+- Each step = 125ms (16th note at 120 BPM)
+- Full pattern = 2 seconds (one bar)
+- 10 seconds = 5 repetitions
+
+Sound Character:
+● Kick (bd): Deep, punchy bass drum on every quarter note (four-on-the-floor)
+● Snare (sn): Crisp snare hit on beats 2 and 4 (backbeat)
+● Hi-Hat (hh): Bright, short hi-hat on off-beats for groove
+
+This creates the classic house music groove:
+BOOM BOOM BOOM BOOM (steady kick)
+     SNAP     SNAP  (snare backbeat)
+         TSS TSS TSS TSS (driving hi-hats)
+
+In Phonon Forge syntax:
+"bd bd bd bd sn ~ sn ~ hh ~ hh ~ hh ~ hh ~"
+
+To play this beat:
+1. Save this pattern to patterns.phonon
+2. Run: ./phonon start
+3. The beat will loop continuously
+4. Edit the pattern file to change the beat live!

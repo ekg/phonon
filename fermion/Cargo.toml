@@ -28,3 +28,6 @@ tracing-subscriber = "0.3"
 
 # Audio file generation
 hound = "3.5"
+
+# Random for sample generation
+rand = "0.8"

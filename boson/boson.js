@@ -9,6 +9,7 @@ const { sequence, stack, Pattern } = require('@strudel/core');
 const OSC = require('osc-js');
 const fs = require('fs');
 const path = require('path');
+const PatternParser = require('./parser');
 
 class Boson {
     constructor(config = {}) {
@@ -21,6 +22,7 @@ class Boson {
         };
         
         this.osc = new OSC({ plugin: new OSC.DatagramPlugin() });
+        this.parser = new PatternParser();
         this.pattern = null;
         this.playing = false;
         this.startTime = Date.now() / 1000;
@@ -47,11 +49,14 @@ class Boson {
                 const defaultPattern = `// Phonon Forge Pattern File
 // Edit and save to hear changes!
 
-// Simple melody
-"440 550 660 550"
+// Drum pattern
+"bd ~ sd ~"
 
-// Or use Strudel syntax:
-// sequence("c3", "e3", "g3", "c4")
+// Or try:
+// "bd bd sd hh*4"  // Kick kick snare hihat×4
+// "c4 e4 g4 c5"     // C major arpeggio
+// "[c4,e4,g4] ~"    // Chord then rest
+// "bd:0.5 sd:0.2"   // With durations
 `;
                 fs.writeFileSync(this.config.patternFile, defaultPattern);
                 console.log(`✓ Created ${this.config.patternFile}`);
@@ -59,25 +64,30 @@ class Boson {
             
             const content = fs.readFileSync(this.config.patternFile, 'utf8');
             
-            // Extract pattern (simple parser)
-            const lines = content.split('\n').filter(l => !l.trim().startsWith('//'));
-            const patternLine = lines.find(l => l.includes('"'));
+            // Parse pattern using the new parser
+            const events = this.parser.parse(content);
             
-            if (patternLine) {
-                const match = patternLine.match(/"([^"]+)"/);
-                if (match) {
-                    const notes = match[1].split(/\s+/);
-                    this.pattern = notes.map(n => {
-                        if (n === '~') return null;
-                        return parseFloat(n) || this.noteToFreq(n);
-                    });
-                    console.log(`✓ Pattern loaded: ${this.pattern.filter(p => p).join(' ')}`);
-                    return true;
-                }
+            if (events.length > 0) {
+                this.pattern = this.parser.expand(events);
+                const summary = this.pattern.map(e => {
+                    if (e.type === 'rest') return '~';
+                    if (e.type === 'sample') return e.name;
+                    if (e.type === 'note') return e.name;
+                    if (e.type === 'freq') return `${e.value}Hz`;
+                    if (e.type === 'chord') return '[chord]';
+                    return '?';
+                }).join(' ');
+                console.log(`✓ Pattern loaded: ${summary}`);
+                return true;
             }
             
             console.log('⚠ No pattern found, using default');
-            this.pattern = [440, 550, 660, 550];
+            this.pattern = [
+                { type: 'sample', value: 'bd', name: 'bd' },
+                { type: 'rest' },
+                { type: 'sample', value: 'sd', name: 'sd' },
+                { type: 'rest' }
+            ];
             return true;
             
         } catch (err) {
@@ -116,20 +126,67 @@ class Boson {
         console.log('■ Stopped');
     }
     
-    scheduleNextBeat(index) {
-        if (!this.playing) return;
-        
-        const note = this.pattern[index % this.pattern.length];
-        
-        if (note) {
-            // Send OSC to Fermion
-            const message = new OSC.Message('/play', note, 0.2);
+    playEvent(event, duration) {
+        if (event.type === 'sample') {
+            const index = event.index || 0;
+            const message = new OSC.Message('/sample', event.value, index, 1.0);
             this.osc.send(message, { 
                 port: this.config.oscPort, 
                 host: this.config.oscHost 
             });
+        } else if (event.type === 'note' || event.type === 'freq') {
+            const message = new OSC.Message('/play', event.value, duration);
+            this.osc.send(message, { 
+                port: this.config.oscPort, 
+                host: this.config.oscHost 
+            });
+        }
+    }
+    
+    scheduleNextBeat(index) {
+        if (!this.playing) return;
+        
+        const event = this.pattern[index % this.pattern.length];
+        
+        if (event && event.type !== 'rest') {
+            const duration = event.duration || 0.2;
             
-            console.log(`  ♪ ${note} Hz`);
+            if (event.type === 'stack') {
+                // Handle stacked/simultaneous events
+                for (const e of event.events) {
+                    this.playEvent(e, duration);
+                }
+                console.log(`  ♫ [stack]`);
+            } else if (event.type === 'sample') {
+                // Send sample message with index
+                const index = event.index || 0;
+                const message = new OSC.Message('/sample', event.value, index, 1.0);
+                this.osc.send(message, { 
+                    port: this.config.oscPort, 
+                    host: this.config.oscHost 
+                });
+                console.log(`  ♫ ${event.name}`);
+            } else if (event.type === 'note' || event.type === 'freq') {
+                // Send frequency message
+                const message = new OSC.Message('/play', event.value, duration);
+                this.osc.send(message, { 
+                    port: this.config.oscPort, 
+                    host: this.config.oscHost 
+                });
+                console.log(`  ♪ ${event.name || event.value}`);
+            } else if (event.type === 'chord') {
+                // Send chord as multiple notes
+                for (const note of event.notes) {
+                    if (note.type !== 'rest') {
+                        const msg = new OSC.Message('/play', note.value, duration);
+                        this.osc.send(msg, { 
+                            port: this.config.oscPort, 
+                            host: this.config.oscHost 
+                        });
+                    }
+                }
+                console.log(`  ♫ [chord]`);
+            }
         }
         
         // Schedule next beat

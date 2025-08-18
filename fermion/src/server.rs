@@ -75,6 +75,9 @@ impl OscServer {
             "/play" => {
                 self.handle_play(msg).await;
             }
+            "/sample" => {
+                self.handle_sample(msg).await;
+            }
             "/sine" => {
                 self.handle_sine(msg).await;
             }
@@ -175,6 +178,54 @@ impl OscServer {
             return;
         }
         
+        tokio::spawn(async move {
+            let _ = std::process::Command::new("mplayer")
+                .arg(&path)
+                .arg("-really-quiet")
+                .output();
+        });
+    }
+    
+    async fn handle_sample(&self, msg: OscMessage) {
+        // Extract sample name, index, and speed
+        let mut sample_name = "bd".to_string();
+        let mut index = 0usize;
+        let mut speed = 1.0f32;
+        
+        for (i, arg) in msg.args.iter().enumerate() {
+            match arg {
+                OscType::String(s) => {
+                    if i == 0 {
+                        sample_name = s.clone();
+                    }
+                }
+                OscType::Int(val) => {
+                    if i == 1 {
+                        index = *val as usize;
+                    } else if i == 2 {
+                        speed = *val as f32;
+                    }
+                }
+                OscType::Float(f) => {
+                    if i == 2 {
+                        speed = *f;
+                    }
+                }
+                _ => {}
+            }
+        }
+        
+        info!("Sample: {}:{} at speed {}", sample_name, index, speed);
+        
+        let mut engine = self.engine.write().await;
+        let path = std::env::temp_dir().join(format!("fermion_{}_{}.wav", sample_name, index));
+        
+        if let Err(e) = engine.play_sample(&path, &sample_name, index, speed) {
+            error!("Failed to play sample: {}", e);
+            return;
+        }
+        
+        // Play async
         tokio::spawn(async move {
             let _ = std::process::Command::new("mplayer")
                 .arg(&path)
