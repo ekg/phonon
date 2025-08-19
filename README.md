@@ -2,20 +2,35 @@
 
 **Live coding audio synthesis for Android/Termux - TidalCycles patterns without SuperCollider**
 
-## Quick Start
+## Setup
 
 ```bash
-# 1. Clone the repository
+# Install dependencies (Termux/Android)
+pkg install rust nodejs git pulseaudio
+
+# For Linux/Ubuntu:
+sudo apt install cargo nodejs git libasound2-dev
+# Optional for JACK support:
+sudo apt install jackd2 qjackctl
+
+# Clone and build
 git clone https://github.com/erikgarrison/phonon.git
 cd phonon
+./setup.sh  # Downloads samples (389MB), installs deps, builds
 
-# 2. Run setup (downloads samples, builds everything)
-./setup.sh
-
-# 3. Start making music
+# Start playing
 ./phonon start
+```
 
-# 4. Edit patterns.phonon to change the beat live!
+Edit `patterns.phonon` while running to live-code beats!
+
+## Pattern Examples
+
+```javascript
+"bd ~ ~ ~"                    // Simple kick
+"bd sn bd sn"                 // Basic beat  
+"bd*2 sn hh*4"               // Multiply patterns
+"bd ~ [sn cp] ~"             // Group patterns
 ```
 
 ## Features
