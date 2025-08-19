@@ -1,0 +1,33 @@
+// 🏠 HOUSE MUSIC - 128 BPM
+// Classic Chicago/Detroit house pattern
+
+// Simple version (our parser can handle)
+"bd bd bd bd cp ~ cp ~ hh hh oh hh hh hh oh hh"
+
+// Full Strudel version (needs complete parser):
+/*
+stack(
+  // Four-on-floor kick drum
+  "bd*4",
+  
+  // Clap on 2 and 4
+  "~ cp ~ cp",
+  
+  // Hi-hat pattern with shuffle
+  "hh*7 oh",
+  
+  // Bassline - classic house progression
+  "<c2 c2 eb2 g2>",
+  
+  // Piano stabs (house chords)
+  "~ ~ [c4,e4,g4,bb4] ~ ~ ~ [f3,a3,c4,e4] ~",
+  
+  // Percussion layer
+  "~ ~ ~ ~ perc ~ ~ perc"
+)
+*/
+
+// Variations to try:
+// "bd*4, ~ cp ~ cp, hh(7,8), ~ oh ~ oh ~ oh ~ oh"  // Euclidean hats
+// "bd ~ bd ~ bd ~ bd ~, ~ ~ cp ~, hh*16"            // Minimal house
+// "bd*4, [~ cp]*2, hh*8, bass:1 ~ bass:2 ~"         // With bass samples

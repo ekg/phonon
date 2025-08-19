@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Boson - Pattern engine for Phonon Forge
+ * Boson - Pattern engine for Phonon
  * Powered by Strudel/TidalCycles patterns
  */
 
@@ -46,7 +46,7 @@ class Boson {
         try {
             if (!fs.existsSync(this.config.patternFile)) {
                 // Create default pattern file
-                const defaultPattern = `// Phonon Forge Pattern File
+                const defaultPattern = `// Phonon Pattern File
 // Edit and save to hear changes!
 
 // Drum pattern

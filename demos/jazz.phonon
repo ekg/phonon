@@ -1,0 +1,33 @@
+// 🎺 JAZZ - 120 BPM (with swing)
+// Bebop/swing pattern
+
+// Simple version (straight feel - add swing in performance)
+"bd ~ ~ bd ~ bd ~ ~ ~ sn ~ ~ ~ sn ~ ~ ride ride ride ride ride ride ride ride"
+
+// Full Strudel version with jazz harmony:
+/*
+stack(
+  // Syncopated kick (feathering)
+  "bd ~ ~ bd ~ bd ~ ~",
+  
+  // Brush snare pattern
+  "~ ~ sn ~ ~ sn ~ [sn sn]",
+  
+  // Ride cymbal swing pattern (triplet feel)
+  "ride*8",
+  
+  // Walking bass line in Bb
+  "<bb2 d3 f3 a3 bb3 g3 eb3 c3>",
+  
+  // Jazz chord progression (ii-V-I in Bb)
+  "[c3,eb3,g3,bb3] ~ [f3,a3,c4,eb4] ~ [bb2,d3,f3,a3] ~ ~ ~",
+  
+  // Bebop melody line
+  "~ ~ bb4 d5 f5 [a5 g5] eb5 c5"
+)
+*/
+
+// Jazz variations:
+// "bd ~ [bd bd] ~, ~ sn ~ [~ sn], ride*6"       // 6/8 jazz waltz
+// "bd ~ ~ ~, ~ ~ sn ~, ride*4"                  // Ballad
+// "bd bd bd bd, sn ~ sn ~, ride*8"              // Latin jazz

@@ -1,4 +1,4 @@
-//! Fermion - The Rust synthesis engine for Phonon Forge
+//! Fermion - The Rust synthesis engine for Phonon
 
 use clap::{Parser, Subcommand};
 use tracing::{info};
@@ -11,7 +11,7 @@ use server::OscServer;
 
 #[derive(Parser)]
 #[command(name = "fermion")]
-#[command(about = "Fermion: Rust synthesis engine for Phonon Forge")]
+#[command(about = "Fermion: Rust synthesis engine for Phonon")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

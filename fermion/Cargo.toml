@@ -3,7 +3,7 @@ name = "fermion"
 version = "0.1.0"
 edition = "2021"
 authors = ["Erik Garrison <erik.garrison@gmail.com>"]
-description = "Fermion: Rust synthesis engine for Phonon Forge"
+description = "Fermion: Rust synthesis engine for Phonon"
 
 [dependencies]
 # Audio synthesis

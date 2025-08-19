@@ -1,13 +1,13 @@
-# GitHub Repository Structure for Phonon Forge
+# GitHub Repository Structure for Phonon
 
 ## Main Repository
-**Name:** `phonon-forge`  
+**Name:** `phonon`  
 **Description:** Live coding audio synthesis system for Android/Termux with Strudel/TidalCycles pattern support  
-**URL:** `github.com/erikgarrison/phonon-forge`
+**URL:** `github.com/erikgarrison/phonon`
 
 ### Repository Contents:
 ```
-phonon-forge/
+phonon/
 ├── README.md                    # Project overview
 ├── LICENSE                      # MIT License
 ├── USAGE.md                     # User guide
@@ -61,10 +61,10 @@ phonon-forge/
 
 ```bash
 # Create main repository
-cd /data/data/com.termux/files/home/phonon-forge
+cd /data/data/com.termux/files/home/phonon
 
 # Add remote origin
-git remote add origin https://github.com/erikgarrison/phonon-forge.git
+git remote add origin https://github.com/erikgarrison/phonon.git
 
 # Create and switch to main branch
 git branch -M main
@@ -73,7 +73,7 @@ git branch -M main
 git push -u origin main
 
 # Create release tag
-git tag -a v1.1 -m "Phonon Forge v1.1 - Strudel DSL support"
+git tag -a v1.1 -m "Phonon v1.1 - Strudel DSL support"
 git push origin v1.1
 ```
 

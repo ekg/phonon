@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Play Strudel patterns with Phonon Forge
+# Play Strudel patterns with Phonon
 
-echo "🎵 Phonon Forge - Strudel Player"
+echo "🎵 Phonon - Strudel Player"
 echo "================================"
 echo ""
 

@@ -18,7 +18,7 @@ pub struct SynthEngine {
 impl SynthEngine {
     pub fn new() -> Self {
         let base_dir = PathBuf::from(std::env::var("HOME").unwrap_or(".".to_string()))
-            .join("phonon-forge");
+            .join("phonon");
         
         let sample_dir = base_dir.join("samples");
         let dirt_samples_dir = base_dir.join("dirt-samples");

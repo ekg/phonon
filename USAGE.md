@@ -1,4 +1,4 @@
-# Phonon Forge Usage Guide
+# Phonon Usage Guide
 
 ## Quick Start
 
@@ -63,7 +63,7 @@ Edit `patterns.phonon` to change the music:
 
 ## LLM Integration
 
-You can control Phonon Forge programmatically:
+You can control Phonon programmatically:
 
 ```bash
 # Change pattern via file

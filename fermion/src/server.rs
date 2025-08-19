@@ -167,7 +167,7 @@ impl OscServer {
         info!("Sample: {}:{} at speed {}", sample_name, index, speed);
         
         // Look for actual WAV files
-        let samples_dir = std::path::Path::new("/data/data/com.termux/files/home/phonon-forge/dirt-samples");
+        let samples_dir = std::path::Path::new("/data/data/com.termux/files/home/phonon/dirt-samples");
         let sample_folder = samples_dir.join(&sample_name);
         
         if sample_folder.exists() {

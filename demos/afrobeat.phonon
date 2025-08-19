@@ -1,0 +1,42 @@
+// 🌍 AFROBEAT - 115 BPM
+// Fela Kuti inspired polyrhythmic pattern
+
+// Simple version
+"bd ~ bd ~ ~ bd ~ bd sn ~ sn sn ~ sn ~ sn hh hh hh hh hh hh hh hh"
+
+// Full Strudel version with polyrhythms:
+/*
+stack(
+  // Polyrhythmic kick using Euclidean rhythm
+  "bd(5,8)",
+  
+  // Syncopated snare pattern
+  "sn ~ sn sn ~ sn ~ sn",
+  
+  // Constant hi-hat drive
+  "hh*16",
+  
+  // Conga pattern (traditional African)
+  "conga(7,16)",
+  
+  // Shaker layer
+  "shaker*8",
+  
+  // Cowbell clave pattern
+  "cb ~ cb cb ~ cb ~ ~",
+  
+  // Bassline with African pentatonic feel
+  "<c2 ~ eb2 ~ f2 ~ g2 ~ bb2 ~ g2 ~ f2 ~ eb2 ~>",
+  
+  // Horn stabs (brass section)
+  "~ ~ [c4,e4,g4] ~ ~ [bb3,d4,f4] ~ ~",
+  
+  // Talking drum pattern
+  "djembe(3,8,1) djembe(5,8)"
+)
+*/
+
+// Afrobeat variations:
+// "bd(5,8), sn(7,16), hh*8, conga(3,8)"         // Full polyrhythm
+// "bd ~ bd bd ~, sn ~ ~ sn, agogo*4"            // With agogo bells
+// "bd(3,8), sn(5,8), hh*16, cb(7,16)"           // Complex layers

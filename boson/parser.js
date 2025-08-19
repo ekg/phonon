@@ -1,5 +1,5 @@
 /**
- * Pattern DSL Parser for Phonon Forge
+ * Pattern DSL Parser for Phonon
  * Implements a subset of Strudel/TidalCycles syntax
  */
 

@@ -1,4 +1,4 @@
-# Phonon Forge Sample System
+# Phonon Sample System
 
 ## Getting the Samples
 
@@ -68,7 +68,7 @@ From the Dirt-Samples collection:
 ### Directory Structure
 
 ```
-phonon-forge/
+phonon/
 ├── dirt-samples/        # Cloned from GitHub
 │   ├── bd/             # Kick drums
 │   │   ├── BT0A0A7.wav # bd:0

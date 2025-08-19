@@ -62,7 +62,7 @@ Cowbell · · · · · · ● · · · · · · · · ·
   - Acid-style lead melody
   - Polyrhythmic percussion layers
 
-## How Phonon Forge Plays This
+## How Phonon Plays This
 
 1. **Boson** parses the Strudel pattern using `@strudel/mini`
 2. **Pattern.queryArc()** returns events for each time slice

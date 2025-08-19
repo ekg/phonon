@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Get Dirt-Samples for Phonon Forge
+# Get Dirt-Samples for Phonon
 # This gives us the exact same samples as Strudel/TidalCycles
 
-echo "📦 Getting Dirt-Samples for Phonon Forge..."
+echo "📦 Getting Dirt-Samples for Phonon..."
 echo ""
 
 # Check if git is available
@@ -49,4 +49,4 @@ echo ""
 echo "Available sample folders:"
 ls -d dirt-samples/*/ 2>/dev/null | head -20 | xargs -n1 basename | sed 's/^/  /'
 echo ""
-echo "✨ Ready to use with Phonon Forge!"
+echo "✨ Ready to use with Phonon!"
