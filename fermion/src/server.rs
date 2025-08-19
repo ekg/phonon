@@ -135,6 +135,88 @@ impl OscServer {
         });
     }
     
+    async fn handle_sample(&self, msg: OscMessage) {
+        // Extract sample name, index, and speed
+        let mut sample_name = "bd".to_string();
+        let mut index = 0usize;
+        let mut speed = 1.0f32;
+        
+        for (i, arg) in msg.args.iter().enumerate() {
+            match arg {
+                OscType::String(s) => {
+                    if i == 0 {
+                        sample_name = s.clone();
+                    }
+                }
+                OscType::Int(val) => {
+                    if i == 1 {
+                        index = *val as usize;
+                    } else if i == 2 {
+                        speed = *val as f32;
+                    }
+                }
+                OscType::Float(f) => {
+                    if i == 2 {
+                        speed = *f;
+                    }
+                }
+                _ => {}
+            }
+        }
+        
+        info!("Sample: {}:{} at speed {}", sample_name, index, speed);
+        
+        // Look for actual WAV files
+        let samples_dir = std::path::Path::new("/data/data/com.termux/files/home/phonon-forge/dirt-samples");
+        let sample_folder = samples_dir.join(&sample_name);
+        
+        if sample_folder.exists() {
+            // Get WAV files in folder
+            if let Ok(entries) = std::fs::read_dir(&sample_folder) {
+                let mut wav_files: Vec<_> = entries
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("wav"))
+                    .collect();
+                
+                if !wav_files.is_empty() {
+                    wav_files.sort_by_key(|e| e.path());
+                    let file_index = index % wav_files.len();
+                    let wav_path = wav_files[file_index].path();
+                    
+                    info!("Playing sample: {:?}", wav_path);
+                    
+                    // Play the actual WAV file directly
+                    tokio::spawn(async move {
+                        let _ = std::process::Command::new("mplayer")
+                            .arg(wav_path)
+                            .arg("-really-quiet")
+                            .arg("-speed")
+                            .arg(speed.to_string())
+                            .output();
+                    });
+                    return;
+                }
+            }
+        }
+        
+        // Fallback to generated samples
+        warn!("Sample not found in dirt-samples, using generated");
+        let mut engine = self.engine.write().await;
+        let path = std::env::temp_dir().join(format!("fermion_{}_{}.wav", sample_name, index));
+        
+        if let Err(e) = engine.play_sample(&path, &sample_name, index, speed) {
+            error!("Failed to play sample: {}", e);
+            return;
+        }
+        
+        tokio::spawn(async move {
+            let _ = std::process::Command::new("mplayer")
+                .arg(&path)
+                .arg("-really-quiet")
+                .output();
+        });
+    }
+    
     async fn handle_sine(&self, msg: OscMessage) {
         if msg.args.len() < 2 {
             warn!("Sine requires freq and duration");
@@ -178,54 +260,6 @@ impl OscServer {
             return;
         }
         
-        tokio::spawn(async move {
-            let _ = std::process::Command::new("mplayer")
-                .arg(&path)
-                .arg("-really-quiet")
-                .output();
-        });
-    }
-    
-    async fn handle_sample(&self, msg: OscMessage) {
-        // Extract sample name, index, and speed
-        let mut sample_name = "bd".to_string();
-        let mut index = 0usize;
-        let mut speed = 1.0f32;
-        
-        for (i, arg) in msg.args.iter().enumerate() {
-            match arg {
-                OscType::String(s) => {
-                    if i == 0 {
-                        sample_name = s.clone();
-                    }
-                }
-                OscType::Int(val) => {
-                    if i == 1 {
-                        index = *val as usize;
-                    } else if i == 2 {
-                        speed = *val as f32;
-                    }
-                }
-                OscType::Float(f) => {
-                    if i == 2 {
-                        speed = *f;
-                    }
-                }
-                _ => {}
-            }
-        }
-        
-        info!("Sample: {}:{} at speed {}", sample_name, index, speed);
-        
-        let mut engine = self.engine.write().await;
-        let path = std::env::temp_dir().join(format!("fermion_{}_{}.wav", sample_name, index));
-        
-        if let Err(e) = engine.play_sample(&path, &sample_name, index, speed) {
-            error!("Failed to play sample: {}", e);
-            return;
-        }
-        
-        // Play async
         tokio::spawn(async move {
             let _ = std::process::Command::new("mplayer")
                 .arg(&path)
