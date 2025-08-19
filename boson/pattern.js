@@ -1565,6 +1565,364 @@ function euclidLegato(pulses, steps) {
     });
 }
 
+// === Pattern Combination ===
+
+/**
+ * Stereo split - apply function to one channel
+ */
+function jux(fn, pattern) {
+    return new Pattern((span) => {
+        const leftEvents = pattern.query(span);
+        const rightEvents = fn(pattern).query(span);
+        
+        // Add pan metadata
+        const events = [];
+        for (const event of leftEvents) {
+            events.push(new Event(event.whole, event.part, event.value, 
+                { ...event.context, pan: 0 }));
+        }
+        for (const event of rightEvents) {
+            events.push(new Event(event.whole, event.part, event.value,
+                { ...event.context, pan: 1 }));
+        }
+        return events;
+    });
+}
+
+/**
+ * Jux with configurable pan amount
+ */
+function juxBy(amount, fn, pattern) {
+    const amt = typeof amount === 'number' ? amount : amount.toFloat();
+    
+    return new Pattern((span) => {
+        const leftEvents = pattern.query(span);
+        const rightEvents = fn(pattern).query(span);
+        
+        const events = [];
+        for (const event of leftEvents) {
+            events.push(new Event(event.whole, event.part, event.value,
+                { ...event.context, pan: 0.5 - amt/2 }));
+        }
+        for (const event of rightEvents) {
+            events.push(new Event(event.whole, event.part, event.value,
+                { ...event.context, pan: 0.5 + amt/2 }));
+        }
+        return events;
+    });
+}
+
+/**
+ * Layer pattern with transformed version
+ */
+function superimpose(fn, pattern) {
+    return stack(pattern, fn(pattern));
+}
+
+/**
+ * Layer multiple transformations
+ */
+function layer(...fns) {
+    return function(pattern) {
+        const patterns = fns.map(fn => fn(pattern));
+        return stack(pattern, ...patterns);
+    };
+}
+
+/**
+ * Offset and layer
+ */
+function off(time, fn, pattern) {
+    const t = typeof time === 'number' ? time : time.toFloat();
+    return stack(pattern, fn(late(t, pattern)));
+}
+
+/**
+ * Echo effect
+ */
+function echo(n, time, feedback, pattern) {
+    const count = typeof n === 'number' ? n : n.toFloat();
+    const delay = typeof time === 'number' ? time : time.toFloat();
+    const fb = typeof feedback === 'number' ? feedback : feedback.toFloat();
+    
+    const patterns = [pattern];
+    let gain = fb;
+    
+    for (let i = 1; i <= count; i++) {
+        const delayed = late(delay * i, pattern);
+        // Apply gain reduction
+        const withGain = delayed.fmap(v => {
+            if (typeof v === 'object' && v !== null) {
+                return { ...v, gain: (v.gain || 1) * gain };
+            }
+            return v;
+        });
+        patterns.push(withGain);
+        gain *= fb;
+    }
+    
+    return stack(...patterns);
+}
+
+/**
+ * Stutter effect
+ */
+function stut(n, feedback, time, pattern) {
+    return echo(n, time, feedback, pattern);
+}
+
+// === Filtering & Masking ===
+
+/**
+ * Apply function when test is true
+ */
+function when(test, fn, pattern) {
+    return new Pattern((span) => {
+        const events = pattern.query(span);
+        const results = [];
+        
+        for (const event of events) {
+            // Evaluate test for this event
+            const testResult = typeof test === 'function' 
+                ? test(event.value)
+                : test;
+            
+            if (testResult) {
+                // Apply function
+                const transformed = fn(pure(event.value)).query(event.part);
+                for (const tEvent of transformed) {
+                    results.push(new Event(event.whole, tEvent.part, tEvent.value, 
+                        { ...event.context, ...tEvent.context }));
+                }
+            } else {
+                results.push(event);
+            }
+        }
+        return results;
+    });
+}
+
+/**
+ * Boolean mask pattern
+ */
+function mask(maskPattern, pattern) {
+    return new Pattern((span) => {
+        const patternEvents = pattern.query(span);
+        const maskEvents = maskPattern.query(span);
+        const results = [];
+        
+        for (const pEvent of patternEvents) {
+            // Check if any mask event overlaps
+            let masked = false;
+            for (const mEvent of maskEvents) {
+                if (pEvent.part.overlaps(mEvent.part) && mEvent.value) {
+                    masked = true;
+                    break;
+                }
+            }
+            
+            if (masked) {
+                results.push(pEvent);
+            }
+        }
+        return results;
+    });
+}
+
+/**
+ * Apply structure from one pattern to another
+ */
+function struct(structPattern, pattern) {
+    return new Pattern((span) => {
+        const structEvents = structPattern.query(span);
+        const results = [];
+        
+        for (const sEvent of structEvents) {
+            // Query pattern at this position
+            const patternEvents = pattern.query(sEvent.part);
+            
+            if (patternEvents.length > 0) {
+                // Use first event's value
+                const value = patternEvents[0].value;
+                results.push(new Event(sEvent.whole, sEvent.part, value, sEvent.context));
+            }
+        }
+        return results;
+    });
+}
+
+/**
+ * Filter events by predicate
+ */
+function filter(predicate, pattern) {
+    return new Pattern((span) => {
+        const events = pattern.query(span);
+        return events.filter(event => predicate(event.value));
+    });
+}
+
+// === Math Operations ===
+
+/**
+ * Add to pattern values
+ */
+function add(n, pattern) {
+    const val = typeof n === 'number' ? n : n.toFloat();
+    return pattern.fmap(v => {
+        if (typeof v === 'number') return v + val;
+        if (v && typeof v.toFloat === 'function') return v.toFloat() + val;
+        return v;
+    });
+}
+
+/**
+ * Subtract from pattern values
+ */
+function sub(n, pattern) {
+    const val = typeof n === 'number' ? n : n.toFloat();
+    return pattern.fmap(v => {
+        if (typeof v === 'number') return v - val;
+        if (v && typeof v.toFloat === 'function') return v.toFloat() - val;
+        return v;
+    });
+}
+
+/**
+ * Multiply pattern values
+ */
+function mul(n, pattern) {
+    const val = typeof n === 'number' ? n : n.toFloat();
+    return pattern.fmap(v => {
+        if (typeof v === 'number') return v * val;
+        if (v && typeof v.toFloat === 'function') return v.toFloat() * val;
+        return v;
+    });
+}
+
+/**
+ * Divide pattern values
+ */
+function div(n, pattern) {
+    const val = typeof n === 'number' ? n : n.toFloat();
+    return pattern.fmap(v => {
+        if (typeof v === 'number') return v / val;
+        if (v && typeof v.toFloat === 'function') return v.toFloat() / val;
+        return v;
+    });
+}
+
+/**
+ * Modulo pattern values
+ */
+function mod(n, pattern) {
+    const val = typeof n === 'number' ? n : n.toFloat();
+    return pattern.fmap(v => {
+        if (typeof v === 'number') return v % val;
+        if (v && typeof v.toFloat === 'function') return v.toFloat() % val;
+        return v;
+    });
+}
+
+/**
+ * Map values to range
+ */
+function range(min, max, pattern) {
+    const minVal = typeof min === 'number' ? min : min.toFloat();
+    const maxVal = typeof max === 'number' ? max : max.toFloat();
+    const span = maxVal - minVal;
+    
+    return pattern.fmap(v => {
+        let normalized;
+        if (typeof v === 'number') {
+            normalized = v;
+        } else if (v && typeof v.toFloat === 'function') {
+            normalized = v.toFloat();
+        } else {
+            return v;
+        }
+        
+        // Assume input is 0-1
+        return minVal + normalized * span;
+    });
+}
+
+// === Additional Core Patterns ===
+
+/**
+ * Sequential pattern
+ */
+function sequence(...patterns) {
+    if (patterns.length === 0) return silence();
+    
+    return new Pattern((span) => {
+        const events = [];
+        const n = patterns.length;
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            // Play each pattern for 1/n of cycle
+            for (let i = 0; i < n; i++) {
+                const sliceBegin = cycle + i / n;
+                const sliceEnd = cycle + (i + 1) / n;
+                const sliceSpan = new TimeSpan(sliceBegin, sliceEnd);
+                
+                if (sliceSpan.overlaps(span)) {
+                    const patternEvents = patterns[i].query(new TimeSpan(0, 1));
+                    
+                    for (const event of patternEvents) {
+                        const scaledPart = new TimeSpan(
+                            sliceBegin + event.part.begin.toFloat() / n,
+                            sliceBegin + event.part.end.toFloat() / n
+                        );
+                        
+                        const intersection = scaledPart.intersection(span);
+                        if (intersection) {
+                            events.push(new Event(event.whole, intersection, event.value, event.context));
+                        }
+                    }
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Polymeter - patterns with different lengths
+ */
+function polymeter(...patterns) {
+    if (patterns.length === 0) return silence();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let i = 0; i < patterns.length; i++) {
+            const pattern = patterns[i];
+            const patternEvents = pattern.query(span);
+            events.push(...patternEvents);
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Polyrhythm - patterns at different speeds
+ */
+function polyrhythm(...patterns) {
+    if (patterns.length === 0) return silence();
+    
+    const stacked = [];
+    for (let i = 0; i < patterns.length; i++) {
+        // Speed up each pattern to fit
+        stacked.push(fast(patterns.length, patterns[i]));
+    }
+    
+    return stack(...stacked);
+}
+
 // Export everything
 module.exports = {
     // Classes
@@ -1630,5 +1988,33 @@ module.exports = {
     // Euclidean rhythms
     euclid,
     euclidRot,
-    euclidLegato
+    euclidLegato,
+    
+    // Pattern combination
+    jux,
+    juxBy,
+    superimpose,
+    layer,
+    off,
+    echo,
+    stut,
+    
+    // Filtering & masking
+    when,
+    mask,
+    struct,
+    filter,
+    
+    // Math operations
+    add,
+    sub,
+    mul,
+    div,
+    mod,
+    range,
+    
+    // Additional patterns
+    sequence,
+    polymeter,
+    polyrhythm
 };
