@@ -864,6 +864,334 @@ function every(n, fn, pattern) {
     });
 }
 
+// === Randomness ===
+
+// Xorshift RNG for deterministic randomness
+function xorshift(seed) {
+    let x = seed;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    return (x >>> 0) / 4294967296; // Convert to 0-1 range
+}
+
+// Get deterministic random value for a time
+function timeToRand(t) {
+    // Use cycle and position for seed
+    const cycle = Math.floor(t);
+    const pos = t - cycle;
+    
+    // Create seed from cycle (change every cycle)
+    let seed = (cycle * 999331) >>> 0;
+    return xorshift(seed);
+}
+
+// Get deterministic random with subcycle resolution
+function timeToRandWithSub(t, n) {
+    const cycle = Math.floor(t);
+    const subCycle = Math.floor((t - cycle) * n);
+    
+    // Create seed from cycle and subcycle
+    let seed = ((cycle * 999331) + (subCycle * 44111)) >>> 0;
+    return xorshift(seed);
+}
+
+/**
+ * Random values between 0 and 1
+ */
+function rand() {
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const cycleSpan = new TimeSpan(cycle, cycle + 1);
+            const intersection = cycleSpan.intersection(span);
+            
+            if (intersection) {
+                const value = timeToRand(cycle);
+                events.push(new Event(cycleSpan, intersection, value));
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Random integers between 0 and n-1
+ */
+function irand(n) {
+    const max = typeof n === 'number' ? n : n.toFloat();
+    
+    return rand().fmap(x => Math.floor(x * max));
+}
+
+/**
+ * Choose randomly from given values
+ */
+function choose(...values) {
+    if (values.length === 0) return silence();
+    
+    return irand(values.length).fmap(i => values[i]);
+}
+
+/**
+ * Weighted choice from values
+ */
+function wchoose(...pairs) {
+    if (pairs.length === 0) return silence();
+    
+    // Calculate cumulative weights
+    let total = 0;
+    const cumulative = [];
+    const values = [];
+    
+    for (const [value, weight] of pairs) {
+        total += weight;
+        cumulative.push(total);
+        values.push(value);
+    }
+    
+    return rand().fmap(r => {
+        const target = r * total;
+        for (let i = 0; i < cumulative.length; i++) {
+            if (target < cumulative[i]) {
+                return values[i];
+            }
+        }
+        return values[values.length - 1];
+    });
+}
+
+/**
+ * Shuffle pattern slices
+ */
+function shuffle(n, pattern) {
+    const pieces = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            // Create shuffled indices for this cycle
+            const indices = [];
+            const used = new Set();
+            
+            for (let i = 0; i < pieces; i++) {
+                let idx;
+                let attempts = 0;
+                do {
+                    const r = timeToRandWithSub(cycle + i / pieces, pieces);
+                    idx = Math.floor(r * pieces);
+                    attempts++;
+                } while (used.has(idx) && attempts < pieces * 3);
+                
+                if (!used.has(idx)) {
+                    used.add(idx);
+                    indices.push(idx);
+                } else {
+                    // Fallback: find first unused
+                    for (let j = 0; j < pieces; j++) {
+                        if (!used.has(j)) {
+                            used.add(j);
+                            indices.push(j);
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Apply shuffle
+            for (let i = 0; i < pieces; i++) {
+                const srcIdx = indices[i];
+                const srcBegin = cycle + srcIdx / pieces;
+                const srcEnd = cycle + (srcIdx + 1) / pieces;
+                
+                const dstBegin = cycle + i / pieces;
+                const dstEnd = cycle + (i + 1) / pieces;
+                
+                // Query pattern at source position
+                const srcEvents = pattern.query(new TimeSpan(srcBegin, srcEnd));
+                
+                // Map to destination position
+                for (const event of srcEvents) {
+                    const relBegin = (event.part.begin.toFloat() - srcBegin) / (1 / pieces);
+                    const relEnd = (event.part.end.toFloat() - srcBegin) / (1 / pieces);
+                    
+                    const newBegin = dstBegin + relBegin / pieces;
+                    const newEnd = dstBegin + relEnd / pieces;
+                    
+                    const newPart = new TimeSpan(newBegin, newEnd);
+                    const intersection = newPart.intersection(span);
+                    
+                    if (intersection) {
+                        events.push(new Event(event.whole, intersection, event.value, event.context));
+                    }
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Scramble pattern slices (with replacement)
+ */
+function scramble(n, pattern) {
+    const pieces = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            for (let i = 0; i < pieces; i++) {
+                // Pick random source piece
+                const r = timeToRandWithSub(cycle + i / pieces, pieces);
+                const srcIdx = Math.floor(r * pieces);
+                
+                const srcBegin = cycle + srcIdx / pieces;
+                const srcEnd = cycle + (srcIdx + 1) / pieces;
+                
+                const dstBegin = cycle + i / pieces;
+                const dstEnd = cycle + (i + 1) / pieces;
+                
+                // Query pattern at source position
+                const srcEvents = pattern.query(new TimeSpan(srcBegin, srcEnd));
+                
+                // Map to destination position
+                for (const event of srcEvents) {
+                    const relBegin = (event.part.begin.toFloat() - srcBegin) / (1 / pieces);
+                    const relEnd = (event.part.end.toFloat() - srcBegin) / (1 / pieces);
+                    
+                    const newBegin = dstBegin + relBegin / pieces;
+                    const newEnd = dstBegin + relEnd / pieces;
+                    
+                    const newPart = new TimeSpan(newBegin, newEnd);
+                    const intersection = newPart.intersection(span);
+                    
+                    if (intersection) {
+                        events.push(new Event(event.whole, intersection, event.value, event.context));
+                    }
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Randomly remove events
+ */
+function degrade(pattern) {
+    return degradeBy(0.5, pattern);
+}
+
+/**
+ * Randomly remove events by probability
+ */
+function degradeBy(prob, pattern) {
+    const p = typeof prob === 'number' ? prob : prob.toFloat();
+    
+    // Edge cases
+    if (p <= 0) return pattern;  // Remove nothing
+    if (p >= 1) return silence(); // Remove everything
+    
+    return new Pattern((span) => {
+        const events = pattern.query(span);
+        const filtered = [];
+        
+        for (const event of events) {
+            // Use event time for deterministic random
+            const t = event.part.begin.toFloat();
+            const r = timeToRandWithSub(t, 1000);
+            
+            if (r > p) {
+                filtered.push(event);
+            }
+        }
+        return filtered;
+    });
+}
+
+/**
+ * Apply function sometimes
+ */
+function sometimes(fn, pattern) {
+    return sometimesBy(0.5, fn, pattern);
+}
+
+/**
+ * Apply function with probability
+ */
+function sometimesBy(prob, fn, pattern) {
+    const p = typeof prob === 'number' ? prob : prob.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        const transformed = fn(pattern);
+        
+        const origEvents = pattern.query(span);
+        const transEvents = transformed.query(span);
+        
+        // Merge based on probability
+        for (const event of origEvents) {
+            const t = event.part.begin.toFloat();
+            const r = timeToRandWithSub(t, 1000);
+            
+            if (r > p) {
+                events.push(event);
+            }
+        }
+        
+        for (const event of transEvents) {
+            const t = event.part.begin.toFloat();
+            const r = timeToRandWithSub(t, 1000);
+            
+            if (r <= p) {
+                events.push(event);
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Often apply function (75% of the time)
+ */
+function often(fn, pattern) {
+    return sometimesBy(0.75, fn, pattern);
+}
+
+/**
+ * Rarely apply function (25% of the time)
+ */
+function rarely(fn, pattern) {
+    return sometimesBy(0.25, fn, pattern);
+}
+
+/**
+ * Almost never apply function (10% of the time)
+ */
+function almostNever(fn, pattern) {
+    return sometimesBy(0.1, fn, pattern);
+}
+
+/**
+ * Almost always apply function (90% of the time)
+ */
+function almostAlways(fn, pattern) {
+    return sometimesBy(0.9, fn, pattern);
+}
+
 // Export everything
 module.exports = {
     // Classes
@@ -900,5 +1228,21 @@ module.exports = {
     rev,
     palindrome,
     iter,
-    every
+    every,
+    
+    // Randomness
+    rand,
+    irand,
+    choose,
+    wchoose,
+    shuffle,
+    scramble,
+    degrade,
+    degradeBy,
+    sometimes,
+    sometimesBy,
+    often,
+    rarely,
+    almostNever,
+    almostAlways
 };
