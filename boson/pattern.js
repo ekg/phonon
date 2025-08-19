@@ -467,6 +467,403 @@ function slow(factor, pattern) {
     return fast(1 / factor, pattern);
 }
 
+/**
+ * Shift pattern earlier by n cycles
+ */
+function early(n, pattern) {
+    const shift = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        // Query the pattern shifted later
+        const shiftedSpan = new TimeSpan(
+            span.begin.add(shift),
+            span.end.add(shift)
+        );
+        
+        const events = pattern.query(shiftedSpan);
+        
+        // Shift events back earlier and filter to query span
+        return events.map(event => {
+            const shiftedWhole = event.whole ? new TimeSpan(
+                event.whole.begin.sub(shift),
+                event.whole.end.sub(shift)
+            ) : null;
+            
+            const shiftedPart = new TimeSpan(
+                event.part.begin.sub(shift),
+                event.part.end.sub(shift)
+            );
+            
+            // Only return if shifted part overlaps with original span
+            const intersection = shiftedPart.intersection(span);
+            if (!intersection) return null;
+            
+            return new Event(shiftedWhole, intersection, event.value, event.context);
+        }).filter(e => e !== null);
+    });
+}
+
+/**
+ * Shift pattern later by n cycles
+ */
+function late(n, pattern) {
+    return early(-n, pattern);
+}
+
+/**
+ * Compress pattern into a timespan
+ */
+function compress(begin, end, pattern) {
+    const b = typeof begin === 'number' ? begin : begin.toFloat();
+    const e = typeof end === 'number' ? end : end.toFloat();
+    
+    if (b >= e) return silence();
+    
+    const duration = e - b;
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        // For each cycle in the query span
+        for (let cycle = Math.floor(span.begin.toFloat()); 
+             cycle <= Math.ceil(span.end.toFloat()); 
+             cycle++) {
+            
+            // Calculate the compressed window within this cycle
+            const windowBegin = cycle + b;
+            const windowEnd = cycle + e;
+            const windowSpan = new TimeSpan(windowBegin, windowEnd);
+            
+            // Only process if window overlaps with query span
+            if (windowSpan.overlaps(span)) {
+                // Query pattern for one cycle, then compress it
+                const patEvents = pattern.query(new TimeSpan(0, 1));
+                
+                for (const event of patEvents) {
+                    // Scale and shift event to fit in window
+                    const scaledWhole = event.whole ? new TimeSpan(
+                        windowBegin + event.whole.begin.toFloat() * duration,
+                        windowBegin + event.whole.end.toFloat() * duration
+                    ) : null;
+                    
+                    const scaledPart = new TimeSpan(
+                        windowBegin + event.part.begin.toFloat() * duration,
+                        windowBegin + event.part.end.toFloat() * duration
+                    );
+                    
+                    const intersection = scaledPart.intersection(span);
+                    if (intersection) {
+                        events.push(new Event(scaledWhole, intersection, event.value, event.context));
+                    }
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Zoom into a section of the pattern
+ */
+function zoom(begin, end, pattern) {
+    const b = typeof begin === 'number' ? begin : begin.toFloat();
+    const e = typeof end === 'number' ? end : end.toFloat();
+    
+    if (b >= e) return silence();
+    
+    const duration = e - b;
+    
+    return new Pattern((span) => {
+        // Map query span to zoomed section
+        const zoomedSpan = new TimeSpan(
+            span.begin.mul(duration).add(b),
+            span.end.mul(duration).add(b)
+        );
+        
+        const events = pattern.query(zoomedSpan);
+        
+        // Scale events back
+        return events.map(event => {
+            const scaledWhole = event.whole ? new TimeSpan(
+                event.whole.begin.sub(b).div(duration),
+                event.whole.end.sub(b).div(duration)
+            ) : null;
+            
+            const scaledPart = new TimeSpan(
+                event.part.begin.sub(b).div(duration),
+                event.part.end.sub(b).div(duration)
+            );
+            
+            const intersection = scaledPart.intersection(span);
+            if (!intersection) return null;
+            
+            return new Event(scaledWhole, intersection, event.value, event.context);
+        }).filter(e => e !== null);
+    });
+}
+
+/**
+ * Repeat each event n times
+ */
+function ply(n, pattern) {
+    const count = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = pattern.query(span);
+        const results = [];
+        
+        for (const event of events) {
+            const duration = event.part.duration.toFloat();
+            const step = duration / count;
+            
+            for (let i = 0; i < count; i++) {
+                const newBegin = event.part.begin.add(step * i);
+                const newEnd = event.part.begin.add(step * (i + 1));
+                const newPart = new TimeSpan(newBegin, newEnd);
+                
+                const intersection = newPart.intersection(span);
+                if (intersection) {
+                    // Keep original whole, but subdivide part
+                    results.push(new Event(event.whole, intersection, event.value, event.context));
+                }
+            }
+        }
+        return results;
+    });
+}
+
+/**
+ * Apply function at n times speed
+ */
+function inside(n, fn, pattern) {
+    return fn(fast(n, pattern));
+}
+
+/**
+ * Apply function at 1/n speed
+ */
+function outside(n, fn, pattern) {
+    return fn(slow(n, pattern));
+}
+
+/**
+ * Sample pattern n times per cycle
+ */
+function segment(n, pattern) {
+    const samples = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            for (let i = 0; i < samples; i++) {
+                const sampleTime = cycle + i / samples;
+                const nextTime = cycle + (i + 1) / samples;
+                
+                const sampleSpan = new TimeSpan(sampleTime, nextTime);
+                if (sampleSpan.overlaps(span)) {
+                    // Query pattern at sample point
+                    const pointEvents = pattern.query(new TimeSpan(sampleTime, sampleTime + 0.0001));
+                    
+                    if (pointEvents.length > 0) {
+                        // Use the first event's value
+                        const value = pointEvents[0].value;
+                        const intersection = sampleSpan.intersection(span);
+                        events.push(new Event(sampleSpan, intersection, value));
+                    }
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Chop pattern into n pieces
+ */
+function chop(n, pattern) {
+    const pieces = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            // Get events for this cycle
+            const cycleEvents = pattern.query(new TimeSpan(cycle, cycle + 1));
+            
+            for (const event of cycleEvents) {
+                const duration = event.part.duration.toFloat();
+                const pieceSize = duration / pieces;
+                
+                for (let i = 0; i < pieces; i++) {
+                    const pieceBegin = event.part.begin.add(pieceSize * i);
+                    const pieceEnd = event.part.begin.add(pieceSize * (i + 1));
+                    const piecePart = new TimeSpan(pieceBegin, pieceEnd);
+                    
+                    const intersection = piecePart.intersection(span);
+                    if (intersection) {
+                        // Add piece metadata
+                        const newContext = {
+                            ...event.context,
+                            chop: i / pieces,
+                            chopN: pieces
+                        };
+                        events.push(new Event(piecePart, intersection, event.value, newContext));
+                    }
+                }
+            }
+        }
+        return events;
+    });
+}
+
+// === Pattern Structure ===
+
+/**
+ * Reverse pattern within each cycle
+ */
+function rev(pattern) {
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const cycleSpan = new TimeSpan(cycle, cycle + 1);
+            const querySpan = cycleSpan.intersection(span);
+            
+            if (querySpan) {
+                // Get events for this cycle  
+                const cycleEvents = pattern.query(cycleSpan);
+                
+                // Reverse within cycle
+                for (const event of cycleEvents) {
+                    // Calculate relative position within cycle
+                    const relBegin = event.part.begin.toFloat() - cycle;
+                    const relEnd = event.part.end.toFloat() - cycle;
+                    
+                    // Mirror the position
+                    const newBegin = cycle + (1 - relEnd);
+                    const newEnd = cycle + (1 - relBegin);
+                    
+                    const newWhole = event.whole ? new TimeSpan(
+                        cycle + (1 - (event.whole.end.toFloat() - cycle)),
+                        cycle + (1 - (event.whole.begin.toFloat() - cycle))
+                    ) : null;
+                    
+                    const newPart = new TimeSpan(newBegin, newEnd);
+                    const intersection = newPart.intersection(span);
+                    
+                    if (intersection) {
+                        events.push(new Event(newWhole, intersection, event.value, event.context));
+                    }
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Pattern that plays forward then backward
+ */
+function palindrome(pattern) {
+    return slowcat(pattern, rev(pattern));
+}
+
+/**
+ * Rotate pattern by n steps
+ */
+function iter(n, pattern) {
+    const rotation = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            // Calculate cumulative rotation for this cycle
+            const cycleRotation = (cycle * rotation) % 1;
+            
+            // Query pattern for this cycle, then rotate
+            const cycleSpan = new TimeSpan(cycle, cycle + 1);
+            const cycleEvents = pattern.query(cycleSpan);
+            
+            for (const event of cycleEvents) {
+                // Calculate relative position and rotate
+                const relBegin = event.part.begin.toFloat() - cycle;
+                const relEnd = event.part.end.toFloat() - cycle;
+                
+                // Apply rotation (with wrapping)
+                const rotBegin = (relBegin + cycleRotation) % 1;
+                const rotEnd = (relEnd + cycleRotation) % 1;
+                
+                // Handle wrapping
+                if (rotEnd > rotBegin) {
+                    // No wrap
+                    const newPart = new TimeSpan(cycle + rotBegin, cycle + rotEnd);
+                    const intersection = newPart.intersection(span);
+                    if (intersection) {
+                        events.push(new Event(event.whole, intersection, event.value, event.context));
+                    }
+                } else {
+                    // Wrapped - split into two parts
+                    // First part: from rotBegin to end of cycle
+                    const part1 = new TimeSpan(cycle + rotBegin, cycle + 1);
+                    const int1 = part1.intersection(span);
+                    if (int1) {
+                        events.push(new Event(event.whole, int1, event.value, event.context));
+                    }
+                    
+                    // Second part: from start of cycle to rotEnd
+                    const part2 = new TimeSpan(cycle, cycle + rotEnd);
+                    const int2 = part2.intersection(span);
+                    if (int2) {
+                        events.push(new Event(event.whole, int2, event.value, event.context));
+                    }
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Apply function every n cycles
+ */
+function every(n, fn, pattern) {
+    const period = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const cycleSpan = new TimeSpan(cycle, cycle + 1);
+            const querySpan = cycleSpan.intersection(span);
+            
+            if (querySpan) {
+                // Apply function on every nth cycle
+                const patToQuery = (cycle % period === 0) ? fn(pattern) : pattern;
+                const cycleEvents = patToQuery.query(querySpan);
+                events.push(...cycleEvents);
+            }
+        }
+        return events;
+    });
+}
+
 // Export everything
 module.exports = {
     // Classes
@@ -488,5 +885,20 @@ module.exports = {
     
     // Time manipulation
     fast,
-    slow
+    slow,
+    early,
+    late,
+    compress,
+    zoom,
+    ply,
+    inside,
+    outside,
+    segment,
+    chop,
+    
+    // Pattern structure
+    rev,
+    palindrome,
+    iter,
+    every
 };
