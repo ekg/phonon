@@ -1192,6 +1192,379 @@ function almostAlways(fn, pattern) {
     return sometimesBy(0.9, fn, pattern);
 }
 
+// === Signal Generators ===
+
+/**
+ * Sine wave signal 0 to 1
+ */
+function sine() {
+    return new Pattern((span) => {
+        const events = [];
+        
+        // Sample at reasonable resolution
+        const resolution = 16; // samples per cycle
+        const begin = Math.floor(span.begin.toFloat());
+        const end = Math.ceil(span.end.toFloat());
+        
+        for (let cycle = begin; cycle <= end; cycle++) {
+            for (let i = 0; i < resolution; i++) {
+                const t = cycle + i / resolution;
+                const nextT = cycle + (i + 1) / resolution;
+                
+                const sampleSpan = new TimeSpan(t, nextT);
+                const intersection = sampleSpan.intersection(span);
+                
+                if (intersection) {
+                    // Sine value at this position
+                    const value = (Math.sin(t * Math.PI * 2) + 1) / 2;
+                    events.push(new Event(sampleSpan, intersection, value));
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Cosine wave signal 0 to 1
+ */
+function cosine() {
+    return new Pattern((span) => {
+        const events = [];
+        const resolution = 16;
+        const begin = Math.floor(span.begin.toFloat());
+        const end = Math.ceil(span.end.toFloat());
+        
+        for (let cycle = begin; cycle <= end; cycle++) {
+            for (let i = 0; i < resolution; i++) {
+                const t = cycle + i / resolution;
+                const nextT = cycle + (i + 1) / resolution;
+                
+                const sampleSpan = new TimeSpan(t, nextT);
+                const intersection = sampleSpan.intersection(span);
+                
+                if (intersection) {
+                    const value = (Math.cos(t * Math.PI * 2) + 1) / 2;
+                    events.push(new Event(sampleSpan, intersection, value));
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Sawtooth wave signal 0 to 1
+ */
+function saw() {
+    return new Pattern((span) => {
+        const events = [];
+        const resolution = 16;
+        const begin = Math.floor(span.begin.toFloat());
+        const end = Math.ceil(span.end.toFloat());
+        
+        for (let cycle = begin; cycle <= end; cycle++) {
+            for (let i = 0; i < resolution; i++) {
+                const t = cycle + i / resolution;
+                const nextT = cycle + (i + 1) / resolution;
+                
+                const sampleSpan = new TimeSpan(t, nextT);
+                const intersection = sampleSpan.intersection(span);
+                
+                if (intersection) {
+                    const value = t - Math.floor(t); // Ramp 0 to 1
+                    events.push(new Event(sampleSpan, intersection, value));
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Square wave signal 0 to 1
+ */
+function square() {
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            // First half: 1
+            const firstHalf = new TimeSpan(cycle, cycle + 0.5);
+            const int1 = firstHalf.intersection(span);
+            if (int1) {
+                events.push(new Event(firstHalf, int1, 1));
+            }
+            
+            // Second half: 0
+            const secondHalf = new TimeSpan(cycle + 0.5, cycle + 1);
+            const int2 = secondHalf.intersection(span);
+            if (int2) {
+                events.push(new Event(secondHalf, int2, 0));
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Triangle wave signal 0 to 1
+ */
+function tri() {
+    return new Pattern((span) => {
+        const events = [];
+        const resolution = 16;
+        const begin = Math.floor(span.begin.toFloat());
+        const end = Math.ceil(span.end.toFloat());
+        
+        for (let cycle = begin; cycle <= end; cycle++) {
+            for (let i = 0; i < resolution; i++) {
+                const t = cycle + i / resolution;
+                const nextT = cycle + (i + 1) / resolution;
+                
+                const sampleSpan = new TimeSpan(t, nextT);
+                const intersection = sampleSpan.intersection(span);
+                
+                if (intersection) {
+                    const phase = t - Math.floor(t);
+                    const value = phase < 0.5 
+                        ? phase * 2  // Rising
+                        : 2 - phase * 2; // Falling
+                    events.push(new Event(sampleSpan, intersection, value));
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Perlin noise signal 0 to 1
+ */
+function perlin() {
+    return new Pattern((span) => {
+        const events = [];
+        const resolution = 16;
+        const begin = Math.floor(span.begin.toFloat());
+        const end = Math.ceil(span.end.toFloat());
+        
+        for (let cycle = begin; cycle <= end; cycle++) {
+            for (let i = 0; i < resolution; i++) {
+                const t = cycle + i / resolution;
+                const nextT = cycle + (i + 1) / resolution;
+                
+                const sampleSpan = new TimeSpan(t, nextT);
+                const intersection = sampleSpan.intersection(span);
+                
+                if (intersection) {
+                    // Simple perlin-like smooth noise
+                    const ta = Math.floor(t);
+                    const tb = ta + 1;
+                    const weight = t - ta;
+                    
+                    // Smoothstep interpolation
+                    const smooth = weight * weight * (3 - 2 * weight);
+                    
+                    // Get random values at integer positions
+                    const va = timeToRand(ta);
+                    const vb = timeToRand(tb);
+                    
+                    // Interpolate
+                    const value = va + smooth * (vb - va);
+                    
+                    events.push(new Event(sampleSpan, intersection, value));
+                }
+            }
+        }
+        return events;
+    });
+}
+
+// === Euclidean Rhythms ===
+
+/**
+ * Bjorklund's algorithm for euclidean rhythms
+ */
+function bjorklund(steps, pulses) {
+    if (pulses > steps) pulses = steps;
+    if (pulses === 0) return new Array(steps).fill(0);
+    if (pulses === steps) return new Array(steps).fill(1);
+    
+    let pattern = [];
+    let counts = [];
+    let remainders = [];
+    
+    let divisor = steps - pulses;
+    remainders.push(pulses);
+    let level = 0;
+    
+    while (remainders[level] > 1) {
+        counts.push(Math.floor(divisor / remainders[level]));
+        remainders.push(divisor % remainders[level]);
+        divisor = remainders[level];
+        level++;
+    }
+    
+    counts.push(divisor);
+    
+    const build = function(l) {
+        if (l === -1) {
+            pattern.push(0);
+        } else if (l === -2) {
+            pattern.push(1);
+        } else {
+            for (let i = 0; i < counts[l]; i++) {
+                build(l - 1);
+            }
+            if (remainders[l] !== 0) {
+                build(l - 2);
+            }
+        }
+    };
+    
+    build(level);
+    
+    // Rotate to start with a pulse
+    const firstPulse = pattern.indexOf(1);
+    if (firstPulse > 0) {
+        pattern = pattern.slice(firstPulse).concat(pattern.slice(0, firstPulse));
+    }
+    
+    return pattern;
+}
+
+/**
+ * Euclidean rhythm pattern
+ */
+function euclid(pulses, steps, rotation = 0) {
+    const k = typeof pulses === 'number' ? pulses : pulses.toFloat();
+    const n = typeof steps === 'number' ? steps : steps.toFloat();
+    const r = typeof rotation === 'number' ? rotation : rotation.toFloat();
+    
+    if (n <= 0) return silence();
+    
+    const pattern = bjorklund(n, k);
+    
+    // Apply rotation
+    const rotAmount = Math.floor(r % n);
+    const rotated = pattern.slice(rotAmount).concat(pattern.slice(0, rotAmount));
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            for (let i = 0; i < n; i++) {
+                if (rotated[i] === 1) {
+                    const begin = cycle + i / n;
+                    const end = cycle + (i + 1) / n;
+                    
+                    const eventSpan = new TimeSpan(begin, end);
+                    const intersection = eventSpan.intersection(span);
+                    
+                    if (intersection) {
+                        events.push(new Event(eventSpan, intersection, true));
+                    }
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Euclidean rhythm with rotation
+ */
+function euclidRot(pulses, steps, rotation) {
+    return euclid(pulses, steps, rotation);
+}
+
+/**
+ * Euclidean rhythm with legato
+ */
+function euclidLegato(pulses, steps) {
+    const k = typeof pulses === 'number' ? pulses : pulses.toFloat();
+    const n = typeof steps === 'number' ? steps : steps.toFloat();
+    
+    if (n <= 0) return silence();
+    if (k <= 0) return silence();
+    
+    const pattern = bjorklund(n, k);
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            // Find continuous runs of 1s
+            let i = 0;
+            while (i < n) {
+                if (pattern[i] === 1) {
+                    // Found start of a run
+                    const noteStart = cycle + i / n;
+                    let j = i + 1;
+                    
+                    // Find end of run
+                    while (j < n && pattern[j] === 1) {
+                        j++;
+                    }
+                    
+                    // If we have more 1s, extend to next 1
+                    if (j < n) {
+                        // Find next 1
+                        let next1 = j;
+                        while (next1 < n && pattern[next1] === 0) {
+                            next1++;
+                        }
+                        
+                        // Extend note to just before next pulse
+                        const noteEnd = cycle + next1 / n;
+                        const eventSpan = new TimeSpan(noteStart, noteEnd);
+                        const intersection = eventSpan.intersection(span);
+                        
+                        if (intersection) {
+                            events.push(new Event(eventSpan, intersection, true));
+                        }
+                    } else {
+                        // Last pulse, check if first pulse is 1 (wrap around)
+                        if (pattern[0] === 1) {
+                            // Extend to next cycle's first pulse
+                            const noteEnd = cycle + 1;
+                            const eventSpan = new TimeSpan(noteStart, noteEnd);
+                            const intersection = eventSpan.intersection(span);
+                            
+                            if (intersection) {
+                                events.push(new Event(eventSpan, intersection, true));
+                            }
+                        } else {
+                            // Extend to end of cycle
+                            const noteEnd = cycle + 1;
+                            const eventSpan = new TimeSpan(noteStart, noteEnd);
+                            const intersection = eventSpan.intersection(span);
+                            
+                            if (intersection) {
+                                events.push(new Event(eventSpan, intersection, true));
+                            }
+                        }
+                    }
+                    
+                    i = j;
+                } else {
+                    i++;
+                }
+            }
+        }
+        return events;
+    });
+}
+
 // Export everything
 module.exports = {
     // Classes
@@ -1244,5 +1617,18 @@ module.exports = {
     often,
     rarely,
     almostNever,
-    almostAlways
+    almostAlways,
+    
+    // Signal generators
+    sine,
+    cosine,
+    saw,
+    square,
+    tri,
+    perlin,
+    
+    // Euclidean rhythms
+    euclid,
+    euclidRot,
+    euclidLegato
 };
