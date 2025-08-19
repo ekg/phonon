@@ -1,8 +1,8 @@
 // 🌍 AFROBEAT - 115 BPM
 // Fela Kuti inspired polyrhythmic pattern
 
-// Simple version
-"bd ~ bd ~ ~ bd ~ bd sn ~ sn sn ~ sn ~ sn hh hh hh hh hh hh hh hh"
+// Simple version - polyrhythmic 16 beat cycle
+"bd ~ bd ~ ~ bd ~ bd bd ~ bd ~ ~ bd ~ bd, sn ~ sn sn ~ sn ~ sn sn ~ sn sn ~ sn ~ sn, hh hh hh hh hh hh hh hh hh hh hh hh hh hh hh hh"
 
 // Full Strudel version with polyrhythms:
 /*
