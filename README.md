@@ -1,28 +1,39 @@
 # 🔊 Phonon Forge
 
-**A quantum-inspired live coding audio synthesis system for Android/Termux**
+**Live coding audio synthesis for Android/Termux - TidalCycles patterns without SuperCollider**
 
 > *"Where sound particles collide to create music"*
-
-## Components
-
-- **Fermion** - The Rust synthesis engine (FunDSP-based audio generator)
-- **Boson** - The pattern engine (Strudel-powered sequencer) 
-- **Quark** - The file watcher (monitors and triggers pattern reloads)
-- **Gluon** - The API server (binds everything together)
-- **Neutrino** - The CLI interface (for direct interaction)
 
 ## Quick Start
 
 ```bash
-# Start the complete system
+# 1. Clone the repository
+git clone https://github.com/erikgarrison/phonon-forge.git
+cd phonon-forge
+
+# 2. Run setup (downloads samples, builds everything)
+./setup.sh
+
+# 3. Start making music
 ./phonon start
 
-# Or run components individually
-./fermion/fermion serve     # Start synthesis server
-./boson/boson watch         # Start pattern engine
-./gluon/gluon api           # Start API server
+# 4. Edit patterns.phonon to change the beat live!
 ```
+
+## Features
+
+- 🎵 **Real drum samples** - Uses TidalCycles/Dirt-Samples (1800+ sounds)
+- 🎼 **Strudel syntax** - Compatible with TidalCycles patterns
+- 🔥 **Live coding** - Change patterns while they play
+- 📱 **Android native** - Runs entirely in Termux
+- 🦀 **Rust synthesis** - Fast, reliable audio generation
+- 🌐 **OSC control** - Network-based pattern communication
+
+## Components
+
+- **Fermion** - Rust synthesis engine (FunDSP + sample playback)
+- **Boson** - JavaScript pattern sequencer (Strudel mini notation)
+- **Parser** - Full Strudel/TidalCycles syntax support
 
 ## Architecture
 
