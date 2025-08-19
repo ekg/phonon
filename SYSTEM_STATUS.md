@@ -1,9 +1,9 @@
-# Phonon Forge - Current System Status Report
+# Phonon - Current System Status Report
 
 ## 📊 Overall Status: **FUNCTIONAL** (v1.1)
 
 ### System Overview
-Phonon Forge is a live coding audio synthesis system that successfully bridges TidalCycles/Strudel patterns with a custom Rust synthesis engine, running on Android/Termux.
+Phonon is a live coding audio synthesis system that successfully bridges TidalCycles/Strudel patterns with a custom Rust synthesis engine, running on Android/Termux.
 
 ## ✅ Completed Components
 
@@ -159,7 +159,7 @@ The system can successfully:
 
 ## ✨ Summary
 
-Phonon Forge is a **working live coding system** that successfully implements a significant subset of Strudel/TidalCycles functionality in a novel architecture designed for Android/Termux. The system demonstrates that complex audio synthesis and pattern sequencing can run effectively on mobile devices without traditional audio infrastructure like JACK or SuperCollider.
+Phonon is a **working live coding system** that successfully implements a significant subset of Strudel/TidalCycles functionality in a novel architecture designed for Android/Termux. The system demonstrates that complex audio synthesis and pattern sequencing can run effectively on mobile devices without traditional audio infrastructure like JACK or SuperCollider.
 
 **Current Version**: 1.1 (with Strudel DSL support)
 **Status**: Production-ready for experimental music creation

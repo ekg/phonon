@@ -1,7 +1,7 @@
-# Phonon Forge DSL Implementation
+# Phonon DSL Implementation
 
 ## Overview
-We've implemented a Strudel-inspired DSL for Phonon Forge that supports pattern-based music creation with samples, notes, and advanced sequencing features.
+We've implemented a Strudel-inspired DSL for Phonon that supports pattern-based music creation with samples, notes, and advanced sequencing features.
 
 ## Features Implemented
 

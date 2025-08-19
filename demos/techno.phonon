@@ -1,0 +1,36 @@
+// 🎛️ TECHNO - 135 BPM
+// Berlin-style driving techno
+
+// Simple version
+"bd bd bd bd ~ ~ cp ~ hh rs hh rs hh rs hh rs"
+
+// Full Strudel pattern:
+/*
+stack(
+  // Relentless kick
+  "bd*4",
+  
+  // Minimal clap, less is more
+  "~ ~ ~ ~ ~ ~ cp ~",
+  
+  // Euclidean hi-hats for hypnotic groove
+  "hh(7,16,2)",
+  
+  // Rimshot pattern
+  "rs(3,8,1)",
+  
+  // Dark techno bassline in C minor
+  "<c2 ~ ~ ~ eb2 ~ g2 ~>",
+  
+  // Acid lead (using note patterns)
+  "~ ~ ~ [c4:0.1 eb4:0.1] ~ [g4:0.1 bb4:0.1] ~ c5:0.2",
+  
+  // Industrial percussion
+  "industrial(5,16)"
+)
+*/
+
+// Techno variations:
+// "bd(5,8), hh*16, ~ ~ cp ~"                    // Polyrhythmic kick
+// "bd*4, hh(11,16), ~ rs ~ rs"                  // Complex Euclidean
+// "bd bd bd bd, 909*2, acid ~ ~ acid"           // 909 + acid

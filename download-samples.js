@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Download Strudel/Dirt samples for Phonon Forge
+ * Download Strudel/Dirt samples for Phonon
  * 
  * Sample naming convention in Strudel:
  * - "bd" plays bd/BT0A0A7.wav (first file in bd folder)

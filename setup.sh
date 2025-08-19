@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Setup script for Phonon Forge
+# Setup script for Phonon
 # Downloads dependencies and samples
 
-echo "🎵 Phonon Forge Setup"
+echo "🎵 Phonon Setup"
 echo "===================="
 echo ""
 
@@ -69,7 +69,7 @@ chmod +x install-strudel.sh
 
 echo "✅ Setup complete!"
 echo ""
-echo "🎶 To start Phonon Forge:"
+echo "🎶 To start Phonon:"
 echo "   ./phonon start"
 echo ""
 echo "📝 Edit patterns.phonon to change the music!"

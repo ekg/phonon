@@ -1,15 +1,13 @@
-# 🔊 Phonon Forge
+# 🔊 Phonon
 
 **Live coding audio synthesis for Android/Termux - TidalCycles patterns without SuperCollider**
-
-> *"Where sound particles collide to create music"*
 
 ## Quick Start
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/erikgarrison/phonon-forge.git
-cd phonon-forge
+git clone https://github.com/erikgarrison/phonon.git
+cd phonon
 
 # 2. Run setup (downloads samples, builds everything)
 ./setup.sh

@@ -1,0 +1,36 @@
+// 🎤 HIP HOP - 90 BPM
+// Classic boom bap beat
+
+// Simple version (90s boom bap)
+"bd ~ ~ bd ~ ~ bd ~ ~ ~ sn ~ ~ ~ ~ sn hh hh hh oh hh hh hh hh"
+
+// Full Strudel version:
+/*
+stack(
+  // Boom bap kick pattern
+  "bd ~ ~ bd ~ ~ bd ~",
+  
+  // Snare on the backbeat
+  "~ ~ sn ~ ~ ~ ~ sn",
+  
+  // Hi-hat with swing feel
+  "hh ~ hh hh ~ hh hh ~",
+  
+  // Open hat accents
+  "~ ~ ~ oh ~ ~ ~ ~",
+  
+  // Sub bass following kick
+  "c2 ~ ~ c2 ~ ~ g1 ~",
+  
+  // Vinyl crackle atmosphere
+  "vinyl*8",
+  
+  // Occasional scratch
+  "~ ~ ~ ~ scratch? ~ ~ ~"
+)
+*/
+
+// Hip hop variations:
+// "bd ~ bd ~ ~ ~ bd ~, ~ sn ~ sn, hh*8"         // Trap-influenced
+// "bd ~ ~ bd ~ bd bd ~, ~ sn ~ ~ ~ sn ~ ~"      // J Dilla style
+// "bd(3,8), ~ sn ~ sn, hh*4, ~ ~ oh ~"          // Neo-soul

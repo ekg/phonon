@@ -2,7 +2,7 @@
 
 # Install actual Strudel packages for proper mini notation support
 
-echo "📦 Installing Strudel packages for Phonon Forge..."
+echo "📦 Installing Strudel packages for Phonon..."
 echo ""
 
 cd "$(dirname "$0")/boson"
