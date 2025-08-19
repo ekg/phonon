@@ -5,6 +5,8 @@ use tracing::{info};
 
 mod synth;
 mod server;
+mod audio;
+mod engine;
 
 use synth::SynthEngine;
 use server::OscServer;
@@ -44,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Commands::Serve { port } => {
             info!("Starting Fermion on port {}", port);
-            let server = OscServer::new(port);
+            let server = OscServer::new(port)?;
             server.run().await?;
         }
         

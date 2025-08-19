@@ -3,22 +3,24 @@
 use rosc::{OscMessage, OscPacket, OscType};
 use std::net::UdpSocket;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
-use crate::synth::SynthEngine;
+use crate::engine::AudioEngine;
 
 pub struct OscServer {
     port: u16,
-    engine: Arc<RwLock<SynthEngine>>,
+    engine: Arc<AudioEngine>,
 }
 
 impl OscServer {
-    pub fn new(port: u16) -> Self {
-        Self {
+    pub fn new(port: u16) -> Result<Self, Box<dyn std::error::Error>> {
+        let engine = AudioEngine::new()?;
+        // Don't pre-load samples - they'll be lazy-loaded on demand
+        
+        Ok(Self {
             port,
-            engine: Arc::new(RwLock::new(SynthEngine::new())),
-        }
+            engine: Arc::new(engine),
+        })
     }
     
     pub async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
@@ -73,19 +75,11 @@ impl OscServer {
         
         match msg.addr.as_str() {
             "/play" => {
-                self.handle_play(msg).await;
+                // TODO: Implement synth playback
+                warn!("Synth playback not yet implemented");
             }
             "/sample" => {
                 self.handle_sample(msg).await;
-            }
-            "/sine" => {
-                self.handle_sine(msg).await;
-            }
-            "/fm" => {
-                self.handle_fm(msg).await;
-            }
-            "/chord" => {
-                self.handle_chord(msg).await;
             }
             _ => {
                 warn!("Unknown OSC address: {}", msg.addr);
@@ -93,53 +87,12 @@ impl OscServer {
         }
     }
     
-    async fn handle_play(&self, msg: OscMessage) {
-        // Extract parameters
-        let mut freq = 440.0f32;
-        let mut duration = 0.25f32;
-        
-        for (i, arg) in msg.args.iter().enumerate() {
-            match arg {
-                OscType::Float(f) => {
-                    if i == 0 {
-                        freq = *f;
-                    } else if i == 1 {
-                        duration = *f;
-                    }
-                }
-                OscType::Int(val) => {
-                    if i == 0 {
-                        freq = *val as f32;
-                    }
-                }
-                _ => {}
-            }
-        }
-        
-        info!("Play: {} Hz for {} seconds", freq, duration);
-        
-        let engine = self.engine.read().await;
-        let path = std::env::temp_dir().join(format!("fermion_{}.wav", freq));
-        
-        if let Err(e) = engine.render_sine(&path, freq, duration) {
-            error!("Failed to render: {}", e);
-            return;
-        }
-        
-        // Play async
-        tokio::spawn(async move {
-            let _ = std::process::Command::new("mplayer")
-                .arg(&path)
-                .arg("-really-quiet")
-                .output();
-        });
-    }
-    
     async fn handle_sample(&self, msg: OscMessage) {
-        // Extract sample name, index, and speed
+        // Extract sample name, index, speed, and gain
         let mut sample_name = "bd".to_string();
         let mut index = 0usize;
         let mut speed = 1.0f32;
+        let mut gain = 1.0f32;
         
         for (i, arg) in msg.args.iter().enumerate() {
             match arg {
@@ -158,153 +111,25 @@ impl OscServer {
                 OscType::Float(f) => {
                     if i == 2 {
                         speed = *f;
+                    } else if i == 3 {
+                        gain = *f;
                     }
                 }
                 _ => {}
             }
         }
         
-        info!("Sample: {}:{} at speed {}", sample_name, index, speed);
+        info!("Sample: {}:{} at speed {} gain {}", sample_name, index, speed, gain);
         
-        // Look for actual WAV files
-        let samples_dir = std::path::Path::new("/data/data/com.termux/files/home/phonon-forge/dirt-samples");
-        let sample_folder = samples_dir.join(&sample_name);
-        
-        if sample_folder.exists() {
-            // Get WAV files in folder
-            if let Ok(entries) = std::fs::read_dir(&sample_folder) {
-                let mut wav_files: Vec<_> = entries
-                    .filter_map(|e| e.ok())
-                    .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("wav"))
-                    .collect();
-                
-                if !wav_files.is_empty() {
-                    wav_files.sort_by_key(|e| e.path());
-                    let file_index = index % wav_files.len();
-                    let wav_path = wav_files[file_index].path();
-                    
-                    info!("Playing sample: {:?}", wav_path);
-                    
-                    // Play the actual WAV file directly
-                    tokio::spawn(async move {
-                        let _ = std::process::Command::new("mplayer")
-                            .arg(wav_path)
-                            .arg("-really-quiet")
-                            .arg("-speed")
-                            .arg(speed.to_string())
-                            .output();
-                    });
-                    return;
-                }
-            }
-        }
-        
-        // Fallback to generated samples
-        warn!("Sample not found in dirt-samples, using generated");
-        let mut engine = self.engine.write().await;
-        let path = std::env::temp_dir().join(format!("fermion_{}_{}.wav", sample_name, index));
-        
-        if let Err(e) = engine.play_sample(&path, &sample_name, index, speed) {
-            error!("Failed to play sample: {}", e);
-            return;
-        }
-        
-        tokio::spawn(async move {
-            let _ = std::process::Command::new("mplayer")
-                .arg(&path)
-                .arg("-really-quiet")
-                .output();
-        });
-    }
-    
-    async fn handle_sine(&self, msg: OscMessage) {
-        if msg.args.len() < 2 {
-            warn!("Sine requires freq and duration");
-            return;
-        }
-        
-        self.handle_play(msg).await;
-    }
-    
-    async fn handle_fm(&self, msg: OscMessage) {
-        if msg.args.len() < 3 {
-            warn!("FM requires carrier, modulator, duration");
-            return;
-        }
-        
-        let carrier = match &msg.args[0] {
-            OscType::Float(f) => *f,
-            OscType::Int(i) => *i as f32,
-            _ => return,
+        // Format sample name for our engine
+        let sample_id = if index > 0 {
+            format!("{}:{}", sample_name, index)
+        } else {
+            sample_name.clone()
         };
         
-        let modulator = match &msg.args[1] {
-            OscType::Float(f) => *f,
-            OscType::Int(i) => *i as f32,
-            _ => return,
-        };
-        
-        let duration = match &msg.args[2] {
-            OscType::Float(f) => *f,
-            OscType::Int(i) => *i as f32,
-            _ => 0.25,
-        };
-        
-        info!("FM: carrier={} mod={} dur={}", carrier, modulator, duration);
-        
-        let engine = self.engine.read().await;
-        let path = std::env::temp_dir().join("fermion_fm.wav");
-        
-        if let Err(e) = engine.render_fm(&path, carrier, modulator, duration) {
-            error!("Failed to render FM: {}", e);
-            return;
-        }
-        
-        tokio::spawn(async move {
-            let _ = std::process::Command::new("mplayer")
-                .arg(&path)
-                .arg("-really-quiet")
-                .output();
-        });
-    }
-    
-    async fn handle_chord(&self, msg: OscMessage) {
-        let mut freqs = Vec::new();
-        let mut duration = 1.0f32;
-        
-        for arg in &msg.args {
-            match arg {
-                OscType::Float(f) => freqs.push(*f),
-                OscType::Int(i) => freqs.push(*i as f32),
-                _ => {}
-            }
-        }
-        
-        if freqs.is_empty() {
-            warn!("Chord requires frequencies");
-            return;
-        }
-        
-        // Last value might be duration
-        if freqs.len() > 1 && freqs.last().unwrap() < &10.0 {
-            duration = freqs.pop().unwrap();
-        }
-        
-        info!("Chord: {:?} for {} seconds", freqs, duration);
-        
-        let engine = self.engine.read().await;
-        let path = std::env::temp_dir().join("fermion_chord.wav");
-        
-        if let Err(e) = engine.render_chord(&path, &freqs, duration) {
-            error!("Failed to render chord: {}", e);
-            return;
-        }
-        
-        tokio::spawn(async move {
-            let _ = std::process::Command::new("mplayer")
-                .arg(&path)
-                .arg("-really-quiet")
-                .output();
-        });
+        // Play through the audio engine (instant, low-latency)
+        self.engine.play_sample(&sample_id, speed, gain);
+        debug!("Triggered sample: {}", sample_id);
     }
 }

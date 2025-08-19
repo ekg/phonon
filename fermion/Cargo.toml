@@ -9,6 +9,9 @@ description = "Fermion: Rust synthesis engine for Phonon"
 # Audio synthesis
 fundsp = "0.18"
 
+# Audio output - cross-platform (JACK, ALSA, OpenSL ES on Android)
+cpal = "0.15"
+
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 

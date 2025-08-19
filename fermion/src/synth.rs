@@ -42,11 +42,23 @@ impl SynthEngine {
         let path = std::env::temp_dir().join("fermion_test.wav");
         self.render_sine(&path, freq, duration)?;
         
-        // Play with mplayer
-        std::process::Command::new("mplayer")
-            .arg(&path)
-            .arg("-really-quiet")
-            .spawn()?;
+        // Play with mplayer (or aplay as fallback)
+        if std::process::Command::new("which")
+            .arg("mplayer")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
+            std::process::Command::new("mplayer")
+                .arg(&path)
+                .arg("-really-quiet")
+                .spawn()?;
+        } else {
+            std::process::Command::new("aplay")
+                .arg("-q")
+                .arg(&path)
+                .spawn()?;
+        }
         
         Ok(())
     }
