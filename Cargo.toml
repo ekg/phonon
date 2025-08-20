@@ -38,3 +38,6 @@ rand = "0.8"
 
 # Hashing for deterministic pattern testing
 sha2 = "0.10"
+
+# Lazy static for musical constants
+lazy_static = "1.4"

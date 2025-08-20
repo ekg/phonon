@@ -403,37 +403,6 @@ impl Pattern<String> {
         // For now, just return self - in full implementation would handle sample lookup
         self
     }
-    
-    /// Parse as note names and convert to frequencies
-    pub fn note(self) -> Pattern<f64> {
-        self.fmap(|s| note_to_freq(&s))
-    }
-}
-
-/// Convert note name to frequency
-fn note_to_freq(note: &str) -> f64 {
-    // Simple implementation - could be expanded
-    match note.to_lowercase().as_str() {
-        "c" | "c3" => 130.81,
-        "d" | "d3" => 146.83,
-        "e" | "e3" => 164.81,
-        "f" | "f3" => 174.61,
-        "g" | "g3" => 196.00,
-        "a" | "a3" => 220.00,
-        "b" | "b3" => 246.94,
-        "c4" => 261.63,
-        "d4" => 293.66,
-        "e4" => 329.63,
-        "f4" => 349.23,
-        "g4" => 392.00,
-        "a4" => 440.00,
-        "b4" => 493.88,
-        "c5" => 523.25,
-        _ => {
-            // Try to parse as frequency
-            note.parse::<f64>().unwrap_or(440.0)
-        }
-    }
 }
 
 #[cfg(test)]

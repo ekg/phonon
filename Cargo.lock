@@ -917,6 +917,7 @@ dependencies = [
  "cpal",
  "fundsp",
  "hound",
+ "lazy_static",
  "rand",
  "rosc",
  "serde",
