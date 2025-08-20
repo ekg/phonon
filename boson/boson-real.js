@@ -161,6 +161,15 @@ class RealBoson {
                             host: this.config.oscHost
                         });
                         console.log(`  ♪ ${event.value}Hz`);
+                    } else if (Array.isArray(event.value) && event.value.length === 2) {
+                        // Sample:index format [sample_name, index]
+                        const [sample, index] = event.value;
+                        const message = new OSC.Message('/sample', sample, index, 1.0);
+                        this.osc.send(message, {
+                            port: this.config.oscPort,
+                            host: this.config.oscHost
+                        });
+                        console.log(`  ♫ ${sample}:${index}`);
                     } else if (event.value && event.value.s) {
                         // Strudel sample object
                         const message = new OSC.Message('/sample', event.value.s, event.value.n || 0, 1.0);
