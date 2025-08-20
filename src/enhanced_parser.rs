@@ -589,35 +589,35 @@ impl EnhancedParser {
                 // Create a pattern source node
                 let node_id = self.generate_node_id();
                 
-                // For now, create a simple trigger based on the first event
-                // A real implementation would:
-                // 1. Query pattern events at current playback time
-                // 2. Look up the referenced bus (e.g., "bd" -> ~bd)
-                // 3. Trigger that audio bus when the pattern event occurs
-                // 4. Handle polyphony for overlapping events
-                
-                // Get the first event from the pattern
+                // Get the first event from the pattern to determine what sample to use
                 let first_cycle = pattern.first_cycle();
-                let freq = if !first_cycle.is_empty() {
-                    // Map common drum names to frequencies for testing
-                    match first_cycle[0].value.as_str() {
-                        "bd" | "kick" => 60.0,
-                        "sn" | "snare" => 200.0,
-                        "hh" | "hat" => 800.0,
-                        "cp" | "clap" => 400.0,
-                        _ => 440.0,
-                    }
-                } else {
-                    440.0
-                };
                 
-                // Create a placeholder sine wave at the mapped frequency
-                let node = Node::Source {
-                    id: node_id.clone(),
-                    source_type: SourceType::Sine { freq },
-                };
-                self.graph.add_node(node);
-                Ok(node_id)
+                if !first_cycle.is_empty() {
+                    let sample_name = &first_cycle[0].value;
+                    
+                    // Check if this references a user-defined bus first
+                    if self.buses.contains_key(sample_name) {
+                        // It's a reference to a user-defined audio bus
+                        return self.process_expression(&Expression::BusRef(sample_name.clone()), context);
+                    }
+                    
+                    // Otherwise, treat it as a sample name from dirt-samples
+                    // Pattern events like "bd", "sn", "hh" directly map to samples
+                    let node = Node::Source {
+                        id: node_id.clone(),
+                        source_type: SourceType::Sample { name: sample_name.clone() },
+                    };
+                    self.graph.add_node(node);
+                    Ok(node_id)
+                } else {
+                    // Empty pattern - create silence
+                    let node = Node::Source {
+                        id: node_id.clone(),
+                        source_type: SourceType::Noise, // Or could use a silent sample
+                    };
+                    self.graph.add_node(node);
+                    Ok(node_id)
+                }
             }
             Expression::FunctionCall(name, args) => {
                 // Create source or processor node
@@ -797,6 +797,29 @@ impl EnhancedParser {
                         Node::Source {
                             id: node_id.clone(),
                             source_type: SourceType::Square { freq },
+                        }
+                    }
+                    "sample" => {
+                        // sample("bd") or sample("bd/0") for specific index
+                        if args.is_empty() {
+                            // Default to placeholder
+                            Node::Source {
+                                id: node_id.clone(),
+                                source_type: SourceType::Sample { name: "bd".to_string() },
+                            }
+                        } else {
+                            let sample_name = if let Expression::String(s) = &args[0] {
+                                s.clone()
+                            } else if let Expression::Identifier(s) = &args[0] {
+                                s.clone()
+                            } else {
+                                "bd".to_string() // Default fallback
+                            };
+                            
+                            Node::Source {
+                                id: node_id.clone(),
+                                source_type: SourceType::Sample { name: sample_name },
+                            }
                         }
                     }
                     "lpf" => {
