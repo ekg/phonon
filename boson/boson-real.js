@@ -164,6 +164,7 @@ class RealBoson {
                     } else if (Array.isArray(event.value) && event.value.length === 2) {
                         // Sample:index format [sample_name, index]
                         const [sample, index] = event.value;
+                        console.log(`  DEBUG: Sending sample="${sample}" index=${index}`);
                         const message = new OSC.Message('/sample', sample, index, 1.0);
                         this.osc.send(message, {
                             port: this.config.oscPort,

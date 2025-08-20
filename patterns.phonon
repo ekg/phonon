@@ -45,16 +45,16 @@
 // === CURRENTLY PLAYING ===
 // Uncomment patterns below:
 
-// Simple arpeggiated chord progression
-"[notes:0 notes:4 notes:7 notes:11]*2"
+// Chord progression with Juno synth (different pitches)
+"<[juno:0,juno:1,juno:2] [juno:3,juno:4,juno:5] [juno:6,juno:7,juno:8] [juno:0,juno:1,juno:2]>"
+"bd ~ sn ~"
 
-// Add a bass line
-// "notes:0/2"
+// Simpler arpeggio with juno
+// "[juno:0 juno:1 juno:2 juno:1]*2"
 
-// Add drums
+// With drums
 // "bd ~ sn ~"
-// "hh*4"
+// "hh*8"
 
-// Full chord progression example:
-// "<[notes:0,notes:4,notes:7] [notes:2,notes:5,notes:9]>"  // Stacked notes
-// "bd ~ sn ~"
+// Alternative using bass samples
+// "<bass:0 bass:1 bass:2 bass:3>"

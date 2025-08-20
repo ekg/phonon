@@ -157,13 +157,19 @@ impl AudioEngine {
     fn ensure_sample_loaded(&self, sample_id: &str) {
         let mut bank = self.sample_bank.lock().unwrap();
         
-        // Parse sample name (e.g., "bd:0" -> "bd")
-        let base_name = sample_id.split(':').next().unwrap_or(sample_id);
-        
-        // Check if already loaded
-        if bank.samples.contains_key(base_name) {
+        // Check if this specific sample (with index) is already loaded
+        if bank.samples.contains_key(sample_id) {
             return;
         }
+        
+        // Parse sample name and index (e.g., "bd:0" -> ("bd", 0))
+        let parts: Vec<&str> = sample_id.split(':').collect();
+        let base_name = parts[0];
+        let index = if parts.len() > 1 {
+            parts[1].parse::<usize>().unwrap_or(0)
+        } else {
+            0
+        };
         
         // Try to load from dirt-samples
         let sample_paths = [
@@ -178,13 +184,13 @@ impl AudioEngine {
         ];
         
         for (name, path) in sample_paths {
-            if name == base_name {
+            if name == base_name && index == 0 {  // Only use hardcoded path for index 0
                 let full_path = bank.dirt_samples_dir.join(path);
                 if full_path.exists() {
-                    if let Err(e) = bank.load_sample(base_name, &full_path) {
-                        warn!("Failed to lazy-load {}: {}", base_name, e);
+                    if let Err(e) = bank.load_sample(sample_id, &full_path) {
+                        warn!("Failed to lazy-load {}: {}", sample_id, e);
                     } else {
-                        info!("Lazy-loaded sample: {}", base_name);
+                        info!("Lazy-loaded sample: {}", sample_id);
                     }
                     return;
                 }
@@ -194,19 +200,31 @@ impl AudioEngine {
         // Try generic path pattern
         let sample_dir = bank.dirt_samples_dir.join(base_name);
         if sample_dir.exists() && sample_dir.is_dir() {
-            // Find first WAV file in directory
+            // Find WAV files in directory and sort them
             if let Ok(entries) = std::fs::read_dir(&sample_dir) {
-                for entry in entries.filter_map(|e| e.ok()) {
-                    let path = entry.path();
-                    if path.extension().and_then(|s| s.to_str()) == Some("wav") 
-                        || path.extension().and_then(|s| s.to_str()) == Some("WAV") {
-                        if let Err(e) = bank.load_sample(base_name, &path) {
-                            warn!("Failed to lazy-load {}: {}", base_name, e);
-                        } else {
-                            info!("Lazy-loaded sample: {} from {:?}", base_name, path);
-                        }
-                        return;
+                let mut wav_files: Vec<_> = entries
+                    .filter_map(|e| e.ok())
+                    .map(|e| e.path())
+                    .filter(|p| {
+                        let ext = p.extension().and_then(|s| s.to_str());
+                        ext == Some("wav") || ext == Some("WAV")
+                    })
+                    .collect();
+                
+                // Sort files alphabetically/numerically
+                wav_files.sort();
+                
+                // Get the file at the specified index
+                if let Some(path) = wav_files.get(index) {
+                    if let Err(e) = bank.load_sample(sample_id, path) {
+                        warn!("Failed to lazy-load {}: {}", sample_id, e);
+                    } else {
+                        info!("Lazy-loaded sample: {} from {:?}", sample_id, path);
                     }
+                    return;
+                } else {
+                    warn!("Sample index {} out of range for {} (has {} files)", 
+                          index, base_name, wav_files.len());
                 }
             }
         }

@@ -122,11 +122,8 @@ impl OscServer {
         info!("Sample: {}:{} at speed {} gain {}", sample_name, index, speed, gain);
         
         // Format sample name for our engine
-        let sample_id = if index > 0 {
-            format!("{}:{}", sample_name, index)
-        } else {
-            sample_name.clone()
-        };
+        // Always include index to ensure correct sample is loaded
+        let sample_id = format!("{}:{}", sample_name, index);
         
         // Play through the audio engine (instant, low-latency)
         self.engine.play_sample(&sample_id, speed, gain);
