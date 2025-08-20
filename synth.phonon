@@ -2,8 +2,8 @@
 // Using inline synthesis definitions
 
 // === SIMPLE MELODY ===
-// Basic sine wave melody
-"synth:sine(440) synth:sine(550) synth:sine(660) synth:sine(880)"
+// Use special sample names that we'll recognize as synth
+"s440 s550 s660 s880"  // Sine waves at different frequencies
 
 // === BASS LINE ===
 // FM bass with rhythm

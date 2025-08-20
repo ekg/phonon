@@ -1,0 +1,19 @@
+// More Synthesizer Examples
+
+// Sine wave melody (use s prefix for sine)
+// "s440 s550 s660 s550"
+
+// Mix with drum samples
+"s220 ~ s220 ~"  // Bass sine
+"bd ~ sn ~"       // Drums
+
+// Different frequencies 
+// "s110 s220 s330 s440"  // Ascending
+// "s880 s660 s550 s440"  // Descending
+
+// Fast arpeggios
+// "[s440 s550 s660 s550]*2"
+
+// Polyrhythmic
+// "s220(3,8)"
+// "bd(5,8)"
