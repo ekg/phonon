@@ -1,7 +1,7 @@
 {
   "name": "boson",
   "version": "1.0.0",
-  "description": "Boson: Pattern engine for Phonon Forge",
+  "description": "Boson: Pattern engine for Phonon",
   "main": "boson.js",
   "scripts": {
     "start": "node boson.js",

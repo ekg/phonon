@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Phonon Forge - Main orchestrator
+# Phonon - Main orchestrator
 # Author: Erik Garrison <erik.garrison@gmail.com>
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,12 +19,12 @@ NC='\033[0m' # No Color
 banner() {
     echo -e "${PURPLE}"
     cat << "EOF"
-    ____  __                            ______                    
-   / __ \/ /_  ____  ____  ____  ____  / ____/___  _________ ____ 
-  / /_/ / __ \/ __ \/ __ \/ __ \/ __ \/ /_  / __ \/ ___/ __ `/ _ \
- / ____/ / / / /_/ / / / / /_/ / / / / __/ / /_/ / /  / /_/ /  __/
-/_/   /_/ /_/\____/_/ /_/\____/_/ /_/_/    \____/_/   \__, /\___/ 
-                                                      /____/       
+    ____  __                          
+   / __ \/ /_  ____  ____  ____  ____ 
+  / /_/ / __ \/ __ \/ __ \/ __ \/ __ \
+ / ____/ / / / /_/ / / / / /_/ / / / /
+/_/   /_/ /_/\____/_/ /_/\____/_/ /_/ 
+                                       
 EOF
     echo -e "${NC}"
     echo -e "${BLUE}Quantum Audio Synthesis System${NC}"
@@ -111,7 +111,7 @@ test_audio() {
 edit_patterns() {
     if [ ! -f "$PATTERN_FILE" ]; then
         cat > "$PATTERN_FILE" << 'EOF'
-// Phonon Forge Pattern File
+// Phonon Pattern File
 // Edit and save to hear changes!
 
 // C major scale
