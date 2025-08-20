@@ -164,11 +164,11 @@ impl OscServer {
         // Parse and compile the synth definition
         match parse_synth_def(&synth_def) {
             Ok(def) => {
-                // For now, just log it - would need to integrate with engine
                 info!("Parsed synth definition: {:?}", def);
-                // TODO: Render and play through engine
-                // let graph = compile_synth(&def);
-                // self.engine.play_synth(graph, duration, gain);
+                // Compile to audio samples
+                let samples = compile_synth(&def, duration as f64);
+                // Play through the audio engine
+                self.engine.play_synth(samples, gain);
             }
             Err(e) => {
                 warn!("Failed to parse synth def '{}': {}", synth_def, e);

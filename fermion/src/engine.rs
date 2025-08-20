@@ -153,6 +153,22 @@ impl AudioEngine {
         self.schedule_sample(sample_id, elapsed + 0.01, speed, gain);
     }
     
+    /// Play synthesized audio immediately
+    pub fn play_synth(&self, samples: Vec<f32>, gain: f32) {
+        // Generate a unique ID for this synth sound
+        let synth_id = format!("synth_{}", self.start_time.elapsed().as_millis());
+        
+        // Store the synthesized samples in the bank
+        {
+            let mut bank = self.sample_bank.lock().unwrap();
+            bank.samples.insert(synth_id.clone(), Arc::new(samples));
+        }
+        
+        // Play it immediately
+        let elapsed = self.start_time.elapsed().as_secs_f64();
+        self.schedule_sample(&synth_id, elapsed + 0.01, 1.0, gain);
+    }
+    
     /// Ensure a sample is loaded (lazy loading)
     fn ensure_sample_loaded(&self, sample_id: &str) {
         let mut bank = self.sample_bank.lock().unwrap();
