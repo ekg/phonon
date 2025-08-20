@@ -146,19 +146,21 @@ class RealBoson {
                     
                     // Handle different value types
                     if (typeof event.value === 'string') {
-                        // Check if it's a sine wave synth (s followed by frequency)
-                        if (event.value.match(/^s\d+$/)) {
-                            const freq = event.value.substring(1);
-                            const synthDef = `sine(${freq})`;
+                        // Check if it might be a synth (not a known sample pattern)
+                        const knownSamples = ['bd', 'sn', 'hh', 'cp', 'kick', 'snare', 'hihat', 'clap'];
+                        const isSample = knownSamples.some(s => event.value.startsWith(s));
+                        
+                        if (!isSample) {
+                            // Treat as potential synth
                             const duration = (event.whole.end - event.whole.begin) / this.config.cps;
-                            const message = new OSC.Message('/synth', synthDef, duration, 0.5);
+                            const message = new OSC.Message('/synth', event.value, duration, 0.5);
                             this.osc.send(message, {
                                 port: this.config.oscPort,
                                 host: this.config.oscHost
                             });
-                            console.log(`  🎹 sine(${freq})`);
+                            console.log(`  🎹 ${event.value}`);
                         } else {
-                            // Regular sample name
+                            // Regular sample
                             const message = new OSC.Message('/sample', event.value, 0, 1.0);
                             this.osc.send(message, {
                                 port: this.config.oscPort,

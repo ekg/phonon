@@ -10,16 +10,20 @@ use crate::engine::AudioEngine;
 pub struct OscServer {
     port: u16,
     engine: Arc<AudioEngine>,
+    synth_registry: Arc<crate::synth_defs::SynthRegistry>,
 }
 
 impl OscServer {
     pub fn new(port: u16) -> Result<Self, Box<dyn std::error::Error>> {
         let engine = AudioEngine::new()?;
         // Don't pre-load samples - they'll be lazy-loaded on demand
+        let synth_registry = crate::synth_defs::SynthRegistry::new();
+        info!("Loaded {} synth definitions", synth_registry.count());
         
         Ok(Self {
             port,
             engine: Arc::new(engine),
+            synth_registry: Arc::new(synth_registry),
         })
     }
     
@@ -136,8 +140,8 @@ impl OscServer {
     async fn handle_synth(&self, msg: OscMessage) {
         use crate::synth_defs::{parse_synth_def, compile_synth};
         
-        // Extract synth definition string
-        let mut synth_def = "sine(440)".to_string();
+        // Extract synth name or definition string
+        let mut synth_name = "sine(440)".to_string();
         let mut duration = 0.5f32;
         let mut gain = 0.5f32;
         
@@ -145,7 +149,7 @@ impl OscServer {
             match arg {
                 OscType::String(s) => {
                     if i == 0 {
-                        synth_def = s.clone();
+                        synth_name = s.clone();
                     }
                 }
                 OscType::Float(f) => {
@@ -159,19 +163,24 @@ impl OscServer {
             }
         }
         
-        info!("Synth: {} for {}s at gain {}", synth_def, duration, gain);
+        info!("Synth: {} for {}s at gain {}", synth_name, duration, gain);
         
-        // Parse and compile the synth definition
-        match parse_synth_def(&synth_def) {
-            Ok(def) => {
-                info!("Parsed synth definition: {:?}", def);
-                // Compile to audio samples
-                let samples = compile_synth(&def, duration as f64);
-                // Play through the audio engine
-                self.engine.play_synth(samples, gain);
-            }
-            Err(e) => {
-                warn!("Failed to parse synth def '{}': {}", synth_def, e);
+        // First check if it's a named synth from the registry
+        if let Some(def) = self.synth_registry.get(&synth_name) {
+            info!("Using registered synth: {}", synth_name);
+            let samples = compile_synth(&def, duration as f64);
+            self.engine.play_synth(samples, gain);
+        } else {
+            // Try to parse as inline definition
+            match parse_synth_def(&synth_name) {
+                Ok(def) => {
+                    info!("Parsed inline synth definition: {:?}", def);
+                    let samples = compile_synth(&def, duration as f64);
+                    self.engine.play_synth(samples, gain);
+                }
+                Err(e) => {
+                    warn!("Unknown synth '{}' (not in registry, failed to parse: {})", synth_name, e);
+                }
             }
         }
     }

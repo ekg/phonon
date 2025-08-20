@@ -7,6 +7,9 @@
 use fundsp::hacker::*;
 use std::collections::HashMap;
 use std::sync::Arc;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::Path;
 
 /// Synthesizer definition parsed from pattern notation
 #[derive(Debug, Clone)]
@@ -177,6 +180,38 @@ pub fn compile_synth(def: &SynthDef, duration: f64) -> Vec<f32> {
     buffer
 }
 
+/// TOML configuration for synth definitions
+#[derive(Debug, Deserialize)]
+pub struct SynthConfig {
+    synths: HashMap<String, SynthDefConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum SynthDefConfig {
+    Sine { freq: f64 },
+    Saw { freq: f64 },
+    Square { freq: f64 },
+    Triangle { freq: f64 },
+    Noise,
+    FM { carrier: f64, modulator: f64, index: f64 },
+}
+
+impl From<SynthDefConfig> for SynthDef {
+    fn from(config: SynthDefConfig) -> Self {
+        match config {
+            SynthDefConfig::Sine { freq } => SynthDef::Sine { freq },
+            SynthDefConfig::Saw { freq } => SynthDef::Saw { freq },
+            SynthDefConfig::Square { freq } => SynthDef::Square { freq },
+            SynthDefConfig::Triangle { freq } => SynthDef::Triangle { freq },
+            SynthDefConfig::Noise => SynthDef::Noise,
+            SynthDefConfig::FM { carrier, modulator, index } => {
+                SynthDef::FM { carrier, modulator, index }
+            }
+        }
+    }
+}
+
 /// Registry for named synth definitions
 pub struct SynthRegistry {
     definitions: HashMap<String, Arc<SynthDef>>,
@@ -188,32 +223,36 @@ impl SynthRegistry {
             definitions: HashMap::new(),
         };
         
-        // Register some default synths
-        registry.register("bass", SynthDef::Filtered {
-            source: Box::new(SynthDef::Saw { freq: 110.0 }),
-            filter_type: FilterType::Lowpass,
-            cutoff: 500.0,
-            resonance: 0.7,
-        });
-        
-        registry.register("lead", SynthDef::Enveloped {
-            source: Box::new(SynthDef::Square { freq: 440.0 }),
-            attack: 0.01,
-            decay: 0.1,
-            sustain: 0.7,
-            release: 0.3,
-        });
-        
-        registry.register("pad", SynthDef::WithReverb {
-            source: Box::new(SynthDef::Stack(vec![
-                SynthDef::Sine { freq: 220.0 },
-                SynthDef::Sine { freq: 330.0 },
-                SynthDef::Sine { freq: 440.0 },
-            ])),
-            mix: 0.5,
-        });
+        // Try to load from synthdefs.toml
+        if let Ok(loaded) = Self::load_from_file("synthdefs.toml") {
+            registry = loaded;
+        } else {
+            // Fallback to home directory
+            if let Ok(home) = std::env::var("HOME") {
+                let path = format!("{}/phonon/synthdefs.toml", home);
+                if let Ok(loaded) = Self::load_from_file(&path) {
+                    registry = loaded;
+                }
+            }
+        }
         
         registry
+    }
+    
+    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
+        let contents = fs::read_to_string(path)?;
+        let config: SynthConfig = toml::from_str(&contents)?;
+        
+        let mut registry = Self {
+            definitions: HashMap::new(),
+        };
+        
+        for (name, def_config) in config.synths {
+            let def: SynthDef = def_config.into();
+            registry.register(&name, def);
+        }
+        
+        Ok(registry)
     }
     
     pub fn register(&mut self, name: &str, def: SynthDef) {
@@ -222,6 +261,10 @@ impl SynthRegistry {
     
     pub fn get(&self, name: &str) -> Option<Arc<SynthDef>> {
         self.definitions.get(name).cloned()
+    }
+    
+    pub fn count(&self) -> usize {
+        self.definitions.len()
     }
 }
 

@@ -1,0 +1,98 @@
+# Phonon Synthesizer Definitions
+# Define named synthesizers that can be used in patterns
+
+[synths.bass]
+type = "sine"
+freq = 110.0
+
+[synths.bass2]
+type = "saw"
+freq = 55.0
+
+[synths.lead]
+type = "square"
+freq = 440.0
+
+[synths.pad]
+type = "triangle"
+freq = 220.0
+
+# FM synthesis definitions
+[synths.fmbass]
+type = "fm"
+carrier = 55.0
+modulator = 110.0
+index = 0.8
+
+[synths.fmlead]
+type = "fm"
+carrier = 440.0
+modulator = 880.0
+index = 0.3
+
+# Shorthand sine definitions
+[synths.s220]
+type = "sine"
+freq = 220.0
+
+[synths.s440]
+type = "sine"
+freq = 440.0
+
+[synths.s550]
+type = "sine"
+freq = 550.0
+
+[synths.s660]
+type = "sine"
+freq = 660.0
+
+[synths.s880]
+type = "sine"
+freq = 880.0
+
+# C major scale sines
+[synths.c3]
+type = "sine"
+freq = 261.63
+
+[synths.d3]
+type = "sine"
+freq = 293.66
+
+[synths.e3]
+type = "sine"
+freq = 329.63
+
+[synths.f3]
+type = "sine"
+freq = 349.23
+
+[synths.g3]
+type = "sine"
+freq = 392.0
+
+[synths.a3]
+type = "sine"
+freq = 440.0
+
+[synths.b3]
+type = "sine"
+freq = 493.88
+
+[synths.c4]
+type = "sine"
+freq = 523.25
+
+# Noise generators
+[synths.white]
+type = "noise"
+
+[synths.kick]
+type = "sine"
+freq = 60.0
+# Would need envelope support for proper kick
+
+[synths.sub]
+type = "sine"
+freq = 55.0
