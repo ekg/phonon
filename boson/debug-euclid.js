@@ -1,29 +1,24 @@
-const { euclid, euclidRot, euclidLegato } = require('./pattern');
+#!/usr/bin/env node
 
-// Test euclid(3, 8)
-console.log('euclid(3, 8):');
-const p1 = euclid(3, 8);
-const events1 = p1.queryArc(0, 1);
-console.log('Events:', events1.map(e => ({
-    start: e.part.begin.toFloat(),
-    end: e.part.end.toFloat()
-})));
+const { mini } = require('@strudel/mini');
 
-// Test euclidRot(3, 8, 1)
-console.log('\neuclidRot(3, 8, 1):');
-const p2 = euclidRot(3, 8, 1);
-const events2 = p2.queryArc(0, 1);
-console.log('Events:', events2.map(e => ({
-    start: e.part.begin.toFloat(),
-    end: e.part.end.toFloat()
-})));
+// Test bd(1,8) - should give 1 hit in 8 steps
+const pattern = mini('bd(1,8)');
 
-// Test euclidLegato(3, 8)
-console.log('\neuclidLegato(3, 8):');
-const p3 = euclidLegato(3, 8);
-const events3 = p3.queryArc(0, 1);
-console.log('Events:', events3.map(e => ({
-    start: e.part.begin.toFloat(),
-    end: e.part.end.toFloat(),
-    duration: e.part.end.toFloat() - e.part.begin.toFloat()
-})));
+// Query first cycle
+console.log('Query cycle 0-1:');
+const events = pattern.queryArc(0, 1);
+console.log(`Found ${events.length} events`);
+
+events.forEach(e => {
+    console.log(`  Event at ${e.whole.begin} - ${e.whole.end}: ${e.value}`);
+});
+
+// Query second cycle
+console.log('\nQuery cycle 1-2:');
+const events2 = pattern.queryArc(1, 2);
+console.log(`Found ${events2.length} events`);
+
+events2.forEach(e => {
+    console.log(`  Event at ${e.whole.begin} - ${e.whole.end}: ${e.value}`);
+});

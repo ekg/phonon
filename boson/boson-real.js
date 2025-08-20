@@ -31,7 +31,7 @@ class RealBoson {
         this.pattern = null;
         this.playing = false;
         this.startTime = null;
-        this.nextEventTime = 0;
+        this.scheduledEvents = new Set();
         
         console.log('🎼 Boson with REAL Strudel mini-notation');
         console.log(`   BPM: ${this.config.bpm} (${this.config.cps.toFixed(3)} cycles/sec)`);
@@ -97,7 +97,7 @@ class RealBoson {
         
         this.playing = true;
         this.startTime = Date.now() / 1000;
-        this.nextEventTime = 0;
+        this.scheduledEvents = new Set();
         
         console.log('▶ Playing');
         this.scheduleEvents();
@@ -122,12 +122,22 @@ class RealBoson {
             endTime * this.config.cps
         );
         
+        // Track scheduled events to avoid duplicates
+        const scheduled = new Set();
+        
         // Schedule OSC messages
         for (const event of events) {
             const eventTime = event.whole.begin / this.config.cps;
+            const eventKey = `${event.whole.begin}-${event.value}`;
             
-            if (eventTime >= this.nextEventTime) {
+            // Skip if already scheduled
+            if (this.scheduledEvents && this.scheduledEvents.has(eventKey)) {
+                continue;
+            }
+            
+            if (eventTime >= now) {
                 const delay = Math.max(0, (eventTime - now) * 1000);
+                scheduled.add(eventKey);
                 
                 setTimeout(() => {
                     if (!this.playing) return;
@@ -159,8 +169,20 @@ class RealBoson {
                         console.log(`  ♫ ${event.value.s}`);
                     }
                 }, delay);
-                
-                this.nextEventTime = eventTime;
+            }
+        }
+        
+        // Update scheduled events set
+        if (!this.scheduledEvents) this.scheduledEvents = new Set();
+        for (const key of scheduled) {
+            this.scheduledEvents.add(key);
+        }
+        
+        // Clean up old events from the set (keep only future events)
+        for (const key of this.scheduledEvents) {
+            const time = parseFloat(key.split('-')[0]);
+            if (time / this.config.cps < now - 0.5) {
+                this.scheduledEvents.delete(key);
             }
         }
         
