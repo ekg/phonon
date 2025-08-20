@@ -63,7 +63,7 @@ start_fermion() {
 start_boson() {
     echo -e "${YELLOW}Starting Boson...${NC}"
     cd "$SCRIPT_DIR/boson"
-    node boson.js watch &
+    node boson.js watch "../patterns.phonon" &
     BOSON_PID=$!
     sleep 1
     
@@ -131,6 +131,12 @@ case "${1:-}" in
     start)
         banner
         
+        # Kill any existing instances first
+        echo -e "${YELLOW}Checking for existing instances...${NC}"
+        pkill -f "fermion serve" 2>/dev/null && echo -e "${GREEN}✓ Stopped existing Fermion${NC}"
+        pkill -f "boson.js watch" 2>/dev/null && echo -e "${GREEN}✓ Stopped existing Boson${NC}"
+        sleep 1
+        
         # Check/build Fermion
         if [ ! -f "$FERMION" ]; then
             build_fermion || exit 1
@@ -168,16 +174,25 @@ case "${1:-}" in
     stop)
         stop_all
         ;;
+    
+    clean|kill)
+        echo -e "${YELLOW}Killing all Phonon processes...${NC}"
+        pkill -f "fermion" 2>/dev/null && echo -e "${GREEN}✓ Killed Fermion processes${NC}"
+        pkill -f "boson" 2>/dev/null && echo -e "${GREEN}✓ Killed Boson processes${NC}"
+        pkill -f "node.*boson" 2>/dev/null && echo -e "${GREEN}✓ Killed Node processes${NC}"
+        echo -e "${GREEN}All Phonon processes terminated${NC}"
+        ;;
         
     *)
         banner
-        echo "Usage: $0 {start|test|edit|build|stop}"
+        echo "Usage: $0 {start|test|edit|build|stop|clean}"
         echo ""
         echo "  start  - Start the complete system"
         echo "  test   - Test audio output"
         echo "  edit   - Edit pattern file"
         echo "  build  - Build Fermion engine"
         echo "  stop   - Stop all components"
+        echo "  clean  - Kill all Phonon processes"
         echo ""
         exit 1
         ;;
