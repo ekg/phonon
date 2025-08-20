@@ -44,7 +44,6 @@ pub enum Token {
     Out,                   // out
     
     // Special
-    Tilde,                 // ~ (for patterns)
     Newline,
     Comment(String),
     EOF,
@@ -57,7 +56,7 @@ pub enum Expression {
     BusRef(String),
     Identifier(String),
     String(String),
-    Pattern(String),       // Pattern expression ~"bd sn"
+    Pattern(String),       // Pattern expression pattern("bd sn")
     
     // Binary operations
     Add(Box<Expression>, Box<Expression>),
@@ -158,33 +157,17 @@ impl EnhancedParser {
                 }
                 '~' => {
                     chars.next();
-                    // Check if next char is a quote for pattern syntax ~"pattern"
-                    if chars.peek() == Some(&'"') {
-                        chars.next(); // Skip the quote
-                        let mut pattern = String::new();
-                        while let Some(&ch) = chars.peek() {
-                            if ch == '"' {
-                                chars.next();
-                                break;
-                            }
-                            pattern.push(ch);
+                    // Parse bus name ~name
+                    let mut name = String::new();
+                    while let Some(&ch) = chars.peek() {
+                        if ch.is_alphanumeric() || ch == '_' {
+                            name.push(ch);
                             chars.next();
+                        } else {
+                            break;
                         }
-                        tokens.push(Token::Tilde);
-                        tokens.push(Token::String(pattern));
-                    } else {
-                        // Legacy bus name syntax ~name
-                        let mut name = String::new();
-                        while let Some(&ch) = chars.peek() {
-                            if ch.is_alphanumeric() || ch == '_' {
-                                name.push(ch);
-                                chars.next();
-                            } else {
-                                break;
-                            }
-                        }
-                        tokens.push(Token::BusName(name));
                     }
+                    tokens.push(Token::BusName(name));
                 }
                 '"' => {
                     chars.next();
@@ -450,25 +433,28 @@ impl EnhancedParser {
                 self.advance();
                 Ok(Expression::BusRef(name))
             }
-            Token::Tilde => {
-                self.advance();
-                // Next token should be a string with the pattern
-                if let Token::String(pattern) = self.current_token().clone() {
-                    self.advance();
-                    Ok(Expression::Pattern(pattern))
-                } else {
-                    Err("Expected string after ~ for pattern".to_string())
-                }
-            }
             Token::Identifier(name) => {
                 self.advance();
                 
                 // Check for function call
                 if let Token::LeftParen = self.current_token() {
                     self.advance();
-                    let args = self.parse_arguments()?;
-                    self.expect(Token::RightParen)?;
-                    Ok(Expression::FunctionCall(name, args))
+                    
+                    // Special handling for pattern() function
+                    if name == "pattern" {
+                        // Expect a string argument with the mini-notation
+                        if let Token::String(pattern_str) = self.current_token().clone() {
+                            self.advance();
+                            self.expect(Token::RightParen)?;
+                            Ok(Expression::Pattern(pattern_str))
+                        } else {
+                            Err("pattern() requires a string argument".to_string())
+                        }
+                    } else {
+                        let args = self.parse_arguments()?;
+                        self.expect(Token::RightParen)?;
+                        Ok(Expression::FunctionCall(name, args))
+                    }
                 } else {
                     Ok(Expression::Identifier(name))
                 }
@@ -574,18 +560,38 @@ impl EnhancedParser {
                 use crate::mini_notation::parse_mini_notation;
                 use crate::pattern::{Pattern, State, TimeSpan, Fraction};
                 
+                // Parse the pattern string to get events
+                let pattern = parse_mini_notation(pattern_str);
+                
                 // Create a pattern source node
                 let node_id = self.generate_node_id();
                 
-                // For now, create a placeholder sine wave
-                // TODO: Implement proper pattern->audio conversion
-                // This would need to:
-                // 1. Parse the pattern with parse_mini_notation(pattern_str)
-                // 2. Query events at the current time
-                // 3. Trigger samples or synths based on pattern events
+                // For now, create a simple trigger based on the first event
+                // A real implementation would:
+                // 1. Query pattern events at current playback time
+                // 2. Look up the referenced bus (e.g., "bd" -> ~bd)
+                // 3. Trigger that audio bus when the pattern event occurs
+                // 4. Handle polyphony for overlapping events
+                
+                // Get the first event from the pattern
+                let first_cycle = pattern.first_cycle();
+                let freq = if !first_cycle.is_empty() {
+                    // Map common drum names to frequencies for testing
+                    match first_cycle[0].value.as_str() {
+                        "bd" | "kick" => 60.0,
+                        "sn" | "snare" => 200.0,
+                        "hh" | "hat" => 800.0,
+                        "cp" | "clap" => 400.0,
+                        _ => 440.0,
+                    }
+                } else {
+                    440.0
+                };
+                
+                // Create a placeholder sine wave at the mapped frequency
                 let node = Node::Source {
                     id: node_id.clone(),
-                    source_type: SourceType::Sine { freq: 440.0 }, // Placeholder
+                    source_type: SourceType::Sine { freq },
                 };
                 self.graph.add_node(node);
                 Ok(node_id)
