@@ -44,6 +44,7 @@ pub enum Token {
     Out,                   // out
     
     // Special
+    Tilde,                 // ~ (for patterns)
     Newline,
     Comment(String),
     EOF,
@@ -56,6 +57,7 @@ pub enum Expression {
     BusRef(String),
     Identifier(String),
     String(String),
+    Pattern(String),       // Pattern expression ~"bd sn"
     
     // Binary operations
     Add(Box<Expression>, Box<Expression>),
@@ -156,16 +158,33 @@ impl EnhancedParser {
                 }
                 '~' => {
                     chars.next();
-                    let mut name = String::new();
-                    while let Some(&ch) = chars.peek() {
-                        if ch.is_alphanumeric() || ch == '_' {
-                            name.push(ch);
+                    // Check if next char is a quote for pattern syntax ~"pattern"
+                    if chars.peek() == Some(&'"') {
+                        chars.next(); // Skip the quote
+                        let mut pattern = String::new();
+                        while let Some(&ch) = chars.peek() {
+                            if ch == '"' {
+                                chars.next();
+                                break;
+                            }
+                            pattern.push(ch);
                             chars.next();
-                        } else {
-                            break;
                         }
+                        tokens.push(Token::Tilde);
+                        tokens.push(Token::String(pattern));
+                    } else {
+                        // Legacy bus name syntax ~name
+                        let mut name = String::new();
+                        while let Some(&ch) = chars.peek() {
+                            if ch.is_alphanumeric() || ch == '_' {
+                                name.push(ch);
+                                chars.next();
+                            } else {
+                                break;
+                            }
+                        }
+                        tokens.push(Token::BusName(name));
                     }
-                    tokens.push(Token::BusName(name));
                 }
                 '"' => {
                     chars.next();
@@ -431,6 +450,16 @@ impl EnhancedParser {
                 self.advance();
                 Ok(Expression::BusRef(name))
             }
+            Token::Tilde => {
+                self.advance();
+                // Next token should be a string with the pattern
+                if let Token::String(pattern) = self.current_token().clone() {
+                    self.advance();
+                    Ok(Expression::Pattern(pattern))
+                } else {
+                    Err("Expected string after ~ for pattern".to_string())
+                }
+            }
             Token::Identifier(name) => {
                 self.advance();
                 
@@ -540,6 +569,27 @@ impl EnhancedParser {
     /// Process any expression and return its output node
     fn process_expression(&mut self, expr: &Expression, context: &str) -> Result<NodeId, String> {
         match expr {
+            Expression::Pattern(pattern_str) => {
+                // Parse the pattern using mini-notation
+                use crate::mini_notation::parse_mini_notation;
+                use crate::pattern::{Pattern, State, TimeSpan, Fraction};
+                
+                // Create a pattern source node
+                let node_id = self.generate_node_id();
+                
+                // For now, create a placeholder sine wave
+                // TODO: Implement proper pattern->audio conversion
+                // This would need to:
+                // 1. Parse the pattern with parse_mini_notation(pattern_str)
+                // 2. Query events at the current time
+                // 3. Trigger samples or synths based on pattern events
+                let node = Node::Source {
+                    id: node_id.clone(),
+                    source_type: SourceType::Sine { freq: 440.0 }, // Placeholder
+                };
+                self.graph.add_node(node);
+                Ok(node_id)
+            }
             Expression::FunctionCall(name, args) => {
                 // Create source or processor node
                 let node_id = self.generate_node_id();
