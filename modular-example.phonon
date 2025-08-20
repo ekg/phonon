@@ -1,0 +1,97 @@
+// ============================================================
+// Phonon Modular Synthesis Example
+// Demonstrates the full power of cross-modulation and
+// signal routing in the new DSL
+// ============================================================
+
+// === LFO AND CONTROL SIGNALS ===
+// Slow LFO for filter sweeps
+~lfo_slow: sine(0.25) * 0.5 + 0.5     // 0.25 Hz, normalized 0-1
+
+// Fast LFO for vibrato
+~lfo_fast: sine(6) * 0.3              // 6 Hz vibrato
+
+// Envelope follower for sidechain
+~env_follow: perc(0.001, 0.1)         // Fast attack, quick release
+
+// === BASS SYNTHESIS ===
+// Bass oscillator with envelope
+~bass_env: perc(0.01, 0.3)
+~bass_osc: saw(55) * ~bass_env
+
+// Filter modulated by slow LFO
+~bass: ~bass_osc >> lpf(~lfo_slow * 2000 + 500, 0.8)
+
+// Extract bass features for cross-modulation
+~bass_rms: ~bass >> rms(0.05)         // 50ms RMS window
+~bass_transient: ~bass >> transient   // Detect bass note attacks
+
+// === LEAD SYNTHESIS ===
+// Lead with vibrato
+~lead_freq: 440 + ~lfo_fast * 20
+~lead: square(~lead_freq) * 0.3
+
+// Lead with delay
+~lead_delayed: ~lead >> delay(0.375) >> lpf(3000, 0.5)
+
+// === DRUM PATTERNS ===
+// Kick pattern
+~kick: "bd ~ ~ bd" >> gain(1.0)
+~kick_transient: ~kick >> transient
+
+// Snare modulated by bass level
+~snare: "~ sn ~ sn" >> lpf(~bass_rms * 4000 + 1000, 0.7)
+
+// Hi-hats with brightness controlled by bass
+~hats: "hh*16" >> hpf(~bass_rms * 8000 + 2000, 0.8) >> gain(0.3)
+
+// === CROSS-MODULATION ===
+// Duck the bass when kick hits (sidechain compression)
+~bass_ducked: ~bass * (1 - ~kick_transient * 0.5)
+
+// Gate hi-hats based on bass level
+~hats_gated: ~hats >> when(~bass_rms > 0.3)
+
+// === CHORD PROGRESSION ===
+// Using inline synthdef for chords
+synthdef c_major sine(261.63) + sine(329.63) + sine(392.0)
+synthdef f_major sine(349.23) + sine(440.0) + sine(523.25)
+synthdef g_major sine(392.0) + sine(493.88) + sine(587.33)
+synthdef a_minor sine(440.0) + sine(523.25) + sine(659.25)
+
+// Chord pattern
+~chords: "c_major ~ f_major ~ g_major ~ a_minor ~" >> gain(0.2)
+
+// === MODULATION ROUTING ===
+// Route LFO to multiple destinations
+route ~lfo_slow -> {
+    bass.filter.cutoff: 0.3,
+    lead.delay.feedback: 0.2,
+    reverb.mix: 0.1
+}
+
+// Route audio analysis to pattern controls
+route ~bass_transient -> ~hats.gain: -0.5    // Duck hats on bass hits
+route ~kick_transient -> ~bass.gain: -0.3    // Sidechain compression
+
+// === EFFECTS PROCESSING ===
+// Reverb send based on pattern
+~reverb_send: (~lead * 0.3) + (~chords * 0.5)
+~reverb_out: ~reverb_send >> reverb(0.7, 0.8)
+
+// Master compression
+~pre_master: (~bass_ducked * 0.4) + (~kick * 0.5) + (~snare * 0.3) + 
+             (~hats_gated * 0.2) + (~lead_delayed * 0.3) + 
+             (~chords * 0.2) + (~reverb_out * 0.2)
+
+~master: ~pre_master >> compress(0.3, 4) >> limit(0.95)
+
+// === OUTPUT ===
+out: ~master
+
+// === VISUALIZATION HELPERS ===
+// These buses can be monitored for visualization
+~viz_bass_level: ~bass_rms
+~viz_kick_trigger: ~kick_transient
+~viz_lfo_position: ~lfo_slow
+~viz_master_level: ~master >> rms(0.01)

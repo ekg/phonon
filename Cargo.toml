@@ -1,0 +1,40 @@
+[package]
+name = "phonon"
+version = "0.1.0"
+edition = "2021"
+authors = ["Erik Garrison <erik.garrison@gmail.com>"]
+description = "Phonon: A Rust-based live coding language combining TidalCycles patterns with modular synthesis"
+
+[dependencies]
+# Audio synthesis
+fundsp = "0.18"
+
+# Audio output - cross-platform (JACK, ALSA, OpenSL ES on Android)
+cpal = "0.15"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# OSC support
+rosc = "0.10"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Audio file generation
+hound = "3.5"
+
+# Random for sample generation
+rand = "0.8"
+
+# Hashing for deterministic pattern testing
+sha2 = "0.10"
