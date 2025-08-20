@@ -440,7 +440,7 @@ pub fn brown() -> Pattern<f64> {
             
             // Integrate white noise for brown noise
             brown += white * 0.02;
-            brown = brown.max(-1.0).min(1.0);
+            brown = f64::max(brown, -1.0).min(1.0);
             
             haps.push(Hap::new(
                 Some(state.span.clone()),

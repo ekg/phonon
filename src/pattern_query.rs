@@ -74,9 +74,11 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     where
         F: Fn(Hap<T>) -> Hap<T> + Send + Sync + 'static,
     {
+        let f = Arc::new(f);
         Pattern::new(move |state: &State| {
             let haps = self.query(state);
-            haps.into_iter().map(f).collect()
+            let f = f.clone();
+            haps.into_iter().map(move |h| f(h)).collect()
         })
     }
     

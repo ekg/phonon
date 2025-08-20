@@ -10,42 +10,42 @@ pub type MidiNote = u8;
 
 /// Note names to MIDI mapping
 lazy_static::lazy_static! {
-    static ref NOTE_TO_MIDI: HashMap<&'static str, MidiNote> = {
+    static ref NOTE_TO_MIDI: HashMap<String, MidiNote> = {
         let mut m = HashMap::new();
         // Octave -1
-        m.insert("c-1", 0);
-        m.insert("cs-1", 1); m.insert("df-1", 1);
-        m.insert("d-1", 2);
-        m.insert("ds-1", 3); m.insert("ef-1", 3);
-        m.insert("e-1", 4);
-        m.insert("f-1", 5);
-        m.insert("fs-1", 6); m.insert("gf-1", 6);
-        m.insert("g-1", 7);
-        m.insert("gs-1", 8); m.insert("af-1", 8);
-        m.insert("a-1", 9);
-        m.insert("as-1", 10); m.insert("bf-1", 10);
-        m.insert("b-1", 11);
+        m.insert("c-1".to_string(), 0);
+        m.insert("cs-1".to_string(), 1); m.insert("df-1".to_string(), 1);
+        m.insert("d-1".to_string(), 2);
+        m.insert("ds-1".to_string(), 3); m.insert("ef-1".to_string(), 3);
+        m.insert("e-1".to_string(), 4);
+        m.insert("f-1".to_string(), 5);
+        m.insert("fs-1".to_string(), 6); m.insert("gf-1".to_string(), 6);
+        m.insert("g-1".to_string(), 7);
+        m.insert("gs-1".to_string(), 8); m.insert("af-1".to_string(), 8);
+        m.insert("a-1".to_string(), 9);
+        m.insert("as-1".to_string(), 10); m.insert("bf-1".to_string(), 10);
+        m.insert("b-1".to_string(), 11);
         
         // Add all octaves from 0 to 10
         for octave in 0..=10 {
             let base = (octave + 1) * 12;
-            m.insert(&format!("c{}", octave), base);
-            m.insert(&format!("cs{}", octave), base + 1);
-            m.insert(&format!("df{}", octave), base + 1);
-            m.insert(&format!("d{}", octave), base + 2);
-            m.insert(&format!("ds{}", octave), base + 3);
-            m.insert(&format!("ef{}", octave), base + 3);
-            m.insert(&format!("e{}", octave), base + 4);
-            m.insert(&format!("f{}", octave), base + 5);
-            m.insert(&format!("fs{}", octave), base + 6);
-            m.insert(&format!("gf{}", octave), base + 6);
-            m.insert(&format!("g{}", octave), base + 7);
-            m.insert(&format!("gs{}", octave), base + 8);
-            m.insert(&format!("af{}", octave), base + 8);
-            m.insert(&format!("a{}", octave), base + 9);
-            m.insert(&format!("as{}", octave), base + 10);
-            m.insert(&format!("bf{}", octave), base + 10);
-            m.insert(&format!("b{}", octave), base + 11);
+            m.insert(format!("c{}", octave), base);
+            m.insert(format!("cs{}", octave), base + 1);
+            m.insert(format!("df{}", octave), base + 1);
+            m.insert(format!("d{}", octave), base + 2);
+            m.insert(format!("ds{}", octave), base + 3);
+            m.insert(format!("ef{}", octave), base + 3);
+            m.insert(format!("e{}", octave), base + 4);
+            m.insert(format!("f{}", octave), base + 5);
+            m.insert(format!("fs{}", octave), base + 6);
+            m.insert(format!("gf{}", octave), base + 6);
+            m.insert(format!("g{}", octave), base + 7);
+            m.insert(format!("gs{}", octave), base + 8);
+            m.insert(format!("af{}", octave), base + 8);
+            m.insert(format!("a{}", octave), base + 9);
+            m.insert(format!("as{}", octave), base + 10);
+            m.insert(format!("bf{}", octave), base + 10);
+            m.insert(format!("b{}", octave), base + 11);
         }
         m
     };
@@ -146,14 +146,14 @@ pub fn note_to_midi(note: &str) -> Option<MidiNote> {
     let note_lower = note.to_lowercase();
     
     // Try direct lookup
-    if let Some(&midi) = NOTE_TO_MIDI.get(note_lower.as_str()) {
+    if let Some(&midi) = NOTE_TO_MIDI.get(&note_lower) {
         return Some(midi);
     }
     
     // Try to parse with default octave
     if note_lower.len() == 1 || (note_lower.len() == 2 && note_lower.ends_with('#')) {
         let with_octave = format!("{}4", note_lower); // Default to octave 4
-        if let Some(&midi) = NOTE_TO_MIDI.get(with_octave.as_str()) {
+        if let Some(&midi) = NOTE_TO_MIDI.get(&with_octave) {
             return Some(midi);
         }
     }
