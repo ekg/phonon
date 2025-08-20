@@ -343,47 +343,103 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         
         let len = patterns.len() as f64;
         Pattern::new(move |state| {
-            let cycle = state.span.begin.to_float().floor();
-            let index = ((state.span.begin.to_float() - cycle) * len).floor() as usize;
+            let mut all_haps = Vec::new();
             
-            if index < patterns.len() {
-                let pattern = &patterns[index];
-                let scaled_span = TimeSpan::new(
-                    Fraction::from_float(state.span.begin.to_float() * len),
-                    Fraction::from_float(state.span.end.to_float() * len),
-                );
+            // For each cycle that overlaps with our query span
+            let start_cycle = state.span.begin.to_float().floor() as i64;
+            let end_cycle = state.span.end.to_float().ceil() as i64;
+            
+            for cycle in start_cycle..end_cycle {
+                let cycle_f = cycle as f64;
                 
-                let scaled_state = State {
-                    span: scaled_span,
-                    controls: state.controls.clone(),
-                };
+                // Get the portion of this cycle that overlaps with our query
+                let cycle_start = cycle_f.max(state.span.begin.to_float());
+                let cycle_end = (cycle_f + 1.0).min(state.span.end.to_float());
                 
-                pattern.query(&scaled_state)
-                    .into_iter()
-                    .map(|mut hap| {
+                if cycle_start >= cycle_end {
+                    continue;
+                }
+                
+                // Within each cycle, patterns are divided equally
+                let local_start = cycle_start - cycle_f;
+                let local_end = cycle_end - cycle_f;
+                
+                // Determine which patterns to query
+                let start_idx = (local_start * len).floor() as usize;
+                let end_idx = ((local_end * len).ceil() as usize).min(patterns.len());
+                
+                for idx in start_idx..end_idx {
+                    let pattern = &patterns[idx];
+                    
+                    // This pattern occupies the time span [idx/len, (idx+1)/len] within the cycle
+                    let pattern_start = idx as f64 / len;
+                    let pattern_end = (idx + 1) as f64 / len;
+                    
+                    // Calculate the query window within this pattern
+                    let query_start = local_start.max(pattern_start);
+                    let query_end = local_end.min(pattern_end);
+                    
+                    if query_start >= query_end {
+                        continue;
+                    }
+                    
+                    // Scale the query to pattern's internal time
+                    let scaled_start = (query_start - pattern_start) * len;
+                    let scaled_end = (query_end - pattern_start) * len;
+                    
+                    let scaled_state = State {
+                        span: TimeSpan::new(
+                            Fraction::from_float(scaled_start),
+                            Fraction::from_float(scaled_end),
+                        ),
+                        controls: state.controls.clone(),
+                    };
+                    
+                    // Query the pattern and rescale results
+                    for mut hap in pattern.query(&scaled_state) {
+                        // Rescale from pattern time back to global time
+                        let hap_start = hap.part.begin.to_float() / len + pattern_start + cycle_f;
+                        let hap_end = hap.part.end.to_float() / len + pattern_start + cycle_f;
+                        
                         hap.part = TimeSpan::new(
-                            Fraction::from_float(hap.part.begin.to_float() / len),
-                            Fraction::from_float(hap.part.end.to_float() / len),
+                            Fraction::from_float(hap_start),
+                            Fraction::from_float(hap_end),
                         );
+                        
                         if let Some(whole) = hap.whole {
+                            let whole_start = whole.begin.to_float() / len + pattern_start + cycle_f;
+                            let whole_end = whole.end.to_float() / len + pattern_start + cycle_f;
                             hap.whole = Some(TimeSpan::new(
-                                Fraction::from_float(whole.begin.to_float() / len),
-                                Fraction::from_float(whole.end.to_float() / len),
+                                Fraction::from_float(whole_start),
+                                Fraction::from_float(whole_end),
                             ));
                         }
-                        hap
-                    })
-                    .collect()
-            } else {
-                vec![]
+                        
+                        all_haps.push(hap);
+                    }
+                }
             }
+            
+            all_haps
         })
     }
     
     /// Alternate between patterns each cycle
     pub fn slowcat(patterns: Vec<Pattern<T>>) -> Pattern<T> {
-        let len = patterns.len() as f64;
-        Self::cat(patterns).slow(len)
+        if patterns.is_empty() {
+            return Pattern::silence();
+        }
+        
+        let len = patterns.len();
+        Pattern::new(move |state| {
+            // Determine which pattern is active based on the cycle number
+            let cycle = state.span.begin.to_float().floor() as usize;
+            let pattern_idx = cycle % len;
+            let pattern = &patterns[pattern_idx];
+            
+            // Query the selected pattern with the current time span
+            pattern.query(state)
+        })
     }
 }
 

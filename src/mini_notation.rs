@@ -466,31 +466,8 @@ impl MiniNotationParser {
     
     /// Helper to create a fast concatenation
     fn fast_cat(&self, patterns: Vec<Pattern<String>>) -> Pattern<String> {
-        if patterns.is_empty() {
-            return Pattern::silence();
-        }
-        
-        let n = patterns.len();
-        Pattern::new(move |state| {
-            let cycle = state.span.begin.to_float();
-            let cycle_floor = cycle.floor();
-            let cycle_pos = cycle - cycle_floor;
-            
-            // Determine which pattern is active
-            let index = (cycle_pos * n as f64).floor() as usize % n;
-            let pattern = &patterns[index];
-            
-            // Scale time for this pattern
-            let scaled_begin = state.span.begin * Fraction::new(n as i64, 1);
-            let scaled_end = state.span.end * Fraction::new(n as i64, 1);
-            
-            let scaled_state = crate::pattern::State {
-                span: TimeSpan::new(scaled_begin, scaled_end),
-                controls: state.controls.clone(),
-            };
-            
-            pattern.query(&scaled_state)
-        })
+        // Use the built-in Pattern::cat which properly sequences patterns
+        Pattern::cat(patterns)
     }
 }
 

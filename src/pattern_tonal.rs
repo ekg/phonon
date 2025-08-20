@@ -142,8 +142,8 @@ pub fn note_to_midi(note: &str) -> Option<MidiNote> {
         return Some(n);
     }
     
-    // Normalize note name
-    let note_lower = note.to_lowercase();
+    // Normalize note name and convert # to s
+    let note_lower = note.to_lowercase().replace('#', "s");
     
     // Try direct lookup
     if let Some(&midi) = NOTE_TO_MIDI.get(&note_lower) {
@@ -151,7 +151,7 @@ pub fn note_to_midi(note: &str) -> Option<MidiNote> {
     }
     
     // Try to parse with default octave
-    if note_lower.len() == 1 || (note_lower.len() == 2 && note_lower.ends_with('#')) {
+    if note_lower.len() == 1 || (note_lower.len() == 2 && (note_lower.ends_with('s') || note_lower.ends_with('f'))) {
         let with_octave = format!("{}4", note_lower); // Default to octave 4
         if let Some(&midi) = NOTE_TO_MIDI.get(&with_octave) {
             return Some(midi);
