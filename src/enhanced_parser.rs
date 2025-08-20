@@ -501,14 +501,29 @@ impl EnhancedParser {
         Ok(())
     }
     
-    /// Parse output statement
+    /// Parse output statement (supports out: and ~out1:, ~out2:, etc.)
     fn parse_output(&mut self) -> Result<(), String> {
-        self.advance(); // Skip 'out'
+        // Handle both 'out:' and '~outN:' syntax
+        let output_name = if let Token::Out = self.current_token() {
+            self.advance(); // Skip 'out'
+            "out".to_string()
+        } else if let Token::BusName(name) = self.current_token().clone() {
+            if name.starts_with("out") {
+                let out_name = name.clone();
+                self.advance();
+                out_name
+            } else {
+                return Ok(()); // Not an output, handle as regular bus
+            }
+        } else {
+            return Ok(());
+        };
+        
         if let Token::Colon = self.current_token() {
             self.advance();
             let expr = self.parse_expression()?;
             // Store the output expression
-            self.buses.insert("out".to_string(), expr);
+            self.buses.insert(output_name, expr);
         }
         Ok(())
     }
@@ -526,17 +541,25 @@ impl EnhancedParser {
             }
         }
         
-        // Process output if present
-        if let Some(out_expr) = self.buses.get("out").cloned() {
-            // Create output node
-            let output_node = Node::Output {
-                id: NodeId("output".to_string()),
-            };
-            self.graph.add_node(output_node);
-            
-            // Process output expression and connect to output node
-            let out_node_id = self.process_expression(&out_expr, "out")?;
-            self.graph.connect(out_node_id, NodeId("output".to_string()), 1.0);
+        // Process all outputs (out, out1, out2, etc.)
+        for (bus_name, expr) in &self.buses.clone() {
+            if bus_name == "out" || bus_name.starts_with("out") {
+                // Create unique output node for each output
+                let output_id = if bus_name == "out" {
+                    NodeId("output".to_string())
+                } else {
+                    NodeId(format!("output_{}", bus_name))
+                };
+                
+                let output_node = Node::Output {
+                    id: output_id.clone(),
+                };
+                self.graph.add_node(output_node);
+                
+                // Process output expression and connect to output node
+                let out_node_id = self.process_expression(&expr, bus_name)?;
+                self.graph.connect(out_node_id, output_id, 1.0);
+            }
         }
         
         Ok(())
@@ -809,6 +832,76 @@ impl EnhancedParser {
                         Node::Processor {
                             id: node_id.clone(),
                             processor_type: ProcessorType::Gain { amount },
+                        }
+                    }
+                    "delay" => {
+                        let time = if args.is_empty() { 
+                            0.25 
+                        } else { 
+                            self.eval_expression(&args[0])?
+                        };
+                        let feedback = if args.len() > 1 {
+                            self.eval_expression(&args[1])?
+                        } else {
+                            0.5
+                        };
+                        Node::Processor {
+                            id: node_id.clone(),
+                            processor_type: ProcessorType::Delay { time, feedback },
+                        }
+                    }
+                    "reverb" => {
+                        let mix = if args.is_empty() { 
+                            0.3 
+                        } else { 
+                            self.eval_expression(&args[0])?
+                        };
+                        Node::Processor {
+                            id: node_id.clone(),
+                            processor_type: ProcessorType::Reverb { mix },
+                        }
+                    }
+                    "distortion" | "dist" => {
+                        let amount = if args.is_empty() { 
+                            0.5 
+                        } else { 
+                            self.eval_expression(&args[0])?
+                        };
+                        Node::Processor {
+                            id: node_id.clone(),
+                            processor_type: ProcessorType::Distortion { amount },
+                        }
+                    }
+                    "compressor" | "comp" => {
+                        let threshold = if args.is_empty() { 
+                            -20.0 
+                        } else { 
+                            self.eval_expression(&args[0])?
+                        };
+                        let ratio = if args.len() > 1 {
+                            self.eval_expression(&args[1])?
+                        } else {
+                            4.0
+                        };
+                        Node::Processor {
+                            id: node_id.clone(),
+                            processor_type: ProcessorType::Compressor { threshold, ratio },
+                        }
+                    }
+                    "bpf" => {
+                        if args.len() >= 2 {
+                            let center = self.eval_expression(&args[0])?;
+                            let q = self.eval_expression(&args[1])?;
+                            Node::Processor {
+                                id: node_id.clone(),
+                                processor_type: ProcessorType::BandPass { center, q },
+                            }
+                        } else {
+                            // Fallback to placeholder
+                            Node::Source {
+                                id: node_id.clone(),
+                                source_type: SourceType::Sine { freq: 440.0 },
+                            }
                         }
                     }
                     _ => {
