@@ -1,0 +1,1 @@
+- you must use test-driven design. any feature implemented must be tested. audio features should be tested by examining output audio files using appropriate signal analysis techniques. intermediate representations (text) can be used too for testing that the pattern and signal generation system is working correctly.
