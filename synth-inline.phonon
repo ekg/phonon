@@ -1,0 +1,32 @@
+// Phonon with inline synthdef declarations
+// Define synths right in the pattern file!
+
+// === SYNTHDEF DECLARATIONS ===
+synthdef bass sine(110)
+synthdef lead square(440)
+synthdef pad triangle(220)
+synthdef fmbass fm(55,110,0.8)
+synthdef kick sine(60)
+synthdef snare noise
+
+// C major scale notes
+synthdef c3 sine(261.63)
+synthdef d3 sine(293.66)
+synthdef e3 sine(329.63)
+synthdef f3 sine(349.23)
+synthdef g3 sine(392.0)
+synthdef a3 sine(440.0)
+synthdef b3 sine(493.88)
+synthdef c4 sine(523.25)
+
+// === PATTERNS USING THE DEFINED SYNTHS ===
+
+// Play C major scale
+"c3 d3 e3 f3 g3 a3 b3 c4"
+
+// Bass line
+// "bass ~ bass ~"
+
+// Mix synths and samples
+// "kick ~ snare ~"
+// "bd ~ sn ~"
