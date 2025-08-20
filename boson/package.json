@@ -17,6 +17,7 @@
   "type": "commonjs",
   "dependencies": {
     "@strudel/core": "^1.2.3",
+    "@strudel/mini": "^1.2.3",
     "osc-js": "^2.4.1"
   }
 }

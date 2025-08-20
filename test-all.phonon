@@ -1,0 +1,38 @@
+// Test all Strudel mini-notation features
+
+// === CHOOSE ONE PATTERN SET TO UNCOMMENT ===
+
+// 1. Euclidean rhythm - 3 hits in 8 steps
+"bd(3,8)"
+
+// 2. Pattern groups and alternation
+// "[bd sd] hh"
+
+// 3. Multiple samples per step
+// "[bd cp] ~ [sd hh] ~"
+
+// 4. Alternation between patterns each cycle
+// "<bd sn cp>"
+
+// 5. Fast/slow modifiers
+// "bd*4"
+// "cp/2"
+
+// 6. Stacked patterns (polyrhythm)
+// "bd ~ bd ~"
+// "~ cp ~ cp"
+// "hh*8"
+
+// 7. Complex pattern with euclidean and stacking
+// "bd(5,8)"
+// "~ cp*2"
+// "hh(7,8)"
+
+// 8. Pattern with rests and groups
+// "[bd bd] ~ [sn [hh oh]] ~"
+
+// 9. Nested groups
+// "[[bd sd] cp] ~ [hh [oh ch]]"
+
+// 10. Alternation with groups
+// "<[bd sd] [cp hh]>"

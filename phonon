@@ -8,6 +8,11 @@ FERMION="$SCRIPT_DIR/fermion/target/release/fermion"
 BOSON="$SCRIPT_DIR/boson/boson.js"
 PATTERN_FILE="$SCRIPT_DIR/patterns.phonon"
 
+# Load config if it exists
+if [ -f "$SCRIPT_DIR/phonon.config" ]; then
+    source "$SCRIPT_DIR/phonon.config"
+fi
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -63,7 +68,12 @@ start_fermion() {
 start_boson() {
     echo -e "${YELLOW}Starting Boson...${NC}"
     cd "$SCRIPT_DIR/boson"
-    node boson.js watch "../patterns.phonon" &
+    # Use BPM environment variable if set, otherwise default to 120
+    BPM_ARG=""
+    if [ ! -z "$BPM" ]; then
+        BPM_ARG="--bpm $BPM"
+    fi
+    node boson-real.js watch "../patterns.phonon" $BPM_ARG &
     BOSON_PID=$!
     sleep 1
     
@@ -148,6 +158,7 @@ case "${1:-}" in
         
         echo ""
         echo -e "${GREEN}System ready!${NC}"
+        echo -e "BPM: ${BLUE}${BPM:-120}${NC} (edit phonon.config to change)"
         echo -e "Edit ${BLUE}patterns.phonon${NC} to make music"
         echo -e "Press ${YELLOW}Ctrl+C${NC} to stop"
         echo ""

@@ -27,6 +27,7 @@ class Boson {
         this.playing = false;
         this.startTime = Date.now() / 1000;
         this.currentCycle = 0;
+        this.scheduledTimeout = null;  // Track the timeout so we can cancel it
         
         console.log('🎼 Boson Pattern Engine');
         console.log(`   OSC: ${this.config.oscHost}:${this.config.oscPort}`);
@@ -124,6 +125,10 @@ class Boson {
     
     stop() {
         this.playing = false;
+        if (this.scheduledTimeout) {
+            clearTimeout(this.scheduledTimeout);
+            this.scheduledTimeout = null;
+        }
         console.log('■ Stopped');
     }
     
@@ -192,7 +197,7 @@ class Boson {
         
         // Schedule next beat
         const beatDuration = (60 / this.config.tempo) * 1000 / 4;
-        setTimeout(() => {
+        this.scheduledTimeout = setTimeout(() => {
             this.scheduleNextBeat(index + 1);
             
             if ((index + 1) % this.pattern.length === 0) {
@@ -210,12 +215,8 @@ class Boson {
         fs.watchFile(this.config.patternFile, { interval: 100 }, (curr, prev) => {
             if (curr.mtime !== prev.mtime) {
                 console.log('\n📝 Pattern file changed');
-                if (this.loadPattern()) {
-                    if (this.playing) {
-                        this.stop();
-                        this.play();
-                    }
-                }
+                // Just reload the pattern - don't restart the scheduling loop!
+                this.loadPattern();
             }
         });
     }
