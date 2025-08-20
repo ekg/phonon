@@ -1,0 +1,13 @@
+// Test Strudel mini-notation patterns
+
+// Euclidean rhythm - 3 hits in 8 steps
+"bd(3,8)"
+
+// Stack multiple patterns
+"bd*4"
+"~ cp ~ cp"
+"hh*8"
+
+// Groups and alternation
+// "[bd sd] hh"
+// "<bd sn cp>"

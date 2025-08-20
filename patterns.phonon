@@ -1,11 +1,13 @@
 // Phonon Pattern File
 // Edit this file while Phonon is running to change the beat!
 
-// Simple kick pattern (one kick per 2 bars)
-"bd ~ sd ~ sd"
+// Euclidean polyrhythm with stacking
+"bd(5,8)"
+"~ cp*2"  
+"hh(7,8)"
 
-// Try uncommenting these alternatives:
-// "bd bd bd bd"           // Four-on-floor
-// "bd ~ sn ~"             // Basic beat
-// "bd ~ sn ~ bd bd sn ~"  // More complex
+// Try these alternatives:
+// "bd(3,8)"               // Simple euclidean
+// "[bd sd] hh"            // Groups
+// "<bd sn cp>"            // Alternation per cycle
 // "bd*4, ~ cp ~ cp"       // Stacked: kick + clap

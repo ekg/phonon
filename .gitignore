@@ -20,3 +20,6 @@ npm-debug.log
 # Downloaded samples
 dirt-samples/
 samples/
+
+# Reference repos for development
+strudel-reference/
