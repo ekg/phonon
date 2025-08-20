@@ -46,8 +46,8 @@
 // Uncomment patterns below:
 
 // Chord progression with Juno synth (different pitches)
-"<[juno:0,juno:1,juno:2] [juno:3,juno:4,juno:5] [juno:6,juno:7,juno:8] [juno:0,juno:1,juno:2]>"
-"bd ~ sn ~"
+//"<[juno:0,juno:1,juno:2] [juno:3,juno:4,juno:5] [juno:6,juno:7,juno:8] [juno:0,juno:1,juno:2]>"
+//"bd ~ sn ~"
 
 // Simpler arpeggio with juno
 // "[juno:0 juno:1 juno:2 juno:1]*2"
