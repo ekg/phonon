@@ -31,6 +31,7 @@ class Boson {
         console.log('🎼 Boson Pattern Engine');
         console.log(`   OSC: ${this.config.oscHost}:${this.config.oscPort}`);
         console.log(`   Tempo: ${this.config.tempo} BPM`);
+        console.log(`   Pattern file: ${this.config.patternFile}`);
     }
     
     async init() {
@@ -225,7 +226,13 @@ async function main() {
     const args = process.argv.slice(2);
     const command = args[0] || 'play';
     
-    const boson = new Boson();
+    // Check if second argument is a pattern file path
+    const config = {};
+    if (args[1] && !args[1].startsWith('-')) {
+        config.patternFile = args[1];
+    }
+    
+    const boson = new Boson(config);
     await boson.init();
     
     if (command === 'watch') {

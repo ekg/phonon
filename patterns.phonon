@@ -1,2 +1,11 @@
-// House beat - actual drum samples!
-"bd ~ ~ ~ ~ ~ ~"
+// Phonon Pattern File
+// Edit this file while Phonon is running to change the beat!
+
+// Simple kick pattern (one kick per 2 bars)
+"bd ~ sd ~ sd"
+
+// Try uncommenting these alternatives:
+// "bd bd bd bd"           // Four-on-floor
+// "bd ~ sn ~"             // Basic beat
+// "bd ~ sn ~ bd bd sn ~"  // More complex
+// "bd*4, ~ cp ~ cp"       // Stacked: kick + clap

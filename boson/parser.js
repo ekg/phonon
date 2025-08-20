@@ -28,7 +28,7 @@ class PatternParser {
             // Kicks
             'bd': 'bd', 'kick': 'bd',
             // Snares  
-            'sn': 'sn', 'sd': 'sn', 'snare': 'sn',
+            'sn': 'sn', 'sd': 'sd', 'snare': 'sn',
             // Hi-hats
             'hh': 'hh', 'hihat': 'hh', 'hat': 'hh',
             'oh': 'oh', 'openhat': 'oh', 'openhihat': 'oh',
