@@ -1,0 +1,19 @@
+// Basic Synthesizer Examples for Phonon
+// Using inline synthesis definitions
+
+// === SIMPLE MELODY ===
+// Basic sine wave melody
+"synth:sine(440) synth:sine(550) synth:sine(660) synth:sine(880)"
+
+// === BASS LINE ===
+// FM bass with rhythm
+// "synth:fm(55,110,0.8) ~ synth:fm(82.5,165,0.6) ~"
+
+// === DRUMS + SYNTH ===
+// Mix samples with synthesis
+// "bd ~ sn ~"
+// "synth:noise ~ ~ synth:noise"
+
+// === CHORD PROGRESSION ===
+// Different oscillator types
+// "synth:saw(110) synth:square(138) synth:triangle(165) synth:saw(110)"

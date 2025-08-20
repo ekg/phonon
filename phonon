@@ -73,7 +73,14 @@ start_boson() {
     if [ ! -z "$BPM" ]; then
         BPM_ARG="--bpm $BPM"
     fi
-    node boson-real.js watch "../patterns.phonon" $BPM_ARG &
+    # Use PATTERN_FILE variable (can be absolute or relative)
+    if [[ "$PATTERN_FILE" = /* ]]; then
+        # Absolute path
+        node boson-real.js watch "$PATTERN_FILE" $BPM_ARG &
+    else
+        # Relative path from boson directory
+        node boson-real.js watch "../$(basename "$PATTERN_FILE")" $BPM_ARG &
+    fi
     BOSON_PID=$!
     sleep 1
     
@@ -141,6 +148,20 @@ case "${1:-}" in
     start)
         banner
         
+        # Check for optional pattern file argument
+        if [ ! -z "${2:-}" ]; then
+            if [ -f "$SCRIPT_DIR/${2}" ]; then
+                PATTERN_FILE="$SCRIPT_DIR/${2}"
+                echo -e "${GREEN}Using pattern file: ${2}${NC}"
+            elif [ -f "${2}" ]; then
+                PATTERN_FILE="${2}"
+                echo -e "${GREEN}Using pattern file: ${2}${NC}"
+            else
+                echo -e "${RED}Pattern file not found: ${2}${NC}"
+                exit 1
+            fi
+        fi
+        
         # Kill any existing instances first
         echo -e "${YELLOW}Checking for existing instances...${NC}"
         pkill -f "fermion serve" 2>/dev/null && echo -e "${GREEN}✓ Stopped existing Fermion${NC}"
@@ -159,7 +180,7 @@ case "${1:-}" in
         echo ""
         echo -e "${GREEN}System ready!${NC}"
         echo -e "BPM: ${BLUE}${BPM:-120}${NC} (edit phonon.config to change)"
-        echo -e "Edit ${BLUE}patterns.phonon${NC} to make music"
+        echo -e "Pattern file: ${BLUE}$(basename "$PATTERN_FILE")${NC}"
         echo -e "Press ${YELLOW}Ctrl+C${NC} to stop"
         echo ""
         
@@ -196,14 +217,19 @@ case "${1:-}" in
         
     *)
         banner
-        echo "Usage: $0 {start|test|edit|build|stop|clean}"
+        echo "Usage: $0 {start|test|edit|build|stop|clean} [pattern_file]"
         echo ""
-        echo "  start  - Start the complete system"
-        echo "  test   - Test audio output"
-        echo "  edit   - Edit pattern file"
-        echo "  build  - Build Fermion engine"
-        echo "  stop   - Stop all components"
-        echo "  clean  - Kill all Phonon processes"
+        echo "  start [file] - Start with optional pattern file (default: patterns.phonon)"
+        echo "  test         - Test audio output"
+        echo "  edit         - Edit pattern file"
+        echo "  build        - Build Fermion engine"
+        echo "  stop         - Stop all components"
+        echo "  clean        - Kill all Phonon processes"
+        echo ""
+        echo "Examples:"
+        echo "  $0 start                    # Use default patterns.phonon"
+        echo "  $0 start synth.phonon       # Use synth.phonon"
+        echo "  $0 start test-pattern.phonon # Use test-pattern.phonon"
         echo ""
         exit 1
         ;;
