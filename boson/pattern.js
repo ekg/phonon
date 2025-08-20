@@ -1923,6 +1923,1685 @@ function polyrhythm(...patterns) {
     return stack(...stacked);
 }
 
+// === Additional Pattern Structure ===
+
+/**
+ * Apply function on first of n cycles
+ */
+function firstOf(n, fn, pattern) {
+    const period = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const cycleSpan = new TimeSpan(cycle, cycle + 1);
+            const querySpan = cycleSpan.intersection(span);
+            
+            if (querySpan) {
+                // Apply function only on first cycle of each period
+                const patToQuery = (cycle % period === 0) ? fn(pattern) : pattern;
+                const cycleEvents = patToQuery.query(querySpan);
+                events.push(...cycleEvents);
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Apply function on last of n cycles
+ */
+function lastOf(n, fn, pattern) {
+    const period = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const cycleSpan = new TimeSpan(cycle, cycle + 1);
+            const querySpan = cycleSpan.intersection(span);
+            
+            if (querySpan) {
+                // Apply function only on last cycle of each period
+                const patToQuery = (cycle % period === period - 1) ? fn(pattern) : pattern;
+                const cycleEvents = patToQuery.query(querySpan);
+                events.push(...cycleEvents);
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Brak - creates a syncopated half-time feel
+ */
+function brak(pattern) {
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const isEven = cycle % 2 === 0;
+            
+            if (isEven) {
+                // Normal on even cycles
+                const cycleEvents = pattern.query(new TimeSpan(cycle, cycle + 1));
+                for (const event of cycleEvents) {
+                    const intersection = event.part.intersection(span);
+                    if (intersection) {
+                        events.push(new Event(event.whole, intersection, event.value, event.context));
+                    }
+                }
+            } else {
+                // Syncopated on odd cycles - shift by 1/4
+                const shifted = late(0.25, pattern);
+                const cycleEvents = shifted.query(new TimeSpan(cycle, cycle + 1));
+                for (const event of cycleEvents) {
+                    const intersection = event.part.intersection(span);
+                    if (intersection) {
+                        events.push(new Event(event.whole, intersection, event.value, event.context));
+                    }
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Press - compress events to start of cycle
+ */
+function press(pattern) {
+    return compress(0, 0.5, pattern);
+}
+
+/**
+ * Hurry - speed up pattern and pitch
+ */
+function hurry(factor, pattern) {
+    const f = typeof factor === 'number' ? factor : factor.toFloat();
+    
+    return fast(f, pattern).fmap(v => {
+        // Add pitch metadata for speed change
+        if (typeof v === 'object' && v !== null) {
+            return { ...v, speed: (v.speed || 1) * f };
+        }
+        return v;
+    });
+}
+
+/**
+ * Take nth bite/slice of pattern
+ */
+function bite(n, i, pattern) {
+    const slices = typeof n === 'number' ? n : n.toFloat();
+    const index = typeof i === 'number' ? i : i.toFloat();
+    
+    if (index < 0 || index >= slices) return silence();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            // Get only the specified slice
+            const sliceBegin = cycle + index / slices;
+            const sliceEnd = cycle + (index + 1) / slices;
+            const sliceSpan = new TimeSpan(sliceBegin, sliceEnd);
+            
+            if (sliceSpan.overlaps(span)) {
+                const patEvents = pattern.query(new TimeSpan(index / slices, (index + 1) / slices));
+                
+                for (const event of patEvents) {
+                    // Map to the slice position in this cycle
+                    const scaledPart = new TimeSpan(
+                        cycle + event.part.begin.toFloat(),
+                        cycle + event.part.end.toFloat()
+                    );
+                    
+                    const intersection = scaledPart.intersection(span);
+                    if (intersection) {
+                        events.push(new Event(event.whole, intersection, event.value, event.context));
+                    }
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Striate - interleave slices of pattern
+ */
+function striate(n, pattern) {
+    const slices = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            // Query full pattern
+            const patEvents = pattern.query(new TimeSpan(cycle, cycle + 1));
+            
+            // Sort events for consistent ordering
+            patEvents.sort((a, b) => a.part.begin.toFloat() - b.part.begin.toFloat());
+            
+            // Create slices for each event  
+            const allSlices = [];
+            for (let j = 0; j < patEvents.length; j++) {
+                const event = patEvents[j];
+                const eventDuration = event.part.duration.toFloat();
+                const sliceSize = eventDuration / slices;
+                
+                for (let i = 0; i < slices; i++) {
+                    allSlices.push({
+                        event: event,
+                        eventIndex: j,
+                        sliceIndex: i,
+                        sliceSize: sliceSize
+                    });
+                }
+            }
+            
+            // Interleave the slices
+            const totalSlices = allSlices.length;
+            const sliceSpan = 1 / totalSlices;
+            
+            for (let i = 0; i < totalSlices; i++) {
+                const slice = allSlices[i];
+                const dstBegin = cycle + i * sliceSpan;
+                const dstEnd = dstBegin + sliceSpan;
+                
+                const dstSpan = new TimeSpan(dstBegin, dstEnd);
+                const intersection = dstSpan.intersection(span);
+                
+                if (intersection) {
+                    const newContext = {
+                        ...slice.event.context,
+                        striate: slice.sliceIndex / slices,
+                        striateN: slices
+                    };
+                    events.push(new Event(slice.event.whole, intersection, slice.event.value, newContext));
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Inhabit - fill structure with pattern values
+ */
+function inhabit(structPattern, valuePattern) {
+    return struct(structPattern, valuePattern);
+}
+
+/**
+ * Arpeggiate pattern
+ */
+function arp(mode, pattern) {
+    const modes = {
+        'up': (vals) => vals,
+        'down': (vals) => vals.slice().reverse(),
+        'updown': (vals) => vals.concat(vals.slice(1, -1).reverse()),
+        'downup': (vals) => vals.slice().reverse().concat(vals.slice(1, -1)),
+        'converge': (vals) => {
+            const result = [];
+            let left = 0, right = vals.length - 1;
+            while (left <= right) {
+                if (left === right) {
+                    result.push(vals[left]);
+                } else {
+                    result.push(vals[left], vals[right]);
+                }
+                left++;
+                right--;
+            }
+            return result;
+        },
+        'diverge': (vals) => {
+            const mid = Math.floor(vals.length / 2);
+            const result = [];
+            for (let i = 0; i <= mid; i++) {
+                if (mid - i >= 0) result.push(vals[mid - i]);
+                if (mid + i < vals.length && i > 0) result.push(vals[mid + i]);
+            }
+            return result;
+        }
+    };
+    
+    const arpFn = modes[mode] || modes['up'];
+    
+    return new Pattern((span) => {
+        const events = pattern.query(span);
+        const results = [];
+        
+        for (const event of events) {
+            // If event value is an array, arpeggiate it
+            if (Array.isArray(event.value)) {
+                const arped = arpFn(event.value);
+                const stepDuration = event.part.duration.toFloat() / arped.length;
+                
+                for (let i = 0; i < arped.length; i++) {
+                    const stepBegin = event.part.begin.add(stepDuration * i);
+                    const stepEnd = event.part.begin.add(stepDuration * (i + 1));
+                    const stepSpan = new TimeSpan(stepBegin, stepEnd);
+                    
+                    const intersection = stepSpan.intersection(span);
+                    if (intersection) {
+                        results.push(new Event(event.whole, intersection, arped[i], event.context));
+                    }
+                }
+            } else {
+                results.push(event);
+            }
+        }
+        return results;
+    });
+}
+
+/**
+ * Custom arpeggiation with function
+ */
+function arpWith(fn, pattern) {
+    return new Pattern((span) => {
+        const events = pattern.query(span);
+        const results = [];
+        
+        for (const event of events) {
+            if (Array.isArray(event.value)) {
+                const arped = fn(event.value);
+                const stepDuration = event.part.duration.toFloat() / arped.length;
+                
+                for (let i = 0; i < arped.length; i++) {
+                    const stepBegin = event.part.begin.add(stepDuration * i);
+                    const stepEnd = event.part.begin.add(stepDuration * (i + 1));
+                    const stepSpan = new TimeSpan(stepBegin, stepEnd);
+                    
+                    const intersection = stepSpan.intersection(span);
+                    if (intersection) {
+                        results.push(new Event(event.whole, intersection, arped[i], event.context));
+                    }
+                }
+            } else {
+                results.push(event);
+            }
+        }
+        return results;
+    });
+}
+
+/**
+ * Exponential range mapping
+ */
+function rangex(min, max, pattern) {
+    const minVal = typeof min === 'number' ? min : min.toFloat();
+    const maxVal = typeof max === 'number' ? max : max.toFloat();
+    
+    return pattern.fmap(v => {
+        let normalized;
+        if (typeof v === 'number') {
+            normalized = v;
+        } else if (v && typeof v.toFloat === 'function') {
+            normalized = v.toFloat();
+        } else {
+            return v;
+        }
+        
+        // Exponential mapping (assuming input 0-1)
+        const exp = Math.pow(2, normalized * 10) / 1024; // 2^(x*10)/1024 maps 0->~0, 1->1
+        return minVal + exp * (maxVal - minVal);
+    });
+}
+
+/**
+ * Fit pattern to n steps
+ */
+function fit(n, pattern) {
+    const steps = typeof n === 'number' ? n : n.toFloat();
+    return fast(steps, pattern);
+}
+
+/**
+ * Take first n events
+ */
+function take(n, pattern) {
+    const count = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = pattern.query(span);
+        
+        // Count events per cycle
+        const cycleEvents = {};
+        for (const event of events) {
+            const cycle = Math.floor(event.part.begin.toFloat());
+            if (!cycleEvents[cycle]) cycleEvents[cycle] = [];
+            cycleEvents[cycle].push(event);
+        }
+        
+        // Take first n from each cycle
+        const results = [];
+        for (const cycle in cycleEvents) {
+            const sorted = cycleEvents[cycle].sort((a, b) => 
+                a.part.begin.toFloat() - b.part.begin.toFloat()
+            );
+            results.push(...sorted.slice(0, count));
+        }
+        
+        return results;
+    });
+}
+
+/**
+ * Drop first n events
+ */
+function drop(n, pattern) {
+    const count = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = pattern.query(span);
+        
+        // Count events per cycle
+        const cycleEvents = {};
+        for (const event of events) {
+            const cycle = Math.floor(event.part.begin.toFloat());
+            if (!cycleEvents[cycle]) cycleEvents[cycle] = [];
+            cycleEvents[cycle].push(event);
+        }
+        
+        // Drop first n from each cycle
+        const results = [];
+        for (const cycle in cycleEvents) {
+            const sorted = cycleEvents[cycle].sort((a, b) => 
+                a.part.begin.toFloat() - b.part.begin.toFloat()
+            );
+            results.push(...sorted.slice(count));
+        }
+        
+        return results;
+    });
+}
+
+/**
+ * Run - sequence of numbers
+ */
+function run(n) {
+    const count = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            for (let i = 0; i < count; i++) {
+                const begin = cycle + i / count;
+                const end = cycle + (i + 1) / count;
+                const eventSpan = new TimeSpan(begin, end);
+                
+                const intersection = eventSpan.intersection(span);
+                if (intersection) {
+                    events.push(new Event(eventSpan, intersection, i));
+                }
+            }
+        }
+        return events;
+    });
+}
+
+/**
+ * Steps - set target step count for pattern
+ */
+function steps(n, pattern) {
+    const stepCount = typeof n === 'number' ? n : n.toFloat();
+    return segment(stepCount, pattern);
+}
+
+/**
+ * SomeCycles - Apply function to some cycles (randomly per cycle)
+ */
+function someCycles(fn, pattern) {
+    return someCyclesBy(0.5, fn, pattern);
+}
+
+/**
+ * SomeCyclesBy - Apply function to some cycles with probability
+ */
+function someCyclesBy(prob, fn, pattern) {
+    const p = typeof prob === 'number' ? prob : prob.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            // Use cycle-based seed for deterministic randomness
+            const seed = cycle * 999331;
+            const rng = xorshift(seed);
+            const rand = (rng() & 0xFFFF) / 0xFFFF;
+            
+            const cycleSpan = new TimeSpan(cycle, cycle + 1);
+            const intersection = cycleSpan.intersection(span);
+            
+            if (intersection) {
+                if (rand < p) {
+                    // Apply function this cycle
+                    events.push(...fn(pattern).query(intersection));
+                } else {
+                    // Use original pattern this cycle
+                    events.push(...pattern.query(intersection));
+                }
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Swing - Add swing timing
+ */
+function swing(pattern) {
+    return swingBy(0.05, pattern);
+}
+
+/**
+ * SwingBy - Add swing timing with amount
+ */
+function swingBy(amount, pattern) {
+    const amt = typeof amount === 'number' ? amount : amount.toFloat();
+    
+    return new Pattern((span) => {
+        const events = pattern.query(span);
+        
+        return events.map(event => {
+            const pos = event.part.begin.toFloat();
+            const cycle = Math.floor(pos);
+            const phase = pos - cycle;
+            
+            // Apply swing to off-beats
+            let adjustment = 0;
+            const beatPos = (phase * 4) % 1;
+            if (beatPos > 0.4 && beatPos < 0.6) {
+                adjustment = amt;
+            }
+            
+            const newBegin = event.part.begin.add(adjustment);
+            const newEnd = event.part.end.add(adjustment);
+            
+            return new Event(
+                event.whole,
+                new TimeSpan(newBegin, newEnd),
+                event.value,
+                event.context
+            );
+        });
+    });
+}
+
+/**
+ * Grid - Create grid pattern
+ */
+function grid(n, pattern) {
+    const gridSize = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const stepSize = 1 / gridSize;
+            
+            for (let i = 0; i < gridSize; i++) {
+                const begin = cycle + i * stepSize;
+                const end = begin + stepSize;
+                const gridSpan = new TimeSpan(begin, end);
+                const intersection = gridSpan.intersection(span);
+                
+                if (intersection) {
+                    const patEvents = pattern.query(new TimeSpan(0, 1));
+                    for (const e of patEvents) {
+                        events.push(new Event(
+                            gridSpan,
+                            intersection,
+                            e.value,
+                            e.context
+                        ));
+                    }
+                }
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Place - Place values at specific positions
+ */
+function place(positions, values) {
+    return new Pattern((span) => {
+        const events = [];
+        const posArray = Array.isArray(positions) ? positions : [positions];
+        const valArray = Array.isArray(values) ? values : [values];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            for (let i = 0; i < posArray.length && i < valArray.length; i++) {
+                const pos = typeof posArray[i] === 'number' ? posArray[i] : posArray[i].toFloat();
+                const begin = cycle + pos;
+                const end = begin + 0.1; // Small duration
+                
+                const eventSpan = new TimeSpan(begin, end);
+                const intersection = eventSpan.intersection(span);
+                
+                if (intersection) {
+                    events.push(new Event(eventSpan, intersection, valArray[i]));
+                }
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Binary - Create pattern from binary number
+ */
+function binary(n, value = 1) {
+    const num = typeof n === 'number' ? n : n.toFloat();
+    const bits = num.toString(2);
+    
+    return new Pattern((span) => {
+        const events = [];
+        const stepSize = 1 / bits.length;
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            for (let i = 0; i < bits.length; i++) {
+                if (bits[i] === '1') {
+                    const begin = cycle + i * stepSize;
+                    const end = begin + stepSize;
+                    const eventSpan = new TimeSpan(begin, end);
+                    const intersection = eventSpan.intersection(span);
+                    
+                    if (intersection) {
+                        events.push(new Event(eventSpan, intersection, value));
+                    }
+                }
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * ASCII - Create pattern from ASCII string
+ */
+function ascii(str) {
+    return new Pattern((span) => {
+        const events = [];
+        const stepSize = 1 / str.length;
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            for (let i = 0; i < str.length; i++) {
+                const begin = cycle + i * stepSize;
+                const end = begin + stepSize;
+                const eventSpan = new TimeSpan(begin, end);
+                const intersection = eventSpan.intersection(span);
+                
+                if (intersection) {
+                    events.push(new Event(
+                        eventSpan,
+                        intersection,
+                        str.charCodeAt(i)
+                    ));
+                }
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Saw2 - Bipolar sawtooth wave (-1 to 1)
+ */
+function saw2() {
+    return saw().mul(2).sub(1);
+}
+
+/**
+ * Sine2 - Bipolar sine wave (-1 to 1)
+ */
+function sine2() {
+    return sine().mul(2).sub(1);
+}
+
+/**
+ * Square2 - Bipolar square wave (-1 to 1)
+ */
+function square2() {
+    return square().mul(2).sub(1);
+}
+
+/**
+ * Tri2 - Bipolar triangle wave (-1 to 1)
+ */
+function tri2() {
+    return tri().mul(2).sub(1);
+}
+
+/**
+ * Weave - Weave patterns together
+ */
+function weave(n, patterns) {
+    const density = typeof n === 'number' ? n : n.toFloat();
+    const pats = Array.isArray(patterns) ? patterns : [patterns];
+    
+    return new Pattern((span) => {
+        const events = [];
+        const sliceSize = 1 / (density * pats.length);
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            let pos = 0;
+            for (let i = 0; i < density; i++) {
+                for (let j = 0; j < pats.length; j++) {
+                    const begin = cycle + pos;
+                    const end = begin + sliceSize;
+                    pos += sliceSize;
+                    
+                    const sliceSpan = new TimeSpan(begin, end);
+                    const intersection = sliceSpan.intersection(span);
+                    
+                    if (intersection) {
+                        const patEvents = pats[j].query(new TimeSpan(i / density, (i + 1) / density));
+                        for (const e of patEvents) {
+                            events.push(new Event(
+                                sliceSpan,
+                                intersection,
+                                e.value,
+                                e.context
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Wedge - Create wedge pattern (gradually change between patterns)
+ */
+function wedge(cycles, pat1, pat2) {
+    const n = typeof cycles === 'number' ? cycles : cycles.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const phase = (cycle % n) / n;
+            const cycleSpan = new TimeSpan(cycle, cycle + 1);
+            const intersection = cycleSpan.intersection(span);
+            
+            if (intersection) {
+                if (phase < 0.5) {
+                    // More of pattern 1
+                    const split = phase * 2;
+                    const splitPoint = cycle + split;
+                    
+                    events.push(...pat1.query(new TimeSpan(cycle, splitPoint)));
+                    events.push(...pat2.query(new TimeSpan(splitPoint, cycle + 1)));
+                } else {
+                    // More of pattern 2
+                    const split = (phase - 0.5) * 2;
+                    const splitPoint = cycle + (1 - split);
+                    
+                    events.push(...pat2.query(new TimeSpan(cycle, splitPoint)));
+                    events.push(...pat1.query(new TimeSpan(splitPoint, cycle + 1)));
+                }
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Chunk - Apply function to chunks of pattern
+ */
+function chunk(n, fn, pattern) {
+    const chunkSize = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const chunkIndex = Math.floor(cycle / chunkSize);
+            const chunkStart = chunkIndex * chunkSize;
+            
+            // Get pattern for this chunk
+            const chunkPattern = compress(
+                (cycle - chunkStart) / chunkSize,
+                (cycle + 1 - chunkStart) / chunkSize,
+                fn(slow(chunkSize, pattern))
+            );
+            
+            const cycleSpan = new TimeSpan(cycle, cycle + 1);
+            const intersection = cycleSpan.intersection(span);
+            
+            if (intersection) {
+                events.push(...chunkPattern.query(intersection));
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * ChunksRev - Reverse chunks of pattern
+ */
+function chunksRev(n, pattern) {
+    return chunk(n, rev, pattern);
+}
+
+/**
+ * Splice - Splice patterns together at specific point
+ */
+function splice(point, pat1, pat2) {
+    const p = typeof point === 'number' ? point : point.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const splitPoint = cycle + p;
+            
+            // First part from pat1
+            const span1 = new TimeSpan(cycle, splitPoint);
+            const int1 = span1.intersection(span);
+            if (int1) {
+                events.push(...pat1.query(int1));
+            }
+            
+            // Second part from pat2
+            const span2 = new TimeSpan(splitPoint, cycle + 1);
+            const int2 = span2.intersection(span);
+            if (int2) {
+                events.push(...pat2.query(int2));
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Spin - Rotate pattern in a spinning motion
+ */
+function spin(n, pattern) {
+    const cycles = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const rotation = (cycle % cycles) / cycles;
+            const rotPattern = _rotL(rotation, pattern);
+            
+            const cycleSpan = new TimeSpan(cycle, cycle + 1);
+            const intersection = cycleSpan.intersection(span);
+            
+            if (intersection) {
+                events.push(...rotPattern.query(intersection));
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Stripe - Create striped pattern
+ */
+function stripe(n, pattern) {
+    const stripes = typeof n === 'number' ? n : n.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const stripeIndex = cycle % stripes;
+            const stripeStart = cycle + stripeIndex / stripes;
+            const stripeEnd = stripeStart + 1 / stripes;
+            
+            const stripeSpan = new TimeSpan(stripeStart, stripeEnd);
+            const intersection = stripeSpan.intersection(span);
+            
+            if (intersection) {
+                events.push(...pattern.query(intersection));
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Within - Apply function within time range
+ */
+function within(begin, end, fn, pattern) {
+    const b = typeof begin === 'number' ? begin : begin.toFloat();
+    const e = typeof end === 'number' ? end : end.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const cycleSpan = new TimeSpan(cycle, cycle + 1);
+            const intersection = cycleSpan.intersection(span);
+            
+            if (intersection) {
+                const rangeStart = cycle + b;
+                const rangeEnd = cycle + e;
+                const rangeSpan = new TimeSpan(rangeStart, rangeEnd);
+                
+                const inRange = rangeSpan.intersection(intersection);
+                const outRange1 = new TimeSpan(intersection.begin, Math.min(rangeStart, intersection.end));
+                const outRange2 = new TimeSpan(Math.max(rangeEnd, intersection.begin), intersection.end);
+                
+                // Apply function within range
+                if (inRange) {
+                    events.push(...fn(pattern).query(inRange));
+                }
+                
+                // Keep original outside range
+                if (outRange1.begin.toFloat() < outRange1.end.toFloat()) {
+                    events.push(...pattern.query(outRange1));
+                }
+                if (outRange2.begin.toFloat() < outRange2.end.toFloat()) {
+                    events.push(...pattern.query(outRange2));
+                }
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Withins - Apply multiple functions within time ranges
+ */
+function withins(ranges, pattern) {
+    let result = pattern;
+    for (const [begin, end, fn] of ranges) {
+        result = within(begin, end, fn, result);
+    }
+    return result;
+}
+
+/**
+ * Rot - Rotate pattern left (same as _rotL)
+ */
+function rot(amount, pattern) {
+    return _rotL(amount, pattern);
+}
+
+/**
+ * Scale - Apply musical scale to numeric pattern
+ */
+function scale(scaleName, pattern) {
+    const scales = {
+        major: [0, 2, 4, 5, 7, 9, 11],
+        minor: [0, 2, 3, 5, 7, 8, 10],
+        pentatonic: [0, 2, 4, 7, 9],
+        chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        dorian: [0, 2, 3, 5, 7, 9, 10],
+        phrygian: [0, 1, 3, 5, 7, 8, 10],
+        lydian: [0, 2, 4, 6, 7, 9, 11],
+        mixolydian: [0, 2, 4, 5, 7, 9, 10],
+        aeolian: [0, 2, 3, 5, 7, 8, 10],
+        locrian: [0, 1, 3, 5, 6, 8, 10]
+    };
+    
+    const scaleNotes = scales[scaleName] || scales.major;
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'number') {
+            const octave = Math.floor(value / scaleNotes.length);
+            const index = Math.floor(value) % scaleNotes.length;
+            return octave * 12 + scaleNotes[index];
+        }
+        return value;
+    });
+}
+
+/**
+ * ToScale - Map values to scale degrees
+ */
+function toScale(scaleNotes, pattern) {
+    const notes = Array.isArray(scaleNotes) ? scaleNotes : [scaleNotes];
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'number') {
+            const octave = Math.floor(value / notes.length);
+            const index = Math.floor(value) % notes.length;
+            return octave * 12 + notes[index];
+        }
+        return value;
+    });
+}
+
+/**
+ * Fmap - Map function over pattern values
+ */
+function fmap(fn, pattern) {
+    return pattern.fmap(fn);
+}
+
+/**
+ * While - Apply pattern while condition is true
+ */
+function whilePat(test, pattern) {
+    return new Pattern((span) => {
+        const events = pattern.query(span);
+        return events.filter(event => test(event.value));
+    });
+}
+
+/**
+ * Whenmod - Apply function when cycle mod equals value
+ */
+function whenmod(divisor, remainder, fn, pattern) {
+    const d = typeof divisor === 'number' ? divisor : divisor.toFloat();
+    const r = typeof remainder === 'number' ? remainder : remainder.toFloat();
+    
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const cycleSpan = new TimeSpan(cycle, cycle + 1);
+            const intersection = cycleSpan.intersection(span);
+            
+            if (intersection) {
+                if (cycle % d === r) {
+                    events.push(...fn(pattern).query(intersection));
+                } else {
+                    events.push(...pattern.query(intersection));
+                }
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Trunc - Truncate pattern to n cycles
+ */
+function trunc(cycles, pattern) {
+    const n = typeof cycles === 'number' ? cycles : cycles.toFloat();
+    
+    return new Pattern((span) => {
+        const truncSpan = new TimeSpan(0, n);
+        const querySpan = span.intersection(truncSpan);
+        
+        if (querySpan) {
+            return pattern.query(querySpan);
+        }
+        return [];
+    });
+}
+
+/**
+ * Linger - Extend events to linger
+ */
+function linger(factor, pattern) {
+    const f = typeof factor === 'number' ? factor : factor.toFloat();
+    
+    return new Pattern((span) => {
+        const events = pattern.query(span);
+        
+        return events.map(event => {
+            const newEnd = event.part.begin.add(event.part.duration.mul(f));
+            return new Event(
+                event.whole,
+                new TimeSpan(event.part.begin, newEnd),
+                event.value,
+                event.context
+            );
+        });
+    });
+}
+
+/**
+ * Zoom2 - Alternative zoom implementation
+ */
+function zoom2(start, end, pattern) {
+    const s = typeof start === 'number' ? start : start.toFloat();
+    const e = typeof end === 'number' ? end : end.toFloat();
+    
+    return zoom(s, e, pattern);
+}
+
+/**
+ * Discretise - Sample pattern at discrete intervals
+ */
+function discretise(n, pattern) {
+    return segment(n, pattern);
+}
+
+/**
+ * Smooth - Smooth pattern transitions
+ */
+function smooth(pattern) {
+    return new Pattern((span) => {
+        const events = pattern.query(span);
+        const smoothed = [];
+        
+        for (let i = 0; i < events.length - 1; i++) {
+            const curr = events[i];
+            const next = events[i + 1];
+            
+            smoothed.push(curr);
+            
+            // Add interpolation event
+            if (typeof curr.value === 'number' && typeof next.value === 'number') {
+                const interpBegin = curr.part.end;
+                const interpEnd = next.part.begin;
+                const interpValue = (curr.value + next.value) / 2;
+                
+                if (interpBegin.toFloat() < interpEnd.toFloat()) {
+                    smoothed.push(new Event(
+                        new TimeSpan(interpBegin, interpEnd),
+                        new TimeSpan(interpBegin, interpEnd),
+                        interpValue,
+                        { smooth: true }
+                    ));
+                }
+            }
+        }
+        
+        if (events.length > 0) {
+            smoothed.push(events[events.length - 1]);
+        }
+        
+        return smoothed;
+    });
+}
+
+/**
+ * Trigger - Trigger pattern on condition
+ */
+function trigger(resetPattern, pattern) {
+    return new Pattern((span) => {
+        const triggers = resetPattern.query(span);
+        const events = [];
+        
+        for (const trigger of triggers) {
+            const triggerTime = trigger.part.begin;
+            const nextCycle = Math.ceil(triggerTime.toFloat());
+            const triggerSpan = new TimeSpan(triggerTime, nextCycle);
+            const intersection = triggerSpan.intersection(span);
+            
+            if (intersection) {
+                // Shift pattern to start at trigger time
+                const shifted = pattern.query(new TimeSpan(0, intersection.duration));
+                for (const e of shifted) {
+                    events.push(new Event(
+                        e.whole.add(triggerTime),
+                        e.part.add(triggerTime),
+                        e.value,
+                        e.context
+                    ));
+                }
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Qtrigger - Quantized trigger
+ */
+function qtrigger(resetPattern, pattern) {
+    return new Pattern((span) => {
+        const triggers = resetPattern.query(span);
+        const events = [];
+        
+        for (const trigger of triggers) {
+            const triggerTime = Math.floor(trigger.part.begin.toFloat());
+            const nextCycle = triggerTime + 1;
+            const triggerSpan = new TimeSpan(triggerTime, nextCycle);
+            const intersection = triggerSpan.intersection(span);
+            
+            if (intersection) {
+                events.push(...pattern.query(intersection));
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Reset - Reset pattern at trigger points
+ */
+function reset(resetPattern, pattern) {
+    return trigger(resetPattern, pattern);
+}
+
+/**
+ * Restart - Restart pattern at trigger points
+ */
+function restart(resetPattern, pattern) {
+    return qtrigger(resetPattern, pattern);
+}
+
+/**
+ * Ifp - If predicate then pattern1 else pattern2
+ */
+function ifp(predicate, thenPattern, elsePattern) {
+    return new Pattern((span) => {
+        const events = [];
+        
+        for (let cycle = Math.floor(span.begin.toFloat());
+             cycle <= Math.ceil(span.end.toFloat());
+             cycle++) {
+            
+            const cycleSpan = new TimeSpan(cycle, cycle + 1);
+            const intersection = cycleSpan.intersection(span);
+            
+            if (intersection) {
+                if (predicate(cycle)) {
+                    events.push(...thenPattern.query(intersection));
+                } else {
+                    events.push(...elsePattern.query(intersection));
+                }
+            }
+        }
+        
+        return events;
+    });
+}
+
+/**
+ * Compress2 - Alternative compress implementation  
+ */
+function compress2(start, end, pattern) {
+    return compress(start, end, pattern);
+}
+
+/**
+ * Expand - Expand pattern (opposite of compress)
+ */
+function expand(start, end, pattern) {
+    const s = typeof start === 'number' ? start : start.toFloat();
+    const e = typeof end === 'number' ? end : end.toFloat();
+    
+    if (s >= e) return silence();
+    const duration = e - s;
+    
+    return new Pattern((span) => {
+        // Map query span to expanded range
+        const expandedBegin = span.begin.sub(s).div(duration);
+        const expandedEnd = span.end.sub(s).div(duration);
+        
+        return pattern.query(new TimeSpan(expandedBegin, expandedEnd))
+            .map(event => new Event(
+                event.whole.mul(duration).add(s),
+                event.part.mul(duration).add(s),
+                event.value,
+                event.context
+            ));
+    });
+}
+
+/**
+ * Append - Append pattern after another
+ */
+function append(pat1, pat2) {
+    return slowcat(pat1, pat2);
+}
+
+/**
+ * Prepend - Prepend pattern before another
+ */
+function prepend(pat1, pat2) {
+    return slowcat(pat1, pat2);
+}
+
+/**
+ * Scan - Scan/accumulate pattern values
+ */
+function scan(fn, initial, pattern) {
+    return new Pattern((span) => {
+        const events = pattern.query(span);
+        let acc = initial;
+        
+        return events.map(event => {
+            acc = fn(acc, event.value);
+            return new Event(
+                event.whole,
+                event.part,
+                acc,
+                event.context
+            );
+        });
+    });
+}
+
+/**
+ * Unfold - Unfold/generate pattern from seed
+ */
+function unfold(fn, seed, n) {
+    const count = typeof n === 'number' ? n : n.toFloat();
+    const values = [];
+    let current = seed;
+    
+    for (let i = 0; i < count; i++) {
+        values.push(current);
+        current = fn(current);
+    }
+    
+    return sequence(...values.map(pure));
+}
+
+/**
+ * Gain - Set gain/volume metadata
+ */
+function gain(amount, pattern) {
+    const g = typeof amount === 'number' ? amount : amount.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, gain: g };
+        }
+        return { value, gain: g };
+    });
+}
+
+/**
+ * Legato - Set legato/sustain metadata
+ */
+function legato(amount, pattern) {
+    const l = typeof amount === 'number' ? amount : amount.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, legato: l };
+        }
+        return { value, legato: l };
+    });
+}
+
+/**
+ * N - Create pattern from number (sample index)
+ */
+function n(index) {
+    return pure({ n: index });
+}
+
+/**
+ * Note - Create pattern from note number
+ */
+function note(noteNum) {
+    return pure({ note: noteNum });
+}
+
+/**
+ * Speed - Set playback speed metadata
+ */
+function speed(factor, pattern) {
+    const s = typeof factor === 'number' ? factor : factor.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, speed: s };
+        }
+        return { value, speed: s };
+    });
+}
+
+/**
+ * Unit - Set time unit metadata
+ */
+function unit(u, pattern) {
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, unit: u };
+        }
+        return { value, unit: u };
+    });
+}
+
+/**
+ * Begin - Set begin position metadata
+ */
+function begin(pos, pattern) {
+    const p = typeof pos === 'number' ? pos : pos.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, begin: p };
+        }
+        return { value, begin: p };
+    });
+}
+
+/**
+ * End - Set end position metadata
+ */
+function end(pos, pattern) {
+    const p = typeof pos === 'number' ? pos : pos.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, end: p };
+        }
+        return { value, end: p };
+    });
+}
+
+/**
+ * Pan - Set stereo pan metadata
+ */
+function pan(amount, pattern) {
+    const p = typeof amount === 'number' ? amount : amount.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, pan: p };
+        }
+        return { value, pan: p };
+    });
+}
+
+/**
+ * Shape - Set envelope shape metadata
+ */
+function shape(amount, pattern) {
+    const s = typeof amount === 'number' ? amount : amount.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, shape: s };
+        }
+        return { value, shape: s };
+    });
+}
+
+/**
+ * Crush - Set bit crush metadata
+ */
+function crush(bits, pattern) {
+    const b = typeof bits === 'number' ? bits : bits.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, crush: b };
+        }
+        return { value, crush: b };
+    });
+}
+
+/**
+ * Coarse - Set coarse pitch metadata
+ */
+function coarse(semitones, pattern) {
+    const c = typeof semitones === 'number' ? semitones : semitones.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, coarse: c };
+        }
+        return { value, coarse: c };
+    });
+}
+
+/**
+ * Delay - Set delay send metadata
+ */
+function delay(amount, pattern) {
+    const d = typeof amount === 'number' ? amount : amount.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, delay: d };
+        }
+        return { value, delay: d };
+    });
+}
+
+/**
+ * Delaytime - Set delay time metadata
+ */
+function delaytime(time, pattern) {
+    const t = typeof time === 'number' ? time : time.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, delaytime: t };
+        }
+        return { value, delaytime: t };
+    });
+}
+
+/**
+ * Delayfeedback - Set delay feedback metadata
+ */
+function delayfeedback(fb, pattern) {
+    const f = typeof fb === 'number' ? fb : fb.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, delayfeedback: f };
+        }
+        return { value, delayfeedback: f };
+    });
+}
+
+/**
+ * Vowel - Set vowel filter metadata
+ */
+function vowel(v, pattern) {
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, vowel: v };
+        }
+        return { value, vowel: v };
+    });
+}
+
+/**
+ * Room - Set room/reverb size metadata
+ */
+function room(size, pattern) {
+    const r = typeof size === 'number' ? size : size.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, room: r };
+        }
+        return { value, room: r };
+    });
+}
+
+/**
+ * Size - Set reverb size metadata (alias for room)
+ */
+function size(s, pattern) {
+    return room(s, pattern);
+}
+
+/**
+ * Orbit - Set orbit/channel metadata
+ */
+function orbit(channel, pattern) {
+    const o = typeof channel === 'number' ? channel : channel.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, orbit: o };
+        }
+        return { value, orbit: o };
+    });
+}
+
+/**
+ * Cutoff - Set filter cutoff metadata
+ */
+function cutoff(freq, pattern) {
+    const c = typeof freq === 'number' ? freq : freq.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, cutoff: c };
+        }
+        return { value, cutoff: c };
+    });
+}
+
+/**
+ * Resonance - Set filter resonance metadata
+ */
+function resonance(amount, pattern) {
+    const r = typeof amount === 'number' ? amount : amount.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, resonance: r };
+        }
+        return { value, resonance: r };
+    });
+}
+
+/**
+ * Attack - Set envelope attack metadata
+ */
+function attack(time, pattern) {
+    const a = typeof time === 'number' ? time : time.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, attack: a };
+        }
+        return { value, attack: a };
+    });
+}
+
+/**
+ * Release - Set envelope release metadata
+ */
+function release(time, pattern) {
+    const r = typeof time === 'number' ? time : time.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, release: r };
+        }
+        return { value, release: r };
+    });
+}
+
+/**
+ * Hold - Set envelope hold metadata
+ */
+function hold(time, pattern) {
+    const h = typeof time === 'number' ? time : time.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, hold: h };
+        }
+        return { value, hold: h };
+    });
+}
+
+/**
+ * Bandf - Set bandpass filter frequency metadata
+ */
+function bandf(freq, pattern) {
+    const f = typeof freq === 'number' ? freq : freq.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, bandf: f };
+        }
+        return { value, bandf: f };
+    });
+}
+
+/**
+ * Bandq - Set bandpass filter Q metadata
+ */
+function bandq(q, pattern) {
+    const bq = typeof q === 'number' ? q : q.toFloat();
+    
+    return pattern.fmap(value => {
+        if (typeof value === 'object' && value !== null) {
+            return { ...value, bandq: bq };
+        }
+        return { value, bandq: bq };
+    });
+}
+
 // Export everything
 module.exports = {
     // Classes
@@ -2016,5 +3695,138 @@ module.exports = {
     // Additional patterns
     sequence,
     polymeter,
-    polyrhythm
+    polyrhythm,
+    
+    // More pattern structure
+    firstOf,
+    lastOf,
+    brak,
+    press,
+    hurry,
+    bite,
+    striate,
+    inhabit,
+    
+    // Arpeggiation
+    arp,
+    arpWith,
+    
+    // More math
+    rangex,
+    
+    // Step sequencing
+    fit,
+    take,
+    drop,
+    run,
+    steps,
+    
+    // Cycle-based randomness
+    someCycles,
+    someCyclesBy,
+    
+    // Timing manipulation
+    swing,
+    swingBy,
+    
+    // Grid patterns
+    grid,
+    place,
+    
+    // Pattern generation
+    binary,
+    ascii,
+    
+    // Bipolar signals
+    saw2,
+    sine2,
+    square2,
+    tri2,
+    
+    // Pattern weaving
+    weave,
+    wedge,
+    
+    // Chunking
+    chunk,
+    chunksRev,
+    
+    // Splicing
+    splice,
+    
+    // Rotation & movement
+    spin,
+    stripe,
+    rot,
+    
+    // Time ranges
+    within,
+    withins,
+    
+    // Musical scales
+    scale,
+    toScale,
+    
+    // Functional
+    fmap,
+    while: whilePat,
+    whenmod,
+    
+    // Pattern control
+    trunc,
+    linger,
+    zoom2,
+    discretise,
+    
+    // Smoothing & transitions
+    smooth,
+    
+    // Triggers & resets
+    trigger,
+    qtrigger,
+    reset,
+    restart,
+    
+    // Conditional patterns
+    ifp,
+    
+    // Additional compression
+    compress2,
+    expand,
+    
+    // Pattern combination
+    append,
+    prepend,
+    
+    // Functional patterns
+    scan,
+    unfold,
+    
+    // Audio metadata operators
+    gain,
+    legato,
+    n,
+    note,
+    speed,
+    unit,
+    begin,
+    end,
+    pan,
+    shape,
+    crush,
+    coarse,
+    delay,
+    delaytime,
+    delayfeedback,
+    vowel,
+    room,
+    size,
+    orbit,
+    cutoff,
+    resonance,
+    attack,
+    release,
+    hold,
+    bandf,
+    bandq
 };
