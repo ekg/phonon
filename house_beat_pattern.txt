@@ -26,7 +26,7 @@ BOOM BOOM BOOM BOOM (steady kick)
      SNAP     SNAP  (snare backbeat)
          TSS TSS TSS TSS (driving hi-hats)
 
-In Phonon Forge syntax:
+In Phonon syntax:
 "bd bd bd bd sn ~ sn ~ hh ~ hh ~ hh ~ hh ~"
 
 To play this beat:

@@ -119,7 +119,7 @@ def create_house_beat(duration_seconds=10):
     return output
 
 def main():
-    print("🎵 Phonon Forge - House Beat Generator")
+    print("🎵 Phonon - House Beat Generator")
     print("📀 Creating 10-second house beat at 120 BPM...")
     
     # Generate the beat
