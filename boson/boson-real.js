@@ -65,8 +65,10 @@ class RealBoson {
             }
             
             if (patterns.length === 0) {
-                console.log('No patterns found');
-                return false;
+                console.log('No patterns found - playing silence');
+                // Create a silence pattern
+                this.pattern = require('@strudel/core').silence;
+                return true;
             }
             
             // Parse each pattern with Strudel's mini parser
@@ -110,7 +112,7 @@ class RealBoson {
     }
     
     scheduleEvents() {
-        if (!this.playing) return;
+        if (!this.playing || !this.pattern) return;
         
         const now = (Date.now() / 1000) - this.startTime;
         const lookAhead = 0.1; // 100ms lookahead
