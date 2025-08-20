@@ -2,7 +2,7 @@
 
 use rosc::{OscMessage, OscPacket, OscType};
 use std::net::UdpSocket;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tracing::{debug, error, info, warn};
 
 use crate::engine::AudioEngine;
@@ -10,7 +10,7 @@ use crate::engine::AudioEngine;
 pub struct OscServer {
     port: u16,
     engine: Arc<AudioEngine>,
-    synth_registry: Arc<crate::synth_defs::SynthRegistry>,
+    synth_registry: Arc<RwLock<crate::synth_defs::SynthRegistry>>,
 }
 
 impl OscServer {
@@ -23,7 +23,7 @@ impl OscServer {
         Ok(Self {
             port,
             engine: Arc::new(engine),
-            synth_registry: Arc::new(synth_registry),
+            synth_registry: Arc::new(RwLock::new(synth_registry)),
         })
     }
     
@@ -87,6 +87,9 @@ impl OscServer {
             }
             "/synth" => {
                 self.handle_synth(msg).await;
+            }
+            "/synthdef" => {
+                self.handle_synthdef(msg).await;
             }
             _ => {
                 warn!("Unknown OSC address: {}", msg.addr);
@@ -166,11 +169,13 @@ impl OscServer {
         info!("Synth: {} for {}s at gain {}", synth_name, duration, gain);
         
         // First check if it's a named synth from the registry
-        if let Some(def) = self.synth_registry.get(&synth_name) {
+        let registry = self.synth_registry.read().unwrap();
+        if let Some(def) = registry.get(&synth_name) {
             info!("Using registered synth: {}", synth_name);
             let samples = compile_synth(&def, duration as f64);
             self.engine.play_synth(samples, gain);
         } else {
+            drop(registry); // Release lock before parsing
             // Try to parse as inline definition
             match parse_synth_def(&synth_name) {
                 Ok(def) => {
@@ -181,6 +186,47 @@ impl OscServer {
                 Err(e) => {
                     warn!("Unknown synth '{}' (not in registry, failed to parse: {})", synth_name, e);
                 }
+            }
+        }
+    }
+    
+    async fn handle_synthdef(&self, msg: OscMessage) {
+        use crate::synth_defs::parse_synth_def;
+        
+        // Extract name and definition
+        let mut name = String::new();
+        let mut definition = String::new();
+        
+        for (i, arg) in msg.args.iter().enumerate() {
+            match arg {
+                OscType::String(s) => {
+                    if i == 0 {
+                        name = s.clone();
+                    } else if i == 1 {
+                        definition = s.clone();
+                    }
+                }
+                _ => {}
+            }
+        }
+        
+        if name.is_empty() || definition.is_empty() {
+            warn!("Invalid synthdef message: missing name or definition");
+            return;
+        }
+        
+        info!("Registering synthdef: {} = {}", name, definition);
+        
+        // Parse the definition
+        match parse_synth_def(&definition) {
+            Ok(def) => {
+                // Register the synthdef in our registry
+                let mut registry = self.synth_registry.write().unwrap();
+                registry.register(&name, def.clone());
+                info!("Successfully registered synthdef '{}': {:?}", name, def);
+            }
+            Err(e) => {
+                warn!("Failed to parse synthdef '{}': {}", name, e);
             }
         }
     }

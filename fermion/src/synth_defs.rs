@@ -87,6 +87,11 @@ pub fn parse_synth_def(pattern: &str) -> Result<SynthDef, String> {
         return Ok(SynthDef::Square { freq });
     }
     
+    if let Some(freq_str) = pattern.strip_prefix("triangle(").and_then(|s| s.strip_suffix(")")) {
+        let freq = freq_str.parse::<f64>().map_err(|e| e.to_string())?;
+        return Ok(SynthDef::Triangle { freq });
+    }
+    
     if pattern == "noise" {
         return Ok(SynthDef::Noise);
     }

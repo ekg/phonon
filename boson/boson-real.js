@@ -48,19 +48,36 @@ class RealBoson {
         try {
             const content = fs.readFileSync(this.config.patternFile, 'utf8');
             
-            // Extract only uncommented quoted patterns
+            // Extract patterns and synthdef declarations
             const patterns = [];
+            const synthdefs = [];
             const lines = content.split('\n');
             
             for (const line of lines) {
-                // Skip lines that start with //
-                if (line.trim().startsWith('//')) continue;
+                const trimmed = line.trim();
+                
+                // Skip comments
+                if (trimmed.startsWith('//')) continue;
+                
+                // Check for synthdef declarations
+                if (trimmed.startsWith('synthdef ')) {
+                    synthdefs.push(trimmed);
+                    continue;
+                }
                 
                 // Extract quoted patterns from non-comment lines
                 const regex = /"([^"]+)"/g;
                 let match;
                 while ((match = regex.exec(line)) !== null) {
                     patterns.push(match[1]);
+                }
+            }
+            
+            // Send synthdef declarations to Fermion
+            if (synthdefs.length > 0) {
+                console.log(`  Found ${synthdefs.length} synthdef declarations`);
+                for (const def of synthdefs) {
+                    this.registerSynthDef(def);
                 }
             }
             
@@ -215,6 +232,26 @@ class RealBoson {
         
         // Schedule next check
         this.timeout = setTimeout(() => this.scheduleEvents(), 50);
+    }
+    
+    registerSynthDef(def) {
+        // Parse the synthdef declaration
+        // Format: "synthdef name type(params)"
+        const match = def.match(/^synthdef\s+(\w+)\s+(.+)$/);
+        if (!match) {
+            console.warn(`Invalid synthdef: ${def}`);
+            return;
+        }
+        
+        const [, name, definition] = match;
+        console.log(`  Registering synthdef: ${name} = ${definition}`);
+        
+        // Send to Fermion via OSC
+        const message = new OSC.Message('/synthdef', name, definition);
+        this.osc.send(message, {
+            port: this.config.oscPort,
+            host: this.config.oscHost
+        });
     }
     
     watch() {
