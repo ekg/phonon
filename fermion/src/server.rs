@@ -81,6 +81,9 @@ impl OscServer {
             "/sample" => {
                 self.handle_sample(msg).await;
             }
+            "/synth" => {
+                self.handle_synth(msg).await;
+            }
             _ => {
                 warn!("Unknown OSC address: {}", msg.addr);
             }
@@ -128,5 +131,48 @@ impl OscServer {
         // Play through the audio engine (instant, low-latency)
         self.engine.play_sample(&sample_id, speed, gain);
         debug!("Triggered sample: {}", sample_id);
+    }
+    
+    async fn handle_synth(&self, msg: OscMessage) {
+        use crate::synth_defs::{parse_synth_def, compile_synth};
+        
+        // Extract synth definition string
+        let mut synth_def = "sine(440)".to_string();
+        let mut duration = 0.5f32;
+        let mut gain = 0.5f32;
+        
+        for (i, arg) in msg.args.iter().enumerate() {
+            match arg {
+                OscType::String(s) => {
+                    if i == 0 {
+                        synth_def = s.clone();
+                    }
+                }
+                OscType::Float(f) => {
+                    if i == 1 {
+                        duration = *f;
+                    } else if i == 2 {
+                        gain = *f;
+                    }
+                }
+                _ => {}
+            }
+        }
+        
+        info!("Synth: {} for {}s at gain {}", synth_def, duration, gain);
+        
+        // Parse and compile the synth definition
+        match parse_synth_def(&synth_def) {
+            Ok(def) => {
+                // For now, just log it - would need to integrate with engine
+                info!("Parsed synth definition: {:?}", def);
+                // TODO: Render and play through engine
+                // let graph = compile_synth(&def);
+                // self.engine.play_synth(graph, duration, gain);
+            }
+            Err(e) => {
+                warn!("Failed to parse synth def '{}': {}", synth_def, e);
+            }
+        }
     }
 }

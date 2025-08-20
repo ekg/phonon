@@ -4,6 +4,7 @@ use clap::{Parser, Subcommand};
 use tracing::{info};
 
 mod synth;
+mod synth_defs;
 mod server;
 mod audio;
 mod engine;

@@ -146,13 +146,25 @@ class RealBoson {
                     
                     // Handle different value types
                     if (typeof event.value === 'string') {
-                        // Sample name
-                        const message = new OSC.Message('/sample', event.value, 0, 1.0);
-                        this.osc.send(message, {
-                            port: this.config.oscPort,
-                            host: this.config.oscHost
-                        });
-                        console.log(`  ♫ ${event.value}`);
+                        // Check if it's a synth definition
+                        if (event.value.startsWith('synth:')) {
+                            const synthDef = event.value.substring(6); // Remove 'synth:' prefix
+                            const duration = event.whole.end - event.whole.begin;
+                            const message = new OSC.Message('/synth', synthDef, duration / this.config.cps, 0.5);
+                            this.osc.send(message, {
+                                port: this.config.oscPort,
+                                host: this.config.oscHost
+                            });
+                            console.log(`  🎹 ${synthDef}`);
+                        } else {
+                            // Regular sample name
+                            const message = new OSC.Message('/sample', event.value, 0, 1.0);
+                            this.osc.send(message, {
+                                port: this.config.oscPort,
+                                host: this.config.oscHost
+                            });
+                            console.log(`  ♫ ${event.value}`);
+                        }
                     } else if (typeof event.value === 'number') {
                         // Note/frequency
                         const message = new OSC.Message('/play', event.value, 0.2);
