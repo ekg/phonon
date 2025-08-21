@@ -23,3 +23,12 @@ samples/
 
 # Reference repos for development
 strudel-reference/
+
+# Sample directories
+dirt-samples/
+samples/
+strudel/samples/
+*.wav
+*.flac
+*.mp3
+*.ogg
