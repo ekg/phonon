@@ -1,0 +1,1 @@
+out: pattern("bd bd bd bd") + pattern("~ sn ~ sn") + pattern("hh hh hh hh")

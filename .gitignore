@@ -32,3 +32,12 @@ strudel/samples/
 *.flac
 *.mp3
 *.ogg
+
+# Reference repos (for development only)
+glicol-reference/
+strudel/
+
+# Old projects
+boson/
+fermion/
+rust-examples/

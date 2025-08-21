@@ -166,6 +166,16 @@ pub struct Pattern<T: Clone + Send + Sync> {
     steps: Option<Fraction>,
 }
 
+// Manual Debug implementation for Pattern since it contains a closure
+impl<T: Clone + Send + Sync> std::fmt::Debug for Pattern<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Pattern")
+            .field("query", &"<closure>")
+            .field("steps", &self.steps)
+            .finish()
+    }
+}
+
 impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// Create a new pattern from a query function
     pub fn new(query: impl Fn(&State) -> Vec<Hap<T>> + Send + Sync + 'static) -> Self {

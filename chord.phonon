@@ -1,0 +1,1 @@
+out: pattern("[bd cp, hh hh hh, sn ~ sn ~]")

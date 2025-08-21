@@ -107,7 +107,7 @@ pub enum ProcessorType {
 }
 
 /// Main signal graph structure
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SignalGraph {
     /// All nodes in the graph
     pub nodes: HashMap<NodeId, Node>,

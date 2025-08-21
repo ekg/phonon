@@ -23,3 +23,5 @@ pub mod pattern_query;
 pub mod pattern_midi;
 pub mod mini_notation;
 pub mod phonon_lang;
+pub mod glicol_dsp;
+pub mod glicol_parser;
