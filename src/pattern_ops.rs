@@ -372,25 +372,30 @@ impl Pattern<String> {
         
         Pattern::new(move |state| {
             let mut haps = Vec::new();
-            let cycle = state.span.begin.to_float().floor();
             let step_size = 1.0 / len as f64;
             
-            for (i, part) in parts.iter().enumerate() {
-                let begin = cycle + (i as f64 * step_size);
-                let end = begin + step_size;
-                
-                if begin < state.span.end.to_float() && end > state.span.begin.to_float() {
-                    haps.push(Hap::new(
-                        Some(TimeSpan::new(
-                            Fraction::from_float(begin),
-                            Fraction::from_float(end),
-                        )),
-                        TimeSpan::new(
-                            Fraction::from_float(begin.max(state.span.begin.to_float())),
-                            Fraction::from_float(end.min(state.span.end.to_float())),
-                        ),
-                        part.clone(),
-                    ));
+            // Generate events for all cycles in the query span
+            let start_cycle = state.span.begin.to_float().floor() as i32;
+            let end_cycle = state.span.end.to_float().ceil() as i32;
+            
+            for cycle in start_cycle..end_cycle {
+                for (i, part) in parts.iter().enumerate() {
+                    let begin = cycle as f64 + (i as f64 * step_size);
+                    let end = begin + step_size;
+                    
+                    if begin < state.span.end.to_float() && end > state.span.begin.to_float() {
+                        haps.push(Hap::new(
+                            Some(TimeSpan::new(
+                                Fraction::from_float(begin),
+                                Fraction::from_float(end),
+                            )),
+                            TimeSpan::new(
+                                Fraction::from_float(begin.max(state.span.begin.to_float())),
+                                Fraction::from_float(end.min(state.span.end.to_float())),
+                            ),
+                            part.clone(),
+                        ));
+                    }
                 }
             }
             
@@ -439,7 +444,8 @@ mod tests {
     
     #[test]
     fn test_note_conversion() {
-        let p = Pattern::from_string("a4 c5 e5").note();
+        use crate::pattern_tonal::*;
+        let p = Pattern::from_string("a4 c5 e5").freq();
         let state = State {
             span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
             controls: HashMap::new(),

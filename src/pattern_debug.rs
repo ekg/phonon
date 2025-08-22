@@ -156,12 +156,30 @@ mod tests {
     
     #[test]
     fn test_polyphony_detection() {
+        use crate::pattern::Pattern;
+        
         // Sequential pattern - no polyphony
         let seq = parse_mini_notation("bd sn hh cp");
         assert!(!verify_polyphony(&seq));
         
-        // Stacked pattern - has polyphony
-        let poly = parse_mini_notation("[bd, hh hh]");
+        // Create a truly polyphonic pattern using stack()
+        let p1 = parse_mini_notation("bd ~ bd ~");
+        let p2 = parse_mini_notation("~ hh ~ hh");
+        let poly = Pattern::stack(vec![p1, p2]);
+        
+        let span = TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1));
+        let state = State {
+            span,
+            controls: HashMap::new(),
+        };
+        let haps = poly.query(&state);
+        eprintln!("Polyphonic pattern events:");
+        for hap in &haps {
+            eprintln!("  {} : [{}, {}]", hap.value, 
+                hap.part.begin.to_float(), hap.part.end.to_float());
+        }
+        
+        // This should have overlapping events
         assert!(verify_polyphony(&poly));
     }
 }

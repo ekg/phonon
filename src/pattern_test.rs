@@ -185,9 +185,11 @@ mod conditional_operations {
     fn test_when_mod() {
         let p = Pattern::from_string("a").when_mod(3, 0, |p| p.fast(2.0));
         let output = pattern_to_string(p, 3.0);
+        eprintln!("when_mod output:\n{}", output);
         // Every 3rd cycle should be fast
-        let lines: Vec<&str> = output.lines().collect();
-        // Cycles 0 and 3 should have 2 events, cycle 1 and 2 should have 1
+        let lines: Vec<&str> = output.lines().filter(|l| !l.is_empty()).collect();
+        // Cycle 0 should be fast (2 events), cycles 1 and 2 normal (1 event each)
+        // Total: 2 + 1 + 1 = 4 events
         assert!(lines.len() >= 4); // At least 4 events total
     }
 }
