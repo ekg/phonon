@@ -22,6 +22,46 @@ pub enum MidiMessage {
     Continue,
 }
 
+impl MidiMessage {
+    /// Convert to raw MIDI bytes
+    pub fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            MidiMessage::NoteOn { channel, note, velocity } => {
+                vec![0x90 | (channel & 0x0F), *note & 0x7F, *velocity & 0x7F]
+            }
+            MidiMessage::NoteOff { channel, note, velocity } => {
+                vec![0x80 | (channel & 0x0F), *note & 0x7F, *velocity & 0x7F]
+            }
+            MidiMessage::ControlChange { channel, controller, value } => {
+                vec![0xB0 | (channel & 0x0F), *controller & 0x7F, *value & 0x7F]
+            }
+            MidiMessage::ProgramChange { channel, program } => {
+                vec![0xC0 | (channel & 0x0F), *program & 0x7F]
+            }
+            MidiMessage::PitchBend { channel, value } => {
+                let value = (*value + 8192).max(0).min(16383) as u16;
+                vec![0xE0 | (channel & 0x0F), (value & 0x7F) as u8, ((value >> 7) & 0x7F) as u8]
+            }
+            MidiMessage::Aftertouch { channel, note, pressure } => {
+                vec![0xA0 | (channel & 0x0F), *note & 0x7F, *pressure & 0x7F]
+            }
+            MidiMessage::ChannelPressure { channel, pressure } => {
+                vec![0xD0 | (channel & 0x0F), *pressure & 0x7F]
+            }
+            MidiMessage::SysEx { data } => {
+                let mut bytes = vec![0xF0];
+                bytes.extend_from_slice(data);
+                bytes.push(0xF7);
+                bytes
+            }
+            MidiMessage::Clock => vec![0xF8],
+            MidiMessage::Start => vec![0xFA],
+            MidiMessage::Stop => vec![0xFC],
+            MidiMessage::Continue => vec![0xFB],
+        }
+    }
+}
+
 /// OSC message
 #[derive(Debug, Clone)]
 pub struct OscMessage {

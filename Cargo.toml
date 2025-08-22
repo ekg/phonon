@@ -13,6 +13,9 @@ glicol = "0.13"
 # Audio output - cross-platform (JACK, ALSA, OpenSL ES on Android)
 cpal = "0.15"
 
+# MIDI support
+midir = "0.9"
+
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 

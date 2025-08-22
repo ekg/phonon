@@ -1,4 +1,5 @@
 # Rust
+target/
 fermion/target/
 **/*.rs.bk
 

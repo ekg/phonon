@@ -73,6 +73,37 @@ enum Commands {
         /// Input file or directory
         input: PathBuf,
     },
+    
+    /// Send pattern to MIDI device
+    Midi {
+        /// Pattern to play (mini-notation)
+        #[arg(short, long)]
+        pattern: Option<String>,
+        
+        /// MIDI device name (partial match)
+        #[arg(short, long)]
+        device: Option<String>,
+        
+        /// Tempo in BPM (default: 120)
+        #[arg(short, long, default_value = "120")]
+        tempo: f32,
+        
+        /// Duration in beats (default: 16)
+        #[arg(short = 'D', long, default_value = "16")]
+        duration: f32,
+        
+        /// MIDI channel (0-15, default: 0)
+        #[arg(short, long, default_value = "0")]
+        channel: u8,
+        
+        /// Note velocity (0-127, default: 64)
+        #[arg(short = 'v', long, default_value = "64")]
+        velocity: u8,
+        
+        /// List MIDI devices and exit
+        #[arg(short, long)]
+        list: bool,
+    },
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -218,6 +249,83 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!();
             println!("⚠️  Test mode not yet implemented");
             println!("   This will run validation tests on DSL files");
+        }
+        
+        Commands::Midi { 
+            pattern, 
+            device, 
+            tempo, 
+            duration, 
+            channel, 
+            velocity, 
+            list 
+        } => {
+            use phonon::midi_output::{MidiOutputHandler, note_to_midi_message};
+            use phonon::mini_notation::parse_mini_notation;
+            
+            println!("🎹 Phonon MIDI Output");
+            println!("====================");
+            
+            // List devices if requested
+            if list {
+                let devices = MidiOutputHandler::list_devices()?;
+                if devices.is_empty() {
+                    println!("No MIDI devices found!");
+                    println!("Please connect a MIDI device or start a virtual MIDI port.");
+                } else {
+                    println!("Available MIDI devices:");
+                    for (i, dev) in devices.iter().enumerate() {
+                        println!("  [{}] {}", i, dev.name);
+                    }
+                }
+                return Ok(());
+            }
+            
+            // Check if pattern is provided
+            let Some(pattern) = pattern else {
+                println!("\n⚠️  Please provide a pattern with --pattern");
+                println!("   Example: phonon midi --pattern \"c4 e4 g4 c5\"");
+                return Ok(());
+            };
+            
+            // Parse pattern
+            let pat = parse_mini_notation(&pattern);
+            println!("Pattern: {}", pattern);
+            println!("Tempo:   {} BPM", tempo);
+            println!("Duration: {} beats", duration);
+            
+            // Connect to MIDI device
+            let mut handler = MidiOutputHandler::new()?;
+            
+            if let Some(device_name) = device {
+                println!("Device:  {}", device_name);
+                handler.connect(&device_name)?;
+            } else {
+                // Try to connect to first available device
+                let devices = MidiOutputHandler::list_devices()?;
+                if devices.is_empty() {
+                    println!("\n⚠️  No MIDI devices found!");
+                    println!("   Please connect a MIDI device or start a virtual MIDI port.");
+                    println!("   You can list devices with: phonon midi --list");
+                    return Ok(());
+                }
+                let device = devices.into_iter().next().unwrap();
+                println!("Device:  {} (auto-selected)", device.name);
+                handler.connect_to_port(device.port)?;
+            }
+            
+            println!("\n▶️  Playing pattern to MIDI...");
+            println!("   Press Ctrl+C to stop\n");
+            
+            // Play pattern
+            handler.play_pattern(
+                &pat,
+                tempo,
+                duration,
+                |note_str| note_to_midi_message(note_str, channel, velocity)
+            )?;
+            
+            println!("\n✅ Playback complete!");
         }
     }
     
