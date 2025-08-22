@@ -176,9 +176,10 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     
     /// Create a palindrome (pattern + reversed pattern)
     pub fn palindrome(self) -> Self {
-        let forward = self.clone();
-        let backward = self.rev();
-        Pattern::cat(vec![forward, backward])
+        // Create a pattern that plays forward then backward, spread over 2 cycles
+        let forward = self.clone().slow(2.0);  // First half
+        let backward = self.rev().slow(2.0).late(1.0);  // Second half, shifted by 1 cycle
+        Pattern::stack(vec![forward, backward])
     }
     
     /// Chunk - apply a function to a different part of the pattern each cycle
@@ -380,6 +381,11 @@ impl Pattern<String> {
             
             for cycle in start_cycle..end_cycle {
                 for (i, part) in parts.iter().enumerate() {
+                    // Skip tildes - they represent rests/silence
+                    if part == "~" {
+                        continue;
+                    }
+                    
                     let begin = cycle as f64 + (i as f64 * step_size);
                     let end = begin + step_size;
                     

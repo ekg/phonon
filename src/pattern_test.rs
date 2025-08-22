@@ -126,6 +126,7 @@ mod time_operations {
     fn test_rev() {
         let p = Pattern::from_string("a b c d").rev();
         let output = pattern_to_string(p, 1.0);
+        eprintln!("rev output:\n{}", output);
         // Events should be in reverse order within the cycle
         let lines: Vec<&str> = output.lines().collect();
         assert_eq!(lines.len(), 4);
@@ -141,8 +142,10 @@ mod time_operations {
         let p = Pattern::from_string("a b").late(0.25);
         let output = pattern_to_string(p, 1.0);
         // Events should be shifted by 0.25
-        assert!(output.contains("0.250-0.500:\"a\""));
-        assert!(output.contains("0.750-1.000:\"b\""));
+        // "a" was at [0-0.5], now at [0.25-0.75] 
+        // "b" was at [0.5-1], now at [0.75-1.25] (extends beyond cycle)
+        assert!(output.contains("0.250-0.750:\"a\""));
+        assert!(output.contains("0.750-1.250:\"b\""));
     }
     
     #[test]

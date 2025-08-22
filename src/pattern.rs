@@ -258,32 +258,62 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// Reverse a pattern within each cycle
     pub fn rev(self) -> Self {
         Pattern::new(move |state| {
-            self.query(state)
-                .into_iter()
-                .map(|mut hap| {
-                    let cycle_time = hap.part.begin.to_float().floor();
-                    let local_begin = hap.part.begin.to_float() - cycle_time;
-                    let local_end = hap.part.end.to_float() - cycle_time;
-                    
-                    hap.part = TimeSpan::new(
-                        Fraction::from_float(cycle_time + (1.0 - local_end)),
-                        Fraction::from_float(cycle_time + (1.0 - local_begin)),
-                    );
-                    
-                    if let Some(whole) = hap.whole {
-                        let whole_cycle = whole.begin.to_float().floor();
-                        let whole_local_begin = whole.begin.to_float() - whole_cycle;
-                        let whole_local_end = whole.end.to_float() - whole_cycle;
-                        
-                        hap.whole = Some(TimeSpan::new(
-                            Fraction::from_float(whole_cycle + (1.0 - whole_local_end)),
-                            Fraction::from_float(whole_cycle + (1.0 - whole_local_begin)),
-                        ));
+            let mut result = Vec::new();
+            
+            // Process each cycle separately
+            let start_cycle = state.span.begin.to_float().floor() as i32;
+            let end_cycle = state.span.end.to_float().ceil() as i32;
+            
+            for cycle in start_cycle..end_cycle {
+                let cycle_begin = Fraction::from_float(cycle as f64);
+                let cycle_end = Fraction::from_float((cycle + 1) as f64);
+                let cycle_span = TimeSpan::new(cycle_begin, cycle_end);
+                
+                // Query events for this specific cycle
+                let cycle_state = State {
+                    span: cycle_span,
+                    controls: state.controls.clone(),
+                };
+                
+                let mut cycle_haps = self.query(&cycle_state);
+                
+                // Sort events by their start time within the cycle
+                cycle_haps.sort_by(|a, b| {
+                    a.part.begin.partial_cmp(&b.part.begin).unwrap()
+                });
+                
+                // Collect the time spans
+                let time_spans: Vec<_> = cycle_haps.iter().map(|h| h.part.clone()).collect();
+                
+                // Reverse the values but keep the time spans in order
+                let reversed_values: Vec<_> = cycle_haps.iter().rev().map(|h| h.value.clone()).collect();
+                
+                // Create new haps with reversed values at original time positions
+                for (i, time_span) in time_spans.iter().enumerate() {
+                    if let Some(value) = reversed_values.get(i) {
+                        // Only include if within the query span
+                        if time_span.end > state.span.begin && time_span.begin < state.span.end {
+                            let mut hap = Hap::new(
+                                cycle_haps[i].whole.clone(),
+                                time_span.clone(),
+                                value.clone(),
+                            );
+                            
+                            // Clip to query span if necessary
+                            if hap.part.begin < state.span.begin {
+                                hap.part.begin = state.span.begin;
+                            }
+                            if hap.part.end > state.span.end {
+                                hap.part.end = state.span.end;
+                            }
+                            
+                            result.push(hap);
+                        }
                     }
-                    
-                    hap
-                })
-                .collect()
+                }
+            }
+            
+            result
         })
     }
     

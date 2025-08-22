@@ -163,8 +163,9 @@ mod tests {
         assert!(!verify_polyphony(&seq));
         
         // Create a truly polyphonic pattern using stack()
-        let p1 = parse_mini_notation("bd ~ bd ~");
-        let p2 = parse_mini_notation("~ hh ~ hh");
+        // These patterns will overlap at positions 0-0.5 and 0.5-1.0
+        let p1 = parse_mini_notation("bd bd");
+        let p2 = parse_mini_notation("hh hh");
         let poly = Pattern::stack(vec![p1, p2]);
         
         let span = TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1));
