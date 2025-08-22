@@ -21,6 +21,10 @@ pub mod pattern_signal;
 pub mod pattern_structure;
 pub mod pattern_query;
 pub mod pattern_midi;
+pub mod pattern_debug;
+pub mod pattern_sequencer_voice;
+pub mod sample_loader;
+pub mod voice_manager;
 pub mod midi_output;
 pub mod osc_control;
 pub mod mini_notation;
@@ -28,3 +32,6 @@ pub mod phonon_lang;
 pub mod glicol_dsp;
 pub mod glicol_parser;
 pub mod glicol_pattern_bridge;
+
+#[cfg(test)]
+pub mod test_utils;

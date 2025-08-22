@@ -135,15 +135,24 @@ impl PatternDspEngine {
     
     /// Check if input looks like a pattern
     fn is_pattern(input: &str) -> bool {
+        // DSP function names that are definitely not patterns
+        let dsp_functions = ["sine", "sin", "saw", "square", "lpf", "hpf", "mul", "add"];
+        for func in &dsp_functions {
+            if input.trim().starts_with(func) {
+                return false;
+            }
+        }
+        
         // Heuristics: contains pattern-like tokens
         input.contains('[') || 
         input.contains('<') ||
         input.contains('*') ||
-        input.contains('(') && input.contains(',') ||  // Euclidean
         input.contains("bd") || 
         input.contains("cp") ||
         input.contains("hh") ||
-        input.split_whitespace().count() > 1  // Multiple elements
+        input.contains("sn") ||
+        // Euclidean patterns like bd(3,8)
+        (input.contains('(') && input.contains(',') && input.chars().filter(|c| c.is_alphabetic()).count() < 5)
     }
     
     /// Parse pure pattern

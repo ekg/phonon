@@ -358,7 +358,7 @@ impl std::ops::Shr for DspChain {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::dsp::*;
+    use super::dsp::{sin, mul, lpf, add};
     
     #[test]
     fn test_chain_building() {

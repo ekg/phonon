@@ -344,7 +344,7 @@ mod tests {
         use crate::pattern::*;
         
         // Create a simple pattern
-        let pattern = Pattern::fastcat(vec![
+        let pattern = Pattern::cat(vec![
             Pattern::pure("C4".to_string()),
             Pattern::pure("E4".to_string()),
             Pattern::pure("G4".to_string()),
@@ -352,7 +352,7 @@ mod tests {
         
         // Query the pattern
         let state = State {
-            span: TimeSpan::new(Fraction::from(0), Fraction::from(1)),
+            span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
             controls: HashMap::new(),
         };
         

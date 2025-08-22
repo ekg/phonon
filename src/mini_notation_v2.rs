@@ -387,7 +387,7 @@ impl MiniNotationParser {
         if patterns.is_empty() {
             Pattern::silence()
         } else {
-            Pattern::fastcat(patterns)
+            Pattern::cat(patterns)
         }
     }
     
@@ -425,7 +425,7 @@ impl MiniNotationParser {
             })
             .collect();
         
-        Pattern::fastcat(patterns)
+        Pattern::cat(patterns)
     }
 }
 
