@@ -108,6 +108,9 @@ fn test_complex_patch() {
         out: ~filtered * 0.7 + ~verb * 0.3
     "#;
     let result = parse_glicol(code.trim());
+    if let Err(e) = &result {
+        eprintln!("Parse error for complex_patch: {}", e);
+    }
     assert!(result.is_ok());
 }
 
@@ -120,6 +123,9 @@ fn test_fm_synthesis() {
         out: ~carrier >> mul 0.5
     "#;
     let result = parse_glicol(code.trim());
+    if let Err(e) = &result {
+        eprintln!("Parse error for fm_synthesis: {}", e);
+    }
     assert!(result.is_ok());
 }
 
