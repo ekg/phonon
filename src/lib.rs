@@ -32,6 +32,7 @@ pub mod phonon_lang;
 pub mod glicol_dsp;
 pub mod glicol_parser;
 pub mod glicol_pattern_bridge;
+pub mod simple_dsp_executor;
 
 #[cfg(test)]
 pub mod test_utils;
