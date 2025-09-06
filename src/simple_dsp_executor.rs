@@ -19,6 +19,13 @@ struct FilterState {
     prev_out: f32,
 }
 
+/// Delay line for delay effects
+struct DelayLine {
+    buffer: Vec<f32>,
+    write_idx: usize,
+    delay_samples: usize,
+}
+
 /// DSP processor that can generate audio from a single node
 struct NodeProcessor {
     sample_rate: f32,
@@ -26,16 +33,24 @@ struct NodeProcessor {
     osc_state: OscState,
     filter_state: FilterState,
     noise_state: u32,
+    delay_line: DelayLine,
 }
 
 impl NodeProcessor {
     fn new(sample_rate: f32) -> Self {
+        // Create a delay line with max 2 seconds of delay
+        let max_delay_samples = (sample_rate * 2.0) as usize;
         Self {
             sample_rate,
             time: 0.0,
             osc_state: OscState { phase: 0.0, freq: 0.0 },
             filter_state: FilterState { prev_in: 0.0, prev_out: 0.0 },
             noise_state: 12345,
+            delay_line: DelayLine {
+                buffer: vec![0.0; max_delay_samples],
+                write_idx: 0,
+                delay_samples: 0,
+            },
         }
     }
     
@@ -176,6 +191,55 @@ impl NodeProcessor {
                 } else {
                     input
                 }
+            }
+            
+            // Delay effect
+            DspNode::Delay { time, feedback } => {
+                let delay_time = *time as f32;
+                let fb = *feedback as f32;
+                
+                // Calculate delay in samples
+                self.delay_line.delay_samples = (delay_time * self.sample_rate) as usize;
+                self.delay_line.delay_samples = self.delay_line.delay_samples.min(self.delay_line.buffer.len() - 1);
+                
+                // Read from delay line
+                let read_idx = (self.delay_line.write_idx + self.delay_line.buffer.len() - self.delay_line.delay_samples) 
+                    % self.delay_line.buffer.len();
+                let delayed = self.delay_line.buffer[read_idx];
+                
+                // Write to delay line (input + feedback)
+                self.delay_line.buffer[self.delay_line.write_idx] = input + delayed * fb;
+                self.delay_line.write_idx = (self.delay_line.write_idx + 1) % self.delay_line.buffer.len();
+                
+                // Output is input + delayed signal
+                input + delayed
+            }
+            
+            // Reverb (simplified as multiple delays)
+            DspNode::Reverb { room, damp } => {
+                // Very simple reverb using a single delay
+                let delay_time = 0.05 * (*room as f32);
+                let fb = 0.5 * (1.0 - *damp as f32);
+                
+                // Calculate delay in samples
+                self.delay_line.delay_samples = (delay_time * self.sample_rate) as usize;
+                self.delay_line.delay_samples = self.delay_line.delay_samples.min(self.delay_line.buffer.len() - 1);
+                
+                // Read from delay line
+                let read_idx = (self.delay_line.write_idx + self.delay_line.buffer.len() - self.delay_line.delay_samples) 
+                    % self.delay_line.buffer.len();
+                let delayed = self.delay_line.buffer[read_idx];
+                
+                // Simple lowpass filter for damping
+                let filtered = delayed * (1.0 - *damp as f32) + self.filter_state.prev_out * (*damp as f32);
+                self.filter_state.prev_out = filtered;
+                
+                // Write to delay line
+                self.delay_line.buffer[self.delay_line.write_idx] = input + filtered * fb;
+                self.delay_line.write_idx = (self.delay_line.write_idx + 1) % self.delay_line.buffer.len();
+                
+                // Mix dry and wet
+                input * 0.7 + delayed * 0.3
             }
             
             // For other nodes, pass through or return 0
