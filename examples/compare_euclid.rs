@@ -3,8 +3,8 @@ use phonon::pattern::Pattern;
 fn main() {
     println!("Comparing euclidean patterns as mentioned by user:\n");
     
-    let p1 = Pattern::<bool>::euclid(1, 8, 0).map(|b| if *b { "x".to_string() } else { "-".to_string() });
-    let p3 = Pattern::<bool>::euclid(3, 8, 0).map(|b| if *b { "x".to_string() } else { "-".to_string() });
+    let p1 = Pattern::<bool>::euclid(1, 8, 0).map(|b| if b { "x".to_string() } else { "-".to_string() });
+    let p3 = Pattern::<bool>::euclid(3, 8, 0).map(|b| if b { "x".to_string() } else { "-".to_string() });
     
     // Query the patterns for their events
     use phonon::pattern::{State, TimeSpan, Fraction};
@@ -14,14 +14,16 @@ fn main() {
         controls: HashMap::new(),
     };
     
-    let events1: Vec<_> = p1.query(&state).collect();
-    let events3: Vec<_> = p3.query(&state).collect();
+    let events1 = p1.query(&state);
+    let events3 = p3.query(&state);
     
     println!("bd(1,8): {:?}", events1);
     println!("bd(3,8): {:?}", events3);
     
     println!("\nThese should be DIFFERENT (not the same):");
-    if events1 == events3 {
+    if events1.len() == events3.len() && events1.iter().zip(events3.iter()).all(|(a, b)| {
+        a.value == b.value && a.part.begin == b.part.begin && a.part.end == b.part.end
+    }) {
         println!("❌ FAIL: bd(1,8) == bd(3,8) - They are the same!");
     } else {
         println!("✅ PASS: bd(1,8) != bd(3,8) - They are different as expected!");

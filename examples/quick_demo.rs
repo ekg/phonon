@@ -54,7 +54,7 @@ fn main() {
     
     // 8. Euclidean rhythms
     println!("\n8. Euclidean rhythm (5,8):");
-    let euclid = Pattern::euclid(5, 8, 0).map(|b| if b { "x" } else { "." });
+    let euclid = Pattern::euclid(5, 8, 0).map(|b| if b { "x".to_string() } else { ".".to_string() });
     print_pattern(&euclid);
     
     // 9. Random patterns

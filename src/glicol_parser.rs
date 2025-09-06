@@ -29,13 +29,21 @@ pub enum Token {
     
     // Keywords (node types)
     Sin, Saw, Square, Triangle, Noise,
+    Impulse, Pink, Brown,  // Additional noise generators
     Mul, Add, Sub, Div,
     Lpf, Hpf, Bpf, Notch,
     Delay, Reverb, Chorus, Phaser,
     Seq, Speed, Choose, Sp,
     Adsr, Env, Lfo,
     Mix, Pan, Gain,
+    Clip,  // Distortion/clipping
     Meta,
+    
+    // Arithmetic operators for signal math
+    Plus,           // +
+    Minus,          // -
+    Star,           // *
+    Slash,          // /
     
     // Special
     Newline,
@@ -106,6 +114,22 @@ impl GlicolParser {
                     self.tokens.push(Token::Chain);
                     self.position += 2;
                 }
+                '+' => {
+                    self.tokens.push(Token::Plus);
+                    self.position += 1;
+                }
+                '-' if self.position + 1 < chars.len() && !chars[self.position + 1].is_ascii_digit() => {
+                    self.tokens.push(Token::Minus);
+                    self.position += 1;
+                }
+                '*' => {
+                    self.tokens.push(Token::Star);
+                    self.position += 1;
+                }
+                '/' if self.position + 1 < chars.len() && chars[self.position + 1] != '/' => {
+                    self.tokens.push(Token::Slash);
+                    self.position += 1;
+                }
                 '"' => {
                     // Parse string literal
                     self.position += 1;
@@ -158,6 +182,9 @@ impl GlicolParser {
                         "square" | "squ" => Token::Square,
                         "triangle" | "tri" => Token::Triangle,
                         "noise" | "noiz" => Token::Noise,
+                        "impulse" => Token::Impulse,
+                        "pink" => Token::Pink,
+                        "brown" => Token::Brown,
                         "mul" => Token::Mul,
                         "add" => Token::Add,
                         "sub" => Token::Sub,
@@ -180,6 +207,7 @@ impl GlicolParser {
                         "mix" => Token::Mix,
                         "pan" => Token::Pan,
                         "gain" => Token::Gain,
+                        "clip" => Token::Clip,
                         "meta" | "script" => Token::Meta,
                         _ => Token::Symbol(ident),
                     };
@@ -268,7 +296,11 @@ impl GlicolParser {
             Token::Div => { self.advance(); "div".to_string() }
             Token::Bpf => { self.advance(); "bpf".to_string() }
             Token::Notch => { self.advance(); "notch".to_string() }
-            _ => return Err("Expected identifier".to_string()),
+            Token::Impulse => { self.advance(); "impulse".to_string() }
+            Token::Pink => { self.advance(); "pink".to_string() }
+            Token::Brown => { self.advance(); "brown".to_string() }
+            Token::Clip => { self.advance(); "clip".to_string() }
+            _ => return Err(format!("Expected identifier, got {:?}", self.current_token())),
         };
         
         // Expect colon
@@ -312,6 +344,9 @@ impl GlicolParser {
             chain.nodes.push(node);
         }
         
+        // For now, ignore arithmetic operators - they need better handling
+        // TODO: Implement proper signal mixing for arithmetic operations
+        
         Ok(chain)
     }
     
@@ -340,8 +375,23 @@ impl GlicolParser {
             }
             Token::Noise => {
                 self.advance();
-                self.parse_number_or_ref()?; // Noise seed/type (ignored for now)
+                if let Token::Number(_) = self.peek_token() {
+                    self.parse_number_or_ref()?; // Noise seed/type (ignored for now)
+                }
                 Ok(DspNode::Noise)
+            }
+            Token::Impulse => {
+                self.advance();
+                let freq = self.parse_number_or_ref()?;
+                Ok(DspNode::Impulse { freq })
+            }
+            Token::Pink => {
+                self.advance();
+                Ok(DspNode::Pink)
+            }
+            Token::Brown => {
+                self.advance();
+                Ok(DspNode::Brown)
             }
             Token::Mul => {
                 self.advance();
@@ -356,7 +406,7 @@ impl GlicolParser {
             Token::Lpf => {
                 self.advance();
                 let cutoff = self.parse_number_or_ref()?;
-                let q = if let Token::Number(_) = self.peek_token() {
+                let q = if let Token::Number(_) = self.current_token() {
                     self.parse_number_or_ref()?
                 } else {
                     1.0
@@ -366,7 +416,7 @@ impl GlicolParser {
             Token::Hpf => {
                 self.advance();
                 let cutoff = self.parse_number_or_ref()?;
-                let q = if let Token::Number(_) = self.peek_token() {
+                let q = if let Token::Number(_) = self.current_token() {
                     self.parse_number_or_ref()?
                 } else {
                     1.0
@@ -376,7 +426,7 @@ impl GlicolParser {
             Token::Delay => {
                 self.advance();
                 let time = self.parse_number_or_ref()?;
-                let feedback = if let Token::Number(_) = self.peek_token() {
+                let feedback = if let Token::Number(_) = self.current_token() {
                     self.parse_number_or_ref()?
                 } else {
                     0.5
@@ -386,7 +436,7 @@ impl GlicolParser {
             Token::Reverb => {
                 self.advance();
                 let room = self.parse_number_or_ref()?;
-                let damp = if let Token::Number(_) = self.peek_token() {
+                let damp = if let Token::Number(_) = self.current_token() {
                     self.parse_number_or_ref()?
                 } else {
                     0.5
@@ -417,6 +467,28 @@ impl GlicolParser {
                     return Err("Expected sample name".to_string());
                 };
                 Ok(DspNode::Sp { sample })
+            }
+            Token::Env => {
+                self.advance();
+                // Parse 4 parameters: attack, decay, sustain, release
+                let attack = self.parse_number_or_ref()?;
+                let decay = self.parse_number_or_ref()?;
+                let sustain = self.parse_number_or_ref()?;
+                let release = self.parse_number_or_ref()?;
+                // Convert to stages format
+                let stages = vec![
+                    (attack, 1.0),   // Attack to peak
+                    (decay, sustain), // Decay to sustain level
+                    (0.0, sustain),   // Hold at sustain
+                    (release, 0.0),   // Release to zero
+                ];
+                Ok(DspNode::Env { stages })
+            }
+            Token::Clip => {
+                self.advance();
+                let min = self.parse_number_or_ref()?;
+                let max = self.parse_number_or_ref()?;
+                Ok(DspNode::Clip { min, max })
             }
             Token::Tilde => {
                 // Reference to another chain

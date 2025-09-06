@@ -23,6 +23,9 @@ pub enum DspNode {
     Square { freq: f64 },
     Triangle { freq: f64 },
     Noise,
+    Impulse { freq: f64 },
+    Pink,
+    Brown,
     
     // Math operations
     Mul { value: f64 },
@@ -43,6 +46,7 @@ pub enum DspNode {
     Phaser { rate: f64, depth: f64 },
     Distortion { gain: f64 },
     Compressor { threshold: f64, ratio: f64 },
+    Clip { min: f64, max: f64 },
     
     // Envelopes
     Adsr { attack: f64, decay: f64, sustain: f64, release: f64 },
