@@ -650,10 +650,8 @@ mod tests {
     }
     
     #[test]
-    #[should_panic] // TODO: Fix tokenizer to handle all keywords as potential names
     fn test_complex_chain() {
-        // Note: Glicol parser doesn't support arithmetic expressions
-        // Use simpler syntax or the enhanced parser for that
+        // Now works after fixing the parser
         let input = "~lfo: sin 0.5 >> mul 0.5 >> add 0.5\n~bass: saw 55 >> lpf 2000 0.8\no: ~bass >> reverb 0.8 0.5 >> mul 0.4";
         let env = parse_glicol(input).unwrap();
         assert!(env.output_chain.is_some());
