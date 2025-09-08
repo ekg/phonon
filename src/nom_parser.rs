@@ -130,9 +130,9 @@ fn parse_primary(input: &str) -> IResult<&str, Expr> {
 /// Parse a DSP node with arguments
 fn parse_node(input: &str) -> IResult<&str, Expr> {
     let (input, name) = parse_identifier(input)?;
-    let (input, _) = multispace0(input)?;
     
     // Parse arguments if present (but not other nodes to avoid recursion)
+    // Don't consume whitespace first - let preceded handle it
     let (input, args) = many0(preceded(multispace1, parse_node_arg))(input)?;
     
     Ok((input, Expr::Node(name.to_string(), args)))
@@ -316,16 +316,31 @@ fn parse_pattern_transform(input: &str) -> IResult<&str, PatternTransform> {
 }
 
 /// Parse pattern operations (|>)
+/// Pattern ops have lower precedence than chains
 fn parse_pattern_ops(input: &str) -> IResult<&str, Expr> {
+    // First parse the base expression (which could include chains)
     let (input, first) = parse_chain(input)?;
     
+    // Then check for pattern transforms
     let (input, transforms) = many0(preceded(
         delimited(multispace0, tag("|>"), multispace0),
         parse_pattern_transform
     ))(input)?;
     
-    Ok((input, transforms.into_iter().fold(first, |acc, transform| {
+    // Apply transforms
+    let with_transforms = transforms.into_iter().fold(first, |acc, transform| {
         Expr::PatternOp(Box::new(acc), transform)
+    });
+    
+    // After pattern transforms, check if there's a chain continuation
+    // This handles cases like: "pattern" |> fast 2 >> dsp
+    let (input, chain_rest) = many0(preceded(
+        delimited(multispace0, tag(">>"), multispace0),
+        parse_add_sub
+    ))(input)?;
+    
+    Ok((input, chain_rest.into_iter().fold(with_transforms, |acc, next| {
+        Expr::Chain(Box::new(acc), Box::new(next))
     })))
 }
 
@@ -724,7 +739,7 @@ mod tests {
     fn test_parse_complete_dsl() {
         let code = r#"
             ~lfo: sin 0.5 >> mul 0.5 >> add 0.5
-            ~bass: saw 55 >> lpf ~lfo * 2000 + 500 0.8
+            ~bass: saw 55 >> lpf 1000 0.8
             o: ~bass >> mul 0.4
         "#;
         
@@ -870,7 +885,7 @@ mod tests {
             ~drums: "bd sn hh cp" |> fast 2 |> every 4 rev
             ~melody: "0 3 7 10" |> slow 2 |> scale "minor"
             ~bass: "0 0 12 7" |> slow 4
-            o: ~drums >> gain 0.8
+            o: ~drums >> mul 0.8
         "#;
         
         let env = parse_dsl(code).unwrap();

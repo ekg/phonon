@@ -139,16 +139,17 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     
     // ============= Structural Manipulation =============
     
-    /// Repeat each event n times
+    /// Repeat pattern n times fast (like bd*4 in TidalCycles)
+    /// This speeds up the pattern to fit n repetitions in the original timespan
     pub fn dup(self, n: usize) -> Self {
-        Pattern::new(move |state| {
-            self.query(state)
-                .into_iter()
-                .flat_map(|hap| {
-                    (0..n).map(|_| hap.clone()).collect::<Vec<_>>()
-                })
-                .collect()
-        })
+        if n == 0 {
+            return Pattern::silence();
+        }
+        if n == 1 {
+            return self;
+        }
+        // Use fast to speed up and repeat
+        self.fast(n as f64)
     }
     
     /// Stutter - repeat each event n times with subdivision

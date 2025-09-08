@@ -10,13 +10,13 @@ fn test_scalar_multiply_node() {
     // Create a simple chain that multiplies by 0.5
     let mut chain = DspChain::new();
     chain.nodes.push(DspNode::Sin { freq: 440.0 });
-    chain.nodes.push(DspNode::Mul { value: 0.5 });
+    chain.nodes.push(DspNode::Mul { factor: 0.5 });
     
     // This should create a sine wave at half amplitude
     // We're testing that the structure is correct
     assert_eq!(chain.nodes.len(), 2);
     match &chain.nodes[1] {
-        DspNode::Mul { value } => assert_eq!(*value, 0.5),
+        DspNode::Mul { factor } => assert_eq!(*factor, 0.5),
         _ => panic!("Expected Mul node"),
     }
 }
@@ -75,7 +75,7 @@ fn test_scalar_multiplication_parsing() {
     // Should have: Sin -> Mul(0.5)
     assert_eq!(output.nodes.len(), 2);
     assert!(matches!(output.nodes[0], DspNode::Sin { freq: 440.0 }));
-    assert!(matches!(output.nodes[1], DspNode::Mul { value: 0.5 }));
+    assert!(matches!(output.nodes[1], DspNode::Mul { factor: 0.5 }));
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn test_subtraction_creates_inverted_mix() {
             assert_eq!(sources.len(), 2);
             // Second source should have a Mul { value: -1.0 } node
             let second = &sources[1];
-            assert!(second.nodes.iter().any(|n| matches!(n, DspNode::Mul { value } if *value == -1.0)));
+            assert!(second.nodes.iter().any(|n| matches!(n, DspNode::Mul { factor } if *factor == -1.0)));
         }
         _ => panic!("Expected Mix node for subtraction"),
     }

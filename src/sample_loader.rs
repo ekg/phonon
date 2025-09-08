@@ -87,16 +87,52 @@ impl SampleBank {
     
     /// Get a sample by name, attempting to load from dirt-samples if not cached
     pub fn get_sample(&mut self, name: &str) -> Option<Arc<Vec<f32>>> {
-        // Check cache first
+        // Parse sample name and index (e.g., "bd:3" -> "bd", 3)
+        let (base_name, sample_index) = if let Some(colon_pos) = name.find(':') {
+            let base = &name[..colon_pos];
+            let index_str = &name[colon_pos + 1..];
+            let index = index_str.parse::<usize>().unwrap_or(0);
+            (base, Some(index))
+        } else {
+            (name, None)
+        };
+        
+        // Check cache first (use full name as key)
         if let Some(sample) = self.samples.get(name) {
             return Some(sample.clone());
         }
         
-        // Try to load from various dirt-samples locations
+        // If a specific sample index is requested, try to find that specific sample
+        if let Some(index) = sample_index {
+            // Try to load the specific sample by index
+            let sample_dir = self.dirt_samples_dir.join(base_name);
+            if sample_dir.exists() && sample_dir.is_dir() {
+                if let Ok(entries) = std::fs::read_dir(&sample_dir) {
+                    let mut wav_files: Vec<_> = entries
+                        .filter_map(|entry| entry.ok())
+                        .filter(|entry| {
+                            entry.path().extension().and_then(|s| s.to_str()) == Some("wav")
+                        })
+                        .collect();
+                    
+                    // Sort by filename for consistent ordering
+                    wav_files.sort_by_key(|entry| entry.file_name());
+                    
+                    // Get the file at the requested index
+                    if let Some(wav_file) = wav_files.get(index) {
+                        if self.load_sample(name, &wav_file.path()).is_ok() {
+                            return self.samples.get(name).cloned();
+                        }
+                    }
+                }
+            }
+        }
+
+        // Try to load from various dirt-samples locations (for base name)
         let possible_paths = vec![
-            format!("{}/{:03}.wav", name, 0), // e.g., bd/000.wav
-            format!("{}/{}0.wav", name, name.to_uppercase()), // e.g., bd/BD0.wav
-            format!("{}/BT0A0A7.wav", name), // Specific known files
+            format!("{}/{:03}.wav", base_name, 0), // e.g., bd/000.wav
+            format!("{}/{}0.wav", base_name, base_name.to_uppercase()), // e.g., bd/BD0.wav
+            format!("{}/BT0A0A7.wav", base_name), // Specific known files
         ];
         
         for path_str in possible_paths {
@@ -108,8 +144,8 @@ impl SampleBank {
             }
         }
         
-        // Try to find any WAV in the directory
-        let sample_dir = self.dirt_samples_dir.join(name);
+        // Try to find any WAV in the directory (fall back to first available sample)
+        let sample_dir = self.dirt_samples_dir.join(base_name);
         if sample_dir.exists() && sample_dir.is_dir() {
             if let Ok(entries) = std::fs::read_dir(&sample_dir) {
                 for entry in entries.flatten() {

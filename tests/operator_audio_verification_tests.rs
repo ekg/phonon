@@ -15,7 +15,7 @@ where
     let env = parse_glicol(code).expect("Failed to parse DSP code");
     
     // Build signal graph
-    let mut graph = SignalGraph::new();
+    let mut graph = SignalGraph::new(44100.0);
     
     // Convert DSP environment to signal graph
     // This would need proper implementation to actually generate audio

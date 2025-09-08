@@ -53,38 +53,29 @@ impl Renderer {
         dsl_code: &str,
         output_path: &Path,
     ) -> Result<RenderStats, String> {
-        // Parse the DSL
-        let mut parser = EnhancedParser::new(self.config.sample_rate as f32);
-        let graph = parser.parse(dsl_code)
-            .map_err(|e| format!("Parse error: {}", e))?;
+        // Use the working SimpleDspExecutor instead of broken SignalExecutor
+        use crate::simple_dsp_executor::render_dsp_to_audio_simple;
         
-        // Create executor
-        let mut executor = SignalExecutor::new(
-            graph,
-            self.config.sample_rate as f32,
-            self.config.block_size,
-        );
-        executor.initialize()
-            .map_err(|e| format!("Initialization error: {}", e))?;
+        // Strip comments and empty lines from DSL code
+        let clean_code = dsl_code.lines()
+            .filter(|line| !line.trim().starts_with('#') && !line.trim().is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
         
-        // Calculate number of blocks needed
-        let total_samples = (self.config.duration * self.config.sample_rate as f32) as usize;
-        let num_blocks = (total_samples + self.config.block_size - 1) / self.config.block_size;
+        let buffer = render_dsp_to_audio_simple(
+            &clean_code, 
+            self.config.sample_rate as f32, 
+            self.config.duration
+        )?;
         
-        // Render all blocks
-        let mut all_samples = Vec::with_capacity(total_samples);
-        
-        for block_idx in 0..num_blocks {
-            let output = executor.process_block()
-                .map_err(|e| format!("Processing error at block {}: {}", block_idx, e))?;
-            
-            // Apply master gain
-            for sample in output.data.iter() {
-                all_samples.push(sample * self.config.master_gain);
-            }
+        // Apply master gain and get samples
+        let mut all_samples = buffer.data;
+        for sample in all_samples.iter_mut() {
+            *sample *= self.config.master_gain;
         }
         
-        // Trim to exact duration
+        // Trim to exact duration (shouldn't be needed but just in case)
+        let total_samples = (self.config.duration * self.config.sample_rate as f32) as usize;
         all_samples.truncate(total_samples);
         
         // Apply fade in/out
@@ -101,44 +92,29 @@ impl Renderer {
     
     /// Render to memory (returns samples)
     pub fn render_to_buffer(&self, dsl_code: &str) -> Result<Vec<f32>, String> {
-        // Parse the DSL
-        let mut parser = EnhancedParser::new(self.config.sample_rate as f32);
-        let graph = parser.parse(dsl_code)
-            .map_err(|e| format!("Parse error: {}", e))?;
+        // Use the working SimpleDspExecutor instead of broken SignalExecutor
+        use crate::simple_dsp_executor::render_dsp_to_audio_simple;
         
-        // Create executor
-        let mut executor = SignalExecutor::new(
-            graph,
-            self.config.sample_rate as f32,
-            self.config.block_size,
-        );
-        executor.initialize()
-            .map_err(|e| format!("Initialization error: {}", e))?;
+        // Strip comments and empty lines from DSL code
+        let clean_code = dsl_code.lines()
+            .filter(|line| !line.trim().starts_with('#') && !line.trim().is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
         
-        // Calculate number of blocks needed
-        let total_samples = (self.config.duration * self.config.sample_rate as f32) as usize;
-        let num_blocks = (total_samples + self.config.block_size - 1) / self.config.block_size;
+        let buffer = render_dsp_to_audio_simple(
+            &clean_code, 
+            self.config.sample_rate as f32, 
+            self.config.duration
+        )?;
         
-        // Render all blocks
-        let mut all_samples = Vec::with_capacity(total_samples);
-        
-        for _ in 0..num_blocks {
-            let output = executor.process_block()
-                .map_err(|e| format!("Processing error: {}", e))?;
-            
-            // Apply master gain
-            for sample in output.data.iter() {
-                all_samples.push(sample * self.config.master_gain);
-            }
+        // Apply master gain and fades
+        let mut samples = buffer.data;
+        for sample in samples.iter_mut() {
+            *sample *= self.config.master_gain;
         }
         
-        // Trim to exact duration
-        all_samples.truncate(total_samples);
-        
-        // Apply fade in/out
-        self.apply_fades(&mut all_samples);
-        
-        Ok(all_samples)
+        self.apply_fades(&mut samples);
+        Ok(samples)
     }
     
     /// Apply fade in and fade out to samples
@@ -327,8 +303,8 @@ mod tests {
     #[test]
     fn test_render_sine_wave() {
         let dsl = r#"
-~osc: sine(440)
-out: ~osc * 0.5
+~osc: sin 440
+out: ~osc >> mul 0.5
 "#;
         
         let config = RenderConfig {
@@ -354,9 +330,7 @@ out: ~osc * 0.5
     #[test]
     fn test_render_to_file() {
         let dsl = r#"
-~osc: saw(220)
-~filtered: ~osc >> lpf(1000, 0.7)
-out: ~filtered * 0.3
+out: saw 220 >> lpf 1000 0.7 >> mul 0.3
 "#;
         
         let config = RenderConfig {
@@ -386,8 +360,8 @@ out: ~filtered * 0.3
     #[test]
     fn test_fades() {
         let dsl = r#"
-~osc: sine(440)
-out: ~osc * 1.0
+~osc: sin 440
+out: ~osc >> mul 1.0
 "#;
         
         let config = RenderConfig {

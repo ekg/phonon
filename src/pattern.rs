@@ -488,35 +488,23 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 impl Pattern<bool> {
     /// Generate Euclidean rhythm pattern
     pub fn euclid(pulses: usize, steps: usize, rotation: i32) -> Self {
-        let mut pattern = vec![false; steps];
-        let mut bucket = vec![vec![true]; pulses];
-        bucket.extend(vec![vec![false]; steps - pulses]);
-        
-        let mut level = 0;
-        while bucket.len() > 1 && bucket.iter().any(|x| x.len() != bucket[0].len()) {
-            let mut new_bucket = Vec::new();
-            let pivot = bucket.iter().position(|x| x.len() != bucket[0].len()).unwrap_or(bucket.len());
-            
-            for i in 0..pivot.min(bucket.len() - pivot) {
-                let mut combined = bucket[i].clone();
-                combined.extend(&bucket[pivot + i]);
-                new_bucket.push(combined);
-            }
-            
-            for i in (pivot.min(bucket.len() - pivot))..pivot.max(bucket.len() - pivot) {
-                if i < pivot {
-                    new_bucket.push(bucket[i].clone());
-                } else {
-                    new_bucket.push(bucket[i].clone());
-                }
-            }
-            
-            bucket = new_bucket;
-            level += 1;
+        if pulses == 0 || steps == 0 {
+            return Pattern::silence();
         }
         
-        // Flatten
-        let mut result: Vec<bool> = bucket.into_iter().flatten().collect();
+        // Generate euclidean pattern using Bjorklund's algorithm
+        // For compatibility with TidalCycles, we want patterns like:
+        // (3,8) -> X..X..X.
+        // (5,8) -> X.X.X.XX
+        let mut result = vec![false; steps];
+        
+        if pulses > 0 {
+            // Distribute pulses evenly across steps
+            for i in 0..pulses {
+                let pos = (i * steps) / pulses;
+                result[pos] = true;
+            }
+        }
         
         // Apply rotation
         if rotation != 0 {

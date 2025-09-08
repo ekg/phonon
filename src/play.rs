@@ -191,7 +191,7 @@ pub fn play_pattern(pattern: &str, duration: Option<f32>) -> Result<(), Box<dyn 
 
 /// Print timing information for a pattern without playing audio
 pub fn print_pattern_timing(pattern_str: &str, num_cycles: u32) -> Result<(), Box<dyn std::error::Error>> {
-    use crate::mini_notation::parse_mini_notation;
+    use crate::mini_notation_v3::parse_mini_notation;
     use crate::pattern::{State, TimeSpan, Fraction};
     use std::collections::HashMap;
     

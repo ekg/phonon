@@ -1,6 +1,6 @@
 //! Comprehensive tests for mini-notation parsing and playback
 
-use phonon::mini_notation::parse_mini_notation;
+use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Pattern, State, TimeSpan, Fraction};
 use phonon::pattern_debug::{describe_pattern, verify_polyphony};
 use std::collections::HashMap;

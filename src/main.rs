@@ -2,6 +2,7 @@
 
 use clap::{Parser, Subcommand};
 use phonon::render::{render_cli, RenderConfig, Renderer};
+use phonon::simple_dsp_executor;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -51,10 +52,32 @@ enum Commands {
         block_size: usize,
     },
     
+    /// Play DSL file or code (render and auto-play)
+    Play {
+        /// Input file (.phonon) or inline DSL code
+        input: String,
+        
+        /// Duration in seconds (default: 4.0)
+        #[arg(short, long, default_value = "4.0")]
+        duration: f32,
+        
+        /// Sample rate in Hz (default: 44100)
+        #[arg(short, long, default_value = "44100")]
+        sample_rate: u32,
+        
+        /// Master gain 0.0-1.0 (default: 0.8)
+        #[arg(short, long, default_value = "0.8")]
+        gain: f32,
+    },
+    
     /// Start live coding session with file watching
     Live {
         /// DSL file to watch and auto-reload
         file: PathBuf,
+        
+        /// Duration for each render (default: 4.0)
+        #[arg(short, long, default_value = "4.0")]
+        duration: f32,
         
         /// Enable pattern mode for Strudel-style patterns
         #[arg(short = 'P', long)]
@@ -67,6 +90,16 @@ enum Commands {
     
     /// Start interactive REPL
     Repl {},
+    
+    /// Open modal live coding editor
+    Edit {
+        /// Optional file to load
+        file: Option<PathBuf>,
+        
+        /// Duration for each render (default: 4.0)
+        #[arg(short, long, default_value = "4.0")]
+        duration: f32,
+    },
     
     /// Run tests on DSL files
     Test {
@@ -207,27 +240,182 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("   File size: {:.1} KB", size_kb);
         }
         
-        Commands::Live { file, pattern, port } => {
-            use phonon::live::LiveSession;
+        Commands::Play { input, duration, sample_rate, gain } => {
+            use crate::simple_dsp_executor::render_dsp_to_audio_simple;
+            use std::process::Command;
+            
+            // Read DSL code
+            let dsl_code = if input.ends_with(".phonon") || input.ends_with(".dsl") {
+                std::fs::read_to_string(&input)?
+            } else if std::path::Path::new(&input).exists() {
+                std::fs::read_to_string(&input)?
+            } else {
+                // Treat as inline DSL code
+                input.clone()
+            };
+            
+            // Strip comments and empty lines
+            let clean_code = dsl_code.lines()
+                .filter(|line| !line.trim().starts_with('#') && !line.trim().is_empty())
+                .collect::<Vec<_>>()
+                .join("\n");
+            
+            if clean_code.trim().is_empty() {
+                println!("❌ No DSL code to process");
+                return Ok(());
+            }
+            
+            println!("🎵 Phonon Player");
+            println!("================");
+            println!("Input:      {}", if input.ends_with(".phonon") || input.ends_with(".dsl") { &input } else { "<inline DSL>" });
+            println!("Duration:   {} seconds", duration);
+            println!("Sample rate: {} Hz", sample_rate);
+            println!("Gain:       {:.1}", gain);
+            println!();
+            
+            println!("DSL Code:");
+            for line in clean_code.lines() {
+                println!("  {}", line);
+            }
+            println!();
+            
+            // Render audio
+            match render_dsp_to_audio_simple(&clean_code, sample_rate as f32, duration) {
+                Ok(mut buffer) => {
+                    // Apply gain
+                    for sample in buffer.data.iter_mut() {
+                        *sample *= gain;
+                    }
+                    
+                    let output_path = "/tmp/phonon_play.wav";
+                    
+                    match buffer.write_wav(output_path) {
+                        Ok(_) => {
+                            println!("✅ Audio generated!");
+                            println!("   Peak: {:.3}", buffer.peak());
+                            println!("   RMS: {:.3}", buffer.rms());
+                            println!("   Saved to: {}", output_path);
+                            
+                            println!("\n🔊 Playing...");
+                            
+                            // Try different players
+                            let players = ["play", "aplay", "pw-play", "paplay"];
+                            let mut played = false;
+                            
+                            for player in &players {
+                                let result = if *player == "play" {
+                                    Command::new(player)
+                                        .arg(output_path)
+                                        .arg("-q")
+                                        .status()
+                                } else {
+                                    Command::new(player)
+                                        .arg(output_path)
+                                        .status()
+                                };
+                                
+                                if let Ok(status) = result {
+                                    if status.success() {
+                                        played = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if !played {
+                                println!("⚠️  Could not auto-play. Try:");
+                                for player in &players {
+                                    if *player == "play" {
+                                        println!("   {} -q {}", player, output_path);
+                                    } else {
+                                        println!("   {} {}", player, output_path);
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            println!("❌ Failed to save WAV: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("❌ Failed to generate audio: {}", e);
+                }
+            }
+        }
+        
+        Commands::Live { file, duration, pattern, port } => {
+            use std::time::{Duration as StdDuration, SystemTime};
+            use std::thread;
+            use std::process::Command;
+            use crate::simple_dsp_executor::render_dsp_to_audio_simple;
             
             println!("🎵 Phonon Live Coding");
             println!("====================");
             println!("File: {}", file.display());
+            println!("Duration: {}s per render", duration);
             if pattern {
-                println!("Mode: Pattern sequencing");
+                println!("Mode: Pattern sequencing (not yet implemented)");
             } else {
                 println!("Mode: Continuous synthesis");
             }
-            println!("OSC:  Port {}", port);
+            println!("OSC:  Port {} (not yet implemented)", port);
             println!();
+            println!("✨ Edit {} and save to hear changes!", file.display());
+            println!("   Press Ctrl+C to stop.\n");
             
-            // Create and run live session
-            let mut session = LiveSession::new(&file)?;
+            let mut last_modified = SystemTime::now();
+            let output_path = "/tmp/phonon_live.wav";
             
-            if pattern {
-                session.run_pattern_mode()?;
-            } else {
-                session.run()?;
+            loop {
+                if let Ok(metadata) = std::fs::metadata(&file) {
+                    if let Ok(modified) = metadata.modified() {
+                        if modified > last_modified {
+                            last_modified = modified;
+                            
+                            match std::fs::read_to_string(&file) {
+                                Ok(content) => {
+                                    // Strip comments and empty lines
+                                    let code = content.lines()
+                                        .filter(|line| !line.trim().starts_with('#') && !line.trim().is_empty())
+                                        .collect::<Vec<_>>()
+                                        .join("\n");
+                                    
+                                    if !code.trim().is_empty() {
+                                        println!("🔄 Reloading...");
+                                        
+                                        match render_dsp_to_audio_simple(&code, 44100.0, duration) {
+                                            Ok(buffer) => {
+                                                if let Ok(_) = buffer.write_wav(output_path) {
+                                                    println!("✅ Peak: {:.3}, RMS: {:.3}", 
+                                                             buffer.peak(), buffer.rms());
+                                                    
+                                                    // Kill previous playback
+                                                    let _ = Command::new("pkill")
+                                                        .arg("-f")
+                                                        .arg("play.*phonon_live.wav")
+                                                        .status();
+                                                    
+                                                    // Play in background
+                                                    let _ = Command::new("play")
+                                                        .arg(output_path)
+                                                        .arg("-q")
+                                                        .spawn();
+                                                    
+                                                    println!("");
+                                                }
+                                            }
+                                            Err(e) => println!("❌ Error: {}\n", e),
+                                        }
+                                    }
+                                }
+                                Err(e) => println!("❌ Read error: {}", e),
+                            }
+                        }
+                    }
+                }
+                
+                thread::sleep(StdDuration::from_millis(100));
             }
         }
         
@@ -240,6 +428,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             
             let mut repl = LiveRepl::new()?;
             repl.run()?;
+        }
+        
+        Commands::Edit { file, duration } => {
+            use phonon::modal_editor::ModalEditor;
+            
+            let mut editor = ModalEditor::new(duration, file.clone())?;
+            editor.run()?;
         }
         
         Commands::Test { input } => {
@@ -261,7 +456,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             list 
         } => {
             use phonon::midi_output::{MidiOutputHandler, note_to_midi_message};
-            use phonon::mini_notation::parse_mini_notation;
+            use phonon::mini_notation_v3::parse_mini_notation;
             
             println!("🎹 Phonon MIDI Output");
             println!("====================");

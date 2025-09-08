@@ -255,6 +255,58 @@ impl MiniNotationParser {
                     let s = s.clone();
                     self.advance();
                     
+                    // Check for Euclidean rhythm syntax: sample(pulses,steps)
+                    if let Some(Token::OpenParen) = self.current() {
+                        self.advance(); // consume (
+                        
+                        // Parse pulses
+                        if let Some(Token::Number(pulses)) = self.current() {
+                            let pulses = *pulses as usize;
+                            self.advance();
+                            
+                            // Expect comma
+                            if let Some(Token::Comma) = self.current() {
+                                self.advance();
+                                
+                                // Parse steps
+                                if let Some(Token::Number(steps)) = self.current() {
+                                    let steps = *steps as usize;
+                                    self.advance();
+                                    
+                                    // Optional rotation parameter
+                                    let rotation = if let Some(Token::Comma) = self.current() {
+                                        self.advance();
+                                        if let Some(Token::Number(rot)) = self.current() {
+                                            let rot = *rot as i32;
+                                            self.advance();
+                                            rot
+                                        } else {
+                                            0
+                                        }
+                                    } else {
+                                        0
+                                    };
+                                    
+                                    // Expect closing paren
+                                    if let Some(Token::CloseParen) = self.current() {
+                                        self.advance();
+                                        
+                                        // Create Euclidean pattern as boolean, then map to sample
+                                        let euclid_bool = Pattern::<bool>::euclid(pulses, steps, rotation);
+                                        // Convert boolean pattern to sample pattern
+                                        let sample_pattern = euclid_bool.fmap(move |hit| {
+                                            if hit { s.clone() } else { "~".to_string() }
+                                        });
+                                        current_group.push(sample_pattern);
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                        // If parsing failed, we might have a polyrhythm instead
+                        // Rewind would be nice here, but let's just handle it
+                    }
+                    
                     // Check for operators
                     if let Some(op_pattern) = self.parse_operators(Pattern::pure(s.clone())) {
                         current_group.push(op_pattern);
@@ -293,44 +345,186 @@ impl MiniNotationParser {
         }
     }
     
-    /// Parse a bracketed group [a b c]
+    /// Parse a bracketed group [a b c] or polyrhythm [a, b, c]
     fn parse_group(&mut self) -> Pattern<String> {
-        let mut elements = Vec::new();
+        // First, check if this is a polyrhythm (contains commas)
+        let start_pos = self.position;
+        let mut has_comma = false;
+        let mut depth = 1;
         
+        // Scan ahead to check for commas at this bracket level
         while let Some(token) = self.current() {
             match token {
                 Token::CloseBracket => {
-                    self.advance();
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                },
+                Token::OpenBracket => depth += 1,
+                Token::Comma if depth == 1 => {
+                    has_comma = true;
                     break;
                 },
-                Token::Symbol(s) => {
-                    let s = s.clone();
-                    self.advance();
-                    elements.push(Pattern::pure(s));
-                },
-                Token::Number(n) => {
-                    let n = *n;
-                    self.advance();
-                    elements.push(Pattern::pure(n.to_string()));
-                },
-                Token::Rest => {
-                    self.advance();
-                    elements.push(Pattern::silence());
-                },
-                _ => {
-                    self.advance();
-                }
+                _ => {}
             }
+            self.advance();
         }
         
-        // Groups are played faster
-        let group_pattern = self.fast_cat(elements);
+        // Reset position
+        self.position = start_pos;
         
-        // Check for operators after the group
-        if let Some(op_pattern) = self.parse_operators(group_pattern.clone()) {
-            op_pattern
+        if has_comma {
+            // Parse as polyrhythm - multiple patterns separated by commas
+            let mut patterns = Vec::new();
+            let mut current_elements = Vec::new();
+            
+            while let Some(token) = self.current() {
+                match token {
+                    Token::CloseBracket => {
+                        self.advance();
+                        if !current_elements.is_empty() {
+                            patterns.push(self.fast_cat(current_elements));
+                        }
+                        break;
+                    },
+                    Token::Comma => {
+                        self.advance();
+                        if !current_elements.is_empty() {
+                            patterns.push(self.fast_cat(current_elements));
+                            current_elements = Vec::new();
+                        }
+                    },
+                    _ => {
+                        if let Some(elem) = self.parse_element() {
+                            current_elements.push(elem);
+                        }
+                    }
+                }
+            }
+            
+            // Stack all patterns to play simultaneously
+            Pattern::stack(patterns)
         } else {
-            group_pattern
+            // Parse as regular group - sequence of elements
+            let mut elements = Vec::new();
+            
+            while let Some(token) = self.current() {
+                match token {
+                    Token::CloseBracket => {
+                        self.advance();
+                        break;
+                    },
+                    _ => {
+                        if let Some(elem) = self.parse_element() {
+                            elements.push(elem);
+                        }
+                    }
+                }
+            }
+            
+            // Groups are played faster
+            self.fast_cat(elements)
+        }
+    }
+    
+    /// Parse a single element (could be a symbol with Euclidean notation, etc.)
+    fn parse_element(&mut self) -> Option<Pattern<String>> {
+        match self.current()? {
+            Token::Symbol(s) => {
+                let s = s.clone();
+                self.advance();
+                
+                // Check for Euclidean rhythm syntax: sample(pulses,steps)
+                if let Some(Token::OpenParen) = self.current() {
+                    // We need to handle alternation in arguments like bd(<3,4>,8)
+                    // For now, let's just parse the simple case
+                    // TODO: Implement full alternation support in function arguments
+                    
+                    self.advance(); // consume (
+                    
+                    // Parse pulses (could be a number or alternation)
+                    if let Some(Token::Number(pulses)) = self.current() {
+                        let pulses = *pulses as usize;
+                        self.advance();
+                        
+                        // Expect comma
+                        if let Some(Token::Comma) = self.current() {
+                            self.advance();
+                            
+                            // Parse steps
+                            if let Some(Token::Number(steps)) = self.current() {
+                                let steps = *steps as usize;
+                                self.advance();
+                                
+                                // Optional rotation parameter
+                                let rotation = if let Some(Token::Comma) = self.current() {
+                                    self.advance();
+                                    if let Some(Token::Number(rot)) = self.current() {
+                                        let rot = *rot as i32;
+                                        self.advance();
+                                        rot
+                                    } else {
+                                        0
+                                    }
+                                } else {
+                                    0
+                                };
+                                
+                                // Expect closing paren
+                                if let Some(Token::CloseParen) = self.current() {
+                                    self.advance();
+                                    
+                                    // Create Euclidean pattern
+                                    let euclid_bool = Pattern::<bool>::euclid(pulses, steps, rotation);
+                                    let sample_pattern = euclid_bool.fmap(move |hit| {
+                                        if hit { s.clone() } else { "~".to_string() }
+                                    });
+                                    return Some(sample_pattern);
+                                }
+                            }
+                        }
+                    }
+                    // If we see <, it's an alternation for the first argument
+                    // This is complex to implement properly - would need to create
+                    // alternating euclidean patterns
+                    // For now, just treat it as a symbol
+                    return Some(Pattern::pure(s));
+                }
+                
+                // Check for operators
+                if let Some(op_pattern) = self.parse_operators(Pattern::pure(s.clone())) {
+                    Some(op_pattern)
+                } else {
+                    Some(Pattern::pure(s))
+                }
+            },
+            Token::Number(n) => {
+                let n = *n;
+                self.advance();
+                
+                if let Some(op_pattern) = self.parse_operators(Pattern::pure(n.to_string())) {
+                    Some(op_pattern)
+                } else {
+                    Some(Pattern::pure(n.to_string()))
+                }
+            },
+            Token::Rest => {
+                self.advance();
+                Some(Pattern::silence())
+            },
+            Token::OpenBracket => {
+                self.advance();
+                Some(self.parse_group())
+            },
+            Token::OpenAngle => {
+                self.advance();
+                Some(self.parse_alternation())
+            },
+            _ => {
+                self.advance();
+                None
+            }
         }
     }
     
@@ -422,7 +616,10 @@ impl MiniNotationParser {
                     if let Some(Token::Number(n)) = self.current() {
                         let n = *n as usize;
                         self.advance();
-                        return Some(pattern.dup(n));
+                        // For mini-notation, x*n means repeat x n times fast
+                        // Create n copies and concatenate them
+                        let patterns = vec![pattern; n];
+                        return Some(self.fast_cat(patterns));
                     }
                 },
                 Token::Slash => {

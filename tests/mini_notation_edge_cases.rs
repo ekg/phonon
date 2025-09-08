@@ -1,4 +1,4 @@
-use phonon::mini_notation::parse_mini_notation;
+use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{State, TimeSpan, Fraction};
 use std::collections::HashMap;
 

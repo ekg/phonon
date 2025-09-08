@@ -60,13 +60,16 @@ impl AudioBuffer {
         let spec = WavSpec {
             channels: self.channels as u16,
             sample_rate: self.sample_rate as u32,
-            bits_per_sample: 32,
-            sample_format: SampleFormat::Float,
+            bits_per_sample: 16,
+            sample_format: SampleFormat::Int,
         };
         
         let mut writer = WavWriter::create(path, spec)?;
         for sample in &self.data {
-            writer.write_sample(*sample)?;
+            // Convert float to 16-bit int with limiting
+            let sample_clamped = sample.max(-1.0).min(1.0);
+            let sample_int = (sample_clamped * 32767.0) as i16;
+            writer.write_sample(sample_int)?;
         }
         writer.finalize()?;
         Ok(())
