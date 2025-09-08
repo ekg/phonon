@@ -4,8 +4,11 @@
 
 use crate::glicol_dsp::{DspChain, DspNode, DspEnvironment};
 use crate::signal_executor::AudioBuffer;
+use crate::sample_loader::SampleBank;
+use crate::synth_voice::VoiceAllocator;
 use std::collections::HashMap;
 use std::f32::consts::PI;
+use std::sync::Arc;
 
 /// Simple oscillator state
 struct OscState {
@@ -26,6 +29,13 @@ struct DelayLine {
     delay_samples: usize,
 }
 
+/// Sample playback state
+struct SampleState {
+    sample_data: Option<Arc<Vec<f32>>>,
+    position: f32,
+    loop_sample: bool,
+}
+
 /// DSP processor that can generate audio from a single node
 struct NodeProcessor {
     sample_rate: f32,
@@ -34,6 +44,7 @@ struct NodeProcessor {
     filter_state: FilterState,
     noise_state: u32,
     delay_line: DelayLine,
+    sample_state: SampleState,
 }
 
 impl NodeProcessor {
@@ -51,15 +62,20 @@ impl NodeProcessor {
                 write_idx: 0,
                 delay_samples: 0,
             },
+            sample_state: SampleState {
+                sample_data: None,
+                position: 0.0,
+                loop_sample: false,
+            },
         }
     }
     
     fn process_node(&mut self, node: &DspNode, input: f32) -> f32 {
         match node {
             DspNode::Sin { freq } => {
-                self.osc_state.freq = *freq as f32;
+                self.osc_state.freq = *freq;
                 let sample = (2.0 * PI * self.osc_state.phase).sin();
-                self.osc_state.phase += *freq as f32 / self.sample_rate;
+                self.osc_state.phase += *freq / self.sample_rate;
                 if self.osc_state.phase >= 1.0 {
                     self.osc_state.phase -= 1.0;
                 }
@@ -67,19 +83,19 @@ impl NodeProcessor {
             }
             
             DspNode::Saw { freq } => {
-                self.osc_state.freq = *freq as f32;
+                self.osc_state.freq = *freq;
                 let sample = 2.0 * self.osc_state.phase - 1.0;
-                self.osc_state.phase += *freq as f32 / self.sample_rate;
+                self.osc_state.phase += *freq / self.sample_rate;
                 if self.osc_state.phase >= 1.0 {
                     self.osc_state.phase -= 1.0;
                 }
                 sample
             }
             
-            DspNode::Square { freq } => {
-                self.osc_state.freq = *freq as f32;
+            DspNode::Square { freq, duty: _ } => {
+                self.osc_state.freq = *freq;
                 let sample = if self.osc_state.phase < 0.5 { 1.0 } else { -1.0 };
-                self.osc_state.phase += *freq as f32 / self.sample_rate;
+                self.osc_state.phase += *freq / self.sample_rate;
                 if self.osc_state.phase >= 1.0 {
                     self.osc_state.phase -= 1.0;
                 }
@@ -87,35 +103,35 @@ impl NodeProcessor {
             }
             
             DspNode::Triangle { freq } => {
-                self.osc_state.freq = *freq as f32;
+                self.osc_state.freq = *freq;
                 let sample = if self.osc_state.phase < 0.5 {
                     4.0 * self.osc_state.phase - 1.0
                 } else {
                     3.0 - 4.0 * self.osc_state.phase
                 };
-                self.osc_state.phase += *freq as f32 / self.sample_rate;
+                self.osc_state.phase += *freq / self.sample_rate;
                 if self.osc_state.phase >= 1.0 {
                     self.osc_state.phase -= 1.0;
                 }
                 sample
             }
             
-            DspNode::Noise => {
+            DspNode::Noise { seed: _ } => {
                 // Simple white noise using LCG
                 self.noise_state = self.noise_state.wrapping_mul(1103515245).wrapping_add(12345);
                 ((self.noise_state / 65536) % 32768) as f32 / 16384.0 - 1.0
             }
             
-            DspNode::Pink => {
+            DspNode::Pink { seed: _ } => {
                 // Simplified pink noise (just filtered white noise)
-                let white = self.process_node(&DspNode::Noise, 0.0);
+                let white = self.process_node(&DspNode::Noise { seed: 42 }, 0.0);
                 self.filter_state.prev_out = 0.9 * self.filter_state.prev_out + 0.1 * white;
                 self.filter_state.prev_out
             }
             
-            DspNode::Brown => {
+            DspNode::Brown { seed: _ } => {
                 // Brown noise (integrated white noise)
-                let white = self.process_node(&DspNode::Noise, 0.0);
+                let white = self.process_node(&DspNode::Noise { seed: 42 }, 0.0);
                 self.filter_state.prev_out += 0.02 * white;
                 self.filter_state.prev_out = self.filter_state.prev_out.max(-1.0).min(1.0);
                 self.filter_state.prev_out
@@ -123,7 +139,7 @@ impl NodeProcessor {
             
             DspNode::Impulse { freq } => {
                 let sample = if self.osc_state.phase < 0.01 { 1.0 } else { 0.0 };
-                self.osc_state.phase += *freq as f32 / self.sample_rate;
+                self.osc_state.phase += *freq / self.sample_rate;
                 if self.osc_state.phase >= 1.0 {
                     self.osc_state.phase -= 1.0;
                 }
@@ -131,12 +147,12 @@ impl NodeProcessor {
             }
             
             // Math operations
-            DspNode::Mul { value } => input * (*value as f32),
-            DspNode::Add { value } => input + (*value as f32),
-            DspNode::Sub { value } => input - (*value as f32),
-            DspNode::Div { value } => {
-                if *value != 0.0 {
-                    input / (*value as f32)
+            DspNode::Mul { factor } => input * (*factor),
+            DspNode::Add { value } => input + (*value),
+            DspNode::Sub { value } => input - (*value),
+            DspNode::Div { divisor } => {
+                if *divisor != 0.0 {
+                    input / (*divisor)
                 } else {
                     0.0
                 }
@@ -145,7 +161,7 @@ impl NodeProcessor {
             // Filters (simplified)
             DspNode::Lpf { cutoff, q: _ } => {
                 // Simple one-pole lowpass
-                let rc = 1.0 / (2.0 * PI * (*cutoff as f32));
+                let rc = 1.0 / (2.0 * PI * (*cutoff));
                 let dt = 1.0 / self.sample_rate;
                 let alpha = dt / (rc + dt);
                 self.filter_state.prev_out = self.filter_state.prev_out + alpha * (input - self.filter_state.prev_out);
@@ -154,7 +170,7 @@ impl NodeProcessor {
             
             DspNode::Hpf { cutoff, q: _ } => {
                 // Simple one-pole highpass
-                let rc = 1.0 / (2.0 * PI * (*cutoff as f32));
+                let rc = 1.0 / (2.0 * PI * (*cutoff));
                 let dt = 1.0 / self.sample_rate;
                 let alpha = rc / (rc + dt);
                 let output = alpha * (self.filter_state.prev_out + input - self.filter_state.prev_in);
@@ -165,16 +181,16 @@ impl NodeProcessor {
             
             // Clipping
             DspNode::Clip { min, max } => {
-                input.max(*min as f32).min(*max as f32)
+                input.max(*min).min(*max)
             }
             
             // Envelope (simplified ADSR)
             DspNode::Env { stages } => {
                 if stages.len() >= 4 {
-                    let attack = stages[0].0 as f32;
-                    let decay = stages[1].0 as f32;
-                    let sustain = stages[1].1 as f32;
-                    let release = stages[3].0 as f32;
+                    let attack = stages[0].0;
+                    let decay = stages[1].0;
+                    let sustain = stages[1].1;
+                    let release = stages[3].0;
                     
                     // Simple envelope based on time
                     let env = if self.time < attack {
@@ -194,9 +210,9 @@ impl NodeProcessor {
             }
             
             // Delay effect
-            DspNode::Delay { time, feedback } => {
-                let delay_time = *time as f32;
-                let fb = *feedback as f32;
+            DspNode::Delay { time, feedback, mix: _ } => {
+                let delay_time = *time;
+                let fb = *feedback;
                 
                 // Calculate delay in samples
                 self.delay_line.delay_samples = (delay_time * self.sample_rate) as usize;
@@ -216,10 +232,10 @@ impl NodeProcessor {
             }
             
             // Reverb (simplified as multiple delays)
-            DspNode::Reverb { room, damp } => {
+            DspNode::Reverb { room_size, damping, mix } => {
                 // Very simple reverb using a single delay
-                let delay_time = 0.05 * (*room as f32);
-                let fb = 0.5 * (1.0 - *damp as f32);
+                let delay_time = 0.05 * (*room_size);
+                let fb = 0.5 * (1.0 - *damping);
                 
                 // Calculate delay in samples
                 self.delay_line.delay_samples = (delay_time * self.sample_rate) as usize;
@@ -231,7 +247,7 @@ impl NodeProcessor {
                 let delayed = self.delay_line.buffer[read_idx];
                 
                 // Simple lowpass filter for damping
-                let filtered = delayed * (1.0 - *damp as f32) + self.filter_state.prev_out * (*damp as f32);
+                let filtered = delayed * (1.0 - *damping) + self.filter_state.prev_out * (*damping);
                 self.filter_state.prev_out = filtered;
                 
                 // Write to delay line
@@ -240,6 +256,12 @@ impl NodeProcessor {
                 
                 // Mix dry and wet
                 input * 0.7 + delayed * 0.3
+            }
+            
+            // Sample playback - this is handled at the chain level, not per-node
+            DspNode::Sp { sample: _ } => {
+                // This should be handled at chain level - return input for now
+                input
             }
             
             // For other nodes, pass through or return 0
@@ -256,6 +278,9 @@ impl NodeProcessor {
 pub struct SimpleDspExecutor {
     sample_rate: f32,
     buses: HashMap<String, Vec<f32>>,
+    sample_bank: SampleBank,
+    voice_allocator: VoiceAllocator,
+    cps: f32,  // cycles per second (tempo)
 }
 
 impl SimpleDspExecutor {
@@ -263,13 +288,25 @@ impl SimpleDspExecutor {
         Self {
             sample_rate,
             buses: HashMap::new(),
+            sample_bank: SampleBank::new(),
+            voice_allocator: VoiceAllocator::new(16, sample_rate), // 16 voice polyphony
+            cps: 0.5,  // Default to 0.5 cycles per second (120 BPM)
         }
+    }
+    
+    /// Set the cycles per second (tempo)
+    pub fn set_cps(&mut self, cps: f32) {
+        self.cps = cps;
     }
     
     /// Render a DSP environment to audio
     pub fn render(&mut self, env: &DspEnvironment, duration_secs: f32) -> Result<AudioBuffer, String> {
-        // First render all reference chains
+        // First register all reference chains as potential synth voices
         for (name, chain) in &env.ref_chains {
+            // Register this chain for voice allocation
+            self.voice_allocator.register_channel(name.clone(), chain.clone());
+            
+            // Also render it as a bus for direct references
             let samples = self.render_chain(chain, duration_secs)?;
             self.buses.insert(name.clone(), samples);
         }
@@ -285,13 +322,151 @@ impl SimpleDspExecutor {
         }
     }
     
-    /// Render a single DSP chain
+    /// Render a sample pattern using mini-notation
+    fn render_sample_pattern(&mut self, pattern: &str, duration_secs: f32) -> Result<Vec<f32>, String> {
+        // Use v3 parser for better nested pattern support
+        use crate::mini_notation_v3::parse_mini_notation;
+        use crate::pattern::{State, TimeSpan, Fraction};
+        use std::collections::HashMap;
+        
+        let num_samples = (self.sample_rate * duration_secs) as usize;
+        let mut output = vec![0.0; num_samples];
+        
+        // Parse the mini-notation pattern
+        let parsed_pattern = parse_mini_notation(pattern);
+        
+        // Determine how many cycles fit in the duration
+        let cycle_duration = 1.0 / self.cps; // seconds per cycle
+        let num_cycles = (duration_secs / cycle_duration).ceil() as i64;
+        
+        
+        // Query events for all cycles
+        let mut all_events = Vec::new();
+        for cycle in 0..num_cycles {
+            let state = State {
+                span: TimeSpan::new(
+                    Fraction::new(cycle, 1),
+                    Fraction::new(cycle + 1, 1),
+                ),
+                controls: HashMap::new(),
+            };
+            
+            let cycle_events = parsed_pattern.query(&state);
+            
+            // The events already have the correct timing from the query
+            // No need to adjust for cycle offset - the pattern.query() already did that
+            for event in cycle_events {
+                all_events.push(event);
+            }
+        }
+        
+        // First, collect all synth trigger events
+        let mut synth_triggers = Vec::new();
+        
+        // Render each event
+        for event in all_events {
+            let sample_name = &event.value;
+            
+            // Calculate timing (event times are in cycles, convert to seconds)
+            let event_begin_cycles = event.part.begin.to_float();
+            let event_duration_cycles = event.part.duration().to_float();
+            let start_time = event_begin_cycles * cycle_duration as f64;
+            let duration = event_duration_cycles * cycle_duration as f64;
+            let start_sample = (start_time * self.sample_rate as f64) as usize;
+            let end_sample = ((start_time + duration) * self.sample_rate as f64) as usize;
+            
+            
+            // Check if this is a channel reference (starts with ~)
+            if sample_name.starts_with('~') {
+                // Store this trigger for later processing
+                synth_triggers.push((sample_name.clone(), start_sample, end_sample));
+            } else {
+                // Regular sample playback
+                if let Some(sample_data) = self.sample_bank.get_sample(sample_name) {
+                    for i in start_sample..end_sample.min(num_samples) {
+                        let sample_offset = i - start_sample;
+                        if sample_offset < sample_data.len() {
+                            output[i] += sample_data[sample_offset];
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Process synth triggers - render each one individually at the correct position
+        for (sample_name, start_sample, end_sample) in synth_triggers {
+            let channel_name = &sample_name[1..]; // Remove the ~
+            
+            // Extract frequency if specified
+            let (base_name, freq) = if let Some(paren_idx) = channel_name.find('(') {
+                let base = &channel_name[..paren_idx];
+                let freq_str = channel_name[paren_idx+1..].trim_end_matches(')');
+                let freq = freq_str.parse::<f32>().ok();
+                (base, freq)
+            } else {
+                (channel_name, None)
+            };
+            
+            // Create a temporary voice for this trigger
+            // This is a simplified approach - just generate a sine wave with envelope
+            if let Some(chain) = self.voice_allocator.channel_chains.get(base_name).cloned() {
+                // Calculate envelope duration based on event duration
+                let event_duration_samples = end_sample - start_sample;
+                let attack_samples = (0.001 * self.sample_rate) as usize; // 1ms attack
+                // Make decay last for the rest of the event duration
+                let decay_samples = event_duration_samples.saturating_sub(attack_samples);
+                
+                for i in start_sample..end_sample.min(num_samples) {
+                    let sample_offset = i - start_sample;
+                    
+                    // Generate envelope that spans the full event duration
+                    let env = if sample_offset < attack_samples {
+                        sample_offset as f32 / attack_samples as f32
+                    } else if sample_offset < event_duration_samples {
+                        let decay_progress = (sample_offset - attack_samples) as f32 / decay_samples.max(1) as f32;
+                        1.0 * (-5.0 * decay_progress).exp()
+                    } else {
+                        0.0
+                    };
+                    
+                    // Generate simple sine wave with correct phase
+                    // Use absolute sample position for phase continuity
+                    let absolute_time = i as f32 / self.sample_rate;
+                    let freq_to_use = freq.unwrap_or(440.0);
+                    let sample = (absolute_time * freq_to_use * 2.0 * std::f32::consts::PI).sin();
+                    
+                    output[i] += sample * env * 0.3;
+                }
+            }
+        }
+        
+        Ok(output)
+    }
+    
+    /// Render a single DSP chain  
     fn render_chain(&mut self, chain: &DspChain, duration_secs: f32) -> Result<Vec<f32>, String> {
         let num_samples = (self.sample_rate * duration_secs) as usize;
         let mut output = vec![0.0; num_samples];
         
-        // Handle Mix nodes specially
+        // Handle special nodes
         if chain.nodes.len() == 1 {
+            // Handle sample playback
+            if let DspNode::Sp { sample } = &chain.nodes[0] {
+                // Load and play the sample
+                if let Some(sample_data) = self.sample_bank.get_sample(sample) {
+                    let sample_len = sample_data.len();
+                    for i in 0..num_samples.min(sample_len) {
+                        output[i] = sample_data[i];
+                    }
+                }
+                return Ok(output);
+            }
+            
+            // Handle Tidal-style sample patterns
+            if let DspNode::S { pattern } = &chain.nodes[0] {
+                return self.render_sample_pattern(pattern, duration_secs);
+            }
+            
             if let DspNode::Mix { sources } = &chain.nodes[0] {
                 // Render each source and sum them
                 for source in sources {
@@ -299,6 +474,27 @@ impl SimpleDspExecutor {
                     for (i, sample) in source_samples.iter().enumerate() {
                         if i < output.len() {
                             output[i] += sample;
+                        }
+                    }
+                }
+                return Ok(output);
+            } else if let DspNode::Multiply { sources } = &chain.nodes[0] {
+                // Render each source and multiply them
+                if !sources.is_empty() {
+                    // Start with first source
+                    let first_samples = self.render_chain(&sources[0], duration_secs)?;
+                    for (i, sample) in first_samples.iter().enumerate() {
+                        if i < output.len() {
+                            output[i] = *sample;
+                        }
+                    }
+                    // Multiply by remaining sources
+                    for source in sources.iter().skip(1) {
+                        let source_samples = self.render_chain(source, duration_secs)?;
+                        for (i, sample) in source_samples.iter().enumerate() {
+                            if i < output.len() {
+                                output[i] *= sample;
+                            }
                         }
                     }
                 }

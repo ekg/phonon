@@ -12,6 +12,8 @@ pub mod audio;
 pub mod engine;
 pub mod render;
 pub mod live;
+pub mod modal_editor;
+pub mod live_engine;
 pub mod pattern;
 pub mod pattern_ops;
 pub mod pattern_ops_extended;
@@ -28,11 +30,16 @@ pub mod voice_manager;
 pub mod midi_output;
 pub mod osc_control;
 pub mod mini_notation;
+pub mod mini_notation_v3;
 pub mod phonon_lang;
 pub mod glicol_dsp;
 pub mod glicol_parser;
+pub mod nom_parser;
 pub mod glicol_pattern_bridge;
 pub mod simple_dsp_executor;
+pub mod envelope;
+pub mod synth_voice;
+pub mod pattern_lang_parser;
 
 #[cfg(test)]
 pub mod test_utils;

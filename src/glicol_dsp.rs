@@ -18,50 +18,59 @@ pub struct DspChain {
 #[derive(Clone, Debug)]
 pub enum DspNode {
     // Oscillators
-    Sin { freq: f64 },
-    Saw { freq: f64 },
-    Square { freq: f64 },
-    Triangle { freq: f64 },
-    Noise,
-    Impulse { freq: f64 },
-    Pink,
-    Brown,
+    Sin { freq: f32 },
+    Saw { freq: f32 },
+    Square { freq: f32, duty: f32 },
+    Triangle { freq: f32 },
+    Noise { seed: u64 },
+    Impulse { freq: f32 },
+    Pink { seed: u64 },
+    Brown { seed: u64 },
     
     // Math operations
-    Mul { value: f64 },
-    Add { value: f64 },
-    Div { value: f64 },
-    Sub { value: f64 },
+    Mul { factor: f32 },
+    Add { value: f32 },
+    Div { divisor: f32 },
+    Sub { value: f32 },
+    
+    // Signal math operations (for combining signals)
+    SignalAdd { left: Box<DspChain>, right: Box<DspChain> },
+    SignalMul { left: Box<DspChain>, right: Box<DspChain> },
+    SignalSub { left: Box<DspChain>, right: Box<DspChain> },
+    SignalDiv { left: Box<DspChain>, right: Box<DspChain> },
+    
+    // Value node for constants
+    Value(f32),
     
     // Filters
-    Lpf { cutoff: f64, q: f64 },
-    Hpf { cutoff: f64, q: f64 },
-    Bpf { center: f64, q: f64 },
-    Notch { center: f64, q: f64 },
+    Lpf { cutoff: f32, q: f32 },
+    Hpf { cutoff: f32, q: f32 },
+    Bpf { center: f32, q: f32 },
+    Notch { center: f32, q: f32 },
     
     // Effects
-    Delay { time: f64, feedback: f64 },
-    Reverb { room: f64, damp: f64 },
-    Chorus { rate: f64, depth: f64 },
-    Phaser { rate: f64, depth: f64 },
-    Distortion { gain: f64 },
-    Compressor { threshold: f64, ratio: f64 },
-    Clip { min: f64, max: f64 },
+    Delay { time: f32, feedback: f32, mix: f32 },
+    Reverb { room_size: f32, damping: f32, mix: f32 },
+    Chorus { rate: f32, depth: f32, mix: f32 },
+    Phaser { rate: f32, depth: f32, mix: f32 },
+    Distortion { gain: f32 },
+    Compressor { threshold: f32, ratio: f32 },
+    Clip { min: f32, max: f32 },
     
     // Envelopes
-    Adsr { attack: f64, decay: f64, sustain: f64, release: f64 },
-    Env { stages: Vec<(f64, f64)> }, // (time, level) pairs
+    Adsr { attack: f32, decay: f32, sustain: f32, release: f32 },
+    Env { stages: Vec<(f32, f32)> }, // (time, level) pairs
     
     // Modulators
-    Lfo { freq: f64, shape: LfoShape },
+    Lfo { freq: f32, shape: LfoShape },
     
     // Sequencer
     Seq { pattern: String }, // Mini-notation pattern
-    Speed { factor: f64 },
-    Choose { options: Vec<f64> },
+    Speed { factor: f32 },
+    Choose { options: Vec<f32> },
     
     // Pattern integration
-    Pattern { pattern: Pattern<String> },
+    Pattern { pattern: String, speed: f32 },
     
     // Reference to another chain
     Ref { name: String },
@@ -71,11 +80,13 @@ pub enum DspNode {
     
     // Sample playback
     Sp { sample: String },
+    S { pattern: String }, // Tidal-style sample pattern
     
     // Utilities
     Mix { sources: Vec<DspChain> },
-    Pan { position: f64 },
-    Gain { amount: f64 },
+    Multiply { sources: Vec<DspChain> }, // Signal multiplication (ring modulation)
+    Pan { position: f32 },
+    Gain { amount: f32 },
 }
 
 #[derive(Clone, Debug)]
@@ -118,57 +129,57 @@ impl DspChain {
             let graph_node = match node {
                 DspNode::Sin { freq } => Node::Source {
                     id: node_id.clone(),
-                    source_type: SourceType::Sine { freq: *freq },
+                    source_type: SourceType::Sine { freq: *freq as f64 },
                 },
                 DspNode::Saw { freq } => Node::Source {
                     id: node_id.clone(),
-                    source_type: SourceType::Saw { freq: *freq },
+                    source_type: SourceType::Saw { freq: *freq as f64 },
                 },
-                DspNode::Square { freq } => Node::Source {
+                DspNode::Square { freq, duty: _ } => Node::Source {
                     id: node_id.clone(),
-                    source_type: SourceType::Square { freq: *freq },
+                    source_type: SourceType::Square { freq: *freq as f64 },
                 },
                 DspNode::Triangle { freq } => Node::Source {
                     id: node_id.clone(),
-                    source_type: SourceType::Triangle { freq: *freq },
+                    source_type: SourceType::Triangle { freq: *freq as f64 },
                 },
-                DspNode::Noise => Node::Source {
+                DspNode::Noise { seed: _ } => Node::Source {
                     id: node_id.clone(),
                     source_type: SourceType::Noise,
                 },
-                DspNode::Mul { value } => Node::Processor {
+                DspNode::Mul { factor } => Node::Processor {
                     id: node_id.clone(),
-                    processor_type: ProcessorType::Gain { amount: *value as f32 },
+                    processor_type: ProcessorType::Gain { amount: *factor },
                 },
                 DspNode::Add { value } => Node::Processor {
                     id: node_id.clone(),
                     // Use gain for now, could be a bias node
-                    processor_type: ProcessorType::Gain { amount: (1.0 + *value) as f32 },
+                    processor_type: ProcessorType::Gain { amount: (1.0 + *value) },
                 },
                 DspNode::Lpf { cutoff, q } => Node::Processor {
                     id: node_id.clone(),
-                    processor_type: ProcessorType::LowPass { cutoff: *cutoff, q: *q },
+                    processor_type: ProcessorType::LowPass { cutoff: *cutoff as f64, q: *q as f64 },
                 },
                 DspNode::Hpf { cutoff, q } => Node::Processor {
                     id: node_id.clone(),
-                    processor_type: ProcessorType::HighPass { cutoff: *cutoff, q: *q },
+                    processor_type: ProcessorType::HighPass { cutoff: *cutoff as f64, q: *q as f64 },
                 },
-                DspNode::Delay { time, feedback } => Node::Processor {
+                DspNode::Delay { time, feedback, mix: _ } => Node::Processor {
                     id: node_id.clone(),
                     processor_type: ProcessorType::Delay { 
-                        time: *time, 
-                        feedback: *feedback
+                        time: *time as f64, 
+                        feedback: *feedback as f64
                     },
                 },
-                DspNode::Reverb { room, damp } => Node::Processor {
+                DspNode::Reverb { room_size, damping: _, mix } => Node::Processor {
                     id: node_id.clone(),
                     processor_type: ProcessorType::Reverb { 
-                        mix: *room as f64  // Use room as mix for now
+                        mix: *mix as f64
                     },
                 },
                 DspNode::Gain { amount } => Node::Processor {
                     id: node_id.clone(),
-                    processor_type: ProcessorType::Gain { amount: *amount as f32 },
+                    processor_type: ProcessorType::Gain { amount: *amount },
                 },
                 DspNode::Seq { pattern } => {
                     Node::Pattern {
@@ -176,12 +187,11 @@ impl DspChain {
                         pattern: pattern.clone(),
                     }
                 },
-                DspNode::Pattern { pattern } => {
-                    // Convert Pattern to string representation
-                    // For now, just use a placeholder
+                DspNode::Pattern { pattern, speed: _ } => {
+                    // Use the pattern string directly
                     Node::Pattern {
                         id: node_id.clone(),
-                        pattern: "pattern".to_string(),
+                        pattern: pattern.clone(),
                     }
                 },
                 DspNode::Sp { sample } => Node::Source {
@@ -289,47 +299,47 @@ pub mod dsp {
     use super::*;
     
     pub fn sin(freq: f64) -> DspChain {
-        DspChain::from_node(DspNode::Sin { freq })
+        DspChain::from_node(DspNode::Sin { freq: freq as f32 })
     }
     
     pub fn saw(freq: f64) -> DspChain {
-        DspChain::from_node(DspNode::Saw { freq })
+        DspChain::from_node(DspNode::Saw { freq: freq as f32 })
     }
     
     pub fn square(freq: f64) -> DspChain {
-        DspChain::from_node(DspNode::Square { freq })
+        DspChain::from_node(DspNode::Square { freq: freq as f32, duty: 0.5 })
     }
     
     pub fn triangle(freq: f64) -> DspChain {
-        DspChain::from_node(DspNode::Triangle { freq })
+        DspChain::from_node(DspNode::Triangle { freq: freq as f32 })
     }
     
     pub fn noise() -> DspChain {
-        DspChain::from_node(DspNode::Noise)
+        DspChain::from_node(DspNode::Noise { seed: 42 })
     }
     
     pub fn mul(value: f64) -> DspChain {
-        DspChain::from_node(DspNode::Mul { value })
+        DspChain::from_node(DspNode::Mul { factor: value as f32 })
     }
     
     pub fn add(value: f64) -> DspChain {
-        DspChain::from_node(DspNode::Add { value })
+        DspChain::from_node(DspNode::Add { value: value as f32 })
     }
     
     pub fn lpf(cutoff: f64, q: f64) -> DspChain {
-        DspChain::from_node(DspNode::Lpf { cutoff, q })
+        DspChain::from_node(DspNode::Lpf { cutoff: cutoff as f32, q: q as f32 })
     }
     
     pub fn hpf(cutoff: f64, q: f64) -> DspChain {
-        DspChain::from_node(DspNode::Hpf { cutoff, q })
+        DspChain::from_node(DspNode::Hpf { cutoff: cutoff as f32, q: q as f32 })
     }
     
     pub fn delay(time: f64, feedback: f64) -> DspChain {
-        DspChain::from_node(DspNode::Delay { time, feedback })
+        DspChain::from_node(DspNode::Delay { time: time as f32, feedback: feedback as f32, mix: 0.5 })
     }
     
     pub fn reverb(room: f64, damp: f64) -> DspChain {
-        DspChain::from_node(DspNode::Reverb { room, damp })
+        DspChain::from_node(DspNode::Reverb { room_size: room as f32, damping: damp as f32, mix: 0.3 })
     }
     
     pub fn seq(pattern: &str) -> DspChain {
@@ -341,7 +351,7 @@ pub mod dsp {
     }
     
     pub fn gain(amount: f64) -> DspChain {
-        DspChain::from_node(DspNode::Gain { amount })
+        DspChain::from_node(DspNode::Gain { amount: amount as f32 })
     }
 }
 

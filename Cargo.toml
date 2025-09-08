@@ -45,3 +45,10 @@ sha2 = "0.10"
 
 # Lazy static for musical constants
 lazy_static = "1.4"
+
+# High-performance parser combinators
+nom = "7.1"
+
+# Terminal UI for live coding interface
+ratatui = "0.24"
+crossterm = "0.27"
