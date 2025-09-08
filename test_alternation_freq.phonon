@@ -1,0 +1,3 @@
+// Test alternation with different frequencies
+// 440Hz for first, 880Hz for second - should alternate
+o: s "<sine(440) sine(880)>"

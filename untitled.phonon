@@ -1,0 +1,7 @@
+# Phonon Live Coding
+# Press Ctrl+X to play, Ctrl+S to save, Ctrl+Q to quit
+# Emacs keys: C-f/b (char), C-n/p (line), C-a/e (line start/end)
+
+# Example: Simple drum pattern
+~drums: s "(bd, sn)"
+out: ~drums >> mul 0.5

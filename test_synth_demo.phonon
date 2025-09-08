@@ -1,0 +1,8 @@
+// Demo of synth triggering from patterns
+// Define simple synths that can be triggered
+~bass: sin 110 >> mul 0.4
+~mid: sin 220 >> mul 0.3  
+~high: sin 440 >> mul 0.2
+
+// Trigger them in a pattern
+o: s "~bass ~mid ~high ~mid"

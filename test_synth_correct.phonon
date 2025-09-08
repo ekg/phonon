@@ -1,0 +1,7 @@
+// Use correct glicol syntax
+~low: sin 110 >> mul 0.5
+~mid: sin 220 >> mul 0.4
+~high: sin 440 >> mul 0.3
+
+// Pattern that alternates between them
+o: s "<~low ~mid ~high>"
