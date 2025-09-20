@@ -16,6 +16,7 @@ pub mod modal_editor;
 pub mod live_engine;
 pub mod pattern;
 pub mod pattern_ops;
+mod test_methods;
 pub mod pattern_ops_extended;
 pub mod pattern_test;
 pub mod pattern_tonal;

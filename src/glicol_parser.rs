@@ -718,25 +718,69 @@ impl GlicolParser {
             self.advance();
             Ok(pattern)
         } else {
-            // Parse space-separated pattern elements until >> or newline
+            // Parse pattern elements until >> or newline
+            // Allow more tokens for richer pattern syntax
             let mut pattern = String::new();
             while !matches!(self.current_token(), Token::Chain | Token::Newline | Token::Eof) {
                 match self.current_token() {
                     Token::Symbol(s) => {
-                        if !pattern.is_empty() {
+                        if !pattern.is_empty() && !pattern.ends_with('(') && !pattern.ends_with('<') && !pattern.ends_with('[') {
                             pattern.push(' ');
                         }
                         pattern.push_str(s);
                         self.advance();
                     }
                     Token::Number(n) => {
-                        if !pattern.is_empty() {
+                        if !pattern.is_empty() && !pattern.ends_with('(') && !pattern.ends_with(',') && !pattern.ends_with('*') && !pattern.ends_with('/') {
                             pattern.push(' ');
                         }
                         pattern.push_str(&n.to_string());
                         self.advance();
                     }
-                    _ => break,
+                    Token::Star => {
+                        pattern.push('*');
+                        self.advance();
+                    }
+                    Token::Slash => {
+                        pattern.push('/');
+                        self.advance();
+                    }
+                    Token::LeftParen => {
+                        pattern.push('(');
+                        self.advance();
+                    }
+                    Token::RightParen => {
+                        pattern.push(')');
+                        self.advance();
+                    }
+                    Token::LeftBracket => {
+                        pattern.push('[');
+                        self.advance();
+                    }
+                    Token::RightBracket => {
+                        pattern.push(']');
+                        self.advance();
+                    }
+                    Token::Tilde => {
+                        pattern.push('~');
+                        self.advance();
+                    }
+                    Token::Colon => {
+                        // In patterns, colons can be used for length
+                        pattern.push(':');
+                        self.advance();
+                    }
+                    _ => {
+                        // For commas and other characters, check if it's a symbol with special chars
+                        if let Token::Symbol(s) = self.current_token() {
+                            if s == "," {
+                                pattern.push(',');
+                                self.advance();
+                                continue;
+                            }
+                        }
+                        break;
+                    }
                 }
             }
             Ok(pattern)

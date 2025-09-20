@@ -207,7 +207,6 @@ fn test_degrade_operator() {
 }
 
 #[test]
-#[ignore] // TODO: Fix stacking implementation
 fn test_stacking_with_pipe() {
     let pattern = parse_mini_notation("bd sn | hh*4");
     

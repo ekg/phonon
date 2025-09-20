@@ -4,6 +4,7 @@
 //! that can be composed and evaluated per cycle.
 
 use crate::pattern::{Pattern, Fraction, TimeSpan, Hap};
+use crate::pattern_ops::*;  // Import pattern operators
 use std::sync::Arc;
 
 /// Token types in mini-notation
@@ -98,6 +99,7 @@ enum Operator {
     Fast(Box<AstNode>),
     Slow(Box<AstNode>),
     Replicate(usize),
+    ReplicatePattern(Box<AstNode>),  // For dynamic replication with patterns
     Degrade(f64),
     Late(f64),
 }
@@ -326,7 +328,26 @@ impl MiniNotationParser {
     
     /// Parse the entire pattern
     pub fn parse(&mut self) -> AstNode {
-        self.parse_sequence()
+        // Parse first part
+        let first = self.parse_sequence();
+
+        // Check if there's a pipe for stacking
+        if let Some(Token::Pipe) = self.current() {
+            let mut patterns = vec![first];
+
+            while let Some(Token::Pipe) = self.current() {
+                self.advance(); // consume pipe
+                patterns.push(self.parse_sequence());
+            }
+
+            // Create a stacked pattern
+            AstNode::Pattern {
+                children: patterns,
+                alignment: Alignment::Stack,
+            }
+        } else {
+            first
+        }
     }
     
     /// Parse a sequence (default alignment)
@@ -506,17 +527,28 @@ impl MiniNotationParser {
             match token {
                 Token::Star => {
                     self.advance();
-                    let amount = if let Some(Token::Number(n)) = self.current() {
-                        let n = *n as usize;
-                        self.advance();
-                        n
+                    // Check if next token is an alternation
+                    if matches!(self.current(), Some(Token::OpenAngle)) {
+                        // Parse alternation pattern for dynamic replication
+                        let amount = Box::new(self.parse_argument());
+                        node = AstNode::Operator {
+                            pattern: Box::new(node),
+                            op: Operator::ReplicatePattern(amount),
+                        };
                     } else {
-                        2
-                    };
-                    node = AstNode::Operator {
-                        pattern: Box::new(node),
-                        op: Operator::Replicate(amount),
-                    };
+                        // Parse static number
+                        let amount = if let Some(Token::Number(n)) = self.current() {
+                            let n = *n as usize;
+                            self.advance();
+                            n
+                        } else {
+                            2
+                        };
+                        node = AstNode::Operator {
+                            pattern: Box::new(node),
+                            op: Operator::Replicate(amount),
+                        };
+                    }
                 },
                 Token::Slash => {
                     self.advance();
@@ -740,8 +772,44 @@ pub fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
                     let patterns = vec![pat; n];
                     Pattern::fastcat(patterns)
                 },
-                Operator::Degrade(amount) => pat.degrade_by(amount),
-                Operator::Late(amount) => pat.late(amount),
+                Operator::ReplicatePattern(amount) => {
+                    // Convert amount AST to pattern
+                    let amount_pat = ast_to_pattern_value(*amount);
+
+                    // Create a pattern that evaluates replication with pattern argument
+                    Pattern::new(move |state| {
+                        // Get the cycle number to determine which value to use
+                        let cycle = state.span.begin.to_float().floor() as i64;
+
+                        // Create a query for just the current cycle point
+                        let point_state = crate::pattern::State {
+                            span: TimeSpan::new(
+                                Fraction::new(cycle, 1),
+                                Fraction::new(cycle, 1) + Fraction::new(1, 1000000),
+                            ),
+                            controls: state.controls.clone(),
+                        };
+
+                        // Query the amount pattern to get the value for this cycle
+                        let n = amount_pat.query(&point_state)
+                            .first()
+                            .and_then(|h| h.value.as_number())
+                            .unwrap_or(2.0) as usize;
+
+                        // Create n copies and concatenate them fast
+                        let patterns = vec![pat.clone(); n];
+                        let replicated = Pattern::fastcat(patterns);
+                        replicated.query(state)
+                    })
+                },
+                Operator::Degrade(amount) => {
+                    use crate::pattern_ops::*;
+                    pat.degrade_by(amount)
+                },
+                Operator::Late(amount) => {
+                    use crate::pattern_ops::*;
+                    pat.late(amount)
+                },
             }
         },
         
@@ -800,8 +868,44 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                     let patterns = vec![pat; n];
                     Pattern::fastcat(patterns)
                 },
-                Operator::Degrade(amount) => pat.degrade_by(amount),
-                Operator::Late(amount) => pat.late(amount),
+                Operator::ReplicatePattern(amount) => {
+                    // Convert amount AST to pattern
+                    let amount_pat = ast_to_pattern_value(*amount);
+
+                    // Create a pattern that evaluates replication with pattern argument
+                    Pattern::new(move |state| {
+                        // Get the cycle number to determine which value to use
+                        let cycle = state.span.begin.to_float().floor() as i64;
+
+                        // Create a query for just the current cycle point
+                        let point_state = crate::pattern::State {
+                            span: TimeSpan::new(
+                                Fraction::new(cycle, 1),
+                                Fraction::new(cycle, 1) + Fraction::new(1, 1000000),
+                            ),
+                            controls: state.controls.clone(),
+                        };
+
+                        // Query the amount pattern to get the value for this cycle
+                        let n = amount_pat.query(&point_state)
+                            .first()
+                            .and_then(|h| h.value.as_number())
+                            .unwrap_or(2.0) as usize;
+
+                        // Create n copies and concatenate them fast
+                        let patterns = vec![pat.clone(); n];
+                        let replicated = Pattern::fastcat(patterns);
+                        replicated.query(state)
+                    })
+                },
+                Operator::Degrade(amount) => {
+                    use crate::pattern_ops::*;
+                    pat.degrade_by(amount)
+                },
+                Operator::Late(amount) => {
+                    use crate::pattern_ops::*;
+                    pat.late(amount)
+                },
             }
         },
         
@@ -878,51 +982,79 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         if patterns.is_empty() {
             return Pattern::silence();
         }
-        
-        let n = patterns.len();
+
+        let n = patterns.len() as f64;
         Pattern::new(move |state| {
             let mut all_haps = Vec::new();
-            
-            for (i, pattern) in patterns.iter().enumerate() {
-                // Each pattern gets 1/n of the cycle
-                let begin_offset = i as f64 / n as f64;
-                let end_offset = (i + 1) as f64 / n as f64;
-                
-                // Scale and shift the query window
-                let scaled_begin = state.span.begin.to_float() * n as f64 - i as f64;
-                let scaled_end = state.span.end.to_float() * n as f64 - i as f64;
-                
-                // Only query if this slice is relevant
-                if scaled_end > 0.0 && scaled_begin < 1.0 {
+
+            // Process each cycle that overlaps with the query
+            let start_cycle = state.span.begin.to_float().floor() as i64;
+            let end_cycle = state.span.end.to_float().ceil() as i64;
+
+            for cycle in start_cycle..end_cycle {
+                let cycle_f = cycle as f64;
+
+                // Check if this cycle overlaps with our query
+                let cycle_begin = cycle_f.max(state.span.begin.to_float());
+                let cycle_end = (cycle_f + 1.0).min(state.span.end.to_float());
+
+                if cycle_begin >= cycle_end {
+                    continue;
+                }
+
+                for (i, pattern) in patterns.iter().enumerate() {
+                    // Each pattern gets 1/n of each cycle
+                    let pattern_begin = cycle_f + (i as f64 / n);
+                    let pattern_end = cycle_f + ((i + 1) as f64 / n);
+
+                    // Check if this pattern slice overlaps with our query
+                    let query_begin = cycle_begin.max(pattern_begin);
+                    let query_end = cycle_end.min(pattern_end);
+
+                    if query_begin >= query_end {
+                        continue;
+                    }
+
+                    // Scale the query to the pattern's local time (0-1)
+                    let scaled_begin = (query_begin - pattern_begin) * n;
+                    let scaled_end = (query_end - pattern_begin) * n;
+
                     let query_span = TimeSpan::new(
-                        Fraction::from_float(scaled_begin.max(0.0)),
-                        Fraction::from_float(scaled_end.min(1.0)),
+                        Fraction::from_float(scaled_begin),
+                        Fraction::from_float(scaled_end),
                     );
-                    
+
                     let query_state = crate::pattern::State {
                         span: query_span,
                         controls: state.controls.clone(),
                     };
-                    
+
                     let haps = pattern.query(&query_state);
-                    
-                    // Transform haps back to original timebase
+
+                    // Transform haps back to absolute time
                     for mut hap in haps {
+                        let part_begin = hap.part.begin.to_float() / n + pattern_begin;
+                        let part_end = hap.part.end.to_float() / n + pattern_begin;
+
                         hap.part = TimeSpan::new(
-                            Fraction::from_float(hap.part.begin.to_float() / n as f64 + begin_offset),
-                            Fraction::from_float(hap.part.end.to_float() / n as f64 + begin_offset),
+                            Fraction::from_float(part_begin),
+                            Fraction::from_float(part_end),
                         );
+
                         if let Some(whole) = hap.whole {
+                            let whole_begin = whole.begin.to_float() / n + pattern_begin;
+                            let whole_end = whole.end.to_float() / n + pattern_begin;
                             hap.whole = Some(TimeSpan::new(
-                                Fraction::from_float(whole.begin.to_float() / n as f64 + begin_offset),
-                                Fraction::from_float(whole.end.to_float() / n as f64 + begin_offset),
+                                Fraction::from_float(whole_begin),
+                                Fraction::from_float(whole_end),
                             ));
                         }
+
                         all_haps.push(hap);
                     }
                 }
             }
-            
+
             all_haps
         })
     }

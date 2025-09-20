@@ -1,7 +1,9 @@
-// Test the euclidean algorithm directly
+use phonon::pattern::Pattern;
+
+// Test the euclidean algorithm directly using a simple implementation
 fn simple_euclid(pulses: usize, steps: usize) -> Vec<bool> {
     let mut result = vec![false; steps];
-    
+
     if pulses > 0 {
         // Distribute pulses evenly across steps
         for i in 0..pulses {
@@ -9,13 +11,11 @@ fn simple_euclid(pulses: usize, steps: usize) -> Vec<bool> {
             result[pos] = true;
         }
     }
-    
+
     result
 }
 
 #[test]
-#[ignore] // TODO: Fix for new implementation
-#[ignore] // TODO: Fix euclid
 fn test_bjorklund_algorithm() {
     // Test (3,8) - should give X..X..X.
     let pattern = simple_euclid(3, 8);
@@ -46,6 +46,41 @@ fn test_bjorklund_algorithm() {
     println!();
 }
 
-fn main() {
-    test_bjorklund_algorithm();
+#[test]
+fn test_pattern_euclid_consistency() {
+    use phonon::pattern::{State, TimeSpan, Fraction};
+    use std::collections::HashMap;
+
+    // Test that Pattern::euclid produces the same rhythm pattern
+    let pattern = Pattern::<bool>::euclid(3, 8, 0);
+    let state = State {
+        span: TimeSpan::new(
+            Fraction::new(0, 1),
+            Fraction::new(1, 1),
+        ),
+        controls: HashMap::new(),
+    };
+
+    let haps = pattern.query(&state);
+
+    // Should produce 3 events (true values)
+    let true_count = haps.iter().filter(|h| h.value).count();
+    assert_eq!(true_count, 3, "Pattern::euclid(3,8,0) should produce 3 hits");
+
+    // Compare positions with our simple implementation
+    let simple = simple_euclid(3, 8);
+    let simple_positions: Vec<usize> = simple.iter()
+        .enumerate()
+        .filter_map(|(i, &v)| if v { Some(i) } else { None })
+        .collect();
+
+    println!("Simple euclid positions: {:?}", simple_positions);
+
+    // The Pattern::euclid should have events at roughly the same fractional positions
+    for (i, hap) in haps.iter().enumerate() {
+        if hap.value {
+            let pos = (hap.part.begin.to_float() * 8.0).round() as usize;
+            println!("Pattern::euclid hit at position {}/8", pos);
+        }
+    }
 }

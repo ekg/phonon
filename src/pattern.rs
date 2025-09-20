@@ -191,13 +191,30 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
     
     /// Create a pattern from a single value (pure)
+    /// This creates a repeating pattern with one event per cycle
     pub fn pure(value: T) -> Self {
         Self::new(move |state| {
-            vec![Hap::new(
-                Some(state.span),
-                state.span,
-                value.clone(),
-            )]
+            let mut haps = Vec::new();
+            let start_cycle = state.span.begin.to_float().floor() as i64;
+            let end_cycle = state.span.end.to_float().ceil() as i64;
+
+            for cycle in start_cycle..end_cycle {
+                let cycle_begin = Fraction::from_float(cycle as f64);
+                let cycle_end = Fraction::from_float((cycle + 1) as f64);
+
+                // Only include if it overlaps with the query span
+                if cycle_end > state.span.begin && cycle_begin < state.span.end {
+                    let part_begin = cycle_begin.max(state.span.begin);
+                    let part_end = cycle_end.min(state.span.end);
+
+                    haps.push(Hap::new(
+                        Some(TimeSpan::new(cycle_begin, cycle_end)),
+                        TimeSpan::new(part_begin, part_end),
+                        value.clone(),
+                    ));
+                }
+            }
+            haps
         })
     }
     
@@ -469,18 +486,19 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         if patterns.is_empty() {
             return Pattern::silence();
         }
-        
+
         let len = patterns.len();
         Pattern::new(move |state| {
             // Determine which pattern is active based on the cycle number
             let cycle = state.span.begin.to_float().floor() as usize;
             let pattern_idx = cycle % len;
             let pattern = &patterns[pattern_idx];
-            
+
             // Query the selected pattern with the current time span
             pattern.query(state)
         })
     }
+
 }
 
 // ============= Euclidean Rhythms =============

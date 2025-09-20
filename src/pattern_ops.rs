@@ -59,12 +59,20 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// Randomly drop events with given probability
     pub fn degrade_by(self, probability: f64) -> Self {
         Pattern::new(move |state| {
-            let cycle = state.span.begin.to_float().floor() as u64;
-            let mut rng = StdRng::seed_from_u64(cycle);
-            
             self.query(state)
                 .into_iter()
-                .filter(|_| rng.gen::<f64>() > probability)
+                .filter_map(|hap| {
+                    // Use the event's time position and cycle to generate seed
+                    // This ensures each event gets a unique random value
+                    let cycle = hap.part.begin.to_float().floor() as u64;
+                    let position_hash = (hap.part.begin.to_float() * 1000000.0) as u64;
+                    let event_seed = cycle.wrapping_mul(2654435761) // Large prime
+                        .wrapping_add(position_hash);
+
+                    let mut event_rng = StdRng::seed_from_u64(event_seed);
+                    let keep = event_rng.gen::<f64>() >= probability;
+                    if keep { Some(hap) } else { None }
+                })
                 .collect()
         })
     }

@@ -24,7 +24,6 @@ fn find_event_onsets(samples: &[f32], threshold: f32) -> Vec<usize> {
 }
 
 #[test]
-#[ignore] // TODO: Fix for new implementation
 fn test_pattern_timing_is_even() {
     println!("\n=== Testing Pattern Timing Distribution ===");
     
@@ -59,7 +58,6 @@ fn test_pattern_timing_is_even() {
 }
 
 #[test]
-#[ignore] // TODO: Fix for new implementation
 fn test_synth_timing_is_even() {
     println!("\n=== Testing Synth Trigger Timing ===");
     
@@ -102,7 +100,6 @@ fn test_synth_timing_is_even() {
 }
 
 #[test]
-#[ignore] // TODO: Fix for new implementation
 fn test_timing_with_rests() {
     println!("\n=== Testing Timing with Rests ===");
     
@@ -139,7 +136,6 @@ fn test_timing_with_rests() {
 }
 
 #[test]
-#[ignore] // TODO: Fix for new implementation
 fn test_timing_across_multiple_cycles() {
     println!("\n=== Testing Timing Across Multiple Cycles ===");
     
@@ -182,7 +178,6 @@ fn test_timing_across_multiple_cycles() {
 }
 
 #[test]
-#[ignore] // TODO: Fix for new implementation
 fn test_no_compression_at_end() {
     println!("\n=== Testing No Compression at End of Cycle ===");
     

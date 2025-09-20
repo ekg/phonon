@@ -7,65 +7,63 @@ use phonon::pattern::{Pattern, State, TimeSpan, Fraction};
 use std::collections::HashMap;
 
 #[test]
-#[ignore] // Requires render_pattern function
 fn test_simple_pattern_audio() {
     // Test "bd sn bd sn" generates 4 hits
     let pattern = parse_mini_notation("bd sn bd sn");
-    let _sample_rate = 44100.0;
-    let _duration = 1.0; // 1 second = 1 cycle
-    
-    // Would render the pattern and verify audio output
-    // let audio = render_pattern(&pattern, duration, sample_rate as u32, 120.0);
-    // let expected_hits = vec![0, (0.25 * sample_rate) as usize, ...];
-    // assert!(verify_pattern_audio(&audio, &expected_hits, sample_rate));
-    
-    // For now, just verify pattern structure
+
+    // Verify pattern structure
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
     };
     let events = pattern.query(&state);
-    assert_eq!(events.len(), 4);
+    assert_eq!(events.len(), 4, "Should generate 4 events");
+
+    // Verify timing - should be evenly spaced
+    assert_eq!(events[0].part.begin, Fraction::new(0, 1));
+    assert_eq!(events[1].part.begin, Fraction::new(1, 4));
+    assert_eq!(events[2].part.begin, Fraction::new(1, 2));
+    assert_eq!(events[3].part.begin, Fraction::new(3, 4));
 }
 
 #[test]
-#[ignore] // Requires render_pattern function
 fn test_euclidean_pattern_audio() {
     // Test "bd(3,8)" generates 3 hits evenly distributed
     let pattern = parse_mini_notation("bd(3,8)");
-    let _sample_rate = 44100.0;
-    let _duration = 1.0;
-    
-    // Would render and verify euclidean pattern
-    // let audio = render_pattern(&pattern, duration, sample_rate as u32, 120.0);
-    // let expected_hits = vec![0, (3.0/8.0 * sample_rate) as usize, ...];
-    // assert!(verify_pattern_audio(&audio, &expected_hits, sample_rate));
-    
-    // For now, verify pattern structure
+
+    // Verify pattern structure
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
     };
     let events = pattern.query(&state);
-    assert_eq!(events.len(), 3);
+    assert_eq!(events.len(), 3, "Euclidean (3,8) should generate 3 events");
+
+    // Verify they are all bd events
+    assert!(events.iter().all(|e| e.value == "bd"));
 }
 
 #[test]
-#[ignore] // Requires render_pattern function
 fn test_polyrhythm_audio() {
     // Test "[bd cp, hh*3]" generates correct polyrhythmic pattern
     let pattern = parse_mini_notation("[bd cp, hh*3]");
-    let _sample_rate = 44100.0;
-    let _duration = 1.0;
-    
-    // Would render and verify polyrhythmic pattern
-    // For now, verify pattern structure
+
+    // Verify pattern structure
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
     };
     let events = pattern.query(&state);
-    assert!(events.len() >= 4); // Should have multiple events
+    assert_eq!(events.len(), 5, "Should have 2 bd/cp + 3 hh events");
+
+    // Count event types
+    let bd_count = events.iter().filter(|e| e.value == "bd").count();
+    let cp_count = events.iter().filter(|e| e.value == "cp").count();
+    let hh_count = events.iter().filter(|e| e.value == "hh").count();
+
+    assert_eq!(bd_count, 1, "Should have 1 bd");
+    assert_eq!(cp_count, 1, "Should have 1 cp");
+    assert_eq!(hh_count, 3, "Should have 3 hh");
 }
 
 #[test]
@@ -146,13 +144,11 @@ fn test_pattern_timing_accuracy() {
 }
 
 #[test]
-#[ignore] // Requires render_pattern and compare_audio functions
 fn test_alternation_pattern_audio() {
     // Test "<bd sn>" alternates between bd and sn each cycle
     let pattern = parse_mini_notation("<bd sn>");
-    
-    // Would render and compare 2 cycles
-    // For now, verify pattern structure
+
+    // Verify pattern structure for multiple cycles
     let state1 = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
@@ -161,13 +157,15 @@ fn test_alternation_pattern_audio() {
         span: TimeSpan::new(Fraction::new(1, 1), Fraction::new(2, 1)),
         controls: HashMap::new(),
     };
-    
+
     let events1 = pattern.query(&state1);
     let events2 = pattern.query(&state2);
-    
+
     // Should have different values in different cycles
-    assert_eq!(events1.len(), 1);
-    assert_eq!(events2.len(), 1);
+    assert_eq!(events1.len(), 1, "Cycle 0 should have 1 event");
+    assert_eq!(events2.len(), 1, "Cycle 1 should have 1 event");
+    assert_eq!(events1[0].value, "bd", "Cycle 0 should be bd");
+    assert_eq!(events2[0].value, "sn", "Cycle 1 should be sn");
 }
 
 #[test]
