@@ -1,5 +1,0 @@
-// Test even timing: should hear 4 evenly spaced beats
-~beat: sin 440 >> mul 0.5
-
-// Simple 4/4 pattern - should be evenly spaced, not compressed
-o: s "~beat ~beat ~beat ~beat"

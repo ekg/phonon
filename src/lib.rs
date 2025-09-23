@@ -36,11 +36,17 @@ pub mod phonon_lang;
 pub mod glicol_dsp;
 pub mod glicol_parser;
 pub mod nom_parser;
+pub mod dsp_parameter;
+pub mod glicol_dsp_v2;
+pub mod glicol_parser_v2;
 pub mod glicol_pattern_bridge;
 pub mod simple_dsp_executor;
+pub mod simple_dsp_executor_v2;
 pub mod envelope;
 pub mod synth_voice;
 pub mod pattern_lang_parser;
+pub mod unified_graph;
+pub mod unified_graph_parser;
 
 #[cfg(test)]
 pub mod test_utils;

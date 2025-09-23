@@ -1,5 +1,0 @@
-// Define a synth on a channel
-~bass: sine(55) >> lpf(800, 0.8) >> mul(0.5)
-
-// Reference it in a pattern - trigger the synth rhythmically  
-o: s "~bass ~bass ~ ~bass"

@@ -1,9 +1,0 @@
-// Complete demo: synth triggering with patterns
-// Define various synths
-~kick: sin 60 >> mul 0.6
-~snare: noise >> hpf 2000 0.9 >> mul 0.3
-~hat: noise >> hpf 8000 0.95 >> mul 0.2
-~bass: sin 55 >> mul 0.5
-
-// Euclidean rhythm with synth
-o: s "~kick(3,8)"

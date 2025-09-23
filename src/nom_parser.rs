@@ -219,22 +219,60 @@ fn parse_pattern_transform(input: &str) -> IResult<&str, PatternTransform> {
         "every" => {
             let (input, n) = map_res(digit1, |s: &str| s.parse::<i32>())(input)?;
             let (input, _) = multispace1(input)?;
+            // Handle optional parentheses
+            let (input, _) = multispace0(input)?;
+            let (input, has_paren) = opt(char('('))(input)?;
+            let (input, _) = multispace0(input)?;
             let (input, transform) = parse_pattern_transform(input)?;
+            let (input, _) = multispace0(input)?;
+            let input = if has_paren.is_some() {
+                let (input, _) = char(')')(input)?;
+                input
+            } else {
+                input
+            };
             Ok((input, PatternTransform::Every(n, Box::new(transform))))
         }
         "sometimes" => {
             let (input, _) = multispace0(input)?;
+            let (input, has_paren) = opt(char('('))(input)?;
+            let (input, _) = multispace0(input)?;
             let (input, transform) = parse_pattern_transform(input)?;
+            let (input, _) = multispace0(input)?;
+            let input = if has_paren.is_some() {
+                let (input, _) = char(')')(input)?;
+                input
+            } else {
+                input
+            };
             Ok((input, PatternTransform::Sometimes(Box::new(transform))))
         }
         "rarely" => {
             let (input, _) = multispace0(input)?;
+            let (input, has_paren) = opt(char('('))(input)?;
+            let (input, _) = multispace0(input)?;
             let (input, transform) = parse_pattern_transform(input)?;
+            let (input, _) = multispace0(input)?;
+            let input = if has_paren.is_some() {
+                let (input, _) = char(')')(input)?;
+                input
+            } else {
+                input
+            };
             Ok((input, PatternTransform::Rarely(Box::new(transform))))
         }
         "often" => {
             let (input, _) = multispace0(input)?;
+            let (input, has_paren) = opt(char('('))(input)?;
+            let (input, _) = multispace0(input)?;
             let (input, transform) = parse_pattern_transform(input)?;
+            let (input, _) = multispace0(input)?;
+            let input = if has_paren.is_some() {
+                let (input, _) = char(')')(input)?;
+                input
+            } else {
+                input
+            };
             Ok((input, PatternTransform::Often(Box::new(transform))))
         }
         "jux" => {
@@ -245,7 +283,17 @@ fn parse_pattern_transform(input: &str) -> IResult<&str, PatternTransform> {
         "chunk" => {
             let (input, n) = map_res(digit1, |s: &str| s.parse::<i32>())(input)?;
             let (input, _) = multispace1(input)?;
+            let (input, _) = multispace0(input)?;
+            let (input, has_paren) = opt(char('('))(input)?;
+            let (input, _) = multispace0(input)?;
             let (input, transform) = parse_pattern_transform(input)?;
+            let (input, _) = multispace0(input)?;
+            let input = if has_paren.is_some() {
+                let (input, _) = char(')')(input)?;
+                input
+            } else {
+                input
+            };
             Ok((input, PatternTransform::Chunk(n, Box::new(transform))))
         }
         "chop" => {
@@ -321,9 +369,9 @@ fn parse_pattern_ops(input: &str) -> IResult<&str, Expr> {
     // First parse the base expression (which could include chains)
     let (input, first) = parse_chain(input)?;
     
-    // Then check for pattern transforms
+    // Then check for pattern transforms (|> or $ operator)
     let (input, transforms) = many0(preceded(
-        delimited(multispace0, tag("|>"), multispace0),
+        delimited(multispace0, alt((tag("|>"), tag("$"))), multispace0),
         parse_pattern_transform
     ))(input)?;
     
@@ -359,7 +407,7 @@ fn parse_chain(input: &str) -> IResult<&str, Expr> {
 }
 
 /// Top-level expression parser
-fn parse_expr(input: &str) -> IResult<&str, Expr> {
+pub fn parse_expr(input: &str) -> IResult<&str, Expr> {
     parse_pattern_ops(input)
 }
 

@@ -105,7 +105,6 @@ fn test_complex_nesting_with_operators() {
 }
 
 #[test]
-#[ignore] // TODO: Fix for mini_notation_v3
 fn test_alternation_in_polyrhythm() {
     let pattern = parse_mini_notation("(<bd sn>, hh*4)");
     

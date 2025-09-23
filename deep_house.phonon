@@ -1,9 +1,0 @@
-// Deep house groove with variations
-
-// Define custom sounds
-~bd: sine(50) >> dist(0.4)      // Punchy kick
-~hh: sine(8000) >> hpf(4000, 2) // Crispy hi-hat
-~cp: sine(400) >> reverb(0.3)   // Spacey clap
-
-// Pattern - kick, hats with variation, rim on off-beat
-out: pattern("bd ~ bd ~") + pattern("hh hh [hh hh] hh") + pattern("~ cp ~ cp:2") >> lpf(3000, 1.5) >> comp(-8, 3)

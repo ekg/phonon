@@ -52,3 +52,6 @@ nom = "7.1"
 # Terminal UI for live coding interface
 ratatui = "0.24"
 crossterm = "0.27"
+
+# File watching for hot-reload
+notify = "6.1"

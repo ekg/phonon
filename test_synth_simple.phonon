@@ -1,7 +1,0 @@
-// Define simple synths
-~low: sine(110) >> mul(0.5)
-~mid: sine(220) >> mul(0.4) 
-~high: sine(440) >> mul(0.3)
-
-// Use them in a pattern with alternation!
-o: s "<~low ~mid ~high>"

@@ -1,7 +1,0 @@
-// Define some synths
-~kick: sine(60) >> mul(envelope(0.01, 0.1, 0.0, 0.1))
-~snare: noise() >> hpf(2000, 0.9) >> mul(envelope(0.01, 0.05, 0.0, 0.05))
-~hat: noise() >> hpf(8000, 0.95) >> mul(envelope(0.001, 0.02, 0.0, 0.02))
-
-// Use them in a pattern
-o: s "~kick ~snare ~kick ~hat"

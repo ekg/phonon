@@ -1,4 +1,0 @@
-// House beat one-liner
-
-// Four-on-the-floor kick with offbeat hats and claps
-out: pattern("bd bd bd bd") + pattern("~ hh ~ hh ~ hh ~ hh") + pattern("~ ~ cp ~") >> comp(-10, 4) >> reverb(0.1)

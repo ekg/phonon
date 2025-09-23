@@ -1,3 +1,0 @@
-// Test alternation with sample patterns
-// Should alternate between bd and sn each cycle
-o: s "<bd sn>"
