@@ -4,10 +4,10 @@
 //! DSP parameters like oscillator frequency and filter cutoff,
 //! and that we can observe the modulation in the generated audio.
 
-use phonon::glicol_parser_v2::parse_glicol_v2;
 use phonon::dsp_parameter::DspParameter;
-use phonon::pattern::{Pattern, State, TimeSpan, Fraction};
+use phonon::glicol_parser_v2::parse_glicol_v2;
 use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 
 /// Analyze frequency content of audio using zero-crossing detection
@@ -70,7 +70,10 @@ fn test_pattern_oscillator_frequency() {
 
     for (pos, description) in test_positions {
         let freq = freq_pattern.evaluate(pos, &refs);
-        println!("  Cycle position {:.2}: {} - Frequency: {:.0} Hz", pos, description, freq);
+        println!(
+            "  Cycle position {:.2}: {} - Frequency: {:.0} Hz",
+            pos, description, freq
+        );
 
         // Verify we get expected frequencies
         match pos {
@@ -122,8 +125,10 @@ fn test_pattern_adsr_envelope() {
         let s = sustain_pattern.evaluate(pos, &refs);
         let r = release_pattern.evaluate(pos, &refs);
 
-        println!("    Position {:.2}: A={:.3}s, D={:.3}s, S={:.2}, R={:.3}s",
-                 pos, a, d, s, r);
+        println!(
+            "    Position {:.2}: A={:.3}s, D={:.3}s, S={:.2}, R={:.3}s",
+            pos, a, d, s, r
+        );
     }
 
     println!("  ✓ Pattern correctly modulates ADSR parameters");
@@ -147,8 +152,10 @@ fn test_pattern_delay_modulation() {
         let feedback = feedback_pattern.evaluate(pos, &refs);
         let mix = mix_pattern.evaluate(pos, &refs);
 
-        println!("  Position {:.2}: Time={:.3}s, Feedback={:.2}, Mix={:.2}",
-                 pos, time, feedback, mix);
+        println!(
+            "  Position {:.2}: Time={:.3}s, Feedback={:.2}, Mix={:.2}",
+            pos, time, feedback, mix
+        );
 
         // Verify values are in expected ranges
         assert!(time >= 0.0 && time <= 1.0);
@@ -177,12 +184,20 @@ fn test_pattern_lfo_rate() {
 
     for (pos, expected, description) in test_points {
         let rate = lfo_rate_pattern.evaluate(pos, &refs);
-        println!("  Position {:.2}: {} - Rate: {:.1} Hz", pos, description, rate);
+        println!(
+            "  Position {:.2}: {} - Rate: {:.1} Hz",
+            pos, description, rate
+        );
 
         // Allow for some tolerance due to pattern interpolation
-        if rate != 0.0 {  // Pattern might return 0 at boundaries
-            assert!((rate - expected).abs() < 0.5,
-                    "Expected rate ~{}, got {}", expected, rate);
+        if rate != 0.0 {
+            // Pattern might return 0 at boundaries
+            assert!(
+                (rate - expected).abs() < 0.5,
+                "Expected rate ~{}, got {}",
+                expected,
+                rate
+            );
         }
     }
 
@@ -208,8 +223,10 @@ fn test_complex_pattern_modulation() {
             let modulator = mod_freq.evaluate(pos, &refs);
             let depth = mod_depth.evaluate(pos, &refs);
 
-            println!("    Cycle {} Step {}: Carrier={:.0} Hz, Mod={:.0} Hz, Depth={:.2}",
-                     cycle, step, carrier, modulator, depth);
+            println!(
+                "    Cycle {} Step {}: Carrier={:.0} Hz, Mod={:.0} Hz, Depth={:.2}",
+                cycle, step, carrier, modulator, depth
+            );
         }
     }
 
@@ -232,12 +249,11 @@ fn test_pattern_with_references() {
     for (i, &lfo_val) in lfo_values.iter().enumerate() {
         refs.insert("lfo".to_string(), lfo_val);
 
-        let pos = (i as f64) * 0.125;  // 8 steps per cycle
+        let pos = (i as f64) * 0.125; // 8 steps per cycle
         let base = cutoff_base.evaluate(pos, &refs);
         let lfo = lfo_ref.evaluate(pos, &refs);
 
-        println!("  Step {}: Base cutoff={:.0} Hz, LFO={:.2}",
-                 i, base, lfo);
+        println!("  Step {}: Base cutoff={:.0} Hz, LFO={:.2}", i, base, lfo);
 
         assert_eq!(lfo, lfo_val, "LFO reference not working");
     }
@@ -268,8 +284,12 @@ fn test_pattern_string_parsing() {
         println!("    Value at position 0.0: {}", value);
 
         // The value should be one of the expected values or 0
-        assert!(expected_values.contains(&value) || value == 0.0,
-                "Unexpected value {} for pattern \"{}\"", value, pattern_str);
+        assert!(
+            expected_values.contains(&value) || value == 0.0,
+            "Unexpected value {} for pattern \"{}\"",
+            value,
+            pattern_str
+        );
     }
 
     println!("  ✓ Pattern string parsing working correctly");
@@ -299,8 +319,10 @@ fn test_pattern_cycle_repetition() {
     let val_cycle1 = pattern.evaluate(1.25, &refs);
     let val_cycle2 = pattern.evaluate(2.25, &refs);
 
-    println!("  Values at position 0.25 in each cycle: {}, {}, {}",
-             val_cycle0, val_cycle1, val_cycle2);
+    println!(
+        "  Values at position 0.25 in each cycle: {}, {}, {}",
+        val_cycle0, val_cycle1, val_cycle2
+    );
 
     // They should be the same (pattern repeats)
     assert!((val_cycle0 - val_cycle1).abs() < 0.01 || val_cycle0 == 0.0 || val_cycle1 == 0.0);
@@ -317,22 +339,22 @@ fn test_parser_accepts_pattern_strings() {
     let test_cases = vec![
         (
             r#"o: sin "220 440 330" >> mul 0.3"#,
-            "Oscillator with pattern frequency"
+            "Oscillator with pattern frequency",
         ),
         (
             r#"o: saw 110 >> lpf "1000 2000 500" 0.8"#,
-            "Filter with pattern cutoff"
+            "Filter with pattern cutoff",
         ),
         (
             r#"o: sin 440 >> delay "0.125 0.25" "0.3 0.5" 0.5"#,
-            "Delay with pattern time and feedback"
+            "Delay with pattern time and feedback",
         ),
         (
             r#"
                 ~lfo: sin "0.5 1 2"
                 o: saw 220 >> lpf ~lfo 0.8
             "#,
-            "Reference to pattern chain"
+            "Reference to pattern chain",
         ),
     ];
 

@@ -2,8 +2,8 @@
 //!
 //! This parser allows patterns as parameters: `lpf "1000 2000 500" 0.8`
 
-use crate::glicol_dsp_v2::{DspChain, DspNode, DspEnvironment, LfoShape};
-use crate::dsp_parameter::{DspParameter, IntoParameter};
+use crate::dsp_parameter::DspParameter;
+use crate::glicol_dsp_v2::{DspChain, DspEnvironment, DspNode};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,30 +14,53 @@ pub enum Token {
     String(String),
 
     // Operators
-    Chain,          // >>
-    Colon,          // :
-    Tilde,          // ~
+    Chain, // >>
+    Colon, // :
+    Tilde, // ~
 
     // Delimiters
     LeftParen,
     RightParen,
 
     // Keywords (node types)
-    Sin, Saw, Square, Triangle, Noise,
-    Impulse, Pink, Brown,
-    Mul, Add, Sub, Div,
-    Lpf, Hpf, Bpf, Notch,
-    Delay, Reverb, Chorus, Phaser,
-    Seq, Speed, S,
-    Adsr, Env, Lfo,
-    Mix, Pan, Gain,
-    Clip, Distortion, Compressor,
+    Sin,
+    Saw,
+    Square,
+    Triangle,
+    Noise,
+    Impulse,
+    Pink,
+    Brown,
+    Mul,
+    Add,
+    Sub,
+    Div,
+    Lpf,
+    Hpf,
+    Bpf,
+    Notch,
+    Delay,
+    Reverb,
+    Chorus,
+    Phaser,
+    Seq,
+    Speed,
+    S,
+    Adsr,
+    Env,
+    Lfo,
+    Mix,
+    Pan,
+    Gain,
+    Clip,
+    Distortion,
+    Compressor,
 
     // Arithmetic operators for signal math
-    Plus,           // +
-    Minus,          // -
-    Star,           // *
-    Slash,          // /
+    Plus,  // +
+    Minus, // -
+    Star,  // *
+    Slash, // /
 
     // Special
     Newline,
@@ -137,21 +160,23 @@ impl GlicolParser {
                 '0'..='9' | '.' => {
                     // Parse number
                     let start = self.position;
-                    while self.position < chars.len() &&
-                          (chars[self.position].is_numeric() || chars[self.position] == '.') {
+                    while self.position < chars.len()
+                        && (chars[self.position].is_numeric() || chars[self.position] == '.')
+                    {
                         self.position += 1;
                     }
                     let num_str: String = chars[start..self.position].iter().collect();
                     match num_str.parse::<f64>() {
                         Ok(n) => self.tokens.push(Token::Number(n)),
-                        Err(_) => return Err(format!("Invalid number: {}", num_str)),
+                        Err(_) => return Err(format!("Invalid number: {num_str}")),
                     }
                 }
                 'a'..='z' | 'A'..='Z' | '_' => {
                     // Parse identifier/keyword
                     let start = self.position;
-                    while self.position < chars.len() &&
-                          (chars[self.position].is_alphanumeric() || chars[self.position] == '_') {
+                    while self.position < chars.len()
+                        && (chars[self.position].is_alphanumeric() || chars[self.position] == '_')
+                    {
                         self.position += 1;
                     }
                     let ident: String = chars[start..self.position].iter().collect();
@@ -222,7 +247,9 @@ impl GlicolParser {
     }
 
     fn skip_newlines(&mut self) {
-        while matches!(self.current_token(), Token::Newline | Token::Eof) && self.current < self.tokens.len() - 1 {
+        while matches!(self.current_token(), Token::Newline | Token::Eof)
+            && self.current < self.tokens.len() - 1
+        {
             if self.current_token() == &Token::Eof {
                 break;
             }
@@ -249,7 +276,7 @@ impl GlicolParser {
                     self.advance();
                     let name = self.parse_identifier()?;
                     if self.current_token() != &Token::Colon {
-                        return Err(format!("Expected ':' after chain name"));
+                        return Err("Expected ':' after chain name".to_string());
                     }
                     self.advance();
                     let chain = self.parse_chain()?;
@@ -259,7 +286,7 @@ impl GlicolParser {
                     // Output chain: o: chain
                     self.advance();
                     if self.current_token() != &Token::Colon {
-                        return Err(format!("Expected ':' after 'o'"));
+                        return Err("Expected ':' after 'o'".to_string());
                     }
                     self.advance();
                     env.output = Some(self.parse_chain()?);
@@ -283,25 +310,79 @@ impl GlicolParser {
                 Ok(name)
             }
             // Allow keywords to be used as identifiers after tilde
-            Token::Sin => { self.advance(); Ok("sin".to_string()) }
-            Token::Saw => { self.advance(); Ok("saw".to_string()) }
-            Token::Square => { self.advance(); Ok("square".to_string()) }
-            Token::Triangle => { self.advance(); Ok("triangle".to_string()) }
-            Token::Noise => { self.advance(); Ok("noise".to_string()) }
-            Token::Lpf => { self.advance(); Ok("lpf".to_string()) }
-            Token::Hpf => { self.advance(); Ok("hpf".to_string()) }
-            Token::Mul => { self.advance(); Ok("mul".to_string()) }
-            Token::Add => { self.advance(); Ok("add".to_string()) }
-            Token::Sub => { self.advance(); Ok("sub".to_string()) }
-            Token::Div => { self.advance(); Ok("div".to_string()) }
-            Token::Delay => { self.advance(); Ok("delay".to_string()) }
-            Token::Reverb => { self.advance(); Ok("reverb".to_string()) }
-            Token::Lfo => { self.advance(); Ok("lfo".to_string()) }
-            Token::Mix => { self.advance(); Ok("mix".to_string()) }
-            Token::Pan => { self.advance(); Ok("pan".to_string()) }
-            Token::Gain => { self.advance(); Ok("gain".to_string()) }
-            Token::S => { self.advance(); Ok("s".to_string()) }
-            _ => Err("Expected identifier".to_string())
+            Token::Sin => {
+                self.advance();
+                Ok("sin".to_string())
+            }
+            Token::Saw => {
+                self.advance();
+                Ok("saw".to_string())
+            }
+            Token::Square => {
+                self.advance();
+                Ok("square".to_string())
+            }
+            Token::Triangle => {
+                self.advance();
+                Ok("triangle".to_string())
+            }
+            Token::Noise => {
+                self.advance();
+                Ok("noise".to_string())
+            }
+            Token::Lpf => {
+                self.advance();
+                Ok("lpf".to_string())
+            }
+            Token::Hpf => {
+                self.advance();
+                Ok("hpf".to_string())
+            }
+            Token::Mul => {
+                self.advance();
+                Ok("mul".to_string())
+            }
+            Token::Add => {
+                self.advance();
+                Ok("add".to_string())
+            }
+            Token::Sub => {
+                self.advance();
+                Ok("sub".to_string())
+            }
+            Token::Div => {
+                self.advance();
+                Ok("div".to_string())
+            }
+            Token::Delay => {
+                self.advance();
+                Ok("delay".to_string())
+            }
+            Token::Reverb => {
+                self.advance();
+                Ok("reverb".to_string())
+            }
+            Token::Lfo => {
+                self.advance();
+                Ok("lfo".to_string())
+            }
+            Token::Mix => {
+                self.advance();
+                Ok("mix".to_string())
+            }
+            Token::Pan => {
+                self.advance();
+                Ok("pan".to_string())
+            }
+            Token::Gain => {
+                self.advance();
+                Ok("gain".to_string())
+            }
+            Token::S => {
+                self.advance();
+                Ok("s".to_string())
+            }
+            _ => Err("Expected identifier".to_string()),
         }
     }
 
@@ -333,7 +414,7 @@ impl GlicolParser {
                 let right = self.parse_expression()?;
                 Ok(DspNode::SignalAdd {
                     left: Box::new(DspChain::from_node(left)),
-                    right: Box::new(DspChain::from_node(right))
+                    right: Box::new(DspChain::from_node(right)),
                 })
             }
             Token::Minus => {
@@ -341,10 +422,10 @@ impl GlicolParser {
                 let right = self.parse_expression()?;
                 Ok(DspNode::SignalSub {
                     left: Box::new(DspChain::from_node(left)),
-                    right: Box::new(DspChain::from_node(right))
+                    right: Box::new(DspChain::from_node(right)),
                 })
             }
-            _ => Ok(left)
+            _ => Ok(left),
         }
     }
 
@@ -358,7 +439,7 @@ impl GlicolParser {
                 let right = self.parse_term()?;
                 Ok(DspNode::SignalMul {
                     left: Box::new(DspChain::from_node(left)),
-                    right: Box::new(DspChain::from_node(right))
+                    right: Box::new(DspChain::from_node(right)),
                 })
             }
             Token::Slash => {
@@ -366,10 +447,10 @@ impl GlicolParser {
                 let right = self.parse_term()?;
                 Ok(DspNode::SignalDiv {
                     left: Box::new(DspChain::from_node(left)),
-                    right: Box::new(DspChain::from_node(right))
+                    right: Box::new(DspChain::from_node(right)),
                 })
             }
-            _ => Ok(left)
+            _ => Ok(left),
         }
     }
 
@@ -385,7 +466,7 @@ impl GlicolParser {
                 self.advance();
                 Ok(expr)
             }
-            _ => self.parse_node()
+            _ => self.parse_node(),
         }
     }
 
@@ -444,7 +525,11 @@ impl GlicolParser {
                 let time = self.parse_parameter()?;
                 let feedback = self.parse_parameter_or_default(0.5)?;
                 let mix = self.parse_parameter_or_default(0.5)?;
-                Ok(DspNode::Delay { time, feedback, mix })
+                Ok(DspNode::Delay {
+                    time,
+                    feedback,
+                    mix,
+                })
             }
             Token::S => {
                 self.advance();
@@ -456,7 +541,10 @@ impl GlicolParser {
                 let name = self.parse_identifier()?;
                 Ok(DspNode::Ref { name })
             }
-            _ => Err(format!("Unexpected token in node: {:?}", self.current_token()))
+            _ => Err(format!(
+                "Unexpected token in node: {:?}",
+                self.current_token()
+            )),
         }
     }
 
@@ -488,7 +576,10 @@ impl GlicolParser {
                 self.advance();
                 Ok(param)
             }
-            _ => Err(format!("Expected parameter, got {:?}", self.current_token()))
+            _ => Err(format!(
+                "Expected parameter, got {:?}",
+                self.current_token()
+            )),
         }
     }
 
@@ -499,7 +590,7 @@ impl GlicolParser {
             Token::Number(_) | Token::String(_) | Token::Tilde | Token::LeftParen => {
                 self.parse_parameter()
             }
-            _ => Ok(DspParameter::constant(default))
+            _ => Ok(DspParameter::constant(default)),
         }
     }
 
@@ -512,22 +603,26 @@ impl GlicolParser {
             Token::Plus => {
                 self.advance();
                 let right = self.parse_parameter_expression()?;
-                Ok(DspParameter::Expression(Box::new(crate::dsp_parameter::ParameterExpression::Binary {
-                    op: crate::dsp_parameter::BinaryOp::Add,
-                    left,
-                    right,
-                })))
+                Ok(DspParameter::Expression(Box::new(
+                    crate::dsp_parameter::ParameterExpression::Binary {
+                        op: crate::dsp_parameter::BinaryOp::Add,
+                        left,
+                        right,
+                    },
+                )))
             }
             Token::Minus => {
                 self.advance();
                 let right = self.parse_parameter_expression()?;
-                Ok(DspParameter::Expression(Box::new(crate::dsp_parameter::ParameterExpression::Binary {
-                    op: crate::dsp_parameter::BinaryOp::Subtract,
-                    left,
-                    right,
-                })))
+                Ok(DspParameter::Expression(Box::new(
+                    crate::dsp_parameter::ParameterExpression::Binary {
+                        op: crate::dsp_parameter::BinaryOp::Subtract,
+                        left,
+                        right,
+                    },
+                )))
             }
-            _ => Ok(left)
+            _ => Ok(left),
         }
     }
 
@@ -540,22 +635,26 @@ impl GlicolParser {
             Token::Star => {
                 self.advance();
                 let right = self.parse_parameter_term()?;
-                Ok(DspParameter::Expression(Box::new(crate::dsp_parameter::ParameterExpression::Binary {
-                    op: crate::dsp_parameter::BinaryOp::Multiply,
-                    left,
-                    right,
-                })))
+                Ok(DspParameter::Expression(Box::new(
+                    crate::dsp_parameter::ParameterExpression::Binary {
+                        op: crate::dsp_parameter::BinaryOp::Multiply,
+                        left,
+                        right,
+                    },
+                )))
             }
             Token::Slash => {
                 self.advance();
                 let right = self.parse_parameter_term()?;
-                Ok(DspParameter::Expression(Box::new(crate::dsp_parameter::ParameterExpression::Binary {
-                    op: crate::dsp_parameter::BinaryOp::Divide,
-                    left,
-                    right,
-                })))
+                Ok(DspParameter::Expression(Box::new(
+                    crate::dsp_parameter::ParameterExpression::Binary {
+                        op: crate::dsp_parameter::BinaryOp::Divide,
+                        left,
+                        right,
+                    },
+                )))
             }
-            _ => Ok(left)
+            _ => Ok(left),
         }
     }
 
@@ -590,12 +689,17 @@ impl GlicolParser {
                 // Handle unary minus
                 self.advance();
                 let param = self.parse_parameter_primary()?;
-                Ok(DspParameter::Expression(Box::new(crate::dsp_parameter::ParameterExpression::Unary {
-                    op: crate::dsp_parameter::UnaryOp::Negate,
-                    param,
-                })))
+                Ok(DspParameter::Expression(Box::new(
+                    crate::dsp_parameter::ParameterExpression::Unary {
+                        op: crate::dsp_parameter::UnaryOp::Negate,
+                        param,
+                    },
+                )))
             }
-            _ => Err(format!("Expected parameter, got {:?}", self.current_token()))
+            _ => Err(format!(
+                "Expected parameter, got {:?}",
+                self.current_token()
+            )),
         }
     }
 
@@ -607,7 +711,7 @@ impl GlicolParser {
                 self.advance();
                 Ok(string)
             }
-            _ => Err("Expected string".to_string())
+            _ => Err("Expected string".to_string()),
         }
     }
 }

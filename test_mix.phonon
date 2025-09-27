@@ -1,0 +1,3 @@
+bass = saw(55) >> lpf(500, 3)
+lead = square(440) >> lpf(2000, 2)
+out bass * 0.3 + lead * 0.1

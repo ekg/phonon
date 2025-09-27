@@ -2,7 +2,7 @@
 //! These tests should fail until the corresponding features are properly implemented
 
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Pattern, State, TimeSpan, Fraction};
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 // use phonon::test_utils::*; // test_utils is not public
 use std::collections::HashMap;
 
@@ -90,20 +90,20 @@ fn test_alternation_pattern() {
 fn test_duration_modifier() {
     // bd:2 should make bd last twice as long
     let pattern = parse_mini_notation("bd:2 sn");
-    
+
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
     };
-    
+
     let events = pattern.query(&state);
-    
+
     // bd should take 2/3 of the cycle, sn should take 1/3
     assert_eq!(events[0].value, "bd");
     assert_eq!(events[0].part.end, Fraction::new(2, 3));
     assert_eq!(events[1].value, "sn");
     assert_eq!(events[1].part.begin, Fraction::new(2, 3));
-    
+
     panic!("not yet implemented");
 }
 
@@ -113,21 +113,21 @@ fn test_duration_modifier() {
 fn test_speed_modifier() {
     // bd/2 should play bd at half speed (over 2 cycles)
     let pattern = parse_mini_notation("bd/2 sn");
-    
+
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(2, 1)), // 2 cycles
         controls: HashMap::new(),
     };
-    
+
     let events = pattern.query(&state);
-    
+
     // bd should span entire first cycle, sn plays normally in both cycles
     let bd_events: Vec<_> = events.iter().filter(|e| e.value == "bd").cloned().collect();
     let sn_events: Vec<_> = events.iter().filter(|e| e.value == "sn").cloned().collect();
-    
+
     assert_eq!(bd_events.len(), 1); // bd plays once over 2 cycles
     assert_eq!(sn_events.len(), 2); // sn plays once per cycle
-    
+
     panic!("not yet implemented");
 }
 
@@ -170,14 +170,14 @@ fn test_degrade_pattern() {
     // degrade should randomly drop events
     // Would be: let pattern = parse_mini_notation("bd sn hh cp").degrade_by(0.5);
     let pattern = parse_mini_notation("bd sn hh cp"); // placeholder
-    
+
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(100, 1)),
         controls: HashMap::new(),
     };
-    
+
     let events = pattern.query(&state);
-    
+
     // Should have approximately 50% of the events (200 out of 400)
     assert!(events.len() > 150 && events.len() < 250);
     panic!("not yet implemented");
@@ -190,18 +190,18 @@ fn test_pattern_interpolation() {
     // Smooth interpolation between two patterns
     let p1 = parse_mini_notation("bd ~ ~ ~");
     let p2 = parse_mini_notation("~ ~ ~ sn");
-    
+
     // At 0.5, should have both bd and sn at half velocity
     // Would be: let interpolated = p1.interpolate(&p2, 0.5);
     let interpolated = p1; // placeholder
-    
+
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
     };
-    
+
     let events = interpolated.query(&state);
-    
+
     // Should have both bd and sn events
     assert_eq!(events.len(), 2);
     panic!("not yet implemented");
@@ -213,20 +213,20 @@ fn test_pattern_interpolation() {
 fn test_chord_notation() {
     // 'maj should expand to major chord
     let pattern = parse_mini_notation("c4'maj");
-    
+
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
     };
-    
+
     let events = pattern.query(&state);
-    
+
     // Should generate C, E, G
     assert_eq!(events.len(), 3);
     assert!(events.iter().any(|e| e.value == "c4"));
     assert!(events.iter().any(|e| e.value == "e4"));
     assert!(events.iter().any(|e| e.value == "g4"));
-    
+
     panic!("not yet implemented");
 }
 
@@ -236,14 +236,14 @@ fn test_chord_notation() {
 fn test_arpeggio_pattern() {
     // Arpeggiate a chord
     let pattern = parse_mini_notation("c4'maj'arp");
-    
+
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
     };
-    
+
     let events = pattern.query(&state);
-    
+
     // Should play C, E, G sequentially
     assert_eq!(events.len(), 3);
     assert_eq!(events[0].value, "c4");
@@ -251,7 +251,7 @@ fn test_arpeggio_pattern() {
     assert_eq!(events[2].value, "g4");
     // They should not overlap
     assert!(events[0].part.end <= events[1].part.begin);
-    
+
     panic!("not yet implemented");
 }
 
@@ -262,7 +262,7 @@ fn test_pattern_algebra() {
     // Patterns should support algebraic operations
     let p1 = Pattern::pure(0.5);
     let p2 = Pattern::pure(0.3);
-    
+
     // Addition
     // Would be: let sum = p1.clone() + p2.clone();
     let sum = p1.clone(); // placeholder
@@ -272,13 +272,13 @@ fn test_pattern_algebra() {
     };
     let events = sum.query(&state);
     // assert_eq!(events[0].value, 0.8);
-    
+
     // Multiplication
     // Would be: let product = p1.clone() * p2.clone();
     let product = p2.clone(); // placeholder
     let _events = product.query(&state);
     // assert_eq!(events[0].value, 0.15);
-    
+
     panic!("not yet implemented");
 }
 
@@ -289,19 +289,19 @@ fn test_pattern_scanning() {
     // scan should accumulate values
     // Would be: let pattern = Pattern::from_string("1 2 3 4").scan(|a, b| a + b, 0.0);
     let pattern = Pattern::from_string("1 2 3 4"); // placeholder
-    
+
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
     };
-    
+
     let _events = pattern.query(&state);
-    
+
     // Should be 1, 3, 6, 10 (cumulative sum)
     // assert_eq!(events[0].value, 1.0);
     // assert_eq!(events[1].value, 3.0);
     // assert_eq!(events[2].value, 6.0);
     // assert_eq!(events[3].value, 10.0);
-    
+
     panic!("not yet implemented");
 }

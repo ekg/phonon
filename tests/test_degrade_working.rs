@@ -1,4 +1,4 @@
-use phonon::pattern::{Pattern, State, TimeSpan, Fraction};
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use phonon::pattern_ops::*;
 use std::collections::HashMap;
 

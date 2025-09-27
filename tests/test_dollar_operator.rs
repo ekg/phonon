@@ -63,7 +63,7 @@ fn test_mixed_operators() {
             (Expr::PatternOp(_, _), Expr::PatternOp(_, _)) => {
                 println!("    ✓ Both produce PatternOp");
             }
-            _ => panic!("Results don't match")
+            _ => panic!("Results don't match"),
         }
     }
 }
@@ -108,17 +108,15 @@ fn test_dollar_with_dsp_chains() {
 
             // Should parse as: ("bd*4" $ fast 2) >> lpf
             match expr {
-                Expr::Chain(left, _right) => {
-                    match left.as_ref() {
-                        Expr::PatternOp(_, _) => {
-                            println!("  ✓ $ operator binds before >> chain");
-                        }
-                        other => panic!("Expected PatternOp, got: {:?}", other)
+                Expr::Chain(left, _right) => match left.as_ref() {
+                    Expr::PatternOp(_, _) => {
+                        println!("  ✓ $ operator binds before >> chain");
                     }
-                }
-                other => panic!("Expected Chain, got: {:?}", other)
+                    other => panic!("Expected PatternOp, got: {:?}", other),
+                },
+                other => panic!("Expected Chain, got: {:?}", other),
             }
         }
-        Err(e) => panic!("Failed to parse: {:?}", e)
+        Err(e) => panic!("Failed to parse: {:?}", e),
     }
 }

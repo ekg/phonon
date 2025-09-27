@@ -4,7 +4,7 @@ use phonon::simple_dsp_executor::render_dsp_to_audio_simple;
 
 fn main() {
     println!("🥁 Generating filtered drum beat...\n");
-    
+
     // Create a simple kick + clap beat with filter sweep
     let code = r#"
         ~kick: impulse 4 >> mul 60 >> lpf 100 0.9 >> mul 2
@@ -15,10 +15,10 @@ fn main() {
         ~lfo: sin 0.25 >> mul 1500 >> add 2000
         out: ~drums >> lpf ~lfo 0.6
     "#;
-    
+
     println!("DSP Code:");
     println!("{}", code);
-    
+
     // Render 4 seconds of audio
     match render_dsp_to_audio_simple(code, 44100.0, 4.0) {
         Ok(buffer) => {
@@ -27,7 +27,7 @@ fn main() {
             println!("   Duration: {:.2}s", buffer.data.len() as f32 / 44100.0);
             println!("   Peak: {:.3}", buffer.peak());
             println!("   RMS: {:.3}", buffer.rms());
-            
+
             // Save to file
             let output_path = "/tmp/drum_beat_output.wav";
             match buffer.write_wav(output_path) {
@@ -37,7 +37,7 @@ fn main() {
                 }
                 Err(e) => println!("❌ Failed to save WAV: {}", e),
             }
-            
+
             // Show first few samples to prove we generated audio
             println!("\n🔊 First 10 samples:");
             for (i, sample) in buffer.data.iter().take(10).enumerate() {

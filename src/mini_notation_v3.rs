@@ -1,35 +1,34 @@
 //! Mini-notation parser v3 - Everything is a pattern
-//! 
+//!
 //! This parser follows Strudel's architecture where all values are patterns
 //! that can be composed and evaluated per cycle.
 
-use crate::pattern::{Pattern, Fraction, TimeSpan, Hap};
-use crate::pattern_ops::*;  // Import pattern operators
-use std::sync::Arc;
+use crate::pattern::{Fraction, Pattern, TimeSpan};
+ // Import pattern operators
 
 /// Token types in mini-notation
 #[derive(Debug, Clone, PartialEq)]
 enum Token {
-    Symbol(String),      // bd, sn, etc.
-    Number(f64),         // 1, 2.5, etc.
-    Rest,                // ~
-    OpenBracket,         // [
-    CloseBracket,        // ]
-    OpenAngle,           // <
-    CloseAngle,          // >
-    OpenParen,           // (
-    CloseParen,          // )
-    Comma,               // ,
-    Star,                // *
-    Slash,               // /
-    Colon,               // :
-    At,                  // @
-    Percent,             // %
-    Question,            // ?
-    Exclamation,         // !
-    Dot,                 // .
-    Pipe,                // |
-    Quote,               // ' for chords
+    Symbol(String), // bd, sn, etc.
+    Number(f64),    // 1, 2.5, etc.
+    Rest,           // ~
+    OpenBracket,    // [
+    CloseBracket,   // ]
+    OpenAngle,      // <
+    CloseAngle,     // >
+    OpenParen,      // (
+    CloseParen,     // )
+    Comma,          // ,
+    Star,           // *
+    Slash,          // /
+    Colon,          // :
+    At,             // @
+    Percent,        // %
+    Question,       // ?
+    Exclamation,    // !
+    Dot,            // .
+    Pipe,           // |
+    Quote,          // ' for chords
 }
 
 /// Pattern value that can be either a string or number
@@ -46,7 +45,7 @@ impl PatternValue {
             PatternValue::Number(n) => n.to_string(),
         }
     }
-    
+
     pub fn as_number(&self) -> Option<f64> {
         match self {
             PatternValue::Number(n) => Some(*n),
@@ -60,19 +59,16 @@ impl PatternValue {
 enum AstNode {
     /// A literal value (becomes Pattern::pure)
     Atom(PatternValue),
-    
+
     /// A pattern with alignment (stack, sequence, etc.)
     Pattern {
         children: Vec<AstNode>,
         alignment: Alignment,
     },
-    
+
     /// An operator applied to a pattern
-    Operator {
-        pattern: Box<AstNode>,
-        op: Operator,
-    },
-    
+    Operator { pattern: Box<AstNode>, op: Operator },
+
     /// Euclidean rhythm with pattern arguments
     Euclid {
         sample: String,
@@ -80,18 +76,18 @@ enum AstNode {
         steps: Box<AstNode>,
         rotation: Option<Box<AstNode>>,
     },
-    
+
     /// Rest/silence
     Rest,
 }
 
 #[derive(Debug, Clone)]
 enum Alignment {
-    Sequence,       // Default horizontal alignment
-    Stack,          // Vertical alignment (polyrhythm with ,)
-    Choose,         // Random choice (with |)
-    Alternate,      // Alternation with < >
-    FastSequence,   // Fast sequence in [ ]
+    Sequence,     // Default horizontal alignment
+    Stack,        // Vertical alignment (polyrhythm with ,)
+    Choose,       // Random choice (with |)
+    Alternate,    // Alternation with < >
+    FastSequence, // Fast sequence in [ ]
 }
 
 #[derive(Debug, Clone)]
@@ -99,7 +95,7 @@ enum Operator {
     Fast(Box<AstNode>),
     Slow(Box<AstNode>),
     Replicate(usize),
-    ReplicatePattern(Box<AstNode>),  // For dynamic replication with patterns
+    ReplicatePattern(Box<AstNode>), // For dynamic replication with patterns
     Degrade(f64),
     Late(f64),
 }
@@ -117,17 +113,17 @@ impl Tokenizer {
             position: 0,
         }
     }
-    
+
     fn peek(&self) -> Option<char> {
         self.input.chars().nth(self.position)
     }
-    
+
     fn advance(&mut self) -> Option<char> {
         let ch = self.peek()?;
         self.position += ch.len_utf8();
         Some(ch)
     }
-    
+
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.peek() {
             if ch.is_whitespace() {
@@ -137,7 +133,7 @@ impl Tokenizer {
             }
         }
     }
-    
+
     fn read_symbol(&mut self) -> String {
         let mut symbol = String::new();
         while let Some(ch) = self.peek() {
@@ -150,17 +146,17 @@ impl Tokenizer {
         }
         symbol
     }
-    
+
     fn read_number(&mut self) -> Option<f64> {
         let mut num_str = String::new();
         let mut has_dot = false;
-        
+
         // Handle negative numbers
         if self.peek() == Some('-') {
             num_str.push('-');
             self.advance();
         }
-        
+
         while let Some(ch) = self.peek() {
             if ch.is_numeric() {
                 num_str.push(ch);
@@ -173,16 +169,16 @@ impl Tokenizer {
                 break;
             }
         }
-        
+
         num_str.parse().ok()
     }
-    
+
     fn tokenize(&mut self) -> Vec<Token> {
         let mut tokens = Vec::new();
-        
+
         while self.position < self.input.len() {
             self.skip_whitespace();
-            
+
             if let Some(ch) = self.peek() {
                 let token = match ch {
                     '~' => {
@@ -192,7 +188,7 @@ impl Tokenizer {
                             if next_ch.is_alphabetic() || next_ch == '_' {
                                 // It's a channel reference
                                 let name = self.read_symbol();
-                                Token::Symbol(format!("~{}", name))
+                                Token::Symbol(format!("~{name}"))
                             } else {
                                 // It's a rest
                                 Token::Rest
@@ -200,75 +196,75 @@ impl Tokenizer {
                         } else {
                             Token::Rest
                         }
-                    },
+                    }
                     '[' => {
                         self.advance();
                         Token::OpenBracket
-                    },
+                    }
                     ']' => {
                         self.advance();
                         Token::CloseBracket
-                    },
+                    }
                     '<' => {
                         self.advance();
                         Token::OpenAngle
-                    },
+                    }
                     '>' => {
                         self.advance();
                         Token::CloseAngle
-                    },
+                    }
                     '(' => {
                         self.advance();
                         Token::OpenParen
-                    },
+                    }
                     ')' => {
                         self.advance();
                         Token::CloseParen
-                    },
+                    }
                     ',' => {
                         self.advance();
                         Token::Comma
-                    },
+                    }
                     '*' => {
                         self.advance();
                         Token::Star
-                    },
+                    }
                     '/' => {
                         self.advance();
                         Token::Slash
-                    },
+                    }
                     ':' => {
                         self.advance();
                         Token::Colon
-                    },
+                    }
                     '@' => {
                         self.advance();
                         Token::At
-                    },
+                    }
                     '%' => {
                         self.advance();
                         Token::Percent
-                    },
+                    }
                     '?' => {
                         self.advance();
                         Token::Question
-                    },
+                    }
                     '!' => {
                         self.advance();
                         Token::Exclamation
-                    },
+                    }
                     '.' => {
                         self.advance();
                         Token::Dot
-                    },
+                    }
                     '|' => {
                         self.advance();
                         Token::Pipe
-                    },
+                    }
                     '\'' => {
                         self.advance();
                         Token::Quote
-                    },
+                    }
                     '-' | '0'..='9' => {
                         if let Some(num) = self.read_number() {
                             Token::Number(num)
@@ -276,11 +272,11 @@ impl Tokenizer {
                             self.advance();
                             continue;
                         }
-                    },
+                    }
                     _ if ch.is_alphabetic() => {
                         let symbol = self.read_symbol();
                         Token::Symbol(symbol)
-                    },
+                    }
                     _ => {
                         self.advance();
                         continue;
@@ -291,7 +287,7 @@ impl Tokenizer {
                 break;
             }
         }
-        
+
         tokens
     }
 }
@@ -311,21 +307,21 @@ impl MiniNotationParser {
             position: 0,
         }
     }
-    
+
     fn current(&self) -> Option<&Token> {
         self.tokens.get(self.position)
     }
-    
+
     fn advance(&mut self) -> Option<&Token> {
         let token = self.tokens.get(self.position);
         self.position += 1;
         token
     }
-    
+
     fn peek(&self) -> Option<&Token> {
         self.tokens.get(self.position + 1)
     }
-    
+
     /// Parse the entire pattern
     pub fn parse(&mut self) -> AstNode {
         // Parse first part
@@ -349,11 +345,11 @@ impl MiniNotationParser {
             first
         }
     }
-    
+
     /// Parse a sequence (default alignment)
     fn parse_sequence(&mut self) -> AstNode {
         let mut children = Vec::new();
-        
+
         while let Some(token) = self.current() {
             // Check for end of sequence markers
             match token {
@@ -361,12 +357,12 @@ impl MiniNotationParser {
                 Token::Comma | Token::Pipe => break,
                 _ => {}
             }
-            
+
             if let Some(child) = self.parse_element() {
                 children.push(child);
             }
         }
-        
+
         if children.is_empty() {
             AstNode::Rest
         } else if children.len() == 1 {
@@ -378,31 +374,31 @@ impl MiniNotationParser {
             }
         }
     }
-    
+
     /// Parse a single element (atom, group, alternation, etc.)
     fn parse_element(&mut self) -> Option<AstNode> {
         let node = match self.current()? {
             Token::Symbol(s) => {
                 let s = s.clone();
                 self.advance();
-                
+
                 // Check for function syntax (could be Euclidean rhythm or other function)
                 if let Some(Token::OpenParen) = self.current() {
                     // Look ahead to determine if this is a Euclidean rhythm or just a function call
                     // For now, we'll try to parse as Euclidean and fall back to string representation
                     let start_pos = self.position;
                     self.advance(); // consume (
-                    
+
                     // Try to parse as Euclidean rhythm
                     let first_arg = self.parse_argument();
-                    
+
                     // Check if this looks like Euclidean syntax (has comma for second arg)
                     if let Some(Token::Comma) = self.current() {
                         self.advance();
-                        
+
                         // Parse second argument
                         let steps = Box::new(self.parse_argument());
-                        
+
                         // Optional rotation
                         let rotation = if let Some(Token::Comma) = self.current() {
                             self.advance();
@@ -410,11 +406,11 @@ impl MiniNotationParser {
                         } else {
                             None
                         };
-                        
+
                         // Expect closing paren
                         if let Some(Token::CloseParen) = self.current() {
                             self.advance();
-                            
+
                             // This is a valid Euclidean rhythm
                             return Some(AstNode::Euclid {
                                 sample: s,
@@ -428,40 +424,40 @@ impl MiniNotationParser {
                         self.advance();
                         // Return as a complete string including the function call
                         let func_str = match first_arg {
-                            AstNode::Atom(PatternValue::Number(n)) => format!("{}({})", s, n),
-                            AstNode::Atom(PatternValue::String(arg)) => format!("{}({})", s, arg),
-                            _ => format!("{}(...)", s),
+                            AstNode::Atom(PatternValue::Number(n)) => format!("{s}({n})"),
+                            AstNode::Atom(PatternValue::String(arg)) => format!("{s}({arg})"),
+                            _ => format!("{s}(...)"),
                         };
                         return Some(AstNode::Atom(PatternValue::String(func_str)));
                     }
-                    
+
                     // If we get here, reset and treat as simple atom
                     self.position = start_pos;
                     return Some(AstNode::Atom(PatternValue::String(s)));
                 }
-                
+
                 // Check for chord notation with '
                 if let Some(Token::Quote) = self.current() {
                     self.advance();
                     // Parse chord type (maj, min, etc.)
                     if let Some(Token::Symbol(chord_type)) = self.current() {
-                        let chord = format!("{}'{}", s, chord_type);
+                        let chord = format!("{s}'{chord_type}");
                         self.advance();
                         return Some(AstNode::Atom(PatternValue::String(chord)));
                     }
                 }
-                
+
                 AstNode::Atom(PatternValue::String(s))
-            },
+            }
             Token::Number(n) => {
                 let n = *n;
                 self.advance();
                 AstNode::Atom(PatternValue::Number(n))
-            },
+            }
             Token::Rest => {
                 self.advance();
                 AstNode::Rest
-            },
+            }
             Token::OpenBracket => {
                 self.advance();
                 let node = self.parse_group();
@@ -469,7 +465,7 @@ impl MiniNotationParser {
                     self.advance();
                 }
                 node
-            },
+            }
             Token::OpenAngle => {
                 self.advance();
                 let node = self.parse_alternation();
@@ -477,7 +473,7 @@ impl MiniNotationParser {
                     self.advance();
                 }
                 node
-            },
+            }
             Token::OpenParen => {
                 self.advance();
                 let node = self.parse_polyrhythm();
@@ -485,17 +481,17 @@ impl MiniNotationParser {
                     self.advance();
                 }
                 node
-            },
+            }
             _ => {
                 self.advance();
                 return None;
             }
         };
-        
+
         // Check for operators
         self.parse_operators(node)
     }
-    
+
     /// Parse an argument (could be a number, alternation, etc.)
     fn parse_argument(&mut self) -> AstNode {
         match self.current() {
@@ -503,7 +499,7 @@ impl MiniNotationParser {
                 let n = *n;
                 self.advance();
                 AstNode::Atom(PatternValue::Number(n))
-            },
+            }
             Some(Token::OpenAngle) => {
                 self.advance();
                 let node = self.parse_alternation();
@@ -511,16 +507,16 @@ impl MiniNotationParser {
                     self.advance();
                 }
                 node
-            },
+            }
             Some(Token::Symbol(s)) => {
                 let s = s.clone();
                 self.advance();
                 AstNode::Atom(PatternValue::String(s))
-            },
-            _ => AstNode::Atom(PatternValue::Number(1.0))
+            }
+            _ => AstNode::Atom(PatternValue::Number(1.0)),
         }
     }
-    
+
     /// Parse operators that follow an element
     fn parse_operators(&mut self, mut node: AstNode) -> Option<AstNode> {
         while let Some(token) = self.current() {
@@ -549,7 +545,7 @@ impl MiniNotationParser {
                             op: Operator::Replicate(amount),
                         };
                     }
-                },
+                }
                 Token::Slash => {
                     self.advance();
                     let amount = Box::new(self.parse_argument());
@@ -557,7 +553,7 @@ impl MiniNotationParser {
                         pattern: Box::new(node),
                         op: Operator::Slow(amount),
                     };
-                },
+                }
                 Token::Question => {
                     self.advance();
                     let amount = if let Some(Token::Number(n)) = self.current() {
@@ -571,7 +567,7 @@ impl MiniNotationParser {
                         pattern: Box::new(node),
                         op: Operator::Degrade(amount),
                     };
-                },
+                }
                 Token::At => {
                     self.advance();
                     if let Some(Token::Number(n)) = self.current() {
@@ -582,19 +578,19 @@ impl MiniNotationParser {
                             op: Operator::Late(n),
                         };
                     }
-                },
-                _ => break
+                }
+                _ => break,
             }
         }
         Some(node)
     }
-    
-    /// Parse a bracketed group [a b c] 
+
+    /// Parse a bracketed group [a b c]
     fn parse_group(&mut self) -> AstNode {
         // Check if it contains commas (polyrhythm)
         let mut has_comma = false;
         let start_pos = self.position;
-        
+
         // Scan ahead for commas
         while let Some(token) = self.current() {
             match token {
@@ -602,31 +598,33 @@ impl MiniNotationParser {
                 Token::Comma => {
                     has_comma = true;
                     break;
-                },
-                _ => { self.advance(); }
+                }
+                _ => {
+                    self.advance();
+                }
             }
         }
-        
+
         // Reset position
         self.position = start_pos;
-        
+
         if has_comma {
             // Parse as polyrhythm/stack
             self.parse_polyrhythm_content()
         } else {
             // Parse as fast sequence
             let mut children = Vec::new();
-            
+
             while let Some(token) = self.current() {
                 if matches!(token, Token::CloseBracket) {
                     break;
                 }
-                
+
                 if let Some(child) = self.parse_element() {
                     children.push(child);
                 }
             }
-            
+
             if children.is_empty() {
                 AstNode::Rest
             } else if children.len() == 1 {
@@ -639,22 +637,22 @@ impl MiniNotationParser {
             }
         }
     }
-    
+
     /// Parse alternation <a b c>
     fn parse_alternation(&mut self) -> AstNode {
         let mut children = Vec::new();
-        
+
         // Parse space-separated items
         while let Some(token) = self.current() {
             if matches!(token, Token::CloseAngle) {
                 break;
             }
-            
+
             if let Some(child) = self.parse_element() {
                 children.push(child);
             }
         }
-        
+
         if children.is_empty() {
             AstNode::Rest
         } else if children.len() == 1 {
@@ -666,16 +664,16 @@ impl MiniNotationParser {
             }
         }
     }
-    
+
     /// Parse polyrhythm (a, b, c) or content inside [a, b]
     fn parse_polyrhythm(&mut self) -> AstNode {
         self.parse_polyrhythm_content()
     }
-    
+
     fn parse_polyrhythm_content(&mut self) -> AstNode {
         let mut patterns = Vec::new();
         let mut current_pattern = Vec::new();
-        
+
         while let Some(token) = self.current() {
             match token {
                 Token::CloseParen | Token::CloseBracket => {
@@ -692,7 +690,7 @@ impl MiniNotationParser {
                         current_pattern = Vec::new();
                     }
                     break;
-                },
+                }
                 Token::Comma => {
                     self.advance();
                     if !current_pattern.is_empty() {
@@ -707,7 +705,7 @@ impl MiniNotationParser {
                         patterns.push(pat);
                         current_pattern = Vec::new();
                     }
-                },
+                }
                 _ => {
                     if let Some(elem) = self.parse_element() {
                         current_pattern.push(elem);
@@ -715,7 +713,7 @@ impl MiniNotationParser {
                 }
             }
         }
-        
+
         if patterns.is_empty() {
             AstNode::Rest
         } else if patterns.len() == 1 {
@@ -733,45 +731,43 @@ impl MiniNotationParser {
 pub fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
     match ast {
         AstNode::Atom(val) => Pattern::pure(val),
-        
+
         AstNode::Rest => Pattern::silence(),
-        
-        AstNode::Pattern { children, alignment } => {
-            let patterns: Vec<Pattern<PatternValue>> = children.into_iter()
-                .map(ast_to_pattern_value)
-                .collect();
-            
+
+        AstNode::Pattern {
+            children,
+            alignment,
+        } => {
+            let patterns: Vec<Pattern<PatternValue>> =
+                children.into_iter().map(ast_to_pattern_value).collect();
+
             match alignment {
                 Alignment::Sequence => Pattern::cat(patterns),
                 Alignment::Stack => Pattern::stack(patterns),
                 Alignment::Choose => {
                     // Random choice - for now just use first
                     patterns.into_iter().next().unwrap_or(Pattern::silence())
-                },
+                }
                 Alignment::Alternate => Pattern::slowcat(patterns),
                 Alignment::FastSequence => Pattern::fastcat(patterns),
             }
-        },
-        
+        }
+
         AstNode::Operator { pattern, op } => {
             let pat = ast_to_pattern_value(*pattern);
             match op {
-                Operator::Fast(amount) => {
-                    match *amount {
-                        AstNode::Atom(PatternValue::Number(n)) => pat.fast(n),
-                        _ => pat
-                    }
+                Operator::Fast(amount) => match *amount {
+                    AstNode::Atom(PatternValue::Number(n)) => pat.fast(n),
+                    _ => pat,
                 },
-                Operator::Slow(amount) => {
-                    match *amount {
-                        AstNode::Atom(PatternValue::Number(n)) => pat.slow(n),
-                        _ => pat
-                    }
+                Operator::Slow(amount) => match *amount {
+                    AstNode::Atom(PatternValue::Number(n)) => pat.slow(n),
+                    _ => pat,
                 },
                 Operator::Replicate(n) => {
                     let patterns = vec![pat; n];
                     Pattern::fastcat(patterns)
-                },
+                }
                 Operator::ReplicatePattern(amount) => {
                     // Convert amount AST to pattern
                     let amount_pat = ast_to_pattern_value(*amount);
@@ -791,7 +787,8 @@ pub fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
                         };
 
                         // Query the amount pattern to get the value for this cycle
-                        let n = amount_pat.query(&point_state)
+                        let n = amount_pat
+                            .query(&point_state)
                             .first()
                             .and_then(|h| h.value.as_number())
                             .unwrap_or(2.0) as usize;
@@ -801,22 +798,20 @@ pub fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
                         let replicated = Pattern::fastcat(patterns);
                         replicated.query(state)
                     })
-                },
+                }
                 Operator::Degrade(amount) => {
-                    use crate::pattern_ops::*;
+                    
                     pat.degrade_by(amount)
-                },
+                }
                 Operator::Late(amount) => {
-                    use crate::pattern_ops::*;
+                    
                     pat.late(amount)
-                },
+                }
             }
-        },
-        
+        }
+
         // For euclidean in value context, just return a pattern of the sample name
-        AstNode::Euclid { sample, .. } => {
-            Pattern::pure(PatternValue::String(sample))
-        },
+        AstNode::Euclid { sample, .. } => Pattern::pure(PatternValue::String(sample)),
     }
 }
 
@@ -825,14 +820,15 @@ pub fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
 pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
     match ast {
         AstNode::Atom(val) => Pattern::pure(val.as_string()),
-        
+
         AstNode::Rest => Pattern::silence(),
-        
-        AstNode::Pattern { children, alignment } => {
-            let patterns: Vec<Pattern<String>> = children.into_iter()
-                .map(ast_to_pattern)
-                .collect();
-            
+
+        AstNode::Pattern {
+            children,
+            alignment,
+        } => {
+            let patterns: Vec<Pattern<String>> = children.into_iter().map(ast_to_pattern).collect();
+
             match alignment {
                 Alignment::Sequence => Pattern::cat(patterns),
                 Alignment::Stack => Pattern::stack(patterns),
@@ -840,12 +836,12 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                     // Random choice - for now just use first
                     // TODO: Implement proper random choice
                     patterns.into_iter().next().unwrap_or(Pattern::silence())
-                },
+                }
                 Alignment::Alternate => Pattern::slowcat(patterns),
                 Alignment::FastSequence => Pattern::fastcat(patterns),
             }
-        },
-        
+        }
+
         AstNode::Operator { pattern, op } => {
             let pat = ast_to_pattern(*pattern);
             match op {
@@ -854,20 +850,18 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                     // For now, just handle simple cases
                     match *amount {
                         AstNode::Atom(PatternValue::Number(n)) => pat.fast(n),
-                        _ => pat // TODO: Handle pattern-based speed
+                        _ => pat, // TODO: Handle pattern-based speed
                     }
-                },
-                Operator::Slow(amount) => {
-                    match *amount {
-                        AstNode::Atom(PatternValue::Number(n)) => pat.slow(n),
-                        _ => pat
-                    }
+                }
+                Operator::Slow(amount) => match *amount {
+                    AstNode::Atom(PatternValue::Number(n)) => pat.slow(n),
+                    _ => pat,
                 },
                 Operator::Replicate(n) => {
                     // Create n copies and concatenate them fast
                     let patterns = vec![pat; n];
                     Pattern::fastcat(patterns)
-                },
+                }
                 Operator::ReplicatePattern(amount) => {
                     // Convert amount AST to pattern
                     let amount_pat = ast_to_pattern_value(*amount);
@@ -887,7 +881,8 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                         };
 
                         // Query the amount pattern to get the value for this cycle
-                        let n = amount_pat.query(&point_state)
+                        let n = amount_pat
+                            .query(&point_state)
                             .first()
                             .and_then(|h| h.value.as_number())
                             .unwrap_or(2.0) as usize;
@@ -897,30 +892,36 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                         let replicated = Pattern::fastcat(patterns);
                         replicated.query(state)
                     })
-                },
+                }
                 Operator::Degrade(amount) => {
-                    use crate::pattern_ops::*;
+                    
                     pat.degrade_by(amount)
-                },
+                }
                 Operator::Late(amount) => {
-                    use crate::pattern_ops::*;
+                    
                     pat.late(amount)
-                },
+                }
             }
-        },
-        
-        AstNode::Euclid { sample, pulses, steps, rotation } => {
+        }
+
+        AstNode::Euclid {
+            sample,
+            pulses,
+            steps,
+            rotation,
+        } => {
             // Convert argument ASTs to patterns
             let pulses_pat = ast_to_pattern_value(*pulses);
             let steps_pat = ast_to_pattern_value(*steps);
-            let rotation_pat = rotation.map(|r| ast_to_pattern_value(*r))
+            let rotation_pat = rotation
+                .map(|r| ast_to_pattern_value(*r))
                 .unwrap_or_else(|| Pattern::pure(PatternValue::Number(0.0)));
-            
+
             // Create a pattern that evaluates euclidean with pattern arguments
             Pattern::new(move |state| {
                 // Get the cycle number to determine which value to use from alternations
                 let cycle = state.span.begin.to_float().floor() as i64;
-                
+
                 // Create a query for just the current cycle point
                 let point_state = crate::pattern::State {
                     span: TimeSpan::new(
@@ -929,38 +930,45 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                     ),
                     controls: state.controls.clone(),
                 };
-                
+
                 // Query each argument pattern to get the value for this cycle
-                let p = pulses_pat.query(&point_state)
+                let p = pulses_pat
+                    .query(&point_state)
                     .first()
                     .and_then(|h| h.value.as_number())
                     .unwrap_or(1.0) as usize;
-                    
-                let s = steps_pat.query(&point_state)
+
+                let s = steps_pat
+                    .query(&point_state)
                     .first()
                     .and_then(|h| h.value.as_number())
                     .unwrap_or(8.0) as usize;
-                    
-                let r = rotation_pat.query(&point_state)
+
+                let r = rotation_pat
+                    .query(&point_state)
                     .first()
                     .and_then(|h| h.value.as_number())
                     .unwrap_or(0.0) as i32;
-                
+
                 // Create the euclidean pattern for these parameters
                 let euclid_bool = Pattern::<bool>::euclid(p, s, r);
-                
+
                 // Convert to string pattern
                 let sample_pattern = euclid_bool.fmap({
                     let sample = sample.clone();
                     move |hit| {
-                        if hit { sample.clone() } else { "~".to_string() }
+                        if hit {
+                            sample.clone()
+                        } else {
+                            "~".to_string()
+                        }
                     }
                 });
-                
+
                 // Query the resulting pattern
                 sample_pattern.query(state)
             })
-        },
+        }
     }
 }
 
@@ -1058,21 +1066,19 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             all_haps
         })
     }
-    
 }
 
 // Add missing rand import
-use rand;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_simple_alternation() {
         // Test space-separated alternation syntax
         let pattern = parse_mini_notation("<bd sn cp>");
-        
+
         // Query multiple cycles to see alternation
         for cycle in 0..3 {
             let state = crate::pattern::State {
@@ -1082,13 +1088,17 @@ mod tests {
                 ),
                 controls: std::collections::HashMap::new(),
             };
-            
+
             let events = pattern.query(&state);
-            println!("Cycle {}: {:?}", cycle, events.iter().map(|e| &e.value).collect::<Vec<_>>());
-            
+            println!(
+                "Cycle {}: {:?}",
+                cycle,
+                events.iter().map(|e| &e.value).collect::<Vec<_>>()
+            );
+
             // Each cycle should have exactly one event
             assert_eq!(events.len(), 1, "Each cycle should have one event");
-            
+
             // Events should alternate: bd, sn, cp, bd, sn, cp...
             let expected = match cycle % 3 {
                 0 => "bd",
@@ -1096,15 +1106,19 @@ mod tests {
                 2 => "cp",
                 _ => unreachable!(),
             };
-            assert_eq!(events[0].value, expected, "Cycle {} should have {}", cycle, expected);
+            assert_eq!(
+                events[0].value, expected,
+                "Cycle {} should have {}",
+                cycle, expected
+            );
         }
     }
-    
+
     #[test]
     fn test_alternation_in_euclid() {
         // This should parse correctly now
         let pattern = parse_mini_notation("bd(<3 4>,8)");
-        
+
         // Query multiple cycles to see alternation between 3 and 4 pulses
         for cycle in 0..4 {
             let state = crate::pattern::State {
@@ -1114,24 +1128,28 @@ mod tests {
                 ),
                 controls: std::collections::HashMap::new(),
             };
-            
+
             let events = pattern.query(&state);
             let bd_count = events.iter().filter(|e| e.value == "bd").count();
-            
+
             println!("Cycle {}: {} bd events", cycle, bd_count);
-            
+
             // Even cycles should have 3 events, odd cycles should have 4
             let expected = if cycle % 2 == 0 { 3 } else { 4 };
-            assert_eq!(bd_count, expected, "Cycle {} should have {} bd events", cycle, expected);
+            assert_eq!(
+                bd_count, expected,
+                "Cycle {} should have {} bd events",
+                cycle, expected
+            );
         }
     }
-    
+
     #[test]
     fn test_chord_notation() {
         let pattern = parse_mini_notation("c'maj d'min");
         // Should parse chord notation correctly
     }
-    
+
     #[test]
     fn test_nested_patterns() {
         let pattern = parse_mini_notation("[bd(3,8), <cp sn>*2]");

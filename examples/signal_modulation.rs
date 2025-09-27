@@ -44,15 +44,13 @@ fn main() {
     "#;
 
     match parse_glicol(ring_mod) {
-        Ok(env) => {
-            match executor.render(&env, 1.0) {
-                Ok(audio) => {
-                    println!("   Generated ring modulation: 440Hz ± 50Hz sidebands");
-                    save_wav("ring_modulation.wav", &audio.data, sample_rate as u32).ok();
-                }
-                Err(e) => println!("   Error: {}", e),
+        Ok(env) => match executor.render(&env, 1.0) {
+            Ok(audio) => {
+                println!("   Generated ring modulation: 440Hz ± 50Hz sidebands");
+                save_wav("ring_modulation.wav", &audio.data, sample_rate as u32).ok();
             }
-        }
+            Err(e) => println!("   Error: {}", e),
+        },
         Err(e) => println!("   Parse error: {}", e),
     }
 
@@ -65,15 +63,13 @@ fn main() {
     "#;
 
     match parse_glicol(am_synthesis) {
-        Ok(env) => {
-            match executor.render(&env, 1.0) {
-                Ok(audio) => {
-                    println!("   Generated AM synthesis with 6Hz tremolo");
-                    save_wav("amplitude_modulation.wav", &audio.data, sample_rate as u32).ok();
-                }
-                Err(e) => println!("   Error: {}", e),
+        Ok(env) => match executor.render(&env, 1.0) {
+            Ok(audio) => {
+                println!("   Generated AM synthesis with 6Hz tremolo");
+                save_wav("amplitude_modulation.wav", &audio.data, sample_rate as u32).ok();
             }
-        }
+            Err(e) => println!("   Error: {}", e),
+        },
         Err(e) => println!("   Parse error: {}", e),
     }
 
@@ -87,15 +83,13 @@ fn main() {
     "#;
 
     match parse_glicol(complex_mod) {
-        Ok(env) => {
-            match executor.render(&env, 2.0) {
-                Ok(audio) => {
-                    println!("   Generated complex modulation");
-                    save_wav("complex_modulation.wav", &audio.data, sample_rate as u32).ok();
-                }
-                Err(e) => println!("   Error: {}", e),
+        Ok(env) => match executor.render(&env, 2.0) {
+            Ok(audio) => {
+                println!("   Generated complex modulation");
+                save_wav("complex_modulation.wav", &audio.data, sample_rate as u32).ok();
             }
-        }
+            Err(e) => println!("   Error: {}", e),
+        },
         Err(e) => println!("   Parse error: {}", e),
     }
 
@@ -109,15 +103,13 @@ fn main() {
     "#;
 
     match parse_glicol(pattern_gate) {
-        Ok(env) => {
-            match executor.render(&env, 2.0) {
-                Ok(audio) => {
-                    println!("   Generated pattern-gated synthesis");
-                    save_wav("pattern_gating.wav", &audio.data, sample_rate as u32).ok();
-                }
-                Err(e) => println!("   Error: {}", e),
+        Ok(env) => match executor.render(&env, 2.0) {
+            Ok(audio) => {
+                println!("   Generated pattern-gated synthesis");
+                save_wav("pattern_gating.wav", &audio.data, sample_rate as u32).ok();
             }
-        }
+            Err(e) => println!("   Error: {}", e),
+        },
         Err(e) => println!("   Parse error: {}", e),
     }
 
@@ -132,15 +124,13 @@ fn main() {
     "#;
 
     match parse_glicol(sidechain) {
-        Ok(env) => {
-            match executor.render(&env, 2.0) {
-                Ok(audio) => {
-                    println!("   Generated sidechain compression effect");
-                    save_wav("sidechain.wav", &audio.data, sample_rate as u32).ok();
-                }
-                Err(e) => println!("   Error: {}", e),
+        Ok(env) => match executor.render(&env, 2.0) {
+            Ok(audio) => {
+                println!("   Generated sidechain compression effect");
+                save_wav("sidechain.wav", &audio.data, sample_rate as u32).ok();
             }
-        }
+            Err(e) => println!("   Error: {}", e),
+        },
         Err(e) => println!("   Parse error: {}", e),
     }
 
@@ -154,15 +144,13 @@ fn main() {
     "#;
 
     match parse_glicol(vocoder) {
-        Ok(env) => {
-            match executor.render(&env, 2.0) {
-                Ok(audio) => {
-                    println!("   Generated vocoder-like effect");
-                    save_wav("vocoder_effect.wav", &audio.data, sample_rate as u32).ok();
-                }
-                Err(e) => println!("   Error: {}", e),
+        Ok(env) => match executor.render(&env, 2.0) {
+            Ok(audio) => {
+                println!("   Generated vocoder-like effect");
+                save_wav("vocoder_effect.wav", &audio.data, sample_rate as u32).ok();
             }
-        }
+            Err(e) => println!("   Error: {}", e),
+        },
         Err(e) => println!("   Parse error: {}", e),
     }
 

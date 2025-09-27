@@ -3,8 +3,8 @@
 //! This example demonstrates the full power of Phonon's pattern system where
 //! EVERY parameter can be a pattern, reference, or arithmetic expression.
 
-use phonon::glicol_parser_v2::parse_glicol_v2;
 use phonon::dsp_parameter::DspParameter;
+use phonon::glicol_parser_v2::parse_glicol_v2;
 use std::collections::HashMap;
 
 fn main() {
@@ -55,10 +55,10 @@ fn main() {
                     op: phonon::dsp_parameter::BinaryOp::Multiply,
                     left: DspParameter::reference("lfo"),
                     right: DspParameter::constant(1000.0),
-                }
+                },
             )),
             right: DspParameter::constant(1500.0),
-        }
+        },
     ));
 
     let mut refs = HashMap::new();
@@ -154,10 +154,10 @@ fn demonstrate_pattern_evolution() {
                     op: phonon::dsp_parameter::BinaryOp::Multiply,
                     left: DspParameter::pattern("500 1000 750 1500"),
                     right: DspParameter::constant(2.0),
-                }
+                },
             )),
             right: DspParameter::constant(200.0),
-        }
+        },
     ));
 
     let refs = HashMap::new();

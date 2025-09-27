@@ -6,8 +6,8 @@
 //! - Signal references: `lpf ~lfo 0.8`
 //! - Expressions: `lpf (~lfo * 1000 + 500) 0.8`
 
-use phonon::glicol_parser_v2::parse_glicol_v2;
 use phonon::dsp_parameter::DspParameter;
+use phonon::glicol_parser_v2::parse_glicol_v2;
 use std::collections::HashMap;
 
 fn main() {

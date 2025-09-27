@@ -1,5 +1,5 @@
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{State, TimeSpan, Fraction};
+use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 #[test]
@@ -20,10 +20,7 @@ fn debug_euclidean_rotation() {
         let pattern = parse_mini_notation(pattern_str);
 
         let state = State {
-            span: TimeSpan::new(
-                Fraction::new(0, 1),
-                Fraction::new(1, 1),
-            ),
+            span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
             controls: HashMap::new(),
         };
 
@@ -31,10 +28,14 @@ fn debug_euclidean_rotation() {
         println!("  Produced {} events:", haps.len());
 
         for (i, hap) in haps.iter().enumerate() {
-            println!("    Event {}: {} at {:.3} ({}/{})",
-                     i, hap.value,
-                     hap.part.begin.to_float(),
-                     hap.part.begin.numerator, hap.part.begin.denominator);
+            println!(
+                "    Event {}: {} at {:.3} ({}/{})",
+                i,
+                hap.value,
+                hap.part.begin.to_float(),
+                hap.part.begin.numerator,
+                hap.part.begin.denominator
+            );
         }
     }
 }

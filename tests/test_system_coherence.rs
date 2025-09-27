@@ -1,9 +1,8 @@
+use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 /// Comprehensive system coherence tests to verify end-to-end functionality
 /// across all major subsystems and their interactions
-
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform};
-use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Pattern, State, TimeSpan, Fraction};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 use std::collections::HashMap;
 
 /// Test Matrix:
@@ -70,7 +69,10 @@ fn test_complete_signal_flow_patterns_to_audio() {
     // Verify complete chain produces output
     let buffer = graph.render(44100);
 
-    assert!(buffer.iter().any(|&s| s != 0.0), "Complete chain should produce output");
+    assert!(
+        buffer.iter().any(|&s| s != 0.0),
+        "Complete chain should produce output"
+    );
 
     // Verify we have transients (drum hits)
     let mut transients = 0;
@@ -83,7 +85,10 @@ fn test_complete_signal_flow_patterns_to_audio() {
     }
 
     assert!(transients > 2, "Should detect multiple drum hits");
-    println!("✓ Complete signal flow works: {} transients detected", transients);
+    println!(
+        "✓ Complete signal flow works: {} transients detected",
+        transients
+    );
 }
 
 #[test]
@@ -134,7 +139,10 @@ fn test_bidirectional_modulation() {
     graph.set_cps(4.0);
 
     let buffer = graph.render(22050);
-    assert!(buffer.iter().any(|&s| s != 0.0), "Bidirectional modulation should work");
+    assert!(
+        buffer.iter().any(|&s| s != 0.0),
+        "Bidirectional modulation should work"
+    );
 
     println!("✓ Bidirectional modulation verified");
 }
@@ -177,12 +185,20 @@ fn test_feedback_loop_stability() {
 
     // Check for echo pattern
     let quarter = buffer.len() / 4;
-    let first_quarter_avg = buffer[0..quarter].iter().map(|s| s.abs()).sum::<f32>() / quarter as f32;
-    let last_quarter_avg = buffer[3*quarter..].iter().map(|s| s.abs()).sum::<f32>() / quarter as f32;
+    let first_quarter_avg =
+        buffer[0..quarter].iter().map(|s| s.abs()).sum::<f32>() / quarter as f32;
+    let last_quarter_avg =
+        buffer[3 * quarter..].iter().map(|s| s.abs()).sum::<f32>() / quarter as f32;
 
-    assert!(last_quarter_avg > first_quarter_avg * 0.5, "Should have sustained echoes");
+    assert!(
+        last_quarter_avg > first_quarter_avg * 0.5,
+        "Should have sustained echoes"
+    );
 
-    println!("✓ Feedback loops are stable with max amplitude {:.3}", max_val);
+    println!(
+        "✓ Feedback loops are stable with max amplitude {:.3}",
+        max_val
+    );
 }
 
 #[test]
@@ -214,7 +230,7 @@ fn test_complex_routing_topology() {
             Signal::Expression(Box::new(phonon::unified_graph::SignalExpr::Multiply(
                 Signal::Node(osc2),
                 Signal::Value(500.0),
-            )))
+            ))),
         ))),
         q: Signal::Value(2.0),
         state: Default::default(),
@@ -227,7 +243,7 @@ fn test_complex_routing_topology() {
             Signal::Expression(Box::new(phonon::unified_graph::SignalExpr::Multiply(
                 Signal::Node(osc1),
                 Signal::Value(200.0),
-            )))
+            ))),
         ))),
         q: Signal::Value(1.5),
         state: Default::default(),
@@ -253,16 +269,20 @@ fn test_complex_routing_topology() {
 
     let buffer = graph.render(4410);
 
-    assert!(buffer.iter().any(|&s| s != 0.0), "Complex routing should produce output");
+    assert!(
+        buffer.iter().any(|&s| s != 0.0),
+        "Complex routing should produce output"
+    );
 
     // Verify complex modulation creates variation
-    let variance = buffer.iter()
-        .map(|&s| s * s)
-        .sum::<f32>() / buffer.len() as f32;
+    let variance = buffer.iter().map(|&s| s * s).sum::<f32>() / buffer.len() as f32;
 
     assert!(variance > 0.01, "Complex routing should create rich output");
 
-    println!("✓ Complex routing topology works with variance {:.4}", variance);
+    println!(
+        "✓ Complex routing topology works with variance {:.4}",
+        variance
+    );
 }
 
 #[test]
@@ -327,10 +347,16 @@ fn test_pattern_algebra_in_synthesis() {
     }
 
     // Should have different frequencies
-    let unique_freqs = frequencies.iter().collect::<std::collections::HashSet<_>>().len();
+    let unique_freqs = frequencies
+        .iter()
+        .collect::<std::collections::HashSet<_>>()
+        .len();
     assert!(unique_freqs > 1, "Pattern should create different pitches");
 
-    println!("✓ Pattern algebra drives synthesis with {} unique frequencies", unique_freqs);
+    println!(
+        "✓ Pattern algebra drives synthesis with {} unique frequencies",
+        unique_freqs
+    );
 }
 
 #[test]
@@ -398,9 +424,8 @@ fn test_realtime_parameter_modulation() {
     for i in 0..10 {
         let start = i * window;
         let end = ((i + 1) * window).min(buffer.len());
-        let power: f32 = buffer[start..end].iter()
-            .map(|s| s * s)
-            .sum::<f32>() / (end - start) as f32;
+        let power: f32 =
+            buffer[start..end].iter().map(|s| s * s).sum::<f32>() / (end - start) as f32;
         window_powers.push(power);
     }
 
@@ -408,9 +433,15 @@ fn test_realtime_parameter_modulation() {
     let max_power = window_powers.iter().cloned().fold(0.0f32, f32::max);
     let min_power = window_powers.iter().cloned().fold(1.0f32, f32::min);
 
-    assert!(max_power > min_power * 1.5, "Should have amplitude modulation from filter sweep");
+    assert!(
+        max_power > min_power * 1.5,
+        "Should have amplitude modulation from filter sweep"
+    );
 
-    println!("✓ Real-time modulation verified with {:.1}x power variation", max_power / min_power.max(0.001));
+    println!(
+        "✓ Real-time modulation verified with {:.1}x power variation",
+        max_power / min_power.max(0.001)
+    );
 }
 
 #[test]
@@ -433,7 +464,7 @@ fn test_bus_system_coherence() {
             Signal::Expression(Box::new(phonon::unified_graph::SignalExpr::Multiply(
                 Signal::Bus("lfo".to_string()),
                 Signal::Value(100.0),
-            )))
+            ))),
         ))),
         waveform: Waveform::Saw,
         phase: 0.0,
@@ -447,7 +478,7 @@ fn test_bus_system_coherence() {
             Signal::Expression(Box::new(phonon::unified_graph::SignalExpr::Multiply(
                 Signal::Bus("lfo".to_string()),
                 Signal::Value(500.0),
-            )))
+            ))),
         ))),
         q: Signal::Value(2.0),
         state: Default::default(),
@@ -468,7 +499,10 @@ fn test_bus_system_coherence() {
     let first_half_avg = buffer[0..11025].iter().map(|s| s.abs()).sum::<f32>() / 11025.0;
     let second_half_avg = buffer[11025..].iter().map(|s| s.abs()).sum::<f32>() / 11025.0;
 
-    assert!((first_half_avg - second_half_avg).abs() > 0.01, "LFO should create variation");
+    assert!(
+        (first_half_avg - second_half_avg).abs() > 0.01,
+        "LFO should create variation"
+    );
 
     println!("✓ Bus system coherence verified");
 }
@@ -541,7 +575,10 @@ fn test_analysis_driven_synthesis() {
 
     let buffer = graph.render(22050);
 
-    assert!(buffer.iter().any(|&s| s != 0.0), "Analysis-driven synthesis should work");
+    assert!(
+        buffer.iter().any(|&s| s != 0.0),
+        "Analysis-driven synthesis should work"
+    );
 
     // Verify RMS tracking creates frequency variation
     let chunks = 5;
@@ -554,13 +591,21 @@ fn test_analysis_driven_synthesis() {
         chunk_powers.push(power);
     }
 
-    let power_variance = chunk_powers.iter()
+    let power_variance = chunk_powers
+        .iter()
         .map(|&p| (p - chunk_powers.iter().sum::<f32>() / chunks as f32).powi(2))
-        .sum::<f32>() / chunks as f32;
+        .sum::<f32>()
+        / chunks as f32;
 
-    assert!(power_variance > 0.0001, "Analysis should drive synthesis variation");
+    assert!(
+        power_variance > 0.0001,
+        "Analysis should drive synthesis variation"
+    );
 
-    println!("✓ Analysis-driven synthesis verified with variance {:.6}", power_variance);
+    println!(
+        "✓ Analysis-driven synthesis verified with variance {:.6}",
+        power_variance
+    );
 }
 
 #[test]
@@ -617,7 +662,10 @@ fn test_end_to_end_performance_boundaries() {
     let buffer = graph.render(44100);
 
     assert!(buffer.len() == 44100, "Should render full buffer");
-    assert!(buffer.iter().any(|&s| s != 0.0), "Complex patch should produce output");
+    assert!(
+        buffer.iter().any(|&s| s != 0.0),
+        "Complex patch should produce output"
+    );
 
     // Check output is reasonable (not blown up)
     let max_val = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
@@ -792,20 +840,26 @@ fn test_master_system_coherence() {
         let start = i * window;
         let end = ((i + 1) * window).min(buffer.len());
         if end > start {
-            let peak = buffer[start..end].iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+            let peak = buffer[start..end]
+                .iter()
+                .map(|s| s.abs())
+                .fold(0.0f32, f32::max);
             peaks.push(peak);
         }
     }
 
-    let peak_variance = peaks.iter()
+    let peak_variance = peaks
+        .iter()
         .map(|&p| (p - peaks.iter().sum::<f32>() / peaks.len() as f32).powi(2))
-        .sum::<f32>() / peaks.len() as f32;
+        .sum::<f32>()
+        / peaks.len() as f32;
 
     assert!(peak_variance > 0.001, "Should have rhythmic variation");
 
     // Check for frequency content (bass modulation)
     let mid_section = &buffer[44100..66150]; // Middle 0.5 seconds
-    let zero_crossings = mid_section.windows(2)
+    let zero_crossings = mid_section
+        .windows(2)
         .filter(|w| (w[0] > 0.0) != (w[1] > 0.0))
         .count();
 

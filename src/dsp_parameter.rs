@@ -7,10 +7,8 @@
 //! - Signal references: `lpf ~lfo 0.8`
 //! - Arithmetic expressions: `lpf (~lfo * 1000 + 500) 0.8`
 
-use crate::pattern::{Pattern, State, TimeSpan, Fraction};
-use crate::mini_notation_v3::PatternValue;
 use crate::mini_notation_v3::parse_mini_notation;
-use std::sync::Arc;
+use crate::pattern::{Fraction, State, TimeSpan};
 
 /// A parameter that can be a constant, pattern, or reference
 #[derive(Clone, Debug)]
@@ -39,10 +37,7 @@ pub enum ParameterExpression {
     },
 
     /// Unary operation
-    Unary {
-        op: UnaryOp,
-        param: DspParameter,
-    },
+    Unary { op: UnaryOp, param: DspParameter },
 }
 
 #[derive(Clone, Debug)]
@@ -76,7 +71,11 @@ impl DspParameter {
 
     /// Evaluate the parameter at a given time position
     /// Returns the value at that point in the pattern cycle
-    pub fn evaluate(&self, cycle_pos: f64, references: &std::collections::HashMap<String, f32>) -> f32 {
+    pub fn evaluate(
+        &self,
+        cycle_pos: f64,
+        references: &std::collections::HashMap<String, f32>,
+    ) -> f32 {
         match self {
             DspParameter::Constant(v) => *v,
 
@@ -110,9 +109,7 @@ impl DspParameter {
                 references.get(name).copied().unwrap_or(0.0)
             }
 
-            DspParameter::Expression(expr) => {
-                expr.evaluate(cycle_pos, references)
-            }
+            DspParameter::Expression(expr) => expr.evaluate(cycle_pos, references),
         }
     }
 
@@ -128,7 +125,11 @@ impl DspParameter {
 }
 
 impl ParameterExpression {
-    pub fn evaluate(&self, cycle_pos: f64, references: &std::collections::HashMap<String, f32>) -> f32 {
+    pub fn evaluate(
+        &self,
+        cycle_pos: f64,
+        references: &std::collections::HashMap<String, f32>,
+    ) -> f32 {
         match self {
             ParameterExpression::Binary { op, left, right } => {
                 let left_val = left.evaluate(cycle_pos, references);

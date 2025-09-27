@@ -1,7 +1,7 @@
 //! Test that pattern-modulated filters actually affect the audio output
 
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform};
 use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 use std::collections::HashMap;
 
 /// Compute the spectral centroid of a signal to detect filter changes
@@ -17,7 +17,7 @@ fn compute_spectral_centroid(samples: &[f32], _sample_rate: f32) -> f32 {
 
     // Compute first derivative (high frequency indicator)
     for i in 1..samples.len() {
-        let diff = (samples[i] - samples[i-1]).abs();
+        let diff = (samples[i] - samples[i - 1]).abs();
         high_freq_energy += diff * diff;
     }
 
@@ -101,31 +101,47 @@ fn test_pattern_modulated_filter_changes_audio() {
         segment_centroids.push(centroid);
 
         // Also compute RMS to see if signal is present
-        let rms: f32 = (segment_samples.iter().map(|x| x * x).sum::<f32>() / segment_samples.len() as f32).sqrt();
+        let rms: f32 = (segment_samples.iter().map(|x| x * x).sum::<f32>()
+            / segment_samples.len() as f32)
+            .sqrt();
 
-        println!("Segment {} centroid: {:.0} Hz, RMS: {:.4}", segment, centroid, rms);
+        println!(
+            "Segment {} centroid: {:.0} Hz, RMS: {:.4}",
+            segment, centroid, rms
+        );
     }
 
     // Verify the pattern: low -> high -> low
     // Using the new metric where higher values mean more high frequency content
 
-    println!("Centroids: [{:.1}, {:.1}, {:.1}]",
-             segment_centroids[0], segment_centroids[1], segment_centroids[2]);
+    println!(
+        "Centroids: [{:.1}, {:.1}, {:.1}]",
+        segment_centroids[0], segment_centroids[1], segment_centroids[2]
+    );
 
     // Segment 1 (5000 Hz cutoff) should have significantly more HF than segments 0 and 2 (200 Hz)
     let avg_low = (segment_centroids[0] + segment_centroids[2]) / 2.0;
     let high = segment_centroids[1];
 
-    assert!(high > avg_low * 1.5,
-            "High cutoff (5000Hz) should have at least 1.5x more HF content than low cutoff (200Hz). \
+    assert!(
+        high > avg_low * 1.5,
+        "High cutoff (5000Hz) should have at least 1.5x more HF content than low cutoff (200Hz). \
              Low avg: {:.1}, High: {:.1}, Ratio: {:.2}",
-            avg_low, high, high / avg_low);
+        avg_low,
+        high,
+        high / avg_low
+    );
 
     // Also verify segments 0 and 2 are similar (both 200 Hz cutoff)
-    let similarity = (segment_centroids[0] - segment_centroids[2]).abs() / segment_centroids[0].max(segment_centroids[2]);
-    assert!(similarity < 0.3,
-            "Segments 0 and 2 (both 200Hz) should be similar, got {:.1} and {:.1} (diff: {:.0}%)",
-            segment_centroids[0], segment_centroids[2], similarity * 100.0);
+    let similarity = (segment_centroids[0] - segment_centroids[2]).abs()
+        / segment_centroids[0].max(segment_centroids[2]);
+    assert!(
+        similarity < 0.3,
+        "Segments 0 and 2 (both 200Hz) should be similar, got {:.1} and {:.1} (diff: {:.0}%)",
+        segment_centroids[0],
+        segment_centroids[2],
+        similarity * 100.0
+    );
 }
 
 /// Test that static filters maintain consistent spectral content
@@ -181,9 +197,14 @@ fn test_static_filter_consistent_output() {
 
     for (i, &centroid) in window_centroids.iter().enumerate() {
         let deviation = (centroid - mean_centroid).abs() / mean_centroid;
-        assert!(deviation < 0.2,
-                "Window {} deviates too much from mean: {:.0}Hz vs {:.0}Hz (deviation: {:.1}%)",
-                i, centroid, mean_centroid, deviation * 100.0);
+        assert!(
+            deviation < 0.2,
+            "Window {} deviates too much from mean: {:.0}Hz vs {:.0}Hz (deviation: {:.1}%)",
+            i,
+            centroid,
+            mean_centroid,
+            deviation * 100.0
+        );
     }
 }
 
@@ -239,8 +260,10 @@ fn test_extreme_filter_modulation() {
     }
 
     // Compute RMS energy (filtered noise should have less energy at low cutoff)
-    let low_rms: f32 = (low_samples.iter().map(|x| x * x).sum::<f32>() / low_samples.len() as f32).sqrt();
-    let high_rms: f32 = (high_samples.iter().map(|x| x * x).sum::<f32>() / high_samples.len() as f32).sqrt();
+    let low_rms: f32 =
+        (low_samples.iter().map(|x| x * x).sum::<f32>() / low_samples.len() as f32).sqrt();
+    let high_rms: f32 =
+        (high_samples.iter().map(|x| x * x).sum::<f32>() / high_samples.len() as f32).sqrt();
 
     // High cutoff should pass more energy from white noise
     assert!(high_rms > low_rms * 1.5,
@@ -251,9 +274,13 @@ fn test_extreme_filter_modulation() {
     let low_centroid = compute_spectral_centroid(&low_samples, sample_rate);
     let high_centroid = compute_spectral_centroid(&high_samples, sample_rate);
 
-    println!("Low cutoff centroid: {:.0} Hz, High cutoff centroid: {:.0} Hz",
-             low_centroid, high_centroid);
+    println!(
+        "Low cutoff centroid: {:.0} Hz, High cutoff centroid: {:.0} Hz",
+        low_centroid, high_centroid
+    );
 
-    assert!(high_centroid > low_centroid * 3.0,
-            "High cutoff spectrum should be much brighter than low cutoff");
+    assert!(
+        high_centroid > low_centroid * 3.0,
+        "High cutoff spectrum should be much brighter than low cutoff"
+    );
 }

@@ -6,9 +6,9 @@ fn main() {
         ~bass: saw 55 >> lpf ~lfo * 2000 + 500 0.8
         o: ~bass >> mul 0.4
     "#;
-    
+
     println!("Parsing DSL:\n{}", code);
-    
+
     match parse_dsl(code) {
         Ok(env) => {
             println!("✓ Parsed successfully");

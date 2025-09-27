@@ -1,48 +1,47 @@
 //! Enhanced parser for the complete modular synthesis DSL
-//! 
+//!
 //! Supports arithmetic operations, bus references, and pattern integration
 
 use crate::signal_graph::{
-    SignalGraph, Node, NodeId, BusId,
-    SourceType, ProcessorType, AnalysisType
+    Node, NodeId, ProcessorType, SignalGraph, SourceType,
 };
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // Identifiers and literals
-    BusName(String),        // ~name
-    Identifier(String),     // name
-    Number(f64),           // 123.45
-    String(String),        // "string"
-    
+    BusName(String),    // ~name
+    Identifier(String), // name
+    Number(f64),        // 123.45
+    String(String),     // "string"
+
     // Operators
-    Colon,                 // :
-    Arrow,                 // >>
-    Plus,                  // +
-    Minus,                 // -
-    Star,                  // *
-    Slash,                 // /
-    Greater,               // >
-    Less,                  // <
-    Equal,                 // =
-    Dot,                   // .
-    
+    Colon,   // :
+    Arrow,   // >>
+    Plus,    // +
+    Minus,   // -
+    Star,    // *
+    Slash,   // /
+    Greater, // >
+    Less,    // <
+    Equal,   // =
+    Dot,     // .
+
     // Delimiters
-    LeftParen,             // (
-    RightParen,            // )
-    LeftBracket,           // [
-    RightBracket,          // ]
-    LeftBrace,             // {
-    RightBrace,            // }
-    Comma,                 // ,
-    
+    LeftParen,    // (
+    RightParen,   // )
+    LeftBracket,  // [
+    RightBracket, // ]
+    LeftBrace,    // {
+    RightBrace,   // }
+    Comma,        // ,
+
     // Keywords
-    Route,                 // route
-    When,                  // when
-    If,                    // if
-    Out,                   // out
-    
+    Route, // route
+    When,  // when
+    If,    // if
+    Out,   // out
+
     // Special
     Newline,
     Comment(String),
@@ -56,24 +55,24 @@ pub enum Expression {
     BusRef(String),
     Identifier(String),
     String(String),
-    Pattern(String),       // Pattern expression pattern("bd sn")
-    
+    Pattern(String), // Pattern expression pattern("bd sn")
+
     // Binary operations
     Add(Box<Expression>, Box<Expression>),
     Subtract(Box<Expression>, Box<Expression>),
     Multiply(Box<Expression>, Box<Expression>),
     Divide(Box<Expression>, Box<Expression>),
-    
+
     // Comparisons
     GreaterThan(Box<Expression>, Box<Expression>),
     LessThan(Box<Expression>, Box<Expression>),
-    
+
     // Function calls
     FunctionCall(String, Vec<Expression>),
-    
+
     // Signal chain
     Chain(Box<Expression>, Box<Expression>),
-    
+
     // Property access
     Property(Box<Expression>, String),
 }
@@ -98,40 +97,44 @@ impl EnhancedParser {
             node_cache: HashMap::new(),
         }
     }
-    
+
     fn generate_node_id(&mut self) -> NodeId {
         self.node_counter += 1;
         NodeId(format!("node_{}", self.node_counter))
     }
-    
+
     fn current_token(&self) -> &Token {
         self.tokens.get(self.position).unwrap_or(&Token::EOF)
     }
-    
+
     fn peek_token(&self) -> &Token {
         self.tokens.get(self.position + 1).unwrap_or(&Token::EOF)
     }
-    
+
     fn advance(&mut self) {
         if self.position < self.tokens.len() {
             self.position += 1;
         }
     }
-    
+
     fn expect(&mut self, expected: Token) -> Result<(), String> {
         if *self.current_token() == expected {
             self.advance();
             Ok(())
         } else {
-            Err(format!("Expected {:?}, found {:?}", expected, self.current_token()))
+            Err(format!(
+                "Expected {:?}, found {:?}",
+                expected,
+                self.current_token()
+            ))
         }
     }
-    
+
     /// Tokenize input string
     fn tokenize(input: &str) -> Vec<Token> {
         let mut tokens = Vec::new();
         let mut chars = input.chars().peekable();
-        
+
         while let Some(&ch) = chars.peek() {
             match ch {
                 ' ' | '\t' | '\r' => {
@@ -207,7 +210,7 @@ impl EnhancedParser {
                     chars.next();
                     tokens.push(Token::Plus);
                 }
-                '-' if chars.clone().nth(1).map_or(false, |c| c.is_numeric()) => {
+                '-' if chars.clone().nth(1).is_some_and(|c| c.is_numeric()) => {
                     // Negative number
                     chars.next();
                     let mut num_str = String::from("-");
@@ -305,16 +308,16 @@ impl EnhancedParser {
                 }
             }
         }
-        
+
         tokens.push(Token::EOF);
         tokens
     }
-    
+
     /// Parse a complete DSL string
     pub fn parse(&mut self, input: &str) -> Result<SignalGraph, String> {
         self.tokens = Self::tokenize(input);
         self.position = 0;
-        
+
         while self.current_token() != &Token::EOF {
             // Skip newlines and comments
             match self.current_token() {
@@ -337,87 +340,90 @@ impl EnhancedParser {
                 }
             }
         }
-        
+
         // Build the signal graph from expressions
         self.build_graph()?;
-        
-        Ok(std::mem::replace(&mut self.graph, SignalGraph::new(44100.0)))
+
+        Ok(std::mem::replace(
+            &mut self.graph,
+            SignalGraph::new(44100.0),
+        ))
     }
-    
+
     /// Parse bus definition: ~name: expression
     fn parse_bus_definition(&mut self) -> Result<(), String> {
         if let Token::BusName(name) = self.current_token().clone() {
             self.advance();
             self.expect(Token::Colon)?;
-            
+
             let expr = self.parse_expression()?;
             self.buses.insert(name.clone(), expr);
-            
+
             // Register bus in graph
-            self.graph.add_bus(format!("~{}", name), 0.0);
-            
+            self.graph.add_bus(format!("~{name}"), 0.0);
+
             Ok(())
         } else {
             Err("Expected bus name".to_string())
         }
     }
-    
+
     /// Parse expression with arithmetic operations
     fn parse_expression(&mut self) -> Result<Expression, String> {
         self.parse_additive()
     }
-    
+
     /// Parse additive expression (+ and -)
     fn parse_additive(&mut self) -> Result<Expression, String> {
         let mut left = self.parse_multiplicative()?;
-        
+
         while let Token::Plus | Token::Minus = self.current_token() {
             let op = self.current_token().clone();
             self.advance();
             let right = self.parse_multiplicative()?;
-            
+
             left = match op {
                 Token::Plus => Expression::Add(Box::new(left), Box::new(right)),
                 Token::Minus => Expression::Subtract(Box::new(left), Box::new(right)),
                 _ => unreachable!(),
             };
         }
-        
+
         Ok(left)
     }
-    
+
     /// Parse multiplicative expression (* and /)
     fn parse_multiplicative(&mut self) -> Result<Expression, String> {
         let mut left = self.parse_chain()?;
-        
+
         while let Token::Star | Token::Slash = self.current_token() {
             let op = self.current_token().clone();
             self.advance();
             let right = self.parse_chain()?;
-            
+
             left = match op {
                 Token::Star => Expression::Multiply(Box::new(left), Box::new(right)),
                 Token::Slash => Expression::Divide(Box::new(left), Box::new(right)),
                 _ => unreachable!(),
             };
         }
-        
+
         Ok(left)
     }
-    
+
     /// Parse signal chain (>>)
     fn parse_chain(&mut self) -> Result<Expression, String> {
         let mut left = self.parse_primary()?;
-        
+
         while let Token::Arrow = self.current_token() {
             self.advance();
             let right = self.parse_primary()?;
             left = Expression::Chain(Box::new(left), Box::new(right));
         }
-        
+
         Ok(left)
     }
-    
+
     /// Parse primary expression
     fn parse_primary(&mut self) -> Result<Expression, String> {
         match self.current_token().clone() {
@@ -435,11 +441,11 @@ impl EnhancedParser {
             }
             Token::Identifier(name) => {
                 self.advance();
-                
+
                 // Check for function call
                 if let Token::LeftParen = self.current_token() {
                     self.advance();
-                    
+
                     // Special handling for pattern() function
                     if name == "pattern" {
                         // Expect a string argument with the mini-notation
@@ -465,42 +471,45 @@ impl EnhancedParser {
                 self.expect(Token::RightParen)?;
                 Ok(expr)
             }
-            _ => Err(format!("Unexpected token in expression: {:?}", self.current_token()))
+            _ => Err(format!(
+                "Unexpected token in expression: {:?}",
+                self.current_token()
+            )),
         }
     }
-    
+
     /// Parse function arguments
     fn parse_arguments(&mut self) -> Result<Vec<Expression>, String> {
         let mut args = Vec::new();
-        
+
         if let Token::RightParen = self.current_token() {
             return Ok(args);
         }
-        
+
         loop {
             args.push(self.parse_expression()?);
-            
+
             if let Token::Comma = self.current_token() {
                 self.advance();
             } else {
                 break;
             }
         }
-        
+
         Ok(args)
     }
-    
+
     /// Parse route statement
     fn parse_route(&mut self) -> Result<(), String> {
         self.advance(); // Skip 'route'
-        // TODO: Implement route parsing
-        // For now, skip until newline
+                        // TODO: Implement route parsing
+                        // For now, skip until newline
         while !matches!(self.current_token(), Token::Newline | Token::EOF) {
             self.advance();
         }
         Ok(())
     }
-    
+
     /// Parse output statement (supports out: and ~out1:, ~out2:, etc.)
     fn parse_output(&mut self) -> Result<(), String> {
         // Handle both 'out:' and '~outN:' syntax
@@ -518,7 +527,7 @@ impl EnhancedParser {
         } else {
             return Ok(());
         };
-        
+
         if let Token::Colon = self.current_token() {
             self.advance();
             let expr = self.parse_expression()?;
@@ -527,12 +536,12 @@ impl EnhancedParser {
         }
         Ok(())
     }
-    
+
     /// Build signal graph from parsed expressions
     fn build_graph(&mut self) -> Result<(), String> {
         // Store created nodes to avoid duplicates
         self.node_cache.clear();
-        
+
         // Process all buses except "out" first
         for (bus_name, expr) in &self.buses.clone() {
             if bus_name != "out" {
@@ -540,7 +549,7 @@ impl EnhancedParser {
                 self.node_cache.insert(bus_name.clone(), node_id);
             }
         }
-        
+
         // Process all outputs (out, out1, out2, etc.)
         for (bus_name, expr) in &self.buses.clone() {
             if bus_name == "out" || bus_name.starts_with("out") {
@@ -548,64 +557,71 @@ impl EnhancedParser {
                 let output_id = if bus_name == "out" {
                     NodeId("output".to_string())
                 } else {
-                    NodeId(format!("output_{}", bus_name))
+                    NodeId(format!("output_{bus_name}"))
                 };
-                
+
                 let output_node = Node::Output {
                     id: output_id.clone(),
                 };
                 self.graph.add_node(output_node);
-                
+
                 // Process output expression and connect to output node
-                let out_node_id = self.process_expression(&expr, bus_name)?;
+                let out_node_id = self.process_expression(expr, bus_name)?;
                 self.graph.connect(out_node_id, output_id, 1.0);
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Process a bus expression and return its output node
-    fn process_bus_expression(&mut self, bus_name: &str, expr: &Expression) -> Result<NodeId, String> {
+    fn process_bus_expression(
+        &mut self,
+        bus_name: &str,
+        expr: &Expression,
+    ) -> Result<NodeId, String> {
         // Check cache first
         if let Some(node_id) = self.node_cache.get(bus_name) {
             return Ok(node_id.clone());
         }
-        
+
         self.process_expression(expr, bus_name)
     }
-    
+
     /// Process any expression and return its output node
     fn process_expression(&mut self, expr: &Expression, context: &str) -> Result<NodeId, String> {
         match expr {
             Expression::Pattern(pattern_str) => {
                 // Parse the pattern using mini-notation
                 use crate::mini_notation::parse_mini_notation;
-                use crate::pattern::{Pattern, State, TimeSpan, Fraction};
                 
+
                 // Parse the pattern string to get events
                 let pattern = parse_mini_notation(pattern_str);
-                
+
                 // Create a pattern source node
                 let node_id = self.generate_node_id();
-                
+
                 // Get the first event from the pattern to determine what sample to use
                 let first_cycle = pattern.first_cycle();
-                
+
                 if !first_cycle.is_empty() {
                     let sample_name = &first_cycle[0].value;
-                    
+
                     // Check if this references a user-defined bus first
                     if self.buses.contains_key(sample_name) {
                         // It's a reference to a user-defined audio bus
-                        return self.process_expression(&Expression::BusRef(sample_name.clone()), context);
+                        return self
+                            .process_expression(&Expression::BusRef(sample_name.clone()), context);
                     }
-                    
+
                     // Otherwise, treat it as a sample name from dirt-samples
                     // Pattern events like "bd", "sn", "hh" directly map to samples
                     let node = Node::Source {
                         id: node_id.clone(),
-                        source_type: SourceType::Sample { name: sample_name.clone() },
+                        source_type: SourceType::Sample {
+                            name: sample_name.clone(),
+                        },
                     };
                     self.graph.add_node(node);
                     Ok(node_id)
@@ -635,32 +651,32 @@ impl EnhancedParser {
                     self.node_cache.insert(name.clone(), node_id.clone());
                     Ok(node_id)
                 } else {
-                    Err(format!("Unknown bus reference: {}", name))
+                    Err(format!("Unknown bus reference: {name}"))
                 }
             }
             Expression::Add(left, right) => {
                 // Create a mixer node for addition
                 let left_node = self.process_expression(left, context)?;
                 let right_node = self.process_expression(right, context)?;
-                
-                // Create a mixer node 
+
+                // Create a mixer node
                 let mixer_id = self.generate_node_id();
                 let mixer_node = Node::Processor {
                     id: mixer_id.clone(),
                     processor_type: ProcessorType::Gain { amount: 1.0 }, // Acts as a summing node
                 };
                 self.graph.add_node(mixer_node);
-                
+
                 // Connect both inputs to the mixer
                 self.graph.connect(left_node, mixer_id.clone(), 1.0);
                 self.graph.connect(right_node, mixer_id.clone(), 1.0);
-                
+
                 Ok(mixer_id)
             }
             Expression::Multiply(left, right) => {
                 // Process left side
                 let left_node = self.process_expression(left, context)?;
-                
+
                 // If right is a number, create gain node
                 if let Expression::Number(n) = right.as_ref() {
                     let gain_id = self.generate_node_id();
@@ -700,9 +716,14 @@ impl EnhancedParser {
             }
         }
     }
-    
+
     /// Create a node from a function call
-    fn create_node_from_function(&self, name: &str, args: &[Expression], node_id: &NodeId) -> Result<Node, String> {
+    fn create_node_from_function(
+        &self,
+        name: &str,
+        args: &[Expression],
+        node_id: &NodeId,
+    ) -> Result<Node, String> {
         match name {
             "sine" => {
                 let freq = self.eval_expression(&args[0])?;
@@ -739,7 +760,7 @@ impl EnhancedParser {
             }
         }
     }
-    
+
     /// Convert expression to nodes and return the output node ID
     fn expression_to_nodes(&mut self, expr: &Expression, context: &str) -> Result<NodeId, String> {
         match expr {
@@ -756,7 +777,10 @@ impl EnhancedParser {
             Expression::BusRef(name) => {
                 // Reference to another bus - need to find or create its node
                 // First check if we already have a node for this bus
-                if let Some(existing_node) = self.graph.nodes.iter()
+                if let Some(existing_node) = self
+                    .graph
+                    .nodes
+                    .iter()
                     .find(|(_, n)| {
                         if let Node::Source { id, .. } | Node::Processor { id, .. } = n {
                             id.0.contains(name)
@@ -764,7 +788,8 @@ impl EnhancedParser {
                             false
                         }
                     })
-                    .map(|(id, _)| id.clone()) {
+                    .map(|(id, _)| id.clone())
+                {
                     Ok(existing_node)
                 } else if let Some(bus_expr) = self.buses.get(name).cloned() {
                     // Create the node for this bus
@@ -805,7 +830,9 @@ impl EnhancedParser {
                             // Default to placeholder
                             Node::Source {
                                 id: node_id.clone(),
-                                source_type: SourceType::Sample { name: "bd".to_string() },
+                                source_type: SourceType::Sample {
+                                    name: "bd".to_string(),
+                                },
                             }
                         } else {
                             let sample_name = if let Expression::String(s) = &args[0] {
@@ -815,7 +842,7 @@ impl EnhancedParser {
                             } else {
                                 "bd".to_string() // Default fallback
                             };
-                            
+
                             Node::Source {
                                 id: node_id.clone(),
                                 source_type: SourceType::Sample { name: sample_name },
@@ -847,9 +874,9 @@ impl EnhancedParser {
                         }
                     }
                     "gain" => {
-                        let amount = if args.is_empty() { 
-                            1.0 
-                        } else { 
+                        let amount = if args.is_empty() {
+                            1.0
+                        } else {
                             self.eval_expression(&args[0])? as f32
                         };
                         Node::Processor {
@@ -858,9 +885,9 @@ impl EnhancedParser {
                         }
                     }
                     "delay" => {
-                        let time = if args.is_empty() { 
-                            0.25 
-                        } else { 
+                        let time = if args.is_empty() {
+                            0.25
+                        } else {
                             self.eval_expression(&args[0])?
                         };
                         let feedback = if args.len() > 1 {
@@ -874,9 +901,9 @@ impl EnhancedParser {
                         }
                     }
                     "reverb" => {
-                        let mix = if args.is_empty() { 
-                            0.3 
-                        } else { 
+                        let mix = if args.is_empty() {
+                            0.3
+                        } else {
                             self.eval_expression(&args[0])?
                         };
                         Node::Processor {
@@ -885,9 +912,9 @@ impl EnhancedParser {
                         }
                     }
                     "distortion" | "dist" => {
-                        let amount = if args.is_empty() { 
-                            0.5 
-                        } else { 
+                        let amount = if args.is_empty() {
+                            0.5
+                        } else {
                             self.eval_expression(&args[0])?
                         };
                         Node::Processor {
@@ -896,9 +923,9 @@ impl EnhancedParser {
                         }
                     }
                     "compressor" | "comp" => {
-                        let threshold = if args.is_empty() { 
-                            -20.0 
-                        } else { 
+                        let threshold = if args.is_empty() {
+                            -20.0
+                        } else {
                             self.eval_expression(&args[0])?
                         };
                         let ratio = if args.len() > 1 {
@@ -943,18 +970,18 @@ impl EnhancedParser {
                 let left_id = self.expression_to_nodes(left, context)?;
                 let right_id = self.expression_to_nodes(right, context)?;
                 let mix_id = self.generate_node_id();
-                
+
                 // Create a gain node to mix
                 let mix_node = Node::Processor {
                     id: mix_id.clone(),
                     processor_type: ProcessorType::Gain { amount: 1.0 },
                 };
                 self.graph.add_node(mix_node);
-                
+
                 // Connect both inputs to mixer
                 self.graph.connect(left_id, mix_id.clone(), 1.0);
                 self.graph.connect(right_id, mix_id.clone(), 1.0);
-                
+
                 Ok(mix_id)
             }
             Expression::Multiply(left, right) => {
@@ -981,10 +1008,10 @@ impl EnhancedParser {
                 self.graph.connect(source_id, proc_id.clone(), 1.0);
                 Ok(proc_id)
             }
-            _ => Ok(NodeId(format!("placeholder_{}", context)))
+            _ => Ok(NodeId(format!("placeholder_{context}"))),
         }
     }
-    
+
     /// Evaluate expression to a numeric value
     fn eval_expression(&self, expr: &Expression) -> Result<f64, String> {
         match expr {
@@ -993,7 +1020,7 @@ impl EnhancedParser {
             Expression::Subtract(l, r) => Ok(self.eval_expression(l)? - self.eval_expression(r)?),
             Expression::Multiply(l, r) => Ok(self.eval_expression(l)? * self.eval_expression(r)?),
             Expression::Divide(l, r) => Ok(self.eval_expression(l)? / self.eval_expression(r)?),
-            _ => Ok(0.0) // Default for non-numeric expressions
+            _ => Ok(0.0), // Default for non-numeric expressions
         }
     }
 }
@@ -1001,7 +1028,7 @@ impl EnhancedParser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_tokenize_arithmetic() {
         let tokens = EnhancedParser::tokenize("~lfo: sine(2) * 0.5 + 0.5");
@@ -1010,7 +1037,7 @@ mod tests {
         assert!(tokens.contains(&Token::Plus));
         assert!(tokens.contains(&Token::Number(0.5)));
     }
-    
+
     #[test]
     fn test_parse_arithmetic_expression() {
         let mut parser = EnhancedParser::new(44100.0);
@@ -1023,7 +1050,7 @@ mod tests {
             Token::EOF,
         ];
         parser.position = 0;
-        
+
         let expr = parser.parse_expression().unwrap();
         // Should parse as 2 + (3 * 4) due to precedence
         match expr {
@@ -1034,7 +1061,7 @@ mod tests {
             _ => panic!("Expected Add expression"),
         }
     }
-    
+
     #[test]
     fn test_parse_bus_reference() {
         let mut parser = EnhancedParser::new(44100.0);
@@ -1042,7 +1069,7 @@ mod tests {
         let result = parser.parse(input);
         assert!(result.is_ok());
     }
-    
+
     #[test]
     fn test_parse_pattern_string() {
         let mut parser = EnhancedParser::new(44100.0);

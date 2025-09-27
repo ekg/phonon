@@ -1,9 +1,9 @@
 //! Audio verification tests for Phonon
-//! 
+//!
 //! These tests verify that patterns generate correct audio output
 
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Pattern, State, TimeSpan, Fraction};
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 
 #[test]
@@ -70,7 +70,7 @@ fn test_polyrhythm_audio() {
 fn test_rest_pattern_audio() {
     // Test "bd ~ sn ~" has only 2 hits
     let pattern = parse_mini_notation("bd ~ sn ~");
-    
+
     // Verify pattern structure - tildes should be skipped
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -84,7 +84,7 @@ fn test_rest_pattern_audio() {
 fn test_fast_pattern_audio() {
     // Test "bd*4" generates 4 hits in rapid succession
     let pattern = parse_mini_notation("bd*4");
-    
+
     // Verify pattern structure
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -100,16 +100,16 @@ fn test_sample_differentiation() {
     let kick_pattern = parse_mini_notation("bd");
     let snare_pattern = parse_mini_notation("sn");
     let hihat_pattern = parse_mini_notation("hh");
-    
+
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
     };
-    
+
     let kick_events = kick_pattern.query(&state);
     let snare_events = snare_pattern.query(&state);
     let hihat_events = hihat_pattern.query(&state);
-    
+
     // Verify different sample names
     assert_eq!(kick_events[0].value, "bd");
     assert_eq!(snare_events[0].value, "sn");
@@ -124,18 +124,18 @@ fn test_pattern_timing_accuracy() {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
     };
-    
+
     let events = pattern.query(&state);
-    
+
     // Should have exactly 4 events
     assert_eq!(events.len(), 4);
-    
+
     // Check timing of each event
     assert_eq!(events[0].part.begin, Fraction::new(0, 4));
     assert_eq!(events[1].part.begin, Fraction::new(1, 4));
     assert_eq!(events[2].part.begin, Fraction::new(2, 4));
     assert_eq!(events[3].part.begin, Fraction::new(3, 4));
-    
+
     // All events should have 1/4 duration
     for event in &events {
         let duration = event.part.end - event.part.begin;
@@ -172,14 +172,14 @@ fn test_alternation_pattern_audio() {
 fn test_group_pattern_audio() {
     // Test "[bd sn] cp" generates correct grouping
     let pattern = parse_mini_notation("[bd sn] cp");
-    
+
     // Verify pattern structure
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
     };
     let events = pattern.query(&state);
-    
+
     // Should have 3 events: bd at 0, sn at 0.25, cp at 0.5
     assert_eq!(events.len(), 3);
     assert_eq!(events[0].value, "bd");

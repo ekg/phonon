@@ -55,3 +55,7 @@ crossterm = "0.27"
 
 # File watching for hot-reload
 notify = "6.1"
+
+[[bin]]
+name = "wav_analyze"
+path = "src/bin/wav_analyze.rs"

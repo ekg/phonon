@@ -1,5 +1,5 @@
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, SignalExpr, NodeId, Waveform};
 use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{NodeId, Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
 
 #[test]
 fn test_basic_oscillator() {
@@ -215,7 +215,10 @@ fn test_envelope_generator() {
     let window_size = 2205; // 50ms windows
     for i in (0..buffer.len()).step_by(window_size) {
         let end = (i + window_size).min(buffer.len());
-        let peak = buffer[i..end].iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+        let peak = buffer[i..end]
+            .iter()
+            .map(|s| s.abs())
+            .fold(0.0f32, f32::max);
         peaks.push(peak);
     }
 
@@ -261,11 +264,17 @@ fn test_signal_expressions() {
     let buffer = graph.render(1000);
 
     // Should produce output
-    assert!(buffer.iter().any(|&s| s != 0.0), "Expression should produce output");
+    assert!(
+        buffer.iter().any(|&s| s != 0.0),
+        "Expression should produce output"
+    );
 
     // Check amplitude is reasonable (scaled by 0.5)
     let max_amp = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-    assert!(max_amp < 1.5, "Mixed and scaled signal should be reasonable amplitude");
+    assert!(
+        max_amp < 1.5,
+        "Mixed and scaled signal should be reasonable amplitude"
+    );
 
     println!("✓ Signal expressions evaluate correctly");
 }
@@ -299,10 +308,10 @@ fn test_delay_effect() {
     // Apply delay
     let delayed = graph.add_node(SignalNode::Delay {
         input: Signal::Node(impulse),
-        time: Signal::Value(0.25),  // 250ms delay
+        time: Signal::Value(0.25),    // 250ms delay
         feedback: Signal::Value(0.5), // 50% feedback
-        mix: Signal::Value(0.5),     // 50% wet
-        buffer: vec![0.0; 88200],    // 2 seconds at 44.1kHz
+        mix: Signal::Value(0.5),      // 50% wet
+        buffer: vec![0.0; 88200],     // 2 seconds at 44.1kHz
         write_idx: 0,
     });
 
@@ -337,7 +346,11 @@ fn test_delay_effect() {
 
     println!("Found {} peaks", peaks);
     // Should have multiple peaks due to delay feedback
-    assert!(peaks > 1, "Delay should create echoes: found {} peaks", peaks);
+    assert!(
+        peaks > 1,
+        "Delay should create echoes: found {} peaks",
+        peaks
+    );
 
     println!("✓ Delay effect creates echoes with feedback");
 }
@@ -358,7 +371,7 @@ fn test_audio_analysis_nodes() {
     // Add RMS analyzer
     let rms = graph.add_node(SignalNode::RMS {
         input: Signal::Node(osc),
-        window_size: 0.01, // 10ms window
+        window_size: 0.01,      // 10ms window
         buffer: vec![0.0; 441], // 10ms at 44.1kHz
         write_idx: 0,
     });
@@ -381,10 +394,13 @@ fn test_audio_analysis_nodes() {
     let buffer = graph.render(4410); // 100ms
 
     // RMS of sine wave should stabilize around 0.707
-    let last_samples = &buffer[buffer.len()-100..];
+    let last_samples = &buffer[buffer.len() - 100..];
     let avg_rms = last_samples.iter().sum::<f32>() / last_samples.len() as f32;
 
-    assert!((avg_rms - 0.707).abs() < 0.1, "RMS should be close to 0.707 for sine wave");
+    assert!(
+        (avg_rms - 0.707).abs() < 0.1,
+        "RMS should be close to 0.707 for sine wave"
+    );
 
     println!("✓ Audio analysis nodes work correctly");
 }
@@ -430,11 +446,17 @@ fn test_conditional_processing() {
     let quarter = buffer.len() / 4;
 
     // First quarter (gate = 1) should have signal
-    let first_max = buffer[0..quarter].iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+    let first_max = buffer[0..quarter]
+        .iter()
+        .map(|s| s.abs())
+        .fold(0.0f32, f32::max);
     assert!(first_max > 0.5, "First quarter should have signal");
 
     // Second quarter (gate = 0) should be silent
-    let second_max = buffer[quarter..2*quarter].iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+    let second_max = buffer[quarter..2 * quarter]
+        .iter()
+        .map(|s| s.abs())
+        .fold(0.0f32, f32::max);
     assert!(second_max < 0.1, "Second quarter should be gated");
 
     println!("✓ Conditional processing with When works");
@@ -504,7 +526,10 @@ fn test_pattern_driven_synthesis() {
     // Should have variation between sections
     let max_power = section_powers.iter().cloned().fold(0.0f32, f32::max);
     let min_power = section_powers.iter().cloned().fold(1.0f32, f32::min);
-    assert!((max_power - min_power) > 0.001, "Should have variation from patterns");
+    assert!(
+        (max_power - min_power) > 0.001,
+        "Should have variation from patterns"
+    );
 
     println!("✓ Pattern-driven synthesis works correctly");
 }

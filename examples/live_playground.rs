@@ -3,16 +3,16 @@
 //! Run with: cargo run --example live_playground
 //! Then edit live.phonon in your editor and save to hear changes
 
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform};
-use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Sample, SizedSample, FromSample};
-use notify::{Watcher, RecursiveMode, Result as NotifyResult, Event, EventKind};
-use std::sync::{Arc, Mutex};
-use std::path::Path;
+use cpal::{FromSample, Sample, SizedSample};
+use notify::{Event, EventKind, RecursiveMode, Result as NotifyResult, Watcher};
 use std::fs;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// Shared state for hot-reloading
@@ -57,7 +57,8 @@ out: ~bass * 0.4
 
     // Setup audio
     let host = cpal::default_host();
-    let device = host.default_output_device()
+    let device = host
+        .default_output_device()
         .ok_or("No audio output device found")?;
 
     let config = device.default_output_config()?;
@@ -79,17 +80,15 @@ out: ~bass * 0.4
 
     // Setup file watcher
     let state_clone = Arc::clone(&state);
-    let mut watcher = notify::recommended_watcher(move |res: NotifyResult<Event>| {
-        match res {
-            Ok(event) => {
-                if matches!(event.kind, EventKind::Modify(_)) {
-                    println!("\n🔄 File changed, reloading...");
-                    let mut state = state_clone.lock().unwrap();
-                    state.should_reload = true;
-                }
+    let mut watcher = notify::recommended_watcher(move |res: NotifyResult<Event>| match res {
+        Ok(event) => {
+            if matches!(event.kind, EventKind::Modify(_)) {
+                println!("\n🔄 File changed, reloading...");
+                let mut state = state_clone.lock().unwrap();
+                state.should_reload = true;
             }
-            Err(e) => eprintln!("Watch error: {:?}", e),
         }
+        Err(e) => eprintln!("Watch error: {:?}", e),
     })?;
 
     watcher.watch(Path::new(live_file), RecursiveMode::NonRecursive)?;
@@ -97,9 +96,7 @@ out: ~bass * 0.4
     // Setup audio stream
     let state_clone = Arc::clone(&state);
     let stream = match config.sample_format() {
-        cpal::SampleFormat::F32 => {
-            build_stream::<f32>(&device, &config.into(), state_clone)?
-        }
+        cpal::SampleFormat::F32 => build_stream::<f32>(&device, &config.into(), state_clone)?,
         _ => return Err("Unsupported sample format".into()),
     };
 
@@ -133,7 +130,8 @@ fn load_graph(state: &Arc<Mutex<LiveState>>, file: &str, sample_rate: f32) {
     match fs::read_to_string(file) {
         Ok(content) => {
             // Skip comments and empty lines
-            let cleaned: String = content.lines()
+            let cleaned: String = content
+                .lines()
                 .filter(|line| !line.trim().starts_with('#') && !line.trim().is_empty())
                 .collect::<Vec<_>>()
                 .join("\n");

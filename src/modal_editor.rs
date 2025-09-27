@@ -1,8 +1,9 @@
 //! Modal live coding editor with terminal UI
-//! 
+//!
 //! Provides a full-screen text editor for writing Phonon DSL code with
 //! real-time audio generation triggered by Shift+Enter
 
+use crate::live_engine::LiveEngine;
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
@@ -10,16 +11,15 @@ use crossterm::{
 };
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Alignment},
-    style::{Color, Modifier, Style},
+    layout::{Alignment, Constraint, Direction, Layout},
+    style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Wrap, Clear},
+    widgets::{Block, Borders, Paragraph, Wrap},
     Frame, Terminal,
 };
-use std::path::PathBuf;
 use std::fs;
 use std::io;
-use crate::live_engine::LiveEngine;
+use std::path::PathBuf;
 
 /// Modal live coding editor state
 pub struct ModalEditor {
@@ -43,7 +43,10 @@ pub struct ModalEditor {
 
 impl ModalEditor {
     /// Create a new modal editor
-    pub fn new(duration: f32, file_path: Option<PathBuf>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(
+        duration: f32,
+        file_path: Option<PathBuf>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let content = if let Some(ref path) = file_path {
             if path.exists() {
                 fs::read_to_string(path)?
@@ -57,18 +60,19 @@ impl ModalEditor {
 
         // Start the live audio engine
         let live_engine = LiveEngine::new(44100.0, duration).ok();
-        
+
         // Load the initial pattern into the engine
         if let Some(ref engine) = live_engine {
             let _ = engine.load_code(&content);
         }
-        
+
         Ok(Self {
             cursor_pos: content.len(),
             content,
             duration,
             file_path,
-            status_message: "🎵 Live Engine Running - Ctrl+X: reload | Ctrl+H: hush | Ctrl+P: panic".to_string(),
+            status_message:
+                "🎵 Live Engine Running - Ctrl+X: reload | Ctrl+H: hush | Ctrl+P: panic".to_string(),
             is_playing: false,
             error_message: None,
             live_engine,
@@ -95,7 +99,10 @@ impl ModalEditor {
     }
 
     /// Main application loop
-    fn run_app(&mut self, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(), Box<dyn std::error::Error>> {
+    fn run_app(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         loop {
             terminal.draw(|f| self.ui(f))?;
 
@@ -120,50 +127,46 @@ impl ModalEditor {
     fn handle_key_event(&mut self, key: KeyEvent) -> KeyResult {
         match key.code {
             // Control key combinations
-            KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                KeyResult::Quit
-            }
+            KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => KeyResult::Quit,
             KeyCode::Char('x') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                KeyResult::Play  // Ctrl+X for eXecute/reload
+                KeyResult::Play // Ctrl+X for eXecute/reload
             }
             KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.hush();
                 KeyResult::Continue
             }
-            KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                KeyResult::Save
-            }
+            KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => KeyResult::Save,
             // Emacs-style movement
             KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.move_cursor_right();  // Forward
+                self.move_cursor_right(); // Forward
                 KeyResult::Continue
             }
             KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.move_cursor_left();   // Backward
+                self.move_cursor_left(); // Backward
                 KeyResult::Continue
             }
             KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.move_cursor_down();   // Next line
+                self.move_cursor_down(); // Next line
                 KeyResult::Continue
             }
             KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.move_cursor_up();     // Previous line
+                self.move_cursor_up(); // Previous line
                 KeyResult::Continue
             }
             KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.move_cursor_line_start();  // Beginning of line
+                self.move_cursor_line_start(); // Beginning of line
                 KeyResult::Continue
             }
             KeyCode::Char('e') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.move_cursor_line_end();    // End of line
+                self.move_cursor_line_end(); // End of line
                 KeyResult::Continue
             }
             KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.delete_char_forward();     // Delete forward
+                self.delete_char_forward(); // Delete forward
                 KeyResult::Continue
             }
             KeyCode::Char('k') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.kill_line();               // Kill to end of line
+                self.kill_line(); // Kill to end of line
                 KeyResult::Continue
             }
             // Regular character input
@@ -213,8 +216,8 @@ impl ModalEditor {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Min(3),      // Editor area
-                Constraint::Length(3),   // Status area
+                Constraint::Min(3),    // Editor area
+                Constraint::Length(3), // Status area
             ])
             .split(f.size());
 
@@ -242,7 +245,7 @@ impl ModalEditor {
         };
 
         let status_text = if let Some(ref error) = self.error_message {
-            format!("❌ Error: {}", error)
+            format!("❌ Error: {error}")
         } else if self.is_playing {
             "🔊 Playing...".to_string()
         } else {
@@ -250,12 +253,12 @@ impl ModalEditor {
         };
 
         let help_text = "C-x: Reload | C-h: Hush | C-s: Save | C-q: Quit | C-p/n: ↑↓ | C-f/b: ←→";
-        
+
         let status_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1),   // Status message
-                Constraint::Length(1),   // Help text
+                Constraint::Length(1), // Status message
+                Constraint::Length(1), // Help text
             ])
             .split(chunks[1]);
 
@@ -275,7 +278,7 @@ impl ModalEditor {
     fn content_with_cursor(&self) -> Vec<Line> {
         let mut lines = Vec::new();
         let text_lines: Vec<&str> = self.content.split('\n').collect();
-        
+
         let mut current_pos = 0;
         let mut cursor_line = 0;
         let mut cursor_col = 0;
@@ -295,13 +298,10 @@ impl ModalEditor {
             if line_idx == cursor_line {
                 // Line with cursor
                 let mut spans = Vec::new();
-                
+
                 if line_text.is_empty() {
                     // Empty line - just show cursor block
-                    spans.push(Span::styled(
-                        " ",
-                        Style::default().bg(Color::White)
-                    ));
+                    spans.push(Span::styled(" ", Style::default().bg(Color::White)));
                 } else if cursor_col < line_text.len() {
                     // Cursor in middle of line
                     if cursor_col > 0 {
@@ -309,7 +309,7 @@ impl ModalEditor {
                     }
                     spans.push(Span::styled(
                         line_text.chars().nth(cursor_col).unwrap().to_string(),
-                        Style::default().bg(Color::White).fg(Color::Black)
+                        Style::default().bg(Color::White).fg(Color::Black),
                     ));
                     if cursor_col + 1 < line_text.len() {
                         spans.push(Span::raw(line_text[cursor_col + 1..].to_string()));
@@ -317,10 +317,7 @@ impl ModalEditor {
                 } else {
                     // Cursor at end of line
                     spans.push(Span::raw(line_text.to_string()));
-                    spans.push(Span::styled(
-                        " ",
-                        Style::default().bg(Color::White)
-                    ));
+                    spans.push(Span::styled(" ", Style::default().bg(Color::White)));
                 }
                 lines.push(Line::from(spans));
             } else {
@@ -337,7 +334,7 @@ impl ModalEditor {
         if lines.is_empty() && self.cursor_pos == 0 {
             lines.push(Line::from(Span::styled(
                 " ",
-                Style::default().bg(Color::White)
+                Style::default().bg(Color::White),
             )));
         }
 
@@ -354,7 +351,9 @@ impl ModalEditor {
     /// Delete character before cursor
     fn delete_char(&mut self) {
         if self.cursor_pos > 0 {
-            let char_start = self.content.char_indices()
+            let char_start = self
+                .content
+                .char_indices()
                 .nth(self.cursor_pos.saturating_sub(1))
                 .map(|(i, _)| i)
                 .unwrap_or(0);
@@ -376,13 +375,13 @@ impl ModalEditor {
     fn kill_line(&mut self) {
         let lines: Vec<&str> = self.content.split('\n').collect();
         let mut current_pos = 0;
-        
+
         for line in lines.iter() {
             if current_pos + line.len() >= self.cursor_pos {
                 // Found current line
                 let line_start = current_pos;
                 let line_end = current_pos + line.len();
-                
+
                 if self.cursor_pos < line_end {
                     // Remove from cursor to end of line
                     self.content.drain(self.cursor_pos..line_end);
@@ -429,14 +428,14 @@ impl ModalEditor {
             // Move to previous line
             let prev_line = lines[line_idx - 1];
             let new_col = col_in_line.min(prev_line.len());
-            
+
             // Calculate new cursor position
             let mut new_pos = 0;
             for i in 0..line_idx - 1 {
                 new_pos += lines[i].len() + 1;
             }
             new_pos += new_col;
-            
+
             self.cursor_pos = new_pos;
         }
     }
@@ -462,14 +461,14 @@ impl ModalEditor {
             // Move to next line
             let next_line = lines[line_idx + 1];
             let new_col = col_in_line.min(next_line.len());
-            
+
             // Calculate new cursor position
             let mut new_pos = 0;
             for i in 0..line_idx + 1 {
                 new_pos += lines[i].len() + 1;
             }
             new_pos += new_col;
-            
+
             self.cursor_pos = new_pos.min(self.content.len());
         }
     }
@@ -507,10 +506,10 @@ impl ModalEditor {
         if let Some(ref engine) = self.live_engine {
             self.error_message = None;
             self.status_message = "🔄 Reloading pattern...".to_string();
-            
+
             // Send the code to the live engine
             if let Err(e) = engine.load_code(&self.content) {
-                self.error_message = Some(format!("Failed to load: {}", e));
+                self.error_message = Some(format!("Failed to load: {e}"));
             } else {
                 self.status_message = "✅ Pattern reloaded!".to_string();
             }
@@ -518,23 +517,23 @@ impl ModalEditor {
             self.error_message = Some("Live engine not running".to_string());
         }
     }
-    
+
     /// Hush - silence all sound
     fn hush(&mut self) {
         if let Some(ref engine) = self.live_engine {
             if let Err(e) = engine.hush() {
-                self.error_message = Some(format!("Hush failed: {}", e));
+                self.error_message = Some(format!("Hush failed: {e}"));
             } else {
                 self.status_message = "🔇 Hushed - Ctrl+X to resume".to_string();
             }
         }
     }
-    
+
     /// Panic - stop everything
     fn panic(&mut self) {
         if let Some(ref engine) = self.live_engine {
             if let Err(e) = engine.panic() {
-                self.error_message = Some(format!("Panic failed: {}", e));
+                self.error_message = Some(format!("Panic failed: {e}"));
             } else {
                 self.status_message = "🚨 PANIC! All stopped - Ctrl+X to restart".to_string();
             }

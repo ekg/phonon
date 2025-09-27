@@ -1,5 +1,5 @@
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{State, TimeSpan, Fraction};
+use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 #[test]
@@ -9,10 +9,7 @@ fn test_single_arg_parsing() {
     // Test what bd(3) actually produces
     let pattern1 = parse_mini_notation("bd(3)");
     let state = State {
-        span: TimeSpan::new(
-            Fraction::new(0, 1),
-            Fraction::new(1, 1),
-        ),
+        span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
     };
 

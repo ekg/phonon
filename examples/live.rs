@@ -3,10 +3,10 @@
 //! Run with: cargo run --example live
 //! Then modify this file and recompile to hear changes
 
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, SignalExpr, Waveform};
-use phonon::mini_notation_v3::parse_mini_notation;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Sample, SizedSample, FromSample};
+use cpal::{FromSample, Sample, SizedSample};
+use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
 use std::sync::{Arc, Mutex};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,7 +16,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Setup audio
     let host = cpal::default_host();
-    let device = host.default_output_device()
+    let device = host
+        .default_output_device()
         .ok_or("No audio output device found")?;
 
     let config = device.default_output_config()?;
@@ -32,9 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Setup audio stream
     let graph_clone = Arc::clone(&graph);
     let stream = match config.sample_format() {
-        cpal::SampleFormat::F32 => {
-            build_stream::<f32>(&device, &config.into(), graph_clone)?
-        }
+        cpal::SampleFormat::F32 => build_stream::<f32>(&device, &config.into(), graph_clone)?,
         _ => return Err("Unsupported sample format".into()),
     };
 

@@ -2,15 +2,15 @@
 //!
 //! Run with: cargo run --example phonon_poll [filename.phonon]
 
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, SignalExpr, Waveform};
-use phonon::mini_notation_v3::parse_mini_notation;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Sample, SizedSample, FromSample};
-use std::sync::{Arc, Mutex};
-use std::path::{Path, PathBuf};
-use std::fs;
+use cpal::{FromSample, Sample, SizedSample};
+use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
 use std::env;
-use std::time::{SystemTime, Duration};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime};
 
 struct LiveState {
     graph: Option<UnifiedSignalGraph>,
@@ -35,7 +35,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Setup audio
     let host = cpal::default_host();
-    let device = host.default_output_device()
+    let device = host
+        .default_output_device()
         .ok_or("No audio output device found")?;
 
     let config = device.default_output_config()?;
@@ -59,9 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Audio stream
     let state_clone = Arc::clone(&state);
     let stream = match config.sample_format() {
-        cpal::SampleFormat::F32 => {
-            build_stream::<f32>(&device, &config.into(), state_clone)?
-        }
+        cpal::SampleFormat::F32 => build_stream::<f32>(&device, &config.into(), state_clone)?,
         _ => return Err("Unsupported sample format".into()),
     };
 
@@ -213,13 +212,13 @@ fn parse_parameter(
     graph: &mut UnifiedSignalGraph,
     param_str: &str,
     buses: &std::collections::HashMap<String, phonon::unified_graph::NodeId>,
-    default_value: f32
+    default_value: f32,
 ) -> Signal {
     let param_str = param_str.trim();
 
     // Check if it's a pattern in quotes
     if param_str.starts_with('"') && param_str.ends_with('"') {
-        let pattern_str = &param_str[1..param_str.len()-1];
+        let pattern_str = &param_str[1..param_str.len() - 1];
 
         let pattern = parse_mini_notation(pattern_str);
         let pattern_node = graph.add_node(SignalNode::Pattern {
@@ -245,13 +244,13 @@ fn parse_parameter(
 fn parse_expression(
     graph: &mut UnifiedSignalGraph,
     expr: &str,
-    buses: &std::collections::HashMap<String, phonon::unified_graph::NodeId>
+    buses: &std::collections::HashMap<String, phonon::unified_graph::NodeId>,
 ) -> Option<phonon::unified_graph::NodeId> {
     let expr = expr.trim();
 
     // Pattern in quotes: "bd ~ sn ~"
     if expr.starts_with('"') && expr.ends_with('"') {
-        let pattern_str = &expr[1..expr.len()-1];
+        let pattern_str = &expr[1..expr.len() - 1];
         let pattern = parse_mini_notation(pattern_str);
         return Some(graph.add_node(SignalNode::Pattern {
             pattern_str: pattern_str.to_string(),
@@ -267,8 +266,11 @@ fn parse_expression(
 
     // Oscillator: sine(440), sine("100 200 300"), sine(lfo)
     if expr.starts_with("sine(") || expr.starts_with("sin(") {
-        if let Some(freq_str) = expr.strip_prefix("sine(").or(expr.strip_prefix("sin("))
-            .and_then(|s| s.strip_suffix(")")) {
+        if let Some(freq_str) = expr
+            .strip_prefix("sine(")
+            .or(expr.strip_prefix("sin("))
+            .and_then(|s| s.strip_suffix(")"))
+        {
             let freq_signal = parse_parameter(graph, freq_str, buses, 440.0);
             return Some(graph.add_node(SignalNode::Oscillator {
                 freq: freq_signal,
@@ -290,8 +292,11 @@ fn parse_expression(
     }
 
     if expr.starts_with("square(") || expr.starts_with("sq(") {
-        if let Some(freq_str) = expr.strip_prefix("square(").or(expr.strip_prefix("sq("))
-            .and_then(|s| s.strip_suffix(")")) {
+        if let Some(freq_str) = expr
+            .strip_prefix("square(")
+            .or(expr.strip_prefix("sq("))
+            .and_then(|s| s.strip_suffix(")"))
+        {
             let freq_signal = parse_parameter(graph, freq_str, buses, 220.0);
             return Some(graph.add_node(SignalNode::Oscillator {
                 freq: freq_signal,
@@ -322,7 +327,7 @@ fn parse_expression(
         let parts: Vec<&str> = expr.splitn(2, " >> lpf(").collect();
         if parts.len() == 2 && parts[1].ends_with(")") {
             let input_expr = parts[0];
-            let params = &parts[1][..parts[1].len()-1];
+            let params = &parts[1][..parts[1].len() - 1];
             let param_parts: Vec<&str> = params.split(',').map(|s| s.trim()).collect();
 
             if let Some(input) = parse_expression(graph, input_expr, buses) {
@@ -355,7 +360,7 @@ fn parse_expression(
         let parts: Vec<&str> = expr.splitn(2, " >> hpf(").collect();
         if parts.len() == 2 && parts[1].ends_with(")") {
             let input_expr = parts[0];
-            let params = &parts[1][..parts[1].len()-1];
+            let params = &parts[1][..parts[1].len() - 1];
             let param_parts: Vec<&str> = params.split(',').map(|s| s.trim()).collect();
 
             if let Some(input) = parse_expression(graph, input_expr, buses) {
@@ -389,7 +394,7 @@ fn parse_expression(
         if parts.len() == 2 {
             if let (Some(left), Some(right)) = (
                 parse_expression(graph, parts[0], buses),
-                parse_expression(graph, parts[1], buses)
+                parse_expression(graph, parts[1], buses),
             ) {
                 return Some(graph.add_node(SignalNode::Multiply {
                     a: Signal::Node(left),
@@ -404,7 +409,7 @@ fn parse_expression(
         if parts.len() == 2 {
             if let (Some(left), Some(right)) = (
                 parse_expression(graph, parts[0], buses),
-                parse_expression(graph, parts[1], buses)
+                parse_expression(graph, parts[1], buses),
             ) {
                 return Some(graph.add_node(SignalNode::Add {
                     a: Signal::Node(left),

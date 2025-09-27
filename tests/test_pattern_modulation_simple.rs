@@ -59,7 +59,10 @@ fn test_pattern_ops_in_dsl() {
         Ok(env) => {
             println!("  ✓ DSL with pattern ops parsed successfully");
             assert!(env.output_chain.is_some(), "Should have output chain");
-            assert!(env.ref_chains.contains_key("drums"), "Should have drums bus");
+            assert!(
+                env.ref_chains.contains_key("drums"),
+                "Should have drums bus"
+            );
         }
         Err(e) => {
             panic!("Failed to parse DSL: {}", e);
@@ -133,16 +136,14 @@ fn test_pattern_ops_precedence() {
 
             // Should parse as chain with pattern op on left
             match expr {
-                Expr::Chain(left, _right) => {
-                    match left.as_ref() {
-                        Expr::PatternOp(_, _) => {
-                            println!("  ✓ Pattern ops bind before DSP chains");
-                        }
-                        other => {
-                            panic!("Expected PatternOp on left, got: {:?}", other);
-                        }
+                Expr::Chain(left, _right) => match left.as_ref() {
+                    Expr::PatternOp(_, _) => {
+                        println!("  ✓ Pattern ops bind before DSP chains");
                     }
-                }
+                    other => {
+                        panic!("Expected PatternOp on left, got: {:?}", other);
+                    }
+                },
                 other => {
                     panic!("Expected Chain, got: {:?}", other);
                 }
@@ -164,13 +165,10 @@ fn test_pattern_modulation_guide() {
         (r#""bd sn" |> fast 2"#, "Speed up pattern 2x"),
         (r#""bd sn" |> slow 3"#, "Slow down pattern 3x"),
         (r#""bd sn" |> rev"#, "Reverse the pattern"),
-
         // Chained operations
         (r#""100 200" |> fast 2 |> rev"#, "Fast then reverse"),
-
         // With DSP
         (r#""bd*4" |> fast 2 >> amp 0.7"#, "Pattern op then DSP"),
-
         // Complex
         (r#""bd . . bd" |> every 8 (slow 2)"#, "Every 8th cycle slow"),
         (r#""hh*16" |> degradeBy 0.3 |> fast 2"#, "Degrade then fast"),

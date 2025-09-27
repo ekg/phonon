@@ -2,7 +2,7 @@
 //! Tests all operators including Euclidean rhythms, brackets, commas, etc.
 
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Pattern, State, TimeSpan, Fraction};
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 
 /// Helper to query a pattern for a specific cycle
@@ -13,10 +13,17 @@ fn query_cycle(pattern: &Pattern<String>, cycle: usize) -> Vec<(f64, f64, String
         span: TimeSpan::new(begin, end),
         controls: HashMap::new(),
     };
-    
-    pattern.query(&state)
+
+    pattern
+        .query(&state)
         .into_iter()
-        .map(|hap| (hap.part.begin.to_float(), hap.part.end.to_float(), hap.value))
+        .map(|hap| {
+            (
+                hap.part.begin.to_float(),
+                hap.part.end.to_float(),
+                hap.value,
+            )
+        })
         .collect()
 }
 
@@ -36,16 +43,16 @@ fn test_euclidean_rhythm_3_8() {
     // Basic euclidean rhythm bd(3,8) should produce 3 evenly spaced hits in 8 steps
     let pattern = parse_mini_notation("bd(3,8)");
     let events = query_cycle(&pattern, 0);
-    
+
     // Debug what we actually get
     println!("\nEuclidean bd(3,8) events:");
     for e in &events {
         println!("  {:.3} -> {:.3} : {}", e.0, e.1, e.2);
     }
-    
+
     // Should have exactly 3 bd events
     assert_eq!(count_events(&events, "bd"), 3);
-    
+
     // Just check that we have 3 evenly distributed events
     // The exact positions may vary based on the algorithm used
     assert_eq!(events.len(), 3);
@@ -57,7 +64,7 @@ fn test_euclidean_rhythm_3_8() {
 fn test_euclidean_rhythm_5_8() {
     let pattern = parse_mini_notation("hh(5,8)");
     let events = query_cycle(&pattern, 0);
-    
+
     // Should have exactly 5 hh events
     assert_eq!(count_events(&events, "hh"), 5);
 }
@@ -68,7 +75,7 @@ fn test_euclidean_rhythm_with_rotation() {
     // Test with rotation parameter
     let pattern = parse_mini_notation("cp(3,8,1)");
     let events = query_cycle(&pattern, 0);
-    
+
     // Should still have 3 events but rotated
     assert_eq!(count_events(&events, "cp"), 3);
 }
@@ -79,7 +86,7 @@ fn test_euclidean_in_sequence() {
     // Euclidean rhythm mixed with regular patterns
     let pattern = parse_mini_notation("bd(3,8) sn");
     let events = query_cycle(&pattern, 0);
-    
+
     // Should have both bd events from euclidean and sn
     assert!(count_events(&events, "bd") > 0);
     assert!(count_events(&events, "sn") > 0);
@@ -91,16 +98,22 @@ fn test_brackets_create_groups() {
     // Brackets should subdivide time
     let pattern = parse_mini_notation("[bd sn] hh");
     let events = query_cycle(&pattern, 0);
-    
+
     // bd and sn should share first half, hh gets second half
     assert_eq!(count_events(&events, "bd"), 1);
     assert_eq!(count_events(&events, "sn"), 1);
     assert_eq!(count_events(&events, "hh"), 1);
-    
+
     // Check timing - bd at 0, sn at 0.25, hh at 0.5
-    assert!(events.iter().any(|e| e.2 == "bd" && (e.0 - 0.0).abs() < 0.01));
-    assert!(events.iter().any(|e| e.2 == "sn" && (e.0 - 0.25).abs() < 0.01));
-    assert!(events.iter().any(|e| e.2 == "hh" && (e.0 - 0.5).abs() < 0.01));
+    assert!(events
+        .iter()
+        .any(|e| e.2 == "bd" && (e.0 - 0.0).abs() < 0.01));
+    assert!(events
+        .iter()
+        .any(|e| e.2 == "sn" && (e.0 - 0.25).abs() < 0.01));
+    assert!(events
+        .iter()
+        .any(|e| e.2 == "hh" && (e.0 - 0.5).abs() < 0.01));
 }
 
 #[test]
@@ -108,7 +121,7 @@ fn test_brackets_create_groups() {
 fn test_nested_brackets() {
     let pattern = parse_mini_notation("[[bd sn] cp] hh");
     let events = query_cycle(&pattern, 0);
-    
+
     // All four samples should be present
     assert_eq!(count_events(&events, "bd"), 1);
     assert_eq!(count_events(&events, "sn"), 1);
@@ -122,7 +135,7 @@ fn test_comma_creates_polyrhythm() {
     // Commas in parentheses create polyrhythms (simultaneous patterns)
     let pattern = parse_mini_notation("(bd sn, hh hh hh)");
     let events = query_cycle(&pattern, 0);
-    
+
     // Should have 2 events from first pattern (bd, sn) and 3 from second (hh hh hh)
     assert_eq!(count_events(&events, "bd"), 1);
     assert_eq!(count_events(&events, "sn"), 1);
@@ -135,7 +148,7 @@ fn test_complex_polyrhythm() {
     // Multiple comma-separated patterns
     let pattern = parse_mini_notation("(bd, sn cp, hh*3)");
     let events = query_cycle(&pattern, 0);
-    
+
     // bd spans full cycle, sn and cp split the cycle, 3 hh events
     assert_eq!(count_events(&events, "bd"), 1);
     assert_eq!(count_events(&events, "sn"), 1);
@@ -149,7 +162,7 @@ fn test_polyrhythm_in_brackets() {
     // Polyrhythm inside brackets
     let pattern = parse_mini_notation("[(bd, hh*2)] sn");
     let events = query_cycle(&pattern, 0);
-    
+
     // First half has bd and 2 hh simultaneously, second half has sn
     assert!(assert_events_contain(&events, "bd"));
     assert!(assert_events_contain(&events, "sn"));
@@ -161,13 +174,13 @@ fn test_polyrhythm_in_brackets() {
 fn test_star_operator_repeat() {
     let pattern = parse_mini_notation("bd*4");
     let events = query_cycle(&pattern, 0);
-    
+
     // Debug output
     println!("\nbd*4 events:");
     for e in &events {
         println!("  {:.3} -> {:.3} : {}", e.0, e.1, e.2);
     }
-    
+
     // Should have exactly 4 bd events
     assert_eq!(count_events(&events, "bd"), 4);
 }
@@ -176,11 +189,11 @@ fn test_star_operator_repeat() {
 // Fixed
 fn test_slash_operator_slow() {
     let pattern = parse_mini_notation("bd/2");
-    
+
     // bd should span 2 cycles
     let events_0 = query_cycle(&pattern, 0);
     let events_1 = query_cycle(&pattern, 1);
-    
+
     assert_eq!(count_events(&events_0, "bd"), 1);
     assert_eq!(count_events(&events_1, "bd"), 1);
 }
@@ -189,13 +202,13 @@ fn test_slash_operator_slow() {
 // Fixed
 fn test_angle_brackets_alternation() {
     let pattern = parse_mini_notation("<bd sn cp>");
-    
+
     // Should cycle through bd, sn, cp
     let events_0 = query_cycle(&pattern, 0);
     let events_1 = query_cycle(&pattern, 1);
     let events_2 = query_cycle(&pattern, 2);
     let events_3 = query_cycle(&pattern, 3);
-    
+
     assert_eq!(events_0[0].2, "bd");
     assert_eq!(events_1[0].2, "sn");
     assert_eq!(events_2[0].2, "cp");
@@ -207,7 +220,7 @@ fn test_angle_brackets_alternation() {
 fn test_rest_with_tilde() {
     let pattern = parse_mini_notation("bd ~ sn ~");
     let events = query_cycle(&pattern, 0);
-    
+
     // Should only have bd and sn, no events for rests
     assert_eq!(events.len(), 2);
     assert_eq!(count_events(&events, "bd"), 1);
@@ -220,7 +233,7 @@ fn test_combination_euclidean_and_brackets() {
     // Combine euclidean with grouping
     let pattern = parse_mini_notation("[bd(3,8)] sn");
     let events = query_cycle(&pattern, 0);
-    
+
     // First half should have euclidean bd pattern, second half sn
     assert!(count_events(&events, "bd") > 0);
     assert_eq!(count_events(&events, "sn"), 1);
@@ -232,7 +245,7 @@ fn test_combination_euclidean_and_polyrhythm() {
     // Euclidean in a polyrhythm
     let pattern = parse_mini_notation("(bd(3,8), hh*4)");
     let events = query_cycle(&pattern, 0);
-    
+
     // Should have 3 bd from euclidean and 4 hh
     assert_eq!(count_events(&events, "bd"), 3);
     assert_eq!(count_events(&events, "hh"), 4);
@@ -243,16 +256,16 @@ fn test_combination_euclidean_and_polyrhythm() {
 fn test_complex_nested_pattern() {
     // A complex pattern combining multiple features
     let pattern = parse_mini_notation("[bd sn, hh*2] <cp arpy>");
-    
+
     let events_0 = query_cycle(&pattern, 0);
     let events_1 = query_cycle(&pattern, 1);
-    
+
     // First cycle: bd, sn, 2 hh in first half, cp in second half
     assert!(assert_events_contain(&events_0, "bd"));
     assert!(assert_events_contain(&events_0, "sn"));
     assert_eq!(count_events(&events_0, "hh"), 2);
     assert!(assert_events_contain(&events_0, "cp"));
-    
+
     // Second cycle: same first half, should have arpy but alternation doesn't work properly yet
     assert!(assert_events_contain(&events_1, "bd"));
     assert!(assert_events_contain(&events_1, "sn"));
@@ -277,9 +290,21 @@ fn test_question_mark_degrade() {
 
     // Current behavior: all 4 elements appear in each cycle
     // TODO: Fix per-element degradation in sequences
-    assert_eq!(events_0.len(), 4, "Currently all elements appear (known issue)");
-    assert_eq!(events_1.len(), 4, "Currently all elements appear (known issue)");
-    assert_eq!(events_2.len(), 4, "Currently all elements appear (known issue)");
+    assert_eq!(
+        events_0.len(),
+        4,
+        "Currently all elements appear (known issue)"
+    );
+    assert_eq!(
+        events_1.len(),
+        4,
+        "Currently all elements appear (known issue)"
+    );
+    assert_eq!(
+        events_2.len(),
+        4,
+        "Currently all elements appear (known issue)"
+    );
 
     // Test that individual degradation works
     let single_degrade = parse_mini_notation("bd?");
@@ -294,9 +319,12 @@ fn test_question_mark_degrade() {
         }
     }
     // Should have roughly 50/50 distribution
-    assert!(degraded_count > 5 && present_count > 5,
-            "Single element degradation should work: {} degraded, {} present",
-            degraded_count, present_count);
+    assert!(
+        degraded_count > 5 && present_count > 5,
+        "Single element degradation should work: {} degraded, {} present",
+        degraded_count,
+        present_count
+    );
 }
 
 #[test]
@@ -304,10 +332,12 @@ fn test_question_mark_degrade() {
 fn test_at_operator_delay() {
     let pattern = parse_mini_notation("bd@0.25");
     let events = query_cycle(&pattern, 0);
-    
+
     // bd should be delayed by 0.25
     assert_eq!(count_events(&events, "bd"), 1);
-    assert!(events.iter().any(|e| e.2 == "bd" && (e.0 - 0.25).abs() < 0.05));
+    assert!(events
+        .iter()
+        .any(|e| e.2 == "bd" && (e.0 - 0.25).abs() < 0.05));
 }
 
 // Main test runner

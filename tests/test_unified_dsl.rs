@@ -53,11 +53,20 @@ fn test_pattern_in_dsl() {
 
     // Should have alternating loud/quiet sections
     let quarter = buffer.len() / 4;
-    let first_max = buffer[0..quarter].iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-    let second_max = buffer[quarter..2*quarter].iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+    let first_max = buffer[0..quarter]
+        .iter()
+        .map(|s| s.abs())
+        .fold(0.0f32, f32::max);
+    let second_max = buffer[quarter..2 * quarter]
+        .iter()
+        .map(|s| s.abs())
+        .fold(0.0f32, f32::max);
 
     // Pattern should create variation
-    assert!((first_max - second_max).abs() > 0.1, "Pattern should create variation");
+    assert!(
+        (first_max - second_max).abs() > 0.1,
+        "Pattern should create variation"
+    );
 
     println!("✓ Patterns work in DSL");
 }
@@ -89,7 +98,8 @@ fn test_complex_modulation_dsl() {
 
     // Check for amplitude variation from envelope
     let max_amp = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-    let min_amp = buffer.iter()
+    let min_amp = buffer
+        .iter()
         .filter(|&&s| s.abs() > 0.001)
         .map(|s| s.abs())
         .fold(1.0f32, f32::min);

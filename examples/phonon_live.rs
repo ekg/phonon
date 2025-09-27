@@ -3,15 +3,15 @@
 //! Run with: cargo run --example phonon_live [filename.phonon]
 //! Defaults to live.phonon if no file specified
 
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, SignalExpr, Waveform};
-use phonon::mini_notation_v3::parse_mini_notation;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Sample, SizedSample, FromSample};
-use notify::{Watcher, RecursiveMode, Result as NotifyResult, Event, EventKind};
-use std::sync::{Arc, Mutex};
-use std::path::{Path, PathBuf};
-use std::fs;
+use cpal::{FromSample, Sample, SizedSample};
+use notify::{Event, EventKind, RecursiveMode, Result as NotifyResult, Watcher};
+use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
 use std::env;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 struct LiveState {
     graph: Option<UnifiedSignalGraph>,
@@ -38,7 +38,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Setup audio
     let host = cpal::default_host();
-    let device = host.default_output_device()
+    let device = host
+        .default_output_device()
         .ok_or("No audio output device found")?;
 
     let config = device.default_output_config()?;
@@ -69,17 +70,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Check for any write/modify events
                 let should_reload = matches!(
                     event.kind,
-                    EventKind::Modify(_) |
-                    EventKind::Create(_) |
-                    EventKind::Remove(_) |
-                    EventKind::Any
+                    EventKind::Modify(_)
+                        | EventKind::Create(_)
+                        | EventKind::Remove(_)
+                        | EventKind::Any
                 );
 
                 if should_reload {
                     // Check if it's our file
-                    if event.paths.is_empty() || event.paths.iter().any(|p| {
-                        p == &watched_path || p.file_name() == watched_path.file_name()
-                    }) {
+                    if event.paths.is_empty()
+                        || event.paths.iter().any(|p| {
+                            p == &watched_path || p.file_name() == watched_path.file_name()
+                        })
+                    {
                         println!("🔄 Triggering reload for: {:?}", event.paths);
                         let mut state = state_clone.lock().unwrap();
                         state.should_reload = true;
@@ -98,9 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Audio stream
     let state_clone = Arc::clone(&state);
     let stream = match config.sample_format() {
-        cpal::SampleFormat::F32 => {
-            build_stream::<f32>(&device, &config.into(), state_clone)?
-        }
+        cpal::SampleFormat::F32 => build_stream::<f32>(&device, &config.into(), state_clone)?,
         _ => return Err("Unsupported sample format".into()),
     };
 
@@ -147,18 +148,16 @@ fn load_file(state: &Arc<Mutex<LiveState>>, sample_rate: f32) {
     drop(state_lock);
 
     match fs::read_to_string(&filepath) {
-        Ok(content) => {
-            match parse_phonon_file(&content, sample_rate) {
-                Ok(graph) => {
-                    let mut state = state.lock().unwrap();
-                    state.graph = Some(graph);
-                    println!("✅ Loaded successfully");
-                }
-                Err(e) => {
-                    println!("❌ Parse error: {}", e);
-                }
+        Ok(content) => match parse_phonon_file(&content, sample_rate) {
+            Ok(graph) => {
+                let mut state = state.lock().unwrap();
+                state.graph = Some(graph);
+                println!("✅ Loaded successfully");
             }
-        }
+            Err(e) => {
+                println!("❌ Parse error: {}", e);
+            }
+        },
         Err(e) => {
             println!("❌ Could not read file: {}", e);
         }
@@ -241,13 +240,13 @@ fn parse_phonon_file(content: &str, sample_rate: f32) -> Result<UnifiedSignalGra
 fn parse_expression(
     graph: &mut UnifiedSignalGraph,
     expr: &str,
-    buses: &std::collections::HashMap<String, phonon::unified_graph::NodeId>
+    buses: &std::collections::HashMap<String, phonon::unified_graph::NodeId>,
 ) -> Option<phonon::unified_graph::NodeId> {
     let expr = expr.trim();
 
     // Pattern in quotes: "bd ~ sn ~"
     if expr.starts_with('"') && expr.ends_with('"') {
-        let pattern_str = &expr[1..expr.len()-1];
+        let pattern_str = &expr[1..expr.len() - 1];
         let pattern = parse_mini_notation(pattern_str);
         return Some(graph.add_node(SignalNode::Pattern {
             pattern_str: pattern_str.to_string(),
@@ -263,8 +262,11 @@ fn parse_expression(
 
     // Oscillator: sine(440), saw(110)
     if expr.starts_with("sine(") || expr.starts_with("sin(") {
-        if let Some(freq_str) = expr.strip_prefix("sine(").or(expr.strip_prefix("sin("))
-            .and_then(|s| s.strip_suffix(")")) {
+        if let Some(freq_str) = expr
+            .strip_prefix("sine(")
+            .or(expr.strip_prefix("sin("))
+            .and_then(|s| s.strip_suffix(")"))
+        {
             let freq = freq_str.parse::<f32>().unwrap_or(440.0);
             return Some(graph.add_node(SignalNode::Oscillator {
                 freq: Signal::Value(freq),
@@ -286,8 +288,11 @@ fn parse_expression(
     }
 
     if expr.starts_with("square(") || expr.starts_with("sq(") {
-        if let Some(freq_str) = expr.strip_prefix("square(").or(expr.strip_prefix("sq("))
-            .and_then(|s| s.strip_suffix(")")) {
+        if let Some(freq_str) = expr
+            .strip_prefix("square(")
+            .or(expr.strip_prefix("sq("))
+            .and_then(|s| s.strip_suffix(")"))
+        {
             let freq = freq_str.parse::<f32>().unwrap_or(220.0);
             return Some(graph.add_node(SignalNode::Oscillator {
                 freq: Signal::Value(freq),
@@ -318,14 +323,16 @@ fn parse_expression(
         let parts: Vec<&str> = expr.splitn(2, " >> lpf(").collect();
         if parts.len() == 2 && parts[1].ends_with(")") {
             let input_expr = parts[0];
-            let params = &parts[1][..parts[1].len()-1];
+            let params = &parts[1][..parts[1].len() - 1];
             let param_parts: Vec<&str> = params.split(',').map(|s| s.trim()).collect();
 
             if let Some(input) = parse_expression(graph, input_expr, buses) {
-                let cutoff = param_parts.get(0)
+                let cutoff = param_parts
+                    .get(0)
                     .and_then(|s| s.parse::<f32>().ok())
                     .unwrap_or(1000.0);
-                let q = param_parts.get(1)
+                let q = param_parts
+                    .get(1)
                     .and_then(|s| s.parse::<f32>().ok())
                     .unwrap_or(1.0);
 
@@ -344,14 +351,16 @@ fn parse_expression(
         let parts: Vec<&str> = expr.splitn(2, " >> hpf(").collect();
         if parts.len() == 2 && parts[1].ends_with(")") {
             let input_expr = parts[0];
-            let params = &parts[1][..parts[1].len()-1];
+            let params = &parts[1][..parts[1].len() - 1];
             let param_parts: Vec<&str> = params.split(',').map(|s| s.trim()).collect();
 
             if let Some(input) = parse_expression(graph, input_expr, buses) {
-                let cutoff = param_parts.get(0)
+                let cutoff = param_parts
+                    .get(0)
                     .and_then(|s| s.parse::<f32>().ok())
                     .unwrap_or(1000.0);
-                let q = param_parts.get(1)
+                let q = param_parts
+                    .get(1)
                     .and_then(|s| s.parse::<f32>().ok())
                     .unwrap_or(1.0);
 
@@ -371,7 +380,7 @@ fn parse_expression(
         if parts.len() == 2 {
             if let (Some(left), Some(right)) = (
                 parse_expression(graph, parts[0], buses),
-                parse_expression(graph, parts[1], buses)
+                parse_expression(graph, parts[1], buses),
             ) {
                 return Some(graph.add_node(SignalNode::Multiply {
                     a: Signal::Node(left),
@@ -386,7 +395,7 @@ fn parse_expression(
         if parts.len() == 2 {
             if let (Some(left), Some(right)) = (
                 parse_expression(graph, parts[0], buses),
-                parse_expression(graph, parts[1], buses)
+                parse_expression(graph, parts[1], buses),
             ) {
                 return Some(graph.add_node(SignalNode::Add {
                     a: Signal::Node(left),
@@ -449,7 +458,9 @@ fn ensure_example_files() -> std::io::Result<()> {
     // Create example files if they don't exist
 
     if !Path::new("bass.phonon").exists() {
-        fs::write("bass.phonon", r#"# Bass patch with filter sweep
+        fs::write(
+            "bass.phonon",
+            r#"# Bass patch with filter sweep
 tempo 2.0
 
 lfo = sine(0.25) * 0.5 + 0.5
@@ -458,11 +469,14 @@ bass = saw(55)
 # filtered = bass >> lpf(lfo * 2000 + 500)
 
 out bass * 0.3
-"#)?;
+"#,
+        )?;
     }
 
     if !Path::new("drums.phonon").exists() {
-        fs::write("drums.phonon", r#"# Drum patterns
+        fs::write(
+            "drums.phonon",
+            r#"# Drum patterns
 tempo 2.0
 
 kick = "1 0 0 1"
@@ -472,11 +486,14 @@ snare = "0 1 0 1"
 # snare_sound = noise * snare
 
 out kick * 0.5
-"#)?;
+"#,
+        )?;
     }
 
     if !Path::new("ambient.phonon").exists() {
-        fs::write("ambient.phonon", r#"# Ambient pad
+        fs::write(
+            "ambient.phonon",
+            r#"# Ambient pad
 tempo 0.5
 
 # Detuned oscillators
@@ -486,7 +503,8 @@ osc3 = sine(330) * 0.3
 mixed = osc1 + osc2 + osc3
 
 out mixed * 0.1
-"#)?;
+"#,
+        )?;
     }
 
     Ok(())

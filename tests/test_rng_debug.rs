@@ -1,5 +1,5 @@
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 #[test]
 fn test_rng_generation() {

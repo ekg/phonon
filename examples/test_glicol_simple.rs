@@ -7,7 +7,7 @@ fn main() {
         "~bass: saw 55 >> lpf 2000 0.8",
         "o: ~bass >> reverb 0.8 0.5 >> mul 0.4",
     ];
-    
+
     for line in &lines {
         println!("\nParsing: {}", line);
         match parse_glicol(line) {

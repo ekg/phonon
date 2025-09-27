@@ -1,5 +1,5 @@
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{State, TimeSpan, Fraction};
+use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 #[test]
@@ -19,10 +19,12 @@ fn debug_degrade() {
         };
 
         let events = pattern.query(&state);
-        println!("Cycle {}: {} events - {:?}",
-                 cycle,
-                 events.len(),
-                 events.iter().map(|e| &e.value).collect::<Vec<_>>());
+        println!(
+            "Cycle {}: {} events - {:?}",
+            cycle,
+            events.len(),
+            events.iter().map(|e| &e.value).collect::<Vec<_>>()
+        );
     }
 
     // Test without degrade for comparison
@@ -35,7 +37,9 @@ fn debug_degrade() {
     };
 
     let events = pattern2.query(&state);
-    println!("Cycle 0: {} events - {:?}",
-             events.len(),
-             events.iter().map(|e| &e.value).collect::<Vec<_>>());
+    println!(
+        "Cycle 0: {} events - {:?}",
+        events.len(),
+        events.iter().map(|e| &e.value).collect::<Vec<_>>()
+    );
 }

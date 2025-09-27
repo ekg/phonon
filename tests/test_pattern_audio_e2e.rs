@@ -6,20 +6,20 @@
 //! 3. Use FFT to verify frequency content changes
 //! 4. Analyze audio chunks to confirm pattern cycling
 
+use phonon::dsp_parameter::DspParameter;
 use phonon::glicol_parser::parse_glicol;
 use phonon::glicol_parser_v2::parse_glicol_v2;
 use phonon::simple_dsp_executor::SimpleDspExecutor;
 use phonon::simple_dsp_executor_v2::SimpleDspExecutorV2;
-use phonon::dsp_parameter::DspParameter;
 use std::f32::consts::PI;
 
 /// Perform a simple FFT to get frequency spectrum
 fn compute_fft(samples: &[f32]) -> Vec<f32> {
     let n = samples.len();
-    let mut spectrum = vec![0.0; n/2];
+    let mut spectrum = vec![0.0; n / 2];
 
     // Simple DFT (not optimized, but good enough for testing)
-    for k in 0..n/2 {
+    for k in 0..n / 2 {
         let mut real = 0.0;
         let mut imag = 0.0;
 
@@ -126,15 +126,16 @@ fn test_oscillator_frequency_pattern_modulation() {
             // Check if we're close to one of the expected frequencies
             let mut found_match = false;
             for expected in &expected_freqs {
-                if (freq - expected).abs() < 50.0 { // 50 Hz tolerance
+                if (freq - expected).abs() < 50.0 {
+                    // 50 Hz tolerance
                     found_match = true;
                     break;
                 }
             }
 
-            if freq > 100.0 { // Ignore silence
-                assert!(found_match,
-                    "Frequency {} Hz doesn't match pattern", freq);
+            if freq > 100.0 {
+                // Ignore silence
+                assert!(found_match, "Frequency {} Hz doesn't match pattern", freq);
             }
         }
     }
@@ -200,8 +201,7 @@ fn test_filter_cutoff_pattern_spectral_analysis() {
         let variation = max_centroid - min_centroid;
 
         println!("  Brightness variation: {:.0} Hz", variation);
-        assert!(variation > 100.0,
-            "Not enough filter modulation detected");
+        assert!(variation > 100.0, "Not enough filter modulation detected");
     }
 
     println!("✓ Filter cutoff pattern modulation verified through spectral analysis");
@@ -275,7 +275,7 @@ fn test_complex_modulation_chain() {
         // Simple brightness measure: high-frequency energy
         let mut hf_energy = 0.0;
         for j in 1..chunk.len() {
-            let diff = chunk[j] - chunk[j-1];
+            let diff = chunk[j] - chunk[j - 1];
             hf_energy += diff * diff;
         }
         brightness_values.push(hf_energy);
@@ -287,14 +287,18 @@ fn test_complex_modulation_chain() {
     if brightness_values.len() > 10 {
         // Find peaks and troughs
         let mut peaks = 0;
-        for i in 1..brightness_values.len()-1 {
-            if brightness_values[i] > brightness_values[i-1] &&
-               brightness_values[i] > brightness_values[i+1] {
+        for i in 1..brightness_values.len() - 1 {
+            if brightness_values[i] > brightness_values[i - 1]
+                && brightness_values[i] > brightness_values[i + 1]
+            {
                 peaks += 1;
             }
         }
 
-        println!("  Found {} brightness peaks (expecting ~2 for 2Hz LFO)", peaks);
+        println!(
+            "  Found {} brightness peaks (expecting ~2 for 2Hz LFO)",
+            peaks
+        );
         assert!(peaks >= 1, "No LFO modulation detected");
     }
 
@@ -320,11 +324,16 @@ fn test_arithmetic_expression_in_audio() {
     // Find frequency
     if audio.data.len() >= 1024 {
         let freq = find_peak_frequency(&audio.data[..1024], 44100.0);
-        println!("  Expression (200 + 240) generated frequency: {:.0} Hz", freq);
+        println!(
+            "  Expression (200 + 240) generated frequency: {:.0} Hz",
+            freq
+        );
 
         // Should be around 440 Hz
-        assert!((freq - 440.0).abs() < 50.0,
-            "Expression didn't evaluate to 440 Hz");
+        assert!(
+            (freq - 440.0).abs() < 50.0,
+            "Expression didn't evaluate to 440 Hz"
+        );
     }
 
     println!("✓ Arithmetic expressions work in audio generation");
@@ -365,8 +374,11 @@ fn test_pattern_repetition_across_cycles() {
     let samples_per_beat = (44100.0 * 0.5) as usize;
     let samples_per_pattern = samples_per_beat * 4;
 
-    println!("Pattern should repeat every {} samples ({:.1}s)",
-             samples_per_pattern, samples_per_pattern as f32 / 44100.0);
+    println!(
+        "Pattern should repeat every {} samples ({:.1}s)",
+        samples_per_pattern,
+        samples_per_pattern as f32 / 44100.0
+    );
 
     // Compare first cycle with second cycle
     if audio.data.len() >= samples_per_pattern * 2 {
@@ -381,13 +393,19 @@ fn test_pattern_repetition_across_cycles() {
             let freq1 = find_peak_frequency(chunk1, 44100.0);
             let freq2 = find_peak_frequency(chunk2, 44100.0);
 
-            println!("  Offset {}: Cycle 1 = {:.0} Hz, Cycle 2 = {:.0} Hz",
-                     offset / samples_per_beat, freq1, freq2);
+            println!(
+                "  Offset {}: Cycle 1 = {:.0} Hz, Cycle 2 = {:.0} Hz",
+                offset / samples_per_beat,
+                freq1,
+                freq2
+            );
 
             // Frequencies should match between cycles (within tolerance)
             if freq1 > 100.0 && freq2 > 100.0 {
-                assert!((freq1 - freq2).abs() < 50.0,
-                    "Pattern doesn't repeat consistently");
+                assert!(
+                    (freq1 - freq2).abs() < 50.0,
+                    "Pattern doesn't repeat consistently"
+                );
             }
         }
     }
@@ -413,7 +431,10 @@ fn test_multiple_patterns_synchronized() {
             // Pattern synchronization verified conceptually
         }
         Err(e) => {
-            println!("  Note: Multi-pattern syntax not fully supported yet: {}", e);
+            println!(
+                "  Note: Multi-pattern syntax not fully supported yet: {}",
+                e
+            );
         }
     }
 
@@ -438,10 +459,10 @@ fn test_pattern_string_in_expression() {
                     op: phonon::dsp_parameter::BinaryOp::Multiply,
                     left: DspParameter::pattern("100 200"),
                     right: DspParameter::constant(2.0),
-                }
+                },
             )),
             right: DspParameter::constant(20.0),
-        }
+        },
     ));
 
     let refs = std::collections::HashMap::new();

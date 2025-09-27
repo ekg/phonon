@@ -100,9 +100,11 @@ fn main() {
             match executor.render(&env, 1.0) {
                 Ok(audio) => {
                     // Check for variation in output (gating effect)
-                    let chunks: Vec<_> = audio.data.chunks(4410).map(|chunk| {
-                        chunk.iter().map(|x| x.abs()).fold(0.0f32, f32::max)
-                    }).collect();
+                    let chunks: Vec<_> = audio
+                        .data
+                        .chunks(4410)
+                        .map(|chunk| chunk.iter().map(|x| x.abs()).fold(0.0f32, f32::max))
+                        .collect();
                     println!("   Chunk amplitudes: {:?}", &chunks[..chunks.len().min(4)]);
                 }
                 Err(e) => println!("   Render error: {}", e),

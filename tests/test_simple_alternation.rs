@@ -1,5 +1,5 @@
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{State, TimeSpan, Fraction};
+use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 #[test]
@@ -19,8 +19,11 @@ fn test_simple_alternation() {
         };
 
         let events = pattern.query(&state);
-        println!("Cycle {}: {:?}", cycle,
-                 events.iter().map(|e| &e.value).collect::<Vec<_>>());
+        println!(
+            "Cycle {}: {:?}",
+            cycle,
+            events.iter().map(|e| &e.value).collect::<Vec<_>>()
+        );
 
         assert_eq!(events.len(), 1);
         let expected = if cycle % 2 == 0 { "sn" } else { "cp" };
@@ -46,7 +49,10 @@ fn test_simple_alternation() {
         let sn_count = events.iter().filter(|e| e.value == "sn").count();
         let cp_count = events.iter().filter(|e| e.value == "cp").count();
 
-        println!("Cycle {}: bd={}, sn={}, cp={}", cycle, bd_count, sn_count, cp_count);
+        println!(
+            "Cycle {}: bd={}, sn={}, cp={}",
+            cycle, bd_count, sn_count, cp_count
+        );
 
         assert_eq!(bd_count, 1);
         if cycle % 2 == 0 {

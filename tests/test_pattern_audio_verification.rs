@@ -16,8 +16,9 @@ fn estimate_frequency(samples: &[f32], sample_rate: f32) -> f32 {
 
     let mut crossings = 0;
     for i in 1..samples.len() {
-        if (samples[i-1] <= 0.0 && samples[i] > 0.0) ||
-           (samples[i-1] >= 0.0 && samples[i] < 0.0) {
+        if (samples[i - 1] <= 0.0 && samples[i] > 0.0)
+            || (samples[i - 1] >= 0.0 && samples[i] < 0.0)
+        {
             crossings += 1;
         }
     }
@@ -41,7 +42,7 @@ fn get_brightness(samples: &[f32]) -> f32 {
     // High frequency energy approximation using differences
     let mut hf_energy = 0.0;
     for i in 1..samples.len() {
-        let diff = samples[i] - samples[i-1];
+        let diff = samples[i] - samples[i - 1];
         hf_energy += diff * diff;
     }
 
@@ -82,19 +83,27 @@ fn test_oscillator_frequency_pattern_audio() {
         // Estimate the frequency
         let measured_freq = estimate_frequency(&samples, sample_rate);
 
-        println!("  Position {:.2}: Expected {} Hz, Got {:.0} Hz, Measured {:.0} Hz",
-                 pos, expected_freq, actual_freq, measured_freq);
+        println!(
+            "  Position {:.2}: Expected {} Hz, Got {:.0} Hz, Measured {:.0} Hz",
+            pos, expected_freq, actual_freq, measured_freq
+        );
 
         // Verify the pattern evaluates correctly
         if actual_freq != 0.0 {
-            assert!((actual_freq - expected_freq).abs() < 1.0,
-                    "Pattern didn't evaluate to expected frequency");
+            assert!(
+                (actual_freq - expected_freq).abs() < 1.0,
+                "Pattern didn't evaluate to expected frequency"
+            );
         }
 
         // The measured frequency should be close to actual (within 5%)
         if measured_freq > 0.0 && actual_freq > 0.0 {
             let error = ((measured_freq - actual_freq).abs() / actual_freq) * 100.0;
-            assert!(error < 5.0, "Measured frequency error too large: {:.1}%", error);
+            assert!(
+                error < 5.0,
+                "Measured frequency error too large: {:.1}%",
+                error
+            );
         }
     }
 
@@ -137,18 +146,22 @@ fn test_filter_cutoff_pattern_audio() {
 
         filtered[0] = noise[0] * a;
         for i in 1..num_samples {
-            filtered[i] = filtered[i-1] + a * (noise[i] - filtered[i-1]);
+            filtered[i] = filtered[i - 1] + a * (noise[i] - filtered[i - 1]);
         }
 
         let brightness = get_brightness(&filtered);
 
-        println!("  Position {:.2}: Cutoff {} Hz → Brightness {:.4}",
-                 pos, cutoff, brightness);
+        println!(
+            "  Position {:.2}: Cutoff {} Hz → Brightness {:.4}",
+            pos, cutoff, brightness
+        );
 
         // Higher cutoff should generally mean higher brightness
         // (This is a simplified test - real filters would be more complex)
-        assert!((cutoff - expected_cutoff).abs() < 1.0 || cutoff == 0.0,
-                "Cutoff pattern evaluation incorrect");
+        assert!(
+            (cutoff - expected_cutoff).abs() < 1.0 || cutoff == 0.0,
+            "Cutoff pattern evaluation incorrect"
+        );
     }
 
     println!("✓ Filter cutoff patterns modulate audio brightness");
@@ -167,10 +180,10 @@ fn test_expression_modulation_audio() {
                     op: phonon::dsp_parameter::BinaryOp::Multiply,
                     left: DspParameter::reference("lfo"),
                     right: DspParameter::constant(200.0), // depth
-                }
+                },
             )),
             right: DspParameter::constant(440.0), // center frequency
-        }
+        },
     ));
 
     println!("Expression: ~lfo * 200 + 440");
@@ -197,13 +210,17 @@ fn test_expression_modulation_audio() {
         let measured_freq = estimate_frequency(&samples, sample_rate);
         let rms = get_rms(&samples);
 
-        println!("  LFO={:5.1} → Freq={:3.0} Hz (measured: {:3.0} Hz), RMS={:.3}",
-                 lfo_val, freq, measured_freq, rms);
+        println!(
+            "  LFO={:5.1} → Freq={:3.0} Hz (measured: {:3.0} Hz), RMS={:.3}",
+            lfo_val, freq, measured_freq, rms
+        );
 
         // Verify the expression evaluates correctly
         let expected = lfo_val * 200.0 + 440.0;
-        assert!((freq - expected).abs() < 0.01,
-                "Expression didn't evaluate correctly");
+        assert!(
+            (freq - expected).abs() < 0.01,
+            "Expression didn't evaluate correctly"
+        );
 
         // Verify RMS is consistent (should be ~0.35 for 0.5 amplitude sine)
         assert!((rms - 0.35).abs() < 0.02, "RMS inconsistent");
@@ -225,10 +242,10 @@ fn test_complex_pattern_expression_audio() {
                     op: phonon::dsp_parameter::BinaryOp::Multiply,
                     left: DspParameter::pattern("100 200 150 250"),
                     right: DspParameter::constant(2.0),
-                }
+                },
             )),
             right: DspParameter::constant(100.0),
-        }
+        },
     ));
 
     let refs = HashMap::new();
@@ -246,14 +263,20 @@ fn test_complex_pattern_expression_audio() {
             let sample_rate = 44100.0;
             let period_samples = sample_rate / freq;
 
-            println!("    Period: {:.1} samples ({:.3} ms)",
-                     period_samples, (period_samples / sample_rate) * 1000.0);
+            println!(
+                "    Period: {:.1} samples ({:.3} ms)",
+                period_samples,
+                (period_samples / sample_rate) * 1000.0
+            );
 
             // The expression should produce the expected result
             let tolerance = 1.0;
-            if freq != 100.0 { // 100 is returned when pattern has no event
-                assert!((freq - expected).abs() < tolerance,
-                        "Complex expression didn't evaluate correctly");
+            if freq != 100.0 {
+                // 100 is returned when pattern has no event
+                assert!(
+                    (freq - expected).abs() < tolerance,
+                    "Complex expression didn't evaluate correctly"
+                );
             }
         }
     }
@@ -285,8 +308,10 @@ fn test_parameter_modulation_over_time() {
                 let prev_value = pattern.evaluate(prev_cycle_pos, &refs);
 
                 if prev_value != 0.0 {
-                    assert!((value - prev_value).abs() < 0.01,
-                            "Pattern doesn't repeat consistently");
+                    assert!(
+                        (value - prev_value).abs() < 0.01,
+                        "Pattern doesn't repeat consistently"
+                    );
                 }
             }
 
@@ -311,13 +336,16 @@ fn test_end_to_end_audio_generation() {
     all_params.push(("Constant", DspParameter::constant(440.0)));
     all_params.push(("Pattern", DspParameter::pattern("220 440 330")));
     all_params.push(("Reference", DspParameter::reference("test_ref")));
-    all_params.push(("Expression", DspParameter::Expression(Box::new(
-        phonon::dsp_parameter::ParameterExpression::Binary {
-            op: phonon::dsp_parameter::BinaryOp::Add,
-            left: DspParameter::constant(100.0),
-            right: DspParameter::constant(200.0),
-        }
-    ))));
+    all_params.push((
+        "Expression",
+        DspParameter::Expression(Box::new(
+            phonon::dsp_parameter::ParameterExpression::Binary {
+                op: phonon::dsp_parameter::BinaryOp::Add,
+                left: DspParameter::constant(100.0),
+                right: DspParameter::constant(200.0),
+            },
+        )),
+    ));
 
     let mut refs = HashMap::new();
     refs.insert("test_ref".to_string(), 550.0);

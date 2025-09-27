@@ -3,7 +3,6 @@
 //! This version supports patterns as parameters: `lpf "1000 2000 500" 0.8`
 
 use crate::dsp_parameter::{DspParameter, IntoParameter};
-use crate::signal_graph::{SignalGraph, Node, NodeId, BusId, SourceType, ProcessorType};
 use std::collections::HashMap;
 
 /// Enhanced DSP chain with pattern parameter support
@@ -16,73 +15,170 @@ pub struct DspChain {
 #[derive(Clone, Debug)]
 pub enum DspNode {
     // Oscillators with pattern parameters
-    Sin { freq: DspParameter },
-    Saw { freq: DspParameter },
-    Square { freq: DspParameter, duty: DspParameter },
-    Triangle { freq: DspParameter },
-    Noise { seed: u64 },
-    Impulse { freq: DspParameter },
-    Pink { seed: u64 },
-    Brown { seed: u64 },
+    Sin {
+        freq: DspParameter,
+    },
+    Saw {
+        freq: DspParameter,
+    },
+    Square {
+        freq: DspParameter,
+        duty: DspParameter,
+    },
+    Triangle {
+        freq: DspParameter,
+    },
+    Noise {
+        seed: u64,
+    },
+    Impulse {
+        freq: DspParameter,
+    },
+    Pink {
+        seed: u64,
+    },
+    Brown {
+        seed: u64,
+    },
 
     // Math operations
-    Mul { factor: DspParameter },
-    Add { value: DspParameter },
-    Div { divisor: DspParameter },
-    Sub { value: DspParameter },
+    Mul {
+        factor: DspParameter,
+    },
+    Add {
+        value: DspParameter,
+    },
+    Div {
+        divisor: DspParameter,
+    },
+    Sub {
+        value: DspParameter,
+    },
 
     // Filters with pattern parameters
-    Lpf { cutoff: DspParameter, q: DspParameter },
-    Hpf { cutoff: DspParameter, q: DspParameter },
-    Bpf { center: DspParameter, q: DspParameter },
-    Notch { center: DspParameter, q: DspParameter },
+    Lpf {
+        cutoff: DspParameter,
+        q: DspParameter,
+    },
+    Hpf {
+        cutoff: DspParameter,
+        q: DspParameter,
+    },
+    Bpf {
+        center: DspParameter,
+        q: DspParameter,
+    },
+    Notch {
+        center: DspParameter,
+        q: DspParameter,
+    },
 
     // Effects with pattern parameters
-    Delay { time: DspParameter, feedback: DspParameter, mix: DspParameter },
-    Reverb { room_size: DspParameter, damping: DspParameter, mix: DspParameter },
-    Chorus { rate: DspParameter, depth: DspParameter, mix: DspParameter },
-    Phaser { rate: DspParameter, depth: DspParameter, mix: DspParameter },
-    Distortion { gain: DspParameter },
-    Compressor { threshold: DspParameter, ratio: DspParameter },
-    Clip { min: DspParameter, max: DspParameter },
+    Delay {
+        time: DspParameter,
+        feedback: DspParameter,
+        mix: DspParameter,
+    },
+    Reverb {
+        room_size: DspParameter,
+        damping: DspParameter,
+        mix: DspParameter,
+    },
+    Chorus {
+        rate: DspParameter,
+        depth: DspParameter,
+        mix: DspParameter,
+    },
+    Phaser {
+        rate: DspParameter,
+        depth: DspParameter,
+        mix: DspParameter,
+    },
+    Distortion {
+        gain: DspParameter,
+    },
+    Compressor {
+        threshold: DspParameter,
+        ratio: DspParameter,
+    },
+    Clip {
+        min: DspParameter,
+        max: DspParameter,
+    },
 
     // Envelopes with pattern parameters
     Adsr {
         attack: DspParameter,
         decay: DspParameter,
         sustain: DspParameter,
-        release: DspParameter
+        release: DspParameter,
     },
-    Env { stages: Vec<(DspParameter, DspParameter)> },
+    Env {
+        stages: Vec<(DspParameter, DspParameter)>,
+    },
 
     // Modulators
-    Lfo { freq: DspParameter, shape: LfoShape },
+    Lfo {
+        freq: DspParameter,
+        shape: LfoShape,
+    },
 
     // Pattern integration
-    Pattern { pattern: String, speed: DspParameter },
-    Seq { pattern: String },
-    Speed { factor: DspParameter },
-    S { pattern: String },
+    Pattern {
+        pattern: String,
+        speed: DspParameter,
+    },
+    Seq {
+        pattern: String,
+    },
+    Speed {
+        factor: DspParameter,
+    },
+    S {
+        pattern: String,
+    },
 
     // Reference to another chain
-    Ref { name: String },
+    Ref {
+        name: String,
+    },
 
     // Value node
     Value(DspParameter),
 
     // Signal operations (for combining signals)
-    SignalAdd { left: Box<DspChain>, right: Box<DspChain> },
-    SignalMul { left: Box<DspChain>, right: Box<DspChain> },
-    SignalSub { left: Box<DspChain>, right: Box<DspChain> },
-    SignalDiv { left: Box<DspChain>, right: Box<DspChain> },
+    SignalAdd {
+        left: Box<DspChain>,
+        right: Box<DspChain>,
+    },
+    SignalMul {
+        left: Box<DspChain>,
+        right: Box<DspChain>,
+    },
+    SignalSub {
+        left: Box<DspChain>,
+        right: Box<DspChain>,
+    },
+    SignalDiv {
+        left: Box<DspChain>,
+        right: Box<DspChain>,
+    },
 
     // Sample playback
-    Sp { sample: String },
+    Sp {
+        sample: String,
+    },
 
     // Utilities
-    Mix { sources: Vec<DspChain> },
-    Pan { position: DspParameter },
-    Gain { amount: DspParameter },
+    Mix {
+        sources: Vec<DspChain>,
+    },
+    Pan {
+        position: DspParameter,
+    },
+    Gain {
+        amount: DspParameter,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -98,6 +194,12 @@ pub enum LfoShape {
 pub struct DspEnvironment {
     pub chains: HashMap<String, DspChain>,
     pub output: Option<DspChain>,
+}
+
+impl Default for DspChain {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DspChain {
@@ -150,7 +252,7 @@ impl std::ops::Add for DspChain {
     fn add(self, rhs: Self) -> Self::Output {
         DspChain::from_node(DspNode::SignalAdd {
             left: Box::new(self),
-            right: Box::new(rhs)
+            right: Box::new(rhs),
         })
     }
 }
@@ -161,7 +263,7 @@ impl std::ops::Mul for DspChain {
     fn mul(self, rhs: Self) -> Self::Output {
         DspChain::from_node(DspNode::SignalMul {
             left: Box::new(self),
-            right: Box::new(rhs)
+            right: Box::new(rhs),
         })
     }
 }
@@ -172,7 +274,7 @@ impl std::ops::Sub for DspChain {
     fn sub(self, rhs: Self) -> Self::Output {
         DspChain::from_node(DspNode::SignalSub {
             left: Box::new(self),
-            right: Box::new(rhs)
+            right: Box::new(rhs),
         })
     }
 }
@@ -183,7 +285,7 @@ impl std::ops::Div for DspChain {
     fn div(self, rhs: Self) -> Self::Output {
         DspChain::from_node(DspNode::SignalDiv {
             left: Box::new(self),
-            right: Box::new(rhs)
+            right: Box::new(rhs),
         })
     }
 }
@@ -194,25 +296,31 @@ pub mod dsp {
 
     /// Create a sine oscillator with pattern frequency
     pub fn sin<P: IntoParameter>(freq: P) -> DspChain {
-        DspChain::from_node(DspNode::Sin { freq: freq.into_parameter() })
+        DspChain::from_node(DspNode::Sin {
+            freq: freq.into_parameter(),
+        })
     }
 
     /// Create a saw oscillator with pattern frequency
     pub fn saw<P: IntoParameter>(freq: P) -> DspChain {
-        DspChain::from_node(DspNode::Saw { freq: freq.into_parameter() })
+        DspChain::from_node(DspNode::Saw {
+            freq: freq.into_parameter(),
+        })
     }
 
     /// Create a square oscillator with pattern frequency and duty
     pub fn square<P1: IntoParameter, P2: IntoParameter>(freq: P1, duty: P2) -> DspChain {
         DspChain::from_node(DspNode::Square {
             freq: freq.into_parameter(),
-            duty: duty.into_parameter()
+            duty: duty.into_parameter(),
         })
     }
 
     /// Create a triangle oscillator with pattern frequency
     pub fn triangle<P: IntoParameter>(freq: P) -> DspChain {
-        DspChain::from_node(DspNode::Triangle { freq: freq.into_parameter() })
+        DspChain::from_node(DspNode::Triangle {
+            freq: freq.into_parameter(),
+        })
     }
 
     /// Create a noise generator
@@ -222,24 +330,30 @@ pub mod dsp {
 
     /// Create an impulse generator with pattern frequency
     pub fn impulse<P: IntoParameter>(freq: P) -> DspChain {
-        DspChain::from_node(DspNode::Impulse { freq: freq.into_parameter() })
+        DspChain::from_node(DspNode::Impulse {
+            freq: freq.into_parameter(),
+        })
     }
 
     /// Multiply signal by pattern value
     pub fn mul<P: IntoParameter>(factor: P) -> DspChain {
-        DspChain::from_node(DspNode::Mul { factor: factor.into_parameter() })
+        DspChain::from_node(DspNode::Mul {
+            factor: factor.into_parameter(),
+        })
     }
 
     /// Add pattern value to signal
     pub fn add<P: IntoParameter>(value: P) -> DspChain {
-        DspChain::from_node(DspNode::Add { value: value.into_parameter() })
+        DspChain::from_node(DspNode::Add {
+            value: value.into_parameter(),
+        })
     }
 
     /// Low-pass filter with pattern cutoff and Q
     pub fn lpf<P1: IntoParameter, P2: IntoParameter>(cutoff: P1, q: P2) -> DspChain {
         DspChain::from_node(DspNode::Lpf {
             cutoff: cutoff.into_parameter(),
-            q: q.into_parameter()
+            q: q.into_parameter(),
         })
     }
 
@@ -247,7 +361,7 @@ pub mod dsp {
     pub fn hpf<P1: IntoParameter, P2: IntoParameter>(cutoff: P1, q: P2) -> DspChain {
         DspChain::from_node(DspNode::Hpf {
             cutoff: cutoff.into_parameter(),
-            q: q.into_parameter()
+            q: q.into_parameter(),
         })
     }
 
@@ -255,7 +369,7 @@ pub mod dsp {
     pub fn bpf<P1: IntoParameter, P2: IntoParameter>(center: P1, q: P2) -> DspChain {
         DspChain::from_node(DspNode::Bpf {
             center: center.into_parameter(),
-            q: q.into_parameter()
+            q: q.into_parameter(),
         })
     }
 
@@ -263,35 +377,42 @@ pub mod dsp {
     pub fn notch<P1: IntoParameter, P2: IntoParameter>(center: P1, q: P2) -> DspChain {
         DspChain::from_node(DspNode::Notch {
             center: center.into_parameter(),
-            q: q.into_parameter()
+            q: q.into_parameter(),
         })
     }
 
     /// Delay effect with pattern time, feedback, and mix
     pub fn delay<P1: IntoParameter, P2: IntoParameter, P3: IntoParameter>(
-        time: P1, feedback: P2, mix: P3
+        time: P1,
+        feedback: P2,
+        mix: P3,
     ) -> DspChain {
         DspChain::from_node(DspNode::Delay {
             time: time.into_parameter(),
             feedback: feedback.into_parameter(),
-            mix: mix.into_parameter()
+            mix: mix.into_parameter(),
         })
     }
 
     /// Reverb effect with pattern room size, damping, and mix
     pub fn reverb<P1: IntoParameter, P2: IntoParameter, P3: IntoParameter>(
-        room_size: P1, damping: P2, mix: P3
+        room_size: P1,
+        damping: P2,
+        mix: P3,
     ) -> DspChain {
         DspChain::from_node(DspNode::Reverb {
             room_size: room_size.into_parameter(),
             damping: damping.into_parameter(),
-            mix: mix.into_parameter()
+            mix: mix.into_parameter(),
         })
     }
 
     /// ADSR envelope with pattern parameters
     pub fn adsr<P1: IntoParameter, P2: IntoParameter, P3: IntoParameter, P4: IntoParameter>(
-        attack: P1, decay: P2, sustain: P3, release: P4
+        attack: P1,
+        decay: P2,
+        sustain: P3,
+        release: P4,
     ) -> DspChain {
         DspChain::from_node(DspNode::Adsr {
             attack: attack.into_parameter(),
@@ -305,45 +426,57 @@ pub mod dsp {
     pub fn lfo<P: IntoParameter>(freq: P, shape: LfoShape) -> DspChain {
         DspChain::from_node(DspNode::Lfo {
             freq: freq.into_parameter(),
-            shape
+            shape,
         })
     }
 
     /// Pattern source using the 's' function
     pub fn s(pattern: &str) -> DspChain {
-        DspChain::from_node(DspNode::S { pattern: pattern.to_string() })
+        DspChain::from_node(DspNode::S {
+            pattern: pattern.to_string(),
+        })
     }
 
     /// Reference to another chain
     pub fn reference(name: &str) -> DspChain {
-        DspChain::from_node(DspNode::Ref { name: name.to_string() })
+        DspChain::from_node(DspNode::Ref {
+            name: name.to_string(),
+        })
     }
 
     /// Sample playback
     pub fn sp(sample: &str) -> DspChain {
-        DspChain::from_node(DspNode::Sp { sample: sample.to_string() })
+        DspChain::from_node(DspNode::Sp {
+            sample: sample.to_string(),
+        })
     }
 
     /// Gain control with pattern amount
     pub fn gain<P: IntoParameter>(amount: P) -> DspChain {
-        DspChain::from_node(DspNode::Gain { amount: amount.into_parameter() })
+        DspChain::from_node(DspNode::Gain {
+            amount: amount.into_parameter(),
+        })
     }
 
     /// Pan control with pattern position
     pub fn pan<P: IntoParameter>(position: P) -> DspChain {
-        DspChain::from_node(DspNode::Pan { position: position.into_parameter() })
+        DspChain::from_node(DspNode::Pan {
+            position: position.into_parameter(),
+        })
     }
 
     /// Distortion with pattern gain
     pub fn distortion<P: IntoParameter>(gain: P) -> DspChain {
-        DspChain::from_node(DspNode::Distortion { gain: gain.into_parameter() })
+        DspChain::from_node(DspNode::Distortion {
+            gain: gain.into_parameter(),
+        })
     }
 
     /// Compressor with pattern threshold and ratio
     pub fn compressor<P1: IntoParameter, P2: IntoParameter>(threshold: P1, ratio: P2) -> DspChain {
         DspChain::from_node(DspNode::Compressor {
             threshold: threshold.into_parameter(),
-            ratio: ratio.into_parameter()
+            ratio: ratio.into_parameter(),
         })
     }
 
@@ -351,15 +484,15 @@ pub mod dsp {
     pub fn clip<P1: IntoParameter, P2: IntoParameter>(min: P1, max: P2) -> DspChain {
         DspChain::from_node(DspNode::Clip {
             min: min.into_parameter(),
-            max: max.into_parameter()
+            max: max.into_parameter(),
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::dsp::*;
+    use super::*;
 
     #[test]
     fn test_pattern_parameters() {

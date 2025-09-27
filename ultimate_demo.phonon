@@ -1,0 +1,31 @@
+# Ultimate Phonon Live Demo
+# Edit any line and save to hear changes!
+
+tempo 2.0
+
+# === LFO for modulation ===
+lfo = sine(0.5) * 0.5 + 0.6
+lfo_fast = sine(4) * 0.5 + 0.5
+
+# === Pattern-modulated oscillators ===
+# Bass line with changing pitches (C2, G1, F1, C2)
+bass = saw("55 41 44 55") >> lpf(lfo * 3000 + 200, 3)
+
+# === Filter with pattern modulation ===
+# Cutoff sweeps through different values
+lead = square(220) >> lpf("200 500 1000 2000", "2 5 8 3")
+
+# === Drums with patterns ===
+# Noise through rhythmic filter
+drums = noise >> lpf("100 100 100 5000", 10)
+
+# === Mix everything ===
+out bass * 0.2 + lead * 0.1 + drums * 0.15
+
+# === Try these modifications: ===
+# 1. Change tempo to 1.0 or 4.0
+# 2. Change bass pattern: saw("55 55 41 49")
+# 3. Add more resonance: lpf(cutoff, 15)
+# 4. Change waveforms: square -> tri, saw -> sine
+# 5. Modify the LFO speed: sine(0.5) -> sine(2)
+# 6. Add another layer: + sine(880) * 0.05

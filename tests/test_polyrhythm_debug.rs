@@ -1,5 +1,5 @@
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{State, TimeSpan, Fraction};
+use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 #[test]
@@ -21,10 +21,12 @@ fn debug_polyrhythm_alternation() {
         let events = alt_pattern.query(&state);
         println!("\nCycle {} - <sn cp>*2:", cycle);
         for event in &events {
-            println!("  {:.3} -> {:.3} : {}",
-                     event.part.begin.to_float(),
-                     event.part.end.to_float(),
-                     event.value);
+            println!(
+                "  {:.3} -> {:.3} : {}",
+                event.part.begin.to_float(),
+                event.part.end.to_float(),
+                event.value
+            );
         }
 
         let sn_count = events.iter().filter(|e| e.value == "sn").count();

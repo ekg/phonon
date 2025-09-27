@@ -2,8 +2,8 @@
 //!
 //! Tests that expressions like (~lfo * 1000 + 500) work correctly
 
+use phonon::dsp_parameter::{BinaryOp, DspParameter, ParameterExpression, UnaryOp};
 use phonon::glicol_parser_v2::parse_glicol_v2;
-use phonon::dsp_parameter::{DspParameter, ParameterExpression, BinaryOp, UnaryOp};
 use std::collections::HashMap;
 
 #[test]
@@ -79,11 +79,11 @@ fn test_lfo_modulation_expression() {
 
     // Test with different LFO values (-1 to 1)
     let lfo_values = vec![
-        (-1.0, 500.0),   // Minimum
-        (0.0, 1500.0),   // Center
-        (1.0, 2500.0),   // Maximum
-        (0.5, 2000.0),   // Half way up
-        (-0.5, 1000.0),  // Half way down
+        (-1.0, 500.0),  // Minimum
+        (0.0, 1500.0),  // Center
+        (1.0, 2500.0),  // Maximum
+        (0.5, 2000.0),  // Half way up
+        (-0.5, 1000.0), // Half way down
     ];
 
     for (lfo_val, expected) in lfo_values {
@@ -115,8 +115,13 @@ fn test_pattern_with_expression() {
         println!("  Position {:.2}: pattern * 2 = {}", pos, result);
 
         // Result should be one of the pattern values * 2, or 0
-        assert!(result == 0.0 || result == 200.0 || result == 400.0 ||
-                result == 600.0 || result == 800.0);
+        assert!(
+            result == 0.0
+                || result == 200.0
+                || result == 400.0
+                || result == 600.0
+                || result == 800.0
+        );
     }
 
     println!("  ✓ Pattern values work in expressions");
@@ -199,32 +204,26 @@ fn test_parser_accepts_expressions() {
     println!("\n=== Testing Parser Acceptance of Expressions ===");
 
     let test_cases = vec![
-        (
-            r#"o: saw 110 >> lpf (1000 + 500) 0.8"#,
-            "Simple addition"
-        ),
+        (r#"o: saw 110 >> lpf (1000 + 500) 0.8"#, "Simple addition"),
         (
             r#"o: saw 110 >> lpf (2000 - 500) 0.8"#,
-            "Simple subtraction"
+            "Simple subtraction",
         ),
         (
             r#"o: saw 110 >> lpf (500 * 3) 0.8"#,
-            "Simple multiplication"
+            "Simple multiplication",
         ),
-        (
-            r#"o: saw 110 >> lpf (3000 / 2) 0.8"#,
-            "Simple division"
-        ),
+        (r#"o: saw 110 >> lpf (3000 / 2) 0.8"#, "Simple division"),
         (
             r#"
                 ~lfo: sin 2
                 o: saw 110 >> lpf (~lfo * 1000 + 1500) 0.8
             "#,
-            "LFO modulation expression"
+            "LFO modulation expression",
         ),
         (
             r#"o: saw 110 >> lpf ("1000 2000" * 2) 0.8"#,
-            "Pattern with multiplication"
+            "Pattern with multiplication",
         ),
         (
             r#"
@@ -232,12 +231,9 @@ fn test_parser_accepts_expressions() {
                 ~mod2: sin 2
                 o: saw 110 >> lpf ((~mod1 + ~mod2) * 500 + 1000) 0.8
             "#,
-            "Complex nested expression"
+            "Complex nested expression",
         ),
-        (
-            r#"o: saw 110 >> lpf (-1000 + 2000) 0.8"#,
-            "Unary negation"
-        ),
+        (r#"o: saw 110 >> lpf (-1000 + 2000) 0.8"#, "Unary negation"),
     ];
 
     for (code, description) in test_cases {
@@ -343,7 +339,10 @@ fn test_expression_order_of_operations() {
     let refs = HashMap::new();
     let result = expr.evaluate(0.0, &refs);
     assert_eq!(result, 700.0);
-    println!("  100 + 200 * 3 = {} (correct: multiplication first)", result);
+    println!(
+        "  100 + 200 * 3 = {} (correct: multiplication first)",
+        result
+    );
 
     // Test division before subtraction
     // 1000 - 600 / 2 should be 1000 - (600 / 2) = 700
@@ -372,11 +371,11 @@ fn test_real_world_synthesis_expressions() {
     println!("  1. FM Synthesis:");
     let fm_expr = DspParameter::Expression(Box::new(ParameterExpression::Binary {
         op: BinaryOp::Add,
-        left: DspParameter::constant(440.0),  // Carrier frequency
+        left: DspParameter::constant(440.0), // Carrier frequency
         right: DspParameter::Expression(Box::new(ParameterExpression::Binary {
             op: BinaryOp::Multiply,
             left: DspParameter::reference("modulator"),
-            right: DspParameter::constant(200.0),  // Modulation index
+            right: DspParameter::constant(200.0), // Modulation index
         })),
     }));
 
@@ -394,9 +393,9 @@ fn test_real_world_synthesis_expressions() {
         left: DspParameter::Expression(Box::new(ParameterExpression::Binary {
             op: BinaryOp::Multiply,
             left: DspParameter::reference("envelope"),
-            right: DspParameter::constant(3000.0),  // Envelope amount
+            right: DspParameter::constant(3000.0), // Envelope amount
         })),
-        right: DspParameter::constant(200.0),  // Base cutoff
+        right: DspParameter::constant(200.0), // Base cutoff
     }));
 
     for env_val in [0.0, 0.25, 0.5, 0.75, 1.0] {
@@ -420,7 +419,11 @@ fn test_real_world_synthesis_expressions() {
     for lfo_val in [-1.0, -0.5, 0.0, 0.5, 1.0] {
         refs.insert("lfo".to_string(), lfo_val);
         let duty = pwm_expr.evaluate(0.0, &refs);
-        println!("    LFO={:5.1} → Duty Cycle = {:.1}%", lfo_val, duty * 100.0);
+        println!(
+            "    LFO={:5.1} → Duty Cycle = {:.1}%",
+            lfo_val,
+            duty * 100.0
+        );
     }
 
     println!("  ✓ Real-world synthesis expressions work correctly");

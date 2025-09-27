@@ -30,13 +30,16 @@ fn test_simple_sine_generation() {
     // Count zero crossings to estimate frequency
     let mut crossings = 0;
     for i in 1..audio.len() {
-        if audio[i-1] <= 0.0 && audio[i] > 0.0 {
+        if audio[i - 1] <= 0.0 && audio[i] > 0.0 {
             crossings += 1;
         }
     }
     println!("Zero crossings: {}", crossings);
     // Should be around 44 for 440Hz in 0.1s
-    assert!(crossings > 35 && crossings < 50, "Frequency should be roughly 440Hz");
+    assert!(
+        crossings > 35 && crossings < 50,
+        "Frequency should be roughly 440Hz"
+    );
 }
 
 #[test]

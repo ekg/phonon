@@ -87,15 +87,19 @@ fn main() {
     let chains = vec![
         (
             "\"100 200\" |> fast 2 |> rev",
-            vec!["Original: [100, 200]", "After fast 2: [100, 200, 100, 200]", "After rev: [200, 100, 200, 100]"]
+            vec![
+                "Original: [100, 200]",
+                "After fast 2: [100, 200, 100, 200]",
+                "After rev: [200, 100, 200, 100]",
+            ],
         ),
         (
             "\"bd sn\" |> fast 2 |> every 4 rev",
-            vec!["Speed up 2x", "Then reverse every 4th cycle"]
+            vec!["Speed up 2x", "Then reverse every 4th cycle"],
         ),
         (
             "\"0 7 3 10\" |> slow 2 |> rotate 0.25",
-            vec!["Slow down to half speed", "Then rotate by quarter cycle"]
+            vec!["Slow down to half speed", "Then rotate by quarter cycle"],
         ),
     ];
 
@@ -152,8 +156,14 @@ fn main() {
         ("\"bd sn\" $ fast 2 $ rev", "\"bd sn\" |> fast 2 |> rev"),
         ("fast 2 $ \"bd sn\"", "\"bd sn\" |> fast 2"),
         ("every 4 rev $ \"bd sn\"", "\"bd sn\" |> every 4 rev"),
-        ("\"0 3 7\" # speed (sine * 2 + 1)", "\"0 3 7\" >> speed (~sine * 2 + 1)"),
-        ("stack [\"bd*4\", \"hh*8\"]", "\"bd*4\" | \"hh*8\"  // or use ~buses"),
+        (
+            "\"0 3 7\" # speed (sine * 2 + 1)",
+            "\"0 3 7\" >> speed (~sine * 2 + 1)",
+        ),
+        (
+            "stack [\"bd*4\", \"hh*8\"]",
+            "\"bd*4\" | \"hh*8\"  // or use ~buses",
+        ),
     ];
 
     println!("TidalCycles → Phonon syntax conversions:");

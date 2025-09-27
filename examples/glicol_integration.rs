@@ -5,7 +5,7 @@ use phonon::mini_notation::parse_mini_notation;
 
 fn main() {
     println!("=== Glicol-Style DSP with Mini-Notation ===\n");
-    
+
     // Example 1: Simple sine wave with amplitude modulation
     println!("Example 1: Amplitude Modulation");
     println!("--------------------------------");
@@ -14,20 +14,23 @@ fn main() {
         o: sin 440 >> mul ~amp
     "#;
     println!("Code:\n{}", code1);
-    
+
     match parse_glicol(code1) {
         Ok(env) => {
             println!("✓ Parsed successfully!");
-            println!("  Reference chains: {:?}", env.ref_chains.keys().collect::<Vec<_>>());
+            println!(
+                "  Reference chains: {:?}",
+                env.ref_chains.keys().collect::<Vec<_>>()
+            );
             if let Some(output) = &env.output_chain {
                 println!("  Output chain has {} nodes", output.nodes.len());
             }
         }
         Err(e) => println!("✗ Parse error: {}", e),
     }
-    
+
     println!();
-    
+
     // Example 2: Pattern with effects
     println!("Example 2: Pattern with Effects");
     println!("--------------------------------");
@@ -35,7 +38,7 @@ fn main() {
         o: seq "bd sn bd sn" >> sp >> reverb 0.8 0.5
     "#;
     println!("Code:\n{}", code2);
-    
+
     match parse_glicol(code2) {
         Ok(env) => {
             println!("✓ Parsed successfully!");
@@ -48,9 +51,9 @@ fn main() {
         }
         Err(e) => println!("✗ Parse error: {}", e),
     }
-    
+
     println!();
-    
+
     // Example 3: Complex modular synthesis
     println!("Example 3: Complex Modular Synthesis");
     println!("-------------------------------------");
@@ -62,7 +65,7 @@ fn main() {
         o: ~bass >> mul 0.5
     "#;
     println!("Code:\n{}", code3);
-    
+
     match parse_glicol(code3) {
         Ok(env) => {
             println!("✓ Parsed successfully!");
@@ -76,29 +79,31 @@ fn main() {
         }
         Err(e) => println!("✗ Parse error: {}", e),
     }
-    
+
     println!();
-    
+
     // Example 4: Mini-notation within Glicol
     println!("Example 4: Mini-Notation Integration");
     println!("------------------------------------");
-    
+
     // First parse a mini-notation pattern
     let pattern = parse_mini_notation("<[bd(3,8) sn] hh*4>");
     println!("Mini-notation: <[bd(3,8) sn] hh*4>");
-    
+
     // Get first cycle events
     let events = pattern.first_cycle();
     println!("First cycle events:");
     for event in &events {
-        println!("  {} at time {}-{}", 
-            event.value, 
-            event.part.begin.to_float(), 
-            event.part.end.to_float());
+        println!(
+            "  {} at time {}-{}",
+            event.value,
+            event.part.begin.to_float(),
+            event.part.end.to_float()
+        );
     }
-    
+
     println!();
-    
+
     // Now use pattern in Glicol-style DSP
     let code4 = r#"
         ~rhythm: seq "bd(3,8) sn hh*4" >> sp
@@ -106,7 +111,7 @@ fn main() {
         o: ~rhythm >> mul 0.8
     "#;
     println!("Glicol with pattern:\n{}", code4);
-    
+
     match parse_glicol(code4) {
         Ok(env) => {
             println!("✓ Parsed successfully!");
@@ -114,31 +119,35 @@ fn main() {
         }
         Err(e) => println!("✗ Parse error: {}", e),
     }
-    
+
     println!();
-    
+
     // Example 5: Using ~ in mini-notation for rests
     println!("Example 5: Tilde (~) in Mini-Notation");
     println!("--------------------------------------");
-    
+
     let pattern_with_rest = parse_mini_notation("bd ~ sn ~");
     println!("Pattern: bd ~ sn ~");
-    
+
     let events = pattern_with_rest.first_cycle();
     println!("Events (~ is silence/rest):");
     for event in &events {
         if event.value.is_empty() {
-            println!("  [rest] at time {}-{}", 
-                event.part.begin.to_float(), 
-                event.part.end.to_float());
+            println!(
+                "  [rest] at time {}-{}",
+                event.part.begin.to_float(),
+                event.part.end.to_float()
+            );
         } else {
-            println!("  {} at time {}-{}", 
-                event.value, 
-                event.part.begin.to_float(), 
-                event.part.end.to_float());
+            println!(
+                "  {} at time {}-{}",
+                event.value,
+                event.part.begin.to_float(),
+                event.part.end.to_float()
+            );
         }
     }
-    
+
     println!("\n=== Integration Complete ===");
     println!("\nThe ~ notation works in both contexts:");
     println!("- In Glicol: ~name refers to a lazy-evaluated reference chain");

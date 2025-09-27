@@ -1,16 +1,16 @@
 //! Example: Create a drum beat and filter it with DSP
-//! 
+//!
 //! Demonstrates creating a "bd*4 cp" type beat and applying DSP effects
 
-use phonon::simple_dsp_executor::render_dsp_to_audio_simple;
 use phonon::mini_notation::parse_mini_notation;
-use phonon::pattern::{Pattern, State, TimeSpan, Fraction};
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
+use phonon::simple_dsp_executor::render_dsp_to_audio_simple;
 use std::collections::HashMap;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("🎵 Drum Beat with DSP Filtering Demo\n");
-    
+
     // Example 1: Basic kick pattern with low-pass filter sweep
     println!("1. Four-on-the-floor kick with filter sweep:");
     let code1 = r#"
@@ -18,9 +18,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         ~lfo: sin 0.5 >> mul 400 >> add 600
         out: ~kick >> lpf ~lfo 0.7
     "#;
-    
+
     render_and_save(code1, "drum_beat_kick_filtered.wav", 4.0)?;
-    
+
     // Example 2: Kick and clap pattern with filtering
     println!("\n2. Kick and clap with high-pass filtered clap:");
     let code2 = r#"
@@ -30,9 +30,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         ~clap_sound: ~clap_trig * ~clap
         out: ~kick + ~clap_sound
     "#;
-    
+
     render_and_save(code2, "drum_beat_kick_clap.wav", 4.0)?;
-    
+
     // Example 3: More complex beat with multiple elements
     println!("\n3. Complex beat with kick, snare, and hi-hats:");
     let code3 = r#"
@@ -45,9 +45,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         ~filter_lfo: sin 0.25 >> mul 2000 >> add 3000
         out: ~drums >> lpf ~filter_lfo 0.5
     "#;
-    
+
     render_and_save(code3, "drum_beat_complex.wav", 4.0)?;
-    
+
     // Example 4: Using pattern-inspired rhythm with DSP
     println!("\n4. Euclidean rhythm pattern with DSP:");
     let code4 = r#"
@@ -58,9 +58,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         ~reverb_send: ~perc >> delay 0.1 0.4 >> lpf 2000 0.5
         out: ~bass * 0.7 + ~perc * 0.5 + ~reverb_send * 0.3
     "#;
-    
+
     render_and_save(code4, "drum_beat_euclidean.wav", 4.0)?;
-    
+
     // Example 5: Techno-style beat with sidechain compression effect
     println!("\n5. Techno beat with sidechain-style ducking:");
     let code5 = r#"
@@ -71,36 +71,36 @@ fn main() -> Result<(), Box<dyn Error>> {
         ~noise: noise >> hpf 10000 0.9 >> mul 0.1
         out: ~kick * 0.8 + ~ducked_bass * 0.6 + ~noise
     "#;
-    
+
     render_and_save(code5, "drum_beat_techno_sidechain.wav", 4.0)?;
-    
+
     println!("\n✅ All drum patterns generated successfully!");
     println!("📁 Check /tmp/ directory for WAV files");
-    
+
     // Bonus: Show how to use pattern notation (even though we can't execute it yet)
     demonstrate_pattern_notation();
-    
+
     Ok(())
 }
 
 fn render_and_save(code: &str, filename: &str, duration: f32) -> Result<(), Box<dyn Error>> {
     println!("  Generating: {}", filename);
     println!("  Code: {}", code.trim());
-    
+
     let buffer = render_dsp_to_audio_simple(code, 44100.0, duration)?;
     let path = format!("/tmp/{}", filename);
     buffer.write_wav(&path)?;
-    
+
     println!("  ✓ Saved to: {}", path);
     println!("  Peak: {:.3}, RMS: {:.3}", buffer.peak(), buffer.rms());
-    
+
     Ok(())
 }
 
 fn demonstrate_pattern_notation() {
     println!("\n📝 Pattern Notation Examples (for reference):");
     println!("These show how you'd write patterns in mini-notation:");
-    
+
     // Parse some example patterns
     let patterns = vec![
         ("bd*4", "Four kicks per cycle"),
@@ -110,11 +110,11 @@ fn demonstrate_pattern_notation() {
         ("bd(3,8)", "Euclidean rhythm: 3 hits in 8 steps"),
         ("bd(5,8) cp(3,8)", "Polyrhythmic pattern"),
     ];
-    
+
     for (pattern_str, description) in patterns {
         println!("\n  Pattern: \"{}\"", pattern_str);
         println!("  Description: {}", description);
-        
+
         // Parse and show the pattern structure
         let pattern = parse_mini_notation(pattern_str);
         let state = State {
@@ -123,16 +123,18 @@ fn demonstrate_pattern_notation() {
         };
         let events = pattern.query(&state);
         println!("  Events in first cycle: {}", events.len());
-        
+
         // Show timing of first few events
         for (i, event) in events.iter().take(4).enumerate() {
-            println!("    Event {}: {} at time {:.3}", 
-                    i + 1, 
-                    event.value,
-                    event.part.begin.to_float());
+            println!(
+                "    Event {}: {} at time {:.3}",
+                i + 1,
+                event.value,
+                event.part.begin.to_float()
+            );
         }
     }
-    
+
     println!("\n💡 To combine patterns with DSP:");
     println!("   1. Generate triggers from patterns (impulse trains)");
     println!("   2. Use triggers to gate synthesized sounds");
@@ -142,7 +144,7 @@ fn demonstrate_pattern_notation() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_drum_generation() {
         // Test that we can generate a simple drum pattern
@@ -151,7 +153,7 @@ mod tests {
         assert!(buffer.peak() > 0.0);
         assert!(buffer.rms() > 0.0);
     }
-    
+
     #[test]
     fn test_pattern_parsing() {
         let pattern = parse_mini_notation("bd*4 cp");
@@ -160,7 +162,7 @@ mod tests {
             controls: HashMap::new(),
         };
         let events = pattern.query(&state);
-        
+
         // Should have 5 events: 4 bd + 1 cp
         assert!(events.len() >= 4);
     }

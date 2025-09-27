@@ -1,54 +1,78 @@
 //! OSC (Open Sound Control) support for live coding
-//! 
+//!
 //! This module provides OSC server and client functionality for
 //! controlling Phonon in real-time during live performances.
 
-use rosc::{OscPacket, OscMessage, OscType};
-use std::net::{UdpSocket, SocketAddr};
-use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{channel, Sender, Receiver};
-use std::thread;
-use std::collections::HashMap;
-use crate::pattern::{Pattern, State, TimeSpan, Fraction};
 use crate::mini_notation::parse_mini_notation;
+use crate::pattern::{Fraction, Pattern, State, TimeSpan};
+use rosc::{OscMessage, OscPacket, OscType};
+use std::collections::HashMap;
+use std::net::{SocketAddr, UdpSocket};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 /// OSC control commands
 #[derive(Debug, Clone)]
 pub enum OscCommand {
     /// Load a pattern
-    LoadPattern { name: String, pattern: String },
-    
+    LoadPattern {
+        name: String,
+        pattern: String,
+    },
+
     /// Play/stop a pattern
-    PlayPattern { name: String },
-    StopPattern { name: String },
-    
+    PlayPattern {
+        name: String,
+    },
+    StopPattern {
+        name: String,
+    },
+
     /// Set tempo (BPM)
-    SetTempo { bpm: f32 },
-    
+    SetTempo {
+        bpm: f32,
+    },
+
     /// Set control value
-    SetControl { name: String, value: f32 },
-    
+    SetControl {
+        name: String,
+        value: f32,
+    },
+
     /// Mute/unmute a pattern
-    Mute { name: String, muted: bool },
-    
+    Mute {
+        name: String,
+        muted: bool,
+    },
+
     /// Solo a pattern
-    Solo { name: String },
-    
+    Solo {
+        name: String,
+    },
+
     /// Clear solo
     ClearSolo,
-    
+
     /// Set pattern volume
-    SetVolume { name: String, volume: f32 },
-    
+    SetVolume {
+        name: String,
+        volume: f32,
+    },
+
     /// Apply an effect
-    ApplyEffect { name: String, effect: String, params: Vec<f32> },
-    
+    ApplyEffect {
+        name: String,
+        effect: String,
+        params: Vec<f32>,
+    },
+
     /// Sync/quantize to beat
     Sync,
-    
+
     /// Stop all patterns
     StopAll,
-    
+
     /// Query status
     GetStatus,
 }
@@ -63,29 +87,32 @@ pub struct OscServer {
 impl OscServer {
     /// Create a new OSC server
     pub fn new(port: u16) -> Result<(Self, Receiver<OscCommand>), Box<dyn std::error::Error>> {
-        let socket = UdpSocket::bind(format!("0.0.0.0:{}", port))?;
+        let socket = UdpSocket::bind(format!("0.0.0.0:{port}"))?;
         socket.set_nonblocking(true)?;
-        
+
         let (sender, receiver) = channel();
-        
-        Ok((Self {
-            socket,
-            sender,
-            running: Arc::new(Mutex::new(false)),
-        }, receiver))
+
+        Ok((
+            Self {
+                socket,
+                sender,
+                running: Arc::new(Mutex::new(false)),
+            },
+            receiver,
+        ))
     }
-    
+
     /// Start the OSC server
     pub fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
         *self.running.lock().unwrap() = true;
-        
+
         let socket = self.socket.try_clone()?;
         let sender = self.sender.clone();
         let running = self.running.clone();
-        
+
         thread::spawn(move || {
             let mut buf = [0u8; 1024];
-            
+
             while *running.lock().unwrap() {
                 match socket.recv_from(&mut buf) {
                     Ok((size, _addr)) => {
@@ -99,40 +126,43 @@ impl OscServer {
                         thread::sleep(std::time::Duration::from_millis(10));
                     }
                     Err(e) => {
-                        eprintln!("OSC server error: {}", e);
+                        eprintln!("OSC server error: {e}");
                         break;
                     }
                 }
             }
         });
-        
+
         Ok(())
     }
-    
+
     /// Stop the OSC server
     pub fn stop(&self) {
         *self.running.lock().unwrap() = false;
     }
-    
+
     /// Parse OSC packet into command
     fn parse_osc_packet(packet: OscPacket) -> Option<OscCommand> {
         match packet {
             OscPacket::Message(msg) => Self::parse_osc_message(msg),
             OscPacket::Bundle(bundle) => {
                 // Process first message in bundle for simplicity
-                bundle.content.into_iter()
-                    .find_map(|p| Self::parse_osc_packet(p))
+                bundle
+                    .content
+                    .into_iter()
+                    .find_map(Self::parse_osc_packet)
             }
         }
     }
-    
+
     /// Parse OSC message into command
     fn parse_osc_message(msg: OscMessage) -> Option<OscCommand> {
         match msg.addr.as_str() {
             "/pattern/load" => {
                 if msg.args.len() >= 2 {
-                    if let (OscType::String(name), OscType::String(pattern)) = 
-                        (&msg.args[0], &msg.args[1]) {
+                    if let (OscType::String(name), OscType::String(pattern)) =
+                        (&msg.args[0], &msg.args[1])
+                    {
                         return Some(OscCommand::LoadPattern {
                             name: name.clone(),
                             pattern: pattern.clone(),
@@ -157,8 +187,9 @@ impl OscServer {
             }
             "/control" => {
                 if msg.args.len() >= 2 {
-                    if let (OscType::String(name), OscType::Float(value)) = 
-                        (&msg.args[0], &msg.args[1]) {
+                    if let (OscType::String(name), OscType::Float(value)) =
+                        (&msg.args[0], &msg.args[1])
+                    {
                         return Some(OscCommand::SetControl {
                             name: name.clone(),
                             value: *value,
@@ -168,8 +199,9 @@ impl OscServer {
             }
             "/mute" => {
                 if msg.args.len() >= 2 {
-                    if let (OscType::String(name), OscType::Bool(muted)) = 
-                        (&msg.args[0], &msg.args[1]) {
+                    if let (OscType::String(name), OscType::Bool(muted)) =
+                        (&msg.args[0], &msg.args[1])
+                    {
                         return Some(OscCommand::Mute {
                             name: name.clone(),
                             muted: *muted,
@@ -187,8 +219,9 @@ impl OscServer {
             }
             "/volume" => {
                 if msg.args.len() >= 2 {
-                    if let (OscType::String(name), OscType::Float(volume)) = 
-                        (&msg.args[0], &msg.args[1]) {
+                    if let (OscType::String(name), OscType::Float(volume)) =
+                        (&msg.args[0], &msg.args[1])
+                    {
                         return Some(OscCommand::SetVolume {
                             name: name.clone(),
                             volume: *volume,
@@ -222,53 +255,64 @@ impl OscClient {
     pub fn new(target: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let socket = UdpSocket::bind("0.0.0.0:0")?;
         let target = target.parse()?;
-        
+
         Ok(Self { socket, target })
     }
-    
+
     /// Send an OSC message
-    pub fn send(&self, address: &str, args: Vec<OscType>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn send(
+        &self,
+        address: &str,
+        args: Vec<OscType>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let msg = OscMessage {
             addr: address.to_string(),
             args,
         };
-        
+
         let packet = OscPacket::Message(msg);
         let buf = rosc::encoder::encode(&packet)?;
-        
+
         self.socket.send_to(&buf, self.target)?;
         Ok(())
     }
-    
+
     /// Send pattern load command
-    pub fn load_pattern(&self, name: &str, pattern: &str) -> Result<(), Box<dyn std::error::Error>> {
-        self.send("/pattern/load", vec![
-            OscType::String(name.to_string()),
-            OscType::String(pattern.to_string()),
-        ])
+    pub fn load_pattern(
+        &self,
+        name: &str,
+        pattern: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.send(
+            "/pattern/load",
+            vec![
+                OscType::String(name.to_string()),
+                OscType::String(pattern.to_string()),
+            ],
+        )
     }
-    
+
     /// Send play pattern command
     pub fn play_pattern(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
         self.send("/pattern/play", vec![OscType::String(name.to_string())])
     }
-    
+
     /// Send stop pattern command
     pub fn stop_pattern(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
         self.send("/pattern/stop", vec![OscType::String(name.to_string())])
     }
-    
+
     /// Set tempo
     pub fn set_tempo(&self, bpm: f32) -> Result<(), Box<dyn std::error::Error>> {
         self.send("/tempo", vec![OscType::Float(bpm)])
     }
-    
+
     /// Set control value
     pub fn set_control(&self, name: &str, value: f32) -> Result<(), Box<dyn std::error::Error>> {
-        self.send("/control", vec![
-            OscType::String(name.to_string()),
-            OscType::Float(value),
-        ])
+        self.send(
+            "/control",
+            vec![OscType::String(name.to_string()), OscType::Float(value)],
+        )
     }
 }
 
@@ -301,7 +345,7 @@ impl OscPatternEngine {
         } else {
             (None, None)
         };
-        
+
         Ok(Self {
             patterns: Arc::new(Mutex::new(HashMap::new())),
             tempo_bpm: Arc::new(Mutex::new(120.0)),
@@ -311,7 +355,7 @@ impl OscPatternEngine {
             osc_receiver,
         })
     }
-    
+
     /// Process OSC commands
     pub fn process_osc_commands(&mut self) {
         // Collect commands first to avoid borrow issues
@@ -324,13 +368,13 @@ impl OscPatternEngine {
         } else {
             Vec::new()
         };
-        
+
         // Then handle them
         for cmd in commands {
             self.handle_osc_command(cmd);
         }
     }
-    
+
     /// Handle OSC command
     fn handle_osc_command(&mut self, cmd: OscCommand) {
         match cmd {
@@ -384,42 +428,40 @@ impl OscPatternEngine {
             _ => {}
         }
     }
-    
+
     /// Get active patterns for current beat
     pub fn get_active_patterns(&self, beat: f64) -> Vec<(String, Vec<String>)> {
         let patterns = self.patterns.lock().unwrap();
         let solo = self.solo_pattern.lock().unwrap();
-        
+
         let mut result = Vec::new();
-        
+
         for (name, state) in patterns.iter() {
             // Check if pattern should play
-            let should_play = state.playing && !state.muted && 
-                (solo.is_none() || solo.as_ref() == Some(name));
-            
+            let should_play =
+                state.playing && !state.muted && (solo.is_none() || solo.as_ref() == Some(name));
+
             if should_play {
                 let query_state = State {
                     span: TimeSpan::new(
                         Fraction::from_float(beat),
-                        Fraction::from_float(beat + 0.125) // 1/8 beat resolution
+                        Fraction::from_float(beat + 0.125), // 1/8 beat resolution
                     ),
                     controls: self.controls.lock().unwrap().clone(),
                 };
-                
+
                 let events = state.pattern.query(&query_state);
-                let values: Vec<String> = events.into_iter()
-                    .map(|e| e.value)
-                    .collect();
-                
+                let values: Vec<String> = events.into_iter().map(|e| e.value).collect();
+
                 if !values.is_empty() {
                     result.push((name.clone(), values));
                 }
             }
         }
-        
+
         result
     }
-    
+
     /// Get current tempo
     pub fn get_tempo(&self) -> f32 {
         *self.tempo_bpm.lock().unwrap()
@@ -429,13 +471,13 @@ impl OscPatternEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_osc_server_creation() {
         let result = OscServer::new(9999);
         assert!(result.is_ok());
     }
-    
+
     #[test]
     fn test_osc_message_parsing() {
         let msg = OscMessage {
@@ -445,26 +487,26 @@ mod tests {
                 OscType::String("bd*4 cp hh*8".to_string()),
             ],
         };
-        
+
         let cmd = OscServer::parse_osc_message(msg);
         assert!(matches!(cmd, Some(OscCommand::LoadPattern { .. })));
     }
-    
+
     #[test]
     fn test_pattern_engine() {
         let mut engine = OscPatternEngine::new(None).unwrap();
-        
+
         // Load a pattern
         engine.handle_osc_command(OscCommand::LoadPattern {
             name: "test".to_string(),
             pattern: "c4 e4 g4".to_string(),
         });
-        
+
         // Play it
         engine.handle_osc_command(OscCommand::PlayPattern {
             name: "test".to_string(),
         });
-        
+
         // Get active patterns
         let active = engine.get_active_patterns(0.0);
         assert!(!active.is_empty());
