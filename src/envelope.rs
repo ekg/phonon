@@ -2,7 +2,6 @@
 //!
 //! Provides ADSR and other envelope types for making synths percussive
 
-
 /// Envelope state
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EnvelopeState {

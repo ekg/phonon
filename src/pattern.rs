@@ -318,11 +318,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                     if let Some(value) = reversed_values.get(i) {
                         // Only include if within the query span
                         if time_span.end > state.span.begin && time_span.begin < state.span.end {
-                            let mut hap = Hap::new(
-                                cycle_haps[i].whole,
-                                *time_span,
-                                value.clone(),
-                            );
+                            let mut hap = Hap::new(cycle_haps[i].whole, *time_span, value.clone());
 
                             // Clip to query span if necessary
                             if hap.part.begin < state.span.begin {

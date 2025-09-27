@@ -4,7 +4,7 @@
 //! that can be composed and evaluated per cycle.
 
 use crate::pattern::{Fraction, Pattern, TimeSpan};
- // Import pattern operators
+// Import pattern operators
 
 /// Token types in mini-notation
 #[derive(Debug, Clone, PartialEq)]
@@ -799,14 +799,8 @@ pub fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
                         replicated.query(state)
                     })
                 }
-                Operator::Degrade(amount) => {
-                    
-                    pat.degrade_by(amount)
-                }
-                Operator::Late(amount) => {
-                    
-                    pat.late(amount)
-                }
+                Operator::Degrade(amount) => pat.degrade_by(amount),
+                Operator::Late(amount) => pat.late(amount),
             }
         }
 
@@ -893,14 +887,8 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                         replicated.query(state)
                     })
                 }
-                Operator::Degrade(amount) => {
-                    
-                    pat.degrade_by(amount)
-                }
-                Operator::Late(amount) => {
-                    
-                    pat.late(amount)
-                }
+                Operator::Degrade(amount) => pat.degrade_by(amount),
+                Operator::Late(amount) => pat.late(amount),
             }
         }
 

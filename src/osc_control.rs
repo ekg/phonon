@@ -147,10 +147,7 @@ impl OscServer {
             OscPacket::Message(msg) => Self::parse_osc_message(msg),
             OscPacket::Bundle(bundle) => {
                 // Process first message in bundle for simplicity
-                bundle
-                    .content
-                    .into_iter()
-                    .find_map(Self::parse_osc_packet)
+                bundle.content.into_iter().find_map(Self::parse_osc_packet)
             }
         }
     }

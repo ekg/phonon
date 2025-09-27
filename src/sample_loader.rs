@@ -148,10 +148,9 @@ impl SampleBank {
 
         for path_str in possible_paths {
             let full_path = self.dirt_samples_dir.join(&path_str);
-            if full_path.exists()
-                && self.load_sample(name, &full_path).is_ok() {
-                    return self.samples.get(name).cloned();
-                }
+            if full_path.exists() && self.load_sample(name, &full_path).is_ok() {
+                return self.samples.get(name).cloned();
+            }
         }
 
         // Try to find any WAV in the directory (fall back to first available sample)

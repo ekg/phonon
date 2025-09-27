@@ -570,8 +570,6 @@ fn apply_transform<T>(pattern: Pattern<T>, op: &TransformOp) -> Result<Pattern<T
 where
     T: Clone + Send + Sync + 'static,
 {
-    
-
     match op {
         TransformOp::Fast(n) => Ok(pattern.fast(*n)),
         TransformOp::Slow(n) => Ok(pattern.slow(*n)),

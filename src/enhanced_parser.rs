@@ -2,9 +2,7 @@
 //!
 //! Supports arithmetic operations, bus references, and pattern integration
 
-use crate::signal_graph::{
-    Node, NodeId, ProcessorType, SignalGraph, SourceType,
-};
+use crate::signal_graph::{Node, NodeId, ProcessorType, SignalGraph, SourceType};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -594,7 +592,6 @@ impl EnhancedParser {
             Expression::Pattern(pattern_str) => {
                 // Parse the pattern using mini-notation
                 use crate::mini_notation::parse_mini_notation;
-                
 
                 // Parse the pattern string to get events
                 let pattern = parse_mini_notation(pattern_str);

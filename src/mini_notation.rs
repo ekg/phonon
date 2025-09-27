@@ -711,7 +711,7 @@ pub fn parse_extended_notation(input: &str) -> Pattern<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pattern::{State, TimeSpan, Fraction};
+    use crate::pattern::{Fraction, State, TimeSpan};
     use std::collections::HashMap;
 
     #[test]

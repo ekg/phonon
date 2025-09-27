@@ -255,11 +255,7 @@ pub fn run(n: usize) -> Pattern<usize> {
                 break;
             }
 
-            haps.push(Hap::new(
-                Some(state.span),
-                TimeSpan::new(begin, end),
-                i,
-            ));
+            haps.push(Hap::new(Some(state.span), TimeSpan::new(begin, end), i));
         }
         haps
     })
@@ -271,11 +267,7 @@ pub fn scan(n: usize) -> Pattern<f64> {
         let cycle = state.span.begin.to_float();
         let value = (cycle % n as f64) / n as f64;
 
-        vec![Hap::new(
-            Some(state.span),
-            state.span,
-            value,
-        )]
+        vec![Hap::new(Some(state.span), state.span, value)]
     })
 }
 

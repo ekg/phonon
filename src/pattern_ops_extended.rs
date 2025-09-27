@@ -722,11 +722,7 @@ impl<T: Clone + Send + Sync + Debug + 'static> Pattern<T> {
     pub fn count(self) -> Pattern<usize> {
         Pattern::new(move |state: &State| {
             let haps = self.query(state);
-            vec![Hap::new(
-                Some(state.span),
-                state.span,
-                haps.len(),
-            )]
+            vec![Hap::new(Some(state.span), state.span, haps.len())]
         })
     }
 

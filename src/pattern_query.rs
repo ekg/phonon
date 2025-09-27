@@ -137,11 +137,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             let duration = state.span.duration().to_float();
             let density = haps.len() as f64 / duration;
 
-            vec![Hap::new(
-                Some(state.span),
-                state.span,
-                density,
-            )]
+            vec![Hap::new(Some(state.span), state.span, density)]
         })
     }
 
@@ -160,11 +156,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 }
             }
 
-            vec![Hap::new(
-                Some(state.span),
-                state.span,
-                unique_values,
-            )]
+            vec![Hap::new(Some(state.span), state.span, unique_values)]
         })
     }
 
@@ -195,11 +187,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             }
 
             if !current_segment.is_empty() {
-                segments.push(Hap::new(
-                    Some(state.span),
-                    state.span,
-                    current_segment,
-                ));
+                segments.push(Hap::new(Some(state.span), state.span, current_segment));
             }
 
             segments
