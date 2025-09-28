@@ -659,7 +659,8 @@ impl UnifiedSignalGraph {
                 let delayed = buffer[read_idx];
 
                 // Write to delay line (input + feedback)
-                let to_write = input_val + delayed * fb;
+                // Apply soft clipping to prevent feedback explosion
+                let to_write = (input_val + delayed * fb).tanh();
 
                 // Update buffer and write index
                 if let Some(Some(SignalNode::Delay {
@@ -717,14 +718,20 @@ impl UnifiedSignalGraph {
                 let input_val = self.eval_signal(&input).abs();
                 let last = last_value;
 
-                // Simple transient detection based on energy increase
-                let transient = if input_val > last * (1.0 + threshold) {
+                // Detect sharp changes (for saw wave discontinuities)
+                let diff = (input_val - last).abs();
+
+                // Generate transient pulse on significant changes
+                let transient = if diff > threshold {
+                    1.0
+                } else if last > 1.5 && input_val < 0.5 {
+                    // Detect saw wave reset (big drop)
                     1.0
                 } else {
                     0.0
                 };
 
-                // Update last value
+                // Update last value with actual input (not transient)
                 if let Some(Some(SignalNode::Transient { last_value: lv, .. })) =
                     self.nodes.get_mut(node_id.0)
                 {

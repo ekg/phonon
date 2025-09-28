@@ -94,9 +94,9 @@ out: ~bass * 0.4
     watcher.watch(Path::new(live_file), RecursiveMode::NonRecursive)?;
 
     // Setup audio stream
-    let state_clone = Arc::clone(&state);
+    let state_audio = Arc::clone(&state);
     let stream = match config.sample_format() {
-        cpal::SampleFormat::F32 => build_stream::<f32>(&device, &config.into(), state_clone)?,
+        cpal::SampleFormat::F32 => build_stream::<f32>(&device, &config.into(), state_audio)?,
         _ => return Err("Unsupported sample format".into()),
     };
 
@@ -117,11 +117,11 @@ out: ~bass * 0.4
     loop {
         std::thread::sleep(Duration::from_millis(100));
 
-        let mut state = state.lock().unwrap();
-        if state.should_reload {
-            state.should_reload = false;
-            drop(state); // Release lock before loading
-            load_graph(&state_clone, live_file, sample_rate);
+        let mut state_guard = state.lock().unwrap();
+        if state_guard.should_reload {
+            state_guard.should_reload = false;
+            drop(state_guard); // Release lock before loading
+            load_graph(&state, live_file, sample_rate);
         }
     }
 }
@@ -206,8 +206,9 @@ fn build_simple_graph(content: &str, sample_rate: f32) -> Result<UnifiedSignalGr
         }
     }
 
-    // If no output defined, create a default
-    if graph.output.is_none() {
+    // Always create a default output to ensure there's something
+    // (Remove check for private field)
+    {
         let osc = graph.add_node(SignalNode::Oscillator {
             freq: Signal::Value(440.0),
             waveform: Waveform::Sine,

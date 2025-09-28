@@ -26,8 +26,8 @@ fn main() {
 
     // Demonstrate the effect
     let basic = parse_mini_notation("100 200 300 400");
-    let fast = basic.clone().fast(2);
-    let slow = basic.clone().slow(2);
+    let fast = basic.clone().fast(2.0);
+    let slow = basic.clone().slow(2.0);
     let reversed = basic.clone().rev();
 
     println!("Original: \"100 200 300 400\"");
