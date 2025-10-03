@@ -293,12 +293,83 @@ fn calculate_rms(samples: &[f32]) -> f32 {
 }
 
 #[test]
-fn test_hh_sample_alone() {
-    // Test ONLY HH to see if correlation works
+fn test_bd_sample_one_cycle() {
+    // Test BD alone, one cycle, perfect correlation
+    let mut bank = SampleBank::new();
+    let bd_original = bank.get_sample("bd").expect("BD should load");
+
+    let mut graph = UnifiedSignalGraph::new(44100.0);
+    graph.set_cps(1.0); // 1 cycle = 1 second = 44100 samples
+
+    let pattern = parse_mini_notation("bd");
+    let sample_node = graph.add_node(SignalNode::Sample {
+        pattern_str: "bd".to_string(),
+        pattern,
+        last_trigger_time: 0.0,
+        playback_positions: HashMap::new(),
+    });
+
+    graph.set_output(sample_node);
+
+    // Render exactly one cycle
+    let buffer = graph.render(44100);
+
+    save_wav("test_bd_one_cycle.wav", &buffer, 44100);
+
+    let correlation = correlate(&buffer, &bd_original);
+    let rms = calculate_rms(&buffer);
+    let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
+
+    println!("BD one cycle - RMS: {:.4}, Peak: {:.4}, Correlation: {:.4}", rms, peak, correlation);
+
+    assert!(
+        correlation > 0.95,
+        "BD alone should have near-perfect correlation, got {}",
+        correlation
+    );
+}
+
+#[test]
+fn test_cp_sample_one_cycle() {
+    // Test CP alone, one cycle, perfect correlation
+    let mut bank = SampleBank::new();
+    let cp_original = bank.get_sample("cp").expect("CP should load");
+
+    let mut graph = UnifiedSignalGraph::new(44100.0);
+    graph.set_cps(1.0);
+
+    let pattern = parse_mini_notation("cp");
+    let sample_node = graph.add_node(SignalNode::Sample {
+        pattern_str: "cp".to_string(),
+        pattern,
+        last_trigger_time: 0.0,
+        playback_positions: HashMap::new(),
+    });
+
+    graph.set_output(sample_node);
+
+    let buffer = graph.render(44100);
+
+    save_wav("test_cp_one_cycle.wav", &buffer, 44100);
+
+    let correlation = correlate(&buffer, &cp_original);
+    let rms = calculate_rms(&buffer);
+    let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
+
+    println!("CP one cycle - RMS: {:.4}, Peak: {:.4}, Correlation: {:.4}", rms, peak, correlation);
+
+    assert!(
+        correlation > 0.95,
+        "CP alone should have near-perfect correlation, got {}",
+        correlation
+    );
+}
+
+#[test]
+fn test_hh_sample_one_cycle() {
+    // Test HH alone, one cycle, perfect correlation
     let mut bank = SampleBank::new();
     let hh_original = bank.get_sample("hh").expect("HH should load");
-
-    println!("HH sample length: {}", hh_original.len());
 
     let mut graph = UnifiedSignalGraph::new(44100.0);
     graph.set_cps(1.0);
@@ -313,21 +384,55 @@ fn test_hh_sample_alone() {
 
     graph.set_output(sample_node);
 
-    // Render enough to capture HH
-    let buffer = graph.render(50000);
+    let buffer = graph.render(44100);
 
-    save_wav("test_hh_alone.wav", &buffer, 44100);
+    save_wav("test_hh_one_cycle.wav", &buffer, 44100);
 
     let correlation = correlate(&buffer, &hh_original);
     let rms = calculate_rms(&buffer);
     let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
 
-    println!("HH alone - RMS: {:.4}, Peak: {:.4}", rms, peak);
-    println!("HH alone correlation: {:.4}", correlation);
+    println!("HH one cycle - RMS: {:.4}, Peak: {:.4}, Correlation: {:.4}", rms, peak, correlation);
 
     assert!(
-        correlation > 0.8,
-        "HH alone should have high correlation, got {}",
+        correlation > 0.95,
+        "HH alone should have near-perfect correlation, got {}",
+        correlation
+    );
+}
+
+#[test]
+fn test_sn_sample_one_cycle() {
+    // Test SN alone, one cycle, perfect correlation
+    let mut bank = SampleBank::new();
+    let sn_original = bank.get_sample("sn").expect("SN should load");
+
+    let mut graph = UnifiedSignalGraph::new(44100.0);
+    graph.set_cps(1.0);
+
+    let pattern = parse_mini_notation("sn");
+    let sample_node = graph.add_node(SignalNode::Sample {
+        pattern_str: "sn".to_string(),
+        pattern,
+        last_trigger_time: 0.0,
+        playback_positions: HashMap::new(),
+    });
+
+    graph.set_output(sample_node);
+
+    let buffer = graph.render(44100);
+
+    save_wav("test_sn_one_cycle.wav", &buffer, 44100);
+
+    let correlation = correlate(&buffer, &sn_original);
+    let rms = calculate_rms(&buffer);
+    let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
+
+    println!("SN one cycle - RMS: {:.4}, Peak: {:.4}, Correlation: {:.4}", rms, peak, correlation);
+
+    assert!(
+        correlation > 0.95,
+        "SN alone should have near-perfect correlation, got {}",
         correlation
     );
 }
