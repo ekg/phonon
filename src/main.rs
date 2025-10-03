@@ -354,7 +354,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let effect_str = expr[chain_pos + 2..].trim();
 
                             // Parse source
-                            let source_node = if source_str.starts_with("sine(")
+                            let source_node = if source_str.starts_with("s(") {
+                                // Sample player
+                                if let Some(start) = source_str.find('(') {
+                                    if let Some(end) = source_str.find(')') {
+                                        let pattern_str = source_str[start + 1..end].trim();
+                                        // Remove quotes if present
+                                        let pattern_str = if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
+                                            &pattern_str[1..pattern_str.len() - 1]
+                                        } else {
+                                            pattern_str
+                                        };
+                                        let pattern = parse_mini_notation(pattern_str);
+                                        graph.add_node(SignalNode::Sample {
+                                            pattern_str: pattern_str.to_string(),
+                                            pattern,
+                                            last_trigger_time: 0.0,
+                                            playback_positions: HashMap::new(),
+                                        })
+                                    } else {
+                                        graph.add_node(SignalNode::Constant { value: 0.0 })
+                                    }
+                                } else {
+                                    graph.add_node(SignalNode::Constant { value: 0.0 })
+                                }
+                            } else if source_str.starts_with("sine(")
                                 || source_str.starts_with("saw(")
                                 || source_str.starts_with("square(")
                                 || source_str.starts_with("noise")
@@ -549,6 +573,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     buses: &HashMap<String, phonon::unified_graph::NodeId>,
                 ) -> Option<phonon::unified_graph::NodeId> {
                     let expr = expr.trim();
+
+                    // Sample player
+                    if expr.starts_with("s(") {
+                        if let Some(start) = expr.find('(') {
+                            if let Some(end) = expr.find(')') {
+                                let pattern_str = expr[start + 1..end].trim();
+                                // Remove quotes if present
+                                let pattern_str = if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
+                                    &pattern_str[1..pattern_str.len() - 1]
+                                } else {
+                                    pattern_str
+                                };
+                                let pattern = parse_mini_notation(pattern_str);
+                                return Some(graph.add_node(SignalNode::Sample {
+                                    pattern_str: pattern_str.to_string(),
+                                    pattern,
+                                    last_trigger_time: 0.0,
+                                    playback_positions: HashMap::new(),
+                                }));
+                            }
+                        }
+                        return None;
+                    }
 
                     if expr.starts_with("sine(")
                         || expr.starts_with("saw(")
@@ -974,6 +1021,26 @@ out sine(440) * 0.2
                 // Noise
                 if expr == "noise" {
                     return Some(graph.add_node(SignalNode::Noise { seed: 12345 }));
+                }
+
+                // Sample player: s("bd cp hh")
+                if expr.starts_with("s(") {
+                    if let Some(pattern_str) = expr.strip_prefix("s(").and_then(|s| s.strip_suffix(")")) {
+                        let pattern_str = pattern_str.trim();
+                        // Remove quotes if present
+                        let pattern_str = if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
+                            &pattern_str[1..pattern_str.len() - 1]
+                        } else {
+                            pattern_str
+                        };
+                        let pattern = parse_mini_notation(pattern_str);
+                        return Some(graph.add_node(SignalNode::Sample {
+                            pattern_str: pattern_str.to_string(),
+                            pattern,
+                            last_trigger_time: 0.0,
+                            playback_positions: HashMap::new(),
+                        }));
+                    }
                 }
 
                 // Filters: lpf(input, cutoff, q)

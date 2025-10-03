@@ -1,6 +1,15 @@
 - you must use test-driven design. any feature implemented must be tested. audio features should be tested by examining output audio files using appropriate signal analysis techniques. intermediate representations (text) can be used too for testing that the pattern and signal generation system is working correctly.
 - any time you finish and say "next steps" you should actually automatically begin working on the next steps and not bother me lol.
 
+## CRITICAL SYNTHESIS RULE
+
+**BEFORE attempting ANY synthesis/audio work:**
+1. Research HOW it actually works in the codebase
+2. Find WORKING examples and test them first
+3. Never guess at synthesis - test everything
+4. Use SAMPLES (dirt-samples) not sine-wave synthesis for drums
+5. Sample triggering syntax must be researched, not invented
+
 ## Current Status (Updated)
 
 ### Modular Synthesis DSL Implementation

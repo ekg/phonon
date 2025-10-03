@@ -5,6 +5,8 @@
 
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::{Fraction, Pattern, State, TimeSpan};
+use crate::sample_loader::SampleBank;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
@@ -54,6 +56,14 @@ pub enum SignalNode {
         pattern_str: String,
         pattern: Pattern<String>,
         last_value: f32,
+    },
+
+    /// Sample player triggered by pattern
+    Sample {
+        pattern_str: String,
+        pattern: Pattern<String>,
+        last_trigger_time: f32,
+        playback_positions: HashMap<String, usize>,
     },
 
     /// Constant value
@@ -220,6 +230,9 @@ pub struct UnifiedSignalGraph {
 
     /// Computed values cache for current sample
     value_cache: HashMap<NodeId, f32>,
+
+    /// Sample bank for loading and playing samples (RefCell for interior mutability)
+    sample_bank: RefCell<SampleBank>,
 }
 
 impl UnifiedSignalGraph {
@@ -233,6 +246,7 @@ impl UnifiedSignalGraph {
             cps: 0.5, // Default 0.5 cycles per second
             next_node_id: 0,
             value_cache: HashMap::new(),
+            sample_bank: RefCell::new(SampleBank::new()),
         }
     }
 
@@ -492,6 +506,65 @@ impl UnifiedSignalGraph {
                 }
 
                 value
+            }
+
+            SignalNode::Sample {
+                pattern_str,
+                pattern,
+                last_trigger_time,
+                playback_positions,
+            } => {
+                // Query pattern for events at current cycle position
+                // Use a wider query window to catch events (one render sample width)
+                let cycle_frac = self.cycle_position.fract();
+                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                let state = State {
+                    span: TimeSpan::new(
+                        Fraction::from_float(cycle_frac),
+                        Fraction::from_float(cycle_frac + sample_width),
+                    ),
+                    controls: HashMap::new(),
+                };
+                let events = pattern.query(&state);
+
+                let mut output = 0.0;
+
+                // Play sample whenever pattern has an event
+                if let Some(event) = events.first() {
+                    let sample_name = event.value.trim();
+
+                    // Skip rests
+                    if sample_name == "~" || sample_name.is_empty() {
+                        return 0.0;
+                    }
+
+                    // Get sample from bank
+                    if let Some(sample_data) = self.sample_bank.borrow_mut().get_sample(sample_name) {
+                        // Get current playback position - each sample name has its own position tracker
+                        let pos = if let Some(Some(SignalNode::Sample { playback_positions: positions, .. })) = self.nodes.get_mut(node_id.0) {
+                            let current_pos = positions.entry(sample_name.to_string()).or_insert(0);
+                            let pos = *current_pos;
+
+                            // Advance playback position for next render sample
+                            *current_pos += 1;
+                            if *current_pos >= sample_data.len() {
+                                // Sample finished, reset for potential re-trigger
+                                *current_pos = 0;
+                            }
+
+                            pos
+                        } else {
+                            0
+                        };
+
+                        // Get sample value
+                        if pos < sample_data.len() {
+                            output = sample_data[pos];
+                        }
+                    }
+                }
+
+                output
             }
 
             SignalNode::Noise { seed } => {
