@@ -6,6 +6,7 @@
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::{Fraction, Pattern, State, TimeSpan};
 use crate::sample_loader::SampleBank;
+use crate::voice_manager::VoiceManager;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::f32::consts::PI;
@@ -56,6 +57,7 @@ pub enum SignalNode {
         pattern_str: String,
         pattern: Pattern<String>,
         last_value: f32,
+        last_trigger_time: f32, // Cycle position of last trigger
     },
 
     /// Sample player triggered by pattern
@@ -65,6 +67,10 @@ pub enum SignalNode {
         last_trigger_time: f32,
         playback_positions: HashMap<String, usize>,
     },
+
+    /// Voice output - outputs mixed audio from all triggered samples
+    /// This allows sample playback to be routed through effects
+    VoiceOutput,
 
     /// Constant value
     Constant { value: f32 },
@@ -161,10 +167,10 @@ pub enum Waveform {
 /// Filter state for biquad filters
 #[derive(Debug, Clone)]
 pub struct FilterState {
-    x1: f32,
-    x2: f32,
-    y1: f32,
-    y2: f32,
+    pub x1: f32,
+    pub x2: f32,
+    pub y1: f32,
+    pub y2: f32,
 }
 
 impl Default for FilterState {
@@ -233,6 +239,12 @@ pub struct UnifiedSignalGraph {
 
     /// Sample bank for loading and playing samples (RefCell for interior mutability)
     sample_bank: RefCell<SampleBank>,
+
+    /// Voice manager for polyphonic sample playback
+    voice_manager: RefCell<VoiceManager>,
+
+    /// Sample counter for debugging
+    sample_count: usize,
 }
 
 impl UnifiedSignalGraph {
@@ -247,11 +259,17 @@ impl UnifiedSignalGraph {
             next_node_id: 0,
             value_cache: HashMap::new(),
             sample_bank: RefCell::new(SampleBank::new()),
+            voice_manager: RefCell::new(VoiceManager::new()),
+            sample_count: 0,
         }
     }
 
     pub fn set_cps(&mut self, cps: f32) {
         self.cps = cps;
+    }
+
+    pub fn get_cps(&self) -> f32 {
+        self.cps
     }
 
     /// Add a node to the graph and return its ID
@@ -470,101 +488,149 @@ impl UnifiedSignalGraph {
                 pattern_str,
                 pattern,
                 last_value,
+                last_trigger_time,
             } => {
-                // Evaluate pattern at current cycle position
-                // Use a point query instead of a span
-                let cycle_frac = self.cycle_position.fract();
+                // Query pattern for events at current cycle position
+                // Use absolute cycle position for alternation to work correctly
+                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
                 let state = State {
                     span: TimeSpan::new(
-                        Fraction::from_float(cycle_frac),
-                        Fraction::from_float(cycle_frac + 0.0001),
+                        Fraction::from_float(self.cycle_position),
+                        Fraction::from_float(self.cycle_position + sample_width),
                     ),
                     controls: HashMap::new(),
                 };
 
                 let events = pattern.query(&state);
-                let value = if let Some(event) = events.first() {
-                    // Convert pattern value to float
-                    let parsed_value = match event.value.as_str() {
-                        "bd" | "kick" => 1.0,
-                        "sn" | "snare" => 0.8,
-                        "hh" | "hat" => 0.6,
-                        "~" | "" => 0.0,
-                        s => s.parse::<f32>().unwrap_or(1.0),
-                    };
+                let cycle_frac = self.cycle_position.fract();
+                let mut trigger_value = last_value; // Hold last value between triggers
 
-                    parsed_value
-                } else {
-                    last_value
-                };
+                if let Some(event) = events.first() {
+                    // Skip rests
+                    if event.value.trim() != "~" && !event.value.is_empty() {
+                        // Get event start time (absolute cycle position)
+                        let event_start_abs = if let Some(whole) = &event.whole {
+                            whole.begin.to_float()
+                        } else {
+                            event.part.begin.to_float()
+                        };
 
-                // Update last value
-                if let Some(Some(SignalNode::Pattern { last_value: lv, .. })) =
-                    self.nodes.get_mut(node_id.0)
-                {
-                    *lv = value;
+                        // Get fractional part for comparison with cycle_frac
+                        let event_start_frac = event_start_abs.fract();
+
+                        // Check if we're at the start of the event
+                        let at_event_start = (cycle_frac - event_start_frac).abs() < sample_width * 2.0;
+
+                        if at_event_start {
+                            // Check if we haven't already triggered this event (compare absolute times)
+                            let already_triggered = (last_trigger_time as f64 - event_start_abs).abs() < sample_width;
+
+                            if !already_triggered {
+                                // Generate trigger pulse - convert pattern value to amplitude
+                                trigger_value = match event.value.as_str() {
+                                    "bd" | "kick" => 1.0,
+                                    "sn" | "snare" => 0.8,
+                                    "hh" | "hat" => 0.6,
+                                    s => s.parse::<f32>().unwrap_or(1.0),
+                                };
+
+                                // Update last trigger time (store absolute position)
+                                if let Some(Some(SignalNode::Pattern { last_trigger_time: ltt, last_value: lv, .. })) =
+                                    self.nodes.get_mut(node_id.0)
+                                {
+                                    *ltt = event_start_abs as f32;
+                                    *lv = trigger_value;
+                                }
+                            }
+                        }
+                    }
                 }
 
-                value
+                trigger_value
             }
 
             SignalNode::Sample {
                 pattern_str,
                 pattern,
                 last_trigger_time,
-                playback_positions,
+                playback_positions: _,
             } => {
                 // Query pattern for events at current cycle position
-                // Use a wider query window to catch events (one render sample width)
-                let cycle_frac = self.cycle_position.fract();
+                // Use absolute cycle position for alternation to work correctly
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
                 let state = State {
                     span: TimeSpan::new(
-                        Fraction::from_float(cycle_frac),
-                        Fraction::from_float(cycle_frac + sample_width),
+                        Fraction::from_float(self.cycle_position),
+                        Fraction::from_float(self.cycle_position + sample_width),
                     ),
                     controls: HashMap::new(),
                 };
                 let events = pattern.query(&state);
 
-                let mut output = 0.0;
+                // Get the last EVENT start time we triggered
+                // This is the actual event start time, not cycle position
+                let last_event_start = if let Some(Some(SignalNode::Sample { last_trigger_time: lt, .. })) = self.nodes.get(node_id.0) {
+                    *lt as f64
+                } else {
+                    -1.0
+                };
 
-                // Play sample whenever pattern has an event
-                if let Some(event) = events.first() {
+                // Track the latest event start time we trigger in this sample
+                let mut latest_triggered_start = last_event_start;
+
+                // Trigger voices for ALL new events
+                // An event should be triggered if its START is after the last event we triggered
+                for event in events.iter() {
                     let sample_name = event.value.trim();
 
                     // Skip rests
                     if sample_name == "~" || sample_name.is_empty() {
-                        return 0.0;
+                        continue;
                     }
 
-                    // Get sample from bank
-                    if let Some(sample_data) = self.sample_bank.borrow_mut().get_sample(sample_name) {
-                        // Get current playback position - each sample name has its own position tracker
-                        let pos = if let Some(Some(SignalNode::Sample { playback_positions: positions, .. })) = self.nodes.get_mut(node_id.0) {
-                            let current_pos = positions.entry(sample_name.to_string()).or_insert(0);
-                            let pos = *current_pos;
+                    // Get the event start time (absolute cycle position)
+                    let event_start_abs = if let Some(whole) = &event.whole {
+                        whole.begin.to_float()
+                    } else {
+                        event.part.begin.to_float()
+                    };
 
-                            // Advance playback position for next render sample
-                            *current_pos += 1;
-                            if *current_pos >= sample_data.len() {
-                                // Sample finished, reset for potential re-trigger
-                                *current_pos = 0;
+                    // Only trigger events that start AFTER the last event we triggered
+                    // Use a very small tolerance for floating point comparison
+                    let tolerance = sample_width * 0.001;
+                    let event_is_new = event_start_abs > last_event_start + tolerance;
+
+                    if event_is_new {
+                        // Get sample from bank and trigger a new voice
+                        if let Some(sample_data) = self.sample_bank.borrow_mut().get_sample(sample_name) {
+                            self.voice_manager.borrow_mut().trigger_sample(sample_data, 1.0);
+
+                            // Track this as the latest event we've triggered
+                            if event_start_abs > latest_triggered_start {
+                                latest_triggered_start = event_start_abs;
                             }
-
-                            pos
-                        } else {
-                            0
-                        };
-
-                        // Get sample value
-                        if pos < sample_data.len() {
-                            output = sample_data[pos];
                         }
                     }
                 }
 
-                output
+                // Update last_trigger_time to the latest event start time we triggered
+                // This ensures we don't re-trigger the same events
+                if latest_triggered_start > last_event_start {
+                    if let Some(Some(SignalNode::Sample { last_trigger_time: lt, .. })) = self.nodes.get_mut(node_id.0) {
+                        *lt = latest_triggered_start as f32;
+                    }
+                }
+
+                // Sample nodes trigger voices AND output the voice audio
+                // This allows them to work standalone or be routed through effects
+                self.voice_manager.borrow_mut().process()
+            }
+
+            SignalNode::VoiceOutput => {
+                // Output the mixed audio from all active voices
+                // This is the same as what Sample nodes output,
+                // provided as an explicit node for clarity
+                self.voice_manager.borrow_mut().process()
             }
 
             SignalNode::Noise { seed } => {
@@ -835,6 +901,8 @@ impl UnifiedSignalGraph {
         self.value_cache.clear();
 
         // Process output node if it exists
+        // Note: Voices are now part of the signal graph via VoiceOutput nodes
+        // They will be processed during graph evaluation
         let output = if let Some(output_id) = self.output {
             self.eval_node(&output_id)
         } else {
@@ -843,6 +911,9 @@ impl UnifiedSignalGraph {
 
         // Advance cycle position
         self.cycle_position += self.cps as f64 / self.sample_rate as f64;
+
+        // Increment sample counter
+        self.sample_count += 1;
 
         output
     }

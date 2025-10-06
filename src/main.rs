@@ -72,6 +72,7 @@ enum Commands {
     /// Start live coding session with file watching
     Live {
         /// DSL file to watch and auto-reload
+        #[arg(default_value = "live.ph")]
         file: PathBuf,
 
         /// Duration for each render (default: 4.0)
@@ -168,7 +169,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut buffer = String::new();
                 std::io::stdin().read_to_string(&mut buffer)?;
                 buffer
-            } else if input.ends_with(".phonon")
+            } else if input.ends_with(".ph")
+                || input.ends_with(".phonon")
                 || input.ends_with(".pho")
                 || input.ends_with(".dsl")
             {
@@ -193,7 +195,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("==================");
             println!(
                 "Input:       {}",
-                if input.ends_with(".phonon") || input.ends_with(".pho") || input.ends_with(".dsl")
+                if input.ends_with(".ph") || input.ends_with(".phonon") || input.ends_with(".pho") || input.ends_with(".dsl")
                 {
                     &input
                 } else {
@@ -303,6 +305,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             pattern_str: pattern_str.to_string(),
                             pattern,
                             last_value: default_value,
+                            last_trigger_time: -1.0,
                         });
                         Signal::Node(pattern_node)
                     }
@@ -329,29 +332,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         continue;
                     }
 
-                    // Handle tempo (tempo is not directly supported in UnifiedSignalGraph)
-                    if trimmed.starts_with("tempo ") {
-                        // Skip tempo for now
+                    // Handle tempo/cps
+                    if trimmed.starts_with("tempo ") || trimmed.starts_with("cps ") {
+                        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+                        if parts.len() >= 2 {
+                            if let Ok(cps_value) = parts[1].parse::<f32>() {
+                                graph.set_cps(cps_value);
+                            }
+                        }
                         continue;
                     }
 
                     // Parse assignment or output
-                    if trimmed.starts_with("out ") || trimmed.contains('=') {
-                        let (target, expr) = if trimmed.starts_with("out ") {
-                            ("out", trimmed[4..].trim())
-                        } else if let Some(pos) = trimmed.find('=') {
+                    if trimmed.starts_with("out ") || trimmed.starts_with("out=") || trimmed.contains('=') {
+                        let (target, expr) = if trimmed.contains('=') {
+                            // Handle assignment: out = ... or ~bus = ...
+                            let pos = trimmed.find('=').unwrap();
                             let target = trimmed[..pos].trim();
                             let expr = trimmed[pos + 1..].trim();
                             (target, expr)
+                        } else if trimmed.starts_with("out ") {
+                            // Handle: out <expr> (no equals)
+                            ("out", trimmed[4..].trim())
                         } else {
                             continue;
                         };
 
                         // Parse expression into node
-                        let node_id = if let Some(chain_pos) = expr.find(">>") {
-                            // Signal chain: source >> effect
-                            let source_str = expr[..chain_pos].trim();
-                            let effect_str = expr[chain_pos + 2..].trim();
+                        let node_id = if let Some(chain_pos) = expr.find(">>").or_else(|| expr.find("<<")) {
+                            // Signal chain: source >> effect OR effect << source
+                            let is_reversed = expr.contains("<<");
+                            let (source_str, effect_str) = if is_reversed {
+                                // << is reversed: effect << source
+                                let parts: Vec<&str> = expr.splitn(2, "<<").collect();
+                                (parts[1].trim(), parts[0].trim())
+                            } else {
+                                // >> is normal: source >> effect
+                                (expr[..chain_pos].trim(), expr[chain_pos + 2..].trim())
+                            };
 
                             // Parse source
                             let source_node = if source_str.starts_with("s(") {
@@ -369,7 +387,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         graph.add_node(SignalNode::Sample {
                                             pattern_str: pattern_str.to_string(),
                                             pattern,
-                                            last_trigger_time: 0.0,
+                                            last_trigger_time: -1.0,
                                             playback_positions: HashMap::new(),
                                         })
                                     } else {
@@ -499,8 +517,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             } else {
                                 graph.add_node(SignalNode::Constant { value: 0.0 })
                             }
-                        } else if expr.contains('*') {
-                            // Handle multiplication
+                        } else if expr.contains('*') && !expr.contains('"') {
+                            // Handle multiplication (but not if there are quotes - could be pattern syntax)
                             let parts: Vec<&str> = expr.split('*').map(|s| s.trim()).collect();
                             if parts.len() == 2 {
                                 let left_node = if parts[0].starts_with('~') {
@@ -525,11 +543,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                 };
 
-                                let right_value = parts[1].parse::<f32>().unwrap_or(1.0);
+                                // Parse right side - could be number, pattern, or bus reference
+                                let right_signal = if let Ok(val) = parts[1].parse::<f32>() {
+                                    Signal::Value(val)
+                                } else if parts[1].starts_with('~') {
+                                    if let Some(&bus_id) = buses.get(parts[1]) {
+                                        Signal::Node(bus_id)
+                                    } else {
+                                        Signal::Value(1.0)
+                                    }
+                                } else if let Some(node_id) = parse_expression_to_node(graph, parts[1], buses) {
+                                    Signal::Node(node_id)
+                                } else {
+                                    Signal::Value(1.0)
+                                };
 
                                 graph.add_node(SignalNode::Multiply {
                                     a: Signal::Node(left_node),
-                                    b: Signal::Value(right_value),
+                                    b: right_signal,
                                 })
                             } else {
                                 graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -566,6 +597,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
 
+                // Helper to apply pattern transformations
+                fn apply_transform(pattern: phonon::pattern::Pattern<String>, transform: &str) -> phonon::pattern::Pattern<String> {
+                    let transform = transform.trim();
+
+                    // Parse transformation: fast 2, slow 2, rev, every 4 fast 2
+                    if transform.starts_with("fast ") {
+                        if let Ok(factor) = transform[5..].trim().parse::<f64>() {
+                            return pattern.fast(factor);
+                        }
+                    } else if transform.starts_with("slow ") {
+                        if let Ok(factor) = transform[5..].trim().parse::<f64>() {
+                            return pattern.slow(factor);
+                        }
+                    } else if transform == "rev" {
+                        return pattern.rev();
+                    } else if transform.starts_with("every ") {
+                        // Parse: every 4 fast 2, every 4 (fast 2), every 4 rev
+                        let rest = transform[6..].trim();
+                        if let Some(space_pos) = rest.find(' ') {
+                            if let Ok(n) = rest[..space_pos].parse::<i32>() {
+                                let inner_transform = rest[space_pos + 1..].trim();
+                                // Remove parentheses if present
+                                let inner_transform = if inner_transform.starts_with('(') && inner_transform.ends_with(')') {
+                                    &inner_transform[1..inner_transform.len() - 1]
+                                } else {
+                                    inner_transform
+                                };
+                                let inner_transform = inner_transform.to_string();
+                                return pattern.every(n, move |p| apply_transform(p, &inner_transform));
+                            }
+                        }
+                    }
+
+                    pattern
+                }
+
                 // Helper function for parsing expressions to nodes
                 fn parse_expression_to_node(
                     graph: &mut UnifiedSignalGraph,
@@ -573,6 +640,82 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     buses: &HashMap<String, phonon::unified_graph::NodeId>,
                 ) -> Option<phonon::unified_graph::NodeId> {
                     let expr = expr.trim();
+
+                    // Check for |> or <| pattern transformations
+                    if expr.contains(" |> ") || expr.contains(" <| ") {
+                        let (base_expr, transform_expr, reversed) = if expr.contains(" |> ") {
+                            let parts: Vec<&str> = expr.splitn(2, " |> ").collect();
+                            if parts.len() == 2 {
+                                (parts[0].trim(), parts[1].trim(), false)
+                            } else {
+                                (expr, "", false)
+                            }
+                        } else {
+                            // <| is reversed: transform <| base
+                            let parts: Vec<&str> = expr.splitn(2, " <| ").collect();
+                            if parts.len() == 2 {
+                                (parts[1].trim(), parts[0].trim(), true)
+                            } else {
+                                (expr, "", false)
+                            }
+                        };
+
+                        if !transform_expr.is_empty() {
+                            // Parse base expression to get pattern
+                            if base_expr.starts_with("s(") {
+                                if let Some(start) = base_expr.find('(') {
+                                    if let Some(end) = base_expr.find(')') {
+                                        let pattern_str = base_expr[start + 1..end].trim();
+                                        let pattern_str = if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
+                                            &pattern_str[1..pattern_str.len() - 1]
+                                        } else {
+                                            pattern_str
+                                        };
+                                        let mut pattern = parse_mini_notation(pattern_str);
+
+                                        // Apply transformations (may be chained with more |>)
+                                        for transform in transform_expr.split(" |> ") {
+                                            pattern = apply_transform(pattern, transform);
+                                        }
+
+                                        return Some(graph.add_node(SignalNode::Sample {
+                                            pattern_str: pattern_str.to_string(),
+                                            pattern,
+                                            last_trigger_time: -1.0,
+                                            playback_positions: HashMap::new(),
+                                        }));
+                                    }
+                                }
+                            } else if base_expr.starts_with('"') && base_expr.ends_with('"') {
+                                // Plain pattern string with transformation
+                                let pattern_str = &base_expr[1..base_expr.len() - 1];
+                                let mut pattern = parse_mini_notation(pattern_str);
+
+                                for transform in transform_expr.split(" |> ") {
+                                    pattern = apply_transform(pattern, transform);
+                                }
+
+                                return Some(graph.add_node(SignalNode::Pattern {
+                                    pattern_str: pattern_str.to_string(),
+                                    pattern,
+                                    last_value: 0.0,
+                                    last_trigger_time: -1.0,
+                                }));
+                            }
+                        }
+                    }
+
+                    // Plain pattern string: "110 220"
+                    if expr.starts_with('"') && expr.ends_with('"') {
+                        let pattern_str = &expr[1..expr.len() - 1];
+                        let pattern = parse_mini_notation(pattern_str);
+                        return Some(graph.add_node(SignalNode::Pattern {
+                            pattern_str: pattern_str.to_string(),
+                            pattern,
+                            last_value: 0.0,
+                            last_trigger_time: -1.0,
+                        }));
+                    }
 
                     // Sample player
                     if expr.starts_with("s(") {
@@ -589,7 +732,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 return Some(graph.add_node(SignalNode::Sample {
                                     pattern_str: pattern_str.to_string(),
                                     pattern,
-                                    last_trigger_time: 0.0,
+                                    last_trigger_time: -1.0,
                                     playback_positions: HashMap::new(),
                                 }));
                             }
@@ -628,6 +771,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             pattern_str: pattern_str.to_string(),
                                             pattern,
                                             last_value: 440.0,
+                                            last_trigger_time: -1.0,
                                         });
                                         Signal::Node(pattern_node)
                                     } else if let Ok(val) = param.parse::<f32>() {
@@ -660,6 +804,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Parse the file
             out_signal = parse_file_to_graph(&dsl_code, &mut graph, &mut buses);
+
+            // Recalculate duration based on actual tempo from DSL file
+            let final_duration = if let Some(cycle_count) = cycles {
+                // Convert cycles to seconds using the tempo from the DSL
+                // 1 cycle = 1/cps seconds
+                cycle_count as f32 / graph.get_cps()
+            } else {
+                final_duration
+            };
 
             // Generate audio
             let total_samples = (final_duration * sample_rate as f32) as usize;
@@ -753,7 +906,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             use std::process::Command;
 
             // Read DSL code
-            let dsl_code = if input.ends_with(".phonon") || input.ends_with(".dsl") {
+            let dsl_code = if input.ends_with(".ph") || input.ends_with(".phonon") || input.ends_with(".dsl") {
                 std::fs::read_to_string(&input)?
             } else if std::path::Path::new(&input).exists() {
                 std::fs::read_to_string(&input)?
@@ -778,7 +931,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("================");
             println!(
                 "Input:      {}",
-                if input.ends_with(".phonon") || input.ends_with(".dsl") {
+                if input.ends_with(".ph") || input.ends_with(".phonon") || input.ends_with(".dsl") {
                     &input
                 } else {
                     "<inline DSL>"
@@ -912,6 +1065,39 @@ out sine(440) * 0.2
                 last_content: String::new(),
             }));
 
+            // Helper to apply pattern transformations
+            fn apply_transform(pattern: phonon::pattern::Pattern<String>, transform: &str) -> phonon::pattern::Pattern<String> {
+                let transform = transform.trim();
+
+                if transform.starts_with("fast ") {
+                    if let Ok(factor) = transform[5..].trim().parse::<f64>() {
+                        return pattern.fast(factor);
+                    }
+                } else if transform.starts_with("slow ") {
+                    if let Ok(factor) = transform[5..].trim().parse::<f64>() {
+                        return pattern.slow(factor);
+                    }
+                } else if transform == "rev" {
+                    return pattern.rev();
+                } else if transform.starts_with("every ") {
+                    let rest = transform[6..].trim();
+                    if let Some(space_pos) = rest.find(' ') {
+                        if let Ok(n) = rest[..space_pos].parse::<i32>() {
+                            let inner_transform = rest[space_pos + 1..].trim();
+                            let inner_transform = if inner_transform.starts_with('(') && inner_transform.ends_with(')') {
+                                &inner_transform[1..inner_transform.len() - 1]
+                            } else {
+                                inner_transform
+                            };
+                            let inner_transform = inner_transform.to_string();
+                            return pattern.every(n, move |p| apply_transform(p, &inner_transform));
+                        }
+                    }
+                }
+
+                pattern
+            }
+
             // Full parser implementation from phonon_poll
             fn parse_expression(
                 graph: &mut UnifiedSignalGraph,
@@ -919,6 +1105,70 @@ out sine(440) * 0.2
                 buses: &HashMap<String, phonon::unified_graph::NodeId>,
             ) -> Option<phonon::unified_graph::NodeId> {
                 let expr = expr.trim();
+
+                // Hush and panic keywords - produce silence
+                if expr == "hush" || expr == "panic" {
+                    return Some(graph.add_node(SignalNode::Constant { value: 0.0 }));
+                }
+
+                // Check for |> or <| pattern transformations
+                if expr.contains(" |> ") || expr.contains(" <| ") {
+                    let (base_expr, transform_expr) = if expr.contains(" |> ") {
+                        let parts: Vec<&str> = expr.splitn(2, " |> ").collect();
+                        if parts.len() == 2 {
+                            (parts[0].trim(), parts[1].trim())
+                        } else {
+                            (expr, "")
+                        }
+                    } else {
+                        // <| is reversed: transform <| base
+                        let parts: Vec<&str> = expr.splitn(2, " <| ").collect();
+                        if parts.len() == 2 {
+                            (parts[1].trim(), parts[0].trim())
+                        } else {
+                            (expr, "")
+                        }
+                    };
+
+                    if !transform_expr.is_empty() {
+                        if base_expr.starts_with("s(") {
+                            if let Some(pattern_str) = base_expr.strip_prefix("s(").and_then(|s| s.strip_suffix(")")) {
+                                let pattern_str = pattern_str.trim();
+                                let pattern_str = if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
+                                    &pattern_str[1..pattern_str.len() - 1]
+                                } else {
+                                    pattern_str
+                                };
+                                let mut pattern = parse_mini_notation(pattern_str);
+
+                                for transform in transform_expr.split(" |> ") {
+                                    pattern = apply_transform(pattern, transform);
+                                }
+
+                                return Some(graph.add_node(SignalNode::Sample {
+                                    pattern_str: pattern_str.to_string(),
+                                    pattern,
+                                    last_trigger_time: -1.0,
+                                    playback_positions: HashMap::new(),
+                                }));
+                            }
+                        } else if base_expr.starts_with('"') && base_expr.ends_with('"') {
+                            let pattern_str = &base_expr[1..base_expr.len() - 1];
+                            let mut pattern = parse_mini_notation(pattern_str);
+
+                            for transform in transform_expr.split(" |> ") {
+                                pattern = apply_transform(pattern, transform);
+                            }
+
+                            return Some(graph.add_node(SignalNode::Pattern {
+                                pattern_str: pattern_str.to_string(),
+                                pattern,
+                                last_value: 0.0,
+                                last_trigger_time: -1.0,
+                            }));
+                        }
+                    }
+                }
 
                 // Pattern in quotes: "bd ~ sn ~"
                 if expr.starts_with('"') && expr.ends_with('"') {
@@ -928,6 +1178,7 @@ out sine(440) * 0.2
                         pattern_str: pattern_str.to_string(),
                         pattern,
                         last_value: 0.0,
+                        last_trigger_time: -1.0,
                     }));
                 }
 
@@ -950,6 +1201,7 @@ out sine(440) * 0.2
                             pattern_str: pattern_str.to_string(),
                             pattern,
                             last_value: default,
+                            last_trigger_time: -1.0,
                         });
                         Signal::Node(pattern_node)
                     } else if let Some(&node_id) = buses.get(param_str) {
@@ -1037,19 +1289,39 @@ out sine(440) * 0.2
                         return Some(graph.add_node(SignalNode::Sample {
                             pattern_str: pattern_str.to_string(),
                             pattern,
-                            last_trigger_time: 0.0,
+                            last_trigger_time: -1.0,
                             playback_positions: HashMap::new(),
                         }));
                     }
                 }
 
-                // Filters: lpf(input, cutoff, q)
-                if expr.contains(" >> lpf(") {
-                    let parts: Vec<&str> = expr.splitn(2, " >> lpf(").collect();
-                    if parts.len() == 2 && parts[1].ends_with(")") {
-                        let input_expr = parts[0];
-                        let params = &parts[1][..parts[1].len() - 1];
-                        let param_parts: Vec<&str> = params.split(',').map(|s| s.trim()).collect();
+                // Filters: lpf(input, cutoff, q) OR lpf(cutoff, q) << input
+                if expr.contains(" >> lpf(") || expr.contains(" << lpf(") {
+                    let (input_expr, filter_params) = if expr.contains(" >> lpf(") {
+                        let parts: Vec<&str> = expr.splitn(2, " >> lpf(").collect();
+                        if parts.len() == 2 && parts[1].ends_with(")") {
+                            (parts[0], &parts[1][..parts[1].len() - 1])
+                        } else {
+                            ("", "")
+                        }
+                    } else {
+                        // << is reversed: lpf(...) << input
+                        let parts: Vec<&str> = expr.splitn(2, " << lpf(").collect();
+                        if parts.len() == 2 && parts[0].starts_with("lpf(") {
+                            let filter_start = parts[0].find('(').unwrap();
+                            let filter_params = &parts[0][filter_start + 1..];
+                            if filter_params.ends_with(")") {
+                                (parts[1], &filter_params[..filter_params.len() - 1])
+                            } else {
+                                ("", "")
+                            }
+                        } else {
+                            ("", "")
+                        }
+                    };
+
+                    if !input_expr.is_empty() && !filter_params.is_empty() {
+                        let param_parts: Vec<&str> = filter_params.split(',').map(|s| s.trim()).collect();
 
                         if let Some(input) = parse_expression(graph, input_expr, buses) {
                             let cutoff_signal = if let Some(cutoff_str) = param_parts.first() {
@@ -1075,12 +1347,32 @@ out sine(440) * 0.2
                 }
 
                 // HPF
-                if expr.contains(" >> hpf(") {
-                    let parts: Vec<&str> = expr.splitn(2, " >> hpf(").collect();
-                    if parts.len() == 2 && parts[1].ends_with(")") {
-                        let input_expr = parts[0];
-                        let params = &parts[1][..parts[1].len() - 1];
-                        let param_parts: Vec<&str> = params.split(',').map(|s| s.trim()).collect();
+                if expr.contains(" >> hpf(") || expr.contains(" << hpf(") {
+                    let (input_expr, filter_params) = if expr.contains(" >> hpf(") {
+                        let parts: Vec<&str> = expr.splitn(2, " >> hpf(").collect();
+                        if parts.len() == 2 && parts[1].ends_with(")") {
+                            (parts[0], &parts[1][..parts[1].len() - 1])
+                        } else {
+                            ("", "")
+                        }
+                    } else {
+                        // << is reversed: hpf(...) << input
+                        let parts: Vec<&str> = expr.splitn(2, " << hpf(").collect();
+                        if parts.len() == 2 && parts[0].starts_with("hpf(") {
+                            let filter_start = parts[0].find('(').unwrap();
+                            let filter_params = &parts[0][filter_start + 1..];
+                            if filter_params.ends_with(")") {
+                                (parts[1], &filter_params[..filter_params.len() - 1])
+                            } else {
+                                ("", "")
+                            }
+                        } else {
+                            ("", "")
+                        }
+                    };
+
+                    if !input_expr.is_empty() && !filter_params.is_empty() {
+                        let param_parts: Vec<&str> = filter_params.split(',').map(|s| s.trim()).collect();
 
                         if let Some(input) = parse_expression(graph, input_expr, buses) {
                             let cutoff_signal = if let Some(cutoff_str) = param_parts.first() {
@@ -1170,6 +1462,14 @@ out sine(440) * 0.2
                                 }
                             }
                         }
+                        // Parse hush/panic as standalone command
+                        else if line == "hush" || line == "panic" {
+                            let silence = graph.add_node(SignalNode::Constant { value: 0.0 });
+                            let output = graph.add_node(SignalNode::Output {
+                                input: Signal::Node(silence),
+                            });
+                            graph.set_output(output);
+                        }
                         // Parse output
                         else if line.starts_with("out ") {
                             let expr = line.strip_prefix("out ").unwrap_or("").trim();
@@ -1180,7 +1480,7 @@ out sine(440) * 0.2
                                 graph.set_output(output);
                             }
                         }
-                        // Parse assignment: lfo = sine(0.5)
+                        // Parse assignment: lfo = sine(0.5) OR out = s("bd")
                         else if line.contains('=') {
                             let parts: Vec<&str> = line.splitn(2, '=').collect();
                             if parts.len() == 2 {
@@ -1188,30 +1488,27 @@ out sine(440) * 0.2
                                 let expr = parts[1].trim();
 
                                 if let Some(node_id) = parse_expression(&mut graph, expr, &buses) {
-                                    buses.insert(name.to_string(), node_id);
-                                    graph.add_bus(name.to_string(), node_id);
+                                    // Special case: "out = ..." should set output, not create a bus
+                                    if name == "out" {
+                                        let output = graph.add_node(SignalNode::Output {
+                                            input: Signal::Node(node_id),
+                                        });
+                                        graph.set_output(output);
+                                    } else {
+                                        buses.insert(name.to_string(), node_id);
+                                        graph.add_bus(name.to_string(), node_id);
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // If no output defined, create default
+                    // If no output defined, create silence (not default sine wave)
                     if !graph.has_output() {
-                        let osc = graph.add_node(SignalNode::Oscillator {
-                            freq: Signal::Value(440.0),
-                            waveform: Waveform::Sine,
-                            phase: 0.0,
-                        });
-
-                        let scaled = graph.add_node(SignalNode::Multiply {
-                            a: Signal::Node(osc),
-                            b: Signal::Value(0.1),
-                        });
-
+                        let silence = graph.add_node(SignalNode::Constant { value: 0.0 });
                         let output = graph.add_node(SignalNode::Output {
-                            input: Signal::Node(scaled),
+                            input: Signal::Node(silence),
                         });
-
                         graph.set_output(output);
                     }
 
