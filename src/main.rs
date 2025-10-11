@@ -586,6 +586,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         // Store signal
                         if target == "out" {
                             output_node = Some(node_id);
+                        } else if target.starts_with("out") && target.len() > 3 {
+                            // Check for numbered outputs: out1, out2, etc.
+                            let channel_str = &target[3..];
+                            if let Ok(channel) = channel_str.parse::<usize>() {
+                                graph.set_output_channel(channel, node_id);
+                            } else {
+                                // Not a valid number, treat as bus
+                                let bus_name = if target.starts_with('~') {
+                                    target.to_string()
+                                } else {
+                                    format!("~{target}")
+                                };
+                                buses.insert(bus_name, node_id);
+                            }
                         } else {
                             let bus_name = if target.starts_with('~') {
                                 target.to_string()
@@ -819,15 +833,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut output_buffer = Vec::with_capacity(total_samples);
 
             if let Some(out_node) = out_signal {
+                // Single output mode (backwards compatible)
                 graph.set_output(out_node);
                 for _ in 0..total_samples {
                     let sample = graph.process_sample();
                     output_buffer.push((sample * gain).clamp(-1.0, 1.0));
                 }
             } else {
-                // No output signal, generate silence
-                println!("⚠️  No 'out' signal found, generating silence");
-                output_buffer.resize(total_samples, 0.0);
+                // Check if multi-outputs are defined
+                // Try processing as multi-output and mix down
+                for _ in 0..total_samples {
+                    let outputs = graph.process_sample_multi();
+                    // Mix all channels together
+                    let mixed = if !outputs.is_empty() {
+                        outputs.iter().sum::<f32>() / outputs.len() as f32
+                    } else {
+                        0.0
+                    };
+                    output_buffer.push((mixed * gain).clamp(-1.0, 1.0));
+                }
+
+                // Warn if no outputs were found
+                if output_buffer.iter().all(|&s| s == 0.0) {
+                    println!("⚠️  No 'out' or 'outN' signals found, generating silence");
+                }
             }
 
             // Apply fades

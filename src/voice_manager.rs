@@ -182,4 +182,9 @@ impl VoiceManager {
         }
         self.next_voice_index = 0;
     }
+
+    /// Kill all active voices (alias for reset)
+    pub fn kill_all(&mut self) {
+        self.reset();
+    }
 }

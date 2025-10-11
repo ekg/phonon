@@ -219,8 +219,14 @@ pub struct UnifiedSignalGraph {
     /// Named buses for easy reference
     buses: HashMap<String, NodeId>,
 
-    /// Output node ID
+    /// Output node ID (for backwards compatibility - single output)
     output: Option<NodeId>,
+
+    /// Multi-output: channel number -> node ID
+    outputs: HashMap<usize, NodeId>,
+
+    /// Hushed (silenced) output channels
+    hushed_channels: std::collections::HashSet<usize>,
 
     /// Sample rate
     sample_rate: f32,
@@ -253,6 +259,8 @@ impl UnifiedSignalGraph {
             nodes: Vec::new(),
             buses: HashMap::new(),
             output: None,
+            outputs: HashMap::new(),
+            hushed_channels: std::collections::HashSet::new(),
             sample_rate,
             cycle_position: 0.0,
             cps: 0.5, // Default 0.5 cycles per second
@@ -299,6 +307,95 @@ impl UnifiedSignalGraph {
     /// Check if output is set
     pub fn has_output(&self) -> bool {
         self.output.is_some()
+    }
+
+    /// Set a specific output channel (1-indexed for user convenience)
+    pub fn set_output_channel(&mut self, channel: usize, node_id: NodeId) {
+        self.outputs.insert(channel, node_id);
+    }
+
+    /// Silence all output channels
+    pub fn hush_all(&mut self) {
+        for &channel in self.outputs.keys() {
+            self.hushed_channels.insert(channel);
+        }
+        // Also hush single output if it exists
+        if self.output.is_some() {
+            self.hushed_channels.insert(0);
+        }
+    }
+
+    /// Silence a specific output channel
+    pub fn hush_channel(&mut self, channel: usize) {
+        self.hushed_channels.insert(channel);
+    }
+
+    /// Panic: kill all voices and silence all outputs
+    pub fn panic(&mut self) {
+        // Kill all active voices
+        self.voice_manager.borrow_mut().kill_all();
+
+        // Hush all outputs
+        self.hush_all();
+    }
+
+    /// Process one sample and return all output channels
+    /// Returns a vector where outputs[0] = channel 1, outputs[1] = channel 2, etc.
+    pub fn process_sample_multi(&mut self) -> Vec<f32> {
+        // Clear cache for new sample
+        self.value_cache.clear();
+
+        // Collect outputs to avoid borrow checker issues
+        let outputs_to_process: Vec<(usize, NodeId)> = self.outputs.iter()
+            .map(|(&ch, &node)| (ch, node))
+            .collect();
+
+        let single_output = self.output;
+
+        // Determine max channel number
+        let max_channel = outputs_to_process.iter()
+            .map(|(ch, _)| *ch)
+            .max()
+            .unwrap_or(0);
+
+        // Number of channels = max channel number (since channels are 1-indexed)
+        let num_channels = max_channel;
+
+        let mut outputs_vec = vec![0.0; num_channels];
+
+        // Evaluate each output channel
+        // Channel numbers are 1-indexed, but vec indices are 0-indexed
+        // So channel N goes to outputs_vec[N-1]
+        for (channel, node_id) in outputs_to_process {
+            if channel > 0 && channel <= num_channels {
+                let value = if self.hushed_channels.contains(&channel) {
+                    0.0  // Silenced channel
+                } else {
+                    self.eval_node(&node_id)
+                };
+                outputs_vec[channel - 1] = value;
+            }
+        }
+
+        // Handle backwards compatibility - single output goes to first position if no multi-outputs
+        if outputs_vec.is_empty() {
+            if let Some(output_id) = single_output {
+                let value = if self.hushed_channels.contains(&0) {
+                    0.0
+                } else {
+                    self.eval_node(&output_id)
+                };
+                outputs_vec.push(value);
+            }
+        }
+
+        // Advance cycle position
+        self.cycle_position += self.cps as f64 / self.sample_rate as f64;
+
+        // Increment sample counter
+        self.sample_count += 1;
+
+        outputs_vec
     }
 
     /// Evaluate a signal to get its current value
@@ -395,6 +492,7 @@ impl UnifiedSignalGraph {
                 phase,
             } => {
                 let f = self.eval_signal(&freq);
+
                 // Generate sample based on waveform
                 let sample = match waveform {
                     Waveform::Sine => (2.0 * PI * phase).sin(),
