@@ -137,7 +137,7 @@ impl Tokenizer {
     fn read_symbol(&mut self) -> String {
         let mut symbol = String::new();
         while let Some(ch) = self.peek() {
-            if ch.is_alphanumeric() || ch == '_' || ch == '-' || ch == '#' {
+            if ch.is_alphanumeric() || ch == '_' || ch == '-' || ch == '#' || ch == ':' {
                 symbol.push(ch);
                 self.advance();
             } else {
