@@ -1135,8 +1135,9 @@ out sine(440) * 0.2
             ) -> Option<phonon::unified_graph::NodeId> {
                 let expr = expr.trim();
 
-                // Hush and panic keywords - produce silence
-                if expr == "hush" || expr == "panic" {
+                // Hush and panic keywords - handle via graph methods
+                if expr.starts_with("hush") || expr == "panic" {
+                    // These will be handled at the top-level parser, not as expressions
                     return Some(graph.add_node(SignalNode::Constant { value: 0.0 }));
                 }
 
@@ -1491,13 +1492,23 @@ out sine(440) * 0.2
                                 }
                             }
                         }
-                        // Parse hush/panic as standalone command
-                        else if line == "hush" || line == "panic" {
-                            let silence = graph.add_node(SignalNode::Constant { value: 0.0 });
-                            let output = graph.add_node(SignalNode::Output {
-                                input: Signal::Node(silence),
-                            });
-                            graph.set_output(output);
+                        // Parse hush/panic commands
+                        else if line.starts_with("hush") || line == "panic" {
+                            if line == "panic" {
+                                // Panic: kill all voices and silence all outputs
+                                graph.panic();
+                            } else if line == "hush" {
+                                // Hush all outputs
+                                graph.hush_all();
+                            } else if line.starts_with("hush ") {
+                                // Hush specific channel: "hush 1", "hush 2", etc.
+                                let parts: Vec<&str> = line.split_whitespace().collect();
+                                if parts.len() >= 2 {
+                                    if let Ok(channel) = parts[1].parse::<usize>() {
+                                        graph.hush_channel(channel);
+                                    }
+                                }
+                            }
                         }
                         // Parse output
                         else if line.starts_with("out ") {
