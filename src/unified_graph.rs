@@ -2,10 +2,356 @@
 //!
 //! Everything is a signal. Patterns, audio, control data - all flow through
 //! one unified graph where anything can modulate anything.
+//!
+//! # Overview
+//!
+//! The `UnifiedSignalGraph` is Phonon's central audio processing engine. It provides:
+//! - **Pattern-based sample playback** using Tidal Cycles mini-notation
+//! - **Audio synthesis** with oscillators, filters, and envelopes
+//! - **Cross-modulation** between patterns, audio, and control signals
+//! - **Multi-output routing** for complex setups
+//! - **DSP parameter modulation** where any signal can control any parameter
+//!
+//! # Core Concepts
+//!
+//! ## Signals
+//!
+//! In Phonon, everything is a [`Signal`]:
+//! - `Signal::Value(f32)` - A constant value
+//! - `Signal::Node(NodeId)` - Output from another node
+//! - `Signal::Bus(String)` - Named signal bus
+//! - `Signal::Pattern(String)` - Inline pattern string
+//! - `Signal::Expression(...)` - Arithmetic combinations
+//!
+//! ## Nodes
+//!
+//! Nodes are the building blocks of your graph. Each [`SignalNode`] type has a specific purpose:
+//! - **Sources**: `Oscillator`, `Pattern`, `Sample`, `Noise`
+//! - **Processors**: `LowPass`, `HighPass`, `Envelope`, `Delay`
+//! - **Analysis**: `RMS`, `Pitch`, `Transient`
+//! - **Math**: `Add`, `Multiply`, `When`
+//!
+//! # Basic Example: Simple Sample Playback
+//!
+//! ```rust
+//! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal};
+//! use phonon::mini_notation_v3::parse_mini_notation;
+//! use std::collections::HashMap;
+//!
+//! let mut graph = UnifiedSignalGraph::new(44100.0);
+//! graph.set_cps(2.0); // 2 cycles per second = 120 BPM
+//!
+//! // Create a kick drum pattern that triggers on beats 1 and 3
+//! let pattern = parse_mini_notation("bd ~ bd ~");
+//! let sample_node = graph.add_node(SignalNode::Sample {
+//!     pattern_str: "bd ~ bd ~".to_string(),
+//!     pattern,
+//!     last_trigger_time: -1.0,
+//!     playback_positions: HashMap::new(),
+//!     gain: Signal::Value(1.0),
+//!     pan: Signal::Value(0.0),
+//!     speed: Signal::Value(1.0),
+//! });
+//!
+//! graph.set_output(sample_node);
+//!
+//! // Render 1 second of audio
+//! let buffer = graph.render(44100);
+//! ```
+//!
+//! # Pattern-Based DSP Parameters
+//!
+//! One of Phonon's most powerful features is the ability to modulate DSP parameters
+//! with patterns. This allows you to create complex, evolving sounds where
+//! parameters change over time according to rhythmic patterns.
+//!
+//! ## Example: Panning Pattern
+//!
+//! ```rust
+//! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal};
+//! use phonon::mini_notation_v3::parse_mini_notation;
+//! use std::collections::HashMap;
+//!
+//! let mut graph = UnifiedSignalGraph::new(44100.0);
+//! graph.set_cps(2.0);
+//!
+//! // Create a hi-hat pattern with alternating left/right panning
+//! let pattern = parse_mini_notation("hh*8");
+//! let pan_pattern = parse_mini_notation("-1 1"); // -1 = left, 1 = right
+//!
+//! // Create the pan pattern node
+//! let pan_node = graph.add_node(SignalNode::Pattern {
+//!     pattern_str: "-1 1".to_string(),
+//!     pattern: pan_pattern,
+//!     last_value: 0.0,
+//!     last_trigger_time: -1.0,
+//! });
+//!
+//! // Create sample node with pattern-based pan
+//! let sample_node = graph.add_node(SignalNode::Sample {
+//!     pattern_str: "hh*8".to_string(),
+//!     pattern,
+//!     last_trigger_time: -1.0,
+//!     playback_positions: HashMap::new(),
+//!     gain: Signal::Value(1.0),
+//!     pan: Signal::Node(pan_node), // Pan controlled by pattern!
+//!     speed: Signal::Value(1.0),
+//! });
+//!
+//! graph.set_output(sample_node);
+//! ```
+//!
+//! ## Example: Speed Modulation
+//!
+//! ```rust
+//! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal};
+//! use phonon::mini_notation_v3::parse_mini_notation;
+//! use std::collections::HashMap;
+//!
+//! let mut graph = UnifiedSignalGraph::new(44100.0);
+//! graph.set_cps(1.0);
+//!
+//! // Create a sample pattern
+//! let pattern = parse_mini_notation("bd*4");
+//!
+//! // Create a speed pattern that makes each hit play at different speeds
+//! let speed_pattern = parse_mini_notation("1 2 0.5 1.5");
+//! let speed_node = graph.add_node(SignalNode::Pattern {
+//!     pattern_str: "1 2 0.5 1.5".to_string(),
+//!     pattern: speed_pattern,
+//!     last_value: 1.0,
+//!     last_trigger_time: -1.0,
+//! });
+//!
+//! let sample_node = graph.add_node(SignalNode::Sample {
+//!     pattern_str: "bd*4".to_string(),
+//!     pattern,
+//!     last_trigger_time: -1.0,
+//!     playback_positions: HashMap::new(),
+//!     gain: Signal::Value(1.0),
+//!     pan: Signal::Value(0.0),
+//!     speed: Signal::Node(speed_node), // Speed controlled by pattern!
+//! });
+//!
+//! graph.set_output(sample_node);
+//! ```
+//!
+//! ## Example: Gain Envelope
+//!
+//! ```rust
+//! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, SignalExpr};
+//! use phonon::mini_notation_v3::parse_mini_notation;
+//! use std::collections::HashMap;
+//!
+//! let mut graph = UnifiedSignalGraph::new(44100.0);
+//! graph.set_cps(2.0);
+//!
+//! // Create LFO for gain modulation (0.5 Hz sine wave)
+//! let lfo = graph.add_node(SignalNode::Oscillator {
+//!     freq: Signal::Value(0.5),
+//!     waveform: phonon::unified_graph::Waveform::Sine,
+//!     phase: 0.0,
+//! });
+//!
+//! // Scale LFO from -1..1 to 0.2..1.0 (quiet to loud)
+//! let scaled_gain = Signal::Expression(Box::new(SignalExpr::Scale {
+//!     input: Signal::Node(lfo),
+//!     min: 0.2,
+//!     max: 1.0,
+//! }));
+//!
+//! let pattern = parse_mini_notation("hh*16");
+//! let sample_node = graph.add_node(SignalNode::Sample {
+//!     pattern_str: "hh*16".to_string(),
+//!     pattern,
+//!     last_trigger_time: -1.0,
+//!     playback_positions: HashMap::new(),
+//!     gain: scaled_gain, // Gain controlled by LFO!
+//!     pan: Signal::Value(0.0),
+//!     speed: Signal::Value(1.0),
+//! });
+//!
+//! graph.set_output(sample_node);
+//! ```
+//!
+//! # Cross-Modulation and Effects
+//!
+//! Phonon allows any signal to modulate any other signal, enabling complex
+//! effects routing and modulation schemes.
+//!
+//! ## Example: Filter Controlled by Pattern
+//!
+//! ```rust
+//! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform, FilterState};
+//! use phonon::mini_notation_v3::parse_mini_notation;
+//! use std::collections::HashMap;
+//!
+//! let mut graph = UnifiedSignalGraph::new(44100.0);
+//! graph.set_cps(2.0);
+//!
+//! // Bass pattern
+//! let pattern = parse_mini_notation("bd*4");
+//! let sample_node = graph.add_node(SignalNode::Sample {
+//!     pattern_str: "bd*4".to_string(),
+//!     pattern,
+//!     last_trigger_time: -1.0,
+//!     playback_positions: HashMap::new(),
+//!     gain: Signal::Value(1.0),
+//!     pan: Signal::Value(0.0),
+//!     speed: Signal::Value(1.0),
+//! });
+//!
+//! // Cutoff frequency pattern (200 Hz to 2000 Hz)
+//! let cutoff_pattern = parse_mini_notation("200 500 1000 2000");
+//! let cutoff_node = graph.add_node(SignalNode::Pattern {
+//!     pattern_str: "200 500 1000 2000".to_string(),
+//!     pattern: cutoff_pattern,
+//!     last_value: 500.0,
+//!     last_trigger_time: -1.0,
+//! });
+//!
+//! // Lowpass filter with pattern-controlled cutoff
+//! let filtered = graph.add_node(SignalNode::LowPass {
+//!     input: Signal::Node(sample_node),
+//!     cutoff: Signal::Node(cutoff_node), // Cutoff controlled by pattern!
+//!     q: Signal::Value(2.0),
+//!     state: FilterState::default(),
+//! });
+//!
+//! graph.set_output(filtered);
+//! ```
+//!
+//! ## Example: Audio-Rate Modulation
+//!
+//! ```rust
+//! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform, SignalExpr};
+//! use phonon::mini_notation_v3::parse_mini_notation;
+//! use std::collections::HashMap;
+//!
+//! let mut graph = UnifiedSignalGraph::new(44100.0);
+//! graph.set_cps(2.0);
+//!
+//! // Modulator: 5 Hz sine wave
+//! let modulator = graph.add_node(SignalNode::Oscillator {
+//!     freq: Signal::Value(5.0),
+//!     waveform: Waveform::Sine,
+//!     phase: 0.0,
+//! });
+//!
+//! // Carrier frequency: 220 Hz + modulation
+//! let modulated_freq = Signal::Expression(Box::new(SignalExpr::Add(
+//!     Signal::Value(220.0),
+//!     Signal::Expression(Box::new(SignalExpr::Multiply(
+//!         Signal::Node(modulator),
+//!         Signal::Value(50.0), // Modulation depth
+//!     ))),
+//! )));
+//!
+//! // Carrier oscillator with FM
+//! let carrier = graph.add_node(SignalNode::Oscillator {
+//!     freq: modulated_freq,
+//!     waveform: Waveform::Sine,
+//!     phase: 0.0,
+//! });
+//!
+//! graph.set_output(carrier);
+//! ```
+//!
+//! # Multi-Output Routing
+//!
+//! Phonon supports multiple independent output channels for complex setups.
+//!
+//! ```rust
+//! use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal};
+//! use phonon::mini_notation_v3::parse_mini_notation;
+//! use std::collections::HashMap;
+//!
+//! let mut graph = UnifiedSignalGraph::new(44100.0);
+//! graph.set_cps(2.0);
+//!
+//! // Kick pattern on channel 1
+//! let kick_pattern = parse_mini_notation("bd ~ bd ~");
+//! let kick_node = graph.add_node(SignalNode::Sample {
+//!     pattern_str: "bd ~ bd ~".to_string(),
+//!     pattern: kick_pattern,
+//!     last_trigger_time: -1.0,
+//!     playback_positions: HashMap::new(),
+//!     gain: Signal::Value(1.0),
+//!     pan: Signal::Value(0.0),
+//!     speed: Signal::Value(1.0),
+//! });
+//!
+//! // Snare pattern on channel 2
+//! let snare_pattern = parse_mini_notation("~ sn ~ sn");
+//! let snare_node = graph.add_node(SignalNode::Sample {
+//!     pattern_str: "~ sn ~ sn".to_string(),
+//!     pattern: snare_pattern,
+//!     last_trigger_time: -1.0,
+//!     playback_positions: HashMap::new(),
+//!     gain: Signal::Value(1.0),
+//!     pan: Signal::Value(0.0),
+//!     speed: Signal::Value(1.0),
+//! });
+//!
+//! graph.set_output_channel(1, kick_node);  // Channel 1
+//! graph.set_output_channel(2, snare_node); // Channel 2
+//!
+//! // Process multi-channel audio
+//! let outputs = graph.process_sample_multi(); // Returns Vec<f32>
+//! // outputs[0] = channel 1, outputs[1] = channel 2
+//! ```
+//!
+//! # Mini-Notation Pattern Language
+//!
+//! Phonon uses Tidal Cycles mini-notation for pattern specification:
+//!
+//! - **Concatenation**: `"bd sn hh"` - play in sequence
+//! - **Subdivision**: `"bd*4"` - repeat bd 4 times per cycle
+//! - **Slow down**: `"bd/2"` - stretch bd over 2 cycles
+//! - **Rests**: `"bd ~ sn ~"` - silence on ~ positions
+//! - **Alternation**: `"<bd sn>"` - alternate between bd and sn each cycle
+//! - **Layering**: `"[bd, sn]"` - play bd and sn simultaneously
+//! - **Euclidean**: `"bd(3,8)"` - 3 hits distributed over 8 steps
+//! - **Sample selection**: `"bd:0 bd:1 bd:2"` - choose specific samples from folder
+//!
+//! ## Pattern Examples
+//!
+//! ```rust
+//! use phonon::mini_notation_v3::parse_mini_notation;
+//!
+//! // Basic beat: kick on 1 and 3, snare on 2 and 4
+//! let pattern = parse_mini_notation("bd sn bd sn");
+//!
+//! // Fast hi-hats (16th notes)
+//! let pattern = parse_mini_notation("hh*16");
+//!
+//! // Polyrhythm: 3 kicks against 4 snares
+//! let pattern = parse_mini_notation("[bd*3, sn*4]");
+//!
+//! // Euclidean rhythm: 3 hits in 8 steps (tresillo pattern)
+//! let pattern = parse_mini_notation("bd(3,8)");
+//!
+//! // Alternating samples each cycle
+//! let pattern = parse_mini_notation("<bd:0 bd:1 bd:2>");
+//! ```
+//!
+//! # Performance Tips
+//!
+//! 1. **Reuse patterns**: Parse patterns once and reuse the `Pattern` object
+//! 2. **Cache nodes**: Store `NodeId` values to avoid repeated lookups
+//! 3. **Minimize graph depth**: Flatten deeply nested signal chains when possible
+//! 4. **Use constants**: `Signal::Value()` is faster than pattern evaluation
+//!
+//! # See Also
+//!
+//! - [`VoiceManager`] - Polyphonic voice allocation (64 voices)
+//! - [`SampleBank`] - Sample loading from dirt-samples
+//! - [`mini_notation_v3`] - Pattern parsing and querying
 
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::{Fraction, Pattern, State, TimeSpan};
 use crate::sample_loader::SampleBank;
+use crate::synth_voice_manager::SynthVoiceManager;
 use crate::voice_manager::VoiceManager;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -66,11 +412,40 @@ pub enum SignalNode {
         pattern: Pattern<String>,
         last_trigger_time: f32,
         playback_positions: HashMap<String, usize>,
+        gain: Signal,
+        pan: Signal,
+        speed: Signal,
+        cut_group: Signal, // Cut group for voice stealing (0 = no cut group)
+    },
+
+    /// Pattern-triggered synthesizer with ADSR envelopes
+    /// Each note in the pattern triggers a new synth voice
+    SynthPattern {
+        pattern_str: String,
+        pattern: Pattern<String>,
+        last_trigger_time: f32,
+        waveform: Waveform,
+        attack: f32,
+        decay: f32,
+        sustain: f32,
+        release: f32,
+        gain: Signal,
+        pan: Signal,
     },
 
     /// Voice output - outputs mixed audio from all triggered samples
     /// This allows sample playback to be routed through effects
     VoiceOutput,
+
+    /// Scale quantization - maps scale degrees to frequencies
+    /// Pattern contains scale degrees (0, 1, 2, 3...), quantized to musical scale
+    ScaleQuantize {
+        pattern_str: String,
+        pattern: Pattern<String>,
+        scale_name: String,
+        root_note: u8, // MIDI note number
+        last_value: f32,
+    },
 
     /// Constant value
     Constant { value: f32 },
@@ -151,6 +526,40 @@ pub enum SignalNode {
         destinations: Vec<(NodeId, f32)>, // (target, amount)
     },
 
+    // === Effects ===
+    /// Reverb (Freeverb-style)
+    Reverb {
+        input: Signal,
+        room_size: Signal,    // 0.0-1.0
+        damping: Signal,      // 0.0-1.0
+        mix: Signal,          // 0.0-1.0 (dry/wet)
+        state: ReverbState,
+    },
+
+    /// Distortion / Waveshaper
+    Distortion {
+        input: Signal,
+        drive: Signal,        // 1.0-100.0
+        mix: Signal,          // 0.0-1.0
+    },
+
+    /// Bitcrusher
+    BitCrush {
+        input: Signal,
+        bits: Signal,         // 1.0-16.0
+        sample_rate: Signal,  // Sample rate reduction factor
+        state: BitCrushState,
+    },
+
+    /// Chorus effect
+    Chorus {
+        input: Signal,
+        rate: Signal,         // LFO rate in Hz
+        depth: Signal,        // Delay modulation depth
+        mix: Signal,          // 0.0-1.0
+        state: ChorusState,
+    },
+
     /// Output node
     Output { input: Signal },
 }
@@ -190,6 +599,7 @@ pub struct EnvState {
     phase: EnvPhase,
     level: f32,
     time_in_phase: f32,
+    release_start_level: f32, // Level when release phase began
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -207,7 +617,97 @@ impl Default for EnvState {
             phase: EnvPhase::Idle,
             level: 0.0,
             time_in_phase: 0.0,
+            release_start_level: 0.0,
         }
+    }
+}
+
+/// Reverb state (Freeverb algorithm)
+#[derive(Debug, Clone)]
+pub struct ReverbState {
+    // Comb filter buffers (8 parallel combs)
+    comb_buffers: Vec<Vec<f32>>,
+    comb_indices: Vec<usize>,
+    comb_filter_stores: Vec<f32>,
+
+    // Allpass filter buffers (4 series allpasses)
+    allpass_buffers: Vec<Vec<f32>>,
+    allpass_indices: Vec<usize>,
+}
+
+impl ReverbState {
+    pub fn new(sample_rate: f32) -> Self {
+        // Freeverb comb filter delay times (in samples at 44.1kHz)
+        let comb_tunings = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617];
+        let allpass_tunings = [556, 441, 341, 225];
+
+        let scale = sample_rate / 44100.0;
+
+        let comb_buffers: Vec<Vec<f32>> = comb_tunings
+            .iter()
+            .map(|&size| vec![0.0; (size as f32 * scale) as usize])
+            .collect();
+
+        let allpass_buffers: Vec<Vec<f32>> = allpass_tunings
+            .iter()
+            .map(|&size| vec![0.0; (size as f32 * scale) as usize])
+            .collect();
+
+        Self {
+            comb_buffers,
+            comb_indices: vec![0; 8],
+            comb_filter_stores: vec![0.0; 8],
+            allpass_buffers,
+            allpass_indices: vec![0; 4],
+        }
+    }
+}
+
+impl Default for ReverbState {
+    fn default() -> Self {
+        Self::new(44100.0)
+    }
+}
+
+/// Bitcrusher state
+#[derive(Debug, Clone)]
+pub struct BitCrushState {
+    phase: f32,
+    last_sample: f32,
+}
+
+impl Default for BitCrushState {
+    fn default() -> Self {
+        Self {
+            phase: 0.0,
+            last_sample: 0.0,
+        }
+    }
+}
+
+/// Chorus state
+#[derive(Debug, Clone)]
+pub struct ChorusState {
+    delay_buffer: Vec<f32>,
+    write_idx: usize,
+    lfo_phase: f32,
+}
+
+impl ChorusState {
+    pub fn new(sample_rate: f32) -> Self {
+        // 50ms max delay
+        let buffer_size = (sample_rate * 0.05) as usize;
+        Self {
+            delay_buffer: vec![0.0; buffer_size],
+            write_idx: 0,
+            lfo_phase: 0.0,
+        }
+    }
+}
+
+impl Default for ChorusState {
+    fn default() -> Self {
+        Self::new(44100.0)
     }
 }
 
@@ -249,6 +749,9 @@ pub struct UnifiedSignalGraph {
     /// Voice manager for polyphonic sample playback
     voice_manager: RefCell<VoiceManager>,
 
+    /// Synth voice manager for polyphonic synthesis
+    synth_voice_manager: RefCell<SynthVoiceManager>,
+
     /// Sample counter for debugging
     sample_count: usize,
 }
@@ -268,6 +771,7 @@ impl UnifiedSignalGraph {
             value_cache: HashMap::new(),
             sample_bank: RefCell::new(SampleBank::new()),
             voice_manager: RefCell::new(VoiceManager::new()),
+            synth_voice_manager: RefCell::new(SynthVoiceManager::new(sample_rate)),
             sample_count: 0,
         }
     }
@@ -332,8 +836,9 @@ impl UnifiedSignalGraph {
 
     /// Panic: kill all voices and silence all outputs
     pub fn panic(&mut self) {
-        // Kill all active voices
+        // Kill all active voices (samples and synths)
         self.voice_manager.borrow_mut().kill_all();
+        self.synth_voice_manager.borrow_mut().kill_all();
 
         // Hush all outputs
         self.hush_all();
@@ -422,15 +927,23 @@ impl UnifiedSignalGraph {
 
                 let events = pattern.query(&state);
                 if let Some(event) = events.first() {
-                    // Convert pattern value to float (simplified)
-                    match event.value.as_str() {
-                        "bd" | "kick" => 1.0,
-                        "sn" | "snare" => 0.8,
-                        "hh" | "hat" => 0.6,
-                        "~" | "" => 0.0,
-                        s => {
-                            // Try to parse as number
-                            s.parse::<f32>().unwrap_or(1.0)
+                    // Convert pattern value to float
+                    // Signal::Pattern is for NUMERIC patterns (frequencies, control values)
+                    let s = event.value.as_str();
+                    if s == "~" || s.is_empty() {
+                        0.0
+                    } else {
+                        // Try numeric parsing first, then fall back to note names
+                        // This ensures "110", "220", "440" etc are treated as numbers, not MIDI notes
+                        use crate::pattern_tonal::{note_to_midi, midi_to_freq};
+                        if let Ok(numeric_value) = s.parse::<f32>() {
+                            numeric_value
+                        } else if let Some(midi) = note_to_midi(s) {
+                            // Fall back to note name parsing (e.g., "c4", "a4", "cs4")
+                            midi_to_freq(midi) as f32
+                        } else {
+                            // If neither works, default to 1.0
+                            1.0
                         }
                     }
                 } else {
@@ -580,16 +1093,156 @@ impl UnifiedSignalGraph {
                 }
             }
 
+            SignalNode::Reverb {
+                input,
+                room_size,
+                damping,
+                mix,
+                state,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let room = self.eval_signal(&room_size).clamp(0.0, 1.0);
+                let damp = self.eval_signal(&damping).clamp(0.0, 1.0);
+                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+
+                // Process comb filters (parallel)
+                let mut comb_out = 0.0;
+                for i in 0..8 {
+                    let buf_len = state.comb_buffers[i].len();
+                    let read_idx = state.comb_indices[i];
+                    let delayed = state.comb_buffers[i][read_idx];
+
+                    // Lowpass filter for damping
+                    let filtered = state.comb_filter_stores[i] * damp + delayed * (1.0 - damp);
+
+                    // Feedback
+                    let feedback = 0.84 * room;
+                    let to_write = input_val + filtered * feedback;
+
+                    comb_out += delayed;
+
+                    // Update state
+                    if let Some(Some(SignalNode::Reverb { state: s, .. })) = self.nodes.get_mut(node_id.0) {
+                        s.comb_buffers[i][read_idx] = to_write;
+                        s.comb_indices[i] = (read_idx + 1) % buf_len;
+                        s.comb_filter_stores[i] = filtered;
+                    }
+                }
+
+                let mut allpass_out = comb_out / 8.0;
+
+                // Process allpass filters (series)
+                for i in 0..4 {
+                    let buf_len = state.allpass_buffers[i].len();
+                    let read_idx = state.allpass_indices[i];
+                    let delayed = state.allpass_buffers[i][read_idx];
+
+                    let to_write = allpass_out + delayed * 0.5;
+                    allpass_out = delayed - allpass_out * 0.5;
+
+                    if let Some(Some(SignalNode::Reverb { state: s, .. })) = self.nodes.get_mut(node_id.0) {
+                        s.allpass_buffers[i][read_idx] = to_write;
+                        s.allpass_indices[i] = (read_idx + 1) % buf_len;
+                    }
+                }
+
+                // Mix dry and wet
+                input_val * (1.0 - mix_val) + allpass_out * mix_val
+            }
+
+            SignalNode::Distortion { input, drive, mix } => {
+                let input_val = self.eval_signal(&input);
+                let drive_val = self.eval_signal(&drive).clamp(1.0, 100.0);
+                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+
+                // Soft clipping waveshaper
+                let driven = input_val * drive_val;
+                let distorted = driven.tanh();
+
+                input_val * (1.0 - mix_val) + distorted * mix_val
+            }
+
+            SignalNode::BitCrush {
+                input,
+                bits,
+                sample_rate,
+                state,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let bit_depth = self.eval_signal(&bits).clamp(1.0, 16.0);
+                let rate_reduction = self.eval_signal(&sample_rate).clamp(1.0, 64.0);
+
+                let phase = state.phase + rate_reduction;
+                let mut output = state.last_sample;
+
+                if phase >= 1.0 {
+                    // Reduce bit depth
+                    let levels = (2.0_f32).powf(bit_depth);
+                    let quantized = (input_val * levels).round() / levels;
+                    output = quantized;
+
+                    if let Some(Some(SignalNode::BitCrush { state: s, .. })) = self.nodes.get_mut(node_id.0) {
+                        s.phase = phase - phase.floor();
+                        s.last_sample = quantized;
+                    }
+                } else if let Some(Some(SignalNode::BitCrush { state: s, .. })) = self.nodes.get_mut(node_id.0) {
+                    s.phase = phase;
+                }
+
+                output
+            }
+
+            SignalNode::Chorus {
+                input,
+                rate,
+                depth,
+                mix,
+                state,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let lfo_rate = self.eval_signal(&rate).clamp(0.1, 10.0);
+                let mod_depth = self.eval_signal(&depth).clamp(0.0, 1.0);
+                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+
+                // LFO for delay modulation
+                let lfo_phase = state.lfo_phase;
+                let lfo = (lfo_phase * 2.0 * std::f32::consts::PI).sin();
+
+                // Modulated delay time (5-25ms)
+                let base_delay = 0.015; // 15ms
+                let delay_time = base_delay + lfo * mod_depth * 0.010; // ±10ms
+                let delay_samples = (delay_time * self.sample_rate) as f32;
+
+                // Read from delay buffer with linear interpolation
+                let buf_len = state.delay_buffer.len();
+                let read_pos = (state.write_idx as f32 + buf_len as f32 - delay_samples) % buf_len as f32;
+                let read_idx = read_pos.floor() as usize;
+                let frac = read_pos - read_pos.floor();
+
+                let sample1 = state.delay_buffer[read_idx % buf_len];
+                let sample2 = state.delay_buffer[(read_idx + 1) % buf_len];
+                let delayed = sample1 + (sample2 - sample1) * frac;
+
+                // Update state
+                if let Some(Some(SignalNode::Chorus { state: s, .. })) = self.nodes.get_mut(node_id.0) {
+                    s.delay_buffer[s.write_idx] = input_val;
+                    s.write_idx = (s.write_idx + 1) % buf_len;
+                    s.lfo_phase = (lfo_phase + lfo_rate / self.sample_rate) % 1.0;
+                }
+
+                // Mix dry and wet
+                input_val * (1.0 - mix_val) + delayed * mix_val
+            }
+
             SignalNode::Output { input } => self.eval_signal(&input),
 
             SignalNode::Pattern {
                 pattern_str,
                 pattern,
                 last_value,
-                last_trigger_time,
+                last_trigger_time: _,
             } => {
                 // Query pattern for events at current cycle position
-                // Use absolute cycle position for alternation to work correctly
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
                 let state = State {
                     span: TimeSpan::new(
@@ -600,51 +1253,38 @@ impl UnifiedSignalGraph {
                 };
 
                 let events = pattern.query(&state);
-                let cycle_frac = self.cycle_position.fract();
-                let mut trigger_value = last_value; // Hold last value between triggers
+                let mut current_value = last_value; // Default to last value
 
+                // If there's an event at this cycle position, use its value
                 if let Some(event) = events.first() {
-                    // Skip rests
                     if event.value.trim() != "~" && !event.value.is_empty() {
-                        // Get event start time (absolute cycle position)
-                        let event_start_abs = if let Some(whole) = &event.whole {
-                            whole.begin.to_float()
+                        // Parse the event value - Pattern nodes are for NUMERIC values
+                        // (frequencies, control values, etc.), not sample names
+                        let s = event.value.as_str();
+
+                        // Try numeric parsing first, then fall back to note names
+                        // This ensures "1", "0", "440" etc are treated as numbers, not MIDI notes
+                        use crate::pattern_tonal::{note_to_midi, midi_to_freq};
+                        if let Ok(numeric_value) = s.parse::<f32>() {
+                            current_value = numeric_value;
+                        } else if let Some(midi) = note_to_midi(s) {
+                            // Fall back to note name parsing (e.g., "c4", "a4", "cs4")
+                            current_value = midi_to_freq(midi) as f32;
                         } else {
-                            event.part.begin.to_float()
-                        };
+                            // If neither works, keep last value
+                            current_value = last_value;
+                        }
 
-                        // Get fractional part for comparison with cycle_frac
-                        let event_start_frac = event_start_abs.fract();
-
-                        // Check if we're at the start of the event
-                        let at_event_start = (cycle_frac - event_start_frac).abs() < sample_width * 2.0;
-
-                        if at_event_start {
-                            // Check if we haven't already triggered this event (compare absolute times)
-                            let already_triggered = (last_trigger_time as f64 - event_start_abs).abs() < sample_width;
-
-                            if !already_triggered {
-                                // Generate trigger pulse - convert pattern value to amplitude
-                                trigger_value = match event.value.as_str() {
-                                    "bd" | "kick" => 1.0,
-                                    "sn" | "snare" => 0.8,
-                                    "hh" | "hat" => 0.6,
-                                    s => s.parse::<f32>().unwrap_or(1.0),
-                                };
-
-                                // Update last trigger time (store absolute position)
-                                if let Some(Some(SignalNode::Pattern { last_trigger_time: ltt, last_value: lv, .. })) =
-                                    self.nodes.get_mut(node_id.0)
-                                {
-                                    *ltt = event_start_abs as f32;
-                                    *lv = trigger_value;
-                                }
-                            }
+                        // Update last_value for next time
+                        if let Some(Some(SignalNode::Pattern { last_value: lv, .. })) =
+                            self.nodes.get_mut(node_id.0)
+                        {
+                            *lv = current_value;
                         }
                     }
                 }
 
-                trigger_value
+                current_value
             }
 
             SignalNode::Sample {
@@ -652,7 +1292,22 @@ impl UnifiedSignalGraph {
                 pattern,
                 last_trigger_time,
                 playback_positions: _,
+                gain,
+                pan,
+                speed,
+                cut_group,
             } => {
+                // Evaluate DSP parameters for this sample
+                let gain_val = self.eval_signal(&gain).max(0.0).min(10.0);
+                let pan_val = self.eval_signal(&pan).clamp(-1.0, 1.0);
+                let speed_val = self.eval_signal(&speed).max(0.01).min(10.0);
+                let cut_group_val = self.eval_signal(&cut_group);
+                let cut_group_opt = if cut_group_val > 0.0 {
+                    Some(cut_group_val as u32)
+                } else {
+                    None
+                };
+
                 // Query pattern for events at current cycle position
                 // Use absolute cycle position for alternation to work correctly
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
@@ -699,9 +1354,15 @@ impl UnifiedSignalGraph {
                     let event_is_new = event_start_abs > last_event_start + tolerance;
 
                     if event_is_new {
-                        // Get sample from bank and trigger a new voice
+                        // Get sample from bank and trigger a new voice with full DSP parameters
                         if let Some(sample_data) = self.sample_bank.borrow_mut().get_sample(sample_name) {
-                            self.voice_manager.borrow_mut().trigger_sample(sample_data, 1.0);
+                            self.voice_manager.borrow_mut().trigger_sample_with_cut_group(
+                                sample_data,
+                                gain_val,
+                                pan_val,
+                                speed_val,
+                                cut_group_opt,
+                            );
 
                             // Track this as the latest event we've triggered
                             if event_start_abs > latest_triggered_start {
@@ -724,11 +1385,177 @@ impl UnifiedSignalGraph {
                 self.voice_manager.borrow_mut().process()
             }
 
+            SignalNode::SynthPattern {
+                pattern,
+                last_trigger_time,
+                waveform,
+                attack,
+                decay,
+                sustain,
+                release,
+                gain,
+                pan,
+                ..
+            } => {
+                use crate::pattern_tonal::{note_to_midi, midi_to_freq};
+                use crate::synth_voice_manager::{SynthWaveform, ADSRParams};
+
+                // Evaluate DSP parameters
+                let gain_val = self.eval_signal(&gain).max(0.0).min(10.0);
+                let pan_val = self.eval_signal(&pan).clamp(-1.0, 1.0);
+
+                // Query pattern for note events
+                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                let state = State {
+                    span: TimeSpan::new(
+                        Fraction::from_float(self.cycle_position),
+                        Fraction::from_float(self.cycle_position + sample_width),
+                    ),
+                    controls: HashMap::new(),
+                };
+                let events = pattern.query(&state);
+
+                // Get last event start time
+                let last_event_start = if let Some(Some(SignalNode::SynthPattern { last_trigger_time: lt, .. })) = self.nodes.get(node_id.0) {
+                    *lt as f64
+                } else {
+                    -1.0
+                };
+
+                let mut latest_triggered_start = last_event_start;
+
+                // Trigger synth voices for new note events
+                for event in events.iter() {
+                    let note_name = event.value.trim();
+
+                    // Skip rests
+                    if note_name == "~" || note_name.is_empty() {
+                        continue;
+                    }
+
+                    // Get event start time
+                    let event_start_abs = if let Some(whole) = &event.whole {
+                        whole.begin.to_float()
+                    } else {
+                        event.part.begin.to_float()
+                    };
+
+                    // Only trigger NEW events
+                    let tolerance = sample_width * 0.001;
+                    let event_is_new = event_start_abs > last_event_start + tolerance;
+
+                    if event_is_new {
+                        // Parse note name to frequency
+                        let frequency = if let Ok(numeric) = note_name.parse::<f32>() {
+                            numeric
+                        } else if let Some(midi) = note_to_midi(note_name) {
+                            midi_to_freq(midi) as f32
+                        } else {
+                            440.0  // Default to A4
+                        };
+
+                        // Convert Waveform to SynthWaveform
+                        let synth_waveform = match waveform {
+                            Waveform::Sine => SynthWaveform::Sine,
+                            Waveform::Saw => SynthWaveform::Saw,
+                            Waveform::Square => SynthWaveform::Square,
+                            Waveform::Triangle => SynthWaveform::Triangle,
+                        };
+
+                        // ADSR parameters
+                        let adsr = ADSRParams {
+                            attack,
+                            decay,
+                            sustain,
+                            release,
+                        };
+
+                        // TRIGGER SYNTH VOICE (NOTE ON!)
+                        self.synth_voice_manager.borrow_mut().trigger_note(
+                            frequency,
+                            synth_waveform,
+                            adsr,
+                            gain_val,
+                            pan_val,
+                        );
+
+                        // Track latest event
+                        if event_start_abs > latest_triggered_start {
+                            latest_triggered_start = event_start_abs;
+                        }
+                    }
+                }
+
+                // Update last_trigger_time
+                if latest_triggered_start > last_event_start {
+                    if let Some(Some(SignalNode::SynthPattern { last_trigger_time: lt, .. })) = self.nodes.get_mut(node_id.0) {
+                        *lt = latest_triggered_start as f32;
+                    }
+                }
+
+                // Output mixed audio from all synth voices
+                self.synth_voice_manager.borrow_mut().process()
+            }
+
             SignalNode::VoiceOutput => {
                 // Output the mixed audio from all active voices
                 // This is the same as what Sample nodes output,
                 // provided as an explicit node for clarity
                 self.voice_manager.borrow_mut().process()
+            }
+
+            SignalNode::ScaleQuantize {
+                pattern,
+                scale_name,
+                root_note,
+                last_value,
+                ..
+            } => {
+                use crate::pattern_tonal::{midi_to_freq, SCALES};
+
+                // Query pattern for events at current cycle position
+                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                let state = State {
+                    span: TimeSpan::new(
+                        Fraction::from_float(self.cycle_position),
+                        Fraction::from_float(self.cycle_position + sample_width),
+                    ),
+                    controls: HashMap::new(),
+                };
+
+                let events = pattern.query(&state);
+                let mut current_value = last_value; // Default to last value
+
+                // If there's an event at this cycle position, quantize it to the scale
+                if let Some(event) = events.first() {
+                    if event.value.trim() != "~" && !event.value.is_empty() {
+                        // Parse scale degree (e.g., "0", "1", "2", "3"...)
+                        if let Ok(scale_degree) = event.value.parse::<i32>() {
+                            // Get scale intervals
+                            if let Some(scale_intervals) = SCALES.get(scale_name.as_str()) {
+                                // Calculate octave and degree within scale
+                                let octave = scale_degree / scale_intervals.len() as i32;
+                                let degree = scale_degree.rem_euclid(scale_intervals.len() as i32);
+
+                                // Get MIDI note
+                                let interval = scale_intervals[degree as usize];
+                                let midi_note = root_note as i32 + octave * 12 + interval;
+
+                                // Convert to frequency
+                                current_value = midi_to_freq(midi_note.clamp(0, 127) as u8) as f32;
+
+                                // Update last_value for next time
+                                if let Some(Some(SignalNode::ScaleQuantize { last_value: lv, .. })) =
+                                    self.nodes.get_mut(node_id.0)
+                                {
+                                    *lv = current_value;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                current_value
             }
 
             SignalNode::Noise { seed } => {
@@ -807,6 +1634,8 @@ impl UnifiedSignalGraph {
                         EnvPhase::Attack | EnvPhase::Decay | EnvPhase::Sustain
                     )
                 {
+                    // Store current level before entering release phase
+                    env_state.release_start_level = env_state.level;
                     env_state.phase = EnvPhase::Release;
                     env_state.time_in_phase = 0.0;
                 }
@@ -850,8 +1679,11 @@ impl UnifiedSignalGraph {
                     }
                     EnvPhase::Release => {
                         if release > 0.0 {
-                            env_state.level *= (1.0 - env_state.time_in_phase / release);
-                            if env_state.level <= 0.0 {
+                            // Linear decay from release_start_level to 0 over release time
+                            let progress = (env_state.time_in_phase / release).min(1.0);
+                            env_state.level = env_state.release_start_level * (1.0 - progress);
+
+                            if progress >= 1.0 {
                                 env_state.level = 0.0;
                                 env_state.phase = EnvPhase::Idle;
                             }

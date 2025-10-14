@@ -1,6 +1,143 @@
 //! Parser for the Unified Signal Graph DSL
 //!
-//! Enables inline synth definitions, pattern embedding, and universal modulation
+//! Enables inline synth definitions, pattern embedding, and universal modulation.
+//!
+//! # Phonon DSL
+//!
+//! The Phonon DSL allows you to create audio graphs that combine synthesis, patterns,
+//! and effects in a concise, readable syntax.
+//!
+//! ## Basic Syntax
+//!
+//! - **Bus assignment**: `~name: expression` - Define a named signal bus
+//! - **Output**: `out: expression` - Set the output signal
+//! - **Tempo**: `cps: 2.0` - Set cycles per second (tempo)
+//! - **Signal chain**: `a >> b` - Chain signals (output of `a` feeds input of `b`)
+//!
+//! ## Expressions
+//!
+//! ### Oscillators
+//!
+//! - `sine(freq)` - Sine wave oscillator
+//! - `saw(freq)` - Sawtooth oscillator
+//! - `square(freq)` - Square wave oscillator
+//! - `triangle(freq)` - Triangle wave oscillator
+//!
+//! ### Synthesizers
+//!
+//! - `superkick(freq, pitch_env, sustain, noise)` - Kick drum
+//! - `supersaw(freq, detune, voices)` - Detuned saw oscillators
+//! - `superpwm(freq, pwm_rate, pwm_depth)` - Pulse width modulation
+//! - `superchip(freq, vibrato_rate, vibrato_depth)` - Chiptune square wave
+//! - `superfm(freq, mod_ratio, mod_index)` - FM synthesis
+//! - `supersnare(freq, snappy, sustain)` - Snare drum
+//! - `superhat(bright, sustain)` - Hi-hat
+//!
+//! ### Filters
+//!
+//! - `lpf(input, cutoff, q)` - Low-pass filter
+//! - `hpf(input, cutoff, q)` - High-pass filter
+//!
+//! ### Effects
+//!
+//! - `reverb(input, room_size, damping, mix)` - Reverb
+//! - `distortion(input, drive, mix)` or `dist(input, drive, mix)` - Distortion
+//! - `bitcrush(input, bits, rate_reduction)` - Bitcrusher
+//! - `chorus(input, rate, depth, mix)` - Chorus
+//!
+//! ### Math Operations
+//!
+//! - `a + b`, `a - b`, `a * b`, `a / b` - Arithmetic on signals
+//!
+//! ### Patterns
+//!
+//! - `"bd sn hh cp"` - Mini-notation pattern strings
+//! - Can be used to modulate any parameter
+//!
+//! # Examples
+//!
+//! ## Simple sine wave
+//!
+//! ```
+//! use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+//!
+//! let input = "out: sine(440) * 0.2";
+//! let (_, statements) = parse_dsl(input).unwrap();
+//!
+//! let compiler = DslCompiler::new(44100.0);
+//! let mut graph = compiler.compile(statements);
+//!
+//! // Process samples
+//! for _ in 0..100 {
+//!     let sample = graph.process_sample();
+//!     assert!(sample.abs() <= 1.0);
+//! }
+//! ```
+//!
+//! ## LFO modulation
+//!
+//! ```
+//! use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+//!
+//! let input = r#"
+//!     cps: 2.0
+//!     ~lfo: sine(0.5) * 0.5 + 0.5
+//!     out: sine(~lfo * 200 + 300) * 0.2
+//! "#;
+//!
+//! let (_, statements) = parse_dsl(input).unwrap();
+//! let compiler = DslCompiler::new(44100.0);
+//! let graph = compiler.compile(statements);
+//! ```
+//!
+//! ## Filtered sawtooth
+//!
+//! ```
+//! use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+//!
+//! let input = r#"
+//!     ~bass: saw(55) >> lpf(800, 0.9)
+//!     out: ~bass * 0.3
+//! "#;
+//!
+//! let (_, statements) = parse_dsl(input).unwrap();
+//! let compiler = DslCompiler::new(44100.0);
+//! let graph = compiler.compile(statements);
+//! ```
+//!
+//! ## Pattern modulation
+//!
+//! ```
+//! use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+//!
+//! let input = r#"
+//!     cps: 2.0
+//!     out: sine("110 220 440") * 0.2
+//! "#;
+//!
+//! let (_, statements) = parse_dsl(input).unwrap();
+//! let compiler = DslCompiler::new(44100.0);
+//! let mut graph = compiler.compile(statements);
+//!
+//! // Pattern will cycle through 110Hz, 220Hz, 440Hz
+//! ```
+//!
+//! ## Complex example
+//!
+//! ```
+//! use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+//!
+//! let input = r#"
+//!     cps: 2.0
+//!     ~lfo: sine(0.25)
+//!     ~bass: saw("55 82.5 110") >> lpf(~lfo * 2000 + 500, 0.8)
+//!     out: ~bass * 0.3
+//! "#;
+//!
+//! let (_, statements) = parse_dsl(input).unwrap();
+//! let compiler = DslCompiler::new(44100.0);
+//! let graph = compiler.compile(statements);
+//! ```
 
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
@@ -91,6 +228,60 @@ pub enum DslExpression {
         input: Box<DslExpression>,
         condition: Box<DslExpression>,
     },
+    /// Synth: superkick(freq, pitch_env, sustain, noise)
+    Synth {
+        synth_type: SynthType,
+        params: Vec<DslExpression>,
+    },
+    /// Effect: reverb(input, room_size, damping, mix)
+    Effect {
+        effect_type: EffectType,
+        input: Box<DslExpression>,
+        params: Vec<DslExpression>,
+    },
+    /// Sample pattern: s("bd sn hh"), s("bd*4", gain: 0.8, speed: 1.2)
+    SamplePattern {
+        pattern: String,
+        gain: Option<Box<DslExpression>>,
+        pan: Option<Box<DslExpression>>,
+        speed: Option<Box<DslExpression>>,
+    },
+    /// Scale quantization: scale("0 1 2 3 4", "major", "c4")
+    Scale {
+        pattern: String,
+        scale_name: String,
+        root_note: String, // Note name like "c4" or MIDI number
+    },
+    /// Pattern-triggered synth: synth("c4 e4 g4", saw, attack=0.01, release=0.2)
+    SynthPattern {
+        notes: String,          // Pattern of notes
+        waveform: Waveform,     // Waveform type
+        attack: Option<f32>,
+        decay: Option<f32>,
+        sustain: Option<f32>,
+        release: Option<f32>,
+        gain: Option<Box<DslExpression>>,
+        pan: Option<Box<DslExpression>>,
+    },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum SynthType {
+    SuperKick,
+    SuperSaw,
+    SuperPWM,
+    SuperChip,
+    SuperFM,
+    SuperSnare,
+    SuperHat,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum EffectType {
+    Reverb,
+    Distortion,
+    BitCrush,
+    Chorus,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -265,10 +456,174 @@ fn when_expr(input: &str) -> IResult<&str, DslExpression> {
     })(input)
 }
 
+/// Parse synth types
+fn synth_type(input: &str) -> IResult<&str, SynthType> {
+    alt((
+        value(SynthType::SuperKick, tag("superkick")),
+        value(SynthType::SuperSaw, tag("supersaw")),
+        value(SynthType::SuperPWM, tag("superpwm")),
+        value(SynthType::SuperChip, tag("superchip")),
+        value(SynthType::SuperFM, tag("superfm")),
+        value(SynthType::SuperSnare, tag("supersnare")),
+        value(SynthType::SuperHat, tag("superhat")),
+    ))(input)
+}
+
+/// Parse synth: superkick(freq, pitch_env, sustain, noise)
+fn synth_expr(input: &str) -> IResult<&str, DslExpression> {
+    map(tuple((synth_type, function_args)), |(st, params)| {
+        DslExpression::Synth {
+            synth_type: st,
+            params,
+        }
+    })(input)
+}
+
+/// Parse effect types
+fn effect_type(input: &str) -> IResult<&str, EffectType> {
+    alt((
+        value(EffectType::Reverb, tag("reverb")),
+        value(EffectType::Distortion, tag("distortion")),
+        value(EffectType::Distortion, tag("dist")),
+        value(EffectType::BitCrush, tag("bitcrush")),
+        value(EffectType::Chorus, tag("chorus")),
+    ))(input)
+}
+
+/// Parse effect: reverb(input, room_size, damping, mix)
+fn effect_expr(input: &str) -> IResult<&str, DslExpression> {
+    map(tuple((effect_type, function_args)), |(et, args)| {
+        DslExpression::Effect {
+            effect_type: et,
+            input: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(0.0))),
+            params: args.into_iter().skip(1).collect(),
+        }
+    })(input)
+}
+
+/// Parse sample pattern: s("bd sn hh") or s("bd*4", gain: 0.8)
+fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
+    map(preceded(tag("s"), function_args), |args| {
+        // First arg must be pattern string
+        let pattern = if let Some(DslExpression::Pattern(p)) = args.first() {
+            p.clone()
+        } else {
+            String::new()
+        };
+
+        // For now, use simple positional args: s("pattern", gain, pan, speed)
+        // TODO: Support named parameters like s("pattern", gain: 0.8)
+        let gain = args.get(1).map(|e| Box::new(e.clone()));
+        let pan = args.get(2).map(|e| Box::new(e.clone()));
+        let speed = args.get(3).map(|e| Box::new(e.clone()));
+
+        DslExpression::SamplePattern {
+            pattern,
+            gain,
+            pan,
+            speed,
+        }
+    })(input)
+}
+
+/// Parse scale quantization: scale("0 1 2 3 4", "major", "c4")
+fn scale_expr(input: &str) -> IResult<&str, DslExpression> {
+    map(preceded(tag("scale"), function_args), |args| {
+        // First arg: pattern string of scale degrees
+        let pattern = if let Some(DslExpression::Pattern(p)) = args.first() {
+            p.clone()
+        } else {
+            String::new()
+        };
+
+        // Second arg: scale name (major, minor, etc.)
+        let scale_name = if let Some(DslExpression::Pattern(s)) = args.get(1) {
+            s.clone()
+        } else {
+            "major".to_string()
+        };
+
+        // Third arg: root note (e.g., "c4", "60")
+        let root_note = if let Some(DslExpression::Pattern(r)) = args.get(2) {
+            r.clone()
+        } else if let Some(DslExpression::Value(v)) = args.get(2) {
+            v.to_string()
+        } else {
+            "60".to_string()
+        };
+
+        DslExpression::Scale {
+            pattern,
+            scale_name,
+            root_note,
+        }
+    })(input)
+}
+
+/// Parse pattern-triggered synth: synth("c4 e4 g4", "saw", 0.01, 0.2)
+/// Positional args: synth("notes", "waveform", attack, decay, sustain, release)
+fn synth_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
+    map(preceded(tag("synth"), function_args), |args| {
+        // First arg: pattern string of notes
+        let notes = if let Some(DslExpression::Pattern(p)) = args.first() {
+            p.clone()
+        } else {
+            String::new()
+        };
+
+        // Second arg: waveform name as string
+        let waveform = if let Some(DslExpression::Pattern(w)) = args.get(1) {
+            match w.as_str() {
+                "sine" | "sin" => Waveform::Sine,
+                "saw" | "sawtooth" => Waveform::Saw,
+                "square" | "sq" => Waveform::Square,
+                "triangle" | "tri" => Waveform::Triangle,
+                _ => Waveform::Saw,  // Default
+            }
+        } else {
+            Waveform::Saw  // Default
+        };
+
+        // Positional ADSR parameters
+        let attack = args.get(2).and_then(|e| {
+            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+        });
+        let decay = args.get(3).and_then(|e| {
+            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+        });
+        let sustain = args.get(4).and_then(|e| {
+            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+        });
+        let release = args.get(5).and_then(|e| {
+            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+        });
+
+        // Optional gain/pan
+        let gain = args.get(6).map(|e| Box::new(e.clone()));
+        let pan = args.get(7).map(|e| Box::new(e.clone()));
+
+        DslExpression::SynthPattern {
+            notes,
+            waveform,
+            attack,
+            decay,
+            sustain,
+            release,
+            gain,
+            pan,
+        }
+    })(input)
+}
+
 /// Parse primary expression
 fn primary(input: &str) -> IResult<&str, DslExpression> {
     alt((
         bus_ref,
+        scale_expr,            // MUST come before sample_pattern_expr!
+        sample_pattern_expr,   // s() would match the 's' in scale()
+        synth_pattern_expr,    // Pattern-triggered synth: synth("notes", "waveform", ...)
+        synth_expr,            // SuperDirt continuous synths
+        effect_expr,
         oscillator,
         filter,
         delay,
@@ -364,10 +719,10 @@ fn output_definition(input: &str) -> IResult<&str, DslStatement> {
     )(input)
 }
 
-/// Parse CPS setting: cps: 0.5
+/// Parse CPS setting: cps: 0.5 or tempo: 1.0 (alias for cps)
 fn cps_setting(input: &str) -> IResult<&str, DslStatement> {
     map(
-        preceded(tuple((tag("cps"), ws(char(':')))), number),
+        preceded(tuple((alt((tag("cps"), tag("tempo"))), ws(char(':')))), number),
         DslStatement::SetCps,
     )(input)
 }
@@ -380,7 +735,7 @@ fn statement(input: &str) -> IResult<&str, DslStatement> {
 /// Parse multiple statements separated by newlines
 pub fn parse_dsl(input: &str) -> IResult<&str, Vec<DslStatement>> {
     let (input, _) = multispace0(input)?; // Skip leading whitespace
-    separated_list0(multispace1, ws(statement))(input)
+    separated_list0(multispace1, statement)(input)
 }
 
 /// Compile DSL to UnifiedSignalGraph
@@ -428,7 +783,10 @@ impl DslCompiler {
     fn compile_expression(&mut self, expr: DslExpression) -> crate::unified_graph::NodeId {
         match expr {
             DslExpression::BusRef(name) => {
-                // For now, return a placeholder - would need to look up the bus
+                // BusRef should be handled by compile_expression_to_signal instead
+                // If we get here, it's likely an error, but return silence as fallback
+                // NOTE: Normally bus refs are converted to Signal::Bus in compile_expression_to_signal
+                eprintln!("Warning: BusRef '{}' reached compile_expression, this shouldn't happen", name);
                 self.graph.add_node(SignalNode::Constant { value: 0.0 })
             }
             DslExpression::Value(v) => self.graph.add_node(SignalNode::Constant { value: v }),
@@ -438,6 +796,7 @@ impl DslCompiler {
                     pattern_str,
                     pattern,
                     last_value: 0.0,
+                    last_trigger_time: -1.0,
                 })
             }
             DslExpression::Oscillator { waveform, freq, .. } => {
@@ -500,6 +859,236 @@ impl DslCompiler {
                 // The right side should use left as input
                 // This is a bit tricky - for now just compile right
                 self.compile_expression(right_expr)
+            }
+            DslExpression::Synth { synth_type, params } => {
+                use crate::superdirt_synths::SynthLibrary;
+                let library = SynthLibrary::with_sample_rate(44100.0);
+
+                // Extract frequency (first param)
+                let freq = params.first()
+                    .map(|e| self.compile_expression_to_signal(e.clone()))
+                    .unwrap_or(Signal::Value(440.0));
+
+                match synth_type {
+                    SynthType::SuperKick => {
+                        let pitch_env = params.get(1)
+                            .map(|e| self.compile_expression_to_signal(e.clone()));
+                        let sustain = params.get(2).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        });
+                        let noise = params.get(3)
+                            .map(|e| self.compile_expression_to_signal(e.clone()));
+                        library.build_kick(&mut self.graph, freq, pitch_env, sustain, noise)
+                    }
+                    SynthType::SuperSaw => {
+                        // Note: detune and voices must be constant for now (synth design limitation)
+                        let detune = params.get(1).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        });
+                        let voices = params.get(2).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v as usize) } else { None }
+                        });
+                        library.build_supersaw(&mut self.graph, freq, detune, voices)
+                    }
+                    SynthType::SuperPWM => {
+                        // Note: structural params must be constant (synth design limitation)
+                        let pwm_rate = params.get(1).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        });
+                        let pwm_depth = params.get(2).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        });
+                        library.build_superpwm(&mut self.graph, freq, pwm_rate, pwm_depth)
+                    }
+                    SynthType::SuperChip => {
+                        // Note: structural params must be constant (synth design limitation)
+                        let vibrato_rate = params.get(1).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        });
+                        let vibrato_depth = params.get(2).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        });
+                        library.build_superchip(&mut self.graph, freq, vibrato_rate, vibrato_depth)
+                    }
+                    SynthType::SuperFM => {
+                        // Note: structural params must be constant (synth design limitation)
+                        let mod_ratio = params.get(1).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        });
+                        let mod_index = params.get(2).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        });
+                        library.build_superfm(&mut self.graph, freq, mod_ratio, mod_index)
+                    }
+                    SynthType::SuperSnare => {
+                        // Note: structural params must be constant (synth design limitation)
+                        let snappy = params.get(1).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        });
+                        let sustain = params.get(2).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        });
+                        library.build_snare(&mut self.graph, freq, snappy, sustain)
+                    }
+                    SynthType::SuperHat => {
+                        // Note: structural params must be constant (synth design limitation)
+                        let bright = params.get(0).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        });
+                        let sustain = params.get(1).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        });
+                        library.build_hat(&mut self.graph, bright, sustain)
+                    }
+                }
+            }
+            DslExpression::Effect { effect_type, input, params } => {
+                use crate::superdirt_synths::SynthLibrary;
+                let library = SynthLibrary::with_sample_rate(44100.0);
+
+                let input_node = self.compile_expression(*input);
+
+                match effect_type {
+                    EffectType::Reverb => {
+                        let room_size = params.first().and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        }).unwrap_or(0.7);
+                        let damping = params.get(1).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        }).unwrap_or(0.5);
+                        let mix = params.get(2).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        }).unwrap_or(0.3);
+                        library.add_reverb(&mut self.graph, input_node, room_size, damping, mix)
+                    }
+                    EffectType::Distortion => {
+                        let drive = params.first().and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        }).unwrap_or(3.0);
+                        let mix = params.get(1).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        }).unwrap_or(0.5);
+                        library.add_distortion(&mut self.graph, input_node, drive, mix)
+                    }
+                    EffectType::BitCrush => {
+                        let bits = params.first().and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        }).unwrap_or(4.0);
+                        let rate = params.get(1).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        }).unwrap_or(4.0);
+                        library.add_bitcrush(&mut self.graph, input_node, bits, rate)
+                    }
+                    EffectType::Chorus => {
+                        let rate = params.first().and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        }).unwrap_or(1.0);
+                        let depth = params.get(1).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        }).unwrap_or(0.5);
+                        let mix = params.get(2).and_then(|e| {
+                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                        }).unwrap_or(0.3);
+                        library.add_chorus(&mut self.graph, input_node, rate, depth, mix)
+                    }
+                }
+            }
+            DslExpression::SamplePattern { pattern, gain, pan, speed } => {
+                use std::collections::HashMap;
+
+                // Parse the mini-notation pattern
+                let parsed_pattern = parse_mini_notation(&pattern);
+
+                // Compile DSP parameters to signals
+                let gain_signal = gain
+                    .map(|e| self.compile_expression_to_signal(*e))
+                    .unwrap_or(Signal::Value(1.0));
+
+                let pan_signal = pan
+                    .map(|e| self.compile_expression_to_signal(*e))
+                    .unwrap_or(Signal::Value(0.0));
+
+                let speed_signal = speed
+                    .map(|e| self.compile_expression_to_signal(*e))
+                    .unwrap_or(Signal::Value(1.0));
+
+                // Create Sample node
+                self.graph.add_node(SignalNode::Sample {
+                    pattern_str: pattern,
+                    pattern: parsed_pattern,
+                    last_trigger_time: -1.0,
+                    playback_positions: HashMap::new(),
+                    gain: gain_signal,
+                    pan: pan_signal,
+                    speed: speed_signal,
+                    cut_group: Signal::Value(0.0), // No cut group by default
+                })
+            }
+            DslExpression::Scale { pattern, scale_name, root_note } => {
+                use crate::pattern_tonal::note_to_midi;
+
+                // Parse the mini-notation pattern
+                let parsed_pattern = parse_mini_notation(&pattern);
+
+                // Convert root note to MIDI number
+                let root_midi = if let Ok(midi) = root_note.parse::<u8>() {
+                    midi
+                } else if let Some(midi) = note_to_midi(&root_note) {
+                    midi
+                } else {
+                    60 // Default to C4
+                };
+
+                // Create ScaleQuantize node
+                self.graph.add_node(SignalNode::ScaleQuantize {
+                    pattern_str: pattern,
+                    pattern: parsed_pattern,
+                    scale_name,
+                    root_note: root_midi,
+                    last_value: 261.63, // Default to C4 frequency
+                })
+            }
+            DslExpression::SynthPattern {
+                notes,
+                waveform,
+                attack,
+                decay,
+                sustain,
+                release,
+                gain,
+                pan,
+            } => {
+                // Parse the mini-notation pattern
+                let parsed_pattern = parse_mini_notation(&notes);
+
+                // Compile DSP parameters to signals
+                let gain_signal = gain
+                    .map(|e| self.compile_expression_to_signal(*e))
+                    .unwrap_or(Signal::Value(0.3));
+
+                let pan_signal = pan
+                    .map(|e| self.compile_expression_to_signal(*e))
+                    .unwrap_or(Signal::Value(0.0));
+
+                // Use provided ADSR or defaults
+                let attack_val = attack.unwrap_or(0.01);
+                let decay_val = decay.unwrap_or(0.1);
+                let sustain_val = sustain.unwrap_or(0.7);
+                let release_val = release.unwrap_or(0.2);
+
+                // Create SynthPattern node
+                self.graph.add_node(SignalNode::SynthPattern {
+                    pattern_str: notes,
+                    pattern: parsed_pattern,
+                    last_trigger_time: -1.0,
+                    waveform,
+                    attack: attack_val,
+                    decay: decay_val,
+                    sustain: sustain_val,
+                    release: release_val,
+                    gain: gain_signal,
+                    pan: pan_signal,
+                })
             }
             _ => {
                 // TODO: Implement other expression types
@@ -568,5 +1157,168 @@ mod tests {
             assert!(statements.len() >= 1);
             // Could be 1 statement with multiple parts or 3 separate statements
         }
+    }
+
+    #[test]
+    fn test_parse_superkick() {
+        let input = "superkick(60, 0.5, 0.3, 0.1)";
+        let result = primary(input);
+        assert!(result.is_ok());
+
+        if let Ok((_, DslExpression::Synth { synth_type, params })) = result {
+            assert!(matches!(synth_type, SynthType::SuperKick));
+            assert_eq!(params.len(), 4);
+        } else {
+            panic!("Expected Synth expression");
+        }
+    }
+
+    #[test]
+    fn test_parse_supersaw() {
+        let input = "supersaw(110, 0.5, 7)";
+        let result = primary(input);
+        assert!(result.is_ok());
+
+        if let Ok((_, DslExpression::Synth { synth_type, params })) = result {
+            assert!(matches!(synth_type, SynthType::SuperSaw));
+            assert_eq!(params.len(), 3);
+        } else {
+            panic!("Expected Synth expression");
+        }
+    }
+
+    #[test]
+    fn test_parse_reverb() {
+        let input = "reverb(sine(440), 0.8, 0.5, 0.3)";
+        let result = primary(input);
+        assert!(result.is_ok());
+
+        if let Ok((_, DslExpression::Effect { effect_type, .. })) = result {
+            assert!(matches!(effect_type, EffectType::Reverb));
+        } else {
+            panic!("Expected Effect expression");
+        }
+    }
+
+    #[test]
+    fn test_parse_distortion() {
+        let input = "dist(saw(110), 5.0, 0.5)";
+        let result = primary(input);
+        assert!(result.is_ok());
+
+        if let Ok((_, DslExpression::Effect { effect_type, .. })) = result {
+            assert!(matches!(effect_type, EffectType::Distortion));
+        } else {
+            panic!("Expected Effect expression");
+        }
+    }
+
+    #[test]
+    fn test_compile_supersaw() {
+        let input = "out: supersaw(110, 0.5, 5) * 0.3";
+        let (_, statements) = parse_dsl(input).unwrap();
+        let compiler = DslCompiler::new(44100.0);
+        let mut graph = compiler.compile(statements);
+
+        // Render a bit of audio to verify it works
+        let buffer = graph.render(4410);
+        let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+
+        assert!(rms > 0.01, "SuperSaw should produce audio");
+    }
+
+    #[test]
+    fn test_compile_reverb_effect() {
+        let input = "out: reverb(sine(440), 0.7, 0.5, 0.5)";
+        let (_, statements) = parse_dsl(input).unwrap();
+        let compiler = DslCompiler::new(44100.0);
+        let mut graph = compiler.compile(statements);
+
+        // Render audio
+        let buffer = graph.render(4410);
+        let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+
+        assert!(rms > 0.01, "Reverb should produce audio");
+    }
+
+    #[test]
+    fn test_compile_synth_with_effects_chain() {
+        // Simpler inline version since bus refs aren't fully implemented yet
+        let input = "out: reverb(chorus(dist(supersaw(110, 0.5, 5), 3.0, 0.3), 1.0, 0.5, 0.3), 0.7, 0.5, 0.4)";
+
+        let (_, statements) = parse_dsl(input).unwrap();
+        let compiler = DslCompiler::new(44100.0);
+        let mut graph = compiler.compile(statements);
+
+        // Render audio
+        let buffer = graph.render(22050);
+        let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+
+        assert!(rms > 0.01, "Full effects chain should produce audio, got RMS={}", rms);
+    }
+
+    #[test]
+    fn test_compile_superkick_with_reverb() {
+        let input = "out: reverb(superkick(60, 0.5, 0.3, 0.1), 0.8, 0.5, 0.3)";
+        let (_, statements) = parse_dsl(input).unwrap();
+        let compiler = DslCompiler::new(44100.0);
+        let mut graph = compiler.compile(statements);
+
+        let buffer = graph.render(22050);
+        let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+
+        assert!(rms > 0.01, "Kick with reverb should produce audio");
+    }
+
+    #[test]
+    fn test_parse_synth_pattern() {
+        let input = r#"synth("c4 e4 g4", "saw", 0.01, 0.1, 0.7, 0.2)"#;
+        let result = primary(input);
+        assert!(result.is_ok(), "Should parse synth pattern");
+
+        if let Ok((_, DslExpression::SynthPattern { notes, waveform, attack, decay, sustain, release, .. })) = result {
+            assert_eq!(notes, "c4 e4 g4");
+            assert_eq!(waveform, Waveform::Saw);
+            assert_eq!(attack, Some(0.01));
+            assert_eq!(decay, Some(0.1));
+            assert_eq!(sustain, Some(0.7));
+            assert_eq!(release, Some(0.2));
+        } else {
+            panic!("Expected SynthPattern expression, got: {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_compile_synth_pattern() {
+        let input = r#"
+            tempo: 2.0
+            out: synth("c4 e4 g4 c5", "saw", 0.01, 0.1, 0.7, 0.2) * 0.3
+        "#;
+        let (_, statements) = parse_dsl(input).unwrap();
+        let compiler = DslCompiler::new(44100.0);
+        let mut graph = compiler.compile(statements);
+
+        // Render 1 second (2 cycles at 2 CPS)
+        let buffer = graph.render(44100);
+        let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+
+        assert!(rms > 0.01, "SynthPattern should produce audio, got RMS: {}", rms);
+    }
+
+    #[test]
+    fn test_compile_synth_pattern_minimal() {
+        // Test with minimal args (should use defaults)
+        let input = r#"
+            tempo: 2.0
+            out: synth("a4", "sine")
+        "#;
+        let (_, statements) = parse_dsl(input).unwrap();
+        let compiler = DslCompiler::new(44100.0);
+        let mut graph = compiler.compile(statements);
+
+        let buffer = graph.render(22050);
+        let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+
+        assert!(rms > 0.01, "Minimal synth pattern should produce audio");
     }
 }

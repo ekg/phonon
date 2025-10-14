@@ -208,8 +208,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Master gain: {gain:.1}");
             println!();
 
-            // Parse and render using the full parser (same as phonon live)
-            let mut graph = UnifiedSignalGraph::new(sample_rate as f32);
+            // Parse and render using the DSL compiler
+            use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+
+            // Parse the DSL
+            let (_, statements) = parse_dsl(&dsl_code).map_err(|e| {
+                format!("Failed to parse DSL: {:?}", e)
+            })?;
+
+            // Compile to graph
+            let compiler = DslCompiler::new(sample_rate as f32);
+            let mut graph = compiler.compile(statements);
+
             let mut buses: HashMap<String, phonon::unified_graph::NodeId> = HashMap::new();
             let mut out_signal = None;
 
@@ -389,6 +399,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             pattern,
                                             last_trigger_time: -1.0,
                                             playback_positions: HashMap::new(),
+                                            gain: Signal::Value(1.0),
+                                            pan: Signal::Value(0.0),
+                                            speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
                                         })
                                     } else {
                                         graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -697,6 +711,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             pattern,
                                             last_trigger_time: -1.0,
                                             playback_positions: HashMap::new(),
+                                            gain: Signal::Value(1.0),
+                                            pan: Signal::Value(0.0),
+                                            speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
                                         }));
                                     }
                                 }
@@ -748,6 +766,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     pattern,
                                     last_trigger_time: -1.0,
                                     playback_positions: HashMap::new(),
+                                    gain: Signal::Value(1.0),
+                                    pan: Signal::Value(0.0),
+                                    speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
                                 }));
                             }
                         }
@@ -806,6 +828,212 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 None
                             }
                         }
+                    } else if expr.starts_with("supersaw(")
+                        || expr.starts_with("superkick(")
+                        || expr.starts_with("superpwm(")
+                        || expr.starts_with("superchip(")
+                        || expr.starts_with("superfm(")
+                        || expr.starts_with("supersnare(")
+                        || expr.starts_with("superhat(")
+                    {
+                        // SuperDirt synth parsing
+                        use phonon::superdirt_synths::SynthLibrary;
+                        let library = SynthLibrary::with_sample_rate(44100.0);
+
+                        // Helper to parse a synth parameter
+                        let mut parse_synth_param =
+                            |param_str: &str| -> Signal {
+                                let param_str = param_str.trim();
+                                // Pattern: "100 200 300"
+                                if param_str.starts_with('"') && param_str.ends_with('"') {
+                                    let pattern_str = &param_str[1..param_str.len() - 1];
+                                    let pattern = parse_mini_notation(pattern_str);
+                                    let pattern_node = graph.add_node(SignalNode::Pattern {
+                                        pattern_str: pattern_str.to_string(),
+                                        pattern,
+                                        last_value: 440.0,
+                                        last_trigger_time: -1.0,
+                                    });
+                                    Signal::Node(pattern_node)
+                                }
+                                // Bus reference: ~lfo
+                                else if param_str.starts_with('~') {
+                                    if let Some(&bus_id) = buses.get(param_str) {
+                                        Signal::Node(bus_id)
+                                    } else {
+                                        Signal::Value(440.0)
+                                    }
+                                }
+                                // Number
+                                else if let Ok(val) = param_str.parse::<f32>() {
+                                    Signal::Value(val)
+                                } else {
+                                    Signal::Value(440.0)
+                                }
+                            };
+
+                        if expr.starts_with("supersaw(") {
+                            if let Some(params_str) = expr.strip_prefix("supersaw(").and_then(|s| s.strip_suffix(")")) {
+                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+
+                                // Freq can be pattern, detune and voices must be constant
+                                let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(110.0));
+                                let detune = params.get(1).and_then(|s| s.parse::<f32>().ok());
+                                let voices = params.get(2).and_then(|s| s.parse::<usize>().ok());
+
+                                return Some(library.build_supersaw(graph, freq_signal, detune, voices));
+                            }
+                        } else if expr.starts_with("superkick(") {
+                            if let Some(params_str) = expr.strip_prefix("superkick(").and_then(|s| s.strip_suffix(")")) {
+                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+
+                                let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(60.0));
+                                let pitch_env = params.get(1).map(|p| parse_synth_param(p));
+                                let sustain = params.get(2).and_then(|s| s.parse::<f32>().ok());
+                                let noise = params.get(3).map(|p| parse_synth_param(p));
+
+                                return Some(library.build_kick(graph, freq_signal, pitch_env, sustain, noise));
+                            }
+                        } else if expr.starts_with("superpwm(") {
+                            if let Some(params_str) = expr.strip_prefix("superpwm(").and_then(|s| s.strip_suffix(")")) {
+                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+
+                                let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(110.0));
+                                let pwm_rate = params.get(1).and_then(|s| s.parse::<f32>().ok());
+                                let pwm_depth = params.get(2).and_then(|s| s.parse::<f32>().ok());
+
+                                return Some(library.build_superpwm(graph, freq_signal, pwm_rate, pwm_depth));
+                            }
+                        } else if expr.starts_with("superchip(") {
+                            if let Some(params_str) = expr.strip_prefix("superchip(").and_then(|s| s.strip_suffix(")")) {
+                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+
+                                let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(440.0));
+                                let vibrato_rate = params.get(1).and_then(|s| s.parse::<f32>().ok());
+                                let vibrato_depth = params.get(2).and_then(|s| s.parse::<f32>().ok());
+
+                                return Some(library.build_superchip(graph, freq_signal, vibrato_rate, vibrato_depth));
+                            }
+                        } else if expr.starts_with("superfm(") {
+                            if let Some(params_str) = expr.strip_prefix("superfm(").and_then(|s| s.strip_suffix(")")) {
+                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+
+                                let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(110.0));
+                                let mod_ratio = params.get(1).and_then(|s| s.parse::<f32>().ok());
+                                let mod_index = params.get(2).and_then(|s| s.parse::<f32>().ok());
+
+                                return Some(library.build_superfm(graph, freq_signal, mod_ratio, mod_index));
+                            }
+                        } else if expr.starts_with("supersnare(") {
+                            if let Some(params_str) = expr.strip_prefix("supersnare(").and_then(|s| s.strip_suffix(")")) {
+                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+
+                                let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(180.0));
+                                let snappy = params.get(1).and_then(|s| s.parse::<f32>().ok());
+                                let sustain = params.get(2).and_then(|s| s.parse::<f32>().ok());
+
+                                return Some(library.build_snare(graph, freq_signal, snappy, sustain));
+                            }
+                        } else if expr.starts_with("superhat(") {
+                            if let Some(params_str) = expr.strip_prefix("superhat(").and_then(|s| s.strip_suffix(")")) {
+                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+
+                                let bright = params.first().and_then(|s| s.parse::<f32>().ok());
+                                let sustain = params.get(1).and_then(|s| s.parse::<f32>().ok());
+
+                                return Some(library.build_hat(graph, bright, sustain));
+                            }
+                        }
+                        None
+                    } else if expr.starts_with("reverb(")
+                        || expr.starts_with("dist(")
+                        || expr.starts_with("distortion(")
+                        || expr.starts_with("bitcrush(")
+                        || expr.starts_with("chorus(")
+                    {
+                        // Effects parsing
+                        use phonon::superdirt_synths::SynthLibrary;
+                        let library = SynthLibrary::with_sample_rate(44100.0);
+
+                        if expr.starts_with("reverb(") {
+                            if let Some(params_str) = expr.strip_prefix("reverb(").and_then(|s| s.strip_suffix(")")) {
+                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+
+                                // First param is input (bus reference or expression)
+                                let input_node = if let Some(input_expr) = params.first() {
+                                    parse_expression_to_node(graph, input_expr, buses).unwrap_or_else(|| {
+                                        graph.add_node(SignalNode::Constant { value: 0.0 })
+                                    })
+                                } else {
+                                    graph.add_node(SignalNode::Constant { value: 0.0 })
+                                };
+
+                                let room_size = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.7);
+                                let damping = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.5);
+                                let mix = params.get(3).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.3);
+
+                                return Some(library.add_reverb(graph, input_node, room_size, damping, mix));
+                            }
+                        } else if expr.starts_with("dist(") || expr.starts_with("distortion(") {
+                            let (prefix, default_drive, default_mix) = if expr.starts_with("dist(") {
+                                ("dist(", 3.0, 0.5)
+                            } else {
+                                ("distortion(", 3.0, 0.5)
+                            };
+
+                            if let Some(params_str) = expr.strip_prefix(prefix).and_then(|s| s.strip_suffix(")")) {
+                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+
+                                let input_node = if let Some(input_expr) = params.first() {
+                                    parse_expression_to_node(graph, input_expr, buses).unwrap_or_else(|| {
+                                        graph.add_node(SignalNode::Constant { value: 0.0 })
+                                    })
+                                } else {
+                                    graph.add_node(SignalNode::Constant { value: 0.0 })
+                                };
+
+                                let drive = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(default_drive);
+                                let mix = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(default_mix);
+
+                                return Some(library.add_distortion(graph, input_node, drive, mix));
+                            }
+                        } else if expr.starts_with("bitcrush(") {
+                            if let Some(params_str) = expr.strip_prefix("bitcrush(").and_then(|s| s.strip_suffix(")")) {
+                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+
+                                let input_node = if let Some(input_expr) = params.first() {
+                                    parse_expression_to_node(graph, input_expr, buses).unwrap_or_else(|| {
+                                        graph.add_node(SignalNode::Constant { value: 0.0 })
+                                    })
+                                } else {
+                                    graph.add_node(SignalNode::Constant { value: 0.0 })
+                                };
+
+                                let bits = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(4.0);
+                                let rate = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(4.0);
+
+                                return Some(library.add_bitcrush(graph, input_node, bits, rate));
+                            }
+                        } else if expr.starts_with("chorus(") {
+                            if let Some(params_str) = expr.strip_prefix("chorus(").and_then(|s| s.strip_suffix(")")) {
+                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+
+                                let input_node = if let Some(input_expr) = params.first() {
+                                    parse_expression_to_node(graph, input_expr, buses).unwrap_or_else(|| {
+                                        graph.add_node(SignalNode::Constant { value: 0.0 })
+                                    })
+                                } else {
+                                    graph.add_node(SignalNode::Constant { value: 0.0 })
+                                };
+
+                                let rate = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(1.0);
+                                let depth = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.5);
+                                let mix = params.get(3).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.3);
+
+                                return Some(library.add_chorus(graph, input_node, rate, depth, mix));
+                            }
+                        }
+                        None
                     } else if expr.starts_with('~') {
                         buses.get(expr).copied()
                     } else {
@@ -816,8 +1044,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 output_node
             }
 
-            // Parse the file
-            out_signal = parse_file_to_graph(&dsl_code, &mut graph, &mut buses);
+            // Note: Graph is already compiled by DslCompiler above
+            // out_signal is handled by the graph's output system
 
             // Recalculate duration based on actual tempo from DSL file
             let final_duration = if let Some(cycle_count) = cycles {
@@ -833,29 +1061,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut output_buffer = Vec::with_capacity(total_samples);
 
             if let Some(out_node) = out_signal {
-                // Single output mode (backwards compatible)
+                // Single output mode (backwards compatible with old parser)
                 graph.set_output(out_node);
                 for _ in 0..total_samples {
                     let sample = graph.process_sample();
                     output_buffer.push((sample * gain).clamp(-1.0, 1.0));
                 }
             } else {
-                // Check if multi-outputs are defined
-                // Try processing as multi-output and mix down
+                // DSL Compiler mode: output is already set in the graph
+                // Try single output first (DslCompiler sets this)
                 for _ in 0..total_samples {
-                    let outputs = graph.process_sample_multi();
-                    // Mix all channels together
-                    let mixed = if !outputs.is_empty() {
-                        outputs.iter().sum::<f32>() / outputs.len() as f32
-                    } else {
-                        0.0
-                    };
-                    output_buffer.push((mixed * gain).clamp(-1.0, 1.0));
+                    let sample = graph.process_sample();
+                    output_buffer.push((sample * gain).clamp(-1.0, 1.0));
                 }
 
-                // Warn if no outputs were found
+                // Warn if no audio was produced
                 if output_buffer.iter().all(|&s| s == 0.0) {
-                    println!("⚠️  No 'out' or 'outN' signals found, generating silence");
+                    println!("⚠️  No 'out' signal found or audio produced, check your DSL file");
                 }
             }
 
@@ -1180,6 +1402,10 @@ out sine(440) * 0.2
                                     pattern,
                                     last_trigger_time: -1.0,
                                     playback_positions: HashMap::new(),
+                                    gain: Signal::Value(1.0),
+                                    pan: Signal::Value(0.0),
+                                    speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
                                 }));
                             }
                         } else if base_expr.starts_with('"') && base_expr.ends_with('"') {
@@ -1300,6 +1526,67 @@ out sine(440) * 0.2
                     }
                 }
 
+                // Scale quantization: scale("0 1 2 3", "major", "60")
+                if expr.starts_with("scale(") {
+                    if let Some(params_str) = expr.strip_prefix("scale(").and_then(|s| s.strip_suffix(")")) {
+                        // Parse the three parameters: pattern, scale_name, root_note
+                        let parts: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                        if parts.len() >= 2 {
+                            // Extract pattern string
+                            let pattern_str = parts[0];
+                            let pattern_str = if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
+                                &pattern_str[1..pattern_str.len() - 1]
+                            } else {
+                                pattern_str
+                            };
+
+                            // Extract scale name
+                            let scale_name = if parts.len() > 1 {
+                                let s = parts[1];
+                                if s.starts_with('"') && s.ends_with('"') {
+                                    &s[1..s.len() - 1]
+                                } else {
+                                    s
+                                }
+                            } else {
+                                "major"
+                            };
+
+                            // Extract root note
+                            let root_note_str = if parts.len() > 2 {
+                                let r = parts[2];
+                                if r.starts_with('"') && r.ends_with('"') {
+                                    &r[1..r.len() - 1]
+                                } else {
+                                    r
+                                }
+                            } else {
+                                "60"
+                            };
+
+                            // Convert root note to MIDI number
+                            use phonon::pattern_tonal::note_to_midi;
+                            let root_midi = if let Ok(midi) = root_note_str.parse::<u8>() {
+                                midi
+                            } else if let Some(midi) = note_to_midi(root_note_str) {
+                                midi
+                            } else {
+                                60 // Default to C4
+                            };
+
+                            // Create ScaleQuantize node
+                            let pattern = parse_mini_notation(pattern_str);
+                            return Some(graph.add_node(SignalNode::ScaleQuantize {
+                                pattern_str: pattern_str.to_string(),
+                                pattern,
+                                scale_name: scale_name.to_string(),
+                                root_note: root_midi,
+                                last_value: 261.63, // Default to C4 frequency
+                            }));
+                        }
+                    }
+                }
+
                 // Noise
                 if expr == "noise" {
                     return Some(graph.add_node(SignalNode::Noise { seed: 12345 }));
@@ -1321,6 +1608,10 @@ out sine(440) * 0.2
                             pattern,
                             last_trigger_time: -1.0,
                             playback_positions: HashMap::new(),
+                            gain: Signal::Value(1.0),
+                            pan: Signal::Value(0.0),
+                            speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
                         }));
                     }
                 }
@@ -1456,6 +1747,180 @@ out sine(440) * 0.2
                             }));
                         }
                     }
+                }
+
+                // SuperDirt synths
+                if expr.starts_with("supersaw(")
+                    || expr.starts_with("superkick(")
+                    || expr.starts_with("superpwm(")
+                    || expr.starts_with("superchip(")
+                    || expr.starts_with("superfm(")
+                    || expr.starts_with("supersnare(")
+                    || expr.starts_with("superhat(")
+                {
+                    use phonon::superdirt_synths::SynthLibrary;
+                    let library = SynthLibrary::with_sample_rate(44100.0);
+
+                    let mut parse_synth_param = |param_str: &str| -> Signal {
+                        let param_str = param_str.trim();
+                        if param_str.starts_with('"') && param_str.ends_with('"') {
+                            let pattern_str = &param_str[1..param_str.len() - 1];
+                            let pattern = parse_mini_notation(pattern_str);
+                            let pattern_node = graph.add_node(SignalNode::Pattern {
+                                pattern_str: pattern_str.to_string(),
+                                pattern,
+                                last_value: 440.0,
+                                last_trigger_time: -1.0,
+                            });
+                            Signal::Node(pattern_node)
+                        } else if param_str.starts_with('~') {
+                            if let Some(&bus_id) = buses.get(param_str) {
+                                Signal::Node(bus_id)
+                            } else {
+                                Signal::Value(440.0)
+                            }
+                        } else if let Ok(val) = param_str.parse::<f32>() {
+                            Signal::Value(val)
+                        } else {
+                            Signal::Value(440.0)
+                        }
+                    };
+
+                    if expr.starts_with("supersaw(") {
+                        if let Some(params_str) = expr.strip_prefix("supersaw(").and_then(|s| s.strip_suffix(")")) {
+                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(110.0));
+                            let detune = params.get(1).and_then(|s| s.parse::<f32>().ok());
+                            let voices = params.get(2).and_then(|s| s.parse::<usize>().ok());
+                            return Some(library.build_supersaw(graph, freq_signal, detune, voices));
+                        }
+                    } else if expr.starts_with("superkick(") {
+                        if let Some(params_str) = expr.strip_prefix("superkick(").and_then(|s| s.strip_suffix(")")) {
+                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(60.0));
+                            let pitch_env = params.get(1).map(|p| parse_synth_param(p));
+                            let sustain = params.get(2).and_then(|s| s.parse::<f32>().ok());
+                            let noise = params.get(3).map(|p| parse_synth_param(p));
+                            return Some(library.build_kick(graph, freq_signal, pitch_env, sustain, noise));
+                        }
+                    } else if expr.starts_with("superpwm(") {
+                        if let Some(params_str) = expr.strip_prefix("superpwm(").and_then(|s| s.strip_suffix(")")) {
+                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(110.0));
+                            let pwm_rate = params.get(1).and_then(|s| s.parse::<f32>().ok());
+                            let pwm_depth = params.get(2).and_then(|s| s.parse::<f32>().ok());
+                            return Some(library.build_superpwm(graph, freq_signal, pwm_rate, pwm_depth));
+                        }
+                    } else if expr.starts_with("superchip(") {
+                        if let Some(params_str) = expr.strip_prefix("superchip(").and_then(|s| s.strip_suffix(")")) {
+                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(440.0));
+                            let vibrato_rate = params.get(1).and_then(|s| s.parse::<f32>().ok());
+                            let vibrato_depth = params.get(2).and_then(|s| s.parse::<f32>().ok());
+                            return Some(library.build_superchip(graph, freq_signal, vibrato_rate, vibrato_depth));
+                        }
+                    } else if expr.starts_with("superfm(") {
+                        if let Some(params_str) = expr.strip_prefix("superfm(").and_then(|s| s.strip_suffix(")")) {
+                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(110.0));
+                            let mod_ratio = params.get(1).and_then(|s| s.parse::<f32>().ok());
+                            let mod_index = params.get(2).and_then(|s| s.parse::<f32>().ok());
+                            return Some(library.build_superfm(graph, freq_signal, mod_ratio, mod_index));
+                        }
+                    } else if expr.starts_with("supersnare(") {
+                        if let Some(params_str) = expr.strip_prefix("supersnare(").and_then(|s| s.strip_suffix(")")) {
+                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(180.0));
+                            let snappy = params.get(1).and_then(|s| s.parse::<f32>().ok());
+                            let sustain = params.get(2).and_then(|s| s.parse::<f32>().ok());
+                            return Some(library.build_snare(graph, freq_signal, snappy, sustain));
+                        }
+                    } else if expr.starts_with("superhat(") {
+                        if let Some(params_str) = expr.strip_prefix("superhat(").and_then(|s| s.strip_suffix(")")) {
+                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            let bright = params.first().and_then(|s| s.parse::<f32>().ok());
+                            let sustain = params.get(1).and_then(|s| s.parse::<f32>().ok());
+                            return Some(library.build_hat(graph, bright, sustain));
+                        }
+                    }
+                    return None;
+                }
+
+                // Effects
+                if expr.starts_with("reverb(")
+                    || expr.starts_with("dist(")
+                    || expr.starts_with("distortion(")
+                    || expr.starts_with("bitcrush(")
+                    || expr.starts_with("chorus(")
+                {
+                    use phonon::superdirt_synths::SynthLibrary;
+                    let library = SynthLibrary::with_sample_rate(44100.0);
+
+                    if expr.starts_with("reverb(") {
+                        if let Some(params_str) = expr.strip_prefix("reverb(").and_then(|s| s.strip_suffix(")")) {
+                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            let input_node = if let Some(input_expr) = params.first() {
+                                parse_expression(graph, input_expr, buses).unwrap_or_else(|| {
+                                    graph.add_node(SignalNode::Constant { value: 0.0 })
+                                })
+                            } else {
+                                graph.add_node(SignalNode::Constant { value: 0.0 })
+                            };
+                            let room_size = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.7);
+                            let damping = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.5);
+                            let mix = params.get(3).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.3);
+                            return Some(library.add_reverb(graph, input_node, room_size, damping, mix));
+                        }
+                    } else if expr.starts_with("dist(") || expr.starts_with("distortion(") {
+                        let (prefix, default_drive, default_mix) = if expr.starts_with("dist(") {
+                            ("dist(", 3.0, 0.5)
+                        } else {
+                            ("distortion(", 3.0, 0.5)
+                        };
+                        if let Some(params_str) = expr.strip_prefix(prefix).and_then(|s| s.strip_suffix(")")) {
+                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            let input_node = if let Some(input_expr) = params.first() {
+                                parse_expression(graph, input_expr, buses).unwrap_or_else(|| {
+                                    graph.add_node(SignalNode::Constant { value: 0.0 })
+                                })
+                            } else {
+                                graph.add_node(SignalNode::Constant { value: 0.0 })
+                            };
+                            let drive = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(default_drive);
+                            let mix = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(default_mix);
+                            return Some(library.add_distortion(graph, input_node, drive, mix));
+                        }
+                    } else if expr.starts_with("bitcrush(") {
+                        if let Some(params_str) = expr.strip_prefix("bitcrush(").and_then(|s| s.strip_suffix(")")) {
+                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            let input_node = if let Some(input_expr) = params.first() {
+                                parse_expression(graph, input_expr, buses).unwrap_or_else(|| {
+                                    graph.add_node(SignalNode::Constant { value: 0.0 })
+                                })
+                            } else {
+                                graph.add_node(SignalNode::Constant { value: 0.0 })
+                            };
+                            let bits = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(4.0);
+                            let rate = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(4.0);
+                            return Some(library.add_bitcrush(graph, input_node, bits, rate));
+                        }
+                    } else if expr.starts_with("chorus(") {
+                        if let Some(params_str) = expr.strip_prefix("chorus(").and_then(|s| s.strip_suffix(")")) {
+                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            let input_node = if let Some(input_expr) = params.first() {
+                                parse_expression(graph, input_expr, buses).unwrap_or_else(|| {
+                                    graph.add_node(SignalNode::Constant { value: 0.0 })
+                                })
+                            } else {
+                                graph.add_node(SignalNode::Constant { value: 0.0 })
+                            };
+                            let rate = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(1.0);
+                            let depth = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.5);
+                            let mix = params.get(3).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.3);
+                            return Some(library.add_chorus(graph, input_node, rate, depth, mix));
+                        }
+                    }
+                    return None;
                 }
 
                 // Bus reference
