@@ -784,6 +784,10 @@ impl UnifiedSignalGraph {
         self.cps
     }
 
+    pub fn sample_rate(&self) -> f32 {
+        self.sample_rate
+    }
+
     /// Add a node to the graph and return its ID
     pub fn add_node(&mut self, node: SignalNode) -> NodeId {
         let id = NodeId(self.next_node_id);
@@ -801,6 +805,11 @@ impl UnifiedSignalGraph {
     /// Register a named bus
     pub fn add_bus(&mut self, name: String, node_id: NodeId) {
         self.buses.insert(name, node_id);
+    }
+
+    /// Get a bus by name
+    pub fn get_bus(&self, name: &str) -> Option<NodeId> {
+        self.buses.get(name).copied()
     }
 
     /// Set the output node

@@ -783,11 +783,14 @@ impl DslCompiler {
     fn compile_expression(&mut self, expr: DslExpression) -> crate::unified_graph::NodeId {
         match expr {
             DslExpression::BusRef(name) => {
-                // BusRef should be handled by compile_expression_to_signal instead
-                // If we get here, it's likely an error, but return silence as fallback
-                // NOTE: Normally bus refs are converted to Signal::Bus in compile_expression_to_signal
-                eprintln!("Warning: BusRef '{}' reached compile_expression, this shouldn't happen", name);
-                self.graph.add_node(SignalNode::Constant { value: 0.0 })
+                // Look up the bus and return its node ID
+                // If bus doesn't exist yet, create a placeholder constant
+                if let Some(node_id) = self.graph.get_bus(&name) {
+                    node_id
+                } else {
+                    eprintln!("Warning: BusRef '{}' not found, returning silence", name);
+                    self.graph.add_node(SignalNode::Constant { value: 0.0 })
+                }
             }
             DslExpression::Value(v) => self.graph.add_node(SignalNode::Constant { value: v }),
             DslExpression::Pattern(pattern_str) => {
@@ -1088,6 +1091,30 @@ impl DslCompiler {
                     release: release_val,
                     gain: gain_signal,
                     pan: pan_signal,
+                })
+            }
+            DslExpression::Delay {
+                input,
+                time,
+                feedback,
+                mix,
+            } => {
+                let input_signal = self.compile_expression_to_signal(*input);
+                let time_signal = self.compile_expression_to_signal(*time);
+                let feedback_signal = self.compile_expression_to_signal(*feedback);
+                let mix_signal = self.compile_expression_to_signal(*mix);
+
+                // Create delay buffer (2 seconds max @ 44.1kHz)
+                let max_delay_samples = (2.0 * self.graph.sample_rate()) as usize;
+                let buffer = vec![0.0; max_delay_samples];
+
+                self.graph.add_node(SignalNode::Delay {
+                    input: input_signal,
+                    time: time_signal,
+                    feedback: feedback_signal,
+                    mix: mix_signal,
+                    buffer,
+                    write_idx: 0,
                 })
             }
             _ => {
