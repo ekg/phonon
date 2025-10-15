@@ -635,11 +635,29 @@ fn primary(input: &str) -> IResult<&str, DslExpression> {
     ))(input)
 }
 
-/// Parse multiplication and division
-fn term(input: &str) -> IResult<&str, DslExpression> {
+/// Parse signal chain: a >> b
+/// Chain has the HIGHEST precedence (after primary), so it binds tighter than arithmetic
+/// Example: a >> b * c parses as (a >> b) * c
+fn chain(input: &str) -> IResult<&str, DslExpression> {
     let (input, first) = primary(input)?;
 
-    let (input, ops) = many0(tuple((ws(alt((char('*'), char('/')))), primary)))(input)?;
+    let (input, chains) = many0(preceded(ws(tag(">>")), primary))(input)?;
+
+    let expr = chains
+        .into_iter()
+        .fold(first, |acc, right| DslExpression::Chain {
+            left: Box::new(acc),
+            right: Box::new(right),
+        });
+
+    Ok((input, expr))
+}
+
+/// Parse multiplication and division
+fn term(input: &str) -> IResult<&str, DslExpression> {
+    let (input, first) = chain(input)?;  // Chain has higher precedence
+
+    let (input, ops) = many0(tuple((ws(alt((char('*'), char('/')))), chain)))(input)?;
 
     let expr = ops.into_iter().fold(first, |acc, (op, right)| {
         let operator = match op {
@@ -659,7 +677,7 @@ fn term(input: &str) -> IResult<&str, DslExpression> {
 
 /// Parse addition and subtraction
 fn arithmetic(input: &str) -> IResult<&str, DslExpression> {
-    let (input, first) = term(input)?;
+    let (input, first) = term(input)?;  // Term has higher precedence
 
     let (input, ops) = many0(tuple((ws(alt((char('+'), char('-')))), term)))(input)?;
 
@@ -679,25 +697,9 @@ fn arithmetic(input: &str) -> IResult<&str, DslExpression> {
     Ok((input, expr))
 }
 
-/// Parse signal chain: a >> b
-fn chain(input: &str) -> IResult<&str, DslExpression> {
-    let (input, first) = arithmetic(input)?;
-
-    let (input, chains) = many0(preceded(ws(tag(">>")), arithmetic))(input)?;
-
-    let expr = chains
-        .into_iter()
-        .fold(first, |acc, right| DslExpression::Chain {
-            left: Box::new(acc),
-            right: Box::new(right),
-        });
-
-    Ok((input, expr))
-}
-
 /// Parse a complete expression
 fn expression(input: &str) -> IResult<&str, DslExpression> {
-    chain(input)
+    arithmetic(input)  // Start with lowest precedence (arithmetic calls chain calls term)
 }
 
 /// Parse a bus definition: ~name: expression
@@ -857,11 +859,12 @@ impl DslCompiler {
             DslExpression::Chain { left, right } => {
                 // Chain is like connecting output to input
                 let left_id = self.compile_expression(*left);
-                let right_expr = *right;
 
-                // The right side should use left as input
-                // This is a bit tricky - for now just compile right
-                self.compile_expression(right_expr)
+                // Inject left_id as the input to the right side expression
+                let modified_right = self.inject_chain_input(*right, left_id);
+
+                // Compile the modified right side
+                self.compile_expression(modified_right)
             }
             DslExpression::Synth { synth_type, params } => {
                 use crate::superdirt_synths::SynthLibrary;
@@ -1133,6 +1136,60 @@ impl DslCompiler {
                 let node_id = self.compile_expression(expr);
                 Signal::Node(node_id)
             }
+        }
+    }
+
+    /// Inject the left-hand node from a chain as the input to the right-hand expression
+    ///
+    /// When parsing `a >> lpf(x, y)`, the parser treats lpf as having 3 args:
+    /// - args[0] = x -> input
+    /// - args[1] = y -> cutoff
+    /// - args[2] = default -> q
+    ///
+    /// But in chain context, we want:
+    /// - input = a (from chain)
+    /// - cutoff = x (shift from input)
+    /// - q = y (shift from cutoff)
+    fn inject_chain_input(&mut self, right: DslExpression, left_node: crate::unified_graph::NodeId) -> DslExpression {
+        // Register the left node as a temporary bus so it can be referenced
+        let bus_name = format!("__chain_{}", left_node.0);
+        self.graph.add_bus(bus_name.clone(), left_node);
+
+        match right {
+            // For filters in chain context, shift arguments:
+            // Original parse: lpf(1000, 0.8) -> input=1000, cutoff=0.8, q=1.0
+            // Chain context: lpf(1000, 0.8) should mean cutoff=1000, q=0.8
+            DslExpression::Filter { filter_type, input, cutoff, q } => {
+                DslExpression::Filter {
+                    filter_type,
+                    input: Box::new(DslExpression::BusRef(bus_name)),
+                    cutoff: input,  // Shift: what was parsed as input is actually cutoff
+                    q: cutoff,      // Shift: what was parsed as cutoff is actually q
+                }
+            }
+            // For effects in chain context, shift arguments similarly
+            // Effect params don't include input, so no shift needed
+            DslExpression::Effect { effect_type, input: _, params } => {
+                DslExpression::Effect {
+                    effect_type,
+                    input: Box::new(DslExpression::BusRef(bus_name)),
+                    params,
+                }
+            }
+            // For delays in chain context, shift arguments
+            // Original parse: delay(t, f, m) -> input=t, time=f, feedback=m, mix=0.5
+            // Chain context: delay(t, f, m) should mean time=t, feedback=f, mix=m
+            DslExpression::Delay { input, time, feedback, mix } => {
+                DslExpression::Delay {
+                    input: Box::new(DslExpression::BusRef(bus_name)),
+                    time: input,     // Shift: what was parsed as input is actually time
+                    feedback: time,  // Shift: what was parsed as time is actually feedback
+                    mix: feedback,   // Shift: what was parsed as feedback is actually mix
+                }
+            }
+            // For other expressions, wrap in a chain if needed or return as-is
+            // (this handles cases like: osc >> osc, which would just multiply)
+            other => other,
         }
     }
 }
