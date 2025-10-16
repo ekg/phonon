@@ -1845,8 +1845,13 @@ impl UnifiedSignalGraph {
         self.value_cache.clear();
 
         // Start with single output (for backwards compatibility)
+        // Check if channel 0 is hushed
         let mut mixed_output = if let Some(output_id) = self.output {
-            self.eval_node(&output_id)
+            if self.hushed_channels.contains(&0) {
+                0.0  // Silenced
+            } else {
+                self.eval_node(&output_id)
+            }
         } else {
             0.0
         };

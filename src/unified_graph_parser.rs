@@ -166,6 +166,10 @@ pub enum DslStatement {
     },
     /// Set tempo: cps: 0.5
     SetCps(f32),
+    /// Silence output channel(s): hush, hush1, hush2
+    Hush { channel: Option<usize> },
+    /// Kill all voices and silence all outputs: panic
+    Panic,
 }
 
 /// DSL expressions
@@ -866,9 +870,31 @@ fn cps_setting(input: &str) -> IResult<&str, DslStatement> {
     )(input)
 }
 
+/// Parse hush statement: hush, hush1, hush2, etc.
+fn hush_statement(input: &str) -> IResult<&str, DslStatement> {
+    map(
+        tuple((
+            tag("hush"),
+            // Optional channel number: hush1, hush2, etc.
+            alt((
+                map_res(digit1, |s: &str| s.parse::<usize>()),
+                value(0, tag("")), // No channel means hush all
+            )),
+        )),
+        |(_, channel)| DslStatement::Hush {
+            channel: if channel == 0 { None } else { Some(channel) },
+        },
+    )(input)
+}
+
+/// Parse panic statement: panic
+fn panic_statement(input: &str) -> IResult<&str, DslStatement> {
+    map(tag("panic"), |_| DslStatement::Panic)(input)
+}
+
 /// Parse a statement
 fn statement(input: &str) -> IResult<&str, DslStatement> {
-    alt((bus_definition, output_definition, cps_setting))(input)
+    alt((bus_definition, output_definition, cps_setting, hush_statement, panic_statement))(input)
 }
 
 /// Parse multiple statements separated by newlines
@@ -923,6 +949,15 @@ impl DslCompiler {
             }
             DslStatement::SetCps(cps) => {
                 self.graph.set_cps(cps);
+            }
+            DslStatement::Hush { channel } => {
+                match channel {
+                    None => self.graph.hush_all(),
+                    Some(ch) => self.graph.hush_channel(ch),
+                }
+            }
+            DslStatement::Panic => {
+                self.graph.panic();
             }
             DslStatement::Route { .. } => {
                 // TODO: Implement routing
