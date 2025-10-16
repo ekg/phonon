@@ -1844,14 +1844,28 @@ impl UnifiedSignalGraph {
         // Clear cache for new sample
         self.value_cache.clear();
 
-        // Process output node if it exists
-        // Note: Voices are now part of the signal graph via VoiceOutput nodes
-        // They will be processed during graph evaluation
-        let output = if let Some(output_id) = self.output {
+        // Start with single output (for backwards compatibility)
+        let mut mixed_output = if let Some(output_id) = self.output {
             self.eval_node(&output_id)
         } else {
             0.0
         };
+
+        // Mix in all numbered output channels (out1, out2, etc.)
+        // Collect channel numbers first to avoid borrow checker issues
+        let channels: Vec<(usize, crate::unified_graph::NodeId)> = self.outputs.iter()
+            .map(|(&ch, &node)| (ch, node))
+            .collect();
+
+        for (ch, node_id) in channels {
+            // Skip hushed channels
+            if self.hushed_channels.contains(&ch) {
+                continue;
+            }
+
+            // Mix the channel output
+            mixed_output += self.eval_node(&node_id);
+        }
 
         // Advance cycle position
         self.cycle_position += self.cps as f64 / self.sample_rate as f64;
@@ -1859,7 +1873,7 @@ impl UnifiedSignalGraph {
         // Increment sample counter
         self.sample_count += 1;
 
-        output
+        mixed_output
     }
 
     /// Render a buffer of audio

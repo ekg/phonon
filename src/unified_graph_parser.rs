@@ -157,8 +157,8 @@ use nom::{
 pub enum DslStatement {
     /// Define a bus: ~name: expression
     BusDefinition { name: String, expr: DslExpression },
-    /// Set output: out: expression
-    Output { expr: DslExpression },
+    /// Set output: out: expression or out1: expression
+    Output { channel: Option<usize>, expr: DslExpression },
     /// Route modulation: route ~source -> { targets }
     Route {
         source: String,
@@ -838,11 +838,23 @@ fn bus_definition(input: &str) -> IResult<&str, DslStatement> {
     )(input)
 }
 
-/// Parse output definition: out: expression
+/// Parse output definition: out: expression, out1: expression, out2: expression, etc.
 fn output_definition(input: &str) -> IResult<&str, DslStatement> {
     map(
-        preceded(tuple((tag("out"), ws(char(':')))), expression),
-        |expr| DslStatement::Output { expr },
+        tuple((
+            tag("out"),
+            // Optional channel number: out1, out2, etc.
+            alt((
+                map_res(digit1, |s: &str| s.parse::<usize>()),
+                value(0, tag("")), // Default to channel 0 for plain "out"
+            )),
+            ws(char(':')),
+            expression,
+        )),
+        |(_, channel, _, expr)| DslStatement::Output {
+            channel: if channel == 0 { None } else { Some(channel) },
+            expr,
+        },
     )(input)
 }
 
@@ -891,12 +903,23 @@ impl DslCompiler {
                 let node_id = self.compile_expression(expr);
                 self.graph.add_bus(name, node_id);
             }
-            DslStatement::Output { expr } => {
+            DslStatement::Output { channel, expr } => {
                 let node_id = self.compile_expression(expr);
                 let output_node = self.graph.add_node(SignalNode::Output {
                     input: Signal::Node(node_id),
                 });
-                self.graph.set_output(output_node);
+
+                // Use multi-output system: out -> channel 0, out1 -> channel 1, out2 -> channel 2, etc.
+                match channel {
+                    None => {
+                        // Plain "out" - use backwards-compatible single output
+                        self.graph.set_output(output_node);
+                    }
+                    Some(ch) => {
+                        // Numbered output (out1, out2, etc.) - use multi-output system
+                        self.graph.set_output_channel(ch, output_node);
+                    }
+                }
             }
             DslStatement::SetCps(cps) => {
                 self.graph.set_cps(cps);

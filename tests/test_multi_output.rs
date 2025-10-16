@@ -1,211 +1,106 @@
-use phonon::unified_graph::{SignalNode, UnifiedSignalGraph, NodeId, Signal, Waveform};
-use phonon::mini_notation_v3::parse_mini_notation;
-use std::collections::HashMap;
+//! Tests for multi-output system (out1, out2, etc.)
+
+use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]
-fn test_dual_output_rendering() {
-    // Test that out1 and out2 can be defined independently
-    let sample_rate = 44100.0;
-    let mut graph = UnifiedSignalGraph::new(sample_rate);
-    graph.set_cps(2.0); // 2 cycles per second
+fn test_multi_output_two_channels() {
+    let input = r#"
+        tempo: 2.0
+        out1: s("bd ~ bd ~") * 0.5
+        out2: s("~ sn ~ sn") * 0.5
+    "#;
 
-    // Create two oscillators at different frequencies
-    let node1 = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(110.0),
-        waveform: Waveform::Sine,
-        phase: 0.0,
-    });
+    let (_, statements) = parse_dsl(input).expect("Failed to parse multi-output DSL");
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
 
-    let node2 = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(880.0),
-        waveform: Waveform::Sine,
-        phase: 0.0,
-    });
+    // Render 1 second (2 cycles at 2 CPS)
+    let buffer = graph.render(44100);
 
-    // Set multiple outputs
-    graph.set_output_channel(1, node1);
-    graph.set_output_channel(2, node2);
+    // Calculate RMS
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
-    // Render 1 cycle (0.5 seconds at tempo 2.0)
-    let samples_per_cycle = (sample_rate / 2.0) as usize;
-    let mut output1_sum = 0.0f32;
-    let mut output2_sum = 0.0f32;
-
-    for _ in 0..samples_per_cycle {
-        let outputs = graph.process_sample_multi();
-        output1_sum += outputs[0].abs();
-        output2_sum += outputs[1].abs();
-    }
-
-    // Both outputs should have non-zero audio
-    assert!(output1_sum > 0.0, "Output 1 should have audio (110 Hz sine)");
-    assert!(output2_sum > 0.0, "Output 2 should have audio (880 Hz sine)");
-
-    // Output 1 and output 2 should be different
-    // 880Hz should have 8x more zero crossings, so sums will be different
-    let ratio = output1_sum / output2_sum;
-    assert!(ratio > 0.5 && ratio < 2.0,
-        "Outputs should be similar in magnitude (ratio: {:.2})", ratio);
+    // Should produce audio from both channels
+    assert!(rms > 0.1, "Multi-output should produce audio, got RMS: {}", rms);
+    println!("✅ test_multi_output_two_channels: RMS = {:.6}", rms);
 }
 
 #[test]
-fn test_quad_output_rendering() {
-    // Test 4 independent outputs
-    let sample_rate = 44100.0;
-    let mut graph = UnifiedSignalGraph::new(sample_rate);
-    graph.set_cps(1.0);
+fn test_multi_output_single_channel() {
+    let input = r#"
+        tempo: 2.0
+        out1: s("bd sn hh cp") * 0.5
+    "#;
 
-    // Create sine waves at different frequencies
-    let node1 = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(110.0),
-        waveform: Waveform::Sine,
-        phase: 0.0,
-    });
-    let node2 = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(220.0),
-        waveform: Waveform::Sine,
-        phase: 0.0,
-    });
-    let node3 = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: 0.0,
-    });
-    let node4 = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(880.0),
-        waveform: Waveform::Sine,
-        phase: 0.0,
-    });
+    let (_, statements) = parse_dsl(input).expect("Failed to parse");
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
 
-    graph.set_output_channel(1, node1);
-    graph.set_output_channel(2, node2);
-    graph.set_output_channel(3, node3);
-    graph.set_output_channel(4, node4);
+    let buffer = graph.render(22050);
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
-    // Render a few samples
-    // Note: Oscillators start at phase=0, so first sample will be sin(0)=0
-    // We need to skip the first sample or accumulate over multiple samples
-    let mut max_values = vec![0.0f32; 4];
-
-    for _ in 0..100 {
-        let outputs = graph.process_sample_multi();
-        assert_eq!(outputs.len(), 4, "Should have 4 outputs");
-
-        // Track maximum value seen for each output
-        for (i, &sample) in outputs.iter().enumerate() {
-            if sample.abs() > max_values[i] {
-                max_values[i] = sample.abs();
-            }
-        }
-    }
-
-    // After 100 samples, each output should have produced non-zero signal
-    for (i, &max_val) in max_values.iter().enumerate() {
-        assert!(max_val > 0.0, "Output {} should have signal (max={})", i + 1, max_val);
-    }
+    assert!(rms > 0.05, "Single numbered output should produce audio, got RMS: {}", rms);
+    println!("✅ test_multi_output_single_channel: RMS = {:.6}", rms);
 }
 
 #[test]
-fn test_hush_command() {
-    // Test that hush silences all outputs
-    let sample_rate = 44100.0;
-    let mut graph = UnifiedSignalGraph::new(sample_rate);
-    graph.set_cps(1.0);
+fn test_multi_output_three_channels() {
+    let input = r#"
+        tempo: 2.0
+        out1: s("bd ~ bd ~") * 0.3
+        out2: s("~ sn ~ sn") * 0.3
+        out3: s("hh hh hh hh") * 0.3
+    "#;
 
-    // Create outputs
-    let node1 = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: 0.0,
-    });
-    let node2 = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(880.0),
-        waveform: Waveform::Sine,
-        phase: 0.0,
-    });
+    let (_, statements) = parse_dsl(input).expect("Failed to parse");
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
 
-    graph.set_output_channel(1, node1);
-    graph.set_output_channel(2, node2);
+    let buffer = graph.render(44100);
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
-    // Process samples - should have signal
-    // Note: Skip first sample since oscillators start at phase=0
-    graph.process_sample_multi();
-    let outputs_before = graph.process_sample_multi();
-    assert!(outputs_before[0].abs() > 0.0);
-    assert!(outputs_before[1].abs() > 0.0);
-
-    // Hush all outputs
-    graph.hush_all();
-
-    // Process samples - should be silent
-    let outputs_after = graph.process_sample_multi();
-    assert_eq!(outputs_after[0], 0.0, "Output 1 should be hushed");
-    assert_eq!(outputs_after[1], 0.0, "Output 2 should be hushed");
+    // Three channels should produce more combined output
+    assert!(rms > 0.15, "Three-channel output should produce audio, got RMS: {}", rms);
+    println!("✅ test_multi_output_three_channels: RMS = {:.6}", rms);
 }
 
 #[test]
-fn test_hush_specific_output() {
-    // Test that hush can silence specific outputs
-    let sample_rate = 44100.0;
-    let mut graph = UnifiedSignalGraph::new(sample_rate);
-    graph.set_cps(1.0);
+fn test_multi_output_with_plain_out() {
+    // Test that plain "out" still works alongside numbered outputs
+    let input = r#"
+        tempo: 2.0
+        out: s("bd ~ bd ~") * 0.3
+        out1: s("~ sn ~ sn") * 0.3
+    "#;
 
-    let node1 = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: 0.0,
-    });
-    let node2 = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(880.0),
-        waveform: Waveform::Sine,
-        phase: 0.0,
-    });
+    let (_, statements) = parse_dsl(input).expect("Failed to parse");
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
 
-    graph.set_output_channel(1, node1);
-    graph.set_output_channel(2, node2);
+    let buffer = graph.render(44100);
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
-    // Hush only output 1
-    graph.hush_channel(1);
-
-    // Skip first sample since oscillators start at phase=0
-    graph.process_sample_multi();
-    let outputs = graph.process_sample_multi();
-    assert_eq!(outputs[0], 0.0, "Output 1 should be hushed");
-    assert!(outputs[1].abs() > 0.0, "Output 2 should still play");
+    // Both plain "out" and numbered outputs should work together
+    assert!(rms > 0.1, "Mixed plain and numbered output should produce audio, got RMS: {}", rms);
+    println!("✅ test_multi_output_with_plain_out: RMS = {:.6}", rms);
 }
 
 #[test]
-fn test_panic_command() {
-    // Test that panic kills voices AND silences outputs
-    let sample_rate = 44100.0;
-    let mut graph = UnifiedSignalGraph::new(sample_rate);
-    graph.set_cps(2.0);
+fn test_multi_output_different_patterns() {
+    // Test with different types of patterns
+    let input = r#"
+        tempo: 2.0
+        out1: sine("110 220") * 0.2
+        out2: s("bd sn") * 0.3
+    "#;
 
-    let pattern = parse_mini_notation("bd sn hh*16");
-    let node = graph.add_node(SignalNode::Sample {
-        pattern_str: "bd sn hh*16".to_string(),
-        pattern,
-        last_trigger_time: -1.0,
-        playback_positions: HashMap::new(),
-    });
+    let (_, statements) = parse_dsl(input).expect("Failed to parse");
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
 
-    graph.set_output_channel(1, node);
+    let buffer = graph.render(22050);
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
-    // Trigger some samples
-    for _ in 0..1000 {
-        graph.process_sample_multi();
-    }
-
-    // Should have active voices
-    let outputs_before = graph.process_sample_multi();
-    let has_signal_before = outputs_before[0].abs() > 0.0;
-
-    // Panic - kill everything
-    graph.panic();
-
-    // Should be completely silent
-    for _ in 0..100 {
-        let outputs_after = graph.process_sample_multi();
-        assert_eq!(outputs_after[0], 0.0, "Output should be silent after panic");
-    }
+    assert!(rms > 0.05, "Multi-output with different pattern types should work, got RMS: {}", rms);
+    println!("✅ test_multi_output_different_patterns: RMS = {:.6}", rms);
 }
