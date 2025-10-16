@@ -788,6 +788,11 @@ impl UnifiedSignalGraph {
         self.sample_rate
     }
 
+    /// Get a reference to a node by its ID
+    pub fn get_node(&self, node_id: NodeId) -> Option<&SignalNode> {
+        self.nodes.get(node_id.0).and_then(|opt| opt.as_ref())
+    }
+
     /// Add a node to the graph and return its ID
     pub fn add_node(&mut self, node: SignalNode) -> NodeId {
         let id = NodeId(self.next_node_id);

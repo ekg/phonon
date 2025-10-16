@@ -263,6 +263,33 @@ pub enum DslExpression {
         gain: Option<Box<DslExpression>>,
         pan: Option<Box<DslExpression>>,
     },
+    /// Pattern transform: pattern |> transform
+    PatternTransform {
+        pattern: Box<DslExpression>,
+        transform: PatternTransformOp,
+    },
+}
+
+/// Pattern transformation operations
+#[derive(Debug, Clone)]
+pub enum PatternTransformOp {
+    /// Speed up pattern: fast 2
+    Fast(Box<DslExpression>),
+    /// Slow down pattern: slow 2
+    Slow(Box<DslExpression>),
+    /// Reverse pattern: rev
+    Rev,
+    /// Apply transform every n cycles: every 4 (fast 2)
+    Every {
+        n: Box<DslExpression>,
+        f: Box<PatternTransformOp>,
+    },
+    /// Apply transform sometimes (50% probability)
+    Sometimes(Box<PatternTransformOp>),
+    /// Apply transform often (75% probability)
+    Often(Box<PatternTransformOp>),
+    /// Apply transform rarely (10% probability)
+    Rarely(Box<PatternTransformOp>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -502,14 +529,11 @@ fn effect_expr(input: &str) -> IResult<&str, DslExpression> {
 }
 
 /// Parse sample pattern: s("bd sn hh") or s("bd*4", gain: 0.8)
+/// Also handles pattern transforms: s("bd sn" |> fast 2)
 fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
     map(preceded(tag("s"), function_args), |args| {
-        // First arg must be pattern string
-        let pattern = if let Some(DslExpression::Pattern(p)) = args.first() {
-            p.clone()
-        } else {
-            String::new()
-        };
+        // First arg can be a pattern string OR a pattern transform
+        let first_arg = args.first().cloned();
 
         // For now, use simple positional args: s("pattern", gain, pan, speed)
         // TODO: Support named parameters like s("pattern", gain: 0.8)
@@ -517,11 +541,43 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
         let pan = args.get(2).map(|e| Box::new(e.clone()));
         let speed = args.get(3).map(|e| Box::new(e.clone()));
 
-        DslExpression::SamplePattern {
-            pattern,
-            gain,
-            pan,
-            speed,
+        // Check if first arg is a plain pattern string or a transform
+        match first_arg {
+            Some(DslExpression::Pattern(p)) => {
+                // Plain pattern string: s("bd sn")
+                DslExpression::SamplePattern {
+                    pattern: p,
+                    gain,
+                    pan,
+                    speed,
+                }
+            }
+            Some(DslExpression::PatternTransform { pattern, transform }) => {
+                // Pattern with transform: s("bd sn" |> fast 2)
+                // Wrap the whole thing in a PatternTransform that contains a SamplePattern
+                DslExpression::PatternTransform {
+                    pattern: Box::new(DslExpression::SamplePattern {
+                        pattern: if let DslExpression::Pattern(p) = *pattern {
+                            p
+                        } else {
+                            String::new()
+                        },
+                        gain,
+                        pan,
+                        speed,
+                    }),
+                    transform,
+                }
+            }
+            _ => {
+                // Unknown first argument type
+                DslExpression::SamplePattern {
+                    pattern: String::new(),
+                    gain,
+                    pan,
+                    speed,
+                }
+            }
         }
     })(input)
 }
@@ -615,6 +671,57 @@ fn synth_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
     })(input)
 }
 
+/// Parse a pattern transform operation
+fn parse_transform_op(input: &str) -> IResult<&str, PatternTransformOp> {
+    alt((
+        // rev (no arguments)
+        map(tag("rev"), |_| PatternTransformOp::Rev),
+        // fast n
+        map(preceded(tag("fast"), ws(primary)), |n| {
+            PatternTransformOp::Fast(Box::new(n))
+        }),
+        // slow n
+        map(preceded(tag("slow"), ws(primary)), |n| {
+            PatternTransformOp::Slow(Box::new(n))
+        }),
+        // every n (transform)
+        map(
+            tuple((
+                preceded(tag("every"), ws(primary)),
+                delimited(ws(char('(')), parse_transform_op, ws(char(')'))),
+            )),
+            |(n, f)| PatternTransformOp::Every {
+                n: Box::new(n),
+                f: Box::new(f),
+            },
+        ),
+        // sometimes (transform)
+        map(
+            preceded(
+                tag("sometimes"),
+                delimited(ws(char('(')), parse_transform_op, ws(char(')'))),
+            ),
+            |f| PatternTransformOp::Sometimes(Box::new(f)),
+        ),
+        // often (transform)
+        map(
+            preceded(
+                tag("often"),
+                delimited(ws(char('(')), parse_transform_op, ws(char(')'))),
+            ),
+            |f| PatternTransformOp::Often(Box::new(f)),
+        ),
+        // rarely (transform)
+        map(
+            preceded(
+                tag("rarely"),
+                delimited(ws(char('(')), parse_transform_op, ws(char(')'))),
+            ),
+            |f| PatternTransformOp::Rarely(Box::new(f)),
+        ),
+    ))(input)
+}
+
 /// Parse primary expression
 fn primary(input: &str) -> IResult<&str, DslExpression> {
     alt((
@@ -653,11 +760,29 @@ fn chain(input: &str) -> IResult<&str, DslExpression> {
     Ok((input, expr))
 }
 
+/// Parse pattern transforms: pattern |> transform
+/// Pattern transform has precedence between chain and arithmetic
+/// Example: "bd sn" |> fast 2 * 0.5 parses as ("bd sn" |> fast 2) * 0.5
+fn pattern_transform(input: &str) -> IResult<&str, DslExpression> {
+    let (input, first) = chain(input)?;
+
+    let (input, transforms) = many0(preceded(ws(tag("|>")), ws(parse_transform_op)))(input)?;
+
+    let expr = transforms.into_iter().fold(first, |acc, transform| {
+        DslExpression::PatternTransform {
+            pattern: Box::new(acc),
+            transform,
+        }
+    });
+
+    Ok((input, expr))
+}
+
 /// Parse multiplication and division
 fn term(input: &str) -> IResult<&str, DslExpression> {
-    let (input, first) = chain(input)?;  // Chain has higher precedence
+    let (input, first) = pattern_transform(input)?;  // Pattern transform has higher precedence
 
-    let (input, ops) = many0(tuple((ws(alt((char('*'), char('/')))), chain)))(input)?;
+    let (input, ops) = many0(tuple((ws(alt((char('*'), char('/')))), pattern_transform)))(input)?;
 
     let expr = ops.into_iter().fold(first, |acc, (op, right)| {
         let operator = match op {
@@ -1120,6 +1245,111 @@ impl DslCompiler {
                     write_idx: 0,
                 })
             }
+            DslExpression::PatternTransform { pattern, transform } => {
+                // For now, pattern transforms only work on pattern strings or nested transforms
+                match *pattern {
+                    DslExpression::Pattern(pattern_str) => {
+                        // Parse the base pattern
+                        let base_pattern = parse_mini_notation(&pattern_str);
+
+                        // Apply the transform
+                        let transformed_pattern = match self.apply_pattern_transform(base_pattern, transform) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                eprintln!("Warning: Failed to apply pattern transform: {}", e);
+                                parse_mini_notation(&pattern_str)  // Fallback to original
+                            }
+                        };
+
+                        // Create a pattern node with the transformed pattern
+                        self.graph.add_node(SignalNode::Pattern {
+                            pattern_str,  // Keep original string for debugging
+                            pattern: transformed_pattern,
+                            last_value: 0.0,
+                            last_trigger_time: -1.0,
+                        })
+                    }
+                    DslExpression::PatternTransform { pattern: inner_pattern, transform: inner_transform } => {
+                        // Handle chained transforms: pattern |> f |> g
+                        // First compile the inner transform
+                        let inner_expr = DslExpression::PatternTransform {
+                            pattern: inner_pattern,
+                            transform: inner_transform,
+                        };
+
+                        // This will recursively compile inner transforms
+                        let inner_node_id = self.compile_expression(inner_expr);
+
+                        // Now we need to get the pattern from the inner node and apply our transform
+                        // Extract pattern data first to avoid borrow checker issues
+                        let pattern_data = if let Some(SignalNode::Pattern { pattern: inner_pattern_obj, pattern_str, .. }) = self.graph.get_node(inner_node_id) {
+                            Some((inner_pattern_obj.clone(), pattern_str.clone()))
+                        } else {
+                            None
+                        };
+
+                        if let Some((inner_pattern, pattern_str)) = pattern_data {
+                            let transformed_pattern = match self.apply_pattern_transform(inner_pattern.clone(), transform) {
+                                Ok(p) => p,
+                                Err(e) => {
+                                    eprintln!("Warning: Failed to apply chained transform: {}", e);
+                                    inner_pattern
+                                }
+                            };
+
+                            self.graph.add_node(SignalNode::Pattern {
+                                pattern_str,
+                                pattern: transformed_pattern,
+                                last_value: 0.0,
+                                last_trigger_time: -1.0,
+                            })
+                        } else {
+                            eprintln!("Warning: Chained transform inner expression did not produce a pattern node");
+                            self.graph.add_node(SignalNode::Constant { value: 0.0 })
+                        }
+                    }
+                    DslExpression::SamplePattern { pattern: pattern_str, gain, pan, speed } => {
+                        // Handle transforms on sample patterns: s("bd sn" |> fast 2)
+                        // Parse and transform the pattern
+                        let base_pattern = parse_mini_notation(&pattern_str);
+                        let transformed_pattern = match self.apply_pattern_transform(base_pattern, transform) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                eprintln!("Warning: Failed to apply pattern transform to sample pattern: {}", e);
+                                parse_mini_notation(&pattern_str)
+                            }
+                        };
+
+                        // Compile DSP parameters
+                        let gain_signal = gain
+                            .map(|e| self.compile_expression_to_signal(*e))
+                            .unwrap_or(Signal::Value(1.0));
+                        let pan_signal = pan
+                            .map(|e| self.compile_expression_to_signal(*e))
+                            .unwrap_or(Signal::Value(0.0));
+                        let speed_signal = speed
+                            .map(|e| self.compile_expression_to_signal(*e))
+                            .unwrap_or(Signal::Value(1.0));
+
+                        // Create Sample node with transformed pattern
+                        use std::collections::HashMap;
+                        self.graph.add_node(SignalNode::Sample {
+                            pattern_str,
+                            pattern: transformed_pattern,
+                            last_trigger_time: -1.0,
+                            playback_positions: HashMap::new(),
+                            gain: gain_signal,
+                            pan: pan_signal,
+                            speed: speed_signal,
+                            cut_group: Signal::Value(0.0),
+                        })
+                    }
+                    _ => {
+                        eprintln!("Warning: Pattern transforms currently only work on pattern strings, not {:?}", *pattern);
+                        self.graph.add_node(SignalNode::Constant { value: 0.0 })
+                    }
+                }
+            }
             _ => {
                 // TODO: Implement other expression types
                 self.graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -1190,6 +1420,139 @@ impl DslCompiler {
             // For other expressions, wrap in a chain if needed or return as-is
             // (this handles cases like: osc >> osc, which would just multiply)
             other => other,
+        }
+    }
+
+    /// Apply a pattern transformation to a pattern
+    fn apply_pattern_transform(
+        &mut self,
+        pattern: crate::pattern::Pattern<String>,
+        transform: PatternTransformOp,
+    ) -> Result<crate::pattern::Pattern<String>, String> {
+        use crate::pattern::Pattern;
+
+        match transform {
+            PatternTransformOp::Fast(factor_expr) => {
+                // Extract the numeric value
+                let factor = self.extract_constant(*factor_expr)?;
+                Ok(pattern.fast(factor))
+            }
+            PatternTransformOp::Slow(factor_expr) => {
+                let factor = self.extract_constant(*factor_expr)?;
+                Ok(pattern.slow(factor))
+            }
+            PatternTransformOp::Rev => Ok(pattern.rev()),
+            PatternTransformOp::Every { n, f } => {
+                let n_val = self.extract_constant(*n)? as i32;
+                let inner_transform = *f;
+
+                // Create a closure that applies the inner transform
+                Ok(pattern.every(n_val, move |p| {
+                    // We need to apply the inner transform recursively
+                    // For now, just handle simple transforms
+                    match inner_transform {
+                        PatternTransformOp::Fast(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.fast(v as f64)
+                            } else {
+                                p  // Can't evaluate non-constant, return unchanged
+                            }
+                        }
+                        PatternTransformOp::Slow(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.slow(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Rev => p.rev(),
+                        _ => {
+                            eprintln!("Warning: Nested higher-order transforms not yet supported");
+                            p
+                        }
+                    }
+                }))
+            }
+            PatternTransformOp::Sometimes(f) => {
+                let inner_transform = *f;
+                Ok(pattern.sometimes(move |p| {
+                    match inner_transform {
+                        PatternTransformOp::Fast(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.fast(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Slow(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.slow(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Rev => p.rev(),
+                        _ => p,
+                    }
+                }))
+            }
+            PatternTransformOp::Often(f) => {
+                let inner_transform = *f;
+                Ok(pattern.often(move |p| {
+                    match inner_transform {
+                        PatternTransformOp::Fast(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.fast(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Slow(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.slow(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Rev => p.rev(),
+                        _ => p,
+                    }
+                }))
+            }
+            PatternTransformOp::Rarely(f) => {
+                let inner_transform = *f;
+                Ok(pattern.rarely(move |p| {
+                    match inner_transform {
+                        PatternTransformOp::Fast(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.fast(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Slow(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.slow(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Rev => p.rev(),
+                        _ => p,
+                    }
+                }))
+            }
+        }
+    }
+
+    /// Extract a constant numeric value from an expression
+    fn extract_constant(&self, expr: DslExpression) -> Result<f64, String> {
+        match expr {
+            DslExpression::Value(v) => Ok(v as f64),
+            _ => Err(format!(
+                "Pattern transform arguments must be constant values, got: {:?}",
+                expr
+            )),
         }
     }
 }
