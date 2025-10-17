@@ -185,7 +185,7 @@ Instead of JavaScript method chaining, we need a syntax that fits our DSL. Here 
 
 ### Option 1: Pipe operator (like Elixir/F#)
 ```
-o: s "bd sn hh cp" |> fast 2 |> rev |> every 4 (slow 2)
+o: s "bd sn hh cp" $ fast 2 $ rev $ every 4 (slow 2)
 ```
 
 ### Option 2: Chain operator (custom)

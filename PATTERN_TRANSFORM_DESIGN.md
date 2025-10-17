@@ -6,7 +6,7 @@ Expose the 200+ pattern operations from Rust to the Phonon DSL, enabling Tidal C
 ## Design Principles
 
 1. **Patterns as first-class values** - can be stored in buses and reused
-2. **Composability** - transforms can be chained: `pattern |> fast 2 |> rev`
+2. **Composability** - transforms can be chained: `pattern $ fast 2 $ rev`
 3. **Type safety** - patterns remain typed (Pattern<String> for samples, Pattern<f64> for frequencies)
 4. **Lazy evaluation** - patterns are only evaluated when audio is generated
 
@@ -20,27 +20,27 @@ Expose the 200+ pattern operations from Rust to the Phonon DSL, enabling Tidal C
 ~melody: "c4 e4 g4 c5"
 
 # Transformed patterns
-~fast_kick: ~kick |> fast 2
-~reversed_snare: ~snare |> rev
-~complex: "bd sn" |> fast 2 |> rev |> every 4 (fast 2)
+~fast_kick: ~kick $ fast 2
+~reversed_snare: ~snare $ rev
+~complex: "bd sn" $ fast 2 $ rev $ every 4 (fast 2)
 ```
 
 ### Pattern Transforms (Priority 1 - Core Tidal Features)
 
 #### Simple Transforms (no arguments)
-- `pattern |> rev` - Reverse pattern
+- `pattern $ rev` - Reverse pattern
 
 #### Numeric Argument Transforms
-- `pattern |> fast n` - Speed up pattern by factor n
-- `pattern |> slow n` - Slow down pattern by factor n
-- `pattern |> early n` - Shift pattern earlier by n cycles
-- `pattern |> late n` - Shift pattern later by n cycles
+- `pattern $ fast n` - Speed up pattern by factor n
+- `pattern $ slow n` - Slow down pattern by factor n
+- `pattern $ early n` - Shift pattern earlier by n cycles
+- `pattern $ late n` - Shift pattern later by n cycles
 
 #### Higher-Order Transforms (take function as argument)
-- `pattern |> every n f` - Apply transform f every n cycles
-- `pattern |> sometimes f` - Apply transform f 50% of the time
-- `pattern |> often f` - Apply transform f 75% of the time
-- `pattern |> rarely f` - Apply transform f 10% of the time
+- `pattern $ every n f` - Apply transform f every n cycles
+- `pattern $ sometimes f` - Apply transform f 50% of the time
+- `pattern $ often f` - Apply transform f 75% of the time
+- `pattern $ rarely f` - Apply transform f 10% of the time
 
 ### Pattern Usage Contexts
 
@@ -49,13 +49,13 @@ Patterns can be used anywhere a value stream is needed:
 ```phonon
 # Sample playback
 out: s(~pattern) * 0.5
-out: s("bd sn" |> fast 2) * 0.5
+out: s("bd sn" $ fast 2) * 0.5
 
 # Frequency modulation
-out: sine(~melody |> fast 2)
+out: sine(~melody $ fast 2)
 
 # Filter modulation
-out: saw(110) >> lpf(~freq_pattern, 0.8)
+out: saw(110) # lpf(~freq_pattern, 0.8)
 
 # DSP parameters (future)
 out: s("bd sn") # gain (~gain_pattern) # speed (2)
@@ -70,7 +70,7 @@ out: s("bd sn") # gain (~gain_pattern) # speed (2)
 pub enum DslExpression {
     // ... existing variants
 
-    /// Pattern transform pipe: pattern |> transform
+    /// Pattern transform pipe: pattern $ transform
     PatternTransform {
         pattern: Box<DslExpression>,
         transform: PatternTransformOp,
@@ -91,9 +91,9 @@ pub enum PatternTransformOp {
 }
 ```
 
-2. **Add |> operator to parser**
-- Precedence: Between chain (`>>`) and arithmetic
-- Associativity: Left-to-right (so `a |> f |> g` = `(a |> f) |> g`)
+2. **Add $ operator to parser**
+- Precedence: Between chain (`#`) and arithmetic
+- Associativity: Left-to-right (so `a $ f $ g` = `(a $ f) $ g`)
 
 3. **Parse transform function names**
 ```rust
@@ -150,7 +150,7 @@ fn compile_pattern_transform(&mut self, expr: DslExpression) -> NodeId {
 #### Test 1: Basic Transforms
 ```phonon
 tempo: 4.0
-out: s("bd ~ ~ ~" |> fast 2) * 0.5
+out: s("bd ~ ~ ~" $ fast 2) * 0.5
 ```
 **Expected**: 8 kick drums per second (2x faster)
 **Verify**: Count onset events = 8
@@ -158,7 +158,7 @@ out: s("bd ~ ~ ~" |> fast 2) * 0.5
 #### Test 2: Chained Transforms
 ```phonon
 tempo: 2.0
-out: s("bd sn hh cp" |> fast 2 |> rev) * 0.5
+out: s("bd sn hh cp" $ fast 2 $ rev) * 0.5
 ```
 **Expected**: Pattern plays 2x fast then reversed
 **Verify**: Order and timing
@@ -166,7 +166,7 @@ out: s("bd sn hh cp" |> fast 2 |> rev) * 0.5
 #### Test 3: Higher-Order Transforms
 ```phonon
 tempo: 2.0
-out: s("bd sn" |> every 2 (fast 2)) * 0.5
+out: s("bd sn" $ every 2 (fast 2)) * 0.5
 ```
 **Expected**: Normal on cycle 0, fast on cycle 1, normal on cycle 2, fast on cycle 3...
 **Verify**: Alternating pattern
@@ -175,8 +175,8 @@ out: s("bd sn" |> every 2 (fast 2)) * 0.5
 ```phonon
 tempo: 2.0
 ~drums: "bd sn hh cp"
-~fast_drums: ~drums |> fast 2
-~reversed_drums: ~drums |> rev
+~fast_drums: ~drums $ fast 2
+~reversed_drums: ~drums $ rev
 out: (s(~fast_drums) + s(~reversed_drums)) * 0.3
 ```
 **Expected**: Two patterns layered
@@ -186,20 +186,20 @@ out: (s(~fast_drums) + s(~reversed_drums)) * 0.3
 
 From highest to lowest:
 1. Primary (literals, function calls, parentheses)
-2. Chain (`>>`) - signal flow
-3. **Pattern Transform (`|>`)** - NEW
+2. Chain (`#`) - signal flow
+3. **Pattern Transform (`$`)** - NEW
 4. Multiplication (`*`), Division (`/`)
 5. Addition (`+`), Subtraction (`-`)
 
-Example: `sine(440) |> fast 2 >> lpf(1000, 0.8) * 0.3`
-Parses as: `((sine(440) |> fast 2) >> lpf(1000, 0.8)) * 0.3`
+Example: `sine(440) $ fast 2 # lpf(1000, 0.8) * 0.3`
+Parses as: `((sine(440) $ fast 2) # lpf(1000, 0.8)) * 0.3`
 
 ## Implementation Checklist
 
 ### Parser (unified_graph_parser.rs)
 - [x] Add `PatternTransform` variant to `DslExpression`
 - [x] Add `PatternTransformOp` enum
-- [x] Add `|>` operator parsing with correct precedence
+- [x] Add `$` operator parsing with correct precedence
 - [x] Parse transform function names (fast, slow, rev, every, etc.)
 - [x] Handle nested transforms (every n (fast 2))
 
@@ -241,13 +241,13 @@ Parses as: `((sine(440) |> fast 2) >> lpf(1000, 0.8)) * 0.3`
 **Status**: ✅ COMPLETE (100%)
 **Completed**: Parser, compiler, and ALL core transforms (fast, slow, rev, every, chained)
 **Working Features**:
-- ✅ Fast/slow/rev transforms on frequency patterns: `sine("110 220" |> fast 2)`
-- ✅ Chained transforms: `pattern |> fast 2 |> rev`
-- ✅ Higher-order transforms: `pattern |> every 2 (fast 2)`
-- ✅ Filter modulation with transforms: `saw(55) >> lpf("500 2000" |> fast 2, 0.8)`
-- ✅ Sample pattern transforms: `s("bd sn" |> fast 2)` - FIXED AND WORKING
-- ✅ Sample pattern reversal: `s("bd sn" |> rev)` - FIXED AND WORKING
-- ✅ Correct operator precedence: `|>` binds between `>>` and `*`
+- ✅ Fast/slow/rev transforms on frequency patterns: `sine("110 220" $ fast 2)`
+- ✅ Chained transforms: `pattern $ fast 2 $ rev`
+- ✅ Higher-order transforms: `pattern $ every 2 (fast 2)`
+- ✅ Filter modulation with transforms: `saw(55) # lpf("500 2000" $ fast 2, 0.8)`
+- ✅ Sample pattern transforms: `s("bd sn" $ fast 2)` - FIXED AND WORKING
+- ✅ Sample pattern reversal: `s("bd sn" $ rev)` - FIXED AND WORKING
+- ✅ Correct operator precedence: `$` binds between `#` and `*`
 
 **Test Results**: ✅ 13 out of 13 tests passing (100%)
 **Full Test Suite**: ✅ 208 tests passing (no regressions)

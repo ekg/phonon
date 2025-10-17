@@ -1,5 +1,5 @@
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode};
+use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
 use std::collections::HashMap;
 
 #[test]
@@ -52,8 +52,12 @@ fn test_sample_node_reproduces_original_sample() {
     assert!(rms > 0.001, "Should have non-zero RMS, got rms={}", rms);
 
     // Check similarity: rendered peak should be close to original
-    assert!((peak - original_peak).abs() < 0.1,
-            "Peak should match original: got {} vs {}", peak, original_peak);
+    assert!(
+        (peak - original_peak).abs() < 0.1,
+        "Peak should match original: got {} vs {}",
+        peak,
+        original_peak
+    );
 }
 
 #[test]

@@ -21,7 +21,11 @@ fn test_multi_output_two_channels() {
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
     // Should produce audio from both channels
-    assert!(rms > 0.1, "Multi-output should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Multi-output should produce audio, got RMS: {}",
+        rms
+    );
     println!("✅ test_multi_output_two_channels: RMS = {:.6}", rms);
 }
 
@@ -39,7 +43,11 @@ fn test_multi_output_single_channel() {
     let buffer = graph.render(22050);
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
-    assert!(rms > 0.05, "Single numbered output should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Single numbered output should produce audio, got RMS: {}",
+        rms
+    );
     println!("✅ test_multi_output_single_channel: RMS = {:.6}", rms);
 }
 
@@ -60,7 +68,11 @@ fn test_multi_output_three_channels() {
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
     // Three channels should produce more combined output
-    assert!(rms > 0.15, "Three-channel output should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.15,
+        "Three-channel output should produce audio, got RMS: {}",
+        rms
+    );
     println!("✅ test_multi_output_three_channels: RMS = {:.6}", rms);
 }
 
@@ -81,7 +93,11 @@ fn test_multi_output_with_plain_out() {
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
     // Both plain "out" and numbered outputs should work together
-    assert!(rms > 0.1, "Mixed plain and numbered output should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Mixed plain and numbered output should produce audio, got RMS: {}",
+        rms
+    );
     println!("✅ test_multi_output_with_plain_out: RMS = {:.6}", rms);
 }
 
@@ -101,6 +117,10 @@ fn test_multi_output_different_patterns() {
     let buffer = graph.render(22050);
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
-    assert!(rms > 0.05, "Multi-output with different pattern types should work, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Multi-output with different pattern types should work, got RMS: {}",
+        rms
+    );
     println!("✅ test_multi_output_different_patterns: RMS = {:.6}", rms);
 }

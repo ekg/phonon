@@ -1,7 +1,6 @@
 /// Tests for hush and panic commands in live coding
 ///
 /// Tests both the parser and the actual functionality of hush/panic commands.
-
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler, DslStatement};
 
 #[test]
@@ -14,7 +13,10 @@ fn test_parse_hush_all() {
         assert_eq!(statements.len(), 1);
         match &statements[0] {
             DslStatement::Hush { channel } => {
-                assert!(channel.is_none(), "Plain 'hush' should have no channel (hushes all)");
+                assert!(
+                    channel.is_none(),
+                    "Plain 'hush' should have no channel (hushes all)"
+                );
             }
             _ => panic!("Expected Hush statement"),
         }
@@ -85,8 +87,13 @@ fn test_hush_silences_single_output() {
 
     // Render some audio - should have signal
     let buffer_before = graph.render(4410); // 0.1 seconds
-    let rms_before: f32 = (buffer_before.iter().map(|x| x * x).sum::<f32>() / buffer_before.len() as f32).sqrt();
-    assert!(rms_before > 0.1, "Should have audio before hush, got RMS: {}", rms_before);
+    let rms_before: f32 =
+        (buffer_before.iter().map(|x| x * x).sum::<f32>() / buffer_before.len() as f32).sqrt();
+    assert!(
+        rms_before > 0.1,
+        "Should have audio before hush, got RMS: {}",
+        rms_before
+    );
 
     // Now hush the output
     let hush_input = "hush";
@@ -110,8 +117,13 @@ fn test_hush_silences_single_output() {
 
     // Render audio after hush - should be silent
     let buffer_after = graph.render(4410);
-    let rms_after: f32 = (buffer_after.iter().map(|x| x * x).sum::<f32>() / buffer_after.len() as f32).sqrt();
-    assert!(rms_after < 0.001, "Should be silent after hush, got RMS: {}", rms_after);
+    let rms_after: f32 =
+        (buffer_after.iter().map(|x| x * x).sum::<f32>() / buffer_after.len() as f32).sqrt();
+    assert!(
+        rms_after < 0.001,
+        "Should be silent after hush, got RMS: {}",
+        rms_after
+    );
 }
 
 #[test]
@@ -128,7 +140,8 @@ fn test_hush_channel_silences_specific_channel() {
 
     // Verify both channels produce audio
     let buffer_before = graph.render(4410);
-    let rms_before: f32 = (buffer_before.iter().map(|x| x * x).sum::<f32>() / buffer_before.len() as f32).sqrt();
+    let rms_before: f32 =
+        (buffer_before.iter().map(|x| x * x).sum::<f32>() / buffer_before.len() as f32).sqrt();
     assert!(rms_before > 0.1, "Should have audio before hush");
 
     // Now hush only channel 1
@@ -144,10 +157,15 @@ fn test_hush_channel_silences_specific_channel() {
 
     // Render audio - channel 1 should be silent, channel 2 should have audio
     let buffer_after = graph.render(4410);
-    let rms_after: f32 = (buffer_after.iter().map(|x| x * x).sum::<f32>() / buffer_after.len() as f32).sqrt();
+    let rms_after: f32 =
+        (buffer_after.iter().map(|x| x * x).sum::<f32>() / buffer_after.len() as f32).sqrt();
 
     // We should still have audio from channel 2
-    assert!(rms_after > 0.1, "Channel 2 should still produce audio after hush1, got RMS: {}", rms_after);
+    assert!(
+        rms_after > 0.1,
+        "Channel 2 should still produce audio after hush1, got RMS: {}",
+        rms_after
+    );
 }
 
 #[test]
@@ -167,7 +185,11 @@ fn test_hush_all_silences_all_channels() {
     // Render audio - all channels should be silent
     let buffer = graph.render(4410);
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms < 0.001, "All channels should be silent after hush, got RMS: {}", rms);
+    assert!(
+        rms < 0.001,
+        "All channels should be silent after hush, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -185,7 +207,11 @@ fn test_panic_silences_and_kills_voices() {
     // Render audio - should be silent after panic
     let buffer = graph.render(4410);
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms < 0.001, "Should be silent after panic, got RMS: {}", rms);
+    assert!(
+        rms < 0.001,
+        "Should be silent after panic, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -203,7 +229,11 @@ fn test_panic_with_synth_pattern() {
     // Render audio - should be silent after panic
     let buffer = graph.render(4410);
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms < 0.001, "Synth pattern should be silent after panic, got RMS: {}", rms);
+    assert!(
+        rms < 0.001,
+        "Synth pattern should be silent after panic, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -226,7 +256,11 @@ fn test_multiple_hush_commands() {
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
     // Channel 3 should still be audible
-    assert!(rms > 0.1, "Channel 3 should still produce audio after hush1 and hush2, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Channel 3 should still produce audio after hush1 and hush2, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -264,7 +298,10 @@ fn test_parse_hush_with_whitespace() {
         hush
     "#;
     let result = parse_dsl(input);
-    assert!(result.is_ok(), "Should parse hush with surrounding whitespace");
+    assert!(
+        result.is_ok(),
+        "Should parse hush with surrounding whitespace"
+    );
 }
 
 #[test]
@@ -276,5 +313,8 @@ fn test_parse_panic_with_whitespace() {
         panic
     "#;
     let result = parse_dsl(input);
-    assert!(result.is_ok(), "Should parse panic with surrounding whitespace");
+    assert!(
+        result.is_ok(),
+        "Should parse panic with surrounding whitespace"
+    );
 }

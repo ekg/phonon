@@ -212,7 +212,7 @@ FunDSP integration:
 use fundsp::hacker::*;
 
 let sine = sine_hz(440.0);
-let filtered = sine >> lowpass_hz(1000.0, 1.0);
+let filtered = sine # lowpass_hz(1000.0, 1.0);
 ```
 
 ## Adding New Features
@@ -239,7 +239,7 @@ pub enum SourceType {
 3. Implement in signal executor:
 ```rust
 SourceType::PulseWave { freq, width } => {
-    Box::new(pulse() * constant(width) >> sine_hz(freq))
+    Box::new(pulse() * constant(width) # sine_hz(freq))
 }
 ```
 
@@ -323,8 +323,8 @@ impl SignalGraph {
 
 ```phonon
 // Add visualization helpers
-~viz_level: ~master >> rms(0.01)
-~viz_pitch: ~input >> pitch
+~viz_level: ~master # rms(0.01)
+~viz_pitch: ~input # pitch
 ```
 
 ## Common Issues and Solutions
@@ -333,7 +333,7 @@ impl SignalGraph {
 **Solution**: Use delayed feedback with attenuation:
 ```phonon
 ~feedback: ~delay_out * 0.7  // Attenuate feedback
-~delay_out: (~input + ~feedback) >> delay(0.1)
+~delay_out: (~input + ~feedback) # delay(0.1)
 ```
 
 ### Issue: No Audio Output

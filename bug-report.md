@@ -22,7 +22,7 @@
 ## Root Cause Analysis
 
 ### Test: `test_low_pass_filter`
-**Code:** `"out: saw 110 >> lpf 1000 0.8"`
+**Code:** `"out: saw 110 # lpf 1000 0.8"`
 **Issue:** Parser fails on "out:" pattern
 
 ### Investigation Results:
@@ -40,12 +40,12 @@ All failing tests share these characteristics:
 ## Specific Test Failures:
 
 ### 1. test_low_pass_filter
-- Input: `"out: saw 110 >> lpf 1000 0.8"`
+- Input: `"out: saw 110 # lpf 1000 0.8"`
 - Expected: Should parse as output chain with saw oscillator and low-pass filter
 - Actual: Parser error "Expected identifier"
 
 ### 2. test_high_pass_filter  
-- Input: `"out: noise >> hpf 2000 0.9"`
+- Input: `"out: noise # hpf 2000 0.9"`
 - Similar parsing issue with noise generator
 
 ### 3. test_additive_synthesis
@@ -57,7 +57,7 @@ All failing tests share these characteristics:
 - Parser may not support `~lfo` references as filter parameters
 
 ### 5. test_envelope
-- Input: `"out: sin 440 >> env 0.01 0.1 0.7 0.2"`
+- Input: `"out: sin 440 # env 0.01 0.1 0.7 0.2"`
 - Envelope node parsing with 4 parameters
 
 ### 6. test_delay_effect
@@ -65,7 +65,7 @@ All failing tests share these characteristics:
 - Arithmetic operations between buses
 
 ### 7. test_reverb_effect
-- Input: `"out: impulse 1 >> reverb 0.9 0.5"`
+- Input: `"out: impulse 1 # reverb 0.9 0.5"`
 - "impulse" is not a recognized token
 
 ### 8. test_complex_patch

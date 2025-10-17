@@ -418,7 +418,7 @@ pub enum SignalNode {
         pattern_str: String,
         pattern: Pattern<String>,
         last_trigger_time: f32,
-        last_cycle: i32,  // Track which cycle we processed last
+        last_cycle: i32, // Track which cycle we processed last
         playback_positions: HashMap<String, usize>,
         gain: Signal,
         pan: Signal,
@@ -538,33 +538,33 @@ pub enum SignalNode {
     /// Reverb (Freeverb-style)
     Reverb {
         input: Signal,
-        room_size: Signal,    // 0.0-1.0
-        damping: Signal,      // 0.0-1.0
-        mix: Signal,          // 0.0-1.0 (dry/wet)
+        room_size: Signal, // 0.0-1.0
+        damping: Signal,   // 0.0-1.0
+        mix: Signal,       // 0.0-1.0 (dry/wet)
         state: ReverbState,
     },
 
     /// Distortion / Waveshaper
     Distortion {
         input: Signal,
-        drive: Signal,        // 1.0-100.0
-        mix: Signal,          // 0.0-1.0
+        drive: Signal, // 1.0-100.0
+        mix: Signal,   // 0.0-1.0
     },
 
     /// Bitcrusher
     BitCrush {
         input: Signal,
-        bits: Signal,         // 1.0-16.0
-        sample_rate: Signal,  // Sample rate reduction factor
+        bits: Signal,        // 1.0-16.0
+        sample_rate: Signal, // Sample rate reduction factor
         state: BitCrushState,
     },
 
     /// Chorus effect
     Chorus {
         input: Signal,
-        rate: Signal,         // LFO rate in Hz
-        depth: Signal,        // Delay modulation depth
-        mix: Signal,          // 0.0-1.0
+        rate: Signal,  // LFO rate in Hz
+        depth: Signal, // Delay modulation depth
+        mix: Signal,   // 0.0-1.0
         state: ChorusState,
     },
 
@@ -878,14 +878,14 @@ impl UnifiedSignalGraph {
         self.value_cache.clear();
 
         // Collect outputs to avoid borrow checker issues
-        let outputs_to_process: Vec<(usize, NodeId)> = self.outputs.iter()
-            .map(|(&ch, &node)| (ch, node))
-            .collect();
+        let outputs_to_process: Vec<(usize, NodeId)> =
+            self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
 
         let single_output = self.output;
 
         // Determine max channel number
-        let max_channel = outputs_to_process.iter()
+        let max_channel = outputs_to_process
+            .iter()
             .map(|(ch, _)| *ch)
             .max()
             .unwrap_or(0);
@@ -901,7 +901,7 @@ impl UnifiedSignalGraph {
         for (channel, node_id) in outputs_to_process {
             if channel > 0 && channel <= num_channels {
                 let value = if self.hushed_channels.contains(&channel) {
-                    0.0  // Silenced channel
+                    0.0 // Silenced channel
                 } else {
                     self.eval_node(&node_id)
                 };
@@ -962,7 +962,7 @@ impl UnifiedSignalGraph {
                     } else {
                         // Try numeric parsing first, then fall back to note names
                         // This ensures "110", "220", "440" etc are treated as numbers, not MIDI notes
-                        use crate::pattern_tonal::{note_to_midi, midi_to_freq};
+                        use crate::pattern_tonal::{midi_to_freq, note_to_midi};
                         if let Ok(numeric_value) = s.parse::<f32>() {
                             numeric_value
                         } else if let Some(midi) = note_to_midi(s) {
@@ -1149,7 +1149,9 @@ impl UnifiedSignalGraph {
                     comb_out += delayed;
 
                     // Update state
-                    if let Some(Some(SignalNode::Reverb { state: s, .. })) = self.nodes.get_mut(node_id.0) {
+                    if let Some(Some(SignalNode::Reverb { state: s, .. })) =
+                        self.nodes.get_mut(node_id.0)
+                    {
                         s.comb_buffers[i][read_idx] = to_write;
                         s.comb_indices[i] = (read_idx + 1) % buf_len;
                         s.comb_filter_stores[i] = filtered;
@@ -1167,7 +1169,9 @@ impl UnifiedSignalGraph {
                     let to_write = allpass_out + delayed * 0.5;
                     allpass_out = delayed - allpass_out * 0.5;
 
-                    if let Some(Some(SignalNode::Reverb { state: s, .. })) = self.nodes.get_mut(node_id.0) {
+                    if let Some(Some(SignalNode::Reverb { state: s, .. })) =
+                        self.nodes.get_mut(node_id.0)
+                    {
                         s.allpass_buffers[i][read_idx] = to_write;
                         s.allpass_indices[i] = (read_idx + 1) % buf_len;
                     }
@@ -1208,11 +1212,15 @@ impl UnifiedSignalGraph {
                     let quantized = (input_val * levels).round() / levels;
                     output = quantized;
 
-                    if let Some(Some(SignalNode::BitCrush { state: s, .. })) = self.nodes.get_mut(node_id.0) {
+                    if let Some(Some(SignalNode::BitCrush { state: s, .. })) =
+                        self.nodes.get_mut(node_id.0)
+                    {
                         s.phase = phase - phase.floor();
                         s.last_sample = quantized;
                     }
-                } else if let Some(Some(SignalNode::BitCrush { state: s, .. })) = self.nodes.get_mut(node_id.0) {
+                } else if let Some(Some(SignalNode::BitCrush { state: s, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
                     s.phase = phase;
                 }
 
@@ -1242,7 +1250,8 @@ impl UnifiedSignalGraph {
 
                 // Read from delay buffer with linear interpolation
                 let buf_len = state.delay_buffer.len();
-                let read_pos = (state.write_idx as f32 + buf_len as f32 - delay_samples) % buf_len as f32;
+                let read_pos =
+                    (state.write_idx as f32 + buf_len as f32 - delay_samples) % buf_len as f32;
                 let read_idx = read_pos.floor() as usize;
                 let frac = read_pos - read_pos.floor();
 
@@ -1251,7 +1260,9 @@ impl UnifiedSignalGraph {
                 let delayed = sample1 + (sample2 - sample1) * frac;
 
                 // Update state
-                if let Some(Some(SignalNode::Chorus { state: s, .. })) = self.nodes.get_mut(node_id.0) {
+                if let Some(Some(SignalNode::Chorus { state: s, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
                     s.delay_buffer[s.write_idx] = input_val;
                     s.write_idx = (s.write_idx + 1) % buf_len;
                     s.lfo_phase = (lfo_phase + lfo_rate / self.sample_rate) % 1.0;
@@ -1291,7 +1302,7 @@ impl UnifiedSignalGraph {
 
                         // Try numeric parsing first, then fall back to note names
                         // This ensures "1", "0", "440" etc are treated as numbers, not MIDI notes
-                        use crate::pattern_tonal::{note_to_midi, midi_to_freq};
+                        use crate::pattern_tonal::{midi_to_freq, note_to_midi};
                         if let Ok(numeric_value) = s.parse::<f32>() {
                             current_value = numeric_value;
                         } else if let Some(midi) = note_to_midi(s) {
@@ -1354,7 +1365,11 @@ impl UnifiedSignalGraph {
 
                 // Get the last EVENT start time we triggered
                 // Reset if we've crossed into a new cycle to prevent accumulation
-                let mut last_event_start = if let Some(Some(SignalNode::Sample { last_trigger_time: lt, .. })) = self.nodes.get(node_id.0) {
+                let mut last_event_start = if let Some(Some(SignalNode::Sample {
+                    last_trigger_time: lt,
+                    ..
+                })) = self.nodes.get(node_id.0)
+                {
                     *lt as f64
                 } else {
                     -1.0
@@ -1392,14 +1407,18 @@ impl UnifiedSignalGraph {
 
                     if event_is_new {
                         // Get sample from bank and trigger a new voice with full DSP parameters
-                        if let Some(sample_data) = self.sample_bank.borrow_mut().get_sample(sample_name) {
-                            self.voice_manager.borrow_mut().trigger_sample_with_cut_group(
-                                sample_data,
-                                gain_val,
-                                pan_val,
-                                speed_val,
-                                cut_group_opt,
-                            );
+                        if let Some(sample_data) =
+                            self.sample_bank.borrow_mut().get_sample(sample_name)
+                        {
+                            self.voice_manager
+                                .borrow_mut()
+                                .trigger_sample_with_cut_group(
+                                    sample_data,
+                                    gain_val,
+                                    pan_val,
+                                    speed_val,
+                                    cut_group_opt,
+                                );
 
                             // Track this as the latest event we've triggered
                             if event_start_abs > latest_triggered_start {
@@ -1412,7 +1431,12 @@ impl UnifiedSignalGraph {
                 // Update last_trigger_time and last_cycle
                 // This ensures we don't re-trigger the same events
                 if latest_triggered_start > last_event_start || cycle_changed {
-                    if let Some(Some(SignalNode::Sample { last_trigger_time: lt, last_cycle: lc, .. })) = self.nodes.get_mut(node_id.0) {
+                    if let Some(Some(SignalNode::Sample {
+                        last_trigger_time: lt,
+                        last_cycle: lc,
+                        ..
+                    })) = self.nodes.get_mut(node_id.0)
+                    {
                         *lt = latest_triggered_start as f32;
                         *lc = current_cycle;
                     }
@@ -1435,8 +1459,8 @@ impl UnifiedSignalGraph {
                 pan,
                 ..
             } => {
-                use crate::pattern_tonal::{note_to_midi, midi_to_freq};
-                use crate::synth_voice_manager::{SynthWaveform, ADSRParams};
+                use crate::pattern_tonal::{midi_to_freq, note_to_midi};
+                use crate::synth_voice_manager::{ADSRParams, SynthWaveform};
 
                 // Evaluate DSP parameters
                 let gain_val = self.eval_signal(&gain).max(0.0).min(10.0);
@@ -1454,7 +1478,11 @@ impl UnifiedSignalGraph {
                 let events = pattern.query(&state);
 
                 // Get last event start time
-                let last_event_start = if let Some(Some(SignalNode::SynthPattern { last_trigger_time: lt, .. })) = self.nodes.get(node_id.0) {
+                let last_event_start = if let Some(Some(SignalNode::SynthPattern {
+                    last_trigger_time: lt,
+                    ..
+                })) = self.nodes.get(node_id.0)
+                {
                     *lt as f64
                 } else {
                     -1.0
@@ -1489,7 +1517,7 @@ impl UnifiedSignalGraph {
                         } else if let Some(midi) = note_to_midi(note_name) {
                             midi_to_freq(midi) as f32
                         } else {
-                            440.0  // Default to A4
+                            440.0 // Default to A4
                         };
 
                         // Convert Waveform to SynthWaveform
@@ -1526,7 +1554,11 @@ impl UnifiedSignalGraph {
 
                 // Update last_trigger_time
                 if latest_triggered_start > last_event_start {
-                    if let Some(Some(SignalNode::SynthPattern { last_trigger_time: lt, .. })) = self.nodes.get_mut(node_id.0) {
+                    if let Some(Some(SignalNode::SynthPattern {
+                        last_trigger_time: lt,
+                        ..
+                    })) = self.nodes.get_mut(node_id.0)
+                    {
                         *lt = latest_triggered_start as f32;
                     }
                 }
@@ -1583,8 +1615,10 @@ impl UnifiedSignalGraph {
                                 current_value = midi_to_freq(midi_note.clamp(0, 127) as u8) as f32;
 
                                 // Update last_value for next time
-                                if let Some(Some(SignalNode::ScaleQuantize { last_value: lv, .. })) =
-                                    self.nodes.get_mut(node_id.0)
+                                if let Some(Some(SignalNode::ScaleQuantize {
+                                    last_value: lv,
+                                    ..
+                                })) = self.nodes.get_mut(node_id.0)
                                 {
                                     *lv = current_value;
                                 }
@@ -1872,7 +1906,7 @@ impl UnifiedSignalGraph {
         // Check if channel 0 is hushed
         let mut mixed_output = if let Some(output_id) = self.output {
             if self.hushed_channels.contains(&0) {
-                0.0  // Silenced
+                0.0 // Silenced
             } else {
                 self.eval_node(&output_id)
             }
@@ -1882,9 +1916,8 @@ impl UnifiedSignalGraph {
 
         // Mix in all numbered output channels (out1, out2, etc.)
         // Collect channel numbers first to avoid borrow checker issues
-        let channels: Vec<(usize, crate::unified_graph::NodeId)> = self.outputs.iter()
-            .map(|(&ch, &node)| (ch, node))
-            .collect();
+        let channels: Vec<(usize, crate::unified_graph::NodeId)> =
+            self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
 
         for (ch, node_id) in channels {
             // Skip hushed channels

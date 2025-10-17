@@ -135,7 +135,7 @@ Pattern transformations can be combined with the DSP chains:
 
 ```rust
 // Define a synth
-~kick: sin 60 >> mul 0.5
+~kick: sin 60 # mul 0.5
 
 // Use in pattern with transformations
 o: s "~kick ~kick ~kick ~kick" 

@@ -12,7 +12,11 @@ use phonon::simple_dsp_executor::SimpleDspExecutor;
 use std::fs::File;
 use std::io::Write;
 
-fn save_wav(filename: &str, samples: &[f32], sample_rate: u32) -> Result<(), Box<dyn std::error::Error>> {
+fn save_wav(
+    filename: &str,
+    samples: &[f32],
+    sample_rate: u32,
+) -> Result<(), Box<dyn std::error::Error>> {
     let spec = hound::WavSpec {
         channels: 1,
         sample_rate,

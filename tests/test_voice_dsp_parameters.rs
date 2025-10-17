@@ -1,5 +1,5 @@
-use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
 use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
 use std::collections::HashMap;
 
 #[test]
@@ -29,8 +29,11 @@ fn test_voice_gain_parameter() {
 
     // With default gain=1.0, amplitude should be close to 1.0
     // (actual peak depends on sample content, but should be > 0.5)
-    assert!(max_amplitude > 0.5,
-            "Expected significant amplitude with gain=1.0, got {}", max_amplitude);
+    assert!(
+        max_amplitude > 0.5,
+        "Expected significant amplitude with gain=1.0, got {}",
+        max_amplitude
+    );
 
     println!("Max amplitude with default gain: {}", max_amplitude);
 }

@@ -5,7 +5,6 @@
 /// 3. Samples play through .phonon files
 /// 4. Signal correlation proves samples are in the output
 /// 5. Patterns trigger samples at the correct times
-
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::sample_loader::SampleBank;
 use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
@@ -60,8 +59,12 @@ fn test_multiple_samples_in_pattern() {
     let cp_original = bank.get_sample("cp").expect("CP should load");
     let hh_original = bank.get_sample("hh").expect("HH should load");
 
-    println!("BD length: {}, CP length: {}, HH length: {}",
-             bd_original.len(), cp_original.len(), hh_original.len());
+    println!(
+        "BD length: {}, CP length: {}, HH length: {}",
+        bd_original.len(),
+        cp_original.len(),
+        hh_original.len()
+    );
 
     let mut graph = UnifiedSignalGraph::new(44100.0);
     graph.set_cps(1.0); // 1 cycle per second
@@ -70,7 +73,7 @@ fn test_multiple_samples_in_pattern() {
     let pattern = parse_mini_notation("bd cp hh");
 
     // Debug: Check pattern events
-    use phonon::pattern::{State, TimeSpan, Fraction};
+    use phonon::pattern::{Fraction, State, TimeSpan};
     for i in 0..10 {
         let frac = i as f64 / 10.0;
         let state = State {
@@ -101,15 +104,30 @@ fn test_multiple_samples_in_pattern() {
     save_wav("test_bd_cp_hh_sequence.wav", &buffer, 44100);
 
     // Print buffer statistics at different sections
-    println!("Buffer section 0-1000: RMS={:.4}, Peak={:.4}",
-             calculate_rms(&buffer[0..1000]),
-             buffer[0..1000].iter().map(|&x| x.abs()).fold(0.0f32, f32::max));
-    println!("Buffer section 14000-15000: RMS={:.4}, Peak={:.4}",
-             calculate_rms(&buffer[14000..15000]),
-             buffer[14000..15000].iter().map(|&x| x.abs()).fold(0.0f32, f32::max));
-    println!("Buffer section 29000-30000: RMS={:.4}, Peak={:.4}",
-             calculate_rms(&buffer[29000..30000]),
-             buffer[29000..30000].iter().map(|&x| x.abs()).fold(0.0f32, f32::max));
+    println!(
+        "Buffer section 0-1000: RMS={:.4}, Peak={:.4}",
+        calculate_rms(&buffer[0..1000]),
+        buffer[0..1000]
+            .iter()
+            .map(|&x| x.abs())
+            .fold(0.0f32, f32::max)
+    );
+    println!(
+        "Buffer section 14000-15000: RMS={:.4}, Peak={:.4}",
+        calculate_rms(&buffer[14000..15000]),
+        buffer[14000..15000]
+            .iter()
+            .map(|&x| x.abs())
+            .fold(0.0f32, f32::max)
+    );
+    println!(
+        "Buffer section 29000-30000: RMS={:.4}, Peak={:.4}",
+        calculate_rms(&buffer[29000..30000]),
+        buffer[29000..30000]
+            .iter()
+            .map(|&x| x.abs())
+            .fold(0.0f32, f32::max)
+    );
 
     // Check that the overall output contains all three samples
     // We correlate against the entire buffer to find each sample
@@ -122,14 +140,8 @@ fn test_multiple_samples_in_pattern() {
     println!("HH correlation in buffer: {:.4}", hh_correlation);
 
     // All three samples should appear somewhere in the output
-    assert!(
-        bd_correlation > 0.7,
-        "BD should appear in output"
-    );
-    assert!(
-        cp_correlation > 0.5,
-        "CP should appear in output"
-    );
+    assert!(bd_correlation > 0.7, "BD should appear in output");
+    assert!(cp_correlation > 0.5, "CP should appear in output");
 
     // HH is quiet (peak 0.1380) compared to BD/CP (peak ~1.0)
     // When mixed with louder samples, correlation is lower (~0.10)
@@ -220,7 +232,10 @@ fn test_house_beat_pattern_timing() {
     let rms = calculate_rms(&buffer);
     let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
 
-    println!("House beat timing test - RMS: {:.4}, Peak: {:.4}", rms, peak);
+    println!(
+        "House beat timing test - RMS: {:.4}, Peak: {:.4}",
+        rms, peak
+    );
 
     assert!(rms > 0.05, "House beat should have audio");
     assert!(peak > 0.3, "House beat should have strong peaks");
@@ -320,7 +335,10 @@ fn test_bd_sample_one_cycle() {
     let rms = calculate_rms(&buffer);
     let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
 
-    println!("BD one cycle - RMS: {:.4}, Peak: {:.4}, Correlation: {:.4}", rms, peak, correlation);
+    println!(
+        "BD one cycle - RMS: {:.4}, Peak: {:.4}, Correlation: {:.4}",
+        rms, peak, correlation
+    );
 
     assert!(
         correlation > 0.95,
@@ -356,7 +374,10 @@ fn test_cp_sample_one_cycle() {
     let rms = calculate_rms(&buffer);
     let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
 
-    println!("CP one cycle - RMS: {:.4}, Peak: {:.4}, Correlation: {:.4}", rms, peak, correlation);
+    println!(
+        "CP one cycle - RMS: {:.4}, Peak: {:.4}, Correlation: {:.4}",
+        rms, peak, correlation
+    );
 
     assert!(
         correlation > 0.95,
@@ -392,7 +413,10 @@ fn test_hh_sample_one_cycle() {
     let rms = calculate_rms(&buffer);
     let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
 
-    println!("HH one cycle - RMS: {:.4}, Peak: {:.4}, Correlation: {:.4}", rms, peak, correlation);
+    println!(
+        "HH one cycle - RMS: {:.4}, Peak: {:.4}, Correlation: {:.4}",
+        rms, peak, correlation
+    );
 
     assert!(
         correlation > 0.95,
@@ -428,7 +452,10 @@ fn test_sn_sample_one_cycle() {
     let rms = calculate_rms(&buffer);
     let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
 
-    println!("SN one cycle - RMS: {:.4}, Peak: {:.4}, Correlation: {:.4}", rms, peak, correlation);
+    println!(
+        "SN one cycle - RMS: {:.4}, Peak: {:.4}, Correlation: {:.4}",
+        rms, peak, correlation
+    );
 
     assert!(
         correlation > 0.95,
@@ -457,7 +484,10 @@ fn test_euclidean_rhythm_signal_verification() {
 
     println!("BD sample length: {}", bd_sample.len());
     println!("Total buffer length: {}", total_samples);
-    println!("Sample rate: {}, CPS: {}, Cycles: {}", sample_rate, cps, num_cycles);
+    println!(
+        "Sample rate: {}, CPS: {}, Cycles: {}",
+        sample_rate, cps, num_cycles
+    );
 
     // Create expected signal by manually placing samples
     // Pattern: bd(3,8) means 3 kicks distributed over 8 steps using Bjorklund's algorithm
@@ -487,7 +517,11 @@ fn test_euclidean_rhythm_signal_verification() {
         }
     }
 
-    save_wav("test_euclidean_expected.wav", &expected_signal, sample_rate as u32);
+    save_wav(
+        "test_euclidean_expected.wav",
+        &expected_signal,
+        sample_rate as u32,
+    );
 
     // Now render the actual pattern through the graph
     let mut graph = UnifiedSignalGraph::new(sample_rate);
@@ -505,18 +539,24 @@ fn test_euclidean_rhythm_signal_verification() {
 
     let actual_signal = graph.render(total_samples);
 
-    save_wav("test_euclidean_actual.wav", &actual_signal, sample_rate as u32);
+    save_wav(
+        "test_euclidean_actual.wav",
+        &actual_signal,
+        sample_rate as u32,
+    );
 
     // Debug: Find where actual samples are in the signal (peaks)
     println!("\nDetecting actual sample positions in rendered signal:");
     let threshold = 0.5; // Look for strong peaks
     for i in 1..actual_signal.len() - 1 {
         // Detect onset (crossing threshold from below)
-        if actual_signal[i] > threshold && actual_signal[i-1] <= threshold {
+        if actual_signal[i] > threshold && actual_signal[i - 1] <= threshold {
             let cycle = i / samples_per_cycle;
             let cycle_frac = (i % samples_per_cycle) as f32 / samples_per_cycle as f32;
-            println!("  Onset at sample {} (cycle {}, frac {:.4})",
-                     i, cycle, cycle_frac);
+            println!(
+                "  Onset at sample {} (cycle {}, frac {:.4})",
+                i, cycle, cycle_frac
+            );
         }
     }
 
@@ -531,16 +571,31 @@ fn test_euclidean_rhythm_signal_verification() {
     // Calculate correlation between expected and actual
     let correlation = correlate(&actual_signal, &expected_signal);
 
-    println!("\nEuclidean rhythm verification - Correlation: {:.4}", correlation);
+    println!(
+        "\nEuclidean rhythm verification - Correlation: {:.4}",
+        correlation
+    );
 
     // Also check RMS and peak to ensure we got audio
     let expected_rms = calculate_rms(&expected_signal);
-    let expected_peak = expected_signal.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
+    let expected_peak = expected_signal
+        .iter()
+        .map(|&x| x.abs())
+        .fold(0.0f32, f32::max);
     let actual_rms = calculate_rms(&actual_signal);
-    let actual_peak = actual_signal.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
+    let actual_peak = actual_signal
+        .iter()
+        .map(|&x| x.abs())
+        .fold(0.0f32, f32::max);
 
-    println!("Expected - RMS: {:.4}, Peak: {:.4}", expected_rms, expected_peak);
-    println!("Actual   - RMS: {:.4}, Peak: {:.4}", actual_rms, actual_peak);
+    println!(
+        "Expected - RMS: {:.4}, Peak: {:.4}",
+        expected_rms, expected_peak
+    );
+    println!(
+        "Actual   - RMS: {:.4}, Peak: {:.4}",
+        actual_rms, actual_peak
+    );
 
     // The correlation should be decent (>0.6) showing samples are at approximately the right positions
     // Note: Due to playback position management across multiple events, timing isn't sample-perfect

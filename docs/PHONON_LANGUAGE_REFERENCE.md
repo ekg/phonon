@@ -8,8 +8,8 @@ Phonon is a live coding language that combines TidalCycles-style pattern manipul
 2. **DSP Domain**: Audio signal processing chains
 
 These domains use different operators to maintain clarity:
-- `|>` for pattern transformations (events/cycle)
-- `>>` for DSP signal flow (samples/second)
+- `$` for pattern transformations (events/cycle)
+- `#` for DSP signal flow (samples/second)
 
 ## Language Grammar
 
@@ -59,8 +59,8 @@ nested_transform  =
 1. Function application (nodes and transforms)
 2. `*` `/` (multiplication, division)
 3. `+` `-` (addition, subtraction)
-4. `>>` (DSP chaining)
-5. `|>` (pattern operations)
+4. `#` (DSP chaining)
+5. `$` (pattern operations)
 6. `:` (assignment)
 
 ## Core Concepts
@@ -72,7 +72,7 @@ Buses are named signal paths prefixed with `~`. They can contain patterns, DSP c
 ```phonon
 ~lfo: sin 0.5               # Low-frequency oscillator
 ~drums: "bd sn hh cp"       # Pattern
-~bass: saw 55 >> lpf 1000   # DSP chain
+~bass: saw 55 # lpf 1000   # DSP chain
 ```
 
 ### 2. Patterns
@@ -90,37 +90,37 @@ Patterns define sequences of events that repeat every cycle:
 
 ### 3. Pattern Transformations
 
-Pattern operations transform event sequences using the `|>` operator:
+Pattern operations transform event sequences using the `$` operator:
 
 ```phonon
 # Time transformations
-"bd sn" |> fast 2          # Double speed
-"bd sn" |> slow 2          # Half speed
-"bd sn" |> rotate 0.25     # Shift by 1/4 cycle
+"bd sn" $ fast 2          # Double speed
+"bd sn" $ slow 2          # Half speed
+"bd sn" $ rotate 0.25     # Shift by 1/4 cycle
 
 # Structural transformations
-"bd sn hh cp" |> rev       # Reverse
-"bd sn" |> palindrome      # Forward then backward
-"bd sn" |> chop 4          # Slice into 4 parts
-"bd sn" |> shuffle 3       # Shuffle with seed 3
+"bd sn hh cp" $ rev       # Reverse
+"bd sn" $ palindrome      # Forward then backward
+"bd sn" $ chop 4          # Slice into 4 parts
+"bd sn" $ shuffle 3       # Shuffle with seed 3
 
 # Conditional transformations
-"bd sn" |> every 3 rev     # Reverse every 3rd cycle
-"bd sn" |> sometimes rev   # Randomly reverse (~50%)
-"bd sn" |> rarely rev      # Rarely reverse (~10%)
-"bd sn" |> often rev       # Often reverse (~90%)
+"bd sn" $ every 3 rev     # Reverse every 3rd cycle
+"bd sn" $ sometimes rev   # Randomly reverse (~50%)
+"bd sn" $ rarely rev      # Rarely reverse (~10%)
+"bd sn" $ often rev       # Often reverse (~90%)
 
 # Degradation
-"bd*16" |> degrade         # Random dropout (50%)
-"bd*16" |> degradeBy 0.3   # 30% chance of dropout
+"bd*16" $ degrade         # Random dropout (50%)
+"bd*16" $ degradeBy 0.3   # 30% chance of dropout
 
 # Chaining transformations
-"bd sn" |> fast 2 |> every 4 rev |> rotate 0.125
+"bd sn" $ fast 2 $ every 4 rev $ rotate 0.125
 ```
 
 ### 4. DSP Nodes
 
-DSP nodes process audio signals and chain with `>>`:
+DSP nodes process audio signals and chain with `#`:
 
 #### Oscillators
 ```phonon
@@ -181,67 +181,67 @@ Arithmetic operations on buses and values:
 The output must be defined with `o:` or `out:`:
 
 ```phonon
-o: ~bass >> mul 0.5        # Output with gain
-out: ~mix >> reverb 0.3    # Output with reverb
+o: ~bass # mul 0.5        # Output with gain
+out: ~mix # reverb 0.3    # Output with reverb
 ```
 
 ## Complete Examples
 
 ### Example 1: Basic Drum Pattern
 ```phonon
-~drums: "bd sn [bd bd] sn" |> fast 2
-o: ~drums >> gain 0.8
+~drums: "bd sn [bd bd] sn" $ fast 2
+o: ~drums # gain 0.8
 ```
 
 ### Example 2: Modulated Bass
 ```phonon
-~lfo: sin 0.5 >> mul 0.5 >> add 0.5
-~bass: saw 55 >> lpf ~lfo * 2000 + 500 0.8
-o: ~bass >> mul 0.4
+~lfo: sin 0.5 # mul 0.5 # add 0.5
+~bass: saw 55 # lpf ~lfo * 2000 + 500 0.8
+o: ~bass # mul 0.4
 ```
 
 ### Example 3: Complex Rhythm
 ```phonon
-~kick: "bd*4" |> every 4 (slow 2)
-~hats: "hh*16" |> degradeBy 0.3 |> pan 0.7
-~snare: ". sn . sn" |> rotate 0.125
+~kick: "bd*4" $ every 4 (slow 2)
+~hats: "hh*16" $ degradeBy 0.3 $ pan 0.7
+~snare: ". sn . sn" $ rotate 0.125
 ~drums: ~kick + ~hats * 0.5 + ~snare * 0.8
-o: ~drums >> lpf 8000 0.5 >> reverb 0.2 0.7 0.15
+o: ~drums # lpf 8000 0.5 # reverb 0.2 0.7 0.15
 ```
 
 ### Example 4: Melodic Pattern with Scale
 ```phonon
-~melody: "0 3 7 10 7 3" |> slow 2 |> scale "minor"
-~voice: ~melody >> saw >> lpf 2000 0.6
-~delay: ~voice >> delay 0.375 0.4 0.3
+~melody: "0 3 7 10 7 3" $ slow 2 $ scale "minor"
+~voice: ~melody # saw # lpf 2000 0.6
+~delay: ~voice # delay 0.375 0.4 0.3
 o: ~voice * 0.7 + ~delay * 0.3
 ```
 
 ### Example 5: Live Coding Session
 ```phonon
 # Define rhythm section
-~kick: "bd . . bd . . bd ." |> fast 2
-~snare: ". . sn . . . sn ." |> fast 2 |> every 8 rev
-~hats: "hh*16" |> degradeBy 0.2 |> pan "0.3 0.7" |> fast 2
+~kick: "bd . . bd . . bd ." $ fast 2
+~snare: ". . sn . . . sn ." $ fast 2 $ every 8 rev
+~hats: "hh*16" $ degradeBy 0.2 $ pan "0.3 0.7" $ fast 2
 
 # Bass line
-~bassline: "0 0 12 7" |> slow 4
-~bass: ~bassline >> saw >> lpf 800 0.9 >> mul 0.3
+~bassline: "0 0 12 7" $ slow 4
+~bass: ~bassline # saw # lpf 800 0.9 # mul 0.3
 
 # Lead synth
-~lead_pattern: "0 3 7 12 10 7 3 0" |> slow 2 |> every 4 (rotate 0.25)
-~lead: ~lead_pattern >> square >> hpf 400 0.5 >> lpf 3000 0.7
+~lead_pattern: "0 3 7 12 10 7 3 0" $ slow 2 $ every 4 (rotate 0.25)
+~lead: ~lead_pattern # square # hpf 400 0.5 # lpf 3000 0.7
 
 # Modulation
-~lfo: sin 0.25 >> mul 0.3 >> add 0.7
-~filtered_lead: ~lead >> lpf ~lfo * 2000 + 1000 0.6
+~lfo: sin 0.25 # mul 0.3 # add 0.7
+~filtered_lead: ~lead # lpf ~lfo * 2000 + 1000 0.6
 
 # Mix everything
 ~rhythm: ~kick + ~snare * 0.8 + ~hats * 0.4
 ~mix: ~rhythm * 0.6 + ~bass * 0.4 + ~filtered_lead * 0.3
 
 # Output with master effects
-o: ~mix >> reverb 0.3 0.6 0.2 >> mul 0.8
+o: ~mix # reverb 0.3 0.6 0.2 # mul 0.8
 ```
 
 ## Pattern Mini-Notation Reference
@@ -335,8 +335,8 @@ The parser generates an AST that can be processed by the Rust backend:
 use phonon::nom_parser::{parse_dsl, Expr, PatternTransform};
 
 let code = r#"
-    ~drums: "bd sn" |> fast 2
-    o: ~drums >> lpf 1000 0.8
+    ~drums: "bd sn" $ fast 2
+    o: ~drums # lpf 1000 0.8
 "#;
 
 let env = parse_dsl(code)?;

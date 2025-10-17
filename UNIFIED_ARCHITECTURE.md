@@ -90,15 +90,15 @@ Patterns become first-class signal nodes:
 ```
 // Pattern as modulation source
 ~cutoff_pattern: "1000 2000 500 3000"
-~bass: saw(110) >> lpf(~cutoff_pattern, 0.8)
+~bass: saw(110) # lpf(~cutoff_pattern, 0.8)
 
 // Pattern triggering synthesis
 ~kick_pattern: "bd ~ ~ bd"
 ~kick: sine(60) * perc(0.01, 0.2) * ~kick_pattern
 
 // Audio modulating pattern playback
-~gate: ~input >> rms(0.05) >> thresh(0.1)
-~drums: "bd sn hh cp" >> when(~gate)
+~gate: ~input # rms(0.05) # thresh(0.1)
+~drums: "bd sn hh cp" # when(~gate)
 ```
 
 ### 3. Inline Synth Definitions
@@ -108,18 +108,18 @@ Define synthesizers as part of the pattern language:
 ```
 // Define reusable synth
 synthdef ~acid_bass($note, $gate): {
-    ~osc: saw($note >> mtof) + square($note >> mtof - 0.05)
+    ~osc: saw($note # mtof) + square($note # mtof - 0.05)
     ~env: adsr($gate, 0.01, 0.2, 0.3, 0.5)
-    ~filter: ~osc >> lpf(~env * 4000 + 200, 0.9)
+    ~filter: ~osc # lpf(~env * 4000 + 200, 0.9)
     out: ~filter * ~env * 0.3
 }
 
 // Use in pattern with note data
-~bass_line: "c2 eb2 g2 c3" >> ~acid_bass
+~bass_line: "c2 eb2 g2 c3" # ~acid_bass
 
 // Modulate synth params with patterns
 ~filter_mod: "1 0.5 0.8 0.3"
-~bass_line: "c2 eb2 g2 c3" >> ~acid_bass[filter: ~filter_mod]
+~bass_line: "c2 eb2 g2 c3" # ~acid_bass[filter: ~filter_mod]
 ```
 
 ### 4. Universal Modulation Matrix
@@ -151,7 +151,7 @@ route ~lfo -> {
 - [ ] Create `UnifiedSignalGraph` that replaces all executors
 - [ ] Migrate pattern evaluation into the graph
 - [ ] Implement bus system with `~name` references
-- [ ] Basic signal routing with `>>`
+- [ ] Basic signal routing with `#`
 
 #### Phase 2: Pattern-Audio Bridge
 - [ ] Patterns as signal sources
@@ -197,8 +197,8 @@ route ~lfo -> {
 // New way:
 ~kick: "bd ~ ~ bd"
 ~bass: "c2 eb2 g2 bb2"
-~bass_env: ~kick >> inv >> lag(0.01)  // Sidechain from kick pattern!
-~bass_synth: saw(~bass >> mtof) * ~bass_env >> lpf(~kick * 2000 + 500)
+~bass_env: ~kick # inv # lag(0.01)  // Sidechain from kick pattern!
+~bass_synth: saw(~bass # mtof) * ~bass_env # lpf(~kick * 2000 + 500)
 
 // The kick PATTERN modulates the bass filter!
 // The bass amplitude is ducked by the kick!
@@ -211,6 +211,6 @@ route ~lfo -> {
 2. **Pattern Integration**: Make patterns evaluate inside the graph
 3. **Bus System**: Implement the `~name` reference system properly
 4. **Signal Analysis**: Add RMS, pitch detection as graph nodes
-5. **Routing**: Implement the `>>` operator for signal flow
+5. **Routing**: Implement the `#` operator for signal flow
 
 This is the path to making Phonon a true modular synthesis live coding environment where **everything is connected** and **nothing is hidden**.

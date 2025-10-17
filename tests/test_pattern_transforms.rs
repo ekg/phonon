@@ -7,7 +7,7 @@ fn test_fast_transform() {
     let fast_pattern = pattern.fast(2.0);
 
     // Pattern should have twice as many events
-    use phonon::pattern::{State, TimeSpan, Fraction};
+    use phonon::pattern::{Fraction, State, TimeSpan};
     use std::collections::HashMap;
 
     let state = State {
@@ -24,7 +24,7 @@ fn test_slow_transform() {
     let pattern = parse_mini_notation("bd sn hh cp");
     let slow_pattern = pattern.slow(2.0);
 
-    use phonon::pattern::{State, TimeSpan, Fraction};
+    use phonon::pattern::{Fraction, State, TimeSpan};
     use std::collections::HashMap;
 
     let state = State {
@@ -41,7 +41,7 @@ fn test_rev_transform() {
     let pattern = parse_mini_notation("bd sn");
     let rev_pattern = pattern.rev();
 
-    use phonon::pattern::{State, TimeSpan, Fraction};
+    use phonon::pattern::{Fraction, State, TimeSpan};
     use std::collections::HashMap;
 
     let state = State {
@@ -58,7 +58,7 @@ fn test_every_transform() {
     let pattern = parse_mini_notation("bd");
     let every_pattern = pattern.clone().every(4, |p| p.fast(2.0));
 
-    use phonon::pattern::{State, TimeSpan, Fraction};
+    use phonon::pattern::{Fraction, State, TimeSpan};
     use std::collections::HashMap;
 
     // Test cycle 0 (should be transformed - fast)
@@ -75,8 +75,14 @@ fn test_every_transform() {
     };
     let events1 = every_pattern.query(&state1);
 
-    assert!(events0.len() > 0, "Every pattern should have events in cycle 0");
-    assert!(events1.len() > 0, "Every pattern should have events in cycle 1");
+    assert!(
+        events0.len() > 0,
+        "Every pattern should have events in cycle 0"
+    );
+    assert!(
+        events1.len() > 0,
+        "Every pattern should have events in cycle 1"
+    );
 }
 
 // ============================================================================
@@ -102,7 +108,11 @@ fn test_dsl_fast_transform() {
     let buffer = graph.render(22050);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Fast transform should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Fast transform should produce audio, got RMS: {}",
+        rms
+    );
 
     println!("✓ test_dsl_fast_transform: RMS = {:.6}", rms);
 }
@@ -122,7 +132,11 @@ fn test_dsl_slow_transform() {
     let buffer = graph.render(44100);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Slow transform should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Slow transform should produce audio, got RMS: {}",
+        rms
+    );
 
     println!("✓ test_dsl_slow_transform: RMS = {:.6}", rms);
 }
@@ -142,7 +156,11 @@ fn test_dsl_rev_transform() {
     let buffer = graph.render(44100);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Rev transform should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Rev transform should produce audio, got RMS: {}",
+        rms
+    );
 
     println!("✓ test_dsl_rev_transform: RMS = {:.6}", rms);
 }
@@ -162,7 +180,11 @@ fn test_dsl_chained_transforms() {
     let buffer = graph.render(22050);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Chained transforms should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Chained transforms should produce audio, got RMS: {}",
+        rms
+    );
 
     println!("✓ test_dsl_chained_transforms: RMS = {:.6}", rms);
 }
@@ -183,7 +205,11 @@ fn test_dsl_every_transform() {
     let buffer = graph.render(88200);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Every transform should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Every transform should produce audio, got RMS: {}",
+        rms
+    );
 
     println!("✓ test_dsl_every_transform: RMS = {:.6}", rms);
 }
@@ -203,7 +229,11 @@ fn test_dsl_fast_with_samples() {
     let buffer = graph.render(44100);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Fast transform with samples should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Fast transform with samples should produce audio, got RMS: {}",
+        rms
+    );
 
     println!("✓ test_dsl_fast_with_samples: RMS = {:.6}", rms);
 }
@@ -223,7 +253,11 @@ fn test_dsl_rev_with_samples() {
     let buffer = graph.render(44100);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Rev transform with samples should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Rev transform with samples should produce audio, got RMS: {}",
+        rms
+    );
 
     println!("✓ test_dsl_rev_with_samples: RMS = {:.6}", rms);
 }
@@ -243,7 +277,11 @@ fn test_dsl_transform_filter_modulation() {
     let buffer = graph.render(44100);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Transform on filter modulation should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Transform on filter modulation should produce audio, got RMS: {}",
+        rms
+    );
 
     println!("✓ test_dsl_transform_filter_modulation: RMS = {:.6}", rms);
 }
@@ -258,7 +296,10 @@ fn test_dsl_transform_precedence() {
     "#;
 
     let result = parse_dsl(input);
-    assert!(result.is_ok(), "Transform precedence should parse correctly");
+    assert!(
+        result.is_ok(),
+        "Transform precedence should parse correctly"
+    );
 
     let (_, statements) = result.unwrap();
     let compiler = DslCompiler::new(44100.0);
@@ -266,7 +307,11 @@ fn test_dsl_transform_precedence() {
 
     let buffer = graph.render(22050);
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Precedence test should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Precedence test should produce audio, got RMS: {}",
+        rms
+    );
 
     println!("✓ test_dsl_transform_precedence: RMS = {:.6}", rms);
 }

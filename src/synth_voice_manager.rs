@@ -19,10 +19,10 @@ pub enum SynthWaveform {
 /// ADSR envelope parameters
 #[derive(Debug, Clone, Copy)]
 pub struct ADSRParams {
-    pub attack: f32,   // Attack time in seconds
-    pub decay: f32,    // Decay time in seconds
-    pub sustain: f32,  // Sustain level (0.0-1.0)
-    pub release: f32,  // Release time in seconds
+    pub attack: f32,  // Attack time in seconds
+    pub decay: f32,   // Decay time in seconds
+    pub sustain: f32, // Sustain level (0.0-1.0)
+    pub release: f32, // Release time in seconds
 }
 
 impl Default for ADSRParams {
@@ -67,7 +67,7 @@ struct SynthVoice {
     pan: f32,
 
     // Lifetime
-    age: usize,  // How many samples since triggered
+    age: usize, // How many samples since triggered
     is_active: bool,
 }
 
@@ -90,7 +90,14 @@ impl SynthVoice {
     }
 
     /// Trigger the voice with a new note
-    fn trigger(&mut self, frequency: f32, waveform: SynthWaveform, adsr: ADSRParams, gain: f32, pan: f32) {
+    fn trigger(
+        &mut self,
+        frequency: f32,
+        waveform: SynthWaveform,
+        adsr: ADSRParams,
+        gain: f32,
+        pan: f32,
+    ) {
         self.frequency = frequency;
         self.waveform = waveform;
         self.adsr = adsr;
@@ -112,7 +119,10 @@ impl SynthVoice {
 
     /// Release the voice (start release phase)
     fn release(&mut self) {
-        if matches!(self.envelope_phase, EnvelopePhase::Attack | EnvelopePhase::Decay | EnvelopePhase::Sustain) {
+        if matches!(
+            self.envelope_phase,
+            EnvelopePhase::Attack | EnvelopePhase::Decay | EnvelopePhase::Sustain
+        ) {
             self.release_start_level = self.envelope_level;
             self.envelope_phase = EnvelopePhase::Release;
             self.time_in_phase = 0.0;
@@ -146,7 +156,8 @@ impl SynthVoice {
             }
             EnvelopePhase::Decay => {
                 if self.adsr.decay > 0.0 {
-                    self.envelope_level = 1.0 - (1.0 - self.adsr.sustain) * (self.time_in_phase / self.adsr.decay);
+                    self.envelope_level =
+                        1.0 - (1.0 - self.adsr.sustain) * (self.time_in_phase / self.adsr.decay);
                     if self.envelope_level <= self.adsr.sustain {
                         self.envelope_level = self.adsr.sustain;
                         self.envelope_phase = EnvelopePhase::Sustain;
@@ -190,7 +201,11 @@ impl SynthVoice {
             SynthWaveform::Sine => (2.0 * PI * self.phase).sin(),
             SynthWaveform::Saw => 2.0 * self.phase - 1.0,
             SynthWaveform::Square => {
-                if self.phase < 0.5 { 1.0 } else { -1.0 }
+                if self.phase < 0.5 {
+                    1.0
+                } else {
+                    -1.0
+                }
             }
             SynthWaveform::Triangle => {
                 if self.phase < 0.5 {
@@ -232,7 +247,14 @@ impl SynthVoiceManager {
     }
 
     /// Trigger a new note
-    pub fn trigger_note(&mut self, frequency: f32, waveform: SynthWaveform, adsr: ADSRParams, gain: f32, pan: f32) {
+    pub fn trigger_note(
+        &mut self,
+        frequency: f32,
+        waveform: SynthWaveform,
+        adsr: ADSRParams,
+        gain: f32,
+        pan: f32,
+    ) {
         // Find a free voice or steal the oldest
         let voice_idx = self.find_free_voice();
         self.voices[voice_idx].trigger(frequency, waveform, adsr, gain, pan);
@@ -337,7 +359,12 @@ mod tests {
             }
             // After a few samples into attack, we should have audio
             if i > 50 {
-                assert!(sample.abs() > 0.0, "Voice should produce sound after {} samples, got {}", i, sample);
+                assert!(
+                    sample.abs() > 0.0,
+                    "Voice should produce sound after {} samples, got {}",
+                    i,
+                    sample
+                );
             }
         }
         assert!(has_audio, "Voice should have produced some audible sound");
@@ -364,7 +391,7 @@ mod tests {
             attack: 0.01,
             decay: 0.0,
             sustain: 1.0,
-            release: 0.1,  // 100ms release
+            release: 0.1, // 100ms release
         };
 
         manager.trigger_note(440.0, SynthWaveform::Sine, adsr, 1.0, 0.0);
@@ -408,6 +435,10 @@ mod tests {
         // Trigger 65th note (should steal oldest)
         manager.trigger_note(880.0, SynthWaveform::Sine, ADSRParams::default(), 0.5, 0.0);
 
-        assert_eq!(manager.active_voice_count(), 64, "Should still have 64 voices after stealing");
+        assert_eq!(
+            manager.active_voice_count(),
+            64,
+            "Should still have 64 voices after stealing"
+        );
     }
 }

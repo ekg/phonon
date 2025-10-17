@@ -10,7 +10,7 @@ pub type MidiNote = u8;
 
 /// Note names to MIDI mapping
 lazy_static::lazy_static! {
-    static ref NOTE_TO_MIDI: HashMap<String, MidiNote> = {
+    pub static ref NOTE_TO_MIDI: HashMap<String, MidiNote> = {
         let mut m = HashMap::new();
         // Octave -1
         m.insert("c-1".to_string(), 0);
@@ -50,7 +50,7 @@ lazy_static::lazy_static! {
         m
     };
 
-    static ref SCALES: HashMap<&'static str, Vec<i32>> = {
+    pub static ref SCALES: HashMap<&'static str, Vec<i32>> = {
         let mut m = HashMap::new();
         m.insert("major", vec![0, 2, 4, 5, 7, 9, 11]);
         m.insert("minor", vec![0, 2, 3, 5, 7, 8, 10]);
@@ -81,7 +81,7 @@ lazy_static::lazy_static! {
         m
     };
 
-    static ref CHORD_INTERVALS: HashMap<&'static str, Vec<i32>> = {
+    pub static ref CHORD_INTERVALS: HashMap<&'static str, Vec<i32>> = {
         let mut m = HashMap::new();
         // Triads
         m.insert("major", vec![0, 4, 7]);

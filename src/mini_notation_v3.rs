@@ -2,6 +2,106 @@
 //!
 //! This parser follows Strudel's architecture where all values are patterns
 //! that can be composed and evaluated per cycle.
+//!
+//! # Mini-Notation Syntax
+//!
+//! Phonon's mini-notation is based on Tidal Cycles and Strudel, providing a concise
+//! way to express rhythmic patterns.
+//!
+//! ## Basic Patterns
+//!
+//! - **Sequence**: `bd sn` - Space-separated items play sequentially
+//! - **Fast sequence**: `[bd sn cp]` - Brackets fit items into one step
+//! - **Rests**: `bd ~ sn ~` - Tildes create silence
+//! - **Numbers**: `110 220 440` - Numeric values (e.g., frequencies)
+//!
+//! ## Operators
+//!
+//! - **Replication**: `bd*4` - Repeats item 4 times
+//! - **Slow**: `bd/2` - Makes pattern twice as slow
+//! - **Euclidean rhythm**: `bd(3,8)` - 3 hits distributed over 8 steps
+//! - **Alternation**: `<bd sn cp>` - Cycles through items per cycle
+//! - **Polyrhythm**: `[bd bd, sn]` - Multiple patterns at once
+//!
+//! # Examples
+//!
+//! ## Basic drum pattern
+//!
+//! ```
+//! use phonon::mini_notation_v3::parse_mini_notation;
+//! use phonon::pattern::{State, TimeSpan, Fraction};
+//! use std::collections::HashMap;
+//!
+//! // Parse a simple kick-snare pattern
+//! let pattern = parse_mini_notation("bd sn bd sn");
+//!
+//! // Query the first cycle
+//! let state = State {
+//!     span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
+//!     controls: HashMap::new(),
+//! };
+//!
+//! let events = pattern.query(&state);
+//! assert_eq!(events.len(), 4); // 4 events in the cycle
+//! assert_eq!(events[0].value, "bd");
+//! assert_eq!(events[1].value, "sn");
+//! ```
+//!
+//! ## Euclidean rhythm
+//!
+//! ```
+//! use phonon::mini_notation_v3::parse_mini_notation;
+//!
+//! // 3 kick hits distributed evenly over 8 steps
+//! // Results in the pattern: X..X..X. (where X = hit, . = rest)
+//! let pattern = parse_mini_notation("bd(3,8)");
+//! ```
+//!
+//! ## Pattern alternation
+//!
+//! ```
+//! use phonon::mini_notation_v3::parse_mini_notation;
+//! use phonon::pattern::{State, TimeSpan, Fraction};
+//! use std::collections::HashMap;
+//!
+//! // Alternates between bd, sn, cp each cycle
+//! let pattern = parse_mini_notation("<bd sn cp>");
+//!
+//! // Cycle 0: bd
+//! let state0 = State {
+//!     span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
+//!     controls: HashMap::new(),
+//! };
+//! let events0 = pattern.query(&state0);
+//! assert_eq!(events0[0].value, "bd");
+//!
+//! // Cycle 1: sn
+//! let state1 = State {
+//!     span: TimeSpan::new(Fraction::new(1, 1), Fraction::new(2, 1)),
+//!     controls: HashMap::new(),
+//! };
+//! let events1 = pattern.query(&state1);
+//! assert_eq!(events1[0].value, "sn");
+//! ```
+//!
+//! ## Numeric patterns (for synthesis)
+//!
+//! ```
+//! use phonon::mini_notation_v3::parse_mini_notation;
+//!
+//! // Frequency pattern that cycles through three notes
+//! let pattern = parse_mini_notation("110 220 440");
+//! // Can be used to modulate oscillator frequency in UnifiedSignalGraph
+//! ```
+//!
+//! ## Complex pattern
+//!
+//! ```
+//! use phonon::mini_notation_v3::parse_mini_notation;
+//!
+//! // Euclidean kick, fast hi-hats, alternating snare/clap
+//! let pattern = parse_mini_notation("bd(3,8) [hh hh hh hh] <sn cp>");
+//! ```
 
 use crate::pattern::{Fraction, Pattern, TimeSpan};
 // Import pattern operators

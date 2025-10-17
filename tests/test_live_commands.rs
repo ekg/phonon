@@ -1,4 +1,4 @@
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 
 #[test]
 fn test_hush_command_silences_outputs() {
@@ -22,18 +22,30 @@ fn test_hush_command_silences_outputs() {
     graph.set_output_channel(2, osc2);
 
     // Process some samples - should have audio
-    graph.process_sample_multi();  // Skip first sample (phase=0)
+    graph.process_sample_multi(); // Skip first sample (phase=0)
     let outputs_before = graph.process_sample_multi();
-    assert!(outputs_before[0].abs() > 0.0, "Channel 1 should have audio before hush");
-    assert!(outputs_before[1].abs() > 0.0, "Channel 2 should have audio before hush");
+    assert!(
+        outputs_before[0].abs() > 0.0,
+        "Channel 1 should have audio before hush"
+    );
+    assert!(
+        outputs_before[1].abs() > 0.0,
+        "Channel 2 should have audio before hush"
+    );
 
     // Call hush
     graph.hush_all();
 
     // Process samples - should be silent
     let outputs_after = graph.process_sample_multi();
-    assert_eq!(outputs_after[0], 0.0, "Channel 1 should be silent after hush");
-    assert_eq!(outputs_after[1], 0.0, "Channel 2 should be silent after hush");
+    assert_eq!(
+        outputs_after[0], 0.0,
+        "Channel 1 should be silent after hush"
+    );
+    assert_eq!(
+        outputs_after[1], 0.0,
+        "Channel 2 should be silent after hush"
+    );
 }
 
 #[test]

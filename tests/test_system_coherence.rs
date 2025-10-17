@@ -395,17 +395,17 @@ fn test_realtime_parameter_modulation() {
 
     // Filter with modulated cutoff - more dramatic sweep
     let cutoff = graph.add_node(SignalNode::Add {
-        a: Signal::Value(800.0),  // Lower center frequency
+        a: Signal::Value(800.0), // Lower center frequency
         b: Signal::Expression(Box::new(phonon::unified_graph::SignalExpr::Multiply(
             Signal::Node(lfo_slow),
-            Signal::Value(700.0),  // Sweep from 100 to 1500 Hz
+            Signal::Value(700.0), // Sweep from 100 to 1500 Hz
         ))),
     });
 
     let filtered = graph.add_node(SignalNode::LowPass {
         input: Signal::Node(carrier),
         cutoff: Signal::Node(cutoff),
-        q: Signal::Value(5.0),  // Higher resonance for more effect
+        q: Signal::Value(5.0), // Higher resonance for more effect
         state: Default::default(),
     });
 
@@ -648,7 +648,7 @@ fn test_end_to_end_performance_boundaries() {
     // Attenuate after filter chain to prevent blow-up
     let attenuated = graph.add_node(SignalNode::Multiply {
         a: Signal::Node(last_node),
-        b: Signal::Value(0.1),  // Scale down after 10 filters
+        b: Signal::Value(0.1), // Scale down after 10 filters
     });
 
     // Add pattern modulation
@@ -882,7 +882,11 @@ fn test_master_system_coherence() {
         .count();
 
     // With bass at 220-330 Hz, expect ~400-600 zero crossings in 0.5 seconds
-    assert!(zero_crossings > 200, "Should have rich frequency content (got {})", zero_crossings);
+    assert!(
+        zero_crossings > 200,
+        "Should have rich frequency content (got {})",
+        zero_crossings
+    );
 
     // Check dynamic range
     let max_val = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);

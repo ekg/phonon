@@ -1,7 +1,7 @@
 //! Test pattern-triggered synth voices using direct API
 
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform};
 use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 
 mod audio_test_utils;
 use audio_test_utils::{calculate_rms, find_dominant_frequency};
@@ -40,11 +40,18 @@ fn test_synth_pattern_direct_api() {
     println!("Dominant frequency: {:.1} Hz", dominant_freq);
 
     // Should produce audio
-    assert!(rms > 0.01, "Synth pattern should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Synth pattern should produce audio, got RMS: {}",
+        rms
+    );
 
     // Frequency should be in the range of C4-C5 (261-523 Hz)
-    assert!(dominant_freq > 200.0 && dominant_freq < 600.0,
-        "Dominant frequency should be in C4-C5 range, got: {} Hz", dominant_freq);
+    assert!(
+        dominant_freq > 200.0 && dominant_freq < 600.0,
+        "Dominant frequency should be in C4-C5 range, got: {} Hz",
+        dominant_freq
+    );
 
     println!("✅ Pattern-triggered synth works!");
 }
@@ -81,7 +88,11 @@ fn test_synth_pattern_polyphony() {
     println!("RMS: {:.4}", rms);
 
     // Should produce audio from multiple voices
-    assert!(rms > 0.01, "Polyphonic synth should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Polyphonic synth should produce audio, got RMS: {}",
+        rms
+    );
 
     println!("✅ Polyphonic synth works!");
 }
@@ -99,10 +110,10 @@ fn test_synth_pattern_adsr() {
         pattern,
         last_trigger_time: -1.0,
         waveform: Waveform::Saw,
-        attack: 0.1,   // 100ms attack
-        decay: 0.2,    // 200ms decay
-        sustain: 0.5,  // 50% sustain level
-        release: 0.3,  // 300ms release
+        attack: 0.1,  // 100ms attack
+        decay: 0.2,   // 200ms decay
+        sustain: 0.5, // 50% sustain level
+        release: 0.3, // 300ms release
         gain: Signal::Value(0.5),
         pan: Signal::Value(0.0),
     });
@@ -130,7 +141,10 @@ fn test_synth_pattern_adsr() {
 
     // First chunk should have lower RMS (attack phase)
     // Middle chunks should have higher RMS (sustain phase)
-    assert!(chunk_rms[0] < chunk_rms[2], "Attack should be quieter than sustain");
+    assert!(
+        chunk_rms[0] < chunk_rms[2],
+        "Attack should be quieter than sustain"
+    );
 
     println!("✅ ADSR envelope shapes the sound!");
 }

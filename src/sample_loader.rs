@@ -1,4 +1,98 @@
 //! Sample loading and playback for dirt-samples integration
+//!
+//! This module provides sample loading from the dirt-samples library format,
+//! which is compatible with TidalCycles.
+//!
+//! # Features
+//!
+//! - **Automatic sample discovery**: Searches `dirt-samples/` directory structure
+//! - **Sample indexing**: Support for `bd:0`, `bd:1`, etc. to select specific samples
+//! - **Caching**: Loaded samples are cached for fast access
+//! - **Mono conversion**: Stereo samples are automatically converted to mono
+//! - **WAV support**: Loads WAV files in various formats (int16, int24, float32)
+//!
+//! # Directory Structure
+//!
+//! Samples should be organized in the dirt-samples format:
+//!
+//! ```text
+//! dirt-samples/
+//!   bd/
+//!     BT0A0A7.wav
+//!     BD0.wav
+//!   sn/
+//!     ST0T0S0.wav
+//!   hh/
+//!     000_hh3closedhh.wav
+//! ```
+//!
+//! # Examples
+//!
+//! ## Basic sample loading
+//!
+//! ```
+//! use phonon::sample_loader::SampleBank;
+//!
+//! let mut bank = SampleBank::new();
+//!
+//! // Load a sample (searches dirt-samples/ directory)
+//! let bd_sample = bank.get_sample("bd").expect("Sample not found");
+//!
+//! println!("Loaded BD sample: {} samples", bd_sample.len());
+//! ```
+//!
+//! ## Sample indexing
+//!
+//! ```
+//! use phonon::sample_loader::SampleBank;
+//!
+//! let mut bank = SampleBank::new();
+//!
+//! // Load specific sample by index
+//! let bd0 = bank.get_sample("bd:0").unwrap(); // First BD sample
+//! let bd1 = bank.get_sample("bd:1").unwrap(); // Second BD sample
+//! let bd2 = bank.get_sample("bd:2").unwrap(); // Third BD sample
+//! ```
+//!
+//! ## Using with voice manager
+//!
+//! ```
+//! use phonon::sample_loader::SampleBank;
+//! use phonon::voice_manager::VoiceManager;
+//!
+//! let mut bank = SampleBank::new();
+//! let mut vm = VoiceManager::new();
+//!
+//! // Load and trigger multiple samples
+//! if let Some(bd) = bank.get_sample("bd") {
+//!     vm.trigger_sample(bd, 1.0);
+//! }
+//!
+//! if let Some(sn) = bank.get_sample("sn") {
+//!     vm.trigger_sample(sn, 0.8);
+//! }
+//!
+//! // Process audio
+//! for _ in 0..44100 {
+//!     let sample = vm.process();
+//!     // Output sample to audio device
+//! }
+//! ```
+//!
+//! ## Custom sample paths
+//!
+//! ```no_run
+//! use phonon::sample_loader::SampleBank;
+//! use std::path::Path;
+//!
+//! let mut bank = SampleBank::new();
+//!
+//! // Load from custom path
+//! let custom_path = Path::new("my-samples/kick.wav");
+//! bank.load_sample("my_kick", custom_path).unwrap();
+//!
+//! let sample = bank.get_sample("my_kick").unwrap();
+//! ```
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

@@ -4,30 +4,30 @@
 
 Currently we have:
 ```
-~kick: sin 60 >> mul 0.5
+~kick: sin 60 # mul 0.5
 o: s "bd sn hh cp"
 ```
 
-Where `>>` is used for DSP signal chains and mini-notation is in quotes.
+Where `#` is used for DSP signal chains and mini-notation is in quotes.
 
 ## Proposed Integration Approaches
 
 ### Approach 1: Unified Pipeline Operator (RECOMMENDED)
-Use `>>` for both DSP chains AND pattern transformations:
+Use `#` for both DSP chains AND pattern transformations:
 
 ```
 // DSP chain (signals)
-~kick: sin 60 >> mul 0.5
+~kick: sin 60 # mul 0.5
 
 // Pattern chain (patterns)  
-o: s "bd sn hh cp" >> fast 2 >> rev >> every 4 (slow 2)
+o: s "bd sn hh cp" # fast 2 # rev # every 4 (slow 2)
 
 // Mixed (pattern through DSP)
-o: s "bd sn" >> fast 2 >> lpf 800 0.5
+o: s "bd sn" # fast 2 # lpf 800 0.5
 ```
 
 **Pros:**
-- Consistent with existing `>>` operator
+- Consistent with existing `#` operator
 - Clear data flow direction
 - Familiar to users
 
@@ -39,10 +39,10 @@ Use a different operator for patterns:
 
 ```
 // DSP uses >>
-~kick: sin 60 >> mul 0.5
+~kick: sin 60 # mul 0.5
 
 // Patterns use |>
-o: s "bd sn hh cp" |> fast 2 |> rev |> every 4 (slow 2)
+o: s "bd sn hh cp" $ fast 2 $ rev $ every 4 (slow 2)
 ```
 
 **Pros:**
@@ -160,46 +160,46 @@ lambda_expr ::=
 ### Basic Transformations
 ```
 // Speed up
-o: s "bd sn" >> fast 2
+o: s "bd sn" # fast 2
 
 // Reverse
-o: s "bd sn hh cp" >> rev
+o: s "bd sn hh cp" # rev
 
 // Chain multiple
-o: s "bd sn" >> fast 2 >> rev >> degrade
+o: s "bd sn" # fast 2 # rev # degrade
 ```
 
 ### Conditional Application
 ```
 // Every 4 cycles, slow down
-o: s "bd sn" >> every 4 (slow 2)
+o: s "bd sn" # every 4 (slow 2)
 
 // Sometimes reverse
-o: s "bd sn" >> sometimes rev
+o: s "bd sn" # sometimes rev
 ```
 
 ### Complex Patterns
 ```
 // Euclidean rhythm with effects
-o: s "bd" >> euclid 3 8 >> fast 2 >> jux rev
+o: s "bd" # euclid 3 8 # fast 2 # jux rev
 
 // Stacked patterns with different speeds
 ~drums: stack [
   s "bd*4",
-  s "~sn~sn" >> late 0.125,
-  s "hh*8" >> degrade
+  s "~sn~sn" # late 0.125,
+  s "hh*8" # degrade
 ]
 ```
 
 ### Integration with DSP
 ```
 // Pattern through filter
-o: s "bd sn" >> fast 2 >> lpf 800 0.5
+o: s "bd sn" # fast 2 # lpf 800 0.5
 
 // Multiple outputs with transformations
-~bd: s "bd*4" >> every 4 (fast 2)
-~sn: s "~sn~sn" >> sometimes rev
-o: mix [~bd, ~sn] >> reverb 0.3
+~bd: s "bd*4" # every 4 (fast 2)
+~sn: s "~sn~sn" # sometimes rev
+o: mix [~bd, ~sn] # reverb 0.3
 ```
 
 ## Type System Considerations
@@ -232,22 +232,22 @@ Pattern<T> -> every -> Pattern<T>
 
 1. Should we allow inline pattern definitions?
    ```
-   o: (s "bd" >> fast 2) + (s "sn" >> slow 2)
+   o: (s "bd" # fast 2) + (s "sn" # slow 2)
    ```
 
 2. How to handle pattern references in transformations?
    ```
    ~a: s "bd sn"
-   ~b: ~a >> fast 2
+   ~b: ~a # fast 2
    ```
 
 3. Should transformations work on DSP chains too?
    ```
-   ~synth: sin 440 >> mul 0.5 >> every 4 (mul 2)
+   ~synth: sin 440 # mul 0.5 # every 4 (mul 2)
    ```
 
 4. Pattern variables and interpolation?
    ```
    let speed = 2
-   o: s "bd sn" >> fast speed
+   o: s "bd sn" # fast speed
    ```

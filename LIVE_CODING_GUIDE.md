@@ -189,8 +189,8 @@ Once comfortable:
 4. Layer rhythms and melodies
 
 The full DSL will eventually support:
-- Filter chains: `saw(110) >> lpf(1000, 2)`
-- Effects: `signal >> delay(0.25, 0.5)`
+- Filter chains: `saw(110) # lpf(1000, 2)`
+- Effects: `signal # delay(0.25, 0.5)`
 - Complex routing: `route lfo -> {cutoff: 1000, pan: 0.5}`
 - Inline synths: `synthdef bass { ... }`
 

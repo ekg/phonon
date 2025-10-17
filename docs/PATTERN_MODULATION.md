@@ -2,7 +2,7 @@
 
 ## Overview
 
-In Phonon, pattern modulation can use either the `$` operator (TidalCycles-style) or the `|>` operator (pipe-forward style). Both operators work identically - use whichever you prefer!
+In Phonon, pattern modulation can use either the `$` operator (TidalCycles-style) or the `$` operator (pipe-forward style). Both operators work identically - use whichever you prefer!
 
 ## Basic Syntax
 
@@ -22,7 +22,7 @@ You can use either operator - they're completely equivalent:
 "bd sn" $ fast 2 $ rev
 
 # Pipe-forward style with |>
-"bd sn" |> fast 2 |> rev
+"bd sn" $ fast 2 $ rev
 
 # Both produce the exact same result!
 ```
@@ -32,10 +32,10 @@ You can use either operator - they're completely equivalent:
 Both operators bind tightly to patterns and allow chaining:
 
 ```phonon
-"100 200 300 400" |> fast 2        # Speed up 2x
-"100 200 300 400" |> slow 2        # Slow down 2x
-"100 200 300 400" |> rev           # Reverse
-"100 200 300 400" |> fast 2 |> rev # Chain operations
+"100 200 300 400" $ fast 2        # Speed up 2x
+"100 200 300 400" $ slow 2        # Slow down 2x
+"100 200 300 400" $ rev           # Reverse
+"100 200 300 400" $ fast 2 $ rev # Chain operations
 ```
 
 ## Available Pattern Operations
@@ -74,10 +74,10 @@ Both operators bind tightly to patterns and allow chaining:
 
 ### Drums with Operations
 ```phonon
-~kick: "bd . . bd . . bd ." |> every 8 (slow 2)
-~snare: ". . sn . . . sn ." |> rotate 0.125
-~hats: "hh*16" |> degradeBy 0.3 |> pan 0.7
-~perc: "cp? rim?" |> sometimes rev
+~kick: "bd . . bd . . bd ." $ every 8 (slow 2)
+~snare: ". . sn . . . sn ." $ rotate 0.125
+~hats: "hh*16" $ degradeBy 0.3 $ pan 0.7
+~perc: "cp? rim?" $ sometimes rev
 
 out: ~kick + ~snare + ~hats + ~perc
 ```
@@ -85,31 +85,31 @@ out: ~kick + ~snare + ~hats + ~perc
 ### Pattern Operations in DSP Chains
 ```phonon
 # Pattern operations bind before DSP chains
-~drums: "bd*4" |> fast 2 >> lpf 1000 0.8
+~drums: "bd*4" $ fast 2 # lpf 1000 0.8
 
 # Pattern operations as parameters
-o: sin ("220 440" |> slow 2) >> mul 0.5
+o: sin ("220 440" $ slow 2) # mul 0.5
 ```
 
 ### Nested Operations with Parentheses
 ```phonon
 # Use parentheses for clarity in nested operations
-"bd sn" |> every 4 (fast 2)
-"bd sn" |> sometimes (fast 2)
-"bd sn" |> chunk 4 (rev)
+"bd sn" $ every 4 (fast 2)
+"bd sn" $ sometimes (fast 2)
+"bd sn" $ chunk 4 (rev)
 ```
 
 ## Order of Operations
 
 The precedence order in Phonon is:
-1. Pattern operations (`|>`)
-2. DSP chains (`>>`)
+1. Pattern operations (`$`)
+2. DSP chains (`#`)
 3. Arithmetic (`+`, `*`, etc.)
 
 Examples:
 ```phonon
-"bd sn" |> fast 2 >> lpf 1000     # ((pattern |> fast 2) >> lpf 1000)
-"100 200" |> slow 2 * 0.5         # ((pattern |> slow 2) * 0.5)
+"bd sn" $ fast 2 # lpf 1000     # ((pattern $ fast 2) # lpf 1000)
+"100 200" $ slow 2 * 0.5         # ((pattern $ slow 2) * 0.5)
 ```
 
 ## In Rust Code
@@ -127,6 +127,6 @@ let pattern = parse_mini_notation("100 200 300")
 
 ## Implementation Notes
 
-The `|>` operator is implemented in the nom parser (`src/nom_parser.rs`) as a pattern operation that creates an AST node of type `PatternOp`. Each operation is applied to the pattern in sequence during evaluation.
+The `$` operator is implemented in the nom parser (`src/nom_parser.rs`) as a pattern operation that creates an AST node of type `PatternOp`. Each operation is applied to the pattern in sequence during evaluation.
 
 Pattern operations are defined as methods on `Pattern<T>` in `src/pattern.rs` and `src/pattern_ops.rs`, making them composable and chainable.

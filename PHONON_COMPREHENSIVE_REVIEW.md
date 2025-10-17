@@ -15,7 +15,7 @@ This review systematically tests **every major component** of Phonon against the
 **FIXED COMPONENTS (Session 2025-10-15):**
 - ✅ **Delay effect** - Fixed (commit b022765)
 - ✅ **Bus references** - Fixed (commit b022765)
-- ✅ **Chain operator (`>>`)** - Fixed (commit b28f45b)
+- ✅ **Chain operator (`#`)** - Fixed (commit b28f45b)
 
 **REMAINING ISSUES:**
 - ❌ **Pattern operations not integrated with DSL** (fast, slow, every, etc. not accessible)
@@ -66,7 +66,7 @@ out: delay(sine(440), 0.25, 0.5, 0.5) * 0.3
 
 ✅ **What Works:**
 - Effects can be applied to continuous signals (oscillators)
-- Multiple effects can be chained: `dist(...) >> chorus(...) >> reverb(...)`
+- Multiple effects can be chained: `dist(...) # chorus(...) # reverb(...)`
 - Mix controls work (dry/wet balance)
 - DSL parser correctly recognizes effect functions
 
@@ -176,9 +176,9 @@ From `src/pattern_ops.rs` and `src/pattern_ops_extended.rs`:
 
 **Test:**
 ```phonon
-out: s("bd sn") |> fast 2
+out: s("bd sn") $ fast 2
 ```
-**Result:** Parser error - `|>` operator not implemented
+**Result:** Parser error - `$` operator not implemented
 
 **The pattern operations exist in Rust but cannot be used in .ph files!**
 
@@ -211,13 +211,13 @@ This is a **MAJOR GAP** - the core promise of Tidal Cycles functionality is not 
 
 2. **Pattern controlling filter cutoff:**
    ```phonon
-   out: saw(55) >> lpf("500 1000 2000", 0.8)  # Does this work?
+   out: saw(55) # lpf("500 1000 2000", 0.8)  # Does this work?
    ```
 
 3. **LFO modulating synth parameters:**
    ```phonon
    ~lfo: sine(0.25)
-   out: saw(110) >> lpf(~lfo * 2000 + 500, 0.8)  # Does this work?
+   out: saw(110) # lpf(~lfo * 2000 + 500, 0.8)  # Does this work?
    ```
 
 ### Test Results - Pattern Modulation
@@ -232,7 +232,7 @@ out: sine("110 220 440 220") * 0.3
 **2. Pattern-Controlled Filter Cutoff:** ✅ WORKS (with caveats)
 
 ```phonon
-out: saw(110) >> lpf("500 1000 2000 1500", 0.8) * 0.1
+out: saw(110) # lpf("500 1000 2000 1500", 0.8) * 0.1
 ```
 **Result:** RMS 0.997, Peak 1.000 - **CLIPPING BADLY** but functional
 
@@ -242,7 +242,7 @@ out: saw(110) >> lpf("500 1000 2000 1500", 0.8) * 0.1
 
 ```phonon
 ~lfo: sine(0.5)
-out: saw(110) >> lpf(~lfo * 1500 + 700, 0.8) * 0.3
+out: saw(110) # lpf(~lfo * 1500 + 700, 0.8) * 0.3
 ```
 **Result:** RMS 0.996, Peak 1.000 - Modulation working, clipping issue
 
@@ -335,7 +335,7 @@ out: ~melody * 0.3
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| `>>` (Signal chain) | ✅ | Works for effects chaining |
+| `#` (Signal chain) | ✅ | Works for effects chaining |
 | `<<` (Reverse chain) | ⚠️ | Documented but untested |
 | `~bus` references | ⚠️ | Works for synth(), BROKEN for sine() |
 | Multi-output | ⚠️ | Claimed complete in ROADMAP, needs verification |
@@ -375,7 +375,7 @@ phonon live session.ph --duration 4
 
 | Documentation Claim | Reality | Status |
 |-------------------|---------|--------|
-| "Use `>>` to chain signals" | Works: `saw(55) >> lpf(800, 0.9)` | ✅ ACCURATE |
+| "Use `#` to chain signals" | Works: `saw(55) # lpf(800, 0.9)` | ✅ ACCURATE |
 | "Patterns can modulate any parameter" | Untested | ⚠️ UNVERIFIED |
 | "Delay effect" | Produces silence | ❌ INACCURATE |
 | Bus syntax `~bass: expression` | Works for synth(), fails for sine() | ⚠️ PARTIALLY ACCURATE |
@@ -402,7 +402,7 @@ phonon live session.ph --duration 4
 |-----------|--------|----------------|-----|
 | **Tidal Cycles Patterns** | Full mini-notation + transforms | Mini-notation ✅, transforms ❌ | **LARGE** |
 | **SuperCollider Synthesis** | Rich synths, modular routing | Basic synths ✅, shallow integration | **MEDIUM** |
-| **Glicol Signal Flow** | `>>` chaining, buses | `>>` works ✅, buses partial | **SMALL** |
+| **Glicol Signal Flow** | `#` chaining, buses | `#` works ✅, buses partial | **SMALL** |
 | **Pattern-Controlled DSP** | Patterns modulate everything | Untested | **UNKNOWN** |
 | **Live Coding UX** | Smooth reloads, robust | Exists but untested | **UNKNOWN** |
 
@@ -456,7 +456,7 @@ phonon live session.ph --duration 4
 
 1. Fix delay effect (check buffer implementation)
 2. Fix bus references for oscillators
-3. Add pattern transform operators to DSL parser (`|>`, `fast`, `slow`, `rev`, `every`)
+3. Add pattern transform operators to DSL parser (`$`, `fast`, `slow`, `rev`, `every`)
 
 ### Short Term (1 week)
 
@@ -597,14 +597,14 @@ phonon live session.ph --duration 4
    - Now: RMS 0.077 (working)
    - Issue: compile_expression() didn't look up bus node IDs
 
-3. ✅ **Chain Operator (`>>`)** - FIXED (commit b28f45b)
+3. ✅ **Chain Operator (`#`)** - FIXED (commit b28f45b)
    - Was: RMS 0.993 with massive DC offset (filters received no input)
    - Now: RMS 0.134 with zero DC offset (working correctly)
    - Issues Fixed:
      - Chain compilation ignored left side entirely
      - Parser argument order wrong (lpf(x,y) treated x as input not cutoff)
      - Operator precedence wrong (>> lower than *, should be higher)
-   - Result: `saw(110) >> lpf(1000, 0.8)` now works perfectly
+   - Result: `saw(110) # lpf(1000, 0.8)` now works perfectly
 
 4. ❌ **Pattern Transforms Not in DSL** - Users can't access fast/slow/rev/every
 

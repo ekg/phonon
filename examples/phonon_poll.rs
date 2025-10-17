@@ -225,6 +225,7 @@ fn parse_parameter(
             pattern_str: pattern_str.to_string(),
             pattern,
             last_value: default_value,
+            last_trigger_time: -1.0,
         });
         Signal::Node(pattern_node)
     }
@@ -256,6 +257,7 @@ fn parse_expression(
             pattern_str: pattern_str.to_string(),
             pattern,
             last_value: 0.0,
+            last_trigger_time: -1.0,
         }));
     }
 

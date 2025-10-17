@@ -280,10 +280,10 @@ a / b                 # Division
 
 ## Signal Chain
 
-Use `>>` to chain signals:
+Use `#` to chain signals:
 
 ```phonon
-~bass: saw(55) >> lpf(800, 0.9)
+~bass: saw(55) # lpf(800, 0.9)
 out: ~bass * 0.3
 ```
 
@@ -347,7 +347,7 @@ out: bitcrush(~chip, 4.0, 8.0) * 0.5
 ```phonon
 cps: 2.0
 ~lfo: sine(0.25)
-~bass: saw("55 82.5 110") >> lpf(~lfo * 2000 + 500, 0.8)
+~bass: saw("55 82.5 110") # lpf(~lfo * 2000 + 500, 0.8)
 out: dist(~bass, 2.0, 0.3) * 0.3
 ```
 

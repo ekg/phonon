@@ -11,7 +11,7 @@
 ./phonon-play.sh examples/live_beat.phonon 8
 
 # Play inline DSL code
-./phonon-play.sh -c $'~kick: impulse 4 >> mul 80 >> lpf 100 0.9\nout: ~kick' 2
+./phonon-play.sh -c $'~kick: impulse 4 # mul 80 # lpf 100 0.9\nout: ~kick' 2
 ```
 
 ### Live coding (auto-reload on save)
@@ -31,8 +31,8 @@ cargo run --example live_phonon examples/live_session.phonon 4
 ### Basic Structure
 ```phonon
 # Comments start with #
-~name: chain >> of >> nodes    # Reference chain
-out: final >> output >> chain   # Output (required)
+~name: chain # of # nodes    # Reference chain
+out: final # output # chain   # Output (required)
 ```
 
 ### Oscillators & Generators
@@ -69,39 +69,39 @@ out: final >> output >> chain   # Output (required)
 
 ### Basic Kick Drum
 ```phonon
-~kick: impulse 4 >> mul 100 >> lpf 80 0.95
+~kick: impulse 4 # mul 100 # lpf 80 0.95
 out: ~kick
 ```
 
 ### Kick + Hihat
 ```phonon
-~kick: impulse 4 >> mul 80 >> lpf 100 0.9
-~hihat: impulse 8 >> mul 10 >> noise >> mul 0.2 >> hpf 8000 0.9
-out: ~kick + ~hihat >> mul 0.8
+~kick: impulse 4 # mul 80 # lpf 100 0.9
+~hihat: impulse 8 # mul 10 # noise # mul 0.2 # hpf 8000 0.9
+out: ~kick + ~hihat # mul 0.8
 ```
 
 ### 4-on-floor with Clap
 ```phonon
-~kick: impulse 4 >> mul 100 >> lpf 80 0.95
-~clap: impulse 2 >> delay 0.25 0.0 >> mul 50 >> noise >> mul 0.4 >> hpf 1200 0.7
-~hihat: impulse 8 >> mul 15 >> noise >> mul 0.2 >> hpf 7000 0.9
+~kick: impulse 4 # mul 100 # lpf 80 0.95
+~clap: impulse 2 # delay 0.25 0.0 # mul 50 # noise # mul 0.4 # hpf 1200 0.7
+~hihat: impulse 8 # mul 15 # noise # mul 0.2 # hpf 7000 0.9
 ~drums: ~kick + ~clap + ~hihat
-out: ~drums >> lpf 2500 0.6 >> mul 0.8
+out: ~drums # lpf 2500 0.6 # mul 0.8
 ```
 
 ### Techno Pattern
 ```phonon
-~kick: impulse 4 >> mul 120 >> lpf 50 0.98
-~bass: impulse 4 >> delay 0.125 0.0 >> mul 30 >> lpf 200 0.9
-~tick: impulse 16 >> mul 5 >> hpf 10000 0.95
-out: ~kick + ~bass + ~tick >> mul 0.6
+~kick: impulse 4 # mul 120 # lpf 50 0.98
+~bass: impulse 4 # delay 0.125 0.0 # mul 30 # lpf 200 0.9
+~tick: impulse 16 # mul 5 # hpf 10000 0.95
+out: ~kick + ~bass + ~tick # mul 0.6
 ```
 
 ### Ambient Percussion
 ```phonon
-~pulse: impulse 2 >> mul 40 >> lpf 300 0.7 >> reverb 0.8 0.3
-~shimmer: impulse 8 >> mul 8 >> noise >> mul 0.1 >> hpf 12000 0.9 >> delay 0.125 0.4
-out: ~pulse + ~shimmer >> mul 0.5
+~pulse: impulse 2 # mul 40 # lpf 300 0.7 # reverb 0.8 0.3
+~shimmer: impulse 8 # mul 8 # noise # mul 0.1 # hpf 12000 0.9 # delay 0.125 0.4
+out: ~pulse + ~shimmer # mul 0.5
 ```
 
 ## Tips

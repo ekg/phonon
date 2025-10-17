@@ -38,40 +38,40 @@ Any signal can be analyzed to extract control data:
 
 ```
 // RMS (Root Mean Square) - extract amplitude envelope
-~bass_level: ~bass >> rms(0.05)        // 50ms RMS window
+~bass_level: ~bass # rms(0.05)        // 50ms RMS window
 
 // Pitch detection
-~vocal_pitch: ~vocal >> pitch          
+~vocal_pitch: ~vocal # pitch          
 
 // Transient detection  
-~kick_transient: bd >> transient       
+~kick_transient: bd # transient       
 
 // Spectral centroid (brightness)
-~brightness: ~input >> centroid        
+~brightness: ~input # centroid        
 
 // Zero crossing rate (noisiness)
-~zcr: ~input >> zero_crossings         
+~zcr: ~input # zero_crossings         
 ```
 
 ### 3. Signal Processing Chains
 
-Signals flow through processors using the `>>` operator:
+Signals flow through processors using the `#` operator:
 
 ```
 // Basic processing chain
-~filtered: ~source >> lpf(2000, 0.7) >> delay(0.25, 0.3)
+~filtered: ~source # lpf(2000, 0.7) # delay(0.25, 0.3)
 
 // Parallel processing with mixing
-~stereo: ~mono >> [
+~stereo: ~mono # [
     delay(0.020) * 0.5,
     delay(0.023) * 0.5
 ]
 
 // Complex routing
-~complex: ~input >> {
+~complex: ~input # {
     dry: gain(0.5),
-    wet: reverb(0.3) >> lpf(~lfo * 2000)
-} >> mix
+    wet: reverb(0.3) # lpf(~lfo * 2000)
+} # mix
 ```
 
 ### 4. Cross-Pattern Modulation
@@ -81,11 +81,11 @@ Pattern events can modulate synthesis parameters and vice versa:
 ```
 // Pattern drives filter cutoff
 ~rhythm: "1 0 1 0" 
-~filter: ~input >> lpf(~rhythm * 3000 + 500)
+~filter: ~input # lpf(~rhythm * 3000 + 500)
 
 // Audio analysis affects pattern playback
 ~gate: ~input.rms > 0.1
-hats: "hh*16" >> when(~gate)  // Hats only play when input is loud
+hats: "hh*16" # when(~gate)  // Hats only play when input is loud
 
 // Sidechain compression via pattern
 ~kick_pattern: "bd ~ ~ bd"
@@ -114,16 +114,16 @@ route ~lfo1 -> {
 
 ```
 // Conditional processing
-~processed: ~input.rms > 0.5 ? ~input >> distort(0.7) : ~input
+~processed: ~input.rms > 0.5 ? ~input # distort(0.7) : ~input
 
 // Switch between sources
 ~source: ~selector > 0.5 ? ~synth1 : ~synth2
 
 // Threshold gates
-~gated: ~input >> gate(~control > 0.3)
+~gated: ~input # gate(~control > 0.3)
 
 // Probability-based routing
-~random: ~input >> prob(0.7) ? reverb(0.5) : delay(0.25)
+~random: ~input # prob(0.7) ? reverb(0.5) : delay(0.25)
 ```
 
 ### 7. Feedback Networks
@@ -133,12 +133,12 @@ Create recursive signal paths with implicit single-sample delay:
 ```
 // Simple feedback delay
 ~feedback: ~delay_out * 0.7
-~delay_out: (~input + ~feedback) >> delay(0.25) >> lpf(2000)
+~delay_out: (~input + ~feedback) # delay(0.25) # lpf(2000)
 
 // Karplus-Strong string synthesis
 ~exciter: noise() * perc(0.001, 0.01)
 ~string_feedback: ~string_out * 0.99
-~string_out: (~exciter + ~string_feedback) >> delay(1/440) >> lpf(8000)
+~string_out: (~exciter + ~string_feedback) # delay(1/440) # lpf(8000)
 ```
 
 ### 8. Polyphonic Voice Management
@@ -147,12 +147,12 @@ Create recursive signal paths with implicit single-sample delay:
 // Define a polyphonic synth
 poly[8] ~synth: {
     osc: saw($freq) * adsr($gate, 0.01, 0.1, 0.7, 0.5),
-    filter: osc >> lpf($cutoff * ~lfo1, 0.8),
+    filter: osc # lpf($cutoff * ~lfo1, 0.8),
     out: filter * $velocity
 }
 
 // Pattern triggers voices
-"c3 e3 g3" >> ~synth  // Automatically allocates voices
+"c3 e3 g3" # ~synth  // Automatically allocates voices
 ```
 
 ## Complete Example: Bass-Modulated Percussion
@@ -165,16 +165,16 @@ poly[8] ~synth: {
 // === Bass Synthesis ===
 ~bass_env: perc(0.01, 0.3)
 ~bass_osc: saw(55) * ~bass_env
-~bass: ~bass_osc >> lpf(~lfo_slow * 2000 + 500, 0.8)
+~bass: ~bass_osc # lpf(~lfo_slow * 2000 + 500, 0.8)
 
 // === Extract Bass Features ===
-~bass_rms: ~bass >> rms(0.05)              // Bass amplitude envelope
-~bass_transient: ~bass >> transient        // Bass note attacks
+~bass_rms: ~bass # rms(0.05)              // Bass amplitude envelope
+~bass_transient: ~bass # transient        // Bass note attacks
 
 // === Percussion Modulated by Bass ===
-~kick: "bd ~ ~ bd" >> gain(1.0)
-~snare: "~ sn ~ sn" >> lpf(~bass_rms * 4000 + 1000)  // Bass controls snare filter
-~hats: "hh*16" >> hpf(~bass_rms * 8000 + 2000)       // Bass controls hat brightness
+~kick: "bd ~ ~ bd" # gain(1.0)
+~snare: "~ sn ~ sn" # lpf(~bass_rms * 4000 + 1000)  // Bass controls snare filter
+~hats: "hh*16" # hpf(~bass_rms * 8000 + 2000)       // Bass controls hat brightness
 
 // === Cross-modulation ===
 route ~bass_transient -> ~hats.gain: -0.5  // Duck hats on bass attacks
@@ -182,7 +182,7 @@ route ~kick.transient -> ~bass.gain: -0.3  // Sidechain compression
 
 // === Master Processing ===
 ~mix: (~bass * 0.4) + (~kick * 0.5) + (~snare * 0.3) + (~hats * 0.2)
-~master: ~mix >> compress(0.3, 4) >> limit(0.95)
+~master: ~mix # compress(0.3, 4) # limit(0.95)
 
 // === Output ===
 out: ~master
@@ -331,9 +331,9 @@ impl PatternBridge {
 fn test_cross_modulation() {
     let dsl = r#"
         ~lfo: sine(2)
-        ~bass: saw(110) >> lpf(~lfo * 2000, 0.8)
-        ~bass_rms: ~bass >> rms(0.05)
-        ~hats: noise() >> hpf(~bass_rms * 8000)
+        ~bass: saw(110) # lpf(~lfo * 2000, 0.8)
+        ~bass_rms: ~bass # rms(0.05)
+        ~hats: noise() # hpf(~bass_rms * 8000)
     "#;
     
     let graph = parse_signal_definition(dsl).unwrap();

@@ -1,3 +1,4 @@
+use phonon::mini_notation_v3::parse_mini_notation;
 /// Test to verify that voices don't accumulate across cycles
 ///
 /// BUG REPORT: User observes that samples appear to accumulate across cycles,
@@ -8,10 +9,8 @@
 /// cycle N should not re-trigger if they're the "same" events from the pattern.
 ///
 /// ACTUAL: Voice count may be growing unboundedly as cycles repeat.
-
 use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
-use phonon::mini_notation_v3::parse_mini_notation;
 
 #[test]
 fn test_voice_count_does_not_accumulate() {
@@ -50,8 +49,10 @@ fn test_voice_count_does_not_accumulate() {
         voice_counts.push(avg_voices);
         peak_voice_counts.push(max_voices_this_cycle);
 
-        println!("Cycle {}: avg_voices={:.2}, peak_voices={}",
-                 cycle, avg_voices, max_voices_this_cycle);
+        println!(
+            "Cycle {}: avg_voices={:.2}, peak_voices={}",
+            cycle, avg_voices, max_voices_this_cycle
+        );
     }
 
     // Check if voice count is growing unboundedly
@@ -61,7 +62,10 @@ fn test_voice_count_does_not_accumulate() {
 
     let growth_ratio = late_avg / early_avg.max(0.1);
 
-    println!("\nVoice count growth ratio (cycle 7 / cycle 2): {:.2}x", growth_ratio);
+    println!(
+        "\nVoice count growth ratio (cycle 7 / cycle 2): {:.2}x",
+        growth_ratio
+    );
     println!("Early average (cycle 2): {:.2}", early_avg);
     println!("Late average (cycle 7): {:.2}", late_avg);
 
@@ -102,8 +106,12 @@ fn test_rms_does_not_grow_exponentially() {
         let rms = (sum_squares / samples_per_cycle as f32).sqrt();
         rms_per_cycle.push(rms);
 
-        println!("Cycle {}: RMS={:.4} ({:.2} dB)",
-                 cycle, rms, 20.0 * rms.max(0.0001).log10());
+        println!(
+            "Cycle {}: RMS={:.4} ({:.2} dB)",
+            cycle,
+            rms,
+            20.0 * rms.max(0.0001).log10()
+        );
     }
 
     // Check if RMS is growing across cycles

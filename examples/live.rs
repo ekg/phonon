@@ -126,6 +126,7 @@ fn patch_2_pattern_drums(graph: &mut UnifiedSignalGraph) {
         pattern_str: "bd ~ ~ bd".to_string(),
         pattern: kick_pattern,
         last_value: 0.0,
+        last_trigger_time: -1.0,
     });
 
     // Kick oscillator
@@ -152,6 +153,7 @@ fn patch_2_pattern_drums(graph: &mut UnifiedSignalGraph) {
         pattern_str: "~ sn ~ sn".to_string(),
         pattern: snare_pattern,
         last_value: 0.0,
+        last_trigger_time: -1.0,
     });
 
     // Snare (noise)
@@ -203,6 +205,7 @@ fn patch_3_bass_sidechain(graph: &mut UnifiedSignalGraph) {
         pattern_str: "1 0 0 0".to_string(),
         pattern: kick_pattern,
         last_value: 0.0,
+        last_trigger_time: -1.0,
     });
 
     // Bass notes
@@ -211,6 +214,7 @@ fn patch_3_bass_sidechain(graph: &mut UnifiedSignalGraph) {
         pattern_str: "55 55 82.5 55".to_string(),
         pattern: bass_pattern,
         last_value: 55.0,
+        last_trigger_time: -1.0,
     });
 
     // Bass oscillator

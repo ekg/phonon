@@ -252,6 +252,7 @@ fn parse_expression(
             pattern_str: pattern_str.to_string(),
             pattern,
             last_value: 0.0,
+            last_trigger_time: -1.0,
         }));
     }
 

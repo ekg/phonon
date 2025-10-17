@@ -1,7 +1,7 @@
-use phonon::sample_loader::SampleBank;
-use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, State, TimeSpan};
+use phonon::sample_loader::SampleBank;
+use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -34,14 +34,20 @@ fn test_sample_bank_different_samples() {
     // If both samples exist, they should be different
     if let (Some(s0), Some(s1)) = (sample0, sample1) {
         // Check that they're not the same pointer
-        assert_ne!(Arc::ptr_eq(&s0, &s1), true, "bd:0 and bd:1 should be different samples");
+        assert_ne!(
+            Arc::ptr_eq(&s0, &s1),
+            true,
+            "bd:0 and bd:1 should be different samples"
+        );
 
         // They might have different lengths or content
         let different_length = s0.len() != s1.len();
         let different_content = s0.iter().zip(s1.iter()).any(|(a, b)| a != b);
 
-        assert!(different_length || different_content,
-                "bd:0 and bd:1 should have different audio content");
+        assert!(
+            different_length || different_content,
+            "bd:0 and bd:1 should have different audio content"
+        );
     }
 }
 
@@ -66,13 +72,19 @@ fn test_mini_notation_with_sample_index() {
     }
 
     // Should find 3 events
-    assert!(found_events.len() >= 3,
-            "Should find at least 3 events in pattern, found {}", found_events.len());
+    assert!(
+        found_events.len() >= 3,
+        "Should find at least 3 events in pattern, found {}",
+        found_events.len()
+    );
 
     // Check that the sample names contain colons
     let has_colon_syntax = found_events.iter().any(|name| name.contains(':'));
-    assert!(has_colon_syntax,
-            "Pattern should preserve colon syntax in sample names. Found: {:?}", found_events);
+    assert!(
+        has_colon_syntax,
+        "Pattern should preserve colon syntax in sample names. Found: {:?}",
+        found_events
+    );
 }
 
 #[test]

@@ -94,7 +94,7 @@ let melody = triangle(pattern_to_freq);
 - Pattern-driven synthesis: **Working**
 
 ### Signal Routing
-- Signal chains (`>>`): **Working**
+- Signal chains (`#`): **Working**
 - Bus references (`~name`): **Working**
 - Expressions (arithmetic): **Working**
 - Conditional processing (`when`): **Working**
@@ -116,7 +116,7 @@ let melody = triangle(pattern_to_freq);
 ```rust
 // This actually works now!
 ~kick: "bd ~ ~ bd"
-~bass_env: ~kick >> inv >> lag(0.01)  // Sidechain!
+~bass_env: ~kick # inv # lag(0.01)  // Sidechain!
 ~bass_synth: saw(~bass) * ~bass_env
 ```
 

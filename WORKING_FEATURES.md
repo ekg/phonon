@@ -30,7 +30,7 @@
 - Simple envelope (attack/decay only)
 
 ### Pattern Syntax  
-- No support for `|>` pipe operator yet (e.g. `"bd sn" |> fast 2`)
+- No support for `$` pipe operator yet (e.g. `"bd sn" $ fast 2`)
 - Limited to what fits in a string after `s`
 - No pattern variables or functions
 

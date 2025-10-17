@@ -2,7 +2,6 @@
 ///
 /// This test renders a pattern with alternation and logs detailed information
 /// about event triggering to help diagnose if events are being re-triggered.
-
 use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
@@ -31,7 +30,10 @@ fn test_debug_event_triggering_alternation() {
         let cycle_start_sample = cycle * samples_per_cycle;
         let cycle_end_sample = (cycle + 1) * samples_per_cycle;
 
-        println!("--- CYCLE {} (samples {} to {}) ---", cycle, cycle_start_sample, cycle_end_sample);
+        println!(
+            "--- CYCLE {} (samples {} to {}) ---",
+            cycle, cycle_start_sample, cycle_end_sample
+        );
 
         // Track voice counts throughout the cycle
         let mut voice_counts_at_samples = Vec::new();
@@ -56,7 +58,10 @@ fn test_debug_event_triggering_alternation() {
 
         // Get stats for this cycle
         let cycle_end_voices = graph.active_voice_count();
-        println!("  END OF CYCLE {}: active_voices={}\n", cycle, cycle_end_voices);
+        println!(
+            "  END OF CYCLE {}: active_voices={}\n",
+            cycle, cycle_end_voices
+        );
     }
 
     // Now check one more cycle to see if pattern continues

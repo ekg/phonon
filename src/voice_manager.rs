@@ -2,6 +2,75 @@
 //!
 //! Based on SuperCollider's architecture, this module manages multiple
 //! simultaneous sample playback voices with proper position tracking.
+//!
+//! # Features
+//!
+//! - **64 simultaneous voices**: Can play up to 64 samples at once
+//! - **Automatic voice allocation**: Finds free voices or steals oldest one
+//! - **Voice stealing**: When all voices are busy, the oldest voice is reused
+//! - **Per-voice control**: Gain, pan, and speed parameters for each voice
+//! - **Stereo output**: Equal-power panning for proper stereo imaging
+//!
+//! # Examples
+//!
+//! ## Basic sample playback
+//!
+//! ```
+//! use phonon::voice_manager::VoiceManager;
+//! use phonon::sample_loader::SampleBank;
+//!
+//! // Create voice manager and sample bank
+//! let mut vm = VoiceManager::new();
+//! let mut bank = SampleBank::new();
+//!
+//! // Load a sample
+//! let bd_sample = bank.get_sample("bd").expect("Sample not found");
+//!
+//! // Trigger the sample
+//! vm.trigger_sample(bd_sample, 1.0); // gain=1.0
+//!
+//! // Process audio (call in your audio callback)
+//! for _ in 0..1000 {
+//!     let audio_sample = vm.process();
+//!     // Send audio_sample to audio output
+//! }
+//! ```
+//!
+//! ## Stereo with panning
+//!
+//! ```
+//! use phonon::voice_manager::VoiceManager;
+//! use phonon::sample_loader::SampleBank;
+//!
+//! let mut vm = VoiceManager::new();
+//! let mut bank = SampleBank::new();
+//!
+//! let bd = bank.get_sample("bd").unwrap();
+//! let sn = bank.get_sample("sn").unwrap();
+//!
+//! // Pan kick to left, snare to right
+//! vm.trigger_sample_with_pan(bd, 1.0, -1.0); // hard left
+//! vm.trigger_sample_with_pan(sn, 0.8, 1.0);  // hard right
+//!
+//! // Process stereo
+//! let (left, right) = vm.process_stereo();
+//! ```
+//!
+//! ## Speed control (pitch shifting)
+//!
+//! ```
+//! use phonon::voice_manager::Voice;
+//! use std::sync::Arc;
+//!
+//! let mut voice = Voice::new();
+//! let sample_data = vec![0.5, 0.6, 0.7, 0.8];
+//! let sample = Arc::new(sample_data);
+//!
+//! // Play at different speeds
+//! voice.trigger_with_speed(sample.clone(), 1.0, 0.0, 1.0); // normal
+//! voice.trigger_with_speed(sample.clone(), 1.0, 0.0, 2.0); // double speed (octave up)
+//! voice.trigger_with_speed(sample, 1.0, 0.0, 0.5);         // half speed (octave down)
+//! ```
 
 use std::sync::Arc;
 
@@ -14,8 +83,8 @@ pub struct Voice {
     /// The sample data to play
     sample_data: Option<Arc<Vec<f32>>>,
 
-    /// Current playback position in the sample
-    position: usize,
+    /// Current playback position in the sample (fractional for speed control)
+    position: f32,
 
     /// Whether this voice is currently active
     active: bool,
@@ -23,8 +92,18 @@ pub struct Voice {
     /// Gain for this voice
     gain: f32,
 
+    /// Pan position: -1.0 = hard left, 0.0 = center, 1.0 = hard right
+    pan: f32,
+
+    /// Playback speed: 1.0 = normal, 2.0 = double speed, 0.5 = half speed
+    speed: f32,
+
     /// Age counter for voice stealing (incremented each sample)
     age: usize,
+
+    /// Cut group: voices in the same cut group stop each other when triggered
+    /// None = no cut group, Some(n) = cut group number n
+    cut_group: Option<u32>,
 }
 
 impl Default for Voice {
@@ -37,43 +116,103 @@ impl Voice {
     pub fn new() -> Self {
         Self {
             sample_data: None,
-            position: 0,
+            position: 0.0,
             active: false,
             gain: 1.0,
+            pan: 0.0,
+            speed: 1.0,
             age: 0,
+            cut_group: None,
         }
     }
 
-    /// Start playing a sample
-    pub fn trigger(&mut self, sample: Arc<Vec<f32>>, gain: f32) {
-        self.sample_data = Some(sample);
-        self.position = 0;
-        self.active = true;
-        self.gain = gain;
-        self.age = 0;
+    /// Start playing a sample with pan (backward compatibility, speed=1.0, no cut group)
+    pub fn trigger(&mut self, sample: Arc<Vec<f32>>, gain: f32, pan: f32) {
+        self.trigger_with_speed(sample, gain, pan, 1.0);
     }
 
-    /// Process one sample of audio
+    /// Start playing a sample with gain, pan, and speed control (no cut group)
+    pub fn trigger_with_speed(&mut self, sample: Arc<Vec<f32>>, gain: f32, pan: f32, speed: f32) {
+        self.trigger_with_cut_group(sample, gain, pan, speed, None);
+    }
+
+    /// Start playing a sample with full control including cut group
+    pub fn trigger_with_cut_group(
+        &mut self,
+        sample: Arc<Vec<f32>>,
+        gain: f32,
+        pan: f32,
+        speed: f32,
+        cut_group: Option<u32>,
+    ) {
+        self.sample_data = Some(sample);
+        self.position = 0.0;
+        self.active = true;
+        self.gain = gain;
+        self.pan = pan.clamp(-1.0, 1.0);
+        self.speed = speed.max(0.01); // Prevent zero or negative speed for now
+        self.age = 0;
+        self.cut_group = cut_group;
+    }
+
+    /// Process one sample of audio (mono)
     pub fn process(&mut self) -> f32 {
+        let (left, right) = self.process_stereo();
+        // Mix down to mono with compensation for equal-power panning
+        // At center pan, left=right=value*sqrt(0.5), so (left+right)=value*sqrt(2)
+        // Divide by sqrt(2) to restore original amplitude: value*sqrt(2)/sqrt(2) = value
+        (left + right) / std::f32::consts::SQRT_2
+    }
+
+    /// Process one sample of audio (stereo with panning)
+    pub fn process_stereo(&mut self) -> (f32, f32) {
         if !self.active {
-            return 0.0;
+            return (0.0, 0.0);
         }
 
         if let Some(ref samples) = self.sample_data {
-            if self.position < samples.len() {
-                let output = samples[self.position] * self.gain;
-                self.position += 1;
+            let sample_len = samples.len() as f32;
+
+            if self.position < sample_len {
+                // Linear interpolation for fractional positions
+                let pos_floor = self.position.floor() as usize;
+                let pos_frac = self.position - pos_floor as f32;
+
+                let sample_value = if pos_floor + 1 < samples.len() {
+                    // Interpolate between current and next sample
+                    let current = samples[pos_floor];
+                    let next = samples[pos_floor + 1];
+                    current * (1.0 - pos_frac) + next * pos_frac
+                } else {
+                    // Last sample, no interpolation
+                    samples[pos_floor]
+                };
+
+                let output_value = sample_value * self.gain;
+
+                // Advance position by speed
+                self.position += self.speed;
                 self.age += 1;
-                output
+
+                // Equal-power panning
+                // pan: -1.0 = hard left, 0.0 = center, 1.0 = hard right
+                let pan_radians = (self.pan + 1.0) * std::f32::consts::FRAC_PI_4; // Map -1..1 to 0..PI/2
+                let left_gain = pan_radians.cos();
+                let right_gain = pan_radians.sin();
+
+                let left = output_value * left_gain;
+                let right = output_value * right_gain;
+
+                (left, right)
             } else {
                 // Sample finished
                 self.active = false;
                 self.sample_data = None;
-                0.0
+                (0.0, 0.0)
             }
         } else {
             self.active = false;
-            0.0
+            (0.0, 0.0)
         }
     }
 
@@ -111,13 +250,52 @@ impl VoiceManager {
         }
     }
 
-    /// Trigger a sample with automatic voice allocation
+    /// Trigger a sample with automatic voice allocation (center pan)
     pub fn trigger_sample(&mut self, sample: Arc<Vec<f32>>, gain: f32) {
+        self.trigger_sample_with_pan(sample, gain, 0.0);
+    }
+
+    /// Trigger a sample with automatic voice allocation and pan control
+    pub fn trigger_sample_with_pan(&mut self, sample: Arc<Vec<f32>>, gain: f32, pan: f32) {
+        self.trigger_sample_with_params(sample, gain, pan, 1.0);
+    }
+
+    /// Trigger a sample with full DSP parameter control (gain, pan, speed, no cut group)
+    pub fn trigger_sample_with_params(
+        &mut self,
+        sample: Arc<Vec<f32>>,
+        gain: f32,
+        pan: f32,
+        speed: f32,
+    ) {
+        self.trigger_sample_with_cut_group(sample, gain, pan, speed, None);
+    }
+
+    /// Trigger a sample with full control including cut group
+    /// If cut_group is Some(n), all other voices in cut group n will be stopped
+    pub fn trigger_sample_with_cut_group(
+        &mut self,
+        sample: Arc<Vec<f32>>,
+        gain: f32,
+        pan: f32,
+        speed: f32,
+        cut_group: Option<u32>,
+    ) {
+        // If this has a cut group, stop all other voices in the same cut group
+        if let Some(group) = cut_group {
+            for voice in &mut self.voices {
+                if voice.cut_group == Some(group) && voice.active {
+                    voice.active = false;
+                    voice.sample_data = None;
+                }
+            }
+        }
+
         // Try to find an inactive voice
         for i in 0..MAX_VOICES {
             let idx = (self.next_voice_index + i) % MAX_VOICES;
             if self.voices[idx].is_available() {
-                self.voices[idx].trigger(sample, gain);
+                self.voices[idx].trigger_with_cut_group(sample, gain, pan, speed, cut_group);
                 self.next_voice_index = (idx + 1) % MAX_VOICES;
                 return;
             }
@@ -135,26 +313,44 @@ impl VoiceManager {
         }
 
         // Steal the oldest voice
-        self.voices[oldest_idx].trigger(sample, gain);
+        self.voices[oldest_idx].trigger_with_cut_group(sample, gain, pan, speed, cut_group);
         self.next_voice_index = (oldest_idx + 1) % MAX_VOICES;
     }
 
-    /// Process one sample from all active voices
+    /// Process one sample from all active voices (mono)
     pub fn process(&mut self) -> f32 {
-        let mut output = 0.0;
+        let (left, right) = self.process_stereo();
+        // Mix down to mono with compensation for equal-power panning
+        // At center pan, left=right=value*sqrt(0.5), so (left+right)=value*sqrt(2)
+        // Divide by sqrt(2) to restore original amplitude
+        (left + right) / std::f32::consts::SQRT_2
+    }
+
+    /// Process one sample from all active voices (stereo)
+    pub fn process_stereo(&mut self) -> (f32, f32) {
+        let mut left = 0.0;
+        let mut right = 0.0;
 
         for voice in &mut self.voices {
-            output += voice.process();
+            let (voice_left, voice_right) = voice.process_stereo();
+            left += voice_left;
+            right += voice_right;
         }
 
         // Apply some limiting to prevent clipping
-        if output > 1.0 {
-            output = output.tanh();
-        } else if output < -1.0 {
-            output = output.tanh();
+        if left > 1.0 {
+            left = left.tanh();
+        } else if left < -1.0 {
+            left = left.tanh();
         }
 
-        output
+        if right > 1.0 {
+            right = right.tanh();
+        } else if right < -1.0 {
+            right = right.tanh();
+        }
+
+        (left, right)
     }
 
     /// Process a block of samples
@@ -178,7 +374,7 @@ impl VoiceManager {
         for voice in &mut self.voices {
             voice.active = false;
             voice.sample_data = None;
-            voice.position = 0;
+            voice.position = 0.0;
         }
         self.next_voice_index = 0;
     }

@@ -195,7 +195,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("==================");
             println!(
                 "Input:       {}",
-                if input.ends_with(".ph") || input.ends_with(".phonon") || input.ends_with(".pho") || input.ends_with(".dsl")
+                if input.ends_with(".ph")
+                    || input.ends_with(".phonon")
+                    || input.ends_with(".pho")
+                    || input.ends_with(".dsl")
                 {
                     &input
                 } else {
@@ -212,9 +215,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
             // Parse the DSL
-            let (_, statements) = parse_dsl(&dsl_code).map_err(|e| {
-                format!("Failed to parse DSL: {:?}", e)
-            })?;
+            let (_, statements) =
+                parse_dsl(&dsl_code).map_err(|e| format!("Failed to parse DSL: {:?}", e))?;
 
             // Compile to graph
             let compiler = DslCompiler::new(sample_rate as f32);
@@ -354,7 +356,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
 
                     // Parse assignment or output
-                    if trimmed.starts_with("out ") || trimmed.starts_with("out=") || trimmed.contains('=') {
+                    if trimmed.starts_with("out ")
+                        || trimmed.starts_with("out=")
+                        || trimmed.contains('=')
+                    {
                         let (target, expr) = if trimmed.contains('=') {
                             // Handle assignment: out = ... or ~bus = ...
                             let pos = trimmed.find('=').unwrap();
@@ -369,7 +374,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         };
 
                         // Parse expression into node
-                        let node_id = if let Some(chain_pos) = expr.find(">>").or_else(|| expr.find("<<")) {
+                        let node_id = if let Some(chain_pos) =
+                            expr.find(">>").or_else(|| expr.find("<<"))
+                        {
                             // Signal chain: source >> effect OR effect << source
                             let is_reversed = expr.contains("<<");
                             let (source_str, effect_str) = if is_reversed {
@@ -388,7 +395,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     if let Some(end) = source_str.find(')') {
                                         let pattern_str = source_str[start + 1..end].trim();
                                         // Remove quotes if present
-                                        let pattern_str = if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
+                                        let pattern_str = if pattern_str.starts_with('"')
+                                            && pattern_str.ends_with('"')
+                                        {
                                             &pattern_str[1..pattern_str.len() - 1]
                                         } else {
                                             pattern_str
@@ -403,7 +412,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             gain: Signal::Value(1.0),
                                             pan: Signal::Value(0.0),
                                             speed: Signal::Value(1.0),
-        cut_group: Signal::Value(0.0),
+                                            cut_group: Signal::Value(0.0),
                                         })
                                     } else {
                                         graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -567,7 +576,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     } else {
                                         Signal::Value(1.0)
                                     }
-                                } else if let Some(node_id) = parse_expression_to_node(graph, parts[1], buses) {
+                                } else if let Some(node_id) =
+                                    parse_expression_to_node(graph, parts[1], buses)
+                                {
                                     Signal::Node(node_id)
                                 } else {
                                     Signal::Value(1.0)
@@ -627,7 +638,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
 
                 // Helper to apply pattern transformations
-                fn apply_transform(pattern: phonon::pattern::Pattern<String>, transform: &str) -> phonon::pattern::Pattern<String> {
+                fn apply_transform(
+                    pattern: phonon::pattern::Pattern<String>,
+                    transform: &str,
+                ) -> phonon::pattern::Pattern<String> {
                     let transform = transform.trim();
 
                     // Parse transformation: fast 2, slow 2, rev, every 4 fast 2
@@ -648,13 +662,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             if let Ok(n) = rest[..space_pos].parse::<i32>() {
                                 let inner_transform = rest[space_pos + 1..].trim();
                                 // Remove parentheses if present
-                                let inner_transform = if inner_transform.starts_with('(') && inner_transform.ends_with(')') {
+                                let inner_transform = if inner_transform.starts_with('(')
+                                    && inner_transform.ends_with(')')
+                                {
                                     &inner_transform[1..inner_transform.len() - 1]
                                 } else {
                                     inner_transform
                                 };
                                 let inner_transform = inner_transform.to_string();
-                                return pattern.every(n, move |p| apply_transform(p, &inner_transform));
+                                return pattern
+                                    .every(n, move |p| apply_transform(p, &inner_transform));
                             }
                         }
                     }
@@ -695,7 +712,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 if let Some(start) = base_expr.find('(') {
                                     if let Some(end) = base_expr.find(')') {
                                         let pattern_str = base_expr[start + 1..end].trim();
-                                        let pattern_str = if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
+                                        let pattern_str = if pattern_str.starts_with('"')
+                                            && pattern_str.ends_with('"')
+                                        {
                                             &pattern_str[1..pattern_str.len() - 1]
                                         } else {
                                             pattern_str
@@ -716,7 +735,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             gain: Signal::Value(1.0),
                                             pan: Signal::Value(0.0),
                                             speed: Signal::Value(1.0),
-        cut_group: Signal::Value(0.0),
+                                            cut_group: Signal::Value(0.0),
                                         }));
                                     }
                                 }
@@ -757,11 +776,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             if let Some(end) = expr.find(')') {
                                 let pattern_str = expr[start + 1..end].trim();
                                 // Remove quotes if present
-                                let pattern_str = if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
-                                    &pattern_str[1..pattern_str.len() - 1]
-                                } else {
-                                    pattern_str
-                                };
+                                let pattern_str =
+                                    if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
+                                        &pattern_str[1..pattern_str.len() - 1]
+                                    } else {
+                                        pattern_str
+                                    };
                                 let pattern = parse_mini_notation(pattern_str);
                                 return Some(graph.add_node(SignalNode::Sample {
                                     pattern_str: pattern_str.to_string(),
@@ -772,7 +792,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     gain: Signal::Value(1.0),
                                     pan: Signal::Value(0.0),
                                     speed: Signal::Value(1.0),
-        cut_group: Signal::Value(0.0),
+                                    cut_group: Signal::Value(0.0),
                                 }));
                             }
                         }
@@ -844,102 +864,180 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let library = SynthLibrary::with_sample_rate(44100.0);
 
                         // Helper to parse a synth parameter
-                        let mut parse_synth_param =
-                            |param_str: &str| -> Signal {
-                                let param_str = param_str.trim();
-                                // Pattern: "100 200 300"
-                                if param_str.starts_with('"') && param_str.ends_with('"') {
-                                    let pattern_str = &param_str[1..param_str.len() - 1];
-                                    let pattern = parse_mini_notation(pattern_str);
-                                    let pattern_node = graph.add_node(SignalNode::Pattern {
-                                        pattern_str: pattern_str.to_string(),
-                                        pattern,
-                                        last_value: 440.0,
-                                        last_trigger_time: -1.0,
-                                    });
-                                    Signal::Node(pattern_node)
-                                }
-                                // Bus reference: ~lfo
-                                else if param_str.starts_with('~') {
-                                    if let Some(&bus_id) = buses.get(param_str) {
-                                        Signal::Node(bus_id)
-                                    } else {
-                                        Signal::Value(440.0)
-                                    }
-                                }
-                                // Number
-                                else if let Ok(val) = param_str.parse::<f32>() {
-                                    Signal::Value(val)
+                        let mut parse_synth_param = |param_str: &str| -> Signal {
+                            let param_str = param_str.trim();
+                            // Pattern: "100 200 300"
+                            if param_str.starts_with('"') && param_str.ends_with('"') {
+                                let pattern_str = &param_str[1..param_str.len() - 1];
+                                let pattern = parse_mini_notation(pattern_str);
+                                let pattern_node = graph.add_node(SignalNode::Pattern {
+                                    pattern_str: pattern_str.to_string(),
+                                    pattern,
+                                    last_value: 440.0,
+                                    last_trigger_time: -1.0,
+                                });
+                                Signal::Node(pattern_node)
+                            }
+                            // Bus reference: ~lfo
+                            else if param_str.starts_with('~') {
+                                if let Some(&bus_id) = buses.get(param_str) {
+                                    Signal::Node(bus_id)
                                 } else {
                                     Signal::Value(440.0)
                                 }
-                            };
+                            }
+                            // Number
+                            else if let Ok(val) = param_str.parse::<f32>() {
+                                Signal::Value(val)
+                            } else {
+                                Signal::Value(440.0)
+                            }
+                        };
 
                         if expr.starts_with("supersaw(") {
-                            if let Some(params_str) = expr.strip_prefix("supersaw(").and_then(|s| s.strip_suffix(")")) {
-                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            if let Some(params_str) = expr
+                                .strip_prefix("supersaw(")
+                                .and_then(|s| s.strip_suffix(")"))
+                            {
+                                let params: Vec<&str> =
+                                    params_str.split(',').map(|s| s.trim()).collect();
 
                                 // Freq can be pattern, detune and voices must be constant
-                                let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(110.0));
+                                let freq_signal = params
+                                    .first()
+                                    .map(|p| parse_synth_param(p))
+                                    .unwrap_or(Signal::Value(110.0));
                                 let detune = params.get(1).and_then(|s| s.parse::<f32>().ok());
                                 let voices = params.get(2).and_then(|s| s.parse::<usize>().ok());
 
-                                return Some(library.build_supersaw(graph, freq_signal, detune, voices));
+                                return Some(library.build_supersaw(
+                                    graph,
+                                    freq_signal,
+                                    detune,
+                                    voices,
+                                ));
                             }
                         } else if expr.starts_with("superkick(") {
-                            if let Some(params_str) = expr.strip_prefix("superkick(").and_then(|s| s.strip_suffix(")")) {
-                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            if let Some(params_str) = expr
+                                .strip_prefix("superkick(")
+                                .and_then(|s| s.strip_suffix(")"))
+                            {
+                                let params: Vec<&str> =
+                                    params_str.split(',').map(|s| s.trim()).collect();
 
-                                let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(60.0));
+                                let freq_signal = params
+                                    .first()
+                                    .map(|p| parse_synth_param(p))
+                                    .unwrap_or(Signal::Value(60.0));
                                 let pitch_env = params.get(1).map(|p| parse_synth_param(p));
                                 let sustain = params.get(2).and_then(|s| s.parse::<f32>().ok());
                                 let noise = params.get(3).map(|p| parse_synth_param(p));
 
-                                return Some(library.build_kick(graph, freq_signal, pitch_env, sustain, noise));
+                                return Some(library.build_kick(
+                                    graph,
+                                    freq_signal,
+                                    pitch_env,
+                                    sustain,
+                                    noise,
+                                ));
                             }
                         } else if expr.starts_with("superpwm(") {
-                            if let Some(params_str) = expr.strip_prefix("superpwm(").and_then(|s| s.strip_suffix(")")) {
-                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            if let Some(params_str) = expr
+                                .strip_prefix("superpwm(")
+                                .and_then(|s| s.strip_suffix(")"))
+                            {
+                                let params: Vec<&str> =
+                                    params_str.split(',').map(|s| s.trim()).collect();
 
-                                let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(110.0));
+                                let freq_signal = params
+                                    .first()
+                                    .map(|p| parse_synth_param(p))
+                                    .unwrap_or(Signal::Value(110.0));
                                 let pwm_rate = params.get(1).and_then(|s| s.parse::<f32>().ok());
                                 let pwm_depth = params.get(2).and_then(|s| s.parse::<f32>().ok());
 
-                                return Some(library.build_superpwm(graph, freq_signal, pwm_rate, pwm_depth));
+                                return Some(library.build_superpwm(
+                                    graph,
+                                    freq_signal,
+                                    pwm_rate,
+                                    pwm_depth,
+                                ));
                             }
                         } else if expr.starts_with("superchip(") {
-                            if let Some(params_str) = expr.strip_prefix("superchip(").and_then(|s| s.strip_suffix(")")) {
-                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            if let Some(params_str) = expr
+                                .strip_prefix("superchip(")
+                                .and_then(|s| s.strip_suffix(")"))
+                            {
+                                let params: Vec<&str> =
+                                    params_str.split(',').map(|s| s.trim()).collect();
 
-                                let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(440.0));
-                                let vibrato_rate = params.get(1).and_then(|s| s.parse::<f32>().ok());
-                                let vibrato_depth = params.get(2).and_then(|s| s.parse::<f32>().ok());
+                                let freq_signal = params
+                                    .first()
+                                    .map(|p| parse_synth_param(p))
+                                    .unwrap_or(Signal::Value(440.0));
+                                let vibrato_rate =
+                                    params.get(1).and_then(|s| s.parse::<f32>().ok());
+                                let vibrato_depth =
+                                    params.get(2).and_then(|s| s.parse::<f32>().ok());
 
-                                return Some(library.build_superchip(graph, freq_signal, vibrato_rate, vibrato_depth));
+                                return Some(library.build_superchip(
+                                    graph,
+                                    freq_signal,
+                                    vibrato_rate,
+                                    vibrato_depth,
+                                ));
                             }
                         } else if expr.starts_with("superfm(") {
-                            if let Some(params_str) = expr.strip_prefix("superfm(").and_then(|s| s.strip_suffix(")")) {
-                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            if let Some(params_str) = expr
+                                .strip_prefix("superfm(")
+                                .and_then(|s| s.strip_suffix(")"))
+                            {
+                                let params: Vec<&str> =
+                                    params_str.split(',').map(|s| s.trim()).collect();
 
-                                let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(110.0));
+                                let freq_signal = params
+                                    .first()
+                                    .map(|p| parse_synth_param(p))
+                                    .unwrap_or(Signal::Value(110.0));
                                 let mod_ratio = params.get(1).and_then(|s| s.parse::<f32>().ok());
                                 let mod_index = params.get(2).and_then(|s| s.parse::<f32>().ok());
 
-                                return Some(library.build_superfm(graph, freq_signal, mod_ratio, mod_index));
+                                return Some(library.build_superfm(
+                                    graph,
+                                    freq_signal,
+                                    mod_ratio,
+                                    mod_index,
+                                ));
                             }
                         } else if expr.starts_with("supersnare(") {
-                            if let Some(params_str) = expr.strip_prefix("supersnare(").and_then(|s| s.strip_suffix(")")) {
-                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            if let Some(params_str) = expr
+                                .strip_prefix("supersnare(")
+                                .and_then(|s| s.strip_suffix(")"))
+                            {
+                                let params: Vec<&str> =
+                                    params_str.split(',').map(|s| s.trim()).collect();
 
-                                let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(180.0));
+                                let freq_signal = params
+                                    .first()
+                                    .map(|p| parse_synth_param(p))
+                                    .unwrap_or(Signal::Value(180.0));
                                 let snappy = params.get(1).and_then(|s| s.parse::<f32>().ok());
                                 let sustain = params.get(2).and_then(|s| s.parse::<f32>().ok());
 
-                                return Some(library.build_snare(graph, freq_signal, snappy, sustain));
+                                return Some(library.build_snare(
+                                    graph,
+                                    freq_signal,
+                                    snappy,
+                                    sustain,
+                                ));
                             }
                         } else if expr.starts_with("superhat(") {
-                            if let Some(params_str) = expr.strip_prefix("superhat(").and_then(|s| s.strip_suffix(")")) {
-                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            if let Some(params_str) = expr
+                                .strip_prefix("superhat(")
+                                .and_then(|s| s.strip_suffix(")"))
+                            {
+                                let params: Vec<&str> =
+                                    params_str.split(',').map(|s| s.trim()).collect();
 
                                 let bright = params.first().and_then(|s| s.parse::<f32>().ok());
                                 let sustain = params.get(1).and_then(|s| s.parse::<f32>().ok());
@@ -959,81 +1057,135 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let library = SynthLibrary::with_sample_rate(44100.0);
 
                         if expr.starts_with("reverb(") {
-                            if let Some(params_str) = expr.strip_prefix("reverb(").and_then(|s| s.strip_suffix(")")) {
-                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            if let Some(params_str) = expr
+                                .strip_prefix("reverb(")
+                                .and_then(|s| s.strip_suffix(")"))
+                            {
+                                let params: Vec<&str> =
+                                    params_str.split(',').map(|s| s.trim()).collect();
 
                                 // First param is input (bus reference or expression)
                                 let input_node = if let Some(input_expr) = params.first() {
-                                    parse_expression_to_node(graph, input_expr, buses).unwrap_or_else(|| {
-                                        graph.add_node(SignalNode::Constant { value: 0.0 })
-                                    })
+                                    parse_expression_to_node(graph, input_expr, buses)
+                                        .unwrap_or_else(|| {
+                                            graph.add_node(SignalNode::Constant { value: 0.0 })
+                                        })
                                 } else {
                                     graph.add_node(SignalNode::Constant { value: 0.0 })
                                 };
 
-                                let room_size = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.7);
-                                let damping = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.5);
-                                let mix = params.get(3).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.3);
+                                let room_size = params
+                                    .get(1)
+                                    .and_then(|s| s.parse::<f32>().ok())
+                                    .unwrap_or(0.7);
+                                let damping = params
+                                    .get(2)
+                                    .and_then(|s| s.parse::<f32>().ok())
+                                    .unwrap_or(0.5);
+                                let mix = params
+                                    .get(3)
+                                    .and_then(|s| s.parse::<f32>().ok())
+                                    .unwrap_or(0.3);
 
-                                return Some(library.add_reverb(graph, input_node, room_size, damping, mix));
+                                return Some(
+                                    library.add_reverb(graph, input_node, room_size, damping, mix),
+                                );
                             }
                         } else if expr.starts_with("dist(") || expr.starts_with("distortion(") {
-                            let (prefix, default_drive, default_mix) = if expr.starts_with("dist(") {
+                            let (prefix, default_drive, default_mix) = if expr.starts_with("dist(")
+                            {
                                 ("dist(", 3.0, 0.5)
                             } else {
                                 ("distortion(", 3.0, 0.5)
                             };
 
-                            if let Some(params_str) = expr.strip_prefix(prefix).and_then(|s| s.strip_suffix(")")) {
-                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            if let Some(params_str) =
+                                expr.strip_prefix(prefix).and_then(|s| s.strip_suffix(")"))
+                            {
+                                let params: Vec<&str> =
+                                    params_str.split(',').map(|s| s.trim()).collect();
 
                                 let input_node = if let Some(input_expr) = params.first() {
-                                    parse_expression_to_node(graph, input_expr, buses).unwrap_or_else(|| {
-                                        graph.add_node(SignalNode::Constant { value: 0.0 })
-                                    })
+                                    parse_expression_to_node(graph, input_expr, buses)
+                                        .unwrap_or_else(|| {
+                                            graph.add_node(SignalNode::Constant { value: 0.0 })
+                                        })
                                 } else {
                                     graph.add_node(SignalNode::Constant { value: 0.0 })
                                 };
 
-                                let drive = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(default_drive);
-                                let mix = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(default_mix);
+                                let drive = params
+                                    .get(1)
+                                    .and_then(|s| s.parse::<f32>().ok())
+                                    .unwrap_or(default_drive);
+                                let mix = params
+                                    .get(2)
+                                    .and_then(|s| s.parse::<f32>().ok())
+                                    .unwrap_or(default_mix);
 
                                 return Some(library.add_distortion(graph, input_node, drive, mix));
                             }
                         } else if expr.starts_with("bitcrush(") {
-                            if let Some(params_str) = expr.strip_prefix("bitcrush(").and_then(|s| s.strip_suffix(")")) {
-                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            if let Some(params_str) = expr
+                                .strip_prefix("bitcrush(")
+                                .and_then(|s| s.strip_suffix(")"))
+                            {
+                                let params: Vec<&str> =
+                                    params_str.split(',').map(|s| s.trim()).collect();
 
                                 let input_node = if let Some(input_expr) = params.first() {
-                                    parse_expression_to_node(graph, input_expr, buses).unwrap_or_else(|| {
-                                        graph.add_node(SignalNode::Constant { value: 0.0 })
-                                    })
+                                    parse_expression_to_node(graph, input_expr, buses)
+                                        .unwrap_or_else(|| {
+                                            graph.add_node(SignalNode::Constant { value: 0.0 })
+                                        })
                                 } else {
                                     graph.add_node(SignalNode::Constant { value: 0.0 })
                                 };
 
-                                let bits = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(4.0);
-                                let rate = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(4.0);
+                                let bits = params
+                                    .get(1)
+                                    .and_then(|s| s.parse::<f32>().ok())
+                                    .unwrap_or(4.0);
+                                let rate = params
+                                    .get(2)
+                                    .and_then(|s| s.parse::<f32>().ok())
+                                    .unwrap_or(4.0);
 
                                 return Some(library.add_bitcrush(graph, input_node, bits, rate));
                             }
                         } else if expr.starts_with("chorus(") {
-                            if let Some(params_str) = expr.strip_prefix("chorus(").and_then(|s| s.strip_suffix(")")) {
-                                let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                            if let Some(params_str) = expr
+                                .strip_prefix("chorus(")
+                                .and_then(|s| s.strip_suffix(")"))
+                            {
+                                let params: Vec<&str> =
+                                    params_str.split(',').map(|s| s.trim()).collect();
 
                                 let input_node = if let Some(input_expr) = params.first() {
-                                    parse_expression_to_node(graph, input_expr, buses).unwrap_or_else(|| {
-                                        graph.add_node(SignalNode::Constant { value: 0.0 })
-                                    })
+                                    parse_expression_to_node(graph, input_expr, buses)
+                                        .unwrap_or_else(|| {
+                                            graph.add_node(SignalNode::Constant { value: 0.0 })
+                                        })
                                 } else {
                                     graph.add_node(SignalNode::Constant { value: 0.0 })
                                 };
 
-                                let rate = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(1.0);
-                                let depth = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.5);
-                                let mix = params.get(3).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.3);
+                                let rate = params
+                                    .get(1)
+                                    .and_then(|s| s.parse::<f32>().ok())
+                                    .unwrap_or(1.0);
+                                let depth = params
+                                    .get(2)
+                                    .and_then(|s| s.parse::<f32>().ok())
+                                    .unwrap_or(0.5);
+                                let mix = params
+                                    .get(3)
+                                    .and_then(|s| s.parse::<f32>().ok())
+                                    .unwrap_or(0.3);
 
-                                return Some(library.add_chorus(graph, input_node, rate, depth, mix));
+                                return Some(
+                                    library.add_chorus(graph, input_node, rate, depth, mix),
+                                );
                             }
                         }
                         None
@@ -1160,7 +1312,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             use std::process::Command;
 
             // Read DSL code
-            let dsl_code = if input.ends_with(".ph") || input.ends_with(".phonon") || input.ends_with(".dsl") {
+            let dsl_code = if input.ends_with(".ph")
+                || input.ends_with(".phonon")
+                || input.ends_with(".dsl")
+            {
                 std::fs::read_to_string(&input)?
             } else if std::path::Path::new(&input).exists() {
                 std::fs::read_to_string(&input)?
@@ -1320,7 +1475,10 @@ out sine(440) * 0.2
             }));
 
             // Helper to apply pattern transformations
-            fn apply_transform(pattern: phonon::pattern::Pattern<String>, transform: &str) -> phonon::pattern::Pattern<String> {
+            fn apply_transform(
+                pattern: phonon::pattern::Pattern<String>,
+                transform: &str,
+            ) -> phonon::pattern::Pattern<String> {
                 let transform = transform.trim();
 
                 if transform.starts_with("fast ") {
@@ -1338,7 +1496,9 @@ out sine(440) * 0.2
                     if let Some(space_pos) = rest.find(' ') {
                         if let Ok(n) = rest[..space_pos].parse::<i32>() {
                             let inner_transform = rest[space_pos + 1..].trim();
-                            let inner_transform = if inner_transform.starts_with('(') && inner_transform.ends_with(')') {
+                            let inner_transform = if inner_transform.starts_with('(')
+                                && inner_transform.ends_with(')')
+                            {
                                 &inner_transform[1..inner_transform.len() - 1]
                             } else {
                                 inner_transform
@@ -1387,13 +1547,17 @@ out sine(440) * 0.2
 
                     if !transform_expr.is_empty() {
                         if base_expr.starts_with("s(") {
-                            if let Some(pattern_str) = base_expr.strip_prefix("s(").and_then(|s| s.strip_suffix(")")) {
+                            if let Some(pattern_str) = base_expr
+                                .strip_prefix("s(")
+                                .and_then(|s| s.strip_suffix(")"))
+                            {
                                 let pattern_str = pattern_str.trim();
-                                let pattern_str = if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
-                                    &pattern_str[1..pattern_str.len() - 1]
-                                } else {
-                                    pattern_str
-                                };
+                                let pattern_str =
+                                    if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
+                                        &pattern_str[1..pattern_str.len() - 1]
+                                    } else {
+                                        pattern_str
+                                    };
                                 let mut pattern = parse_mini_notation(pattern_str);
 
                                 for transform in transform_expr.split(" |> ") {
@@ -1409,7 +1573,7 @@ out sine(440) * 0.2
                                     gain: Signal::Value(1.0),
                                     pan: Signal::Value(0.0),
                                     speed: Signal::Value(1.0),
-        cut_group: Signal::Value(0.0),
+                                    cut_group: Signal::Value(0.0),
                                 }));
                             }
                         } else if base_expr.starts_with('"') && base_expr.ends_with('"') {
@@ -1532,17 +1696,21 @@ out sine(440) * 0.2
 
                 // Scale quantization: scale("0 1 2 3", "major", "60")
                 if expr.starts_with("scale(") {
-                    if let Some(params_str) = expr.strip_prefix("scale(").and_then(|s| s.strip_suffix(")")) {
+                    if let Some(params_str) = expr
+                        .strip_prefix("scale(")
+                        .and_then(|s| s.strip_suffix(")"))
+                    {
                         // Parse the three parameters: pattern, scale_name, root_note
                         let parts: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
                         if parts.len() >= 2 {
                             // Extract pattern string
                             let pattern_str = parts[0];
-                            let pattern_str = if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
-                                &pattern_str[1..pattern_str.len() - 1]
-                            } else {
-                                pattern_str
-                            };
+                            let pattern_str =
+                                if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
+                                    &pattern_str[1..pattern_str.len() - 1]
+                                } else {
+                                    pattern_str
+                                };
 
                             // Extract scale name
                             let scale_name = if parts.len() > 1 {
@@ -1598,14 +1766,17 @@ out sine(440) * 0.2
 
                 // Sample player: s("bd cp hh")
                 if expr.starts_with("s(") {
-                    if let Some(pattern_str) = expr.strip_prefix("s(").and_then(|s| s.strip_suffix(")")) {
+                    if let Some(pattern_str) =
+                        expr.strip_prefix("s(").and_then(|s| s.strip_suffix(")"))
+                    {
                         let pattern_str = pattern_str.trim();
                         // Remove quotes if present
-                        let pattern_str = if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
-                            &pattern_str[1..pattern_str.len() - 1]
-                        } else {
-                            pattern_str
-                        };
+                        let pattern_str =
+                            if pattern_str.starts_with('"') && pattern_str.ends_with('"') {
+                                &pattern_str[1..pattern_str.len() - 1]
+                            } else {
+                                pattern_str
+                            };
                         let pattern = parse_mini_notation(pattern_str);
                         return Some(graph.add_node(SignalNode::Sample {
                             pattern_str: pattern_str.to_string(),
@@ -1616,7 +1787,7 @@ out sine(440) * 0.2
                             gain: Signal::Value(1.0),
                             pan: Signal::Value(0.0),
                             speed: Signal::Value(1.0),
-        cut_group: Signal::Value(0.0),
+                            cut_group: Signal::Value(0.0),
                         }));
                     }
                 }
@@ -1647,7 +1818,8 @@ out sine(440) * 0.2
                     };
 
                     if !input_expr.is_empty() && !filter_params.is_empty() {
-                        let param_parts: Vec<&str> = filter_params.split(',').map(|s| s.trim()).collect();
+                        let param_parts: Vec<&str> =
+                            filter_params.split(',').map(|s| s.trim()).collect();
 
                         if let Some(input) = parse_expression(graph, input_expr, buses) {
                             let cutoff_signal = if let Some(cutoff_str) = param_parts.first() {
@@ -1698,7 +1870,8 @@ out sine(440) * 0.2
                     };
 
                     if !input_expr.is_empty() && !filter_params.is_empty() {
-                        let param_parts: Vec<&str> = filter_params.split(',').map(|s| s.trim()).collect();
+                        let param_parts: Vec<&str> =
+                            filter_params.split(',').map(|s| s.trim()).collect();
 
                         if let Some(input) = parse_expression(graph, input_expr, buses) {
                             let cutoff_signal = if let Some(cutoff_str) = param_parts.first() {
@@ -1792,57 +1965,129 @@ out sine(440) * 0.2
                     };
 
                     if expr.starts_with("supersaw(") {
-                        if let Some(params_str) = expr.strip_prefix("supersaw(").and_then(|s| s.strip_suffix(")")) {
-                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
-                            let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(110.0));
+                        if let Some(params_str) = expr
+                            .strip_prefix("supersaw(")
+                            .and_then(|s| s.strip_suffix(")"))
+                        {
+                            let params: Vec<&str> =
+                                params_str.split(',').map(|s| s.trim()).collect();
+                            let freq_signal = params
+                                .first()
+                                .map(|p| parse_synth_param(p))
+                                .unwrap_or(Signal::Value(110.0));
                             let detune = params.get(1).and_then(|s| s.parse::<f32>().ok());
                             let voices = params.get(2).and_then(|s| s.parse::<usize>().ok());
-                            return Some(library.build_supersaw(graph, freq_signal, detune, voices));
+                            return Some(library.build_supersaw(
+                                graph,
+                                freq_signal,
+                                detune,
+                                voices,
+                            ));
                         }
                     } else if expr.starts_with("superkick(") {
-                        if let Some(params_str) = expr.strip_prefix("superkick(").and_then(|s| s.strip_suffix(")")) {
-                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
-                            let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(60.0));
+                        if let Some(params_str) = expr
+                            .strip_prefix("superkick(")
+                            .and_then(|s| s.strip_suffix(")"))
+                        {
+                            let params: Vec<&str> =
+                                params_str.split(',').map(|s| s.trim()).collect();
+                            let freq_signal = params
+                                .first()
+                                .map(|p| parse_synth_param(p))
+                                .unwrap_or(Signal::Value(60.0));
                             let pitch_env = params.get(1).map(|p| parse_synth_param(p));
                             let sustain = params.get(2).and_then(|s| s.parse::<f32>().ok());
                             let noise = params.get(3).map(|p| parse_synth_param(p));
-                            return Some(library.build_kick(graph, freq_signal, pitch_env, sustain, noise));
+                            return Some(library.build_kick(
+                                graph,
+                                freq_signal,
+                                pitch_env,
+                                sustain,
+                                noise,
+                            ));
                         }
                     } else if expr.starts_with("superpwm(") {
-                        if let Some(params_str) = expr.strip_prefix("superpwm(").and_then(|s| s.strip_suffix(")")) {
-                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
-                            let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(110.0));
+                        if let Some(params_str) = expr
+                            .strip_prefix("superpwm(")
+                            .and_then(|s| s.strip_suffix(")"))
+                        {
+                            let params: Vec<&str> =
+                                params_str.split(',').map(|s| s.trim()).collect();
+                            let freq_signal = params
+                                .first()
+                                .map(|p| parse_synth_param(p))
+                                .unwrap_or(Signal::Value(110.0));
                             let pwm_rate = params.get(1).and_then(|s| s.parse::<f32>().ok());
                             let pwm_depth = params.get(2).and_then(|s| s.parse::<f32>().ok());
-                            return Some(library.build_superpwm(graph, freq_signal, pwm_rate, pwm_depth));
+                            return Some(library.build_superpwm(
+                                graph,
+                                freq_signal,
+                                pwm_rate,
+                                pwm_depth,
+                            ));
                         }
                     } else if expr.starts_with("superchip(") {
-                        if let Some(params_str) = expr.strip_prefix("superchip(").and_then(|s| s.strip_suffix(")")) {
-                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
-                            let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(440.0));
+                        if let Some(params_str) = expr
+                            .strip_prefix("superchip(")
+                            .and_then(|s| s.strip_suffix(")"))
+                        {
+                            let params: Vec<&str> =
+                                params_str.split(',').map(|s| s.trim()).collect();
+                            let freq_signal = params
+                                .first()
+                                .map(|p| parse_synth_param(p))
+                                .unwrap_or(Signal::Value(440.0));
                             let vibrato_rate = params.get(1).and_then(|s| s.parse::<f32>().ok());
                             let vibrato_depth = params.get(2).and_then(|s| s.parse::<f32>().ok());
-                            return Some(library.build_superchip(graph, freq_signal, vibrato_rate, vibrato_depth));
+                            return Some(library.build_superchip(
+                                graph,
+                                freq_signal,
+                                vibrato_rate,
+                                vibrato_depth,
+                            ));
                         }
                     } else if expr.starts_with("superfm(") {
-                        if let Some(params_str) = expr.strip_prefix("superfm(").and_then(|s| s.strip_suffix(")")) {
-                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
-                            let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(110.0));
+                        if let Some(params_str) = expr
+                            .strip_prefix("superfm(")
+                            .and_then(|s| s.strip_suffix(")"))
+                        {
+                            let params: Vec<&str> =
+                                params_str.split(',').map(|s| s.trim()).collect();
+                            let freq_signal = params
+                                .first()
+                                .map(|p| parse_synth_param(p))
+                                .unwrap_or(Signal::Value(110.0));
                             let mod_ratio = params.get(1).and_then(|s| s.parse::<f32>().ok());
                             let mod_index = params.get(2).and_then(|s| s.parse::<f32>().ok());
-                            return Some(library.build_superfm(graph, freq_signal, mod_ratio, mod_index));
+                            return Some(library.build_superfm(
+                                graph,
+                                freq_signal,
+                                mod_ratio,
+                                mod_index,
+                            ));
                         }
                     } else if expr.starts_with("supersnare(") {
-                        if let Some(params_str) = expr.strip_prefix("supersnare(").and_then(|s| s.strip_suffix(")")) {
-                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
-                            let freq_signal = params.first().map(|p| parse_synth_param(p)).unwrap_or(Signal::Value(180.0));
+                        if let Some(params_str) = expr
+                            .strip_prefix("supersnare(")
+                            .and_then(|s| s.strip_suffix(")"))
+                        {
+                            let params: Vec<&str> =
+                                params_str.split(',').map(|s| s.trim()).collect();
+                            let freq_signal = params
+                                .first()
+                                .map(|p| parse_synth_param(p))
+                                .unwrap_or(Signal::Value(180.0));
                             let snappy = params.get(1).and_then(|s| s.parse::<f32>().ok());
                             let sustain = params.get(2).and_then(|s| s.parse::<f32>().ok());
                             return Some(library.build_snare(graph, freq_signal, snappy, sustain));
                         }
                     } else if expr.starts_with("superhat(") {
-                        if let Some(params_str) = expr.strip_prefix("superhat(").and_then(|s| s.strip_suffix(")")) {
-                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                        if let Some(params_str) = expr
+                            .strip_prefix("superhat(")
+                            .and_then(|s| s.strip_suffix(")"))
+                        {
+                            let params: Vec<&str> =
+                                params_str.split(',').map(|s| s.trim()).collect();
                             let bright = params.first().and_then(|s| s.parse::<f32>().ok());
                             let sustain = params.get(1).and_then(|s| s.parse::<f32>().ok());
                             return Some(library.build_hat(graph, bright, sustain));
@@ -1862,8 +2107,12 @@ out sine(440) * 0.2
                     let library = SynthLibrary::with_sample_rate(44100.0);
 
                     if expr.starts_with("reverb(") {
-                        if let Some(params_str) = expr.strip_prefix("reverb(").and_then(|s| s.strip_suffix(")")) {
-                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                        if let Some(params_str) = expr
+                            .strip_prefix("reverb(")
+                            .and_then(|s| s.strip_suffix(")"))
+                        {
+                            let params: Vec<&str> =
+                                params_str.split(',').map(|s| s.trim()).collect();
                             let input_node = if let Some(input_expr) = params.first() {
                                 parse_expression(graph, input_expr, buses).unwrap_or_else(|| {
                                     graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -1871,10 +2120,21 @@ out sine(440) * 0.2
                             } else {
                                 graph.add_node(SignalNode::Constant { value: 0.0 })
                             };
-                            let room_size = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.7);
-                            let damping = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.5);
-                            let mix = params.get(3).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.3);
-                            return Some(library.add_reverb(graph, input_node, room_size, damping, mix));
+                            let room_size = params
+                                .get(1)
+                                .and_then(|s| s.parse::<f32>().ok())
+                                .unwrap_or(0.7);
+                            let damping = params
+                                .get(2)
+                                .and_then(|s| s.parse::<f32>().ok())
+                                .unwrap_or(0.5);
+                            let mix = params
+                                .get(3)
+                                .and_then(|s| s.parse::<f32>().ok())
+                                .unwrap_or(0.3);
+                            return Some(
+                                library.add_reverb(graph, input_node, room_size, damping, mix),
+                            );
                         }
                     } else if expr.starts_with("dist(") || expr.starts_with("distortion(") {
                         let (prefix, default_drive, default_mix) = if expr.starts_with("dist(") {
@@ -1882,8 +2142,11 @@ out sine(440) * 0.2
                         } else {
                             ("distortion(", 3.0, 0.5)
                         };
-                        if let Some(params_str) = expr.strip_prefix(prefix).and_then(|s| s.strip_suffix(")")) {
-                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                        if let Some(params_str) =
+                            expr.strip_prefix(prefix).and_then(|s| s.strip_suffix(")"))
+                        {
+                            let params: Vec<&str> =
+                                params_str.split(',').map(|s| s.trim()).collect();
                             let input_node = if let Some(input_expr) = params.first() {
                                 parse_expression(graph, input_expr, buses).unwrap_or_else(|| {
                                     graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -1891,13 +2154,23 @@ out sine(440) * 0.2
                             } else {
                                 graph.add_node(SignalNode::Constant { value: 0.0 })
                             };
-                            let drive = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(default_drive);
-                            let mix = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(default_mix);
+                            let drive = params
+                                .get(1)
+                                .and_then(|s| s.parse::<f32>().ok())
+                                .unwrap_or(default_drive);
+                            let mix = params
+                                .get(2)
+                                .and_then(|s| s.parse::<f32>().ok())
+                                .unwrap_or(default_mix);
                             return Some(library.add_distortion(graph, input_node, drive, mix));
                         }
                     } else if expr.starts_with("bitcrush(") {
-                        if let Some(params_str) = expr.strip_prefix("bitcrush(").and_then(|s| s.strip_suffix(")")) {
-                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                        if let Some(params_str) = expr
+                            .strip_prefix("bitcrush(")
+                            .and_then(|s| s.strip_suffix(")"))
+                        {
+                            let params: Vec<&str> =
+                                params_str.split(',').map(|s| s.trim()).collect();
                             let input_node = if let Some(input_expr) = params.first() {
                                 parse_expression(graph, input_expr, buses).unwrap_or_else(|| {
                                     graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -1905,13 +2178,23 @@ out sine(440) * 0.2
                             } else {
                                 graph.add_node(SignalNode::Constant { value: 0.0 })
                             };
-                            let bits = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(4.0);
-                            let rate = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(4.0);
+                            let bits = params
+                                .get(1)
+                                .and_then(|s| s.parse::<f32>().ok())
+                                .unwrap_or(4.0);
+                            let rate = params
+                                .get(2)
+                                .and_then(|s| s.parse::<f32>().ok())
+                                .unwrap_or(4.0);
                             return Some(library.add_bitcrush(graph, input_node, bits, rate));
                         }
                     } else if expr.starts_with("chorus(") {
-                        if let Some(params_str) = expr.strip_prefix("chorus(").and_then(|s| s.strip_suffix(")")) {
-                            let params: Vec<&str> = params_str.split(',').map(|s| s.trim()).collect();
+                        if let Some(params_str) = expr
+                            .strip_prefix("chorus(")
+                            .and_then(|s| s.strip_suffix(")"))
+                        {
+                            let params: Vec<&str> =
+                                params_str.split(',').map(|s| s.trim()).collect();
                             let input_node = if let Some(input_expr) = params.first() {
                                 parse_expression(graph, input_expr, buses).unwrap_or_else(|| {
                                     graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -1919,9 +2202,18 @@ out sine(440) * 0.2
                             } else {
                                 graph.add_node(SignalNode::Constant { value: 0.0 })
                             };
-                            let rate = params.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(1.0);
-                            let depth = params.get(2).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.5);
-                            let mix = params.get(3).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.3);
+                            let rate = params
+                                .get(1)
+                                .and_then(|s| s.parse::<f32>().ok())
+                                .unwrap_or(1.0);
+                            let depth = params
+                                .get(2)
+                                .and_then(|s| s.parse::<f32>().ok())
+                                .unwrap_or(0.5);
+                            let mix = params
+                                .get(3)
+                                .and_then(|s| s.parse::<f32>().ok())
+                                .unwrap_or(0.3);
                             return Some(library.add_chorus(graph, input_node, rate, depth, mix));
                         }
                     }

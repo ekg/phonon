@@ -14,16 +14,16 @@
 4. ✅ **Test coverage**: 191 tests passing (4 new sample bank tests + 8 multi-output/live)
 
 ### Previously Completed
-1. ✅ **Pattern transformations**: `|>`, `<|` operators with `fast`, `slow`, `rev`, `every`
-2. ✅ **Bidirectional signal flow**: `>>` and `<<` for routing
+1. ✅ **Pattern transformations**: `$`, `<|` operators with `fast`, `slow`, `rev`, `every`
+2. ✅ **Bidirectional signal flow**: `#` and `<<` for routing
 3. ✅ **--cycles parameter**: Now correctly accounts for tempo
 4. ✅ **Complex pattern rendering**: `"bd sn hh*4 cp"` triggers all events correctly
 
 ### Core Features Working
 - ✅ Voice-based sample playback (64 voices, polyphonic)
-- ✅ Sample routing through effects: `s("bd sn") >> lpf(2000, 0.8)`
+- ✅ Sample routing through effects: `s("bd sn") # lpf(2000, 0.8)`
 - ✅ Pattern-controlled synthesis: `sine("110 220 440")`
-- ✅ Pattern-controlled filters: `saw(55) >> lpf("500 2000", 0.8)`
+- ✅ Pattern-controlled filters: `saw(55) # lpf("500 2000", 0.8)`
 - ✅ Live coding with auto-reload (`phonon live`)
 - ✅ Mini-notation: Euclidean rhythms, alternation, subdivision, rests
 - ✅ Signal buses: `~lfo = sine(0.5)`
@@ -66,7 +66,7 @@
 **What's working**:
 ```phonon
 s("bd:0 bd:1 bd:2")           # ✅ Inline sample numbers WORK
-s("bd:0 bd:1") |> fast 2      # ✅ Works with transforms
+s("bd:0 bd:1") $ fast 2      # ✅ Works with transforms
 ```
 
 **Still needed**:
@@ -140,11 +140,11 @@ s("hh*16", gain="0.5", pan=sine(0.25))  # Continuous modulation
 
 Need:
 ```phonon
-~drums >> reverb(0.5, 0.8)     # Reverb (size, mix)
-~bass >> delay(0.25, 0.6)      # Delay (time, feedback)
-~lead >> distort(0.7)          # Distortion (amount)
-~mix >> compress(4.0, 0.7)     # Compressor (ratio, threshold)
-~drums >> crush(8)             # Bitcrusher (bits)
+~drums # reverb(0.5, 0.8)     # Reverb (size, mix)
+~bass # delay(0.25, 0.6)      # Delay (time, feedback)
+~lead # distort(0.7)          # Distortion (amount)
+~mix # compress(4.0, 0.7)     # Compressor (ratio, threshold)
+~drums # crush(8)             # Bitcrusher (bits)
 ```
 
 **Implementation tasks**:
@@ -188,11 +188,11 @@ midi("c4 e4", channel=1)
 
 Need:
 ```phonon
-"bd sn" |> jux(rev)            # Stereo manipulation
-"bd sn" |> stut(3, 0.5, 0.125) # Delay/echo
-"bd sn" |> chop(4)             # Sample slicing
-"bd sn" |> degradeBy(0.3)      # Probabilistic removal
-"bd sn" |> scramble            # Randomize order
+"bd sn" $ jux(rev)            # Stereo manipulation
+"bd sn" $ stut(3, 0.5, 0.125) # Delay/echo
+"bd sn" $ chop(4)             # Sample slicing
+"bd sn" $ degradeBy(0.3)      # Probabilistic removal
+"bd sn" $ scramble            # Randomize order
 ```
 
 **Implementation tasks**:
@@ -216,7 +216,7 @@ Need:
 Currently broken:
 ```phonon
 ~a: s("bd sn")
-~b: ~a |> rev
+~b: ~a $ rev
 out ~a + ~b * 0.5  # Produces silence
 ```
 
@@ -252,7 +252,7 @@ Improvements needed:
 
 Tasks:
 - [ ] Update PHONON_LANGUAGE_REFERENCE.md to use `=` instead of `:`
-- [ ] Remove `|>` references from old docs (now implemented)
+- [ ] Remove `$` references from old docs (now implemented)
 - [ ] Add tutorial for beginners (QUICK_START.md)
 - [ ] Add cookbook of common patterns
 - [ ] Document what works vs. what's planned
@@ -287,7 +287,7 @@ In Phonon, **patterns evaluate at sample rate** (44.1kHz) and can modulate **any
 tempo 1.0
 ~lfo = sine(0.25)                           # LFO pattern
 ~bass = saw("55 82.5 110")                  # Frequency pattern
-out = ~bass >> lpf(~lfo * 2000 + 500, 0.8) # Pattern modulates filter!
+out = ~bass # lpf(~lfo * 2000 + 500, 0.8) # Pattern modulates filter!
 ```
 
 In Tidal, you can't use patterns to modulate synthesis parameters in real-time. Patterns only control when events are triggered. In Phonon, patterns ARE the control signals.

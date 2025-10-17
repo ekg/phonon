@@ -158,7 +158,10 @@ pub enum DslStatement {
     /// Define a bus: ~name: expression
     BusDefinition { name: String, expr: DslExpression },
     /// Set output: out: expression or out1: expression
-    Output { channel: Option<usize>, expr: DslExpression },
+    Output {
+        channel: Option<usize>,
+        expr: DslExpression,
+    },
     /// Route modulation: route ~source -> { targets }
     Route {
         source: String,
@@ -258,8 +261,8 @@ pub enum DslExpression {
     },
     /// Pattern-triggered synth: synth("c4 e4 g4", saw, attack=0.01, release=0.2)
     SynthPattern {
-        notes: String,          // Pattern of notes
-        waveform: Waveform,     // Waveform type
+        notes: String,      // Pattern of notes
+        waveform: Waveform, // Waveform type
         attack: Option<f32>,
         decay: Option<f32>,
         sustain: Option<f32>,
@@ -638,24 +641,40 @@ fn synth_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                 "saw" | "sawtooth" => Waveform::Saw,
                 "square" | "sq" => Waveform::Square,
                 "triangle" | "tri" => Waveform::Triangle,
-                _ => Waveform::Saw,  // Default
+                _ => Waveform::Saw, // Default
             }
         } else {
-            Waveform::Saw  // Default
+            Waveform::Saw // Default
         };
 
         // Positional ADSR parameters
         let attack = args.get(2).and_then(|e| {
-            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+            if let DslExpression::Value(v) = e {
+                Some(*v)
+            } else {
+                None
+            }
         });
         let decay = args.get(3).and_then(|e| {
-            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+            if let DslExpression::Value(v) = e {
+                Some(*v)
+            } else {
+                None
+            }
         });
         let sustain = args.get(4).and_then(|e| {
-            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+            if let DslExpression::Value(v) = e {
+                Some(*v)
+            } else {
+                None
+            }
         });
         let release = args.get(5).and_then(|e| {
-            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+            if let DslExpression::Value(v) = e {
+                Some(*v)
+            } else {
+                None
+            }
         });
 
         // Optional gain/pan
@@ -730,10 +749,10 @@ fn parse_transform_op(input: &str) -> IResult<&str, PatternTransformOp> {
 fn primary(input: &str) -> IResult<&str, DslExpression> {
     alt((
         bus_ref,
-        scale_expr,            // MUST come before sample_pattern_expr!
-        sample_pattern_expr,   // s() would match the 's' in scale()
-        synth_pattern_expr,    // Pattern-triggered synth: synth("notes", "waveform", ...)
-        synth_expr,            // SuperDirt continuous synths
+        scale_expr,          // MUST come before sample_pattern_expr!
+        sample_pattern_expr, // s() would match the 's' in scale()
+        synth_pattern_expr,  // Pattern-triggered synth: synth("notes", "waveform", ...)
+        synth_expr,          // SuperDirt continuous synths
         effect_expr,
         oscillator,
         filter,
@@ -772,19 +791,20 @@ fn pattern_transform(input: &str) -> IResult<&str, DslExpression> {
 
     let (input, transforms) = many0(preceded(ws(char('$')), ws(parse_transform_op)))(input)?;
 
-    let expr = transforms.into_iter().fold(first, |acc, transform| {
-        DslExpression::PatternTransform {
-            pattern: Box::new(acc),
-            transform,
-        }
-    });
+    let expr =
+        transforms
+            .into_iter()
+            .fold(first, |acc, transform| DslExpression::PatternTransform {
+                pattern: Box::new(acc),
+                transform,
+            });
 
     Ok((input, expr))
 }
 
 /// Parse multiplication and division
 fn term(input: &str) -> IResult<&str, DslExpression> {
-    let (input, first) = pattern_transform(input)?;  // Pattern transform has higher precedence
+    let (input, first) = pattern_transform(input)?; // Pattern transform has higher precedence
 
     let (input, ops) = many0(tuple((ws(alt((char('*'), char('/')))), pattern_transform)))(input)?;
 
@@ -806,7 +826,7 @@ fn term(input: &str) -> IResult<&str, DslExpression> {
 
 /// Parse addition and subtraction
 fn arithmetic(input: &str) -> IResult<&str, DslExpression> {
-    let (input, first) = term(input)?;  // Term has higher precedence
+    let (input, first) = term(input)?; // Term has higher precedence
 
     let (input, ops) = many0(tuple((ws(alt((char('+'), char('-')))), term)))(input)?;
 
@@ -828,7 +848,7 @@ fn arithmetic(input: &str) -> IResult<&str, DslExpression> {
 
 /// Parse a complete expression
 fn expression(input: &str) -> IResult<&str, DslExpression> {
-    arithmetic(input)  // Start with lowest precedence (arithmetic calls chain calls term)
+    arithmetic(input) // Start with lowest precedence (arithmetic calls chain calls term)
 }
 
 /// Parse a bus definition: ~name: expression
@@ -865,7 +885,10 @@ fn output_definition(input: &str) -> IResult<&str, DslStatement> {
 /// Parse CPS setting: cps: 0.5 or tempo: 1.0 (alias for cps)
 fn cps_setting(input: &str) -> IResult<&str, DslStatement> {
     map(
-        preceded(tuple((alt((tag("cps"), tag("tempo"))), ws(char(':')))), number),
+        preceded(
+            tuple((alt((tag("cps"), tag("tempo"))), ws(char(':')))),
+            number,
+        ),
         DslStatement::SetCps,
     )(input)
 }
@@ -894,7 +917,13 @@ fn panic_statement(input: &str) -> IResult<&str, DslStatement> {
 
 /// Parse a statement
 fn statement(input: &str) -> IResult<&str, DslStatement> {
-    alt((bus_definition, output_definition, cps_setting, hush_statement, panic_statement))(input)
+    alt((
+        bus_definition,
+        output_definition,
+        cps_setting,
+        hush_statement,
+        panic_statement,
+    ))(input)
 }
 
 /// Parse multiple statements separated by newlines
@@ -950,12 +979,10 @@ impl DslCompiler {
             DslStatement::SetCps(cps) => {
                 self.graph.set_cps(cps);
             }
-            DslStatement::Hush { channel } => {
-                match channel {
-                    None => self.graph.hush_all(),
-                    Some(ch) => self.graph.hush_channel(ch),
-                }
-            }
+            DslStatement::Hush { channel } => match channel {
+                None => self.graph.hush_all(),
+                Some(ch) => self.graph.hush_channel(ch),
+            },
             DslStatement::Panic => {
                 self.graph.panic();
             }
@@ -1054,84 +1081,143 @@ impl DslCompiler {
                 let library = SynthLibrary::with_sample_rate(44100.0);
 
                 // Extract frequency (first param)
-                let freq = params.first()
+                let freq = params
+                    .first()
                     .map(|e| self.compile_expression_to_signal(e.clone()))
                     .unwrap_or(Signal::Value(440.0));
 
                 match synth_type {
                     SynthType::SuperKick => {
-                        let pitch_env = params.get(1)
+                        let pitch_env = params
+                            .get(1)
                             .map(|e| self.compile_expression_to_signal(e.clone()));
                         let sustain = params.get(2).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                            if let DslExpression::Value(v) = e {
+                                Some(*v)
+                            } else {
+                                None
+                            }
                         });
-                        let noise = params.get(3)
+                        let noise = params
+                            .get(3)
                             .map(|e| self.compile_expression_to_signal(e.clone()));
                         library.build_kick(&mut self.graph, freq, pitch_env, sustain, noise)
                     }
                     SynthType::SuperSaw => {
                         // Note: detune and voices must be constant for now (synth design limitation)
                         let detune = params.get(1).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                            if let DslExpression::Value(v) = e {
+                                Some(*v)
+                            } else {
+                                None
+                            }
                         });
                         let voices = params.get(2).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v as usize) } else { None }
+                            if let DslExpression::Value(v) = e {
+                                Some(*v as usize)
+                            } else {
+                                None
+                            }
                         });
                         library.build_supersaw(&mut self.graph, freq, detune, voices)
                     }
                     SynthType::SuperPWM => {
                         // Note: structural params must be constant (synth design limitation)
                         let pwm_rate = params.get(1).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                            if let DslExpression::Value(v) = e {
+                                Some(*v)
+                            } else {
+                                None
+                            }
                         });
                         let pwm_depth = params.get(2).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                            if let DslExpression::Value(v) = e {
+                                Some(*v)
+                            } else {
+                                None
+                            }
                         });
                         library.build_superpwm(&mut self.graph, freq, pwm_rate, pwm_depth)
                     }
                     SynthType::SuperChip => {
                         // Note: structural params must be constant (synth design limitation)
                         let vibrato_rate = params.get(1).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                            if let DslExpression::Value(v) = e {
+                                Some(*v)
+                            } else {
+                                None
+                            }
                         });
                         let vibrato_depth = params.get(2).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                            if let DslExpression::Value(v) = e {
+                                Some(*v)
+                            } else {
+                                None
+                            }
                         });
                         library.build_superchip(&mut self.graph, freq, vibrato_rate, vibrato_depth)
                     }
                     SynthType::SuperFM => {
                         // Note: structural params must be constant (synth design limitation)
                         let mod_ratio = params.get(1).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                            if let DslExpression::Value(v) = e {
+                                Some(*v)
+                            } else {
+                                None
+                            }
                         });
                         let mod_index = params.get(2).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                            if let DslExpression::Value(v) = e {
+                                Some(*v)
+                            } else {
+                                None
+                            }
                         });
                         library.build_superfm(&mut self.graph, freq, mod_ratio, mod_index)
                     }
                     SynthType::SuperSnare => {
                         // Note: structural params must be constant (synth design limitation)
                         let snappy = params.get(1).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                            if let DslExpression::Value(v) = e {
+                                Some(*v)
+                            } else {
+                                None
+                            }
                         });
                         let sustain = params.get(2).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                            if let DslExpression::Value(v) = e {
+                                Some(*v)
+                            } else {
+                                None
+                            }
                         });
                         library.build_snare(&mut self.graph, freq, snappy, sustain)
                     }
                     SynthType::SuperHat => {
                         // Note: structural params must be constant (synth design limitation)
                         let bright = params.get(0).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                            if let DslExpression::Value(v) = e {
+                                Some(*v)
+                            } else {
+                                None
+                            }
                         });
                         let sustain = params.get(1).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
+                            if let DslExpression::Value(v) = e {
+                                Some(*v)
+                            } else {
+                                None
+                            }
                         });
                         library.build_hat(&mut self.graph, bright, sustain)
                     }
                 }
             }
-            DslExpression::Effect { effect_type, input, params } => {
+            DslExpression::Effect {
+                effect_type,
+                input,
+                params,
+            } => {
                 use crate::superdirt_synths::SynthLibrary;
                 let library = SynthLibrary::with_sample_rate(44100.0);
 
@@ -1139,50 +1225,125 @@ impl DslCompiler {
 
                 match effect_type {
                     EffectType::Reverb => {
-                        let room_size = params.first().and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
-                        }).unwrap_or(0.7);
-                        let damping = params.get(1).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
-                        }).unwrap_or(0.5);
-                        let mix = params.get(2).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
-                        }).unwrap_or(0.3);
+                        let room_size = params
+                            .first()
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(0.7);
+                        let damping = params
+                            .get(1)
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(0.5);
+                        let mix = params
+                            .get(2)
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(0.3);
                         library.add_reverb(&mut self.graph, input_node, room_size, damping, mix)
                     }
                     EffectType::Distortion => {
-                        let drive = params.first().and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
-                        }).unwrap_or(3.0);
-                        let mix = params.get(1).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
-                        }).unwrap_or(0.5);
+                        let drive = params
+                            .first()
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(3.0);
+                        let mix = params
+                            .get(1)
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(0.5);
                         library.add_distortion(&mut self.graph, input_node, drive, mix)
                     }
                     EffectType::BitCrush => {
-                        let bits = params.first().and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
-                        }).unwrap_or(4.0);
-                        let rate = params.get(1).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
-                        }).unwrap_or(4.0);
+                        let bits = params
+                            .first()
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(4.0);
+                        let rate = params
+                            .get(1)
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(4.0);
                         library.add_bitcrush(&mut self.graph, input_node, bits, rate)
                     }
                     EffectType::Chorus => {
-                        let rate = params.first().and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
-                        }).unwrap_or(1.0);
-                        let depth = params.get(1).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
-                        }).unwrap_or(0.5);
-                        let mix = params.get(2).and_then(|e| {
-                            if let DslExpression::Value(v) = e { Some(*v) } else { None }
-                        }).unwrap_or(0.3);
+                        let rate = params
+                            .first()
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(1.0);
+                        let depth = params
+                            .get(1)
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(0.5);
+                        let mix = params
+                            .get(2)
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(0.3);
                         library.add_chorus(&mut self.graph, input_node, rate, depth, mix)
                     }
                 }
             }
-            DslExpression::SamplePattern { pattern, gain, pan, speed } => {
+            DslExpression::SamplePattern {
+                pattern,
+                gain,
+                pan,
+                speed,
+            } => {
                 use std::collections::HashMap;
 
                 // Parse the mini-notation pattern
@@ -1206,7 +1367,7 @@ impl DslCompiler {
                     pattern_str: pattern,
                     pattern: parsed_pattern,
                     last_trigger_time: -1.0,
-                    last_cycle: -1,  // Initialize to -1 to trigger on first cycle
+                    last_cycle: -1, // Initialize to -1 to trigger on first cycle
                     playback_positions: HashMap::new(),
                     gain: gain_signal,
                     pan: pan_signal,
@@ -1214,7 +1375,11 @@ impl DslCompiler {
                     cut_group: Signal::Value(0.0), // No cut group by default
                 })
             }
-            DslExpression::Scale { pattern, scale_name, root_note } => {
+            DslExpression::Scale {
+                pattern,
+                scale_name,
+                root_note,
+            } => {
                 use crate::pattern_tonal::note_to_midi;
 
                 // Parse the mini-notation pattern
@@ -1312,23 +1477,27 @@ impl DslCompiler {
                         let base_pattern = parse_mini_notation(&pattern_str);
 
                         // Apply the transform
-                        let transformed_pattern = match self.apply_pattern_transform(base_pattern, transform) {
-                            Ok(p) => p,
-                            Err(e) => {
-                                eprintln!("Warning: Failed to apply pattern transform: {}", e);
-                                parse_mini_notation(&pattern_str)  // Fallback to original
-                            }
-                        };
+                        let transformed_pattern =
+                            match self.apply_pattern_transform(base_pattern, transform) {
+                                Ok(p) => p,
+                                Err(e) => {
+                                    eprintln!("Warning: Failed to apply pattern transform: {}", e);
+                                    parse_mini_notation(&pattern_str) // Fallback to original
+                                }
+                            };
 
                         // Create a pattern node with the transformed pattern
                         self.graph.add_node(SignalNode::Pattern {
-                            pattern_str,  // Keep original string for debugging
+                            pattern_str, // Keep original string for debugging
                             pattern: transformed_pattern,
                             last_value: 0.0,
                             last_trigger_time: -1.0,
                         })
                     }
-                    DslExpression::PatternTransform { pattern: inner_pattern, transform: inner_transform } => {
+                    DslExpression::PatternTransform {
+                        pattern: inner_pattern,
+                        transform: inner_transform,
+                    } => {
                         // Handle chained transforms: pattern $ f $ g
                         // First compile the inner transform
                         let inner_expr = DslExpression::PatternTransform {
@@ -1341,14 +1510,21 @@ impl DslCompiler {
 
                         // Now we need to get the pattern from the inner node and apply our transform
                         // Extract pattern data first to avoid borrow checker issues
-                        let pattern_data = if let Some(SignalNode::Pattern { pattern: inner_pattern_obj, pattern_str, .. }) = self.graph.get_node(inner_node_id) {
+                        let pattern_data = if let Some(SignalNode::Pattern {
+                            pattern: inner_pattern_obj,
+                            pattern_str,
+                            ..
+                        }) = self.graph.get_node(inner_node_id)
+                        {
                             Some((inner_pattern_obj.clone(), pattern_str.clone()))
                         } else {
                             None
                         };
 
                         if let Some((inner_pattern, pattern_str)) = pattern_data {
-                            let transformed_pattern = match self.apply_pattern_transform(inner_pattern.clone(), transform) {
+                            let transformed_pattern = match self
+                                .apply_pattern_transform(inner_pattern.clone(), transform)
+                            {
                                 Ok(p) => p,
                                 Err(e) => {
                                     eprintln!("Warning: Failed to apply chained transform: {}", e);
@@ -1367,11 +1543,18 @@ impl DslCompiler {
                             self.graph.add_node(SignalNode::Constant { value: 0.0 })
                         }
                     }
-                    DslExpression::SamplePattern { pattern: pattern_str, gain, pan, speed } => {
+                    DslExpression::SamplePattern {
+                        pattern: pattern_str,
+                        gain,
+                        pan,
+                        speed,
+                    } => {
                         // Handle transforms on sample patterns: s("bd sn" $ fast 2)
                         // Parse and transform the pattern
                         let base_pattern = parse_mini_notation(&pattern_str);
-                        let transformed_pattern = match self.apply_pattern_transform(base_pattern, transform) {
+                        let transformed_pattern = match self
+                            .apply_pattern_transform(base_pattern, transform)
+                        {
                             Ok(p) => p,
                             Err(e) => {
                                 eprintln!("Warning: Failed to apply pattern transform to sample pattern: {}", e);
@@ -1396,7 +1579,7 @@ impl DslCompiler {
                             pattern_str,
                             pattern: transformed_pattern,
                             last_trigger_time: -1.0,
-                            last_cycle: -1,  // Initialize to -1 to trigger on first cycle
+                            last_cycle: -1, // Initialize to -1 to trigger on first cycle
                             playback_positions: HashMap::new(),
                             gain: gain_signal,
                             pan: pan_signal,
@@ -1440,7 +1623,11 @@ impl DslCompiler {
     /// - input = a (from chain)
     /// - cutoff = x (shift from input)
     /// - q = y (shift from cutoff)
-    fn inject_chain_input(&mut self, right: DslExpression, left_node: crate::unified_graph::NodeId) -> DslExpression {
+    fn inject_chain_input(
+        &mut self,
+        right: DslExpression,
+        left_node: crate::unified_graph::NodeId,
+    ) -> DslExpression {
         // Register the left node as a temporary bus so it can be referenced
         let bus_name = format!("__chain_{}", left_node.0);
         self.graph.add_bus(bus_name.clone(), left_node);
@@ -1449,32 +1636,44 @@ impl DslCompiler {
             // For filters in chain context, shift arguments:
             // Original parse: lpf(1000, 0.8) -> input=1000, cutoff=0.8, q=1.0
             // Chain context: lpf(1000, 0.8) should mean cutoff=1000, q=0.8
-            DslExpression::Filter { filter_type, input, cutoff, q } => {
+            DslExpression::Filter {
+                filter_type,
+                input,
+                cutoff,
+                q,
+            } => {
                 DslExpression::Filter {
                     filter_type,
                     input: Box::new(DslExpression::BusRef(bus_name)),
-                    cutoff: input,  // Shift: what was parsed as input is actually cutoff
-                    q: cutoff,      // Shift: what was parsed as cutoff is actually q
+                    cutoff: input, // Shift: what was parsed as input is actually cutoff
+                    q: cutoff,     // Shift: what was parsed as cutoff is actually q
                 }
             }
             // For effects in chain context, shift arguments similarly
             // Effect params don't include input, so no shift needed
-            DslExpression::Effect { effect_type, input: _, params } => {
-                DslExpression::Effect {
-                    effect_type,
-                    input: Box::new(DslExpression::BusRef(bus_name)),
-                    params,
-                }
-            }
+            DslExpression::Effect {
+                effect_type,
+                input: _,
+                params,
+            } => DslExpression::Effect {
+                effect_type,
+                input: Box::new(DslExpression::BusRef(bus_name)),
+                params,
+            },
             // For delays in chain context, shift arguments
             // Original parse: delay(t, f, m) -> input=t, time=f, feedback=m, mix=0.5
             // Chain context: delay(t, f, m) should mean time=t, feedback=f, mix=m
-            DslExpression::Delay { input, time, feedback, mix } => {
+            DslExpression::Delay {
+                input,
+                time,
+                feedback,
+                mix,
+            } => {
                 DslExpression::Delay {
                     input: Box::new(DslExpression::BusRef(bus_name)),
-                    time: input,     // Shift: what was parsed as input is actually time
-                    feedback: time,  // Shift: what was parsed as time is actually feedback
-                    mix: feedback,   // Shift: what was parsed as feedback is actually mix
+                    time: input,    // Shift: what was parsed as input is actually time
+                    feedback: time, // Shift: what was parsed as time is actually feedback
+                    mix: feedback,  // Shift: what was parsed as feedback is actually mix
                 }
             }
             // For other expressions, wrap in a chain if needed or return as-is
@@ -1515,7 +1714,7 @@ impl DslCompiler {
                             if let DslExpression::Value(v) = **factor_expr {
                                 p.fast(v as f64)
                             } else {
-                                p  // Can't evaluate non-constant, return unchanged
+                                p // Can't evaluate non-constant, return unchanged
                             }
                         }
                         PatternTransformOp::Slow(ref factor_expr) => {
@@ -1535,71 +1734,65 @@ impl DslCompiler {
             }
             PatternTransformOp::Sometimes(f) => {
                 let inner_transform = *f;
-                Ok(pattern.sometimes(move |p| {
-                    match inner_transform {
-                        PatternTransformOp::Fast(ref factor_expr) => {
-                            if let DslExpression::Value(v) = **factor_expr {
-                                p.fast(v as f64)
-                            } else {
-                                p
-                            }
+                Ok(pattern.sometimes(move |p| match inner_transform {
+                    PatternTransformOp::Fast(ref factor_expr) => {
+                        if let DslExpression::Value(v) = **factor_expr {
+                            p.fast(v as f64)
+                        } else {
+                            p
                         }
-                        PatternTransformOp::Slow(ref factor_expr) => {
-                            if let DslExpression::Value(v) = **factor_expr {
-                                p.slow(v as f64)
-                            } else {
-                                p
-                            }
-                        }
-                        PatternTransformOp::Rev => p.rev(),
-                        _ => p,
                     }
+                    PatternTransformOp::Slow(ref factor_expr) => {
+                        if let DslExpression::Value(v) = **factor_expr {
+                            p.slow(v as f64)
+                        } else {
+                            p
+                        }
+                    }
+                    PatternTransformOp::Rev => p.rev(),
+                    _ => p,
                 }))
             }
             PatternTransformOp::Often(f) => {
                 let inner_transform = *f;
-                Ok(pattern.often(move |p| {
-                    match inner_transform {
-                        PatternTransformOp::Fast(ref factor_expr) => {
-                            if let DslExpression::Value(v) = **factor_expr {
-                                p.fast(v as f64)
-                            } else {
-                                p
-                            }
+                Ok(pattern.often(move |p| match inner_transform {
+                    PatternTransformOp::Fast(ref factor_expr) => {
+                        if let DslExpression::Value(v) = **factor_expr {
+                            p.fast(v as f64)
+                        } else {
+                            p
                         }
-                        PatternTransformOp::Slow(ref factor_expr) => {
-                            if let DslExpression::Value(v) = **factor_expr {
-                                p.slow(v as f64)
-                            } else {
-                                p
-                            }
-                        }
-                        PatternTransformOp::Rev => p.rev(),
-                        _ => p,
                     }
+                    PatternTransformOp::Slow(ref factor_expr) => {
+                        if let DslExpression::Value(v) = **factor_expr {
+                            p.slow(v as f64)
+                        } else {
+                            p
+                        }
+                    }
+                    PatternTransformOp::Rev => p.rev(),
+                    _ => p,
                 }))
             }
             PatternTransformOp::Rarely(f) => {
                 let inner_transform = *f;
-                Ok(pattern.rarely(move |p| {
-                    match inner_transform {
-                        PatternTransformOp::Fast(ref factor_expr) => {
-                            if let DslExpression::Value(v) = **factor_expr {
-                                p.fast(v as f64)
-                            } else {
-                                p
-                            }
+                Ok(pattern.rarely(move |p| match inner_transform {
+                    PatternTransformOp::Fast(ref factor_expr) => {
+                        if let DslExpression::Value(v) = **factor_expr {
+                            p.fast(v as f64)
+                        } else {
+                            p
                         }
-                        PatternTransformOp::Slow(ref factor_expr) => {
-                            if let DslExpression::Value(v) = **factor_expr {
-                                p.slow(v as f64)
-                            } else {
-                                p
-                            }
-                        }
-                        PatternTransformOp::Rev => p.rev(),
-                        _ => p,
                     }
+                    PatternTransformOp::Slow(ref factor_expr) => {
+                        if let DslExpression::Value(v) = **factor_expr {
+                            p.slow(v as f64)
+                        } else {
+                            p
+                        }
+                    }
+                    PatternTransformOp::Rev => p.rev(),
+                    _ => p,
                 }))
             }
         }
@@ -1761,7 +1954,11 @@ mod tests {
         let buffer = graph.render(22050);
         let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
-        assert!(rms > 0.01, "Full effects chain should produce audio, got RMS={}", rms);
+        assert!(
+            rms > 0.01,
+            "Full effects chain should produce audio, got RMS={}",
+            rms
+        );
     }
 
     #[test]
@@ -1783,7 +1980,19 @@ mod tests {
         let result = primary(input);
         assert!(result.is_ok(), "Should parse synth pattern");
 
-        if let Ok((_, DslExpression::SynthPattern { notes, waveform, attack, decay, sustain, release, .. })) = result {
+        if let Ok((
+            _,
+            DslExpression::SynthPattern {
+                notes,
+                waveform,
+                attack,
+                decay,
+                sustain,
+                release,
+                ..
+            },
+        )) = result
+        {
             assert_eq!(notes, "c4 e4 g4");
             assert_eq!(waveform, Waveform::Saw);
             assert_eq!(attack, Some(0.01));
@@ -1809,7 +2018,11 @@ mod tests {
         let buffer = graph.render(44100);
         let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
-        assert!(rms > 0.01, "SynthPattern should produce audio, got RMS: {}", rms);
+        assert!(
+            rms > 0.01,
+            "SynthPattern should produce audio, got RMS: {}",
+            rms
+        );
     }
 
     #[test]

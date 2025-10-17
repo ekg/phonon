@@ -1,11 +1,11 @@
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform};
 use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 
 fn main() {
     println!("Debugging rhythm pattern '1 1 0 1'");
 
     let mut graph = UnifiedSignalGraph::new(44100.0);
-    graph.set_cps(2.0);  // 2 cycles per second
+    graph.set_cps(2.0); // 2 cycles per second
 
     // Create rhythm pattern (on/off)
     let rhythm_pattern = parse_mini_notation("1 1 0 1");
@@ -13,6 +13,7 @@ fn main() {
         pattern_str: "1 1 0 1".to_string(),
         pattern: rhythm_pattern,
         last_value: 1.0,
+        last_trigger_time: -1.0,
     });
 
     // Create constant tone

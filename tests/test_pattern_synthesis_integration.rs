@@ -1,5 +1,5 @@
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform};
 use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 use std::fs::File;
 use std::io::Write;
 
@@ -39,19 +39,35 @@ fn test_pattern_drives_oscillator_frequency() {
 
     // Check first step (should be 220 Hz)
     let freq1 = estimate_frequency(&buffer[0..step_samples], 44100);
-    assert!((freq1 - 220.0).abs() < 10.0, "First step should be 220 Hz, got {}", freq1);
+    assert!(
+        (freq1 - 220.0).abs() < 10.0,
+        "First step should be 220 Hz, got {}",
+        freq1
+    );
 
     // Check second step (should be 330 Hz)
-    let freq2 = estimate_frequency(&buffer[step_samples..step_samples*2], 44100);
-    assert!((freq2 - 330.0).abs() < 15.0, "Second step should be 330 Hz, got {}", freq2);
+    let freq2 = estimate_frequency(&buffer[step_samples..step_samples * 2], 44100);
+    assert!(
+        (freq2 - 330.0).abs() < 15.0,
+        "Second step should be 330 Hz, got {}",
+        freq2
+    );
 
     // Check third step (should be 440 Hz)
-    let freq3 = estimate_frequency(&buffer[step_samples*2..step_samples*3], 44100);
-    assert!((freq3 - 440.0).abs() < 20.0, "Third step should be 440 Hz, got {}", freq3);
+    let freq3 = estimate_frequency(&buffer[step_samples * 2..step_samples * 3], 44100);
+    assert!(
+        (freq3 - 440.0).abs() < 20.0,
+        "Third step should be 440 Hz, got {}",
+        freq3
+    );
 
     // Check fourth step (should be 330 Hz again)
-    let freq4 = estimate_frequency(&buffer[step_samples*3..], 44100);
-    assert!((freq4 - 330.0).abs() < 15.0, "Fourth step should be 330 Hz, got {}", freq4);
+    let freq4 = estimate_frequency(&buffer[step_samples * 3..], 44100);
+    assert!(
+        (freq4 - 330.0).abs() < 15.0,
+        "Fourth step should be 330 Hz, got {}",
+        freq4
+    );
 
     println!("Pattern-driven frequency changes detected:");
     println!("  Step 1: {:.1} Hz (expected 220)", freq1);
@@ -95,9 +111,9 @@ fn test_pattern_drives_filter_cutoff() {
     let step_samples = 22050 / 4;
 
     let centroid1 = spectral_centroid(&buffer[0..step_samples], 44100);
-    let centroid2 = spectral_centroid(&buffer[step_samples..step_samples*2], 44100);
-    let centroid3 = spectral_centroid(&buffer[step_samples*2..step_samples*3], 44100);
-    let centroid4 = spectral_centroid(&buffer[step_samples*3..], 44100);
+    let centroid2 = spectral_centroid(&buffer[step_samples..step_samples * 2], 44100);
+    let centroid3 = spectral_centroid(&buffer[step_samples * 2..step_samples * 3], 44100);
+    let centroid4 = spectral_centroid(&buffer[step_samples * 3..], 44100);
 
     println!("Filter cutoff pattern modulation (spectral centroids):");
     println!("  Step 1 (500 Hz cutoff): {:.1} Hz", centroid1);
@@ -106,9 +122,18 @@ fn test_pattern_drives_filter_cutoff() {
     println!("  Step 4 (1000 Hz cutoff): {:.1} Hz", centroid4);
 
     // Verify centroids follow the pattern (higher cutoff = higher centroid)
-    assert!(centroid2 > centroid1, "1000 Hz cutoff should have higher centroid than 500 Hz");
-    assert!(centroid3 > centroid2, "2000 Hz cutoff should have higher centroid than 1000 Hz");
-    assert!(centroid3 > centroid4, "2000 Hz cutoff should have higher centroid than 1000 Hz (step 4)");
+    assert!(
+        centroid2 > centroid1,
+        "1000 Hz cutoff should have higher centroid than 500 Hz"
+    );
+    assert!(
+        centroid3 > centroid2,
+        "2000 Hz cutoff should have higher centroid than 1000 Hz"
+    );
+    assert!(
+        centroid3 > centroid4,
+        "2000 Hz cutoff should have higher centroid than 1000 Hz (step 4)"
+    );
 }
 
 #[test]
@@ -167,8 +192,13 @@ fn test_pattern_timing_synchronization() {
             assert!(rms2 < 0.01, "Cycle 2 step {} should be OFF", i);
         }
 
-        println!("Step {}: Cycle 1 RMS={:.3}, Cycle 2 RMS={:.3} ({})",
-                 i, rms1, rms2, if expected_on { "ON" } else { "OFF" });
+        println!(
+            "Step {}: Cycle 1 RMS={:.3}, Cycle 2 RMS={:.3} ({})",
+            i,
+            rms1,
+            rms2,
+            if expected_on { "ON" } else { "OFF" }
+        );
     }
 }
 
@@ -233,7 +263,7 @@ fn test_complex_pattern_synthesis() {
 
     // Check that silence occurs in the third step (rhythm = 0)
     let step_samples = 22050 / 4;
-    let step3_rms = calculate_rms(&buffer[step_samples*2..step_samples*3]);
+    let step3_rms = calculate_rms(&buffer[step_samples * 2..step_samples * 3]);
 
     // Debug: print all step RMS values
     for i in 0..4 {
@@ -244,7 +274,11 @@ fn test_complex_pattern_synthesis() {
     }
 
     // Third step might have some residual signal from filtering
-    assert!(step3_rms < 0.05, "Third step should be mostly silent (rhythm=0), got RMS={}", step3_rms);
+    assert!(
+        step3_rms < 0.05,
+        "Third step should be mostly silent (rhythm=0), got RMS={}",
+        step3_rms
+    );
 
     println!("Complex pattern synthesis verified:");
     println!("  Overall RMS: {:.3}", rms);
@@ -298,7 +332,7 @@ fn spectral_centroid(samples: &[f32], sample_rate: u32) -> f32 {
     let mut weighted_sum = 0.0;
 
     // Only check up to Nyquist frequency
-    for k in 0..n/2 {
+    for k in 0..n / 2 {
         let freq = k as f32 * sample_rate as f32 / n as f32;
 
         // Calculate DFT magnitude at this frequency

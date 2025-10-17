@@ -19,7 +19,10 @@ fn test_saw_synth_produces_audio() {
 
     println!("\n=== Saw Synth Test ===");
     println!("RMS: {:.4}", rms);
-    println!("Dominant frequency: {:.1} Hz (expected ~110 Hz)", dominant_freq);
+    println!(
+        "Dominant frequency: {:.1} Hz (expected ~110 Hz)",
+        dominant_freq
+    );
 
     if rms > 0.01 {
         println!("✅ Saw synth produces audio!");
