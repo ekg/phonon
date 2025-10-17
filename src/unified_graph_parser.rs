@@ -175,6 +175,18 @@ pub enum DslStatement {
     Panic,
 }
 
+/// Helper struct for SamplePattern fields (used in apply_modifier_to_sample)
+#[derive(Debug, Clone)]
+struct SamplePatternFields {
+    pattern: String,
+    gain: Option<Box<DslExpression>>,
+    pan: Option<Box<DslExpression>>,
+    speed: Option<Box<DslExpression>>,
+    cut_group: Option<Box<DslExpression>>,
+    attack: Option<Box<DslExpression>>,
+    release: Option<Box<DslExpression>>,
+}
+
 /// DSL expressions
 #[derive(Debug, Clone)]
 pub enum DslExpression {
@@ -277,6 +289,23 @@ pub enum DslExpression {
     PatternTransform {
         pattern: Box<DslExpression>,
         transform: PatternTransformOp,
+    },
+    /// DSP Modifiers (Tidal-style): applied via # operator
+    /// Gain modifier: s "bd" # gain 0.5
+    Gain {
+        value: Box<DslExpression>,
+    },
+    /// Pan modifier: s "bd" # pan "-1 1"
+    Pan {
+        value: Box<DslExpression>,
+    },
+    /// Speed modifier: s "bd" # speed 2.0
+    Speed {
+        value: Box<DslExpression>,
+    },
+    /// Cut group modifier: s "hh*16" # cut 1
+    Cut {
+        value: Box<DslExpression>,
     },
 }
 
@@ -510,6 +539,45 @@ fn delay(input: &str) -> IResult<&str, DslExpression> {
     })(input)
 }
 
+/// Parse DSP modifiers (Tidal-style)
+/// These are applied via # operator: s "bd" # gain 0.5
+
+/// Parse gain modifier: gain(value) or gain("pattern")
+fn gain_modifier(input: &str) -> IResult<&str, DslExpression> {
+    map(preceded(tag("gain"), function_args), |args| {
+        DslExpression::Gain {
+            value: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(1.0))),
+        }
+    })(input)
+}
+
+/// Parse pan modifier: pan(value) or pan("pattern")
+fn pan_modifier(input: &str) -> IResult<&str, DslExpression> {
+    map(preceded(tag("pan"), function_args), |args| {
+        DslExpression::Pan {
+            value: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(0.0))),
+        }
+    })(input)
+}
+
+/// Parse speed modifier: speed(value) or speed("pattern")
+fn speed_modifier(input: &str) -> IResult<&str, DslExpression> {
+    map(preceded(tag("speed"), function_args), |args| {
+        DslExpression::Speed {
+            value: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(1.0))),
+        }
+    })(input)
+}
+
+/// Parse cut group modifier: cut(value)
+fn cut_modifier(input: &str) -> IResult<&str, DslExpression> {
+    map(preceded(tag("cut"), function_args), |args| {
+        DslExpression::Cut {
+            value: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(0.0))),
+        }
+    })(input)
+}
+
 /// Parse RMS analyzer: rms(input, window_size)
 fn rms_analyzer(input: &str) -> IResult<&str, DslExpression> {
     map(preceded(tag("rms"), function_args), |args| {
@@ -637,20 +705,21 @@ fn extract_pattern_and_rebuild_transforms(
     }
 }
 
-/// Parse sample pattern: s("bd sn hh") or s("bd*4", gain: 0.8)
+/// Parse sample pattern: s("bd sn hh")
 /// Also handles pattern transforms: s("bd sn" $ fast 2)
+/// DSP parameters are applied via Tidal-style chaining: s("bd") # gain(0.5)
 fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
     map(preceded(tag("s"), function_args), |args| {
         // First arg can be a pattern string OR a pattern transform
         let first_arg = args.first().cloned();
 
-        // Use positional args: s("pattern", gain, pan, speed, cut_group, attack, release)
-        let gain = args.get(1).map(|e| Box::new(e.clone()));
-        let pan = args.get(2).map(|e| Box::new(e.clone()));
-        let speed = args.get(3).map(|e| Box::new(e.clone()));
-        let cut_group = args.get(4).map(|e| Box::new(e.clone()));
-        let attack = args.get(5).map(|e| Box::new(e.clone()));
-        let release = args.get(6).map(|e| Box::new(e.clone()));
+        // DSP params are now set via # chain (Tidal style), not positional args
+        let gain = None;
+        let pan = None;
+        let speed = None;
+        let cut_group = None;
+        let attack = None;
+        let release = None;
 
         // Check if first arg is a plain pattern string or a transform
         match first_arg {
@@ -968,6 +1037,10 @@ fn primary(input: &str) -> IResult<&str, DslExpression> {
         synth_pattern_expr,  // Pattern-triggered synth: synth("notes", "waveform", ...)
         synth_expr,          // SuperDirt continuous synths
         effect_expr,
+        gain_modifier,       // Tidal-style DSP modifiers
+        pan_modifier,
+        speed_modifier,
+        cut_modifier,
         oscillator,
         filter,
         delay,
@@ -1315,14 +1388,44 @@ impl DslCompiler {
                 }
             }
             DslExpression::Chain { left, right } => {
-                // Chain is like connecting output to input
-                let left_id = self.compile_expression(*left);
-
-                // Inject left_id as the input to the right side expression
-                let modified_right = self.inject_chain_input(*right, left_id);
-
-                // Compile the modified right side
-                self.compile_expression(modified_right)
+                // Check if right is a DSP modifier (gain/pan/speed/cut)
+                // If so, try to apply it to a SamplePattern (recursively if needed)
+                match &*right {
+                    DslExpression::Gain { value } => {
+                        let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
+                            sample.gain = Some(value.clone());
+                            sample
+                        });
+                        self.compile_expression(modified_left)
+                    }
+                    DslExpression::Pan { value } => {
+                        let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
+                            sample.pan = Some(value.clone());
+                            sample
+                        });
+                        self.compile_expression(modified_left)
+                    }
+                    DslExpression::Speed { value } => {
+                        let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
+                            sample.speed = Some(value.clone());
+                            sample
+                        });
+                        self.compile_expression(modified_left)
+                    }
+                    DslExpression::Cut { value } => {
+                        let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
+                            sample.cut_group = Some(value.clone());
+                            sample
+                        });
+                        self.compile_expression(modified_left)
+                    }
+                    // Default: standard chain behavior (for effects, etc.)
+                    _ => {
+                        let left_id = self.compile_expression(*left);
+                        let modified_right = self.inject_chain_input(*right, left_id);
+                        self.compile_expression(modified_right)
+                    }
+                }
             }
             DslExpression::Synth { synth_type, params } => {
                 use crate::superdirt_synths::SynthLibrary;
@@ -1941,6 +2044,62 @@ impl DslCompiler {
                 let node_id = self.compile_expression(expr);
                 Signal::Node(node_id)
             }
+        }
+    }
+
+    /// Apply a DSP modifier to a SamplePattern (recursively if needed)
+    /// This handles chained modifiers like: s("bd") # gain(0.8) # pan(-0.5)
+    fn apply_modifier_to_sample<F>(
+        &mut self,
+        expr: DslExpression,
+        modify: F,
+    ) -> DslExpression
+    where
+        F: FnOnce(SamplePatternFields) -> SamplePatternFields,
+    {
+        match expr {
+            // Base case: found the SamplePattern
+            DslExpression::SamplePattern {
+                pattern,
+                gain,
+                pan,
+                speed,
+                cut_group,
+                attack,
+                release,
+            } => {
+                let fields = SamplePatternFields {
+                    pattern,
+                    gain,
+                    pan,
+                    speed,
+                    cut_group,
+                    attack,
+                    release,
+                };
+                let modified = modify(fields);
+                DslExpression::SamplePattern {
+                    pattern: modified.pattern,
+                    gain: modified.gain,
+                    pan: modified.pan,
+                    speed: modified.speed,
+                    cut_group: modified.cut_group,
+                    attack: modified.attack,
+                    release: modified.release,
+                }
+            }
+            // Recursive case: chain with modifiers
+            DslExpression::Chain { left, right } => {
+                // Apply modifier to the left side recursively
+                let modified_left = self.apply_modifier_to_sample(*left, modify);
+                // Return the chain with modified left
+                DslExpression::Chain {
+                    left: Box::new(modified_left),
+                    right,
+                }
+            }
+            // Other expressions: return as-is (shouldn't happen in valid Tidal syntax)
+            other => other,
         }
     }
 
