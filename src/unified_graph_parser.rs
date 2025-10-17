@@ -474,12 +474,15 @@ fn waveform(input: &str) -> IResult<&str, Waveform> {
 
 /// Parse a single argument for space-separated style
 /// An argument can be: value, pattern string, bus ref, or parenthesized expression
+///
+/// IMPORTANT: We use `char(')')` not `ws(char(')'))` for the closing paren
+/// to avoid consuming the space that separates this arg from the next one
 fn space_arg(input: &str) -> IResult<&str, DslExpression> {
     alt((
         pattern_string,                                      // "pattern"
         bus_ref,                                             // ~name
         value_expr,                                          // 0.5
-        delimited(ws(char('(')), expression, ws(char(')'))), // (expr)
+        delimited(ws(char('(')), expression, char(')')),     // (expr) - note: no ws after ')'
     ))(input)
 }
 
