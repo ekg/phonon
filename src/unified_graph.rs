@@ -51,6 +51,7 @@
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Value(1.0),
+//!     cut_group: Signal::Value(0.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -96,6 +97,7 @@
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Node(pan_node), // Pan controlled by pattern!
 //!     speed: Signal::Value(1.0),
+//!     cut_group: Signal::Value(0.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -131,6 +133,7 @@
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Node(speed_node), // Speed controlled by pattern!
+//!     cut_group: Signal::Value(0.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -169,6 +172,7 @@
 //!     gain: scaled_gain, // Gain controlled by LFO!
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Value(1.0),
+//!     cut_group: Signal::Value(0.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -199,6 +203,7 @@
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Value(1.0),
+//!     cut_group: Signal::Value(0.0),
 //! });
 //!
 //! // Cutoff frequency pattern (200 Hz to 2000 Hz)
@@ -279,6 +284,7 @@
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Value(1.0),
+//!     cut_group: Signal::Value(0.0),
 //! });
 //!
 //! // Snare pattern on channel 2
@@ -291,6 +297,7 @@
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Value(1.0),
+//!     cut_group: Signal::Value(0.0),
 //! });
 //!
 //! graph.set_output_channel(1, kick_node);  // Channel 1
@@ -411,6 +418,7 @@ pub enum SignalNode {
         pattern_str: String,
         pattern: Pattern<String>,
         last_trigger_time: f32,
+        last_cycle: i32,  // Track which cycle we processed last
         playback_positions: HashMap<String, usize>,
         gain: Signal,
         pan: Signal,
@@ -856,6 +864,11 @@ impl UnifiedSignalGraph {
 
         // Hush all outputs
         self.hush_all();
+    }
+
+    /// Get the number of currently active voices
+    pub fn active_voice_count(&self) -> usize {
+        self.voice_manager.borrow().active_voice_count()
     }
 
     /// Process one sample and return all output channels
@@ -1305,6 +1318,7 @@ impl UnifiedSignalGraph {
                 pattern_str,
                 pattern,
                 last_trigger_time,
+                last_cycle,
                 playback_positions: _,
                 gain,
                 pan,
@@ -1334,13 +1348,22 @@ impl UnifiedSignalGraph {
                 };
                 let events = pattern.query(&state);
 
+                // Check if we've crossed into a new cycle
+                let current_cycle = self.cycle_position.floor() as i32;
+                let cycle_changed = current_cycle != last_cycle;
+
                 // Get the last EVENT start time we triggered
-                // This is the actual event start time, not cycle position
-                let last_event_start = if let Some(Some(SignalNode::Sample { last_trigger_time: lt, .. })) = self.nodes.get(node_id.0) {
+                // Reset if we've crossed into a new cycle to prevent accumulation
+                let mut last_event_start = if let Some(Some(SignalNode::Sample { last_trigger_time: lt, .. })) = self.nodes.get(node_id.0) {
                     *lt as f64
                 } else {
                     -1.0
                 };
+
+                // Reset event tracking when crossing cycle boundaries
+                if cycle_changed {
+                    last_event_start = -1.0;
+                }
 
                 // Track the latest event start time we trigger in this sample
                 let mut latest_triggered_start = last_event_start;
@@ -1386,11 +1409,12 @@ impl UnifiedSignalGraph {
                     }
                 }
 
-                // Update last_trigger_time to the latest event start time we triggered
+                // Update last_trigger_time and last_cycle
                 // This ensures we don't re-trigger the same events
-                if latest_triggered_start > last_event_start {
-                    if let Some(Some(SignalNode::Sample { last_trigger_time: lt, .. })) = self.nodes.get_mut(node_id.0) {
+                if latest_triggered_start > last_event_start || cycle_changed {
+                    if let Some(Some(SignalNode::Sample { last_trigger_time: lt, last_cycle: lc, .. })) = self.nodes.get_mut(node_id.0) {
                         *lt = latest_triggered_start as f32;
+                        *lc = current_cycle;
                     }
                 }
 

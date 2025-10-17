@@ -12,7 +12,7 @@
 //! - **Bus assignment**: `~name: expression` - Define a named signal bus
 //! - **Output**: `out: expression` - Set the output signal
 //! - **Tempo**: `cps: 2.0` - Set cycles per second (tempo)
-//! - **Signal chain**: `a >> b` - Chain signals (output of `a` feeds input of `b`)
+//! - **Signal chain**: `a # b` - Chain signals (output of `a` feeds input of `b`)
 //!
 //! ## Expressions
 //!
@@ -96,7 +96,7 @@
 //! use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 //!
 //! let input = r#"
-//!     ~bass: saw(55) >> lpf(800, 0.9)
+//!     ~bass: saw(55) # lpf(800, 0.9)
 //!     out: ~bass * 0.3
 //! "#;
 //!
@@ -130,7 +130,7 @@
 //! let input = r#"
 //!     cps: 2.0
 //!     ~lfo: sine(0.25)
-//!     ~bass: saw("55 82.5 110") >> lpf(~lfo * 2000 + 500, 0.8)
+//!     ~bass: saw("55 82.5 110") # lpf(~lfo * 2000 + 500, 0.8)
 //!     out: ~bass * 0.3
 //! "#;
 //!
@@ -222,7 +222,7 @@ pub enum DslExpression {
         left: Box<DslExpression>,
         right: Box<DslExpression>,
     },
-    /// Signal chain: a >> b
+    /// Signal chain: a # b
     Chain {
         left: Box<DslExpression>,
         right: Box<DslExpression>,
@@ -267,7 +267,7 @@ pub enum DslExpression {
         gain: Option<Box<DslExpression>>,
         pan: Option<Box<DslExpression>>,
     },
-    /// Pattern transform: pattern |> transform
+    /// Pattern transform: pattern $ transform
     PatternTransform {
         pattern: Box<DslExpression>,
         transform: PatternTransformOp,
@@ -533,7 +533,7 @@ fn effect_expr(input: &str) -> IResult<&str, DslExpression> {
 }
 
 /// Parse sample pattern: s("bd sn hh") or s("bd*4", gain: 0.8)
-/// Also handles pattern transforms: s("bd sn" |> fast 2)
+/// Also handles pattern transforms: s("bd sn" $ fast 2)
 fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
     map(preceded(tag("s"), function_args), |args| {
         // First arg can be a pattern string OR a pattern transform
@@ -557,7 +557,7 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                 }
             }
             Some(DslExpression::PatternTransform { pattern, transform }) => {
-                // Pattern with transform: s("bd sn" |> fast 2)
+                // Pattern with transform: s("bd sn" $ fast 2)
                 // Wrap the whole thing in a PatternTransform that contains a SamplePattern
                 DslExpression::PatternTransform {
                     pattern: Box::new(DslExpression::SamplePattern {
@@ -746,13 +746,13 @@ fn primary(input: &str) -> IResult<&str, DslExpression> {
     ))(input)
 }
 
-/// Parse signal chain: a >> b
+/// Parse signal chain: a # b
 /// Chain has the HIGHEST precedence (after primary), so it binds tighter than arithmetic
-/// Example: a >> b * c parses as (a >> b) * c
+/// Example: a # b * c parses as (a # b) * c
 fn chain(input: &str) -> IResult<&str, DslExpression> {
     let (input, first) = primary(input)?;
 
-    let (input, chains) = many0(preceded(ws(tag(">>")), primary))(input)?;
+    let (input, chains) = many0(preceded(ws(char('#')), primary))(input)?;
 
     let expr = chains
         .into_iter()
@@ -764,13 +764,13 @@ fn chain(input: &str) -> IResult<&str, DslExpression> {
     Ok((input, expr))
 }
 
-/// Parse pattern transforms: pattern |> transform
+/// Parse pattern transforms: pattern $ transform
 /// Pattern transform has precedence between chain and arithmetic
-/// Example: "bd sn" |> fast 2 * 0.5 parses as ("bd sn" |> fast 2) * 0.5
+/// Example: "bd sn" $ fast 2 * 0.5 parses as ("bd sn" $ fast 2) * 0.5
 fn pattern_transform(input: &str) -> IResult<&str, DslExpression> {
     let (input, first) = chain(input)?;
 
-    let (input, transforms) = many0(preceded(ws(tag("|>")), ws(parse_transform_op)))(input)?;
+    let (input, transforms) = many0(preceded(ws(char('$')), ws(parse_transform_op)))(input)?;
 
     let expr = transforms.into_iter().fold(first, |acc, transform| {
         DslExpression::PatternTransform {
@@ -1206,6 +1206,7 @@ impl DslCompiler {
                     pattern_str: pattern,
                     pattern: parsed_pattern,
                     last_trigger_time: -1.0,
+                    last_cycle: -1,  // Initialize to -1 to trigger on first cycle
                     playback_positions: HashMap::new(),
                     gain: gain_signal,
                     pan: pan_signal,
@@ -1328,7 +1329,7 @@ impl DslCompiler {
                         })
                     }
                     DslExpression::PatternTransform { pattern: inner_pattern, transform: inner_transform } => {
-                        // Handle chained transforms: pattern |> f |> g
+                        // Handle chained transforms: pattern $ f $ g
                         // First compile the inner transform
                         let inner_expr = DslExpression::PatternTransform {
                             pattern: inner_pattern,
@@ -1367,7 +1368,7 @@ impl DslCompiler {
                         }
                     }
                     DslExpression::SamplePattern { pattern: pattern_str, gain, pan, speed } => {
-                        // Handle transforms on sample patterns: s("bd sn" |> fast 2)
+                        // Handle transforms on sample patterns: s("bd sn" $ fast 2)
                         // Parse and transform the pattern
                         let base_pattern = parse_mini_notation(&pattern_str);
                         let transformed_pattern = match self.apply_pattern_transform(base_pattern, transform) {
@@ -1395,6 +1396,7 @@ impl DslCompiler {
                             pattern_str,
                             pattern: transformed_pattern,
                             last_trigger_time: -1.0,
+                            last_cycle: -1,  // Initialize to -1 to trigger on first cycle
                             playback_positions: HashMap::new(),
                             gain: gain_signal,
                             pan: pan_signal,
@@ -1429,7 +1431,7 @@ impl DslCompiler {
 
     /// Inject the left-hand node from a chain as the input to the right-hand expression
     ///
-    /// When parsing `a >> lpf(x, y)`, the parser treats lpf as having 3 args:
+    /// When parsing `a # lpf(x, y)`, the parser treats lpf as having 3 args:
     /// - args[0] = x -> input
     /// - args[1] = y -> cutoff
     /// - args[2] = default -> q
@@ -1476,7 +1478,7 @@ impl DslCompiler {
                 }
             }
             // For other expressions, wrap in a chain if needed or return as-is
-            // (this handles cases like: osc >> osc, which would just multiply)
+            // (this handles cases like: osc # osc, which would just multiply)
             other => other,
         }
     }
@@ -1640,7 +1642,7 @@ mod tests {
 
     #[test]
     fn test_parse_chain() {
-        let input = "sine(440) >> lpf(1000, 2)";
+        let input = "sine(440) # lpf(1000, 2)";
         let result = expression(input);
         assert!(result.is_ok());
     }
@@ -1649,7 +1651,7 @@ mod tests {
     fn test_parse_complete_dsl() {
         let input = r#"
             ~lfo: sine(0.5) * 0.5 + 0.5
-            ~bass: saw(55) >> lpf(~lfo * 2000 + 500, 0.8)
+            ~bass: saw(55) # lpf(~lfo * 2000 + 500, 0.8)
             out: ~bass * 0.4
         "#;
 
