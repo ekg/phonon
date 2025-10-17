@@ -304,6 +304,10 @@ pub enum PatternTransformOp {
     Degrade,
     /// Randomly drop events with probability: degradeBy 0.9
     DegradeBy(Box<DslExpression>),
+    /// Create palindrome (forward + backward): palindrome
+    Palindrome,
+    /// Stutter events n times: stutter n
+    Stutter(Box<DslExpression>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -723,6 +727,12 @@ fn parse_transform_op(input: &str) -> IResult<&str, PatternTransformOp> {
         }),
         // degrade (no arguments)
         map(tag("degrade"), |_| PatternTransformOp::Degrade),
+        // palindrome (no arguments)
+        map(tag("palindrome"), |_| PatternTransformOp::Palindrome),
+        // stutter n
+        map(preceded(tag("stutter"), ws(primary)), |n| {
+            PatternTransformOp::Stutter(Box::new(n))
+        }),
         // fast n
         map(preceded(tag("fast"), ws(primary)), |n| {
             PatternTransformOp::Fast(Box::new(n))
@@ -1857,6 +1867,11 @@ impl DslCompiler {
             PatternTransformOp::DegradeBy(prob_expr) => {
                 let prob = self.extract_constant(*prob_expr)?;
                 Ok(pattern.degrade_by(prob))
+            }
+            PatternTransformOp::Palindrome => Ok(pattern.palindrome()),
+            PatternTransformOp::Stutter(n_expr) => {
+                let n = self.extract_constant(*n_expr)? as usize;
+                Ok(pattern.stutter(n))
             }
         }
     }
