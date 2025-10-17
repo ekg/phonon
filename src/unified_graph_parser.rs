@@ -308,6 +308,45 @@ pub enum PatternTransformOp {
     Palindrome,
     /// Stutter events n times: stutter n
     Stutter(Box<DslExpression>),
+    /// Shift pattern forward in time: late 0.25
+    Late(Box<DslExpression>),
+    /// Shift pattern backward in time: early 0.25
+    Early(Box<DslExpression>),
+    /// Duplicate/repeat pattern n times: dup 4
+    Dup(Box<DslExpression>),
+    /// Zoom to a time window: zoom 0.0 0.5
+    Zoom {
+        begin: Box<DslExpression>,
+        end: Box<DslExpression>,
+    },
+    /// Focus on a time window: focus 0.25 0.75
+    Focus {
+        begin: Box<DslExpression>,
+        end: Box<DslExpression>,
+    },
+    /// Apply transform to time window: within 0.25 0.75 (fast 2)
+    Within {
+        begin: Box<DslExpression>,
+        end: Box<DslExpression>,
+        transform: Box<PatternTransformOp>,
+    },
+    /// Chop events into n pieces: chop 4
+    Chop(Box<DslExpression>),
+    /// Add gaps between events: gap 2
+    Gap(Box<DslExpression>),
+    /// Divide pattern into n segments: segment 4
+    Segment(Box<DslExpression>),
+    /// Add swing/shuffle feel: swing 0.5
+    Swing(Box<DslExpression>),
+    /// Shuffle pattern timing: shuffle 3
+    Shuffle(Box<DslExpression>),
+    /// Apply transform to each chunk: chunk 4 (rev)
+    Chunk {
+        n: Box<DslExpression>,
+        transform: Box<PatternTransformOp>,
+    },
+    /// Stereo effect (original + transformed): jux (rev)
+    Jux(Box<PatternTransformOp>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -546,6 +585,58 @@ fn effect_expr(input: &str) -> IResult<&str, DslExpression> {
     })(input)
 }
 
+/// Helper function to recursively extract pattern string and rebuild transform chain
+/// For s("bd sn" $ fast 2 $ rev), this converts:
+///   PatternTransform { pattern: PatternTransform { pattern: Pattern("bd sn"), transform: Fast }, transform: Rev }
+/// Into:
+///   PatternTransform { pattern: PatternTransform { pattern: SamplePattern { pattern: "bd sn", ... }, transform: Fast }, transform: Rev }
+fn extract_pattern_and_rebuild_transforms(
+    expr: DslExpression,
+    gain: Option<Box<DslExpression>>,
+    pan: Option<Box<DslExpression>>,
+    speed: Option<Box<DslExpression>>,
+    cut_group: Option<Box<DslExpression>>,
+    attack: Option<Box<DslExpression>>,
+    release: Option<Box<DslExpression>>,
+) -> DslExpression {
+    match expr {
+        DslExpression::Pattern(p) => {
+            // Base case: found the pattern string, wrap it in SamplePattern
+            DslExpression::SamplePattern {
+                pattern: p,
+                gain,
+                pan,
+                speed,
+                cut_group,
+                attack,
+                release,
+            }
+        }
+        DslExpression::PatternTransform { pattern, transform } => {
+            // Recursive case: process inner pattern, then wrap result in transform
+            let inner = extract_pattern_and_rebuild_transforms(
+                *pattern, gain, pan, speed, cut_group, attack, release
+            );
+            DslExpression::PatternTransform {
+                pattern: Box::new(inner),
+                transform,
+            }
+        }
+        _ => {
+            // Unknown case: return empty sample pattern
+            DslExpression::SamplePattern {
+                pattern: String::new(),
+                gain,
+                pan,
+                speed,
+                cut_group,
+                attack,
+                release,
+            }
+        }
+    }
+}
+
 /// Parse sample pattern: s("bd sn hh") or s("bd*4", gain: 0.8)
 /// Also handles pattern transforms: s("bd sn" $ fast 2)
 fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
@@ -576,24 +667,12 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                 }
             }
             Some(DslExpression::PatternTransform { pattern, transform }) => {
-                // Pattern with transform: s("bd sn" $ fast 2)
-                // Wrap the whole thing in a PatternTransform that contains a SamplePattern
-                DslExpression::PatternTransform {
-                    pattern: Box::new(DslExpression::SamplePattern {
-                        pattern: if let DslExpression::Pattern(p) = *pattern {
-                            p
-                        } else {
-                            String::new()
-                        },
-                        gain,
-                        pan,
-                        speed,
-                        cut_group,
-                        attack,
-                        release,
-                    }),
-                    transform,
-                }
+                // Pattern with transform: s("bd sn" $ fast 2) or chained: s("bd sn" $ fast 2 $ rev)
+                // Recursively extract the base pattern and rebuild the transform chain
+                extract_pattern_and_rebuild_transforms(
+                    DslExpression::PatternTransform { pattern, transform },
+                    gain, pan, speed, cut_group, attack, release
+                )
             }
             _ => {
                 // Unknown first argument type
@@ -718,6 +797,15 @@ fn synth_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
 
 /// Parse a pattern transform operation
 fn parse_transform_op(input: &str) -> IResult<&str, PatternTransformOp> {
+    // Split into two groups to avoid nom's alt limit (~21 alternatives)
+    alt((
+        parse_transform_op_group1,
+        parse_transform_op_group2,
+    ))(input)
+}
+
+/// First group of transform operations
+fn parse_transform_op_group1(input: &str) -> IResult<&str, PatternTransformOp> {
     alt((
         // rev (no arguments)
         map(tag("rev"), |_| PatternTransformOp::Rev),
@@ -733,6 +821,79 @@ fn parse_transform_op(input: &str) -> IResult<&str, PatternTransformOp> {
         map(preceded(tag("stutter"), ws(primary)), |n| {
             PatternTransformOp::Stutter(Box::new(n))
         }),
+        // late n
+        map(preceded(tag("late"), ws(primary)), |n| {
+            PatternTransformOp::Late(Box::new(n))
+        }),
+        // early n
+        map(preceded(tag("early"), ws(primary)), |n| {
+            PatternTransformOp::Early(Box::new(n))
+        }),
+        // dup n
+        map(preceded(tag("dup"), ws(primary)), |n| {
+            PatternTransformOp::Dup(Box::new(n))
+        }),
+        // zoom begin end
+        map(
+            tuple((
+                preceded(tag("zoom"), ws(primary)),
+                ws(primary),
+            )),
+            |(begin, end)| PatternTransformOp::Zoom {
+                begin: Box::new(begin),
+                end: Box::new(end),
+            },
+        ),
+        // focus begin end
+        map(
+            tuple((
+                preceded(tag("focus"), ws(primary)),
+                ws(primary),
+            )),
+            |(begin, end)| PatternTransformOp::Focus {
+                begin: Box::new(begin),
+                end: Box::new(end),
+            },
+        ),
+        // within begin end (transform)
+        map(
+            tuple((
+                preceded(tag("within"), ws(primary)),
+                ws(primary),
+                delimited(ws(char('(')), parse_transform_op, ws(char(')'))),
+            )),
+            |(begin, end, transform)| PatternTransformOp::Within {
+                begin: Box::new(begin),
+                end: Box::new(end),
+                transform: Box::new(transform),
+            },
+        ),
+        // chop n
+        map(preceded(tag("chop"), ws(primary)), |n| {
+            PatternTransformOp::Chop(Box::new(n))
+        }),
+        // gap n
+        map(preceded(tag("gap"), ws(primary)), |n| {
+            PatternTransformOp::Gap(Box::new(n))
+        }),
+        // segment n
+        map(preceded(tag("segment"), ws(primary)), |n| {
+            PatternTransformOp::Segment(Box::new(n))
+        }),
+        // swing n
+        map(preceded(tag("swing"), ws(primary)), |n| {
+            PatternTransformOp::Swing(Box::new(n))
+        }),
+        // shuffle n
+        map(preceded(tag("shuffle"), ws(primary)), |n| {
+            PatternTransformOp::Shuffle(Box::new(n))
+        }),
+    ))(input)
+}
+
+/// Second group of transform operations
+fn parse_transform_op_group2(input: &str) -> IResult<&str, PatternTransformOp> {
+    alt((
         // fast n
         map(preceded(tag("fast"), ws(primary)), |n| {
             PatternTransformOp::Fast(Box::new(n))
@@ -775,6 +936,25 @@ fn parse_transform_op(input: &str) -> IResult<&str, PatternTransformOp> {
                 delimited(ws(char('(')), parse_transform_op, ws(char(')'))),
             ),
             |f| PatternTransformOp::Rarely(Box::new(f)),
+        ),
+        // chunk n (transform)
+        map(
+            tuple((
+                preceded(tag("chunk"), ws(primary)),
+                delimited(ws(char('(')), parse_transform_op, ws(char(')'))),
+            )),
+            |(n, transform)| PatternTransformOp::Chunk {
+                n: Box::new(n),
+                transform: Box::new(transform),
+            },
+        ),
+        // jux (transform)
+        map(
+            preceded(
+                tag("jux"),
+                delimited(ws(char('(')), parse_transform_op, ws(char(')'))),
+            ),
+            |transform| PatternTransformOp::Jux(Box::new(transform)),
         ),
     ))(input)
 }
@@ -916,15 +1096,49 @@ fn output_definition(input: &str) -> IResult<&str, DslStatement> {
     )(input)
 }
 
-/// Parse CPS setting: cps: 0.5 or tempo: 1.0 (alias for cps)
+/// Parse CPS setting: cps: 0.5, tempo: 1.0, or bpm 120 [4/4]
 fn cps_setting(input: &str) -> IResult<&str, DslStatement> {
-    map(
-        preceded(
-            tuple((alt((tag("cps"), tag("tempo"))), ws(char(':')))),
-            number,
+    alt((
+        // bpm 120 [4/4] (optional time signature, defaults to 4/4)
+        map(
+            tuple((
+                tag("bpm"),
+                multispace1,
+                number,
+                // Optional time signature [numerator/denominator]
+                nom::combinator::opt(preceded(
+                    multispace0,
+                    delimited(
+                        char('['),
+                        tuple((
+                            map_res(digit1, |s: &str| s.parse::<u32>()),
+                            preceded(char('/'), map_res(digit1, |s: &str| s.parse::<u32>())),
+                        )),
+                        char(']'),
+                    ),
+                )),
+            )),
+            |(_tag, _ws, bpm, time_sig_opt)| {
+                // Default to 4/4 if not specified
+                let (numerator, denominator) = time_sig_opt.unwrap_or((4, 4));
+
+                // BPM is quarter notes per minute
+                // CPS is cycles per second
+                // For now, time signature is parsed but not used in CPS calculation
+                // In the future, this could affect how cycles map to musical measures
+                let _ = (numerator, denominator); // Keep for future use
+                DslStatement::SetCps(bpm / 60.0)
+            },
         ),
-        DslStatement::SetCps,
-    )(input)
+        // cps: 2.0 or tempo: 2.0 (with colon)
+        map(
+            preceded(
+                tuple((alt((tag("cps"), tag("tempo"))), ws(char(':')))),
+                number,
+            ),
+            DslStatement::SetCps,
+        ),
+    ))(input)
 }
 
 /// Parse hush statement: hush, hush1, hush2, etc.
@@ -1560,19 +1774,20 @@ impl DslCompiler {
                         let inner_node_id = self.compile_expression(inner_expr);
 
                         // Now we need to get the pattern from the inner node and apply our transform
+                        // The inner node could be either a Pattern node or a Sample node
                         // Extract pattern data first to avoid borrow checker issues
-                        let pattern_data = if let Some(SignalNode::Pattern {
+                        let node = self.graph.get_node(inner_node_id);
+
+                        if let Some(SignalNode::Pattern {
                             pattern: inner_pattern_obj,
                             pattern_str,
                             ..
-                        }) = self.graph.get_node(inner_node_id)
+                        }) = node
                         {
-                            Some((inner_pattern_obj.clone(), pattern_str.clone()))
-                        } else {
-                            None
-                        };
+                            // Inner node is a Pattern, apply transform and create new Pattern node
+                            let pattern_data = (inner_pattern_obj.clone(), pattern_str.clone());
+                            let (inner_pattern, pattern_str) = pattern_data;
 
-                        if let Some((inner_pattern, pattern_str)) = pattern_data {
                             let transformed_pattern = match self
                                 .apply_pattern_transform(inner_pattern.clone(), transform)
                             {
@@ -1589,8 +1804,57 @@ impl DslCompiler {
                                 last_value: 0.0,
                                 last_trigger_time: -1.0,
                             })
+                        } else if let Some(SignalNode::Sample {
+                            pattern: inner_pattern_obj,
+                            pattern_str,
+                            gain,
+                            pan,
+                            speed,
+                            cut_group,
+                            attack,
+                            release,
+                            ..
+                        }) = node
+                        {
+                            // Inner node is a Sample, apply transform and create new Sample node
+                            let sample_data = (
+                                inner_pattern_obj.clone(),
+                                pattern_str.clone(),
+                                gain.clone(),
+                                pan.clone(),
+                                speed.clone(),
+                                cut_group.clone(),
+                                attack.clone(),
+                                release.clone(),
+                            );
+                            let (inner_pattern, pattern_str, gain, pan, speed, cut_group, attack, release) = sample_data;
+
+                            let transformed_pattern = match self
+                                .apply_pattern_transform(inner_pattern.clone(), transform)
+                            {
+                                Ok(p) => p,
+                                Err(e) => {
+                                    eprintln!("Warning: Failed to apply chained transform to sample: {}", e);
+                                    inner_pattern
+                                }
+                            };
+
+                            use std::collections::HashMap;
+                            self.graph.add_node(SignalNode::Sample {
+                                pattern_str,
+                                pattern: transformed_pattern,
+                                last_trigger_time: -1.0,
+                                last_cycle: -1,
+                                playback_positions: HashMap::new(),
+                                gain,
+                                pan,
+                                speed,
+                                cut_group,
+                                attack,
+                                release,
+                            })
                         } else {
-                            eprintln!("Warning: Chained transform inner expression did not produce a pattern node");
+                            eprintln!("Warning: Chained transform inner expression did not produce a pattern or sample node");
                             self.graph.add_node(SignalNode::Constant { value: 0.0 })
                         }
                     }
@@ -1872,6 +2136,148 @@ impl DslCompiler {
             PatternTransformOp::Stutter(n_expr) => {
                 let n = self.extract_constant(*n_expr)? as usize;
                 Ok(pattern.stutter(n))
+            }
+            PatternTransformOp::Late(amount_expr) => {
+                let amount = self.extract_constant(*amount_expr)?;
+                Ok(pattern.late(amount))
+            }
+            PatternTransformOp::Early(amount_expr) => {
+                let amount = self.extract_constant(*amount_expr)?;
+                Ok(pattern.early(amount))
+            }
+            PatternTransformOp::Dup(n_expr) => {
+                let n = self.extract_constant(*n_expr)? as usize;
+                Ok(pattern.dup(n))
+            }
+            PatternTransformOp::Zoom { begin, end } => {
+                let begin_val = self.extract_constant(*begin)?;
+                let end_val = self.extract_constant(*end)?;
+                Ok(pattern.zoom(begin_val, end_val))
+            }
+            PatternTransformOp::Focus { begin, end } => {
+                let begin_val = self.extract_constant(*begin)?;
+                let end_val = self.extract_constant(*end)?;
+                Ok(pattern.focus(begin_val, end_val))
+            }
+            PatternTransformOp::Within { begin, end, transform } => {
+                let begin_val = self.extract_constant(*begin)?;
+                let end_val = self.extract_constant(*end)?;
+                let inner_transform = *transform;
+
+                // Create a closure that applies the inner transform
+                Ok(pattern.within(begin_val, end_val, move |p| {
+                    // Handle common transforms
+                    match inner_transform {
+                        PatternTransformOp::Fast(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.fast(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Slow(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.slow(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Rev => p.rev(),
+                        PatternTransformOp::Palindrome => p.palindrome(),
+                        PatternTransformOp::Degrade => p.degrade(),
+                        PatternTransformOp::DegradeBy(ref prob_expr) => {
+                            if let DslExpression::Value(v) = **prob_expr {
+                                p.degrade_by(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Stutter(ref n_expr) => {
+                            if let DslExpression::Value(v) = **n_expr {
+                                p.stutter(v as usize)
+                            } else {
+                                p
+                            }
+                        }
+                        _ => {
+                            eprintln!("Warning: Transform {:?} not yet supported in within closure", inner_transform);
+                            p
+                        }
+                    }
+                }))
+            }
+            PatternTransformOp::Chop(n_expr) => {
+                let n = self.extract_constant(*n_expr)? as usize;
+                Ok(pattern.chop(n))
+            }
+            PatternTransformOp::Gap(n_expr) => {
+                let n = self.extract_constant(*n_expr)? as usize;
+                Ok(pattern.gap(n))
+            }
+            PatternTransformOp::Segment(n_expr) => {
+                let n = self.extract_constant(*n_expr)? as usize;
+                Ok(pattern.segment(n))
+            }
+            PatternTransformOp::Swing(amount_expr) => {
+                let amount = self.extract_constant(*amount_expr)?;
+                Ok(pattern.swing(amount))
+            }
+            PatternTransformOp::Shuffle(amount_expr) => {
+                let amount = self.extract_constant(*amount_expr)?;
+                Ok(pattern.shuffle(amount))
+            }
+            PatternTransformOp::Chunk { n, transform } => {
+                let n_val = self.extract_constant(*n)? as usize;
+                let inner_transform = *transform;
+
+                // Create a closure that applies the inner transform
+                Ok(pattern.chunk(n_val, move |p| {
+                    // Handle common transforms
+                    match inner_transform {
+                        PatternTransformOp::Fast(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.fast(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Slow(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.slow(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Rev => p.rev(),
+                        PatternTransformOp::Palindrome => p.palindrome(),
+                        PatternTransformOp::Degrade => p.degrade(),
+                        PatternTransformOp::DegradeBy(ref prob_expr) => {
+                            if let DslExpression::Value(v) = **prob_expr {
+                                p.degrade_by(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Stutter(ref n_expr) => {
+                            if let DslExpression::Value(v) = **n_expr {
+                                p.stutter(v as usize)
+                            } else {
+                                p
+                            }
+                        }
+                        _ => {
+                            eprintln!("Warning: Transform {:?} not yet supported in chunk closure", inner_transform);
+                            p
+                        }
+                    }
+                }))
+            }
+            PatternTransformOp::Jux(_transform) => {
+                // TODO: Jux returns Pattern<(String, String)> for stereo, but our DSL
+                // currently only supports Pattern<String>. This requires architectural
+                // changes to support stereo patterns in the DSL.
+                eprintln!("Warning: jux transform requires stereo pattern support, not yet implemented in DSL");
+                Ok(pattern)
             }
         }
     }
