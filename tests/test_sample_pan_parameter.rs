@@ -120,7 +120,7 @@ fn test_pan_default_is_center() {
 
     let input_without_pan = r#"
         tempo: 2.0
-        out: s("bd")
+        out: s "bd"
     "#;
 
     // Both should produce similar RMS

@@ -1,0 +1,3 @@
+# Test pattern multiplication inline
+tempo 2.0
+out sine 220 * "0.1 0.2"

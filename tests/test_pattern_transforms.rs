@@ -267,7 +267,7 @@ fn test_dsl_rev_with_samples() {
 fn test_dsl_transform_filter_modulation() {
     let input = r#"
         tempo: 2.0
-        out: saw(55) >> lpf("500 2000" |> fast 2, 0.8) * 0.3
+        out: saw 55 >> lpf("500 2000" |> fast 2, 0.8) * 0.3
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse");

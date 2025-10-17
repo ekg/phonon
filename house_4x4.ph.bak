@@ -1,0 +1,24 @@
+# 🎵 PHONON: The Tidal + Glicol Hybrid
+# =====================================
+# This is a 4-on-the-floor house beat using:
+# - Tidal/Strudel mini-notation (euclidean rhythms, rests, repetition)
+# - Glicol-style DSL audio routing (filters, mixing)
+
+# 🥁 KICK - Euclidean 4-on-the-floor
+# Syntax: "1(4,16)" = 4 pulses evenly distributed in 16 steps
+kick = sine(55) * "1(4,16)"
+
+# 👏 CLAP/SNARE - On the 2 and 4
+# Syntax: "~" = rest, explicit positions
+clap = sine(150) * "~ 1 ~ 1"
+
+# 🎩 HI-HATS - Fast 16th notes with accents
+# Syntax: "[1 0.5]*8" = repeat pattern 8 times
+hats = square(9000) * "[1 0.5]*8"
+
+# 🎸 BASS - Melodic pattern with rests
+# Syntax: "[110 110 ~ 165]*2" = frequencies with rest, repeated
+bass = saw("[110 110 ~ 165]*2") # lpf(800, 1.5)
+
+# 🎚️ MIX - Add all layers together
+out kick * 0.3 + clap * 0.2 + hats * 0.05 + bass * 0.25

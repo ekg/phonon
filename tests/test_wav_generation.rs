@@ -29,7 +29,7 @@ fn test_filter_modulation_works() {
 fn render_simple_sine(output_path: &str) {
     let mut graph = UnifiedSignalGraph::new(44100.0);
 
-    // Create sine(440) * 0.2
+    // Create sine 440 * 0.2
     let freq_signal = Signal::Value(440.0);
     let osc_node = graph.add_node(SignalNode::Oscillator {
         freq: freq_signal,
@@ -56,7 +56,7 @@ fn render_simple_sine(output_path: &str) {
 fn render_pattern_modulation(output_path: &str) {
     let mut graph = UnifiedSignalGraph::new(44100.0);
 
-    // Create sine("220 440 330") * 0.2
+    // Create sine "220 440 330" * 0.2
     let pattern = parse_mini_notation("220 440 330");
     let pattern_node = graph.add_node(SignalNode::Pattern {
         pattern_str: "220 440 330".to_string(),
@@ -90,7 +90,7 @@ fn render_pattern_modulation(output_path: &str) {
 fn render_filter_modulation(output_path: &str) {
     let mut graph = UnifiedSignalGraph::new(44100.0);
 
-    // Create saw(110) >> lpf("500 2000", 3) * 0.2
+    // Create saw 110 >> lpf("500 2000", 3) * 0.2
     let freq_signal = Signal::Value(110.0);
     let osc_node = graph.add_node(SignalNode::Oscillator {
         freq: freq_signal,

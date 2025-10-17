@@ -1,0 +1,101 @@
+//! Debug DSL syntax parsing
+
+use phonon::unified_graph_parser::parse_dsl;
+
+#[test]
+fn test_dsl_syntax_variations() {
+    println!("\n=== Testing DSL Syntax Variations ===\n");
+
+    // Test 1: Without colon
+    let input1 = r#"
+        tempo 1.0
+        out s "bd"
+    "#;
+
+    println!("Test 1: out s(\"bd\") (no colon)");
+    match parse_dsl(input1) {
+        Ok((remaining, statements)) => {
+            println!("  ✅ Parsed");
+            println!("  Remaining: {:?}", remaining);
+            println!("  Statements: {:?}", statements);
+            println!("  Count: {}", statements.len());
+        }
+        Err(e) => {
+            println!("  ❌ Parse error: {:?}", e);
+        }
+    }
+
+    // Test 2: With colon
+    let input2 = r#"
+        tempo 1.0
+        out: s "bd"
+    "#;
+
+    println!("\nTest 2: out: s(\"bd\") (with colon)");
+    match parse_dsl(input2) {
+        Ok((remaining, statements)) => {
+            println!("  ✅ Parsed");
+            println!("  Remaining: {:?}", remaining);
+            println!("  Statements: {:?}", statements);
+            println!("  Count: {}", statements.len());
+        }
+        Err(e) => {
+            println!("  ❌ Parse error: {:?}", e);
+        }
+    }
+
+    // Test 3: Just output
+    let input3 = "out: s(\"bd\")";
+
+    println!("\nTest 3: out: s(\"bd\") (single line)");
+    match parse_dsl(input3) {
+        Ok((remaining, statements)) => {
+            println!("  ✅ Parsed");
+            println!("  Remaining: {:?}", remaining);
+            println!("  Statements: {:?}", statements);
+            println!("  Count: {}", statements.len());
+        }
+        Err(e) => {
+            println!("  ❌ Parse error: {:?}", e);
+        }
+    }
+
+    // Test 4: tempo (not "tempo", should be "cps")
+    let input4 = r#"
+        cps: 1.0
+        out: s "bd"
+    "#;
+
+    println!("\nTest 4: cps: 1.0 + out: s(\"bd\")");
+    match parse_dsl(input4) {
+        Ok((remaining, statements)) => {
+            println!("  ✅ Parsed");
+            println!("  Remaining: {:?}", remaining);
+            println!("  Statements: {:?}", statements);
+            println!("  Count: {}", statements.len());
+        }
+        Err(e) => {
+            println!("  ❌ Parse error: {:?}", e);
+        }
+    }
+
+    // Test 5: With bus
+    let input5 = r#"
+        cps: 1.0
+        ~drums: s "bd"
+        out: ~drums
+    "#;
+
+    println!("\nTest 5: Full example with bus");
+    match parse_dsl(input5) {
+        Ok((remaining, statements)) => {
+            println!("  ✅ Parsed");
+            println!("  Remaining: {:?}", remaining);
+            println!("  Statements: {:?}", statements);
+            println!("  Count: {}", statements.len());
+        }
+        Err(e) => {
+            println!("  ❌ Parse error: {:?}", e);
+        }
+    }
+}

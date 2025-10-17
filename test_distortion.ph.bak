@@ -1,0 +1,4 @@
+tempo: 2.0
+~sine: sine(220)
+~with_dist: dist(~sine, 5.0, 0.5)
+out: ~with_dist * 0.3

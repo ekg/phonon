@@ -1,0 +1,2 @@
+tempo: 2.0
+out: chorus(sine 440, 1.0, 0.5, 0.5) * 0.3

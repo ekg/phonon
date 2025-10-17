@@ -215,8 +215,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
             // Parse the DSL
-            let (_, statements) =
+            let (remaining, statements) =
                 parse_dsl(&dsl_code).map_err(|e| format!("Failed to parse DSL: {:?}", e))?;
+
+            // Check for parse errors (unparsed input remaining)
+            if !remaining.trim().is_empty() {
+                eprintln!("⚠️  WARNING: Some code could not be parsed");
+                eprintln!("Unparsed input: {:?}", remaining);
+                eprintln!("This may be due to syntax errors or unsupported features.");
+            }
 
             // Compile to graph
             let compiler = DslCompiler::new(sample_rate as f32);
@@ -413,6 +420,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             pan: Signal::Value(0.0),
                                             speed: Signal::Value(1.0),
                                             cut_group: Signal::Value(0.0),
+                                            attack: Signal::Value(0.0),
+                                            release: Signal::Value(0.0),
                                         })
                                     } else {
                                         graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -736,6 +745,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             pan: Signal::Value(0.0),
                                             speed: Signal::Value(1.0),
                                             cut_group: Signal::Value(0.0),
+                                            attack: Signal::Value(0.0),
+                                            release: Signal::Value(0.0),
                                         }));
                                     }
                                 }
@@ -793,6 +804,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     pan: Signal::Value(0.0),
                                     speed: Signal::Value(1.0),
                                     cut_group: Signal::Value(0.0),
+                                    attack: Signal::Value(0.0),
+                                    release: Signal::Value(0.0),
                                 }));
                             }
                         }
@@ -1574,6 +1587,8 @@ out sine(440) * 0.2
                                     pan: Signal::Value(0.0),
                                     speed: Signal::Value(1.0),
                                     cut_group: Signal::Value(0.0),
+                                    attack: Signal::Value(0.0),
+                                    release: Signal::Value(0.0),
                                 }));
                             }
                         } else if base_expr.starts_with('"') && base_expr.ends_with('"') {
@@ -1788,6 +1803,8 @@ out sine(440) * 0.2
                             pan: Signal::Value(0.0),
                             speed: Signal::Value(1.0),
                             cut_group: Signal::Value(0.0),
+                            attack: Signal::Value(0.0),
+                            release: Signal::Value(0.0),
                         }));
                     }
                 }

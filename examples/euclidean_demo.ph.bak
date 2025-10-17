@@ -1,0 +1,66 @@
+# Euclidean Rhythm Demonstrations
+# Exploring mathematical rhythm distributions
+
+tempo 2.0  # 120 BPM
+
+# CLASSIC EUCLIDEAN PATTERNS
+
+# Tresillo - Cuban/Latin rhythm (3 hits in 8 steps)
+# ~kick: s("bd(3,8)")
+
+# Cinquillo - Cuban clave (5 hits in 8 steps)
+# ~kick: s("bd(5,8)")
+
+# Son clave (5 hits in 16 steps)
+# ~kick: s("bd(5,16)")
+
+# Soukous pattern (7 hits in 16 steps)
+# ~kick: s("bd(7,16)")
+
+# LAYERED EUCLIDEAN PATTERNS
+
+# Polyrhythmic kick and snare
+# ~kick: s("bd(3,8)")
+# ~snare: s("sn(5,16)")
+# out: ~kick + ~snare * 0.8
+
+# Techno-style euclidean grooves
+# ~kick: s("bd(5,16)", "1.0 0.8 0.9 0.7 0.85")
+# ~hats: s("hh(11,16)", 0.5)
+# ~snare: s("sn(3,8)")
+# out: ~kick + ~hats + ~snare * 0.9
+
+# COMPLEX EUCLIDEAN COMBINATIONS
+
+# Three-layer euclidean pattern
+~kick = s("bd(5,16)", "1.0 0.8 0.9 0.85 0.95")
+~hats = s("hh(13,16)", 0.6)
+~claps = s("cp(3,8)", 0.85)
+
+# Add hi-hat variations
+~open = s("oh(7,32)", 0.5)
+
+# Combine all layers
+~drums = ~kick + ~hats + ~claps + ~open
+
+# BASS WITH EUCLIDEAN KICK
+
+# Bassline following the kick rhythm
+~bass = supersaw("55 82.5 55 110", 0.35, 6) # lpf(900, 0.85)
+
+# Add effects
+out = reverb(~drums + ~bass * 0.25, 0.4, 0.5, 0.2) * 0.75
+
+# EUCLIDEAN EXPLORATION:
+# Try different (hits, steps) combinations:
+# bd(3,8)   - Tresillo (Cuban)
+# bd(5,8)   - Cinquillo
+# bd(5,12)  - York-Samai (Arabic)
+# bd(7,16)  - Soukous (African)
+# bd(9,16)  - Dense pattern
+#
+# Rotation (third parameter):
+# bd(3,8,2) - Rotates the pattern by 2 steps
+# bd(5,16,3) - Rotates by 3 steps
+#
+# Layer multiple euclidean patterns for polyrhythms!

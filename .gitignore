@@ -43,3 +43,4 @@ tidal-reference/
 boson/
 fermion/
 rust-examples/
+*.bak

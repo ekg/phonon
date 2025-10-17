@@ -1,0 +1,3 @@
+tempo 2.0
+# Normal pipe
+out s "bd" $ fast 2

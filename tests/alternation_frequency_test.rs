@@ -24,7 +24,7 @@ fn detect_frequency_simple(samples: &[f32], sample_rate: f32) -> f32 {
 #[test]
 fn test_alternation_with_frequencies() {
     // Create pattern that alternates between 440Hz and 880Hz
-    let pattern_str = "<sine(440) sine(880)>";
+    let pattern_str = "<sine 440 sine 880>";
     let pattern = parse_mini_notation(pattern_str);
 
     let _sample_rate = 44100.0;
@@ -59,9 +59,9 @@ fn test_alternation_with_frequencies() {
         assert_eq!(events.len(), 1, "Should have exactly 1 event per cycle");
 
         let expected = if cycle % 2 == 0 {
-            "sine(440)"
+            "sine 440"
         } else {
-            "sine(880)"
+            "sine 880"
         };
 
         assert_eq!(

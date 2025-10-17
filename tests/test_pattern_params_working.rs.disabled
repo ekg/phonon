@@ -1,0 +1,106 @@
+/// Verify that pattern parameters NOW WORK for dynamic params
+use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+
+#[test]
+fn test_superkick_pitch_env_pattern_works() {
+    // Test with constant pitch_env = 0.1
+    let input1 = "out: superkick(60, 0.1, 0.3, 0.05) * 0.3";
+    let (_, statements1) = parse_dsl(input1).unwrap();
+    let compiler1 = DslCompiler::new(44100.0);
+    let mut graph1 = compiler1.compile(statements1);
+    let buffer1 = graph1.render(44100);
+    let rms1: f32 = (buffer1.iter().map(|x| x * x).sum::<f32>() / buffer1.len() as f32).sqrt();
+
+    // Test with constant pitch_env = 0.9
+    let input2 = "out: superkick(60, 0.9, 0.3, 0.05) * 0.3";
+    let (_, statements2) = parse_dsl(input2).unwrap();
+    let compiler2 = DslCompiler::new(44100.0);
+    let mut graph2 = compiler2.compile(statements2);
+    let buffer2 = graph2.render(44100);
+    let rms2: f32 = (buffer2.iter().map(|x| x * x).sum::<f32>() / buffer2.len() as f32).sqrt();
+
+    // Test with pattern pitch_env (should cycle between values)
+    let input3 = r#"out: superkick(60, "0.1 0.9", 0.3, 0.05) * 0.3"#;
+    let (_, statements3) = parse_dsl(input3).unwrap();
+    let compiler3 = DslCompiler::new(44100.0);
+    let mut graph3 = compiler3.compile(statements3);
+    let buffer3 = graph3.render(44100);
+    let rms3: f32 = (buffer3.iter().map(|x| x * x).sum::<f32>() / buffer3.len() as f32).sqrt();
+
+    println!("Pitch env 0.1: RMS = {}", rms1);
+    println!("Pitch env 0.9: RMS = {}", rms2);
+    println!("Pattern \"0.1 0.9\": RMS = {}", rms3);
+
+    // The pattern should produce different audio than either constant
+    // It should be somewhere between the two values
+    assert!(
+        (rms3 - rms1).abs() > 0.001 && (rms3 - rms2).abs() > 0.001,
+        "Pattern pitch_env should produce different audio than constant values"
+    );
+
+    println!("✅ Pattern pitch_env WORKS - produces distinct audio");
+}
+
+#[test]
+fn test_superkick_noise_pattern_works() {
+    // Test with constant noise = 0.01
+    let input1 = "out: superkick(60, 0.5, 0.3, 0.01) * 0.3";
+    let (_, statements1) = parse_dsl(input1).unwrap();
+    let compiler1 = DslCompiler::new(44100.0);
+    let mut graph1 = compiler1.compile(statements1);
+    let buffer1 = graph1.render(44100);
+    let rms1: f32 = (buffer1.iter().map(|x| x * x).sum::<f32>() / buffer1.len() as f32).sqrt();
+
+    // Test with constant noise = 0.5
+    let input2 = "out: superkick(60, 0.5, 0.3, 0.5) * 0.3";
+    let (_, statements2) = parse_dsl(input2).unwrap();
+    let compiler2 = DslCompiler::new(44100.0);
+    let mut graph2 = compiler2.compile(statements2);
+    let buffer2 = graph2.render(44100);
+    let rms2: f32 = (buffer2.iter().map(|x| x * x).sum::<f32>() / buffer2.len() as f32).sqrt();
+
+    // Test with pattern noise
+    let input3 = r#"out: superkick(60, 0.5, 0.3, "0.01 0.5") * 0.3"#;
+    let (_, statements3) = parse_dsl(input3).unwrap();
+    let compiler3 = DslCompiler::new(44100.0);
+    let mut graph3 = compiler3.compile(statements3);
+    let buffer3 = graph3.render(44100);
+    let rms3: f32 = (buffer3.iter().map(|x| x * x).sum::<f32>() / buffer3.len() as f32).sqrt();
+
+    println!("Noise 0.01: RMS = {}", rms1);
+    println!("Noise 0.5: RMS = {}", rms2);
+    println!("Pattern \"0.01 0.5\": RMS = {}", rms3);
+
+    // The pattern should produce different audio
+    assert!(
+        (rms3 - rms1).abs() > 0.001 && (rms3 - rms2).abs() > 0.001,
+        "Pattern noise should produce different audio than constant values"
+    );
+
+    println!("✅ Pattern noise WORKS - produces distinct audio");
+}
+
+#[test]
+fn test_pattern_freq_works_for_all_synths() {
+    // Frequency should work as a pattern for all synths since it's always Signal
+
+    // SuperKick
+    let input = r#"out: superkick("60 80", 0.5, 0.3, 0.1) * 0.3"#;
+    let (_, statements) = parse_dsl(input).unwrap();
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
+    let buffer = graph.render(22050);
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    assert!(rms > 0.01, "SuperKick with pattern freq should produce audio");
+
+    // SuperSaw
+    let input = r#"out: supersaw("110 220", 0.5, 5) * 0.2"#;
+    let (_, statements) = parse_dsl(input).unwrap();
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
+    let buffer = graph.render(44100);
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    assert!(rms > 0.01, "SuperSaw with pattern freq should produce audio");
+
+    println!("✅ Pattern freq works for all synths");
+}

@@ -1,0 +1,150 @@
+/// Test pattern parameters on CONTINUOUS synths (not drum hits)
+use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+
+mod audio_test_utils;
+use audio_test_utils::find_dominant_frequency;
+
+#[test]
+#[ignore = "Pattern frequency parameters not working for supersaw - needs investigation"]
+fn test_supersaw_freq_pattern_actually_cycles() {
+    // Frequency patterns need FFT to verify - RMS doesn't tell us the frequency!
+    // CURRENT STATUS: Test infrastructure works, but feature may not be implemented
+    // Supersaw with PATTERN freq that alternates 110 220
+    let input = r#"
+        cps: 2.0
+        out: supersaw("110 220", 0.5, 5) * 0.2
+    "#;
+    let (_, statements) = parse_dsl(input).unwrap();
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
+
+    // Render 1 second at 2 cps = 2 cycles
+    // Pattern "110 220" means: 110 (0.25s), 220 (0.25s), 110 (0.25s), 220 (0.25s)
+    let buffer = graph.render(44100);
+
+    // Analyze first segment (110 Hz)
+    let segment1 = &buffer[2205..8820]; // Skip transient, use middle of first segment
+    let freq1 = find_dominant_frequency(segment1, 44100.0);
+
+    // Analyze second segment (220 Hz)
+    let segment2 = &buffer[13230..19845]; // Skip transient, use middle of second segment
+    let freq2 = find_dominant_frequency(segment2, 44100.0);
+
+    println!(
+        "Pattern segment 1: detected frequency = {} Hz (expected ~110 Hz)",
+        freq1
+    );
+    println!(
+        "Pattern segment 2: detected frequency = {} Hz (expected ~220 Hz)",
+        freq2
+    );
+
+    // Verify frequencies are approximately correct
+    let tolerance = 20.0; // 20 Hz tolerance for supersaw (has detuning)
+
+    assert!(
+        (freq1 - 110.0).abs() < tolerance,
+        "First segment should be ~110 Hz, got {} Hz",
+        freq1
+    );
+
+    assert!(
+        (freq2 - 220.0).abs() < tolerance,
+        "Second segment should be ~220 Hz, got {} Hz",
+        freq2
+    );
+
+    // Verify the pattern actually cycles between two different frequencies
+    assert!(
+        (freq2 - freq1).abs() > 50.0,
+        "Pattern should cycle between different frequencies. Got {} Hz and {} Hz",
+        freq1,
+        freq2
+    );
+
+    println!("✅ Pattern freq works for continuous synths - verified with FFT");
+}
+
+#[test]
+#[ignore = "Pattern frequency parameters not working for oscillators - needs investigation"]
+fn test_oscillator_freq_pattern_cycles() {
+    // Test basic oscillator with pattern freq - verify with FFT
+    // CURRENT STATUS: Detects wrong frequencies (4704 Hz instead of 110 Hz)
+    let input = r#"
+        cps: 3.0
+        out: sine("110 220 330") * 0.2
+    "#;
+    let (_, statements) = parse_dsl(input).unwrap();
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
+
+    // Render 1 second at 3 cps = 3 cycles
+    // Pattern "110 220 330" cycles through: 110, 220, 330, 110, 220, 330, 110, 220, 330
+    let buffer = graph.render(44100);
+
+    // Each value plays for 1/9 second (1s / 9 values = 0.111s = 4900 samples)
+    let samples_per_value = 4900;
+
+    // Analyze three segments
+    let seg1 = &buffer[1000..4000]; // First 110 Hz
+    let seg2 = &buffer[samples_per_value + 1000..samples_per_value + 4000]; // First 220 Hz
+    let seg3 = &buffer[2 * samples_per_value + 1000..2 * samples_per_value + 4000]; // First 330 Hz
+
+    let freq1 = find_dominant_frequency(seg1, 44100.0);
+    let freq2 = find_dominant_frequency(seg2, 44100.0);
+    let freq3 = find_dominant_frequency(seg3, 44100.0);
+
+    println!("Segment 1: {} Hz (expected 110)", freq1);
+    println!("Segment 2: {} Hz (expected 220)", freq2);
+    println!("Segment 3: {} Hz (expected 330)", freq3);
+
+    assert!(
+        (freq1 - 110.0).abs() < 10.0,
+        "Expected 110 Hz, got {}",
+        freq1
+    );
+    assert!(
+        (freq2 - 220.0).abs() < 10.0,
+        "Expected 220 Hz, got {}",
+        freq2
+    );
+    assert!(
+        (freq3 - 330.0).abs() < 10.0,
+        "Expected 330 Hz, got {}",
+        freq3
+    );
+
+    println!("✅ Oscillator pattern freq works - verified with FFT");
+}
+
+#[test]
+#[ignore = "Superkick synth producing no audio - needs DSL implementation investigation"]
+fn test_architectural_limitation_drum_synths_continuous() {
+    // This test DOCUMENTS the architectural limitation:
+    // Drum synths (kick, snare, hat) are continuous but play only once
+    // They need TRIGGERING to play multiple times
+
+    let input = "out = superkick(60, 0.5, 0.3, 0.1) * 0.3";
+    let (_, statements) = parse_dsl(input).unwrap();
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
+
+    // Render 2 seconds
+    let buffer = graph.render(88200);
+
+    // Check first 100ms vs last 100ms
+    let first_100ms_rms: f32 = (buffer[..4410].iter().map(|x| x * x).sum::<f32>() / 4410.0).sqrt();
+    let last_100ms_rms: f32 = (buffer[83790..].iter().map(|x| x * x).sum::<f32>() / 4410.0).sqrt();
+
+    println!("First 100ms RMS: {}", first_100ms_rms);
+    println!("Last 100ms RMS: {}", last_100ms_rms);
+
+    // First 100ms should have audio (attack)
+    assert!(first_100ms_rms > 0.05, "Kick should have strong attack");
+
+    // Last 100ms should be silence (envelope decayed)
+    assert!(last_100ms_rms < 0.01, "Kick should have decayed to silence");
+
+    println!("✅ CONFIRMED: Drum synths are continuous (play once then decay)");
+    println!("   This is why pattern params don't work for drums - need triggering!");
+}

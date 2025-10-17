@@ -26,12 +26,12 @@ fn compile_and_render(input: &str, duration_samples: usize) -> Vec<f32> {
 
 #[test]
 fn test_tidal_gain_constant() {
-    // Test: s("bd") # gain(0.5)
+    // Test: s "bd" # gain 0.5
     let quiet = r#"bpm 120
-out: s("bd") # gain(0.3) * 50"#;
+out: s "bd" # gain 0.3 * 50"#;
 
     let loud = r#"bpm 120
-out: s("bd") # gain(1.0) * 50"#;
+out: s "bd" # gain 1.0 * 50"#;
 
     let audio_quiet = compile_and_render(quiet, 22050);
     let audio_loud = compile_and_render(loud, 22050);
@@ -59,9 +59,9 @@ out: s("bd") # gain(1.0) * 50"#;
 
 #[test]
 fn test_tidal_gain_zero() {
-    // Test: gain(0) should produce silence
+    // Test: gain 0 should produce silence
     let silent = r#"bpm 120
-out: s("bd") # gain(0.0) * 50"#;
+out: s "bd" # gain 0.0 * 50"#;
 
     let audio = compile_and_render(silent, 22050);
     let rms = calculate_rms(&audio);
@@ -78,9 +78,9 @@ out: s("bd") # gain(0.0) * 50"#;
 
 #[test]
 fn test_tidal_gain_pattern() {
-    // Test: s("bd bd bd bd") # gain("0.2 0.4 0.6 0.8")
+    // Test: s "bd bd bd bd" # gain "0.2 0.4 0.6 0.8"
     let pattern = r#"bpm 120
-out: s("bd bd bd bd") # gain("0.2 0.4 0.6 0.8") * 50"#;
+out: s "bd bd bd bd" # gain "0.2 0.4 0.6 0.8" * 50"#;
 
     let audio = compile_and_render(pattern, 22050);
     let rms = calculate_rms(&audio);
@@ -97,9 +97,9 @@ out: s("bd bd bd bd") # gain("0.2 0.4 0.6 0.8") * 50"#;
 
 #[test]
 fn test_tidal_pan_left() {
-    // Test: s("bd") # pan(-1.0)
+    // Test: s "bd" # pan -1.0
     let left = r#"bpm 120
-out: s("bd") # pan(-1.0) * 50"#;
+out: s "bd" # pan -1.0 * 50"#;
 
     let audio = compile_and_render(left, 22050);
     let rms = calculate_rms(&audio);
@@ -112,9 +112,9 @@ out: s("bd") # pan(-1.0) * 50"#;
 
 #[test]
 fn test_tidal_pan_pattern() {
-    // Test: s("bd sn hh cp") # pan("-1 -0.5 0.5 1")
+    // Test: s "bd sn hh cp" # pan "-1 -0.5 0.5 1"
     let pattern = r#"bpm 120
-out: s("bd sn hh cp") # pan("-1 -0.5 0.5 1") * 50"#;
+out: s "bd sn hh cp" # pan "-1 -0.5 0.5 1" * 50"#;
 
     let audio = compile_and_render(pattern, 22050);
     let rms = calculate_rms(&audio);
@@ -131,9 +131,9 @@ out: s("bd sn hh cp") # pan("-1 -0.5 0.5 1") * 50"#;
 
 #[test]
 fn test_tidal_speed_double() {
-    // Test: s("bd") # speed(2.0)
+    // Test: s "bd" # speed 2.0
     let fast = r#"bpm 120
-out: s("bd") # speed(2.0) * 50"#;
+out: s "bd" # speed 2.0 * 50"#;
 
     let audio = compile_and_render(fast, 22050);
     let rms = calculate_rms(&audio);
@@ -146,9 +146,9 @@ out: s("bd") # speed(2.0) * 50"#;
 
 #[test]
 fn test_tidal_speed_pattern() {
-    // Test: s("bd bd bd bd") # speed("1 0.5 2 1.5")
+    // Test: s "bd bd bd bd" # speed "1 0.5 2 1.5"
     let pattern = r#"bpm 120
-out: s("bd bd bd bd") # speed("1 0.5 2 1.5") * 50"#;
+out: s "bd bd bd bd" # speed "1 0.5 2 1.5" * 50"#;
 
     let audio = compile_and_render(pattern, 22050);
     let rms = calculate_rms(&audio);
@@ -165,9 +165,9 @@ out: s("bd bd bd bd") # speed("1 0.5 2 1.5") * 50"#;
 
 #[test]
 fn test_tidal_cut_group() {
-    // Test: s("hh*16") # cut(1)
+    // Test: s "hh*16" # cut 1
     let cut = r#"bpm 120
-out: s("hh*16") # cut(1) * 50"#;
+out: s "hh*16" # cut 1 * 50"#;
 
     let audio = compile_and_render(cut, 22050);
     let rms = calculate_rms(&audio);
@@ -184,9 +184,9 @@ out: s("hh*16") # cut(1) * 50"#;
 
 #[test]
 fn test_tidal_multiple_modifiers() {
-    // Test: s("bd") # gain(0.8) # pan(-0.5) # speed(1.2)
+    // Test: s "bd" # gain 0.8 # pan -0.5 # speed 1.2
     let multi = r#"bpm 120
-out: s("bd") # gain(0.8) # pan(-0.5) # speed(1.2) * 50"#;
+out: s "bd" # gain 0.8 # pan -0.5 # speed 1.2 * 50"#;
 
     let audio = compile_and_render(multi, 22050);
     let rms = calculate_rms(&audio);
@@ -201,8 +201,8 @@ out: s("bd") # gain(0.8) # pan(-0.5) # speed(1.2) * 50"#;
 fn test_tidal_complex_example() {
     // Test: Full Tidal-style syntax with patterns
     let example = r#"bpm 120
-~kick: s("bd*8") # gain("1.0 0.7 0.8 0.6") # pan("-1 -0.5 0 0.5")
-~hats: s("hh*16") # gain("0.7 0.4") # pan("-1 1")
+~kick: s "bd*8" # gain "1.0 0.7 0.8 0.6" # pan "-1 -0.5 0 0.5"
+~hats: s "hh*16" # gain "0.7 0.4" # pan "-1 1"
 out: (~kick + ~hats) * 50"#;
 
     let audio = compile_and_render(example, 22050);

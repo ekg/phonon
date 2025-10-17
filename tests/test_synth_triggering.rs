@@ -147,7 +147,7 @@ fn test_synth_with_frequency_parameter() {
     // Test pattern with frequency parameters
     let code = r#"
         ~sine: sin 440 >> mul 0.5
-        o: s "~sine(220) ~sine(440) ~sine(880)"
+        o: s "~sine 220 ~sine 440 ~sine 880"
     "#;
 
     // This feature might not be implemented yet, but test the parsing at least

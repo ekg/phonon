@@ -6,8 +6,8 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 fn test_multi_output_two_channels() {
     let input = r#"
         tempo: 2.0
-        out1: s("bd ~ bd ~") * 0.5
-        out2: s("~ sn ~ sn") * 0.5
+        out1: s "bd ~ bd ~" * 0.5
+        out2: s "~ sn ~ sn" * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse multi-output DSL");
@@ -33,7 +33,7 @@ fn test_multi_output_two_channels() {
 fn test_multi_output_single_channel() {
     let input = r#"
         tempo: 2.0
-        out1: s("bd sn hh cp") * 0.5
+        out1: s "bd sn hh cp" * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse");
@@ -55,9 +55,9 @@ fn test_multi_output_single_channel() {
 fn test_multi_output_three_channels() {
     let input = r#"
         tempo: 2.0
-        out1: s("bd ~ bd ~") * 0.3
-        out2: s("~ sn ~ sn") * 0.3
-        out3: s("hh hh hh hh") * 0.3
+        out1: s "bd ~ bd ~" * 0.3
+        out2: s "~ sn ~ sn" * 0.3
+        out3: s "hh hh hh hh" * 0.3
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse");
@@ -81,8 +81,8 @@ fn test_multi_output_with_plain_out() {
     // Test that plain "out" still works alongside numbered outputs
     let input = r#"
         tempo: 2.0
-        out: s("bd ~ bd ~") * 0.3
-        out1: s("~ sn ~ sn") * 0.3
+        out: s "bd ~ bd ~" * 0.3
+        out1: s "~ sn ~ sn" * 0.3
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse");
@@ -106,8 +106,8 @@ fn test_multi_output_different_patterns() {
     // Test with different types of patterns
     let input = r#"
         tempo: 2.0
-        out1: sine("110 220") * 0.2
-        out2: s("bd sn") * 0.3
+        out1: sine "110 220" * 0.2
+        out2: s "bd sn" * 0.3
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse");

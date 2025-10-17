@@ -17,7 +17,7 @@ fn test_voice_count_does_not_accumulate() {
     // Create a simple alternating pattern
     let input = r#"
         tempo: 1.0
-        out: s("bd(<3 5>,8)")
+        out: s "bd(<3 5>,8)"
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -83,7 +83,7 @@ fn test_rms_does_not_grow_exponentially() {
     // Create a simple alternating pattern
     let input = r#"
         tempo: 1.0
-        out: s("bd(<3 5>,8)")
+        out: s "bd(<3 5>,8)"
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -138,7 +138,7 @@ fn test_simple_pattern_voice_stability() {
     // Even simpler: just "bd" repeated
     let input = r#"
         tempo: 2.0
-        out: s("bd")
+        out: s "bd"
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");

@@ -5,9 +5,9 @@ fn test_parse_and_compile_dsl() {
     println!("\n=== Testing Unified DSL Parser and Compilation ===");
 
     let dsl_code = r#"
-        ~lfo: sine(0.5) * 0.5 + 0.5
+        ~lfo: sine 0.5 * 0.5 + 0.5
         ~cutoff: ~lfo * 2000 + 500
-        ~bass: saw(110) >> lpf(~cutoff, 0.8)
+        ~bass: saw 110 >> lpf(~cutoff, 0.8)
         out: ~bass * 0.4
     "#;
 
@@ -35,7 +35,7 @@ fn test_pattern_in_dsl() {
 
     let dsl_code = r#"
         ~rhythm: "1 0 1 0"
-        ~osc: sine(220)
+        ~osc: sine 220
         ~gated: ~osc * ~rhythm
         cps: 2
         out: ~gated
@@ -76,7 +76,7 @@ fn test_complex_modulation_dsl() {
     println!("\n=== Testing Complex Modulation in DSL ===");
 
     let dsl_code = r#"
-        ~mod_freq: sine(0.1) * 2 + 3
+        ~mod_freq: sine 0.1 * 2 + 3
         ~mod: sine(~mod_freq) * 100
         ~carrier: sine(440 + ~mod)
         ~env_speed: 4
@@ -114,8 +114,8 @@ fn test_filter_chain_dsl() {
     println!("\n=== Testing Filter Chain in DSL ===");
 
     let dsl_code = r#"
-        ~noise: saw(100)
-        ~filtered: ~noise >> lpf(1000, 2) >> hpf(200, 1)
+        ~noise: saw 100
+        ~filtered: ~noise >> lpf 1000 2 >> hpf 200 1
         out: ~filtered * 0.5
     "#;
 

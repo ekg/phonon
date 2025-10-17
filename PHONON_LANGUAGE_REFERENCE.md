@@ -269,6 +269,150 @@ Patterns can modulate any parameter:
 out: sine("110 220 440") * 0.2
 ```
 
+## Sample Playback
+
+Play audio samples from the dirt-samples library using Tidal Cycles mini-notation:
+
+```phonon
+s(pattern)
+s(pattern, gain)
+s(pattern, gain, pan)
+s(pattern, gain, pan, speed)
+s(pattern, gain, pan, speed, cut_group)
+s(pattern, gain, pan, speed, cut_group, attack)
+s(pattern, gain, pan, speed, cut_group, attack, release)
+```
+
+### Basic Usage
+
+```phonon
+# Simple drum pattern
+out: s("bd sn hh cp")
+
+# With gain control
+out: s("bd sn hh cp", 0.8)
+
+# With pan (-1.0 = left, 1.0 = right)
+out: s("bd sn hh cp", 1.0, -0.5)
+```
+
+### Sample Bank Selection
+
+Use colon notation to select specific samples from banks:
+
+```phonon
+# Select different kick drums
+out: s("bd:0 bd:1 bd:2 bd:3")
+
+# Mix different snare variations
+out: s("sn:0 sn:1 sn:2")
+
+# House beat with specific samples
+out: s("bd:5 ~ sn:3 ~ bd:5 ~ sn:3 ~")
+```
+
+### DSP Parameters
+
+All sample playback supports per-event DSP control:
+
+```phonon
+# gain: Volume (0.0-2.0, default 1.0)
+out: s("bd sn", 0.5)
+
+# pan: Stereo position (-1.0 = left, 0.0 = center, 1.0 = right)
+out: s("bd sn", 1.0, -0.5)
+
+# speed: Playback speed (0.5 = half speed/octave down, 2.0 = double speed/octave up)
+out: s("bd sn", 1.0, 0.0, 2.0)  # Play at double speed
+
+# cut_group: Voice stealing group (samples in same group stop each other)
+out: s("hh:0 hh:1", 1.0, 0.0, 1.0, 1)  # Hihat cut group (realistic)
+```
+
+### Pattern-Controlled Parameters
+
+Any parameter can be controlled by a pattern string:
+
+```phonon
+# Pattern-controlled gain (accents)
+out: s("bd sn hh cp", "1.0 0.8 0.6 0.9")
+
+# Pattern-controlled pan (stereo movement)
+out: s("hh*8", 1.0, "-1.0 -0.5 0.0 0.5")
+
+# Pattern-controlled speed (pitch variation)
+out: s("bd*4", 1.0, 0.0, "1.0 1.2 0.8 1.5")
+```
+
+### Envelope Parameters
+
+Control the amplitude envelope of each triggered sample:
+
+```phonon
+# attack: Attack time in seconds (0.0-10.0, default 0.001)
+# release: Release time in seconds (0.0-10.0, default 0.1)
+
+# Quick percussive envelope (fast attack, short release)
+out: s("bd sn", 1.0, 0.0, 1.0, 0, 0.001, 0.05)
+
+# Soft fade-in (slow attack)
+out: s("bd sn", 1.0, 0.0, 1.0, 0, 0.05, 0.2)
+
+# Long tail (long release for reverb-like effect)
+out: s("bd sn", 1.0, 0.0, 1.0, 0, 0.001, 0.5)
+
+# Pad-like samples (slow attack and release)
+out: s("pad", 0.8, 0.0, 1.0, 0, 0.3, 0.8)
+```
+
+### Envelope Use Cases
+
+```phonon
+# Natural drum sound (quick attack, medium release)
+~drums: s("bd sn hh*4 cp", 1.0, 0.0, 1.0, 0, 0.001, 0.1)
+
+# Soft, ambient percussion (slow attack, long release)
+~ambient: s("bd sn", 0.6, 0.0, 1.0, 0, 0.1, 0.5)
+
+# Gated effect (no release)
+~gated: s("bd sn", 1.0, 0.0, 1.0, 0, 0.001, 0.001)
+
+# Pattern-controlled envelopes
+~varied: s("bd sn hh cp", 1.0, 0.0, 1.0, 0, "0.001 0.05 0.001 0.02", "0.1 0.3 0.05 0.2")
+```
+
+### Cut Groups for Realistic Hi-Hats
+
+Cut groups make samples in the same group stop each other (like real hi-hat open/close):
+
+```phonon
+# Open hi-hat stops closed hi-hat and vice versa
+~hh_open: s("hh:2*2", 0.8, 0.2, 1.0, 1)   # Cut group 1
+~hh_closed: s("hh:0*4", 0.6, -0.2, 1.0, 1) # Same cut group
+out: ~hh_open + ~hh_closed
+```
+
+### Complete Example: Drum Kit with Envelope Control
+
+```phonon
+cps: 2.0
+
+# Kick: Punchy with short release
+~kick: s("bd:5 ~ ~ ~ bd:5 ~ ~ ~", 1.0, 0.0, 1.0, 0, 0.001, 0.08)
+
+# Snare: Natural with medium release
+~snare: s("~ ~ sn:3 ~ ~ ~ sn:3 ~", 0.9, 0.1, 1.0, 0, 0.001, 0.15)
+
+# Hi-hats: Tight with cut group
+~hh_closed: s("hh:0*8", 0.6, "-0.2 0.2", 1.0, 1, 0.001, 0.05)
+~hh_open: s("~ ~ ~ hh:2", 0.7, 0.0, 1.0, 1, 0.001, 0.3)
+
+# Percussion: Varied envelopes
+~perc: s("cp ~ ~ ~ ~ ~ cp ~", 0.8, -0.5, 1.0, 0, 0.002, "0.1 0.2")
+
+out: (~kick + ~snare + ~hh_closed + ~hh_open + ~perc) * 0.4
+```
+
 ## Math Operations
 
 ```phonon
@@ -365,6 +509,7 @@ out: reverb(~melody * 0.3 + ~bass * 0.4 + ~chords * 0.25, 0.7, 0.5, 0.3)
 
 When parameters are omitted, sensible defaults are used:
 
+- **s**: `(pattern, 1.0, 0.0, 1.0, 0, 0.001, 0.1)`
 - **synth**: `(notes, waveform, 0.01, 0.1, 0.7, 0.2)`
 - **superkick**: `(freq, 0.5, 0.3, 0.1)`
 - **supersaw**: `(freq, 0.3, 7)`

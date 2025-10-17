@@ -1,0 +1,36 @@
+// 🎹 DRUM & BASS - 174 BPM
+// Classic jungle/DnB pattern
+
+// Simple version - 2 bar break pattern
+"bd ~ ~ ~ ~ ~ bd ~ bd ~ ~ ~ ~ ~ bd ~, ~ ~ ~ ~ sn ~ ~ ~ ~ ~ ~ ~ sn ~ ~ ~, hh hh hh hh hh hh hh hh hh hh hh hh hh hh hh hh"
+
+// Full Strudel version:
+/*
+stack(
+  // Syncopated kick pattern
+  "bd ~ ~ ~ ~ ~ bd ~ ~ ~ bd ~ ~ ~ ~ ~",
+  
+  // Classic DnB snare placement
+  "~ ~ ~ ~ sn ~ ~ ~ ~ ~ ~ ~ sn ~ ~ ~",
+  
+  // Rapid hi-hats
+  "hh*16",
+  
+  // Ride cymbal accents
+  "~ ~ ~ ~ ~ ~ ride ~ ~ ~ ~ ~ ~ ~ ride ~",
+  
+  // Deep sub bass (Reese bass style)
+  "sub:1 ~ ~ ~ ~ ~ sub:2 ~ ~ ~ ~ ~ sub:1 ~ ~ ~",
+  
+  // Amen break chopped
+  "amen:0 amen:1 ~ amen:2 ~ ~ amen:3 ~ amen:4 ~ ~ ~ amen:5 ~ ~ ~",
+  
+  // Atmospheric pad
+  "~ ~ ~ ~ ~ ~ ~ ~ [c2,g2,c3] ~ ~ ~ ~ ~ ~ ~"
+)
+*/
+
+// DnB variations:
+// "bd ~ bd ~ ~ ~ bd ~, ~ sn ~ sn, amen*2"       // Chopped Amen
+// "bd(3,16), ~ sn ~ sn, hh*32"                  // Neurofunk
+// "bd ~ ~ bd ~ bd ~ ~, ~ ~ sn ~, think*2"       // Think break

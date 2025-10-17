@@ -1,0 +1,2 @@
+tempo: 2.0
+out: reverb(sine 440, 0.9, 0.5, 0.5) * 0.3

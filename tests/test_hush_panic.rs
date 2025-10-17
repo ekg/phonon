@@ -79,7 +79,7 @@ fn test_hush_silences_single_output() {
     // First, create an output with audio
     let input = r#"
         tempo: 2.0
-        out: sine(440) * 0.5
+        out: sine 440 * 0.5
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
     let compiler = DslCompiler::new(44100.0);
@@ -108,7 +108,7 @@ fn test_hush_silences_single_output() {
     // Better approach: compile everything together
     let full_input = r#"
         tempo: 2.0
-        out: sine(440) * 0.5
+        out: sine 440 * 0.5
         hush
     "#;
     let (_, full_statements) = parse_dsl(full_input).unwrap();
@@ -131,8 +131,8 @@ fn test_hush_channel_silences_specific_channel() {
     // Create two output channels
     let input = r#"
         tempo: 2.0
-        out1: sine(440) * 0.5
-        out2: sine(880) * 0.5
+        out1: sine 440 * 0.5
+        out2: sine 880 * 0.5
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
     let compiler = DslCompiler::new(44100.0);
@@ -147,8 +147,8 @@ fn test_hush_channel_silences_specific_channel() {
     // Now hush only channel 1
     let hush_input = r#"
         tempo: 2.0
-        out1: sine(440) * 0.5
-        out2: sine(880) * 0.5
+        out1: sine 440 * 0.5
+        out2: sine 880 * 0.5
         hush1
     "#;
     let (_, hush_statements) = parse_dsl(hush_input).unwrap();
@@ -173,9 +173,9 @@ fn test_hush_all_silences_all_channels() {
     // Create multiple output channels
     let input = r#"
         tempo: 2.0
-        out1: sine(440) * 0.5
-        out2: sine(880) * 0.5
-        out3: sine(1320) * 0.5
+        out1: sine 440 * 0.5
+        out2: sine 880 * 0.5
+        out3: sine 1320 * 0.5
         hush
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
@@ -197,7 +197,7 @@ fn test_panic_silences_and_kills_voices() {
     // Create output with sample playback (which uses voices)
     let input = r#"
         tempo: 2.0
-        out: s("bd*4") * 0.5
+        out: s "bd*4" * 0.5
         panic
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
@@ -241,9 +241,9 @@ fn test_multiple_hush_commands() {
     // Test that we can hush multiple channels individually
     let input = r#"
         tempo: 2.0
-        out1: sine(440) * 0.5
-        out2: sine(880) * 0.5
-        out3: sine(1320) * 0.5
+        out1: sine 440 * 0.5
+        out2: sine 880 * 0.5
+        out3: sine 1320 * 0.5
         hush1
         hush2
     "#;
@@ -270,7 +270,7 @@ fn test_hush_then_unhush_not_supported() {
     // This test verifies that hush is persistent
     let input = r#"
         tempo: 2.0
-        out1: sine(440) * 0.5
+        out1: sine 440 * 0.5
         hush1
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
@@ -293,7 +293,7 @@ fn test_parse_hush_with_whitespace() {
     // Test that parser handles whitespace correctly
     let input = r#"
         tempo: 2.0
-        out: sine(440)
+        out: sine 440
 
         hush
     "#;
@@ -308,7 +308,7 @@ fn test_parse_hush_with_whitespace() {
 fn test_parse_panic_with_whitespace() {
     let input = r#"
         tempo: 2.0
-        out: s("bd")
+        out: s "bd"
 
         panic
     "#;

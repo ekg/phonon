@@ -35,10 +35,10 @@ fn measure_decay_time(audio: &[f32], sample_rate: f32, threshold: f32) -> f32 {
 fn test_reverb_increases_decay_time() {
     // Test: Reverb should increase the time it takes for audio to decay
     let dry = r#"bpm 120
-out: s("bd ~ ~ ~") * 0.5"#;  // Single kick
+out: s "bd ~ ~ ~" * 0.5"#;  // Single kick
 
     let wet = r#"bpm 120
-out: reverb(s("bd ~ ~ ~") * 0.5, 0.8, 0.7, 0.5)"#;  // With reverb
+out: reverb(s "bd ~ ~ ~" * 0.5, 0.8, 0.7, 0.5)"#;  // With reverb
 
     let audio_dry = compile_and_render(dry, 44100); // 1 second
     let audio_wet = compile_and_render(wet, 44100);
@@ -64,10 +64,10 @@ out: reverb(s("bd ~ ~ ~") * 0.5, 0.8, 0.7, 0.5)"#;  // With reverb
 fn test_reverb_increases_overall_amplitude() {
     // Test: Reverb adds energy, so RMS should increase
     let dry = r#"bpm 120
-out: s("bd") * 0.3"#;
+out: s "bd" * 0.3"#;
 
     let wet = r#"bpm 120
-out: reverb(s("bd") * 0.3, 0.8, 0.7, 0.5)"#;
+out: reverb(s "bd" * 0.3, 0.8, 0.7, 0.5)"#;
 
     let audio_dry = compile_and_render(dry, 44100);
     let audio_wet = compile_and_render(wet, 44100);
@@ -97,10 +97,10 @@ out: reverb(s("bd") * 0.3, 0.8, 0.7, 0.5)"#;
 fn test_delay_increases_duration() {
     // Test: Delay creates echoes, extending audio duration
     let dry = r#"bpm 120
-out: s("bd ~ ~ ~") * 0.5"#;
+out: s "bd ~ ~ ~" * 0.5"#;
 
     let wet = r#"bpm 120
-out: delay(s("bd ~ ~ ~") * 0.5, 0.25, 0.5, 0.8)"#;  // 250ms delay, 50% feedback
+out: delay(s "bd ~ ~ ~" * 0.5, 0.25, 0.5, 0.8)"#;  // 250ms delay, 50% feedback
 
     let audio_dry = compile_and_render(dry, 88200); // 2 seconds
     let audio_wet = compile_and_render(wet, 88200);
@@ -125,10 +125,10 @@ out: delay(s("bd ~ ~ ~") * 0.5, 0.25, 0.5, 0.8)"#;  // 250ms delay, 50% feedback
 fn test_delay_increases_amplitude() {
     // Test: Delay adds echoes, increasing overall energy
     let dry = r#"bpm 120
-out: s("bd") * 0.3"#;
+out: s "bd" * 0.3"#;
 
     let wet = r#"bpm 120
-out: delay(s("bd") * 0.3, 0.2, 0.5, 0.7)"#;
+out: delay(s "bd" * 0.3, 0.2, 0.5, 0.7)"#;
 
     let audio_dry = compile_and_render(dry, 44100);
     let audio_wet = compile_and_render(wet, 44100);
@@ -157,10 +157,10 @@ out: delay(s("bd") * 0.3, 0.2, 0.5, 0.7)"#;
 fn test_chorus_produces_audio() {
     // Test: Chorus should process audio and produce output
     let dry = r#"bpm 120
-out: saw(110) * 0.3"#;
+out: saw 110 * 0.3"#;
 
     let wet = r#"bpm 120
-out: chorus(saw(110) * 0.3, 0.8, 0.4, 0.5)"#;
+out: chorus(saw 110 * 0.3, 0.8, 0.4, 0.5)"#;
 
     let audio_dry = compile_and_render(dry, 44100);
     let audio_wet = compile_and_render(wet, 44100);
@@ -193,10 +193,10 @@ out: chorus(saw(110) * 0.3, 0.8, 0.4, 0.5)"#;
 fn test_lpf_reduces_spectral_centroid() {
     // Test: Low-pass filter should reduce high frequency content
     let unfiltered = r#"bpm 120
-out: saw(110) * 0.3"#;
+out: saw 110 * 0.3"#;
 
     let filtered = r#"bpm 120
-out: saw(110) >> lpf(500, 0.7) * 0.3"#;
+out: saw 110 >> lpf 500 0.7 * 0.3"#;
 
     let audio_unfiltered = compile_and_render(unfiltered, 44100);
     let audio_filtered = compile_and_render(filtered, 44100);
@@ -223,10 +223,10 @@ out: saw(110) >> lpf(500, 0.7) * 0.3"#;
 fn test_hpf_increases_spectral_centroid() {
     // Test: High-pass filter should reduce low frequency content
     let unfiltered = r#"bpm 120
-out: saw(55) * 0.3"#;
+out: saw 55 * 0.3"#;
 
     let filtered = r#"bpm 120
-out: saw(55) >> hpf(200, 0.7) * 0.3"#;
+out: saw 55 >> hpf 200 0.7 * 0.3"#;
 
     let audio_unfiltered = compile_and_render(unfiltered, 44100);
     let audio_filtered = compile_and_render(filtered, 44100);
@@ -257,10 +257,10 @@ out: saw(55) >> hpf(200, 0.7) * 0.3"#;
 fn test_distortion_increases_harmonics() {
     // Test: Distortion adds harmonics, increasing spectral complexity
     let clean = r#"bpm 120
-out: saw(110) * 0.2"#;
+out: saw 110 * 0.2"#;
 
     let distorted = r#"bpm 120
-out: distortion(saw(110) * 0.2, 0.8, 0.5)"#;
+out: distortion(saw 110 * 0.2, 0.8, 0.5)"#;
 
     let audio_clean = compile_and_render(clean, 44100);
     let audio_distorted = compile_and_render(distorted, 44100);

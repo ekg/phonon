@@ -179,7 +179,7 @@ fn test_cut_group_default_is_zero() {
 
     let input_without_cut = r#"
         tempo: 2.0
-        out: s("hh hh")
+        out: s "hh hh"
     "#;
 
     // With explicit cut group 0

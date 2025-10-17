@@ -424,6 +424,8 @@ pub enum SignalNode {
         pan: Signal,
         speed: Signal,
         cut_group: Signal, // Cut group for voice stealing (0 = no cut group)
+        attack: Signal,    // Attack time in seconds (0.0 = no attack envelope)
+        release: Signal,   // Release time in seconds (0.0 = no release envelope)
     },
 
     /// Pattern-triggered synthesizer with ADSR envelopes
@@ -1342,18 +1344,24 @@ impl UnifiedSignalGraph {
                 pan,
                 speed,
                 cut_group,
+                attack,
+                release,
             } => {
-                // Query pattern for events at current cycle position
-                // Use absolute cycle position for alternation to work correctly
-                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                // Query pattern for events in the current cycle
+                // Use full-cycle window to ensure transforms like degrade see all events
+                // The event deduplication logic below prevents re-triggering
+                let current_cycle_start = self.cycle_position.floor();
                 let state = State {
                     span: TimeSpan::new(
-                        Fraction::from_float(self.cycle_position),
-                        Fraction::from_float(self.cycle_position + sample_width),
+                        Fraction::from_float(current_cycle_start),
+                        Fraction::from_float(current_cycle_start + 1.0),
                     ),
                     controls: HashMap::new(),
                 };
                 let events = pattern.query(&state);
+
+                // Use 1-sample width for tolerance calculations
+                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
 
                 // Check if we've crossed into a new cycle
                 let current_cycle = self.cycle_position.floor() as i32;
@@ -1396,10 +1404,13 @@ impl UnifiedSignalGraph {
                         event.part.begin.to_float()
                     };
 
-                    // Only trigger events that start AFTER the last event we triggered
+                    // Only trigger events that:
+                    // 1. Start AFTER the last event we triggered (prevent re-triggering)
+                    // 2. Start at or before the current cycle position (don't trigger future events)
                     // Use a very small tolerance for floating point comparison
                     let tolerance = sample_width * 0.001;
-                    let event_is_new = event_start_abs > last_event_start + tolerance;
+                    let event_is_new = event_start_abs > last_event_start + tolerance
+                        && event_start_abs <= self.cycle_position + tolerance;
 
                     if event_is_new {
                         // Evaluate DSP parameters at THIS EVENT'S start time
@@ -1422,24 +1433,36 @@ impl UnifiedSignalGraph {
                             None
                         };
 
+                        // Evaluate envelope parameters
+                        let attack_val = self
+                            .eval_signal_at_time(&attack, event_start_abs)
+                            .max(0.0)
+                            .min(10.0); // Attack time in seconds
+                        let release_val = self
+                            .eval_signal_at_time(&release, event_start_abs)
+                            .max(0.0)
+                            .min(10.0); // Release time in seconds
+
                         // DEBUG: Print cut group info
                         if std::env::var("DEBUG_CUT_GROUPS").is_ok() {
                             eprintln!("Triggering {} at cycle {:.3}, cut_group_val={:.1}, cut_group_opt={:?}",
                                 sample_name, event_start_abs, cut_group_val, cut_group_opt);
                         }
 
-                        // Get sample from bank and trigger a new voice with full DSP parameters
+                        // Get sample from bank and trigger a new voice with full DSP parameters including envelope
                         if let Some(sample_data) =
                             self.sample_bank.borrow_mut().get_sample(sample_name)
                         {
                             self.voice_manager
                                 .borrow_mut()
-                                .trigger_sample_with_cut_group(
+                                .trigger_sample_with_envelope(
                                     sample_data,
                                     gain_val,
                                     pan_val,
                                     speed_val,
                                     cut_group_opt,
+                                    attack_val,
+                                    release_val,
                                 );
 
                             // Track this as the latest event we've triggered

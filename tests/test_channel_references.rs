@@ -127,7 +127,7 @@ fn test_synth_triggering_requirements() {
         ~drums: s "~kick ~snare ~kick ~kick"
         
         // With parameters
-        ~melody: s "~sine(440) ~sine(550) ~sine(660)"
+        ~melody: s "~sine 440 ~sine 550 ~sine 660"
         
         // Mix everything
         o: ~drums >> mul 0.8

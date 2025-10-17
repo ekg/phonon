@@ -1,0 +1,60 @@
+//! Test that Pattern nodes correctly output zero values
+
+use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
+
+#[test]
+fn test_pattern_outputs_zeros() {
+    let sample_rate = 44100.0;
+    let mut graph = UnifiedSignalGraph::new(sample_rate);
+    graph.set_cps(4.0); // 4 cycles/sec, so each step is 0.25s
+
+    // Pattern "1 0 0 0" - should output 1, 0, 0, 0
+    let pattern = parse_mini_notation("1 0 0 0");
+    let pattern_node = graph.add_node(SignalNode::Pattern {
+        pattern_str: "1 0 0 0".to_string(),
+        pattern,
+        last_value: 0.0,
+        last_trigger_time: -1.0,
+    });
+
+    graph.set_output(pattern_node);
+
+    // Render 1 second at 4 cps
+    let buffer = graph.render(sample_rate as usize);
+
+    // Check values at different points in the cycle
+    // At 4 cps, each of the 4 values occupies 0.25s = 11025 samples
+    let samples_per_value = (sample_rate / 4.0) as usize;
+
+    let val_at_0_05s = buffer[(sample_rate * 0.05) as usize]; // During first "1"
+    let val_at_0_30s = buffer[(sample_rate * 0.30) as usize]; // During second "0"
+    let val_at_0_55s = buffer[(sample_rate * 0.55) as usize]; // During third "0"
+    let val_at_0_80s = buffer[(sample_rate * 0.80) as usize]; // During fourth "0"
+
+    println!("Value at 0.05s (should be 1): {}", val_at_0_05s);
+    println!("Value at 0.30s (should be 0): {}", val_at_0_30s);
+    println!("Value at 0.55s (should be 0): {}", val_at_0_55s);
+    println!("Value at 0.80s (should be 0): {}", val_at_0_80s);
+
+    assert!(
+        (val_at_0_05s - 1.0).abs() < 0.1,
+        "Expected 1.0 at 0.05s, got {}",
+        val_at_0_05s
+    );
+    assert!(
+        val_at_0_30s < 0.1,
+        "Expected 0.0 at 0.30s, got {}",
+        val_at_0_30s
+    );
+    assert!(
+        val_at_0_55s < 0.1,
+        "Expected 0.0 at 0.55s, got {}",
+        val_at_0_55s
+    );
+    assert!(
+        val_at_0_80s < 0.1,
+        "Expected 0.0 at 0.80s, got {}",
+        val_at_0_80s
+    );
+}

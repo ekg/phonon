@@ -1,0 +1,3 @@
+tempo: 1.0
+~synth: saw(110) # lpf(800, 0.7)
+out: s("bd sd bd sd") + ~synth * 0.3

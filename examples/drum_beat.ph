@@ -1,0 +1,35 @@
+# Drum Beat with DSP Filtering Examples
+# Run with: phonon play drum_beat.phonon
+
+# Example 1: Basic 4-on-the-floor kick with filter sweep
+~kick = impulse 4 # mul 50 # lpf 80 0.9 # mul 2
+~lfo = sin 0.5 # mul 400 # add 600
+out = ~kick # lpf ~lfo 0.7
+
+# Example 2: Kick and clap pattern
+# Uncomment to use:
+# ~kick: impulse 2 # mul 60 # lpf 100 0.8 # mul 1.5
+# ~clap: noise # env 0.001 0.01 0.0 0.02 # hpf 2000 0.9
+# ~clap_trig: impulse 1 # delay 0.25 0.0
+# ~clap_sound: ~clap_trig * ~clap
+# out: ~kick + ~clap_sound
+
+# Example 3: Complex beat with kick, snare, hi-hats
+# Uncomment to use:
+# ~kick: impulse 2 # mul 80 # lpf 120 0.85 # mul 2
+# ~snare: noise # env 0.001 0.05 0.0 0.08 # hpf 500 0.7 # lpf 8000 0.6
+# ~snare_trig: impulse 1 # delay 0.5 0.0
+# ~hihat: noise # env 0.001 0.02 0.0 0.01 # hpf 8000 0.9 # mul 0.3
+# ~hihat_trig: impulse 8
+# ~drums: ~kick + (~snare_trig * ~snare) + (~hihat_trig * ~hihat)
+# ~filter_lfo: sin 0.25 # mul 2000 # add 3000
+# out: ~drums # lpf ~filter_lfo 0.5
+
+# Example 4: Techno with sidechain-style ducking
+# Uncomment to use:
+# ~kick: impulse 2 # mul 100 # lpf 150 0.9 # mul 2
+# ~kick_env: impulse 2 # env 0.01 0.15 0.0 0.0
+# ~bass: saw 55 # lpf 800 0.7
+# ~ducked_bass: ~bass * (1.0 - ~kick_env * 0.8)
+# ~noise: noise # hpf 10000 0.9 # mul 0.1
+# out: ~kick * 0.8 + ~ducked_bass * 0.6 + ~noise

@@ -37,7 +37,7 @@ fn get_event_times(audio: &[f32], threshold: f32) -> Vec<f64> {
 fn test_fast_2_doubles_event_count() {
     // Test: fast 2 should double the number of events
     let normal = r#"bpm 120
-out: s("bd sn")"#;
+out: s "bd sn""#;
 
     let fast = r#"bpm 120
 out: s("bd sn" $ fast 2)"#;
@@ -67,7 +67,7 @@ out: s("bd sn" $ fast 2)"#;
 fn test_fast_2_halves_event_intervals() {
     // Test: fast 2 should halve the time between events
     let normal = r#"bpm 120
-out: s("bd bd bd bd")"#;
+out: s "bd bd bd bd""#;
 
     let fast = r#"bpm 120
 out: s("bd bd" $ fast 2)"#;
@@ -103,7 +103,7 @@ out: s("bd bd" $ fast 2)"#;
 fn test_slow_2_halves_event_count() {
     // Test: slow 2 should halve the number of events
     let normal = r#"bpm 120
-out: s("bd sn hh cp")"#;
+out: s "bd sn hh cp""#;
 
     let slow = r#"bpm 120
 out: s("bd sn hh cp" $ slow 2)"#;
@@ -132,7 +132,7 @@ out: s("bd sn hh cp" $ slow 2)"#;
 fn test_slow_2_doubles_event_intervals() {
     // Test: slow 2 should double the time between events
     let normal = r#"bpm 120
-out: s("bd bd bd bd")"#;
+out: s "bd bd bd bd""#;
 
     let slow = r#"bpm 120
 out: s("bd bd bd bd" $ slow 2)"#;
@@ -174,7 +174,7 @@ out: s("bd bd bd bd" $ slow 2)"#;
 fn test_late_shifts_events_forward() {
     // Test: late 0.25 should shift all events forward by 0.25 cycles
     let normal = r#"bpm 120
-out: s("bd sn")"#;
+out: s "bd sn""#;
 
     let late = r#"bpm 120
 out: s("bd sn" $ late 0.25)"#;
@@ -209,7 +209,7 @@ out: s("bd sn" $ late 0.25)"#;
 fn test_early_shifts_events_backward() {
     // Test: early 0.25 should shift events backward (earlier)
     let normal = r#"bpm 120
-out: s("~ ~ bd sn")"#; // Start events later so early doesn't go negative
+out: s "~ ~ bd sn""#; // Start events later so early doesn't go negative
 
     let early = r#"bpm 120
 out: s("~ ~ bd sn" $ early 0.25)"#;
@@ -247,7 +247,7 @@ out: s("~ ~ bd sn" $ early 0.25)"#;
 fn test_dup_3_triples_event_count() {
     // Test: dup 3 should repeat the pattern 3 times
     let normal = r#"bpm 120
-out: s("bd sn")"#;
+out: s "bd sn""#;
 
     let dup = r#"bpm 120
 out: s("bd sn" $ dup 3)"#;
@@ -280,7 +280,7 @@ fn test_rev_reverses_event_order() {
     // Test: rev should reverse the order of events
     // For "bd sn hh cp", reversed should be "cp hh sn bd"
     let normal = r#"bpm 120
-out: s("bd ~ ~ sn ~ ~ hh ~")"#; // Spread out for clear detection
+out: s "bd ~ ~ sn ~ ~ hh ~""#; // Spread out for clear detection
 
     let reversed = r#"bpm 120
 out: s("bd ~ ~ sn ~ ~ hh ~" $ rev)"#;
@@ -325,7 +325,7 @@ fn test_palindrome_produces_audio() {
     // Note: Full timing verification is difficult because palindrome
     // creates forward + backward which may overlap in onset detection
     let normal = r#"bpm 120
-out: s("bd sn hh")"#;
+out: s "bd sn hh""#;
 
     let palindrome = r#"bpm 120
 out: s("bd sn hh" $ palindrome)"#;
@@ -364,7 +364,7 @@ fn test_degrade_removes_some_events() {
     // Test: degrade should randomly remove ~50% of events
     // Use different samples with rests for clear onset detection
     let normal = r#"bpm 120
-out: s("bd ~ sn ~ hh ~ cp ~")"#;
+out: s "bd ~ sn ~ hh ~ cp ~""#;
 
     let degraded = r#"bpm 120
 out: s("bd ~ sn ~ hh ~ cp ~" $ degrade)"#;
@@ -400,7 +400,7 @@ fn test_degrade_by_90_removes_most_events() {
     // Test: degradeBy 0.9 should remove ~90% of events
     // Use varied samples with clear spacing
     let normal = r#"bpm 120
-out: s("bd ~ sn ~ bd ~ hh ~ cp ~ bd ~")"#;
+out: s "bd ~ sn ~ bd ~ hh ~ cp ~ bd ~""#;
 
     let degraded = r#"bpm 120
 out: s("bd ~ sn ~ bd ~ hh ~ cp ~ bd ~" $ degradeBy 0.9)"#;
@@ -440,7 +440,7 @@ out: s("bd ~ sn ~ bd ~ hh ~ cp ~ bd ~" $ degradeBy 0.9)"#;
 fn test_stutter_4_quadruples_events() {
     // Test: stutter 4 should repeat each event 4 times
     let normal = r#"bpm 120
-out: s("bd sn")"#;
+out: s "bd sn""#;
 
     let stutter = r#"bpm 120
 out: s("bd sn" $ stutter 4)"#;

@@ -1,0 +1,4 @@
+tempo: 2.0
+~sine: sine(440)
+~crushed: bitcrush(~sine, 4.0, 8.0)
+out: ~crushed * 0.3

@@ -1,0 +1,30 @@
+# Demo Track - Showcases phonon render capabilities
+# Render with: phonon render demo_track.phonon demo_track.wav --duration 8
+
+# Bass line with filter sweep
+bass = saw 55 # lpf("200 500 1000 2000 1000 500", 5)
+
+# Kick drum pattern (noise burst through filter)
+kick = noise # lpf("100 50", 20)
+
+# Hi-hats (noise through high-pass)
+hats = noise # hpf("8000 10000 8000 6000", 10)
+
+# Lead melody with varying frequencies
+lead = square "220 ~ 330 ~ 440 330 220 ~" # lpf 2000 2
+
+# Sub bass for depth
+sub = sine "55 55 ~ 55 ~ ~ 55 ~"
+
+# Mix everything together
+# Uncomment different lines to hear different parts
+out bass * 0.3
+
+# Full mix (uncomment this and comment the line above):
+# out = bass * 0.3 + kick * 0.2 + hats * 0.1 + lead * 0.15 + sub * 0.2
+
+# Individual parts to test (uncomment one at a time):
+# out lead * 0.2
+# out hats * 0.2
+# out kick * 0.3
+# out sub * 0.3

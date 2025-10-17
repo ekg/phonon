@@ -1,0 +1,11 @@
+# Comprehensive Pattern-to-Synthesis Integration Test
+# Tests all major features working together
+
+# Pattern-driven melody with changing frequencies
+melody = saw "220 330 440 330" # lpf 1500 2
+
+# Simple bass
+bass = saw 55 # lpf 800 3
+
+# Mix everything together
+out melody * 0.2 + bass * 0.3

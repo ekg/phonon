@@ -1,0 +1,218 @@
+//! Test to verify synth behavior - is it continuous or gated?
+//!
+//! This test analyzes the actual audio output to determine:
+//! 1. Is saw(110) playing continuously? (it shouldn't be)
+//! 2. Does lpf() actually filter? (should reduce high frequencies)
+//! 3. Do we need pattern-triggered gates for synths?
+
+use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+
+mod audio_test_utils;
+use audio_test_utils::{calculate_rms, find_dominant_frequency};
+
+#[test]
+fn test_saw_synth_is_continuous_not_gated() {
+    // Test the example we gave the user
+    let input = r#"
+        tempo 1.0
+        ~synth = saw(110) # lpf(800, 0.7)
+        out s("bd sd bd sd") + ~synth * 0.3
+    "#;
+
+    let (_, statements) = parse_dsl(input).expect("Parse failed");
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
+
+    // Render 4 seconds
+    let buffer = graph.render(176400);
+
+    // Analyze different segments to see if synth is continuous or gated
+    let segment1 = &buffer[0..22050]; // First 0.5s
+    let segment2 = &buffer[22050..44100]; // Second 0.5s
+    let segment3 = &buffer[88200..110250]; // Third second, first half
+    let segment4 = &buffer[132300..154350]; // Fourth second, first half
+
+    let rms1 = calculate_rms(segment1);
+    let rms2 = calculate_rms(segment2);
+    let rms3 = calculate_rms(segment3);
+    let rms4 = calculate_rms(segment4);
+
+    println!("\n=== Synth Continuity Analysis ===");
+    println!("Segment 1 (0.0-0.5s) RMS: {:.4}", rms1);
+    println!("Segment 2 (0.5-1.0s) RMS: {:.4}", rms2);
+    println!("Segment 3 (2.0-2.5s) RMS: {:.4}", rms3);
+    println!("Segment 4 (3.0-3.5s) RMS: {:.4}", rms4);
+
+    let avg_rms = (rms1 + rms2 + rms3 + rms4) / 4.0;
+    let max_rms = rms1.max(rms2).max(rms3).max(rms4);
+    let min_rms = rms1.min(rms2).min(rms3).min(rms4);
+    let variance = max_rms - min_rms;
+
+    println!("\nAverage RMS: {:.4}", avg_rms);
+    println!("Max RMS: {:.4}", max_rms);
+    println!("Min RMS: {:.4}", min_rms);
+    println!("RMS Variance: {:.4}", variance);
+
+    if variance < 0.05 {
+        println!("\n⚠️  PROBLEM: RMS is nearly constant across all segments!");
+        println!("   This suggests the synth is playing CONTINUOUSLY, not gated.");
+        println!("   Expected: RMS should vary if synth is triggered by pattern.");
+    } else {
+        println!("\n✅ RMS varies across segments - synth appears to be gated.");
+    }
+
+    // Check if there's ANY silence
+    let silent_samples = buffer.iter().filter(|&&x| x.abs() < 0.001).count();
+    let silence_percentage = (silent_samples as f32 / buffer.len() as f32) * 100.0;
+
+    println!(
+        "\nSilent samples: {} ({:.1}%)",
+        silent_samples, silence_percentage
+    );
+
+    if silence_percentage < 5.0 {
+        println!("⚠️  PROBLEM: Less than 5% silence - synth is likely continuous!");
+    } else {
+        println!("✅ Significant silence detected - synth appears gated.");
+    }
+}
+
+#[test]
+fn test_lpf_actually_filters() {
+    // Test 1: Raw saw wave (no filter)
+    let input_raw = r#"
+        tempo 1.0
+        out saw(110) * 0.3
+    "#;
+
+    let (_, statements_raw) = parse_dsl(input_raw).expect("Parse failed");
+    let compiler_raw = DslCompiler::new(44100.0);
+    let mut graph_raw = compiler_raw.compile(statements_raw);
+    let buffer_raw = graph_raw.render(44100);
+
+    // Test 2: Saw wave with LPF at 800 Hz
+    let input_filtered = r#"
+        tempo 1.0
+        out saw(110) # lpf(800, 0.7) * 0.3
+    "#;
+
+    let (_, statements_filtered) = parse_dsl(input_filtered).expect("Parse failed");
+    let compiler_filtered = DslCompiler::new(44100.0);
+    let mut graph_filtered = compiler_filtered.compile(statements_filtered);
+    let buffer_filtered = graph_filtered.render(44100);
+
+    // Analyze high-frequency content (above 800 Hz)
+    // For a 110 Hz saw wave, harmonics should be at 220, 330, 440, 550, 660, 770, 880, 990...
+    // LPF at 800 Hz should attenuate everything above 800 Hz
+
+    use audio_test_utils::find_frequency_peaks;
+
+    let peaks_raw = find_frequency_peaks(&buffer_raw, 44100.0, 20);
+    let peaks_filtered = find_frequency_peaks(&buffer_filtered, 44100.0, 20);
+
+    println!("\n=== Low-Pass Filter Analysis ===");
+    println!("\nRaw saw wave (no filter) - Top harmonics:");
+    for (i, (freq, mag)) in peaks_raw.iter().take(10).enumerate() {
+        println!("  {}. {:.1} Hz (magnitude: {:.4})", i + 1, freq, mag);
+    }
+
+    println!("\nFiltered saw wave (lpf 800 Hz) - Top harmonics:");
+    for (i, (freq, mag)) in peaks_filtered.iter().take(10).enumerate() {
+        println!("  {}. {:.1} Hz (magnitude: {:.4})", i + 1, freq, mag);
+    }
+
+    // Count harmonics above 800 Hz
+    let high_harmonics_raw: Vec<_> = peaks_raw.iter().filter(|(f, _)| *f > 800.0).collect();
+
+    let high_harmonics_filtered: Vec<_> =
+        peaks_filtered.iter().filter(|(f, _)| *f > 800.0).collect();
+
+    println!("\nHarmonics above 800 Hz:");
+    println!("  Raw: {} harmonics", high_harmonics_raw.len());
+    println!("  Filtered: {} harmonics", high_harmonics_filtered.len());
+
+    if high_harmonics_raw.len() == 0 {
+        println!("\n⚠️  PROBLEM: Raw saw wave has no high harmonics!");
+        println!("   A saw wave should have many harmonics. Something is wrong.");
+        return;
+    }
+
+    // Check if high harmonics are attenuated
+    let high_energy_raw: f32 = high_harmonics_raw.iter().map(|(_, m)| m).sum();
+    let high_energy_filtered: f32 = high_harmonics_filtered.iter().map(|(_, m)| m).sum();
+
+    println!("\nHigh-frequency energy (>800 Hz):");
+    println!("  Raw: {:.4}", high_energy_raw);
+    println!("  Filtered: {:.4}", high_energy_filtered);
+
+    let attenuation_ratio = if high_energy_raw > 0.0 {
+        high_energy_filtered / high_energy_raw
+    } else {
+        1.0
+    };
+
+    println!(
+        "  Attenuation ratio: {:.2}x ({:.1}% remaining)",
+        attenuation_ratio,
+        attenuation_ratio * 100.0
+    );
+
+    if attenuation_ratio > 0.5 {
+        println!("\n⚠️  PROBLEM: LPF doesn't attenuate high frequencies!");
+        println!("   Expected: <50% high-frequency energy remaining");
+        println!("   Actual: {:.1}% remaining", attenuation_ratio * 100.0);
+    } else {
+        println!("\n✅ LPF is working - high frequencies are attenuated");
+    }
+}
+
+#[test]
+fn test_what_user_actually_wants_pattern_triggered_synth() {
+    // This is what the user WANTS to work:
+    // - Pattern triggers the synth (like "bd sd bd sd" triggers samples)
+    // - Each trigger opens an ADSR envelope
+    // - Synth is silent when not triggered
+
+    // Attempt 1: Can we trigger synth with a pattern?
+    let input = r#"
+        tempo 1.0
+        out s("c4 ~ e4 ~", synth=saw(110))
+    "#;
+
+    let result = parse_dsl(input);
+
+    match result {
+        Ok((_, statements)) => {
+            println!("\n=== Pattern-Triggered Synth Test ===");
+            println!("✅ Syntax parsed successfully");
+            println!("Statements: {:?}", statements);
+
+            // Try to render it
+            let compiler = DslCompiler::new(44100.0);
+            let mut graph = compiler.compile(statements);
+            let buffer = graph.render(88200);
+            let rms = calculate_rms(&buffer);
+
+            println!("RMS: {:.4}", rms);
+
+            if rms > 0.01 {
+                println!("✅ Produces audio");
+            } else {
+                println!("⚠️  Produces silence - feature may not work");
+            }
+        }
+        Err(e) => {
+            println!("\n=== Pattern-Triggered Synth Test ===");
+            println!("❌ Parse error: {:?}", e);
+            println!("This syntax is NOT supported (yet)");
+            println!("\nWhat the user wants:");
+            println!("  - Patterns to trigger synths (like they trigger samples)");
+            println!("  - Each trigger opens/closes an ADSR envelope");
+            println!("  - Synth silent when not triggered");
+            println!("\nCurrent reality:");
+            println!("  - saw(110) plays continuously");
+            println!("  - No pattern-based triggering for oscillators");
+            println!("  - Need to implement this feature");
+        }
+    }
+}

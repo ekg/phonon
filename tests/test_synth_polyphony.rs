@@ -7,7 +7,7 @@ use audio_test_utils::{calculate_rms, find_dominant_frequency};
 
 #[test]
 fn test_saw_synth_produces_audio() {
-    let input = "tempo: 1.0\nout: saw(110) * 0.3";
+    let input = "tempo: 1.0\nout: saw 110 * 0.3";
 
     let (_, statements) = parse_dsl(input).expect("Parse failed");
     let compiler = DslCompiler::new(44100.0);
@@ -54,7 +54,7 @@ fn test_synth_with_note_pattern() {
     println!("  3. Apply ADSR envelope (attack/decay)");
     println!("  4. Voice stops when envelope completes\n");
     println!("Current reality:");
-    println!("  - saw(110) is continuous (plays forever)");
+    println!("  - saw 110 is continuous (plays forever)");
     println!("  - No pattern triggering for synths");
     println!("  - No polyphonic voice spawning");
     println!("  - No ADSR envelopes\n");
@@ -80,14 +80,14 @@ fn test_samples_vs_synths_comparison() {
     }
 
     // Synths are continuous
-    let input_synth = "tempo: 1.0\nout: saw(110) * 0.3";
+    let input_synth = "tempo: 1.0\nout: saw 110 * 0.3";
     let (_, statements2) = parse_dsl(input_synth).expect("Parse failed");
     let compiler2 = DslCompiler::new(44100.0);
     let mut graph2 = compiler2.compile(statements2);
     let buffer_synth = graph2.render(88200);
     let rms_synth = calculate_rms(&buffer_synth);
 
-    println!("\nSynths: saw(110)");
+    println!("\nSynths: saw 110");
     println!("  RMS: {:.4}", rms_synth);
     if rms_synth > 0.01 {
         println!("  ⚠️  Synth is continuous (not pattern-triggered)");

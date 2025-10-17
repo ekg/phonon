@@ -145,7 +145,7 @@ fn test_speed_default_is_one() {
 
     let input_without_speed = r#"
         tempo: 2.0
-        out: s("bd")
+        out: s "bd"
     "#;
 
     // Both should produce similar output

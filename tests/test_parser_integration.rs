@@ -9,8 +9,8 @@ fn test_drum_kit_mixing() {
     let phonon_code = r#"
 # Drum kit with kick, snare, and hats
 kick = noise >> lpf("100 ~ ~ ~ 100 ~ ~ ~", 20)
-snare = noise >> hpf("~ ~ 2000 ~", 10) >> lpf(5000, 5)
-hats = noise >> hpf(8000, 10)
+snare = noise >> hpf("~ ~ 2000 ~", 10) >> lpf 5000 5
+hats = noise >> hpf 8000 10
 
 # Mix all drums
 out kick * 0.5 + snare * 0.3 + hats * 0.05
@@ -44,7 +44,7 @@ out kick * 0.5 + snare * 0.3 + hats * 0.05
     let analysis = analyze_wav("/tmp/test_drums.wav");
 
     assert!(
-        analysis.contains("✅ Contains audio signal"),
+        analysis.contains "✅ Contains audio signal",
         "Drum kit produced no audio!\n{}",
         analysis
     );
@@ -75,9 +75,9 @@ fn test_arithmetic_precedence() {
 
     let phonon_code = r#"
 # Test order of operations
-sig1 = sine(220)
-sig2 = sine(440)
-sig3 = sine(880)
+sig1 = sine 220
+sig2 = sine 440
+sig3 = sine 880
 
 # Should be (sig1 * 0.3) + (sig2 * 0.2) + (sig3 * 0.1)
 out sig1 * 0.3 + sig2 * 0.2 + sig3 * 0.1
@@ -128,11 +128,11 @@ fn test_bus_reference_formats() {
 
     let test_cases = vec![
         // With tilde prefix in definition and reference
-        ("~bass = saw(110)\nout ~bass * 0.2", "tilde_both"),
+        ("~bass = saw 110\nout ~bass * 0.2", "tilde_both"),
         // Without tilde in definition, with in reference
-        ("bass = saw(110)\nout ~bass * 0.2", "no_tilde_def"),
+        ("bass = saw 110\nout ~bass * 0.2", "no_tilde_def"),
         // Without tilde anywhere
-        ("bass = saw(110)\nout bass * 0.2", "no_tilde"),
+        ("bass = saw 110\nout bass * 0.2", "no_tilde"),
     ];
 
     for (code, name) in test_cases {
@@ -169,7 +169,7 @@ fn test_bus_reference_formats() {
         let analysis = analyze_wav(&wav);
 
         assert!(
-            analysis.contains("✅ Contains audio signal"),
+            analysis.contains "✅ Contains audio signal",
             "Bus format '{}' produced no audio!\n{}",
             name,
             analysis
@@ -195,8 +195,8 @@ fn test_pattern_modulation_in_mix() {
 
     let phonon_code = r#"
 # Pattern-modulated signals
-bass = saw("55 82.5") >> lpf("500 1000", 3)
-lead = square("440 550 660 550")
+bass = saw "55 82.5" >> lpf("500 1000", 3)
+lead = square "440 550 660 550"
 
 # Mix them
 out bass * 0.4 + lead * 0.1
@@ -229,7 +229,7 @@ out bass * 0.4 + lead * 0.1
     let analysis = analyze_wav("/tmp/test_pattern_mix.wav");
 
     assert!(
-        analysis.contains("✅ Contains audio signal"),
+        analysis.contains "✅ Contains audio signal",
         "Pattern mix produced no audio!\n{}",
         analysis
     );
@@ -258,7 +258,7 @@ fn analyze_wav(path: &str) -> String {
 
 fn extract_rms(analysis: &str) -> f32 {
     for line in analysis.lines() {
-        if line.contains("RMS Level:") {
+        if line.contains "RMS Level:" {
             if let Some(start) = line.find("RMS Level:") {
                 let rest = &line[start + 10..].trim();
                 if let Some(end) = rest.find(' ') {
@@ -274,7 +274,7 @@ fn extract_rms(analysis: &str) -> f32 {
 
 fn extract_dominant_freq(analysis: &str) -> f32 {
     for line in analysis.lines() {
-        if line.contains("Dominant Freq:") {
+        if line.contains "Dominant Freq:" {
             if let Some(start) = line.find("Dominant Freq:") {
                 let rest = &line[start + 14..].trim();
                 if let Some(end) = rest.find(" Hz") {
@@ -290,7 +290,7 @@ fn extract_dominant_freq(analysis: &str) -> f32 {
 
 fn extract_spectral_centroid(analysis: &str) -> f32 {
     for line in analysis.lines() {
-        if line.contains("Spectral Centroid:") {
+        if line.contains "Spectral Centroid:" {
             if let Some(start) = line.find("Spectral Centroid:") {
                 let rest = &line[start + 18..].trim();
                 if let Some(end) = rest.find(" Hz") {
@@ -306,7 +306,7 @@ fn extract_spectral_centroid(analysis: &str) -> f32 {
 
 fn extract_onset_count(analysis: &str) -> usize {
     for line in analysis.lines() {
-        if line.contains("Onset Events:") {
+        if line.contains "Onset Events:" {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {
                 if let Ok(count) = parts[2].parse::<usize>() {

@@ -6,7 +6,7 @@ fn test_bpm_with_time_signature_4_4() {
     // bpm 120 [4/4] should work
     let input = r#"
         bpm 120 [4/4]
-        out: s("bd sn hh cp") * 0.5
+        out: s "bd sn hh cp" * 0.5
     "#;
 
     let result = parse_dsl(input);
@@ -26,7 +26,7 @@ fn test_bpm_with_time_signature_3_4() {
     // bpm 120 [3/4] (waltz time)
     let input = r#"
         bpm 120 [3/4]
-        out: s("bd sn hh") * 0.5
+        out: s "bd sn hh" * 0.5
     "#;
 
     let result = parse_dsl(input);
@@ -46,7 +46,7 @@ fn test_bpm_with_time_signature_6_8() {
     // bpm 120 [6/8] (compound time)
     let input = r#"
         bpm 120 [6/8]
-        out: s("bd sn hh cp sn hh") * 0.5
+        out: s "bd sn hh cp sn hh" * 0.5
     "#;
 
     let result = parse_dsl(input);
@@ -66,12 +66,12 @@ fn test_bpm_without_time_signature_defaults_4_4() {
     // bpm 120 (without brackets) should default to 4/4
     let input_without = r#"
         bpm 120
-        out: s("bd sn hh cp") * 0.5
+        out: s "bd sn hh cp" * 0.5
     "#;
 
     let input_with = r#"
         bpm 120 [4/4]
-        out: s("bd sn hh cp") * 0.5
+        out: s "bd sn hh cp" * 0.5
     "#;
 
     let (_, statements1) = parse_dsl(input_without).unwrap();

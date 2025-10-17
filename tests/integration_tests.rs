@@ -11,7 +11,7 @@ fn test_pattern_triggered_synthesis() {
     let mut engine = PatternDspEngine::new(120.0);
 
     // Parse a pattern that triggers synthesis
-    let result = engine.parse_hybrid("bd*4 >> lpf(1000, 0.8)");
+    let result = engine.parse_hybrid("bd*4 >> lpf 1000 0.8");
     assert!(result.is_ok());
 
     // Verify the engine parsed successfully
@@ -80,7 +80,7 @@ fn test_complete_signal_flow() {
 
     // Complex pattern with DSP processing
     let code = r#"
-        bd(5,8) >> lpf(1000, 0.8)
+        bd(5,8) >> lpf 1000 0.8
     "#;
 
     let result = engine.parse_hybrid(code.trim());
@@ -126,8 +126,8 @@ fn test_layered_patterns_with_effects() {
 
     // Multiple layers with different processing
     let layers = vec![
-        "bd(3,8) >> lpf(500, 0.9)", // Filtered kick
-        "hh*16 >> hpf(8000, 0.7)",  // Bright hi-hats
+        "bd(3,8) >> lpf 500 0.9", // Filtered kick
+        "hh*16 >> hpf 8000 0.7",  // Bright hi-hats
         "[~ cp]*4 >> reverb(0.3)",  // Reverbed claps
     ];
 

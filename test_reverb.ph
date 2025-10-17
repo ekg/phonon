@@ -1,0 +1,4 @@
+tempo: 2.0
+~sine: sine 440
+~with_reverb: reverb(~sine, 0.9, 0.5, 0.5)
+out: ~with_reverb * 0.3

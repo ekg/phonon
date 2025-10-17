@@ -144,7 +144,7 @@ fn test_gain_default_is_one() {
 
     let input_without_gain = r#"
         tempo: 2.0
-        out: s("bd")
+        out: s "bd"
     "#;
 
     // Both should produce the same RMS

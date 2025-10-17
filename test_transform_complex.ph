@@ -1,0 +1,2 @@
+tempo 1.0
+out s "bd sn hh*4 cp" $ fast 2

@@ -180,7 +180,7 @@ fn test_feature_summary() {
     println!("✅ Support for alternation <~a ~b ~c>");
     println!("✅ Support for euclidean rhythms ~kick(3,8)");
     println!("✅ Support for polyrhythms [~a, ~b]");
-    println!("✅ Frequency parameters ~sine(440)");
+    println!("✅ Frequency parameters ~sine 440");
 
     println!("\n📝 USAGE EXAMPLE:");
     println!("   ~kick: sin 60 >> mul 0.5");

@@ -1,0 +1,7 @@
+# Test Live Coding
+# Edit this and save to hear changes!
+
+tempo 2.0
+
+# Try changing 440 to other frequencies like 220, 880, etc
+out sine 440 * 0.2

@@ -1,0 +1,7 @@
+# Complete drum kit using mixing
+kick = noise # lpf("100 ~ ~ ~ 100 ~ ~ ~ 100 ~ ~ ~ 100 ~ ~ ~", 20)
+snare = noise # hpf("~ ~ 2000 ~ ~ ~ 2000 ~", 10) # lpf(5000, 5)
+hats = noise # hpf("8000 8000 8000 8000 8000 8000 8000 8000", 10)
+
+# Mix all drums together
+out kick * 0.5 + snare * 0.3 + hats * 0.05

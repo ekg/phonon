@@ -61,7 +61,7 @@
 //! ```
 //! use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 //!
-//! let input = "out: sine(440) * 0.2";
+//! let input = "out: sine 440 * 0.2";
 //! let (_, statements) = parse_dsl(input).unwrap();
 //!
 //! let compiler = DslCompiler::new(44100.0);
@@ -81,7 +81,7 @@
 //!
 //! let input = r#"
 //!     cps: 2.0
-//!     ~lfo: sine(0.5) * 0.5 + 0.5
+//!     ~lfo: sine 0.5 * 0.5 + 0.5
 //!     out: sine(~lfo * 200 + 300) * 0.2
 //! "#;
 //!
@@ -96,7 +96,7 @@
 //! use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 //!
 //! let input = r#"
-//!     ~bass: saw(55) # lpf(800, 0.9)
+//!     ~bass: saw 55 # lpf 800 0.9
 //!     out: ~bass * 0.3
 //! "#;
 //!
@@ -129,7 +129,7 @@
 //!
 //! let input = r#"
 //!     cps: 2.0
-//!     ~lfo: sine(0.25)
+//!     ~lfo: sine 0.25
 //!     ~bass: saw("55 82.5 110") # lpf(~lfo * 2000 + 500, 0.8)
 //!     out: ~bass * 0.3
 //! "#;
@@ -196,7 +196,7 @@ pub enum DslExpression {
     Value(f32),
     /// Pattern string: "bd sn hh cp"
     Pattern(String),
-    /// Oscillator: sine(440), saw(~freq), square(220, 0.3)
+    /// Oscillator: sine 440, saw(~freq), square(220, 0.3)
     Oscillator {
         waveform: Waveform,
         freq: Box<DslExpression>,
@@ -472,16 +472,51 @@ fn waveform(input: &str) -> IResult<&str, Waveform> {
     ))(input)
 }
 
-/// Parse function arguments
-fn function_args(input: &str) -> IResult<&str, Vec<DslExpression>> {
-    delimited(
-        char('('),
-        separated_list0(ws(char(',')), ws(expression)),
-        char(')'),
-    )(input)
+/// Parse a single argument for space-separated style
+/// An argument can be: value, pattern string, bus ref, or parenthesized expression
+fn space_arg(input: &str) -> IResult<&str, DslExpression> {
+    alt((
+        pattern_string,                                      // "pattern"
+        bus_ref,                                             // ~name
+        value_expr,                                          // 0.5
+        delimited(ws(char('(')), expression, ws(char(')'))), // (expr)
+    ))(input)
 }
 
-/// Parse oscillator: sine(440)
+/// Parse space-separated function arguments (TIDAL/HASKELL STYLE)
+/// Parses one or more arguments separated by SPACES/TABS only (not newlines!)
+/// Stops at operators (#, $, +, -, *, /), newlines, or end of input
+///
+/// Examples:
+///   s "bd"           -> ["bd"]
+///   lpf 1000 0.8     -> [1000, 0.8]
+///   gain "0.5 1.0"   -> ["0.5 1.0"]
+fn space_separated_args(input: &str) -> IResult<&str, Vec<DslExpression>> {
+    use nom::character::complete::space1; // Space and tab, but NOT newline
+
+    // Parse at least one argument (require at least one space/tab before it)
+    let (input, first) = preceded(space1, space_arg)(input)?;
+
+    // Try to parse more arguments (separated by spaces/tabs, not newlines)
+    let (input, mut rest) = many0(preceded(space1, space_arg))(input)?;
+
+    // Combine first + rest
+    let mut args = vec![first];
+    args.append(&mut rest);
+
+    Ok((input, args))
+}
+
+/// Parse function arguments (TIDAL/HASKELL STYLE - space-separated only!)
+/// Parentheses are ONLY for grouping expressions, not for function application
+///
+/// OLD (NO LONGER SUPPORTED): s("bd"), lpf 1000 0.8
+/// NEW (REQUIRED): s "bd", lpf 1000 0.8
+fn function_args(input: &str) -> IResult<&str, Vec<DslExpression>> {
+    space_separated_args(input)
+}
+
+/// Parse oscillator: sine 440, saw "110 220"
 fn oscillator(input: &str) -> IResult<&str, DslExpression> {
     map(tuple((waveform, function_args)), |(wf, args)| {
         let freq = args.first().cloned().unwrap_or(DslExpression::Value(440.0));
@@ -504,7 +539,7 @@ fn oscillator(input: &str) -> IResult<&str, DslExpression> {
     })(input)
 }
 
-/// Parse filter: lpf(input, cutoff, q)
+/// Parse filter: lpf 1000 0.8, hpf 500 0.5
 fn filter(input: &str) -> IResult<&str, DslExpression> {
     let lpf = map(preceded(tag("lpf"), function_args), |args| {
         DslExpression::Filter {
@@ -542,7 +577,7 @@ fn delay(input: &str) -> IResult<&str, DslExpression> {
 /// Parse DSP modifiers (Tidal-style)
 /// These are applied via # operator: s "bd" # gain 0.5
 
-/// Parse gain modifier: gain(value) or gain("pattern")
+/// Parse gain modifier: gain 0.5 or gain "0.5 1.0"
 fn gain_modifier(input: &str) -> IResult<&str, DslExpression> {
     map(preceded(tag("gain"), function_args), |args| {
         DslExpression::Gain {
@@ -551,7 +586,7 @@ fn gain_modifier(input: &str) -> IResult<&str, DslExpression> {
     })(input)
 }
 
-/// Parse pan modifier: pan(value) or pan("pattern")
+/// Parse pan modifier: pan 0.5 or pan "-1 1"
 fn pan_modifier(input: &str) -> IResult<&str, DslExpression> {
     map(preceded(tag("pan"), function_args), |args| {
         DslExpression::Pan {
@@ -560,7 +595,7 @@ fn pan_modifier(input: &str) -> IResult<&str, DslExpression> {
     })(input)
 }
 
-/// Parse speed modifier: speed(value) or speed("pattern")
+/// Parse speed modifier: speed 2.0 or speed "1.0 1.5 0.5"
 fn speed_modifier(input: &str) -> IResult<&str, DslExpression> {
     map(preceded(tag("speed"), function_args), |args| {
         DslExpression::Speed {
@@ -569,7 +604,7 @@ fn speed_modifier(input: &str) -> IResult<&str, DslExpression> {
     })(input)
 }
 
-/// Parse cut group modifier: cut(value)
+/// Parse cut group modifier: cut 1 (for hi-hat choking, etc.)
 fn cut_modifier(input: &str) -> IResult<&str, DslExpression> {
     map(preceded(tag("cut"), function_args), |args| {
         DslExpression::Cut {
@@ -705,9 +740,9 @@ fn extract_pattern_and_rebuild_transforms(
     }
 }
 
-/// Parse sample pattern: s("bd sn hh")
-/// Also handles pattern transforms: s("bd sn" $ fast 2)
-/// DSP parameters are applied via Tidal-style chaining: s("bd") # gain(0.5)
+/// Parse sample pattern: s "bd sn hh"
+/// Also handles pattern transforms: s "bd sn" $ fast 2
+/// DSP parameters are applied via Tidal-style chaining: s "bd" # gain 0.5
 fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
     map(preceded(tag("s"), function_args), |args| {
         // First arg can be a pattern string OR a pattern transform
@@ -2125,8 +2160,8 @@ impl DslCompiler {
 
         match right {
             // For filters in chain context, shift arguments:
-            // Original parse: lpf(1000, 0.8) -> input=1000, cutoff=0.8, q=1.0
-            // Chain context: lpf(1000, 0.8) should mean cutoff=1000, q=0.8
+            // Original parse: lpf 1000 0.8 -> input=1000, cutoff=0.8, q=1.0
+            // Chain context: lpf 1000 0.8 should mean cutoff=1000, q=0.8
             DslExpression::Filter {
                 filter_type,
                 input,
@@ -2459,7 +2494,7 @@ mod tests {
 
     #[test]
     fn test_parse_bus_definition() {
-        let input = "~lfo: sine(0.5)";
+        let input = "~lfo: sine 0.5";
         let result = statement(input);
         assert!(result.is_ok());
 
@@ -2478,7 +2513,7 @@ mod tests {
 
     #[test]
     fn test_parse_chain() {
-        let input = "sine(440) # lpf(1000, 2)";
+        let input = "sine 440 # lpf 1000 2";
         let result = expression(input);
         assert!(result.is_ok());
     }
@@ -2486,8 +2521,8 @@ mod tests {
     #[test]
     fn test_parse_complete_dsl() {
         let input = r#"
-            ~lfo: sine(0.5) * 0.5 + 0.5
-            ~bass: saw(55) # lpf(~lfo * 2000 + 500, 0.8)
+            ~lfo: sine 0.5 * 0.5 + 0.5
+            ~bass: saw 55 # lpf(~lfo * 2000 + 500, 0.8)
             out: ~bass * 0.4
         "#;
 
@@ -2504,7 +2539,7 @@ mod tests {
 
     #[test]
     fn test_parse_superkick() {
-        let input = "superkick(60, 0.5, 0.3, 0.1)";
+        let input = "superkick 60 0.5 0.3 0.1";
         let result = primary(input);
         assert!(result.is_ok());
 
@@ -2518,7 +2553,7 @@ mod tests {
 
     #[test]
     fn test_parse_supersaw() {
-        let input = "supersaw(110, 0.5, 7)";
+        let input = "supersaw 110 0.5 7";
         let result = primary(input);
         assert!(result.is_ok());
 
@@ -2532,7 +2567,7 @@ mod tests {
 
     #[test]
     fn test_parse_reverb() {
-        let input = "reverb(sine(440), 0.8, 0.5, 0.3)";
+        let input = "reverb sine 440 0.8 0.5 0.3";
         let result = primary(input);
         assert!(result.is_ok());
 
@@ -2545,7 +2580,7 @@ mod tests {
 
     #[test]
     fn test_parse_distortion() {
-        let input = "dist(saw(110), 5.0, 0.5)";
+        let input = "dist saw 110 5.0 0.5";
         let result = primary(input);
         assert!(result.is_ok());
 
@@ -2558,7 +2593,7 @@ mod tests {
 
     #[test]
     fn test_compile_supersaw() {
-        let input = "out: supersaw(110, 0.5, 5) * 0.3";
+        let input = "out: supersaw 110 0.5 5 * 0.3";
         let (_, statements) = parse_dsl(input).unwrap();
         let compiler = DslCompiler::new(44100.0);
         let mut graph = compiler.compile(statements);
@@ -2572,7 +2607,7 @@ mod tests {
 
     #[test]
     fn test_compile_reverb_effect() {
-        let input = "out: reverb(sine(440), 0.7, 0.5, 0.5)";
+        let input = "out: reverb sine 440 0.7 0.5 0.5";
         let (_, statements) = parse_dsl(input).unwrap();
         let compiler = DslCompiler::new(44100.0);
         let mut graph = compiler.compile(statements);
@@ -2587,7 +2622,7 @@ mod tests {
     #[test]
     fn test_compile_synth_with_effects_chain() {
         // Simpler inline version since bus refs aren't fully implemented yet
-        let input = "out: reverb(chorus(dist(supersaw(110, 0.5, 5), 3.0, 0.3), 1.0, 0.5, 0.3), 0.7, 0.5, 0.4)";
+        let input = "out: reverb(chorus(dist supersaw 110 0.5 5 3.0 0.3, 1.0, 0.5, 0.3), 0.7, 0.5, 0.4)";
 
         let (_, statements) = parse_dsl(input).unwrap();
         let compiler = DslCompiler::new(44100.0);
@@ -2606,7 +2641,7 @@ mod tests {
 
     #[test]
     fn test_compile_superkick_with_reverb() {
-        let input = "out: reverb(superkick(60, 0.5, 0.3, 0.1), 0.8, 0.5, 0.3)";
+        let input = "out: reverb superkick 60 0.5 0.3 0.1 0.8 0.5 0.3";
         let (_, statements) = parse_dsl(input).unwrap();
         let compiler = DslCompiler::new(44100.0);
         let mut graph = compiler.compile(statements);
@@ -2673,7 +2708,7 @@ mod tests {
         // Test with minimal args (should use defaults)
         let input = r#"
             tempo: 2.0
-            out: synth("a4", "sine")
+            out: synth "a4" "sine"
         "#;
         let (_, statements) = parse_dsl(input).unwrap();
         let compiler = DslCompiler::new(44100.0);

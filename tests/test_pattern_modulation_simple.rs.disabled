@@ -1,0 +1,189 @@
+//! Simple test for the $ operator for pattern modulation
+
+use phonon::nom_parser::{parse_expr, Expr};
+
+#[test]
+fn test_pattern_ops_parse() {
+    println!("\n=== Testing Pattern Operations Parsing ===");
+
+    // Test that $ operator parses
+    let test_cases = vec![
+        r#""bd sn" $ fast 2"#,
+        r#""bd sn" $ slow 3"#,
+        r#""bd sn" $ rev"#,
+        r#""bd*4" $ degrade"#,
+        r#""bd*4" $ degradeBy 0.3"#,
+        r#""100 200 300" $ fast 2 $ rev"#,
+        r#""bd*4" $ fast 2 # lpf 1000 0.8"#,
+    ];
+
+    for code in test_cases {
+        println!("\n  Testing: {}", code);
+        match parse_expr(code) {
+            Ok((rest, expr)) => {
+                assert_eq!(rest, "", "Parser didn't consume all input");
+                println!("    ✓ Parsed successfully");
+
+                // Check if it's a pattern op
+                match expr {
+                    Expr::PatternOp(_, _) => {
+                        println!("    ✓ Recognized as pattern operation");
+                    }
+                    Expr::Chain(_, _) => {
+                        println!("    ✓ Recognized as chain (pattern op + DSP)");
+                    }
+                    other => {
+                        println!("    Type: {:?}", other);
+                    }
+                }
+            }
+            Err(e) => {
+                panic!("Failed to parse '{}': {:?}", code, e);
+            }
+        }
+    }
+}
+
+#[test]
+fn test_pattern_ops_in_dsl() {
+    use phonon::nom_parser::parse_dsl;
+
+    println!("\n=== Testing Pattern Ops in Complete DSL ===");
+
+    let code = r#"
+        ~drums: "bd*4 sn*2" $ fast 2
+        o: ~drums # lpf 1000 0.8
+    "#;
+
+    match parse_dsl(code) {
+        Ok(env) => {
+            println!("  ✓ DSL with pattern ops parsed successfully");
+            assert!(env.output_chain.is_some(), "Should have output chain");
+            assert!(
+                env.ref_chains.contains_key("drums"),
+                "Should have drums bus"
+            );
+        }
+        Err(e) => {
+            panic!("Failed to parse DSL: {}", e);
+        }
+    }
+}
+
+#[test]
+fn test_chained_pattern_ops() {
+    println!("\n=== Testing Chained Pattern Operations ===");
+
+    let code = r#""100 200" $ fast 2 $ rev $ degrade"#;
+
+    match parse_expr(code) {
+        Ok((rest, expr)) => {
+            assert_eq!(rest, "");
+            println!("  ✓ Parsed chained operations");
+
+            // Should be nested PatternOps
+            match expr {
+                Expr::PatternOp(_, _) => {
+                    println!("  ✓ Recognized as pattern operation chain");
+                }
+                other => {
+                    panic!("Expected PatternOp, got: {:?}", other);
+                }
+            }
+        }
+        Err(e) => {
+            panic!("Failed to parse: {:?}", e);
+        }
+    }
+}
+
+#[test]
+fn test_pattern_ops_with_every() {
+    println!("\n=== Testing Pattern Ops with 'every' ===");
+
+    let code = r#""bd sn" $ every 4 rev"#;
+
+    match parse_expr(code) {
+        Ok((rest, expr)) => {
+            assert_eq!(rest, "");
+            println!("  ✓ Parsed 'every' operation");
+
+            match expr {
+                Expr::PatternOp(_, transform) => {
+                    println!("  ✓ Transform: {:?}", transform);
+                }
+                other => {
+                    panic!("Expected PatternOp, got: {:?}", other);
+                }
+            }
+        }
+        Err(e) => {
+            panic!("Failed to parse: {:?}", e);
+        }
+    }
+}
+
+#[test]
+fn test_pattern_ops_precedence() {
+    println!("\n=== Testing Pattern Ops Precedence ===");
+
+    // Pattern ops before DSP chains
+    let code = r#""bd sn" $ fast 2 # amp 0.5"#;
+
+    match parse_expr(code) {
+        Ok((rest, expr)) => {
+            assert_eq!(rest, "");
+
+            // Should parse as chain with pattern op on left
+            match expr {
+                Expr::Chain(left, _right) => match left.as_ref() {
+                    Expr::PatternOp(_, _) => {
+                        println!("  ✓ Pattern ops bind before DSP chains");
+                    }
+                    other => {
+                        panic!("Expected PatternOp on left, got: {:?}", other);
+                    }
+                },
+                other => {
+                    panic!("Expected Chain, got: {:?}", other);
+                }
+            }
+        }
+        Err(e) => {
+            panic!("Failed to parse: {:?}", e);
+        }
+    }
+}
+
+#[test]
+fn test_pattern_modulation_guide() {
+    println!("\n=== Testing Pattern Modulation Guide Examples ===");
+
+    // Examples from our guide
+    let examples = vec![
+        // Basic operations
+        (r#""bd sn" $ fast 2"#, "Speed up pattern 2x"),
+        (r#""bd sn" $ slow 3"#, "Slow down pattern 3x"),
+        (r#""bd sn" $ rev"#, "Reverse the pattern"),
+        // Chained operations
+        (r#""100 200" $ fast 2 $ rev"#, "Fast then reverse"),
+        // With DSP
+        (r#""bd*4" $ fast 2 # amp 0.7"#, "Pattern op then DSP"),
+        // Complex
+        (r#""bd . . bd" $ every 8 (slow 2)"#, "Every 8th cycle slow"),
+        (r#""hh*16" $ degradeBy 0.3 $ fast 2"#, "Degrade then fast"),
+    ];
+
+    for (code, desc) in examples {
+        println!("\n  Testing: {} - {}", code, desc);
+        match parse_expr(code) {
+            Ok((rest, _)) => {
+                assert_eq!(rest, "", "Should consume all input");
+                println!("    ✓ Parsed successfully");
+            }
+            Err(e) => {
+                panic!("Failed to parse '{}': {:?}", code, e);
+            }
+        }
+    }
+}

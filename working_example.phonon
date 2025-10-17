@@ -1,0 +1,7 @@
+# Working Phonon Example
+# Demonstrates sample playback with the correct syntax
+
+tempo: 2.0   # 2 cycles per second (120 BPM)
+
+# Simple 4/4 house beat
+out: s("bd sn hh cp")

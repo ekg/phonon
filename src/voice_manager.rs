@@ -73,9 +73,13 @@
 //! ```
 
 use std::sync::Arc;
+use crate::envelope::PercEnvelope;
 
 /// Maximum number of simultaneous voices
 const MAX_VOICES: usize = 64;
+
+/// Sample rate for envelope calculations (will be set per-voice)
+const SAMPLE_RATE: f32 = 44100.0;
 
 /// A single voice that plays a sample
 #[derive(Clone)]
@@ -104,6 +108,15 @@ pub struct Voice {
     /// Cut group: voices in the same cut group stop each other when triggered
     /// None = no cut group, Some(n) = cut group number n
     cut_group: Option<u32>,
+
+    /// Envelope generator for amplitude shaping
+    envelope: PercEnvelope,
+
+    /// Attack time in seconds
+    attack: f32,
+
+    /// Release time in seconds
+    release: f32,
 }
 
 impl Default for Voice {
@@ -123,6 +136,9 @@ impl Voice {
             speed: 1.0,
             age: 0,
             cut_group: None,
+            envelope: PercEnvelope::new(SAMPLE_RATE),
+            attack: 0.001,  // 1ms default attack
+            release: 0.1,   // 100ms default release
         }
     }
 
@@ -145,6 +161,20 @@ impl Voice {
         speed: f32,
         cut_group: Option<u32>,
     ) {
+        self.trigger_with_envelope(sample, gain, pan, speed, cut_group, 0.001, 0.1);
+    }
+
+    /// Start playing a sample with full control including envelope parameters
+    pub fn trigger_with_envelope(
+        &mut self,
+        sample: Arc<Vec<f32>>,
+        gain: f32,
+        pan: f32,
+        speed: f32,
+        cut_group: Option<u32>,
+        attack: f32,
+        release: f32,
+    ) {
         self.sample_data = Some(sample);
         self.position = 0.0;
         self.active = true;
@@ -153,6 +183,12 @@ impl Voice {
         self.speed = speed.max(0.01); // Prevent zero or negative speed for now
         self.age = 0;
         self.cut_group = cut_group;
+        self.attack = attack.max(0.0001); // Minimum 0.1ms
+        self.release = release.max(0.001); // Minimum 1ms
+
+        // Configure and trigger envelope
+        self.envelope.set_times(self.attack, self.release);
+        self.envelope.trigger();
     }
 
     /// Process one sample of audio (mono)
@@ -167,6 +203,16 @@ impl Voice {
     /// Process one sample of audio (stereo with panning)
     pub fn process_stereo(&mut self) -> (f32, f32) {
         if !self.active {
+            return (0.0, 0.0);
+        }
+
+        // Process envelope
+        let env_value = self.envelope.process();
+
+        // Check if envelope finished
+        if !self.envelope.is_active() {
+            self.active = false;
+            self.sample_data = None;
             return (0.0, 0.0);
         }
 
@@ -188,7 +234,8 @@ impl Voice {
                     samples[pos_floor]
                 };
 
-                let output_value = sample_value * self.gain;
+                // Apply gain and envelope
+                let output_value = sample_value * self.gain * env_value;
 
                 // Advance position by speed
                 self.position += self.speed;
@@ -205,9 +252,8 @@ impl Voice {
 
                 (left, right)
             } else {
-                // Sample finished
-                self.active = false;
-                self.sample_data = None;
+                // Sample finished, but envelope might still be ringing
+                // Continue processing envelope until it finishes
                 (0.0, 0.0)
             }
         } else {
@@ -281,6 +327,21 @@ impl VoiceManager {
         speed: f32,
         cut_group: Option<u32>,
     ) {
+        self.trigger_sample_with_envelope(sample, gain, pan, speed, cut_group, 0.001, 0.1);
+    }
+
+    /// Trigger a sample with full control including envelope parameters
+    /// This is the most complete trigger method with all DSP parameters
+    pub fn trigger_sample_with_envelope(
+        &mut self,
+        sample: Arc<Vec<f32>>,
+        gain: f32,
+        pan: f32,
+        speed: f32,
+        cut_group: Option<u32>,
+        attack: f32,
+        release: f32,
+    ) {
         // If this has a cut group, stop all other voices in the same cut group
         if let Some(group) = cut_group {
             for voice in &mut self.voices {
@@ -295,7 +356,7 @@ impl VoiceManager {
         for i in 0..MAX_VOICES {
             let idx = (self.next_voice_index + i) % MAX_VOICES;
             if self.voices[idx].is_available() {
-                self.voices[idx].trigger_with_cut_group(sample, gain, pan, speed, cut_group);
+                self.voices[idx].trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
                 self.next_voice_index = (idx + 1) % MAX_VOICES;
                 return;
             }
@@ -313,7 +374,7 @@ impl VoiceManager {
         }
 
         // Steal the oldest voice
-        self.voices[oldest_idx].trigger_with_cut_group(sample, gain, pan, speed, cut_group);
+        self.voices[oldest_idx].trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
         self.next_voice_index = (oldest_idx + 1) % MAX_VOICES;
     }
 

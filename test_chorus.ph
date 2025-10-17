@@ -1,0 +1,4 @@
+tempo: 2.0
+~sine: sine 440
+~with_chorus: chorus(~sine, 1.0, 0.5, 0.5)
+out: ~with_chorus * 0.3

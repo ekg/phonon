@@ -237,7 +237,7 @@ fn test_signal_expressions() {
 
     let mut graph = UnifiedSignalGraph::new(44100.0);
 
-    // Create complex expression: (sine(440) + sine(550)) * 0.5
+    // Create complex expression: (sine 440 + sine 550) * 0.5
     let osc1 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,

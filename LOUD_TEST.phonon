@@ -1,0 +1,2 @@
+tempo 1.0
+out sine(440) * 0.5

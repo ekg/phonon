@@ -1,0 +1,423 @@
+/// Comprehensive tests for all audio effects with signal analysis
+/// Tests: reverb, delay, chorus, distortion, bitcrush
+///
+/// NOTE: These tests use an old direct SignalNode API that has been superseded
+/// by the DSL-based approach. Effects are now tested through:
+/// - test_unified_graph.rs (DSL integration)
+/// - test_audio_effects.rs (effects through parser)
+/// This file is kept for reference but tests are ignored pending API update.
+
+#![cfg(test)]
+#![allow(dead_code, unused_imports)]
+
+use phonon::audio_analysis::*;
+use phonon::unified_graph::*;
+use std::f32::consts::PI;
+
+const SAMPLE_RATE: f32 = 44100.0;
+const TEST_DURATION: f32 = 1.0;
+const TEST_SAMPLES: usize = (SAMPLE_RATE * TEST_DURATION) as usize;
+
+fn generate_test_signal(freq: f32) -> Vec<f32> {
+    (0..TEST_SAMPLES)
+        .map(|i| {
+            let t = i as f32 / SAMPLE_RATE;
+            (2.0 * PI * freq * t).sin() * 0.5
+        })
+        .collect()
+}
+
+fn analyze_signal(samples: &[f32]) -> (f32, f32, f32) {
+    let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
+    let peak = samples.iter().map(|s| s.abs()).fold(0.0, f32::max);
+    let dc_offset = samples.iter().sum::<f32>() / samples.len() as f32;
+    (rms, peak, dc_offset)
+}
+
+#[test]
+#[ignore = "Uses old API - pending update to DSL-based testing"]
+fn test_reverb_adds_decay_tail() {
+    let mut graph = UnifiedSignalGraph::new(SAMPLE_RATE);
+
+    // Create sine wave input
+    let sine = graph.add_node(SignalNode::Sine {
+        freq: Signal::Value(440.0),
+        gain: Signal::Value(0.5),
+        pan: Signal::Value(0.0),
+    });
+
+    // Apply reverb with long tail
+    let reverb = graph.add_node(SignalNode::Reverb {
+        input: Signal::Node(sine),
+        room_size: Signal::Value(0.9),  // Large room
+        damping: Signal::Value(0.3),     // Low damping
+        mix: Signal::Value(0.5),         // 50% wet
+    });
+
+    graph.set_output(reverb);
+
+    // Render
+    let mut output = Vec::new();
+    for _ in 0..TEST_SAMPLES {
+        output.push(graph.process_sample());
+    }
+
+    let (rms, peak, _dc) = analyze_signal(&output);
+
+    // Reverb should have significant signal
+    assert!(rms > 0.1, "Reverb RMS too low: {}", rms);
+    assert!(peak > 0.2, "Reverb peak too low: {}", peak);
+
+    // Check that reverb adds "tail" - later samples should still have energy
+    let last_quarter: Vec<f32> = output[TEST_SAMPLES*3/4..].to_vec();
+    let tail_rms = (last_quarter.iter().map(|s| s*s).sum::<f32>() / last_quarter.len() as f32).sqrt();
+    assert!(tail_rms > 0.01, "Reverb tail insufficient: {}", tail_rms);
+}
+
+#[test]
+#[ignore = "Uses old API - pending update to DSL-based testing"]
+fn test_reverb_room_size_affects_decay() {
+    let mut graph_small = UnifiedSignalGraph::new(SAMPLE_RATE);
+    let mut graph_large = UnifiedSignalGraph::new(SAMPLE_RATE);
+
+    // Small room
+    let sine1 = graph_small.add_node(SignalNode::Sine {
+        freq: Signal::Value(440.0),
+        gain: Signal::Value(0.5),
+        pan: Signal::Value(0.0),
+    });
+    let reverb_small = graph_small.add_node(SignalNode::Reverb {
+        input: Signal::Node(sine1),
+        room_size: Signal::Value(0.3),
+        damping: Signal::Value(0.5),
+        mix: Signal::Value(1.0),  // 100% wet for testing
+    });
+    graph_small.set_output(reverb_small);
+
+    // Large room
+    let sine2 = graph_large.add_node(SignalNode::Sine {
+        freq: Signal::Value(440.0),
+        gain: Signal::Value(0.5),
+        pan: Signal::Value(0.0),
+    });
+    let reverb_large = graph_large.add_node(SignalNode::Reverb {
+        input: Signal::Node(sine2),
+        room_size: Signal::Value(0.9),
+        damping: Signal::Value(0.5),
+        mix: Signal::Value(1.0),  // 100% wet
+    });
+    graph_large.set_output(reverb_large);
+
+    // Render both
+    let mut output_small = Vec::new();
+    let mut output_large = Vec::new();
+    for _ in 0..TEST_SAMPLES {
+        output_small.push(graph_small.process_sample());
+        output_large.push(graph_large.process_sample());
+    }
+
+    // Large room should have longer tail
+    let small_tail: Vec<f32> = output_small[TEST_SAMPLES*3/4..].to_vec();
+    let large_tail: Vec<f32> = output_large[TEST_SAMPLES*3/4..].to_vec();
+
+    let small_tail_rms = (small_tail.iter().map(|s| s*s).sum::<f32>() / small_tail.len() as f32).sqrt();
+    let large_tail_rms = (large_tail.iter().map(|s| s*s).sum::<f32>() / large_tail.len() as f32).sqrt();
+
+    assert!(large_tail_rms > small_tail_rms,
+        "Large room tail ({}) should be longer than small room ({})",
+        large_tail_rms, small_tail_rms);
+}
+
+#[test]
+#[ignore = "Uses old API - pending update to DSL-based testing"]
+fn test_delay_creates_echoes() {
+    let mut graph = UnifiedSignalGraph::new(SAMPLE_RATE);
+
+    let sine = graph.add_node(SignalNode::Sine {
+        freq: Signal::Value(440.0),
+        gain: Signal::Value(0.5),
+        pan: Signal::Value(0.0),
+    });
+
+    // Delay with 250ms delay time and high feedback
+    let delay = graph.add_node(SignalNode::Delay {
+        input: Signal::Node(sine),
+        time: Signal::Value(0.25),      // 250ms
+        feedback: Signal::Value(0.5),   // 50% feedback
+        mix: Signal::Value(0.5),
+    });
+
+    graph.set_output(delay);
+
+    let mut output = Vec::new();
+    for _ in 0..TEST_SAMPLES {
+        output.push(graph.process_sample());
+    }
+
+    let (rms, peak, _dc) = analyze_signal(&output);
+
+    assert!(rms > 0.1, "Delay output RMS too low: {}", rms);
+    assert!(peak > 0.2, "Delay output peak too low: {}", peak);
+
+    // Check for energy at expected delay times
+    let delay_samples = (0.25 * SAMPLE_RATE) as usize;
+
+    // First quarter should have strong signal (original)
+    let first_quarter: Vec<f32> = output[0..TEST_SAMPLES/4].to_vec();
+    let first_rms = (first_quarter.iter().map(|s| s*s).sum::<f32>() / first_quarter.len() as f32).sqrt();
+
+    // Around delay time should also have signal (echo)
+    let echo_region: Vec<f32> = output[delay_samples..delay_samples+1000].to_vec();
+    let echo_rms = (echo_region.iter().map(|s| s*s).sum::<f32>() / echo_region.len() as f32).sqrt();
+
+    assert!(echo_rms > 0.05, "Delay echo insufficient: {}", echo_rms);
+}
+
+#[test]
+#[ignore = "Uses old API - pending update to DSL-based testing"]
+fn test_distortion_increases_harmonics() {
+    let mut graph_clean = UnifiedSignalGraph::new(SAMPLE_RATE);
+    let mut graph_distorted = UnifiedSignalGraph::new(SAMPLE_RATE);
+
+    // Clean sine
+    let sine1 = graph_clean.add_node(SignalNode::Sine {
+        freq: Signal::Value(220.0),
+        gain: Signal::Value(0.3),
+        pan: Signal::Value(0.0),
+    });
+    graph_clean.set_output(sine1);
+
+    // Distorted sine
+    let sine2 = graph_distorted.add_node(SignalNode::Sine {
+        freq: Signal::Value(220.0),
+        gain: Signal::Value(0.3),
+        pan: Signal::Value(0.0),
+    });
+    let distortion = graph_distorted.add_node(SignalNode::Distortion {
+        input: Signal::Node(sine2),
+        drive: Signal::Value(10.0),  // Heavy distortion
+        mix: Signal::Value(1.0),     // 100% wet
+    });
+    graph_distorted.set_output(distortion);
+
+    let mut clean = Vec::new();
+    let mut distorted = Vec::new();
+    for _ in 0..TEST_SAMPLES {
+        clean.push(graph_clean.process_sample());
+        distorted.push(graph_distorted.process_sample());
+    }
+
+    // Distortion should increase peak relative to RMS (higher crest factor)
+    let (clean_rms, clean_peak, _) = analyze_signal(&clean);
+    let (dist_rms, dist_peak, _) = analyze_signal(&distorted);
+
+    let clean_crest = clean_peak / clean_rms;
+    let dist_crest = dist_peak / dist_rms;
+
+    // Distorted signal should have lower crest factor (more compressed)
+    assert!(dist_crest < clean_crest,
+        "Distortion should compress signal (clean crest: {}, dist crest: {})",
+        clean_crest, dist_crest);
+
+    // Distortion should produce audible output
+    assert!(dist_rms > 0.1, "Distorted signal RMS too low: {}", dist_rms);
+}
+
+#[test]
+#[ignore = "Uses old API - pending update to DSL-based testing"]
+fn test_chorus_creates_width() {
+    let mut graph = UnifiedSignalGraph::new(SAMPLE_RATE);
+
+    let sine = graph.add_node(SignalNode::Sine {
+        freq: Signal::Value(440.0),
+        gain: Signal::Value(0.5),
+        pan: Signal::Value(0.0),
+    });
+
+    let chorus = graph.add_node(SignalNode::Chorus {
+        input: Signal::Node(sine),
+        rate: Signal::Value(1.0),     // 1 Hz LFO
+        depth: Signal::Value(0.5),    // Moderate depth
+        mix: Signal::Value(0.5),
+    });
+
+    graph.set_output(chorus);
+
+    let mut output = Vec::new();
+    for _ in 0..TEST_SAMPLES {
+        output.push(graph.process_sample());
+    }
+
+    let (rms, peak, _dc) = analyze_signal(&output);
+
+    assert!(rms > 0.1, "Chorus output RMS too low: {}", rms);
+    assert!(peak > 0.2, "Chorus output peak too low: {}", peak);
+
+    // Chorus should modulate the signal, creating variation over time
+    // Check that different segments have different characteristics
+    let first_half: Vec<f32> = output[0..TEST_SAMPLES/2].to_vec();
+    let second_half: Vec<f32> = output[TEST_SAMPLES/2..].to_vec();
+
+    let first_rms = (first_half.iter().map(|s| s*s).sum::<f32>() / first_half.len() as f32).sqrt();
+    let second_rms = (second_half.iter().map(|s| s*s).sum::<f32>() / second_half.len() as f32).sqrt();
+
+    // RMS should be similar (within 50%)
+    let rms_ratio = first_rms / second_rms;
+    assert!(rms_ratio > 0.5 && rms_ratio < 2.0,
+        "Chorus should produce consistent output (ratio: {})", rms_ratio);
+}
+
+#[test]
+#[ignore = "Uses old API - pending update to DSL-based testing"]
+fn test_bitcrush_reduces_fidelity() {
+    let mut graph_clean = UnifiedSignalGraph::new(SAMPLE_RATE);
+    let mut graph_crushed = UnifiedSignalGraph::new(SAMPLE_RATE);
+
+    // Clean sine
+    let sine1 = graph_clean.add_node(SignalNode::Sine {
+        freq: Signal::Value(440.0),
+        gain: Signal::Value(0.5),
+        pan: Signal::Value(0.0),
+    });
+    graph_clean.set_output(sine1);
+
+    // Bitcrushed sine
+    let sine2 = graph_crushed.add_node(SignalNode::Sine {
+        freq: Signal::Value(440.0),
+        gain: Signal::Value(0.5),
+        pan: Signal::Value(0.0),
+    });
+    let bitcrush = graph_crushed.add_node(SignalNode::Bitcrush {
+        input: Signal::Node(sine2),
+        bits: Signal::Value(4.0),    // Severe reduction
+        rate_reduction: Signal::Value(8.0),
+    });
+    graph_crushed.set_output(bitcrush);
+
+    let mut clean = Vec::new();
+    let mut crushed = Vec::new();
+    for _ in 0..TEST_SAMPLES {
+        clean.push(graph_clean.process_sample());
+        crushed.push(graph_crushed.process_sample());
+    }
+
+    // Bitcrushed signal should have fewer unique values due to quantization
+    let mut clean_unique: Vec<i32> = clean.iter().map(|&s| (s * 1000.0) as i32).collect();
+    let mut crushed_unique: Vec<i32> = crushed.iter().map(|&s| (s * 1000.0) as i32).collect();
+
+    clean_unique.sort();
+    clean_unique.dedup();
+    crushed_unique.sort();
+    crushed_unique.dedup();
+
+    assert!(crushed_unique.len() < clean_unique.len() / 2,
+        "Bitcrush should reduce unique values (clean: {}, crushed: {})",
+        clean_unique.len(), crushed_unique.len());
+
+    // Should still produce audible output
+    let (crushed_rms, _, _) = analyze_signal(&crushed);
+    assert!(crushed_rms > 0.1, "Bitcrushed signal RMS too low: {}", crushed_rms);
+}
+
+#[test]
+#[ignore = "Uses old API - pending update to DSL-based testing"]
+fn test_effects_chain() {
+    // Test multiple effects in series
+    let mut graph = UnifiedSignalGraph::new(SAMPLE_RATE);
+
+    let sine = graph.add_node(SignalNode::Sine {
+        freq: Signal::Value(440.0),
+        gain: Signal::Value(0.5),
+        pan: Signal::Value(0.0),
+    });
+
+    // Chain: distortion -> chorus -> reverb
+    let distortion = graph.add_node(SignalNode::Distortion {
+        input: Signal::Node(sine),
+        drive: Signal::Value(3.0),
+        mix: Signal::Value(0.5),
+    });
+
+    let chorus = graph.add_node(SignalNode::Chorus {
+        input: Signal::Node(distortion),
+        rate: Signal::Value(1.0),
+        depth: Signal::Value(0.3),
+        mix: Signal::Value(0.3),
+    });
+
+    let reverb = graph.add_node(SignalNode::Reverb {
+        input: Signal::Node(chorus),
+        room_size: Signal::Value(0.7),
+        damping: Signal::Value(0.5),
+        mix: Signal::Value(0.3),
+    });
+
+    graph.set_output(reverb);
+
+    let mut output = Vec::new();
+    for _ in 0..TEST_SAMPLES {
+        output.push(graph.process_sample());
+    }
+
+    let (rms, peak, _dc) = analyze_signal(&output);
+
+    // Effects chain should produce significant output
+    assert!(rms > 0.1, "Effects chain RMS too low: {}", rms);
+    assert!(peak > 0.2, "Effects chain peak too low: {}", peak);
+    assert!(peak < 1.0, "Effects chain clipping: {}", peak);
+
+    println!("Effects chain: RMS={:.3}, Peak={:.3}", rms, peak);
+}
+
+#[test]
+#[ignore = "Uses old API - pending update to DSL-based testing"]
+fn test_dry_wet_mix_control() {
+    let mut graph_dry = UnifiedSignalGraph::new(SAMPLE_RATE);
+    let mut graph_wet = UnifiedSignalGraph::new(SAMPLE_RATE);
+
+    // 100% dry (mix = 0.0)
+    let sine1 = graph_dry.add_node(SignalNode::Sine {
+        freq: Signal::Value(440.0),
+        gain: Signal::Value(0.5),
+        pan: Signal::Value(0.0),
+    });
+    let reverb_dry = graph_dry.add_node(SignalNode::Reverb {
+        input: Signal::Node(sine1),
+        room_size: Signal::Value(0.9),
+        damping: Signal::Value(0.5),
+        mix: Signal::Value(0.0),  // All dry
+    });
+    graph_dry.set_output(reverb_dry);
+
+    // 100% wet (mix = 1.0)
+    let sine2 = graph_wet.add_node(SignalNode::Sine {
+        freq: Signal::Value(440.0),
+        gain: Signal::Value(0.5),
+        pan: Signal::Value(0.0),
+    });
+    let reverb_wet = graph_wet.add_node(SignalNode::Reverb {
+        input: Signal::Node(sine2),
+        room_size: Signal::Value(0.9),
+        damping: Signal::Value(0.5),
+        mix: Signal::Value(1.0),  // All wet
+    });
+    graph_wet.set_output(reverb_wet);
+
+    let mut dry = Vec::new();
+    let mut wet = Vec::new();
+    for _ in 0..TEST_SAMPLES {
+        dry.push(graph_dry.process_sample());
+        wet.push(graph_wet.process_sample());
+    }
+
+    // Dry should have sharper attack
+    let dry_first: Vec<f32> = dry[0..1000].to_vec();
+    let wet_first: Vec<f32> = wet[0..1000].to_vec();
+
+    let dry_peak_early = dry_first.iter().map(|s| s.abs()).fold(0.0, f32::max);
+    let wet_peak_early = wet_first.iter().map(|s| s.abs()).fold(0.0, f32::max);
+
+    // Both should produce output
+    assert!(dry_peak_early > 0.1, "Dry signal too quiet: {}", dry_peak_early);
+    assert!(wet_peak_early > 0.05, "Wet signal too quiet: {}", wet_peak_early);
+}

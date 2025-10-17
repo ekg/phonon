@@ -1,0 +1,72 @@
+# Drum & Bass Demo
+# Fast breakbeats and heavy bass
+
+tempo 3.0  # 180 BPM (fast!)
+
+# KICK PATTERN
+# Complex kick pattern with sample selection and dynamics
+~kick = s("bd:0*2 bd:1 ~ bd:0 ~ bd:1 ~", "1.0 0.8 0.9 0.0 0.85 0.0 0.75 0.0")
+
+# SNARE PATTERN
+# Snare on 2 and 4 with ghost notes
+~snare = s("~ sn ~ sn", 1.0, 0.0, "1.0 1.1")
+~snare_ghost = s("~ ~ sn:1 ~", 0.4) * 0.5
+
+# HI-HATS
+# Rapid hi-hats (32nd notes) with dynamics and stereo
+~hats = s("hh*32", "0.5 0.3 0.6 0.3 0.5 0.3 0.7 0.4", "-1 1 -0.5 0.5")
+
+# Open hi-hat accents
+~open = s("~ ~ ~ ~ ~ ~ oh ~", 0.6)
+
+# BREAKS
+# Euclidean pattern for variation
+~perc = s("cp(7,16)", 0.4, "-1 1 0")
+
+# Combine drums
+~drums = ~kick + ~snare + ~snare_ghost + ~hats + ~open + ~perc
+
+# BASS (Reese bass style)
+# Heavy detuned bass with movement
+~bass = supersaw("55 55 55 82.5", 0.6, 12)
+
+# Filter sweep for bass
+~lfo = sine 0.5 * 0.5 + 0.5
+~bass_filtered = ~bass # lpf(~lfo * 1500 + 400, 0.85)
+
+# Distort the bass
+~bass_dist = dist(~bass_filtered, 4.0, 0.7)
+
+# SUB BASS
+# Pure sine for sub frequencies
+~sub = sine "55 55 55 82.5" * 0.4
+
+# PAD (optional atmospheric layer)
+~pad = superfm(220, 1.5, 0.8) * 0.08
+
+# EFFECTS
+~drums_verb = reverb(~drums, 0.3, 0.5, 0.15)
+~pad_chorus = chorus(~pad, 0.6, 0.3, 0.5)
+
+# FINAL MIX
+out = (
+    ~drums_verb +
+    ~bass_dist * 0.3 +
+    ~sub * 0.25 +
+    ~pad_chorus * 0.15
+) * 0.75
+
+# D&B PRODUCTION TIPS:
+# 1. Keep kick punchy (not too long sustain)
+# 2. Layer snares with ghost notes for groove
+# 3. Use 32nd note hi-hats for energy
+# 4. Heavy bass with distortion and detuning
+# 5. Sub bass provides low-end foundation
+# 6. Tempo: 170-180 BPM (3.0 cps ≈ 180 BPM)
+#
+# Try building it live:
+# - Start with kick + snare
+# - Add hats gradually
+# - Bring in the bass
+# - Layer the sub
+# - Add atmospheric pad
