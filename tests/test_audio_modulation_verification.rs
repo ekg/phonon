@@ -107,6 +107,7 @@ fn test_filter_pattern_actually_modulates() {
         pattern_str: "100 5000".to_string(),
         pattern,
         last_value: 100.0,
+        last_trigger_time: -1.0,
     });
 
     let filtered = graph.add_node(SignalNode::LowPass {
@@ -165,6 +166,7 @@ fn test_oscillator_frequency_pattern_modulates() {
         pattern_str: "110 220 440".to_string(),
         pattern,
         last_value: 110.0,
+        last_trigger_time: -1.0,
     });
 
     let osc = graph.add_node(SignalNode::Oscillator {
@@ -268,6 +270,7 @@ fn test_pattern_timing_verification() {
         pattern_str: "1 2 3 4".to_string(),
         pattern,
         last_value: 1.0,
+        last_trigger_time: -1.0,
     });
 
     // Just output the pattern value directly (multiplied for visibility)

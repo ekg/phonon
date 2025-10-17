@@ -252,6 +252,7 @@ pub enum DslExpression {
         gain: Option<Box<DslExpression>>,
         pan: Option<Box<DslExpression>>,
         speed: Option<Box<DslExpression>>,
+        cut_group: Option<Box<DslExpression>>,
     },
     /// Scale quantization: scale("0 1 2 3 4", "major", "c4")
     Scale {
@@ -542,11 +543,11 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
         // First arg can be a pattern string OR a pattern transform
         let first_arg = args.first().cloned();
 
-        // For now, use simple positional args: s("pattern", gain, pan, speed)
-        // TODO: Support named parameters like s("pattern", gain: 0.8)
+        // Use positional args: s("pattern", gain, pan, speed, cut_group)
         let gain = args.get(1).map(|e| Box::new(e.clone()));
         let pan = args.get(2).map(|e| Box::new(e.clone()));
         let speed = args.get(3).map(|e| Box::new(e.clone()));
+        let cut_group = args.get(4).map(|e| Box::new(e.clone()));
 
         // Check if first arg is a plain pattern string or a transform
         match first_arg {
@@ -557,6 +558,7 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                     gain,
                     pan,
                     speed,
+                    cut_group,
                 }
             }
             Some(DslExpression::PatternTransform { pattern, transform }) => {
@@ -572,6 +574,7 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                         gain,
                         pan,
                         speed,
+                        cut_group,
                     }),
                     transform,
                 }
@@ -583,6 +586,7 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                     gain,
                     pan,
                     speed,
+                    cut_group,
                 }
             }
         }
@@ -1343,6 +1347,7 @@ impl DslCompiler {
                 gain,
                 pan,
                 speed,
+                cut_group,
             } => {
                 use std::collections::HashMap;
 
@@ -1362,6 +1367,10 @@ impl DslCompiler {
                     .map(|e| self.compile_expression_to_signal(*e))
                     .unwrap_or(Signal::Value(1.0));
 
+                let cut_group_signal = cut_group
+                    .map(|e| self.compile_expression_to_signal(*e))
+                    .unwrap_or(Signal::Value(0.0)); // No cut group by default
+
                 // Create Sample node
                 self.graph.add_node(SignalNode::Sample {
                     pattern_str: pattern,
@@ -1372,7 +1381,7 @@ impl DslCompiler {
                     gain: gain_signal,
                     pan: pan_signal,
                     speed: speed_signal,
-                    cut_group: Signal::Value(0.0), // No cut group by default
+                    cut_group: cut_group_signal,
                 })
             }
             DslExpression::Scale {
@@ -1548,6 +1557,7 @@ impl DslCompiler {
                         gain,
                         pan,
                         speed,
+                        cut_group,
                     } => {
                         // Handle transforms on sample patterns: s("bd sn" $ fast 2)
                         // Parse and transform the pattern
@@ -1573,6 +1583,10 @@ impl DslCompiler {
                             .map(|e| self.compile_expression_to_signal(*e))
                             .unwrap_or(Signal::Value(1.0));
 
+                        let cut_group_signal = cut_group
+                            .map(|e| self.compile_expression_to_signal(*e))
+                            .unwrap_or(Signal::Value(0.0));
+
                         // Create Sample node with transformed pattern
                         use std::collections::HashMap;
                         self.graph.add_node(SignalNode::Sample {
@@ -1584,7 +1598,7 @@ impl DslCompiler {
                             gain: gain_signal,
                             pan: pan_signal,
                             speed: speed_signal,
-                            cut_group: Signal::Value(0.0),
+                            cut_group: cut_group_signal,
                         })
                     }
                     _ => {

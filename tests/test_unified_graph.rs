@@ -49,6 +49,7 @@ fn test_pattern_as_signal() {
         pattern_str: "1 0 1 0".to_string(),
         pattern,
         last_value: 0.0,
+        last_trigger_time: -1.0,
     });
 
     // Use pattern to modulate oscillator amplitude
@@ -181,6 +182,7 @@ fn test_envelope_generator() {
         pattern_str: "1 ~ ~ ~".to_string(),
         pattern: trigger_pattern,
         last_value: 0.0,
+        last_trigger_time: -1.0,
     });
 
     // Create oscillator
@@ -298,6 +300,7 @@ fn test_delay_effect() {
         pattern_str: "1 ~ ~ ~ ~ ~ ~ ~".to_string(),
         pattern: gate_pattern,
         last_value: 0.0,
+        last_trigger_time: -1.0,
     });
 
     let impulse = graph.add_node(SignalNode::Multiply {
@@ -418,6 +421,7 @@ fn test_conditional_processing() {
         pattern_str: "1 0 1 0".to_string(),
         pattern: gate,
         last_value: 0.0,
+        last_trigger_time: -1.0,
     });
 
     // Signal to gate
@@ -475,6 +479,7 @@ fn test_pattern_driven_synthesis() {
         pattern_str: "220 330 440 550".to_string(),
         pattern: freq_pattern,
         last_value: 220.0,
+        last_trigger_time: -1.0,
     });
 
     // Oscillator controlled by pattern
@@ -490,6 +495,7 @@ fn test_pattern_driven_synthesis() {
         pattern_str: "1000 2000 500 3000".to_string(),
         pattern: cutoff_pattern,
         last_value: 1000.0,
+        last_trigger_time: -1.0,
     });
 
     // Filter with pattern-controlled cutoff

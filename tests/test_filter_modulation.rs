@@ -59,6 +59,7 @@ fn test_pattern_modulated_filter_changes_audio() {
         pattern_str: "200 5000 200".to_string(),
         pattern,
         last_value: 200.0,
+        last_trigger_time: -1.0,
     });
 
     // Apply filter with pattern-modulated cutoff
@@ -224,6 +225,7 @@ fn test_extreme_filter_modulation() {
         pattern_str: "50 15000".to_string(),
         pattern,
         last_value: 50.0,
+        last_trigger_time: -1.0,
     });
 
     let filtered = graph.add_node(SignalNode::LowPass {

@@ -101,7 +101,12 @@ fn test_sample_playback_with_index() {
         pattern_str: "bd:0 bd:1 bd:2".to_string(),
         pattern,
         last_trigger_time: -1.0,
+        last_cycle: -1,
         playback_positions: HashMap::new(),
+        gain: phonon::unified_graph::Signal::Value(1.0),
+        pan: phonon::unified_graph::Signal::Value(0.0),
+        speed: phonon::unified_graph::Signal::Value(1.0),
+        cut_group: phonon::unified_graph::Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);

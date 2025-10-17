@@ -63,7 +63,12 @@ fn test_panic_command_kills_voices() {
         pattern_str: "bd sn hh*8".to_string(),
         pattern,
         last_trigger_time: -1.0,
+        last_cycle: -1,
         playback_positions: HashMap::new(),
+        gain: Signal::Value(1.0),
+        pan: Signal::Value(0.0),
+        speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
     });
 
     graph.set_output_channel(1, sample_node);

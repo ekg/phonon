@@ -932,6 +932,12 @@ impl UnifiedSignalGraph {
 
     /// Evaluate a signal to get its current value
     fn eval_signal(&mut self, signal: &Signal) -> f32 {
+        self.eval_signal_at_time(signal, self.cycle_position)
+    }
+
+    /// Evaluate a signal at a specific cycle position
+    /// This allows per-event DSP parameter evaluation
+    fn eval_signal_at_time(&mut self, signal: &Signal, cycle_pos: f64) -> f32 {
         match signal {
             Signal::Node(id) => self.eval_node(id),
             Signal::Bus(name) => {
@@ -942,12 +948,13 @@ impl UnifiedSignalGraph {
                 }
             }
             Signal::Pattern(pattern_str) => {
-                // Parse and evaluate pattern at current cycle position
+                // Parse and evaluate pattern at specified cycle position
                 let pattern = parse_mini_notation(pattern_str);
+                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
                 let state = State {
                     span: TimeSpan::new(
-                        Fraction::from_float(self.cycle_position),
-                        Fraction::from_float(self.cycle_position + 0.001),
+                        Fraction::from_float(cycle_pos),
+                        Fraction::from_float(cycle_pos + sample_width),
                     ),
                     controls: HashMap::new(),
                 };
@@ -1336,17 +1343,6 @@ impl UnifiedSignalGraph {
                 speed,
                 cut_group,
             } => {
-                // Evaluate DSP parameters for this sample
-                let gain_val = self.eval_signal(&gain).max(0.0).min(10.0);
-                let pan_val = self.eval_signal(&pan).clamp(-1.0, 1.0);
-                let speed_val = self.eval_signal(&speed).max(0.01).min(10.0);
-                let cut_group_val = self.eval_signal(&cut_group);
-                let cut_group_opt = if cut_group_val > 0.0 {
-                    Some(cut_group_val as u32)
-                } else {
-                    None
-                };
-
                 // Query pattern for events at current cycle position
                 // Use absolute cycle position for alternation to work correctly
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
@@ -1406,6 +1402,32 @@ impl UnifiedSignalGraph {
                     let event_is_new = event_start_abs > last_event_start + tolerance;
 
                     if event_is_new {
+                        // Evaluate DSP parameters at THIS EVENT'S start time
+                        // This ensures each event gets its own parameter values from the pattern
+                        let gain_val = self
+                            .eval_signal_at_time(&gain, event_start_abs)
+                            .max(0.0)
+                            .min(10.0);
+                        let pan_val = self
+                            .eval_signal_at_time(&pan, event_start_abs)
+                            .clamp(-1.0, 1.0);
+                        let speed_val = self
+                            .eval_signal_at_time(&speed, event_start_abs)
+                            .max(0.01)
+                            .min(10.0);
+                        let cut_group_val = self.eval_signal_at_time(&cut_group, event_start_abs);
+                        let cut_group_opt = if cut_group_val > 0.0 {
+                            Some(cut_group_val as u32)
+                        } else {
+                            None
+                        };
+
+                        // DEBUG: Print cut group info
+                        if std::env::var("DEBUG_CUT_GROUPS").is_ok() {
+                            eprintln!("Triggering {} at cycle {:.3}, cut_group_val={:.1}, cut_group_opt={:?}",
+                                sample_name, event_start_abs, cut_group_val, cut_group_opt);
+                        }
+
                         // Get sample from bank and trigger a new voice with full DSP parameters
                         if let Some(sample_data) =
                             self.sample_bank.borrow_mut().get_sample(sample_name)

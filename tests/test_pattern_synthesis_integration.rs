@@ -15,6 +15,7 @@ fn test_pattern_drives_oscillator_frequency() {
         pattern_str: "220 330 440 330".to_string(),
         pattern,
         last_value: 220.0,
+        last_trigger_time: -1.0,
     });
 
     // Use pattern to control oscillator frequency
@@ -91,6 +92,7 @@ fn test_pattern_drives_filter_cutoff() {
         pattern_str: "500 1000 2000 1000".to_string(),
         pattern,
         last_value: 500.0,
+        last_trigger_time: -1.0,
     });
 
     // Apply pattern-controlled filter
@@ -148,6 +150,7 @@ fn test_pattern_timing_synchronization() {
         pattern_str: "1 0 1 0".to_string(),
         pattern,
         last_value: 1.0,
+        last_trigger_time: -1.0,
     });
 
     // Create constant tone
@@ -214,6 +217,7 @@ fn test_complex_pattern_synthesis() {
         pattern_str: "440 550 660 550".to_string(),
         pattern: melody_pattern,
         last_value: 440.0,
+        last_trigger_time: -1.0,
     });
 
     // Rhythm pattern (on/off)
@@ -222,6 +226,7 @@ fn test_complex_pattern_synthesis() {
         pattern_str: "1 1 0 1".to_string(),
         pattern: rhythm_pattern,
         last_value: 1.0,
+        last_trigger_time: -1.0,
     });
 
     // Create melodic oscillator

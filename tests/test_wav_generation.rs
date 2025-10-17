@@ -62,6 +62,7 @@ fn render_pattern_modulation(output_path: &str) {
         pattern_str: "220 440 330".to_string(),
         pattern,
         last_value: 440.0,
+        last_trigger_time: -1.0,
     });
 
     let osc_node = graph.add_node(SignalNode::Oscillator {
@@ -102,6 +103,7 @@ fn render_filter_modulation(output_path: &str) {
         pattern_str: "500 2000".to_string(),
         pattern,
         last_value: 1000.0,
+        last_trigger_time: -1.0,
     });
 
     let filter_node = graph.add_node(SignalNode::LowPass {

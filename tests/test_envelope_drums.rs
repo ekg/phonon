@@ -39,6 +39,7 @@ fn render_kick_with_envelope(output_path: &str) {
         pattern_str: "1 0 0 0 1 0 0 0 1 0 0 0 1 0 0 0".to_string(),
         pattern: trigger_pattern,
         last_value: 0.0,
+        last_trigger_time: -1.0,
     });
 
     // Noise source for kick

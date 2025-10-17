@@ -27,7 +27,12 @@ fn test_sample_playback_signal_correlation() {
         pattern_str: "bd".to_string(),
         pattern,
         last_trigger_time: 0.0,
+        last_cycle: -1,
         playback_positions: HashMap::new(),
+        gain: phonon::unified_graph::Signal::Value(1.0),
+        pan: phonon::unified_graph::Signal::Value(0.0),
+        speed: phonon::unified_graph::Signal::Value(1.0),
+        cut_group: phonon::unified_graph::Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -93,7 +98,12 @@ fn test_multiple_samples_in_pattern() {
         pattern_str: "bd cp hh".to_string(),
         pattern,
         last_trigger_time: 0.0,
+        last_cycle: -1,
         playback_positions: HashMap::new(),
+        gain: phonon::unified_graph::Signal::Value(1.0),
+        pan: phonon::unified_graph::Signal::Value(0.0),
+        speed: phonon::unified_graph::Signal::Value(1.0),
+        cut_group: phonon::unified_graph::Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -218,7 +228,12 @@ fn test_house_beat_pattern_timing() {
         pattern_str: "bd cp hh cp".to_string(),
         pattern,
         last_trigger_time: 0.0,
+        last_cycle: -1,
         playback_positions: HashMap::new(),
+        gain: phonon::unified_graph::Signal::Value(1.0),
+        pan: phonon::unified_graph::Signal::Value(0.0),
+        speed: phonon::unified_graph::Signal::Value(1.0),
+        cut_group: phonon::unified_graph::Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -321,7 +336,12 @@ fn test_bd_sample_one_cycle() {
         pattern_str: "bd".to_string(),
         pattern,
         last_trigger_time: 0.0,
+        last_cycle: -1,
         playback_positions: HashMap::new(),
+        gain: phonon::unified_graph::Signal::Value(1.0),
+        pan: phonon::unified_graph::Signal::Value(0.0),
+        speed: phonon::unified_graph::Signal::Value(1.0),
+        cut_group: phonon::unified_graph::Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -361,7 +381,12 @@ fn test_cp_sample_one_cycle() {
         pattern_str: "cp".to_string(),
         pattern,
         last_trigger_time: 0.0,
+        last_cycle: -1,
         playback_positions: HashMap::new(),
+        gain: phonon::unified_graph::Signal::Value(1.0),
+        pan: phonon::unified_graph::Signal::Value(0.0),
+        speed: phonon::unified_graph::Signal::Value(1.0),
+        cut_group: phonon::unified_graph::Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -400,7 +425,12 @@ fn test_hh_sample_one_cycle() {
         pattern_str: "hh".to_string(),
         pattern,
         last_trigger_time: 0.0,
+        last_cycle: -1,
         playback_positions: HashMap::new(),
+        gain: phonon::unified_graph::Signal::Value(1.0),
+        pan: phonon::unified_graph::Signal::Value(0.0),
+        speed: phonon::unified_graph::Signal::Value(1.0),
+        cut_group: phonon::unified_graph::Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -439,7 +469,12 @@ fn test_sn_sample_one_cycle() {
         pattern_str: "sn".to_string(),
         pattern,
         last_trigger_time: 0.0,
+        last_cycle: -1,
         playback_positions: HashMap::new(),
+        gain: phonon::unified_graph::Signal::Value(1.0),
+        pan: phonon::unified_graph::Signal::Value(0.0),
+        speed: phonon::unified_graph::Signal::Value(1.0),
+        cut_group: phonon::unified_graph::Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -532,7 +567,12 @@ fn test_euclidean_rhythm_signal_verification() {
         pattern_str: "bd(3,8)".to_string(),
         pattern,
         last_trigger_time: 0.0,
+        last_cycle: -1,
         playback_positions: HashMap::new(),
+        gain: phonon::unified_graph::Signal::Value(1.0),
+        pan: phonon::unified_graph::Signal::Value(0.0),
+        speed: phonon::unified_graph::Signal::Value(1.0),
+        cut_group: phonon::unified_graph::Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -642,7 +682,12 @@ fn test_euclidean_pattern_with_samples() {
         pattern_str: "bd(3,8)".to_string(),
         pattern,
         last_trigger_time: 0.0,
+        last_cycle: -1,
         playback_positions: HashMap::new(),
+        gain: phonon::unified_graph::Signal::Value(1.0),
+        pan: phonon::unified_graph::Signal::Value(0.0),
+        speed: phonon::unified_graph::Signal::Value(1.0),
+        cut_group: phonon::unified_graph::Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -685,7 +730,12 @@ fn test_simple_euclidean_sequence() {
         pattern_str: "bd(3,8)".to_string(),
         pattern,
         last_trigger_time: 0.0,
+        last_cycle: -1,
         playback_positions: HashMap::new(),
+        gain: phonon::unified_graph::Signal::Value(1.0),
+        pan: phonon::unified_graph::Signal::Value(0.0),
+        speed: phonon::unified_graph::Signal::Value(1.0),
+        cut_group: phonon::unified_graph::Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -726,7 +776,12 @@ fn test_euclidean_with_offset() {
         pattern_str: "bd(3,8,2)".to_string(),
         pattern,
         last_trigger_time: 0.0,
+        last_cycle: -1,
         playback_positions: HashMap::new(),
+        gain: phonon::unified_graph::Signal::Value(1.0),
+        pan: phonon::unified_graph::Signal::Value(0.0),
+        speed: phonon::unified_graph::Signal::Value(1.0),
+        cut_group: phonon::unified_graph::Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
