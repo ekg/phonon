@@ -253,6 +253,8 @@ pub enum DslExpression {
         pan: Option<Box<DslExpression>>,
         speed: Option<Box<DslExpression>>,
         cut_group: Option<Box<DslExpression>>,
+        attack: Option<Box<DslExpression>>,
+        release: Option<Box<DslExpression>>,
     },
     /// Scale quantization: scale("0 1 2 3 4", "major", "c4")
     Scale {
@@ -298,6 +300,10 @@ pub enum PatternTransformOp {
     Often(Box<PatternTransformOp>),
     /// Apply transform rarely (10% probability)
     Rarely(Box<PatternTransformOp>),
+    /// Randomly drop 50% of events: degrade
+    Degrade,
+    /// Randomly drop events with probability: degradeBy 0.9
+    DegradeBy(Box<DslExpression>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -543,11 +549,13 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
         // First arg can be a pattern string OR a pattern transform
         let first_arg = args.first().cloned();
 
-        // Use positional args: s("pattern", gain, pan, speed, cut_group)
+        // Use positional args: s("pattern", gain, pan, speed, cut_group, attack, release)
         let gain = args.get(1).map(|e| Box::new(e.clone()));
         let pan = args.get(2).map(|e| Box::new(e.clone()));
         let speed = args.get(3).map(|e| Box::new(e.clone()));
         let cut_group = args.get(4).map(|e| Box::new(e.clone()));
+        let attack = args.get(5).map(|e| Box::new(e.clone()));
+        let release = args.get(6).map(|e| Box::new(e.clone()));
 
         // Check if first arg is a plain pattern string or a transform
         match first_arg {
@@ -559,6 +567,8 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                     pan,
                     speed,
                     cut_group,
+                    attack,
+                    release,
                 }
             }
             Some(DslExpression::PatternTransform { pattern, transform }) => {
@@ -575,6 +585,8 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                         pan,
                         speed,
                         cut_group,
+                        attack,
+                        release,
                     }),
                     transform,
                 }
@@ -587,6 +599,8 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                     pan,
                     speed,
                     cut_group,
+                    attack,
+                    release,
                 }
             }
         }
@@ -703,6 +717,12 @@ fn parse_transform_op(input: &str) -> IResult<&str, PatternTransformOp> {
     alt((
         // rev (no arguments)
         map(tag("rev"), |_| PatternTransformOp::Rev),
+        // degradeBy n (must come before degrade)
+        map(preceded(tag("degradeBy"), ws(primary)), |n| {
+            PatternTransformOp::DegradeBy(Box::new(n))
+        }),
+        // degrade (no arguments)
+        map(tag("degrade"), |_| PatternTransformOp::Degrade),
         // fast n
         map(preceded(tag("fast"), ws(primary)), |n| {
             PatternTransformOp::Fast(Box::new(n))
@@ -1348,6 +1368,8 @@ impl DslCompiler {
                 pan,
                 speed,
                 cut_group,
+                attack,
+                release,
             } => {
                 use std::collections::HashMap;
 
@@ -1371,6 +1393,14 @@ impl DslCompiler {
                     .map(|e| self.compile_expression_to_signal(*e))
                     .unwrap_or(Signal::Value(0.0)); // No cut group by default
 
+                let attack_signal = attack
+                    .map(|e| self.compile_expression_to_signal(*e))
+                    .unwrap_or(Signal::Value(0.0)); // No attack envelope by default
+
+                let release_signal = release
+                    .map(|e| self.compile_expression_to_signal(*e))
+                    .unwrap_or(Signal::Value(0.0)); // No release envelope by default
+
                 // Create Sample node
                 self.graph.add_node(SignalNode::Sample {
                     pattern_str: pattern,
@@ -1382,6 +1412,8 @@ impl DslCompiler {
                     pan: pan_signal,
                     speed: speed_signal,
                     cut_group: cut_group_signal,
+                    attack: attack_signal,
+                    release: release_signal,
                 })
             }
             DslExpression::Scale {
@@ -1558,6 +1590,8 @@ impl DslCompiler {
                         pan,
                         speed,
                         cut_group,
+                        attack,
+                        release,
                     } => {
                         // Handle transforms on sample patterns: s("bd sn" $ fast 2)
                         // Parse and transform the pattern
@@ -1587,6 +1621,14 @@ impl DslCompiler {
                             .map(|e| self.compile_expression_to_signal(*e))
                             .unwrap_or(Signal::Value(0.0));
 
+                        let attack_signal = attack
+                            .map(|e| self.compile_expression_to_signal(*e))
+                            .unwrap_or(Signal::Value(0.0));
+
+                        let release_signal = release
+                            .map(|e| self.compile_expression_to_signal(*e))
+                            .unwrap_or(Signal::Value(0.0));
+
                         // Create Sample node with transformed pattern
                         use std::collections::HashMap;
                         self.graph.add_node(SignalNode::Sample {
@@ -1599,6 +1641,8 @@ impl DslCompiler {
                             pan: pan_signal,
                             speed: speed_signal,
                             cut_group: cut_group_signal,
+                            attack: attack_signal,
+                            release: release_signal,
                         })
                     }
                     _ => {
@@ -1808,6 +1852,11 @@ impl DslCompiler {
                     PatternTransformOp::Rev => p.rev(),
                     _ => p,
                 }))
+            }
+            PatternTransformOp::Degrade => Ok(pattern.degrade()),
+            PatternTransformOp::DegradeBy(prob_expr) => {
+                let prob = self.extract_constant(*prob_expr)?;
+                Ok(pattern.degrade_by(prob))
             }
         }
     }
