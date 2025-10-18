@@ -287,6 +287,7 @@ pub mod modal_editor;
 pub mod modulation_router;
 pub mod nom_parser;
 pub mod osc_control;
+pub mod osc_live_server;
 pub mod pattern;
 pub mod pattern_bridge;
 pub mod pattern_debug;
