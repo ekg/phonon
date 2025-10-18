@@ -2,13 +2,12 @@
 //!
 //! Runs a continuous audio loop that can be hot-reloaded with new patterns
 
-use crate::glicol_parser::parse_glicol;
-use crate::simple_dsp_executor::SimpleDspExecutor;
+use crate::unified_graph_parser::{parse_dsl, DslCompiler};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// Commands for controlling the live engine
 pub enum EngineCommand {
@@ -132,9 +131,7 @@ fn run_audio_loop(
     stream.play()?;
 
     // Main loop - process commands and regenerate audio
-    let mut executor = SimpleDspExecutor::new(sample_rate);
     let mut current_code = String::new();
-    let last_render = Instant::now();
 
     loop {
         // Check for commands (non-blocking)
@@ -144,35 +141,26 @@ fn run_audio_loop(
                     current_code = code;
                     // Re-render the audio
                     if !current_code.is_empty() {
-                        // Strip comments
-                        let clean_code = current_code
-                            .lines()
-                            .filter(|line| {
-                                let trimmed = line.trim();
-                                !trimmed.starts_with('#') && !trimmed.is_empty()
-                            })
-                            .collect::<Vec<_>>()
-                            .join("\n");
+                        // Parse and render using DslCompiler (unified parser)
+                        match parse_dsl(&current_code) {
+                            Ok((_, statements)) => {
+                                // Compile to graph
+                                let compiler = DslCompiler::new(sample_rate);
+                                let mut graph = compiler.compile(statements);
 
-                        // Parse and render
-                        match parse_glicol(&clean_code) {
-                            Ok(env) => {
-                                match executor.render(&env, cycle_duration) {
-                                    Ok(audio_buffer) => {
-                                        // Update the playback buffer
-                                        let mut buffer = current_buffer.lock().unwrap();
-                                        *buffer = audio_buffer.data.clone();
+                                // Render one cycle
+                                let samples_per_cycle = (cycle_duration * sample_rate) as usize;
+                                let audio_buffer = graph.render(samples_per_cycle);
 
-                                        // Reset hush state but DON'T reset position - keep cycle continuous
-                                        *is_hushed.lock().unwrap() = false;
-                                        // Don't reset position - let it keep cycling smoothly
+                                // Update the playback buffer
+                                let mut buffer = current_buffer.lock().unwrap();
+                                *buffer = audio_buffer;
 
-                                        // Silent - don't interfere with UI
-                                    }
-                                    Err(_e) => {
-                                        // Silent - don't interfere with UI
-                                    }
-                                }
+                                // Reset hush state but DON'T reset position - keep cycle continuous
+                                *is_hushed.lock().unwrap() = false;
+                                // Don't reset position - let it keep cycling smoothly
+
+                                // Silent - don't interfere with UI
                             }
                             Err(_e) => {
                                 // Silent - don't interfere with UI
