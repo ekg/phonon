@@ -428,6 +428,8 @@ fn test_different_cut_groups_independent() {
         pan: Signal::Value(-0.5),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(1.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.2),
     });
@@ -444,6 +446,8 @@ fn test_different_cut_groups_independent() {
         pan: Signal::Value(0.5),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(2.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.15),
     });

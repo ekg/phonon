@@ -26,6 +26,8 @@ fn test_sample_node_reproduces_original_sample() {
         pan: phonon::unified_graph::Signal::Value(0.0),
         speed: phonon::unified_graph::Signal::Value(1.0),
         cut_group: phonon::unified_graph::Signal::Value(0.0),
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
     });
@@ -84,6 +86,8 @@ fn test_pattern_with_three_drums() {
         pan: phonon::unified_graph::Signal::Value(0.0),
         speed: phonon::unified_graph::Signal::Value(1.0),
         cut_group: phonon::unified_graph::Signal::Value(0.0),
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
     });

@@ -17,7 +17,10 @@ fn test_kick_drum_with_envelope() {
     let analysis = String::from_utf8_lossy(&output.stdout);
 
     // Should have audio
-    assert!(!analysis.contains("EMPTY AUDIO", "Kick drum is empty!");
+    assert!(
+        !analysis.contains("EMPTY AUDIO"),
+        "Kick drum is empty!"
+    );
 
     // Should detect 4 distinct beats in 2 seconds
     let onset_count = extract_onset_count(&analysis);

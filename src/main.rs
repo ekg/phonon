@@ -420,6 +420,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             pan: Signal::Value(0.0),
                                             speed: Signal::Value(1.0),
                                             cut_group: Signal::Value(0.0),
+                                            n: Signal::Value(0.0),
+                                            note: Signal::Value(0.0),
                                             attack: Signal::Value(0.0),
                                             release: Signal::Value(0.0),
                                         })
@@ -745,6 +747,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             pan: Signal::Value(0.0),
                                             speed: Signal::Value(1.0),
                                             cut_group: Signal::Value(0.0),
+                                            n: Signal::Value(0.0),
+                                            note: Signal::Value(0.0),
                                             attack: Signal::Value(0.0),
                                             release: Signal::Value(0.0),
                                         }));
@@ -804,6 +808,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     pan: Signal::Value(0.0),
                                     speed: Signal::Value(1.0),
                                     cut_group: Signal::Value(0.0),
+                                    n: Signal::Value(0.0),
+                                    note: Signal::Value(0.0),
                                     attack: Signal::Value(0.0),
                                     release: Signal::Value(0.0),
                                 }));
@@ -1587,6 +1593,8 @@ out sine(440) * 0.2
                                     pan: Signal::Value(0.0),
                                     speed: Signal::Value(1.0),
                                     cut_group: Signal::Value(0.0),
+                                    n: Signal::Value(0.0),
+                                    note: Signal::Value(0.0),
                                     attack: Signal::Value(0.0),
                                     release: Signal::Value(0.0),
                                 }));
@@ -1803,6 +1811,8 @@ out sine(440) * 0.2
                             pan: Signal::Value(0.0),
                             speed: Signal::Value(1.0),
                             cut_group: Signal::Value(0.0),
+                            n: Signal::Value(0.0),
+                            note: Signal::Value(0.0),
                             attack: Signal::Value(0.0),
                             release: Signal::Value(0.0),
                         }));

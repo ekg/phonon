@@ -47,11 +47,16 @@
 //!     pattern_str: "bd ~ bd ~".to_string(),
 //!     pattern,
 //!     last_trigger_time: -1.0,
+//!     last_cycle: -1,
 //!     playback_positions: HashMap::new(),
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Value(1.0),
 //!     cut_group: Signal::Value(0.0),
+//!     n: Signal::Value(0.0),
+//!     note: Signal::Value(0.0),
+//!     attack: Signal::Value(0.0),
+//!     release: Signal::Value(0.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -93,11 +98,16 @@
 //!     pattern_str: "hh*8".to_string(),
 //!     pattern,
 //!     last_trigger_time: -1.0,
+//!     last_cycle: -1,
 //!     playback_positions: HashMap::new(),
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Node(pan_node), // Pan controlled by pattern!
 //!     speed: Signal::Value(1.0),
 //!     cut_group: Signal::Value(0.0),
+//!     n: Signal::Value(0.0),
+//!     note: Signal::Value(0.0),
+//!     attack: Signal::Value(0.0),
+//!     release: Signal::Value(0.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -129,11 +139,16 @@
 //!     pattern_str: "bd*4".to_string(),
 //!     pattern,
 //!     last_trigger_time: -1.0,
+//!     last_cycle: -1,
 //!     playback_positions: HashMap::new(),
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Node(speed_node), // Speed controlled by pattern!
 //!     cut_group: Signal::Value(0.0),
+//!     n: Signal::Value(0.0),
+//!     note: Signal::Value(0.0),
+//!     attack: Signal::Value(0.0),
+//!     release: Signal::Value(0.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -168,11 +183,16 @@
 //!     pattern_str: "hh*16".to_string(),
 //!     pattern,
 //!     last_trigger_time: -1.0,
+//!     last_cycle: -1,
 //!     playback_positions: HashMap::new(),
 //!     gain: scaled_gain, // Gain controlled by LFO!
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Value(1.0),
 //!     cut_group: Signal::Value(0.0),
+//!     n: Signal::Value(0.0),
+//!     note: Signal::Value(0.0),
+//!     attack: Signal::Value(0.0),
+//!     release: Signal::Value(0.0),
 //! });
 //!
 //! graph.set_output(sample_node);
@@ -199,11 +219,16 @@
 //!     pattern_str: "bd*4".to_string(),
 //!     pattern,
 //!     last_trigger_time: -1.0,
+//!     last_cycle: -1,
 //!     playback_positions: HashMap::new(),
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Value(1.0),
 //!     cut_group: Signal::Value(0.0),
+//!     n: Signal::Value(0.0),
+//!     note: Signal::Value(0.0),
+//!     attack: Signal::Value(0.0),
+//!     release: Signal::Value(0.0),
 //! });
 //!
 //! // Cutoff frequency pattern (200 Hz to 2000 Hz)
@@ -280,11 +305,16 @@
 //!     pattern_str: "bd ~ bd ~".to_string(),
 //!     pattern: kick_pattern,
 //!     last_trigger_time: -1.0,
+//!     last_cycle: -1,
 //!     playback_positions: HashMap::new(),
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Value(1.0),
 //!     cut_group: Signal::Value(0.0),
+//!     n: Signal::Value(0.0),
+//!     note: Signal::Value(0.0),
+//!     attack: Signal::Value(0.0),
+//!     release: Signal::Value(0.0),
 //! });
 //!
 //! // Snare pattern on channel 2
@@ -293,11 +323,16 @@
 //!     pattern_str: "~ sn ~ sn".to_string(),
 //!     pattern: snare_pattern,
 //!     last_trigger_time: -1.0,
+//!     last_cycle: -1,
 //!     playback_positions: HashMap::new(),
 //!     gain: Signal::Value(1.0),
 //!     pan: Signal::Value(0.0),
 //!     speed: Signal::Value(1.0),
 //!     cut_group: Signal::Value(0.0),
+//!     n: Signal::Value(0.0),
+//!     note: Signal::Value(0.0),
+//!     attack: Signal::Value(0.0),
+//!     release: Signal::Value(0.0),
 //! });
 //!
 //! graph.set_output_channel(1, kick_node);  // Channel 1
@@ -424,6 +459,8 @@ pub enum SignalNode {
         pan: Signal,
         speed: Signal,
         cut_group: Signal, // Cut group for voice stealing (0 = no cut group)
+        n: Signal,         // Sample number selection (0 = first sample in bank)
+        note: Signal,      // Note/pitch shift in semitones (0 = original, 12 = octave up)
         attack: Signal,    // Attack time in seconds (0.0 = no attack envelope)
         release: Signal,   // Release time in seconds (0.0 = no release envelope)
     },
@@ -825,6 +862,11 @@ impl UnifiedSignalGraph {
     /// Get a bus by name
     pub fn get_bus(&self, name: &str) -> Option<NodeId> {
         self.buses.get(name).copied()
+    }
+
+    /// Get all bus names
+    pub fn get_all_bus_names(&self) -> Vec<String> {
+        self.buses.keys().cloned().collect()
     }
 
     /// Set the output node
@@ -1344,6 +1386,8 @@ impl UnifiedSignalGraph {
                 pan,
                 speed,
                 cut_group,
+                n,
+                note,
                 attack,
                 release,
             } => {
@@ -1433,6 +1477,32 @@ impl UnifiedSignalGraph {
                             None
                         };
 
+                        // Evaluate n modifier for sample number selection
+                        let n_val = self.eval_signal_at_time(&n, event_start_abs);
+                        let n_index = n_val.round().max(0.0) as usize;
+
+                        // Modify sample name with n index if n > 0
+                        // e.g., "bd" with n=2 becomes "bd:2"
+                        let final_sample_name = if n_index > 0 {
+                            format!("{}:{}", sample_name, n_index)
+                        } else {
+                            sample_name.to_string()
+                        };
+
+                        // Evaluate note modifier for pitch shifting
+                        // Note is in semitones: 0 = original, 12 = octave up, -12 = octave down
+                        let note_val = self.eval_signal_at_time(&note, event_start_abs);
+
+                        // Calculate pitch shift: speed = original_speed * 2^(semitones/12)
+                        let pitch_shift_multiplier = if note_val != 0.0 {
+                            2.0_f32.powf(note_val / 12.0)
+                        } else {
+                            1.0
+                        };
+
+                        // Apply pitch shift to speed
+                        let final_speed = speed_val * pitch_shift_multiplier;
+
                         // Evaluate envelope parameters
                         let attack_val = self
                             .eval_signal_at_time(&attack, event_start_abs)
@@ -1446,12 +1516,12 @@ impl UnifiedSignalGraph {
                         // DEBUG: Print cut group info
                         if std::env::var("DEBUG_CUT_GROUPS").is_ok() {
                             eprintln!("Triggering {} at cycle {:.3}, cut_group_val={:.1}, cut_group_opt={:?}",
-                                sample_name, event_start_abs, cut_group_val, cut_group_opt);
+                                final_sample_name, event_start_abs, cut_group_val, cut_group_opt);
                         }
 
                         // Get sample from bank and trigger a new voice with full DSP parameters including envelope
                         if let Some(sample_data) =
-                            self.sample_bank.borrow_mut().get_sample(sample_name)
+                            self.sample_bank.borrow_mut().get_sample(&final_sample_name)
                         {
                             self.voice_manager
                                 .borrow_mut()
@@ -1459,7 +1529,7 @@ impl UnifiedSignalGraph {
                                     sample_data,
                                     gain_val,
                                     pan_val,
-                                    speed_val,
+                                    final_speed,
                                     cut_group_opt,
                                     attack_val,
                                     release_val,

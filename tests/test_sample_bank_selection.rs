@@ -107,6 +107,8 @@ fn test_sample_playback_with_index() {
         pan: phonon::unified_graph::Signal::Value(0.0),
         speed: phonon::unified_graph::Signal::Value(1.0),
         cut_group: phonon::unified_graph::Signal::Value(0.0),
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
     });
