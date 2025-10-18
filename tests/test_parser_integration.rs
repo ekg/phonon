@@ -44,7 +44,7 @@ out kick * 0.5 + snare * 0.3 + hats * 0.05
     let analysis = analyze_wav("/tmp/test_drums.wav");
 
     assert!(
-        analysis.contains "✅ Contains audio signal",
+        analysis.contains("✅ Contains audio signal"),
         "Drum kit produced no audio!\n{}",
         analysis
     );
@@ -169,7 +169,7 @@ fn test_bus_reference_formats() {
         let analysis = analyze_wav(&wav);
 
         assert!(
-            analysis.contains "✅ Contains audio signal",
+            analysis.contains("✅ Contains audio signal"),
             "Bus format '{}' produced no audio!\n{}",
             name,
             analysis
@@ -229,7 +229,7 @@ out bass * 0.4 + lead * 0.1
     let analysis = analyze_wav("/tmp/test_pattern_mix.wav");
 
     assert!(
-        analysis.contains "✅ Contains audio signal",
+        analysis.contains("✅ Contains audio signal"),
         "Pattern mix produced no audio!\n{}",
         analysis
     );
@@ -258,7 +258,7 @@ fn analyze_wav(path: &str) -> String {
 
 fn extract_rms(analysis: &str) -> f32 {
     for line in analysis.lines() {
-        if line.contains "RMS Level:" {
+        if line.contains("RMS Level:") {
             if let Some(start) = line.find("RMS Level:") {
                 let rest = &line[start + 10..].trim();
                 if let Some(end) = rest.find(' ') {
@@ -274,7 +274,7 @@ fn extract_rms(analysis: &str) -> f32 {
 
 fn extract_dominant_freq(analysis: &str) -> f32 {
     for line in analysis.lines() {
-        if line.contains "Dominant Freq:" {
+        if line.contains("Dominant Freq:") {
             if let Some(start) = line.find("Dominant Freq:") {
                 let rest = &line[start + 14..].trim();
                 if let Some(end) = rest.find(" Hz") {
@@ -290,7 +290,7 @@ fn extract_dominant_freq(analysis: &str) -> f32 {
 
 fn extract_spectral_centroid(analysis: &str) -> f32 {
     for line in analysis.lines() {
-        if line.contains "Spectral Centroid:" {
+        if line.contains("Spectral Centroid:") {
             if let Some(start) = line.find("Spectral Centroid:") {
                 let rest = &line[start + 18..].trim();
                 if let Some(end) = rest.find(" Hz") {
@@ -306,7 +306,7 @@ fn extract_spectral_centroid(analysis: &str) -> f32 {
 
 fn extract_onset_count(analysis: &str) -> usize {
     for line in analysis.lines() {
-        if line.contains "Onset Events:" {
+        if line.contains("Onset Events:") {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {
                 if let Ok(count) = parts[2].parse::<usize>() {

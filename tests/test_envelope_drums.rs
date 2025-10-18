@@ -17,7 +17,7 @@ fn test_kick_drum_with_envelope() {
     let analysis = String::from_utf8_lossy(&output.stdout);
 
     // Should have audio
-    assert!(!analysis.contains "EMPTY AUDIO", "Kick drum is empty!");
+    assert!(!analysis.contains("EMPTY AUDIO", "Kick drum is empty!");
 
     // Should detect 4 distinct beats in 2 seconds
     let onset_count = extract_onset_count(&analysis);
@@ -83,7 +83,7 @@ fn render_kick_with_envelope(output_path: &str) {
 
 fn extract_onset_count(analysis: &str) -> usize {
     for line in analysis.lines() {
-        if line.contains "Onset Events:" {
+        if line.contains("Onset Events:") {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {
                 if let Ok(count) = parts[2].parse::<usize>() {

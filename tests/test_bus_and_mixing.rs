@@ -53,13 +53,13 @@ fn test_bus_assignment_produces_audio() {
 
     // Verify output
     assert!(
-        analysis.contains "✅ Contains audio signal",
+        analysis.contains("✅ Contains audio signal"),
         "Bus assignment produced empty audio!\n{}",
         analysis
     );
 
     // Should detect ~110 Hz
-    assert!(analysis.contains "Dominant Freq:", "No frequency detected");
+    assert!(analysis.contains("Dominant Freq:"), "No frequency detected");
     let freq = extract_dominant_freq(&analysis);
     assert!(
         (freq - 110.0).abs() < 20.0,
@@ -149,7 +149,7 @@ fn test_signal_addition_mixes_correctly() {
     let analysis = analyze_wav(test_file);
 
     assert!(
-        analysis.contains "✅ Contains audio signal",
+        analysis.contains("✅ Contains audio signal"),
         "Mixed signal is empty!\n{}",
         analysis
     );
@@ -300,14 +300,14 @@ out = ~bass * 0.3 + ~lead * 0.1
     let analysis = analyze_wav("/tmp/test_parser_mix.wav");
 
     assert!(
-        analysis.contains "✅ Contains audio signal",
+        analysis.contains("✅ Contains audio signal"),
         "Parser produced empty audio!\n{}",
         analysis
     );
 
     // Should have both frequencies present
     // The dominant might be the bass (55 Hz) due to higher amplitude
-    assert!(analysis.contains "Dominant Freq:", "No frequency detected");
+    assert!(analysis.contains("Dominant Freq:"), "No frequency detected");
 
     // Check RMS is reasonable for mixed signal
     let rms = extract_rms(&analysis);
@@ -363,7 +363,7 @@ out = ~filtered_bass * 0.4 + ~lead * 0.1
     let analysis = analyze_wav("/tmp/test_complex.wav");
 
     assert!(
-        analysis.contains "✅ Contains audio signal",
+        analysis.contains("✅ Contains audio signal"),
         "Complex expression produced no audio!\n{}",
         analysis
     );
@@ -379,7 +379,7 @@ out = ~filtered_bass * 0.4 + ~lead * 0.1
 
     // The spectral centroid should be in mid-range due to filtering
     assert!(
-        analysis.contains "Spectral Centroid:",
+        analysis.contains("Spectral Centroid:"),
         "No spectral analysis - audio might be empty!"
     );
 
@@ -424,7 +424,7 @@ fn calculate_rms(samples: &[f32]) -> f32 {
 
 fn extract_dominant_freq(analysis: &str) -> f32 {
     for line in analysis.lines() {
-        if line.contains "Dominant Freq:" {
+        if line.contains("Dominant Freq:") {
             if let Some(start) = line.find("Dominant Freq:") {
                 let rest = &line[start + 14..].trim();
                 if let Some(end) = rest.find(" Hz") {
@@ -440,7 +440,7 @@ fn extract_dominant_freq(analysis: &str) -> f32 {
 
 fn extract_rms(analysis: &str) -> f32 {
     for line in analysis.lines() {
-        if line.contains "RMS Level:" {
+        if line.contains("RMS Level:") {
             if let Some(start) = line.find("RMS Level:") {
                 let rest = &line[start + 10..].trim();
                 if let Some(end) = rest.find(' ') {
@@ -456,7 +456,7 @@ fn extract_rms(analysis: &str) -> f32 {
 
 fn extract_onset_count(analysis: &str) -> usize {
     for line in analysis.lines() {
-        if line.contains "Onset Events:" {
+        if line.contains("Onset Events:") {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {
                 if let Ok(count) = parts[2].parse::<usize>() {
