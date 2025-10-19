@@ -1575,6 +1575,14 @@ impl UnifiedSignalGraph {
                         continue;
                     }
 
+                    // Check for bus trigger prefix (~busname)
+                    let is_bus_trigger = sample_name.starts_with('~');
+                    let actual_name = if is_bus_trigger {
+                        &sample_name[1..] // Strip ~ prefix
+                    } else {
+                        sample_name
+                    };
+
                     // Get the event start time (absolute cycle position)
                     let event_start_abs = if let Some(whole) = &event.whole {
                         whole.begin.to_float()
@@ -1618,9 +1626,9 @@ impl UnifiedSignalGraph {
                         // Modify sample name with n index if n > 0
                         // e.g., "bd" with n=2 becomes "bd:2"
                         let final_sample_name = if n_index > 0 {
-                            format!("{}:{}", sample_name, n_index)
+                            format!("{}:{}", actual_name, n_index)
                         } else {
-                            sample_name.to_string()
+                            actual_name.to_string()
                         };
 
                         // Evaluate note modifier for pitch shifting
@@ -1665,25 +1673,71 @@ impl UnifiedSignalGraph {
                                 final_sample_name, event_start_abs, cut_group_val, cut_group_opt);
                         }
 
-                        // Get sample from bank and trigger a new voice with full DSP parameters including envelope
-                        if let Some(sample_data) =
-                            self.sample_bank.borrow_mut().get_sample(&final_sample_name)
-                        {
-                            self.voice_manager
-                                .borrow_mut()
-                                .trigger_sample_with_envelope(
-                                    sample_data,
-                                    gain_val,
-                                    pan_val,
-                                    final_speed,
-                                    cut_group_opt,
-                                    final_attack,
-                                    final_release,
-                                );
+                        // Handle bus triggering vs regular sample loading
+                        if is_bus_trigger {
+                            // Look up the bus
+                            if let Some(bus_node_id) = self.buses.get(actual_name).copied() {
+                                // Calculate event duration from pattern
+                                let event_duration = if let Some(whole) = &event.whole {
+                                    whole.end.to_float() - whole.begin.to_float()
+                                } else {
+                                    event.part.end.to_float() - event.part.begin.to_float()
+                                };
 
-                            // Track this as the latest event we've triggered
-                            if event_start_abs > latest_triggered_start {
-                                latest_triggered_start = event_start_abs;
+                                // Convert duration to samples (duration is in cycles)
+                                let duration_samples = (event_duration * self.sample_rate as f64 * self.cps as f64) as usize;
+                                let duration_samples = duration_samples.max(1).min(self.sample_rate as usize * 2); // Cap at 2 seconds
+
+                                // Create synthetic sample buffer by evaluating bus signal
+                                // IMPORTANT: Clear cache between each sample to get fresh oscillator values
+                                let mut synthetic_buffer = Vec::with_capacity(duration_samples);
+                                for _ in 0..duration_samples {
+                                    self.value_cache.clear();
+                                    let sample_value = self.eval_node(&bus_node_id);
+                                    synthetic_buffer.push(sample_value);
+                                }
+
+                                // Trigger voice with synthetic buffer
+                                self.voice_manager
+                                    .borrow_mut()
+                                    .trigger_sample_with_envelope(
+                                        std::sync::Arc::new(synthetic_buffer),
+                                        gain_val,
+                                        pan_val,
+                                        final_speed,
+                                        cut_group_opt,
+                                        final_attack,
+                                        final_release,
+                                    );
+
+                                // Track trigger time
+                                if event_start_abs > latest_triggered_start {
+                                    latest_triggered_start = event_start_abs;
+                                }
+                            } else {
+                                eprintln!("Warning: Bus '{}' not found for trigger", actual_name);
+                            }
+                        } else {
+                            // Regular sample loading
+                            if let Some(sample_data) =
+                                self.sample_bank.borrow_mut().get_sample(&final_sample_name)
+                            {
+                                self.voice_manager
+                                    .borrow_mut()
+                                    .trigger_sample_with_envelope(
+                                        sample_data,
+                                        gain_val,
+                                        pan_val,
+                                        final_speed,
+                                        cut_group_opt,
+                                        final_attack,
+                                        final_release,
+                                    );
+
+                                // Track this as the latest event we've triggered
+                                if event_start_abs > latest_triggered_start {
+                                    latest_triggered_start = event_start_abs;
+                                }
                             }
                         }
                     }
