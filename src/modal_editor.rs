@@ -422,8 +422,8 @@ impl ModalEditor {
                     spans.push(Span::styled(current.clone(), style));
                     current.clear();
                 }
-                // Operator - use light gray (less loud than red)
-                spans.push(Span::styled(ch.to_string(), Style::default().fg(Color::Rgb(150, 150, 150))));
+                // Operator - hot pink for visual clarity!
+                spans.push(Span::styled(ch.to_string(), Style::default().fg(Color::Rgb(255, 20, 147))));
                 continue;
             }
 
