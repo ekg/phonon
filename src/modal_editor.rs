@@ -967,6 +967,16 @@ impl ModalEditor {
             self.error_message = None;
             self.status_message = format!("🔄 Evaluating chunk ({} chars)...", chunk.len());
 
+            // Collect data before borrowing engine
+            let preview = chunk.lines().take(2).collect::<Vec<_>>().join(" ");
+            let preview_short = if preview.len() > 60 {
+                format!("{}...", &preview[..60])
+            } else {
+                preview
+            };
+            let bus_count = self.content.lines().filter(|l| l.trim().starts_with("~")).count();
+            let has_out = self.content.lines().any(|l| l.trim().starts_with("out:") || l.trim().starts_with("out "));
+
             // Check if chunk starts with "hush" - if so, clear audio first
             let did_hush = if chunk.trim_start().starts_with("hush") {
                 let _ = engine.hush();
@@ -979,17 +989,22 @@ impl ModalEditor {
             // This ensures all buses, tempo, and output assignments are preserved.
             let result = engine.load_code(&self.content);
 
-            // Now we can mutate self safely
+            // Now we can mutate self safely - add all console messages
+            self.add_console_message(&format!("📝 Evaluating: {} chars", chunk.len()));
+            self.add_console_message(&format!("   {}", preview_short));
+
             if did_hush {
                 self.add_console_message("🔇 Hush - clearing audio");
             }
 
             if let Err(e) = result {
                 self.error_message = Some(format!("Eval failed: {e}"));
-                self.add_console_message(&format!("❌ Error: {e}"));
+                self.add_console_message(&format!("❌ Parse error: {e}"));
             } else {
                 self.status_message = "✅ Chunk evaluated!".to_string();
-                self.add_console_message("✅ Chunk evaluated");
+                self.add_console_message("✅ Sent to engine");
+                self.add_console_message(&format!("   {} buses, out: {}", bus_count, if has_out { "yes" } else { "NO!" }));
+
                 // Flash the evaluated chunk: 10 frames = 500ms (pop + fade)
                 self.flash_highlight = Some((start_line, end_line, 10));
             }
