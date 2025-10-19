@@ -41,6 +41,8 @@ pub struct ModalEditor {
     live_engine: Option<LiveEngine>,
     /// Flash highlight for evaluated chunk (start_line, end_line, frames_remaining)
     flash_highlight: Option<(usize, usize, u8)>,
+    /// Kill buffer for Emacs-style cut/yank
+    kill_buffer: String,
 }
 
 impl ModalEditor {
@@ -79,6 +81,7 @@ impl ModalEditor {
             error_message: None,
             live_engine,
             flash_highlight: None,
+            kill_buffer: String::new(),
         })
     }
 
@@ -198,6 +201,10 @@ impl ModalEditor {
                 self.kill_line(); // Kill to end of line
                 KeyResult::Continue
             }
+            KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.yank(); // Yank (paste) from kill buffer
+                KeyResult::Continue
+            }
 
             // Regular character input
             KeyCode::Char(c) => {
@@ -283,7 +290,7 @@ impl ModalEditor {
             self.status_message.clone()
         };
 
-        let help_text = "C-x: Eval block | C-r: Reload all | C-h: Hush | C-s: Save | Alt-q: Quit | Emacs keys: C-p/n/f/b/a/e";
+        let help_text = "C-x: Eval block | C-r: Reload all | C-h: Hush | C-s: Save | C-k: Kill line | C-y: Yank | Alt-q: Quit";
 
         let status_chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -306,56 +313,39 @@ impl ModalEditor {
     }
 
     /// Apply syntax highlighting to a line of Phonon code
-    /// Semantic color grouping:
-    /// - Pattern functions: s, euclid
-    /// - Transforms: fast, slow, rev, every, degrade
-    /// - Audio (synth + DSP): sine, saw, lpf, hpf, reverb
-    /// - Structure: tempo, out, hush, panic
+    /// Simple scheme:
+    /// - All functions → Blue
+    /// - Buses (~name) → Purple/Magenta
+    /// - Strings/mininotation → White
+    /// - # and $ → Hot Pink
+    /// - Numbers → Orange
+    /// - Comments → Dark Gray
     fn highlight_line(line: &str) -> Vec<Span> {
         let mut spans = Vec::new();
         let mut current = String::new();
         let mut in_string = false;
         let mut in_comment = false;
 
-        // Semantic grouping for clarity
-        let pattern_funcs = ["s", "euclid"];
-        let transforms = ["fast", "slow", "rev", "every", "degrade", "degradeBy",
-                         "stutter", "palindrome"];
-        let audio_funcs = ["sine", "saw", "square", "tri",
-                          "lpf", "hpf", "bpf", "notch",
-                          "reverb", "delay", "chorus", "bitcrush", "distortion"];
-        let structure = ["tempo", "out", "out1", "out2", "out3", "out4",
-                        "out5", "out6", "out7", "out8", "hush", "panic"];
+        // All function names (patterns, transforms, synth, DSP, structure)
+        let functions = [
+            "s", "euclid",
+            "fast", "slow", "rev", "every", "degrade", "degradeBy", "stutter", "palindrome",
+            "sine", "saw", "square", "tri",
+            "lpf", "hpf", "bpf", "notch",
+            "reverb", "delay", "chorus", "bitcrush", "distortion",
+            "tempo", "out", "out1", "out2", "out3", "out4", "out5", "out6", "out7", "out8",
+            "hush", "panic"
+        ];
+
+        // Check if line starts with # (comment)
+        let line_trimmed = line.trim_start();
+        if line_trimmed.starts_with('#') {
+            // Entire line is a comment
+            spans.push(Span::styled(line.to_string(), Style::default().fg(Color::Rgb(100, 100, 100))));
+            return spans;
+        }
 
         for (i, ch) in line.chars().enumerate() {
-            // Comment detection
-            if ch == '#' && !in_string {
-                // Flush current token
-                if !current.is_empty() {
-                    let style = if pattern_funcs.contains(&current.as_str()) {
-                        Style::default().fg(Color::Cyan)
-                    } else if transforms.contains(&current.as_str()) {
-                        Style::default().fg(Color::Yellow)
-                    } else if audio_funcs.contains(&current.as_str()) {
-                        Style::default().fg(Color::Blue)
-                    } else if structure.contains(&current.as_str()) {
-                        Style::default().fg(Color::Rgb(100, 150, 255)) // Bright blue
-                    } else if current.starts_with('~') {
-                        Style::default().fg(Color::Magenta) // Buses - purple!
-                    } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                        Style::default().fg(Color::Rgb(255, 165, 0)) // Numbers - orange
-                    } else {
-                        Style::default().fg(Color::White)
-                    };
-                    spans.push(Span::styled(current.clone(), style));
-                    current.clear();
-                }
-                // Rest of line is comment
-                in_comment = true;
-                current.push(ch);
-                continue;
-            }
-
             if in_comment {
                 current.push(ch);
                 continue;
@@ -365,26 +355,21 @@ impl ModalEditor {
             if ch == '"' {
                 if in_string {
                     current.push(ch);
-                    spans.push(Span::styled(current.clone(), Style::default().fg(Color::Green)));
+                    // Mininotation strings → White
+                    spans.push(Span::styled(current.clone(), Style::default().fg(Color::White)));
                     current.clear();
                     in_string = false;
                 } else {
                     // Flush current token
                     if !current.is_empty() {
-                        let style = if pattern_funcs.contains(&current.as_str()) {
-                            Style::default().fg(Color::Cyan)
-                        } else if transforms.contains(&current.as_str()) {
-                            Style::default().fg(Color::Yellow)
-                        } else if audio_funcs.contains(&current.as_str()) {
-                            Style::default().fg(Color::Blue)
-                        } else if structure.contains(&current.as_str()) {
-                            Style::default().fg(Color::Rgb(100, 150, 255))
+                        let style = if functions.contains(&current.as_str()) {
+                            Style::default().fg(Color::Blue)  // Functions → Blue
                         } else if current.starts_with('~') {
-                            Style::default().fg(Color::Magenta)
+                            Style::default().fg(Color::Magenta)  // Buses → Purple
                         } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                            Style::default().fg(Color::Rgb(255, 165, 0))
+                            Style::default().fg(Color::Rgb(255, 165, 0))  // Numbers → Orange
                         } else {
-                            Style::default().fg(Color::White)
+                            Style::default().fg(Color::White)  // Default
                         };
                         spans.push(Span::styled(current.clone(), style));
                         current.clear();
@@ -404,14 +389,8 @@ impl ModalEditor {
             if "(){}[]:|$<>=+*-/,".contains(ch) {
                 // Flush current token
                 if !current.is_empty() {
-                    let style = if pattern_funcs.contains(&current.as_str()) {
-                        Style::default().fg(Color::Cyan)
-                    } else if transforms.contains(&current.as_str()) {
-                        Style::default().fg(Color::Yellow)
-                    } else if audio_funcs.contains(&current.as_str()) {
+                    let style = if functions.contains(&current.as_str()) {
                         Style::default().fg(Color::Blue)
-                    } else if structure.contains(&current.as_str()) {
-                        Style::default().fg(Color::Rgb(100, 150, 255))
                     } else if current.starts_with('~') {
                         Style::default().fg(Color::Magenta)
                     } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
@@ -422,8 +401,13 @@ impl ModalEditor {
                     spans.push(Span::styled(current.clone(), style));
                     current.clear();
                 }
-                // Operator - hot pink for visual clarity!
-                spans.push(Span::styled(ch.to_string(), Style::default().fg(Color::Rgb(255, 20, 147))));
+                // # and $ → Hot Pink, others → Light Gray
+                let color = if ch == '#' || ch == '$' {
+                    Color::Rgb(255, 20, 147)  // Hot Pink
+                } else {
+                    Color::Rgb(150, 150, 150)  // Light Gray
+                };
+                spans.push(Span::styled(ch.to_string(), Style::default().fg(color)));
                 continue;
             }
 
@@ -431,14 +415,8 @@ impl ModalEditor {
             if ch.is_whitespace() {
                 // Flush current token
                 if !current.is_empty() {
-                    let style = if pattern_funcs.contains(&current.as_str()) {
-                        Style::default().fg(Color::Cyan)
-                    } else if transforms.contains(&current.as_str()) {
-                        Style::default().fg(Color::Yellow)
-                    } else if audio_funcs.contains(&current.as_str()) {
+                    let style = if functions.contains(&current.as_str()) {
                         Style::default().fg(Color::Blue)
-                    } else if structure.contains(&current.as_str()) {
-                        Style::default().fg(Color::Rgb(100, 150, 255))
                     } else if current.starts_with('~') {
                         Style::default().fg(Color::Magenta)
                     } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
@@ -459,23 +437,17 @@ impl ModalEditor {
         // Flush remaining
         if !current.is_empty() {
             let style = if in_comment {
-                Style::default().fg(Color::Rgb(100, 100, 100)) // Dark gray for comments
+                Style::default().fg(Color::Rgb(100, 100, 100))  // Comments → Dark gray
             } else if in_string {
-                Style::default().fg(Color::Green)
-            } else if pattern_funcs.contains(&current.as_str()) {
-                Style::default().fg(Color::Cyan)
-            } else if transforms.contains(&current.as_str()) {
-                Style::default().fg(Color::Yellow)
-            } else if audio_funcs.contains(&current.as_str()) {
-                Style::default().fg(Color::Blue)
-            } else if structure.contains(&current.as_str()) {
-                Style::default().fg(Color::Rgb(100, 150, 255))
+                Style::default().fg(Color::White)  // Strings → White
+            } else if functions.contains(&current.as_str()) {
+                Style::default().fg(Color::Blue)  // Functions → Blue
             } else if current.starts_with('~') {
-                Style::default().fg(Color::Magenta)
+                Style::default().fg(Color::Magenta)  // Buses → Purple
             } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                Style::default().fg(Color::Rgb(255, 165, 0))
+                Style::default().fg(Color::Rgb(255, 165, 0))  // Numbers → Orange
             } else {
-                Style::default().fg(Color::White)
+                Style::default().fg(Color::White)  // Default → White
             };
             spans.push(Span::styled(current, style));
         }
@@ -679,7 +651,7 @@ impl ModalEditor {
         self.error_message = None;
     }
 
-    /// Kill to end of line (Ctrl+K)
+    /// Kill to end of line (Ctrl+K) - saves to kill buffer
     fn kill_line(&mut self) {
         let lines: Vec<&str> = self.content.split('\n').collect();
         let mut current_pos = 0;
@@ -691,12 +663,29 @@ impl ModalEditor {
                 let line_end = current_pos + line.len();
 
                 if self.cursor_pos < line_end {
+                    // Save killed text to kill buffer
+                    self.kill_buffer = self.content[self.cursor_pos..line_end].to_string();
                     // Remove from cursor to end of line
                     self.content.drain(self.cursor_pos..line_end);
+                } else {
+                    // At end of line - kill the newline if it exists
+                    if self.cursor_pos < self.content.len() {
+                        self.kill_buffer = "\n".to_string();
+                        self.content.remove(self.cursor_pos);
+                    }
                 }
                 break;
             }
             current_pos += line.len() + 1; // +1 for newline
+        }
+        self.error_message = None;
+    }
+
+    /// Yank (paste) from kill buffer (Ctrl+Y)
+    fn yank(&mut self) {
+        if !self.kill_buffer.is_empty() {
+            self.content.insert_str(self.cursor_pos, &self.kill_buffer);
+            self.cursor_pos += self.kill_buffer.len();
         }
         self.error_message = None;
     }
