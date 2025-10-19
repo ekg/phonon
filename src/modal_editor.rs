@@ -325,8 +325,20 @@ impl ModalEditor {
         }
 
         // Check if we're flashing a chunk
-        let (flash_start, flash_end) = if let Some((start, end, _)) = self.flash_highlight {
-            (start, end)
+        // Flash ON for frames: 18-20, 14-16, 10-12, 6-8 (4 quick pops)
+        let (flash_start, flash_end) = if let Some((start, end, frames)) = self.flash_highlight {
+            let is_flash_on = match frames {
+                18..=20 => true,  // First flash
+                14..=16 => true,  // Second flash
+                10..=12 => true,  // Third flash
+                6..=8 => true,    // Fourth flash
+                _ => false,
+            };
+            if is_flash_on {
+                (start, end)
+            } else {
+                (usize::MAX, usize::MAX)
+            }
         } else {
             (usize::MAX, usize::MAX)
         };
@@ -342,7 +354,7 @@ impl ModalEditor {
                 if line_text.is_empty() {
                     // Empty line - just show cursor block
                     let style = if is_flashing {
-                        Style::default().bg(Color::Green).fg(Color::Black)
+                        Style::default().bg(Color::Yellow).fg(Color::Black)
                     } else {
                         Style::default().bg(Color::White)
                     };
@@ -350,7 +362,7 @@ impl ModalEditor {
                 } else if cursor_col < line_text.len() {
                     // Cursor in middle of line
                     let base_style = if is_flashing {
-                        Style::default().bg(Color::Green).fg(Color::Black)
+                        Style::default().bg(Color::Yellow).fg(Color::Black)
                     } else {
                         Style::default()
                     };
@@ -374,19 +386,20 @@ impl ModalEditor {
                 } else {
                     // Cursor at end of line
                     let base_style = if is_flashing {
-                        Style::default().bg(Color::Green).fg(Color::Black)
+                        Style::default().bg(Color::Yellow).fg(Color::Black)
                     } else {
                         Style::default()
                     };
                     spans.push(Span::styled(line_text.to_string(), base_style));
-                    spans.push(Span::styled(" ", Style::default().bg(Color::White)));
+                    // Cursor always shows with white background
+                    spans.push(Span::styled("█", Style::default().fg(Color::White)));
                 }
                 lines.push(Line::from(spans));
             } else {
                 // Regular line (including empty lines)
                 if line_text.is_empty() {
                     if is_flashing {
-                        lines.push(Line::from(Span::styled(" ", Style::default().bg(Color::Green))));
+                        lines.push(Line::from(Span::styled(" ", Style::default().bg(Color::Yellow))));
                     } else {
                         lines.push(Line::from(Span::raw(" "))); // Ensure empty lines take space
                     }
@@ -394,7 +407,7 @@ impl ModalEditor {
                     if is_flashing {
                         lines.push(Line::from(Span::styled(
                             line_text.to_string(),
-                            Style::default().bg(Color::Green).fg(Color::Black)
+                            Style::default().bg(Color::Yellow).fg(Color::Black)
                         )));
                     } else {
                         lines.push(Line::from(Span::raw(line_text.to_string())));
