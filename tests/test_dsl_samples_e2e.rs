@@ -370,7 +370,7 @@ out: s "bd <hh*2 cp>" * 0.8
 fn test_euclidean_3_8_kick() {
     let dsl = r#"
 tempo: 0.5
-out: s "(3,8,bd)" * 0.8
+out: s "bd(3,8)" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "euclid_3_8_bd");
     assert!(success, "Failed to render euclidean (3,8) with bd: {}", stderr);
@@ -383,7 +383,7 @@ out: s "(3,8,bd)" * 0.8
 fn test_euclidean_5_8_hihat() {
     let dsl = r#"
 tempo: 0.5
-out: s "(5,8,hh)" * 0.8
+out: s "hh(5,8)" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "euclid_5_8_hh");
     assert!(success, "Failed to render euclidean (5,8) with hh: {}", stderr);
@@ -396,7 +396,7 @@ out: s "(5,8,hh)" * 0.8
 fn test_euclidean_3_4_snare() {
     let dsl = r#"
 tempo: 0.5
-out: s "(3,4,sn)" * 0.8
+out: s "sn(3,4)" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "euclid_3_4_sn");
     assert!(success, "Failed to render euclidean (3,4) with sn: {}", stderr);
@@ -409,7 +409,7 @@ out: s "(3,4,sn)" * 0.8
 fn test_euclidean_7_16_kick() {
     let dsl = r#"
 tempo: 0.5
-out: s "(7,16,bd)" * 0.8
+out: s "bd(7,16)" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "euclid_7_16_bd");
     assert!(success, "Failed to render euclidean (7,16) with bd: {}", stderr);
