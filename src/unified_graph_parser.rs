@@ -408,12 +408,14 @@ pub enum EffectType {
     Distortion,
     BitCrush,
     Chorus,
+    Compressor,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum FilterType {
     LowPass,
     HighPass,
+    BandPass,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -575,7 +577,16 @@ fn filter(input: &str) -> IResult<&str, DslExpression> {
         }
     });
 
-    alt((lpf, hpf))(input)
+    let bpf = map(preceded(tag("bpf"), function_args), |args| {
+        DslExpression::Filter {
+            filter_type: FilterType::BandPass,
+            input: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(0.0))),
+            cutoff: Box::new(args.get(1).cloned().unwrap_or(DslExpression::Value(1000.0))),
+            q: Box::new(args.get(2).cloned().unwrap_or(DslExpression::Value(1.0))),
+        }
+    });
+
+    alt((lpf, hpf, bpf))(input)
 }
 
 /// Parse delay: delay(input, time, feedback, mix)
@@ -709,6 +720,7 @@ fn effect_type(input: &str) -> IResult<&str, EffectType> {
         value(EffectType::Distortion, tag("dist")),
         value(EffectType::BitCrush, tag("bitcrush")),
         value(EffectType::Chorus, tag("chorus")),
+        value(EffectType::Compressor, tag("compressor")),
     ))(input)
 }
 
@@ -1558,6 +1570,12 @@ impl DslCompiler {
                         q: q_signal,
                         state: Default::default(),
                     }),
+                    FilterType::BandPass => self.graph.add_node(SignalNode::BandPass {
+                        input: input_signal,
+                        center: cutoff_signal,  // Center frequency for bandpass
+                        q: q_signal,
+                        state: Default::default(),
+                    }),
                 }
             }
             DslExpression::BinaryOp { op, left, right } => {
@@ -1892,6 +1910,60 @@ impl DslCompiler {
                             })
                             .unwrap_or(0.3);
                         library.add_chorus(&mut self.graph, input_node, rate, depth, mix)
+                    }
+                    EffectType::Compressor => {
+                        let threshold_db = params
+                            .first()
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(-20.0);
+                        let ratio = params
+                            .get(1)
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(4.0);
+                        let attack = params
+                            .get(2)
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(0.01);
+                        let release = params
+                            .get(3)
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(0.1);
+                        let makeup_gain_db = params
+                            .get(4)
+                            .and_then(|e| {
+                                if let DslExpression::Value(v) = e {
+                                    Some(*v)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(0.0);
+
+                        library.add_compressor(&mut self.graph, input_node, threshold_db, ratio, attack, release, makeup_gain_db)
                     }
                 }
             }
@@ -2378,17 +2450,24 @@ impl DslCompiler {
                     q: cutoff,     // Shift: what was parsed as cutoff is actually q
                 }
             }
-            // For effects in chain context, shift arguments similarly
-            // Effect params don't include input, so no shift needed
+            // For effects in chain context, shift arguments
+            // The original "input" was actually the first parameter, so prepend it to params
+            // Example: sine 440 # compressor -30.0 10.0 0.001 0.01 0.0
+            //   Parser sees: Effect { input: -30.0, params: [10.0, 0.001, 0.01, 0.0] }
+            //   After shift: Effect { input: sine_440, params: [-30.0, 10.0, 0.001, 0.01, 0.0] }
             DslExpression::Effect {
                 effect_type,
-                input: _,
+                input,
                 params,
-            } => DslExpression::Effect {
-                effect_type,
-                input: Box::new(DslExpression::BusRef(bus_name)),
-                params,
-            },
+            } => {
+                let mut new_params = vec![*input];
+                new_params.extend(params);
+                DslExpression::Effect {
+                    effect_type,
+                    input: Box::new(DslExpression::BusRef(bus_name)),
+                    params: new_params,
+                }
+            }
             // For delays in chain context, shift arguments
             // Original parse: delay(t, f, m) -> input=t, time=f, feedback=m, mix=0.5
             // Chain context: delay(t, f, m) should mean time=t, feedback=f, mix=m

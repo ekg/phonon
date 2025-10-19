@@ -719,3 +719,170 @@ out: (~sig * 0.7 + ~reverb_send * 0.3) * 0.3
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
     assert!(!analysis.is_empty, "Audio should not be silent");
 }
+
+// ============================================================================
+// COMPRESSOR TESTS - E2E DSL VERIFICATION
+// ============================================================================
+
+#[test]
+fn test_compressor_on_synth() {
+    let dsl = r#"
+tempo: 0.5
+~sig: sine 440 # compressor -20.0 4.0 0.01 0.1 5.0
+out: ~sig * 0.3
+"#;
+    let (success, stderr, wav_path) = render_and_verify(dsl, "compressor_synth");
+    assert!(success, "Failed to apply compressor to synth: {}", stderr);
+
+    let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
+    assert!(!analysis.is_empty, "Audio should not be silent");
+}
+
+#[test]
+fn test_compressor_on_samples() {
+    let dsl = r#"
+tempo: 0.5
+~drums: s "bd sn hh cp" # compressor -20.0 4.0 0.01 0.1 5.0
+out: ~drums * 0.7
+"#;
+    let (success, stderr, wav_path) = render_and_verify(dsl, "compressor_samples");
+    assert!(success, "Failed to apply compressor to samples: {}", stderr);
+
+    let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
+    assert!(!analysis.is_empty, "Audio should not be silent");
+}
+
+#[test]
+fn test_compressor_reduces_peaks() {
+    // Test that compressor actually reduces dynamic range
+    // Compare uncompressed vs compressed signal
+
+    // Uncompressed
+    let dsl_uncompressed = r#"
+tempo: 0.5
+out: sine 440 * 0.5
+"#;
+    let (success, _, wav_path_uncomp) = render_and_verify(dsl_uncompressed, "compressor_uncompressed");
+    assert!(success, "Failed to render uncompressed signal");
+
+    // Compressed with heavy ratio
+    let dsl_compressed = r#"
+tempo: 0.5
+~sig: sine 440 # compressor -30.0 10.0 0.001 0.01 0.0
+out: ~sig * 0.5
+"#;
+    let (success, stderr, wav_path_comp) = render_and_verify(dsl_compressed, "compressor_compressed");
+    assert!(success, "Failed to render compressed signal: {}", stderr);
+
+    // Analyze both
+    let analysis_uncomp = analyze_wav_enhanced(&wav_path_uncomp).expect("Failed to analyze uncompressed");
+    let analysis_comp = analyze_wav_enhanced(&wav_path_comp).expect("Failed to analyze compressed");
+
+    println!("Uncompressed peak: {:.6}", analysis_uncomp.peak);
+    println!("Compressed peak:   {:.6}", analysis_comp.peak);
+
+    // Compressed signal should have lower peak
+    assert!(
+        analysis_comp.peak < analysis_uncomp.peak * 0.7,
+        "Compressor should reduce peak! Uncomp: {:.6}, Comp: {:.6}",
+        analysis_uncomp.peak, analysis_comp.peak
+    );
+}
+
+#[test]
+fn test_compressor_gentle_ratio() {
+    let dsl = r#"
+tempo: 0.5
+~sig: sine 440 # compressor -15.0 2.0 0.05 0.2 3.0
+out: ~sig * 0.3
+"#;
+    let (success, stderr, wav_path) = render_and_verify(dsl, "compressor_gentle");
+    assert!(success, "Failed gentle compression: {}", stderr);
+
+    let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
+    assert!(!analysis.is_empty, "Audio should not be silent");
+}
+
+#[test]
+fn test_compressor_heavy_limiting() {
+    let dsl = r#"
+tempo: 0.5
+~sig: sine 440 # compressor -10.0 20.0 0.001 0.05 5.0
+out: ~sig * 0.3
+"#;
+    let (success, stderr, wav_path) = render_and_verify(dsl, "compressor_limiter");
+    assert!(success, "Failed heavy limiting: {}", stderr);
+
+    let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
+    assert!(!analysis.is_empty, "Audio should not be silent");
+}
+
+#[test]
+fn test_compressor_fast_attack() {
+    let dsl = r#"
+tempo: 0.5
+~sig: sine 440 # compressor -20.0 4.0 0.001 0.1 5.0
+out: ~sig * 0.3
+"#;
+    let (success, stderr, wav_path) = render_and_verify(dsl, "compressor_fast_attack");
+    assert!(success, "Failed fast attack compression: {}", stderr);
+
+    let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
+    assert!(!analysis.is_empty, "Audio should not be silent");
+}
+
+#[test]
+fn test_compressor_slow_release() {
+    let dsl = r#"
+tempo: 0.5
+~sig: sine 440 # compressor -20.0 4.0 0.01 0.5 5.0
+out: ~sig * 0.3
+"#;
+    let (success, stderr, wav_path) = render_and_verify(dsl, "compressor_slow_release");
+    assert!(success, "Failed slow release compression: {}", stderr);
+
+    let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
+    assert!(!analysis.is_empty, "Audio should not be silent");
+}
+
+#[test]
+fn test_compressor_on_bass() {
+    let dsl = r#"
+tempo: 0.5
+~bass: saw 55 # compressor -25.0 6.0 0.01 0.15 8.0
+out: ~bass * 0.3
+"#;
+    let (success, stderr, wav_path) = render_and_verify(dsl, "compressor_bass");
+    assert!(success, "Failed compressor on bass: {}", stderr);
+
+    let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
+    assert!(!analysis.is_empty, "Audio should not be silent");
+}
+
+#[test]
+fn test_compressor_on_drums() {
+    let dsl = r#"
+tempo: 0.5
+~drums: s "[bd*4, sn*2, hh*8]" # compressor -18.0 4.0 0.005 0.1 4.0
+out: ~drums * 0.7
+"#;
+    let (success, stderr, wav_path) = render_and_verify(dsl, "compressor_drums");
+    assert!(success, "Failed compressor on drums: {}", stderr);
+
+    let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
+    assert!(!analysis.is_empty, "Audio should not be silent");
+}
+
+#[test]
+fn test_compressor_with_other_effects() {
+    let dsl = r#"
+tempo: 0.5
+~sig: saw 110 # lpf 1500 0.8 # distortion 0.5 # compressor -15.0 3.0 0.01 0.2 5.0 # reverb 0.3 0.6
+out: ~sig * 0.3
+"#;
+    let (success, stderr, wav_path) = render_and_verify(dsl, "compressor_chain");
+    assert!(success, "Failed compressor in effects chain: {}", stderr);
+
+    let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
+    assert!(!analysis.is_empty, "Audio should not be silent");
+}
