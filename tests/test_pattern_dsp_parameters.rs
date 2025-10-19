@@ -238,6 +238,54 @@ fn test_speed_parameter_half() {
 }
 
 #[test]
+fn test_pattern_based_speed() {
+    // Test that speed can be controlled by a pattern
+    let mut graph = UnifiedSignalGraph::new(44100.0);
+    graph.set_cps(2.0);
+
+    // Speed pattern: "1.0 2.0" - normal speed then double speed
+    let speed_pattern = parse_mini_notation("1.0 2.0");
+    let speed_node = graph.add_node(SignalNode::Pattern {
+        pattern_str: "1.0 2.0".to_string(),
+        pattern: speed_pattern,
+        last_value: 1.0,
+        last_trigger_time: -1.0,
+    });
+
+    // Sample pattern: two kicks
+    let sample_pattern = parse_mini_notation("bd bd");
+    let sample_node = graph.add_node(SignalNode::Sample {
+        pattern_str: "bd bd".to_string(),
+        pattern: sample_pattern,
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        playback_positions: HashMap::new(),
+        gain: Signal::Value(1.0),
+        pan: Signal::Value(0.0),
+        speed: Signal::Node(speed_node), // Pattern-controlled speed!
+        cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
+        attack: Signal::Value(0.001),
+        release: Signal::Value(0.1),
+    });
+
+    graph.set_output(sample_node);
+
+    // Render 1 cycle
+    let buffer = graph.render(22050);
+
+    let rms = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    println!("Pattern-based speed RMS: {:.6}", rms);
+    assert!(rms > 0.01, "Should have audible content");
+
+    // Note: Verifying different playback speeds through audio analysis would require
+    // spectral analysis or duration analysis, which is complex. For now, we verify
+    // that pattern-based speed doesn't crash and produces audio.
+    // The fix to eval_signal_at_time() ensures each event gets its own speed value.
+}
+
+#[test]
 fn test_pattern_based_gain() {
     // Test that gain can be controlled by a pattern
     // Create a gain pattern that varies
@@ -302,6 +350,100 @@ fn test_pattern_based_gain() {
 }
 
 #[test]
+fn test_pattern_based_n() {
+    // Test that n (sample number) can be controlled by a pattern
+    let mut graph = UnifiedSignalGraph::new(44100.0);
+    graph.set_cps(2.0);
+
+    // N pattern: "0 1" - selects bd:0 then bd:1
+    let n_pattern = parse_mini_notation("0 1");
+    let n_node = graph.add_node(SignalNode::Pattern {
+        pattern_str: "0 1".to_string(),
+        pattern: n_pattern,
+        last_value: 0.0,
+        last_trigger_time: -1.0,
+    });
+
+    // Sample pattern: two kicks (will be modified to bd:0 and bd:1 by n pattern)
+    let sample_pattern = parse_mini_notation("bd bd");
+    let sample_node = graph.add_node(SignalNode::Sample {
+        pattern_str: "bd bd".to_string(),
+        pattern: sample_pattern,
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        playback_positions: HashMap::new(),
+        gain: Signal::Value(1.0),
+        pan: Signal::Value(0.0),
+        speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
+        n: Signal::Node(n_node), // Pattern-controlled n!
+        note: Signal::Value(0.0),
+        attack: Signal::Value(0.001),
+        release: Signal::Value(0.1),
+    });
+
+    graph.set_output(sample_node);
+
+    // Render 1 cycle
+    let buffer = graph.render(22050);
+
+    let rms = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    println!("Pattern-based n RMS: {:.6}", rms);
+    assert!(rms > 0.01, "Should have audible content");
+
+    // Note: Verifying that different samples are triggered would require comparing
+    // waveform characteristics of bd:0 vs bd:1. For now, we verify that pattern-based
+    // n doesn't crash and produces audio.
+}
+
+#[test]
+fn test_pattern_based_note() {
+    // Test that note (pitch shift) can be controlled by a pattern
+    let mut graph = UnifiedSignalGraph::new(44100.0);
+    graph.set_cps(2.0);
+
+    // Note pattern: "0 12" - original pitch then octave up
+    let note_pattern = parse_mini_notation("0 12");
+    let note_node = graph.add_node(SignalNode::Pattern {
+        pattern_str: "0 12".to_string(),
+        pattern: note_pattern,
+        last_value: 0.0,
+        last_trigger_time: -1.0,
+    });
+
+    // Sample pattern: two kicks
+    let sample_pattern = parse_mini_notation("bd bd");
+    let sample_node = graph.add_node(SignalNode::Sample {
+        pattern_str: "bd bd".to_string(),
+        pattern: sample_pattern,
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        playback_positions: HashMap::new(),
+        gain: Signal::Value(1.0),
+        pan: Signal::Value(0.0),
+        speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Node(note_node), // Pattern-controlled note!
+        attack: Signal::Value(0.001),
+        release: Signal::Value(0.1),
+    });
+
+    graph.set_output(sample_node);
+
+    // Render 1 cycle
+    let buffer = graph.render(22050);
+
+    let rms = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    println!("Pattern-based note RMS: {:.6}", rms);
+    assert!(rms > 0.01, "Should have audible content");
+
+    // Note: Verifying pitch changes would require spectral analysis (FFT).
+    // For now, we verify that pattern-based note doesn't crash and produces audio.
+    // The fix to eval_signal_at_time() ensures each event gets its own note value.
+}
+
+#[test]
 #[ignore] // Enable once cut groups are fully verified
 fn test_cut_group_voice_stealing() {
     // Test that samples with the same cut group stop each other
@@ -324,6 +466,98 @@ fn test_cut_group_voice_stealing() {
 
     // TODO: Verify that voices are being cut
     // Would need to inspect VoiceManager state or analyze transients
+}
+
+#[test]
+fn test_pattern_based_attack() {
+    // Test that attack (envelope attack time) can be controlled by a pattern
+    let mut graph = UnifiedSignalGraph::new(44100.0);
+    graph.set_cps(2.0);
+
+    // Attack pattern: "0.001 0.1" - fast attack then slow attack
+    let attack_pattern = parse_mini_notation("0.001 0.1");
+    let attack_node = graph.add_node(SignalNode::Pattern {
+        pattern_str: "0.001 0.1".to_string(),
+        pattern: attack_pattern,
+        last_value: 0.001,
+        last_trigger_time: -1.0,
+    });
+
+    // Sample pattern: two kicks
+    let sample_pattern = parse_mini_notation("bd bd");
+    let sample_node = graph.add_node(SignalNode::Sample {
+        pattern_str: "bd bd".to_string(),
+        pattern: sample_pattern,
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        playback_positions: HashMap::new(),
+        gain: Signal::Value(1.0),
+        pan: Signal::Value(0.0),
+        speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
+        attack: Signal::Node(attack_node), // Pattern-controlled attack!
+        release: Signal::Value(0.1),
+    });
+
+    graph.set_output(sample_node);
+
+    // Render 1 cycle
+    let buffer = graph.render(22050);
+
+    let rms = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    println!("Pattern-based attack RMS: {:.6}", rms);
+    assert!(rms > 0.01, "Should have audible content");
+
+    // Note: Verifying different attack times would require onset/transient analysis.
+    // For now, we verify that pattern-based attack doesn't crash and produces audio.
+}
+
+#[test]
+fn test_pattern_based_release() {
+    // Test that release (envelope release time) can be controlled by a pattern
+    let mut graph = UnifiedSignalGraph::new(44100.0);
+    graph.set_cps(2.0);
+
+    // Release pattern: "0.01 0.5" - short tail then long tail
+    let release_pattern = parse_mini_notation("0.01 0.5");
+    let release_node = graph.add_node(SignalNode::Pattern {
+        pattern_str: "0.01 0.5".to_string(),
+        pattern: release_pattern,
+        last_value: 0.1,
+        last_trigger_time: -1.0,
+    });
+
+    // Sample pattern: two kicks
+    let sample_pattern = parse_mini_notation("bd bd");
+    let sample_node = graph.add_node(SignalNode::Sample {
+        pattern_str: "bd bd".to_string(),
+        pattern: sample_pattern,
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        playback_positions: HashMap::new(),
+        gain: Signal::Value(1.0),
+        pan: Signal::Value(0.0),
+        speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
+        attack: Signal::Value(0.001),
+        release: Signal::Node(release_node), // Pattern-controlled release!
+    });
+
+    graph.set_output(sample_node);
+
+    // Render 1 cycle
+    let buffer = graph.render(22050);
+
+    let rms = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    println!("Pattern-based release RMS: {:.6}", rms);
+    assert!(rms > 0.01, "Should have audible content");
+
+    // Note: Verifying different release times would require tail/decay analysis.
+    // For now, we verify that pattern-based release doesn't crash and produces audio.
 }
 
 #[test]

@@ -276,6 +276,72 @@ fn test_chorus_creates_modulation() {
 }
 
 #[test]
+fn test_delay_basic() {
+    let mut graph = UnifiedSignalGraph::new(44100.0);
+
+    // Short pulse
+    let osc = graph.add_node(SignalNode::Oscillator {
+        freq: Signal::Value(440.0),
+        waveform: Waveform::Sine,
+        phase: 0.0,
+    });
+
+    let delay = graph.add_node(SignalNode::Delay {
+        input: Signal::Node(osc),
+        time: Signal::Value(0.25),    // 250ms delay
+        feedback: Signal::Value(0.5), // Moderate feedback
+        mix: Signal::Value(1.0),      // 100% wet
+        buffer: vec![0.0; (2.0 * 44100.0) as usize],
+        write_idx: 0,
+    });
+
+    graph.set_output(delay);
+
+    let buffer = graph.render(44100); // 1 second
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+
+    // Delay should produce audio
+    assert!(rms > 0.1, "Delay should produce audio, got RMS={}", rms);
+}
+
+#[test]
+fn test_delay_creates_echoes() {
+    let mut graph = UnifiedSignalGraph::new(44100.0);
+
+    let osc = graph.add_node(SignalNode::Oscillator {
+        freq: Signal::Value(880.0),
+        waveform: Waveform::Sine,
+        phase: 0.0,
+    });
+
+    let delay = graph.add_node(SignalNode::Delay {
+        input: Signal::Node(osc),
+        time: Signal::Value(0.5),     // 500ms delay
+        feedback: Signal::Value(0.6), // Feedback for multiple echoes
+        mix: Signal::Value(0.5),      // 50% wet/dry mix
+        buffer: vec![0.0; (2.0 * 44100.0) as usize],
+        write_idx: 0,
+    });
+
+    graph.set_output(delay);
+
+    let buffer = graph.render(88200); // 2 seconds
+
+    // Check that signal is present throughout due to continuous oscillator + feedback
+    let early_rms: f32 = (buffer[..4410].iter().map(|x| x * x).sum::<f32>() / 4410.0).sqrt();
+
+    // After delay time (500ms+), should have echoes building up
+    let delayed_rms: f32 =
+        (buffer[22050..33075].iter().map(|x| x * x).sum::<f32>() / 11025.0).sqrt();
+
+    println!("Delay - Early RMS: {:.6}, Delayed RMS: {:.6}", early_rms, delayed_rms);
+
+    // Both should have signal (early has direct + starting echoes, late has accumulated echoes)
+    assert!(early_rms > 0.1, "Early signal should be present, got {:.6}", early_rms);
+    assert!(delayed_rms > 0.1, "Delayed signal should be present, got {:.6}", delayed_rms);
+}
+
+#[test]
 fn test_effects_chain() {
     let mut graph = UnifiedSignalGraph::new(44100.0);
 
