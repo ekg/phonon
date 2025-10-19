@@ -541,40 +541,67 @@ impl ModalEditor {
                         spans.push(Span::styled("█", Style::default().fg(Color::White)));
                     }
                 } else if cursor_col < line_text.len() {
-                    // Cursor in middle of line - apply syntax highlighting with cursor
-                    let before = &line_text[..cursor_col];
-                    let at_cursor = line_text.chars().nth(cursor_col).unwrap().to_string();
-                    let after = &line_text[cursor_col + 1..];
+                    // Cursor in middle of line - highlight whole line, then add cursor
+                    let mut highlighted = Self::highlight_line(line_text);
 
-                    // Highlight before cursor
-                    if !before.is_empty() {
-                        let mut before_spans = Self::highlight_line(before);
-                        if is_flashing {
-                            // Add flash background to all spans
-                            for span in &mut before_spans {
+                    // Find which character position cursor is at
+                    let mut char_count = 0;
+                    let mut modified_spans = Vec::new();
+
+                    for mut span in highlighted {
+                        let span_len = span.content.chars().count();
+
+                        if char_count + span_len <= cursor_col {
+                            // Cursor is after this span entirely
+                            if is_flashing {
                                 span.style = span.style.bg(flash_color).fg(Color::Black);
                             }
-                        }
-                        spans.append(&mut before_spans);
-                    }
-
-                    // Cursor character with white background
-                    spans.push(Span::styled(
-                        at_cursor,
-                        Style::default().bg(Color::White).fg(Color::Black),
-                    ));
-
-                    // Highlight after cursor
-                    if !after.is_empty() {
-                        let mut after_spans = Self::highlight_line(after);
-                        if is_flashing {
-                            // Add flash background to all spans
-                            for span in &mut after_spans {
+                            modified_spans.push(span);
+                            char_count += span_len;
+                        } else if char_count > cursor_col {
+                            // Cursor is before this span entirely
+                            if is_flashing {
                                 span.style = span.style.bg(flash_color).fg(Color::Black);
                             }
+                            modified_spans.push(span);
+                            char_count += span_len;
+                        } else {
+                            // Cursor is WITHIN this span
+                            let cursor_offset = cursor_col - char_count;
+                            let chars: Vec<char> = span.content.chars().collect();
+
+                            // Before cursor in this span
+                            if cursor_offset > 0 {
+                                let before: String = chars[..cursor_offset].iter().collect();
+                                let mut before_style = span.style;
+                                if is_flashing {
+                                    before_style = before_style.bg(flash_color).fg(Color::Black);
+                                }
+                                modified_spans.push(Span::styled(before, before_style));
+                            }
+
+                            // Cursor character - white background
+                            let cursor_char = chars[cursor_offset].to_string();
+                            modified_spans.push(Span::styled(
+                                cursor_char,
+                                Style::default().bg(Color::White).fg(Color::Black),
+                            ));
+
+                            // After cursor in this span
+                            if cursor_offset + 1 < chars.len() {
+                                let after: String = chars[cursor_offset + 1..].iter().collect();
+                                let mut after_style = span.style;
+                                if is_flashing {
+                                    after_style = after_style.bg(flash_color).fg(Color::Black);
+                                }
+                                modified_spans.push(Span::styled(after, after_style));
+                            }
+
+                            char_count += span_len;
                         }
-                        spans.append(&mut after_spans);
                     }
+
+                    spans = modified_spans;
                 } else {
                     // Cursor at end of line
                     let mut highlighted = Self::highlight_line(line_text);
