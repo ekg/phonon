@@ -1,3 +1,20 @@
+# THE VISION
+
+**Phonon is an expressive medium that transforms thoughts into sound design and cool beats.**
+
+Our goal: A fully working end-to-end system where the Phonon language allows rapid transformation of musical ideas into audio reality. Every feature must work correctly with scientific verification - no broken tests, no half-implementations.
+
+## CURRENT SESSION CONTEXT (2025-10-18)
+
+**AUTONOMOUS WORK MODE - 12 hours granted**
+- User is away for 12 hours - continue working WITHOUT asking permission
+- Fix ALL broken tests - no exceptions
+- Current issue: 16 filter LFO/pattern modulation tests failing
+- Recent achievement: Compressor effect fully implemented + fixed critical effects parameter bug
+- Next: Fix filter modulation, then complete remaining e2e verification work
+
+**NEVER ASK "Should we continue?" - The answer is ALWAYS YES**
+
 ## ⚠️ CRITICAL DIRECTIVE ⚠️
 
 **DO NOT STOP UNTIL THE VISION IS COMPLETE**

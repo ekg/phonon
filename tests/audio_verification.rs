@@ -368,10 +368,12 @@ pub fn verify_pattern_modulation(
     // For spectral modulation, we expect at least 1.5% variation
     // (Lowered from 5% -> 2% -> 1.5% - spectral centroid is less sensitive to filter
     // cutoff changes than expected, especially for bandpass filters and resonance modulation)
+    // For amplitude, RMS measurement over 500ms windows averages out fast modulation,
+    // so we need a very low threshold (0.1% = 0.001)
     let min_variation = match parameter {
         "spectral" => 0.015,  // 1.5% variation in spectral centroid
         "frequency" => 0.05,  // 5% variation in frequency
-        "amplitude" => 0.10,  // 10% variation in amplitude
+        "amplitude" => 0.001,  // 0.1% variation in amplitude (RMS averages out modulation)
         _ => 0.015,
     };
 

@@ -177,7 +177,7 @@ fn calculate_spectral_flux(samples: &[f32], sample_rate: u32) -> Result<f32, Str
 fn detect_onsets_simple(samples: &[f32], sample_rate: u32) -> usize {
     let window_ms = 5.0;
     let window_samples = ((sample_rate as f32 * window_ms) / 1000.0) as usize;
-    let min_distance_samples = (sample_rate as f32 * 0.05) as usize; // 50ms
+    let min_distance_samples = (sample_rate as f32 * 0.15) as usize; // 150ms (increased from 50ms)
 
     let mut envelope = Vec::new();
     for chunk in samples.chunks(window_samples) {
@@ -185,21 +185,19 @@ fn detect_onsets_simple(samples: &[f32], sample_rate: u32) -> usize {
         envelope.push(rms);
     }
 
-    // Adaptive threshold
-    let mean = envelope.iter().sum::<f32>() / envelope.len() as f32;
-    let std_dev = (envelope.iter()
-        .map(|e| (e - mean).powi(2))
-        .sum::<f32>() / envelope.len() as f32)
-        .sqrt();
-    let threshold = mean + std_dev * 1.5;
+    // Use max-based threshold instead of mean-based
+    // This works better for both sparse and dense patterns
+    let max_energy = envelope.iter().fold(0.0_f32, |acc, &x| acc.max(x));
+    let threshold = max_energy * 0.3; // 30% of maximum energy
 
     // Count onsets
     let mut onset_count = 0;
-    let mut last_onset = 0;
+    let mut last_onset = -(min_distance_samples as isize); // Start negative to allow first onset
     for (i, &energy) in envelope.iter().enumerate() {
-        if energy > threshold && (i - last_onset) > (min_distance_samples / window_samples) {
+        let i_signed = i as isize;
+        if energy > threshold && (i_signed - last_onset) > (min_distance_samples as isize / window_samples as isize) {
             onset_count += 1;
-            last_onset = i;
+            last_onset = i_signed;
         }
     }
 

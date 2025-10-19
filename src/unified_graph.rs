@@ -1647,6 +1647,18 @@ impl UnifiedSignalGraph {
                             .max(0.0)
                             .min(10.0); // Release time in seconds
 
+                        // CRITICAL FIX: When attack=0 and release=0 (default), don't apply
+                        // a short envelope that cuts off samples. Instead use sensible defaults
+                        // that let samples play through naturally.
+                        let (final_attack, final_release) = if attack_val == 0.0 && release_val == 0.0 {
+                            // No envelope requested: use very short attack and long release
+                            // to let the sample play through completely
+                            (0.001, 10.0)  // 1ms attack, 10s release (longer than any sample)
+                        } else {
+                            // Explicit envelope requested: use the values as-is
+                            (attack_val, release_val)
+                        };
+
                         // DEBUG: Print cut group info
                         if std::env::var("DEBUG_CUT_GROUPS").is_ok() {
                             eprintln!("Triggering {} at cycle {:.3}, cut_group_val={:.1}, cut_group_opt={:?}",
@@ -1665,8 +1677,8 @@ impl UnifiedSignalGraph {
                                     pan_val,
                                     final_speed,
                                     cut_group_opt,
-                                    attack_val,
-                                    release_val,
+                                    final_attack,
+                                    final_release,
                                 );
 
                             // Track this as the latest event we've triggered

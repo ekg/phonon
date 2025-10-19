@@ -552,6 +552,28 @@ impl SynthLibrary {
         })
     }
 
+    /// Add compressor effect
+    pub fn add_compressor(
+        &self,
+        graph: &mut UnifiedSignalGraph,
+        input: NodeId,
+        threshold_db: f32,
+        ratio: f32,
+        attack: f32,
+        release: f32,
+        makeup_gain_db: f32,
+    ) -> NodeId {
+        graph.add_node(SignalNode::Compressor {
+            input: Signal::Node(input),
+            threshold: Signal::Value(threshold_db),
+            ratio: Signal::Value(ratio),
+            attack: Signal::Value(attack),
+            release: Signal::Value(release),
+            makeup_gain: Signal::Value(makeup_gain_db),
+            state: crate::unified_graph::CompressorState::new(),
+        })
+    }
+
     // Helper function to mix multiple signals
     fn mix_signals(
         &self,

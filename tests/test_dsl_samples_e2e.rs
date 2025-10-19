@@ -99,7 +99,7 @@ out: s "cp" * 0.8
 fn test_open_hihat_only() {
     let dsl = r#"
 tempo: 0.5
-out: s "oh" * 0.8
+out: s "808oh" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "oh_only");
     assert!(success, "Failed to render open hihat: {}", stderr);
