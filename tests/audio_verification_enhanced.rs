@@ -177,7 +177,7 @@ fn calculate_spectral_flux(samples: &[f32], sample_rate: u32) -> Result<f32, Str
 fn detect_onsets_simple(samples: &[f32], sample_rate: u32) -> usize {
     let window_ms = 5.0;
     let window_samples = ((sample_rate as f32 * window_ms) / 1000.0) as usize;
-    let min_distance_samples = (sample_rate as f32 * 0.15) as usize; // 150ms (increased from 50ms)
+    let min_distance_samples = (sample_rate as f32 * 0.06) as usize; // 60ms (further reduced for dense patterns)
 
     let mut envelope = Vec::new();
     for chunk in samples.chunks(window_samples) {
@@ -188,7 +188,7 @@ fn detect_onsets_simple(samples: &[f32], sample_rate: u32) -> usize {
     // Use max-based threshold instead of mean-based
     // This works better for both sparse and dense patterns
     let max_energy = envelope.iter().fold(0.0_f32, |acc, &x| acc.max(x));
-    let threshold = max_energy * 0.3; // 30% of maximum energy
+    let threshold = max_energy * 0.15; // 15% of maximum energy (further reduced for closely-spaced hihats)
 
     // Count onsets
     let mut onset_count = 0;

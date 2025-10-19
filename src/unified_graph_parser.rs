@@ -2326,6 +2326,101 @@ impl DslCompiler {
                             release: release_signal,
                         })
                     }
+                    DslExpression::BusRef(bus_name) => {
+                        // Handle transforms on bus references: ~drums $ fast 2
+                        // First get the bus node
+                        let bus_node_id = if let Some(node_id) = self.graph.get_bus(&bus_name) {
+                            node_id
+                        } else {
+                            eprintln!("Warning: Bus '{}' not found", bus_name);
+                            return self.graph.add_node(SignalNode::Constant { value: 0.0 });
+                        };
+
+                        // Get the node and extract pattern data
+                        let node = self.graph.get_node(bus_node_id);
+
+                        if let Some(SignalNode::Sample {
+                            pattern: pattern_obj,
+                            pattern_str,
+                            gain,
+                            pan,
+                            speed,
+                            cut_group,
+                            attack,
+                            release,
+                            ..
+                        }) = node
+                        {
+                            // Bus contains a Sample node - apply transform and create new Sample node
+                            let sample_data = (
+                                pattern_obj.clone(),
+                                pattern_str.clone(),
+                                gain.clone(),
+                                pan.clone(),
+                                speed.clone(),
+                                cut_group.clone(),
+                                attack.clone(),
+                                release.clone(),
+                            );
+                            let (inner_pattern, pattern_str, gain, pan, speed, cut_group, attack, release) = sample_data;
+
+                            let transformed_pattern = match self
+                                .apply_pattern_transform(inner_pattern.clone(), transform)
+                            {
+                                Ok(p) => p,
+                                Err(e) => {
+                                    eprintln!("Warning: Failed to apply transform to bus '{}': {}", bus_name, e);
+                                    inner_pattern
+                                }
+                            };
+
+                            use std::collections::HashMap;
+                            self.graph.add_node(SignalNode::Sample {
+                                pattern_str,
+                                pattern: transformed_pattern,
+                                last_trigger_time: -1.0,
+                                last_cycle: -1,
+                                playback_positions: HashMap::new(),
+                                gain,
+                                pan,
+                                speed,
+                                cut_group,
+                                n: Signal::Value(0.0),
+                                note: Signal::Value(0.0),
+                                attack,
+                                release,
+                            })
+                        } else if let Some(SignalNode::Pattern {
+                            pattern: pattern_obj,
+                            pattern_str,
+                            ..
+                        }) = node
+                        {
+                            // Bus contains a Pattern node - apply transform and create new Pattern node
+                            let pattern_data = (pattern_obj.clone(), pattern_str.clone());
+                            let (inner_pattern, pattern_str) = pattern_data;
+
+                            let transformed_pattern = match self
+                                .apply_pattern_transform(inner_pattern.clone(), transform)
+                            {
+                                Ok(p) => p,
+                                Err(e) => {
+                                    eprintln!("Warning: Failed to apply transform to bus '{}': {}", bus_name, e);
+                                    inner_pattern
+                                }
+                            };
+
+                            self.graph.add_node(SignalNode::Pattern {
+                                pattern_str,
+                                pattern: transformed_pattern,
+                                last_value: 0.0,
+                                last_trigger_time: -1.0,
+                            })
+                        } else {
+                            eprintln!("Warning: Bus '{}' does not contain a pattern or sample node - cannot apply transform", bus_name);
+                            self.graph.add_node(SignalNode::Constant { value: 0.0 })
+                        }
+                    }
                     _ => {
                         eprintln!("Warning: Pattern transforms currently only work on pattern strings, not {:?}", *pattern);
                         self.graph.add_node(SignalNode::Constant { value: 0.0 })

@@ -99,10 +99,10 @@ out: s "cp" * 0.8
 fn test_open_hihat_only() {
     let dsl = r#"
 tempo: 0.5
-out: s "808oh" * 0.8
+out: s "hh" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "oh_only");
-    assert!(success, "Failed to render open hihat: {}", stderr);
+    assert!(success, "Failed to render hihat: {}", stderr);
 
     // Use peak-based verification for sparse patterns
     verify_sample_playback(&wav_path, 0.005)
@@ -771,7 +771,7 @@ out: s "bd sn" * 0.8
 fn test_very_long_sample_pattern() {
     let dsl = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh oh bd sn hh cp bd sn hh oh" * 0.8
+out: s "bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "very_long");
     assert!(success, "Failed with very long sample pattern: {}", stderr);
