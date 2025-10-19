@@ -113,6 +113,8 @@ fn test_pattern_gain_with_fast_transform() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -169,6 +171,8 @@ fn test_pattern_envelope_with_reverse() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Pattern(attack_str.to_string()),
         release: Signal::Pattern(release_str.to_string()),
     });
@@ -207,6 +211,8 @@ fn test_pattern_pan_with_slow() {
         pan: Signal::Pattern(pan_str.to_string()),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.05),
     });
@@ -246,6 +252,8 @@ fn test_pattern_speed_with_every() {
         pan: Signal::Value(0.0),
         speed: Signal::Pattern(speed_str.to_string()),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -285,6 +293,8 @@ fn test_64_voice_stress_test() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.3), // Long release to cause overlap
     });
@@ -327,6 +337,8 @@ fn test_rapid_triggers_long_release() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(1.0), // 1 second release - extreme overlap
     });
@@ -367,6 +379,8 @@ fn test_cut_group_stops_long_envelope() {
         pan: Signal::Value(0.2),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(1.0), // Cut group 1
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.5), // Long release
     });
@@ -383,6 +397,8 @@ fn test_cut_group_stops_long_envelope() {
         pan: Signal::Value(-0.2),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(1.0), // Same cut group
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.05), // Short release
     });

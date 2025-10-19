@@ -29,6 +29,8 @@ fn test_alternation_over_multiple_cycles() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -112,6 +114,8 @@ fn test_concatenation_multiple_samples() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -192,6 +196,8 @@ fn test_layering_simultaneous_samples() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -252,6 +258,8 @@ fn test_alternation_with_subdivision() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -315,6 +323,8 @@ fn test_concatenation_over_multiple_bars() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -387,6 +397,8 @@ fn test_euclidean_alternation_combo() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -453,6 +465,8 @@ fn test_fast_subdivision_accuracy() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });

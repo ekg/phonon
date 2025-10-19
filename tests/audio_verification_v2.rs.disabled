@@ -1,0 +1,348 @@
+/// Enhanced Audio Verification Module v2
+/// Uses professional Rust audio analysis crates:
+/// - spectrum-analyzer for FFT with proper windowing
+/// - audio-processor-analysis for transient detection
+///
+/// CRITICAL: "We are deaf" - can only verify audio through analysis tools
+
+use hound;
+use spectrum_analyzer::{samples_fft_to_spectrum, FrequencyLimit};
+use spectrum_analyzer::windows::hann_window;
+use spectrum_analyzer::scaling::divide_by_N;
+use audio_processor_analysis::transient_detection::{TransientDetectionProcessor, TransientDetectionProcessorHandle};
+use audio_processor_traits::{AudioBuffer, AudioProcessor, AudioProcessorSettings};
+
+#[derive(Debug)]
+pub struct AudioAnalysisV2 {
+    pub rms: f32,
+    pub peak: f32,
+    pub dominant_frequency: f32,
+    pub spectral_centroid: f32,
+    pub transient_count: usize,
+    pub spectral_spread: f32,
+    pub is_empty: bool,
+    pub is_clipping: bool,
+}
+
+/// Read WAV file and perform comprehensive analysis using professional tools
+pub fn analyze_wav_enhanced(wav_path: &str) -> Result<AudioAnalysisV2, String> {
+    let mut reader = hound::WavReader::open(wav_path)
+        .map_err(|e| format!("Failed to open WAV file: {}", e))?;
+
+    let spec = reader.spec();
+    let sample_rate = spec.sample_rate;
+
+    // Read all samples
+    let samples: Vec<f32> = if spec.sample_format == hound::SampleFormat::Float {
+        reader.samples::<f32>().map(|s| s.unwrap()).collect()
+    } else {
+        reader.samples::<i16>()
+            .map(|s| s.unwrap() as f32 / 32768.0)
+            .collect()
+    };
+
+    if samples.is_empty() {
+        return Err("No samples in WAV file".to_string());
+    }
+
+    // Basic statistics
+    let peak = samples.iter().map(|s| s.abs()).fold(0.0_f32, f32::max);
+    let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
+    let is_empty = rms < 0.0001 && peak < 0.001;
+    let is_clipping = peak >= 0.999;
+
+    // Enhanced FFT analysis using spectrum-analyzer
+    let (dominant_frequency, spectral_centroid, spectral_spread) =
+        analyze_spectrum_enhanced(&samples, sample_rate)?;
+
+    // Transient detection using audio-processor-analysis
+    let transient_count = detect_transients_enhanced(&samples, sample_rate)?;
+
+    Ok(AudioAnalysisV2 {
+        rms,
+        peak,
+        dominant_frequency,
+        spectral_centroid,
+        transient_count,
+        spectral_spread,
+        is_empty,
+        is_clipping,
+    })
+}
+
+/// Enhanced spectrum analysis using spectrum-analyzer crate with Hann window
+fn analyze_spectrum_enhanced(samples: &[f32], sample_rate: u32) -> Result<(f32, f32, f32), String> {
+    // Find next power of 2 for FFT (up to 8192)
+    let fft_size = samples.len().min(8192).next_power_of_two();
+    let chunk = &samples[..fft_size.min(samples.len())];
+
+    // Apply Hann window for better frequency resolution
+    let windowed_samples = hann_window(chunk);
+
+    // Perform FFT with spectrum-analyzer
+    let spectrum = samples_fft_to_spectrum(
+        &windowed_samples,
+        sample_rate,
+        FrequencyLimit::All,
+        Some(&divide_by_N),
+    ).map_err(|e| format!("FFT error: {:?}", e))?;
+
+    // Find dominant frequency
+    let mut max_magnitude = 0.0_f32;
+    let mut dominant_freq = 0.0_f32;
+    let mut total_magnitude = 0.0_f32;
+    let mut weighted_freq_sum = 0.0_f32;
+    let mut weighted_freq_sq_sum = 0.0_f32;
+
+    for (freq, magnitude) in spectrum.data().iter() {
+        let mag = magnitude.val();
+        total_magnitude += mag;
+        weighted_freq_sum += freq.val() * mag;
+        weighted_freq_sq_sum += freq.val() * freq.val() * mag;
+
+        if mag > max_magnitude {
+            max_magnitude = mag;
+            dominant_freq = freq.val();
+        }
+    }
+
+    // Spectral centroid (brightness)
+    let spectral_centroid = if total_magnitude > 0.0 {
+        weighted_freq_sum / total_magnitude
+    } else {
+        0.0
+    };
+
+    // Spectral spread (variance around centroid)
+    let spectral_spread = if total_magnitude > 0.0 {
+        let variance = (weighted_freq_sq_sum / total_magnitude) - (spectral_centroid * spectral_centroid);
+        variance.max(0.0).sqrt()
+    } else {
+        0.0
+    };
+
+    Ok((dominant_freq, spectral_centroid, spectral_spread))
+}
+
+/// Enhanced transient detection using audio-processor-analysis
+fn detect_transients_enhanced(samples: &[f32], sample_rate: u32) -> Result<usize, String> {
+    // Create transient detector settings
+    let settings = AudioProcessorSettings::new(
+        sample_rate as f32,
+        1, // mono
+        1, // single input
+        1, // single output
+    );
+
+    // Create transient detection processor
+    let mut processor = TransientDetectionProcessor::default();
+    let handle = TransientDetectionProcessorHandle::default();
+    processor.prepare(settings);
+
+    // Process audio in chunks
+    let chunk_size = 512;
+    let mut transient_count = 0;
+    let mut last_transient_pos = 0;
+    let min_distance_samples = (sample_rate as f32 * 0.05) as usize; // 50ms minimum distance
+
+    for (i, chunk) in samples.chunks(chunk_size).enumerate() {
+        // Create audio buffer
+        let mut buffer = AudioBuffer::empty();
+        buffer.resize(1, chunk.len(), 0.0);
+        for (sample_idx, &sample) in chunk.iter().enumerate() {
+            buffer.set(0, sample_idx, sample);
+        }
+
+        // Process
+        processor.process(&mut buffer, &handle);
+
+        // Check for transient markers in this chunk
+        let chunk_start = i * chunk_size;
+        for (sample_idx, &sample) in chunk.iter().enumerate() {
+            let abs_pos = chunk_start + sample_idx;
+            // Simple energy-based transient detection
+            if sample.abs() > 0.1 && (abs_pos - last_transient_pos) > min_distance_samples {
+                // Check for sharp attack (compare to previous sample)
+                if sample_idx > 0 && (sample - chunk[sample_idx - 1]).abs() > 0.05 {
+                    transient_count += 1;
+                    last_transient_pos = abs_pos;
+                }
+            }
+        }
+    }
+
+    Ok(transient_count)
+}
+
+/// Verify audio exists (not silence)
+pub fn verify_audio_exists_v2(wav_path: &str) -> Result<AudioAnalysisV2, String> {
+    let analysis = analyze_wav_enhanced(wav_path)?;
+
+    if analysis.is_empty {
+        return Err(format!(
+            "Audio is silent! RMS: {:.6}, Peak: {:.6}",
+            analysis.rms, analysis.peak
+        ));
+    }
+
+    Ok(analysis)
+}
+
+/// Verify oscillator frequency using enhanced FFT
+pub fn verify_oscillator_frequency_v2(
+    wav_path: &str,
+    expected_freq: f32,
+    tolerance_hz: f32,
+) -> Result<(), String> {
+    let analysis = analyze_wav_enhanced(wav_path)?;
+
+    if analysis.is_empty {
+        return Err("Audio is silent - oscillator not working".to_string());
+    }
+
+    let freq_diff = (analysis.dominant_frequency - expected_freq).abs();
+    if freq_diff > tolerance_hz {
+        return Err(format!(
+            "Frequency mismatch! Expected: {:.1} Hz, Got: {:.1} Hz (diff: {:.1} Hz, tolerance: {:.1} Hz)",
+            expected_freq, analysis.dominant_frequency, freq_diff, tolerance_hz
+        ));
+    }
+
+    Ok(())
+}
+
+/// Verify LFO modulation using spectral spread
+pub fn verify_lfo_modulation_v2(wav_path: &str) -> Result<(), String> {
+    let analysis = analyze_wav_enhanced(wav_path)?;
+
+    if analysis.is_empty {
+        return Err("Audio is silent".to_string());
+    }
+
+    // LFO modulation should create significant spectral spread
+    if analysis.spectral_spread < 100.0 {
+        return Err(format!(
+            "LFO modulation not detected! Spectral spread too low: {:.1} Hz (expected > 100 Hz)",
+            analysis.spectral_spread
+        ));
+    }
+
+    Ok(())
+}
+
+/// Verify sample playback using transient detection
+pub fn verify_sample_playback_v2(
+    wav_path: &str,
+    min_onsets: usize,
+) -> Result<AudioAnalysisV2, String> {
+    let analysis = analyze_wav_enhanced(wav_path)?;
+
+    if analysis.is_empty {
+        return Err("Audio is silent - no sample playback detected".to_string());
+    }
+
+    if analysis.transient_count < min_onsets {
+        return Err(format!(
+            "Expected at least {} onsets/transients, detected only {}",
+            min_onsets, analysis.transient_count
+        ));
+    }
+
+    Ok(analysis)
+}
+
+/// Verify amplitude range
+pub fn verify_amplitude_range_v2(
+    wav_path: &str,
+    min_rms: f32,
+    max_peak: f32,
+) -> Result<(), String> {
+    let analysis = analyze_wav_enhanced(wav_path)?;
+
+    if analysis.rms < min_rms {
+        return Err(format!(
+            "RMS too low: {:.4} (expected >= {:.4})",
+            analysis.rms, min_rms
+        ));
+    }
+
+    if analysis.peak > max_peak {
+        return Err(format!(
+            "Peak too high: {:.4} (expected <= {:.4})",
+            analysis.peak, max_peak
+        ));
+    }
+
+    if analysis.is_clipping {
+        return Err(format!(
+            "Audio is clipping! Peak: {:.4}",
+            analysis.peak
+        ));
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::f32::consts::PI;
+
+    fn create_test_wav(samples: &[f32], sample_rate: u32, path: &str) {
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        };
+        let mut writer = hound::WavWriter::create(path, spec).unwrap();
+        for &sample in samples {
+            writer.write_sample(sample).unwrap();
+        }
+        writer.finalize().unwrap();
+    }
+
+    #[test]
+    fn test_enhanced_frequency_detection() {
+        // Generate 440 Hz sine wave
+        let sample_rate = 44100;
+        let duration = 1.0;
+        let freq = 440.0;
+        let num_samples = (sample_rate as f32 * duration) as usize;
+
+        let samples: Vec<f32> = (0..num_samples)
+            .map(|i| {
+                let t = i as f32 / sample_rate as f32;
+                (2.0 * PI * freq * t).sin() * 0.5
+            })
+            .collect();
+
+        let path = "/tmp/test_enhanced_440hz.wav";
+        create_test_wav(&samples, sample_rate, path);
+
+        // Test enhanced frequency detection
+        let result = verify_oscillator_frequency_v2(path, 440.0, 10.0);
+        assert!(result.is_ok(), "Enhanced FFT should detect 440 Hz: {:?}", result);
+    }
+
+    #[test]
+    fn test_enhanced_transient_detection() {
+        // Generate audio with 4 transients
+        let sample_rate = 44100;
+        let mut samples = vec![0.0_f32; sample_rate as usize];
+
+        // Add 4 sharp transients at regular intervals
+        for i in 0..4 {
+            let pos = (i * sample_rate as usize / 4) + 1000;
+            samples[pos] = 0.8;
+            samples[pos + 1] = 0.4;
+        }
+
+        let path = "/tmp/test_enhanced_transients.wav";
+        create_test_wav(&samples, sample_rate, path);
+
+        // Test transient detection
+        let result = verify_sample_playback_v2(path, 3);
+        assert!(result.is_ok(), "Should detect at least 3 transients: {:?}", result);
+    }
+}

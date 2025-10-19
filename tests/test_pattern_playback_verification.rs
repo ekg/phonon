@@ -28,6 +28,8 @@ fn test_alternation_cycles_have_audio() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -80,6 +82,8 @@ fn test_concatenation_cycles_have_audio() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -117,6 +121,8 @@ fn test_subdivision_has_audio() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -153,6 +159,8 @@ fn test_euclidean_alternation_has_audio() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -195,6 +203,8 @@ fn test_layering_has_louder_audio() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -217,6 +227,8 @@ fn test_layering_has_louder_audio() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -257,6 +269,8 @@ fn test_multiple_bars_consistent() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });

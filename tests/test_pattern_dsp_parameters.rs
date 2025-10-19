@@ -37,6 +37,8 @@ fn render_sample_pattern(
         pan,
         speed,
         cut_group,
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -263,6 +265,8 @@ fn test_pattern_based_gain() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -276,8 +280,25 @@ fn test_pattern_based_gain() {
     println!("Pattern-based gain RMS: {:.6}", rms);
     assert!(rms > 0.01, "Should have audible content");
 
-    // TODO: Verify that the two kicks have different amplitudes
-    // This would require segmenting the audio and comparing RMS of each segment
+    // Verify that the two kicks have different amplitudes
+    // Split buffer into halves - first kick gets gain=0.2, second gets gain=1.0
+    let first_half = &buffer[0..11025];
+    let second_half = &buffer[11025..22050];
+
+    let first_peak = first_half.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+    let second_peak = second_half.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+
+    println!("First BD (gain=0.2):  peak = {:.6}", first_peak);
+    println!("Second BD (gain=1.0): peak = {:.6}", second_peak);
+    let ratio = second_peak / first_peak;
+    println!("Ratio: {:.3} (expected ~5.0)", ratio);
+
+    // Second kick should be ~5x louder (gain 1.0 / 0.2 = 5.0)
+    assert!(
+        (ratio - 5.0).abs() < 1.0,
+        "Pattern gain not working: ratio = {:.3}, expected 5.0",
+        ratio
+    );
 }
 
 #[test]

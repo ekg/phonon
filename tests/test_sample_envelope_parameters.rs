@@ -21,6 +21,8 @@ fn test_attack_parameter_shapes_onset() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.1),  // 100ms attack
         release: Signal::Value(0.05), // 50ms release
     });
@@ -80,6 +82,8 @@ fn test_release_parameter_controls_tail() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),  // 1ms attack
         release: Signal::Value(0.01),  // 10ms release (short)
     });
@@ -100,6 +104,8 @@ fn test_release_parameter_controls_tail() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),  // 1ms attack
         release: Signal::Value(0.2),   // 200ms release (long)
     });
@@ -165,6 +171,8 @@ fn test_fast_vs_slow_attack() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.001),  // 1ms attack (fast)
         release: Signal::Value(0.05),
     });
@@ -185,6 +193,8 @@ fn test_fast_vs_slow_attack() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.15),  // 150ms attack (slow)
         release: Signal::Value(0.05),
     });
@@ -240,6 +250,8 @@ fn test_default_envelope_values() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.0),   // Default attack
         release: Signal::Value(0.0),  // Default release
     });
@@ -277,6 +289,8 @@ fn test_envelope_gain_interaction() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.01),  // 10ms attack
         release: Signal::Value(0.05), // 50ms release
     });
@@ -325,6 +339,8 @@ fn test_multiple_events_different_envelopes() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.01),  // 10ms attack
         release: Signal::Value(0.1),  // 100ms release
     });
@@ -381,6 +397,8 @@ fn test_extreme_envelope_values_clamped() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(100.0),   // 100s attack (extreme)
         release: Signal::Value(100.0),  // 100s release (extreme)
     });
@@ -420,6 +438,8 @@ fn test_very_short_envelope() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
         attack: Signal::Value(0.00001),  // 0.01ms attack (very short)
         release: Signal::Value(0.0001),  // 0.1ms release (very short)
     });

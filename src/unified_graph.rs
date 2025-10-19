@@ -983,7 +983,44 @@ impl UnifiedSignalGraph {
     /// This allows per-event DSP parameter evaluation
     fn eval_signal_at_time(&mut self, signal: &Signal, cycle_pos: f64) -> f32 {
         match signal {
-            Signal::Node(id) => self.eval_node(id),
+            Signal::Node(id) => {
+                // CRITICAL FIX: For Pattern nodes, query at the specified cycle_pos
+                // instead of self.cycle_position to ensure each event gets the correct
+                // parameter value from pattern-valued DSP parameters like gain "1.0 0.5"
+                if let Some(Some(SignalNode::Pattern { pattern, .. })) = self.nodes.get(id.0) {
+                    let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                    let state = State {
+                        span: TimeSpan::new(
+                            Fraction::from_float(cycle_pos),
+                            Fraction::from_float(cycle_pos + sample_width),
+                        ),
+                        controls: HashMap::new(),
+                    };
+
+                    let events = pattern.query(&state);
+                    if let Some(event) = events.first() {
+                        let s = event.value.as_str();
+                        if s == "~" || s.is_empty() {
+                            0.0
+                        } else {
+                            use crate::pattern_tonal::{midi_to_freq, note_to_midi};
+                            if let Ok(numeric_value) = s.parse::<f32>() {
+                                numeric_value
+                            } else if let Some(midi) = note_to_midi(s) {
+                                midi_to_freq(midi) as f32
+                            } else {
+                                1.0
+                            }
+                        }
+                    } else {
+                        0.0
+                    }
+                } else {
+                    // For non-Pattern nodes (oscillators, filters, etc.),
+                    // use eval_node which evaluates at current cycle position
+                    self.eval_node(id)
+                }
+            }
             Signal::Bus(name) => {
                 if let Some(id) = self.buses.get(name).cloned() {
                     self.eval_node(&id)

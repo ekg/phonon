@@ -33,6 +33,8 @@ fn compare_normal_vs_degraded_sample_nodes() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
     });
@@ -66,6 +68,8 @@ fn compare_normal_vs_degraded_sample_nodes() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
     });

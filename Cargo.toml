@@ -56,8 +56,11 @@ crossterm = "0.27"
 # File watching for hot-reload
 notify = "6.1"
 
-# FFT for audio analysis (test dependencies)
+# Audio analysis for testing
 rustfft = "6.1"
+spectrum-analyzer = "1.7"
+audio-processor-analysis = "2.4"
+audio-processor-traits = "4.3"
 
 [[bin]]
 name = "wav_analyze"

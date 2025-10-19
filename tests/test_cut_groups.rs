@@ -127,6 +127,8 @@ fn test_cut_group_integration_with_unified_graph() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(1.0), // All in cut_group=1
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
@@ -181,6 +183,8 @@ fn test_pattern_controlled_cut_groups() {
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Node(cut_node), // Pattern-controlled!
+        n: phonon::unified_graph::Signal::Value(0.0),
+        note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
     });
