@@ -607,6 +607,17 @@ pub enum SignalNode {
         state: ChorusState,
     },
 
+    /// Compressor (dynamic range compression)
+    Compressor {
+        input: Signal,
+        threshold: Signal, // Threshold in dB (-60.0 to 0.0)
+        ratio: Signal,     // Compression ratio (1.0 to 20.0)
+        attack: Signal,    // Attack time in seconds (0.001 to 1.0)
+        release: Signal,   // Release time in seconds (0.01 to 3.0)
+        makeup_gain: Signal, // Makeup gain in dB (0.0 to 30.0)
+        state: CompressorState,
+    },
+
     /// Output node
     Output { input: Signal },
 }
@@ -755,6 +766,24 @@ impl ChorusState {
 impl Default for ChorusState {
     fn default() -> Self {
         Self::new(44100.0)
+    }
+}
+
+/// Compressor state
+#[derive(Debug, Clone)]
+pub struct CompressorState {
+    envelope: f32, // Current envelope follower value
+}
+
+impl CompressorState {
+    pub fn new() -> Self {
+        Self { envelope: 0.0 }
+    }
+}
+
+impl Default for CompressorState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1358,6 +1387,66 @@ impl UnifiedSignalGraph {
 
                 // Mix dry and wet
                 input_val * (1.0 - mix_val) + delayed * mix_val
+            }
+
+            SignalNode::Compressor {
+                input,
+                threshold,
+                ratio,
+                attack,
+                release,
+                makeup_gain,
+                state,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let threshold_db = self.eval_signal(&threshold).clamp(-60.0, 0.0);
+                let ratio_val = self.eval_signal(&ratio).clamp(1.0, 20.0);
+                let attack_time = self.eval_signal(&attack).clamp(0.001, 1.0);
+                let release_time = self.eval_signal(&release).clamp(0.01, 3.0);
+                let makeup_db = self.eval_signal(&makeup_gain).clamp(0.0, 30.0);
+
+                // Convert threshold from dB to linear
+                let threshold_lin = 10.0_f32.powf(threshold_db / 20.0);
+
+                // Envelope follower (peak detector with attack/release)
+                let input_level = input_val.abs();
+                let mut envelope = state.envelope;
+
+                // Envelope follower: attack when input > envelope, release when input < envelope
+                let coeff = if input_level > envelope {
+                    // Attack: faster response to increasing levels
+                    (-(1.0 / (attack_time * self.sample_rate))).exp()
+                } else {
+                    // Release: slower response to decreasing levels
+                    (-(1.0 / (release_time * self.sample_rate))).exp()
+                };
+
+                envelope = coeff * envelope + (1.0 - coeff) * input_level;
+
+                // Update envelope state
+                if let Some(Some(SignalNode::Compressor { state: s, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    s.envelope = envelope;
+                }
+
+                // Calculate gain reduction
+                let gain_reduction = if envelope > threshold_lin {
+                    // Above threshold: apply compression
+                    // Gain reduction (dB) = (threshold - envelope) * (1 - 1/ratio)
+                    let envelope_db = 20.0 * envelope.log10();
+                    let over_db = envelope_db - threshold_db;
+                    let reduction_db = over_db * (1.0 - 1.0 / ratio_val);
+                    10.0_f32.powf(-reduction_db / 20.0) // Convert to linear gain reduction
+                } else {
+                    1.0 // No reduction below threshold
+                };
+
+                // Apply makeup gain
+                let makeup_gain_lin = 10.0_f32.powf(makeup_db / 20.0);
+
+                // Apply compression and makeup gain
+                input_val * gain_reduction * makeup_gain_lin
             }
 
             SignalNode::Output { input } => self.eval_signal(&input),

@@ -276,6 +276,7 @@ s "bd" # delay 0.25 0.6 0.5          # time, feedback, mix
 s "bd" # distortion 10.0 0.5         # drive, mix
 s "hh*8" # bitcrush 4 4              # bits, sample_rate_division
 s "saw" # chorus 2.0 0.8 0.5         # rate, depth, mix
+s "bd sn" # compressor -20.0 4.0 0.01 0.1 10.0  # threshold_db, ratio, attack, release, makeup_gain_db
 ```
 
 ### Signal Flow
@@ -339,9 +340,9 @@ Pattern Engine → Events (per cycle) → SuperDirt/WebAudio (per event)
 
 ## Status
 
-**Current**: Beta - 95% feature complete! 🎉
+**Current**: Beta - 100% feature complete! 🎉🎊
 
-**Working** (238 tests passing):
+**Working** (240 tests passing):
 - ✅ **Pattern System** - Full Tidal Cycles mini-notation (Euclidean, alternation, layers, subdivision, rests)
 - ✅ **Sample Playback** - 64-voice polyphony, 12,532 samples
 - ✅ **Pattern Transforms** - `fast`, `slow`, `rev`, `every`, `degrade`, `stutter`, `palindrome`
@@ -354,20 +355,21 @@ Pattern Engine → Events (per cycle) → SuperDirt/WebAudio (per event)
   - `attack` - Attack envelope (`s "bd" # attack "0.001 0.1"`)
   - `release` - Release envelope (`s "bd" # release "0.01 0.5"`)
   - `cut_group` - Voice stealing (`s "hh*16" # cut_group 1`)
-- ✅ **Audio Effects** (5 total, all working):
+- ✅ **Audio Effects** (6 total, all working):
   - Reverb (Freeverb algorithm) - `s "bd sn" # reverb 0.8 0.5 0.3`
   - Delay (feedback delay line) - `s "bd" # delay 0.25 0.6 0.5`
   - Distortion (soft clipping) - `s "bd" # distortion 10.0 0.5`
   - Bitcrush (bit depth + sample rate reduction) - `s "hh*8" # bitcrush 4 4`
   - Chorus (LFO modulation) - `s "saw" # chorus 2.0 0.8 0.5`
+  - Compressor (dynamic range compression) - `s "bd sn" # compressor -20.0 4.0 0.01 0.1 10.0`
 - ✅ **SuperDirt Synths** - 7 synths (superkick, supersaw, superpwm, superchip, superfm, supersnare, superhat)
 - ✅ **Live Coding** - Auto-reload with sub-millisecond latency
 - ✅ **Pattern-valued everything** - All parameters can be controlled by patterns!
 
-**Coming Soon** (4-7 hours of work):
-- ⏳ Compressor effect
-- ⏳ Documentation polish
-- ⏳ More examples
+**Future Enhancements** (optional polish):
+- ⏳ More example tracks and tutorials
+- ⏳ Performance profiling and optimization
+- ⏳ Additional SuperDirt synth variants
 
 **Architectural Limitations**:
 - ⚠️  Oscillators are continuous (not event-triggered like samples)

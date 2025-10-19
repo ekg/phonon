@@ -1,6 +1,7 @@
 /// Tests for audio effects in UnifiedSignalGraph
 use phonon::unified_graph::{
-    BitCrushState, ChorusState, ReverbState, Signal, SignalNode, UnifiedSignalGraph, Waveform,
+    BitCrushState, ChorusState, CompressorState, ReverbState, Signal, SignalNode,
+    UnifiedSignalGraph, Waveform,
 };
 
 #[test]
@@ -383,6 +384,101 @@ fn test_effects_chain() {
     assert!(
         rms > 0.1,
         "Effects chain should produce audio, got RMS={}",
+        rms
+    );
+}
+
+#[test]
+fn test_compressor_basic() {
+    let mut graph = UnifiedSignalGraph::new(44100.0);
+
+    // Create a sine wave
+    let osc = graph.add_node(SignalNode::Oscillator {
+        freq: Signal::Value(440.0),
+        waveform: Waveform::Sine,
+        phase: 0.0,
+    });
+
+    let compressor = graph.add_node(SignalNode::Compressor {
+        input: Signal::Node(osc),
+        threshold: Signal::Value(-20.0), // -20 dB threshold
+        ratio: Signal::Value(4.0),       // 4:1 ratio
+        attack: Signal::Value(0.01),     // 10ms attack
+        release: Signal::Value(0.1),     // 100ms release
+        makeup_gain: Signal::Value(10.0), // 10 dB makeup gain
+        state: CompressorState::new(),
+    });
+
+    graph.set_output(compressor);
+
+    let buffer = graph.render(44100); // 1 second
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+
+    // Compressor should produce audio
+    assert!(
+        rms > 0.1,
+        "Compressor should produce audio, got RMS={}",
+        rms
+    );
+}
+
+#[test]
+fn test_compressor_reduces_dynamic_range() {
+    // Test WITHOUT compressor
+    let mut graph_uncompressed = UnifiedSignalGraph::new(44100.0);
+
+    let osc_uncomp = graph_uncompressed.add_node(SignalNode::Oscillator {
+        freq: Signal::Value(440.0),
+        waveform: Waveform::Sine,
+        phase: 0.0,
+    });
+
+    graph_uncompressed.set_output(osc_uncomp);
+    let buffer_uncomp = graph_uncompressed.render(44100); // 1 second
+    let peak_uncomp = buffer_uncomp.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+
+    // Test WITH compressor
+    let mut graph_compressed = UnifiedSignalGraph::new(44100.0);
+
+    let osc_comp = graph_compressed.add_node(SignalNode::Oscillator {
+        freq: Signal::Value(440.0),
+        waveform: Waveform::Sine,
+        phase: 0.0,
+    });
+
+    let compressor = graph_compressed.add_node(SignalNode::Compressor {
+        input: Signal::Node(osc_comp),
+        threshold: Signal::Value(-40.0), // -40 dB threshold (very low, so it compresses)
+        ratio: Signal::Value(10.0),      // 10:1 ratio (heavy compression)
+        attack: Signal::Value(0.001),    // 1ms attack (very fast)
+        release: Signal::Value(0.01),    // 10ms release (fast)
+        makeup_gain: Signal::Value(0.0), // No makeup gain
+        state: CompressorState::new(),
+    });
+
+    graph_compressed.set_output(compressor);
+    let buffer_comp = graph_compressed.render(44100); // 1 second
+    let peak_comp = buffer_comp.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+
+    println!(
+        "Uncompressed peak: {:.6}, Compressed peak: {:.6}",
+        peak_uncomp, peak_comp
+    );
+
+    // The compressed signal should have a lower peak due to gain reduction
+    // With a -40dB threshold and 10:1 ratio on a ~0dB signal, we expect significant reduction
+    assert!(
+        peak_comp < peak_uncomp * 0.7,
+        "Compressor should reduce peak level, uncomp={:.6}, comp={:.6}",
+        peak_uncomp,
+        peak_comp
+    );
+
+    // But should still produce audio
+    let rms: f32 = (buffer_comp.iter().map(|x| x * x).sum::<f32>() / buffer_comp.len() as f32).sqrt();
+    assert!(
+        rms > 0.01,
+        "Compressor should still produce audio, got RMS={}",
         rms
     );
 }
