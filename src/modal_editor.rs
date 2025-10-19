@@ -39,6 +39,8 @@ pub struct ModalEditor {
     error_message: Option<String>,
     /// Live audio engine
     live_engine: Option<LiveEngine>,
+    /// Flash highlight for evaluated chunk (start_line, end_line, frames_remaining)
+    flash_highlight: Option<(usize, usize, u8)>,
 }
 
 impl ModalEditor {
@@ -76,6 +78,7 @@ impl ModalEditor {
             is_playing: false,
             error_message: None,
             live_engine,
+            flash_highlight: None,
         })
     }
 
@@ -104,17 +107,29 @@ impl ModalEditor {
         terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         loop {
+            // Decrement flash counter
+            if let Some((start, end, frames)) = self.flash_highlight {
+                if frames > 0 {
+                    self.flash_highlight = Some((start, end, frames - 1));
+                } else {
+                    self.flash_highlight = None;
+                }
+            }
+
             terminal.draw(|f| self.ui(f))?;
 
-            if let Event::Key(key) = event::read()? {
-                match self.handle_key_event(key) {
-                    KeyResult::Continue => continue,
-                    KeyResult::Quit => break,
-                    KeyResult::Play => {
-                        self.play_code();
-                    }
-                    KeyResult::Save => {
-                        self.save_file()?;
+            // Use poll with timeout to enable flash animation
+            if event::poll(std::time::Duration::from_millis(50))? {
+                if let Event::Key(key) = event::read()? {
+                    match self.handle_key_event(key) {
+                        KeyResult::Continue => continue,
+                        KeyResult::Quit => break,
+                        KeyResult::Play => {
+                            self.play_code();
+                        }
+                        KeyResult::Save => {
+                            self.save_file()?;
+                        }
                     }
                 }
             }
@@ -309,39 +324,81 @@ impl ModalEditor {
             current_pos += line.len() + 1; // +1 for newline
         }
 
-        // Render lines with cursor
+        // Check if we're flashing a chunk
+        let (flash_start, flash_end) = if let Some((start, end, _)) = self.flash_highlight {
+            (start, end)
+        } else {
+            (usize::MAX, usize::MAX)
+        };
+
+        // Render lines with cursor and flash highlight
         for (line_idx, line_text) in text_lines.iter().enumerate() {
+            let is_flashing = line_idx >= flash_start && line_idx <= flash_end;
+
             if line_idx == cursor_line {
                 // Line with cursor
                 let mut spans = Vec::new();
 
                 if line_text.is_empty() {
                     // Empty line - just show cursor block
-                    spans.push(Span::styled(" ", Style::default().bg(Color::White)));
+                    let style = if is_flashing {
+                        Style::default().bg(Color::Green).fg(Color::Black)
+                    } else {
+                        Style::default().bg(Color::White)
+                    };
+                    spans.push(Span::styled(" ", style));
                 } else if cursor_col < line_text.len() {
                     // Cursor in middle of line
+                    let base_style = if is_flashing {
+                        Style::default().bg(Color::Green).fg(Color::Black)
+                    } else {
+                        Style::default()
+                    };
+
                     if cursor_col > 0 {
-                        spans.push(Span::raw(line_text[..cursor_col].to_string()));
+                        spans.push(Span::styled(
+                            line_text[..cursor_col].to_string(),
+                            base_style
+                        ));
                     }
                     spans.push(Span::styled(
                         line_text.chars().nth(cursor_col).unwrap().to_string(),
                         Style::default().bg(Color::White).fg(Color::Black),
                     ));
                     if cursor_col + 1 < line_text.len() {
-                        spans.push(Span::raw(line_text[cursor_col + 1..].to_string()));
+                        spans.push(Span::styled(
+                            line_text[cursor_col + 1..].to_string(),
+                            base_style
+                        ));
                     }
                 } else {
                     // Cursor at end of line
-                    spans.push(Span::raw(line_text.to_string()));
+                    let base_style = if is_flashing {
+                        Style::default().bg(Color::Green).fg(Color::Black)
+                    } else {
+                        Style::default()
+                    };
+                    spans.push(Span::styled(line_text.to_string(), base_style));
                     spans.push(Span::styled(" ", Style::default().bg(Color::White)));
                 }
                 lines.push(Line::from(spans));
             } else {
                 // Regular line (including empty lines)
                 if line_text.is_empty() {
-                    lines.push(Line::from(Span::raw(" "))); // Ensure empty lines take space
+                    if is_flashing {
+                        lines.push(Line::from(Span::styled(" ", Style::default().bg(Color::Green))));
+                    } else {
+                        lines.push(Line::from(Span::raw(" "))); // Ensure empty lines take space
+                    }
                 } else {
-                    lines.push(Line::from(Span::raw(line_text.to_string())));
+                    if is_flashing {
+                        lines.push(Line::from(Span::styled(
+                            line_text.to_string(),
+                            Style::default().bg(Color::Green).fg(Color::Black)
+                        )));
+                    } else {
+                        lines.push(Line::from(Span::raw(line_text.to_string())));
+                    }
                 }
             }
         }
@@ -534,7 +591,7 @@ impl ModalEditor {
         }
     }
 
-    /// Evaluate current chunk (paragraph) - Ctrl-Enter
+    /// Evaluate current chunk (paragraph) - Ctrl-X
     /// A chunk is text separated by blank lines
     fn eval_chunk(&mut self) {
         let chunk = self.get_current_chunk();
@@ -542,6 +599,9 @@ impl ModalEditor {
             self.status_message = "⚠️  Empty chunk".to_string();
             return;
         }
+
+        // Get chunk boundaries for flash highlight
+        let (start_line, end_line) = self.get_current_chunk_lines();
 
         if let Some(ref engine) = self.live_engine {
             self.error_message = None;
@@ -551,6 +611,8 @@ impl ModalEditor {
                 self.error_message = Some(format!("Eval failed: {e}"));
             } else {
                 self.status_message = "✅ Chunk evaluated!".to_string();
+                // Flash the evaluated chunk for 20 frames (~1 second at 50ms per frame)
+                self.flash_highlight = Some((start_line, end_line, 20));
             }
         } else {
             self.error_message = Some("Live engine not running".to_string());
@@ -610,6 +672,38 @@ impl ModalEditor {
 
         // Extract chunk
         lines[start_idx..=end_idx].join("\n")
+    }
+
+    /// Get the current chunk line boundaries (for flash highlight)
+    fn get_current_chunk_lines(&self) -> (usize, usize) {
+        let lines: Vec<&str> = self.content.split('\n').collect();
+        let mut current_pos = 0;
+        let mut cursor_line_idx = 0;
+
+        // Find cursor line
+        for (idx, line) in lines.iter().enumerate() {
+            if current_pos + line.len() >= self.cursor_pos {
+                cursor_line_idx = idx;
+                break;
+            }
+            current_pos += line.len() + 1;
+        }
+
+        // Find chunk boundaries (blank lines)
+        let mut start_idx = cursor_line_idx;
+        let mut end_idx = cursor_line_idx;
+
+        // Search backwards for blank line or start
+        while start_idx > 0 && !lines[start_idx - 1].trim().is_empty() {
+            start_idx -= 1;
+        }
+
+        // Search forwards for blank line or end
+        while end_idx < lines.len() - 1 && !lines[end_idx + 1].trim().is_empty() {
+            end_idx += 1;
+        }
+
+        (start_idx, end_idx)
     }
 
     /// Hush - silence all sound
