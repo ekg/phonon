@@ -43,6 +43,12 @@ pub struct ModalEditor {
     flash_highlight: Option<(usize, usize, u8)>,
     /// Kill buffer for Emacs-style cut/yank
     kill_buffer: String,
+    /// Undo stack (content, cursor_pos)
+    undo_stack: Vec<(String, usize)>,
+    /// Redo stack (content, cursor_pos)
+    redo_stack: Vec<(String, usize)>,
+    /// Console messages for display
+    console_messages: Vec<String>,
 }
 
 impl ModalEditor {
@@ -76,12 +82,15 @@ impl ModalEditor {
             duration,
             file_path,
             status_message:
-                "🎵 Ready - C-x: eval block | C-r: reload all | C-h: hush".to_string(),
+                "🎵 Ready - C-x: eval | C-u: undo | C-r: redo".to_string(),
             is_playing: false,
             error_message: None,
             live_engine,
             flash_highlight: None,
             kill_buffer: String::new(),
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+            console_messages: vec!["Welcome to Phonon Live Coding".to_string()],
         })
     }
 
@@ -153,9 +162,15 @@ impl ModalEditor {
                 KeyResult::Continue
             }
 
-            // Ctrl+R: Reload/eval entire session
+            // Ctrl+U: Undo
+            KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.undo();
+                KeyResult::Continue
+            }
+
+            // Ctrl+R: Redo
             KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.eval_all();
+                self.redo();
                 KeyResult::Continue
             }
 
@@ -250,13 +265,47 @@ impl ModalEditor {
 
     /// Render the UI
     fn ui(&mut self, f: &mut Frame) {
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Min(3),    // Editor area
-                Constraint::Length(3), // Status area
-            ])
-            .split(f.size());
+        let terminal_width = f.size().width;
+
+        // Smart layout: console on side if width allows (2/3 editor, 1/3 console, min 40 for console)
+        // Otherwise console on bottom (portrait mode)
+        let use_side_console = terminal_width >= 120; // 80 for editor + 40 for console
+
+        let main_chunks = if use_side_console {
+            // Horizontal layout: editor (2/3) | console (1/3)
+            let horizontal = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(66), // Editor
+                    Constraint::Percentage(34), // Console
+                ])
+                .split(f.size());
+
+            // Split editor side vertically for status bar
+            let editor_area = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Min(3),    // Editor
+                    Constraint::Length(3), // Status area
+                ])
+                .split(horizontal[0]);
+
+            (editor_area[0], editor_area[1], Some(horizontal[1]))
+        } else {
+            // Vertical layout: editor above console
+            let vertical = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Percentage(66), // Editor
+                    Constraint::Length(3),      // Status area
+                    Constraint::Percentage(34), // Console
+                ])
+                .split(f.size());
+
+            (vertical[0], vertical[1], Some(vertical[2]))
+        };
+
+        let (editor_chunk, status_chunk, console_chunk) = main_chunks;
 
         // Editor area with white borders
         let editor_block = Block::default()
@@ -271,7 +320,7 @@ impl ModalEditor {
             .scroll((0, 0))
             .style(Style::default().fg(Color::White).bg(Color::Black));
 
-        f.render_widget(paragraph, chunks[0]);
+        f.render_widget(paragraph, editor_chunk);
 
         // Status area
         let status_style = if self.error_message.is_some() {
@@ -290,7 +339,7 @@ impl ModalEditor {
             self.status_message.clone()
         };
 
-        let help_text = "C-x: Eval block | C-r: Reload all | C-h: Hush | C-s: Save | C-k: Kill line | C-y: Yank | Alt-q: Quit";
+        let help_text = "C-x: Eval | C-u: Undo | C-r: Redo | C-k: Kill | C-y: Yank | C-h: Hush | C-s: Save | Alt-q: Quit";
 
         let status_chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -298,7 +347,7 @@ impl ModalEditor {
                 Constraint::Length(1), // Status message
                 Constraint::Length(1), // Help text
             ])
-            .split(chunks[1]);
+            .split(status_chunk);
 
         let status_paragraph = Paragraph::new(status_text)
             .style(status_style)
@@ -310,6 +359,30 @@ impl ModalEditor {
 
         f.render_widget(status_paragraph, status_chunks[0]);
         f.render_widget(help_paragraph, status_chunks[1]);
+
+        // Console area
+        if let Some(console_area) = console_chunk {
+            let console_title = format!("Console ({})", self.console_messages.len());
+            let console_block = Block::default()
+                .title(console_title)
+                .borders(Borders::ALL)
+                .style(Style::default().fg(Color::Cyan));
+
+            // Show last N messages that fit in the console area
+            let console_height = console_area.height.saturating_sub(2) as usize; // -2 for borders
+            let start_idx = self.console_messages.len().saturating_sub(console_height);
+            let visible_messages: Vec<Line> = self.console_messages[start_idx..]
+                .iter()
+                .map(|msg| Line::from(msg.as_str()))
+                .collect();
+
+            let console_paragraph = Paragraph::new(visible_messages)
+                .block(console_block)
+                .wrap(Wrap { trim: false })
+                .style(Style::default().fg(Color::White));
+
+            f.render_widget(console_paragraph, console_area);
+        }
     }
 
     /// Apply syntax highlighting to a line of Phonon code
@@ -623,6 +696,10 @@ impl ModalEditor {
 
     /// Insert character at cursor position
     fn insert_char(&mut self, c: char) {
+        // Save state for undo (batch consecutive chars for efficiency)
+        if c == '\n' || self.undo_stack.is_empty() {
+            self.push_undo();
+        }
         self.content.insert(self.cursor_pos, c);
         self.cursor_pos += c.len_utf8();
         self.error_message = None;
@@ -631,6 +708,7 @@ impl ModalEditor {
     /// Delete character before cursor
     fn delete_char(&mut self) {
         if self.cursor_pos > 0 {
+            self.push_undo();
             let char_start = self
                 .content
                 .char_indices()
@@ -646,6 +724,7 @@ impl ModalEditor {
     /// Delete character forward (Ctrl+D)
     fn delete_char_forward(&mut self) {
         if self.cursor_pos < self.content.len() {
+            self.push_undo();
             self.content.remove(self.cursor_pos);
         }
         self.error_message = None;
@@ -653,6 +732,7 @@ impl ModalEditor {
 
     /// Kill to end of line (Ctrl+K) - saves to kill buffer
     fn kill_line(&mut self) {
+        self.push_undo();
         let lines: Vec<&str> = self.content.split('\n').collect();
         let mut current_pos = 0;
 
@@ -684,10 +764,63 @@ impl ModalEditor {
     /// Yank (paste) from kill buffer (Ctrl+Y)
     fn yank(&mut self) {
         if !self.kill_buffer.is_empty() {
+            self.push_undo();
             self.content.insert_str(self.cursor_pos, &self.kill_buffer);
             self.cursor_pos += self.kill_buffer.len();
         }
         self.error_message = None;
+    }
+
+    /// Push current state to undo stack
+    fn push_undo(&mut self) {
+        // Limit undo stack size to 100 states
+        if self.undo_stack.len() >= 100 {
+            self.undo_stack.remove(0);
+        }
+        self.undo_stack.push((self.content.clone(), self.cursor_pos));
+        // Clear redo stack on new edit
+        self.redo_stack.clear();
+    }
+
+    /// Undo last change (Ctrl+U)
+    fn undo(&mut self) {
+        if let Some((content, cursor_pos)) = self.undo_stack.pop() {
+            // Save current state to redo stack
+            self.redo_stack.push((self.content.clone(), self.cursor_pos));
+            // Restore previous state
+            self.content = content;
+            self.cursor_pos = cursor_pos;
+            self.status_message = "↶ Undo".to_string();
+            self.add_console_message("Undo");
+        } else {
+            self.status_message = "⚠️  Nothing to undo".to_string();
+        }
+        self.error_message = None;
+    }
+
+    /// Redo last undone change (Ctrl+R)
+    fn redo(&mut self) {
+        if let Some((content, cursor_pos)) = self.redo_stack.pop() {
+            // Save current state to undo stack
+            self.undo_stack.push((self.content.clone(), self.cursor_pos));
+            // Restore next state
+            self.content = content;
+            self.cursor_pos = cursor_pos;
+            self.status_message = "↷ Redo".to_string();
+            self.add_console_message("Redo");
+        } else {
+            self.status_message = "⚠️  Nothing to redo".to_string();
+        }
+        self.error_message = None;
+    }
+
+    /// Add message to console
+    fn add_console_message(&mut self, msg: &str) {
+        self.console_messages.push(msg.to_string());
+        // Keep last 50 messages
+        if self.console_messages.len() > 50 {
+            self.console_messages.remove(0);
+        }
     }
 
     /// Move cursor left
@@ -834,12 +967,29 @@ impl ModalEditor {
             self.error_message = None;
             self.status_message = format!("🔄 Evaluating chunk ({} chars)...", chunk.len());
 
+            // Check if chunk starts with "hush" - if so, clear audio first
+            let did_hush = if chunk.trim_start().starts_with("hush") {
+                let _ = engine.hush();
+                true
+            } else {
+                false
+            };
+
             // IMPORTANT: Send the full session content, not just the chunk!
             // This ensures all buses, tempo, and output assignments are preserved.
-            if let Err(e) = engine.load_code(&self.content) {
+            let result = engine.load_code(&self.content);
+
+            // Now we can mutate self safely
+            if did_hush {
+                self.add_console_message("🔇 Hush - clearing audio");
+            }
+
+            if let Err(e) = result {
                 self.error_message = Some(format!("Eval failed: {e}"));
+                self.add_console_message(&format!("❌ Error: {e}"));
             } else {
                 self.status_message = "✅ Chunk evaluated!".to_string();
+                self.add_console_message("✅ Chunk evaluated");
                 // Flash the evaluated chunk: 10 frames = 500ms (pop + fade)
                 self.flash_highlight = Some((start_line, end_line, 10));
             }
