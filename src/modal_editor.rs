@@ -468,22 +468,21 @@ impl ModalEditor {
         }
 
         // Check if we're flashing a chunk
-        // Flash ON for frames: 18-20, 14-16, 10-12, 6-8 (4 quick pops)
-        let (flash_start, flash_end) = if let Some((start, end, frames)) = self.flash_highlight {
-            let is_flash_on = match frames {
-                18..=20 => true,  // First flash
-                14..=16 => true,  // Second flash
-                10..=12 => true,  // Third flash
-                6..=8 => true,    // Fourth flash
-                _ => false,
-            };
-            if is_flash_on {
-                (start, end)
+        // Smooth pop-to-fade: white flash then smooth fade over 0.5s
+        let (flash_start, flash_end, flash_color) = if let Some((start, end, frames)) = self.flash_highlight {
+            if frames > 8 {
+                // Full white pop (frames 10-9 = 100ms)
+                (start, end, Color::Rgb(255, 255, 255))
+            } else if frames > 0 {
+                // Smooth fade (frames 8-1 = 400ms)
+                let fade_progress = (8 - frames) as f32 / 8.0; // 0.0 = white, 1.0 = black
+                let brightness = (255.0 * (1.0 - fade_progress)) as u8;
+                (start, end, Color::Rgb(brightness, brightness, brightness))
             } else {
-                (usize::MAX, usize::MAX)
+                (usize::MAX, usize::MAX, Color::Black)
             }
         } else {
-            (usize::MAX, usize::MAX)
+            (usize::MAX, usize::MAX, Color::Black)
         };
 
         // Render lines with cursor, flash highlight, and syntax highlighting
@@ -495,8 +494,13 @@ impl ModalEditor {
                 let mut spans = Vec::new();
 
                 if line_text.is_empty() {
-                    // Empty line - just show cursor block
-                    spans.push(Span::styled("█", Style::default().fg(Color::White)));
+                    // Empty line - show cursor block
+                    if is_flashing {
+                        // Flash background with cursor
+                        spans.push(Span::styled("█", Style::default().fg(Color::White).bg(flash_color)));
+                    } else {
+                        spans.push(Span::styled("█", Style::default().fg(Color::White)));
+                    }
                 } else if cursor_col < line_text.len() {
                     // Cursor in middle of line - apply syntax highlighting with cursor
                     let before = &line_text[..cursor_col];
@@ -507,9 +511,9 @@ impl ModalEditor {
                     if !before.is_empty() {
                         let mut before_spans = Self::highlight_line(before);
                         if is_flashing {
-                            // Add yellow background to all spans
+                            // Add flash background to all spans
                             for span in &mut before_spans {
-                                span.style = span.style.bg(Color::Yellow).fg(Color::Black);
+                                span.style = span.style.bg(flash_color).fg(Color::Black);
                             }
                         }
                         spans.append(&mut before_spans);
@@ -525,9 +529,9 @@ impl ModalEditor {
                     if !after.is_empty() {
                         let mut after_spans = Self::highlight_line(after);
                         if is_flashing {
-                            // Add yellow background to all spans
+                            // Add flash background to all spans
                             for span in &mut after_spans {
-                                span.style = span.style.bg(Color::Yellow).fg(Color::Black);
+                                span.style = span.style.bg(flash_color).fg(Color::Black);
                             }
                         }
                         spans.append(&mut after_spans);
@@ -536,9 +540,9 @@ impl ModalEditor {
                     // Cursor at end of line
                     let mut highlighted = Self::highlight_line(line_text);
                     if is_flashing {
-                        // Add yellow background to all spans
+                        // Add flash background to all spans
                         for span in &mut highlighted {
-                            span.style = span.style.bg(Color::Yellow).fg(Color::Black);
+                            span.style = span.style.bg(flash_color).fg(Color::Black);
                         }
                     }
                     spans.append(&mut highlighted);
@@ -550,16 +554,16 @@ impl ModalEditor {
                 // Regular line - apply syntax highlighting
                 if line_text.is_empty() {
                     if is_flashing {
-                        lines.push(Line::from(Span::styled(" ", Style::default().bg(Color::Yellow))));
+                        lines.push(Line::from(Span::styled(" ", Style::default().bg(flash_color))));
                     } else {
                         lines.push(Line::from(Span::raw(" "))); // Ensure empty lines take space
                     }
                 } else {
                     let mut spans = Self::highlight_line(line_text);
                     if is_flashing {
-                        // Add yellow background to all spans
+                        // Add flash background to all spans
                         for span in &mut spans {
-                            span.style = span.style.bg(Color::Yellow).fg(Color::Black);
+                            span.style = span.style.bg(flash_color).fg(Color::Black);
                         }
                     }
                     lines.push(Line::from(spans));
@@ -569,9 +573,10 @@ impl ModalEditor {
 
         // Handle cursor at very end of empty content
         if lines.is_empty() && self.cursor_pos == 0 {
+            // Show cursor block for empty file
             lines.push(Line::from(Span::styled(
-                " ",
-                Style::default().bg(Color::White),
+                "█",
+                Style::default().fg(Color::White),
             )));
         }
 
@@ -780,8 +785,8 @@ impl ModalEditor {
                 self.error_message = Some(format!("Eval failed: {e}"));
             } else {
                 self.status_message = "✅ Chunk evaluated!".to_string();
-                // Flash the evaluated chunk for 20 frames (~1 second at 50ms per frame)
-                self.flash_highlight = Some((start_line, end_line, 20));
+                // Flash the evaluated chunk: 10 frames = 500ms (pop + fade)
+                self.flash_highlight = Some((start_line, end_line, 10));
             }
         } else {
             self.error_message = Some("Live engine not running".to_string());
