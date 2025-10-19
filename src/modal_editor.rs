@@ -55,7 +55,7 @@ impl ModalEditor {
             }
         } else {
             // Default starter template
-            String::from("# Phonon Live Coding\n# Ctrl-Enter: Eval chunk | Shift-Enter: Eval line | Ctrl-h: Hush | Ctrl-s: Save | Ctrl-q: Quit\n\n# Example: Simple drum pattern\ntempo: 2.0\n~drums: s \"bd sn bd sn\"\nout: ~drums * 0.8\n")
+            String::from("# Phonon Live Coding\n# C-x: Eval block | C-r: Reload all | C-h: Hush | C-s: Save | Alt-q: Quit\n\n# Example: Simple drum pattern\ntempo: 2.0\n~drums: s \"bd sn bd sn\"\nout: ~drums * 0.8\n")
         };
 
         // Start the live audio engine
@@ -72,7 +72,7 @@ impl ModalEditor {
             duration,
             file_path,
             status_message:
-                "🎵 Ready - Ctrl-Enter: eval chunk | Shift-Enter: eval line".to_string(),
+                "🎵 Ready - C-x: eval block | C-r: reload all | C-h: hush".to_string(),
             is_playing: false,
             error_message: None,
             live_engine,
@@ -126,18 +126,18 @@ impl ModalEditor {
     /// Handle keyboard input
     fn handle_key_event(&mut self, key: KeyEvent) -> KeyResult {
         match key.code {
-            // Quit
-            KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => KeyResult::Quit,
+            // Quit with Alt+Q (Ctrl+Q conflicts with terminal flow control)
+            KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::ALT) => KeyResult::Quit,
 
-            // Control-Enter: Evaluate chunk (paragraph)
-            KeyCode::Enter if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            // Ctrl+X: Evaluate current block (chunk)
+            KeyCode::Char('x') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.eval_chunk();
                 KeyResult::Continue
             }
 
-            // Shift-Enter: Evaluate single line
-            KeyCode::Enter if key.modifiers.contains(KeyModifiers::SHIFT) => {
-                self.eval_line();
+            // Ctrl+R: Reload/eval entire session
+            KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.eval_all();
                 KeyResult::Continue
             }
 
@@ -149,6 +149,40 @@ impl ModalEditor {
 
             // Ctrl+S: Save
             KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => KeyResult::Save,
+
+            // Emacs-style movement keys
+            KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.move_cursor_right(); // Forward
+                KeyResult::Continue
+            }
+            KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.move_cursor_left(); // Backward
+                KeyResult::Continue
+            }
+            KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.move_cursor_down(); // Next line
+                KeyResult::Continue
+            }
+            KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.move_cursor_up(); // Previous line
+                KeyResult::Continue
+            }
+            KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.move_cursor_line_start(); // Beginning of line
+                KeyResult::Continue
+            }
+            KeyCode::Char('e') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.move_cursor_line_end(); // End of line
+                KeyResult::Continue
+            }
+            KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.delete_char_forward(); // Delete forward
+                KeyResult::Continue
+            }
+            KeyCode::Char('k') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.kill_line(); // Kill to end of line
+                KeyResult::Continue
+            }
 
             // Regular character input
             KeyCode::Char(c) => {
@@ -234,7 +268,7 @@ impl ModalEditor {
             self.status_message.clone()
         };
 
-        let help_text = "Ctrl-Enter: Eval chunk | Shift-Enter: Eval line | Ctrl-h: Hush | Ctrl-s: Save | Ctrl-q: Quit";
+        let help_text = "C-x: Eval block | C-r: Reload all | C-h: Hush | C-s: Save | Alt-q: Quit | Emacs keys: C-p/n/f/b/a/e";
 
         let status_chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -523,22 +557,21 @@ impl ModalEditor {
         }
     }
 
-    /// Evaluate current line - Shift-Enter
-    fn eval_line(&mut self) {
-        let line = self.get_current_line();
-        if line.trim().is_empty() {
-            self.status_message = "⚠️  Empty line".to_string();
+    /// Evaluate entire session - Ctrl-R (Reload)
+    fn eval_all(&mut self) {
+        if self.content.trim().is_empty() {
+            self.status_message = "⚠️  Empty session".to_string();
             return;
         }
 
         if let Some(ref engine) = self.live_engine {
             self.error_message = None;
-            self.status_message = format!("🔄 Evaluating line...");
+            self.status_message = "🔄 Reloading entire session...".to_string();
 
-            if let Err(e) = engine.load_code(&line) {
-                self.error_message = Some(format!("Eval failed: {e}"));
+            if let Err(e) = engine.load_code(&self.content) {
+                self.error_message = Some(format!("Reload failed: {e}"));
             } else {
-                self.status_message = "✅ Line evaluated!".to_string();
+                self.status_message = "✅ Session reloaded!".to_string();
             }
         } else {
             self.error_message = Some("Live engine not running".to_string());
@@ -579,28 +612,13 @@ impl ModalEditor {
         lines[start_idx..=end_idx].join("\n")
     }
 
-    /// Get the current line under cursor
-    fn get_current_line(&self) -> String {
-        let lines: Vec<&str> = self.content.split('\n').collect();
-        let mut current_pos = 0;
-
-        for line in lines.iter() {
-            if current_pos + line.len() >= self.cursor_pos {
-                return line.to_string();
-            }
-            current_pos += line.len() + 1;
-        }
-
-        String::new()
-    }
-
     /// Hush - silence all sound
     fn hush(&mut self) {
         if let Some(ref engine) = self.live_engine {
             if let Err(e) = engine.hush() {
                 self.error_message = Some(format!("Hush failed: {e}"));
             } else {
-                self.status_message = "🔇 Hushed - Ctrl-Enter to resume".to_string();
+                self.status_message = "🔇 Hushed - C-r to reload".to_string();
             }
         }
     }
@@ -611,7 +629,7 @@ impl ModalEditor {
             if let Err(e) = engine.panic() {
                 self.error_message = Some(format!("Panic failed: {e}"));
             } else {
-                self.status_message = "🚨 PANIC! All stopped - Ctrl-Enter to restart".to_string();
+                self.status_message = "🚨 PANIC! All stopped - C-r to restart".to_string();
             }
         }
     }
