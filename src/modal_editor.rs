@@ -305,7 +305,150 @@ impl ModalEditor {
         f.render_widget(help_paragraph, status_chunks[1]);
     }
 
-    /// Get content with cursor indicator
+    /// Apply syntax highlighting to a line of Phonon code
+    fn highlight_line(line: &str) -> Vec<Span> {
+        let mut spans = Vec::new();
+        let mut current = String::new();
+        let mut in_string = false;
+        let mut in_comment = false;
+
+        let keywords = ["tempo", "out", "out1", "out2", "out3", "out4", "out5", "out6", "out7", "out8",
+                       "s", "sine", "saw", "square", "tri", "lpf", "hpf", "bpf", "notch",
+                       "reverb", "delay", "chorus", "bitcrush", "distortion",
+                       "fast", "slow", "rev", "every", "euclid", "degrade", "degradeBy",
+                       "stutter", "palindrome", "hush", "panic"];
+
+        for (i, ch) in line.chars().enumerate() {
+            // Comment detection
+            if ch == '#' && !in_string {
+                // Flush current token
+                if !current.is_empty() {
+                    let style = if keywords.contains(&current.as_str()) {
+                        Style::default().fg(Color::Cyan)
+                    } else if current.starts_with('~') {
+                        Style::default().fg(Color::Magenta)
+                    } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
+                        Style::default().fg(Color::Yellow)
+                    } else {
+                        Style::default().fg(Color::White)
+                    };
+                    spans.push(Span::styled(current.clone(), style));
+                    current.clear();
+                }
+                // Rest of line is comment
+                in_comment = true;
+                current.push(ch);
+                continue;
+            }
+
+            if in_comment {
+                current.push(ch);
+                continue;
+            }
+
+            // String detection
+            if ch == '"' {
+                if in_string {
+                    current.push(ch);
+                    spans.push(Span::styled(current.clone(), Style::default().fg(Color::Green)));
+                    current.clear();
+                    in_string = false;
+                } else {
+                    // Flush current token
+                    if !current.is_empty() {
+                        let style = if keywords.contains(&current.as_str()) {
+                            Style::default().fg(Color::Cyan)
+                        } else if current.starts_with('~') {
+                            Style::default().fg(Color::Magenta)
+                        } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
+                            Style::default().fg(Color::Yellow)
+                        } else {
+                            Style::default().fg(Color::White)
+                        };
+                        spans.push(Span::styled(current.clone(), style));
+                        current.clear();
+                    }
+                    current.push(ch);
+                    in_string = true;
+                }
+                continue;
+            }
+
+            if in_string {
+                current.push(ch);
+                continue;
+            }
+
+            // Operators and delimiters
+            if "(){}[]:|$<>=+*-/,".contains(ch) {
+                // Flush current token
+                if !current.is_empty() {
+                    let style = if keywords.contains(&current.as_str()) {
+                        Style::default().fg(Color::Cyan)
+                    } else if current.starts_with('~') {
+                        Style::default().fg(Color::Magenta)
+                    } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
+                        Style::default().fg(Color::Yellow)
+                    } else {
+                        Style::default().fg(Color::White)
+                    };
+                    spans.push(Span::styled(current.clone(), style));
+                    current.clear();
+                }
+                // Operator
+                spans.push(Span::styled(ch.to_string(), Style::default().fg(Color::Red)));
+                continue;
+            }
+
+            // Whitespace
+            if ch.is_whitespace() {
+                // Flush current token
+                if !current.is_empty() {
+                    let style = if keywords.contains(&current.as_str()) {
+                        Style::default().fg(Color::Cyan)
+                    } else if current.starts_with('~') {
+                        Style::default().fg(Color::Magenta)
+                    } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
+                        Style::default().fg(Color::Yellow)
+                    } else {
+                        Style::default().fg(Color::White)
+                    };
+                    spans.push(Span::styled(current.clone(), style));
+                    current.clear();
+                }
+                spans.push(Span::raw(ch.to_string()));
+                continue;
+            }
+
+            current.push(ch);
+        }
+
+        // Flush remaining
+        if !current.is_empty() {
+            let style = if in_comment {
+                Style::default().fg(Color::DarkGray)
+            } else if in_string {
+                Style::default().fg(Color::Green)
+            } else if keywords.contains(&current.as_str()) {
+                Style::default().fg(Color::Cyan)
+            } else if current.starts_with('~') {
+                Style::default().fg(Color::Magenta)
+            } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            spans.push(Span::styled(current, style));
+        }
+
+        if spans.is_empty() {
+            spans.push(Span::raw(" "));
+        }
+
+        spans
+    }
+
+    /// Get content with cursor indicator and syntax highlighting
     fn content_with_cursor(&self) -> Vec<Line> {
         let mut lines = Vec::new();
         let text_lines: Vec<&str> = self.content.split('\n').collect();
@@ -343,60 +486,68 @@ impl ModalEditor {
             (usize::MAX, usize::MAX)
         };
 
-        // Render lines with cursor and flash highlight
+        // Render lines with cursor, flash highlight, and syntax highlighting
         for (line_idx, line_text) in text_lines.iter().enumerate() {
             let is_flashing = line_idx >= flash_start && line_idx <= flash_end;
 
             if line_idx == cursor_line {
-                // Line with cursor
+                // Line with cursor - needs special handling for cursor position
                 let mut spans = Vec::new();
 
                 if line_text.is_empty() {
                     // Empty line - just show cursor block
-                    let style = if is_flashing {
-                        Style::default().bg(Color::Yellow).fg(Color::Black)
-                    } else {
-                        Style::default().bg(Color::White)
-                    };
-                    spans.push(Span::styled(" ", style));
+                    spans.push(Span::styled("█", Style::default().fg(Color::White)));
                 } else if cursor_col < line_text.len() {
-                    // Cursor in middle of line
-                    let base_style = if is_flashing {
-                        Style::default().bg(Color::Yellow).fg(Color::Black)
-                    } else {
-                        Style::default()
-                    };
+                    // Cursor in middle of line - apply syntax highlighting with cursor
+                    let before = &line_text[..cursor_col];
+                    let at_cursor = line_text.chars().nth(cursor_col).unwrap().to_string();
+                    let after = &line_text[cursor_col + 1..];
 
-                    if cursor_col > 0 {
-                        spans.push(Span::styled(
-                            line_text[..cursor_col].to_string(),
-                            base_style
-                        ));
+                    // Highlight before cursor
+                    if !before.is_empty() {
+                        let mut before_spans = Self::highlight_line(before);
+                        if is_flashing {
+                            // Add yellow background to all spans
+                            for span in &mut before_spans {
+                                span.style = span.style.bg(Color::Yellow).fg(Color::Black);
+                            }
+                        }
+                        spans.append(&mut before_spans);
                     }
+
+                    // Cursor character with white background
                     spans.push(Span::styled(
-                        line_text.chars().nth(cursor_col).unwrap().to_string(),
+                        at_cursor,
                         Style::default().bg(Color::White).fg(Color::Black),
                     ));
-                    if cursor_col + 1 < line_text.len() {
-                        spans.push(Span::styled(
-                            line_text[cursor_col + 1..].to_string(),
-                            base_style
-                        ));
+
+                    // Highlight after cursor
+                    if !after.is_empty() {
+                        let mut after_spans = Self::highlight_line(after);
+                        if is_flashing {
+                            // Add yellow background to all spans
+                            for span in &mut after_spans {
+                                span.style = span.style.bg(Color::Yellow).fg(Color::Black);
+                            }
+                        }
+                        spans.append(&mut after_spans);
                     }
                 } else {
                     // Cursor at end of line
-                    let base_style = if is_flashing {
-                        Style::default().bg(Color::Yellow).fg(Color::Black)
-                    } else {
-                        Style::default()
-                    };
-                    spans.push(Span::styled(line_text.to_string(), base_style));
-                    // Cursor always shows with white background
+                    let mut highlighted = Self::highlight_line(line_text);
+                    if is_flashing {
+                        // Add yellow background to all spans
+                        for span in &mut highlighted {
+                            span.style = span.style.bg(Color::Yellow).fg(Color::Black);
+                        }
+                    }
+                    spans.append(&mut highlighted);
+                    // Cursor block at end
                     spans.push(Span::styled("█", Style::default().fg(Color::White)));
                 }
                 lines.push(Line::from(spans));
             } else {
-                // Regular line (including empty lines)
+                // Regular line - apply syntax highlighting
                 if line_text.is_empty() {
                     if is_flashing {
                         lines.push(Line::from(Span::styled(" ", Style::default().bg(Color::Yellow))));
@@ -404,14 +555,14 @@ impl ModalEditor {
                         lines.push(Line::from(Span::raw(" "))); // Ensure empty lines take space
                     }
                 } else {
+                    let mut spans = Self::highlight_line(line_text);
                     if is_flashing {
-                        lines.push(Line::from(Span::styled(
-                            line_text.to_string(),
-                            Style::default().bg(Color::Yellow).fg(Color::Black)
-                        )));
-                    } else {
-                        lines.push(Line::from(Span::raw(line_text.to_string())));
+                        // Add yellow background to all spans
+                        for span in &mut spans {
+                            span.style = span.style.bg(Color::Yellow).fg(Color::Black);
+                        }
                     }
+                    lines.push(Line::from(spans));
                 }
             }
         }
@@ -606,6 +757,9 @@ impl ModalEditor {
 
     /// Evaluate current chunk (paragraph) - Ctrl-X
     /// A chunk is text separated by blank lines
+    ///
+    /// Note: We send the FULL session content to the engine, not just the chunk.
+    /// The flash highlight shows which chunk you evaluated for visual feedback.
     fn eval_chunk(&mut self) {
         let chunk = self.get_current_chunk();
         if chunk.trim().is_empty() {
@@ -620,7 +774,9 @@ impl ModalEditor {
             self.error_message = None;
             self.status_message = format!("🔄 Evaluating chunk ({} chars)...", chunk.len());
 
-            if let Err(e) = engine.load_code(&chunk) {
+            // IMPORTANT: Send the full session content, not just the chunk!
+            // This ensures all buses, tempo, and output assignments are preserved.
+            if let Err(e) = engine.load_code(&self.content) {
                 self.error_message = Some(format!("Eval failed: {e}"));
             } else {
                 self.status_message = "✅ Chunk evaluated!".to_string();
