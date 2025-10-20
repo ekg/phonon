@@ -144,6 +144,16 @@ pub enum Transform {
     Mirror,
     /// gap n: insert silence every n cycles
     Gap(Box<Expr>),
+    /// late amount: delay pattern in time
+    Late(Box<Expr>),
+    /// early amount: shift pattern earlier in time
+    Early(Box<Expr>),
+    /// dup n: duplicate pattern n times (like bd*n)
+    Dup(Box<Expr>),
+    /// fit n: fit pattern to n cycles
+    Fit(Box<Expr>),
+    /// stretch: sustain notes to fill gaps (legato 1.0)
+    Stretch,
 }
 
 /// Binary operators
@@ -507,6 +517,15 @@ fn parse_function_call(input: &str) -> IResult<&str, Expr> {
 
 /// Parse a transform
 fn parse_transform(input: &str) -> IResult<&str, Transform> {
+    // Split into two alt() groups due to nom's tuple limit
+    alt((
+        parse_transform_group_1,
+        parse_transform_group_2,
+    ))(input)
+}
+
+/// Parse transform group 1 (first half of transforms)
+fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
     alt((
         // fast n
         map(
@@ -569,6 +588,12 @@ fn parse_transform(input: &str) -> IResult<&str, Transform> {
             preceded(terminated(tag("staccato"), space1), parse_primary_expr),
             |expr| Transform::Staccato(Box::new(expr)),
         ),
+    ))(input)
+}
+
+/// Parse transform group 2 (second half of transforms)
+fn parse_transform_group_2(input: &str) -> IResult<&str, Transform> {
+    alt((
         // echo times time feedback
         map(
             tuple((
@@ -624,6 +649,28 @@ fn parse_transform(input: &str) -> IResult<&str, Transform> {
             preceded(terminated(tag("gap"), space1), parse_primary_expr),
             |expr| Transform::Gap(Box::new(expr)),
         ),
+        // late amount
+        map(
+            preceded(terminated(tag("late"), space1), parse_primary_expr),
+            |expr| Transform::Late(Box::new(expr)),
+        ),
+        // early amount
+        map(
+            preceded(terminated(tag("early"), space1), parse_primary_expr),
+            |expr| Transform::Early(Box::new(expr)),
+        ),
+        // dup n
+        map(
+            preceded(terminated(tag("dup"), space1), parse_primary_expr),
+            |expr| Transform::Dup(Box::new(expr)),
+        ),
+        // fit n
+        map(
+            preceded(terminated(tag("fit"), space1), parse_primary_expr),
+            |expr| Transform::Fit(Box::new(expr)),
+        ),
+        // stretch
+        value(Transform::Stretch, tag("stretch")),
     ))(input)
 }
 

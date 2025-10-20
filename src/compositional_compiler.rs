@@ -957,6 +957,23 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let n = extract_number(&n_expr)? as usize;
             Ok(pattern.gap(n))
         }
+        Transform::Late(amount_expr) => {
+            let amount = extract_number(&amount_expr)?;
+            Ok(pattern.late(amount))
+        }
+        Transform::Early(amount_expr) => {
+            let amount = extract_number(&amount_expr)?;
+            Ok(pattern.early(amount))
+        }
+        Transform::Dup(n_expr) => {
+            let n = extract_number(&n_expr)? as usize;
+            Ok(pattern.dup(n))
+        }
+        Transform::Fit(n_expr) => {
+            let n = extract_number(&n_expr)? as i32;
+            Ok(pattern.fit(n))
+        }
+        Transform::Stretch => Ok(pattern.stretch()),
         Transform::Every { n, transform } => {
             // For every, we need to recursively apply the inner transform
             // This is complex, so for now return an error
