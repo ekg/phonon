@@ -319,17 +319,44 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             let euclid_haps = euclid.query(state);
             let pattern_haps = self.query(state);
 
-            // Only keep pattern events that align with euclidean hits
-            pattern_haps
-                .into_iter()
-                .filter(|phap| {
-                    euclid_haps.iter().any(|ehap| {
-                        ehap.value
-                            && phap.part.begin.to_float() >= ehap.part.begin.to_float()
-                            && phap.part.begin.to_float() < ehap.part.end.to_float()
-                    })
-                })
-                .collect()
+            // Restructure the pattern: for each euclidean "true" event,
+            // sample the pattern value at that time and create a new event
+            let mut result = Vec::new();
+
+            for ehap in euclid_haps.iter() {
+                if !ehap.value {
+                    continue; // Skip "false" beats
+                }
+
+                // Sample the pattern at the euclidean event's start time
+                let sample_time = ehap.whole.as_ref()
+                    .map(|w| w.begin.to_float())
+                    .unwrap_or(ehap.part.begin.to_float());
+
+                // Find the pattern value at this time
+                for phap in pattern_haps.iter() {
+                    let phap_start = phap.whole.as_ref()
+                        .map(|w| w.begin.to_float())
+                        .unwrap_or(phap.part.begin.to_float());
+                    let phap_end = phap.whole.as_ref()
+                        .map(|w| w.end.to_float())
+                        .unwrap_or(phap.part.end.to_float());
+
+                    // Check if this pattern event covers the euclidean beat
+                    if sample_time >= phap_start && sample_time < phap_end {
+                        // Create a new event at the euclidean position with the pattern value
+                        result.push(Hap {
+                            whole: ehap.whole.clone(),
+                            part: ehap.part.clone(),
+                            value: phap.value.clone(),
+                            context: phap.context.clone(),
+                        });
+                        break;
+                    }
+                }
+            }
+
+            result
         })
     }
 
