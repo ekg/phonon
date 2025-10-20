@@ -1,5 +1,5 @@
-use std::process::Command;
 use std::fs;
+use std::process::Command;
 
 fn analyze_wav(path: &str) -> String {
     let output = Command::new("cargo")
@@ -23,9 +23,18 @@ cps: 2.0
     fs::write("/tmp/test_d_pattern.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_d_pattern.phonon",
-                "/tmp/test_d_pattern.wav", "--duration", "1"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_d_pattern.phonon",
+            "/tmp/test_d_pattern.wav",
+            "--duration",
+            "1",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -37,8 +46,10 @@ cps: 2.0
     let analysis = analyze_wav("/tmp/test_d_pattern.wav");
     println!("{}", analysis);
 
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "d1, d2, d3 should auto-route to master");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "d1, d2, d3 should auto-route to master"
+    );
 }
 
 #[test]
@@ -53,9 +64,18 @@ cps: 2.0
     fs::write("/tmp/test_out_pattern.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_out_pattern.phonon",
-                "/tmp/test_out_pattern.wav", "--duration", "1"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_out_pattern.phonon",
+            "/tmp/test_out_pattern.wav",
+            "--duration",
+            "1",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -67,8 +87,10 @@ cps: 2.0
     let analysis = analyze_wav("/tmp/test_out_pattern.wav");
     println!("{}", analysis);
 
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "out1, out2 should auto-route to master");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "out1, out2 should auto-route to master"
+    );
 }
 
 #[test]
@@ -83,9 +105,18 @@ cps: 2.0
     fs::write("/tmp/test_mixed_pattern.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_mixed_pattern.phonon",
-                "/tmp/test_mixed_pattern.wav", "--duration", "1"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_mixed_pattern.phonon",
+            "/tmp/test_mixed_pattern.wav",
+            "--duration",
+            "1",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -97,8 +128,10 @@ cps: 2.0
     let analysis = analyze_wav("/tmp/test_mixed_pattern.wav");
     println!("{}", analysis);
 
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Both d1 and out1 should auto-route to master");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Both d1 and out1 should auto-route to master"
+    );
 }
 
 #[test]
@@ -114,9 +147,18 @@ cps: 2.0
     fs::write("/tmp/test_explicit_override.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_explicit_override.phonon",
-                "/tmp/test_explicit_override.wav", "--duration", "1"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_explicit_override.phonon",
+            "/tmp/test_explicit_override.wav",
+            "--duration",
+            "1",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -129,8 +171,10 @@ cps: 2.0
     println!("{}", analysis);
 
     // Should have audio (from d1 only, not d2)
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Explicit master should override auto-routing");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Explicit master should override auto-routing"
+    );
 }
 
 #[test]
@@ -146,9 +190,18 @@ cps: 2.0
     fs::write("/tmp/test_non_matching.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_non_matching.phonon",
-                "/tmp/test_non_matching.wav", "--duration", "1"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_non_matching.phonon",
+            "/tmp/test_non_matching.wav",
+            "--duration",
+            "1",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -161,8 +214,10 @@ cps: 2.0
     println!("{}", analysis);
 
     // Should have audio (only from d1, not from drums or bass)
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Only d1 should auto-route (drums and bass should be ignored)");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Only d1 should auto-route (drums and bass should be ignored)"
+    );
 }
 
 #[test]
@@ -177,9 +232,18 @@ cps: 2.0
     fs::write("/tmp/test_out_compat.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_out_compat.phonon",
-                "/tmp/test_out_compat.wav", "--duration", "1"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_out_compat.phonon",
+            "/tmp/test_out_compat.wav",
+            "--duration",
+            "1",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -191,6 +255,8 @@ cps: 2.0
     let analysis = analyze_wav("/tmp/test_out_compat.wav");
     println!("{}", analysis);
 
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Plain 'out' bus should still work for backwards compatibility");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Plain 'out' bus should still work for backwards compatibility"
+    );
 }

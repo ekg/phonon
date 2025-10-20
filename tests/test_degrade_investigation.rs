@@ -28,12 +28,17 @@ fn investigate_degrade_behavior() {
     let audio_degraded = graph.render(88200);
 
     // Calculate RMS for each
-    let rms_normal: f32 = (audio_normal.iter().map(|x| x * x).sum::<f32>() / audio_normal.len() as f32).sqrt();
-    let rms_degraded: f32 = (audio_degraded.iter().map(|x| x * x).sum::<f32>() / audio_degraded.len() as f32).sqrt();
+    let rms_normal: f32 =
+        (audio_normal.iter().map(|x| x * x).sum::<f32>() / audio_normal.len() as f32).sqrt();
+    let rms_degraded: f32 =
+        (audio_degraded.iter().map(|x| x * x).sum::<f32>() / audio_degraded.len() as f32).sqrt();
 
     println!("RMS Normal: {:.6}", rms_normal);
     println!("RMS Degraded: {:.6}", rms_degraded);
-    println!("RMS Ratio (degraded/normal): {:.2}", rms_degraded / rms_normal);
+    println!(
+        "RMS Ratio (degraded/normal): {:.2}",
+        rms_degraded / rms_normal
+    );
 
     // Count non-zero samples
     let non_zero_normal = audio_normal.iter().filter(|&&x| x.abs() > 0.0001).count();
@@ -51,7 +56,10 @@ fn investigate_degrade_behavior() {
         println!("  Normal: {} events", events_normal.len());
         println!("  Degraded: {} events", events_degraded.len());
         if events_normal.len() > 0 {
-            println!("  Ratio: {:.2}", events_degraded.len() as f32 / events_normal.len() as f32);
+            println!(
+                "  Ratio: {:.2}",
+                events_degraded.len() as f32 / events_normal.len() as f32
+            );
         }
     }
 

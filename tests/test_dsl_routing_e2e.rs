@@ -1,8 +1,7 @@
+use std::fs;
 /// End-to-end tests for bus routing and signal flow DSL syntax
 /// Tests bus assignment, mixing, signal flow operators, and routing patterns
-
 use std::process::Command;
-use std::fs;
 
 fn render_and_verify(dsl_code: &str, test_name: &str) -> (bool, String) {
     let ph_path = format!("/tmp/test_routing_{}.ph", test_name);
@@ -11,8 +10,18 @@ fn render_and_verify(dsl_code: &str, test_name: &str) -> (bool, String) {
     fs::write(&ph_path, dsl_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", &ph_path, &wav_path, "--duration", "1"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            &ph_path,
+            &wav_path,
+            "--duration",
+            "1",
+        ])
         .output()
         .expect("Failed to run phonon render");
 

@@ -19,20 +19,33 @@ fn test_stutter_pattern_query() {
 
     println!("\nBase pattern: {} events", base_events.len());
     for (i, event) in base_events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     println!("\nStutter(3) pattern: {} events", stutter_events.len());
     for (i, event) in stutter_events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     let ratio = stutter_events.len() as f32 / base_events.len() as f32;
     println!("\nRatio: {:.2}", ratio);
 
     // Stutter(3) should triple the event count: 2 events -> 6 events
-    assert_eq!(stutter_events.len(), base_events.len() * 3,
-        "Stutter(3) should have 3x events");
+    assert_eq!(
+        stutter_events.len(),
+        base_events.len() * 3,
+        "Stutter(3) should have 3x events"
+    );
 }

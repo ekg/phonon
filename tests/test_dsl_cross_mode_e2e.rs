@@ -197,8 +197,8 @@ out: saw 110 # lpf 1000 0.8
     ];
 
     for (name, dsl) in test_cases {
-        let (remaining, statements) = parse_dsl(dsl)
-            .unwrap_or_else(|e| panic!("{}: Failed to parse: {:?}", name, e));
+        let (remaining, statements) =
+            parse_dsl(dsl).unwrap_or_else(|e| panic!("{}: Failed to parse: {:?}", name, e));
 
         assert!(
             remaining.trim().is_empty(),
@@ -210,11 +210,7 @@ out: saw 110 # lpf 1000 0.8
         let compiler = DslCompiler::new(44100.0);
         let mut graph = compiler.compile(statements);
 
-        assert!(
-            graph.has_output(),
-            "{}: Should have output",
-            name
-        );
+        assert!(graph.has_output(), "{}: Should have output", name);
 
         let audio = graph.render(4410);
         let has_audio = audio.iter().any(|&s| s.abs() > 0.001);

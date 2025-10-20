@@ -32,7 +32,9 @@ pub struct OscLiveServer {
 
 impl OscLiveServer {
     /// Create a new OSC live server
-    pub fn new(port: u16) -> Result<(Self, std::sync::mpsc::Receiver<LiveCommand>), Box<dyn std::error::Error>> {
+    pub fn new(
+        port: u16,
+    ) -> Result<(Self, std::sync::mpsc::Receiver<LiveCommand>), Box<dyn std::error::Error>> {
         let (tx, rx) = std::sync::mpsc::channel();
 
         Ok((
@@ -139,9 +141,7 @@ impl OscLiveServer {
                 // Extract Phonon code from first string argument
                 if let Some(OscType::String(code)) = msg.args.first() {
                     info!("📝 /eval: {} chars", code.len());
-                    return Some(LiveCommand::Eval {
-                        code: code.clone(),
-                    });
+                    return Some(LiveCommand::Eval { code: code.clone() });
                 } else {
                     warn!("/eval requires string argument with Phonon code");
                 }
@@ -164,10 +164,7 @@ impl OscLiveServer {
 }
 
 /// Process OSC commands and update graph
-pub fn apply_command_to_graph(
-    cmd: &LiveCommand,
-    sample_rate: f32,
-) -> Option<UnifiedSignalGraph> {
+pub fn apply_command_to_graph(cmd: &LiveCommand, sample_rate: f32) -> Option<UnifiedSignalGraph> {
     match cmd {
         LiveCommand::Eval { code } => {
             // Compile the DSL code into a new graph
@@ -192,7 +189,8 @@ pub fn apply_command_to_graph(
             let mut graph = UnifiedSignalGraph::new(sample_rate);
             graph.set_cps(1.0);
             // Set output to constant 0 (silence)
-            let silence_node = graph.add_node(crate::unified_graph::SignalNode::Constant { value: 0.0 });
+            let silence_node =
+                graph.add_node(crate::unified_graph::SignalNode::Constant { value: 0.0 });
             graph.set_output(silence_node);
             Some(graph)
         }
@@ -201,7 +199,8 @@ pub fn apply_command_to_graph(
             warn!("⚠️  PANIC: Creating empty graph");
             let mut graph = UnifiedSignalGraph::new(sample_rate);
             graph.set_cps(1.0);
-            let silence_node = graph.add_node(crate::unified_graph::SignalNode::Constant { value: 0.0 });
+            let silence_node =
+                graph.add_node(crate::unified_graph::SignalNode::Constant { value: 0.0 });
             graph.set_output(silence_node);
             Some(graph)
         }

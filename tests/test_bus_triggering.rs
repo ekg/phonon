@@ -1,6 +1,5 @@
 /// Test bus triggering from mini-notation patterns
 /// User wants to reference continuous synth signals like samples: s "~kick sn hh"
-
 mod audio_verification_enhanced;
 use audio_verification_enhanced::*;
 
@@ -17,15 +16,30 @@ out: s "~kick" * 0.8
     std::fs::write("/tmp/test_bus_trigger.ph", script).unwrap();
 
     let output = std::process::Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--", "render", "/tmp/test_bus_trigger.ph", "/tmp/test_bus_trigger.wav", "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_bus_trigger.ph",
+            "/tmp/test_bus_trigger.wav",
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to execute render");
 
-    assert!(output.status.success(), "Render failed: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "Render failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     // Verify we got audio output with clear transients
-    let analysis = analyze_wav_enhanced("/tmp/test_bus_trigger.wav")
-        .expect("Failed to analyze output");
+    let analysis =
+        analyze_wav_enhanced("/tmp/test_bus_trigger.wav").expect("Failed to analyze output");
 
     println!("Bus trigger analysis:");
     println!("  RMS: {:.6}", analysis.rms);
@@ -34,7 +48,11 @@ out: s "~kick" * 0.8
     println!("  Onsets: {}", analysis.onset_count);
 
     // Should have audio
-    assert!(analysis.peak > 0.1, "Bus trigger should produce audio, got peak: {}", analysis.peak);
+    assert!(
+        analysis.peak > 0.1,
+        "Bus trigger should produce audio, got peak: {}",
+        analysis.peak
+    );
 
     // Should have fundamental around 60 Hz
     assert!(
@@ -44,7 +62,11 @@ out: s "~kick" * 0.8
     );
 
     // Should have at least 1 onset (the trigger event)
-    assert!(analysis.onset_count >= 1, "Expected at least 1 onset, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 1,
+        "Expected at least 1 onset, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -60,11 +82,26 @@ out: s "~kick ~snare ~kick ~snare" * 0.8
     std::fs::write("/tmp/test_bus_trigger_pattern.ph", script).unwrap();
 
     let output = std::process::Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--", "render", "/tmp/test_bus_trigger_pattern.ph", "/tmp/test_bus_trigger_pattern.wav", "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_bus_trigger_pattern.ph",
+            "/tmp/test_bus_trigger_pattern.wav",
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to execute render");
 
-    assert!(output.status.success(), "Render failed: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "Render failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     let analysis = analyze_wav_enhanced("/tmp/test_bus_trigger_pattern.wav")
         .expect("Failed to analyze output");
@@ -97,14 +134,29 @@ out: s "~bass bd ~bass sn" * 0.8
     std::fs::write("/tmp/test_bus_mixed.ph", script).unwrap();
 
     let output = std::process::Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--", "render", "/tmp/test_bus_mixed.ph", "/tmp/test_bus_mixed.wav", "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_bus_mixed.ph",
+            "/tmp/test_bus_mixed.wav",
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to execute render");
 
-    assert!(output.status.success(), "Render failed: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "Render failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
-    let analysis = analyze_wav_enhanced("/tmp/test_bus_mixed.wav")
-        .expect("Failed to analyze output");
+    let analysis =
+        analyze_wav_enhanced("/tmp/test_bus_mixed.wav").expect("Failed to analyze output");
 
     println!("Mixed bus/sample analysis:");
     println!("  RMS: {:.6}", analysis.rms);
@@ -132,14 +184,29 @@ out: s "~hat*4" * 0.8
     std::fs::write("/tmp/test_bus_fast.ph", script).unwrap();
 
     let output = std::process::Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--", "render", "/tmp/test_bus_fast.ph", "/tmp/test_bus_fast.wav", "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_bus_fast.ph",
+            "/tmp/test_bus_fast.wav",
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to execute render");
 
-    assert!(output.status.success(), "Render failed: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "Render failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
-    let analysis = analyze_wav_enhanced("/tmp/test_bus_fast.wav")
-        .expect("Failed to analyze output");
+    let analysis =
+        analyze_wav_enhanced("/tmp/test_bus_fast.wav").expect("Failed to analyze output");
 
     println!("Fast subdivision analysis:");
     println!("  RMS: {:.6}", analysis.rms);
@@ -168,16 +235,29 @@ out: s "~nonexistent bd" * 0.8
     std::fs::write("/tmp/test_bad_bus.ph", script).unwrap();
 
     let output = std::process::Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--", "render", "/tmp/test_bad_bus.ph", "/tmp/test_bad_bus.wav", "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_bad_bus.ph",
+            "/tmp/test_bad_bus.wav",
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to execute render");
 
     // Should complete without crashing (but may have warnings)
-    assert!(output.status.success(), "Should handle missing bus gracefully");
+    assert!(
+        output.status.success(),
+        "Should handle missing bus gracefully"
+    );
 
     // Output should still have the bd sample
-    let analysis = analyze_wav_enhanced("/tmp/test_bad_bus.wav")
-        .expect("Failed to analyze output");
+    let analysis = analyze_wav_enhanced("/tmp/test_bad_bus.wav").expect("Failed to analyze output");
 
     assert!(analysis.peak > 0.05, "Should still play bd sample");
 }

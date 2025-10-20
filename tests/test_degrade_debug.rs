@@ -25,17 +25,29 @@ fn debug_degrade_pattern_query() {
     println!("\n=== PATTERN QUERY DEBUG ===");
     println!("Normal pattern: {} events", normal_events.len());
     for (i, event) in normal_events.iter().enumerate() {
-        println!("  Event {}: time={:.3}, value={:?}", i, event.part.begin.to_float(), event.value);
+        println!(
+            "  Event {}: time={:.3}, value={:?}",
+            i,
+            event.part.begin.to_float(),
+            event.value
+        );
     }
 
     println!("\nDegraded pattern: {} events", degraded_events.len());
     for (i, event) in degraded_events.iter().enumerate() {
-        println!("  Event {}: time={:.3}, value={:?}", i, event.part.begin.to_float(), event.value);
+        println!(
+            "  Event {}: time={:.3}, value={:?}",
+            i,
+            event.part.begin.to_float(),
+            event.value
+        );
     }
 
     // The degraded pattern should have fewer events (approximately 50%)
-    println!("\nEvent count ratio (degraded/normal): {:.2}",
-        degraded_events.len() as f32 / normal_events.len().max(1) as f32);
+    println!(
+        "\nEvent count ratio (degraded/normal): {:.2}",
+        degraded_events.len() as f32 / normal_events.len().max(1) as f32
+    );
 
     assert!(
         degraded_events.len() < normal_events.len(),
@@ -64,7 +76,11 @@ fn debug_degrade_multiple_queries() {
         let events = degraded_pattern.query(&state);
         println!("Cycle {}: {} events", cycle, events.len());
         for event in &events {
-            println!("  time={:.3}, value={}", event.part.begin.to_float(), event.value);
+            println!(
+                "  time={:.3}, value={}",
+                event.part.begin.to_float(),
+                event.value
+            );
         }
     }
 }

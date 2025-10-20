@@ -46,10 +46,7 @@ fn test_auto_routing_cross_mode() {
         .output()
         .expect("Failed to run phonon render");
 
-    assert!(
-        render_output.status.success(),
-        "Render mode should succeed"
-    );
+    assert!(render_output.status.success(), "Render mode should succeed");
 
     let render_analysis = analyze_wav("/tmp/test_cross_mode_render.wav");
     assert!(

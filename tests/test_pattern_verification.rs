@@ -25,21 +25,30 @@ fn test_basic_pattern_verification() {
 
     println!("Expected {} events", expected.len());
     for (i, event) in expected.iter().enumerate() {
-        println!("  Event {}: time={:.3}s, value={:?}", i, event.time, event.value);
+        println!(
+            "  Event {}: time={:.3}s, value={:?}",
+            i, event.time, event.value
+        );
     }
 
     // Detect events in audio
     let detected = detect_audio_events(&audio, 44100.0, 0.001);
     println!("Detected {} events", detected.len());
     for (i, event) in detected.iter().enumerate() {
-        println!("  Event {}: time={:.3}s, amplitude={:.4}", i, event.time, event.amplitude);
+        println!(
+            "  Event {}: time={:.3}s, amplitude={:.4}",
+            i, event.time, event.amplitude
+        );
     }
 
     // Compare (allow 50ms tolerance)
     let comparison = compare_events(&expected, &detected, 0.05);
 
     println!("\nComparison:");
-    println!("  Matched: {}/{}", comparison.matched, comparison.total_expected);
+    println!(
+        "  Matched: {}/{}",
+        comparison.matched, comparison.total_expected
+    );
     println!("  Missing: {}", comparison.missing.len());
     println!("  Extra: {}", comparison.extra.len());
     println!("  Match rate: {:.1}%", comparison.match_rate * 100.0);

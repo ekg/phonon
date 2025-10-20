@@ -1,5 +1,5 @@
-use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 use std::collections::HashMap;
 
 /// Test that attack parameter creates gradual fade-in
@@ -23,7 +23,7 @@ fn test_attack_parameter_shapes_onset() {
         cut_group: Signal::Value(0.0),
         n: Signal::Value(0.0),
         note: Signal::Value(0.0),
-        attack: Signal::Value(0.1),  // 100ms attack
+        attack: Signal::Value(0.1),   // 100ms attack
         release: Signal::Value(0.05), // 50ms release
     });
 
@@ -57,7 +57,10 @@ fn test_attack_parameter_shapes_onset() {
         assert!(
             amp_25ms < amp_75ms,
             "Attack envelope should increase over time: {}ms={:.4} should be < {}ms={:.4}",
-            25, amp_25ms, 75, amp_75ms
+            25,
+            amp_25ms,
+            75,
+            amp_75ms
         );
     }
 }
@@ -84,8 +87,8 @@ fn test_release_parameter_controls_tail() {
         cut_group: Signal::Value(0.0),
         n: Signal::Value(0.0),
         note: Signal::Value(0.0),
-        attack: Signal::Value(0.001),  // 1ms attack
-        release: Signal::Value(0.01),  // 10ms release (short)
+        attack: Signal::Value(0.001), // 1ms attack
+        release: Signal::Value(0.01), // 10ms release (short)
     });
     graph1.set_output_channel(1, sample_node1);
 
@@ -106,8 +109,8 @@ fn test_release_parameter_controls_tail() {
         cut_group: Signal::Value(0.0),
         n: Signal::Value(0.0),
         note: Signal::Value(0.0),
-        attack: Signal::Value(0.001),  // 1ms attack
-        release: Signal::Value(0.2),   // 200ms release (long)
+        attack: Signal::Value(0.001), // 1ms attack
+        release: Signal::Value(0.2),  // 200ms release (long)
     });
     graph2.set_output_channel(1, sample_node2);
 
@@ -173,7 +176,7 @@ fn test_fast_vs_slow_attack() {
         cut_group: Signal::Value(0.0),
         n: Signal::Value(0.0),
         note: Signal::Value(0.0),
-        attack: Signal::Value(0.001),  // 1ms attack (fast)
+        attack: Signal::Value(0.001), // 1ms attack (fast)
         release: Signal::Value(0.05),
     });
     graph_fast.set_output_channel(1, sample_node_fast);
@@ -195,7 +198,7 @@ fn test_fast_vs_slow_attack() {
         cut_group: Signal::Value(0.0),
         n: Signal::Value(0.0),
         note: Signal::Value(0.0),
-        attack: Signal::Value(0.15),  // 150ms attack (slow)
+        attack: Signal::Value(0.15), // 150ms attack (slow)
         release: Signal::Value(0.05),
     });
     graph_slow.set_output_channel(1, sample_node_slow);
@@ -252,15 +255,16 @@ fn test_default_envelope_values() {
         cut_group: Signal::Value(0.0),
         n: Signal::Value(0.0),
         note: Signal::Value(0.0),
-        attack: Signal::Value(0.0),   // Default attack
-        release: Signal::Value(0.0),  // Default release
+        attack: Signal::Value(0.0),  // Default attack
+        release: Signal::Value(0.0), // Default release
     });
 
     graph.set_output_channel(1, sample_node);
 
     // Process samples - should not crash and should produce audio
     let mut has_audio = false;
-    for _ in 0..4410 {  // 100ms
+    for _ in 0..4410 {
+        // 100ms
         let outputs = graph.process_sample_multi();
         if outputs[0].abs() > 0.01 {
             has_audio = true;
@@ -285,7 +289,7 @@ fn test_envelope_gain_interaction() {
         last_trigger_time: -1.0,
         last_cycle: -1,
         playback_positions: HashMap::new(),
-        gain: Signal::Value(0.5),     // Half gain
+        gain: Signal::Value(0.5), // Half gain
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
         cut_group: Signal::Value(0.0),
@@ -299,7 +303,8 @@ fn test_envelope_gain_interaction() {
 
     // Collect samples
     let mut samples = Vec::new();
-    for _ in 0..8820 {  // 200ms
+    for _ in 0..8820 {
+        // 200ms
         let outputs = graph.process_sample_multi();
         samples.push(outputs[0]);
     }
@@ -341,8 +346,8 @@ fn test_multiple_events_different_envelopes() {
         cut_group: Signal::Value(0.0),
         n: Signal::Value(0.0),
         note: Signal::Value(0.0),
-        attack: Signal::Value(0.01),  // 10ms attack
-        release: Signal::Value(0.1),  // 100ms release
+        attack: Signal::Value(0.01), // 10ms attack
+        release: Signal::Value(0.1), // 100ms release
     });
 
     graph.set_output_channel(1, sample_node);
@@ -399,8 +404,8 @@ fn test_extreme_envelope_values_clamped() {
         cut_group: Signal::Value(0.0),
         n: Signal::Value(0.0),
         note: Signal::Value(0.0),
-        attack: Signal::Value(100.0),   // 100s attack (extreme)
-        release: Signal::Value(100.0),  // 100s release (extreme)
+        attack: Signal::Value(100.0),  // 100s attack (extreme)
+        release: Signal::Value(100.0), // 100s release (extreme)
     });
 
     graph.set_output_channel(1, sample_node);
@@ -408,7 +413,8 @@ fn test_extreme_envelope_values_clamped() {
     // Should not crash and should eventually produce audio
     // (even if clamped to 10s, it should start ramping up immediately)
     let mut has_audio = false;
-    for _ in 0..44100 {  // 1 second
+    for _ in 0..44100 {
+        // 1 second
         let outputs = graph.process_sample_multi();
         if outputs[0].abs() > 0.0 {
             has_audio = true;
@@ -416,7 +422,10 @@ fn test_extreme_envelope_values_clamped() {
         }
     }
 
-    assert!(has_audio, "Extreme envelope values should still produce audio (clamped)");
+    assert!(
+        has_audio,
+        "Extreme envelope values should still produce audio (clamped)"
+    );
 }
 
 /// Test very short attack and release
@@ -440,15 +449,16 @@ fn test_very_short_envelope() {
         cut_group: Signal::Value(0.0),
         n: Signal::Value(0.0),
         note: Signal::Value(0.0),
-        attack: Signal::Value(0.00001),  // 0.01ms attack (very short)
-        release: Signal::Value(0.0001),  // 0.1ms release (very short)
+        attack: Signal::Value(0.00001), // 0.01ms attack (very short)
+        release: Signal::Value(0.0001), // 0.1ms release (very short)
     });
 
     graph.set_output_channel(1, sample_node);
 
     // Should produce audio immediately (fast attack)
     let mut samples = Vec::new();
-    for _ in 0..1000 {  // ~23ms
+    for _ in 0..1000 {
+        // ~23ms
         let outputs = graph.process_sample_multi();
         samples.push(outputs[0]);
     }

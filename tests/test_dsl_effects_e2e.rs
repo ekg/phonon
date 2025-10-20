@@ -1,11 +1,10 @@
+use std::fs;
 /// End-to-end tests for effects DSL syntax
 /// Tests reverb, delay, distortion, and other effects
 ///
 /// CRITICAL: Tests verify ACTUAL AUDIO OUTPUT using spectral analysis!
 /// We are "deaf" - can only verify effects through analysis tools.
-
 use std::process::Command;
-use std::fs;
 
 mod audio_verification_enhanced;
 use audio_verification_enhanced::*;
@@ -17,15 +16,29 @@ fn render_and_verify(dsl_code: &str, test_name: &str) -> (bool, String, String) 
 }
 
 /// Helper with custom duration for longer effect tails
-fn render_and_verify_duration(dsl_code: &str, test_name: &str, duration: &str) -> (bool, String, String) {
+fn render_and_verify_duration(
+    dsl_code: &str,
+    test_name: &str,
+    duration: &str,
+) -> (bool, String, String) {
     let ph_path = format!("/tmp/test_effect_{}.ph", test_name);
     let wav_path = format!("/tmp/test_effect_{}.wav", test_name);
 
     fs::write(&ph_path, dsl_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", &ph_path, &wav_path, "--duration", duration])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            &ph_path,
+            &wav_path,
+            "--duration",
+            duration,
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -762,7 +775,8 @@ fn test_compressor_reduces_peaks() {
 tempo: 0.5
 out: sine 440 * 0.5
 "#;
-    let (success, _, wav_path_uncomp) = render_and_verify(dsl_uncompressed, "compressor_uncompressed");
+    let (success, _, wav_path_uncomp) =
+        render_and_verify(dsl_uncompressed, "compressor_uncompressed");
     assert!(success, "Failed to render uncompressed signal");
 
     // Compressed with heavy ratio
@@ -771,11 +785,13 @@ tempo: 0.5
 ~sig: sine 440 # compressor -30.0 10.0 0.001 0.01 0.0
 out: ~sig * 0.5
 "#;
-    let (success, stderr, wav_path_comp) = render_and_verify(dsl_compressed, "compressor_compressed");
+    let (success, stderr, wav_path_comp) =
+        render_and_verify(dsl_compressed, "compressor_compressed");
     assert!(success, "Failed to render compressed signal: {}", stderr);
 
     // Analyze both
-    let analysis_uncomp = analyze_wav_enhanced(&wav_path_uncomp).expect("Failed to analyze uncompressed");
+    let analysis_uncomp =
+        analyze_wav_enhanced(&wav_path_uncomp).expect("Failed to analyze uncompressed");
     let analysis_comp = analyze_wav_enhanced(&wav_path_comp).expect("Failed to analyze compressed");
 
     println!("Uncompressed peak: {:.6}", analysis_uncomp.peak);
@@ -785,7 +801,8 @@ out: ~sig * 0.5
     assert!(
         analysis_comp.peak < analysis_uncomp.peak * 0.7,
         "Compressor should reduce peak! Uncomp: {:.6}, Comp: {:.6}",
-        analysis_uncomp.peak, analysis_comp.peak
+        analysis_uncomp.peak,
+        analysis_comp.peak
     );
 }
 

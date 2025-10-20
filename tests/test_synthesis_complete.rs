@@ -1,5 +1,5 @@
-use std::process::Command;
 use std::fs;
+use std::process::Command;
 
 fn analyze_wav(path: &str) -> String {
     let output = Command::new("cargo")
@@ -20,17 +20,28 @@ cps: 2.0
     fs::write("/tmp/test_synth_adsr.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_synth_adsr.phonon",
-                "/tmp/test_synth_adsr.wav", "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_synth_adsr.phonon",
+            "/tmp/test_synth_adsr.wav",
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
     assert!(output.status.success(), "Render should succeed");
 
     let analysis = analyze_wav("/tmp/test_synth_adsr.wav");
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Synth with ADSR should produce audio");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Synth with ADSR should produce audio"
+    );
 }
 
 #[test]
@@ -43,17 +54,28 @@ cps: 2.0
     fs::write("/tmp/test_synth_effects.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_synth_effects.phonon",
-                "/tmp/test_synth_effects.wav", "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_synth_effects.phonon",
+            "/tmp/test_synth_effects.wav",
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
     assert!(output.status.success(), "Render should succeed");
 
     let analysis = analyze_wav("/tmp/test_synth_effects.wav");
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Synth with effects should produce audio");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Synth with effects should produce audio"
+    );
 }
 
 #[test]
@@ -68,17 +90,28 @@ cps: 1.0
     fs::write("/tmp/test_multi_synth.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_multi_synth.phonon",
-                "/tmp/test_multi_synth.wav", "--duration", "3"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_multi_synth.phonon",
+            "/tmp/test_multi_synth.wav",
+            "--duration",
+            "3",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
     assert!(output.status.success(), "Render should succeed");
 
     let analysis = analyze_wav("/tmp/test_multi_synth.wav");
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Multi-channel synth with master effects should produce audio");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Multi-channel synth with master effects should produce audio"
+    );
 }
 
 #[test]
@@ -93,17 +126,28 @@ cps: 2.0
     fs::write("/tmp/test_send_return.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_send_return.phonon",
-                "/tmp/test_send_return.wav", "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_send_return.phonon",
+            "/tmp/test_send_return.wav",
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
     assert!(output.status.success(), "Render should succeed");
 
     let analysis = analyze_wav("/tmp/test_send_return.wav");
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Send/return routing with synth should produce audio");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Send/return routing with synth should produce audio"
+    );
 }
 
 #[test]
@@ -119,15 +163,26 @@ cps: 1.0
     fs::write("/tmp/test_envelope_types.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_envelope_types.phonon",
-                "/tmp/test_envelope_types.wav", "--duration", "3"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_envelope_types.phonon",
+            "/tmp/test_envelope_types.wav",
+            "--duration",
+            "3",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
     assert!(output.status.success(), "Render should succeed");
 
     let analysis = analyze_wav("/tmp/test_envelope_types.wav");
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Different envelope types should all produce audio");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Different envelope types should all produce audio"
+    );
 }

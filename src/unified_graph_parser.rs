@@ -296,30 +296,18 @@ pub enum DslExpression {
     },
     /// DSP Modifiers (Tidal-style): applied via # operator
     /// Gain modifier: s "bd" # gain 0.5
-    Gain {
-        value: Box<DslExpression>,
-    },
+    Gain { value: Box<DslExpression> },
     /// Pan modifier: s "bd" # pan "-1 1"
-    Pan {
-        value: Box<DslExpression>,
-    },
+    Pan { value: Box<DslExpression> },
     /// Speed modifier: s "bd" # speed 2.0
-    Speed {
-        value: Box<DslExpression>,
-    },
+    Speed { value: Box<DslExpression> },
     /// Cut group modifier: s "hh*16" # cut 1
-    Cut {
-        value: Box<DslExpression>,
-    },
+    Cut { value: Box<DslExpression> },
     /// Sample number modifier: s "bd" # n 5 or s "bd" # n "0 1 2 3"
-    N {
-        value: Box<DslExpression>,
-    },
+    N { value: Box<DslExpression> },
     /// Note modifier for pitch shifting: s "bd" # note 12 or s "bd" # note "0 5 7 12"
     /// Note values are in semitones: 0 = original, 12 = octave up, -12 = octave down
-    Note {
-        value: Box<DslExpression>,
-    },
+    Note { value: Box<DslExpression> },
 }
 
 /// Pattern transformation operations
@@ -494,10 +482,10 @@ fn waveform(input: &str) -> IResult<&str, Waveform> {
 /// to avoid consuming the space that separates this arg from the next one
 fn space_arg(input: &str) -> IResult<&str, DslExpression> {
     alt((
-        pattern_string,                                      // "pattern"
-        bus_ref,                                             // ~name
-        value_expr,                                          // 0.5
-        delimited(ws(char('(')), expression, char(')')),     // (expr) - note: no ws after ')'
+        pattern_string,                                  // "pattern"
+        bus_ref,                                         // ~name
+        value_expr,                                      // 0.5
+        delimited(ws(char('(')), expression, char(')')), // (expr) - note: no ws after ')'
     ))(input)
 }
 
@@ -642,10 +630,8 @@ fn cut_modifier(input: &str) -> IResult<&str, DslExpression> {
 
 /// Parse n modifier for sample number selection: n 5 or n "0 1 2 3"
 fn n_modifier(input: &str) -> IResult<&str, DslExpression> {
-    map(preceded(tag("n"), function_args), |args| {
-        DslExpression::N {
-            value: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(0.0))),
-        }
+    map(preceded(tag("n"), function_args), |args| DslExpression::N {
+        value: Box::new(args.first().cloned().unwrap_or(DslExpression::Value(0.0))),
     })(input)
 }
 
@@ -769,7 +755,7 @@ fn extract_pattern_and_rebuild_transforms(
         DslExpression::PatternTransform { pattern, transform } => {
             // Recursive case: process inner pattern, then wrap result in transform
             let inner = extract_pattern_and_rebuild_transforms(
-                *pattern, gain, pan, speed, cut_group, n, note, attack, release
+                *pattern, gain, pan, speed, cut_group, n, note, attack, release,
             );
             DslExpression::PatternTransform {
                 pattern: Box::new(inner),
@@ -832,7 +818,14 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                 // Recursively extract the base pattern and rebuild the transform chain
                 extract_pattern_and_rebuild_transforms(
                     DslExpression::PatternTransform { pattern, transform },
-                    gain, pan, speed, cut_group, n, note, attack, release
+                    gain,
+                    pan,
+                    speed,
+                    cut_group,
+                    n,
+                    note,
+                    attack,
+                    release,
                 )
             }
             _ => {
@@ -961,10 +954,7 @@ fn synth_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
 /// Parse a pattern transform operation
 fn parse_transform_op(input: &str) -> IResult<&str, PatternTransformOp> {
     // Split into two groups to avoid nom's alt limit (~21 alternatives)
-    alt((
-        parse_transform_op_group1,
-        parse_transform_op_group2,
-    ))(input)
+    alt((parse_transform_op_group1, parse_transform_op_group2))(input)
 }
 
 /// First group of transform operations
@@ -998,10 +988,7 @@ fn parse_transform_op_group1(input: &str) -> IResult<&str, PatternTransformOp> {
         }),
         // zoom begin end
         map(
-            tuple((
-                preceded(tag("zoom"), ws(primary)),
-                ws(primary),
-            )),
+            tuple((preceded(tag("zoom"), ws(primary)), ws(primary))),
             |(begin, end)| PatternTransformOp::Zoom {
                 begin: Box::new(begin),
                 end: Box::new(end),
@@ -1009,10 +996,7 @@ fn parse_transform_op_group1(input: &str) -> IResult<&str, PatternTransformOp> {
         ),
         // focus begin end
         map(
-            tuple((
-                preceded(tag("focus"), ws(primary)),
-                ws(primary),
-            )),
+            tuple((preceded(tag("focus"), ws(primary)), ws(primary))),
             |(begin, end)| PatternTransformOp::Focus {
                 begin: Box::new(begin),
                 end: Box::new(end),
@@ -1131,7 +1115,7 @@ fn primary(input: &str) -> IResult<&str, DslExpression> {
         synth_pattern_expr,  // Pattern-triggered synth: synth("notes", "waveform", ...)
         synth_expr,          // SuperDirt continuous synths
         effect_expr,
-        gain_modifier,       // Tidal-style DSP modifiers
+        gain_modifier, // Tidal-style DSP modifiers
         pan_modifier,
         speed_modifier,
         cut_modifier,
@@ -1341,10 +1325,7 @@ fn skip_comment(input: &str) -> IResult<&str, ()> {
 
 /// Skip whitespace and comments
 fn skip_whitespace_and_comments(input: &str) -> IResult<&str, ()> {
-    let (input, _) = many0(alt((
-        map(multispace1, |_| ()),
-        skip_comment,
-    )))(input)?;
+    let (input, _) = many0(alt((map(multispace1, |_| ()), skip_comment)))(input)?;
     Ok((input, ()))
 }
 
@@ -1365,10 +1346,7 @@ pub fn parse_dsl(input: &str) -> IResult<&str, Vec<DslStatement>> {
     let (input, _) = skip_whitespace_and_comments(input)?;
 
     // Parse statements separated by whitespace/comments
-    separated_list0(
-        skip_whitespace_and_comments,
-        statement
-    )(input)
+    separated_list0(skip_whitespace_and_comments, statement)(input)
 }
 
 /// Compile DSL to UnifiedSignalGraph
@@ -1572,7 +1550,7 @@ impl DslCompiler {
                     }),
                     FilterType::BandPass => self.graph.add_node(SignalNode::BandPass {
                         input: input_signal,
-                        center: cutoff_signal,  // Center frequency for bandpass
+                        center: cutoff_signal, // Center frequency for bandpass
                         q: q_signal,
                         state: Default::default(),
                     }),
@@ -1963,7 +1941,15 @@ impl DslCompiler {
                             })
                             .unwrap_or(0.0);
 
-                        library.add_compressor(&mut self.graph, input_node, threshold_db, ratio, attack, release, makeup_gain_db)
+                        library.add_compressor(
+                            &mut self.graph,
+                            input_node,
+                            threshold_db,
+                            ratio,
+                            attack,
+                            release,
+                            makeup_gain_db,
+                        )
                     }
                 }
             }
@@ -2220,14 +2206,26 @@ impl DslCompiler {
                                 attack.clone(),
                                 release.clone(),
                             );
-                            let (inner_pattern, pattern_str, gain, pan, speed, cut_group, attack, release) = sample_data;
+                            let (
+                                inner_pattern,
+                                pattern_str,
+                                gain,
+                                pan,
+                                speed,
+                                cut_group,
+                                attack,
+                                release,
+                            ) = sample_data;
 
                             let transformed_pattern = match self
                                 .apply_pattern_transform(inner_pattern.clone(), transform)
                             {
                                 Ok(p) => p,
                                 Err(e) => {
-                                    eprintln!("Warning: Failed to apply chained transform to sample: {}", e);
+                                    eprintln!(
+                                        "Warning: Failed to apply chained transform to sample: {}",
+                                        e
+                                    );
                                     inner_pattern
                                 }
                             };
@@ -2362,14 +2360,26 @@ impl DslCompiler {
                                 attack.clone(),
                                 release.clone(),
                             );
-                            let (inner_pattern, pattern_str, gain, pan, speed, cut_group, attack, release) = sample_data;
+                            let (
+                                inner_pattern,
+                                pattern_str,
+                                gain,
+                                pan,
+                                speed,
+                                cut_group,
+                                attack,
+                                release,
+                            ) = sample_data;
 
                             let transformed_pattern = match self
                                 .apply_pattern_transform(inner_pattern.clone(), transform)
                             {
                                 Ok(p) => p,
                                 Err(e) => {
-                                    eprintln!("Warning: Failed to apply transform to bus '{}': {}", bus_name, e);
+                                    eprintln!(
+                                        "Warning: Failed to apply transform to bus '{}': {}",
+                                        bus_name, e
+                                    );
                                     inner_pattern
                                 }
                             };
@@ -2405,7 +2415,10 @@ impl DslCompiler {
                             {
                                 Ok(p) => p,
                                 Err(e) => {
-                                    eprintln!("Warning: Failed to apply transform to bus '{}': {}", bus_name, e);
+                                    eprintln!(
+                                        "Warning: Failed to apply transform to bus '{}': {}",
+                                        bus_name, e
+                                    );
                                     inner_pattern
                                 }
                             };
@@ -2448,11 +2461,7 @@ impl DslCompiler {
 
     /// Apply a DSP modifier to a SamplePattern (recursively if needed)
     /// This handles chained modifiers like: s("bd") # gain(0.8) # pan(-0.5)
-    fn apply_modifier_to_sample<F>(
-        &mut self,
-        expr: DslExpression,
-        modify: F,
-    ) -> DslExpression
+    fn apply_modifier_to_sample<F>(&mut self, expr: DslExpression, modify: F) -> DslExpression
     where
         F: FnOnce(SamplePatternFields) -> SamplePatternFields,
     {
@@ -2730,7 +2739,11 @@ impl DslCompiler {
                 let end_val = self.extract_constant(*end)?;
                 Ok(pattern.focus(begin_val, end_val))
             }
-            PatternTransformOp::Within { begin, end, transform } => {
+            PatternTransformOp::Within {
+                begin,
+                end,
+                transform,
+            } => {
                 let begin_val = self.extract_constant(*begin)?;
                 let end_val = self.extract_constant(*end)?;
                 let inner_transform = *transform;
@@ -2771,7 +2784,10 @@ impl DslCompiler {
                             }
                         }
                         _ => {
-                            eprintln!("Warning: Transform {:?} not yet supported in within closure", inner_transform);
+                            eprintln!(
+                                "Warning: Transform {:?} not yet supported in within closure",
+                                inner_transform
+                            );
                             p
                         }
                     }
@@ -2837,7 +2853,10 @@ impl DslCompiler {
                             }
                         }
                         _ => {
-                            eprintln!("Warning: Transform {:?} not yet supported in chunk closure", inner_transform);
+                            eprintln!(
+                                "Warning: Transform {:?} not yet supported in chunk closure",
+                                inner_transform
+                            );
                             p
                         }
                     }
@@ -3010,10 +3029,15 @@ mod tests {
 
         // For now, just test that it parses correctly with the new syntax
         // Full effects chain rendering may need additional implementation
-        let input = "out: reverb (chorus (dist (supersaw 110 0.5 5) 3.0 0.3) 1.0 0.5 0.3) 0.7 0.5 0.4";
+        let input =
+            "out: reverb (chorus (dist (supersaw 110 0.5 5) 3.0 0.3) 1.0 0.5 0.3) 0.7 0.5 0.4";
 
         let result = parse_dsl(input);
-        assert!(result.is_ok(), "Complex effects chain should parse with new syntax: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Complex effects chain should parse with new syntax: {:?}",
+            result
+        );
 
         // Verify it compiles without panicking
         let (_, statements) = result.unwrap();

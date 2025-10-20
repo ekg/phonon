@@ -1,8 +1,7 @@
+use std::fs;
 /// End-to-end tests for pattern DSL syntax
 /// Tests mini-notation, transformations, and pattern operations
-
 use std::process::Command;
-use std::fs;
 
 fn render_and_verify(dsl_code: &str, test_name: &str) -> (bool, String) {
     let ph_path = format!("/tmp/test_pattern_{}.ph", test_name);
@@ -11,8 +10,18 @@ fn render_and_verify(dsl_code: &str, test_name: &str) -> (bool, String) {
     fs::write(&ph_path, dsl_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", &ph_path, &wav_path, "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            &ph_path,
+            &wav_path,
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -97,7 +106,11 @@ tempo: 2.0
 out: sine "220 ~ 440 ~ 660 ~" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "alternating_rest");
-    assert!(success, "Failed to render alternating rest pattern: {}", stderr);
+    assert!(
+        success,
+        "Failed to render alternating rest pattern: {}",
+        stderr
+    );
 }
 
 #[test]
@@ -151,7 +164,11 @@ tempo: 2.0
 out: sine "220*2 330*3 440*4" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "multi_subdiv");
-    assert!(success, "Failed to render multiple subdivisions: {}", stderr);
+    assert!(
+        success,
+        "Failed to render multiple subdivisions: {}",
+        stderr
+    );
 }
 
 // ============================================================================

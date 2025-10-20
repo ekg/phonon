@@ -126,9 +126,9 @@ fn test_layered_patterns_with_effects() {
 
     // Multiple layers with different processing
     let layers = vec![
-        "bd(3,8) >> lpf 500 0.9", // Filtered kick
-        "hh*16 >> hpf 8000 0.7",  // Bright hi-hats
-        "[~ cp]*4 >> reverb(0.3)",  // Reverbed claps
+        "bd(3,8) >> lpf 500 0.9",  // Filtered kick
+        "hh*16 >> hpf 8000 0.7",   // Bright hi-hats
+        "[~ cp]*4 >> reverb(0.3)", // Reverbed claps
     ];
 
     for layer in layers {

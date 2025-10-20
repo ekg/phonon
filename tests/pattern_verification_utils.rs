@@ -47,11 +47,7 @@ pub fn get_expected_events(
 }
 
 /// Detect events in audio buffer using onset detection
-pub fn detect_audio_events(
-    audio: &[f32],
-    sample_rate: f32,
-    threshold: f32,
-) -> Vec<Event> {
+pub fn detect_audio_events(audio: &[f32], sample_rate: f32, threshold: f32) -> Vec<Event> {
     let mut events = Vec::new();
 
     // Simple onset detection: look for sudden increases in RMS
@@ -99,11 +95,7 @@ impl EventComparison {
 
 /// Match detected events with expected events
 /// tolerance: time tolerance in seconds for matching
-pub fn compare_events(
-    expected: &[Event],
-    detected: &[Event],
-    tolerance: f64,
-) -> EventComparison {
+pub fn compare_events(expected: &[Event], detected: &[Event], tolerance: f64) -> EventComparison {
     let mut matched = 0;
     let mut missing = Vec::new();
     let mut detected_used = vec![false; detected.len()];
@@ -171,25 +163,52 @@ mod tests {
         let detected = detect_audio_events(&audio, sample_rate, 0.01);
 
         // Should detect 3 events
-        assert!(detected.len() >= 2, "Should detect at least 2 events, got {}", detected.len());
+        assert!(
+            detected.len() >= 2,
+            "Should detect at least 2 events, got {}",
+            detected.len()
+        );
 
         // Check approximate timing
         if detected.len() >= 2 {
-            assert!((detected[0].time - 0.25).abs() < 0.05, "First event should be near 0.25s");
+            assert!(
+                (detected[0].time - 0.25).abs() < 0.05,
+                "First event should be near 0.25s"
+            );
         }
     }
 
     #[test]
     fn test_compare_events() {
         let expected = vec![
-            Event { time: 0.0, value: Some("bd".to_string()), amplitude: 0.0 },
-            Event { time: 0.5, value: Some("sn".to_string()), amplitude: 0.0 },
-            Event { time: 1.0, value: Some("hh".to_string()), amplitude: 0.0 },
+            Event {
+                time: 0.0,
+                value: Some("bd".to_string()),
+                amplitude: 0.0,
+            },
+            Event {
+                time: 0.5,
+                value: Some("sn".to_string()),
+                amplitude: 0.0,
+            },
+            Event {
+                time: 1.0,
+                value: Some("hh".to_string()),
+                amplitude: 0.0,
+            },
         ];
 
         let detected = vec![
-            Event { time: 0.01, value: None, amplitude: 0.5 },
-            Event { time: 0.51, value: None, amplitude: 0.4 },
+            Event {
+                time: 0.01,
+                value: None,
+                amplitude: 0.5,
+            },
+            Event {
+                time: 0.51,
+                value: None,
+                amplitude: 0.4,
+            },
             // Missing third event
         ];
 

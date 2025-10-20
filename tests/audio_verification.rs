@@ -2,7 +2,6 @@
 ///
 /// We are "deaf" - we can only verify audio through analysis tools.
 /// Every E2E test MUST verify the audio output, not just that rendering succeeded.
-
 use std::f32::consts::PI;
 
 #[derive(Debug)]
@@ -56,11 +55,7 @@ pub fn verify_oscillator_frequency(
 }
 
 /// Verify audio has reasonable amplitude (not too quiet, not clipping)
-pub fn verify_amplitude_range(
-    wav_path: &str,
-    min_rms: f32,
-    max_peak: f32,
-) -> Result<(), String> {
+pub fn verify_amplitude_range(wav_path: &str, min_rms: f32, max_peak: f32) -> Result<(), String> {
     let analysis = analyze_wav(wav_path)?;
 
     if analysis.is_empty {
@@ -75,10 +70,7 @@ pub fn verify_amplitude_range(
     }
 
     if analysis.is_clipping {
-        return Err(format!(
-            "Audio is clipping! Peak: {:.6}",
-            analysis.peak
-        ));
+        return Err(format!("Audio is clipping! Peak: {:.6}", analysis.peak));
     }
 
     if analysis.peak > max_peak {
@@ -118,10 +110,7 @@ pub fn verify_filter_effect(
 }
 
 /// Verify sample playback produces rhythmic events (transients/onsets)
-pub fn verify_sample_playback(
-    wav_path: &str,
-    min_onsets: usize,
-) -> Result<AudioAnalysis, String> {
+pub fn verify_sample_playback(wav_path: &str, min_onsets: usize) -> Result<AudioAnalysis, String> {
     let analysis = analyze_wav(wav_path)?;
 
     if analysis.is_empty {
@@ -139,10 +128,7 @@ pub fn verify_sample_playback(
 }
 
 /// Verify effect is modifying audio (compare with expected characteristics)
-pub fn verify_effect_processing(
-    wav_path: &str,
-    effect_type: &str,
-) -> Result<(), String> {
+pub fn verify_effect_processing(wav_path: &str, effect_type: &str) -> Result<(), String> {
     let analysis = analyze_wav(wav_path)?;
 
     if analysis.is_empty {
@@ -170,7 +156,7 @@ pub fn verify_effect_processing(
             }
             Ok(())
         }
-        _ => Ok(())
+        _ => Ok(()),
     }
 }
 
@@ -197,8 +183,8 @@ pub fn verify_envelope_shape(
     expected_attack_ms: f32,
     expected_release_ms: f32,
 ) -> Result<(), String> {
-    let mut reader = hound::WavReader::open(wav_path)
-        .map_err(|e| format!("Failed to open WAV: {}", e))?;
+    let mut reader =
+        hound::WavReader::open(wav_path).map_err(|e| format!("Failed to open WAV: {}", e))?;
 
     let spec = reader.spec();
     let samples: Vec<f32> = reader.samples::<f32>().map(|s| s.unwrap_or(0.0)).collect();
@@ -230,11 +216,16 @@ pub fn verify_envelope_shape(
 
     // Find attack time (time to reach 90% of peak)
     let attack_threshold = peak_level * 0.9;
-    let attack_windows = envelope.iter().position(|&x| x >= attack_threshold).unwrap_or(0);
+    let attack_windows = envelope
+        .iter()
+        .position(|&x| x >= attack_threshold)
+        .unwrap_or(0);
     let actual_attack_ms = attack_windows as f32 * window_size_ms;
 
     // Find release time (time to drop to 10% from peak)
-    let peak_index = envelope.iter().enumerate()
+    let peak_index = envelope
+        .iter()
+        .enumerate()
         .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
         .map(|(i, _)| i)
         .unwrap_or(0);
@@ -271,21 +262,17 @@ pub fn verify_envelope_shape(
 /// Advanced: Verify pattern modulation by checking parameter changes over time
 pub fn verify_pattern_modulation(
     wav_path: &str,
-    parameter: &str,  // "frequency", "amplitude", "spectral"
+    parameter: &str, // "frequency", "amplitude", "spectral"
     expected_changes: usize,
 ) -> Result<(), String> {
-    let mut reader = hound::WavReader::open(wav_path)
-        .map_err(|e| format!("Failed to open WAV: {}", e))?;
+    let mut reader =
+        hound::WavReader::open(wav_path).map_err(|e| format!("Failed to open WAV: {}", e))?;
 
     let spec = reader.spec();
 
     // Read samples correctly based on format (same as analyze_wav)
     let samples: Vec<f32> = match spec.sample_format {
-        hound::SampleFormat::Float => {
-            reader.samples::<f32>()
-                .map(|s| s.unwrap_or(0.0))
-                .collect()
-        }
+        hound::SampleFormat::Float => reader.samples::<f32>().map(|s| s.unwrap_or(0.0)).collect(),
         hound::SampleFormat::Int => {
             let max_val = (1 << (spec.bits_per_sample - 1)) as f32;
             reader
@@ -324,21 +311,21 @@ pub fn verify_pattern_modulation(
                 // Estimate dominant frequency via zero-crossing rate
                 let mut crossings = 0;
                 for i in 1..chunk.len() {
-                    if (chunk[i] >= 0.0) != (chunk[i-1] >= 0.0) {
+                    if (chunk[i] >= 0.0) != (chunk[i - 1] >= 0.0) {
                         crossings += 1;
                     }
                 }
                 crossings as f32 * spec.sample_rate as f32 / (2.0 * chunk.len() as f32)
-            },
+            }
             "amplitude" => {
                 // RMS amplitude
                 (chunk.iter().map(|x| x * x).sum::<f32>() / chunk.len() as f32).sqrt()
-            },
+            }
             "spectral" => {
                 // FIXED: Use actual spectral centroid, not sample-to-sample differences
                 let (_, spectral_centroid) = analyze_spectrum(chunk, spec.sample_rate);
                 spectral_centroid
-            },
+            }
             _ => return Err(format!("Unknown parameter: {}", parameter)),
         };
 
@@ -359,11 +346,7 @@ pub fn verify_pattern_modulation(
     let std_dev = variance.sqrt();
 
     // Calculate coefficient of variation (normalized measure of variance)
-    let coefficient_of_variation = if mean > 0.0 {
-        std_dev / mean
-    } else {
-        0.0
-    };
+    let coefficient_of_variation = if mean > 0.0 { std_dev / mean } else { 0.0 };
 
     // For spectral modulation, we expect at least 1.5% variation
     // (Lowered from 5% -> 2% -> 1.5% - spectral centroid is less sensitive to filter
@@ -373,7 +356,7 @@ pub fn verify_pattern_modulation(
     let min_variation = match parameter {
         "spectral" => 0.015,  // 1.5% variation in spectral centroid
         "frequency" => 0.05,  // 5% variation in frequency
-        "amplitude" => 0.001,  // 0.1% variation in amplitude (RMS averages out modulation)
+        "amplitude" => 0.001, // 0.1% variation in amplitude (RMS averages out modulation)
         _ => 0.015,
     };
 
@@ -385,8 +368,12 @@ pub fn verify_pattern_modulation(
     }
 
     // Also check for actual range changes (max - min should be significant)
-    let min_val = parameter_values.iter().fold(f32::INFINITY, |a, &b| a.min(b));
-    let max_val = parameter_values.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+    let min_val = parameter_values
+        .iter()
+        .fold(f32::INFINITY, |a, &b| a.min(b));
+    let max_val = parameter_values
+        .iter()
+        .fold(f32::NEG_INFINITY, |a, &b| a.max(b));
     let range = max_val - min_val;
     let range_ratio = if mean > 0.0 { range / mean } else { 0.0 };
 
@@ -406,8 +393,8 @@ pub fn verify_onset_timing(
     expected_onset_times_ms: &[f32],
     tolerance_ms: f32,
 ) -> Result<(), String> {
-    let mut reader = hound::WavReader::open(wav_path)
-        .map_err(|e| format!("Failed to open WAV: {}", e))?;
+    let mut reader =
+        hound::WavReader::open(wav_path).map_err(|e| format!("Failed to open WAV: {}", e))?;
 
     let spec = reader.spec();
     let samples: Vec<f32> = reader.samples::<f32>().map(|s| s.unwrap_or(0.0)).collect();
@@ -430,7 +417,8 @@ pub fn verify_onset_timing(
     // Match expected onsets to detected onsets
     for (i, &expected_time) in expected_onset_times_ms.iter().enumerate() {
         // Find closest detected onset
-        let closest_onset = onset_times_ms.iter()
+        let closest_onset = onset_times_ms
+            .iter()
             .min_by_key(|&&detected| ((detected - expected_time).abs() * 1000.0) as i32)
             .copied()
             .ok_or("No onsets detected")?;
@@ -486,8 +474,10 @@ fn detect_onset_times(samples: &[f32], sample_rate: u32) -> Vec<f32> {
 
         if energy > threshold && energy > prev_energy * 1.5 && !in_onset {
             // Check minimum distance from last onset
-            if onset_times.is_empty() ||
-               sample_idx - onset_times.last().map(|&(idx, _)| idx).unwrap_or(0) > min_onset_distance {
+            if onset_times.is_empty()
+                || sample_idx - onset_times.last().map(|&(idx, _)| idx).unwrap_or(0)
+                    > min_onset_distance
+            {
                 onset_times.push((sample_idx, energy));
                 in_onset = true;
             }
@@ -497,25 +487,22 @@ fn detect_onset_times(samples: &[f32], sample_rate: u32) -> Vec<f32> {
     }
 
     // Convert sample indices to milliseconds
-    onset_times.iter()
+    onset_times
+        .iter()
         .map(|(idx, _)| *idx as f32 / sample_rate as f32 * 1000.0)
         .collect()
 }
 
 /// Analyze WAV file - internal implementation
 fn analyze_wav(wav_path: &str) -> Result<AudioAnalysis, String> {
-    let mut reader = hound::WavReader::open(wav_path)
-        .map_err(|e| format!("Failed to open WAV: {}", e))?;
+    let mut reader =
+        hound::WavReader::open(wav_path).map_err(|e| format!("Failed to open WAV: {}", e))?;
 
     let spec = reader.spec();
 
     // Read all samples
     let samples: Vec<f32> = match spec.sample_format {
-        hound::SampleFormat::Float => {
-            reader.samples::<f32>()
-                .map(|s| s.unwrap_or(0.0))
-                .collect()
-        }
+        hound::SampleFormat::Float => reader.samples::<f32>().map(|s| s.unwrap_or(0.0)).collect(),
         hound::SampleFormat::Int => {
             let max_val = (1 << (spec.bits_per_sample - 1)) as f32;
             reader
@@ -607,7 +594,8 @@ fn analyze_spectrum(samples: &[f32], sample_rate: u32) -> (f32, f32) {
         let magnitude = (real * real + imag * imag).sqrt();
         magnitudes.push(magnitude);
 
-        if magnitude > max_magnitude && k > 0 {  // Skip DC bin
+        if magnitude > max_magnitude && k > 0 {
+            // Skip DC bin
             max_magnitude = magnitude;
             dominant_bin = k;
         }
@@ -765,7 +753,11 @@ mod tests {
 
         // Should pass with reasonable range
         let result = verify_amplitude_range("/tmp/test_amplitude.wav", 0.1, 0.9);
-        assert!(result.is_ok(), "Should verify amplitude range: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Should verify amplitude range: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -775,7 +767,8 @@ mod tests {
 
         // Three "hits" at different times
         for hit in [0, 11025, 22050] {
-            for i in 0..2205 { // 50ms burst
+            for i in 0..2205 {
+                // 50ms burst
                 if hit + i < signal.len() {
                     let t = i as f32 / 44100.0;
                     signal[hit + i] = (2.0 * PI * 200.0 * t).sin() * 0.8 * (-t * 20.0).exp();

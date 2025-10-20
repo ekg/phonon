@@ -15,9 +15,9 @@ fn validate_multiple_audio_files() {
         ("/tmp/test_osc_sine_constant.wav", "sine 440Hz", false),
         ("/tmp/test_osc_saw_constant.wav", "saw 440Hz", false),
     ];
-    
+
     eprintln!("\n=== MULTI-DIMENSIONAL AUDIO VALIDATION ===\n");
-    
+
     for (path, name, expect_onsets) in test_files {
         if std::path::Path::new(path).exists() {
             match analyze_wav_enhanced(path) {
@@ -33,15 +33,15 @@ fn validate_multiple_audio_files() {
                     eprintln!("   Onset Count: {}", analysis.onset_count);
                     eprintln!("   Is Empty: {}", analysis.is_empty);
                     eprintln!("   Is Clipping: {}", analysis.is_clipping);
-                    
+
                     if analysis.is_empty {
                         eprintln!("   ⚠️  WARNING: AUDIO IS SILENT!");
                     }
-                    
+
                     if expect_onsets && analysis.onset_count == 0 {
                         eprintln!("   ⚠️  WARNING: Expected onsets but found 0!");
                     }
-                    
+
                     eprintln!();
                 }
                 Err(e) => {
@@ -52,7 +52,7 @@ fn validate_multiple_audio_files() {
             eprintln!("⚠️  {} - File not found: {}\n", name, path);
         }
     }
-    
+
     // This test always passes - it's for diagnostic output only
     assert!(true);
 }

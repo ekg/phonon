@@ -14,28 +14,45 @@ fn test_voice_manager_cut_group_stops_previous() {
     vm.trigger_sample_with_cut_group(sample1.clone(), 1.0, 0.0, 1.0, Some(1));
 
     println!("After first trigger: {} voices", vm.active_voice_count());
-    assert_eq!(vm.active_voice_count(), 1, "Should have 1 voice after first trigger");
+    assert_eq!(
+        vm.active_voice_count(),
+        1,
+        "Should have 1 voice after first trigger"
+    );
 
     // Process a few samples
     for _ in 0..10 {
         let _ = vm.process();
     }
 
-    println!("After processing 10 samples: {} voices", vm.active_voice_count());
+    println!(
+        "After processing 10 samples: {} voices",
+        vm.active_voice_count()
+    );
     assert_eq!(vm.active_voice_count(), 1, "Should still have 1 voice");
 
     // Trigger second voice with SAME cut group - should stop first voice
     vm.trigger_sample_with_cut_group(sample2.clone(), 1.0, 0.0, 1.0, Some(1));
 
-    println!("After second trigger (same cut group): {} voices", vm.active_voice_count());
-    assert_eq!(vm.active_voice_count(), 1, "Should have only 1 voice - second stopped first");
+    println!(
+        "After second trigger (same cut group): {} voices",
+        vm.active_voice_count()
+    );
+    assert_eq!(
+        vm.active_voice_count(),
+        1,
+        "Should have only 1 voice - second stopped first"
+    );
 
     // Process and verify
     for _ in 0..10 {
         let _ = vm.process();
     }
 
-    println!("After processing 10 more samples: {} voices", vm.active_voice_count());
+    println!(
+        "After processing 10 more samples: {} voices",
+        vm.active_voice_count()
+    );
     assert_eq!(vm.active_voice_count(), 1, "Should still have only 1 voice");
 }
 
@@ -53,8 +70,15 @@ fn test_voice_manager_different_cut_groups_dont_interfere() {
     // Trigger with cut group 2 - should NOT stop first voice
     vm.trigger_sample_with_cut_group(sample2.clone(), 1.0, 0.0, 1.0, Some(2));
 
-    println!("After triggers with different cut groups: {} voices", vm.active_voice_count());
-    assert_eq!(vm.active_voice_count(), 2, "Different cut groups should not interfere");
+    println!(
+        "After triggers with different cut groups: {} voices",
+        vm.active_voice_count()
+    );
+    assert_eq!(
+        vm.active_voice_count(),
+        2,
+        "Different cut groups should not interfere"
+    );
 }
 
 #[test]
@@ -71,6 +95,13 @@ fn test_voice_manager_no_cut_group_allows_overlap() {
     // Trigger with no cut group - should allow overlap
     vm.trigger_sample_with_cut_group(sample2.clone(), 1.0, 0.0, 1.0, None);
 
-    println!("After triggers with no cut group: {} voices", vm.active_voice_count());
-    assert_eq!(vm.active_voice_count(), 2, "No cut group should allow overlap");
+    println!(
+        "After triggers with no cut group: {} voices",
+        vm.active_voice_count()
+    );
+    assert_eq!(
+        vm.active_voice_count(),
+        2,
+        "No cut group should allow overlap"
+    );
 }

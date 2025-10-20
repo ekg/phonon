@@ -18,7 +18,11 @@ fn test_palindrome_transform() {
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
     println!("Palindrome RMS: {}", rms);
-    assert!(rms > 0.0001, "Palindrome should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.0001,
+        "Palindrome should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -39,7 +43,11 @@ fn test_stutter_transform() {
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
     println!("Stutter RMS: {}", rms);
-    assert!(rms > 0.0001, "Stutter should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.0001,
+        "Stutter should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]

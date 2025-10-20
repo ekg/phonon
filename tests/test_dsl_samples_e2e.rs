@@ -1,11 +1,10 @@
+use std::fs;
 /// End-to-end tests for sample playback DSL syntax
 /// Tests s() function, mini-notation, and sample operations
 ///
 /// CRITICAL: Tests verify ACTUAL AUDIO OUTPUT using onset detection!
 /// We are "deaf" - can only verify drum hits through transient analysis.
-
 use std::process::Command;
-use std::fs;
 
 mod audio_verification_enhanced;
 use audio_verification_enhanced::*;
@@ -17,15 +16,29 @@ fn render_and_verify(dsl_code: &str, test_name: &str) -> (bool, String, String) 
 }
 
 /// Helper with custom duration for multi-cycle tests
-fn render_and_verify_duration(dsl_code: &str, test_name: &str, duration: &str) -> (bool, String, String) {
+fn render_and_verify_duration(
+    dsl_code: &str,
+    test_name: &str,
+    duration: &str,
+) -> (bool, String, String) {
     let ph_path = format!("/tmp/test_sample_{}.ph", test_name);
     let wav_path = format!("/tmp/test_sample_{}.wav", test_name);
 
     fs::write(&ph_path, dsl_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", &ph_path, &wav_path, "--duration", duration])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            &ph_path,
+            &wav_path,
+            "--duration",
+            duration,
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -49,8 +62,7 @@ out: s "bd" * 0.8
     assert!(success, "Failed to render kick drum: {}", stderr);
 
     // Use peak-based verification for sparse patterns
-    verify_sample_playback(&wav_path, 0.005)
-        .expect("Sample playback verification failed");
+    verify_sample_playback(&wav_path, 0.005).expect("Sample playback verification failed");
 }
 
 #[test]
@@ -63,8 +75,7 @@ out: s "sn" * 0.8
     assert!(success, "Failed to render snare: {}", stderr);
 
     // Use peak-based verification for sparse patterns
-    verify_sample_playback(&wav_path, 0.005)
-        .expect("Sample playback verification failed");
+    verify_sample_playback(&wav_path, 0.005).expect("Sample playback verification failed");
 }
 
 #[test]
@@ -77,8 +88,7 @@ out: s "hh" * 0.8
     assert!(success, "Failed to render hihat: {}", stderr);
 
     // Use peak-based verification for sparse patterns
-    verify_sample_playback(&wav_path, 0.005)
-        .expect("Sample playback verification failed");
+    verify_sample_playback(&wav_path, 0.005).expect("Sample playback verification failed");
 }
 
 #[test]
@@ -91,8 +101,7 @@ out: s "cp" * 0.8
     assert!(success, "Failed to render clap: {}", stderr);
 
     // Use peak-based verification for sparse patterns
-    verify_sample_playback(&wav_path, 0.005)
-        .expect("Sample playback verification failed");
+    verify_sample_playback(&wav_path, 0.005).expect("Sample playback verification failed");
 }
 
 #[test]
@@ -105,8 +114,7 @@ out: s "hh" * 0.8
     assert!(success, "Failed to render hihat: {}", stderr);
 
     // Use peak-based verification for sparse patterns
-    verify_sample_playback(&wav_path, 0.005)
-        .expect("Sample playback verification failed");
+    verify_sample_playback(&wav_path, 0.005).expect("Sample playback verification failed");
 }
 
 // ============================================================================
@@ -123,7 +131,11 @@ out: s "bd sn" * 0.8
     assert!(success, "Failed to render bd sn pattern: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 2, "Expected at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 2,
+        "Expected at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -136,7 +148,11 @@ out: s "bd bd bd bd" * 0.8
     assert!(success, "Failed to render 4/4 kick pattern: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -149,7 +165,11 @@ out: s "bd sn bd sn" * 0.8
     assert!(success, "Failed to render house beat: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -162,7 +182,11 @@ out: s "bd sn hh cp" * 0.8
     assert!(success, "Failed to render complete drum kit: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -175,7 +199,11 @@ out: s "bd hh sn hh bd hh sn hh" * 0.8
     assert!(success, "Failed to render 8-step pattern: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 8, "Expected at least 8 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 8,
+        "Expected at least 8 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -192,7 +220,11 @@ out: s "bd ~ sn ~" * 0.8
     assert!(success, "Failed to render samples with rests: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 2, "Expected at least 2 onsets (bd, sn), got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 2,
+        "Expected at least 2 onsets (bd, sn), got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -205,8 +237,7 @@ out: s "bd ~ ~ ~" * 0.8
     assert!(success, "Failed to render sparse kick: {}", stderr);
 
     // Use peak-based verification for sparse patterns
-    verify_sample_playback(&wav_path, 0.005)
-        .expect("Sample playback verification failed");
+    verify_sample_playback(&wav_path, 0.005).expect("Sample playback verification failed");
 }
 
 #[test]
@@ -216,10 +247,18 @@ tempo: 0.5
 out: s "bd ~ sn ~ hh ~ cp ~" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "alternating_rest");
-    assert!(success, "Failed to render alternating rest pattern: {}", stderr);
+    assert!(
+        success,
+        "Failed to render alternating rest pattern: {}",
+        stderr
+    );
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -232,7 +271,11 @@ out: s "bd ~ ~ ~ sn" * 0.8
     assert!(success, "Failed to render consecutive rests: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 2, "Expected at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 2,
+        "Expected at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -249,7 +292,11 @@ out: s "bd hh*2" * 0.8
     assert!(success, "Failed to render 2x hihat subdivision: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 3, "Expected at least 3 onsets (bd + 2xhh), got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 3,
+        "Expected at least 3 onsets (bd + 2xhh), got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -262,7 +309,11 @@ out: s "bd hh*4" * 0.8
     assert!(success, "Failed to render 4x hihat subdivision: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 5, "Expected at least 5 onsets (bd + 4xhh), got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 5,
+        "Expected at least 5 onsets (bd + 4xhh), got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -275,8 +326,7 @@ out: s "bd hh*8" * 0.8
     assert!(success, "Failed to render 8x hihat subdivision: {}", stderr);
 
     // Use dense pattern verification for high event density
-    verify_dense_sample_pattern(&wav_path, 8, 0.005)
-        .expect("Dense pattern verification failed");
+    verify_dense_sample_pattern(&wav_path, 8, 0.005).expect("Dense pattern verification failed");
 }
 
 #[test]
@@ -289,7 +339,11 @@ out: s "bd*2 sn hh*4 cp" * 0.8
     assert!(success, "Failed to render complex subdivision: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 8, "Expected at least 8 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 8,
+        "Expected at least 8 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -302,7 +356,11 @@ out: s "bd*2 sn*2 hh*2 cp*2" * 0.8
     assert!(success, "Failed to render all subdivided: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 8, "Expected at least 8 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 8,
+        "Expected at least 8 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -319,8 +377,7 @@ out: s "<bd cp>" * 0.8
     assert!(success, "Failed to render kick alternation: {}", stderr);
 
     // Use peak-based verification for sparse patterns
-    verify_sample_playback(&wav_path, 0.005)
-        .expect("Sample playback verification failed");
+    verify_sample_playback(&wav_path, 0.005).expect("Sample playback verification failed");
 }
 
 #[test]
@@ -333,7 +390,11 @@ out: s "bd <sn cp hh>" * 0.8
     assert!(success, "Failed to render 3-way alternation: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 2, "Expected at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 2,
+        "Expected at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -346,7 +407,11 @@ out: s "<bd sn> <hh cp>" * 0.8
     assert!(success, "Failed to render complex alternation: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 2, "Expected at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 2,
+        "Expected at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -356,10 +421,18 @@ tempo: 0.5
 out: s "bd <hh*2 cp>" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "alt_with_subdiv");
-    assert!(success, "Failed to render alternation with subdivision: {}", stderr);
+    assert!(
+        success,
+        "Failed to render alternation with subdivision: {}",
+        stderr
+    );
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 2, "Expected at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 2,
+        "Expected at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -373,10 +446,18 @@ tempo: 0.5
 out: s "bd(3,8)" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "euclid_3_8_bd");
-    assert!(success, "Failed to render euclidean (3,8) with bd: {}", stderr);
+    assert!(
+        success,
+        "Failed to render euclidean (3,8) with bd: {}",
+        stderr
+    );
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 3, "Expected at least 3 onsets (3,8), got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 3,
+        "Expected at least 3 onsets (3,8), got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -386,10 +467,18 @@ tempo: 0.5
 out: s "hh(5,8)" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "euclid_5_8_hh");
-    assert!(success, "Failed to render euclidean (5,8) with hh: {}", stderr);
+    assert!(
+        success,
+        "Failed to render euclidean (5,8) with hh: {}",
+        stderr
+    );
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 5, "Expected at least 5 onsets (5,8), got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 5,
+        "Expected at least 5 onsets (5,8), got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -399,10 +488,18 @@ tempo: 0.5
 out: s "sn(3,4)" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "euclid_3_4_sn");
-    assert!(success, "Failed to render euclidean (3,4) with sn: {}", stderr);
+    assert!(
+        success,
+        "Failed to render euclidean (3,4) with sn: {}",
+        stderr
+    );
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 3, "Expected at least 3 onsets (3,4), got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 3,
+        "Expected at least 3 onsets (3,4), got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -412,10 +509,18 @@ tempo: 0.5
 out: s "bd(7,16)" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "euclid_7_16_bd");
-    assert!(success, "Failed to render euclidean (7,16) with bd: {}", stderr);
+    assert!(
+        success,
+        "Failed to render euclidean (7,16) with bd: {}",
+        stderr
+    );
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 7, "Expected at least 7 onsets (7,16), got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 7,
+        "Expected at least 7 onsets (7,16), got {}",
+        analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -433,7 +538,11 @@ out: (~drums $ fast 2) * 0.8
     assert!(success, "Failed to apply fast to samples: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets (fast 2), got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets (fast 2), got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -447,7 +556,11 @@ out: (~drums $ slow 2) * 0.8
     assert!(success, "Failed to apply slow to samples: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 2, "Expected at least 2 onsets (slow 2), got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 2,
+        "Expected at least 2 onsets (slow 2), got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -461,7 +574,11 @@ out: (~drums $ rev) * 0.8
     assert!(success, "Failed to apply rev to samples: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -475,7 +592,11 @@ out: (~drums $ every 2 rev) * 0.8
     assert!(success, "Failed to apply every to samples: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 2, "Expected at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 2,
+        "Expected at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -489,7 +610,11 @@ out: (~drums $ fast 2 $ rev) * 0.8
     assert!(success, "Failed to chain transforms on samples: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 6, "Expected at least 6 onsets (fast 2), got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 6,
+        "Expected at least 6 onsets (fast 2), got {}",
+        analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -507,7 +632,11 @@ out: ~drums * 0.8
     assert!(success, "Failed to filter samples with lpf: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 7, "Expected at least 7 onsets (bd sn 4xhh cp), got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 7,
+        "Expected at least 7 onsets (bd sn 4xhh cp), got {}",
+        analysis.onset_count
+    );
     assert!(!analysis.is_empty, "Filtered audio should not be silent");
 }
 
@@ -522,7 +651,11 @@ out: ~drums * 0.8
     assert!(success, "Failed to filter samples with hpf: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 7, "Expected at least 7 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 7,
+        "Expected at least 7 onsets, got {}",
+        analysis.onset_count
+    );
     assert!(!analysis.is_empty, "Filtered audio should not be silent");
 }
 
@@ -537,7 +670,11 @@ out: ~drums * 0.8
     assert!(success, "Failed to filter samples with bpf: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 7, "Expected at least 7 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 7,
+        "Expected at least 7 onsets, got {}",
+        analysis.onset_count
+    );
     assert!(!analysis.is_empty, "Filtered audio should not be silent");
 }
 
@@ -553,9 +690,17 @@ out: ~drums * 0.8
     assert!(success, "Failed LFO-filtered samples: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 6, "Expected at least 6 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 6,
+        "Expected at least 6 onsets, got {}",
+        analysis.onset_count
+    );
     // Verify LFO modulation creates spectral changes
-    assert!(analysis.spectral_flux > 0.00001, "Expected spectral flux from LFO, got {:.6}", analysis.spectral_flux);
+    assert!(
+        analysis.spectral_flux > 0.00001,
+        "Expected spectral flux from LFO, got {:.6}",
+        analysis.spectral_flux
+    );
 }
 
 #[test]
@@ -570,7 +715,11 @@ out: ~drums * 0.8
     assert!(success, "Failed pattern-filtered samples: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 3, "Expected at least 3 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 3,
+        "Expected at least 3 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -589,7 +738,11 @@ out: (~kicks + ~snares) * 0.8
     assert!(success, "Failed to mix two sample patterns: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -605,7 +758,11 @@ out: (~kicks + ~snares + ~hats) * 0.6
     assert!(success, "Failed to mix three sample patterns: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 12, "Expected at least 12 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 12,
+        "Expected at least 12 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -621,7 +778,11 @@ out: (~layer1 + ~layer2 * 0.7 + ~layer3 * 0.8) * 0.7
     assert!(success, "Failed to create layered drums: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 7, "Expected at least 7 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 7,
+        "Expected at least 7 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -640,7 +801,11 @@ out: ~bass + ~drums * 0.6
     assert!(success, "Failed to mix samples with bass: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 7, "Expected at least 7 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 7,
+        "Expected at least 7 onsets, got {}",
+        analysis.onset_count
+    );
     assert!(!analysis.is_empty, "Mixed audio should not be silent");
 }
 
@@ -656,7 +821,11 @@ out: ~melody + ~drums * 0.6
     assert!(success, "Failed to mix samples with melody: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -672,7 +841,11 @@ out: ~bass + ~melody + ~drums * 0.6
     assert!(success, "Failed to create complete track: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 7, "Expected at least 7 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 7,
+        "Expected at least 7 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -689,8 +862,16 @@ out: s "bd sn hh cp" * 0.3
     assert!(success, "Failed to render quiet samples: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
-    assert!(analysis.peak < 0.5, "Expected quiet samples, got peak {:.2}", analysis.peak);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
+    assert!(
+        analysis.peak < 0.5,
+        "Expected quiet samples, got peak {:.2}",
+        analysis.peak
+    );
 }
 
 #[test]
@@ -703,7 +884,11 @@ out: s "bd sn hh cp" * 1.0
     assert!(success, "Failed to render loud samples: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -714,10 +899,18 @@ tempo: 0.5
 out: s "bd sn hh cp" * ~amp
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "pattern_amp_samples");
-    assert!(success, "Failed to apply pattern amplitude to samples: {}", stderr);
+    assert!(
+        success,
+        "Failed to apply pattern amplitude to samples: {}",
+        stderr
+    );
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -734,7 +927,11 @@ out: s "bd sn hh cp" * 0.8
     assert!(success, "Failed samples at slow tempo: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -747,7 +944,11 @@ out: s "bd sn hh cp" * 0.8
     assert!(success, "Failed samples at fast tempo: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -760,7 +961,11 @@ out: s "bd sn" * 0.8
     assert!(success, "Failed samples at very slow tempo: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 2, "Expected at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 2,
+        "Expected at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -777,7 +982,11 @@ out: s "bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp" * 0.8
     assert!(success, "Failed with very long sample pattern: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 16, "Expected at least 16 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 16,
+        "Expected at least 16 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -790,7 +999,11 @@ out: s "bd bd bd bd" * 0.8
     assert!(success, "Failed with all same sample: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -803,8 +1016,7 @@ out: s "bd hh*16" * 0.6
     assert!(success, "Failed with extreme subdivision: {}", stderr);
 
     // Use dense pattern verification for very high event density
-    verify_dense_sample_pattern(&wav_path, 15, 0.005)
-        .expect("Dense pattern verification failed");
+    verify_dense_sample_pattern(&wav_path, 15, 0.005).expect("Dense pattern verification failed");
 }
 
 #[test]
@@ -817,8 +1029,7 @@ out: s "bd ~ ~ ~ ~ ~ ~ ~" * 0.8
     assert!(success, "Failed with mostly rests: {}", stderr);
 
     // Use peak-based verification for sparse patterns
-    verify_sample_playback(&wav_path, 0.005)
-        .expect("Sample playback verification failed");
+    verify_sample_playback(&wav_path, 0.005).expect("Sample playback verification failed");
 }
 
 // ============================================================================
@@ -836,7 +1047,11 @@ out: ~drums * 0.8
     assert!(success, "Failed to route samples through bus: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -852,8 +1067,7 @@ out: ~bus1 + ~bus2 + ~bus3 * 0.7
     assert!(success, "Failed multiple sample buses: {}", stderr);
 
     // Use dense pattern verification for combined high-density buses
-    verify_dense_sample_pattern(&wav_path, 9, 0.005)
-        .expect("Dense pattern verification failed");
+    verify_dense_sample_pattern(&wav_path, 9, 0.005).expect("Dense pattern verification failed");
 }
 
 #[test]
@@ -869,5 +1083,9 @@ out: ~drums * 0.8
     assert!(success, "Failed nested sample bus: {}", stderr);
 
     let analysis = analyze_wav_enhanced(&wav_path).expect("Failed to analyze audio");
-    assert!(analysis.onset_count >= 4, "Expected at least 4 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 4,
+        "Expected at least 4 onsets, got {}",
+        analysis.onset_count
+    );
 }

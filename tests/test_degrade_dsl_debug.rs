@@ -1,5 +1,5 @@
-use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 use phonon::pattern::{Fraction, State, TimeSpan};
+use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 use std::collections::HashMap;
 
 #[test]
@@ -12,39 +12,39 @@ fn debug_degrade_dsl_compilation() {
 
     // Parse the DSL
     let (_, statements) = parse_dsl(input_degraded).expect("Should parse");
-    
+
     println!("\n=== DSL COMPILATION DEBUG ===");
     println!("Parsed {} statements", statements.len());
-    
+
     // Compile to graph
     let compiler = DslCompiler::new(44100.0);
     let graph = compiler.compile(statements);
-    
+
     println!("Graph compiled successfully");
-    
+
     // Try to inspect the graph nodes (if we can access them)
     // For now, just render and analyze
-    
+
     println!("\nAttempting to render audio to verify transform was applied...");
 }
 
 #[test]
 fn debug_direct_pattern_in_sample_node() {
     // Manually create what the DSL compiler SHOULD create
-    use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal};
     use phonon::mini_notation_v3::parse_mini_notation;
+    use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
     use std::collections::HashMap as StdHashMap;
-    
+
     println!("\n=== DIRECT SAMPLE NODE TEST ===");
-    
+
     let mut graph = UnifiedSignalGraph::new(44100.0);
     graph.set_cps(2.0);
-    
+
     // Create a degraded pattern manually
     let pattern_str = "bd bd bd bd";
     let base_pattern = parse_mini_notation(pattern_str);
     let degraded_pattern = base_pattern.degrade();
-    
+
     // Query the degraded pattern to verify it has fewer events
     let state = State {
         span: TimeSpan::new(
@@ -55,7 +55,7 @@ fn debug_direct_pattern_in_sample_node() {
     };
     let events = degraded_pattern.query(&state);
     println!("Degraded pattern has {} events over 2 cycles", events.len());
-    
+
     // Create a Sample node with the degraded pattern
     let sample_node = graph.add_node(SignalNode::Sample {
         pattern_str: pattern_str.to_string(),
@@ -72,21 +72,21 @@ fn debug_direct_pattern_in_sample_node() {
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
     });
-    
+
     graph.set_output(sample_node);
-    
+
     // Render audio
     let audio = graph.render(88200); // 2 seconds at 44.1kHz
-    
+
     // Calculate RMS
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    
+
     // Count non-zero samples
     let non_zero = audio.iter().filter(|&&x| x.abs() > 0.0001).count();
-    
+
     println!("Direct Sample node with degraded pattern:");
     println!("  RMS: {:.6}", rms);
     println!("  Non-zero samples: {}", non_zero);
-    
+
     assert!(rms > 0.0001, "Should produce audio");
 }

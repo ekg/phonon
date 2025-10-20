@@ -9,7 +9,11 @@ use std::thread;
 use std::time::Duration;
 
 /// Helper to send OSC message to server
-fn send_osc_message(port: u16, addr: &str, args: Vec<OscType>) -> Result<(), Box<dyn std::error::Error>> {
+fn send_osc_message(
+    port: u16,
+    addr: &str,
+    args: Vec<OscType>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let socket = UdpSocket::bind("0.0.0.0:0")?;
     let msg = OscMessage {
         addr: addr.to_string(),
@@ -34,7 +38,9 @@ fn test_osc_server_eval_message() {
     // Spawn server thread
     let server_handle = thread::spawn(move || {
         let socket = UdpSocket::bind(format!("127.0.0.1:{}", test_port)).unwrap();
-        socket.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
 
         let mut buf = [0u8; 1024];
         match socket.recv_from(&mut buf) {
@@ -54,7 +60,12 @@ fn test_osc_server_eval_message() {
 
     // Send /eval message with Phonon code
     let phonon_code = "~d1 = sine(440) * 0.2";
-    send_osc_message(test_port, "/eval", vec![OscType::String(phonon_code.to_string())]).unwrap();
+    send_osc_message(
+        test_port,
+        "/eval",
+        vec![OscType::String(phonon_code.to_string())],
+    )
+    .unwrap();
 
     // Wait for server to process
     server_handle.join().unwrap();
@@ -82,7 +93,9 @@ fn test_osc_server_hush_message() {
 
     let server_handle = thread::spawn(move || {
         let socket = UdpSocket::bind(format!("127.0.0.1:{}", test_port)).unwrap();
-        socket.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
 
         let mut buf = [0u8; 1024];
         match socket.recv_from(&mut buf) {
@@ -120,7 +133,9 @@ fn test_osc_server_panic_message() {
 
     let server_handle = thread::spawn(move || {
         let socket = UdpSocket::bind(format!("127.0.0.1:{}", test_port)).unwrap();
-        socket.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
 
         let mut buf = [0u8; 1024];
         match socket.recv_from(&mut buf) {

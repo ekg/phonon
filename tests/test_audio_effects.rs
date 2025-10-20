@@ -335,11 +335,22 @@ fn test_delay_creates_echoes() {
     let delayed_rms: f32 =
         (buffer[22050..33075].iter().map(|x| x * x).sum::<f32>() / 11025.0).sqrt();
 
-    println!("Delay - Early RMS: {:.6}, Delayed RMS: {:.6}", early_rms, delayed_rms);
+    println!(
+        "Delay - Early RMS: {:.6}, Delayed RMS: {:.6}",
+        early_rms, delayed_rms
+    );
 
     // Both should have signal (early has direct + starting echoes, late has accumulated echoes)
-    assert!(early_rms > 0.1, "Early signal should be present, got {:.6}", early_rms);
-    assert!(delayed_rms > 0.1, "Delayed signal should be present, got {:.6}", delayed_rms);
+    assert!(
+        early_rms > 0.1,
+        "Early signal should be present, got {:.6}",
+        early_rms
+    );
+    assert!(
+        delayed_rms > 0.1,
+        "Delayed signal should be present, got {:.6}",
+        delayed_rms
+    );
 }
 
 #[test]
@@ -401,10 +412,10 @@ fn test_compressor_basic() {
 
     let compressor = graph.add_node(SignalNode::Compressor {
         input: Signal::Node(osc),
-        threshold: Signal::Value(-20.0), // -20 dB threshold
-        ratio: Signal::Value(4.0),       // 4:1 ratio
-        attack: Signal::Value(0.01),     // 10ms attack
-        release: Signal::Value(0.1),     // 100ms release
+        threshold: Signal::Value(-20.0),  // -20 dB threshold
+        ratio: Signal::Value(4.0),        // 4:1 ratio
+        attack: Signal::Value(0.01),      // 10ms attack
+        release: Signal::Value(0.1),      // 100ms release
         makeup_gain: Signal::Value(10.0), // 10 dB makeup gain
         state: CompressorState::new(),
     });
@@ -475,7 +486,8 @@ fn test_compressor_reduces_dynamic_range() {
     );
 
     // But should still produce audio
-    let rms: f32 = (buffer_comp.iter().map(|x| x * x).sum::<f32>() / buffer_comp.len() as f32).sqrt();
+    let rms: f32 =
+        (buffer_comp.iter().map(|x| x * x).sum::<f32>() / buffer_comp.len() as f32).sqrt();
     assert!(
         rms > 0.01,
         "Compressor should still produce audio, got RMS={}",

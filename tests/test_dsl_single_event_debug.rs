@@ -2,7 +2,6 @@
 ///
 /// This test uses the DslCompiler to reproduce the bug where
 /// single-event patterns at slow tempo produce silence
-
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]

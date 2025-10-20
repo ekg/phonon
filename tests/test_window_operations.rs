@@ -17,7 +17,11 @@ fn test_zoom_transform() {
 
     // Should produce audible output
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Zoom transform should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Zoom transform should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -35,7 +39,11 @@ fn test_focus_transform() {
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Focus transform should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Focus transform should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -53,7 +61,11 @@ fn test_within_transform() {
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Within transform should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Within transform should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -76,14 +88,22 @@ fn test_zoom_at_pattern_level() {
 
     println!("\\nZoom pattern: {} events", events.len());
     for (i, event) in events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     // Zooming to first half should give us only first 2 events (bd, sn)
     // stretched across the full cycle
-    assert!(events.len() >= 1 && events.len() <= 3,
-        "Zoom should have 1-3 events, got {}", events.len());
+    assert!(
+        events.len() >= 1 && events.len() <= 3,
+        "Zoom should have 1-3 events, got {}",
+        events.len()
+    );
 }
 
 #[test]
@@ -105,13 +125,21 @@ fn test_focus_at_pattern_level() {
 
     println!("\\nFocus pattern: {} events", events.len());
     for (i, event) in events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     // Focusing on middle half (0.25-0.75) should give us events from that region
-    assert!(events.len() >= 1 && events.len() <= 3,
-        "Focus should have 1-3 events, got {}", events.len());
+    assert!(
+        events.len() >= 1 && events.len() <= 3,
+        "Focus should have 1-3 events, got {}",
+        events.len()
+    );
 }
 
 #[test]
@@ -134,14 +162,22 @@ fn test_within_at_pattern_level() {
 
     println!("\\nWithin pattern: {} events", events.len());
     for (i, event) in events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     // Within should apply fast(2) only to the middle section
     // Original has 4 events, fast(2) on middle section should add 2 more = ~6 total
-    assert!(events.len() >= 4 && events.len() <= 8,
-        "Within should have 4-8 events, got {}", events.len());
+    assert!(
+        events.len() >= 4 && events.len() <= 8,
+        "Within should have 4-8 events, got {}",
+        events.len()
+    );
 }
 
 #[test]
@@ -158,5 +194,9 @@ fn test_zoom_with_chained_transforms() {
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Zoom with chained transforms should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Zoom with chained transforms should produce audio, got RMS {:.6}",
+        rms
+    );
 }

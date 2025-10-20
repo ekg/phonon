@@ -42,7 +42,10 @@ fn test_osc_server_starts_and_receives() {
     let cmd = receiver.recv_timeout(Duration::from_secs(1));
     assert!(cmd.is_ok(), "Should receive command from OSC server");
 
-    if let Ok(LiveCommand::Eval { code: received_code }) = cmd {
+    if let Ok(LiveCommand::Eval {
+        code: received_code,
+    }) = cmd
+    {
         assert_eq!(received_code, code, "Should receive correct code");
     } else {
         panic!("Expected Eval command");
@@ -119,7 +122,10 @@ fn test_eval_creates_working_graph() {
         eprintln!("Graph has no output set!");
         eprintln!("Buses: {:?}", graph.get_all_bus_names());
     }
-    assert!(graph.has_output(), "Auto-routing should set output from ~d1");
+    assert!(
+        graph.has_output(),
+        "Auto-routing should set output from ~d1"
+    );
 
     // Process some samples to verify graph works
     let mut has_audio = false;
@@ -131,7 +137,10 @@ fn test_eval_creates_working_graph() {
         }
     }
 
-    assert!(has_audio, "Graph should produce audio from ~d1 via auto-routing");
+    assert!(
+        has_audio,
+        "Graph should produce audio from ~d1 via auto-routing"
+    );
 }
 
 #[test]

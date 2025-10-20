@@ -81,8 +81,7 @@ impl ModalEditor {
             content,
             duration,
             file_path,
-            status_message:
-                "🎵 Ready - C-x: eval | C-u: undo | C-r: redo".to_string(),
+            status_message: "🎵 Ready - C-x: eval | C-u: undo | C-r: redo".to_string(),
             is_playing: false,
             error_message: None,
             live_engine,
@@ -401,20 +400,51 @@ impl ModalEditor {
 
         // All function names (patterns, transforms, synth, DSP, structure)
         let functions = [
-            "s", "euclid",
-            "fast", "slow", "rev", "every", "degrade", "degradeBy", "stutter", "palindrome",
-            "sine", "saw", "square", "tri",
-            "lpf", "hpf", "bpf", "notch",
-            "reverb", "delay", "chorus", "bitcrush", "distortion",
-            "tempo", "out", "out1", "out2", "out3", "out4", "out5", "out6", "out7", "out8",
-            "hush", "panic"
+            "s",
+            "euclid",
+            "fast",
+            "slow",
+            "rev",
+            "every",
+            "degrade",
+            "degradeBy",
+            "stutter",
+            "palindrome",
+            "sine",
+            "saw",
+            "square",
+            "tri",
+            "lpf",
+            "hpf",
+            "bpf",
+            "notch",
+            "reverb",
+            "delay",
+            "chorus",
+            "bitcrush",
+            "distortion",
+            "tempo",
+            "out",
+            "out1",
+            "out2",
+            "out3",
+            "out4",
+            "out5",
+            "out6",
+            "out7",
+            "out8",
+            "hush",
+            "panic",
         ];
 
         // Check if line starts with # (comment)
         let line_trimmed = line.trim_start();
         if line_trimmed.starts_with('#') {
             // Entire line is a comment
-            spans.push(Span::styled(line.to_string(), Style::default().fg(Color::Rgb(100, 100, 100))));
+            spans.push(Span::styled(
+                line.to_string(),
+                Style::default().fg(Color::Rgb(100, 100, 100)),
+            ));
             return spans;
         }
 
@@ -429,20 +459,23 @@ impl ModalEditor {
                 if in_string {
                     current.push(ch);
                     // Mininotation strings → White
-                    spans.push(Span::styled(current.clone(), Style::default().fg(Color::White)));
+                    spans.push(Span::styled(
+                        current.clone(),
+                        Style::default().fg(Color::White),
+                    ));
                     current.clear();
                     in_string = false;
                 } else {
                     // Flush current token
                     if !current.is_empty() {
                         let style = if functions.contains(&current.as_str()) {
-                            Style::default().fg(Color::Blue)  // Functions → Blue
+                            Style::default().fg(Color::Blue) // Functions → Blue
                         } else if current.starts_with('~') {
-                            Style::default().fg(Color::Magenta)  // Buses → Purple
+                            Style::default().fg(Color::Magenta) // Buses → Purple
                         } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                            Style::default().fg(Color::Rgb(255, 165, 0))  // Numbers → Orange
+                            Style::default().fg(Color::Rgb(255, 165, 0)) // Numbers → Orange
                         } else {
-                            Style::default().fg(Color::White)  // Default
+                            Style::default().fg(Color::White) // Default
                         };
                         spans.push(Span::styled(current.clone(), style));
                         current.clear();
@@ -476,9 +509,9 @@ impl ModalEditor {
                 }
                 // # and $ → Hot Pink, others → Light Gray
                 let color = if ch == '#' || ch == '$' {
-                    Color::Rgb(255, 20, 147)  // Hot Pink
+                    Color::Rgb(255, 20, 147) // Hot Pink
                 } else {
-                    Color::Rgb(150, 150, 150)  // Light Gray
+                    Color::Rgb(150, 150, 150) // Light Gray
                 };
                 spans.push(Span::styled(ch.to_string(), Style::default().fg(color)));
                 continue;
@@ -510,17 +543,17 @@ impl ModalEditor {
         // Flush remaining
         if !current.is_empty() {
             let style = if in_comment {
-                Style::default().fg(Color::Rgb(100, 100, 100))  // Comments → Dark gray
+                Style::default().fg(Color::Rgb(100, 100, 100)) // Comments → Dark gray
             } else if in_string {
-                Style::default().fg(Color::White)  // Strings → White
+                Style::default().fg(Color::White) // Strings → White
             } else if functions.contains(&current.as_str()) {
-                Style::default().fg(Color::Blue)  // Functions → Blue
+                Style::default().fg(Color::Blue) // Functions → Blue
             } else if current.starts_with('~') {
-                Style::default().fg(Color::Magenta)  // Buses → Purple
+                Style::default().fg(Color::Magenta) // Buses → Purple
             } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                Style::default().fg(Color::Rgb(255, 165, 0))  // Numbers → Orange
+                Style::default().fg(Color::Rgb(255, 165, 0)) // Numbers → Orange
             } else {
-                Style::default().fg(Color::White)  // Default → White
+                Style::default().fg(Color::White) // Default → White
             };
             spans.push(Span::styled(current, style));
         }
@@ -553,21 +586,22 @@ impl ModalEditor {
 
         // Check if we're flashing a chunk
         // Smooth pop-to-fade: white flash then smooth fade over 0.5s
-        let (flash_start, flash_end, flash_color) = if let Some((start, end, frames)) = self.flash_highlight {
-            if frames > 8 {
-                // Full white pop (frames 10-9 = 100ms)
-                (start, end, Color::Rgb(255, 255, 255))
-            } else if frames > 0 {
-                // Smooth fade (frames 8-1 = 400ms)
-                let fade_progress = (8 - frames) as f32 / 8.0; // 0.0 = white, 1.0 = black
-                let brightness = (255.0 * (1.0 - fade_progress)) as u8;
-                (start, end, Color::Rgb(brightness, brightness, brightness))
+        let (flash_start, flash_end, flash_color) =
+            if let Some((start, end, frames)) = self.flash_highlight {
+                if frames > 8 {
+                    // Full white pop (frames 10-9 = 100ms)
+                    (start, end, Color::Rgb(255, 255, 255))
+                } else if frames > 0 {
+                    // Smooth fade (frames 8-1 = 400ms)
+                    let fade_progress = (8 - frames) as f32 / 8.0; // 0.0 = white, 1.0 = black
+                    let brightness = (255.0 * (1.0 - fade_progress)) as u8;
+                    (start, end, Color::Rgb(brightness, brightness, brightness))
+                } else {
+                    (usize::MAX, usize::MAX, Color::Black)
+                }
             } else {
                 (usize::MAX, usize::MAX, Color::Black)
-            }
-        } else {
-            (usize::MAX, usize::MAX, Color::Black)
-        };
+            };
 
         // Render lines with cursor, flash highlight, and syntax highlighting
         for (line_idx, line_text) in text_lines.iter().enumerate() {
@@ -581,7 +615,10 @@ impl ModalEditor {
                     // Empty line - show cursor block
                     if is_flashing {
                         // Flash background with cursor
-                        spans.push(Span::styled("█", Style::default().fg(Color::White).bg(flash_color)));
+                        spans.push(Span::styled(
+                            "█",
+                            Style::default().fg(Color::White).bg(flash_color),
+                        ));
                     } else {
                         spans.push(Span::styled("█", Style::default().fg(Color::White)));
                     }
@@ -665,7 +702,10 @@ impl ModalEditor {
                 // Regular line - apply syntax highlighting
                 if line_text.is_empty() {
                     if is_flashing {
-                        lines.push(Line::from(Span::styled(" ", Style::default().bg(flash_color))));
+                        lines.push(Line::from(Span::styled(
+                            " ",
+                            Style::default().bg(flash_color),
+                        )));
                     } else {
                         lines.push(Line::from(Span::raw(" "))); // Ensure empty lines take space
                     }
@@ -777,7 +817,8 @@ impl ModalEditor {
         if self.undo_stack.len() >= 100 {
             self.undo_stack.remove(0);
         }
-        self.undo_stack.push((self.content.clone(), self.cursor_pos));
+        self.undo_stack
+            .push((self.content.clone(), self.cursor_pos));
         // Clear redo stack on new edit
         self.redo_stack.clear();
     }
@@ -786,7 +827,8 @@ impl ModalEditor {
     fn undo(&mut self) {
         if let Some((content, cursor_pos)) = self.undo_stack.pop() {
             // Save current state to redo stack
-            self.redo_stack.push((self.content.clone(), self.cursor_pos));
+            self.redo_stack
+                .push((self.content.clone(), self.cursor_pos));
             // Restore previous state
             self.content = content;
             self.cursor_pos = cursor_pos;
@@ -802,7 +844,8 @@ impl ModalEditor {
     fn redo(&mut self) {
         if let Some((content, cursor_pos)) = self.redo_stack.pop() {
             // Save current state to undo stack
-            self.undo_stack.push((self.content.clone(), self.cursor_pos));
+            self.undo_stack
+                .push((self.content.clone(), self.cursor_pos));
             // Restore next state
             self.content = content;
             self.cursor_pos = cursor_pos;
@@ -974,8 +1017,15 @@ impl ModalEditor {
             } else {
                 preview
             };
-            let bus_count = self.content.lines().filter(|l| l.trim().starts_with("~")).count();
-            let has_out = self.content.lines().any(|l| l.trim().starts_with("out:") || l.trim().starts_with("out "));
+            let bus_count = self
+                .content
+                .lines()
+                .filter(|l| l.trim().starts_with("~"))
+                .count();
+            let has_out = self
+                .content
+                .lines()
+                .any(|l| l.trim().starts_with("out:") || l.trim().starts_with("out "));
 
             // Check if chunk starts with "hush" - if so, clear audio first
             let did_hush = if chunk.trim_start().starts_with("hush") {
@@ -1003,7 +1053,11 @@ impl ModalEditor {
             } else {
                 self.status_message = "✅ Chunk evaluated!".to_string();
                 self.add_console_message("✅ Sent to engine");
-                self.add_console_message(&format!("   {} buses, out: {}", bus_count, if has_out { "yes" } else { "NO!" }));
+                self.add_console_message(&format!(
+                    "   {} buses, out: {}",
+                    bus_count,
+                    if has_out { "yes" } else { "NO!" }
+                ));
 
                 // Flash the evaluated chunk: 10 frames = 500ms (pop + fade)
                 self.flash_highlight = Some((start_line, end_line, 10));

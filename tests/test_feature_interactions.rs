@@ -1,6 +1,6 @@
+use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
-use phonon::mini_notation_v3::parse_mini_notation;
 use std::collections::HashMap;
 
 /// Helper to calculate RMS
@@ -36,10 +36,7 @@ fn test_triple_nested_transforms() {
 
     // Verify we have audio activity
     let has_peaks = buffer.iter().any(|&s| s.abs() > 0.3);
-    assert!(
-        has_peaks,
-        "Triple nested transforms should have peaks"
-    );
+    assert!(has_peaks, "Triple nested transforms should have peaks");
 }
 
 /// Test every with nested transform

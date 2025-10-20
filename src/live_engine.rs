@@ -2,7 +2,8 @@
 //!
 //! Runs a continuous audio loop that can be hot-reloaded with new patterns
 
-use crate::unified_graph_parser::{parse_dsl, DslCompiler};
+use crate::compositional_compiler::compile_program;
+use crate::compositional_parser::parse_program;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -141,26 +142,31 @@ fn run_audio_loop(
                     current_code = code;
                     // Re-render the audio
                     if !current_code.is_empty() {
-                        // Parse and render using DslCompiler (unified parser)
-                        match parse_dsl(&current_code) {
+                        // Parse and render using new compositional parser
+                        match parse_program(&current_code) {
                             Ok((_, statements)) => {
                                 // Compile to graph
-                                let compiler = DslCompiler::new(sample_rate);
-                                let mut graph = compiler.compile(statements);
+                                match compile_program(statements, sample_rate) {
+                                    Ok(mut graph) => {
+                                        // Render one cycle
+                                        let samples_per_cycle =
+                                            (cycle_duration * sample_rate) as usize;
+                                        let audio_buffer = graph.render(samples_per_cycle);
 
-                                // Render one cycle
-                                let samples_per_cycle = (cycle_duration * sample_rate) as usize;
-                                let audio_buffer = graph.render(samples_per_cycle);
+                                        // Update the playback buffer
+                                        let mut buffer = current_buffer.lock().unwrap();
+                                        *buffer = audio_buffer;
 
-                                // Update the playback buffer
-                                let mut buffer = current_buffer.lock().unwrap();
-                                *buffer = audio_buffer;
+                                        // Reset hush state but DON'T reset position - keep cycle continuous
+                                        *is_hushed.lock().unwrap() = false;
+                                        // Don't reset position - let it keep cycling smoothly
 
-                                // Reset hush state but DON'T reset position - keep cycle continuous
-                                *is_hushed.lock().unwrap() = false;
-                                // Don't reset position - let it keep cycling smoothly
-
-                                // Silent - don't interfere with UI
+                                        // Silent - don't interfere with UI
+                                    }
+                                    Err(_e) => {
+                                        // Silent - don't interfere with UI
+                                    }
+                                }
                             }
                             Err(_e) => {
                                 // Silent - don't interfere with UI

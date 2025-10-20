@@ -16,7 +16,11 @@ fn test_swing_transform() {
 
     // Should produce audible output
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Swing transform should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Swing transform should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -33,7 +37,11 @@ fn test_shuffle_transform() {
     let audio = graph.render(88200); // Render 2 seconds to catch delayed events
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.0003, "Shuffle transform should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.0003,
+        "Shuffle transform should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -56,13 +64,21 @@ fn test_swing_at_pattern_level() {
 
     println!("\nSwing pattern: {} events", events.len());
     for (i, event) in events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     // Swing should preserve event count but adjust timing
-    assert!(events.len() >= 3 && events.len() <= 5,
-        "Swing should have 3-5 events, got {}", events.len());
+    assert!(
+        events.len() >= 3 && events.len() <= 5,
+        "Swing should have 3-5 events, got {}",
+        events.len()
+    );
 }
 
 #[test]
@@ -84,13 +100,21 @@ fn test_shuffle_at_pattern_level() {
 
     println!("\nShuffle pattern: {} events", events.len());
     for (i, event) in events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     // Shuffle should preserve event count
-    assert!(events.len() >= 3 && events.len() <= 5,
-        "Shuffle should have 3-5 events, got {}", events.len());
+    assert!(
+        events.len() >= 3 && events.len() <= 5,
+        "Shuffle should have 3-5 events, got {}",
+        events.len()
+    );
 }
 
 #[test]
@@ -107,7 +131,11 @@ fn test_swing_with_chained_transforms() {
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Swing with chained transforms should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Swing with chained transforms should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -124,5 +152,9 @@ fn test_shuffle_with_chained_transforms() {
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.0003, "Shuffle with chained transforms should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.0003,
+        "Shuffle with chained transforms should produce audio, got RMS {:.6}",
+        rms
+    );
 }

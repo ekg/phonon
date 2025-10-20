@@ -618,10 +618,10 @@ pub enum SignalNode {
     /// Compressor (dynamic range compression)
     Compressor {
         input: Signal,
-        threshold: Signal, // Threshold in dB (-60.0 to 0.0)
-        ratio: Signal,     // Compression ratio (1.0 to 20.0)
-        attack: Signal,    // Attack time in seconds (0.001 to 1.0)
-        release: Signal,   // Release time in seconds (0.01 to 3.0)
+        threshold: Signal,   // Threshold in dB (-60.0 to 0.0)
+        ratio: Signal,       // Compression ratio (1.0 to 20.0)
+        attack: Signal,      // Attack time in seconds (0.001 to 1.0)
+        release: Signal,     // Release time in seconds (0.01 to 3.0)
         makeup_gain: Signal, // Makeup gain in dB (0.0 to 30.0)
         state: CompressorState,
     },
@@ -1658,14 +1658,15 @@ impl UnifiedSignalGraph {
                         // CRITICAL FIX: When attack=0 and release=0 (default), don't apply
                         // a short envelope that cuts off samples. Instead use sensible defaults
                         // that let samples play through naturally.
-                        let (final_attack, final_release) = if attack_val == 0.0 && release_val == 0.0 {
-                            // No envelope requested: use very short attack and long release
-                            // to let the sample play through completely
-                            (0.001, 10.0)  // 1ms attack, 10s release (longer than any sample)
-                        } else {
-                            // Explicit envelope requested: use the values as-is
-                            (attack_val, release_val)
-                        };
+                        let (final_attack, final_release) =
+                            if attack_val == 0.0 && release_val == 0.0 {
+                                // No envelope requested: use very short attack and long release
+                                // to let the sample play through completely
+                                (0.001, 10.0) // 1ms attack, 10s release (longer than any sample)
+                            } else {
+                                // Explicit envelope requested: use the values as-is
+                                (attack_val, release_val)
+                            };
 
                         // DEBUG: Print cut group info
                         if std::env::var("DEBUG_CUT_GROUPS").is_ok() {
@@ -1685,8 +1686,11 @@ impl UnifiedSignalGraph {
                                 };
 
                                 // Convert duration to samples (duration is in cycles)
-                                let duration_samples = (event_duration * self.sample_rate as f64 * self.cps as f64) as usize;
-                                let duration_samples = duration_samples.max(1).min(self.sample_rate as usize * 2); // Cap at 2 seconds
+                                let duration_samples =
+                                    (event_duration * self.sample_rate as f64 * self.cps as f64)
+                                        as usize;
+                                let duration_samples =
+                                    duration_samples.max(1).min(self.sample_rate as usize * 2); // Cap at 2 seconds
 
                                 // Create synthetic sample buffer by evaluating bus signal
                                 // IMPORTANT: Clear cache between each sample to get fresh oscillator values

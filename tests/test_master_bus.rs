@@ -1,5 +1,5 @@
-use std::process::Command;
 use std::fs;
+use std::process::Command;
 
 fn analyze_wav(path: &str) -> String {
     let output = Command::new("cargo")
@@ -22,9 +22,18 @@ cps: 2.0
     fs::write("/tmp/test_master_auto_sum.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_master_auto_sum.phonon",
-                "/tmp/test_master_auto_sum.wav", "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_master_auto_sum.phonon",
+            "/tmp/test_master_auto_sum.wav",
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -37,8 +46,10 @@ cps: 2.0
     println!("{}", analysis);
 
     // Should contain audio from both drums and bass
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Auto-sum master should produce audio");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Auto-sum master should produce audio"
+    );
 }
 
 #[test]
@@ -54,9 +65,18 @@ cps: 2.0
     fs::write("/tmp/test_master_explicit.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_master_explicit.phonon",
-                "/tmp/test_master_explicit.wav", "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_master_explicit.phonon",
+            "/tmp/test_master_explicit.wav",
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -68,8 +88,10 @@ cps: 2.0
     let analysis = analyze_wav("/tmp/test_master_explicit.wav");
     println!("{}", analysis);
 
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Explicit master mix should produce audio");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Explicit master mix should produce audio"
+    );
 }
 
 #[test]
@@ -85,9 +107,18 @@ cps: 2.0
     fs::write("/tmp/test_master_processing.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_master_processing.phonon",
-                "/tmp/test_master_processing.wav", "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_master_processing.phonon",
+            "/tmp/test_master_processing.wav",
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -99,8 +130,10 @@ cps: 2.0
     let analysis = analyze_wav("/tmp/test_master_processing.wav");
     println!("{}", analysis);
 
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Master with effects should produce audio");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Master with effects should produce audio"
+    );
 }
 
 #[test]
@@ -116,9 +149,18 @@ cps: 2.0
     fs::write("/tmp/test_send_aux.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_send_aux.phonon",
-                "/tmp/test_send_aux.wav", "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_send_aux.phonon",
+            "/tmp/test_send_aux.wav",
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -130,8 +172,10 @@ cps: 2.0
     let analysis = analyze_wav("/tmp/test_send_aux.wav");
     println!("{}", analysis);
 
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Send/aux routing should produce audio");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Send/aux routing should produce audio"
+    );
 }
 
 #[test]
@@ -150,9 +194,18 @@ cps: 2.0
     fs::write("/tmp/test_multi_output.phonon", phonon_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", "/tmp/test_multi_output.phonon",
-                "/tmp/test_multi_output.wav", "--duration", "2"])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_multi_output.phonon",
+            "/tmp/test_multi_output.wav",
+            "--duration",
+            "2",
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -164,6 +217,8 @@ cps: 2.0
     let analysis = analyze_wav("/tmp/test_multi_output.wav");
     println!("{}", analysis);
 
-    assert!(analysis.contains("✅ Contains audio signal"),
-            "Multi-output routing should produce audio");
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "Multi-output routing should produce audio"
+    );
 }

@@ -1,7 +1,6 @@
-/// Test DSL rendering to file to verify DslCompiler works end-to-end
-
-use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 use hound::{SampleFormat, WavSpec, WavWriter};
+/// Test DSL rendering to file to verify DslCompiler works end-to-end
+use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]
 fn test_dsl_render_to_wav() {
@@ -17,7 +16,7 @@ out: s "bd" * 0.8
     let mut graph = compiler.compile(statements);
 
     // Render 1 cycle (2 seconds at 0.5 cps)
-    let duration = 1.0 / graph.get_cps();  // 1 cycle = 2 seconds
+    let duration = 1.0 / graph.get_cps(); // 1 cycle = 2 seconds
     let total_samples = (duration * 44100.0) as usize;
 
     println!("Rendering {} samples ({} seconds)", total_samples, duration);
@@ -36,12 +35,14 @@ out: s "bd" * 0.8
         sample_format: SampleFormat::Int,
     };
 
-    let mut writer = WavWriter::create("/tmp/test_dsl_render.wav", spec)
-        .expect("Failed to create WAV");
+    let mut writer =
+        WavWriter::create("/tmp/test_dsl_render.wav", spec).expect("Failed to create WAV");
 
     for &sample in &buffer {
         let sample_i16 = (sample * 32767.0) as i16;
-        writer.write_sample(sample_i16).expect("Failed to write sample");
+        writer
+            .write_sample(sample_i16)
+            .expect("Failed to write sample");
     }
 
     writer.finalize().expect("Failed to finalize WAV");

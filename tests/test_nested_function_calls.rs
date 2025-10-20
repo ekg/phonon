@@ -16,7 +16,7 @@ fn calc_spectral_centroid(buffer: &[f32]) -> f32 {
     let mut total_energy = 0.0;
 
     for i in 1..buffer.len() {
-        let diff = (buffer[i] - buffer[i-1]).abs();
+        let diff = (buffer[i] - buffer[i - 1]).abs();
         high_freq_energy += diff;
         total_energy += buffer[i].abs();
     }
@@ -59,14 +59,25 @@ fn test_single_level_nesting() {
     let reverb_rms = calc_rms(&reverb_buffer);
 
     // Both should have audio
-    assert!(base_rms > 0.001, "Base should produce audio, got RMS={}", base_rms);
-    assert!(reverb_rms > 0.001, "Reverb should produce audio, got RMS={}", reverb_rms);
+    assert!(
+        base_rms > 0.001,
+        "Base should produce audio, got RMS={}",
+        base_rms
+    );
+    assert!(
+        reverb_rms > 0.001,
+        "Reverb should produce audio, got RMS={}",
+        reverb_rms
+    );
 
     // Reverb should change the signal (not just pass through)
     // With 0.5 mix, reverb should affect the overall RMS
     let rms_ratio = (reverb_rms - base_rms).abs() / base_rms;
-    assert!(rms_ratio > 0.01,
-        "Reverb should noticeably change the audio (RMS ratio: {:.3})", rms_ratio);
+    assert!(
+        rms_ratio > 0.01,
+        "Reverb should noticeably change the audio (RMS ratio: {:.3})",
+        rms_ratio
+    );
 }
 
 #[test]
@@ -162,8 +173,14 @@ fn test_nesting_with_arithmetic() {
     let modulated_buffer = modulated_graph.render(44100);
 
     // Both should produce audio
-    assert!(calc_rms(&static_buffer) > 0.001, "Static filter should produce audio");
-    assert!(calc_rms(&modulated_buffer) > 0.001, "Modulated filter should produce audio");
+    assert!(
+        calc_rms(&static_buffer) > 0.001,
+        "Static filter should produce audio"
+    );
+    assert!(
+        calc_rms(&modulated_buffer) > 0.001,
+        "Modulated filter should produce audio"
+    );
 
     // Measure variation in the signal by comparing first half vs second half
     let static_first_half = &static_buffer[0..22050];
@@ -172,13 +189,17 @@ fn test_nesting_with_arithmetic() {
 
     let modulated_first_half = &modulated_buffer[0..22050];
     let modulated_second_half = &modulated_buffer[22050..44100];
-    let modulated_variation = (calc_rms(modulated_first_half) - calc_rms(modulated_second_half)).abs();
+    let modulated_variation =
+        (calc_rms(modulated_first_half) - calc_rms(modulated_second_half)).abs();
 
     // Modulated version should show MORE variation over time
     // (LFO sweeps the filter, changing brightness)
-    assert!(modulated_variation > static_variation * 1.5,
+    assert!(
+        modulated_variation > static_variation * 1.5,
         "LFO modulation should create time-varying sound: static_var={:.4}, modulated_var={:.4}",
-        static_variation, modulated_variation);
+        static_variation,
+        modulated_variation
+    );
 }
 
 #[test]
@@ -213,12 +234,18 @@ fn test_multiple_nested_calls_in_expression() {
 
     // Both should produce audio
     assert!(single_rms > 0.001, "Single source should produce audio");
-    assert!(combined_rms > 0.001, "Combined sources should produce audio");
+    assert!(
+        combined_rms > 0.001,
+        "Combined sources should produce audio"
+    );
 
     // Combined version should have MORE energy (two sources added)
-    assert!(combined_rms > single_rms * 1.2,
+    assert!(
+        combined_rms > single_rms * 1.2,
         "Combined sources should be louder than single: single={:.4}, combined={:.4}",
-        single_rms, combined_rms);
+        single_rms,
+        combined_rms
+    );
 }
 
 #[test]
@@ -250,27 +277,36 @@ fn test_nesting_with_pattern_strings() {
     let pattern_buffer = pattern_graph.render(44100);
 
     // Both should produce audio
-    assert!(calc_rms(&constant_buffer) > 0.001, "Constant frequency should produce audio");
-    assert!(calc_rms(&pattern_buffer) > 0.001, "Pattern frequency should produce audio");
+    assert!(
+        calc_rms(&constant_buffer) > 0.001,
+        "Constant frequency should produce audio"
+    );
+    assert!(
+        calc_rms(&pattern_buffer) > 0.001,
+        "Pattern frequency should produce audio"
+    );
 
     // Divide into thirds and check variation
     let third = constant_buffer.len() / 3;
     let pattern_third1_rms = calc_rms(&pattern_buffer[0..third]);
-    let pattern_third2_rms = calc_rms(&pattern_buffer[third..2*third]);
-    let pattern_third3_rms = calc_rms(&pattern_buffer[2*third..]);
+    let pattern_third2_rms = calc_rms(&pattern_buffer[third..2 * third]);
+    let pattern_third3_rms = calc_rms(&pattern_buffer[2 * third..]);
 
     let constant_third1_rms = calc_rms(&constant_buffer[0..third]);
-    let constant_third2_rms = calc_rms(&constant_buffer[third..2*third]);
+    let constant_third2_rms = calc_rms(&constant_buffer[third..2 * third]);
 
     // Pattern should show variation between sections
-    let pattern_variation = (pattern_third1_rms - pattern_third2_rms).abs() +
-                           (pattern_third2_rms - pattern_third3_rms).abs();
+    let pattern_variation = (pattern_third1_rms - pattern_third2_rms).abs()
+        + (pattern_third2_rms - pattern_third3_rms).abs();
     let constant_variation = (constant_third1_rms - constant_third2_rms).abs();
 
     // Pattern should vary more than constant (due to frequency changes)
-    assert!(pattern_variation > constant_variation * 1.5,
+    assert!(
+        pattern_variation > constant_variation * 1.5,
         "Pattern should create varying audio: constant_var={:.4}, pattern_var={:.4}",
-        constant_variation, pattern_variation);
+        constant_variation,
+        pattern_variation
+    );
 }
 
 #[test]
@@ -310,7 +346,11 @@ fn test_nesting_with_bus_refs() {
     // Verify it produces audio
     let buffer = graph.render(4410);
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.001, "Nesting with bus refs should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.001,
+        "Nesting with bus refs should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -333,7 +373,11 @@ fn test_deeply_nested_with_mixed_types() {
     // Verify it produces audio
     let buffer = graph.render(8820);
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.001, "Deep nesting with mixed types should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.001,
+        "Deep nesting with mixed types should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -389,7 +433,11 @@ fn test_parallel_nested_calls() {
     // Verify it produces audio
     let buffer = graph.render(4410);
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.001, "Parallel nested calls should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.001,
+        "Parallel nested calls should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -411,7 +459,11 @@ fn test_asymmetric_nesting() {
     // Verify it produces audio
     let buffer = graph.render(4410);
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.001, "Asymmetric nesting should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.001,
+        "Asymmetric nesting should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -450,5 +502,9 @@ fn test_nesting_stops_at_operators() {
     // Verify it produces audio
     let buffer = graph.render(4410);
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.001, "Operator boundaries should work correctly, got RMS={}", rms);
+    assert!(
+        rms > 0.001,
+        "Operator boundaries should work correctly, got RMS={}",
+        rms
+    );
 }

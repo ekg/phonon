@@ -1,10 +1,9 @@
+use phonon::mini_notation_v3::parse_mini_notation;
 /// Minimal reproduction of single-event pattern bug
 ///
 /// BUG: Pattern with 1 event at slow tempo (2s cycles) produces silence
 /// WORKS: Same pattern at fast tempo (0.5s cycles) works fine
-
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal};
-use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 use std::collections::HashMap;
 
 #[test]

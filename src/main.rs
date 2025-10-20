@@ -212,8 +212,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!();
 
             // Parse and render using the compositional parser
-            use phonon::compositional_parser::parse_program;
             use phonon::compositional_compiler::compile_program;
+            use phonon::compositional_parser::parse_program;
 
             // Parse the DSL
             let (remaining, statements) =
@@ -1497,14 +1497,12 @@ out sine(440) * 0.2
             // Function to parse phonon file using compositional parser
             let parse_phonon =
                 |content: &str, sample_rate: f32| -> Result<UnifiedSignalGraph, String> {
-                    use phonon::compositional_parser::parse_program;
                     use phonon::compositional_compiler::compile_program;
+                    use phonon::compositional_parser::parse_program;
 
                     // Parse using compositional parser
                     match parse_program(content) {
-                        Ok((_, statements)) => {
-                            compile_program(statements, sample_rate)
-                        }
+                        Ok((_, statements)) => compile_program(statements, sample_rate),
                         Err(e) => Err(format!("Parse error: {:?}", e)),
                     }
                 };

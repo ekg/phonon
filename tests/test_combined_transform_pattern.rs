@@ -20,12 +20,19 @@ fn test_combined_transform_at_pattern_level() {
 
     println!("\nCombined fast(2) $ rev: {} events", combined_events.len());
     for (i, event) in combined_events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     // fast(2) doubles events, so 2 -> 4 events
-    assert!(combined_events.len() >= 3 && combined_events.len() <= 5,
+    assert!(
+        combined_events.len() >= 3 && combined_events.len() <= 5,
         "Combined transform should have 3-5 events, got {}",
-        combined_events.len());
+        combined_events.len()
+    );
 }

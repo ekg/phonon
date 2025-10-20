@@ -49,11 +49,17 @@ fn test_cut_group_stops_previous_voice() {
     println!("Max voices with cut group: {}", max_voices);
 
     // Find where the max occurs
-    let max_positions: Vec<usize> = voice_counts.iter().enumerate()
+    let max_positions: Vec<usize> = voice_counts
+        .iter()
+        .enumerate()
         .filter(|(_, &count)| count == max_voices)
         .map(|(idx, _)| idx)
         .collect();
-    println!("Max voice count ({}) occurs at samples: {:?}", max_voices, &max_positions[..max_positions.len().min(10)]);
+    println!(
+        "Max voice count ({}) occurs at samples: {:?}",
+        max_voices,
+        &max_positions[..max_positions.len().min(10)]
+    );
 
     // With cut groups, we should never have more than 1 voice active
     // (second voice stops first voice)

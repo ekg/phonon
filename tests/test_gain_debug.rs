@@ -1,5 +1,5 @@
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal};
 use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 use std::collections::HashMap;
 
 #[test]
@@ -52,7 +52,9 @@ fn test_pattern_gain_debug() {
     println!("Ratio: {:.3} (expected ~2.0)", first_peak / second_peak);
 
     // The first BD should be roughly 2x louder than the second
-    assert!((first_peak / second_peak - 2.0).abs() < 0.2,
-            "Pattern gain not working: ratio = {:.3}, expected 2.0",
-            first_peak / second_peak);
+    assert!(
+        (first_peak / second_peak - 2.0).abs() < 0.2,
+        "Pattern gain not working: ratio = {:.3}, expected 2.0",
+        first_peak / second_peak
+    );
 }

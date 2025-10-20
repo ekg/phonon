@@ -4,12 +4,12 @@ use audio_verification_enhanced::*;
 #[test]
 fn compare_tempo_effects() {
     eprintln!("\n=== TEMPO COMPARISON ===\n");
-    
+
     let files = vec![
         ("/tmp/tempo_test_bd.wav", "Tempo 2.0 (fast)"),
         ("/tmp/manual_test_bd.wav", "Tempo 0.5 (slow)"),
     ];
-    
+
     for (path, label) in files {
         if let Ok(analysis) = analyze_wav_enhanced(path) {
             eprintln!("📊 {}", label);
@@ -20,6 +20,6 @@ fn compare_tempo_effects() {
             eprintln!();
         }
     }
-    
+
     assert!(true);
 }

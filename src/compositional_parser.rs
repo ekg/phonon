@@ -8,8 +8,8 @@
 
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_while1, take_until},
-    character::complete::{alpha1, alphanumeric1, char, multispace0, space0, digit1},
+    bytes::complete::{tag, take_until, take_while1},
+    character::complete::{alpha1, alphanumeric1, char, digit1, multispace0, space0},
     combinator::{map, opt, recognize, value},
     multi::{many0, separated_list0, separated_list1},
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
@@ -51,10 +51,7 @@ pub enum Expr {
 
     // ========== Function calls ==========
     /// Function call: lpf(input, cutoff, q), sine(440)
-    Call {
-        name: String,
-        args: Vec<Expr>,
-    },
+    Call { name: String, args: Vec<Expr> },
 
     // ========== Operators (all first-class!) ==========
     /// Chain operator: a # b (pipe a into b)
@@ -74,10 +71,7 @@ pub enum Expr {
     },
 
     /// Unary operators: -, !
-    UnOp {
-        op: UnOp,
-        expr: Box<Expr>,
-    },
+    UnOp { op: UnOp, expr: Box<Expr> },
 
     /// Parenthesized expression (for grouping)
     Paren(Box<Expr>),
@@ -134,7 +128,9 @@ fn skip_space_and_comments(input: &str) -> IResult<&str, ()> {
         let start_len = current.len();
 
         // Skip whitespace
-        if let Ok((rest, _)) = take_while1::<_, _, nom::error::Error<&str>>(|c: char| c.is_whitespace())(current) {
+        if let Ok((rest, _)) =
+            take_while1::<_, _, nom::error::Error<&str>>(|c: char| c.is_whitespace())(current)
+        {
             current = rest;
         }
 
@@ -155,10 +151,7 @@ fn skip_space_and_comments(input: &str) -> IResult<&str, ()> {
 /// Parse a complete Phonon program
 pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
     let (input, _) = skip_space_and_comments(input)?;
-    let (input, statements) = separated_list0(
-        multispace1,
-        parse_statement,
-    )(input)?;
+    let (input, statements) = separated_list0(multispace1, parse_statement)(input)?;
     let (input, _) = skip_space_and_comments(input)?;
     Ok((input, statements))
 }
@@ -168,8 +161,8 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
     // Try to parse each statement type
     alt((
         parse_bus_assignment,
-        parse_output_channel,  // Try multi-channel output first
-        parse_output,          // Then single output
+        parse_output_channel, // Try multi-channel output first
+        parse_output,         // Then single output
         parse_tempo,
     ))(input)
 }
@@ -183,10 +176,13 @@ fn parse_bus_assignment(input: &str) -> IResult<&str, Statement> {
     let (input, _) = space0(input)?;
     let (input, expr) = parse_expr(input)?;
 
-    Ok((input, Statement::BusAssignment {
-        name: name.to_string(),
-        expr,
-    }))
+    Ok((
+        input,
+        Statement::BusAssignment {
+            name: name.to_string(),
+            expr,
+        },
+    ))
 }
 
 /// Parse multi-channel output: out1: expr, out2: expr, etc.
@@ -367,10 +363,13 @@ fn parse_unary_expr(input: &str) -> IResult<&str, Expr> {
     if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('-')(input) {
         let (input, _) = space0(input)?;
         let (input, expr) = parse_primary_expr(input)?;
-        Ok((input, Expr::UnOp {
-            op: UnOp::Neg,
-            expr: Box::new(expr),
-        }))
+        Ok((
+            input,
+            Expr::UnOp {
+                op: UnOp::Neg,
+                expr: Box::new(expr),
+            },
+        ))
     } else {
         parse_primary_expr(input)
     }
@@ -419,19 +418,19 @@ fn parse_function_call(input: &str) -> IResult<&str, Expr> {
             let (input, first_arg) = parse_primary_expr(input)?;
 
             // Parse remaining space-separated arguments (using hspace1!)
-            let (input, mut rest_args) = many0(preceded(
-                hspace1,
-                parse_primary_expr,
-            ))(input)?;
+            let (input, mut rest_args) = many0(preceded(hspace1, parse_primary_expr))(input)?;
 
             // Combine all args
             let mut args = vec![first_arg];
             args.append(&mut rest_args);
 
-            Ok((input, Expr::Call {
-                name: name.to_string(),
-                args,
-            }))
+            Ok((
+                input,
+                Expr::Call {
+                    name: name.to_string(),
+                    args,
+                },
+            ))
         }
         Err(_) => {
             // Just an identifier with no arguments - invalid function call
@@ -448,38 +447,26 @@ fn parse_transform(input: &str) -> IResult<&str, Transform> {
     alt((
         // fast n
         map(
-            preceded(
-                terminated(tag("fast"), space1),
-                parse_primary_expr,
-            ),
+            preceded(terminated(tag("fast"), space1), parse_primary_expr),
             |expr| Transform::Fast(Box::new(expr)),
         ),
         // slow n
         map(
-            preceded(
-                terminated(tag("slow"), space1),
-                parse_primary_expr,
-            ),
+            preceded(terminated(tag("slow"), space1), parse_primary_expr),
             |expr| Transform::Slow(Box::new(expr)),
         ),
         // rev
         value(Transform::Rev, tag("rev")),
         // degradeBy p (MUST come before degrade!)
         map(
-            preceded(
-                terminated(tag("degradeBy"), space1),
-                parse_primary_expr,
-            ),
+            preceded(terminated(tag("degradeBy"), space1), parse_primary_expr),
             |expr| Transform::DegradeBy(Box::new(expr)),
         ),
         // degrade
         value(Transform::Degrade, tag("degrade")),
         // stutter n
         map(
-            preceded(
-                terminated(tag("stutter"), space1),
-                parse_primary_expr,
-            ),
+            preceded(terminated(tag("stutter"), space1), parse_primary_expr),
             |expr| Transform::Stutter(Box::new(expr)),
         ),
         // palindrome
@@ -554,7 +541,9 @@ fn space_and_comments(input: &str) -> IResult<&str, ()> {
 
     loop {
         // Try to skip whitespace
-        if let Ok((rest, _)) = take_while1::<_, _, nom::error::Error<&str>>(|c: char| c.is_whitespace())(current) {
+        if let Ok((rest, _)) =
+            take_while1::<_, _, nom::error::Error<&str>>(|c: char| c.is_whitespace())(current)
+        {
             current = rest;
             continue;
         }
@@ -574,7 +563,10 @@ fn space_and_comments(input: &str) -> IResult<&str, ()> {
     if current != input {
         Ok((current, ()))
     } else {
-        Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Space)))
+        Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Space,
+        )))
     }
 }
 
@@ -634,7 +626,10 @@ mod tests {
     fn test_parse_function_call_with_parens_should_fail() {
         // Parenthesized syntax is NOT supported - space-separated only!
         let result = parse_function_call("lpf(500, 0.8)");
-        assert!(result.is_err(), "Parenthesized syntax should not be supported");
+        assert!(
+            result.is_err(),
+            "Parenthesized syntax should not be supported"
+        );
     }
 
     #[test]
@@ -743,7 +738,11 @@ mod tests {
         assert!(result.is_ok());
         if let Ok((_, expr)) = result {
             match expr {
-                Expr::BinOp { op: BinOp::Add, right, .. } => {
+                Expr::BinOp {
+                    op: BinOp::Add,
+                    right,
+                    ..
+                } => {
                     match *right {
                         Expr::BinOp { op: BinOp::Mul, .. } => (), // Expected
                         _ => panic!("Expected multiplication on right side"),
@@ -763,7 +762,11 @@ mod tests {
             match expr {
                 Expr::Paren(inner) => {
                     match *inner {
-                        Expr::BinOp { op: BinOp::Mul, left, .. } => {
+                        Expr::BinOp {
+                            op: BinOp::Mul,
+                            left,
+                            ..
+                        } => {
                             match *left {
                                 Expr::Paren(_) => (), // Expected
                                 _ => panic!("Expected nested paren"),
@@ -785,7 +788,10 @@ mod tests {
         if let Ok((_, expr)) = result {
             // Should be: Transform(Transform(Transform("bd sn", fast 2), slow 0.5), rev)
             match expr {
-                Expr::Transform { expr: inner, transform } => {
+                Expr::Transform {
+                    expr: inner,
+                    transform,
+                } => {
                     assert!(matches!(transform, Transform::Rev));
                     match *inner {
                         Expr::Transform { .. } => (), // Another transform inside
@@ -868,7 +874,10 @@ mod tests {
         // Parenthesized syntax is NOT supported
         // lpf(saw(110), 1000, 0.8) should fail
         let result = parse_expr("lpf(saw(110), 1000, 0.8)");
-        assert!(result.is_err(), "Parenthesized nested calls should not be supported");
+        assert!(
+            result.is_err(),
+            "Parenthesized nested calls should not be supported"
+        );
     }
 
     #[test]
@@ -876,10 +885,22 @@ mod tests {
         // ~lfo * 2000 + 500
         let result = parse_expr("~lfo * 2000 + 500");
         assert!(result.is_ok());
-        if let Ok((_, Expr::BinOp { op: BinOp::Add, left, .. })) = result {
+        if let Ok((
+            _,
+            Expr::BinOp {
+                op: BinOp::Add,
+                left,
+                ..
+            },
+        )) = result
+        {
             // Left side should be multiplication
             match *left {
-                Expr::BinOp { op: BinOp::Mul, left, .. } => {
+                Expr::BinOp {
+                    op: BinOp::Mul,
+                    left,
+                    ..
+                } => {
                     match *left {
                         Expr::BusRef(_) => (), // Expected
                         _ => panic!("Expected bus ref"),
@@ -898,12 +919,24 @@ mod tests {
     fn test_all_transforms() {
         // Test each transform type
         let tests = vec![
-            ("\"bd\" $ fast 2", Transform::Fast(Box::new(Expr::Number(2.0)))),
-            ("\"bd\" $ slow 2", Transform::Slow(Box::new(Expr::Number(2.0)))),
+            (
+                "\"bd\" $ fast 2",
+                Transform::Fast(Box::new(Expr::Number(2.0))),
+            ),
+            (
+                "\"bd\" $ slow 2",
+                Transform::Slow(Box::new(Expr::Number(2.0))),
+            ),
             ("\"bd\" $ rev", Transform::Rev),
             ("\"bd\" $ degrade", Transform::Degrade),
-            ("\"bd\" $ degradeBy 0.5", Transform::DegradeBy(Box::new(Expr::Number(0.5)))),
-            ("\"bd\" $ stutter 3", Transform::Stutter(Box::new(Expr::Number(3.0)))),
+            (
+                "\"bd\" $ degradeBy 0.5",
+                Transform::DegradeBy(Box::new(Expr::Number(0.5))),
+            ),
+            (
+                "\"bd\" $ stutter 3",
+                Transform::Stutter(Box::new(Expr::Number(3.0))),
+            ),
             ("\"bd\" $ palindrome", Transform::Palindrome),
         ];
 
@@ -911,7 +944,11 @@ mod tests {
             let result = parse_expr(code);
             assert!(result.is_ok(), "Failed to parse: {}", code);
             if let Ok((_, Expr::Transform { transform, .. })) = result {
-                assert_eq!(transform, expected_transform, "Transform mismatch for: {}", code);
+                assert_eq!(
+                    transform, expected_transform,
+                    "Transform mismatch for: {}",
+                    code
+                );
             } else {
                 panic!("Expected Transform for: {}", code);
             }
@@ -925,12 +962,10 @@ mod tests {
         assert!(result.is_ok());
         if let Ok((_, Expr::Transform { transform, .. })) = result {
             match transform {
-                Transform::Fast(arg) => {
-                    match *arg {
-                        Expr::BusRef(name) => assert_eq!(name, "speed"),
-                        _ => panic!("Expected bus ref in fast arg"),
-                    }
-                }
+                Transform::Fast(arg) => match *arg {
+                    Expr::BusRef(name) => assert_eq!(name, "speed"),
+                    _ => panic!("Expected bus ref in fast arg"),
+                },
                 _ => panic!("Expected Fast transform"),
             }
         }
@@ -1019,7 +1054,14 @@ mod tests {
         // -1.5
         let result = parse_expr("-1.5");
         assert!(result.is_ok());
-        if let Ok((_, Expr::UnOp { op: UnOp::Neg, expr })) = result {
+        if let Ok((
+            _,
+            Expr::UnOp {
+                op: UnOp::Neg,
+                expr,
+            },
+        )) = result
+        {
             match *expr {
                 Expr::Number(n) => assert_eq!(n, 1.5),
                 _ => panic!("Expected number"),
@@ -1061,11 +1103,7 @@ mod tests {
     fn test_whitespace_handling() {
         // Test with various horizontal whitespace
         // Note: newlines NOT allowed between function name and args (they end statements)
-        let tests = vec![
-            "s \"bd\"",
-            "s  \"bd\"",
-            "s\t\"bd\"",
-        ];
+        let tests = vec!["s \"bd\"", "s  \"bd\"", "s\t\"bd\""];
 
         for code in tests {
             let result = parse_expr(code);
@@ -1139,7 +1177,10 @@ mod tests {
 ~drums: s "bd sn hh cp"
 out: ~drums"#;
         let result = parse_program(code);
-        assert!(result.is_ok(), "Failed to parse program with comment at start");
+        assert!(
+            result.is_ok(),
+            "Failed to parse program with comment at start"
+        );
         if let Ok((_, statements)) = result {
             assert_eq!(statements.len(), 2);
         }
@@ -1151,7 +1192,10 @@ out: ~drums"#;
 # This is a comment in the middle
 out: ~drums"#;
         let result = parse_program(code);
-        assert!(result.is_ok(), "Failed to parse program with comment between statements");
+        assert!(
+            result.is_ok(),
+            "Failed to parse program with comment between statements"
+        );
         if let Ok((_, statements)) = result {
             assert_eq!(statements.len(), 2);
         }
@@ -1167,7 +1211,10 @@ out: ~drums"#;
 out: ~drums
 # Comment at end"#;
         let result = parse_program(code);
-        assert!(result.is_ok(), "Failed to parse program with multiple comments");
+        assert!(
+            result.is_ok(),
+            "Failed to parse program with multiple comments"
+        );
         if let Ok((_, statements)) = result {
             assert_eq!(statements.len(), 2);
         }
@@ -1203,11 +1250,18 @@ tempo: 2.0
 out: ~filtered_drums * 0.6 + ~bass * 0.4
 "#;
         let result = parse_program(code);
-        assert!(result.is_ok(), "Failed to parse complex example with comments");
+        assert!(
+            result.is_ok(),
+            "Failed to parse complex example with comments"
+        );
         if let Ok((rest, statements)) = result {
             assert_eq!(rest.trim(), "", "Should consume entire program");
             // Should have: tempo, 6 bus assignments, 1 output = 8 statements
-            assert!(statements.len() >= 8, "Should have at least 8 statements, got {}", statements.len());
+            assert!(
+                statements.len() >= 8,
+                "Should have at least 8 statements, got {}",
+                statements.len()
+            );
         }
     }
 }

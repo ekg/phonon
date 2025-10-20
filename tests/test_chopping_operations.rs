@@ -16,7 +16,11 @@ fn test_chop_transform() {
 
     // Should produce audible output
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Chop transform should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Chop transform should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -33,7 +37,11 @@ fn test_gap_transform() {
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Gap transform should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Gap transform should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -50,7 +58,11 @@ fn test_segment_transform() {
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Segment transform should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Segment transform should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -73,14 +85,22 @@ fn test_chop_at_pattern_level() {
 
     println!("\nChop pattern: {} events", events.len());
     for (i, event) in events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     // Chopping "bd sn" (2 events) into 4 pieces each should give 4 events
     // (chop divides the cycle into n pieces, not each event)
-    assert!(events.len() >= 2 && events.len() <= 6,
-        "Chop should have 2-6 events, got {}", events.len());
+    assert!(
+        events.len() >= 2 && events.len() <= 6,
+        "Chop should have 2-6 events, got {}",
+        events.len()
+    );
 }
 
 #[test]
@@ -102,13 +122,21 @@ fn test_gap_at_pattern_level() {
 
     println!("\nGap pattern: {} events", events.len());
     for (i, event) in events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     // Gap should preserve the same number of events but adjust their timing
-    assert!(events.len() >= 3 && events.len() <= 5,
-        "Gap should have 3-5 events, got {}", events.len());
+    assert!(
+        events.len() >= 3 && events.len() <= 5,
+        "Gap should have 3-5 events, got {}",
+        events.len()
+    );
 }
 
 #[test]
@@ -130,13 +158,21 @@ fn test_segment_at_pattern_level() {
 
     println!("\nSegment pattern: {} events", events.len());
     for (i, event) in events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     // Segment should reorganize events
-    assert!(events.len() >= 2 && events.len() <= 6,
-        "Segment should have 2-6 events, got {}", events.len());
+    assert!(
+        events.len() >= 2 && events.len() <= 6,
+        "Segment should have 2-6 events, got {}",
+        events.len()
+    );
 }
 
 #[test]
@@ -153,5 +189,9 @@ fn test_chop_with_chained_transforms() {
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Chop with chained transforms should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Chop with chained transforms should produce audio, got RMS {:.6}",
+        rms
+    );
 }

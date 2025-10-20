@@ -1,11 +1,10 @@
+use std::fs;
 /// End-to-end tests for oscillator DSL syntax
 /// Tests all oscillator types and variations using actual .ph file syntax
 ///
 /// CRITICAL: Tests verify ACTUAL AUDIO OUTPUT, not just rendering success!
 /// We are "deaf" - can only verify audio through analysis tools.
-
 use std::process::Command;
-use std::fs;
 
 mod audio_verification;
 use audio_verification::*;
@@ -17,15 +16,29 @@ fn render_and_verify(dsl_code: &str, test_name: &str) -> (bool, String, String) 
 }
 
 /// Helper with custom duration for multi-cycle tests
-fn render_and_verify_duration(dsl_code: &str, test_name: &str, duration: &str) -> (bool, String, String) {
+fn render_and_verify_duration(
+    dsl_code: &str,
+    test_name: &str,
+    duration: &str,
+) -> (bool, String, String) {
     let ph_path = format!("/tmp/test_{}.ph", test_name);
     let wav_path = format!("/tmp/test_{}.wav", test_name);
 
     fs::write(&ph_path, dsl_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", &ph_path, &wav_path, "--duration", duration])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            &ph_path,
+            &wav_path,
+            "--duration",
+            duration,
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -49,10 +62,8 @@ out: sine 440 * 0.2
     assert!(success, "Failed to render sine oscillator: {}", stderr);
 
     // VERIFY ACTUAL AUDIO OUTPUT
-    verify_oscillator_frequency(&wav_path, 440.0, 50.0)
-        .expect("440 Hz sine wave not detected");
-    verify_amplitude_range(&wav_path, 0.05, 0.95)
-        .expect("Amplitude out of expected range");
+    verify_oscillator_frequency(&wav_path, 440.0, 50.0).expect("440 Hz sine wave not detected");
+    verify_amplitude_range(&wav_path, 0.05, 0.95).expect("Amplitude out of expected range");
 }
 
 #[test]
@@ -65,10 +76,8 @@ out: saw 110 * 0.2
     assert!(success, "Failed to render saw oscillator: {}", stderr);
 
     // VERIFY ACTUAL AUDIO OUTPUT
-    verify_oscillator_frequency(&wav_path, 110.0, 30.0)
-        .expect("110 Hz saw wave not detected");
-    verify_amplitude_range(&wav_path, 0.05, 0.95)
-        .expect("Amplitude out of expected range");
+    verify_oscillator_frequency(&wav_path, 110.0, 30.0).expect("110 Hz saw wave not detected");
+    verify_amplitude_range(&wav_path, 0.05, 0.95).expect("Amplitude out of expected range");
 }
 
 #[test]
@@ -81,10 +90,8 @@ out: square 220 * 0.2
     assert!(success, "Failed to render square oscillator: {}", stderr);
 
     // VERIFY ACTUAL AUDIO OUTPUT
-    verify_oscillator_frequency(&wav_path, 220.0, 50.0)
-        .expect("220 Hz square wave not detected");
-    verify_amplitude_range(&wav_path, 0.05, 0.95)
-        .expect("Amplitude out of expected range");
+    verify_oscillator_frequency(&wav_path, 220.0, 50.0).expect("220 Hz square wave not detected");
+    verify_amplitude_range(&wav_path, 0.05, 0.95).expect("Amplitude out of expected range");
 }
 
 #[test]
@@ -97,10 +104,8 @@ out: tri 330 * 0.2
     assert!(success, "Failed to render tri oscillator: {}", stderr);
 
     // VERIFY ACTUAL AUDIO OUTPUT
-    verify_oscillator_frequency(&wav_path, 330.0, 50.0)
-        .expect("330 Hz triangle wave not detected");
-    verify_amplitude_range(&wav_path, 0.05, 0.95)
-        .expect("Amplitude out of expected range");
+    verify_oscillator_frequency(&wav_path, 330.0, 50.0).expect("330 Hz triangle wave not detected");
+    verify_amplitude_range(&wav_path, 0.05, 0.95).expect("Amplitude out of expected range");
 }
 
 // ============================================================================
@@ -114,13 +119,16 @@ tempo: 0.5
 out: sine "220 440" * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "sine_pattern_2");
-    assert!(success, "Failed to render sine with 2-value pattern: {}", stderr);
+    assert!(
+        success,
+        "Failed to render sine with 2-value pattern: {}",
+        stderr
+    );
 
     // VERIFY PATTERN MODULATION - expect frequency changes
     verify_pattern_modulation(&wav_path, "frequency", 1)
         .expect("Pattern frequency modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 #[test]
@@ -130,13 +138,16 @@ tempo: 0.5
 out: sine "110 220 330 440" * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "sine_pattern_4");
-    assert!(success, "Failed to render sine with 4-value pattern: {}", stderr);
+    assert!(
+        success,
+        "Failed to render sine with 4-value pattern: {}",
+        stderr
+    );
 
     // VERIFY PATTERN MODULATION - expect multiple frequency changes
     verify_pattern_modulation(&wav_path, "frequency", 2)
         .expect("Pattern frequency modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 #[test]
@@ -151,8 +162,7 @@ out: saw "55 82.5 110 165" * 0.2
     // VERIFY PATTERN MODULATION
     verify_pattern_modulation(&wav_path, "frequency", 2)
         .expect("Pattern frequency modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 #[test]
@@ -167,8 +177,7 @@ out: square "110 165 220" * 0.2
     // VERIFY PATTERN MODULATION
     verify_pattern_modulation(&wav_path, "frequency", 1)
         .expect("Pattern frequency modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 #[test]
@@ -183,8 +192,7 @@ out: tri "220 330 440 550" * 0.2
     // VERIFY PATTERN MODULATION
     verify_pattern_modulation(&wav_path, "frequency", 2)
         .expect("Pattern frequency modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 // ============================================================================
@@ -203,10 +211,8 @@ out: ~osc1 + ~osc2
     assert!(success, "Failed to mix two sines: {}", stderr);
 
     // VERIFY AUDIO EXISTS and has reasonable amplitude
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
-    verify_amplitude_range(&wav_path, 0.05, 0.95)
-        .expect("Mixed amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
+    verify_amplitude_range(&wav_path, 0.05, 0.95).expect("Mixed amplitude out of range");
 }
 
 #[test]
@@ -223,10 +229,8 @@ out: ~s + ~saw + ~sq + ~t
     assert!(success, "Failed to mix all oscillator types: {}", stderr);
 
     // VERIFY AUDIO EXISTS
-    verify_audio_exists(&wav_path)
-        .expect("No audio output from mixed oscillators");
-    verify_amplitude_range(&wav_path, 0.05, 0.95)
-        .expect("Mixed amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output from mixed oscillators");
+    verify_amplitude_range(&wav_path, 0.05, 0.95).expect("Mixed amplitude out of range");
 }
 
 #[test]
@@ -242,10 +246,8 @@ out: ~bass + ~mid + ~high
     assert!(success, "Failed to create weighted mix: {}", stderr);
 
     // VERIFY AUDIO EXISTS with good levels
-    verify_audio_exists(&wav_path)
-        .expect("No audio output from weighted mix");
-    verify_amplitude_range(&wav_path, 0.1, 0.95)
-        .expect("Mixed amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output from weighted mix");
+    verify_amplitude_range(&wav_path, 0.1, 0.95).expect("Mixed amplitude out of range");
 }
 
 // ============================================================================
@@ -261,11 +263,14 @@ tempo: 0.5
 out: ~carrier * ~lfo * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lfo_am");
-    assert!(success, "Failed to create LFO amplitude modulation: {}", stderr);
+    assert!(
+        success,
+        "Failed to create LFO amplitude modulation: {}",
+        stderr
+    );
 
     // VERIFY LFO MODULATION - amplitude should vary over time
-    verify_lfo_modulation(&wav_path)
-        .expect("LFO amplitude modulation not detected");
+    verify_lfo_modulation(&wav_path).expect("LFO amplitude modulation not detected");
     verify_pattern_modulation(&wav_path, "amplitude", 1)
         .expect("Amplitude modulation over time not detected");
 }
@@ -282,8 +287,7 @@ out: ~carrier * ~lfo * 0.2
     assert!(success, "Failed to create slow LFO: {}", stderr);
 
     // VERIFY SLOW LFO - need longer duration to detect 0.25 Hz modulation
-    verify_lfo_modulation(&wav_path)
-        .expect("Slow LFO modulation not detected");
+    verify_lfo_modulation(&wav_path).expect("Slow LFO modulation not detected");
     verify_pattern_modulation(&wav_path, "amplitude", 1)
         .expect("Slow amplitude modulation not detected");
 }
@@ -300,10 +304,8 @@ out: ~carrier * 0.2
     assert!(success, "Failed to create vibrato: {}", stderr);
 
     // VERIFY VIBRATO - frequency modulation should be detectable
-    verify_lfo_modulation(&wav_path)
-        .expect("Vibrato (FM) not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_lfo_modulation(&wav_path).expect("Vibrato (FM) not detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 #[test]
@@ -318,8 +320,7 @@ out: ~carrier * ~lfo * 0.2
     assert!(success, "Failed to create triangle LFO: {}", stderr);
 
     // VERIFY TRIANGLE LFO modulation
-    verify_lfo_modulation(&wav_path)
-        .expect("Triangle LFO modulation not detected");
+    verify_lfo_modulation(&wav_path).expect("Triangle LFO modulation not detected");
     verify_pattern_modulation(&wav_path, "amplitude", 1)
         .expect("Amplitude modulation not detected");
 }
@@ -338,10 +339,8 @@ out: sine 40 * 0.3
     assert!(success, "Failed to render sub-bass: {}", stderr);
 
     // VERIFY 40 Hz sub-bass frequency
-    verify_oscillator_frequency(&wav_path, 40.0, 20.0)
-        .expect("40 Hz sub-bass not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_oscillator_frequency(&wav_path, 40.0, 20.0).expect("40 Hz sub-bass not detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 #[test]
@@ -354,10 +353,8 @@ out: saw 55 * 0.2
     assert!(success, "Failed to render bass: {}", stderr);
 
     // VERIFY 55 Hz bass (A1)
-    verify_oscillator_frequency(&wav_path, 55.0, 20.0)
-        .expect("55 Hz bass not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_oscillator_frequency(&wav_path, 55.0, 20.0).expect("55 Hz bass not detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 #[test]
@@ -370,10 +367,8 @@ out: square 440 * 0.2
     assert!(success, "Failed to render mid frequency: {}", stderr);
 
     // VERIFY 440 Hz (A4)
-    verify_oscillator_frequency(&wav_path, 440.0, 50.0)
-        .expect("440 Hz not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_oscillator_frequency(&wav_path, 440.0, 50.0).expect("440 Hz not detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 #[test]
@@ -386,10 +381,8 @@ out: sine 3520 * 0.1
     assert!(success, "Failed to render high frequency: {}", stderr);
 
     // VERIFY high frequency content
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
-    verify_amplitude_range(&wav_path, 0.02, 0.95)
-        .expect("Amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
+    verify_amplitude_range(&wav_path, 0.02, 0.95).expect("Amplitude out of range");
 }
 
 // ============================================================================
@@ -408,8 +401,7 @@ out: sine "110 165 220 275 330 385 440 495" * 0.2
     // VERIFY 8-step pattern modulation
     verify_pattern_modulation(&wav_path, "frequency", 4)
         .expect("8-step frequency pattern not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 #[test]
@@ -424,8 +416,7 @@ out: sine "110 220 440 880" * 0.2
     // VERIFY octave pattern - large frequency jumps
     verify_pattern_modulation(&wav_path, "frequency", 2)
         .expect("Octave pattern modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 #[test]
@@ -440,8 +431,7 @@ out: sine "220 247.5 275 330 370" * 0.2
     // VERIFY pentatonic scale pattern
     verify_pattern_modulation(&wav_path, "frequency", 2)
         .expect("Pentatonic pattern modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 // ============================================================================
@@ -460,10 +450,8 @@ out: ~carrier * 0.1
     assert!(success, "Failed to create FM synthesis: {}", stderr);
 
     // VERIFY FM synthesis creates audio with rich spectral content
-    verify_audio_exists(&wav_path)
-        .expect("No audio output from FM synthesis");
-    verify_amplitude_range(&wav_path, 0.02, 0.95)
-        .expect("FM amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output from FM synthesis");
+    verify_amplitude_range(&wav_path, 0.02, 0.95).expect("FM amplitude out of range");
 }
 
 #[test]
@@ -478,10 +466,8 @@ out: ~car * 0.1
     assert!(success, "Failed to create deep FM: {}", stderr);
 
     // VERIFY deep FM creates complex spectrum
-    verify_audio_exists(&wav_path)
-        .expect("No audio output from deep FM");
-    verify_amplitude_range(&wav_path, 0.02, 0.95)
-        .expect("FM amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output from deep FM");
+    verify_amplitude_range(&wav_path, 0.02, 0.95).expect("FM amplitude out of range");
 }
 
 #[test]
@@ -493,11 +479,14 @@ tempo: 0.5
 out: ~car * 0.1
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "pattern_fm");
-    assert!(success, "Failed to create pattern-controlled FM: {}", stderr);
+    assert!(
+        success,
+        "Failed to create pattern-controlled FM: {}",
+        stderr
+    );
 
     // VERIFY pattern-controlled FM
-    verify_audio_exists(&wav_path)
-        .expect("No audio output from pattern FM");
+    verify_audio_exists(&wav_path).expect("No audio output from pattern FM");
     verify_pattern_modulation(&wav_path, "spectral", 1)
         .expect("Spectral modulation from pattern FM not detected");
 }
@@ -513,13 +502,20 @@ tempo: 0.5
 out: sine 440 * 0.01
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "very_quiet");
-    assert!(success, "Failed to render very quiet oscillator: {}", stderr);
+    assert!(
+        success,
+        "Failed to render very quiet oscillator: {}",
+        stderr
+    );
 
     // VERIFY very quiet but still audible
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
     let analysis = verify_audio_exists(&wav_path).unwrap();
-    assert!(analysis.rms < 0.05, "Expected quiet signal, got RMS: {}", analysis.rms);
+    assert!(
+        analysis.rms < 0.05,
+        "Expected quiet signal, got RMS: {}",
+        analysis.rms
+    );
 }
 
 #[test]
@@ -532,10 +528,8 @@ out: sine 440 * 0.5
     assert!(success, "Failed to render moderate amplitude: {}", stderr);
 
     // VERIFY moderate amplitude
-    verify_amplitude_range(&wav_path, 0.2, 0.95)
-        .expect("Amplitude should be moderate");
-    verify_oscillator_frequency(&wav_path, 440.0, 50.0)
-        .expect("440 Hz not detected");
+    verify_amplitude_range(&wav_path, 0.2, 0.95).expect("Amplitude should be moderate");
+    verify_oscillator_frequency(&wav_path, 440.0, 50.0).expect("440 Hz not detected");
 }
 
 #[test]
@@ -550,8 +544,7 @@ out: sine 440 * "0.1 0.3 0.2 0.4"
     // VERIFY amplitude modulation via pattern
     verify_pattern_modulation(&wav_path, "amplitude", 2)
         .expect("Pattern amplitude modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 // ============================================================================
@@ -568,10 +561,8 @@ out: (sine 440 + sine 880) * 0.1
     assert!(success, "Failed to add oscillators: {}", stderr);
 
     // VERIFY oscillator addition produces audio
-    verify_audio_exists(&wav_path)
-        .expect("No audio output from oscillator addition");
-    verify_amplitude_range(&wav_path, 0.02, 0.95)
-        .expect("Amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output from oscillator addition");
+    verify_amplitude_range(&wav_path, 0.02, 0.95).expect("Amplitude out of range");
 }
 
 #[test]
@@ -584,10 +575,8 @@ out: sine 440 * sine 2 * 0.2
     assert!(success, "Failed to multiply oscillators: {}", stderr);
 
     // VERIFY ring modulation (amplitude modulation)
-    verify_audio_exists(&wav_path)
-        .expect("No audio output from oscillator multiplication");
-    verify_lfo_modulation(&wav_path)
-        .expect("Amplitude modulation not detected");
+    verify_audio_exists(&wav_path).expect("No audio output from oscillator multiplication");
+    verify_lfo_modulation(&wav_path).expect("Amplitude modulation not detected");
 }
 
 #[test]
@@ -603,10 +592,8 @@ out: (~a + ~b * 0.5) * ~c * 0.05
     assert!(success, "Failed to evaluate complex arithmetic: {}", stderr);
 
     // VERIFY complex arithmetic produces audio
-    verify_audio_exists(&wav_path)
-        .expect("No audio output from complex arithmetic");
-    verify_amplitude_range(&wav_path, 0.01, 0.95)
-        .expect("Amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output from complex arithmetic");
+    verify_amplitude_range(&wav_path, 0.01, 0.95).expect("Amplitude out of range");
 }
 
 // ============================================================================
@@ -626,8 +613,7 @@ out: ~osc * 0.2
     // VERIFY bus routing preserves signal
     verify_oscillator_frequency(&wav_path, 440.0, 50.0)
         .expect("440 Hz not detected after bus routing");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output after bus routing");
+    verify_audio_exists(&wav_path).expect("No audio output after bus routing");
 }
 
 #[test]
@@ -643,10 +629,8 @@ out: ~bus1 * 0.1 + ~bus2 * 0.1 + ~bus3 * 0.1
     assert!(success, "Failed to route multiple buses: {}", stderr);
 
     // VERIFY multiple bus routing
-    verify_audio_exists(&wav_path)
-        .expect("No audio output from multiple buses");
-    verify_amplitude_range(&wav_path, 0.05, 0.95)
-        .expect("Amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output from multiple buses");
+    verify_amplitude_range(&wav_path, 0.05, 0.95).expect("Amplitude out of range");
 }
 
 #[test]
@@ -662,10 +646,8 @@ out: ~mix * 0.15
     assert!(success, "Failed to route nested buses: {}", stderr);
 
     // VERIFY nested bus routing
-    verify_audio_exists(&wav_path)
-        .expect("No audio output from nested buses");
-    verify_amplitude_range(&wav_path, 0.05, 0.95)
-        .expect("Amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output from nested buses");
+    verify_amplitude_range(&wav_path, 0.05, 0.95).expect("Amplitude out of range");
 }
 
 // ============================================================================
@@ -684,8 +666,7 @@ out: sine "220 440" * 0.2
     // VERIFY slow tempo pattern modulation (60 BPM, 4 second cycle)
     verify_pattern_modulation(&wav_path, "frequency", 1)
         .expect("Slow tempo pattern modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 #[test]
@@ -700,8 +681,7 @@ out: sine "110 220 330 440" * 0.2
     // VERIFY 120 BPM pattern (2 second cycle)
     verify_pattern_modulation(&wav_path, "frequency", 2)
         .expect("120 BPM pattern modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }
 
 #[test]
@@ -716,6 +696,5 @@ out: sine "440 880" * 0.2
     // VERIFY 140 BPM pattern (~1.7 second cycle)
     verify_pattern_modulation(&wav_path, "frequency", 1)
         .expect("140 BPM pattern modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output detected");
+    verify_audio_exists(&wav_path).expect("No audio output detected");
 }

@@ -333,18 +333,18 @@ out: s("bd sn hh" $ palindrome)"#;
     let audio_normal = compile_and_render(normal, 22050);
     let audio_palindrome = compile_and_render(palindrome, 22050);
 
-    let rms_normal: f32 = (audio_normal.iter().map(|x| x * x).sum::<f32>() / audio_normal.len() as f32).sqrt();
-    let rms_palindrome: f32 = (audio_palindrome.iter().map(|x| x * x).sum::<f32>() / audio_palindrome.len() as f32).sqrt();
+    let rms_normal: f32 =
+        (audio_normal.iter().map(|x| x * x).sum::<f32>() / audio_normal.len() as f32).sqrt();
+    let rms_palindrome: f32 = (audio_palindrome.iter().map(|x| x * x).sum::<f32>()
+        / audio_palindrome.len() as f32)
+        .sqrt();
 
     println!("\npalindrome test:");
     println!("  Normal RMS: {:.4}", rms_normal);
     println!("  Palindrome RMS: {:.4}", rms_palindrome);
 
     // palindrome should produce audio
-    assert!(
-        rms_palindrome > 0.001,
-        "palindrome should produce audio"
-    );
+    assert!(rms_palindrome > 0.001, "palindrome should produce audio");
 
     // Should produce at least as much audio as normal (likely more)
     assert!(
@@ -379,7 +379,10 @@ out: s("bd ~ sn ~ hh ~ cp ~" $ degrade)"#;
     println!("  Normal events: {}", events_normal);
     println!("  Degraded events: {}", events_degraded);
     if events_normal > 0 {
-        println!("  Ratio: {:.2}%", events_degraded as f32 / events_normal as f32 * 100.0);
+        println!(
+            "  Ratio: {:.2}%",
+            events_degraded as f32 / events_normal as f32 * 100.0
+        );
     }
 
     // Need at least some events to test

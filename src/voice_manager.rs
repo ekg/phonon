@@ -72,8 +72,8 @@
 //! voice.trigger_with_speed(sample, 1.0, 0.0, 0.5);         // half speed (octave down)
 //! ```
 
-use std::sync::Arc;
 use crate::envelope::PercEnvelope;
+use std::sync::Arc;
 
 /// Maximum number of simultaneous voices
 const MAX_VOICES: usize = 64;
@@ -137,8 +137,8 @@ impl Voice {
             age: 0,
             cut_group: None,
             envelope: PercEnvelope::new(SAMPLE_RATE),
-            attack: 0.001,  // 1ms default attack
-            release: 0.1,   // 100ms default release
+            attack: 0.001, // 1ms default attack
+            release: 0.1,  // 100ms default release
         }
     }
 
@@ -356,7 +356,8 @@ impl VoiceManager {
         for i in 0..MAX_VOICES {
             let idx = (self.next_voice_index + i) % MAX_VOICES;
             if self.voices[idx].is_available() {
-                self.voices[idx].trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
+                self.voices[idx]
+                    .trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
                 self.next_voice_index = (idx + 1) % MAX_VOICES;
                 return;
             }
@@ -374,7 +375,8 @@ impl VoiceManager {
         }
 
         // Steal the oldest voice
-        self.voices[oldest_idx].trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
+        self.voices[oldest_idx]
+            .trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
         self.next_voice_index = (oldest_idx + 1) % MAX_VOICES;
     }
 

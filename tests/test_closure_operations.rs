@@ -17,7 +17,11 @@ fn test_chunk_transform() {
 
     // Should produce audible output
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Chunk transform should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Chunk transform should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -40,13 +44,21 @@ fn test_chunk_at_pattern_level() {
 
     println!("\nChunk pattern: {} events", events.len());
     for (i, event) in events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     // Should still have events
-    assert!(events.len() >= 2 && events.len() <= 6,
-        "Chunk should have 2-6 events, got {}", events.len());
+    assert!(
+        events.len() >= 2 && events.len() <= 6,
+        "Chunk should have 2-6 events, got {}",
+        events.len()
+    );
 }
 
 #[test]
@@ -66,7 +78,11 @@ fn test_jux_transform() {
 
     // Should produce audible output
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Jux transform should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Jux transform should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -88,14 +104,22 @@ fn test_jux_at_pattern_level() {
 
     println!("\nJux pattern: {} events", events.len());
     for (i, event) in events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value=({}, {})",
-            i, event.part.begin.to_float(), event.part.end.to_float(),
-            event.value.0, event.value.1);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value=({}, {})",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value.0,
+            event.value.1
+        );
     }
 
     // Jux creates two versions (original + transformed)
-    assert!(events.len() >= 4 && events.len() <= 10,
-        "Jux should have 4-10 events, got {}", events.len());
+    assert!(
+        events.len() >= 4 && events.len() <= 10,
+        "Jux should have 4-10 events, got {}",
+        events.len()
+    );
 }
 
 #[test]
@@ -112,7 +136,11 @@ fn test_chunk_with_chained_transforms() {
     let audio = graph.render(88200); // 2 seconds for slow
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.0003, "Chunk with chained transforms should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.0003,
+        "Chunk with chained transforms should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -130,5 +158,9 @@ fn test_jux_with_chained_transforms() {
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Jux with chained transforms should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Jux with chained transforms should produce audio, got RMS {:.6}",
+        rms
+    );
 }

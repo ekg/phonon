@@ -3,10 +3,10 @@
 //! Compiles the clean compositional AST into the existing UnifiedSignalGraph.
 //! This bridges the new parser with the existing audio engine.
 
-use crate::compositional_parser::{Statement, Expr, Transform, BinOp, UnOp};
-use crate::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform, SignalExpr, NodeId};
+use crate::compositional_parser::{BinOp, Expr, Statement, Transform, UnOp};
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
+use crate::unified_graph::{NodeId, Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
 use std::collections::HashMap;
 
 /// Compilation context - tracks buses and node IDs
@@ -107,9 +107,7 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
                 .ok_or_else(|| format!("Undefined bus: ~{}", name))
         }
 
-        Expr::Call { name, args } => {
-            compile_function_call(ctx, &name, args)
-        }
+        Expr::Call { name, args } => compile_function_call(ctx, &name, args),
 
         Expr::Chain(left, right) => {
             // Chain: pass left as first argument to right
@@ -117,17 +115,11 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
             compile_chain(ctx, *left, *right)
         }
 
-        Expr::Transform { expr, transform } => {
-            compile_transform(ctx, *expr, transform)
-        }
+        Expr::Transform { expr, transform } => compile_transform(ctx, *expr, transform),
 
-        Expr::BinOp { op, left, right } => {
-            compile_binop(ctx, op, *left, *right)
-        }
+        Expr::BinOp { op, left, right } => compile_binop(ctx, op, *left, *right),
 
-        Expr::UnOp { op, expr } => {
-            compile_unop(ctx, op, *expr)
-        }
+        Expr::UnOp { op, expr } => compile_unop(ctx, op, *expr),
 
         Expr::Paren(inner) => {
             // Parentheses are just grouping, compile the inner expression
@@ -271,7 +263,7 @@ fn compile_filter(
         },
         "bpf" => SignalNode::BandPass {
             input: input_signal,
-            center: Signal::Node(cutoff_node),  // Note: center not cutoff for bandpass
+            center: Signal::Node(cutoff_node), // Note: center not cutoff for bandpass
             q: Signal::Node(q_node),
             state: FilterState::default(),
         },
@@ -282,10 +274,7 @@ fn compile_filter(
 }
 
 /// Compile reverb effect
-fn compile_reverb(
-    ctx: &mut CompilerContext,
-    args: Vec<Expr>,
-) -> Result<NodeId, String> {
+fn compile_reverb(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     // reverb can be used in two ways:
     // 1. Standalone: reverb(input, room_size, damping, mix) - 4 args
     // 2. Chained: input # reverb(room_size, damping, mix) - 3 args
@@ -298,7 +287,7 @@ fn compile_reverb(
         // Chained: input # reverb(room_size, damping, mix)
         if let Expr::Number(node_id) = &args[0] {
             let input_node = NodeId(*node_id as usize);
-            (Signal::Node(input_node), &args[1], &args[2], &args[2])  // TODO: Fix args indexing
+            (Signal::Node(input_node), &args[1], &args[2], &args[2]) // TODO: Fix args indexing
         } else {
             return Err("reverb in chain requires input node".to_string());
         }
@@ -320,7 +309,10 @@ fn compile_reverb(
         let input_node = compile_expr(ctx, args[0].clone())?;
         (Signal::Node(input_node), &args[1], &args[2], &args[3])
     } else {
-        return Err(format!("reverb requires 3 or 4 arguments, got {}", args.len()));
+        return Err(format!(
+            "reverb requires 3 or 4 arguments, got {}",
+            args.len()
+        ));
     };
 
     // Compile parameters
@@ -342,10 +334,7 @@ fn compile_reverb(
 }
 
 /// Compile distortion effect
-fn compile_distortion(
-    ctx: &mut CompilerContext,
-    args: Vec<Expr>,
-) -> Result<NodeId, String> {
+fn compile_distortion(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     // distort(drive, mix) when chained (2 args + 1 node ID arg)
     // distort(input, drive, mix) when standalone (3 args)
 
@@ -377,10 +366,7 @@ fn compile_distortion(
 }
 
 /// Compile delay effect
-fn compile_delay(
-    ctx: &mut CompilerContext,
-    args: Vec<Expr>,
-) -> Result<NodeId, String> {
+fn compile_delay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     // delay(time, feedback, mix) or input # delay(time, feedback, mix)
 
     let (input_signal, time_expr, feedback_expr, mix_expr) = if args.len() == 4 {
@@ -402,7 +388,7 @@ fn compile_delay(
     let mix_node = compile_expr(ctx, mix_expr.clone())?;
 
     // Create delay buffer (1 second max)
-    let buffer_size = ctx.sample_rate as usize;  // 1 second buffer
+    let buffer_size = ctx.sample_rate as usize; // 1 second buffer
 
     let node = SignalNode::Delay {
         input: input_signal,
@@ -417,10 +403,7 @@ fn compile_delay(
 }
 
 /// Compile chorus effect
-fn compile_chorus(
-    ctx: &mut CompilerContext,
-    args: Vec<Expr>,
-) -> Result<NodeId, String> {
+fn compile_chorus(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     // chorus(rate, depth, mix) or input # chorus(rate, depth, mix)
 
     let (input_signal, rate_expr, depth_expr, mix_expr) = if args.len() == 4 {
@@ -455,10 +438,7 @@ fn compile_chorus(
 }
 
 /// Compile bitcrush effect
-fn compile_bitcrush(
-    ctx: &mut CompilerContext,
-    args: Vec<Expr>,
-) -> Result<NodeId, String> {
+fn compile_bitcrush(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     // bitcrush(bits, sample_rate) or input # bitcrush(bits, sample_rate)
 
     let (input_signal, bits_expr, sr_expr) = if args.len() == 3 {
@@ -490,11 +470,7 @@ fn compile_bitcrush(
 }
 
 /// Compile chain operator: a # b
-fn compile_chain(
-    ctx: &mut CompilerContext,
-    left: Expr,
-    right: Expr,
-) -> Result<NodeId, String> {
+fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<NodeId, String> {
     // The chain operator passes left as input to right
     // We need to handle this based on what 'right' is
     match right {
@@ -557,12 +533,8 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let speed = extract_number(&speed_expr)?;
             Ok(pattern.slow(speed))
         }
-        Transform::Rev => {
-            Ok(pattern.rev())
-        }
-        Transform::Degrade => {
-            Ok(pattern.degrade())
-        }
+        Transform::Rev => Ok(pattern.rev()),
+        Transform::Degrade => Ok(pattern.degrade()),
         Transform::DegradeBy(prob_expr) => {
             let prob = extract_number(&prob_expr)?;
             Ok(pattern.degrade_by(prob))
@@ -571,9 +543,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let n = extract_number(&n_expr)? as usize;
             Ok(pattern.stutter(n))
         }
-        Transform::Palindrome => {
-            Ok(pattern.palindrome())
-        }
+        Transform::Palindrome => Ok(pattern.palindrome()),
         Transform::Every { n, transform } => {
             // For every, we need to recursively apply the inner transform
             // This is complex, so for now return an error
@@ -588,7 +558,10 @@ fn extract_number(expr: &Expr) -> Result<f64, String> {
     match expr {
         Expr::Number(n) => Ok(*n),
         Expr::Paren(inner) => extract_number(inner),
-        _ => Err(format!("Transform argument must be a number, got: {:?}", expr)),
+        _ => Err(format!(
+            "Transform argument must be a number, got: {:?}",
+            expr
+        )),
     }
 }
 
@@ -605,22 +578,10 @@ fn compile_binop(
 
     // Arithmetic operations are done via Signal::Expression
     let expr = match op {
-        BinOp::Add => SignalExpr::Add(
-            Signal::Node(left_node),
-            Signal::Node(right_node),
-        ),
-        BinOp::Sub => SignalExpr::Subtract(
-            Signal::Node(left_node),
-            Signal::Node(right_node),
-        ),
-        BinOp::Mul => SignalExpr::Multiply(
-            Signal::Node(left_node),
-            Signal::Node(right_node),
-        ),
-        BinOp::Div => SignalExpr::Divide(
-            Signal::Node(left_node),
-            Signal::Node(right_node),
-        ),
+        BinOp::Add => SignalExpr::Add(Signal::Node(left_node), Signal::Node(right_node)),
+        BinOp::Sub => SignalExpr::Subtract(Signal::Node(left_node), Signal::Node(right_node)),
+        BinOp::Mul => SignalExpr::Multiply(Signal::Node(left_node), Signal::Node(right_node)),
+        BinOp::Div => SignalExpr::Divide(Signal::Node(left_node), Signal::Node(right_node)),
     };
 
     // We need a node that outputs this expression
@@ -634,20 +595,13 @@ fn compile_binop(
 }
 
 /// Compile unary operator
-fn compile_unop(
-    ctx: &mut CompilerContext,
-    op: UnOp,
-    expr: Expr,
-) -> Result<NodeId, String> {
+fn compile_unop(ctx: &mut CompilerContext, op: UnOp, expr: Expr) -> Result<NodeId, String> {
     let node_id = compile_expr(ctx, expr)?;
 
     match op {
         UnOp::Neg => {
             // Negate by multiplying by -1 using Signal::Expression
-            let neg_expr = SignalExpr::Multiply(
-                Signal::Node(node_id),
-                Signal::Value(-1.0),
-            );
+            let neg_expr = SignalExpr::Multiply(Signal::Node(node_id), Signal::Value(-1.0));
 
             let node = SignalNode::Add {
                 a: Signal::Expression(Box::new(neg_expr)),
@@ -890,7 +844,10 @@ mod tests {
         "#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
-        assert!(result.is_ok(), "Failed to compile filter with bus ref parameters");
+        assert!(
+            result.is_ok(),
+            "Failed to compile filter with bus ref parameters"
+        );
     }
 
     #[test]
@@ -903,7 +860,10 @@ mod tests {
         "#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
-        assert!(result.is_ok(), "Failed to compile filter with bus refs (space syntax)");
+        assert!(
+            result.is_ok(),
+            "Failed to compile filter with bus refs (space syntax)"
+        );
     }
 
     #[test]
@@ -925,7 +885,10 @@ mod tests {
         "#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
-        assert!(result.is_ok(), "Failed to compile full user example from x.ph");
+        assert!(
+            result.is_ok(),
+            "Failed to compile full user example from x.ph"
+        );
     }
 
     // ========== Sample Bank Selection Tests ==========
@@ -945,7 +908,10 @@ mod tests {
         let code = r#"out: s("bd:0*4 sn:2") $ fast 2"#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
-        assert!(result.is_ok(), "Failed to compile sample bank with transform");
+        assert!(
+            result.is_ok(),
+            "Failed to compile sample bank with transform"
+        );
     }
 
     #[test]
@@ -954,7 +920,10 @@ mod tests {
         let code = r#"out: s("bd:0 sn:2 hh:1") # lpf(1000, 0.8)"#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
-        assert!(result.is_ok(), "Failed to compile sample bank through filter");
+        assert!(
+            result.is_ok(),
+            "Failed to compile sample bank through filter"
+        );
     }
 
     #[test]
@@ -963,6 +932,9 @@ mod tests {
         let code = r#"out: s "bd:0 bd:1 bd:2 bd:3""#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
-        assert!(result.is_ok(), "Failed to compile sample bank with space syntax");
+        assert!(
+            result.is_ok(),
+            "Failed to compile sample bank with space syntax"
+        );
     }
 }

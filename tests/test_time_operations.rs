@@ -16,7 +16,11 @@ fn test_late_transform() {
 
     // Should produce audible output
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Late transform should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Late transform should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -34,7 +38,11 @@ fn test_early_transform() {
 
     // Should produce audible output
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Early transform should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Early transform should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -55,21 +63,27 @@ fn test_dup_transform() {
     let compiler = DslCompiler::new(44100.0);
     let mut graph = compiler.compile(statements);
     let audio_normal = graph.render(44100);
-    let rms_normal: f32 = (audio_normal.iter().map(|x| x * x).sum::<f32>() / audio_normal.len() as f32).sqrt();
+    let rms_normal: f32 =
+        (audio_normal.iter().map(|x| x * x).sum::<f32>() / audio_normal.len() as f32).sqrt();
 
     // Render dup pattern
     let (_, statements) = parse_dsl(input_dup).expect("Should parse");
     let compiler = DslCompiler::new(44100.0);
     let mut graph = compiler.compile(statements);
     let audio_dup = graph.render(44100);
-    let rms_dup: f32 = (audio_dup.iter().map(|x| x * x).sum::<f32>() / audio_dup.len() as f32).sqrt();
+    let rms_dup: f32 =
+        (audio_dup.iter().map(|x| x * x).sum::<f32>() / audio_dup.len() as f32).sqrt();
 
     println!("Normal RMS: {:.6}", rms_normal);
     println!("Dup(3) RMS: {:.6}", rms_dup);
 
     // Both should produce audio
     assert!(rms_normal > 0.001, "Normal pattern should produce audio");
-    assert!(rms_dup > 0.001, "Dup transform should produce audio, got RMS {:.6}", rms_dup);
+    assert!(
+        rms_dup > 0.001,
+        "Dup transform should produce audio, got RMS {:.6}",
+        rms_dup
+    );
 }
 
 #[test]
@@ -86,7 +100,11 @@ fn test_late_with_chained_transforms() {
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Late with chained transforms should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Late with chained transforms should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -103,5 +121,9 @@ fn test_early_with_chained_transforms() {
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Early with chained transforms should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Early with chained transforms should produce audio, got RMS {:.6}",
+        rms
+    );
 }

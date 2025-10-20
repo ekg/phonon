@@ -1,11 +1,10 @@
+use std::fs;
 /// End-to-end tests for filter DSL syntax
 /// Tests all filter types and modulation using actual .ph file syntax
 ///
 /// CRITICAL: Tests verify ACTUAL AUDIO OUTPUT, not just rendering success!
 /// We are "deaf" - can only verify audio through analysis tools.
-
 use std::process::Command;
-use std::fs;
 
 mod audio_verification;
 use audio_verification::*;
@@ -17,15 +16,29 @@ fn render_and_verify(dsl_code: &str, test_name: &str) -> (bool, String, String) 
 }
 
 /// Helper with custom duration for multi-cycle tests
-fn render_and_verify_duration(dsl_code: &str, test_name: &str, duration: &str) -> (bool, String, String) {
+fn render_and_verify_duration(
+    dsl_code: &str,
+    test_name: &str,
+    duration: &str,
+) -> (bool, String, String) {
     let ph_path = format!("/tmp/test_filter_{}.ph", test_name);
     let wav_path = format!("/tmp/test_filter_{}.wav", test_name);
 
     fs::write(&ph_path, dsl_code).unwrap();
 
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "phonon", "--quiet", "--",
-                "render", &ph_path, &wav_path, "--duration", duration])
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            &ph_path,
+            &wav_path,
+            "--duration",
+            duration,
+        ])
         .output()
         .expect("Failed to run phonon render");
 
@@ -47,13 +60,15 @@ tempo: 0.5
 out: ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_constant");
-    assert!(success, "Failed to render lpf with constant cutoff: {}", stderr);
+    assert!(
+        success,
+        "Failed to render lpf with constant cutoff: {}",
+        stderr
+    );
 
     // VERIFY filter effect
-    verify_audio_exists(&wav_path)
-        .expect("No audio output from filtered saw");
-    verify_amplitude_range(&wav_path, 0.05, 0.95)
-        .expect("Amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output from filtered saw");
+    verify_amplitude_range(&wav_path, 0.05, 0.95).expect("Amplitude out of range");
 }
 
 #[test]
@@ -67,10 +82,8 @@ out: ~bass * 0.3
     assert!(success, "Failed to render lpf with low cutoff: {}", stderr);
 
     // VERIFY low cutoff filters out highs
-    verify_filter_effect(&wav_path, 500.0, 200.0)
-        .expect("Low cutoff filter not working");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output");
+    verify_filter_effect(&wav_path, 500.0, 200.0).expect("Low cutoff filter not working");
+    verify_audio_exists(&wav_path).expect("No audio output");
 }
 
 #[test]
@@ -84,10 +97,8 @@ out: ~bass * 0.3
     assert!(success, "Failed to render lpf with high cutoff: {}", stderr);
 
     // VERIFY high cutoff preserves more spectrum
-    verify_audio_exists(&wav_path)
-        .expect("No audio output");
-    verify_amplitude_range(&wav_path, 0.05, 0.95)
-        .expect("Amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output");
+    verify_amplitude_range(&wav_path, 0.05, 0.95).expect("Amplitude out of range");
 }
 
 #[test]
@@ -98,13 +109,16 @@ tempo: 0.5
 out: ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_pattern_cut");
-    assert!(success, "Failed to render lpf with pattern cutoff: {}", stderr);
+    assert!(
+        success,
+        "Failed to render lpf with pattern cutoff: {}",
+        stderr
+    );
 
     // VERIFY pattern modulation of cutoff creates spectral changes
     verify_pattern_modulation(&wav_path, "spectral", 2)
         .expect("Pattern cutoff modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output");
+    verify_audio_exists(&wav_path).expect("No audio output");
 }
 
 #[test]
@@ -115,13 +129,15 @@ tempo: 0.5
 out: ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_low_res");
-    assert!(success, "Failed to render lpf with low resonance: {}", stderr);
+    assert!(
+        success,
+        "Failed to render lpf with low resonance: {}",
+        stderr
+    );
 
     // VERIFY low resonance filter works
-    verify_audio_exists(&wav_path)
-        .expect("No audio output");
-    verify_amplitude_range(&wav_path, 0.05, 0.95)
-        .expect("Amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output");
+    verify_amplitude_range(&wav_path, 0.05, 0.95).expect("Amplitude out of range");
 }
 
 #[test]
@@ -132,13 +148,15 @@ tempo: 0.5
 out: ~bass * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_high_res");
-    assert!(success, "Failed to render lpf with high resonance: {}", stderr);
+    assert!(
+        success,
+        "Failed to render lpf with high resonance: {}",
+        stderr
+    );
 
     // VERIFY high resonance creates resonant peak
-    verify_audio_exists(&wav_path)
-        .expect("No audio output");
-    verify_filter_effect(&wav_path, 1000.0, 300.0)
-        .expect("High resonance filter not working");
+    verify_audio_exists(&wav_path).expect("No audio output");
+    verify_filter_effect(&wav_path, 1000.0, 300.0).expect("High resonance filter not working");
 }
 
 #[test]
@@ -149,13 +167,16 @@ tempo: 0.5
 out: ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_pattern_res");
-    assert!(success, "Failed to render lpf with pattern resonance: {}", stderr);
+    assert!(
+        success,
+        "Failed to render lpf with pattern resonance: {}",
+        stderr
+    );
 
     // VERIFY pattern modulation of resonance
     verify_pattern_modulation(&wav_path, "spectral", 2)
         .expect("Pattern resonance modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output");
+    verify_audio_exists(&wav_path).expect("No audio output");
 }
 
 #[test]
@@ -166,13 +187,16 @@ tempo: 0.5
 out: ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_both_patterns");
-    assert!(success, "Failed to render lpf with both patterns: {}", stderr);
+    assert!(
+        success,
+        "Failed to render lpf with both patterns: {}",
+        stderr
+    );
 
     // VERIFY both parameter patterns create modulation
     verify_pattern_modulation(&wav_path, "spectral", 2)
         .expect("Dual pattern modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output");
+    verify_audio_exists(&wav_path).expect("No audio output");
 }
 
 // ============================================================================
@@ -187,13 +211,15 @@ tempo: 0.5
 out: ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_constant");
-    assert!(success, "Failed to render hpf with constant cutoff: {}", stderr);
+    assert!(
+        success,
+        "Failed to render hpf with constant cutoff: {}",
+        stderr
+    );
 
     // VERIFY highpass filter effect
-    verify_audio_exists(&wav_path)
-        .expect("No audio output from highpass filter");
-    verify_amplitude_range(&wav_path, 0.05, 0.95)
-        .expect("Amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output from highpass filter");
+    verify_amplitude_range(&wav_path, 0.05, 0.95).expect("Amplitude out of range");
 }
 
 #[test]
@@ -207,10 +233,8 @@ out: ~sig * 0.3
     assert!(success, "Failed to render hpf with low cutoff: {}", stderr);
 
     // VERIFY low cutoff preserves most spectrum
-    verify_audio_exists(&wav_path)
-        .expect("No audio output");
-    verify_amplitude_range(&wav_path, 0.05, 0.95)
-        .expect("Amplitude out of range");
+    verify_audio_exists(&wav_path).expect("No audio output");
+    verify_amplitude_range(&wav_path, 0.05, 0.95).expect("Amplitude out of range");
 }
 
 #[test]
@@ -224,8 +248,7 @@ out: ~sig * 0.3
     assert!(success, "Failed to render hpf with high cutoff: {}", stderr);
 
     // VERIFY high cutoff removes lows
-    verify_audio_exists(&wav_path)
-        .expect("No audio output");
+    verify_audio_exists(&wav_path).expect("No audio output");
 }
 
 #[test]
@@ -236,13 +259,16 @@ tempo: 0.5
 out: ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_pattern_cut");
-    assert!(success, "Failed to render hpf with pattern cutoff: {}", stderr);
+    assert!(
+        success,
+        "Failed to render hpf with pattern cutoff: {}",
+        stderr
+    );
 
     // VERIFY pattern modulation of highpass cutoff
     verify_pattern_modulation(&wav_path, "spectral", 2)
         .expect("Pattern cutoff modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output");
+    verify_audio_exists(&wav_path).expect("No audio output");
 }
 
 // ============================================================================
@@ -257,14 +283,16 @@ tempo: 0.5
 out: ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_constant");
-    assert!(success, "Failed to render bpf with constant cutoff: {}", stderr);
+    assert!(
+        success,
+        "Failed to render bpf with constant cutoff: {}",
+        stderr
+    );
 
     // VERIFY bandpass filter effect
-    verify_audio_exists(&wav_path)
-        .expect("No audio output from bandpass filter");
+    verify_audio_exists(&wav_path).expect("No audio output from bandpass filter");
     // Bandpass filters naturally reduce amplitude by removing frequencies outside passband
-    verify_amplitude_range(&wav_path, 0.02, 0.95)
-        .expect("Amplitude out of range");
+    verify_amplitude_range(&wav_path, 0.02, 0.95).expect("Amplitude out of range");
 }
 
 #[test]
@@ -275,13 +303,15 @@ tempo: 0.5
 out: ~sig * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_narrow");
-    assert!(success, "Failed to render bpf with narrow bandwidth: {}", stderr);
+    assert!(
+        success,
+        "Failed to render bpf with narrow bandwidth: {}",
+        stderr
+    );
 
     // VERIFY narrow bandpass
-    verify_audio_exists(&wav_path)
-        .expect("No audio output");
-    verify_filter_effect(&wav_path, 1000.0, 300.0)
-        .expect("Narrow bandpass not working");
+    verify_audio_exists(&wav_path).expect("No audio output");
+    verify_filter_effect(&wav_path, 1000.0, 300.0).expect("Narrow bandpass not working");
 }
 
 #[test]
@@ -292,14 +322,16 @@ tempo: 0.5
 out: ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_wide");
-    assert!(success, "Failed to render bpf with wide bandwidth: {}", stderr);
+    assert!(
+        success,
+        "Failed to render bpf with wide bandwidth: {}",
+        stderr
+    );
 
     // VERIFY wide bandpass
-    verify_audio_exists(&wav_path)
-        .expect("No audio output");
+    verify_audio_exists(&wav_path).expect("No audio output");
     // Wide bandpass (low Q) allows more energy through but still reduces amplitude
-    verify_amplitude_range(&wav_path, 0.02, 0.95)
-        .expect("Amplitude out of range");
+    verify_amplitude_range(&wav_path, 0.02, 0.95).expect("Amplitude out of range");
 }
 
 #[test]
@@ -310,13 +342,16 @@ tempo: 0.5
 out: ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_pattern");
-    assert!(success, "Failed to render bpf with pattern cutoff: {}", stderr);
+    assert!(
+        success,
+        "Failed to render bpf with pattern cutoff: {}",
+        stderr
+    );
 
     // VERIFY pattern modulation of bandpass center frequency
     verify_pattern_modulation(&wav_path, "spectral", 2)
         .expect("Pattern cutoff modulation not detected");
-    verify_audio_exists(&wav_path)
-        .expect("No audio output");
+    verify_audio_exists(&wav_path).expect("No audio output");
 }
 
 // ============================================================================
@@ -335,8 +370,7 @@ out: ~bass * 0.4
     assert!(success, "Failed to render LFO-modulated lpf: {}", stderr);
 
     // VERIFY LFO MODULATION - This is Phonon's signature feature!
-    verify_lfo_modulation(&wav_path)
-        .expect("LFO modulation not detected");
+    verify_lfo_modulation(&wav_path).expect("LFO modulation not detected");
     verify_pattern_modulation(&wav_path, "spectral", 1)
         .expect("Spectral modulation from LFO not detected");
 }
@@ -353,8 +387,7 @@ out: ~bass * 0.4
     assert!(success, "Failed to render slow LFO filter: {}", stderr);
 
     // VERIFY SLOW LFO - need longer duration to detect 0.25 Hz modulation
-    verify_lfo_modulation(&wav_path)
-        .expect("Slow LFO modulation not detected");
+    verify_lfo_modulation(&wav_path).expect("Slow LFO modulation not detected");
     verify_pattern_modulation(&wav_path, "spectral", 1)
         .expect("Slow spectral modulation not detected");
 }
@@ -371,8 +404,7 @@ out: ~bass * 0.4
     assert!(success, "Failed to render fast LFO filter: {}", stderr);
 
     // VERIFY FAST LFO creates rapid spectral changes
-    verify_lfo_modulation(&wav_path)
-        .expect("Fast LFO modulation not detected");
+    verify_lfo_modulation(&wav_path).expect("Fast LFO modulation not detected");
     verify_pattern_modulation(&wav_path, "spectral", 3)
         .expect("Fast spectral modulation not detected");
 }
@@ -389,8 +421,7 @@ out: ~bass * 0.4
     assert!(success, "Failed to render triangle LFO filter: {}", stderr);
 
     // VERIFY TRIANGLE LFO modulation
-    verify_lfo_modulation(&wav_path)
-        .expect("Triangle LFO modulation not detected");
+    verify_lfo_modulation(&wav_path).expect("Triangle LFO modulation not detected");
     verify_pattern_modulation(&wav_path, "spectral", 1)
         .expect("Triangle LFO spectral modulation not detected");
 }
@@ -407,8 +438,7 @@ out: ~bass * 0.4
     assert!(success, "Failed to render square LFO filter: {}", stderr);
 
     // VERIFY SQUARE LFO creates abrupt spectral changes
-    verify_lfo_modulation(&wav_path)
-        .expect("Square LFO modulation not detected");
+    verify_lfo_modulation(&wav_path).expect("Square LFO modulation not detected");
     verify_pattern_modulation(&wav_path, "spectral", 1)
         .expect("Square LFO spectral changes not detected");
 }
@@ -425,8 +455,7 @@ out: ~sig * 0.4
     assert!(success, "Failed to render LFO-modulated hpf: {}", stderr);
 
     // VERIFY LFO-modulated highpass filter
-    verify_lfo_modulation(&wav_path)
-        .expect("LFO modulation on hpf not detected");
+    verify_lfo_modulation(&wav_path).expect("LFO modulation on hpf not detected");
     verify_pattern_modulation(&wav_path, "spectral", 1)
         .expect("Spectral modulation from LFO on hpf not detected");
 }
@@ -443,8 +472,7 @@ out: ~sig * 0.3
     assert!(success, "Failed to render LFO-modulated bpf: {}", stderr);
 
     // VERIFY LFO-modulated bandpass filter
-    verify_lfo_modulation(&wav_path)
-        .expect("LFO modulation on bpf not detected");
+    verify_lfo_modulation(&wav_path).expect("LFO modulation on bpf not detected");
     verify_pattern_modulation(&wav_path, "spectral", 1)
         .expect("Spectral modulation from LFO on bpf not detected");
 }
@@ -458,11 +486,14 @@ tempo: 0.5
 out: ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "lpf_res_lfo", "4");
-    assert!(success, "Failed to render LFO-modulated resonance: {}", stderr);
+    assert!(
+        success,
+        "Failed to render LFO-modulated resonance: {}",
+        stderr
+    );
 
     // VERIFY LFO modulation of resonance parameter
-    verify_lfo_modulation(&wav_path)
-        .expect("LFO modulation of resonance not detected");
+    verify_lfo_modulation(&wav_path).expect("LFO modulation of resonance not detected");
     verify_pattern_modulation(&wav_path, "spectral", 1)
         .expect("Spectral changes from resonance modulation not detected");
 }
@@ -480,8 +511,7 @@ out: ~bass * 0.3
     assert!(success, "Failed to render dual LFO filter: {}", stderr);
 
     // VERIFY DUAL LFO modulation - both cutoff and resonance
-    verify_lfo_modulation(&wav_path)
-        .expect("Dual LFO modulation not detected");
+    verify_lfo_modulation(&wav_path).expect("Dual LFO modulation not detected");
     verify_pattern_modulation(&wav_path, "spectral", 2)
         .expect("Complex spectral modulation from dual LFOs not detected");
 }
@@ -537,7 +567,11 @@ tempo: 0.5
 out: ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_pattern_osc");
-    assert!(success, "Failed to filter pattern-controlled oscillator: {}", stderr);
+    assert!(
+        success,
+        "Failed to filter pattern-controlled oscillator: {}",
+        stderr
+    );
 
     verify_pattern_modulation(&wav_path, "frequency", 1)
         .expect("Pattern oscillator modulation not detected");
@@ -571,8 +605,7 @@ out: ~sig * 0.3
     let (success, stderr, wav_path) = render_and_verify(dsl, "cascade_lpf");
     assert!(success, "Failed to cascade two lpf: {}", stderr);
 
-    verify_filter_effect(&wav_path, 1000.0, 300.0)
-        .expect("Cascaded filters not working");
+    verify_filter_effect(&wav_path, 1000.0, 300.0).expect("Cascaded filters not working");
 }
 
 #[test]
@@ -628,8 +661,7 @@ out: ~bass * 0.3
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_reverse");
     assert!(success, "Failed to use lpf with reverse flow: {}", stderr);
 
-    verify_filter_effect(&wav_path, 1500.0, 500.0)
-        .expect("Reverse flow lpf not working");
+    verify_filter_effect(&wav_path, 1500.0, 500.0).expect("Reverse flow lpf not working");
 }
 
 #[test]

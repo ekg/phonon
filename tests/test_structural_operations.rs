@@ -19,7 +19,11 @@ fn test_overlay_transform() {
 
     // Should produce audible output
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Pattern should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Pattern should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -40,7 +44,11 @@ fn test_append_transform() {
 
     // Should produce audible output
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
-    assert!(rms > 0.001, "Pattern should produce audio, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.001,
+        "Pattern should produce audio, got RMS {:.6}",
+        rms
+    );
 }
 
 #[test]
@@ -64,13 +72,21 @@ fn test_overlay_at_pattern_level() {
 
     println!("\\nOverlay pattern: {} events", events.len());
     for (i, event) in events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     // Overlaying "bd sn" (2 events) with "hh*4" (4 events) should give 6 events
-    assert!(events.len() >= 5 && events.len() <= 7,
-        "Overlay should have 5-7 events, got {}", events.len());
+    assert!(
+        events.len() >= 5 && events.len() <= 7,
+        "Overlay should have 5-7 events, got {}",
+        events.len()
+    );
 }
 
 #[test]
@@ -94,21 +110,43 @@ fn test_append_at_pattern_level() {
 
     println!("\\nAppend pattern: {} events", events.len());
     for (i, event) in events.iter().enumerate() {
-        println!("  Event {}: start={:.6}, end={:.6}, value={}",
-            i, event.part.begin.to_float(), event.part.end.to_float(), event.value);
+        println!(
+            "  Event {}: start={:.6}, end={:.6}, value={}",
+            i,
+            event.part.begin.to_float(),
+            event.part.end.to_float(),
+            event.value
+        );
     }
 
     // Appending "bd sn" (2 events) with "hh cp" (2 events) should give 4 events total
     // First half should be bd/sn, second half should be hh/cp
-    assert_eq!(events.len(), 4, "Append should have 4 events, got {}", events.len());
+    assert_eq!(
+        events.len(),
+        4,
+        "Append should have 4 events, got {}",
+        events.len()
+    );
 
     // Check that first two events happen in first half
-    assert!(events[0].part.begin.to_float() < 0.5, "First event should be in first half");
-    assert!(events[1].part.begin.to_float() < 0.5, "Second event should be in first half");
+    assert!(
+        events[0].part.begin.to_float() < 0.5,
+        "First event should be in first half"
+    );
+    assert!(
+        events[1].part.begin.to_float() < 0.5,
+        "Second event should be in first half"
+    );
 
     // Check that last two events happen in second half
-    assert!(events[2].part.begin.to_float() >= 0.5, "Third event should be in second half");
-    assert!(events[3].part.begin.to_float() >= 0.5, "Fourth event should be in second half");
+    assert!(
+        events[2].part.begin.to_float() >= 0.5,
+        "Third event should be in second half"
+    );
+    assert!(
+        events[3].part.begin.to_float() >= 0.5,
+        "Fourth event should be in second half"
+    );
 }
 
 #[test]
@@ -130,10 +168,15 @@ fn test_overlay_more_events() {
     let base_events = pattern1.query(&state);
     let overlay_events = overlayed.query(&state);
 
-    println!("\\nBase: {} events, Overlay: {} events",
-             base_events.len(), overlay_events.len());
+    println!(
+        "\\nBase: {} events, Overlay: {} events",
+        base_events.len(),
+        overlay_events.len()
+    );
 
     // Overlay should have more events than base pattern alone
-    assert!(overlay_events.len() > base_events.len(),
-        "Overlay should have more events than base");
+    assert!(
+        overlay_events.len() > base_events.len(),
+        "Overlay should have more events than base"
+    );
 }

@@ -6,8 +6,8 @@
 //! 3. Render audio
 //! 4. Verify audio output
 
-use phonon::compositional_parser::parse_program;
 use phonon::compositional_compiler::compile_program;
+use phonon::compositional_parser::parse_program;
 
 /// Helper to test code compilation and rendering
 fn test_code(code: &str, duration_seconds: f32) -> Vec<f32> {
@@ -29,7 +29,12 @@ fn assert_has_audio(buffer: &[f32], description: &str) {
     let max = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
     let rms = (buffer.iter().map(|s| s * s).sum::<f32>() / buffer.len() as f32).sqrt();
 
-    assert!(max > 0.001, "{}: Max amplitude too low: {}", description, max);
+    assert!(
+        max > 0.001,
+        "{}: Max amplitude too low: {}",
+        description,
+        max
+    );
     assert!(rms > 0.0001, "{}: RMS too low: {}", description, rms);
 }
 

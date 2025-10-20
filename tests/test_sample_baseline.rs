@@ -18,5 +18,9 @@ fn test_sample_without_transform() {
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
     println!("RMS without degrade: {}", rms);
-    assert!(rms > 0.01, "Sample pattern should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Sample pattern should produce audio, got RMS: {}",
+        rms
+    );
 }

@@ -1,5 +1,5 @@
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal};
 use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 use std::collections::HashMap;
 
 #[test]
@@ -43,7 +43,10 @@ fn test_direct_sample_trigger() {
 
     eprintln!("Peak: {:.6}", peak);
     eprintln!("RMS: {:.6}", rms);
-    eprintln!("Non-zero samples: {}", buffer.iter().filter(|&&x| x.abs() > 0.0001).count());
+    eprintln!(
+        "Non-zero samples: {}",
+        buffer.iter().filter(|&&x| x.abs() > 0.0001).count()
+    );
 
     assert!(peak > 0.001, "No audio generated! Peak: {}", peak);
     assert!(rms > 0.0001, "No audio generated! RMS: {}", rms);

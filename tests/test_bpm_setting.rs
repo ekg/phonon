@@ -30,11 +30,21 @@ fn test_bpm_120_equals_cps_2() {
     let audio_cps = graph_cps.render(44100);
 
     // Both should produce audio
-    let rms_bpm: f32 = (audio_bpm.iter().map(|x| x * x).sum::<f32>() / audio_bpm.len() as f32).sqrt();
-    let rms_cps: f32 = (audio_cps.iter().map(|x| x * x).sum::<f32>() / audio_cps.len() as f32).sqrt();
+    let rms_bpm: f32 =
+        (audio_bpm.iter().map(|x| x * x).sum::<f32>() / audio_bpm.len() as f32).sqrt();
+    let rms_cps: f32 =
+        (audio_cps.iter().map(|x| x * x).sum::<f32>() / audio_cps.len() as f32).sqrt();
 
-    assert!(rms_bpm > 0.0003, "BPM should produce audio, got RMS {:.6}", rms_bpm);
-    assert!(rms_cps > 0.0003, "CPS should produce audio, got RMS {:.6}", rms_cps);
+    assert!(
+        rms_bpm > 0.0003,
+        "BPM should produce audio, got RMS {:.6}",
+        rms_bpm
+    );
+    assert!(
+        rms_cps > 0.0003,
+        "CPS should produce audio, got RMS {:.6}",
+        rms_cps
+    );
 
     // RMS should be similar (within 10%)
     let ratio = rms_bpm / rms_cps;
@@ -49,20 +59,23 @@ fn test_bpm_120_equals_cps_2() {
 fn test_various_bpm_values() {
     // Test common BPM values
     let test_cases = vec![
-        (60.0, 1.0),   // 60 BPM = 1 CPS
-        (120.0, 2.0),  // 120 BPM = 2 CPS
-        (90.0, 1.5),   // 90 BPM = 1.5 CPS
-        (180.0, 3.0),  // 180 BPM = 3 CPS
+        (60.0, 1.0),  // 60 BPM = 1 CPS
+        (120.0, 2.0), // 120 BPM = 2 CPS
+        (90.0, 1.5),  // 90 BPM = 1.5 CPS
+        (180.0, 3.0), // 180 BPM = 3 CPS
     ];
 
     for (bpm, expected_cps) in test_cases {
-        let input = format!(r#"
+        let input = format!(
+            r#"
             bpm {}
             out: s "bd sn" * 0.5
-        "#, bpm);
+        "#,
+            bpm
+        );
 
-        let (_, statements) = parse_dsl(&input)
-            .unwrap_or_else(|_| panic!("Should parse BPM {}", bpm));
+        let (_, statements) =
+            parse_dsl(&input).unwrap_or_else(|_| panic!("Should parse BPM {}", bpm));
 
         let compiler = DslCompiler::new(44100.0);
         let mut graph = compiler.compile(statements);
@@ -74,7 +87,9 @@ fn test_various_bpm_values() {
         assert!(
             rms > 0.0003,
             "BPM {} (= {} CPS) should produce audio, got RMS {:.6}",
-            bpm, expected_cps, rms
+            bpm,
+            expected_cps,
+            rms
         );
     }
 }

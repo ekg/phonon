@@ -35,10 +35,10 @@ fn measure_decay_time(audio: &[f32], sample_rate: f32, threshold: f32) -> f32 {
 fn test_reverb_increases_decay_time() {
     // Test: Reverb should increase the time it takes for audio to decay
     let dry = r#"bpm 120
-out: s "bd ~ ~ ~" * 0.5"#;  // Single kick
+out: s "bd ~ ~ ~" * 0.5"#; // Single kick
 
     let wet = r#"bpm 120
-out: reverb(s "bd ~ ~ ~" * 0.5, 0.8, 0.7, 0.5)"#;  // With reverb
+out: reverb(s "bd ~ ~ ~" * 0.5, 0.8, 0.7, 0.5)"#; // With reverb
 
     let audio_dry = compile_and_render(dry, 44100); // 1 second
     let audio_wet = compile_and_render(wet, 44100);
@@ -100,7 +100,7 @@ fn test_delay_increases_duration() {
 out: s "bd ~ ~ ~" * 0.5"#;
 
     let wet = r#"bpm 120
-out: delay(s "bd ~ ~ ~" * 0.5, 0.25, 0.5, 0.8)"#;  // 250ms delay, 50% feedback
+out: delay(s "bd ~ ~ ~" * 0.5, 0.25, 0.5, 0.8)"#; // 250ms delay, 50% feedback
 
     let audio_dry = compile_and_render(dry, 88200); // 2 seconds
     let audio_wet = compile_and_render(wet, 88200);
@@ -207,7 +207,10 @@ out: saw 110 >> lpf 500 0.7 * 0.3"#;
     println!("\nLow-pass filter test:");
     println!("  Unfiltered centroid: {:.1} Hz", centroid_unfiltered);
     println!("  Filtered centroid: {:.1} Hz", centroid_filtered);
-    println!("  Reduction: {:.1}%", (1.0 - centroid_filtered / centroid_unfiltered) * 100.0);
+    println!(
+        "  Reduction: {:.1}%",
+        (1.0 - centroid_filtered / centroid_unfiltered) * 100.0
+    );
 
     // Low-pass should reduce centroid (lower average frequency)
     // Being very lenient - even 1% is meaningful
@@ -237,7 +240,10 @@ out: saw 55 >> hpf 200 0.7 * 0.3"#;
     println!("\nHigh-pass filter test:");
     println!("  Unfiltered centroid: {:.1} Hz", centroid_unfiltered);
     println!("  Filtered centroid: {:.1} Hz", centroid_filtered);
-    println!("  Increase: {:.1}%", (centroid_filtered / centroid_unfiltered - 1.0) * 100.0);
+    println!(
+        "  Increase: {:.1}%",
+        (centroid_filtered / centroid_unfiltered - 1.0) * 100.0
+    );
 
     // High-pass should increase centroid (higher average frequency)
     // Being lenient - at least not decrease it
@@ -274,7 +280,10 @@ out: distortion(saw 110 * 0.2, 0.8, 0.5)"#;
 
     // Both should produce audio
     assert!(rms_clean > 0.001, "Clean signal should produce audio");
-    assert!(rms_distorted > 0.001, "Distorted signal should produce audio");
+    assert!(
+        rms_distorted > 0.001,
+        "Distorted signal should produce audio"
+    );
 }
 
 // ============================================================================
@@ -285,7 +294,7 @@ out: distortion(saw 110 * 0.2, 0.8, 0.5)"#;
 fn test_compressor_reduces_dynamic_range() {
     // Test: Compressor should reduce the difference between loud and quiet
     let uncompressed = r#"bpm 120
-out: s("bd", "0.3 0.9") * 0.5"#;  // Varying gain
+out: s("bd", "0.3 0.9") * 0.5"#; // Varying gain
 
     let compressed = r#"bpm 120
 out: compressor(s("bd", "0.3 0.9") * 0.5, 0.5, 2.0, 0.01, 0.1)"#;
@@ -300,13 +309,25 @@ out: compressor(s("bd", "0.3 0.9") * 0.5, 0.5, 2.0, 0.01, 0.1)"#;
     let rms_comp = calculate_rms(&audio_compressed);
 
     println!("\nCompressor test:");
-    println!("  Uncompressed - Peak: {:.3}, RMS: {:.4}, Ratio: {:.2}",
-        peak_uncomp, rms_uncomp, peak_uncomp / rms_uncomp);
-    println!("  Compressed - Peak: {:.3}, RMS: {:.4}, Ratio: {:.2}",
-        peak_comp, rms_comp, peak_comp / rms_comp);
+    println!(
+        "  Uncompressed - Peak: {:.3}, RMS: {:.4}, Ratio: {:.2}",
+        peak_uncomp,
+        rms_uncomp,
+        peak_uncomp / rms_uncomp
+    );
+    println!(
+        "  Compressed - Peak: {:.3}, RMS: {:.4}, Ratio: {:.2}",
+        peak_comp,
+        rms_comp,
+        peak_comp / rms_comp
+    );
 
     // Check if audio is produced (lowered threshold)
-    assert!(rms_uncomp > 0.00005, "Uncompressed should produce audio, got {:.6}", rms_uncomp);
+    assert!(
+        rms_uncomp > 0.00005,
+        "Uncompressed should produce audio, got {:.6}",
+        rms_uncomp
+    );
 
     // Compressor might not be implemented - just check if audio exists
     if rms_comp > 0.00005 {
@@ -324,10 +345,10 @@ out: compressor(s("bd", "0.3 0.9") * 0.5, 0.5, 2.0, 0.01, 0.1)"#;
 fn test_gate_reduces_quiet_signals() {
     // Test: Gate should reduce or eliminate quiet sections
     let ungated = r#"bpm 120
-out: s("bd", "0.8 0.2 0.8 0.1") * 0.5"#;  // Varying amplitude
+out: s("bd", "0.8 0.2 0.8 0.1") * 0.5"#; // Varying amplitude
 
     let gated = r#"bpm 120
-out: gate(s("bd", "0.8 0.2 0.8 0.1") * 0.5, 0.3, 2.0)"#;  // Gate at 0.3
+out: gate(s("bd", "0.8 0.2 0.8 0.1") * 0.5, 0.3, 2.0)"#; // Gate at 0.3
 
     let audio_ungated = compile_and_render(ungated, 44100);
     let audio_gated = compile_and_render(gated, 44100);
@@ -341,7 +362,11 @@ out: gate(s("bd", "0.8 0.2 0.8 0.1") * 0.5, 0.3, 2.0)"#;  // Gate at 0.3
     println!("  Ratio: {:.2}", rms_gated / rms_ungated);
 
     // Both should produce audio
-    assert!(rms_ungated > 0.0001, "Ungated should produce audio, got {:.6}", rms_ungated);
+    assert!(
+        rms_ungated > 0.0001,
+        "Ungated should produce audio, got {:.6}",
+        rms_ungated
+    );
 
     // Gate might not be implemented - just check if audio exists
     if rms_gated > 0.0001 {

@@ -4,13 +4,13 @@
 //! according to pattern specifications, and that pattern parameters
 //! (gain, pan, speed) are applied correctly.
 
-use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, State, TimeSpan};
+use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 use std::collections::HashMap;
 
 mod pattern_verification_utils;
-use pattern_verification_utils::{detect_audio_events, get_expected_events, compare_events};
+use pattern_verification_utils::{compare_events, detect_audio_events, get_expected_events};
 
 mod audio_test_utils;
 use audio_test_utils::calculate_rms;
@@ -50,10 +50,17 @@ out: s "bd" * 0.8"#; // Boost amplitude for detection
     }
 
     // Just verify audio is produced
-    assert!(rms > 0.0001, "Should produce audio with RMS > 0.0001, got {:.6}", rms);
+    assert!(
+        rms > 0.0001,
+        "Should produce audio with RMS > 0.0001, got {:.6}",
+        rms
+    );
 
     if events.len() >= 1 {
-        assert!(events[0].time < 0.05, "First event should be near start (within 50ms)");
+        assert!(
+            events[0].time < 0.05,
+            "First event should be near start (within 50ms)"
+        );
     }
 }
 
@@ -96,7 +103,11 @@ out: s "bd ~ sn ~" * 0.8"#;
     println!("  RMS: {:.4}", rms);
 
     // Verify audio is produced
-    assert!(rms > 0.0001, "Should produce audio with rests, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.0001,
+        "Should produce audio with rests, got RMS {:.6}",
+        rms
+    );
 
     let detected = detect_audio_events(&audio, 44100.0, ONSET_THRESHOLD);
     println!("  Detected {} events", detected.len());
@@ -187,8 +198,16 @@ out: s("bd bd bd bd", "0.2 0.4 0.6 0.8") * 0.8"#;
     println!("  Pattern gain RMS: {:.4}", rms_pattern);
 
     // Both should produce audio
-    assert!(rms_constant > 0.0001, "Constant gain should produce audio, got {:.6}", rms_constant);
-    assert!(rms_pattern > 0.0001, "Pattern gain should produce audio, got {:.6}", rms_pattern);
+    assert!(
+        rms_constant > 0.0001,
+        "Constant gain should produce audio, got {:.6}",
+        rms_constant
+    );
+    assert!(
+        rms_pattern > 0.0001,
+        "Pattern gain should produce audio, got {:.6}",
+        rms_pattern
+    );
 
     // Pattern with varying gain should have similar average amplitude
     let ratio = rms_pattern / rms_constant;
@@ -296,7 +315,11 @@ out: s "bd:0 ~ bd:1 ~" * 0.8"#;
     println!("  RMS: {:.4}", rms);
 
     // Verify audio is produced
-    assert!(rms > 0.0001, "Should produce audio with bank selection, got RMS {:.6}", rms);
+    assert!(
+        rms > 0.0001,
+        "Should produce audio with bank selection, got RMS {:.6}",
+        rms
+    );
 }
 
 // ============================================================================

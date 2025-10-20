@@ -2,11 +2,10 @@
 /// Uses spectrum-analyzer for professional FFT with Hann windowing
 ///
 /// CRITICAL: "We are deaf" - can only verify audio through analysis tools
-
 use hound;
-use spectrum_analyzer::{samples_fft_to_spectrum, FrequencyLimit};
-use spectrum_analyzer::windows::hann_window;
 use spectrum_analyzer::scaling::divide_by_N;
+use spectrum_analyzer::windows::hann_window;
+use spectrum_analyzer::{samples_fft_to_spectrum, FrequencyLimit};
 
 #[derive(Debug)]
 pub struct EnhancedAudioAnalysis {
@@ -23,8 +22,8 @@ pub struct EnhancedAudioAnalysis {
 
 /// Read WAV file and perform enhanced analysis
 pub fn analyze_wav_enhanced(wav_path: &str) -> Result<EnhancedAudioAnalysis, String> {
-    let mut reader = hound::WavReader::open(wav_path)
-        .map_err(|e| format!("Failed to open WAV file: {}", e))?;
+    let mut reader =
+        hound::WavReader::open(wav_path).map_err(|e| format!("Failed to open WAV file: {}", e))?;
 
     let spec = reader.spec();
     let sample_rate = spec.sample_rate;
@@ -33,7 +32,8 @@ pub fn analyze_wav_enhanced(wav_path: &str) -> Result<EnhancedAudioAnalysis, Str
     let samples: Vec<f32> = if spec.sample_format == hound::SampleFormat::Float {
         reader.samples::<f32>().map(|s| s.unwrap()).collect()
     } else {
-        reader.samples::<i16>()
+        reader
+            .samples::<i16>()
             .map(|s| s.unwrap() as f32 / 32768.0)
             .collect()
     };
@@ -86,7 +86,8 @@ fn analyze_spectrum_enhanced(samples: &[f32], sample_rate: u32) -> Result<(f32, 
         sample_rate,
         FrequencyLimit::All,
         Some(&divide_by_N),
-    ).map_err(|e| format!("FFT error: {:?}", e))?;
+    )
+    .map_err(|e| format!("FFT error: {:?}", e))?;
 
     // Analyze spectrum
     let mut max_magnitude = 0.0_f32;
@@ -116,7 +117,8 @@ fn analyze_spectrum_enhanced(samples: &[f32], sample_rate: u32) -> Result<(f32, 
 
     // Spectral spread (variance)
     let spectral_spread = if total_magnitude > 0.0 {
-        let variance = (weighted_freq_sq_sum / total_magnitude) - (spectral_centroid * spectral_centroid);
+        let variance =
+            (weighted_freq_sq_sum / total_magnitude) - (spectral_centroid * spectral_centroid);
         variance.max(0.0).sqrt()
     } else {
         0.0
@@ -146,16 +148,17 @@ fn calculate_spectral_flux(samples: &[f32], sample_rate: u32) -> Result<f32, Str
             sample_rate,
             FrequencyLimit::Range(20.0, 10000.0),
             Some(&divide_by_N),
-        ).ok();
+        )
+        .ok();
 
         if let Some(spec) = spectrum {
-            let magnitudes: Vec<f32> = spec.data().iter()
-                .map(|(_, mag)| mag.val())
-                .collect();
+            let magnitudes: Vec<f32> = spec.data().iter().map(|(_, mag)| mag.val()).collect();
 
             if let Some(prev) = &prev_spectrum {
                 // Calculate flux as sum of squared differences
-                let flux: f32 = magnitudes.iter().zip(prev.iter())
+                let flux: f32 = magnitudes
+                    .iter()
+                    .zip(prev.iter())
                     .map(|(curr, prev)| (curr - prev).max(0.0).powi(2))
                     .sum();
                 flux_values.push(flux);
@@ -195,7 +198,9 @@ fn detect_onsets_simple(samples: &[f32], sample_rate: u32) -> usize {
     let mut last_onset = -(min_distance_samples as isize); // Start negative to allow first onset
     for (i, &energy) in envelope.iter().enumerate() {
         let i_signed = i as isize;
-        if energy > threshold && (i_signed - last_onset) > (min_distance_samples as isize / window_samples as isize) {
+        if energy > threshold
+            && (i_signed - last_onset) > (min_distance_samples as isize / window_samples as isize)
+        {
             onset_count += 1;
             last_onset = i_signed;
         }
@@ -270,7 +275,10 @@ pub fn verify_lfo_modulation_enhanced(wav_path: &str, min_flux: f32) -> Result<(
 /// Verify sample playback using PEAK detection
 /// Works for both sparse and dense patterns
 /// Sparse patterns have low RMS but correct peak amplitude
-pub fn verify_sample_playback(wav_path: &str, min_peak: f32) -> Result<EnhancedAudioAnalysis, String> {
+pub fn verify_sample_playback(
+    wav_path: &str,
+    min_peak: f32,
+) -> Result<EnhancedAudioAnalysis, String> {
     let analysis = analyze_wav_enhanced(wav_path)?;
 
     // Check peak amplitude (works for sparse and dense patterns)
@@ -358,7 +366,11 @@ mod tests {
         create_test_wav(&samples, sample_rate, path);
 
         let result = verify_oscillator_frequency_enhanced(path, 440.0, 10.0);
-        assert!(result.is_ok(), "Enhanced FFT should detect 440 Hz: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Enhanced FFT should detect 440 Hz: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -385,7 +397,13 @@ mod tests {
         println!("Spectral flux: {:.6}", analysis.spectral_flux);
         println!("Spectral spread: {:.1} Hz", analysis.spectral_spread);
 
-        assert!(analysis.spectral_flux > 0.0001, "Should detect spectral changes");
-        assert!(analysis.spectral_spread > 50.0, "Should have significant spread");
+        assert!(
+            analysis.spectral_flux > 0.0001,
+            "Should detect spectral changes"
+        );
+        assert!(
+            analysis.spectral_spread > 50.0,
+            "Should have significant spread"
+        );
     }
 }
