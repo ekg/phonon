@@ -128,6 +128,22 @@ pub enum Transform {
     },
     /// segment n: divide pattern into n segments
     Segment(Box<Expr>),
+    /// zoom begin end: focus on specific time range
+    Zoom {
+        begin: Box<Expr>,
+        end: Box<Expr>,
+    },
+    /// compress begin end: compress pattern to time range
+    Compress {
+        begin: Box<Expr>,
+        end: Box<Expr>,
+    },
+    /// spin n: rotate through n different versions
+    Spin(Box<Expr>),
+    /// mirror: palindrome within cycle (alias for palindrome)
+    Mirror,
+    /// gap n: insert silence every n cycles
+    Gap(Box<Expr>),
 }
 
 /// Binary operators
@@ -571,6 +587,42 @@ fn parse_transform(input: &str) -> IResult<&str, Transform> {
         map(
             preceded(terminated(tag("segment"), space1), parse_primary_expr),
             |expr| Transform::Segment(Box::new(expr)),
+        ),
+        // zoom begin end
+        map(
+            tuple((
+                terminated(tag("zoom"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_primary_expr,
+            )),
+            |(_, begin, end)| Transform::Zoom {
+                begin: Box::new(begin),
+                end: Box::new(end),
+            },
+        ),
+        // compress begin end
+        map(
+            tuple((
+                terminated(tag("compress"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_primary_expr,
+            )),
+            |(_, begin, end)| Transform::Compress {
+                begin: Box::new(begin),
+                end: Box::new(end),
+            },
+        ),
+        // spin n
+        map(
+            preceded(terminated(tag("spin"), space1), parse_primary_expr),
+            |expr| Transform::Spin(Box::new(expr)),
+        ),
+        // mirror
+        value(Transform::Mirror, tag("mirror")),
+        // gap n
+        map(
+            preceded(terminated(tag("gap"), space1), parse_primary_expr),
+            |expr| Transform::Gap(Box::new(expr)),
         ),
     ))(input)
 }

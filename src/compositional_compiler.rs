@@ -938,6 +938,25 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let n = extract_number(&n_expr)? as usize;
             Ok(pattern.segment(n))
         }
+        Transform::Zoom { begin, end } => {
+            let begin_val = extract_number(&begin)?;
+            let end_val = extract_number(&end)?;
+            Ok(pattern.zoom(begin_val, end_val))
+        }
+        Transform::Compress { begin, end } => {
+            let begin_val = extract_number(&begin)?;
+            let end_val = extract_number(&end)?;
+            Ok(pattern.compress(begin_val, end_val))
+        }
+        Transform::Spin(n_expr) => {
+            let n = extract_number(&n_expr)? as i32;
+            Ok(pattern.spin(n))
+        }
+        Transform::Mirror => Ok(pattern.mirror()),
+        Transform::Gap(n_expr) => {
+            let n = extract_number(&n_expr)? as usize;
+            Ok(pattern.gap(n))
+        }
         Transform::Every { n, transform } => {
             // For every, we need to recursively apply the inner transform
             // This is complex, so for now return an error
