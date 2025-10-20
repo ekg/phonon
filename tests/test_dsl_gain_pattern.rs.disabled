@@ -1,4 +1,5 @@
-use phonon::phonon_lang::PhononParser;
+use phonon::compositional_parser::parse_program;
+use phonon::compositional_compiler::compile_program;
 
 #[test]
 fn test_dsl_pattern_gain() {
@@ -7,11 +8,16 @@ tempo: 2.0
 out: s "bd bd" # gain "1.0 0.5"
 "#;
 
-    let mut parser = PhononParser::new();
-    parser.parse(code).expect("Parse failed");
+    // Parse
+    let (rest, statements) = parse_program(code).expect("Failed to parse");
+    assert_eq!(rest.trim(), "", "Parser should consume all input");
+
+    // Compile
+    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    graph.set_cps(2.0);
 
     // Render 0.5 seconds (1 cycle at tempo 2.0)
-    let buffer = parser.graph_mut().render(22050);
+    let buffer = graph.render(22050);
 
     // Split into halves
     let first_half = &buffer[0..11025];

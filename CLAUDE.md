@@ -95,18 +95,19 @@ cargo run --bin wav_analyze -- output.wav
 
 ### Working Features (182 tests passing)
 - ✅ Voice-based sample playback (64 voices, polyphonic)
-- ✅ Pattern transformations: `$`, `<|` with `fast`, `slow`, `rev`, `every`
-- ✅ Bidirectional signal flow: `#` and `<<`
-- ✅ Pattern-controlled synthesis: `sine("110 220 440")`
-- ✅ Pattern-controlled filters: `saw(55) # lpf("500 2000", 0.8)`
-- ✅ Sample routing through effects: `s("bd sn") # lpf(2000, 0.8)`
+- ✅ Pattern transformations: `$` with `fast`, `slow`, `rev`, `every`
+- ✅ Signal flow chaining: `#` (left to right)
+- ✅ Pattern-controlled synthesis: `sine "110 220 440"`
+- ✅ Pattern-controlled filters: `saw 55 # lpf "500 2000" 0.8`
+- ✅ Sample routing through effects: `s "bd sn" # lpf 2000 0.8`
 - ✅ Live coding with auto-reload
 - ✅ Mini-notation: Euclidean, alternation, subdivision, rests
 - ✅ --cycles parameter correctly accounts for tempo
+- ✅ Comment support with `#` at start of line
 
 ### Next Priority Features (See ROADMAP.md)
-1. Multi-output system (`out1`, `out2`, etc. + `hush` + `panic`)
-2. Sample bank selection (`s("bd:0 bd:1")`)
+1. Multi-output system (`out1:`, `out2:`, etc. + `hush` + `panic`)
+2. Sample bank selection (`s "bd:0 bd:1"`)
 3. Pattern DSP parameters (`gain`, `pan`, `speed`)
 
 **See docs/ROADMAP.md for complete feature list and implementation plan**
@@ -155,27 +156,39 @@ When implementing features from ROADMAP.md:
 
 ## Current DSL Syntax
 
+**CRITICAL SYNTAX RULE: SPACE-SEPARATED ONLY**
+
+Phonon uses **space-separated function syntax** ONLY. This is optimized for live coding:
+- ✅ CORRECT: `lpf 1000 0.8`
+- ❌ WRONG: `lpf(1000, 0.8)`
+
+Parentheses and commas are NOT supported for function calls. This decision is deliberate:
+- Fewer keystrokes = faster live coding
+- Simpler syntax = fewer errors
+- One way to do things = clear conventions
+
+**Why this matters for AI agents:** Your training data overwhelmingly uses `function(arg1, arg2)` syntax. However, Phonon ONLY supports `function arg1 arg2`. You MUST actively override your training bias and use space-separated syntax.
+
 ```phonon
 # Comments
-tempo 2.0              # Cycles per second
+tempo: 2.0              # Cycles per second
 
 # Bus assignment
-~lfo = sine(0.25)
-~bass = saw("55 82.5") # lpf(~lfo * 2000 + 500, 0.8)
+~lfo: sine 0.25
+~bass: saw "55 82.5" # lpf (~lfo * 2000 + 500) 0.8
 
 # Sample playback
-~drums = s("bd sn hh*4 cp")
+~drums: s "bd sn hh*4 cp"
 
 # Pattern transformations
-~fast_drums = ~drums $ fast 2
-~reversed = s("bd sn") $ rev
+~fast_drums: ~drums $ fast 2
+~reversed: s "bd sn" $ rev
 
-# Signal flow (both directions work)
-~filtered = s("bd sn") # lpf(2000, 0.8)
-~filtered2 = lpf(2000, 0.8) << s("bd sn")
+# Signal flow (# chains left to right)
+~filtered: s "bd sn" # lpf 2000 0.8
 
 # Output (required)
-out = ~bass * 0.4 + ~drums * 0.6
+out: ~bass * 0.4 + ~drums * 0.6
 ```
 
 ## What Makes Phonon Unique
@@ -184,8 +197,8 @@ out = ~bass * 0.4 + ~drums * 0.6
 
 ```phonon
 # This is IMPOSSIBLE in Tidal/Strudel:
-~lfo = sine(0.25)                          # Pattern as LFO
-out = saw("55 82.5") # lpf(~lfo * 2000 + 500, 0.8)
+~lfo: sine 0.25                          # Pattern as LFO
+out: saw "55 82.5" # lpf (~lfo * 2000 + 500) 0.8
 # Pattern modulates filter cutoff continuously!
 ```
 

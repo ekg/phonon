@@ -211,12 +211,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Master gain: {gain:.1}");
             println!();
 
-            // Parse and render using the DSL compiler
-            use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+            // Parse and render using the compositional parser
+            use phonon::compositional_parser::parse_program;
+            use phonon::compositional_compiler::compile_program;
 
             // Parse the DSL
             let (remaining, statements) =
-                parse_dsl(&dsl_code).map_err(|e| format!("Failed to parse DSL: {:?}", e))?;
+                parse_program(&dsl_code).map_err(|e| format!("Failed to parse DSL: {:?}", e))?;
 
             // Check for parse errors (unparsed input remaining)
             if !remaining.trim().is_empty() {
@@ -226,8 +227,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             // Compile to graph
-            let compiler = DslCompiler::new(sample_rate as f32);
-            let mut graph = compiler.compile(statements);
+            let mut graph = compile_program(statements, sample_rate as f32)
+                .map_err(|e| format!("Failed to compile: {}", e))?;
 
             let mut buses: HashMap<String, phonon::unified_graph::NodeId> = HashMap::new();
             let mut out_signal = None;
@@ -1493,17 +1494,16 @@ out sine(440) * 0.2
                 last_content: String::new(),
             }));
 
-            // Function to parse phonon file using unified DslCompiler
+            // Function to parse phonon file using compositional parser
             let parse_phonon =
                 |content: &str, sample_rate: f32| -> Result<UnifiedSignalGraph, String> {
-                    use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+                    use phonon::compositional_parser::parse_program;
+                    use phonon::compositional_compiler::compile_program;
 
-                    // Parse using unified parser
-                    match parse_dsl(content) {
+                    // Parse using compositional parser
+                    match parse_program(content) {
                         Ok((_, statements)) => {
-                            let compiler = DslCompiler::new(sample_rate);
-                            let graph = compiler.compile(statements);
-                            Ok(graph)
+                            compile_program(statements, sample_rate)
                         }
                         Err(e) => Err(format!("Parse error: {:?}", e)),
                     }
