@@ -54,8 +54,15 @@ jobs:
 
     - name: Run tests
       run: |
-        cargo test --test test_bus_and_mixing || true
-        cargo test --test test_parser_integration || true
+        # Core tests
+        cargo test --test test_bus_and_mixing
+        cargo test --test test_parser_integration
+
+        # Phase 1 Synthesis tests
+        cargo test --test test_noise_oscillator
+        cargo test --test test_noise_debug
+        cargo test --test test_superdirt_synths_dsl
+        cargo test --test test_oscillator_envelopes
 
     - name: Build documentation
       run: cargo doc --no-deps
