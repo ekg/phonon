@@ -285,6 +285,11 @@ From `TIDAL_OPERATORS_AUDIT.md`:
 - ✅ `staccato` - shortens event duration (2025-10-20)
 - ✅ `echo` - creates echo/delay effect (takes 3 params: times, time, feedback) (2025-10-20)
 - ✅ `segment` - divides pattern into n segments (2025-10-20)
+- ✅ `zoom` - focus on specific time range (takes 2 params: begin, end) (2025-10-20)
+- ✅ `compress` - compress pattern to time range (takes 2 params: begin, end) (2025-10-20)
+- ✅ `spin` - rotate through n different versions across cycles (2025-10-20)
+- ✅ `mirror` - palindrome within cycle, alias for palindrome (2025-10-20)
+- ✅ `gap` - insert silence every n cycles (2025-10-20)
 
 **Next Priority (from audit)**:
 1. **`jux`** - Stereo manipulation ⚠️ Requires first-class functions (see note below)
