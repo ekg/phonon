@@ -153,6 +153,8 @@ fn compile_function_call(
     match name {
         // ========== Pattern Combinators ==========
         "stack" => compile_stack(ctx, args),
+        "cat" => compile_cat(ctx, args),
+        "slowcat" => compile_slowcat(ctx, args),
 
         // ========== Sample playback ==========
         "s" => {
@@ -302,6 +304,120 @@ fn compile_stack(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
     }
 
     Ok(result)
+}
+
+/// Compile cat combinator - concatenates patterns within each cycle
+/// Each pattern gets an equal division of the cycle time
+/// Usage: cat [s "bd", s "sn", s "hh"]  -> plays bd (0-0.33), sn (0.33-0.66), hh (0.66-1.0)
+fn compile_cat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.is_empty() {
+        return Err("cat requires a list argument".to_string());
+    }
+
+    // First argument should be a list
+    let pattern_strs = match &args[0] {
+        Expr::List(exprs) => {
+            // Extract pattern strings from each expression
+            exprs
+                .iter()
+                .map(|expr| match expr {
+                    Expr::String(s) => Ok(s.clone()),
+                    _ => Err("cat requires a list of pattern strings: cat [\"bd\", \"sn\", ...]".to_string()),
+                })
+                .collect::<Result<Vec<String>, String>>()?
+        }
+        _ => return Err("cat requires a list as argument: cat [\"bd\", \"sn\", ...]".to_string()),
+    };
+
+    if pattern_strs.is_empty() {
+        return Err("cat requires at least one pattern in the list".to_string());
+    }
+
+    // Parse each pattern string
+    let patterns: Vec<Pattern<String>> = pattern_strs
+        .iter()
+        .map(|s| parse_mini_notation(s))
+        .collect();
+
+    // Combine using Pattern::cat
+    let combined_pattern = Pattern::cat(patterns);
+    let combined_str = format!("cat [{}]", pattern_strs.join(", "));
+
+    // Create a Sample node with the combined pattern
+    let node = SignalNode::Sample {
+        pattern_str: combined_str,
+        pattern: combined_pattern,
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        playback_positions: HashMap::new(),
+        gain: Signal::Value(1.0),
+        pan: Signal::Value(0.0),
+        speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
+        attack: Signal::Value(0.0),
+        release: Signal::Value(0.0),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile slowcat combinator - alternates between patterns on each cycle
+/// Cycle 0 plays pattern 0, cycle 1 plays pattern 1, etc.
+/// Usage: slowcat [s "bd*4", s "sn*4", s "hh*4"] -> cycle 0: bd*4, cycle 1: sn*4, cycle 2: hh*4, repeat
+fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.is_empty() {
+        return Err("slowcat requires a list argument".to_string());
+    }
+
+    // First argument should be a list
+    let pattern_strs = match &args[0] {
+        Expr::List(exprs) => {
+            // Extract pattern strings from each expression
+            exprs
+                .iter()
+                .map(|expr| match expr {
+                    Expr::String(s) => Ok(s.clone()),
+                    _ => Err("slowcat requires a list of pattern strings: slowcat [\"bd\", \"sn\", ...]".to_string()),
+                })
+                .collect::<Result<Vec<String>, String>>()?
+        }
+        _ => return Err("slowcat requires a list as argument: slowcat [\"bd\", \"sn\", ...]".to_string()),
+    };
+
+    if pattern_strs.is_empty() {
+        return Err("slowcat requires at least one pattern in the list".to_string());
+    }
+
+    // Parse each pattern string
+    let patterns: Vec<Pattern<String>> = pattern_strs
+        .iter()
+        .map(|s| parse_mini_notation(s))
+        .collect();
+
+    // Combine using Pattern::slowcat
+    let combined_pattern = Pattern::slowcat(patterns);
+    let combined_str = format!("slowcat [{}]", pattern_strs.join(", "));
+
+    // Create a Sample node with the combined pattern
+    let node = SignalNode::Sample {
+        pattern_str: combined_str,
+        pattern: combined_pattern,
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        playback_positions: HashMap::new(),
+        gain: Signal::Value(1.0),
+        pan: Signal::Value(0.0),
+        speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
+        attack: Signal::Value(0.0),
+        release: Signal::Value(0.0),
+    };
+
+    Ok(ctx.graph.add_node(node))
 }
 
 /// Compile oscillator node
