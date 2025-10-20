@@ -214,6 +214,26 @@ pub enum Transform {
     Log(Box<Expr>),
     /// walk step_size: random walk (numeric patterns only)
     Walk(Box<Expr>),
+    /// inside begin end transform: apply transform inside time range
+    Inside {
+        begin: Box<Expr>,
+        end: Box<Expr>,
+        transform: Box<Transform>,
+    },
+    /// outside begin end transform: apply transform outside time range
+    Outside {
+        begin: Box<Expr>,
+        end: Box<Expr>,
+        transform: Box<Transform>,
+    },
+    /// superimpose: layer pattern on itself
+    Superimpose,
+    /// wait cycles: delay pattern by cycles
+    Wait(Box<Expr>),
+    /// mask pattern: apply boolean mask to pattern
+    Mask(Box<Expr>),
+    /// weave count: weave pattern
+    Weave(Box<Expr>),
 }
 
 /// Binary operators
@@ -577,11 +597,12 @@ fn parse_function_call(input: &str) -> IResult<&str, Expr> {
 
 /// Parse a transform
 fn parse_transform(input: &str) -> IResult<&str, Transform> {
-    // Split into three alt() groups due to nom's tuple limit
+    // Split into four alt() groups due to nom's tuple limit
     alt((
         parse_transform_group_1,
         parse_transform_group_2,
         parse_transform_group_3,
+        parse_transform_group_4,
     ))(input)
 }
 
@@ -894,6 +915,57 @@ fn parse_transform_group_3(input: &str) -> IResult<&str, Transform> {
         map(
             preceded(terminated(tag("walk"), space1), parse_primary_expr),
             |expr| Transform::Walk(Box::new(expr)),
+        ),
+    ))(input)
+}
+
+/// Parse transform group 4 (fourth group of transforms)
+fn parse_transform_group_4(input: &str) -> IResult<&str, Transform> {
+    alt((
+        // inside begin end transform (MUST come before other transforms due to recursion)
+        map(
+            tuple((
+                terminated(tag("inside"), space1),
+                terminated(parse_primary_expr, space1),
+                terminated(parse_primary_expr, space1),
+                parse_transform,
+            )),
+            |(_, begin, end, transform)| Transform::Inside {
+                begin: Box::new(begin),
+                end: Box::new(end),
+                transform: Box::new(transform),
+            },
+        ),
+        // outside begin end transform (recursive)
+        map(
+            tuple((
+                terminated(tag("outside"), space1),
+                terminated(parse_primary_expr, space1),
+                terminated(parse_primary_expr, space1),
+                parse_transform,
+            )),
+            |(_, begin, end, transform)| Transform::Outside {
+                begin: Box::new(begin),
+                end: Box::new(end),
+                transform: Box::new(transform),
+            },
+        ),
+        // superimpose
+        value(Transform::Superimpose, tag("superimpose")),
+        // wait cycles
+        map(
+            preceded(terminated(tag("wait"), space1), parse_primary_expr),
+            |expr| Transform::Wait(Box::new(expr)),
+        ),
+        // mask pattern
+        map(
+            preceded(terminated(tag("mask"), space1), parse_primary_expr),
+            |expr| Transform::Mask(Box::new(expr)),
+        ),
+        // weave count
+        map(
+            preceded(terminated(tag("weave"), space1), parse_primary_expr),
+            |expr| Transform::Weave(Box::new(expr)),
         ),
     ))(input)
 }

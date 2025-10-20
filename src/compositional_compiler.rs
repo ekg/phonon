@@ -1095,6 +1095,69 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             // Note: walk() only works on Pattern<f64>, not Pattern<T>
             Err("walk transform only works with numeric patterns (from oscillators), not sample patterns".to_string())
         }
+        Transform::Inside { begin, end, transform } => {
+            let begin_val = extract_number(&begin)?;
+            let end_val = extract_number(&end)?;
+            // Clone pattern and transform for use in closure
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+
+            Ok(Pattern::new(move |state| {
+                let cycle_phase = state.span.begin.to_float() % 1.0;
+                if cycle_phase >= begin_val && cycle_phase < end_val {
+                    // Inside the range: apply transform
+                    match apply_transform_to_pattern(pattern_clone.clone(), inner_transform.clone()) {
+                        Ok(transformed) => transformed.query(state),
+                        Err(_) => pattern_clone.query(state),
+                    }
+                } else {
+                    // Outside the range: use original
+                    pattern_clone.query(state)
+                }
+            }))
+        }
+        Transform::Outside { begin, end, transform } => {
+            let begin_val = extract_number(&begin)?;
+            let end_val = extract_number(&end)?;
+            // Clone pattern and transform for use in closure
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+
+            Ok(Pattern::new(move |state| {
+                let cycle_phase = state.span.begin.to_float() % 1.0;
+                if cycle_phase < begin_val || cycle_phase >= end_val {
+                    // Outside the range: apply transform
+                    match apply_transform_to_pattern(pattern_clone.clone(), inner_transform.clone()) {
+                        Ok(transformed) => transformed.query(state),
+                        Err(_) => pattern_clone.query(state),
+                    }
+                } else {
+                    // Inside the range: use original
+                    pattern_clone.query(state)
+                }
+            }))
+        }
+        Transform::Superimpose => {
+            // Note: superimpose() requires a function argument in Rust
+            // The simple no-arg version would be superimpose(|p| p.fast(2)) or similar
+            // For now, return error - this needs more thought on DSL syntax
+            Err("superimpose transform requires a function argument - not yet exposed to DSL".to_string())
+        }
+        Transform::Wait(cycles_expr) => {
+            let cycles = extract_number(&cycles_expr)?;
+            // wait is an alias for late
+            Ok(pattern.late(cycles))
+        }
+        Transform::Mask(mask_expr) => {
+            // Note: mask() works with boolean patterns or patterns that can be converted to bool
+            // For now, we'll just pass the error that this is not yet implemented
+            Err("mask transform is not yet fully implemented - requires boolean pattern argument".to_string())
+        }
+        Transform::Weave(count_expr) => {
+            // Note: weave() expects a Pattern<T> argument, not a count
+            // This needs different DSL syntax or a different operation
+            Err("weave transform requires a pattern argument - not yet exposed to DSL in this form".to_string())
+        }
     }
 }
 
