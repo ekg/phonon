@@ -277,12 +277,15 @@ From `TIDAL_OPERATORS_AUDIT.md`:
 - ✅ `stack` - plays patterns simultaneously (2025-10-20)
 - ✅ `cat` - concatenates patterns within each cycle (2025-10-20)
 - ✅ `slowcat` - alternates between patterns on each cycle (2025-10-20)
+- ✅ `shuffle` - randomly shifts events in time (2025-10-20)
+- ✅ `chop` / `striate` - slices pattern into n equal parts (2025-10-20)
+- ✅ `scramble` - randomly reorders events (Fisher-Yates shuffle) (2025-10-20)
 
 **Next Priority (from audit)**:
-1. **`jux`** - Stereo manipulation
-2. **`chop`, `striate`** - Sample slicing
-3. **`shuffle`, `scramble`** - Reordering
-4. **`whenmod`, `every`** - Conditional transforms
+1. **`jux`** - Stereo manipulation ⚠️ Requires first-class functions (see note below)
+2. **`whenmod`, `every`** - Conditional transforms
+3. **`slowcatPrime`, `fastcat`** - More combinators
+4. **`iter`, `rev`, `someCycles`** - Cycle-level operations
 
 **Why It's Easy**:
 Same approach as `stack`:
@@ -310,6 +313,28 @@ fn compile_cat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
 
 **Estimated effort**: 30 minutes per operation (once stack pattern is established)
 **Priority**: MEDIUM (nice to have, not blocking)
+
+**⚠️ Note on `jux` and function-as-argument operations**:
+Operations like `jux` take a **function as an argument**, not just numbers or patterns. For example:
+```haskell
+-- Tidal Cycles syntax:
+d1 $ jux (rev) "bd sn"  -- Apply rev to one stereo channel
+```
+
+This requires **first-class functions** in the DSL, which is a major architectural feature. Currently, operations must have simple arguments (numbers, patterns, strings). Exposing `jux` and similar operations would require:
+1. Adding function types to the AST
+2. Supporting partial application
+3. Implementing closure semantics
+
+**Workaround**: For now, users can manually apply transforms to separate channels:
+```phonon
+~left: s "bd sn"
+~right: s "bd sn" $ rev
+out1: ~left
+out2: ~right
+```
+
+**Priority**: LOW (nice to have, but significant work)
 
 ---
 
