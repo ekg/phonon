@@ -234,6 +234,12 @@ pub enum Transform {
     Mask(Box<Expr>),
     /// weave count: weave pattern
     Weave(Box<Expr>),
+    /// degradeSeed seed: degrade with specific seed
+    DegradeSeed(Box<Expr>),
+    /// undegrade: return pattern unchanged (opposite of degrade)
+    Undegrade,
+    /// accelerate rate: speed up over time
+    Accelerate(Box<Expr>),
 }
 
 /// Binary operators
@@ -638,6 +644,11 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
             preceded(terminated(tag("degradeBy"), space1), parse_primary_expr),
             |expr| Transform::DegradeBy(Box::new(expr)),
         ),
+        // degradeSeed seed (MUST come before degrade!)
+        map(
+            preceded(terminated(tag("degradeSeed"), space1), parse_primary_expr),
+            |expr| Transform::DegradeSeed(Box::new(expr)),
+        ),
         // degrade
         value(Transform::Degrade, tag("degrade")),
         // stutter n
@@ -966,6 +977,13 @@ fn parse_transform_group_4(input: &str) -> IResult<&str, Transform> {
         map(
             preceded(terminated(tag("weave"), space1), parse_primary_expr),
             |expr| Transform::Weave(Box::new(expr)),
+        ),
+        // undegrade
+        value(Transform::Undegrade, tag("undegrade")),
+        // accelerate rate
+        map(
+            preceded(terminated(tag("accelerate"), space1), parse_primary_expr),
+            |expr| Transform::Accelerate(Box::new(expr)),
         ),
     ))(input)
 }

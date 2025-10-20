@@ -1158,6 +1158,20 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             // This needs different DSL syntax or a different operation
             Err("weave transform requires a pattern argument - not yet exposed to DSL in this form".to_string())
         }
+
+        Transform::DegradeSeed(seed_expr) => {
+            let seed = extract_number(&seed_expr)? as u64;
+            Ok(pattern.degrade_seed(seed))
+        }
+
+        Transform::Undegrade => {
+            Ok(pattern.undegrade())
+        }
+
+        Transform::Accelerate(rate_expr) => {
+            let rate = extract_number(&rate_expr)?;
+            Ok(pattern.accelerate(rate))
+        }
     }
 }
 
