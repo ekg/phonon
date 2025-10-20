@@ -196,6 +196,24 @@ pub enum Transform {
     },
     /// quantize steps: quantize numeric values (numeric patterns only)
     Quantize(Box<Expr>),
+    /// focus cycle_begin cycle_end: focus on specific cycles
+    Focus {
+        cycle_begin: Box<Expr>,
+        cycle_end: Box<Expr>,
+    },
+    /// smooth amount: smooth numeric values (numeric patterns only)
+    Smooth(Box<Expr>),
+    /// trim begin end: trim pattern to time range
+    Trim {
+        begin: Box<Expr>,
+        end: Box<Expr>,
+    },
+    /// exp base: exponential transformation (numeric patterns only)
+    Exp(Box<Expr>),
+    /// log base: logarithmic transformation (numeric patterns only)
+    Log(Box<Expr>),
+    /// walk step_size: random walk (numeric patterns only)
+    Walk(Box<Expr>),
 }
 
 /// Binary operators
@@ -832,6 +850,50 @@ fn parse_transform_group_3(input: &str) -> IResult<&str, Transform> {
                 min: Box::new(min),
                 max: Box::new(max),
             },
+        ),
+        // smooth amount (numeric patterns only)
+        map(
+            preceded(terminated(tag("smooth"), space1), parse_primary_expr),
+            |expr| Transform::Smooth(Box::new(expr)),
+        ),
+        // focus cycle_begin cycle_end
+        map(
+            tuple((
+                terminated(tag("focus"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_primary_expr,
+            )),
+            |(_, cycle_begin, cycle_end)| Transform::Focus {
+                cycle_begin: Box::new(cycle_begin),
+                cycle_end: Box::new(cycle_end),
+            },
+        ),
+        // trim begin end
+        map(
+            tuple((
+                terminated(tag("trim"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_primary_expr,
+            )),
+            |(_, begin, end)| Transform::Trim {
+                begin: Box::new(begin),
+                end: Box::new(end),
+            },
+        ),
+        // exp base (numeric patterns only)
+        map(
+            preceded(terminated(tag("exp"), space1), parse_primary_expr),
+            |expr| Transform::Exp(Box::new(expr)),
+        ),
+        // log base (numeric patterns only)
+        map(
+            preceded(terminated(tag("log"), space1), parse_primary_expr),
+            |expr| Transform::Log(Box::new(expr)),
+        ),
+        // walk step_size (numeric patterns only)
+        map(
+            preceded(terminated(tag("walk"), space1), parse_primary_expr),
+            |expr| Transform::Walk(Box::new(expr)),
         ),
     ))(input)
 }

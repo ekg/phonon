@@ -1065,9 +1065,35 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             // We need to handle this specially
             Err("range transform only works with numeric patterns (from oscillators), not sample patterns".to_string())
         }
-        Transform::Quantize(steps_expr) => {
+        Transform::Quantize(_steps_expr) => {
             // Note: quantize() only works on Pattern<f64>, not Pattern<T>
             Err("quantize transform only works with numeric patterns (from oscillators), not sample patterns".to_string())
+        }
+        Transform::Focus { cycle_begin, cycle_end } => {
+            let begin_val = extract_number(&cycle_begin)?;
+            let end_val = extract_number(&cycle_end)?;
+            Ok(pattern.focus(begin_val, end_val))
+        }
+        Transform::Smooth(_amount_expr) => {
+            // Note: smooth() only works on Pattern<f64>, not Pattern<T>
+            Err("smooth transform only works with numeric patterns (from oscillators), not sample patterns".to_string())
+        }
+        Transform::Trim { begin, end } => {
+            let begin_val = extract_number(&begin)?;
+            let end_val = extract_number(&end)?;
+            Ok(pattern.trim(begin_val, end_val))
+        }
+        Transform::Exp(_base_expr) => {
+            // Note: exp() only works on Pattern<f64>, not Pattern<T>
+            Err("exp transform only works with numeric patterns (from oscillators), not sample patterns".to_string())
+        }
+        Transform::Log(_base_expr) => {
+            // Note: log() only works on Pattern<f64>, not Pattern<T>
+            Err("log transform only works with numeric patterns (from oscillators), not sample patterns".to_string())
+        }
+        Transform::Walk(_step_expr) => {
+            // Note: walk() only works on Pattern<f64>, not Pattern<T>
+            Err("walk transform only works with numeric patterns (from oscillators), not sample patterns".to_string())
         }
     }
 }
