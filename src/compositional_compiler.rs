@@ -1021,6 +1021,31 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let factor = extract_number(&factor_expr)?;
             Ok(pattern.linger(factor))
         }
+        Transform::Offset(amount_expr) => {
+            let amount = extract_number(&amount_expr)?;
+            Ok(pattern.offset(amount))
+        }
+        Transform::Loop(n_expr) => {
+            let n = extract_number(&n_expr)? as usize;
+            Ok(pattern.loop_pattern(n))
+        }
+        Transform::Chew(n_expr) => {
+            let n = extract_number(&n_expr)? as usize;
+            Ok(pattern.chew(n))
+        }
+        Transform::FastGap(factor_expr) => {
+            let factor = extract_number(&factor_expr)?;
+            Ok(pattern.fast_gap(factor))
+        }
+        Transform::Discretise(n_expr) => {
+            let n = extract_number(&n_expr)? as usize;
+            Ok(pattern.discretise(n))
+        }
+        Transform::CompressGap { begin, end } => {
+            let begin_val = extract_number(&begin)?;
+            let end_val = extract_number(&end)?;
+            Ok(pattern.compress_gap(begin_val, end_val))
+        }
     }
 }
 
@@ -1029,6 +1054,10 @@ fn extract_number(expr: &Expr) -> Result<f64, String> {
     match expr {
         Expr::Number(n) => Ok(*n),
         Expr::Paren(inner) => extract_number(inner),
+        Expr::UnOp { op: UnOp::Neg, expr } => {
+            let value = extract_number(expr)?;
+            Ok(-value)
+        }
         _ => Err(format!(
             "Transform argument must be a number, got: {:?}",
             expr

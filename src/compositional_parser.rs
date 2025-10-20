@@ -166,6 +166,21 @@ pub enum Transform {
     Ply(Box<Expr>),
     /// linger factor: linger on values for longer
     Linger(Box<Expr>),
+    /// offset amount: shift pattern in time (alias for late)
+    Offset(Box<Expr>),
+    /// loop n: loop pattern n times within cycle
+    Loop(Box<Expr>),
+    /// chew n: chew through pattern
+    Chew(Box<Expr>),
+    /// fastGap factor: fast with gaps
+    FastGap(Box<Expr>),
+    /// discretise n: quantize time
+    Discretise(Box<Expr>),
+    /// compressGap begin end: compress to range with gaps
+    CompressGap {
+        begin: Box<Expr>,
+        end: Box<Expr>,
+    },
 }
 
 /// Binary operators
@@ -529,10 +544,11 @@ fn parse_function_call(input: &str) -> IResult<&str, Expr> {
 
 /// Parse a transform
 fn parse_transform(input: &str) -> IResult<&str, Transform> {
-    // Split into two alt() groups due to nom's tuple limit
+    // Split into three alt() groups due to nom's tuple limit
     alt((
         parse_transform_group_1,
         parse_transform_group_2,
+        parse_transform_group_3,
     ))(input)
 }
 
@@ -724,6 +740,49 @@ fn parse_transform_group_2(input: &str) -> IResult<&str, Transform> {
         map(
             preceded(terminated(tag("linger"), space1), parse_primary_expr),
             |expr| Transform::Linger(Box::new(expr)),
+        ),
+    ))(input)
+}
+
+/// Parse transform group 3 (third group of transforms)
+fn parse_transform_group_3(input: &str) -> IResult<&str, Transform> {
+    alt((
+        // offset amount
+        map(
+            preceded(terminated(tag("offset"), space1), parse_primary_expr),
+            |expr| Transform::Offset(Box::new(expr)),
+        ),
+        // loop n
+        map(
+            preceded(terminated(tag("loop"), space1), parse_primary_expr),
+            |expr| Transform::Loop(Box::new(expr)),
+        ),
+        // chew n
+        map(
+            preceded(terminated(tag("chew"), space1), parse_primary_expr),
+            |expr| Transform::Chew(Box::new(expr)),
+        ),
+        // fastGap factor
+        map(
+            preceded(terminated(tag("fastGap"), space1), parse_primary_expr),
+            |expr| Transform::FastGap(Box::new(expr)),
+        ),
+        // discretise n
+        map(
+            preceded(terminated(tag("discretise"), space1), parse_primary_expr),
+            |expr| Transform::Discretise(Box::new(expr)),
+        ),
+        // compressGap begin end
+        map(
+            tuple((
+                terminated(tag("compressGap"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_primary_expr,
+            )),
+            |(_, begin, end)| Transform::CompressGap {
+                begin: Box::new(begin),
+                end: Box::new(end),
+            },
         ),
     ))(input)
 }
