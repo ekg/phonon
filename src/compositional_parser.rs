@@ -154,6 +154,18 @@ pub enum Transform {
     Fit(Box<Expr>),
     /// stretch: sustain notes to fill gaps (legato 1.0)
     Stretch,
+    /// rotL n: rotate pattern left by n steps
+    RotL(Box<Expr>),
+    /// rotR n: rotate pattern right by n steps
+    RotR(Box<Expr>),
+    /// iter n: iterate pattern shifting by 1/n each cycle
+    Iter(Box<Expr>),
+    /// iterBack n: iterate pattern backwards
+    IterBack(Box<Expr>),
+    /// ply n: repeat each event n times
+    Ply(Box<Expr>),
+    /// linger factor: linger on values for longer
+    Linger(Box<Expr>),
 }
 
 /// Binary operators
@@ -683,6 +695,36 @@ fn parse_transform_group_2(input: &str) -> IResult<&str, Transform> {
         ),
         // stretch
         value(Transform::Stretch, tag("stretch")),
+        // rotL n
+        map(
+            preceded(terminated(tag("rotL"), space1), parse_primary_expr),
+            |expr| Transform::RotL(Box::new(expr)),
+        ),
+        // rotR n
+        map(
+            preceded(terminated(tag("rotR"), space1), parse_primary_expr),
+            |expr| Transform::RotR(Box::new(expr)),
+        ),
+        // iter n
+        map(
+            preceded(terminated(tag("iter"), space1), parse_primary_expr),
+            |expr| Transform::Iter(Box::new(expr)),
+        ),
+        // iterBack n
+        map(
+            preceded(terminated(tag("iterBack"), space1), parse_primary_expr),
+            |expr| Transform::IterBack(Box::new(expr)),
+        ),
+        // ply n
+        map(
+            preceded(terminated(tag("ply"), space1), parse_primary_expr),
+            |expr| Transform::Ply(Box::new(expr)),
+        ),
+        // linger factor
+        map(
+            preceded(terminated(tag("linger"), space1), parse_primary_expr),
+            |expr| Transform::Linger(Box::new(expr)),
+        ),
     ))(input)
 }
 

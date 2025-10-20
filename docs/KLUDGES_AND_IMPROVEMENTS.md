@@ -296,6 +296,12 @@ From `TIDAL_OPERATORS_AUDIT.md`:
 - ✅ `fit` - fit pattern to n cycles (takes 1 param: n) (2025-10-20)
 - ✅ `stretch` - sustain notes to fill gaps, alias for legato(1.0) (0 params) (2025-10-20)
 - ✅ `every` - apply transform every n cycles (takes 2 params: n, transform) (2025-10-20)
+- ✅ `rotL` - rotate pattern left by n steps (takes 1 param: n) (2025-10-20)
+- ✅ `rotR` - rotate pattern right by n steps (takes 1 param: n) (2025-10-20)
+- ✅ `iter` - iterate pattern shifting by 1/n each cycle (takes 1 param: n) (2025-10-20)
+- ✅ `iterBack` - iterate pattern backwards (takes 1 param: n) (2025-10-20)
+- ✅ `ply` - repeat each event n times (takes 1 param: n) (2025-10-20)
+- ✅ `linger` - linger on values for longer (takes 1 param: factor) (2025-10-20)
 
 **Next Priority (from audit)**:
 1. **`jux`** - Stereo manipulation ⚠️ Requires first-class functions (see note below)

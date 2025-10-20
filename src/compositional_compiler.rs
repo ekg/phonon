@@ -997,6 +997,30 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
                 }
             }))
         }
+        Transform::RotL(n_expr) => {
+            let n = extract_number(&n_expr)?;
+            Ok(pattern.rotate_left(n))
+        }
+        Transform::RotR(n_expr) => {
+            let n = extract_number(&n_expr)?;
+            Ok(pattern.rotate_right(n))
+        }
+        Transform::Iter(n_expr) => {
+            let n = extract_number(&n_expr)? as usize;
+            Ok(pattern.iter(n))
+        }
+        Transform::IterBack(n_expr) => {
+            let n = extract_number(&n_expr)? as usize;
+            Ok(pattern.iter_back(n))
+        }
+        Transform::Ply(n_expr) => {
+            let n = extract_number(&n_expr)? as usize;
+            Ok(pattern.ply(n))
+        }
+        Transform::Linger(factor_expr) => {
+            let factor = extract_number(&factor_expr)?;
+            Ok(pattern.linger(factor))
+        }
     }
 }
 
