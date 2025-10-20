@@ -1289,6 +1289,32 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let rate = extract_number(&rate_expr)?;
             Ok(pattern.accelerate(rate))
         }
+
+        Transform::Humanize { time_var, velocity_var } => {
+            let time_var_val = extract_number(&time_var)?;
+            let velocity_var_val = extract_number(&velocity_var)?;
+            Ok(pattern.humanize(time_var_val, velocity_var_val))
+        }
+
+        Transform::Within { begin, end, transform } => {
+            let begin_val = extract_number(&begin)?;
+            let end_val = extract_number(&end)?;
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+
+            Ok(pattern.within(begin_val, end_val, move |p| {
+                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                    Ok(transformed) => transformed,
+                    Err(_) => pattern_clone.clone(),
+                }
+            }))
+        }
+
+        Transform::Euclid { pulses, steps } => {
+            let pulses_val = extract_number(&pulses)? as usize;
+            let steps_val = extract_number(&steps)? as usize;
+            Ok(pattern.euclidean_legato(pulses_val, steps_val))
+        }
     }
 }
 

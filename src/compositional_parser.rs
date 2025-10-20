@@ -268,6 +268,22 @@ pub enum Transform {
     Undegrade,
     /// accelerate rate: speed up over time
     Accelerate(Box<Expr>),
+    /// humanize time_var velocity_var: add human timing variation
+    Humanize {
+        time_var: Box<Expr>,
+        velocity_var: Box<Expr>,
+    },
+    /// within begin end transform: apply transform within time window
+    Within {
+        begin: Box<Expr>,
+        end: Box<Expr>,
+        transform: Box<Transform>,
+    },
+    /// euclid pulses steps: euclidean rhythm pattern
+    Euclid {
+        pulses: Box<Expr>,
+        steps: Box<Expr>,
+    },
 }
 
 /// Binary operators
@@ -1115,6 +1131,44 @@ fn parse_transform_group_4(input: &str) -> IResult<&str, Transform> {
         map(
             preceded(terminated(tag("accelerate"), space1), parse_primary_expr),
             |expr| Transform::Accelerate(Box::new(expr)),
+        ),
+        // humanize time_var velocity_var
+        map(
+            tuple((
+                terminated(tag("humanize"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_primary_expr,
+            )),
+            |(_, time_var, velocity_var)| Transform::Humanize {
+                time_var: Box::new(time_var),
+                velocity_var: Box::new(velocity_var),
+            },
+        ),
+        // within begin end transform
+        map(
+            tuple((
+                terminated(tag("within"), space1),
+                terminated(parse_primary_expr, space1),
+                terminated(parse_primary_expr, space1),
+                parse_transform,
+            )),
+            |(_, begin, end, transform)| Transform::Within {
+                begin: Box::new(begin),
+                end: Box::new(end),
+                transform: Box::new(transform),
+            },
+        ),
+        // euclid pulses steps
+        map(
+            tuple((
+                terminated(tag("euclid"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_primary_expr,
+            )),
+            |(_, pulses, steps)| Transform::Euclid {
+                pulses: Box::new(pulses),
+                steps: Box::new(steps),
+            },
         ),
     ))(input)
 }
