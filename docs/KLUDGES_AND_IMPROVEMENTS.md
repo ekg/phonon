@@ -280,6 +280,11 @@ From `TIDAL_OPERATORS_AUDIT.md`:
 - ✅ `shuffle` - randomly shifts events in time (2025-10-20)
 - ✅ `chop` / `striate` - slices pattern into n equal parts (2025-10-20)
 - ✅ `scramble` - randomly reorders events (Fisher-Yates shuffle) (2025-10-20)
+- ✅ `swing` - adds swing feel to events (2025-10-20)
+- ✅ `legato` - lengthens event duration (2025-10-20)
+- ✅ `staccato` - shortens event duration (2025-10-20)
+- ✅ `echo` - creates echo/delay effect (takes 3 params: times, time, feedback) (2025-10-20)
+- ✅ `segment` - divides pattern into n segments (2025-10-20)
 
 **Next Priority (from audit)**:
 1. **`jux`** - Stereo manipulation ⚠️ Requires first-class functions (see note below)
