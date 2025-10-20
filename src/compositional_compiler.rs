@@ -6,6 +6,7 @@
 use crate::compositional_parser::{BinOp, Expr, Statement, Transform, UnOp};
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
+use crate::superdirt_synths::SynthLibrary;
 use crate::unified_graph::{NodeId, Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
 use std::collections::HashMap;
 
@@ -17,6 +18,8 @@ pub struct CompilerContext {
     graph: UnifiedSignalGraph,
     /// Sample rate for creating buffers
     sample_rate: f32,
+    /// Synth library for pre-built synthesizers
+    synth_lib: SynthLibrary,
 }
 
 impl CompilerContext {
@@ -25,6 +28,7 @@ impl CompilerContext {
             buses: HashMap::new(),
             graph: UnifiedSignalGraph::new(sample_rate),
             sample_rate,
+            synth_lib: SynthLibrary::with_sample_rate(sample_rate),
         }
     }
 
@@ -125,6 +129,12 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
             // Parentheses are just grouping, compile the inner expression
             compile_expr(ctx, *inner)
         }
+
+        Expr::List(exprs) => {
+            // Lists should only be used as arguments to functions like stack
+            // They shouldn't appear as standalone expressions
+            Err("Lists can only be used as function arguments (e.g., stack [...])".to_string())
+        }
     }
 }
 
@@ -135,6 +145,9 @@ fn compile_function_call(
     args: Vec<Expr>,
 ) -> Result<NodeId, String> {
     match name {
+        // ========== Pattern Combinators ==========
+        "stack" => compile_stack(ctx, args),
+
         // ========== Sample playback ==========
         "s" => {
             if args.is_empty() {
@@ -176,6 +189,28 @@ fn compile_function_call(
         "square" => compile_oscillator(ctx, Waveform::Square, args),
         "tri" => compile_oscillator(ctx, Waveform::Triangle, args),
 
+        // ========== Noise ==========
+        "noise" => {
+            // Noise generator - arguments are ignored (for parser compatibility)
+            // Parser requires at least one argument, so users call: noise 0
+            let node = SignalNode::Noise {
+                seed: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos() as u32,
+            };
+            Ok(ctx.graph.add_node(node))
+        }
+
+        // ========== SuperDirt Synths ==========
+        "superkick" => compile_superkick(ctx, args),
+        "supersaw" => compile_supersaw(ctx, args),
+        "superpwm" => compile_superpwm(ctx, args),
+        "superchip" => compile_superchip(ctx, args),
+        "superfm" => compile_superfm(ctx, args),
+        "supersnare" => compile_supersnare(ctx, args),
+        "superhat" => compile_superhat(ctx, args),
+
         // ========== Filters ==========
         "lpf" => compile_filter(ctx, "lpf", args),
         "hpf" => compile_filter(ctx, "hpf", args),
@@ -188,8 +223,49 @@ fn compile_function_call(
         "chorus" => compile_chorus(ctx, args),
         "bitcrush" => compile_bitcrush(ctx, args),
 
+        // ========== Envelope ==========
+        "env" | "envelope" => compile_envelope(ctx, args),
+
         _ => Err(format!("Unknown function: {}", name)),
     }
+}
+
+/// Compile stack combinator - plays multiple patterns/signals simultaneously
+fn compile_stack(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.is_empty() {
+        return Err("stack requires a list argument".to_string());
+    }
+
+    // First argument should be a list
+    let exprs = match &args[0] {
+        Expr::List(exprs) => exprs,
+        _ => return Err("stack requires a list as argument: stack [expr1, expr2, ...]".to_string()),
+    };
+
+    if exprs.is_empty() {
+        return Err("stack requires at least one expression in the list".to_string());
+    }
+
+    // Compile each expression to a node
+    let nodes: Result<Vec<NodeId>, String> = exprs
+        .iter()
+        .map(|expr| compile_expr(ctx, expr.clone()))
+        .collect();
+
+    let nodes = nodes?;
+
+    // Mix all nodes together by chaining Add nodes
+    // For [a, b, c], create: Add(Add(a, b), c)
+    let mut result = nodes[0];
+    for &node in &nodes[1..] {
+        let add_node = SignalNode::Add {
+            a: Signal::Node(result),
+            b: Signal::Node(node),
+        };
+        result = ctx.graph.add_node(add_node);
+    }
+
+    Ok(result)
 }
 
 /// Compile oscillator node
@@ -222,9 +298,17 @@ fn compile_filter(
     // 2. Chained: input # lpf(cutoff, q) - 2 args (input comes from chain)
 
     let (input_signal, cutoff_expr, q_expr) = if args.len() == 3 {
-        // Standalone: lpf(input, cutoff, q)
-        let input_node = compile_expr(ctx, args[0].clone())?;
-        (Signal::Node(input_node), &args[1], &args[2])
+        // Could be standalone lpf(input, cutoff, q) OR chained with space syntax
+        // Check if first arg is a NodeId (from chain operator hack)
+        if let Expr::Number(n) = &args[0] {
+            // Might be NodeId from chain - use directly to avoid treating as Constant
+            let input_node = NodeId(*n as usize);
+            (Signal::Node(input_node), &args[1], &args[2])
+        } else {
+            // Regular standalone call - compile the input expression
+            let input_node = compile_expr(ctx, args[0].clone())?;
+            (Signal::Node(input_node), &args[1], &args[2])
+        }
     } else if args.len() == 2 {
         // Most common: chained from # operator
         // The first arg is actually a NodeId stored as Number (hack from compile_chain)
@@ -464,6 +548,229 @@ fn compile_bitcrush(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
         bits: Signal::Node(bits_node),
         sample_rate: Signal::Node(sr_node),
         state: BitCrushState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+// ========== SuperDirt Synth Compilers ==========
+
+/// Compile SuperKick synth
+/// Usage: superkick(freq, pitch_env, sustain, noise)
+fn compile_superkick(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.is_empty() {
+        return Err("superkick requires at least freq argument".to_string());
+    }
+
+    let freq = Signal::Node(compile_expr(ctx, args[0].clone())?);
+    let pitch_env = if args.len() > 1 {
+        Some(Signal::Node(compile_expr(ctx, args[1].clone())?))
+    } else {
+        None
+    };
+    let sustain = if args.len() > 2 {
+        Some(extract_number(&args[2])? as f32)
+    } else {
+        None
+    };
+    let noise_amt = if args.len() > 3 {
+        Some(Signal::Node(compile_expr(ctx, args[3].clone())?))
+    } else {
+        None
+    };
+
+    let node_id = ctx.synth_lib.build_kick(&mut ctx.graph, freq, pitch_env, sustain, noise_amt);
+    Ok(node_id)
+}
+
+/// Compile SuperSaw synth
+/// Usage: supersaw(freq, detune, voices)
+fn compile_supersaw(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.is_empty() {
+        return Err("supersaw requires freq argument".to_string());
+    }
+
+    let freq = Signal::Node(compile_expr(ctx, args[0].clone())?);
+    let detune = if args.len() > 1 {
+        Some(extract_number(&args[1])? as f32)
+    } else {
+        None
+    };
+    let voices = if args.len() > 2 {
+        Some(extract_number(&args[2])? as usize)
+    } else {
+        None
+    };
+
+    let node_id = ctx.synth_lib.build_supersaw(&mut ctx.graph, freq, detune, voices);
+    Ok(node_id)
+}
+
+/// Compile SuperPWM synth
+/// Usage: superpwm(freq, pwm_rate, pwm_depth)
+fn compile_superpwm(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.is_empty() {
+        return Err("superpwm requires freq argument".to_string());
+    }
+
+    let freq = Signal::Node(compile_expr(ctx, args[0].clone())?);
+    let pwm_rate = if args.len() > 1 {
+        Some(extract_number(&args[1])? as f32)
+    } else {
+        None
+    };
+    let pwm_depth = if args.len() > 2 {
+        Some(extract_number(&args[2])? as f32)
+    } else {
+        None
+    };
+
+    let node_id = ctx.synth_lib.build_superpwm(&mut ctx.graph, freq, pwm_rate, pwm_depth);
+    Ok(node_id)
+}
+
+/// Compile SuperChip synth
+/// Usage: superchip(freq, vibrato_rate, vibrato_depth)
+fn compile_superchip(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.is_empty() {
+        return Err("superchip requires freq argument".to_string());
+    }
+
+    let freq = Signal::Node(compile_expr(ctx, args[0].clone())?);
+    let vibrato_rate = if args.len() > 1 {
+        Some(extract_number(&args[1])? as f32)
+    } else {
+        None
+    };
+    let vibrato_depth = if args.len() > 2 {
+        Some(extract_number(&args[2])? as f32)
+    } else {
+        None
+    };
+
+    let node_id = ctx.synth_lib.build_superchip(&mut ctx.graph, freq, vibrato_rate, vibrato_depth);
+    Ok(node_id)
+}
+
+/// Compile SuperFM synth
+/// Usage: superfm(freq, mod_ratio, mod_index)
+fn compile_superfm(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.is_empty() {
+        return Err("superfm requires freq argument".to_string());
+    }
+
+    let freq = Signal::Node(compile_expr(ctx, args[0].clone())?);
+    let mod_ratio = if args.len() > 1 {
+        Some(extract_number(&args[1])? as f32)
+    } else {
+        None
+    };
+    let mod_index = if args.len() > 2 {
+        Some(extract_number(&args[2])? as f32)
+    } else {
+        None
+    };
+
+    let node_id = ctx.synth_lib.build_superfm(&mut ctx.graph, freq, mod_ratio, mod_index);
+    Ok(node_id)
+}
+
+/// Compile SuperSnare synth
+/// Usage: supersnare(freq, snappy, sustain)
+fn compile_supersnare(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.is_empty() {
+        return Err("supersnare requires freq argument".to_string());
+    }
+
+    let freq = Signal::Node(compile_expr(ctx, args[0].clone())?);
+    let snappy = if args.len() > 1 {
+        Some(extract_number(&args[1])? as f32)
+    } else {
+        None
+    };
+    let sustain = if args.len() > 2 {
+        Some(extract_number(&args[2])? as f32)
+    } else {
+        None
+    };
+
+    let node_id = ctx.synth_lib.build_snare(&mut ctx.graph, freq, snappy, sustain);
+    Ok(node_id)
+}
+
+/// Compile SuperHat synth
+/// Usage: superhat(bright, sustain)
+fn compile_superhat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    let bright = if !args.is_empty() {
+        Some(extract_number(&args[0])? as f32)
+    } else {
+        None
+    };
+    let sustain = if args.len() > 1 {
+        Some(extract_number(&args[1])? as f32)
+    } else {
+        None
+    };
+
+    let node_id = ctx.synth_lib.build_hat(&mut ctx.graph, bright, sustain);
+    Ok(node_id)
+}
+
+/// Compile envelope wrapper
+/// Usage: signal # env(attack, decay, sustain, release)
+/// Or: env(input, attack, decay, sustain, release)
+fn compile_envelope(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // env can be used in two ways:
+    // 1. Chained: signal # env(attack, decay, sustain, release) - 4 or 5 args (NodeId + 4 params)
+    // 2. Standalone: env(input, attack, decay, sustain, release) - 5 args
+
+    let (input_signal, attack, decay, sustain_level, release) = if args.len() == 5 {
+        // Could be standalone or chained
+        if let Expr::Number(node_id) = &args[0] {
+            // Chained: first arg is NodeId from chain operator
+            let input_node = NodeId(*node_id as usize);
+            let attack = extract_number(&args[1])? as f32;
+            let decay = extract_number(&args[2])? as f32;
+            let sustain_level = extract_number(&args[3])? as f32;
+            let release = extract_number(&args[4])? as f32;
+            (Signal::Node(input_node), attack, decay, sustain_level, release)
+        } else {
+            // Standalone: first arg is input expression
+            let input_node = compile_expr(ctx, args[0].clone())?;
+            let attack = extract_number(&args[1])? as f32;
+            let decay = extract_number(&args[2])? as f32;
+            let sustain_level = extract_number(&args[3])? as f32;
+            let release = extract_number(&args[4])? as f32;
+            (Signal::Node(input_node), attack, decay, sustain_level, release)
+        }
+    } else if args.len() == 4 {
+        // Chained with 4 params (no input arg)
+        if let Expr::Number(node_id) = &args[0] {
+            let input_node = NodeId(*node_id as usize);
+            let attack = extract_number(&args[1])? as f32;
+            let decay = extract_number(&args[2])? as f32;
+            let sustain_level = extract_number(&args[3])? as f32;
+            // Default release = same as decay
+            (Signal::Node(input_node), attack, decay, sustain_level, decay)
+        } else {
+            return Err("env requires 4 or 5 arguments (attack, decay, sustain, release)".to_string());
+        }
+    } else {
+        return Err(format!("env requires 4 or 5 arguments, got {}", args.len()));
+    };
+
+    use crate::unified_graph::EnvState;
+
+    // For continuous signals, use a constant trigger (always on)
+    // This keeps the envelope in sustain phase
+    let node = SignalNode::Envelope {
+        input: input_signal,
+        trigger: Signal::Value(1.0), // Always triggered for continuous signals
+        attack,
+        decay,
+        sustain: sustain_level,
+        release,
+        state: EnvState::default(),
     };
 
     Ok(ctx.graph.add_node(node))

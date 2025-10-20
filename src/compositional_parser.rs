@@ -75,6 +75,9 @@ pub enum Expr {
 
     /// Parenthesized expression (for grouping)
     Paren(Box<Expr>),
+
+    /// List literal: [expr1, expr2, ...]
+    List(Vec<Expr>),
 }
 
 /// Pattern transform operations
@@ -375,7 +378,7 @@ fn parse_unary_expr(input: &str) -> IResult<&str, Expr> {
     }
 }
 
-/// Parse primary expression: number, string, bus ref, function call, parentheses
+/// Parse primary expression: number, string, bus ref, function call, parentheses, list
 fn parse_primary_expr(input: &str) -> IResult<&str, Expr> {
     let (input, _) = space0(input)?;
 
@@ -384,6 +387,7 @@ fn parse_primary_expr(input: &str) -> IResult<&str, Expr> {
         parse_string_literal,
         parse_bus_ref_expr,
         parse_function_call,
+        parse_list_expr,
         parse_paren_expr,
     ))(input)
 }
@@ -397,6 +401,23 @@ fn parse_paren_expr(input: &str) -> IResult<&str, Expr> {
     let (input, _) = char(')')(input)?;
 
     Ok((input, Expr::Paren(Box::new(expr))))
+}
+
+/// Parse list expression: [expr1, expr2, ...]
+fn parse_list_expr(input: &str) -> IResult<&str, Expr> {
+    let (input, _) = char('[')(input)?;
+    let (input, _) = space0(input)?;
+
+    // Parse comma-separated expressions
+    let (input, exprs) = separated_list0(
+        delimited(space0, char(','), space0),
+        parse_expr
+    )(input)?;
+
+    let (input, _) = space0(input)?;
+    let (input, _) = char(']')(input)?;
+
+    Ok((input, Expr::List(exprs)))
 }
 
 /// Parse bus reference: ~name
