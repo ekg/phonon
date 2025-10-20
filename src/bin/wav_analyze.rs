@@ -1,3 +1,4 @@
+use rustfft::{FftPlanner, num_complex::Complex};
 use std::env;
 use std::f32::consts::PI;
 
@@ -218,8 +219,7 @@ fn count_zero_crossings(samples: &[f32]) -> usize {
 }
 
 fn analyze_spectrum(samples: &[f32], sample_rate: u32) -> (f32, f32) {
-    // Simple FFT using DFT for demonstration (inefficient but works)
-    // For production, use rustfft
+    // Use rustfft for efficient FFT computation
     let window_size = 2048.min(samples.len());
     let window = &samples[..window_size];
 
@@ -233,40 +233,42 @@ fn analyze_spectrum(samples: &[f32], sample_rate: u32) -> (f32, f32) {
         })
         .collect();
 
-    // Simple DFT for first few bins (enough for analysis)
-    let num_bins = 512.min(window_size / 2);
-    let mut magnitudes = Vec::with_capacity(num_bins);
-    let mut max_magnitude = 0.0;
-    let mut dominant_bin = 0;
+    // Convert to complex numbers for FFT
+    let mut buffer: Vec<Complex<f32>> = windowed
+        .iter()
+        .map(|&x| Complex { re: x, im: 0.0 })
+        .collect();
 
-    for k in 0..num_bins {
-        let mut real = 0.0;
-        let mut imag = 0.0;
+    // Perform FFT
+    let mut planner = FftPlanner::new();
+    let fft = planner.plan_fft_forward(window_size);
+    fft.process(&mut buffer);
 
-        for (n, &sample) in windowed.iter().enumerate() {
-            let angle = -2.0 * PI * k as f32 * n as f32 / window_size as f32;
-            real += sample * angle.cos();
-            imag += sample * angle.sin();
-        }
+    // Calculate magnitudes
+    let num_bins = window_size / 2; // Only use positive frequencies
+    let magnitudes: Vec<f32> = buffer[..num_bins]
+        .iter()
+        .map(|c| (c.re * c.re + c.im * c.im).sqrt())
+        .collect();
 
-        let magnitude = (real * real + imag * imag).sqrt();
-        magnitudes.push(magnitude);
-
-        if magnitude > max_magnitude {
-            max_magnitude = magnitude;
-            dominant_bin = k;
-        }
-    }
+    // Find dominant frequency (skip DC component at bin 0)
+    let (dominant_bin, max_magnitude) = magnitudes[1..]
+        .iter()
+        .enumerate()
+        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        .map(|(i, &mag)| (i + 1, mag))
+        .unwrap_or((0, 0.0));
 
     // Calculate dominant frequency
     let bin_width = sample_rate as f32 / window_size as f32;
     let dominant_frequency = dominant_bin as f32 * bin_width;
 
-    // Calculate spectral centroid
+    // Calculate spectral centroid (weighted average of frequencies)
     let mut weighted_sum = 0.0;
     let mut magnitude_sum = 0.0;
 
-    for (i, &mag) in magnitudes.iter().enumerate() {
+    for (i, &mag) in magnitudes.iter().enumerate().skip(1) {
+        // Skip DC
         let freq = i as f32 * bin_width;
         weighted_sum += freq * mag;
         magnitude_sum += mag;
