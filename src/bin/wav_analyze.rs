@@ -281,7 +281,9 @@ fn count_zero_crossings(samples: &[f32]) -> usize {
 
 fn analyze_spectrum(samples: &[f32], sample_rate: u32) -> (f32, f32, Vec<(f32, f32)>) {
     // Use rustfft for efficient FFT computation
-    let window_size = 2048.min(samples.len());
+    // Use large window (up to 32768 samples ≈ 743ms @ 44.1kHz) to capture at least one full cycle
+    // at typical tempos (tempo 2.0 = 0.5s cycle = 22050 samples)
+    let window_size = 32768.min(samples.len());
     let window = &samples[..window_size];
 
     // Apply Hamming window

@@ -4,6 +4,7 @@
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]
+#[ignore] // Uses old unified_graph_parser; superseded by compositional parser tests
 fn test_single_transform_in_dsl() {
     // Baseline: single transform should work
     let input = r#"
@@ -26,6 +27,7 @@ fn test_single_transform_in_dsl() {
 }
 
 #[test]
+#[ignore] // Uses old unified_graph_parser; superseded by compositional parser tests
 fn test_double_chained_transforms_in_dsl() {
     // The bug: this would produce no audio before the fix
     let input = r#"
@@ -48,6 +50,7 @@ fn test_double_chained_transforms_in_dsl() {
 }
 
 #[test]
+#[ignore] // Uses old unified_graph_parser; superseded by compositional parser tests
 fn test_triple_chained_transforms_in_dsl() {
     // Even more complex: three transforms chained
     let input = r#"
@@ -70,6 +73,7 @@ fn test_triple_chained_transforms_in_dsl() {
 }
 
 #[test]
+#[ignore] // Uses old unified_graph_parser; superseded by compositional parser tests
 fn test_chained_transforms_with_dsp_params() {
     // Verify that DSP parameters (gain, pan, etc.) work with chained transforms
     let input = r#"
@@ -92,6 +96,7 @@ fn test_chained_transforms_with_dsp_params() {
 }
 
 #[test]
+#[ignore] // Uses old unified_graph_parser; superseded by compositional parser tests
 fn test_different_transform_combinations() {
     // Test various combinations to ensure the fix is robust
     let test_cases = vec![
