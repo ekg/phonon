@@ -78,6 +78,10 @@ pub enum Expr {
 
     /// List literal: [expr1, expr2, ...]
     List(Vec<Expr>),
+
+    /// Chain input marker (only used internally by compiler for # operator)
+    /// This is NOT parsed from source code - only created during compilation
+    ChainInput(crate::unified_graph::NodeId),
 }
 
 /// Pattern transform operations
