@@ -5,16 +5,21 @@ use std::f32::consts::PI;
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: {} <wav_file> [--verbose]", args[0]);
+        eprintln!("Usage: {} <wav_file> [--verbose|--json]", args[0]);
         std::process::exit(1);
     }
 
     let filename = &args[1];
     let verbose = args.len() > 2 && args[2] == "--verbose";
+    let json_mode = args.len() > 2 && args[2] == "--json";
 
     match analyze_wav(filename, verbose) {
         Ok(analysis) => {
-            println!("{}", analysis.format_report());
+            if json_mode {
+                println!("{}", analysis.format_json());
+            } else {
+                println!("{}", analysis.format_report());
+            }
 
             // Exit with error code if audio is empty
             if analysis.is_empty {
@@ -44,10 +49,12 @@ struct AudioAnalysis {
     // Spectral
     spectral_centroid: f32,
     dominant_frequency: f32,
+    frequency_bins: Vec<(f32, f32)>, // (frequency, magnitude) pairs
 
     // Rhythm
     estimated_bpm: Option<f32>,
     onset_count: usize,
+    onset_times: Vec<f32>, // Time in seconds of each onset
 
     // Overall
     is_empty: bool,
@@ -112,6 +119,58 @@ impl AudioAnalysis {
 
         report
     }
+
+    fn format_json(&self) -> String {
+        // Simple JSON formatting (could use serde_json for production)
+        let mut json = String::from("{\n");
+
+        json.push_str(&format!("  \"filename\": \"{}\",\n", self.filename));
+        json.push_str(&format!("  \"sample_rate\": {},\n", self.sample_rate));
+        json.push_str(&format!("  \"duration_secs\": {},\n", self.duration_secs));
+        json.push_str(&format!("  \"num_samples\": {},\n", self.num_samples));
+        json.push_str(&format!("  \"rms\": {},\n", self.rms));
+        json.push_str(&format!("  \"peak\": {},\n", self.peak));
+        json.push_str(&format!("  \"dc_offset\": {},\n", self.dc_offset));
+        json.push_str(&format!("  \"zero_crossings\": {},\n", self.zero_crossings));
+        json.push_str(&format!("  \"spectral_centroid\": {},\n", self.spectral_centroid));
+        json.push_str(&format!("  \"dominant_frequency\": {},\n", self.dominant_frequency));
+        json.push_str(&format!("  \"onset_count\": {},\n", self.onset_count));
+
+        if let Some(bpm) = self.estimated_bpm {
+            json.push_str(&format!("  \"estimated_bpm\": {},\n", bpm));
+        } else {
+            json.push_str("  \"estimated_bpm\": null,\n");
+        }
+
+        json.push_str(&format!("  \"is_empty\": {},\n", self.is_empty));
+        json.push_str(&format!("  \"is_clipping\": {},\n", self.is_clipping));
+
+        // Onset times
+        json.push_str("  \"onset_times\": [");
+        for (i, &time) in self.onset_times.iter().enumerate() {
+            if i > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("{:.3}", time));
+        }
+        json.push_str("],\n");
+
+        // Frequency bins (limit to top 20 for readability)
+        json.push_str("  \"frequency_bins\": [\n");
+        let num_bins = self.frequency_bins.len().min(20);
+        for i in 0..num_bins {
+            let (freq, mag) = self.frequency_bins[i];
+            json.push_str(&format!("    {{\"freq\": {:.1}, \"magnitude\": {:.6}}}", freq, mag));
+            if i < num_bins - 1 {
+                json.push_str(",");
+            }
+            json.push_str("\n");
+        }
+        json.push_str("  ]\n");
+
+        json.push_str("}\n");
+        json
+    }
 }
 
 fn analyze_wav(filename: &str, verbose: bool) -> Result<AudioAnalysis, Box<dyn std::error::Error>> {
@@ -161,17 +220,17 @@ fn analyze_wav(filename: &str, verbose: bool) -> Result<AudioAnalysis, Box<dyn s
     let is_clipping = mono_samples.iter().any(|&x| x.abs() >= 0.999);
 
     // Spectral analysis
-    let (dominant_frequency, spectral_centroid) = if !is_empty {
+    let (dominant_frequency, spectral_centroid, frequency_bins) = if !is_empty {
         analyze_spectrum(&mono_samples, spec.sample_rate)
     } else {
-        (0.0, 0.0)
+        (0.0, 0.0, Vec::new())
     };
 
     // Rhythm analysis
-    let (onset_count, estimated_bpm) = if !is_empty {
+    let (onset_count, estimated_bpm, onset_times) = if !is_empty {
         analyze_rhythm(&mono_samples, spec.sample_rate)
     } else {
-        (0, None)
+        (0, None, Vec::new())
     };
 
     Ok(AudioAnalysis {
@@ -185,7 +244,9 @@ fn analyze_wav(filename: &str, verbose: bool) -> Result<AudioAnalysis, Box<dyn s
         zero_crossings,
         spectral_centroid,
         dominant_frequency,
+        frequency_bins,
         onset_count,
+        onset_times,
         estimated_bpm,
         is_empty,
         is_clipping,
@@ -218,7 +279,7 @@ fn count_zero_crossings(samples: &[f32]) -> usize {
     crossings
 }
 
-fn analyze_spectrum(samples: &[f32], sample_rate: u32) -> (f32, f32) {
+fn analyze_spectrum(samples: &[f32], sample_rate: u32) -> (f32, f32, Vec<(f32, f32)>) {
     // Use rustfft for efficient FFT computation
     let window_size = 2048.min(samples.len());
     let window = &samples[..window_size];
@@ -280,10 +341,27 @@ fn analyze_spectrum(samples: &[f32], sample_rate: u32) -> (f32, f32) {
         0.0
     };
 
-    (dominant_frequency, spectral_centroid)
+    // Create frequency bins (frequency, magnitude) pairs
+    // Only include bins with significant magnitude (> 1% of max)
+    let threshold = max_magnitude * 0.01;
+    let mut frequency_bins: Vec<(f32, f32)> = magnitudes
+        .iter()
+        .enumerate()
+        .skip(1) // Skip DC
+        .filter(|(_, &mag)| mag > threshold)
+        .map(|(i, &mag)| {
+            let freq = i as f32 * bin_width;
+            (freq, mag)
+        })
+        .collect();
+
+    // Sort by magnitude (descending)
+    frequency_bins.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    (dominant_frequency, spectral_centroid, frequency_bins)
 }
 
-fn analyze_rhythm(samples: &[f32], sample_rate: u32) -> (usize, Option<f32>) {
+fn analyze_rhythm(samples: &[f32], sample_rate: u32) -> (usize, Option<f32>, Vec<f32>) {
     // Better onset detection using spectral flux
     let window_size = (sample_rate as usize / 50).max(128); // 20ms windows
     let hop_size = window_size / 2;
@@ -345,6 +423,12 @@ fn analyze_rhythm(samples: &[f32], sample_rate: u32) -> (usize, Option<f32>) {
 
     let onset_count = peaks.len();
 
+    // Convert peak indices to time in seconds
+    let onset_times: Vec<f32> = peaks
+        .iter()
+        .map(|&peak_idx| (peak_idx * hop_size) as f32 / sample_rate as f32)
+        .collect();
+
     // Estimate BPM from peak intervals
     let estimated_bpm = if peaks.len() > 4 {
         let mut intervals = Vec::new();
@@ -368,5 +452,5 @@ fn analyze_rhythm(samples: &[f32], sample_rate: u32) -> (usize, Option<f32>) {
         None
     };
 
-    (onset_count, estimated_bpm)
+    (onset_count, estimated_bpm, onset_times)
 }
