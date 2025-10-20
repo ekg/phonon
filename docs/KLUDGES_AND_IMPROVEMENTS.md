@@ -290,6 +290,11 @@ From `TIDAL_OPERATORS_AUDIT.md`:
 - ✅ `spin` - rotate through n different versions across cycles (2025-10-20)
 - ✅ `mirror` - palindrome within cycle, alias for palindrome (2025-10-20)
 - ✅ `gap` - insert silence every n cycles (2025-10-20)
+- ✅ `late` - delay pattern in time (takes 1 param: amount) (2025-10-20)
+- ✅ `early` - shift pattern earlier in time (takes 1 param: amount) (2025-10-20)
+- ✅ `dup` - duplicate pattern n times, like bd*n (takes 1 param: n) (2025-10-20)
+- ✅ `fit` - fit pattern to n cycles (takes 1 param: n) (2025-10-20)
+- ✅ `stretch` - sustain notes to fill gaps, alias for legato(1.0) (0 params) (2025-10-20)
 
 **Next Priority (from audit)**:
 1. **`jux`** - Stereo manipulation ⚠️ Requires first-class functions (see note below)
