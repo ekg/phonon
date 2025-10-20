@@ -295,12 +295,13 @@ From `TIDAL_OPERATORS_AUDIT.md`:
 - ✅ `dup` - duplicate pattern n times, like bd*n (takes 1 param: n) (2025-10-20)
 - ✅ `fit` - fit pattern to n cycles (takes 1 param: n) (2025-10-20)
 - ✅ `stretch` - sustain notes to fill gaps, alias for legato(1.0) (0 params) (2025-10-20)
+- ✅ `every` - apply transform every n cycles (takes 2 params: n, transform) (2025-10-20)
 
 **Next Priority (from audit)**:
 1. **`jux`** - Stereo manipulation ⚠️ Requires first-class functions (see note below)
-2. **`whenmod`, `every`** - Conditional transforms
+2. **`whenmod`** - Conditional transforms
 3. **`slowcatPrime`, `fastcat`** - More combinators
-4. **`iter`, `rev`, `someCycles`** - Cycle-level operations
+4. **`iter`, `someCycles`** - Cycle-level operations
 
 **Why It's Easy**:
 Same approach as `stack`:

@@ -975,10 +975,27 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         }
         Transform::Stretch => Ok(pattern.stretch()),
         Transform::Every { n, transform } => {
-            // For every, we need to recursively apply the inner transform
-            // This is complex, so for now return an error
-            let _ = (n, transform);
-            Err("'every' transform not yet implemented in compiler".to_string())
+            // Extract the cycle interval
+            let n_val = extract_number(&n)? as i32;
+
+            // Clone the pattern and transform for use in the closure
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+
+            // Manually inline Pattern::every logic to avoid closure issues
+            Ok(Pattern::new(move |state| {
+                let cycle = state.span.begin.to_float().floor() as i32;
+                if cycle % n_val == 0 {
+                    // Apply the transform on cycles divisible by n
+                    match apply_transform_to_pattern(pattern_clone.clone(), inner_transform.clone()) {
+                        Ok(transformed) => transformed.query(state),
+                        Err(_) => pattern_clone.query(state), // Fallback to original on error
+                    }
+                } else {
+                    // Use original pattern on other cycles
+                    pattern_clone.query(state)
+                }
+            }))
         }
     }
 }

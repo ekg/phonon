@@ -527,6 +527,18 @@ fn parse_transform(input: &str) -> IResult<&str, Transform> {
 /// Parse transform group 1 (first half of transforms)
 fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
     alt((
+        // every n transform (MUST come first - recursive)
+        map(
+            tuple((
+                terminated(tag("every"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_transform,
+            )),
+            |(_, n, transform)| Transform::Every {
+                n: Box::new(n),
+                transform: Box::new(transform),
+            },
+        ),
         // fast n
         map(
             preceded(terminated(tag("fast"), space1), parse_primary_expr),
