@@ -1198,6 +1198,68 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             }))
         }
 
+        Transform::SometimesBy { prob, transform } => {
+            let prob_val = extract_number(&prob)?;
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+
+            Ok(pattern.sometimes_by(prob_val, move |p| {
+                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                    Ok(transformed) => transformed,
+                    Err(_) => pattern_clone.clone(),
+                }
+            }))
+        }
+
+        Transform::AlmostAlways(transform) => {
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+
+            Ok(pattern.sometimes_by(0.9, move |p| {
+                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                    Ok(transformed) => transformed,
+                    Err(_) => pattern_clone.clone(),
+                }
+            }))
+        }
+
+        Transform::AlmostNever(transform) => {
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+
+            Ok(pattern.sometimes_by(0.1, move |p| {
+                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                    Ok(transformed) => transformed,
+                    Err(_) => pattern_clone.clone(),
+                }
+            }))
+        }
+
+        Transform::Always(transform) => {
+            let inner_transform = (*transform).clone();
+
+            Ok(pattern.always(move |p| {
+                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                    Ok(transformed) => transformed,
+                    Err(e) => panic!("Transform error in always: {}", e),
+                }
+            }))
+        }
+
+        Transform::Whenmod { modulo, offset, transform } => {
+            let modulo_val = extract_number(&modulo)? as i32;
+            let offset_val = extract_number(&offset)? as i32;
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+
+            Ok(pattern.when_mod(modulo_val, offset_val, move |p| {
+                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                    Ok(transformed) => transformed,
+                    Err(_) => pattern_clone.clone(),
+                }
+            }))
+        }
+
         Transform::Wait(cycles_expr) => {
             let cycles = extract_number(&cycles_expr)?;
             // wait is an alias for late

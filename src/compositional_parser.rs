@@ -239,6 +239,23 @@ pub enum Transform {
     Often(Box<Transform>),
     /// rarely transform: apply transform with 25% probability
     Rarely(Box<Transform>),
+    /// sometimesBy prob transform: apply transform with specific probability
+    SometimesBy {
+        prob: Box<Expr>,
+        transform: Box<Transform>,
+    },
+    /// almostAlways transform: apply transform with 90% probability
+    AlmostAlways(Box<Transform>),
+    /// almostNever transform: apply transform with 10% probability
+    AlmostNever(Box<Transform>),
+    /// always transform: always apply transform (100% probability)
+    Always(Box<Transform>),
+    /// whenmod modulo offset transform: apply when (cycle - offset) % modulo == 0
+    Whenmod {
+        modulo: Box<Expr>,
+        offset: Box<Expr>,
+        transform: Box<Transform>,
+    },
     /// wait cycles: delay pattern by cycles
     Wait(Box<Expr>),
     /// mask pattern: apply boolean mask to pattern
@@ -1026,6 +1043,56 @@ fn parse_transform_group_4(input: &str) -> IResult<&str, Transform> {
                 parse_transform,
             )),
             |(_, transform)| Transform::Rarely(Box::new(transform)),
+        ),
+        // sometimesBy prob transform
+        map(
+            tuple((
+                terminated(tag("sometimesBy"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_transform,
+            )),
+            |(_, prob, transform)| Transform::SometimesBy {
+                prob: Box::new(prob),
+                transform: Box::new(transform),
+            },
+        ),
+        // almostAlways transform
+        map(
+            tuple((
+                terminated(tag("almostAlways"), space1),
+                parse_transform,
+            )),
+            |(_, transform)| Transform::AlmostAlways(Box::new(transform)),
+        ),
+        // almostNever transform
+        map(
+            tuple((
+                terminated(tag("almostNever"), space1),
+                parse_transform,
+            )),
+            |(_, transform)| Transform::AlmostNever(Box::new(transform)),
+        ),
+        // always transform
+        map(
+            tuple((
+                terminated(tag("always"), space1),
+                parse_transform,
+            )),
+            |(_, transform)| Transform::Always(Box::new(transform)),
+        ),
+        // whenmod modulo offset transform
+        map(
+            tuple((
+                terminated(tag("whenmod"), space1),
+                terminated(parse_primary_expr, space1),
+                terminated(parse_primary_expr, space1),
+                parse_transform,
+            )),
+            |(_, modulo, offset, transform)| Transform::Whenmod {
+                modulo: Box::new(modulo),
+                offset: Box::new(offset),
+                transform: Box::new(transform),
+            },
         ),
         // wait cycles
         map(
