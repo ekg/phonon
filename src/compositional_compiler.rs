@@ -1137,12 +1137,67 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
                 }
             }))
         }
-        Transform::Superimpose => {
-            // Note: superimpose() requires a function argument in Rust
-            // The simple no-arg version would be superimpose(|p| p.fast(2)) or similar
-            // For now, return error - this needs more thought on DSL syntax
-            Err("superimpose transform requires a function argument - not yet exposed to DSL".to_string())
+        Transform::Superimpose(transform) => {
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+
+            Ok(pattern.superimpose(move |p| {
+                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                    Ok(transformed) => transformed,
+                    Err(_) => pattern_clone.clone(),
+                }
+            }))
         }
+
+        Transform::Chunk { n, transform } => {
+            let n_val = extract_number(&n)? as usize;
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+
+            Ok(pattern.chunk(n_val, move |p| {
+                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                    Ok(transformed) => transformed,
+                    Err(_) => pattern_clone.clone(),
+                }
+            }))
+        }
+
+        Transform::Sometimes(transform) => {
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+
+            Ok(pattern.sometimes(move |p| {
+                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                    Ok(transformed) => transformed,
+                    Err(_) => pattern_clone.clone(),
+                }
+            }))
+        }
+
+        Transform::Often(transform) => {
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+
+            Ok(pattern.often(move |p| {
+                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                    Ok(transformed) => transformed,
+                    Err(_) => pattern_clone.clone(),
+                }
+            }))
+        }
+
+        Transform::Rarely(transform) => {
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+
+            Ok(pattern.rarely(move |p| {
+                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                    Ok(transformed) => transformed,
+                    Err(_) => pattern_clone.clone(),
+                }
+            }))
+        }
+
         Transform::Wait(cycles_expr) => {
             let cycles = extract_number(&cycles_expr)?;
             // wait is an alias for late

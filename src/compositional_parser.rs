@@ -226,8 +226,19 @@ pub enum Transform {
         end: Box<Expr>,
         transform: Box<Transform>,
     },
-    /// superimpose: layer pattern on itself
-    Superimpose,
+    /// superimpose transform: layer pattern with transformed version
+    Superimpose(Box<Transform>),
+    /// chunk n transform: divide into n chunks and apply transform
+    Chunk {
+        n: Box<Expr>,
+        transform: Box<Transform>,
+    },
+    /// sometimes transform: apply transform with 50% probability
+    Sometimes(Box<Transform>),
+    /// often transform: apply transform with 75% probability
+    Often(Box<Transform>),
+    /// rarely transform: apply transform with 25% probability
+    Rarely(Box<Transform>),
     /// wait cycles: delay pattern by cycles
     Wait(Box<Expr>),
     /// mask pattern: apply boolean mask to pattern
@@ -601,10 +612,21 @@ fn parse_function_call(input: &str) -> IResult<&str, Expr> {
     }
 }
 
-/// Parse a transform
+/// Parse a transform (with optional parentheses)
 fn parse_transform(input: &str) -> IResult<&str, Transform> {
-    // Split into four alt() groups due to nom's tuple limit
     alt((
+        // Parenthesized transform: (transform)
+        delimited(
+            terminated(char('('), space0),
+            alt((
+                parse_transform_group_1,
+                parse_transform_group_2,
+                parse_transform_group_3,
+                parse_transform_group_4,
+            )),
+            preceded(space0, char(')')),
+        ),
+        // Unparenthesized transforms
         parse_transform_group_1,
         parse_transform_group_2,
         parse_transform_group_3,
@@ -961,8 +983,50 @@ fn parse_transform_group_4(input: &str) -> IResult<&str, Transform> {
                 transform: Box::new(transform),
             },
         ),
-        // superimpose
-        value(Transform::Superimpose, tag("superimpose")),
+        // superimpose transform
+        map(
+            tuple((
+                terminated(tag("superimpose"), space1),
+                parse_transform,
+            )),
+            |(_, transform)| Transform::Superimpose(Box::new(transform)),
+        ),
+        // chunk n transform
+        map(
+            tuple((
+                terminated(tag("chunk"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_transform,
+            )),
+            |(_, n, transform)| Transform::Chunk {
+                n: Box::new(n),
+                transform: Box::new(transform),
+            },
+        ),
+        // sometimes transform
+        map(
+            tuple((
+                terminated(tag("sometimes"), space1),
+                parse_transform,
+            )),
+            |(_, transform)| Transform::Sometimes(Box::new(transform)),
+        ),
+        // often transform
+        map(
+            tuple((
+                terminated(tag("often"), space1),
+                parse_transform,
+            )),
+            |(_, transform)| Transform::Often(Box::new(transform)),
+        ),
+        // rarely transform
+        map(
+            tuple((
+                terminated(tag("rarely"), space1),
+                parse_transform,
+            )),
+            |(_, transform)| Transform::Rarely(Box::new(transform)),
+        ),
         // wait cycles
         map(
             preceded(terminated(tag("wait"), space1), parse_primary_expr),
