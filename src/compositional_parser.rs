@@ -114,6 +114,20 @@ pub enum Transform {
     Striate(Box<Expr>),
     /// scramble n: Fisher-Yates shuffle of events
     Scramble(Box<Expr>),
+    /// swing amount: add swing feel
+    Swing(Box<Expr>),
+    /// legato factor: adjust event duration (longer)
+    Legato(Box<Expr>),
+    /// staccato factor: make events shorter
+    Staccato(Box<Expr>),
+    /// echo times time feedback: echo/delay effect on pattern
+    Echo {
+        times: Box<Expr>,
+        time: Box<Expr>,
+        feedback: Box<Expr>,
+    },
+    /// segment n: divide pattern into n segments
+    Segment(Box<Expr>),
 }
 
 /// Binary operators
@@ -523,6 +537,40 @@ fn parse_transform(input: &str) -> IResult<&str, Transform> {
         map(
             preceded(terminated(tag("scramble"), space1), parse_primary_expr),
             |expr| Transform::Scramble(Box::new(expr)),
+        ),
+        // swing amount
+        map(
+            preceded(terminated(tag("swing"), space1), parse_primary_expr),
+            |expr| Transform::Swing(Box::new(expr)),
+        ),
+        // legato factor
+        map(
+            preceded(terminated(tag("legato"), space1), parse_primary_expr),
+            |expr| Transform::Legato(Box::new(expr)),
+        ),
+        // staccato factor (MUST come before striate!)
+        map(
+            preceded(terminated(tag("staccato"), space1), parse_primary_expr),
+            |expr| Transform::Staccato(Box::new(expr)),
+        ),
+        // echo times time feedback
+        map(
+            tuple((
+                terminated(tag("echo"), space1),
+                terminated(parse_primary_expr, space1),
+                terminated(parse_primary_expr, space1),
+                parse_primary_expr,
+            )),
+            |(_, times, time, feedback)| Transform::Echo {
+                times: Box::new(times),
+                time: Box::new(time),
+                feedback: Box::new(feedback),
+            },
+        ),
+        // segment n
+        map(
+            preceded(terminated(tag("segment"), space1), parse_primary_expr),
+            |expr| Transform::Segment(Box::new(expr)),
         ),
     ))(input)
 }

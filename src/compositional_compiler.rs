@@ -916,6 +916,28 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let n = extract_number(&n_expr)? as usize;
             Ok(pattern.scramble(n))
         }
+        Transform::Swing(amount_expr) => {
+            let amount = extract_number(&amount_expr)?;
+            Ok(pattern.swing(amount))
+        }
+        Transform::Legato(factor_expr) => {
+            let factor = extract_number(&factor_expr)?;
+            Ok(pattern.legato(factor))
+        }
+        Transform::Staccato(factor_expr) => {
+            let factor = extract_number(&factor_expr)?;
+            Ok(pattern.staccato(factor))
+        }
+        Transform::Echo { times, time, feedback } => {
+            let times_val = extract_number(&times)? as usize;
+            let time_val = extract_number(&time)?;
+            let feedback_val = extract_number(&feedback)?;
+            Ok(pattern.echo(times_val, time_val, feedback_val))
+        }
+        Transform::Segment(n_expr) => {
+            let n = extract_number(&n_expr)? as usize;
+            Ok(pattern.segment(n))
+        }
         Transform::Every { n, transform } => {
             // For every, we need to recursively apply the inner transform
             // This is complex, so for now return an error
