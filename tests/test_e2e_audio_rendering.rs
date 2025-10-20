@@ -108,8 +108,11 @@ struct AudioAnalysis {
     rms: f32,
     peak: f32,
     onset_count: usize,
+    onset_times: Vec<f32>,
     zero_crossings: usize,
     spectral_centroid: f32,
+    dominant_frequency: f32,
+    frequency_bins: Vec<(f32, f32)>, // (frequency, magnitude) pairs
     is_empty: bool,
     is_clipping: bool,
 }
@@ -148,15 +151,47 @@ impl AudioAnalysis {
             }
         }
 
+        let dominant_frequency = None; // Not in text output
+
         Ok(AudioAnalysis {
             rms: rms.ok_or("Failed to parse RMS")?,
             peak: peak.ok_or("Failed to parse peak")?,
             onset_count: onset_count.ok_or("Failed to parse onset count")?,
+            onset_times: Vec::new(), // Not in text output
             zero_crossings: zero_crossings.ok_or("Failed to parse zero crossings")?,
             spectral_centroid: spectral_centroid.ok_or("Failed to parse spectral centroid")?,
+            dominant_frequency: dominant_frequency.unwrap_or(0.0),
+            frequency_bins: Vec::new(), // Not in text output
             is_empty,
             is_clipping,
         })
+    }
+
+    /// Helper method to check if a frequency is present in the spectrum
+    fn has_frequency(&self, target_freq: f32, tolerance: f32) -> bool {
+        self.frequency_bins.iter().any(|(freq, _)| {
+            (freq - target_freq).abs() < tolerance
+        })
+    }
+
+    /// Get the magnitude of a frequency (or 0.0 if not found)
+    fn get_frequency_magnitude(&self, target_freq: f32, tolerance: f32) -> f32 {
+        self.frequency_bins
+            .iter()
+            .find(|(freq, _)| (freq - target_freq).abs() < tolerance)
+            .map(|(_, mag)| *mag)
+            .unwrap_or(0.0)
+    }
+
+    /// Get intervals between onsets (for rhythm verification)
+    fn onset_intervals(&self) -> Vec<f32> {
+        if self.onset_times.len() < 2 {
+            return Vec::new();
+        }
+        self.onset_times
+            .windows(2)
+            .map(|w| w[1] - w[0])
+            .collect()
     }
 }
 
