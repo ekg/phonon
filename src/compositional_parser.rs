@@ -181,6 +181,21 @@ pub enum Transform {
         begin: Box<Expr>,
         end: Box<Expr>,
     },
+    /// reset cycles: restart pattern every n cycles
+    Reset(Box<Expr>),
+    /// restart n: restart pattern every n cycles (alias for reset)
+    Restart(Box<Expr>),
+    /// loopback: play backwards then forwards
+    Loopback,
+    /// binary n: bit mask pattern
+    Binary(Box<Expr>),
+    /// range min max: scale numeric values to range (numeric patterns only)
+    Range {
+        min: Box<Expr>,
+        max: Box<Expr>,
+    },
+    /// quantize steps: quantize numeric values (numeric patterns only)
+    Quantize(Box<Expr>),
 }
 
 /// Binary operators
@@ -782,6 +797,40 @@ fn parse_transform_group_3(input: &str) -> IResult<&str, Transform> {
             |(_, begin, end)| Transform::CompressGap {
                 begin: Box::new(begin),
                 end: Box::new(end),
+            },
+        ),
+        // restart n (MUST come before reset!)
+        map(
+            preceded(terminated(tag("restart"), space1), parse_primary_expr),
+            |expr| Transform::Restart(Box::new(expr)),
+        ),
+        // reset cycles
+        map(
+            preceded(terminated(tag("reset"), space1), parse_primary_expr),
+            |expr| Transform::Reset(Box::new(expr)),
+        ),
+        // loopback
+        value(Transform::Loopback, tag("loopback")),
+        // binary n
+        map(
+            preceded(terminated(tag("binary"), space1), parse_primary_expr),
+            |expr| Transform::Binary(Box::new(expr)),
+        ),
+        // quantize steps (MUST come before range!)
+        map(
+            preceded(terminated(tag("quantize"), space1), parse_primary_expr),
+            |expr| Transform::Quantize(Box::new(expr)),
+        ),
+        // range min max
+        map(
+            tuple((
+                terminated(tag("range"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_primary_expr,
+            )),
+            |(_, min, max)| Transform::Range {
+                min: Box::new(min),
+                max: Box::new(max),
             },
         ),
     ))(input)

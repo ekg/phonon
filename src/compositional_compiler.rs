@@ -1046,6 +1046,29 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let end_val = extract_number(&end)?;
             Ok(pattern.compress_gap(begin_val, end_val))
         }
+        Transform::Reset(cycles_expr) => {
+            let cycles = extract_number(&cycles_expr)? as i32;
+            Ok(pattern.reset(cycles))
+        }
+        Transform::Restart(n_expr) => {
+            let n = extract_number(&n_expr)? as i32;
+            Ok(pattern.restart(n))
+        }
+        Transform::Loopback => Ok(pattern.loopback()),
+        Transform::Binary(n_expr) => {
+            let n = extract_number(&n_expr)? as u32;
+            Ok(pattern.binary(n))
+        }
+        Transform::Range { min, max } => {
+            // Note: range() only works on Pattern<f64>, not Pattern<T>
+            // This will fail to compile if applied to non-numeric patterns
+            // We need to handle this specially
+            Err("range transform only works with numeric patterns (from oscillators), not sample patterns".to_string())
+        }
+        Transform::Quantize(steps_expr) => {
+            // Note: quantize() only works on Pattern<f64>, not Pattern<T>
+            Err("quantize transform only works with numeric patterns (from oscillators), not sample patterns".to_string())
+        }
     }
 }
 
