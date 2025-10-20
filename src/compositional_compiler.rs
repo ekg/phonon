@@ -236,6 +236,36 @@ fn compile_function_call(
     }
 }
 
+// ========== Helper Functions ==========
+
+/// Extract chained input and remaining parameter expressions
+///
+/// Effects and filters can be used in two ways:
+/// 1. Standalone: effect(input, param1, param2, ...)
+/// 2. Chained: input # effect(param1, param2, ...)
+///
+/// This helper extracts the input signal and returns remaining parameters.
+fn extract_chain_input(
+    ctx: &mut CompilerContext,
+    args: &[Expr],
+) -> Result<(Signal, Vec<Expr>), String> {
+    if args.is_empty() {
+        return Err("Function requires at least one argument".to_string());
+    }
+
+    match &args[0] {
+        Expr::ChainInput(node_id) => {
+            // Chained: input comes from chain operator
+            Ok((Signal::Node(*node_id), args[1..].to_vec()))
+        }
+        _ => {
+            // Standalone: first arg is the input, compile it
+            let input_node = compile_expr(ctx, args[0].clone())?;
+            Ok((Signal::Node(input_node), args[1..].to_vec()))
+        }
+    }
+}
+
 /// Compile stack combinator - plays multiple patterns/signals simultaneously
 fn compile_stack(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.is_empty() {
@@ -299,33 +329,20 @@ fn compile_filter(
     filter_type: &str,
     args: Vec<Expr>,
 ) -> Result<NodeId, String> {
-    // Filters can be used in two ways:
-    // 1. Standalone: lpf(input, cutoff, q) - 3 args
-    // 2. Chained: input # lpf(cutoff, q) - ChainInput + 2 args
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    let (input_signal, cutoff_expr, q_expr) = if args.len() == 3 {
-        // Check if first arg is ChainInput (from # operator)
-        match &args[0] {
-            Expr::ChainInput(node_id) => {
-                // Chained: input comes from chain operator
-                (Signal::Node(*node_id), &args[1], &args[2])
-            }
-            _ => {
-                // Standalone: compile first arg as input
-                let input_node = compile_expr(ctx, args[0].clone())?;
-                (Signal::Node(input_node), &args[1], &args[2])
-            }
-        }
-    } else {
+    if params.len() != 2 {
         return Err(format!(
-            "{} requires 3 arguments (input/ChainInput, cutoff, q)",
-            filter_type
+            "{} requires 2 parameters (cutoff, q), got {}",
+            filter_type,
+            params.len()
         ));
-    };
+    }
 
     // Compile cutoff and q expressions
-    let cutoff_node = compile_expr(ctx, cutoff_expr.clone())?;
-    let q_node = compile_expr(ctx, q_expr.clone())?;
+    let cutoff_node = compile_expr(ctx, params[0].clone())?;
+    let q_node = compile_expr(ctx, params[1].clone())?;
 
     // Create the appropriate filter node
     use crate::unified_graph::FilterState;
@@ -357,33 +374,20 @@ fn compile_filter(
 
 /// Compile reverb effect
 fn compile_reverb(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
-    // reverb can be used in two ways:
-    // 1. Standalone: reverb(input, room_size, damping, mix) - 4 args
-    // 2. Chained: input # reverb(room_size, damping, mix) - ChainInput + 3 args
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    let (input_signal, room_size_expr, damping_expr, mix_expr) = if args.len() == 4 {
-        match &args[0] {
-            Expr::ChainInput(node_id) => {
-                // Chained: input from chain operator
-                (Signal::Node(*node_id), &args[1], &args[2], &args[3])
-            }
-            _ => {
-                // Standalone: compile first arg as input
-                let input_node = compile_expr(ctx, args[0].clone())?;
-                (Signal::Node(input_node), &args[1], &args[2], &args[3])
-            }
-        }
-    } else {
+    if params.len() != 3 {
         return Err(format!(
-            "reverb requires 4 arguments (input/ChainInput, room_size, damping, mix), got {}",
-            args.len()
+            "reverb requires 3 parameters (room_size, damping, mix), got {}",
+            params.len()
         ));
-    };
+    }
 
     // Compile parameters
-    let room_node = compile_expr(ctx, room_size_expr.clone())?;
-    let damp_node = compile_expr(ctx, damping_expr.clone())?;
-    let mix_node = compile_expr(ctx, mix_expr.clone())?;
+    let room_node = compile_expr(ctx, params[0].clone())?;
+    let damp_node = compile_expr(ctx, params[1].clone())?;
+    let mix_node = compile_expr(ctx, params[2].clone())?;
 
     use crate::unified_graph::ReverbState;
 
@@ -400,31 +404,18 @@ fn compile_reverb(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
 
 /// Compile distortion effect
 fn compile_distortion(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
-    // distort can be used in two ways:
-    // 1. Standalone: distort(input, drive, mix) - 3 args
-    // 2. Chained: input # distort(drive, mix) - ChainInput + 2 args
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    let (input_signal, drive_expr, mix_expr) = if args.len() == 3 {
-        match &args[0] {
-            Expr::ChainInput(node_id) => {
-                // Chained: input from chain operator
-                (Signal::Node(*node_id), &args[1], &args[2])
-            }
-            _ => {
-                // Standalone: compile first arg as input
-                let input_node = compile_expr(ctx, args[0].clone())?;
-                (Signal::Node(input_node), &args[1], &args[2])
-            }
-        }
-    } else {
+    if params.len() != 2 {
         return Err(format!(
-            "distort requires 3 arguments (input/ChainInput, drive, mix), got {}",
-            args.len()
+            "distort requires 2 parameters (drive, mix), got {}",
+            params.len()
         ));
-    };
+    }
 
-    let drive_node = compile_expr(ctx, drive_expr.clone())?;
-    let mix_node = compile_expr(ctx, mix_expr.clone())?;
+    let drive_node = compile_expr(ctx, params[0].clone())?;
+    let mix_node = compile_expr(ctx, params[1].clone())?;
 
     let node = SignalNode::Distortion {
         input: input_signal,
@@ -437,32 +428,19 @@ fn compile_distortion(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
 
 /// Compile delay effect
 fn compile_delay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
-    // delay can be used in two ways:
-    // 1. Standalone: delay(input, time, feedback, mix) - 4 args
-    // 2. Chained: input # delay(time, feedback, mix) - ChainInput + 3 args
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    let (input_signal, time_expr, feedback_expr, mix_expr) = if args.len() == 4 {
-        match &args[0] {
-            Expr::ChainInput(node_id) => {
-                // Chained: input from chain operator
-                (Signal::Node(*node_id), &args[1], &args[2], &args[3])
-            }
-            _ => {
-                // Standalone: compile first arg as input
-                let input_node = compile_expr(ctx, args[0].clone())?;
-                (Signal::Node(input_node), &args[1], &args[2], &args[3])
-            }
-        }
-    } else {
+    if params.len() != 3 {
         return Err(format!(
-            "delay requires 4 arguments (input/ChainInput, time, feedback, mix), got {}",
-            args.len()
+            "delay requires 3 parameters (time, feedback, mix), got {}",
+            params.len()
         ));
-    };
+    }
 
-    let time_node = compile_expr(ctx, time_expr.clone())?;
-    let feedback_node = compile_expr(ctx, feedback_expr.clone())?;
-    let mix_node = compile_expr(ctx, mix_expr.clone())?;
+    let time_node = compile_expr(ctx, params[0].clone())?;
+    let feedback_node = compile_expr(ctx, params[1].clone())?;
+    let mix_node = compile_expr(ctx, params[2].clone())?;
 
     // Create delay buffer (1 second max)
     let buffer_size = ctx.sample_rate as usize; // 1 second buffer
@@ -481,32 +459,19 @@ fn compile_delay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
 
 /// Compile chorus effect
 fn compile_chorus(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
-    // chorus can be used in two ways:
-    // 1. Standalone: chorus(input, rate, depth, mix) - 4 args
-    // 2. Chained: input # chorus(rate, depth, mix) - ChainInput + 3 args
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    let (input_signal, rate_expr, depth_expr, mix_expr) = if args.len() == 4 {
-        match &args[0] {
-            Expr::ChainInput(node_id) => {
-                // Chained: input from chain operator
-                (Signal::Node(*node_id), &args[1], &args[2], &args[3])
-            }
-            _ => {
-                // Standalone: compile first arg as input
-                let input_node = compile_expr(ctx, args[0].clone())?;
-                (Signal::Node(input_node), &args[1], &args[2], &args[3])
-            }
-        }
-    } else {
+    if params.len() != 3 {
         return Err(format!(
-            "chorus requires 4 arguments (input/ChainInput, rate, depth, mix), got {}",
-            args.len()
+            "chorus requires 3 parameters (rate, depth, mix), got {}",
+            params.len()
         ));
-    };
+    }
 
-    let rate_node = compile_expr(ctx, rate_expr.clone())?;
-    let depth_node = compile_expr(ctx, depth_expr.clone())?;
-    let mix_node = compile_expr(ctx, mix_expr.clone())?;
+    let rate_node = compile_expr(ctx, params[0].clone())?;
+    let depth_node = compile_expr(ctx, params[1].clone())?;
+    let mix_node = compile_expr(ctx, params[2].clone())?;
 
     use crate::unified_graph::ChorusState;
 
@@ -523,31 +488,18 @@ fn compile_chorus(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
 
 /// Compile bitcrush effect
 fn compile_bitcrush(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
-    // bitcrush can be used in two ways:
-    // 1. Standalone: bitcrush(input, bits, sample_rate) - 3 args
-    // 2. Chained: input # bitcrush(bits, sample_rate) - ChainInput + 2 args
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    let (input_signal, bits_expr, sr_expr) = if args.len() == 3 {
-        match &args[0] {
-            Expr::ChainInput(node_id) => {
-                // Chained: input from chain operator
-                (Signal::Node(*node_id), &args[1], &args[2])
-            }
-            _ => {
-                // Standalone: compile first arg as input
-                let input_node = compile_expr(ctx, args[0].clone())?;
-                (Signal::Node(input_node), &args[1], &args[2])
-            }
-        }
-    } else {
+    if params.len() != 2 {
         return Err(format!(
-            "bitcrush requires 3 arguments (input/ChainInput, bits, sample_rate), got {}",
-            args.len()
+            "bitcrush requires 2 parameters (bits, sample_rate), got {}",
+            params.len()
         ));
-    };
+    }
 
-    let bits_node = compile_expr(ctx, bits_expr.clone())?;
-    let sr_node = compile_expr(ctx, sr_expr.clone())?;
+    let bits_node = compile_expr(ctx, params[0].clone())?;
+    let sr_node = compile_expr(ctx, params[1].clone())?;
 
     use crate::unified_graph::BitCrushState;
 
@@ -728,37 +680,20 @@ fn compile_superhat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
 /// Usage: signal # env(attack, decay, sustain, release)
 /// Or: env(input, attack, decay, sustain, release)
 fn compile_envelope(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
-    // env can be used in two ways:
-    // 1. Standalone: env(input, attack, decay, sustain, release) - 5 args
-    // 2. Chained: input # env(attack, decay, sustain, release) - ChainInput + 4 args
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    let (input_signal, attack, decay, sustain_level, release) = if args.len() == 5 {
-        // Check if first arg is ChainInput
-        match &args[0] {
-            Expr::ChainInput(node_id) => {
-                // Chained: input from chain operator
-                let attack = extract_number(&args[1])? as f32;
-                let decay = extract_number(&args[2])? as f32;
-                let sustain_level = extract_number(&args[3])? as f32;
-                let release = extract_number(&args[4])? as f32;
-                (Signal::Node(*node_id), attack, decay, sustain_level, release)
-            }
-            _ => {
-                // Standalone: compile first arg as input
-                let input_node = compile_expr(ctx, args[0].clone())?;
-                let attack = extract_number(&args[1])? as f32;
-                let decay = extract_number(&args[2])? as f32;
-                let sustain_level = extract_number(&args[3])? as f32;
-                let release = extract_number(&args[4])? as f32;
-                (Signal::Node(input_node), attack, decay, sustain_level, release)
-            }
-        }
-    } else {
+    if params.len() != 4 {
         return Err(format!(
-            "env requires 5 arguments (input/ChainInput, attack, decay, sustain, release), got {}",
-            args.len()
+            "env requires 4 parameters (attack, decay, sustain, release), got {}",
+            params.len()
         ));
-    };
+    }
+
+    let attack = extract_number(&params[0])? as f32;
+    let decay = extract_number(&params[1])? as f32;
+    let sustain_level = extract_number(&params[2])? as f32;
+    let release = extract_number(&params[3])? as f32;
 
     use crate::unified_graph::EnvState;
 
