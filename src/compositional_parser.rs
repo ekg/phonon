@@ -106,6 +106,14 @@ pub enum Transform {
     Stutter(Box<Expr>),
     /// palindrome: pattern followed by its reverse
     Palindrome,
+    /// shuffle amount: randomly shift events in time
+    Shuffle(Box<Expr>),
+    /// chop n: slice pattern into n equal parts
+    Chop(Box<Expr>),
+    /// striate n: alias for chop
+    Striate(Box<Expr>),
+    /// scramble n: Fisher-Yates shuffle of events
+    Scramble(Box<Expr>),
 }
 
 /// Binary operators
@@ -496,6 +504,26 @@ fn parse_transform(input: &str) -> IResult<&str, Transform> {
         ),
         // palindrome
         value(Transform::Palindrome, tag("palindrome")),
+        // shuffle amount
+        map(
+            preceded(terminated(tag("shuffle"), space1), parse_primary_expr),
+            |expr| Transform::Shuffle(Box::new(expr)),
+        ),
+        // chop n
+        map(
+            preceded(terminated(tag("chop"), space1), parse_primary_expr),
+            |expr| Transform::Chop(Box::new(expr)),
+        ),
+        // striate n
+        map(
+            preceded(terminated(tag("striate"), space1), parse_primary_expr),
+            |expr| Transform::Striate(Box::new(expr)),
+        ),
+        // scramble n
+        map(
+            preceded(terminated(tag("scramble"), space1), parse_primary_expr),
+            |expr| Transform::Scramble(Box::new(expr)),
+        ),
     ))(input)
 }
 

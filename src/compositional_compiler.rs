@@ -903,6 +903,19 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             Ok(pattern.stutter(n))
         }
         Transform::Palindrome => Ok(pattern.palindrome()),
+        Transform::Shuffle(amount_expr) => {
+            let amount = extract_number(&amount_expr)?;
+            Ok(pattern.shuffle(amount))
+        }
+        Transform::Chop(n_expr) | Transform::Striate(n_expr) => {
+            // chop and striate are aliases - both slice pattern into n parts
+            let n = extract_number(&n_expr)? as usize;
+            Ok(pattern.chop(n))
+        }
+        Transform::Scramble(n_expr) => {
+            let n = extract_number(&n_expr)? as usize;
+            Ok(pattern.scramble(n))
+        }
         Transform::Every { n, transform } => {
             // For every, we need to recursively apply the inner transform
             // This is complex, so for now return an error
