@@ -1,18 +1,15 @@
 /// Test closure-based operations: chunk, jux
-use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+use phonon::compositional_compiler::compile_program;
+use phonon::compositional_parser::parse_program;
 
 #[test]
 fn test_chunk_transform() {
     // chunk should apply transform to each chunk
     // chunk 4 (rev) divides into 4 chunks and reverses each
-    let input = r#"
-        cps: 1.0
-        out: s("bd sn hh cp" $ chunk 4 (rev)) * 0.5
-    "#;
+    let input = "cps: 1.0\nout: s \"bd sn hh cp\" $ chunk 4 (rev)";
 
-    let (_, statements) = parse_dsl(input).expect("Should parse");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(input).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
     let audio = graph.render(44100);
 
     // Should produce audible output
@@ -71,9 +68,8 @@ fn test_jux_transform() {
         out: s("bd sn hh cp" $ jux (rev)) * 0.5
     "#;
 
-    let (_, statements) = parse_dsl(input).expect("Should parse");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(input).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
     let audio = graph.render(44100);
 
     // Should produce audible output
@@ -125,14 +121,10 @@ fn test_jux_at_pattern_level() {
 #[test]
 fn test_chunk_with_chained_transforms() {
     // chunk should work with other transforms
-    let input = r#"
-        cps: 1.0
-        out: s("bd sn hh cp" $ chunk 2 (fast 2) $ slow 0.5) * 0.5
-    "#;
+    let input = "cps: 1.0\nout: s \"bd sn hh cp\" $ chunk 2 (fast 2) $ slow 0.5";
 
-    let (_, statements) = parse_dsl(input).expect("Should parse");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(input).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
     let audio = graph.render(88200); // 2 seconds for slow
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
@@ -152,9 +144,8 @@ fn test_jux_with_chained_transforms() {
         out: s("bd sn hh cp" $ jux (fast 2) $ rev) * 0.5
     "#;
 
-    let (_, statements) = parse_dsl(input).expect("Should parse");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(input).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();

@@ -1,17 +1,14 @@
 /// Test chopping operations: chop, gap, segment
-use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+use phonon::compositional_compiler::compile_program;
+use phonon::compositional_parser::parse_program;
 
 #[test]
 fn test_chop_transform() {
     // chop should split each event into n equal parts
-    let input = r#"
-        cps: 1.0
-        out: s("bd sn" $ chop 4) * 0.5
-    "#;
+    let input = "cps: 1.0\nout: s \"bd sn\" $ chop 4";
 
-    let (_, statements) = parse_dsl(input).expect("Should parse");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(input).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
     let audio = graph.render(44100);
 
     // Should produce audible output
@@ -26,14 +23,10 @@ fn test_chop_transform() {
 #[test]
 fn test_gap_transform() {
     // gap should add silence between events
-    let input = r#"
-        cps: 1.0
-        out: s("bd sn hh cp" $ gap 2) * 0.5
-    "#;
+    let input = "cps: 1.0\nout: s \"bd sn hh cp\" $ gap 2";
 
-    let (_, statements) = parse_dsl(input).expect("Should parse");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(input).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
@@ -47,14 +40,10 @@ fn test_gap_transform() {
 #[test]
 fn test_segment_transform() {
     // segment should divide pattern into n segments
-    let input = r#"
-        cps: 1.0
-        out: s("bd sn hh cp" $ segment 2) * 0.5
-    "#;
+    let input = "cps: 1.0\nout: s \"bd sn hh cp\" $ segment 2";
 
-    let (_, statements) = parse_dsl(input).expect("Should parse");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(input).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
@@ -178,14 +167,10 @@ fn test_segment_at_pattern_level() {
 #[test]
 fn test_chop_with_chained_transforms() {
     // chop should work with other transforms
-    let input = r#"
-        cps: 1.0
-        out: s("bd sn" $ chop 4 $ rev) * 0.5
-    "#;
+    let input = "cps: 1.0\nout: s \"bd sn\" $ chop 4 $ rev";
 
-    let (_, statements) = parse_dsl(input).expect("Should parse");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(input).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();

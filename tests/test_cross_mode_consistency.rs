@@ -4,7 +4,8 @@
 //! across all execution modes: Render, OSC, Live, and Edit
 
 use phonon::osc_live_server::{apply_command_to_graph, LiveCommand};
-use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+use phonon::compositional_compiler::compile_program;
+use phonon::compositional_parser::parse_program;
 use std::fs;
 use std::process::Command;
 
@@ -55,9 +56,8 @@ fn test_auto_routing_cross_mode() {
     );
 
     // Test 2: Direct DslCompiler (used by Render and OSC internally)
-    let (_, statements) = parse_dsl(code).expect("Should parse DSL");
-    let compiler = DslCompiler::new(sample_rate);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(code).expect("Should parse DSL");
+    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
 
     assert!(graph.has_output(), "Should have output via auto-routing");
     assert_eq!(graph.get_cps(), 2.0, "Should set CPS to 2.0");
@@ -122,9 +122,8 @@ fn test_synthesis_cross_mode() {
     assert!(analysis.contains("✅ Contains audio signal"));
 
     // Direct DslCompiler
-    let (_, statements) = parse_dsl(code).expect("Should parse");
-    let compiler = DslCompiler::new(sample_rate);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(code).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
 
     assert!(graph.has_output());
     let audio = graph.render(44100);
@@ -175,9 +174,8 @@ fn test_effects_cross_mode() {
     assert!(analysis.contains("✅ Contains audio signal"));
 
     // Direct DslCompiler
-    let (_, statements) = parse_dsl(code).expect("Should parse");
-    let compiler = DslCompiler::new(sample_rate);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(code).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
 
     assert!(graph.has_output());
     let audio = graph.render(44100);
@@ -198,9 +196,8 @@ fn test_bus_routing_cross_mode() {
     let sample_rate = 44100.0;
 
     // Direct DslCompiler
-    let (_, statements) = parse_dsl(code).expect("Should parse");
-    let compiler = DslCompiler::new(sample_rate);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(code).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
 
     assert!(graph.has_output(), "Bus routing should work");
 
@@ -255,9 +252,8 @@ fn test_pattern_params_cross_mode() {
     assert!(analysis.contains("✅ Contains audio signal"));
 
     // Direct DslCompiler
-    let (_, statements) = parse_dsl(code).expect("Should parse");
-    let compiler = DslCompiler::new(sample_rate);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(code).expect("Should parse");
+    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
 
     let audio = graph.render(44100);
     assert!(audio.iter().any(|&s| s.abs() > 0.001));
@@ -317,9 +313,8 @@ cps: 2.0
     );
 
     // Mode 2: Direct DslCompiler (powers Render internally)
-    let (_, statements) = parse_dsl(code).unwrap();
-    let compiler = DslCompiler::new(sample_rate);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(code).unwrap();
+    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
 
     assert!(
         graph.has_output(),
@@ -347,7 +342,7 @@ cps: 2.0
     println!("   3. OSC Server (/eval)");
     println!("   4. Live mode (file watch) - uses DslCompiler");
     println!("   5. Edit mode (modal editor) - uses DslCompiler via LiveEngine");
-    println!("\n✅ All modes use the SAME parser (parse_dsl + DslCompiler)");
+    println!("\n✅ All modes use the SAME parser (parse_program + DslCompiler)");
     println!("✅ Auto-routing works everywhere");
     println!("✅ No syntax differences between modes");
 }
