@@ -54,7 +54,39 @@ pub fn compile_program(
         compile_statement(&mut ctx, statement)?;
     }
 
-    Ok(ctx.into_graph())
+    let mut graph = ctx.into_graph();
+
+    // Auto-routing: If no explicit 'out:' was set, mix all buses to output
+    if !graph.has_output() {
+        let bus_names = graph.get_all_bus_names();
+        if !bus_names.is_empty() {
+            // Get all bus node IDs
+            let bus_nodes: Vec<_> = bus_names
+                .iter()
+                .filter_map(|name| graph.get_bus(name))
+                .collect();
+
+            if !bus_nodes.is_empty() {
+                // Mix all buses together
+                let mixed = if bus_nodes.len() == 1 {
+                    bus_nodes[0]
+                } else {
+                    // Chain Add nodes to mix all buses
+                    let mut result = bus_nodes[0];
+                    for &node in &bus_nodes[1..] {
+                        result = graph.add_node(SignalNode::Add {
+                            a: Signal::Node(result),
+                            b: Signal::Node(node),
+                        });
+                    }
+                    result
+                };
+                graph.set_output(mixed);
+            }
+        }
+    }
+
+    Ok(graph)
 }
 
 /// Compile a single statement
@@ -62,7 +94,8 @@ fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<
     match statement {
         Statement::BusAssignment { name, expr } => {
             let node_id = compile_expr(ctx, expr)?;
-            ctx.buses.insert(name, node_id);
+            ctx.buses.insert(name.clone(), node_id);
+            ctx.graph.add_bus(name, node_id); // Register bus in graph for auto-routing
             Ok(())
         }
         Statement::Output(expr) => {

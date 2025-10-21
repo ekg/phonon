@@ -145,7 +145,7 @@ fn test_synthesis_cross_mode() {
 #[test]
 fn test_effects_cross_mode() {
     let code = r#"cps: 2.0
-~d1: saw 110 # lpf(1000, 0.8)
+~d1: saw 110 # lpf 1000 0.8
 "#;
 
     let sample_rate = 44100.0;

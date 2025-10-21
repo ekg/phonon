@@ -226,9 +226,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 eprintln!("This may be due to syntax errors or unsupported features.");
             }
 
-            // Compile to graph
+            // Compile to graph (with auto-routing)
             let mut graph = compile_program(statements, sample_rate as f32)
                 .map_err(|e| format!("Failed to compile: {}", e))?;
+
+            // Print auto-routing info if it happened
+            if graph.has_output() && !graph.get_all_bus_names().is_empty() {
+                let bus_count = graph.get_all_bus_names().len();
+                println!("🔀 Auto-routing: Mixing {} buses to output", bus_count);
+            }
 
             let mut buses: HashMap<String, phonon::unified_graph::NodeId> = HashMap::new();
             let mut out_signal = None;
