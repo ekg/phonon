@@ -242,7 +242,10 @@ out: ~modulated * 0.3
         rms
     );
 
-    println!("✅ Per-sample evaluation proof (100 Hz LFO): RMS = {:.4}", rms);
+    println!(
+        "✅ Per-sample evaluation proof (100 Hz LFO): RMS = {:.4}",
+        rms
+    );
 }
 
 #[test]

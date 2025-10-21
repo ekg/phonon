@@ -35,8 +35,7 @@ impl AudioTest {
     fn render(&self, code: &str, cycles: u32) -> Result<PathBuf, String> {
         // Write code to temp file
         let input_path = self.temp_dir.join(format!("{}.phonon", self.test_name));
-        fs::write(&input_path, code)
-            .map_err(|e| format!("Failed to write input file: {}", e))?;
+        fs::write(&input_path, code).map_err(|e| format!("Failed to write input file: {}", e))?;
 
         // Output WAV path
         let output_path = self.temp_dir.join(format!("{}.wav", self.test_name));
@@ -205,9 +204,9 @@ impl AudioAnalysis {
 
     /// Helper method to check if a frequency is present in the spectrum
     fn has_frequency(&self, target_freq: f32, tolerance: f32) -> bool {
-        self.frequency_bins.iter().any(|(freq, _)| {
-            (freq - target_freq).abs() < tolerance
-        })
+        self.frequency_bins
+            .iter()
+            .any(|(freq, _)| (freq - target_freq).abs() < tolerance)
     }
 
     /// Get the magnitude of a frequency (or 0.0 if not found)
@@ -224,10 +223,7 @@ impl AudioAnalysis {
         if self.onset_times.len() < 2 {
             return Vec::new();
         }
-        self.onset_times
-            .windows(2)
-            .map(|w| w[1] - w[0])
-            .collect()
+        self.onset_times.windows(2).map(|w| w[1] - w[0]).collect()
     }
 }
 
@@ -250,7 +246,11 @@ out: sine "440 550 660 770" * 0.3
 
     // Verify audio was produced
     assert!(!analysis.is_empty, "Audio should not be empty");
-    assert!(analysis.rms > 0.05, "RMS should be significant: {}", analysis.rms);
+    assert!(
+        analysis.rms > 0.05,
+        "RMS should be significant: {}",
+        analysis.rms
+    );
     assert!(!analysis.is_clipping, "Audio should not be clipping");
 
     // FFT verification: check that all four frequencies are present
@@ -411,7 +411,11 @@ out: s "bd" $ euclid 3 8
     // Euclid generates 3 events correctly (verified by unit tests)
     // However, kick samples overlap (ring out ~200-500ms), so onset detection
     // only sees the first transient. This is correct behavior!
-    assert!(analysis.onset_count >= 1, "Should detect at least one onset, got {}", analysis.onset_count);
+    assert!(
+        analysis.onset_count >= 1,
+        "Should detect at least one onset, got {}",
+        analysis.onset_count
+    );
 }
 
 #[test]
@@ -619,8 +623,16 @@ out: sine "200 400" * 0.3
     let mag_200 = analysis.get_frequency_magnitude(200.0, 50.0);
     let mag_400 = analysis.get_frequency_magnitude(400.0, 50.0);
 
-    assert!(mag_200 > 0.01, "200Hz should have significant magnitude, got {}", mag_200);
-    assert!(mag_400 > 0.01, "400Hz should have significant magnitude, got {}", mag_400);
+    assert!(
+        mag_200 > 0.01,
+        "200Hz should have significant magnitude, got {}",
+        mag_200
+    );
+    assert!(
+        mag_400 > 0.01,
+        "400Hz should have significant magnitude, got {}",
+        mag_400
+    );
 
     println!("200Hz magnitude: {:.4}", mag_200);
     println!("400Hz magnitude: {:.4}", mag_400);
@@ -642,7 +654,10 @@ out: sine 440 * 0.3
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
-    assert!(analysis.has_frequency(440.0, 50.0), "Should have stable 440Hz");
+    assert!(
+        analysis.has_frequency(440.0, 50.0),
+        "Should have stable 440Hz"
+    );
 
     // Verify consistent RMS level (stable amplitude)
     assert!(
@@ -814,7 +829,10 @@ out: sine 440 * (~env * 0.5 + 0.5)
     );
 
     println!("Amplitude modulation test:");
-    println!("  440Hz magnitude: {:.1}", analysis.get_frequency_magnitude(440.0, 50.0));
+    println!(
+        "  440Hz magnitude: {:.1}",
+        analysis.get_frequency_magnitude(440.0, 50.0)
+    );
     println!("  RMS: {:.3}", analysis.rms);
 }
 
@@ -918,9 +936,18 @@ out: saw 110 # lpf 400 (~q_mod * 2.5 + 3.0)
 
     println!("Resonance modulation test:");
     println!("  Spectral centroid: {:.1}Hz", analysis.spectral_centroid);
-    println!("  110Hz: {:.1}", analysis.get_frequency_magnitude(110.0, 30.0));
-    println!("  220Hz: {:.1}", analysis.get_frequency_magnitude(220.0, 50.0));
-    println!("  330Hz: {:.1}", analysis.get_frequency_magnitude(330.0, 50.0));
+    println!(
+        "  110Hz: {:.1}",
+        analysis.get_frequency_magnitude(110.0, 30.0)
+    );
+    println!(
+        "  220Hz: {:.1}",
+        analysis.get_frequency_magnitude(220.0, 50.0)
+    );
+    println!(
+        "  330Hz: {:.1}",
+        analysis.get_frequency_magnitude(330.0, 50.0)
+    );
 }
 
 // ========== Priority 2: Effects Chains ==========
@@ -1117,7 +1144,10 @@ out: sine 110 # distort 0.5 1.0
 
     println!("Distortion test:");
     println!("  Spectral centroid: {:.1}Hz", analysis.spectral_centroid);
-    println!("  110Hz: {:.1}", analysis.get_frequency_magnitude(110.0, 30.0));
+    println!(
+        "  110Hz: {:.1}",
+        analysis.get_frequency_magnitude(110.0, 30.0)
+    );
 }
 
 // NOTE: compress effect not yet implemented - skip for now
@@ -1143,15 +1173,25 @@ tempo: 1.0
 out: sine 110 # distort 0.5 1.0 # lpf 200 0.8
 "#;
 
-    let wav1 = test.render(filter_then_distort, 2).expect("Failed to render 1");
+    let wav1 = test
+        .render(filter_then_distort, 2)
+        .expect("Failed to render 1");
     let analysis1 = test.analyze_json(&wav1).expect("Failed to analyze 1");
 
-    let wav2 = test.render(distort_then_filter, 2).expect("Failed to render 2");
+    let wav2 = test
+        .render(distort_then_filter, 2)
+        .expect("Failed to render 2");
     let analysis2 = test.analyze_json(&wav2).expect("Failed to analyze 2");
 
     println!("Effect order test:");
-    println!("  Filter→Distort centroid: {:.1}Hz", analysis1.spectral_centroid);
-    println!("  Distort→Filter centroid: {:.1}Hz", analysis2.spectral_centroid);
+    println!(
+        "  Filter→Distort centroid: {:.1}Hz",
+        analysis1.spectral_centroid
+    );
+    println!(
+        "  Distort→Filter centroid: {:.1}Hz",
+        analysis2.spectral_centroid
+    );
 
     // Both should produce audio
     assert!(!analysis1.is_empty && !analysis2.is_empty);
@@ -1180,7 +1220,10 @@ out: s "bd*16"
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
-    assert!(analysis.rms > 0.05, "RMS should be significant with many voices");
+    assert!(
+        analysis.rms > 0.05,
+        "RMS should be significant with many voices"
+    );
 
     println!("Many voices test:");
     println!("  RMS: {:.3}", analysis.rms);
@@ -1203,7 +1246,10 @@ out: s "[bd, sn, hh, cp]"
 
     assert!(!analysis.is_empty, "Audio should not be empty");
     // All 4 samples playing simultaneously should have higher RMS than single sample
-    assert!(analysis.rms > 0.05, "Polyphonic playback should have significant RMS");
+    assert!(
+        analysis.rms > 0.05,
+        "Polyphonic playback should have significant RMS"
+    );
 
     println!("Polyphonic test:");
     println!("  RMS: {:.3}", analysis.rms);
@@ -1246,7 +1292,10 @@ out: ~drums
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
-    assert!(analysis.rms > 0.05, "Complex polyphony should produce significant audio");
+    assert!(
+        analysis.rms > 0.05,
+        "Complex polyphony should produce significant audio"
+    );
     // Note: Complex polyphony may clip - acceptable behavior
 }
 
@@ -1300,9 +1349,18 @@ out: (~a + ~b + ~c) * 0.33
     assert!(analysis.has_frequency(1320.0, 50.0), "Should have 1320Hz");
 
     println!("Multiple bus test:");
-    println!("  440Hz: {:.1}", analysis.get_frequency_magnitude(440.0, 50.0));
-    println!("  880Hz: {:.1}", analysis.get_frequency_magnitude(880.0, 50.0));
-    println!("  1320Hz: {:.1}", analysis.get_frequency_magnitude(1320.0, 50.0));
+    println!(
+        "  440Hz: {:.1}",
+        analysis.get_frequency_magnitude(440.0, 50.0)
+    );
+    println!(
+        "  880Hz: {:.1}",
+        analysis.get_frequency_magnitude(880.0, 50.0)
+    );
+    println!(
+        "  1320Hz: {:.1}",
+        analysis.get_frequency_magnitude(1320.0, 50.0)
+    );
 }
 
 #[test]
@@ -1322,7 +1380,10 @@ out: ~dry * 0.5 + ~wet * 0.5
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
-    assert!(analysis.rms > 0.01, "Bus through effects should produce audio");
+    assert!(
+        analysis.rms > 0.01,
+        "Bus through effects should produce audio"
+    );
 }
 
 #[test]
@@ -1343,7 +1404,10 @@ out: ~affected * 0.5
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
-    assert!(analysis.has_frequency(55.0, 20.0), "Should have 55Hz fundamental");
+    assert!(
+        analysis.has_frequency(55.0, 20.0),
+        "Should have 55Hz fundamental"
+    );
 
     println!("Complex routing test:");
     println!("  Spectral centroid: {:.1}Hz", analysis.spectral_centroid);
@@ -1366,7 +1430,10 @@ out: saw 110 # lpf 500 0.8 # reverb 0.3 0.5 0.3 # distort 0.2 1.0
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
-    assert!(analysis.has_frequency(110.0, 30.0), "Should have 110Hz fundamental");
+    assert!(
+        analysis.has_frequency(110.0, 30.0),
+        "Should have 110Hz fundamental"
+    );
 
     println!("Three-stage chain test:");
     println!("  Spectral centroid: {:.1}Hz", analysis.spectral_centroid);
@@ -1449,7 +1516,10 @@ out: s "bd/2"
 
     assert!(!analysis.is_empty, "Audio should not be empty");
     // bd/2 means one trigger every 2 cycles, so 2 triggers over 4 cycles
-    assert!(analysis.onset_count >= 1, "Should detect at least one onset");
+    assert!(
+        analysis.onset_count >= 1,
+        "Should detect at least one onset"
+    );
 }
 
 #[test]
@@ -1504,7 +1574,10 @@ out: s "bd ~ sn ~"
 
     assert!(!analysis.is_empty, "Audio should not be empty");
     // Only 2 out of 4 steps have sound (bd and sn), rests are silent
-    assert!(analysis.rms > 0.005, "Pattern with rests should produce some audio");
+    assert!(
+        analysis.rms > 0.005,
+        "Pattern with rests should produce some audio"
+    );
 }
 
 #[test]
@@ -1522,7 +1595,10 @@ out: s "[bd*2, [sn hh]*2]"
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
-    assert!(analysis.rms > 0.01, "Nested structures should produce audio");
+    assert!(
+        analysis.rms > 0.01,
+        "Nested structures should produce audio"
+    );
 }
 
 // ========== Priority 7: Stress Tests ==========
@@ -1541,8 +1617,14 @@ out: s "bd sn hh cp"
     let wav_path = test.render(code, 100).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "Audio should not be empty after 100 cycles");
-    assert!(analysis.rms > 0.01, "RMS should be consistent over long render");
+    assert!(
+        !analysis.is_empty,
+        "Audio should not be empty after 100 cycles"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "RMS should be consistent over long render"
+    );
     // Note: Long renders may have occasional clipping - acceptable
 
     println!("100-cycle render test:");
@@ -1564,7 +1646,10 @@ out: s "[bd,sn,hh,cp,bd,sn,hh,cp,bd,sn,hh,cp,bd,sn,hh,cp]*4"
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
-    assert!(analysis.rms > 0.05, "Many voices should produce significant audio");
+    assert!(
+        analysis.rms > 0.05,
+        "Many voices should produce significant audio"
+    );
 }
 
 #[test]
@@ -1586,7 +1671,10 @@ out: ~k*0.3 + ~s*0.2 + ~h*0.15 + ~c*0.15 + ~bass*0.2
     let wav_path = test.render(code, 8).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "Complex composition should produce audio");
+    assert!(
+        !analysis.is_empty,
+        "Complex composition should produce audio"
+    );
     assert!(analysis.rms > 0.01, "Should have significant RMS");
     // Note: Complex compositions may clip - stress test acceptable
 }
@@ -1688,7 +1776,10 @@ out: sine 440 * -0.5
     let wav_path = test.render(code, 1).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "Negative amplitude should still produce audio");
+    assert!(
+        !analysis.is_empty,
+        "Negative amplitude should still produce audio"
+    );
     assert!(analysis.has_frequency(440.0, 50.0), "Should have 440Hz");
 }
 
@@ -1766,9 +1857,16 @@ out: s "bd sn hh cp" $ compress 0.0 0.5
     let wav_path = test.render(code, 2).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "Compressed pattern should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    
+    assert!(
+        !analysis.is_empty,
+        "Compressed pattern should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+
     // Should have at least 4 onsets (4 samples)
     assert!(
         analysis.onset_count >= 2,
@@ -1776,7 +1874,10 @@ out: s "bd sn hh cp" $ compress 0.0 0.5
         analysis.onset_count
     );
 
-    println!("Compress test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Compress test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -1794,8 +1895,12 @@ out: s "bd sn hh cp" $ shuffle 0.5
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Shuffled pattern should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+
     // Should still have all events, just reordered
     assert!(
         analysis.onset_count >= 2,
@@ -1803,7 +1908,10 @@ out: s "bd sn hh cp" $ shuffle 0.5
         analysis.onset_count
     );
 
-    println!("Shuffle test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Shuffle test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -1821,8 +1929,12 @@ out: s "bd sn hh cp" $ spin 4
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Spun pattern should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+
     // Should have events rotated but present
     assert!(
         analysis.onset_count >= 2,
@@ -1830,7 +1942,10 @@ out: s "bd sn hh cp" $ spin 4
         analysis.onset_count
     );
 
-    println!("Spin test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Spin test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -1848,9 +1963,16 @@ out: s "bd sn" $ fit 2
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Fitted pattern should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
 
-    println!("Fit test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Fit test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -1868,8 +1990,12 @@ out: s "bd sn hh cp" $ scramble 42
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Scrambled pattern should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+
     // Events should be present but scrambled
     assert!(
         analysis.onset_count >= 2,
@@ -1877,7 +2003,10 @@ out: s "bd sn hh cp" $ scramble 42
         analysis.onset_count
     );
 
-    println!("Scramble test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Scramble test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -1899,9 +2028,16 @@ out: s "bd sn hh cp" $ inside 0.25 0.75 (fast 2)
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Inside transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have audio, got RMS {}", analysis.rms);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have audio, got RMS {}",
+        analysis.rms
+    );
 
-    println!("Inside test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Inside test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -1919,9 +2055,16 @@ out: s "bd sn hh cp" $ outside 0.25 0.75 (fast 2)
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Outside transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have audio, got RMS {}", analysis.rms);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have audio, got RMS {}",
+        analysis.rms
+    );
 
-    println!("Outside test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Outside test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -1939,9 +2082,16 @@ out: s "bd sn hh cp" $ wait 0.25
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Wait transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have audio after delay, got RMS {}", analysis.rms);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have audio after delay, got RMS {}",
+        analysis.rms
+    );
 
-    println!("Wait test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Wait test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -1959,9 +2109,16 @@ out: s "bd sn hh cp" $ focus 0.25 0.75
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Focus transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have audio, got RMS {}", analysis.rms);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have audio, got RMS {}",
+        analysis.rms
+    );
 
-    println!("Focus test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Focus test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -1979,15 +2136,22 @@ out: saw "110 220 330 440" $ smooth
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Smooth transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have audio, got RMS {}", analysis.rms);
-    
+    assert!(
+        analysis.rms > 0.01,
+        "Should have audio, got RMS {}",
+        analysis.rms
+    );
+
     // Should have frequency content in the range 110-440Hz
     assert!(
         analysis.spectral_centroid > 100.0 && analysis.spectral_centroid < 1000.0,
         "Spectral centroid should be in frequency range"
     );
 
-    println!("Smooth test: RMS={:.3}, centroid={:.1}Hz", analysis.rms, analysis.spectral_centroid);
+    println!(
+        "Smooth test: RMS={:.3}, centroid={:.1}Hz",
+        analysis.rms, analysis.spectral_centroid
+    );
 }
 
 #[test]
@@ -2005,9 +2169,16 @@ out: s "bd sn hh cp" $ trim 0.25 0.75
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Trim transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have audio in trimmed range, got RMS {}", analysis.rms);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have audio in trimmed range, got RMS {}",
+        analysis.rms
+    );
 
-    println!("Trim test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Trim test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -2028,9 +2199,16 @@ out: s "bd sn hh cp" $ fast 2 $ rev $ euclid 5 8
     let wav_path = test.render(code, 2).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "Chained transforms should produce audio");
-    assert!(analysis.rms > 0.1, "Should have substantial audio, got RMS {}", analysis.rms);
-    
+    assert!(
+        !analysis.is_empty,
+        "Chained transforms should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.1,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+
     // Should have multiple onsets from complex pattern
     assert!(
         analysis.onset_count >= 3,
@@ -2038,7 +2216,10 @@ out: s "bd sn hh cp" $ fast 2 $ rev $ euclid 5 8
         analysis.onset_count
     );
 
-    println!("Chain multi test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Chain multi test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2060,16 +2241,28 @@ out: s "bd sn hh cp" $ slow 2 $ fast 2
 
     let wav1 = test1.render(code1, 2).expect("Failed to render");
     let wav2 = test2.render(code2, 2).expect("Failed to render");
-    
+
     let analysis1 = test1.analyze_json(&wav1).expect("Failed to analyze");
     let analysis2 = test2.analyze_json(&wav2).expect("Failed to analyze");
 
     // Both should produce audio
-    assert!(!analysis1.is_empty && !analysis2.is_empty, "Both orders should work");
-    assert!(analysis1.rms > 0.01 && analysis2.rms > 0.01, "Both should have audio");
+    assert!(
+        !analysis1.is_empty && !analysis2.is_empty,
+        "Both orders should work"
+    );
+    assert!(
+        analysis1.rms > 0.01 && analysis2.rms > 0.01,
+        "Both should have audio"
+    );
 
-    println!("Chain order1: RMS={:.3}, onsets={}", analysis1.rms, analysis1.onset_count);
-    println!("Chain order2: RMS={:.3}, onsets={}", analysis2.rms, analysis2.onset_count);
+    println!(
+        "Chain order1: RMS={:.3}, onsets={}",
+        analysis1.rms, analysis1.onset_count
+    );
+    println!(
+        "Chain order2: RMS={:.3}, onsets={}",
+        analysis2.rms, analysis2.onset_count
+    );
 }
 
 #[test]
@@ -2086,10 +2279,20 @@ out: s "bd sn hh cp" $ fast 2 $ sometimes (fast 4) $ rev
     let wav_path = test.render(code, 2).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "Higher-order chain should produce audio");
-    assert!(analysis.rms > 0.01, "Should have audio, got RMS {}", analysis.rms);
+    assert!(
+        !analysis.is_empty,
+        "Higher-order chain should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "Should have audio, got RMS {}",
+        analysis.rms
+    );
 
-    println!("Higher-order chain test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Higher-order chain test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2106,10 +2309,20 @@ out: s "bd sn hh cp" $ euclid 3 8 $ often (fast 2) $ rev
     let wav_path = test.render(code, 2).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "Mixed transform chain should produce audio");
-    assert!(analysis.rms > 0.01, "Should have audio, got RMS {}", analysis.rms);
+    assert!(
+        !analysis.is_empty,
+        "Mixed transform chain should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "Should have audio, got RMS {}",
+        analysis.rms
+    );
 
-    println!("Struct+prob chain test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Struct+prob chain test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -2132,10 +2345,20 @@ out: saw 110 # lpf (~lfo * 1000 + 500) 0.8
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Exp transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.spectral_centroid > 200.0, "Should have frequency content from filtered saw");
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.spectral_centroid > 200.0,
+        "Should have frequency content from filtered saw"
+    );
 
-    println!("Exp test: RMS={:.3}, centroid={:.1} Hz", analysis.rms, analysis.spectral_centroid);
+    println!(
+        "Exp test: RMS={:.3}, centroid={:.1} Hz",
+        analysis.rms, analysis.spectral_centroid
+    );
 }
 
 #[test]
@@ -2154,10 +2377,20 @@ out: saw 110 # lpf (~lfo * 1000 + 500) 0.8
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Log transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.spectral_centroid > 200.0, "Should have frequency content from filtered saw");
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.spectral_centroid > 200.0,
+        "Should have frequency content from filtered saw"
+    );
 
-    println!("Log test: RMS={:.3}, centroid={:.1} Hz", analysis.rms, analysis.spectral_centroid);
+    println!(
+        "Log test: RMS={:.3}, centroid={:.1} Hz",
+        analysis.rms, analysis.spectral_centroid
+    );
 }
 
 #[test]
@@ -2176,10 +2409,20 @@ out: saw 110 # lpf (~lfo * 1000 + 500) 0.8
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Walk transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.spectral_centroid > 200.0, "Should have frequency content from filtered saw");
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.spectral_centroid > 200.0,
+        "Should have frequency content from filtered saw"
+    );
 
-    println!("Walk test: RMS={:.3}, centroid={:.1} Hz", analysis.rms, analysis.spectral_centroid);
+    println!(
+        "Walk test: RMS={:.3}, centroid={:.1} Hz",
+        analysis.rms, analysis.spectral_centroid
+    );
 }
 
 // ============================================================================
@@ -2201,10 +2444,21 @@ out: s "bd sn hh cp" $ reset 2
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Reset transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Reset test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Reset test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2222,10 +2476,21 @@ out: s "bd sn hh cp" $ restart 2
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Restart transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Restart test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Restart test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2242,11 +2507,25 @@ out: s "bd sn hh cp" $ loopback 2 (fast 2)
     let wav_path = test.render(code, 2).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "Loopback transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        !analysis.is_empty,
+        "Loopback transform should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Loopback test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Loopback test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2264,10 +2543,21 @@ out: s "bd sn hh cp" $ binary 5
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Binary transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Binary test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Binary test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2286,10 +2576,20 @@ out: saw 110 # lpf ~lfo 0.8
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Range transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.spectral_centroid > 200.0, "Should have frequency content from filtered saw");
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.spectral_centroid > 200.0,
+        "Should have frequency content from filtered saw"
+    );
 
-    println!("Range test: RMS={:.3}, centroid={:.1} Hz", analysis.rms, analysis.spectral_centroid);
+    println!(
+        "Range test: RMS={:.3}, centroid={:.1} Hz",
+        analysis.rms, analysis.spectral_centroid
+    );
 }
 
 #[test]
@@ -2307,11 +2607,24 @@ out: saw 110 # lpf (~lfo * 1000 + 500) 0.8
     let wav_path = test.render(code, 2).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "Quantize transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.spectral_centroid > 200.0, "Should have frequency content from filtered saw");
+    assert!(
+        !analysis.is_empty,
+        "Quantize transform should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.spectral_centroid > 200.0,
+        "Should have frequency content from filtered saw"
+    );
 
-    println!("Quantize test: RMS={:.3}, centroid={:.1} Hz", analysis.rms, analysis.spectral_centroid);
+    println!(
+        "Quantize test: RMS={:.3}, centroid={:.1} Hz",
+        analysis.rms, analysis.spectral_centroid
+    );
 }
 
 // ============================================================================
@@ -2333,10 +2646,21 @@ out: s "bd sn hh cp" $ offset 0.25
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Offset transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Offset test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Offset test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2354,10 +2678,21 @@ out: s "bd sn hh cp" $ loop 2
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Loop transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Loop test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Loop test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2375,10 +2710,21 @@ out: s "bd sn hh cp" $ chew 4
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Chew transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Chew test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Chew test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2396,10 +2742,21 @@ out: s "bd sn hh cp" $ fastGap 2 0.5
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "FastGap transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("FastGap test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "FastGap test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2416,11 +2773,25 @@ out: s "bd sn hh cp" $ discretise 4
     let wav_path = test.render(code, 2).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "Discretise transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        !analysis.is_empty,
+        "Discretise transform should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Discretise test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Discretise test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2437,11 +2808,25 @@ out: s "bd sn hh cp" $ compressGap 0.0 0.5
     let wav_path = test.render(code, 2).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "CompressGap transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        !analysis.is_empty,
+        "CompressGap transform should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("CompressGap test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "CompressGap test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -2462,11 +2847,25 @@ out: s "bd sn hh cp" $ humanize 0.1 0.2
     let wav_path = test.render(code, 2).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "Humanize transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        !analysis.is_empty,
+        "Humanize transform should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Humanize test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Humanize test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2484,10 +2883,21 @@ out: s "bd sn hh cp" $ euclid 3 8 $ legato 1.5
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Euclid+legato should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Euclid+legato test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Euclid+legato test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -2508,11 +2918,25 @@ out: s "bd sn hh cp" $ sometimesBy 0.5 (fast 2)
     let wav_path = test.render(code, 8).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "SometimesBy transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        !analysis.is_empty,
+        "SometimesBy transform should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("SometimesBy test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "SometimesBy test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2529,11 +2953,25 @@ out: s "bd sn hh cp" $ almostAlways (fast 2)
     let wav_path = test.render(code, 8).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "AlmostAlways transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        !analysis.is_empty,
+        "AlmostAlways transform should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("AlmostAlways test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "AlmostAlways test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2551,10 +2989,21 @@ out: s "bd sn hh cp" $ often (fast 2)
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Often transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Often test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Often test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2572,10 +3021,21 @@ out: s "bd sn hh cp" $ rarely (fast 2)
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Rarely transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Rarely test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Rarely test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 // ============================================================================
@@ -2596,11 +3056,21 @@ out: s "bd sn hh cp" $ degradeSeed 0.5 42
     let wav_path = test.render(code, 4).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "DegradeSeed transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
+    assert!(
+        !analysis.is_empty,
+        "DegradeSeed transform should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
     // Don't check onset count - degrade may remove events
 
-    println!("DegradeSeed test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "DegradeSeed test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2617,11 +3087,25 @@ out: s "bd sn hh cp" $ degradeSeed 0.5 42 $ undegrade
     let wav_path = test.render(code, 2).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "Undegrade transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        !analysis.is_empty,
+        "Undegrade transform should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Undegrade test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Undegrade test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }
 
 #[test]
@@ -2638,9 +3122,23 @@ out: s "bd sn hh cp" $ accelerate 0.5
     let wav_path = test.render(code, 2).expect("Failed to render");
     let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
-    assert!(!analysis.is_empty, "Accelerate transform should produce audio");
-    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
-    assert!(analysis.onset_count >= 2, "Should detect at least 2 onsets, got {}", analysis.onset_count);
+    assert!(
+        !analysis.is_empty,
+        "Accelerate transform should produce audio"
+    );
+    assert!(
+        analysis.rms > 0.01,
+        "Should have substantial audio, got RMS {}",
+        analysis.rms
+    );
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
 
-    println!("Accelerate test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+    println!(
+        "Accelerate test: RMS={:.3}, onsets={}",
+        analysis.rms, analysis.onset_count
+    );
 }

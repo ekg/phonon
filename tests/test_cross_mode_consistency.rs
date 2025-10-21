@@ -3,9 +3,9 @@
 //! Verifies that the same Phonon code produces identical results
 //! across all execution modes: Render, OSC, Live, and Edit
 
-use phonon::osc_live_server::{apply_command_to_graph, LiveCommand};
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
+use phonon::osc_live_server::{apply_command_to_graph, LiveCommand};
 use std::fs;
 use std::process::Command;
 

@@ -56,7 +56,10 @@ out: ~stacked
 
     eprintln!("Stack with different gains RMS: {}", rms);
     assert!(rms > 0.15, "Stack should combine both signals");
-    assert!(rms < 0.7, "But shouldn't be too loud (0.8 + 0.2 = ~0.6 RMS expected)");
+    assert!(
+        rms < 0.7,
+        "But shouldn't be too loud (0.8 + 0.2 = ~0.6 RMS expected)"
+    );
 }
 
 #[test]
@@ -146,10 +149,7 @@ out: ~drums
         .expect("Failed to run phonon render");
 
     if !output.status.success() {
-        panic!(
-            "Render failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+        panic!("Render failed: {}", String::from_utf8_lossy(&output.stderr));
     }
 
     // Analyze audio
@@ -269,7 +269,11 @@ out: ~mix
 
     // Should have reasonable RMS from all three (3 * 0.2 = 0.6 amplitude, but with interference ~0.15-0.25 RMS)
     let rms = extract_rms(&analysis);
-    assert!(rms > 0.15, "Three-way mix should have good level, got {}", rms);
+    assert!(
+        rms > 0.15,
+        "Three-way mix should have good level, got {}",
+        rms
+    );
 }
 
 // ========== Helper Functions ==========

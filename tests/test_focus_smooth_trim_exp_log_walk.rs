@@ -13,9 +13,8 @@ use phonon::compositional_parser::parse_program;
 
 /// Helper to compile code and verify it succeeds
 fn test_compilation(code: &str, description: &str) {
-    let (rest, statements) = parse_program(code).unwrap_or_else(|e| {
-        panic!("{} - Parse failed: {:?}", description, e)
-    });
+    let (rest, statements) =
+        parse_program(code).unwrap_or_else(|e| panic!("{} - Parse failed: {:?}", description, e));
     assert_eq!(
         rest.trim(),
         "",
@@ -23,16 +22,14 @@ fn test_compilation(code: &str, description: &str) {
         description
     );
 
-    compile_program(statements, 44100.0).unwrap_or_else(|e| {
-        panic!("{} - Compilation failed: {}", description, e)
-    });
+    compile_program(statements, 44100.0)
+        .unwrap_or_else(|e| panic!("{} - Compilation failed: {}", description, e));
 }
 
 /// Helper to compile code and verify it fails with expected error
 fn test_compilation_error(code: &str, description: &str, expected_error_substring: &str) {
-    let (rest, statements) = parse_program(code).unwrap_or_else(|e| {
-        panic!("{} - Parse failed: {:?}", description, e)
-    });
+    let (rest, statements) =
+        parse_program(code).unwrap_or_else(|e| panic!("{} - Parse failed: {:?}", description, e));
     assert_eq!(
         rest.trim(),
         "",
@@ -41,7 +38,10 @@ fn test_compilation_error(code: &str, description: &str, expected_error_substrin
     );
 
     match compile_program(statements, 44100.0) {
-        Ok(_) => panic!("{} - Expected compilation to fail but it succeeded", description),
+        Ok(_) => panic!(
+            "{} - Expected compilation to fail but it succeeded",
+            description
+        ),
         Err(e) => {
             assert!(
                 e.contains(expected_error_substring),

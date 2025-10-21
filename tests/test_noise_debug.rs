@@ -72,7 +72,10 @@ out: ~n # lpf 2000 0.8
     // Render 100 samples
     let buffer = graph.render(100);
 
-    eprintln!("Filtered noise (lpf) - first 20 samples: {:?}", &buffer[0..20]);
+    eprintln!(
+        "Filtered noise (lpf) - first 20 samples: {:?}",
+        &buffer[0..20]
+    );
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
     eprintln!("Filtered noise (lpf) RMS: {}", rms);

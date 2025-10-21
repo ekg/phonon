@@ -1,4 +1,4 @@
-use rustfft::{FftPlanner, num_complex::Complex};
+use rustfft::{num_complex::Complex, FftPlanner};
 use std::env;
 use std::f32::consts::PI;
 
@@ -132,8 +132,14 @@ impl AudioAnalysis {
         json.push_str(&format!("  \"peak\": {},\n", self.peak));
         json.push_str(&format!("  \"dc_offset\": {},\n", self.dc_offset));
         json.push_str(&format!("  \"zero_crossings\": {},\n", self.zero_crossings));
-        json.push_str(&format!("  \"spectral_centroid\": {},\n", self.spectral_centroid));
-        json.push_str(&format!("  \"dominant_frequency\": {},\n", self.dominant_frequency));
+        json.push_str(&format!(
+            "  \"spectral_centroid\": {},\n",
+            self.spectral_centroid
+        ));
+        json.push_str(&format!(
+            "  \"dominant_frequency\": {},\n",
+            self.dominant_frequency
+        ));
         json.push_str(&format!("  \"onset_count\": {},\n", self.onset_count));
 
         if let Some(bpm) = self.estimated_bpm {
@@ -160,7 +166,10 @@ impl AudioAnalysis {
         let num_bins = self.frequency_bins.len().min(20);
         for i in 0..num_bins {
             let (freq, mag) = self.frequency_bins[i];
-            json.push_str(&format!("    {{\"freq\": {:.1}, \"magnitude\": {:.6}}}", freq, mag));
+            json.push_str(&format!(
+                "    {{\"freq\": {:.1}, \"magnitude\": {:.6}}}",
+                freq, mag
+            ));
             if i < num_bins - 1 {
                 json.push_str(",");
             }

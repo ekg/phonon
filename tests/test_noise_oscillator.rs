@@ -54,10 +54,14 @@ out: ~hh * 0.3
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
     // DEBUG: Print first few samples and RMS
-    eprintln!("DEBUG hpf test: RMS={}, first 10 samples={:?}", rms, &buffer[0..10]);
+    eprintln!(
+        "DEBUG hpf test: RMS={}, first 10 samples={:?}",
+        rms,
+        &buffer[0..10]
+    );
 
     assert!(
-        rms > 0.0001,  // Lowered threshold to debug
+        rms > 0.0001, // Lowered threshold to debug
         "Filtered noise should produce signal, got RMS {}",
         rms
     );
@@ -161,10 +165,7 @@ out: noise 0 * 0.3
     // Check that not all samples are the same
     let first = buffer[0];
     let all_same = buffer.iter().all(|&x| (x - first).abs() < 0.0001);
-    assert!(
-        !all_same,
-        "Noise samples should not all be identical"
-    );
+    assert!(!all_same, "Noise samples should not all be identical");
 
     println!("✅ Noise randomness: variance = {:.4}", variance);
 }

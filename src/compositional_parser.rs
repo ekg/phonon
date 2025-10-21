@@ -129,15 +129,9 @@ pub enum Transform {
     /// segment n: divide pattern into n segments
     Segment(Box<Expr>),
     /// zoom begin end: focus on specific time range
-    Zoom {
-        begin: Box<Expr>,
-        end: Box<Expr>,
-    },
+    Zoom { begin: Box<Expr>, end: Box<Expr> },
     /// compress begin end: compress pattern to time range
-    Compress {
-        begin: Box<Expr>,
-        end: Box<Expr>,
-    },
+    Compress { begin: Box<Expr>, end: Box<Expr> },
     /// spin n: rotate through n different versions
     Spin(Box<Expr>),
     /// mirror: palindrome within cycle (alias for palindrome)
@@ -177,10 +171,7 @@ pub enum Transform {
     /// discretise n: quantize time
     Discretise(Box<Expr>),
     /// compressGap begin end: compress to range with gaps
-    CompressGap {
-        begin: Box<Expr>,
-        end: Box<Expr>,
-    },
+    CompressGap { begin: Box<Expr>, end: Box<Expr> },
     /// reset cycles: restart pattern every n cycles
     Reset(Box<Expr>),
     /// restart n: restart pattern every n cycles (alias for reset)
@@ -190,10 +181,7 @@ pub enum Transform {
     /// binary n: bit mask pattern
     Binary(Box<Expr>),
     /// range min max: scale numeric values to range (numeric patterns only)
-    Range {
-        min: Box<Expr>,
-        max: Box<Expr>,
-    },
+    Range { min: Box<Expr>, max: Box<Expr> },
     /// quantize steps: quantize numeric values (numeric patterns only)
     Quantize(Box<Expr>),
     /// focus cycle_begin cycle_end: focus on specific cycles
@@ -204,10 +192,7 @@ pub enum Transform {
     /// smooth amount: smooth numeric values (numeric patterns only)
     Smooth(Box<Expr>),
     /// trim begin end: trim pattern to time range
-    Trim {
-        begin: Box<Expr>,
-        end: Box<Expr>,
-    },
+    Trim { begin: Box<Expr>, end: Box<Expr> },
     /// exp base: exponential transformation (numeric patterns only)
     Exp(Box<Expr>),
     /// log base: logarithmic transformation (numeric patterns only)
@@ -280,10 +265,7 @@ pub enum Transform {
         transform: Box<Transform>,
     },
     /// euclid pulses steps: euclidean rhythm pattern
-    Euclid {
-        pulses: Box<Expr>,
-        steps: Box<Expr>,
-    },
+    Euclid { pulses: Box<Expr>, steps: Box<Expr> },
 }
 
 /// Binary operators
@@ -591,10 +573,7 @@ fn parse_list_expr(input: &str) -> IResult<&str, Expr> {
     let (input, _) = space0(input)?;
 
     // Parse comma-separated expressions
-    let (input, exprs) = separated_list0(
-        delimited(space0, char(','), space0),
-        parse_expr
-    )(input)?;
+    let (input, exprs) = separated_list0(delimited(space0, char(','), space0), parse_expr)(input)?;
 
     let (input, _) = space0(input)?;
     let (input, _) = char(']')(input)?;
@@ -1018,10 +997,7 @@ fn parse_transform_group_4(input: &str) -> IResult<&str, Transform> {
         ),
         // superimpose transform
         map(
-            tuple((
-                terminated(tag("superimpose"), space1),
-                parse_transform,
-            )),
+            tuple((terminated(tag("superimpose"), space1), parse_transform)),
             |(_, transform)| Transform::Superimpose(Box::new(transform)),
         ),
         // chunk n transform
@@ -1038,26 +1014,17 @@ fn parse_transform_group_4(input: &str) -> IResult<&str, Transform> {
         ),
         // sometimes transform
         map(
-            tuple((
-                terminated(tag("sometimes"), space1),
-                parse_transform,
-            )),
+            tuple((terminated(tag("sometimes"), space1), parse_transform)),
             |(_, transform)| Transform::Sometimes(Box::new(transform)),
         ),
         // often transform
         map(
-            tuple((
-                terminated(tag("often"), space1),
-                parse_transform,
-            )),
+            tuple((terminated(tag("often"), space1), parse_transform)),
             |(_, transform)| Transform::Often(Box::new(transform)),
         ),
         // rarely transform
         map(
-            tuple((
-                terminated(tag("rarely"), space1),
-                parse_transform,
-            )),
+            tuple((terminated(tag("rarely"), space1), parse_transform)),
             |(_, transform)| Transform::Rarely(Box::new(transform)),
         ),
         // sometimesBy prob transform
@@ -1074,26 +1041,17 @@ fn parse_transform_group_4(input: &str) -> IResult<&str, Transform> {
         ),
         // almostAlways transform
         map(
-            tuple((
-                terminated(tag("almostAlways"), space1),
-                parse_transform,
-            )),
+            tuple((terminated(tag("almostAlways"), space1), parse_transform)),
             |(_, transform)| Transform::AlmostAlways(Box::new(transform)),
         ),
         // almostNever transform
         map(
-            tuple((
-                terminated(tag("almostNever"), space1),
-                parse_transform,
-            )),
+            tuple((terminated(tag("almostNever"), space1), parse_transform)),
             |(_, transform)| Transform::AlmostNever(Box::new(transform)),
         ),
         // always transform
         map(
-            tuple((
-                terminated(tag("always"), space1),
-                parse_transform,
-            )),
+            tuple((terminated(tag("always"), space1), parse_transform)),
             |(_, transform)| Transform::Always(Box::new(transform)),
         ),
         // whenmod modulo offset transform

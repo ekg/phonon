@@ -172,7 +172,10 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
         Expr::ChainInput(_) => {
             // ChainInput is only used internally by the compiler
             // It should never appear in parsed code
-            Err("ChainInput is an internal compiler marker and should not appear in source code".to_string())
+            Err(
+                "ChainInput is an internal compiler marker and should not appear in source code"
+                    .to_string(),
+            )
         }
     }
 }
@@ -310,7 +313,9 @@ fn compile_stack(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
     // First argument should be a list
     let exprs = match &args[0] {
         Expr::List(exprs) => exprs,
-        _ => return Err("stack requires a list as argument: stack [expr1, expr2, ...]".to_string()),
+        _ => {
+            return Err("stack requires a list as argument: stack [expr1, expr2, ...]".to_string())
+        }
     };
 
     if exprs.is_empty() {
@@ -355,7 +360,10 @@ fn compile_cat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
                 .iter()
                 .map(|expr| match expr {
                     Expr::String(s) => Ok(s.clone()),
-                    _ => Err("cat requires a list of pattern strings: cat [\"bd\", \"sn\", ...]".to_string()),
+                    _ => Err(
+                        "cat requires a list of pattern strings: cat [\"bd\", \"sn\", ...]"
+                            .to_string(),
+                    ),
                 })
                 .collect::<Result<Vec<String>, String>>()?
         }
@@ -412,11 +420,18 @@ fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
                 .iter()
                 .map(|expr| match expr {
                     Expr::String(s) => Ok(s.clone()),
-                    _ => Err("slowcat requires a list of pattern strings: slowcat [\"bd\", \"sn\", ...]".to_string()),
+                    _ => Err(
+                        "slowcat requires a list of pattern strings: slowcat [\"bd\", \"sn\", ...]"
+                            .to_string(),
+                    ),
                 })
                 .collect::<Result<Vec<String>, String>>()?
         }
-        _ => return Err("slowcat requires a list as argument: slowcat [\"bd\", \"sn\", ...]".to_string()),
+        _ => {
+            return Err(
+                "slowcat requires a list as argument: slowcat [\"bd\", \"sn\", ...]".to_string(),
+            )
+        }
     };
 
     if pattern_strs.is_empty() {
@@ -688,7 +703,9 @@ fn compile_superkick(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
         None
     };
 
-    let node_id = ctx.synth_lib.build_kick(&mut ctx.graph, freq, pitch_env, sustain, noise_amt);
+    let node_id = ctx
+        .synth_lib
+        .build_kick(&mut ctx.graph, freq, pitch_env, sustain, noise_amt);
     Ok(node_id)
 }
 
@@ -711,7 +728,9 @@ fn compile_supersaw(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
         None
     };
 
-    let node_id = ctx.synth_lib.build_supersaw(&mut ctx.graph, freq, detune, voices);
+    let node_id = ctx
+        .synth_lib
+        .build_supersaw(&mut ctx.graph, freq, detune, voices);
     Ok(node_id)
 }
 
@@ -734,7 +753,9 @@ fn compile_superpwm(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
         None
     };
 
-    let node_id = ctx.synth_lib.build_superpwm(&mut ctx.graph, freq, pwm_rate, pwm_depth);
+    let node_id = ctx
+        .synth_lib
+        .build_superpwm(&mut ctx.graph, freq, pwm_rate, pwm_depth);
     Ok(node_id)
 }
 
@@ -757,7 +778,9 @@ fn compile_superchip(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
         None
     };
 
-    let node_id = ctx.synth_lib.build_superchip(&mut ctx.graph, freq, vibrato_rate, vibrato_depth);
+    let node_id = ctx
+        .synth_lib
+        .build_superchip(&mut ctx.graph, freq, vibrato_rate, vibrato_depth);
     Ok(node_id)
 }
 
@@ -780,7 +803,9 @@ fn compile_superfm(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         None
     };
 
-    let node_id = ctx.synth_lib.build_superfm(&mut ctx.graph, freq, mod_ratio, mod_index);
+    let node_id = ctx
+        .synth_lib
+        .build_superfm(&mut ctx.graph, freq, mod_ratio, mod_index);
     Ok(node_id)
 }
 
@@ -803,7 +828,9 @@ fn compile_supersnare(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
         None
     };
 
-    let node_id = ctx.synth_lib.build_snare(&mut ctx.graph, freq, snappy, sustain);
+    let node_id = ctx
+        .synth_lib
+        .build_snare(&mut ctx.graph, freq, snappy, sustain);
     Ok(node_id)
 }
 
@@ -961,7 +988,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let factor = extract_number(&factor_expr)?;
             Ok(pattern.staccato(factor))
         }
-        Transform::Echo { times, time, feedback } => {
+        Transform::Echo {
+            times,
+            time,
+            feedback,
+        } => {
             let times_val = extract_number(&times)? as usize;
             let time_val = extract_number(&time)?;
             let feedback_val = extract_number(&feedback)?;
@@ -1020,7 +1051,8 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
                 let cycle = state.span.begin.to_float().floor() as i32;
                 if cycle % n_val == 0 {
                     // Apply the transform on cycles divisible by n
-                    match apply_transform_to_pattern(pattern_clone.clone(), inner_transform.clone()) {
+                    match apply_transform_to_pattern(pattern_clone.clone(), inner_transform.clone())
+                    {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state), // Fallback to original on error
                     }
@@ -1102,7 +1134,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             // Note: quantize() only works on Pattern<f64>, not Pattern<T>
             Err("quantize transform only works with numeric patterns (from oscillators), not sample patterns".to_string())
         }
-        Transform::Focus { cycle_begin, cycle_end } => {
+        Transform::Focus {
+            cycle_begin,
+            cycle_end,
+        } => {
             let begin_val = extract_number(&cycle_begin)?;
             let end_val = extract_number(&cycle_end)?;
             Ok(pattern.focus(begin_val, end_val))
@@ -1128,7 +1163,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             // Note: walk() only works on Pattern<f64>, not Pattern<T>
             Err("walk transform only works with numeric patterns (from oscillators), not sample patterns".to_string())
         }
-        Transform::Inside { begin, end, transform } => {
+        Transform::Inside {
+            begin,
+            end,
+            transform,
+        } => {
             let begin_val = extract_number(&begin)?;
             let end_val = extract_number(&end)?;
             // Clone pattern and transform for use in closure
@@ -1139,7 +1178,8 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
                 let cycle_phase = state.span.begin.to_float() % 1.0;
                 if cycle_phase >= begin_val && cycle_phase < end_val {
                     // Inside the range: apply transform
-                    match apply_transform_to_pattern(pattern_clone.clone(), inner_transform.clone()) {
+                    match apply_transform_to_pattern(pattern_clone.clone(), inner_transform.clone())
+                    {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state),
                     }
@@ -1149,7 +1189,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
                 }
             }))
         }
-        Transform::Outside { begin, end, transform } => {
+        Transform::Outside {
+            begin,
+            end,
+            transform,
+        } => {
             let begin_val = extract_number(&begin)?;
             let end_val = extract_number(&end)?;
             // Clone pattern and transform for use in closure
@@ -1160,7 +1204,8 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
                 let cycle_phase = state.span.begin.to_float() % 1.0;
                 if cycle_phase < begin_val || cycle_phase >= end_val {
                     // Outside the range: apply transform
-                    match apply_transform_to_pattern(pattern_clone.clone(), inner_transform.clone()) {
+                    match apply_transform_to_pattern(pattern_clone.clone(), inner_transform.clone())
+                    {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state),
                     }
@@ -1279,18 +1324,24 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             }))
         }
 
-        Transform::Whenmod { modulo, offset, transform } => {
+        Transform::Whenmod {
+            modulo,
+            offset,
+            transform,
+        } => {
             let modulo_val = extract_number(&modulo)? as i32;
             let offset_val = extract_number(&offset)? as i32;
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
 
-            Ok(pattern.when_mod(modulo_val, offset_val, move |p| {
-                match apply_transform_to_pattern(p, inner_transform.clone()) {
+            Ok(pattern.when_mod(
+                modulo_val,
+                offset_val,
+                move |p| match apply_transform_to_pattern(p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
-                }
-            }))
+                },
+            ))
         }
 
         Transform::Wait(cycles_expr) => {
@@ -1301,12 +1352,18 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         Transform::Mask(mask_expr) => {
             // Note: mask() works with boolean patterns or patterns that can be converted to bool
             // For now, we'll just pass the error that this is not yet implemented
-            Err("mask transform is not yet fully implemented - requires boolean pattern argument".to_string())
+            Err(
+                "mask transform is not yet fully implemented - requires boolean pattern argument"
+                    .to_string(),
+            )
         }
         Transform::Weave(count_expr) => {
             // Note: weave() expects a Pattern<T> argument, not a count
             // This needs different DSL syntax or a different operation
-            Err("weave transform requires a pattern argument - not yet exposed to DSL in this form".to_string())
+            Err(
+                "weave transform requires a pattern argument - not yet exposed to DSL in this form"
+                    .to_string(),
+            )
         }
 
         Transform::DegradeSeed(seed_expr) => {
@@ -1314,33 +1371,40 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             Ok(pattern.degrade_seed(seed))
         }
 
-        Transform::Undegrade => {
-            Ok(pattern.undegrade())
-        }
+        Transform::Undegrade => Ok(pattern.undegrade()),
 
         Transform::Accelerate(rate_expr) => {
             let rate = extract_number(&rate_expr)?;
             Ok(pattern.accelerate(rate))
         }
 
-        Transform::Humanize { time_var, velocity_var } => {
+        Transform::Humanize {
+            time_var,
+            velocity_var,
+        } => {
             let time_var_val = extract_number(&time_var)?;
             let velocity_var_val = extract_number(&velocity_var)?;
             Ok(pattern.humanize(time_var_val, velocity_var_val))
         }
 
-        Transform::Within { begin, end, transform } => {
+        Transform::Within {
+            begin,
+            end,
+            transform,
+        } => {
             let begin_val = extract_number(&begin)?;
             let end_val = extract_number(&end)?;
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
 
-            Ok(pattern.within(begin_val, end_val, move |p| {
-                match apply_transform_to_pattern(p, inner_transform.clone()) {
+            Ok(pattern.within(
+                begin_val,
+                end_val,
+                move |p| match apply_transform_to_pattern(p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
-                }
-            }))
+                },
+            ))
         }
 
         Transform::Euclid { pulses, steps } => {
@@ -1356,7 +1420,10 @@ fn extract_number(expr: &Expr) -> Result<f64, String> {
     match expr {
         Expr::Number(n) => Ok(*n),
         Expr::Paren(inner) => extract_number(inner),
-        Expr::UnOp { op: UnOp::Neg, expr } => {
+        Expr::UnOp {
+            op: UnOp::Neg,
+            expr,
+        } => {
             let value = extract_number(expr)?;
             Ok(-value)
         }

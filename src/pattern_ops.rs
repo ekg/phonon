@@ -329,16 +329,22 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 }
 
                 // Sample the pattern at the euclidean event's start time
-                let sample_time = ehap.whole.as_ref()
+                let sample_time = ehap
+                    .whole
+                    .as_ref()
                     .map(|w| w.begin.to_float())
                     .unwrap_or(ehap.part.begin.to_float());
 
                 // Find the pattern value at this time
                 for phap in pattern_haps.iter() {
-                    let phap_start = phap.whole.as_ref()
+                    let phap_start = phap
+                        .whole
+                        .as_ref()
                         .map(|w| w.begin.to_float())
                         .unwrap_or(phap.part.begin.to_float());
-                    let phap_end = phap.whole.as_ref()
+                    let phap_end = phap
+                        .whole
+                        .as_ref()
                         .map(|w| w.end.to_float())
                         .unwrap_or(phap.part.end.to_float());
 

@@ -78,7 +78,10 @@ out: sine 440 # env 0.001 0.05 0.0 0.1
         .map(|x| x.abs())
         .fold(0.0f32, f32::max);
 
-    assert!(max_attack > 0.1, "Fast attack should reach high amplitude quickly");
+    assert!(
+        max_attack > 0.1,
+        "Fast attack should reach high amplitude quickly"
+    );
 }
 
 #[test]
@@ -130,7 +133,10 @@ out: sine 440 # env 0.001 0.1 0.0 0.05
         .fold(0.0f32, f32::max);
 
     // With zero sustain and short release, should be quiet in tail
-    assert!(max_tail < 0.1, "Zero-sustain envelope should decay to low level");
+    assert!(
+        max_tail < 0.1,
+        "Zero-sustain envelope should decay to low level"
+    );
 }
 
 #[test]
@@ -149,7 +155,8 @@ out: square 220 # env 0.01 0.05 1.0 0.1
 
     // Check that sustain is maintained
     let mid_section = &buffer[22050..33075]; // 0.5s to 0.75s
-    let mid_rms: f32 = (mid_section.iter().map(|x| x * x).sum::<f32>() / mid_section.len() as f32).sqrt();
+    let mid_rms: f32 =
+        (mid_section.iter().map(|x| x * x).sum::<f32>() / mid_section.len() as f32).sqrt();
 
     assert!(mid_rms > 0.5, "Full sustain should maintain high level");
 }

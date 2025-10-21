@@ -35,8 +35,7 @@ impl TransformTest {
     /// Render Phonon code to WAV
     fn render(&self, code: &str, cycles: u32) -> Result<PathBuf, String> {
         let input_path = self.temp_dir.join(format!("{}.phonon", self.test_name));
-        fs::write(&input_path, code)
-            .map_err(|e| format!("Failed to write input file: {}", e))?;
+        fs::write(&input_path, code).map_err(|e| format!("Failed to write input file: {}", e))?;
 
         let output_path = self.temp_dir.join(format!("{}.wav", self.test_name));
 
@@ -247,7 +246,10 @@ out: sine 440
 
     println!("✓ 440Hz tone verified");
     println!("  Dominant: {:.1}Hz", analysis.dominant_frequency);
-    println!("  Top bins: {:?}", &analysis.frequency_bins[..3.min(analysis.frequency_bins.len())]);
+    println!(
+        "  Top bins: {:?}",
+        &analysis.frequency_bins[..3.min(analysis.frequency_bins.len())]
+    );
 }
 
 #[test]
@@ -265,14 +267,8 @@ out: sine "300 600"
     let analysis = test.analyze_json(&wav).expect("Failed to analyze");
 
     // Both frequencies should be present
-    assert!(
-        analysis.has_frequency(300.0, 50.0),
-        "Should detect 300Hz"
-    );
-    assert!(
-        analysis.has_frequency(600.0, 50.0),
-        "Should detect 600Hz"
-    );
+    assert!(analysis.has_frequency(300.0, 50.0), "Should detect 300Hz");
+    assert!(analysis.has_frequency(600.0, 50.0), "Should detect 600Hz");
 
     // Spectral centroid should be between the two
     assert!(
@@ -282,8 +278,14 @@ out: sine "300 600"
     );
 
     println!("✓ Two-tone pattern verified");
-    println!("  300Hz magnitude: {:.1}", analysis.get_magnitude(300.0, 50.0));
-    println!("  600Hz magnitude: {:.1}", analysis.get_magnitude(600.0, 50.0));
+    println!(
+        "  300Hz magnitude: {:.1}",
+        analysis.get_magnitude(300.0, 50.0)
+    );
+    println!(
+        "  600Hz magnitude: {:.1}",
+        analysis.get_magnitude(600.0, 50.0)
+    );
 }
 
 #[test]
@@ -305,10 +307,14 @@ out: sine "200 400" $ fast 2
 
     // Both should contain same frequencies, but spectral distribution may differ
     let wav_normal = test.render(normal, 2).expect("Failed to render normal");
-    let analysis_normal = test.analyze_json(&wav_normal).expect("Failed to analyze normal");
+    let analysis_normal = test
+        .analyze_json(&wav_normal)
+        .expect("Failed to analyze normal");
 
     let wav_fast = test.render(fast, 2).expect("Failed to render fast");
-    let analysis_fast = test.analyze_json(&wav_fast).expect("Failed to analyze fast");
+    let analysis_fast = test
+        .analyze_json(&wav_fast)
+        .expect("Failed to analyze fast");
 
     // Both should have 200Hz and 400Hz
     assert!(analysis_normal.has_frequency(200.0, 50.0));
@@ -317,7 +323,10 @@ out: sine "200 400" $ fast 2
     assert!(analysis_fast.has_frequency(400.0, 50.0));
 
     println!("✓ Fast transform verified");
-    println!("  Normal centroid: {:.1}Hz", analysis_normal.spectral_centroid);
+    println!(
+        "  Normal centroid: {:.1}Hz",
+        analysis_normal.spectral_centroid
+    );
     println!("  Fast centroid: {:.1}Hz", analysis_fast.spectral_centroid);
 }
 
@@ -370,8 +379,14 @@ out: sine "300 600" $ slow 2
     assert!(analysis.has_frequency(600.0, 50.0), "Should have 600Hz");
 
     println!("✓ Slow transform verified");
-    println!("  300Hz magnitude: {:.1}", analysis.get_magnitude(300.0, 50.0));
-    println!("  600Hz magnitude: {:.1}", analysis.get_magnitude(600.0, 50.0));
+    println!(
+        "  300Hz magnitude: {:.1}",
+        analysis.get_magnitude(300.0, 50.0)
+    );
+    println!(
+        "  600Hz magnitude: {:.1}",
+        analysis.get_magnitude(600.0, 50.0)
+    );
 }
 
 // TODO: hurry transform not yet implemented in compositional parser
@@ -403,7 +418,10 @@ out: sine "100 200 300" $ palindrome
     // 200Hz should have higher magnitude since it appears twice
     let mag_200 = analysis.get_magnitude(200.0, 50.0);
     let mag_300 = analysis.get_magnitude(300.0, 50.0);
-    assert!(mag_200 > mag_300 * 0.8, "200Hz should have similar/higher magnitude (appears twice)");
+    assert!(
+        mag_200 > mag_300 * 0.8,
+        "200Hz should have similar/higher magnitude (appears twice)"
+    );
 
     println!("✓ Palindrome transform verified");
 }
@@ -447,14 +465,19 @@ out: s "bd" $ euclid 3 8
     let analysis = test.analyze_json(&wav).expect("Failed to analyze");
 
     // Kick drums have surprisingly high spectral centroid due to mid-frequency punch
-    assert!(analysis.spectral_centroid < 1000.0, "Should have kick drum spectrum");
+    assert!(
+        analysis.spectral_centroid < 1000.0,
+        "Should have kick drum spectrum"
+    );
 
     // Note: onset detection only catches first transient when samples overlap
     // euclid(3,8) at tempo 2.0 means kicks every ~0.33s, but kick sample is ~0.5s
     // So we only detect 1-2 onsets even though there are 6 triggers
-    assert!(analysis.onset_count >= 1,
+    assert!(
+        analysis.onset_count >= 1,
         "Should have at least one onset, got {}",
-        analysis.onset_count);
+        analysis.onset_count
+    );
 
     println!("✓ Euclid transform verified");
     println!("  Onsets detected: {}", analysis.onset_count);
@@ -505,7 +528,10 @@ out: sine 300 $ superimpose (fast 2)
     assert!(analysis.has_frequency(300.0, 50.0), "Should have 300Hz");
 
     // RMS should be higher due to layering
-    assert!(analysis.rms > 0.15, "Should have higher RMS due to layering");
+    assert!(
+        analysis.rms > 0.15,
+        "Should have higher RMS due to layering"
+    );
 
     println!("✓ Superimpose transform verified");
 }
