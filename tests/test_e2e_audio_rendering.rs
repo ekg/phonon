@@ -74,8 +74,8 @@ impl AudioTest {
         Ok(output_path)
     }
 
-    /// Analyze WAV file
-    fn analyze(&self, wav_path: &PathBuf) -> Result<AudioAnalysis, String> {
+    /// Analyze WAV file with JSON output (includes frequency bins)
+    fn analyze_json(&self, wav_path: &PathBuf) -> Result<AudioAnalysis, String> {
         let output = Command::new("cargo")
             .args(&[
                 "run",
@@ -84,14 +84,13 @@ impl AudioTest {
                 "wav_analyze",
                 "--",
                 wav_path.to_str().unwrap(),
+                "--json",
             ])
             .output()
             .map_err(|e| format!("Failed to run wav_analyze: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-
-        // Parse wav_analyze output
-        AudioAnalysis::parse(&stdout)
+        AudioAnalysis::parse_json(&stdout)
     }
 }
 
@@ -118,50 +117,87 @@ struct AudioAnalysis {
 }
 
 impl AudioAnalysis {
-    fn parse(output: &str) -> Result<Self, String> {
+    /// Parse JSON output from wav_analyze --json
+    fn parse_json(json: &str) -> Result<Self, String> {
         let mut rms = None;
         let mut peak = None;
         let mut onset_count = None;
-        let mut zero_crossings = None;
         let mut spectral_centroid = None;
-        let is_empty = output.contains("EMPTY AUDIO");
-        let is_clipping = output.contains("CLIPPING DETECTED");
+        let mut dominant_frequency = None;
+        let mut is_empty = false;
+        let mut is_clipping = false;
+        let mut onset_times = Vec::new();
+        let mut frequency_bins = Vec::new();
 
-        for line in output.lines() {
-            if line.starts_with("RMS Level:") {
-                if let Some(val_str) = line.split_whitespace().nth(2) {
+        for line in json.lines() {
+            if line.contains("\"rms\":") {
+                if let Some(val) = line.split(':').nth(1) {
+                    let val_str = val.trim().trim_end_matches(',');
                     rms = val_str.parse().ok();
                 }
-            } else if line.starts_with("Peak Level:") {
-                if let Some(val_str) = line.split_whitespace().nth(2) {
+            } else if line.contains("\"peak\":") {
+                if let Some(val) = line.split(':').nth(1) {
+                    let val_str = val.trim().trim_end_matches(',');
                     peak = val_str.parse().ok();
                 }
-            } else if line.starts_with("Onset Events:") {
-                if let Some(val_str) = line.split_whitespace().nth(2) {
+            } else if line.contains("\"onset_count\":") {
+                if let Some(val) = line.split(':').nth(1) {
+                    let val_str = val.trim().trim_end_matches(',');
                     onset_count = val_str.parse().ok();
                 }
-            } else if line.starts_with("Zero Crossings:") {
-                if let Some(val_str) = line.split_whitespace().nth(2) {
-                    zero_crossings = val_str.parse().ok();
-                }
-            } else if line.starts_with("Spectral Centroid:") {
-                if let Some(val_str) = line.split_whitespace().nth(2) {
+            } else if line.contains("\"spectral_centroid\":") {
+                if let Some(val) = line.split(':').nth(1) {
+                    let val_str = val.trim().trim_end_matches(',');
                     spectral_centroid = val_str.parse().ok();
+                }
+            } else if line.contains("\"dominant_frequency\":") {
+                if let Some(val) = line.split(':').nth(1) {
+                    let val_str = val.trim().trim_end_matches(',');
+                    dominant_frequency = val_str.parse().ok();
+                }
+            } else if line.contains("\"is_empty\":") {
+                is_empty = line.contains("true");
+            } else if line.contains("\"is_clipping\":") {
+                is_clipping = line.contains("true");
+            } else if line.contains("\"freq\":") && line.contains("\"magnitude\":") {
+                let parts: Vec<&str> = line.split(',').collect();
+                if parts.len() >= 2 {
+                    if let Some(freq_str) = parts[0].split(':').nth(1) {
+                        if let Some(mag_str) = parts[1].split(':').nth(1) {
+                            let freq: f32 = freq_str.trim().parse().unwrap_or(0.0);
+                            let mag: f32 = mag_str
+                                .trim()
+                                .trim_end_matches('}')
+                                .trim()
+                                .parse()
+                                .unwrap_or(0.0);
+                            frequency_bins.push((freq, mag));
+                        }
+                    }
                 }
             }
         }
 
-        let dominant_frequency = None; // Not in text output
+        // Parse onset_times array
+        if let Some(onset_section) = json.split("\"onset_times\": [").nth(1) {
+            if let Some(times_str) = onset_section.split(']').next() {
+                for time_str in times_str.split(',') {
+                    if let Ok(time) = time_str.trim().parse::<f32>() {
+                        onset_times.push(time);
+                    }
+                }
+            }
+        }
 
         Ok(AudioAnalysis {
             rms: rms.ok_or("Failed to parse RMS")?,
             peak: peak.ok_or("Failed to parse peak")?,
             onset_count: onset_count.ok_or("Failed to parse onset count")?,
-            onset_times: Vec::new(), // Not in text output
-            zero_crossings: zero_crossings.ok_or("Failed to parse zero crossings")?,
+            onset_times,
+            zero_crossings: 0, // Not in JSON output
             spectral_centroid: spectral_centroid.ok_or("Failed to parse spectral centroid")?,
-            dominant_frequency: dominant_frequency.unwrap_or(0.0),
-            frequency_bins: Vec::new(), // Not in text output
+            dominant_frequency: dominant_frequency.ok_or("Failed to parse dominant frequency")?,
+            frequency_bins,
             is_empty,
             is_clipping,
         })
@@ -210,12 +246,30 @@ out: sine "440 550 660 770" * 0.3
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
-    let analysis = test.analyze(&wav_path).expect("Failed to analyze");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     // Verify audio was produced
     assert!(!analysis.is_empty, "Audio should not be empty");
     assert!(analysis.rms > 0.05, "RMS should be significant: {}", analysis.rms);
     assert!(!analysis.is_clipping, "Audio should not be clipping");
+
+    // FFT verification: check that all four frequencies are present
+    assert!(
+        analysis.has_frequency(440.0, 50.0),
+        "Should detect 440Hz in pattern"
+    );
+    assert!(
+        analysis.has_frequency(550.0, 50.0),
+        "Should detect 550Hz in pattern"
+    );
+    assert!(
+        analysis.has_frequency(660.0, 50.0),
+        "Should detect 660Hz in pattern"
+    );
+    assert!(
+        analysis.has_frequency(770.0, 50.0),
+        "Should detect 770Hz in pattern"
+    );
 
     // Pattern should have continuous audio (not discrete onsets like samples)
     // Verify spectral content is in the mid-range where our tones are
@@ -240,10 +294,20 @@ out: sine "100 200" $ fast 2
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
-    let analysis = test.analyze(&wav_path).expect("Failed to analyze");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
     assert!(analysis.rms > 0.05, "RMS should be significant");
+
+    // FFT verification: both frequencies should be present
+    assert!(
+        analysis.has_frequency(100.0, 50.0),
+        "Should detect 100Hz in fast pattern"
+    );
+    assert!(
+        analysis.has_frequency(200.0, 50.0),
+        "Should detect 200Hz in fast pattern"
+    );
 
     // fast 2 means the pattern plays twice as fast
     // Pattern "100 200" normally plays at cycle rate (1 Hz = 1 cycle/sec)
@@ -269,11 +333,21 @@ out: sine "200 400" $ slow 2
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
-    let analysis = test.analyze(&wav_path).expect("Failed to analyze");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
     assert!(analysis.rms > 0.05, "RMS should be significant");
     assert!(!analysis.is_clipping, "Audio should not clip");
+
+    // FFT verification: both frequencies should be present
+    assert!(
+        analysis.has_frequency(200.0, 50.0),
+        "Should detect 200Hz in slow pattern"
+    );
+    assert!(
+        analysis.has_frequency(400.0, 50.0),
+        "Should detect 400Hz in slow pattern"
+    );
 
     // Verify we got low-mid frequency content
     assert!(
@@ -295,11 +369,25 @@ out: sine "300 600 900" $ rev
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
-    let analysis = test.analyze(&wav_path).expect("Failed to analyze");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
     assert!(analysis.rms > 0.05, "RMS should be significant");
     assert!(!analysis.is_clipping, "Audio should not clip");
+
+    // FFT verification: all three frequencies should be present
+    assert!(
+        analysis.has_frequency(300.0, 50.0),
+        "Should detect 300Hz in reversed pattern"
+    );
+    assert!(
+        analysis.has_frequency(600.0, 50.0),
+        "Should detect 600Hz in reversed pattern"
+    );
+    assert!(
+        analysis.has_frequency(900.0, 50.0),
+        "Should detect 900Hz in reversed pattern"
+    );
 }
 
 #[test]
@@ -314,7 +402,7 @@ out: s "bd" $ euclid 3 8
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
-    let analysis = test.analyze(&wav_path).expect("Failed to analyze");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
     assert!(analysis.rms > 0.01, "RMS should be significant");
@@ -337,7 +425,7 @@ out: s "bd sn hh cp" $ every 2 (fast 2)
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
-    let analysis = test.analyze(&wav_path).expect("Failed to analyze");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
     assert!(analysis.rms > 0.01, "RMS should be significant");
@@ -355,7 +443,7 @@ out: s "bd sn hh cp" $ sometimes (fast 2)
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
-    let analysis = test.analyze(&wav_path).expect("Failed to analyze");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
     assert!(analysis.rms > 0.01, "RMS should be significant");
@@ -373,7 +461,7 @@ out: s "bd sn" $ superimpose (fast 2)
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
-    let analysis = test.analyze(&wav_path).expect("Failed to analyze");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
     assert!(analysis.rms > 0.01, "RMS should be significant");
@@ -391,7 +479,7 @@ out: s "bd sn hh cp" $ chunk 2 (fast 2)
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
-    let analysis = test.analyze(&wav_path).expect("Failed to analyze");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
     assert!(analysis.rms > 0.01, "RMS should be significant");
@@ -409,7 +497,7 @@ out: s "bd sn hh cp" $ within 0.0 0.5 (fast 2)
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
-    let analysis = test.analyze(&wav_path).expect("Failed to analyze");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
     assert!(analysis.rms > 0.01, "RMS should be significant");
@@ -430,7 +518,7 @@ out: ~kick * 0.3 + ~snare * 0.2 + ~hats * 0.2
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
-    let analysis = test.analyze(&wav_path).expect("Failed to analyze");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     assert!(!analysis.is_empty, "Audio should not be empty");
     assert!(analysis.rms > 0.01, "RMS should be significant");
@@ -448,7 +536,7 @@ out: sine 0
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
-    let analysis = test.analyze(&wav_path).expect("Failed to analyze");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
 
     // DC signal (0 Hz) should be nearly silent
     assert!(
