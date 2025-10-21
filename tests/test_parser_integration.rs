@@ -136,7 +136,10 @@ fn test_bus_reference_formats() {
         // With tilde and no explicit output (auto-routing)
         ("cps: 2.0\n~bass: saw 110", "auto_route"),
         // Multiple buses mixed
-        ("cps: 2.0\n~bass: saw 110\n~lead: square 440\nout: ~bass * 0.3 + ~lead * 0.1", "mixed"),
+        (
+            "cps: 2.0\n~bass: saw 110\n~lead: square 440\nout: ~bass * 0.3 + ~lead * 0.1",
+            "mixed",
+        ),
     ];
 
     for (code, name) in test_cases {
