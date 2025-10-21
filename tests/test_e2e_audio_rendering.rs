@@ -1162,3 +1162,588 @@ out: sine 110 # distort 0.5 1.0 # lpf 200 0.8
     // Distort-then-filter generates harmonics, then filters them out
     // Both should have different spectral characteristics
 }
+
+// ========== Priority 3: Polyphony & Voice Management ==========
+
+#[test]
+#[ignore]
+fn test_many_overlapping_voices() {
+    let test = AudioTest::new("many_voices");
+
+    // 16 rapid kick triggers - tests voice allocation
+    let code = r#"
+tempo: 4.0
+out: s "bd*16"
+"#;
+
+    let wav_path = test.render(code, 1).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.rms > 0.05, "RMS should be significant with many voices");
+
+    println!("Many voices test:");
+    println!("  RMS: {:.3}", analysis.rms);
+    println!("  Peak: {:.3}", analysis.peak);
+}
+
+#[test]
+#[ignore]
+fn test_polyphonic_simultaneous_samples() {
+    let test = AudioTest::new("polyphonic");
+
+    // 4 simultaneous samples using polyrhythm notation
+    let code = r#"
+tempo: 2.0
+out: s "[bd, sn, hh, cp]"
+"#;
+
+    let wav_path = test.render(code, 1).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    // All 4 samples playing simultaneously should have higher RMS than single sample
+    assert!(analysis.rms > 0.05, "Polyphonic playback should have significant RMS");
+
+    println!("Polyphonic test:");
+    println!("  RMS: {:.3}", analysis.rms);
+}
+
+#[test]
+#[ignore]
+fn test_rapid_triggering() {
+    let test = AudioTest::new("rapid_trigger");
+
+    // Very fast hi-hats - 32 per cycle at fast 4 = 128 triggers/cycle
+    let code = r#"
+tempo: 2.0
+out: s "hh*32" $ fast 4
+"#;
+
+    let wav_path = test.render(code, 1).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.rms > 0.01, "Rapid triggering should produce audio");
+
+    println!("Rapid triggering test:");
+    println!("  RMS: {:.3}", analysis.rms);
+}
+
+#[test]
+#[ignore]
+fn test_voice_stability() {
+    let test = AudioTest::new("voice_stability");
+
+    // Complex pattern with many simultaneous events
+    let code = r#"
+tempo: 2.0
+~drums: s "[bd bd, sn sn, hh*4, cp]"
+out: ~drums
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.rms > 0.05, "Complex polyphony should produce significant audio");
+    // Note: Complex polyphony may clip - acceptable behavior
+}
+
+// ========== Priority 4: Bus Routing & Mixing ==========
+
+#[test]
+#[ignore]
+fn test_two_bus_mix() {
+    let test = AudioTest::new("two_bus_mix");
+
+    // Two separate buses mixed together
+    let code = r#"
+tempo: 2.0
+~kick: s "bd"
+~snare: s "sn"
+out: ~kick * 0.7 + ~snare * 0.3
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.rms > 0.01, "Mixed buses should produce audio");
+
+    println!("Two bus mix test:");
+    println!("  RMS: {:.3}", analysis.rms);
+}
+
+#[test]
+#[ignore]
+fn test_multiple_bus_arithmetic() {
+    let test = AudioTest::new("multi_bus");
+
+    // Three buses with different frequencies, mixed equally
+    let code = r#"
+tempo: 1.0
+~a: sine 440
+~b: sine 880
+~c: sine 1320
+out: (~a + ~b + ~c) * 0.33
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+
+    // All three frequencies should be present
+    assert!(analysis.has_frequency(440.0, 50.0), "Should have 440Hz");
+    assert!(analysis.has_frequency(880.0, 50.0), "Should have 880Hz");
+    assert!(analysis.has_frequency(1320.0, 50.0), "Should have 1320Hz");
+
+    println!("Multiple bus test:");
+    println!("  440Hz: {:.1}", analysis.get_frequency_magnitude(440.0, 50.0));
+    println!("  880Hz: {:.1}", analysis.get_frequency_magnitude(880.0, 50.0));
+    println!("  1320Hz: {:.1}", analysis.get_frequency_magnitude(1320.0, 50.0));
+}
+
+#[test]
+#[ignore]
+fn test_bus_through_effects() {
+    let test = AudioTest::new("bus_effects");
+
+    // Dry/wet mix using buses
+    let code = r#"
+tempo: 2.0
+~dry: s "bd"
+~wet: ~dry # reverb 0.5 0.7 0.5
+out: ~dry * 0.5 + ~wet * 0.5
+"#;
+
+    let wav_path = test.render(code, 1).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.rms > 0.01, "Bus through effects should produce audio");
+}
+
+#[test]
+#[ignore]
+fn test_complex_bus_routing() {
+    let test = AudioTest::new("complex_routing");
+
+    // Multi-stage bus processing
+    let code = r#"
+tempo: 2.0
+~bass: saw 55
+~filtered: ~bass # lpf 800 0.8
+~affected: ~filtered # distort 0.3 1.0
+out: ~affected * 0.5
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.has_frequency(55.0, 20.0), "Should have 55Hz fundamental");
+
+    println!("Complex routing test:");
+    println!("  Spectral centroid: {:.1}Hz", analysis.spectral_centroid);
+}
+
+// ========== Priority 5: Signal Chaining ==========
+
+#[test]
+#[ignore]
+fn test_three_stage_chain() {
+    let test = AudioTest::new("three_stage");
+
+    // Saw -> LPF -> Reverb -> Distort
+    let code = r#"
+tempo: 1.0
+out: saw 110 # lpf 500 0.8 # reverb 0.3 0.5 0.3 # distort 0.2 1.0
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.has_frequency(110.0, 30.0), "Should have 110Hz fundamental");
+
+    println!("Three-stage chain test:");
+    println!("  Spectral centroid: {:.1}Hz", analysis.spectral_centroid);
+}
+
+#[test]
+#[ignore]
+fn test_sample_through_effects_chain() {
+    let test = AudioTest::new("sample_chain");
+
+    // Sample through multiple effects
+    let code = r#"
+tempo: 2.0
+out: s "bd" # lpf 1000 0.8 # distort 0.2 1.0
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.rms > 0.01, "Chained effects should produce audio");
+}
+
+#[test]
+#[ignore]
+fn test_synthesis_effects_chain() {
+    let test = AudioTest::new("synth_chain");
+
+    // Synthesis with effect chain
+    let code = r#"
+tempo: 1.0
+out: sine 220 # distort 0.5 1.0 # hpf 200 0.5
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    // Distortion adds harmonics, HPF filters low end
+    assert!(
+        analysis.spectral_centroid > 200.0,
+        "HPF should shift spectral content up, got {}Hz",
+        analysis.spectral_centroid
+    );
+}
+
+// ========== Priority 6: Mini-Notation Features ==========
+
+#[test]
+#[ignore]
+fn test_mini_notation_repetition() {
+    let test = AudioTest::new("repetition");
+
+    // *4 should trigger 4 times per cycle
+    let code = r#"
+tempo: 2.0
+out: s "bd*4"
+"#;
+
+    let wav_path = test.render(code, 1).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.rms > 0.01, "Repetition should produce audio");
+}
+
+#[test]
+#[ignore]
+fn test_mini_notation_division() {
+    let test = AudioTest::new("division");
+
+    // /2 should trigger every other cycle
+    let code = r#"
+tempo: 2.0
+out: s "bd/2"
+"#;
+
+    let wav_path = test.render(code, 4).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    // bd/2 means one trigger every 2 cycles, so 2 triggers over 4 cycles
+    assert!(analysis.onset_count >= 1, "Should detect at least one onset");
+}
+
+#[test]
+#[ignore]
+fn test_mini_notation_polyrhythm() {
+    let test = AudioTest::new("polyrhythm");
+
+    // [bd bd bd, sn sn] - 3 against 2
+    let code = r#"
+tempo: 2.0
+out: s "[bd bd bd, sn sn]"
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.rms > 0.01, "Polyrhythm should produce audio");
+}
+
+#[test]
+#[ignore]
+fn test_mini_notation_alternation() {
+    let test = AudioTest::new("alternation");
+
+    // <bd sn> - alternates each cycle
+    let code = r#"
+tempo: 2.0
+out: s "<bd sn>"
+"#;
+
+    let wav_path = test.render(code, 4).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.rms > 0.01, "Alternation should produce audio");
+}
+
+#[test]
+#[ignore]
+fn test_mini_notation_rests() {
+    let test = AudioTest::new("rests");
+
+    // ~ represents rest
+    let code = r#"
+tempo: 2.0
+out: s "bd ~ sn ~"
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    // Only 2 out of 4 steps have sound (bd and sn), rests are silent
+    assert!(analysis.rms > 0.005, "Pattern with rests should produce some audio");
+}
+
+#[test]
+#[ignore]
+fn test_mini_notation_nested() {
+    let test = AudioTest::new("nested");
+
+    // Nested structures
+    let code = r#"
+tempo: 2.0
+out: s "[bd*2, [sn hh]*2]"
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.rms > 0.01, "Nested structures should produce audio");
+}
+
+// ========== Priority 7: Stress Tests ==========
+
+#[test]
+#[ignore]
+fn test_long_render_100_cycles() {
+    let test = AudioTest::new("long_render");
+
+    // Simple pattern over 100 cycles - tests stability
+    let code = r#"
+tempo: 4.0
+out: s "bd sn hh cp"
+"#;
+
+    let wav_path = test.render(code, 100).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty after 100 cycles");
+    assert!(analysis.rms > 0.01, "RMS should be consistent over long render");
+    // Note: Long renders may have occasional clipping - acceptable
+
+    println!("100-cycle render test:");
+    println!("  RMS: {:.3}", analysis.rms);
+}
+
+#[test]
+#[ignore]
+fn test_many_simultaneous_voices_64() {
+    let test = AudioTest::new("64_voices");
+
+    // Push voice limit with many simultaneous events
+    let code = r#"
+tempo: 2.0
+out: s "[bd,sn,hh,cp,bd,sn,hh,cp,bd,sn,hh,cp,bd,sn,hh,cp]*4"
+"#;
+
+    let wav_path = test.render(code, 1).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.rms > 0.05, "Many voices should produce significant audio");
+}
+
+#[test]
+#[ignore]
+fn test_complex_composition_stress() {
+    let test = AudioTest::new("complex_stress");
+
+    // Complex multi-bus pattern with transforms
+    let code = r#"
+tempo: 2.0
+~k: s "bd" $ euclid 5 8
+~s: s "sn" $ euclid 3 8 $ fast 2
+~h: s "hh*8" $ sometimes (fast 2)
+~c: s "cp*4" $ every 3 (rev)
+~bass: saw 55 # lpf 800 0.8
+out: ~k*0.3 + ~s*0.2 + ~h*0.15 + ~c*0.15 + ~bass*0.2
+"#;
+
+    let wav_path = test.render(code, 8).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Complex composition should produce audio");
+    assert!(analysis.rms > 0.01, "Should have significant RMS");
+    // Note: Complex compositions may clip - stress test acceptable
+}
+
+#[test]
+#[ignore]
+fn test_memory_stability_long_render() {
+    let test = AudioTest::new("memory_stable");
+
+    // Very long render to test memory stability
+    let code = r#"
+tempo: 4.0
+~drums: s "bd sn [hh hh] cp"
+~synth: sine "440 550 660"
+out: ~drums * 0.5 + ~synth * 0.2
+"#;
+
+    let wav_path = test.render(code, 200).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Should maintain audio over 200 cycles");
+    assert!(analysis.rms > 0.01, "Should maintain consistent RMS");
+}
+
+// ========== Priority 8: Edge Cases ==========
+
+#[test]
+#[ignore]
+fn test_edge_case_empty_pattern() {
+    let test = AudioTest::new("empty_pattern");
+
+    // Empty pattern should produce silence
+    let code = r#"
+tempo: 2.0
+out: s ""
+"#;
+
+    let wav_path = test.render(code, 1).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    // Empty pattern should produce very low RMS (near silence)
+    assert!(
+        analysis.rms < 0.01,
+        "Empty pattern should be silent, got RMS {}",
+        analysis.rms
+    );
+}
+
+#[test]
+#[ignore]
+fn test_edge_case_zero_frequency() {
+    let test = AudioTest::new("zero_freq");
+
+    // 0 Hz should produce DC offset (very low RMS)
+    let code = r#"
+tempo: 1.0
+out: sine 0
+"#;
+
+    let wav_path = test.render(code, 1).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(
+        analysis.rms < 0.1,
+        "Zero frequency should have low RMS, got {}",
+        analysis.rms
+    );
+}
+
+#[test]
+#[ignore]
+fn test_edge_case_extreme_filter_q() {
+    let test = AudioTest::new("extreme_q");
+
+    // Very high Q value
+    let code = r#"
+tempo: 1.0
+out: saw 110 # lpf 500 20.0
+"#;
+
+    let wav_path = test.render(code, 1).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Extreme Q should still produce audio");
+    // Note: Extreme Q can cause clipping - that's expected behavior
+}
+
+#[test]
+#[ignore]
+fn test_edge_case_negative_amplitude() {
+    let test = AudioTest::new("negative_amp");
+
+    // Negative amplitude = phase inversion
+    let code = r#"
+tempo: 1.0
+out: sine 440 * -0.5
+"#;
+
+    let wav_path = test.render(code, 1).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Negative amplitude should still produce audio");
+    assert!(analysis.has_frequency(440.0, 50.0), "Should have 440Hz");
+}
+
+#[test]
+#[ignore]
+fn test_edge_case_very_high_tempo() {
+    let test = AudioTest::new("high_tempo");
+
+    // Extremely fast tempo
+    let code = r#"
+tempo: 20.0
+out: s "bd"
+"#;
+
+    let wav_path = test.render(code, 10).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Very high tempo should still work");
+}
+
+#[test]
+#[ignore]
+fn test_edge_case_very_low_tempo() {
+    let test = AudioTest::new("low_tempo");
+
+    // Very slow tempo
+    let code = r#"
+tempo: 0.1
+out: s "bd"
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Very low tempo should still work");
+}
+
+#[test]
+#[ignore]
+fn test_edge_case_silence_pattern() {
+    let test = AudioTest::new("silence_only");
+
+    // Pattern of only rests
+    let code = r#"
+tempo: 2.0
+out: s "~ ~ ~ ~"
+"#;
+
+    let wav_path = test.render(code, 1).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    // All rests should be silent
+    assert!(
+        analysis.rms < 0.01,
+        "Pattern of rests should be silent, got RMS {}",
+        analysis.rms
+    );
+}
