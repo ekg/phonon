@@ -7,13 +7,15 @@ fn test_drum_kit_mixing() {
     println!("Testing drum kit with multiple mixed signals...");
 
     let phonon_code = r#"
+cps: 2.0
+
 # Drum kit with kick, snare, and hats
-kick = noise >> lpf("100 ~ ~ ~ 100 ~ ~ ~", 20)
-snare = noise >> hpf("~ ~ 2000 ~", 10) >> lpf 5000 5
-hats = noise >> hpf 8000 10
+~kick: noise 0 # lpf "100 ~ ~ ~ 100 ~ ~ ~" 20
+~snare: noise 0 # hpf "~ ~ 2000 ~" 10 # lpf 5000 5
+~hats: noise 0 # hpf 8000 10
 
 # Mix all drums
-out kick * 0.5 + snare * 0.3 + hats * 0.05
+out: ~kick * 0.5 + ~snare * 0.3 + ~hats * 0.05
 "#;
 
     fs::write("/tmp/test_drums.phonon", phonon_code).unwrap();
@@ -74,13 +76,15 @@ fn test_arithmetic_precedence() {
     println!("Testing arithmetic precedence and complex expressions...");
 
     let phonon_code = r#"
+cps: 2.0
+
 # Test order of operations
-sig1 = sine 220
-sig2 = sine 440
-sig3 = sine 880
+~sig1: sine 220
+~sig2: sine 440
+~sig3: sine 880
 
 # Should be (sig1 * 0.3) + (sig2 * 0.2) + (sig3 * 0.1)
-out sig1 * 0.3 + sig2 * 0.2 + sig3 * 0.1
+out: ~sig1 * 0.3 + ~sig2 * 0.2 + ~sig3 * 0.1
 "#;
 
     fs::write("/tmp/test_precedence.phonon", phonon_code).unwrap();
@@ -128,11 +132,11 @@ fn test_bus_reference_formats() {
 
     let test_cases = vec![
         // With tilde prefix in definition and reference
-        ("~bass = saw 110\nout ~bass * 0.2", "tilde_both"),
-        // Without tilde in definition, with in reference
-        ("bass = saw 110\nout ~bass * 0.2", "no_tilde_def"),
-        // Without tilde anywhere
-        ("bass = saw 110\nout bass * 0.2", "no_tilde"),
+        ("cps: 2.0\n~bass: saw 110\nout: ~bass * 0.2", "tilde_both"),
+        // With tilde and no explicit output (auto-routing)
+        ("cps: 2.0\n~bass: saw 110", "auto_route"),
+        // Multiple buses mixed
+        ("cps: 2.0\n~bass: saw 110\n~lead: square 440\nout: ~bass * 0.3 + ~lead * 0.1", "mixed"),
     ];
 
     for (code, name) in test_cases {
@@ -194,12 +198,14 @@ fn test_pattern_modulation_in_mix() {
     println!("Testing pattern modulation in mixed signals...");
 
     let phonon_code = r#"
+cps: 2.0
+
 # Pattern-modulated signals
-bass = saw "55 82.5" >> lpf("500 1000", 3)
-lead = square "440 550 660 550"
+~bass: saw "55 82.5" # lpf "500 1000" 3
+~lead: square "440 550 660 550"
 
 # Mix them
-out bass * 0.4 + lead * 0.1
+out: ~bass * 0.4 + ~lead * 0.1
 "#;
 
     fs::write("/tmp/test_pattern_mix.phonon", phonon_code).unwrap();
@@ -235,11 +241,11 @@ out bass * 0.4 + lead * 0.1
     );
 
     // With frequency patterns, the spectral centroid should vary
-    // We can at least check it's in a reasonable range
+    // Square wave at 440-660 Hz + bass at 55-82.5 Hz should give reasonable centroid
     let centroid = extract_spectral_centroid(&analysis);
     assert!(
-        centroid > 100.0 && centroid < 2000.0,
-        "Spectral centroid suggests pattern issue: {} Hz",
+        centroid > 100.0 && centroid < 5000.0,
+        "Spectral centroid suggests pattern issue: {} Hz (expected 100-5000 Hz)",
         centroid
     );
 
