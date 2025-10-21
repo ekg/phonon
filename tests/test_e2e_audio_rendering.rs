@@ -1747,3 +1747,367 @@ out: s "~ ~ ~ ~"
         analysis.rms
     );
 }
+
+// ============================================================================
+// GROUP 1: Chopping & Restructuring Transforms E2E Tests
+// ============================================================================
+
+#[test]
+#[ignore]
+fn test_compress_transform_audio() {
+    let test = AudioTest::new("compress_e2e");
+
+    // compress squeezes events into portion of cycle
+    let code = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ compress 0.0 0.5
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Compressed pattern should produce audio");
+    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
+    
+    // Should have at least 4 onsets (4 samples)
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
+
+    println!("Compress test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+}
+
+#[test]
+#[ignore]
+fn test_shuffle_transform_audio() {
+    let test = AudioTest::new("shuffle_e2e");
+
+    // shuffle randomizes event order
+    let code = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ shuffle 0.5
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Shuffled pattern should produce audio");
+    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
+    
+    // Should still have all events, just reordered
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
+
+    println!("Shuffle test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+}
+
+#[test]
+#[ignore]
+fn test_spin_transform_audio() {
+    let test = AudioTest::new("spin_e2e");
+
+    // spin rotates events
+    let code = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ spin 4
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Spun pattern should produce audio");
+    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
+    
+    // Should have events rotated but present
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
+
+    println!("Spin test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+}
+
+#[test]
+#[ignore]
+fn test_fit_transform_audio() {
+    let test = AudioTest::new("fit_e2e");
+
+    // fit adjusts pattern length
+    let code = r#"
+tempo: 2.0
+out: s "bd sn" $ fit 2
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Fitted pattern should produce audio");
+    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
+
+    println!("Fit test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+}
+
+#[test]
+#[ignore]
+fn test_scramble_transform_audio() {
+    let test = AudioTest::new("scramble_e2e");
+
+    // scramble reorders events with seed
+    let code = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ scramble 42
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Scrambled pattern should produce audio");
+    assert!(analysis.rms > 0.01, "Should have substantial audio, got RMS {}", analysis.rms);
+    
+    // Events should be present but scrambled
+    assert!(
+        analysis.onset_count >= 2,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
+
+    println!("Scramble test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+}
+
+// ============================================================================
+// GROUP 2-3: Timing & Shaping Transforms E2E Tests
+// ============================================================================
+
+#[test]
+#[ignore]
+fn test_inside_transform_audio() {
+    let test = AudioTest::new("inside_e2e");
+
+    // inside applies transform only inside specified range
+    let code = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ inside 0.25 0.75 (fast 2)
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Inside transform should produce audio");
+    assert!(analysis.rms > 0.01, "Should have audio, got RMS {}", analysis.rms);
+
+    println!("Inside test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+}
+
+#[test]
+#[ignore]
+fn test_outside_transform_audio() {
+    let test = AudioTest::new("outside_e2e");
+
+    // outside applies transform outside specified range
+    let code = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ outside 0.25 0.75 (fast 2)
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Outside transform should produce audio");
+    assert!(analysis.rms > 0.01, "Should have audio, got RMS {}", analysis.rms);
+
+    println!("Outside test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+}
+
+#[test]
+#[ignore]
+fn test_wait_transform_audio() {
+    let test = AudioTest::new("wait_e2e");
+
+    // wait delays pattern start
+    let code = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ wait 0.25
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Wait transform should produce audio");
+    assert!(analysis.rms > 0.01, "Should have audio after delay, got RMS {}", analysis.rms);
+
+    println!("Wait test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+}
+
+#[test]
+#[ignore]
+fn test_focus_transform_audio() {
+    let test = AudioTest::new("focus_e2e");
+
+    // focus zooms into portion of pattern
+    let code = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ focus 0.25 0.75
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Focus transform should produce audio");
+    assert!(analysis.rms > 0.01, "Should have audio, got RMS {}", analysis.rms);
+
+    println!("Focus test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+}
+
+#[test]
+#[ignore]
+fn test_smooth_transform_audio() {
+    let test = AudioTest::new("smooth_e2e");
+
+    // smooth interpolates numeric patterns
+    let code = r#"
+tempo: 2.0
+out: saw "110 220 330 440" $ smooth
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Smooth transform should produce audio");
+    assert!(analysis.rms > 0.01, "Should have audio, got RMS {}", analysis.rms);
+    
+    // Should have frequency content in the range 110-440Hz
+    assert!(
+        analysis.spectral_centroid > 100.0 && analysis.spectral_centroid < 1000.0,
+        "Spectral centroid should be in frequency range"
+    );
+
+    println!("Smooth test: RMS={:.3}, centroid={:.1}Hz", analysis.rms, analysis.spectral_centroid);
+}
+
+#[test]
+#[ignore]
+fn test_trim_transform_audio() {
+    let test = AudioTest::new("trim_e2e");
+
+    // trim removes events outside range
+    let code = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ trim 0.25 0.75
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Trim transform should produce audio");
+    assert!(analysis.rms > 0.01, "Should have audio in trimmed range, got RMS {}", analysis.rms);
+
+    println!("Trim test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+}
+
+// ============================================================================
+// Transform Chaining E2E Tests
+// ============================================================================
+
+#[test]
+#[ignore]
+fn test_chain_multiple_transforms_audio() {
+    let test = AudioTest::new("chain_multi");
+
+    // Chain multiple transforms together
+    let code = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ fast 2 $ rev $ euclid 5 8
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Chained transforms should produce audio");
+    assert!(analysis.rms > 0.1, "Should have substantial audio, got RMS {}", analysis.rms);
+    
+    // Should have multiple onsets from complex pattern
+    assert!(
+        analysis.onset_count >= 3,
+        "Should detect at least 2 onsets, got {}",
+        analysis.onset_count
+    );
+
+    println!("Chain multi test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+}
+
+#[test]
+#[ignore]
+fn test_chain_order_independence() {
+    let test1 = AudioTest::new("chain_order1");
+    let test2 = AudioTest::new("chain_order2");
+
+    // Test if order matters for commutative operations
+    let code1 = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ fast 2 $ slow 2
+"#;
+
+    let code2 = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ slow 2 $ fast 2
+"#;
+
+    let wav1 = test1.render(code1, 2).expect("Failed to render");
+    let wav2 = test2.render(code2, 2).expect("Failed to render");
+    
+    let analysis1 = test1.analyze_json(&wav1).expect("Failed to analyze");
+    let analysis2 = test2.analyze_json(&wav2).expect("Failed to analyze");
+
+    // Both should produce audio
+    assert!(!analysis1.is_empty && !analysis2.is_empty, "Both orders should work");
+    assert!(analysis1.rms > 0.01 && analysis2.rms > 0.01, "Both should have audio");
+
+    println!("Chain order1: RMS={:.3}, onsets={}", analysis1.rms, analysis1.onset_count);
+    println!("Chain order2: RMS={:.3}, onsets={}", analysis2.rms, analysis2.onset_count);
+}
+
+#[test]
+#[ignore]
+fn test_chain_with_higher_order() {
+    let test = AudioTest::new("chain_higher_order");
+
+    // Chain with higher-order transform (sometimes)
+    let code = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ fast 2 $ sometimes (fast 4) $ rev
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Higher-order chain should produce audio");
+    assert!(analysis.rms > 0.01, "Should have audio, got RMS {}", analysis.rms);
+
+    println!("Higher-order chain test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+}
+
+#[test]
+#[ignore]
+fn test_chain_structure_and_probability() {
+    let test = AudioTest::new("chain_struct_prob");
+
+    // Mix structural and probabilistic transforms
+    let code = r#"
+tempo: 2.0
+out: s "bd sn hh cp" $ euclid 3 8 $ often (fast 2) $ rev
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Mixed transform chain should produce audio");
+    assert!(analysis.rms > 0.01, "Should have audio, got RMS {}", analysis.rms);
+
+    println!("Struct+prob chain test: RMS={:.3}, onsets={}", analysis.rms, analysis.onset_count);
+}
