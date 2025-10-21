@@ -735,3 +735,190 @@ out: s "hh" $ euclid 3 8
         }
     }
 }
+
+// ========== Priority 1: Pattern-Controlled Parameters ==========
+// This is Phonon's UNIQUE feature - patterns as continuous control signals!
+
+#[test]
+#[ignore]
+fn test_pattern_modulates_filter_cutoff() {
+    let test = AudioTest::new("pattern_filter_mod");
+
+    // LFO pattern sweeps filter cutoff
+    // ~lfo oscillates -1 to +1, scaled to 500-1500Hz range
+    let code = r#"
+tempo: 1.0
+~lfo: sine 0.5
+out: saw 110 # lpf (~lfo * 500 + 1000) 0.8
+"#;
+
+    let wav_path = test.render(code, 4).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+    assert!(analysis.rms > 0.05, "RMS should be significant");
+
+    // Saw wave at 110Hz generates harmonics at 220, 330, 440, 550, 660, 770, 880, 990, 1100Hz
+    // With LFO sweeping filter from 500-1500Hz:
+    // - When filter at 500Hz: should see 110, 220, 330, 440Hz
+    // - When filter at 1500Hz: should see many harmonics up to ~1100Hz
+
+    // Verify fundamental is always present
+    assert!(
+        analysis.has_frequency(110.0, 30.0),
+        "Fundamental 110Hz should always be present"
+    );
+
+    // Verify we have content in mid-range (filter is working)
+    assert!(
+        analysis.spectral_centroid > 200.0 && analysis.spectral_centroid < 1200.0,
+        "Spectral centroid should be in swept filter range, got {}Hz",
+        analysis.spectral_centroid
+    );
+
+    println!("Filter sweep test:");
+    println!("  Spectral centroid: {:.1}Hz", analysis.spectral_centroid);
+    println!("  RMS: {:.3}", analysis.rms);
+}
+
+#[test]
+#[ignore]
+fn test_pattern_modulates_amplitude() {
+    let test = AudioTest::new("pattern_amp_mod");
+
+    // Pattern creates amplitude envelope (tremolo effect)
+    // Sine LFO at 2Hz modulates amplitude of 440Hz tone
+    let code = r#"
+tempo: 1.0
+~env: sine 2.0
+out: sine 440 * (~env * 0.5 + 0.5)
+"#;
+
+    let wav_path = test.render(code, 2).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+
+    // Verify 440Hz tone is present
+    assert!(
+        analysis.has_frequency(440.0, 50.0),
+        "Should have 440Hz carrier tone"
+    );
+
+    // With tremolo, RMS should be lower than full amplitude
+    // ~env ranges -1 to +1, scaled to 0 to 1, so average amplitude ~0.5
+    assert!(
+        analysis.rms > 0.1 && analysis.rms < 0.4,
+        "RMS should reflect modulated amplitude, got {}",
+        analysis.rms
+    );
+
+    println!("Amplitude modulation test:");
+    println!("  440Hz magnitude: {:.1}", analysis.get_frequency_magnitude(440.0, 50.0));
+    println!("  RMS: {:.3}", analysis.rms);
+}
+
+#[test]
+#[ignore]
+fn test_pattern_arithmetic() {
+    let test = AudioTest::new("pattern_arithmetic");
+
+    // Complex arithmetic on patterns
+    // Two LFOs at different rates combined
+    let code = r#"
+tempo: 1.0
+~lfo1: sine 0.5
+~lfo2: sine 0.3
+out: sine 440 * ((~lfo1 * 0.25 + 0.5) + (~lfo2 * 0.25 + 0.5))
+"#;
+
+    let wav_path = test.render(code, 4).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+
+    // Verify 440Hz carrier present
+    assert!(
+        analysis.has_frequency(440.0, 50.0),
+        "Should have 440Hz carrier"
+    );
+
+    // Combined modulation should produce varying amplitude
+    assert!(
+        analysis.rms > 0.1,
+        "Should have significant amplitude from combined LFOs, got {}",
+        analysis.rms
+    );
+
+    println!("Pattern arithmetic test:");
+    println!("  RMS: {:.3}", analysis.rms);
+}
+
+#[test]
+#[ignore]
+fn test_pattern_controls_frequency() {
+    let test = AudioTest::new("pattern_freq_mod");
+
+    // Pattern sweeps oscillator frequency (FM synthesis concept)
+    // ~sweep ranges -1 to +1, scaled to 220-660Hz
+    let code = r#"
+tempo: 1.0
+~sweep: sine 0.5
+out: sine (~sweep * 220 + 440) * 0.3
+"#;
+
+    let wav_path = test.render(code, 4).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+
+    // Should see smeared frequency content across sweep range
+    // Spectral centroid should be somewhere in 220-660Hz range
+    assert!(
+        analysis.spectral_centroid > 200.0 && analysis.spectral_centroid < 700.0,
+        "Spectral centroid should be in frequency sweep range, got {}Hz",
+        analysis.spectral_centroid
+    );
+
+    println!("Frequency modulation test:");
+    println!("  Spectral centroid: {:.1}Hz", analysis.spectral_centroid);
+    println!("  RMS: {:.3}", analysis.rms);
+}
+
+#[test]
+#[ignore]
+fn test_pattern_controls_resonance() {
+    let test = AudioTest::new("pattern_q_mod");
+
+    // Pattern modulates filter Q (resonance)
+    // ~q_mod ranges -1 to +1, scaled to 0.5 to 5.5 Q
+    let code = r#"
+tempo: 1.0
+~q_mod: sine 0.5
+out: saw 110 # lpf 400 (~q_mod * 2.5 + 3.0)
+"#;
+
+    let wav_path = test.render(code, 4).expect("Failed to render");
+    let analysis = test.analyze_json(&wav_path).expect("Failed to analyze");
+
+    assert!(!analysis.is_empty, "Audio should not be empty");
+
+    // Verify fundamental present
+    assert!(
+        analysis.has_frequency(110.0, 30.0),
+        "Should have 110Hz fundamental"
+    );
+
+    // Saw harmonics filtered at 400Hz - verify some filtering occurred
+    // Should see harmonics up to ~400Hz (110, 220, 330Hz)
+    assert!(
+        analysis.has_frequency(220.0, 50.0),
+        "Should have 220Hz harmonic (below cutoff)"
+    );
+
+    println!("Resonance modulation test:");
+    println!("  Spectral centroid: {:.1}Hz", analysis.spectral_centroid);
+    println!("  110Hz: {:.1}", analysis.get_frequency_magnitude(110.0, 30.0));
+    println!("  220Hz: {:.1}", analysis.get_frequency_magnitude(220.0, 50.0));
+    println!("  330Hz: {:.1}", analysis.get_frequency_magnitude(330.0, 50.0));
+}
