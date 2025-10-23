@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Inline synthesizer definitions for live coding
 //!
 //! Supports FunDSP graph notation in patterns like:

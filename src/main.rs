@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Phonon CLI - Command-line interface for the Phonon synthesis system
 
 use clap::{Parser, Subcommand};
@@ -221,7 +222,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Check for parse errors (unparsed input remaining)
             if !remaining.trim().is_empty() {
-                use phonon::error_diagnostics::{diagnose_parse_failure, check_for_common_mistakes};
+                use phonon::error_diagnostics::{
+                    check_for_common_mistakes, diagnose_parse_failure,
+                };
 
                 // Provide detailed diagnostic
                 let diagnostic = diagnose_parse_failure(&dsl_code, remaining);

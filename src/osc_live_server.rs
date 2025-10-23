@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! OSC Live Server for Phonon
 //!
 //! Listens on port 7770 for OSC messages to control live coding session

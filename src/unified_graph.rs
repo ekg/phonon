@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 //! Unified Signal Graph - The heart of Phonon
 //!
 //! Everything is a signal. Patterns, audio, control data - all flow through

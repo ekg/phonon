@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Envelope generators for triggered synths
 //!
 //! Provides ADSR and other envelope types for making synths percussive

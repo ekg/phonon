@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Modal live coding editor with terminal UI
 //!
 //! Provides a full-screen text editor for writing Phonon DSL code with

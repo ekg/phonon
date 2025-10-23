@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Test live patching workflow
 //! 
 //! Verifies that patches can be hot-swapped without audio glitches

@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 //! Compositional Compiler
 //!
 //! Compiles the clean compositional AST into the existing UnifiedSignalGraph.

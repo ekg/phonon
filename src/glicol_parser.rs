@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Glicol-style DSP parser
 //!
 //! Parses Glicol syntax:

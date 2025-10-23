@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Integration tests for full .phonon file processing
 //! 
 //! Tests the complete pipeline from parsing .phonon files to audio generation

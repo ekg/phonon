@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 //! Parser for pattern transformation chains in Phonon DSL
 //!
 //! Supports syntax like:

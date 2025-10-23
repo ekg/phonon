@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Pattern Sequencer - Handles time-based triggering of pattern events
 //! 
 //! This module sequences pattern events over time, triggering the appropriate

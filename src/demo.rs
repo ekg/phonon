@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 #!/usr/bin/env cargo +nightly -Zscript
 //! Demo of the Phonon Modular Synthesis DSL
 //! 

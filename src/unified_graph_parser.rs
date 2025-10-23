@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 //! Parser for the Unified Signal Graph DSL
 //!
 //! Enables inline synth definitions, pattern embedding, and universal modulation.
@@ -2600,7 +2601,6 @@ impl DslCompiler {
         pattern: crate::pattern::Pattern<String>,
         transform: PatternTransformOp,
     ) -> Result<crate::pattern::Pattern<String>, String> {
-        use crate::pattern::Pattern;
 
         match transform {
             PatternTransformOp::Fast(factor_expr) => {

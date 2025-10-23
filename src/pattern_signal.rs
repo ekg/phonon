@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Signal and Continuous Pattern Operations
 //!
 //! Implements continuous patterns, random generators, and signal processing

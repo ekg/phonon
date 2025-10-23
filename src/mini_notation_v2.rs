@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Improved mini-notation parser with proper recursive structure
 //! 
 //! This parser handles all nesting properly by having a single

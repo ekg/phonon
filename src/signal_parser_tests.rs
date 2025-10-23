@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Comprehensive tests for the signal parser DSL
 //! 
 //! These tests verify all features of the modular synthesis DSL

@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Actual sample playback using fundsp's envelope function
 
 use fundsp::prelude::*;

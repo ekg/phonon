@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Comprehensive test suite for the Phonon pattern system
 //!
 //! Each test generates a deterministic string representation of the pattern output
@@ -228,7 +230,6 @@ mod probabilistic_operations {
 #[cfg(test)]
 mod structural_operations {
     use super::*;
-    use crate::pattern_ops::*;
 
     #[test]
     fn test_palindrome() {

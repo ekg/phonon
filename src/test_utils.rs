@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Test utilities for audio verification and pattern testing
 
 use std::f32::consts::PI;

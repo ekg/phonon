@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Modulation routing system for complex signal routing
 //!
 //! Enables routing a single modulation source to multiple destinations

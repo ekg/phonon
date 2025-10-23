@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Audio rendering module for offline synthesis
 //!
 //! Provides functionality to render DSL patches to WAV files

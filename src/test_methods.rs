@@ -1,8 +1,8 @@
+#![allow(unused_assignments, unused_mut)]
 // Test module to check method visibility
 #[cfg(test)]
 mod test {
     use crate::pattern::Pattern;
-    use crate::pattern_ops::*;
 
     #[test]
     fn test_methods_available() {

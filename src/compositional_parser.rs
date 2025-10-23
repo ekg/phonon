@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 //! Compositional parser for Phonon DSL
 //!
 //! This parser provides full compositionality:
@@ -9,13 +10,12 @@
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_until, take_while, take_while1},
-    character::complete::{alpha1, alphanumeric1, char, digit1, multispace0, space0},
-    combinator::{map, not, opt, peek, recognize, value},
+    character::complete::{alpha1, alphanumeric1, char, digit1, space0},
+    combinator::{map, opt, peek, recognize, value},
     multi::{many0, separated_list0, separated_list1},
-    sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
+    sequence::{delimited, pair, preceded, terminated, tuple},
     IResult,
 };
-use std::collections::HashMap;
 
 // ============================================================================
 // AST - Clean expression types with no special cases
@@ -1926,7 +1926,8 @@ out: ~drums
     #[test]
     fn test_inline_comments_work() {
         // Inline comments should work with --
-        let code = "tempo: 2.0  -- 120 BPM\n~drums: s \"bd sn\" # lpf 500 0.8  -- filtered\nout: ~drums";
+        let code =
+            "tempo: 2.0  -- 120 BPM\n~drums: s \"bd sn\" # lpf 500 0.8  -- filtered\nout: ~drums";
         let result = parse_program(code);
         assert!(result.is_ok(), "Inline comments should work");
         if let Ok((_, statements)) = result {

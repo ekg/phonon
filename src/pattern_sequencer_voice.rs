@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Pattern Sequencer with Voice Management
 //!
 //! Sequences pattern events and manages polyphonic sample playback

@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Advanced Structural Pattern Operations
 //!
 //! Implements bite, ply, linger, inside, outside, iter, and more

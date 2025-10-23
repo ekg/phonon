@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Pattern Query and Analysis Operations
 //!
 //! Implements pattern introspection, query, and analysis functions
@@ -346,7 +347,6 @@ impl<T: Clone + Send + Sync + PartialEq + 'static> Pattern<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::pattern::Pattern;
 
     #[test]

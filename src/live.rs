@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Live coding module for Phonon
 //!
 //! Provides file watching and hot-reloading for live DSL editing

@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Pattern debugging utilities for visualizing and testing patterns
 
 use crate::pattern::{Fraction, Pattern, State, TimeSpan};

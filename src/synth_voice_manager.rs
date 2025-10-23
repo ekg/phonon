@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Polyphonic synth voice manager
 //!
 //! Manages up to 64 simultaneous synthesizer voices with per-voice ADSR envelopes.

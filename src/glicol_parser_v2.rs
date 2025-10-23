@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Enhanced Glicol parser with pattern parameter support
 //!
 //! This parser allows patterns as parameters: `lpf "1000 2000 500" 0.8`

@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Proper audio engine with scheduling and sample management
 //! Similar to how Strudel/SuperCollider handle timing
 

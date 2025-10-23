@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Complete set of pattern operators ported from Strudel
 //! All the pattern transformation functions you know and love
 
@@ -512,7 +513,6 @@ mod tests {
 
     #[test]
     fn test_note_conversion() {
-        use crate::pattern_tonal::*;
         let p = Pattern::from_string("a4 c5 e5").freq();
         let state = State {
             span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),

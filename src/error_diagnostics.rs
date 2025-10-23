@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 //! Error diagnostics for better user-facing error messages
 //!
 //! This module provides helpful error reporting for live coders, including:
@@ -102,10 +103,13 @@ fn detect_common_error(text: &str, source_line: &str) -> (String, Option<String>
     if source_line.trim_start().starts_with('#') && !source_line.contains(" # ") {
         return (
             "# is the chain operator, not for comments".to_string(),
-            Some("Use -- for comments instead of #\n\
+            Some(
+                "Use -- for comments instead of #\n\
                   ❌ Wrong: # This is a comment\n\
                   ✅ Correct: -- This is a comment\n\
-                  Note: # is used for chaining: saw 110 # lpf 1000 0.8".to_string()),
+                  Note: # is used for chaining: saw 110 # lpf 1000 0.8"
+                    .to_string(),
+            ),
         );
     }
 
@@ -116,10 +120,16 @@ fn detect_common_error(text: &str, source_line: &str) -> (String, Option<String>
             let func_name = text[..paren_pos].trim();
             if !func_name.is_empty() {
                 return (
-                    format!("Function '{}' called with parentheses and commas", func_name),
-                    Some(format!("Phonon uses space-separated syntax, not commas.\n\
+                    format!(
+                        "Function '{}' called with parentheses and commas",
+                        func_name
+                    ),
+                    Some(format!(
+                        "Phonon uses space-separated syntax, not commas.\n\
                                   ❌ Wrong: {} \"bd sn\" 0.8\n\
-                                  ✅ Correct: {} \"bd sn\" 0.8", func_name, func_name)),
+                                  ✅ Correct: {} \"bd sn\" 0.8",
+                        func_name, func_name
+                    )),
                 );
             }
         }
@@ -129,20 +139,28 @@ fn detect_common_error(text: &str, source_line: &str) -> (String, Option<String>
     if text.starts_with("s(") || text.contains(" s(") {
         return (
             "Sample function 's' should use space-separated syntax".to_string(),
-            Some("Use: s \"pattern\" instead of s(\"pattern\")\n\
-                  Example: s \"bd sn hh cp\"".to_string()),
+            Some(
+                "Use: s \"pattern\" instead of s(\"pattern\")\n\
+                  Example: s \"bd sn hh cp\""
+                    .to_string(),
+            ),
         );
     }
 
     // Check for effect functions with parentheses
-    let effect_funcs = ["lpf", "hpf", "reverb", "delay", "distort", "chorus", "compress"];
+    let effect_funcs = [
+        "lpf", "hpf", "reverb", "delay", "distort", "chorus", "compress",
+    ];
     for func in &effect_funcs {
         let pattern = format!("{}(", func);
         if text.contains(&pattern) {
             return (
                 format!("Effect '{}' should use space-separated syntax", func),
-                Some(format!("❌ Wrong: {}(1000, 0.8)\n\
-                              ✅ Correct: {} 1000 0.8", func, func)),
+                Some(format!(
+                    "❌ Wrong: {}(1000, 0.8)\n\
+                              ✅ Correct: {} 1000 0.8",
+                    func, func
+                )),
             );
         }
     }
@@ -154,8 +172,11 @@ fn detect_common_error(text: &str, source_line: &str) -> (String, Option<String>
         if text.contains(&pattern) && text.contains(",") {
             return (
                 format!("Synth '{}' should use space-separated syntax", func),
-                Some(format!("❌ Wrong: {}(55, 0.4, 5)\n\
-                              ✅ Correct: {} 55 0.4 5", func, func)),
+                Some(format!(
+                    "❌ Wrong: {}(55, 0.4, 5)\n\
+                              ✅ Correct: {} 55 0.4 5",
+                    func, func
+                )),
             );
         }
     }
@@ -164,8 +185,11 @@ fn detect_common_error(text: &str, source_line: &str) -> (String, Option<String>
     if text.starts_with("bpm ") {
         return (
             "'bpm' keyword is not supported".to_string(),
-            Some("Use 'tempo:' instead\n\
-                  Example: tempo: 2.0".to_string()),
+            Some(
+                "Use 'tempo:' instead\n\
+                  Example: tempo: 2.0"
+                    .to_string(),
+            ),
         );
     }
 
@@ -176,8 +200,12 @@ fn detect_common_error(text: &str, source_line: &str) -> (String, Option<String>
             if before.starts_with('~') {
                 return (
                     "Bus assignment should use ':' not '='".to_string(),
-                    Some(format!("❌ Wrong: {} = ...\n\
-                                  ✅ Correct: {} ...", before, before.replace('=', ":"))),
+                    Some(format!(
+                        "❌ Wrong: {} = ...\n\
+                                  ✅ Correct: {} ...",
+                        before,
+                        before.replace('=', ":")
+                    )),
                 );
             }
         }
@@ -207,7 +235,8 @@ pub fn check_for_common_mistakes(input: &str) -> Vec<String> {
             || trimmed.contains("lpf(")
             || trimmed.contains("hpf(")
             || trimmed.contains("reverb(")
-            || trimmed.contains("supersaw(") {
+            || trimmed.contains("supersaw(")
+        {
             warnings.push(format!(
                 "Line {}: Detected parentheses syntax. Phonon uses space-separated syntax.",
                 i + 1

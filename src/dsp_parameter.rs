@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 //! DSP Parameter types that support patterns, constants, and references
 //!
 //! This module enables the core concept that "everything is a pattern" by allowing

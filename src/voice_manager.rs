@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Voice Manager - Handles polyphonic sample playback with voice allocation
 //!
 //! Based on SuperCollider's architecture, this module manages multiple

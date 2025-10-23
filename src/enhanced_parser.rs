@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Enhanced parser for the complete modular synthesis DSL
 //!
 //! Supports arithmetic operations, bus references, and pattern integration

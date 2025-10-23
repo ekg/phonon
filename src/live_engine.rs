@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Live coding audio engine with continuous cycles
 //!
 //! Runs a continuous audio loop that can be hot-reloaded with new patterns

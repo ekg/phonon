@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Real-time audio output using cpal
 //! Works with JACK, ALSA, OpenSL ES (Android/Termux), etc.
 

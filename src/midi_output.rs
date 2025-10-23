@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! MIDI output module for sending patterns to MIDI devices
 //!
 //! This module provides real-time MIDI output functionality,

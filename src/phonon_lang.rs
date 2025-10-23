@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! The Complete Phonon Language
 //! Unifies Strudel patterns with synthesis DSL
 //!

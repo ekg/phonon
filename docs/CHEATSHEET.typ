@@ -1,6 +1,6 @@
 #set page(
-  paper: "us-letter",
-  margin: (x: 0.5in, y: 0.5in),
+  paper: "a4",
+  margin: (x: 1.5cm, y: 1.5cm),
   columns: 2,
 )
 #set text(size: 9pt, font: "IBM Plex Sans")

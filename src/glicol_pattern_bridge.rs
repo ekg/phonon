@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Bridge between Glicol DSP and TidalCycles patterns
 //!
 //! This module enables seamless integration between pattern sequences

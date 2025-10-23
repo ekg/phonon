@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Signal graph execution engine
 //!
 //! This module executes signal graphs, processing audio through the defined nodes
@@ -352,7 +354,6 @@ impl SignalExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::signal_parser::SignalParser;
 
     #[test]
     fn test_audio_buffer() {

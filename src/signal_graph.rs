@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Core signal graph infrastructure for modular synthesis DSL
 //!
 //! This module implements the fundamental signal routing system that allows

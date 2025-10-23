@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Mini-notation parser for TidalCycles/Strudel pattern syntax
 //!
 //! Parses strings like "bd sn [bd bd] sn" into Pattern structures

@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! MIDI and Control Pattern Operations
 //!
 //! Implements MIDI messages, control changes, and OSC patterns

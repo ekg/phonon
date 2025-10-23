@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Parser for the modular synthesis DSL
 //!
 //! Parses text-based signal flow definitions into signal graphs

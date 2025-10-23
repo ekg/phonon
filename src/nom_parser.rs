@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 //! High-performance nom-based parser for Phonon DSL
 //! Optimized for live coding with minimal allocations and fast parsing
 

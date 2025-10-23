@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! OSC (Open Sound Control) support for live coding
 //!
 //! This module provides OSC server and client functionality for

@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 //! OSC message handler for the modular synthesis DSL
 //!
 //! Handles OSC messages to load, execute, and modify DSL patches

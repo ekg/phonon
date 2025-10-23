@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Extended Pattern Operations - Additional Strudel/TidalCycles operators
 //!
 //! This module implements the remaining ~60 operators from Strudel/TidalCycles

@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! # Phonon - Live Coding Audio System
 //!
 //! Phonon is a powerful live coding audio synthesis and pattern sequencing system,

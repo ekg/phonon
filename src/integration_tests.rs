@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Integration tests for the complete modular synthesis system
 //! 
 //! Tests the full pipeline from DSL parsing to audio generation

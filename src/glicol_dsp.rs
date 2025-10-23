@@ -1,10 +1,10 @@
+#![allow(unused_variables)]
 //! Glicol-style DSP syntax implementation
 //!
 //! Implements the graph-oriented >> operator for chaining audio nodes,
 //! and ~ reference chains for lazy evaluation.
 
 use crate::signal_graph::{BusId, Node, NodeId, ProcessorType, SignalGraph, SourceType};
-use fundsp::hacker::*;
 use std::collections::HashMap;
 
 /// DSP chain that can be connected with >> operator

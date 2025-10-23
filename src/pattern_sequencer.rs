@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Fixed Pattern Sequencer - Handles time-based triggering of pattern events correctly
 //! 
 //! This module sequences pattern events over time, triggering the appropriate

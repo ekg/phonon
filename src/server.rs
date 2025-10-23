@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! OSC server for receiving synthesis commands
 
 use rosc::{OscMessage, OscPacket, OscType};

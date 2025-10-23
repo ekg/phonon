@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! SuperDirt-inspired synthesizer definitions
 //!
 //! This module provides a library of predefined synthesizers inspired by

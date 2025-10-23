@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Phonon live coding implementation for CLI
 
 use crate::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform};

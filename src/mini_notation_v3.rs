@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Mini-notation parser v3 - Everything is a pattern
 //!
 //! This parser follows Strudel's architecture where all values are patterns

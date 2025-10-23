@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Pattern Bridge - Integration between Strudel patterns and signal graph
 //!
 //! This module enables bidirectional communication between pattern events

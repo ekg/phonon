@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! TidalCycles-style pattern display
 
 use crate::pattern::{Pattern, State, TimeSpan, Fraction};

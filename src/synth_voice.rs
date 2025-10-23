@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Synth voice system for triggering synthesis from patterns
 //!
 //! Provides voice allocation and management for polyphonic synth triggering

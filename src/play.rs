@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Real-time audio playback for patterns
 
 use crate::enhanced_parser::EnhancedParser;

@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Simple DSP executor for testing
 //!
 //! A straightforward implementation that generates audio from DSP chains

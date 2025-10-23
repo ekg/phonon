@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Audio Analysis Module
 //!
 //! Provides real-time audio feature extraction for cross-modulation

@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Complete port of Strudel's pattern system to Rust
 //!
 //! This is a full implementation of the TidalCycles/Strudel pattern language

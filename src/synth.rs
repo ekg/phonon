@@ -1,3 +1,4 @@
+#![allow(unused_assignments, unused_mut)]
 //! Synthesis engine using FunDSP
 
 use fundsp::hacker::*;

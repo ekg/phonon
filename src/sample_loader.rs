@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! Sample loading and playback for dirt-samples integration
 //!
 //! This module provides sample loading from the dirt-samples library format,

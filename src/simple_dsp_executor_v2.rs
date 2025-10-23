@@ -1,3 +1,5 @@
+#![allow(unused_assignments, unused_mut)]
+#![allow(dead_code)]
 //! DSP executor v2 - Supports pattern parameters
 //!
 //! This executor can generate audio from DSP chains with pattern parameters
