@@ -32,6 +32,13 @@ pub enum Statement {
     OutputChannel { channel: usize, expr: Expr },
     /// Tempo: cps: 2.0 or tempo: 120
     Tempo(f64),
+    /// Function definition: fn name param1 param2: body
+    FunctionDef {
+        name: String,
+        params: Vec<String>,
+        body: Vec<Statement>, // Bus assignments
+        return_expr: Expr,
+    },
 }
 
 /// Expression - the core of the language
@@ -48,6 +55,9 @@ pub enum Expr {
     // ========== References ==========
     /// Bus reference: ~drums, ~lfo
     BusRef(String),
+
+    /// Variable reference (function parameters): freq, detune
+    Var(String),
 
     // ========== Function calls ==========
     /// Function call: lpf(input, cutoff, q), sine(440)
@@ -354,11 +364,43 @@ pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
 fn parse_statement(input: &str) -> IResult<&str, Statement> {
     // Try to parse each statement type
     alt((
+        parse_function_def,   // Try function definitions first
         parse_bus_assignment,
         parse_output_channel, // Try multi-channel output first
         parse_output,         // Then single output
         parse_tempo,
     ))(input)
+}
+
+/// Parse function definition (single-line): fn name param1 param2 = expr
+fn parse_function_def(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = tag("fn")(input)?;
+    let (input, _) = hspace1(input)?;  // Require at least one space after "fn"
+    let (input, name) = parse_identifier(input)?;
+    let (input, _) = space0(input)?;
+
+    // Parse parameters (space-separated identifiers until we hit '=')
+    let (input, params_str) = take_while(|c: char| c != '=' && c != '\n')(input)?;
+    let params: Vec<String> = params_str
+        .split_whitespace()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect();
+
+    let (input, _) = space0(input)?;
+    let (input, _) = char('=')(input)?;
+    let (input, _) = space0(input)?;
+    let (input, return_expr) = parse_expr(input)?;
+
+    Ok((
+        input,
+        Statement::FunctionDef {
+            name: name.to_string(),
+            params,
+            body: vec![], // No body in single-line functions
+            return_expr,
+        },
+    ))
 }
 
 /// Parse bus assignment: ~name: expr
@@ -576,7 +618,7 @@ fn parse_unary_expr(input: &str) -> IResult<&str, Expr> {
     }
 }
 
-/// Parse primary expression: number, string, bus ref, function call, parentheses, list
+/// Parse primary expression: number, string, bus ref, var, function call, parentheses, list
 fn parse_primary_expr(input: &str) -> IResult<&str, Expr> {
     let (input, _) = space0(input)?;
 
@@ -584,7 +626,8 @@ fn parse_primary_expr(input: &str) -> IResult<&str, Expr> {
         map(parse_number, Expr::Number),
         parse_string_literal,
         parse_bus_ref_expr,
-        parse_function_call,
+        parse_function_call,  // Try function call first (requires space + args)
+        parse_var,            // Then try bare variable (no args)
         parse_list_expr,
         parse_paren_expr,
     ))(input)
@@ -622,40 +665,37 @@ fn parse_bus_ref_expr(input: &str) -> IResult<&str, Expr> {
     Ok((input, Expr::BusRef(name.to_string())))
 }
 
+/// Parse variable reference (bare identifier)
+fn parse_var(input: &str) -> IResult<&str, Expr> {
+    let (input, name) = parse_identifier(input)?;
+    Ok((input, Expr::Var(name.to_string())))
+}
+
 /// Parse function call: name arg1 arg2 ...
 /// ONLY space-separated syntax is supported (no parentheses/commas)
 fn parse_function_call(input: &str) -> IResult<&str, Expr> {
     let (input, name) = parse_identifier(input)?;
 
-    // Use hspace1 to prevent consuming newlines (which would eat next statement)
-    match hspace1(input) {
-        Ok((input, _)) => {
-            // Parse first argument
-            let (input, first_arg) = parse_primary_expr(input)?;
+    // Require at least one space and one argument
+    let (input, _) = hspace1(input)?;
 
-            // Parse remaining space-separated arguments (using hspace1!)
-            let (input, mut rest_args) = many0(preceded(hspace1, parse_primary_expr))(input)?;
+    // Parse first argument (primary expressions only - use parens for complex expressions)
+    let (input, first_arg) = parse_primary_expr(input)?;
 
-            // Combine all args
-            let mut args = vec![first_arg];
-            args.append(&mut rest_args);
+    // Parse remaining space-separated arguments (using hspace1!)
+    let (input, mut rest_args) = many0(preceded(hspace1, parse_primary_expr))(input)?;
 
-            Ok((
-                input,
-                Expr::Call {
-                    name: name.to_string(),
-                    args,
-                },
-            ))
-        }
-        Err(_) => {
-            // Just an identifier with no arguments - invalid function call
-            Err(nom::Err::Error(nom::error::Error::new(
-                input,
-                nom::error::ErrorKind::Tag,
-            )))
-        }
-    }
+    // Combine all args
+    let mut args = vec![first_arg];
+    args.append(&mut rest_args);
+
+    Ok((
+        input,
+        Expr::Call {
+            name: name.to_string(),
+            args,
+        },
+    ))
 }
 
 /// Parse a transform (with optional parentheses)
@@ -1567,11 +1607,19 @@ mod tests {
     #[test]
     fn test_nested_function_calls_should_fail() {
         // Parenthesized syntax is NOT supported
-        // lpf(saw(110), 1000, 0.8) should fail
+        // lpf(saw(110), 1000, 0.8) should fail to fully parse
         let result = parse_expr("lpf(saw(110), 1000, 0.8)");
+
+        // Either it should fail entirely, OR it should leave unconsumed input
+        let should_fail = match result {
+            Err(_) => true,
+            Ok((rest, _)) => !rest.trim().is_empty(), // Leftover input means invalid syntax
+        };
+
         assert!(
-            result.is_err(),
-            "Parenthesized nested calls should not be supported"
+            should_fail,
+            "Parenthesized nested calls should not be supported (result: {:?})",
+            result
         );
     }
 
@@ -1969,6 +2017,97 @@ out: ~filtered_drums * 0.6 + ~bass * 0.4
                 "Should have at least 8 statements, got {}",
                 statements.len()
             );
+        }
+    }
+
+    #[test]
+    fn test_var_parsing() {
+        // Test that bare identifiers are parsed as variables
+        let result = parse_expr("freq");
+        assert!(result.is_ok(), "Failed to parse 'freq' as var: {:?}", result);
+        if let Ok((rest, expr)) = result {
+            assert_eq!(rest, "", "Should consume all input, but rest = {:?}", rest);
+            match expr {
+                Expr::Var(name) => assert_eq!(name, "freq"),
+                other => panic!("Expected Var, got: {:?}", other),
+            }
+        }
+    }
+
+    #[test]
+    fn test_binop_with_numbers() {
+        // Test parsing 5 - 3 (with numbers)
+        let result = parse_expr("5 - 3");
+        assert!(result.is_ok(), "Failed to parse '5 - 3': {:?}", result);
+    }
+
+    #[test]
+    fn test_binop_with_vars() {
+        // Test parsing freq - detune (without parens)
+        let result = parse_expr("freq - detune");
+        match &result {
+            Ok((rest, expr)) => {
+                eprintln!("SUCCESS: expr = {:?}, rest = {:?}", expr, rest);
+            }
+            Err(e) => {
+                eprintln!("ERROR: {:?}", e);
+            }
+        }
+        assert!(result.is_ok(), "Failed to parse 'freq - detune': {:?}", result);
+    }
+
+    #[test]
+    fn test_paren_expr_number_var() {
+        // Test parsing (5 - freq)
+        let result = parse_expr("(5 - freq)");
+        assert!(result.is_ok(), "Failed to parse '(5 - freq)': {:?}", result);
+    }
+
+    #[test]
+    fn test_paren_expr_with_var() {
+        // Test parsing (freq - detune)
+        let result = parse_expr("(freq - detune)");
+        assert!(result.is_ok(), "Failed to parse '(freq - detune)': {:?}", result);
+    }
+
+    #[test]
+    fn test_function_call_with_paren_arg() {
+        // Test parsing saw (freq - detune)
+        let result = parse_expr("saw (freq - detune)");
+        assert!(result.is_ok(), "Failed to parse 'saw (freq - detune)': {:?}", result);
+    }
+
+    #[test]
+    fn test_function_definition() {
+        let code = "fn doublesaw freq detune = saw (freq - detune) + saw (freq + detune)";
+        let result = parse_statement(code);
+        assert!(result.is_ok(), "Failed to parse function definition: {:?}", result);
+
+        if let Ok((rest, stmt)) = result {
+            assert_eq!(rest.trim(), "", "Should consume entire statement");
+            match stmt {
+                Statement::FunctionDef { name, params, return_expr, .. } => {
+                    assert_eq!(name, "doublesaw");
+                    assert_eq!(params, vec!["freq".to_string(), "detune".to_string()]);
+                }
+                _ => panic!("Expected FunctionDef, got: {:?}", stmt),
+            }
+        }
+    }
+
+    #[test]
+    fn test_function_in_program() {
+        let code = r#"
+fn doublesaw freq detune = saw (freq - detune) + saw (freq + detune)
+tempo: 2.0
+out: doublesaw 110 5
+"#;
+        let result = parse_program(code);
+        assert!(result.is_ok(), "Failed to parse program with function: {:?}", result);
+
+        if let Ok((rest, statements)) = result {
+            assert_eq!(rest.trim(), "", "Should consume entire program");
+            assert_eq!(statements.len(), 3, "Should have 3 statements (fn, tempo, out)");
         }
     }
 }

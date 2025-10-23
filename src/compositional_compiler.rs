@@ -11,10 +11,12 @@ use crate::superdirt_synths::SynthLibrary;
 use crate::unified_graph::{NodeId, Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
 use std::collections::HashMap;
 
-/// Compilation context - tracks buses and node IDs
+/// Compilation context - tracks buses, functions, and node IDs
 pub struct CompilerContext {
     /// Map of bus names to node IDs
     buses: HashMap<String, NodeId>,
+    /// Map of function names to their definitions
+    functions: HashMap<String, FunctionDef>,
     /// The signal graph we're building
     graph: UnifiedSignalGraph,
     /// Sample rate for creating buffers
@@ -23,10 +25,19 @@ pub struct CompilerContext {
     synth_lib: SynthLibrary,
 }
 
+/// Function definition storage
+#[derive(Clone, Debug)]
+struct FunctionDef {
+    params: Vec<String>,
+    body: Vec<Statement>,
+    return_expr: Expr,
+}
+
 impl CompilerContext {
     pub fn new(sample_rate: f32) -> Self {
         Self {
             buses: HashMap::new(),
+            functions: HashMap::new(),
             graph: UnifiedSignalGraph::new(sample_rate),
             sample_rate,
             synth_lib: SynthLibrary::with_sample_rate(sample_rate),
@@ -113,6 +124,23 @@ fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<
             ctx.set_cps(cps);
             Ok(())
         }
+        Statement::FunctionDef {
+            name,
+            params,
+            body,
+            return_expr,
+        } => {
+            // Store function definition for later use
+            ctx.functions.insert(
+                name.clone(),
+                FunctionDef {
+                    params,
+                    body,
+                    return_expr,
+                },
+            );
+            Ok(())
+        }
     }
 }
 
@@ -143,6 +171,14 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
                 .get(&name)
                 .copied()
                 .ok_or_else(|| format!("Undefined bus: ~{}", name))
+        }
+
+        Expr::Var(name) => {
+            // Look up variable (function parameter)
+            ctx.buses
+                .get(&name)
+                .copied()
+                .ok_or_else(|| format!("Undefined variable: {}", name))
         }
 
         Expr::Call { name, args } => compile_function_call(ctx, &name, args),
@@ -181,12 +217,102 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
     }
 }
 
+/// Compile a user-defined function by substituting parameters
+fn compile_user_function(
+    ctx: &mut CompilerContext,
+    func_def: &FunctionDef,
+    args: Vec<Expr>,
+) -> Result<NodeId, String> {
+    // Check parameter count
+    if args.len() != func_def.params.len() {
+        return Err(format!(
+            "Function expects {} arguments, got {}",
+            func_def.params.len(),
+            args.len()
+        ));
+    }
+
+    // Create a parameter substitution map
+    let mut param_values: HashMap<String, NodeId> = HashMap::new();
+
+    // Compile all argument expressions
+    for (param_name, arg_expr) in func_def.params.iter().zip(args.iter()) {
+        let node_id = compile_expr(ctx, arg_expr.clone())?;
+        param_values.insert(param_name.clone(), node_id);
+    }
+
+    // Save current bus context
+    let saved_buses = ctx.buses.clone();
+
+    // Replace bus references in function body with parameter values
+    for (param, value) in &param_values {
+        ctx.buses.insert(param.clone(), *value);
+    }
+
+    // Compile function body (bus assignments)
+    for stmt in &func_def.body {
+        compile_statement(ctx, stmt.clone())?;
+    }
+
+    // Compile return expression
+    let return_expr = substitute_params(func_def.return_expr.clone(), &param_values);
+    let result = compile_expr(ctx, return_expr)?;
+
+    // Restore bus context (remove local buses)
+    ctx.buses = saved_buses;
+
+    Ok(result)
+}
+
+/// Substitute parameter references in an expression
+fn substitute_params(expr: Expr, params: &HashMap<String, NodeId>) -> Expr {
+    match expr {
+        // If it's a bus ref that's also a parameter, return it unchanged
+        // (the context already has the substituted value)
+        Expr::BusRef(name) => Expr::BusRef(name),
+        // Recursively substitute in composite expressions
+        Expr::Call { name, args } => Expr::Call {
+            name,
+            args: args
+                .into_iter()
+                .map(|arg| substitute_params(arg, params))
+                .collect(),
+        },
+        Expr::Chain(left, right) => Expr::Chain(
+            Box::new(substitute_params(*left, params)),
+            Box::new(substitute_params(*right, params)),
+        ),
+        Expr::BinOp { op, left, right } => Expr::BinOp {
+            op,
+            left: Box::new(substitute_params(*left, params)),
+            right: Box::new(substitute_params(*right, params)),
+        },
+        Expr::UnOp { op, expr: inner } => Expr::UnOp {
+            op,
+            expr: Box::new(substitute_params(*inner, params)),
+        },
+        Expr::Paren(inner) => Expr::Paren(Box::new(substitute_params(*inner, params))),
+        Expr::Transform { expr: inner, transform } => Expr::Transform {
+            expr: Box::new(substitute_params(*inner, params)),
+            transform,
+        },
+        // Literals don't need substitution
+        _ => expr,
+    }
+}
+
 /// Compile a function call
 fn compile_function_call(
     ctx: &mut CompilerContext,
     name: &str,
     args: Vec<Expr>,
 ) -> Result<NodeId, String> {
+    // Check for user-defined functions first
+    if let Some(func_def) = ctx.functions.get(name).cloned() {
+        return compile_user_function(ctx, &func_def, args);
+    }
+
+    // Fall back to built-in functions
     match name {
         // ========== Pattern Combinators ==========
         "stack" => compile_stack(ctx, args),
@@ -1515,7 +1641,8 @@ mod tests {
 
     #[test]
     fn test_compile_oscillator() {
-        let code = "out: sine(440)";
+        // Use space-separated syntax: sine 440 (not sine(440))
+        let code = "out: sine 440";
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
         assert!(result.is_ok());
@@ -1626,27 +1753,25 @@ mod tests {
 
     #[test]
     fn test_syntax_variations() {
-        // Test all the different syntax variations
+        // Test the supported space-separated syntax
 
-        // Space-separated (original style)
+        // Space-separated (Phonon standard)
         let code1 = r#"out: sine 440"#;
         let (_, statements) = parse_program(code1).unwrap();
         assert!(compile_program(statements, 44100.0).is_ok());
 
-        // Parenthesized with commas
-        let code2 = r#"out: sine(440)"#;
-        let (_, statements) = parse_program(code2).unwrap();
-        assert!(compile_program(statements, 44100.0).is_ok());
-
         // Parenthesized expressions as arguments
-        let code3 = r#"
+        let code2 = r#"
             ~base: 220
             out: sine (~base)
         "#;
-        let (_, statements) = parse_program(code3).unwrap();
+        let (_, statements) = parse_program(code2).unwrap();
         assert!(compile_program(statements, 44100.0).is_ok());
 
-        // All work! The compositional parser handles all syntax styles!
+        // Multiple arguments
+        let code3 = r#"out: lpf (sine 440) 1000 0.8"#;
+        let (_, statements) = parse_program(code3).unwrap();
+        assert!(compile_program(statements, 44100.0).is_ok());
     }
 
     #[test]
@@ -1663,7 +1788,7 @@ mod tests {
     #[test]
     fn test_compile_lpf_chained() {
         // Most common usage: chained with #
-        let code = r#"out: sine(440) # lpf(1000, 0.8)"#;
+        let code = r#"out: sine 440 # lpf 1000 0.8"#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
         assert!(result.is_ok(), "Failed to compile chained lpf");
@@ -1680,7 +1805,7 @@ mod tests {
 
     #[test]
     fn test_compile_hpf() {
-        let code = r#"out: saw(220) # hpf(500, 1.5)"#;
+        let code = r#"out: saw 220 # hpf 500 1.5"#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
         assert!(result.is_ok(), "Failed to compile hpf");
@@ -1688,7 +1813,7 @@ mod tests {
 
     #[test]
     fn test_compile_bpf() {
-        let code = r#"out: square(110) # bpf(800, 2.0)"#;
+        let code = r#"out: square 110 # bpf 800 2.0"#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
         assert!(result.is_ok(), "Failed to compile bpf");
@@ -1697,7 +1822,7 @@ mod tests {
     #[test]
     fn test_compile_sample_with_filter() {
         // Samples through filters
-        let code = r#"out: s("bd sn hh cp") # lpf(2000, 0.5)"#;
+        let code = r#"out: s "bd sn hh cp" # lpf 2000 0.5"#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
         assert!(result.is_ok(), "Failed to compile sample with filter");
@@ -1709,7 +1834,7 @@ mod tests {
         let code = r#"
             ~cutoffs: "<300 200 1000>" $ fast 2
             ~resonances: "<0.8 0.6 0.2>" $ fast 9
-            out: s("hh*4 cp") # lpf(~cutoffs, ~resonances)
+            out: s "hh*4 cp" # lpf ~cutoffs ~resonances
         "#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
@@ -1738,7 +1863,7 @@ mod tests {
     #[test]
     fn test_compile_chained_filters() {
         // Multiple filters in series
-        let code = r#"out: saw(110) # lpf(2000, 0.8) # hpf(100, 0.5)"#;
+        let code = r#"out: saw 110 # lpf 2000 0.8 # hpf 100 0.5"#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
         assert!(result.is_ok(), "Failed to compile chained filters");
@@ -1765,7 +1890,7 @@ mod tests {
     #[test]
     fn test_compile_sample_bank_selection() {
         // Basic sample bank selection with :n syntax
-        let code = r#"out: s("bd:0 bd:1 bd:2")"#;
+        let code = r#"out: s "bd:0 bd:1 bd:2""#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
         assert!(result.is_ok(), "Failed to compile sample bank selection");
@@ -1774,7 +1899,7 @@ mod tests {
     #[test]
     fn test_compile_sample_bank_with_transform() {
         // Sample bank selection with transforms
-        let code = r#"out: s("bd:0*4 sn:2") $ fast 2"#;
+        let code = r#"out: s "bd:0*4 sn:2" $ fast 2"#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
         assert!(
@@ -1786,7 +1911,7 @@ mod tests {
     #[test]
     fn test_compile_sample_bank_through_filter() {
         // Sample bank selection routed through effects
-        let code = r#"out: s("bd:0 sn:2 hh:1") # lpf(1000, 0.8)"#;
+        let code = r#"out: s "bd:0 sn:2 hh:1" # lpf 1000 0.8"#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
         assert!(
