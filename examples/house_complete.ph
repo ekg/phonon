@@ -1,54 +1,54 @@
 # Classic House Track
-# Four-on-the-floor with bass, pads, and effects
+# Four-on-the-floor with bass and pads
 
-bpm 120  # Classic house tempo
+tempo: 2.0  # 120 BPM
 
 # DRUMS
 
-# Four-on-the-floor kick with subtle dynamics
-~kick = s("bd*4", "1.0 0.95 0.98 0.93")
+# Four-on-the-floor kick
+~kick: s "bd*4"
 
-# Eighth-note hi-hats with stereo movement
-~hats = s("hh*8", "0.6 0.8 0.7 0.9 0.6 0.8 0.7 1.0", "-1 -0.5 0 0.5 1 0.5 0 -0.5")
+# Eighth-note hi-hats
+~hats: s "hh*8" * 0.6
 
 # Snare on 2 and 4 (backbeat)
-~snare = s("~ sn ~ sn", 0.95)
+~snare: s "~ sn ~ sn"
 
 # Open hi-hat accents
-~open = s("~ ~ ~ oh", 0.7) * 0.6
+~open: s "~ ~ ~ oh" * 0.4
 
 # Percussive elements
-~perc = s("~ ~ cp ~", 0.5) * 0.4
+~perc: s "~ ~ cp ~" * 0.3
 
 # Combine drums
-~drums = ~kick + ~hats + ~snare + ~open + ~perc
+~drums: ~kick + ~hats + ~snare + ~open + ~perc
 
 # BASS
 
 # Walking bassline with pattern frequency
-~bass = supersaw("55 55 82.5 55", 0.4, 5)
+~bass: supersaw "55 55 82.5 55" 0.4 5
 
 # Filter the bass
-~bass_filtered = ~bass # lpf 1200 0.9
+~bass_filtered: ~bass # lpf 1200 0.9
 
 # PADS
 
 # Detuned pad for warmth
-~pad = supersaw(220, 0.15, 12) # lpf 2500 0.7
+~pad: supersaw 220 0.15 12 # lpf 2500 0.7
 
 # FM pad for texture
-~fm_pad = superfm(330, 2.0, 0.8) * 0.1
+~fm_pad: superfm 330 2.0 0.8 * 0.08
 
 # EFFECTS
 
 # Add reverb to drums
-~drums_reverb = reverb(~drums, 0.5, 0.5, 0.25)
+~drums_verb: reverb ~drums 0.5 0.5 0.25
 
 # Chorus on pads
-~pads_chorus = chorus(~pad + ~fm_pad, 0.8, 0.4, 0.5)
+~pads_chorus: chorus (~pad + ~fm_pad) 0.8 0.4 0.5
 
 # FINAL MIX
-out = (~drums_reverb + ~bass_filtered * 0.25 + ~pads_chorus * 0.3) * 0.75
+out: (~drums_verb + ~bass_filtered * 0.25 + ~pads_chorus * 0.25) * 0.7
 
 # LIVE CODING TIP:
 # Comment/uncomment parts to build the track live:

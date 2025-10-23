@@ -221,9 +221,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Check for parse errors (unparsed input remaining)
             if !remaining.trim().is_empty() {
-                eprintln!("⚠️  WARNING: Some code could not be parsed");
-                eprintln!("Unparsed input: {:?}", remaining);
-                eprintln!("This may be due to syntax errors or unsupported features.");
+                use phonon::error_diagnostics::{diagnose_parse_failure, check_for_common_mistakes};
+
+                // Provide detailed diagnostic
+                let diagnostic = diagnose_parse_failure(&dsl_code, remaining);
+                eprintln!("{}", diagnostic);
+
+                // Check for common mistakes in the entire file
+                let warnings = check_for_common_mistakes(&dsl_code);
+                if !warnings.is_empty() {
+                    eprintln!("⚠️  Additional warnings:");
+                    for warning in warnings {
+                        eprintln!("  • {}", warning);
+                    }
+                }
+
+                eprintln!();
+                eprintln!("The renderer will continue with the successfully parsed portion.");
+                eprintln!();
             }
 
             // Compile to graph (with auto-routing)

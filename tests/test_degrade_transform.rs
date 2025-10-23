@@ -1,15 +1,15 @@
-use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+use phonon::compositional_compiler::compile_program;
+use phonon::compositional_parser::parse_program;
 
 #[test]
 fn test_degrade_transform_dsl() {
     let input = r#"
-        cps: 2.0
-        out: s("bd bd bd bd" $ degrade) * 0.5
+        tempo: 2.0
+        out: s "bd bd bd bd" $ degrade * 0.5
     "#;
 
-    let (_, statements) = parse_dsl(input).expect("Should parse DSL");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(input).expect("Should parse DSL");
+    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
 
     // Render 2 seconds (4 cycles at 2 CPS)
     // With degrade, we expect ~50% of events to be dropped
@@ -32,13 +32,12 @@ fn test_degrade_transform_dsl() {
 #[test]
 fn test_degrade_by_transform_dsl() {
     let input = r#"
-        cps: 2.0
-        out: s("bd bd bd bd" $ degradeBy 0.9) * 0.5
+        tempo: 2.0
+        out: s "bd bd bd bd" $ degradeBy 0.9 * 0.5
     "#;
 
-    let (_, statements) = parse_dsl(input).expect("Should parse DSL");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(input).expect("Should parse DSL");
+    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
 
     // Render 2 seconds (4 cycles at 2 CPS)
     // With 90% degradation, we expect ~10% of events to remain
@@ -58,13 +57,12 @@ fn test_degrade_by_transform_dsl() {
 #[test]
 fn test_degrade_with_sample_pattern() {
     let input = r#"
-        cps: 2.0
-        out: s("bd sn hh cp" $ degrade) * 0.5
+        tempo: 2.0
+        out: s "bd sn hh cp" $ degrade * 0.5
     "#;
 
-    let (_, statements) = parse_dsl(input).expect("Should parse DSL");
-    let compiler = DslCompiler::new(44100.0);
-    let mut graph = compiler.compile(statements);
+    let (_, statements) = parse_program(input).expect("Should parse DSL");
+    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
 
     // Just verify it compiles and runs without crashing
     let buffer = graph.render(44100);

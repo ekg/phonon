@@ -275,6 +275,7 @@ pub mod dsp_parameter;
 pub mod engine;
 pub mod enhanced_parser;
 pub mod envelope;
+pub mod error_diagnostics;
 pub mod glicol_dsp;
 pub mod glicol_dsp_v2;
 pub mod glicol_parser;
