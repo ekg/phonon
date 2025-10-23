@@ -401,6 +401,7 @@ fn compile_function_call(
 
         // ========== Envelope ==========
         "env" | "envelope" => compile_envelope(ctx, args),
+        "env_trig" => compile_envelope_pattern(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -790,6 +791,71 @@ fn compile_distortion(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
         input: input_signal,
         drive: Signal::Node(drive_node),
         mix: Signal::Node(mix_node),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile pattern-triggered envelope (rhythmic gate)
+/// Usage: signal # env_trig("pattern", attack, decay, sustain, release)
+fn compile_envelope_pattern(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.is_empty() {
+        return Err("env_trig requires at least a pattern string argument".to_string());
+    }
+
+    // First parameter should be a pattern string
+    let pattern_str = match &params[0] {
+        Expr::String(s) => s.clone(),
+        _ => return Err("env_trig requires a pattern string as first argument".to_string()),
+    };
+
+    let pattern = parse_mini_notation(&pattern_str);
+
+    // Parse optional ADSR parameters (attack, decay, sustain, release)
+    // Default ADSR: percussive envelope (0.001, 0.1, 0.0, 0.1)
+    let attack = if params.len() > 1 {
+        extract_number(&params[1])? as f32
+    } else {
+        0.001
+    };
+
+    let decay = if params.len() > 2 {
+        extract_number(&params[2])? as f32
+    } else {
+        0.1
+    };
+
+    let sustain = if params.len() > 3 {
+        extract_number(&params[3])? as f32
+    } else {
+        0.0
+    };
+
+    let release = if params.len() > 4 {
+        extract_number(&params[4])? as f32
+    } else {
+        0.1
+    };
+
+    use crate::unified_graph::EnvState;
+
+    let node = SignalNode::EnvelopePattern {
+        input: input_signal,
+        pattern_str: pattern_str.clone(),
+        pattern,
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        attack,
+        decay,
+        sustain,
+        release,
+        state: EnvState::default(),
     };
 
     Ok(ctx.graph.add_node(node))
