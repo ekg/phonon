@@ -316,6 +316,13 @@ fn skip_space_and_comments(input: &str) -> IResult<&str, ()> {
 }
 
 /// Parse a complete Phonon program
+///
+/// NOTE: Inline comments (e.g., `tempo: 2.0 # comment`) are NOT supported
+/// because # is used as the chain operator. Use full-line comments instead:
+/// ```
+/// # This is a comment
+/// tempo: 2.0
+/// ```
 pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
     let (input, _) = skip_space_and_comments(input)?;
     let (input, statements) = separated_list0(multispace1, parse_statement)(input)?;
@@ -1183,9 +1190,12 @@ fn hspace1(input: &str) -> IResult<&str, &str> {
     take_while1(|c: char| c == ' ' || c == '\t')(input)
 }
 
-/// Parse a comment line: # at start of line until newline
+/// Parse a comment line: # at the very start (no leading whitespace allowed)
+/// This is stricter to avoid consuming # that's part of expressions
 fn parse_comment(input: &str) -> IResult<&str, ()> {
+    // Match # only if it's at the very start of the input (after statement separation)
     let (input, _) = char('#')(input)?;
+    // Consume until end of line
     let (input, _) = take_until("\n")(input)?;
     let (input, _) = char('\n')(input)?;
     Ok((input, ()))

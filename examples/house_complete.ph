@@ -1,7 +1,8 @@
 # Classic House Track
 # Four-on-the-floor with bass and pads
 
-tempo: 2.0  # 120 BPM
+# 120 BPM
+tempo: 2.0
 
 # DRUMS
 

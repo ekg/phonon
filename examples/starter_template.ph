@@ -1,7 +1,8 @@
 # Phonon Starter Template
 # A minimal starting point for live coding
 
-tempo: 2.0  # 2 cycles per second (120 BPM equivalent)
+# 2 cycles per second (120 BPM equivalent)
+tempo: 2.0
 
 # Start with a simple kick drum
 ~kick: s "bd*4"
@@ -16,7 +17,9 @@ tempo: 2.0  # 2 cycles per second (120 BPM equivalent)
 # ~bass: supersaw 55 0.4 5 # lpf 800 0.9
 
 # Mix everything together
-out: ~kick  # + ~hats + ~snare + ~bass * 0.3
+# Uncomment below to add more elements
+out: ~kick
+# out: ~kick + ~hats + ~snare + ~bass * 0.3
 
 # QUICK START:
 # 1. Uncomment the hats line and save

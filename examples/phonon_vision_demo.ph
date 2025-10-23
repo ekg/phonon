@@ -3,7 +3,8 @@
 # This demonstrates what makes Phonon unique vs Tidal Cycles:
 # PATTERNS CAN MODULATE AUDIO PARAMETERS AT SAMPLE RATE!
 
-tempo: 2.0  # 120 BPM
+# 120 BPM
+tempo: 2.0
 
 # ========== THE UNIQUE FEATURE ==========
 #
@@ -16,7 +17,8 @@ tempo: 2.0  # 120 BPM
 # Example 1: Pattern-Controlled Filter Cutoff
 # ---------------------------------------------
 # Create an LFO from a pattern
-~lfo: sine 0.25  # Slow sine wave (one cycle every 4 seconds)
+# Slow sine wave (one cycle every 4 seconds)
+~lfo: sine 0.25
 
 # Bass with pattern-modulated filter (IMPOSSIBLE in Tidal!)
 ~bass: saw 110 # lpf (~lfo * 2000 + 500) 0.8
@@ -33,6 +35,7 @@ tempo: 2.0  # 120 BPM
 
 # Example 3: Pad with Evolving Brightness
 # -----------------------------------------
+# Modulate pad brightness with LFO
 ~pad: supersaw 220 0.15 7 # lpf (~lfo * 2000 + 800) 0.6
 
 # ========== FINAL MIX ==========

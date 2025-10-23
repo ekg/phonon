@@ -1,7 +1,8 @@
 # Drum & Bass Demo
 # Fast breakbeats and heavy bass
 
-tempo: 3.0  # 180 BPM (fast!)
+# 180 BPM (fast!)
+tempo: 3.0
 
 # KICK PATTERN
 ~kick: s "bd*2 bd ~ bd ~ bd ~"

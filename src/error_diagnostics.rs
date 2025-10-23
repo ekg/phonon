@@ -98,6 +98,26 @@ pub fn diagnose_parse_failure(original_input: &str, remaining: &str) -> Diagnost
 fn detect_common_error(text: &str, source_line: &str) -> (String, Option<String>) {
     let text = text.trim();
 
+    // Check for inline comments (not supported due to # being chain operator)
+    if source_line.contains(" #") && !source_line.trim_start().starts_with('#') {
+        // Check if this looks like an inline comment rather than chain operator
+        if let Some(hash_pos) = source_line.find(" #") {
+            let after_hash = &source_line[hash_pos + 2..];
+            // If what's after # doesn't look like a function name, it's probably a comment
+            if !after_hash.trim_start().chars().next().map(|c| c.is_alphabetic()).unwrap_or(false) {
+                return (
+                    "Inline comments are not supported".to_string(),
+                    Some("The # symbol is used for the chain operator.\n\
+                          Put comments on their own line:\n\
+                          ❌ Wrong: tempo: 2.0  # comment\n\
+                          ✅ Correct:\n\
+                          # comment\n\
+                          tempo: 2.0".to_string()),
+                );
+            }
+        }
+    }
+
     // Check for Haskell-style comments
     if source_line.trim_start().starts_with("--") {
         return (
