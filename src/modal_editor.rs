@@ -23,6 +23,19 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
+/// Completion state for tab completion
+#[derive(Clone)]
+struct CompletionState {
+    /// List of completion suggestions
+    suggestions: Vec<String>,
+    /// Currently selected suggestion index
+    selected_index: usize,
+    /// The original word being completed
+    original_word: String,
+    /// Position where the word starts
+    word_start_pos: usize,
+}
+
 /// Modal live coding editor state
 pub struct ModalEditor {
     /// Current text content
@@ -51,6 +64,8 @@ pub struct ModalEditor {
     redo_stack: Vec<(String, usize)>,
     /// Console messages for display
     console_messages: Vec<String>,
+    /// Tab completion state
+    completion_state: Option<CompletionState>,
 }
 
 impl ModalEditor {
@@ -83,7 +98,7 @@ impl ModalEditor {
             content,
             duration,
             file_path,
-            status_message: "🎵 Ready - C-x: eval | C-u: undo | C-r: redo".to_string(),
+            status_message: "🎵 Ready - C-x: eval | C-u: undo | C-r: redo | Tab: complete".to_string(),
             is_playing: false,
             error_message: None,
             live_engine,
@@ -92,6 +107,7 @@ impl ModalEditor {
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
             console_messages: vec!["Welcome to Phonon Live Coding".to_string()],
+            completion_state: None,
         })
     }
 
@@ -222,34 +238,69 @@ impl ModalEditor {
                 KeyResult::Continue
             }
 
+            // Tab: trigger completion or cycle through suggestions
+            KeyCode::Tab => {
+                if key.modifiers.contains(KeyModifiers::SHIFT) {
+                    self.cycle_completion_backward();
+                } else {
+                    self.trigger_or_cycle_completion();
+                }
+                KeyResult::Continue
+            }
+            KeyCode::Esc => {
+                // Dismiss completion popup
+                self.cancel_completion();
+                KeyResult::Continue
+            }
+
             // Regular character input
             KeyCode::Char(c) => {
+                // Cancel completion on any character input
+                self.cancel_completion();
                 self.insert_char(c);
                 KeyResult::Continue
             }
             KeyCode::Enter => {
-                self.insert_char('\n');
+                // If completion is active, accept the current suggestion
+                if self.completion_state.is_some() {
+                    self.accept_completion();
+                } else {
+                    self.insert_char('\n');
+                }
                 KeyResult::Continue
             }
             KeyCode::Backspace => {
+                self.cancel_completion();
                 self.delete_char();
                 KeyResult::Continue
             }
             // Arrow keys still work
             KeyCode::Left => {
+                self.cancel_completion();
                 self.move_cursor_left();
                 KeyResult::Continue
             }
             KeyCode::Right => {
+                self.cancel_completion();
                 self.move_cursor_right();
                 KeyResult::Continue
             }
             KeyCode::Up => {
-                self.move_cursor_up();
+                // If completion active, cycle up through suggestions
+                if self.completion_state.is_some() {
+                    self.cycle_completion_backward();
+                } else {
+                    self.move_cursor_up();
+                }
                 KeyResult::Continue
             }
             KeyCode::Down => {
-                self.move_cursor_down();
+                // If completion active, cycle down through suggestions
+                if self.completion_state.is_some() {
+                    self.cycle_completion_forward();
+                } else {
+                    self.move_cursor_down();
+                }
                 KeyResult::Continue
             }
             KeyCode::Home => {
@@ -322,6 +373,50 @@ impl ModalEditor {
             .style(Style::default().fg(Color::White).bg(Color::Black));
 
         f.render_widget(paragraph, editor_chunk);
+
+        // Completion popup (if active)
+        if let Some(ref state) = self.completion_state {
+            let popup_width = 40;
+            let popup_height = (state.suggestions.len() + 2).min(10) as u16;
+
+            // Position popup near cursor (simplified - center of screen)
+            let popup_x = editor_chunk.width.saturating_sub(popup_width + 2).max(2);
+            let popup_y = 3;
+
+            let popup_area = ratatui::layout::Rect {
+                x: editor_chunk.x + popup_x,
+                y: editor_chunk.y + popup_y,
+                width: popup_width,
+                height: popup_height,
+            };
+
+            // Build popup content
+            let mut popup_lines = Vec::new();
+            for (idx, suggestion) in state.suggestions.iter().enumerate() {
+                let is_selected = idx == state.selected_index;
+                let prefix = if is_selected { "► " } else { "  " };
+                let style = if is_selected {
+                    Style::default().fg(Color::Black).bg(Color::Cyan)
+                } else {
+                    Style::default().fg(Color::White)
+                };
+                popup_lines.push(Line::from(Span::styled(
+                    format!("{}{}", prefix, suggestion),
+                    style,
+                )));
+            }
+
+            let popup_block = Block::default()
+                .title("Completions")
+                .borders(Borders::ALL)
+                .style(Style::default().fg(Color::Cyan).bg(Color::Black));
+
+            let popup_paragraph = Paragraph::new(popup_lines)
+                .block(popup_block)
+                .style(Style::default().bg(Color::Black));
+
+            f.render_widget(popup_paragraph, popup_area);
+        }
 
         // Status area
         let status_style = if self.error_message.is_some() {
@@ -1192,6 +1287,160 @@ impl ModalEditor {
         }
         self.error_message = None;
         Ok(())
+    }
+
+    // ==================== TAB COMPLETION ====================
+
+    /// Get all available completion candidates
+    fn get_all_completions(&self) -> Vec<String> {
+        let mut completions = Vec::new();
+
+        // Built-in functions (from syntax highlighter)
+        let functions = vec![
+            "s", "euclid", "fast", "slow", "rev", "every", "degrade", "degradeBy",
+            "stutter", "palindrome", "sine", "saw", "square", "tri", "lpf", "hpf",
+            "bpf", "notch", "reverb", "delay", "chorus", "bitcrush", "distortion",
+            "tempo", "out", "out1", "out2", "out3", "out4", "out5", "out6", "out7",
+            "out8", "hush", "panic",
+        ];
+        completions.extend(functions.iter().map(|s| s.to_string()));
+
+        // Extract bus names from content (lines starting with ~name:)
+        for line in self.content.lines() {
+            let trimmed = line.trim();
+            if let Some(rest) = trimmed.strip_prefix('~') {
+                // Extract the bus name (everything before : or space)
+                if let Some(colon_pos) = rest.find(':') {
+                    let bus_name = rest[..colon_pos].trim();
+                    if !bus_name.is_empty() {
+                        completions.push(format!("~{}", bus_name));
+                    }
+                }
+            }
+        }
+
+        // Remove duplicates and sort
+        completions.sort();
+        completions.dedup();
+        completions
+    }
+
+    /// Get the word at cursor and its start position
+    fn get_word_at_cursor(&self) -> (String, usize) {
+        if self.cursor_pos == 0 {
+            return (String::new(), 0);
+        }
+
+        // Find the start of the current word (alphanumeric, _, ~)
+        let mut word_start = self.cursor_pos;
+        let chars: Vec<char> = self.content.chars().collect();
+
+        while word_start > 0 {
+            let prev_char = chars[word_start - 1];
+            if prev_char.is_alphanumeric() || prev_char == '_' || prev_char == '~' {
+                word_start -= 1;
+            } else {
+                break;
+            }
+        }
+
+        // Extract the word
+        let word: String = chars[word_start..self.cursor_pos].iter().collect();
+        (word, word_start)
+    }
+
+    /// Trigger completion or cycle to next if already active
+    fn trigger_or_cycle_completion(&mut self) {
+        if let Some(ref mut state) = self.completion_state {
+            // Already completing - cycle forward
+            state.selected_index = (state.selected_index + 1) % state.suggestions.len();
+            self.apply_current_completion();
+        } else {
+            // Start new completion
+            let (word, word_start) = self.get_word_at_cursor();
+
+            if word.is_empty() {
+                return;
+            }
+
+            // Get all completions and filter by prefix
+            let all_completions = self.get_all_completions();
+            let suggestions: Vec<String> = all_completions
+                .into_iter()
+                .filter(|s| s.starts_with(&word) && s != &word)
+                .collect();
+
+            if suggestions.is_empty() {
+                self.status_message = "No completions found".to_string();
+                return;
+            }
+
+            // If only one suggestion, auto-complete immediately
+            if suggestions.len() == 1 {
+                let completion = suggestions[0].clone();
+                self.content.replace_range(word_start..self.cursor_pos, &completion);
+                self.cursor_pos = word_start + completion.len();
+                self.status_message = format!("✓ Completed: {}", completion);
+            } else {
+                // Multiple suggestions - show popup
+                self.completion_state = Some(CompletionState {
+                    suggestions: suggestions.clone(),
+                    selected_index: 0,
+                    original_word: word,
+                    word_start_pos: word_start,
+                });
+                self.apply_current_completion();
+                self.status_message = format!("Tab: {} completions | ↑↓: select | Enter: accept | Esc: cancel", suggestions.len());
+            }
+        }
+    }
+
+    /// Apply the currently selected completion
+    fn apply_current_completion(&mut self) {
+        if let Some(ref state) = self.completion_state {
+            let completion = &state.suggestions[state.selected_index];
+            self.content.replace_range(state.word_start_pos..self.cursor_pos, completion);
+            self.cursor_pos = state.word_start_pos + completion.len();
+        }
+    }
+
+    /// Cycle completion forward (Down arrow)
+    fn cycle_completion_forward(&mut self) {
+        if let Some(ref mut state) = self.completion_state {
+            state.selected_index = (state.selected_index + 1) % state.suggestions.len();
+            self.apply_current_completion();
+        }
+    }
+
+    /// Cycle completion backward (Up arrow or Shift+Tab)
+    fn cycle_completion_backward(&mut self) {
+        if let Some(ref mut state) = self.completion_state {
+            if state.selected_index == 0 {
+                state.selected_index = state.suggestions.len() - 1;
+            } else {
+                state.selected_index -= 1;
+            }
+            self.apply_current_completion();
+        }
+    }
+
+    /// Accept the current completion (Enter)
+    fn accept_completion(&mut self) {
+        if let Some(ref state) = self.completion_state {
+            let completion = state.suggestions[state.selected_index].clone();
+            self.status_message = format!("✓ {}", completion);
+        }
+        self.completion_state = None;
+    }
+
+    /// Cancel completion (Esc or movement)
+    fn cancel_completion(&mut self) {
+        if let Some(ref state) = self.completion_state {
+            // Restore original word
+            self.content.replace_range(state.word_start_pos..self.cursor_pos, &state.original_word);
+            self.cursor_pos = state.word_start_pos + state.original_word.len();
+        }
+        self.completion_state = None;
     }
 }
 
