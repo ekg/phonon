@@ -77,7 +77,8 @@ use crate::envelope::PercEnvelope;
 use std::sync::Arc;
 
 /// Maximum number of simultaneous voices
-const MAX_VOICES: usize = 64;
+/// Default number of voices if not specified
+const DEFAULT_MAX_VOICES: usize = 256;
 
 /// Sample rate for envelope calculations (will be set per-voice)
 const SAMPLE_RATE: f32 = 44100.0;
@@ -285,9 +286,24 @@ impl Default for VoiceManager {
 }
 
 impl VoiceManager {
+    /// Create a new VoiceManager with default voice count (256)
     pub fn new() -> Self {
-        let mut voices = Vec::with_capacity(MAX_VOICES);
-        for _ in 0..MAX_VOICES {
+        Self::with_max_voices(DEFAULT_MAX_VOICES)
+    }
+
+    /// Create a new VoiceManager with specified max voices
+    ///
+    /// # Arguments
+    /// * `max_voices` - Maximum number of simultaneous voices (recommended: 64-1024)
+    ///
+    /// # Example
+    /// ```
+    /// let vm = VoiceManager::with_max_voices(512); // 512 voices
+    /// ```
+    pub fn with_max_voices(max_voices: usize) -> Self {
+        let max_voices = max_voices.max(1).min(4096); // Clamp to reasonable range
+        let mut voices = Vec::with_capacity(max_voices);
+        for _ in 0..max_voices {
             voices.push(Voice::new());
         }
 
@@ -354,12 +370,13 @@ impl VoiceManager {
         }
 
         // Try to find an inactive voice
-        for i in 0..MAX_VOICES {
-            let idx = (self.next_voice_index + i) % MAX_VOICES;
+        let max_voices = self.voices.len();
+        for i in 0..max_voices {
+            let idx = (self.next_voice_index + i) % max_voices;
             if self.voices[idx].is_available() {
                 self.voices[idx]
                     .trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
-                self.next_voice_index = (idx + 1) % MAX_VOICES;
+                self.next_voice_index = (idx + 1) % max_voices;
                 return;
             }
         }
@@ -378,7 +395,8 @@ impl VoiceManager {
         // Steal the oldest voice
         self.voices[oldest_idx]
             .trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
-        self.next_voice_index = (oldest_idx + 1) % MAX_VOICES;
+        let max_voices = self.voices.len();
+        self.next_voice_index = (oldest_idx + 1) % max_voices;
     }
 
     /// Process one sample from all active voices (mono)

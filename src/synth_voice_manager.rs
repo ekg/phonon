@@ -7,7 +7,7 @@
 
 use std::f32::consts::PI;
 
-const MAX_VOICES: usize = 64;
+const DEFAULT_MAX_VOICES: usize = 256;
 
 /// Waveform types for oscillators
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -234,15 +234,24 @@ impl SynthVoice {
 
 /// Manager for polyphonic synthesizer voices
 pub struct SynthVoiceManager {
-    voices: [SynthVoice; MAX_VOICES],
+    voices: Vec<SynthVoice>,
     sample_rate: f32,
     next_voice_idx: usize,
 }
 
 impl SynthVoiceManager {
     pub fn new(sample_rate: f32) -> Self {
+        Self::with_max_voices(sample_rate, DEFAULT_MAX_VOICES)
+    }
+
+    pub fn with_max_voices(sample_rate: f32, max_voices: usize) -> Self {
+        let max_voices = max_voices.max(1).min(4096); // Clamp to reasonable range
+        let voices = (0..max_voices)
+            .map(|_| SynthVoice::new())
+            .collect();
+
         Self {
-            voices: std::array::from_fn(|_| SynthVoice::new()),
+            voices,
             sample_rate,
             next_voice_idx: 0,
         }
@@ -287,7 +296,7 @@ impl SynthVoiceManager {
 
     /// Release a specific voice (if we ever need direct control)
     pub fn release_voice(&mut self, voice_idx: usize) {
-        if voice_idx < MAX_VOICES {
+        if voice_idx < self.voices.len() {
             self.voices[voice_idx].release();
         }
     }
@@ -419,7 +428,7 @@ mod tests {
 
     #[test]
     fn test_voice_stealing() {
-        let mut manager = SynthVoiceManager::new(44100.0);
+        let mut manager = SynthVoiceManager::with_max_voices(44100.0, 64);
 
         // Trigger 64 notes (max capacity)
         for i in 0..64 {
