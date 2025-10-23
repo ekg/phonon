@@ -237,12 +237,11 @@ fn compile_function_call(
         "noise" => {
             // Noise generator - arguments are ignored (for parser compatibility)
             // Parser requires at least one argument, so users call: noise 0
-            let node = SignalNode::Noise {
-                seed: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos() as u32,
-            };
+            let seed = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos() as u32)
+                .unwrap_or(42); // Fallback to constant seed if system time fails
+            let node = SignalNode::Noise { seed };
             Ok(ctx.graph.add_node(node))
         }
 
