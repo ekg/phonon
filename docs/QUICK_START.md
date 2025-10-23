@@ -11,8 +11,8 @@ alias phonon='./target/release/phonon'
 
 Create `hello.ph`:
 ```phonon
-tempo 2.0
-out = sine(440) * 0.2
+tempo: 2.0
+out: sine 440 * 0.2
 ```
 
 Run it:
@@ -28,8 +28,8 @@ phonon render hello.ph output.wav --duration 5  # Render to file
 ### 1. Basic Synthesis
 
 ```phonon
-tempo 1.0
-out = sine(220) * 0.2     # A 220Hz sine wave
+tempo: 1.0
+out: sine 220 * 0.2     -- A 220Hz sine wave
 ```
 
 **Try changing**: `sine` → `saw`, `square`, or `noise`
@@ -37,8 +37,8 @@ out = sine(220) * 0.2     # A 220Hz sine wave
 ### 2. Pattern-Controlled Frequency
 
 ```phonon
-tempo 2.0
-out = sine("110 220 440") * 0.2   # Pattern changes pitch every trigger
+tempo: 2.0
+out: sine "110 220 440" * 0.2   -- Pattern changes pitch every trigger
 ```
 
 **What's happening**: Pattern triggers 3 times per cycle, changing the oscillator frequency
@@ -46,8 +46,8 @@ out = sine("110 220 440") * 0.2   # Pattern changes pitch every trigger
 ### 3. Drums (Tidal Cycles Style!)
 
 ```phonon
-tempo 2.0
-out = s("bd sn cp hh") * 0.5
+tempo: 2.0
+out: s "bd sn cp hh" * 0.5
 ```
 
 Phonon supports **full Tidal Cycles mini-notation**:
@@ -62,9 +62,9 @@ Phonon supports **full Tidal Cycles mini-notation**:
 ### 4. Filters
 
 ```phonon
-tempo 2.0
-~drums = s("bd sn hh*4 cp")
-out = ~drums # lpf(2000, 0.8)    # Low-pass filter at 2kHz
+tempo: 2.0
+~drums: s "bd sn hh*4 cp"
+out: ~drums -- lpf 2000 0.8    # Low-pass filter at 2kHz
 ```
 
 **Try**: `lpf` → `hpf` (high-pass filter)
@@ -72,18 +72,18 @@ out = ~drums # lpf(2000, 0.8)    # Low-pass filter at 2kHz
 ### 5. Pattern-Controlled Filter
 
 ```phonon
-tempo 2.0
-~drums = s("bd sn hh*8 cp")
-out = ~drums # lpf("500 2000 1000", 0.8)   # Filter sweeps!
+tempo: 2.0
+~drums: s "bd sn hh*8 cp"
+out: ~drums -- lpf "500 2000 1000" 0.8   # Filter sweeps!
 ```
 
 ### 6. LFO Modulation
 
 ```phonon
-tempo 1.0
-~lfo = sine(0.25)                           # 0.25 Hz LFO
-~bass = saw(55) # lpf(~lfo * 2000 + 500, 0.8)
-out = ~bass * 0.3
+tempo: 1.0
+~lfo: sine 0.25                           -- 0.25 Hz LFO
+~bass: saw 55 -- lpf ~lfo * 2000 + 500 0.8
+out: ~bass * 0.3
 ```
 
 **What's happening**:
@@ -95,11 +95,11 @@ out = ~bass * 0.3
 ### 7. Mixing Multiple Sounds
 
 ```phonon
-tempo 2.0
-~kick = s("bd(3,8)")
-~snare = s(". sn . sn")
-~hats = s("hh*16") * 0.3
-out = (~kick + ~snare + ~hats) * 0.5
+tempo: 2.0
+~kick: s "bd(3,8")
+~snare: s ". sn . sn"
+~hats: s "hh*16" * 0.3
+out: (~kick + ~snare + ~hats) * 0.5
 ```
 
 ---
@@ -110,30 +110,30 @@ Phonon implements **full Tidal Cycles pattern syntax** for the s() function. All
 
 ### Basic Sequences
 ```phonon
-s("bd sn cp hh")          # Play samples in sequence
-s("bd sn")                # Two sounds per cycle
-s("bd sn cp hh cp sn")    # Six sounds per cycle
+s "bd sn cp hh"          -- Play samples in sequence
+s "bd sn"                -- Two sounds per cycle
+s "bd sn cp hh cp sn"    -- Six sounds per cycle
 ```
 
 ### Subdivision (Repeat)
 ```phonon
-s("bd*4")                 # Four kicks per cycle (16th notes)
-s("hh*8")                 # Eight hi-hats per cycle (32nd notes)
-s("bd*2 sn*2")            # Two kicks, then two snares
+s "bd*4"                 -- Four kicks per cycle (16th notes)
+s "hh*8"                 -- Eight hi-hats per cycle (32nd notes)
+s "bd*2 sn*2"            -- Two kicks, then two snares
 ```
 
 ### Rests (Silence)
 ```phonon
-s("bd ~ sn ~")            # Kick, rest, snare, rest
-s("bd ~ ~ ~")             # Kick on beat 1 only
-s("~ sn ~ sn")            # Snare on beats 2 and 4 (backbeat!)
+s "bd ~ sn ~"            -- Kick, rest, snare, rest
+s "bd ~ ~ ~"             -- Kick on beat 1 only
+s "~ sn ~ sn"            -- Snare on beats 2 and 4 (backbeat!)
 ```
 
 ### Euclidean Rhythms
 ```phonon
-s("bd(3,8)")              # 3 kicks distributed over 8 steps
-s("bd(5,16)")             # 5 kicks in 16 steps
-s("bd(3,8,2)")            # 3 in 8, rotated by 2
+s "bd(3,8")              -- 3 kicks distributed over 8 steps
+s "bd(5,16")             -- 5 kicks in 16 steps
+s "bd(3,8,2")            -- 3 in 8, rotated by 2
 ```
 
 **Classic Euclidean Patterns**:
@@ -143,23 +143,23 @@ s("bd(3,8,2)")            # 3 in 8, rotated by 2
 
 ### Alternation (Choose)
 ```phonon
-s("bd <sn cp>")           # Cycle 1: bd sn, Cycle 2: bd cp
-s("<bd sn hh>")           # Rotates through: bd, sn, hh
-s("bd <sn cp hh>")        # bd + rotating second sound
+s "bd <sn cp>"           -- Cycle 1: bd sn, Cycle 2: bd cp
+s "<bd sn hh>"           -- Rotates through: bd, sn, hh
+s "bd <sn cp hh>"        -- bd + rotating second sound
 ```
 
 ### Layering (Polyrhythms)
 ```phonon
-s("[bd, hh*8]")           # Kick AND hi-hats together
-s("[bd*4, sn*2, hh*8]")   # Three layers: kicks, snares, hats
-s("[bd, ~ sn ~ sn]")      # Kick with backbeat
+s "[bd, hh*8]"           -- Kick AND hi-hats together
+s "[bd*4, sn*2, hh*8]"   -- Three layers: kicks, snares, hats
+s "[bd, ~ sn ~ sn]"      -- Kick with backbeat
 ```
 
 ### Sample Selection
 ```phonon
-s("bd:0 bd:1 bd:2")       # Different kick samples
-s("sn:0 sn:3 sn:7")       # Different snare samples
-s("hh:0 hh:1")            # Alternate hi-hat samples
+s "bd:0 bd:1 bd:2"       -- Different kick samples
+s "sn:0 sn:3 sn:7"       -- Different snare samples
+s "hh:0 hh:1"            -- Alternate hi-hat samples
 ```
 
 Sample numbers correspond to files:
@@ -169,14 +169,14 @@ Sample numbers correspond to files:
 
 ### Grouping
 ```phonon
-s("[bd bd] sn")           # Two bds in one step: bd bd sn
-s("bd [sn cp]")           # bd, then sn+cp together
+s "[bd bd] sn"           -- Two bds in one step: bd bd sn
+s "bd [sn cp]"           -- bd, then sn+cp together
 ```
 
 ### Classic House Beat
 ```phonon
-tempo 2.0
-out = s("[bd*4, hh*8, ~ sn ~ sn]") * 0.8
+tempo: 2.0
+out: s "[bd*4, hh*8, ~ sn ~ sn]" * 0.8
 ```
 - Four-on-the-floor kick (`bd*4`)
 - Eighth-note hi-hats (`hh*8`)
@@ -184,14 +184,14 @@ out = s("[bd*4, hh*8, ~ sn ~ sn]") * 0.8
 
 ### Complex Patterns
 ```phonon
-# Euclidean layers
-s("[bd(3,8), hh(5,16), ~ sn ~ sn]")
+-- Euclidean layers
+s "[bd(3,8, hh(5,16), ~ sn ~ sn]")
 
-# Alternating samples with rests
-s("<bd:0 bd:1 bd:2> ~ sn ~")
+-- Alternating samples with rests
+s "<bd:0 bd:1 bd:2> ~ sn ~"
 
-# Rapid hi-hats with occasional snare
-s("[hh*16, ~ ~ sn ~]")
+-- Rapid hi-hats with occasional snare
+s "[hh*16, ~ ~ sn ~]"
 ```
 
 ---
@@ -202,7 +202,7 @@ The s() function accepts **pattern strings** for gain, pan, and speed parameters
 
 ### Syntax
 ```phonon
-s("sample_pattern", gain, pan, speed)
+s "sample_pattern", gain, pan, speed
 ```
 
 All parameters are optional and can be:
@@ -211,54 +211,54 @@ All parameters are optional and can be:
 
 ### Gain Patterns (Dynamics)
 ```phonon
-# Decreasing velocity on repeated hits
-s("bd*4", "1.0 0.8 0.6 0.4")
+-- Decreasing velocity on repeated hits
+s "bd*4", "1.0 0.8 0.6 0.4"
 
-# Accent pattern (like 303)
-s("bd*8", "1.0 0.3 0.6 0.3 1.0 0.3 0.6 0.3")
+-- Accent pattern (like 303)
+s "bd*8", "1.0 0.3 0.6 0.3 1.0 0.3 0.6 0.3"
 
-# Constant gain
-s("bd sn", 0.8)
+-- Constant gain
+s "bd sn", 0.8
 ```
 
 ### Pan Patterns (Stereo)
 ```phonon
-# Ping-pong delay effect
-s("hh*8", 0.8, "-1 1 -1 1")
+-- Ping-pong delay effect
+s "hh*8", 0.8, "-1 1 -1 1"
 
-# Sweep left to right
-s("bd*4", 1.0, "-1 -0.5 0.5 1")
+-- Sweep left to right
+s "bd*4", 1.0, "-1 -0.5 0.5 1"
 
-# Center (default)
-s("bd sn", 1.0, 0.0)
+-- Center (default)
+s "bd sn", 1.0, 0.0
 ```
 
 Pan values: `-1.0` = left, `0.0` = center, `1.0` = right
 
 ### Speed Patterns (Pitch)
 ```phonon
-# Varying playback speeds
-s("bd*4", 1.0, 0.0, "1.0 1.2 0.8 1.5")
+-- Varying playback speeds
+s "bd*4", 1.0, 0.0, "1.0 1.2 0.8 1.5"
 
-# Octave jumps
-s("bd*2", 1.0, 0.0, "1.0 2.0")  # Normal, then double speed (up 1 octave)
+-- Octave jumps
+s "bd*2", 1.0, 0.0, "1.0 2.0"  -- Normal, then double speed (up 1 octave)
 
-# Slow motion
-s("bd", 1.0, 0.0, 0.5)          # Half speed (down 1 octave)
+-- Slow motion
+s "bd", 1.0, 0.0, 0.5          -- Half speed (down 1 octave)
 ```
 
 Speed values: `1.0` = normal, `2.0` = double speed (+1 octave), `0.5` = half speed (-1 octave)
 
 ### Combined Parameter Patterns
 ```phonon
-# Full dynamic expression
+-- Full dynamic expression
 s("bd*8",
-  "1.0 0.7 0.8 0.6 1.0 0.7 0.8 0.6",  # gain
-  "-1 -0.5 0 0.5 1 0.5 0 -0.5",        # pan
-  "1.0 1.1 0.9 1.2 1.0 1.1 0.9 0.8")   # speed
+  "1.0 0.7 0.8 0.6 1.0 0.7 0.8 0.6",  -- gain
+  "-1 -0.5 0 0.5 1 0.5 0 -0.5",        -- pan
+  "1.0 1.1 0.9 1.2 1.0 1.1 0.9 0.8")   -- speed
 
-# Practical: accented kick pattern
-s("bd*4", "1.0 0.6 0.8 0.6")
+-- Practical: accented kick pattern
+s "bd*4", "1.0 0.6 0.8 0.6"
 ```
 
 ---
@@ -267,39 +267,39 @@ s("bd*4", "1.0 0.6 0.8 0.6")
 
 ### Kick Drum Pattern
 ```phonon
-s("bd ~ ~ bd ~ ~ bd ~")
-s("bd(3,8)")              # Same as above, Euclidean
-s("bd*4")                 # Four-on-the-floor
+s "bd ~ ~ bd ~ ~ bd ~"
+s "bd(3,8")              -- Same as above, Euclidean
+s "bd*4"                 -- Four-on-the-floor
 ```
 
 ### Hi-hat Patterns
 ```phonon
-s("hh*8")                 # 8th notes
-s("hh*16")                # 16th notes
-s("hh*4 ~ hh*4 ~")        # Syncopated
-s("hh(5,16)")             # Euclidean groove
+s "hh*8"                 -- 8th notes
+s "hh*16"                -- 16th notes
+s "hh*4 ~ hh*4 ~"        -- Syncopated
+s "hh(5,16")             -- Euclidean groove
 ```
 
 ### Snare Patterns
 ```phonon
-s("~ sn ~ sn")            # Backbeat (beats 2 and 4)
-s("~ sn ~ <sn cp>")       # Alternating snare/clap
-s("sn(3,8)")              # Tresillo snare
+s "~ sn ~ sn"            -- Backbeat (beats 2 and 4)
+s "~ sn ~ <sn cp>"       -- Alternating snare/clap
+s "sn(3,8")              -- Tresillo snare
 ```
 
 ### Complete Rhythm Examples
 ```phonon
-# House
-s("[bd*4, hh*8, ~ sn ~ sn]")
+-- House
+s "[bd*4, hh*8, ~ sn ~ sn]"
 
-# Techno
-s("[bd(5,16), hh*16, ~ ~ sn ~]")
+-- Techno
+s "[bd(5,16, hh*16, ~ ~ sn ~]")
 
-# Drum & Bass
-s("[bd ~ bd(3,8), hh*32, ~ sn ~ sn]")
+-- Drum & Bass
+s "[bd ~ bd(3,8, hh*32, ~ sn ~ sn]")
 
-# Hip-hop
-s("[bd ~ bd ~, ~ sn ~ sn, hh*8]")
+-- Hip-hop
+s "[bd ~ bd ~, ~ sn ~ sn, hh*8]"
 ```
 
 ---
@@ -308,24 +308,24 @@ s("[bd ~ bd ~, ~ sn ~ sn, hh*8]")
 
 ### Assignment
 ```phonon
-~name = expression        # Create a named bus
+~name: expression        -- Create a named bus
 ```
 
 ### Signal Chain
 ```phonon
-~chain = source # effect1 # effect2
+~chain: source -- effect1 # effect2
 ```
 
 ### Math Operations
 ```phonon
-~mixed = ~a + ~b          # Add signals
-~scaled = ~a * 0.5        # Scale signal
-~offset = ~a + 0.2        # Add DC offset
+~mixed: ~a + ~b          -- Add signals
+~scaled: ~a * 0.5        -- Scale signal
+~offset: ~a + 0.2        -- Add DC offset
 ```
 
 ### Pattern Modulation
 ```phonon
-~modulated = ~carrier * "0.5 1.0"   # Pattern controls amplitude
+~modulated: ~carrier * "0.5 1.0"   -- Pattern controls amplitude
 ```
 
 ---
@@ -334,127 +334,127 @@ s("[bd ~ bd ~, ~ sn ~ sn, hh*8]")
 
 ### Oscillators
 ```phonon
-sine(freq)                # Sine wave
-saw(freq)                 # Sawtooth
-square(freq)              # Square wave
-noise                     # White noise
+sine freq                -- Sine wave
+saw freq                 -- Sawtooth
+square freq              -- Square wave
+noise 0                     -- White noise 0
 ```
 
 ### SuperDirt Synths
 Phonon includes 7 synthesizers from SuperDirt/SuperCollider:
 
 ```phonon
-superkick(freq, pitch_env, sustain, noise)
-# Analog kick drum
-# freq: base frequency (typically 40-80 Hz)
-# pitch_env: pitch envelope amount (0.0-1.0)
-# sustain: decay time (0.05-0.5)
-# noise: noise mix (0.0-1.0)
+superkick(freq, pitch_env, sustain, noise 0)
+-- Analog kick drum
+-- freq: base frequency (typically 40-80 Hz)
+-- pitch_env: pitch envelope amount (0.0-1.0)
+-- sustain: decay time (0.05-0.5)
+-- noise 0: noise 0 mix (0.0-1.0)
 
-supersaw(freq, amp, detune)
-# Detuned sawtooth (analog supersaw)
-# freq: base frequency
-# amp: amplitude
-# detune: detune amount in cents (higher = wider)
+supersaw freq, amp, detune
+-- Detuned sawtooth (analog supersaw)
+-- freq: base frequency
+-- amp: amplitude
+-- detune: detune amount in cents (higher = wider)
 
 superpwm(freq, amp, pwm_rate)
-# Pulse-width modulation synthesis
-# freq: base frequency
-# amp: amplitude
-# pwm_rate: LFO rate for PWM (0.1-10 Hz)
+-- Pulse-width modulation synthesis
+-- freq: base frequency
+-- amp: amplitude
+-- pwm_rate: LFO rate for PWM (0.1-10 Hz)
 
 superchip(freq, slide, decay)
-# Chiptune square wave with pitch slide
-# freq: base frequency
-# slide: pitch slide amount (semitones)
-# decay: envelope decay time
+-- Chiptune square wave with pitch slide
+-- freq: base frequency
+-- slide: pitch slide amount (semitones)
+-- decay: envelope decay time
 
 superfm(freq, mod_freq, mod_index)
-# FM synthesis (frequency modulation)
-# freq: carrier frequency
-# mod_freq: modulator frequency (ratio)
-# mod_index: modulation depth
+-- FM synthesis (frequency modulation)
+-- freq: carrier frequency
+-- mod_freq: modulator frequency (ratio)
+-- mod_index: modulation depth
 
 supersnare(freq, tone, decay)
-# Snare drum (noise + tone)
-# freq: body frequency (150-250 Hz)
-# tone: tone/noise balance (0.0=noise, 1.0=tone)
-# decay: envelope decay
+-- Snare drum (noise 0 + tone)
+-- freq: body frequency (150-250 Hz)
+-- tone: tone/noise 0 balance (0.0=noise 0, 1.0=tone)
+-- decay: envelope decay
 
 superhat(amp, decay)
-# Hi-hat (filtered noise)
-# amp: amplitude
-# decay: envelope decay (0.01-0.3)
+-- Hi-hat (filtered noise 0)
+-- amp: amplitude
+-- decay: envelope decay (0.01-0.3)
 ```
 
 **Example synth patterns**:
 ```phonon
-# Kick with pattern pitch envelope
-~kick = superkick(60, "0.3 0.7 0.5", 0.1, 0.2)
+-- Kick with pattern pitch envelope
+~kick: superkick(60, "0.3 0.7 0.5", 0.1, 0.2)
 
-# Bass line with pattern frequency
-~bass = supersaw("55 82.5 110", 0.3, 5)
+-- Bass line with pattern frequency
+~bass: supersaw "55 82.5 110", 0.3, 5
 
-# Chiptune arpeggio
-~arp = superchip("220 330 440 330", 2.0, 0.1)
+-- Chiptune arpeggio
+~arp: superchip("220 330 440 330", 2.0, 0.1)
 ```
 
 **Note**: Synths are continuous (always on, decay naturally). For triggered notes, use samples with the s() function.
 
 ### Effects
 ```phonon
-reverb(input, room_size, damping, wet)
-# Freeverb algorithm
-# room_size: 0.0-1.0 (room size)
-# damping: 0.0-1.0 (high frequency damping)
-# wet: 0.0-1.0 (dry/wet mix)
+reverb input room_size damping, wet
+-- Freeverb algorithm
+-- room_size: 0.0-1.0 (room size)
+-- damping: 0.0-1.0 (high frequency damping)
+-- wet: 0.0-1.0 (dry/wet mix)
 
-dist(input, drive, mix)
-# Distortion (tanh waveshaper)
-# drive: 1.0-10.0+ (distortion amount)
-# mix: 0.0-1.0 (dry/wet mix)
+dist input drive, mix
+-- Distortion (tanh waveshaper)
+-- drive: 1.0-10.0+ (distortion amount)
+-- mix: 0.0-1.0 (dry/wet mix)
 
-bitcrush(input, bits, rate)
-# Bit reduction
-# bits: 1.0-16.0 (bit depth)
-# rate: 1.0-16.0 (sample rate reduction)
+bitcrush input bits, rate
+-- Bit reduction
+-- bits: 1.0-16.0 (bit depth)
+-- rate: 1.0-16.0 (sample rate reduction)
 
-chorus(input, rate, depth, mix)
-# Chorus effect (modulated delay)
-# rate: 0.1-10.0 (LFO rate)
-# depth: 0.0-1.0 (modulation depth)
-# mix: 0.0-1.0 (dry/wet mix)
+chorus input rate depth, mix
+-- Chorus effect (modulated delay)
+-- rate: 0.1-10.0 (LFO rate)
+-- depth: 0.0-1.0 (modulation depth)
+-- mix: 0.0-1.0 (dry/wet mix)
 ```
 
 **Example effects chains**:
 ```phonon
-# Drums through reverb
-~drums = s("[bd*4, hh*8]")
-out = reverb(~drums, 0.7, 0.5, 0.3) * 0.8
+-- Drums through reverb
+~drums: s "[bd*4, hh*8]"
+out: reverb ~drums 0.7 0.5, 0.3 * 0.8
 
-# Synth through distortion and chorus
-~synth = supersaw(110, 0.5, 7)
-~distorted = dist(~synth, 3.0, 0.5)
-out = chorus(~distorted, 1.0, 0.5, 0.4) * 0.3
+-- Synth through distortion and chorus
+~synth: supersaw 110, 0.5, 7
+~distorted: dist ~synth 3.0, 0.5
+out: chorus ~distorted 1.0 0.5, 0.4 * 0.3
 ```
 
 ### Filters
 ```phonon
-lpf(cutoff, q)            # Low-pass filter
-hpf(cutoff, q)            # High-pass filter
+lpf cutoff q            -- Low-pass filter
+hpf cutoff q            -- High-pass filter
 ```
 
 ### Samples
 ```phonon
-s("pattern")              # Play samples from samples/ directory
-s("pattern", gain, pan, speed)  # With parameter patterns
+s "pattern"              -- Play samples from samples/ directory
+s "pattern", gain, pan, speed  -- With parameter patterns
 ```
 
 All of these can take **patterns** as arguments:
 ```phonon
-sine("110 220 440")
-saw("55 82.5 110")
-lpf("500 2000", 0.8)
+sine "110 220 440"
+saw "55 82.5 110"
+lpf "500 2000" 0.8
 superkick(60, "0.3 0.7", 0.1, 0.2)
 ```
 
@@ -477,21 +477,21 @@ samples/
 
 Name them by their base name in patterns:
 ```phonon
-s("bd sn cp")    # Plays BD0000.WAV, SD0000.WAV, CP.WAV
+s "bd sn cp"    -- Plays BD0000.WAV, SD0000.WAV, CP.WAV
 ```
 
 ### .ph Files
 
 ```phonon
-# Comment with hash
-tempo 2.0              # Cycles per second
+-- Comment with hash
+tempo 2.0              -- Cycles per second
 
-# Define buses
-~kick = s("bd(3,8)")
-~bass = saw(55)
+-- Define buses
+~kick: s "bd(3,8")
+~bass: saw 55
 
-# Output (required)
-out = ~kick + ~bass * 0.3
+-- Output (required)
+out: ~kick + ~bass * 0.3
 ```
 
 ---
@@ -513,7 +513,7 @@ out = ~kick + ~bass * 0.3
 
 If you're stuck with sound playing, edit your file to:
 ```phonon
-out = 0
+out: 0
 ```
 
 ---
@@ -556,110 +556,110 @@ alias phonon='/path/to/phonon/target/release/phonon'
 
 ### Example 1: Classic House Track
 ```phonon
-tempo 2.0  # 120 BPM (2 cycles per second)
+tempo 2.0  -- 120 BPM (2 cycles per second)
 
-# Four-on-the-floor with hi-hats and snare
-~drums = s("[bd*4, hh*8, ~ sn ~ sn]")
+-- Four-on-the-floor with hi-hats and snare
+~drums: s "[bd*4, hh*8, ~ sn ~ sn]"
 
-# Bass line with pattern frequency
-~bass = supersaw("55 82.5 110 82.5", 0.4, 5) # lpf(800, 0.8)
+-- Bass line with pattern frequency
+~bass: supersaw "55 82.5 110 82.5", 0.4, 5 -- lpf 800 0.8
 
-# Combine with effects
-out = reverb(~drums + ~bass, 0.5, 0.5, 0.2) * 0.7
+-- Combine with effects
+out: reverb ~drums + ~bass 0.5 0.5, 0.2 * 0.7
 ```
 
 ### Example 2: Euclidean Techno
 ```phonon
-tempo 2.5  # 150 BPM
+tempo 2.5  -- 150 BPM
 
-# Euclidean kick pattern
-~kick = s("bd(5,16)", "1.0 0.7 0.9 0.6 0.8")
+-- Euclidean kick pattern
+~kick: s "bd(5,16", "1.0 0.7 0.9 0.6 0.8")
 
-# Fast hi-hats with pan pattern
-~hats = s("hh*16", 0.6, "-1 1 -0.5 0.5")
+-- Fast hi-hats with pan pattern
+~hats: s "hh*16", 0.6, "-1 1 -0.5 0.5"
 
-# Euclidean claps
-~claps = s("cp(3,8)")
+-- Euclidean claps
+~claps: s "cp(3,8")
 
-out = (~kick + ~hats + ~claps * 0.8) * 0.7
+out: (~kick + ~hats + ~claps * 0.8) * 0.7
 ```
 
 ### Example 3: Drum & Bass with Breaks
 ```phonon
-tempo 3.0  # 180 BPM
+tempo 3.0  -- 180 BPM
 
-# Complex kick pattern with varied samples
-~kick = s("bd:0*2 bd:1 ~ bd:0", "1.0 0.8 0.9 0.7")
+-- Complex kick pattern with varied samples
+~kick: s "bd:0*2 bd:1 ~ bd:0", "1.0 0.8 0.9 0.7"
 
-# Rapid hi-hats with speed modulation
-~hats = s("hh*32", 0.5, 0.0, "1.0 1.2 0.9 1.3")
+-- Rapid hi-hats with speed modulation
+~hats: s "hh*32", 0.5, 0.0, "1.0 1.2 0.9 1.3"
 
-# Snare on 2 and 4
-~snare = s("~ sn ~ sn", 1.0, 0.0, "1.0 1.1")
+-- Snare on 2 and 4
+~snare: s "~ sn ~ sn", 1.0, 0.0, "1.0 1.1"
 
-# Distorted bass
-~bass = supersaw(55, 0.6, 8) # dist(4.0, 0.6)
+-- Distorted bass
+~bass: supersaw 55, 0.6, 8 -- dist 4.0 0.6
 
-out = reverb(~kick + ~hats + ~snare + ~bass * 0.2, 0.3, 0.5, 0.15)
+out: reverb ~kick + ~hats + ~snare + ~bass * 0.2 0.3 0.5, 0.15
 ```
 
 ### Example 4: Ambient Soundscape
 ```phonon
-tempo 0.5  # Slow (60 BPM)
+tempo 0.5  -- Slow (60 BPM)
 
-# LFO for filter modulation
-~lfo = sine(0.1) * 0.5 + 0.5
+-- LFO for filter modulation
+~lfo: sine 0.1 * 0.5 + 0.5
 
-# Detuned saw pad
-~pad = supersaw(110, 0.3, 15) # lpf(~lfo * 3000 + 500, 0.7)
+-- Detuned saw pad
+~pad: supersaw 110, 0.3, 15 -- lpf ~lfo * 3000 + 500 0.7
 
-# Sparse percussion with sample selection
-~perc = s("<bd:2 ~ ~ ~, ~ ~ hh:3 ~>", 0.4)
+-- Sparse percussion with sample selection
+~perc: s "<bd:2 ~ ~ ~, ~ ~ hh:3 ~>", 0.4
 
-# Heavy reverb for ambient feel
-out = reverb(chorus(~pad + ~perc, 0.5, 0.3, 0.4), 0.9, 0.7, 0.6) * 0.4
+-- Heavy reverb for ambient feel
+out: reverb chorus ~pad + ~perc 0.5 0.3 0.4 0.9, 0.7, 0.6 * 0.4
 ```
 
 ### Example 5: Hip-Hop Beat with Swing
 ```phonon
-tempo 1.8  # 108 BPM
+tempo 1.8  -- 108 BPM
 
-# Kick pattern with dynamics
-~kick = s("bd ~ ~ bd ~ bd ~ ~", "1.0 0.0 0.0 0.8 0.0 0.9 0.0 0.0")
+-- Kick pattern with dynamics
+~kick: s "bd ~ ~ bd ~ bd ~ ~", "1.0 0.0 0.0 0.8 0.0 0.9 0.0 0.0"
 
-# Snare on 2 and 4
-~snare = s("~ sn ~ sn")
+-- Snare on 2 and 4
+~snare: s "~ sn ~ sn"
 
-# Hi-hat with varied samples for groove
-~hats = s("hh:0 hh:1 hh:0 hh:2 hh:0 hh:1 hh:3 hh:1", "0.7 0.5 0.6 0.4 0.7 0.5 0.8 0.5")
+-- Hi-hat with varied samples for groove
+~hats: s "hh:0 hh:1 hh:0 hh:2 hh:0 hh:1 hh:3 hh:1", "0.7 0.5 0.6 0.4 0.7 0.5 0.8 0.5"
 
-# Bitcrushed bass for lo-fi feel
-~bass = supersaw("55 ~ 82.5 ~", 0.5, 3) # bitcrush(6.0, 4.0)
+-- Bitcrushed bass for lo-fi feel
+~bass: supersaw "55 ~ 82.5 ~", 0.5, 3 -- bitcrush 6.0 4.0
 
-out = (~kick + ~snare + ~hats * 0.6 + ~bass * 0.3) * 0.8
+out: (~kick + ~snare + ~hats * 0.6 + ~bass * 0.3) * 0.8
 ```
 
 ### Example 6: Live Coding Session Pattern
 ```phonon
-tempo 2.0
+tempo: 2.0
 
-# Start with kick
-~kick = s("bd*4")
+-- Start with kick
+~kick: s "bd*4"
 
-# Add hats
-~hats = s("hh*8", "0.6 0.8 0.7 0.9 0.6 0.8 0.7 1.0")
+-- Add hats
+~hats: s "hh*8", "0.6 0.8 0.7 0.9 0.6 0.8 0.7 1.0"
 
-# Layer snare
-~snare = s("~ sn ~ sn")
+-- Layer snare
+~snare: s "~ sn ~ sn"
 
-# Optional: add percolating hi-hat pattern
-~perc = s("hh(5,16)", 0.4, "-1 1 0")
+-- Optional: add percolating hi-hat pattern
+~perc: s "hh(5,16", 0.4, "-1 1 0")
 
-# Bassline (comment out to remove)
-~bass = supersaw("55 55 82.5 55", 0.4, 5) # lpf(1200, 0.9)
+-- Bassline (comment out to remove)
+~bass: supersaw "55 55 82.5 55", 0.4, 5 -- lpf 1200 0.9
 
-# Mix everything
-out = reverb(~kick + ~hats + ~snare + ~perc, 0.4, 0.5, 0.2) * 0.8
+-- Mix everything
+out: reverb ~kick + ~hats + ~snare + ~perc 0.4 0.5, 0.2 * 0.8
 ```
 
 ---
@@ -692,15 +692,15 @@ Key example files:
 ### Quick Silence
 If you need to stop the sound immediately:
 ```phonon
-out = 0
+out: 0
 ```
 
 ### Quick Mute Specific Parts
 Comment them out:
 ```phonon
-~kick = s("bd*4")
-# ~bass = supersaw(55, 0.5, 5)  # Muted
-out = ~kick  # + ~bass
+~kick: s "bd*4"
+-- ~bass = supersaw 55, 0.5, 5  -- Muted
+out: ~kick  -- + ~bass
 ```
 
 ---
