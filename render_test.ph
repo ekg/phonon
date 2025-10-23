@@ -1,2 +1,2 @@
-# For the render command - uses different syntax
+-- For the render command - uses different syntax
 main: sine 440 * 0.2

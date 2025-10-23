@@ -1,22 +1,22 @@
-# Filter Showcase - Demonstrates filter modulation
-# Render with: phonon render filter_showcase.phonon filter_showcase.wav --duration 6
+-- Filter Showcase - Demonstrates filter modulation
+-- Render with: phonon render filter_showcase.phonon filter_showcase.wav --duration 6
 
-# Source: rich saw wave
+-- Source: rich saw wave
 source = saw 55
 
-# Different filter sweeps to try (uncomment one at a time)
+-- Different filter sweeps to try (uncomment one at a time)
 
-# Slow opening low-pass filter
+-- Slow opening low-pass filter
 out source # lpf("100 200 400 800 1600 3200 6400 3200 1600 800 400 200", 3) * 0.2
 
-# Fast wobble bass
-# out source # lpf("200 2000", 5) * 0.2
+-- Fast wobble bass
+-- out source # lpf("200 2000", 5) * 0.2
 
-# High resonance sweep
-# out source # lpf("100 500 1000 2000 4000 2000 1000 500", 8) * 0.2
+-- High resonance sweep
+-- out source # lpf("100 500 1000 2000 4000 2000 1000 500", 8) * 0.2
 
-# High-pass filter for thin sound
-# out source # hpf("100 200 400 800 1600 800 400 200", 3) * 0.2
+-- High-pass filter for thin sound
+-- out source # hpf("100 200 400 800 1600 800 400 200", 3) * 0.2
 
-# Alternating between low and high cutoff
-# out source # lpf("100 100 100 5000 5000 5000", 10) * 0.2
+-- Alternating between low and high cutoff
+-- out source # lpf("100 100 100 5000 5000 5000", 10) * 0.2

@@ -98,31 +98,14 @@ pub fn diagnose_parse_failure(original_input: &str, remaining: &str) -> Diagnost
 fn detect_common_error(text: &str, source_line: &str) -> (String, Option<String>) {
     let text = text.trim();
 
-    // Check for inline comments (not supported due to # being chain operator)
-    if source_line.contains(" #") && !source_line.trim_start().starts_with('#') {
-        // Check if this looks like an inline comment rather than chain operator
-        if let Some(hash_pos) = source_line.find(" #") {
-            let after_hash = &source_line[hash_pos + 2..];
-            // If what's after # doesn't look like a function name, it's probably a comment
-            if !after_hash.trim_start().chars().next().map(|c| c.is_alphabetic()).unwrap_or(false) {
-                return (
-                    "Inline comments are not supported".to_string(),
-                    Some("The # symbol is used for the chain operator.\n\
-                          Put comments on their own line:\n\
-                          ❌ Wrong: tempo: 2.0  # comment\n\
-                          ✅ Correct:\n\
-                          # comment\n\
-                          tempo: 2.0".to_string()),
-                );
-            }
-        }
-    }
-
-    // Check for Haskell-style comments
-    if source_line.trim_start().starts_with("--") {
+    // Check for # used as comment (should use --)
+    if source_line.trim_start().starts_with('#') && !source_line.contains(" # ") {
         return (
-            "Haskell-style comments (--) are not supported".to_string(),
-            Some("Use # for comments instead of --\nExample: # This is a comment".to_string()),
+            "# is the chain operator, not for comments".to_string(),
+            Some("Use -- for comments instead of #\n\
+                  ❌ Wrong: # This is a comment\n\
+                  ✅ Correct: -- This is a comment\n\
+                  Note: # is used for chaining: saw 110 # lpf 1000 0.8".to_string()),
         );
     }
 
@@ -211,10 +194,10 @@ pub fn check_for_common_mistakes(input: &str) -> Vec<String> {
     for (i, line) in input.lines().enumerate() {
         let trimmed = line.trim();
 
-        // Check for -- comments
-        if trimmed.starts_with("--") {
+        // Check for # used as comment (should use --)
+        if trimmed.starts_with('#') && !trimmed.contains(" # ") {
             warnings.push(format!(
-                "Line {}: Haskell-style comment '--' detected. Use '#' instead.",
+                "Line {}: # is the chain operator. Use '--' for comments.",
                 i + 1
             ));
         }
@@ -240,13 +223,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_detect_haskell_comments() {
-        let input = "tempo: 2.0\n-- This is a comment\nout: sine 440";
-        let remaining = "-- This is a comment\nout: sine 440";
+    fn test_detect_hash_comments() {
+        let input = "tempo: 2.0\n# This is a comment\nout: sine 440";
+        let remaining = "# This is a comment\nout: sine 440";
 
         let diag = diagnose_parse_failure(input, remaining);
         assert_eq!(diag.line, 2);
-        assert!(diag.message.contains("Haskell-style"));
+        assert!(diag.message.contains("chain operator"));
         assert!(diag.hint.is_some());
     }
 
@@ -261,11 +244,11 @@ mod tests {
 
     #[test]
     fn test_check_common_mistakes() {
-        let input = "tempo: 2.0\n-- comment\n~kick: s(\"bd\")";
+        let input = "tempo: 2.0\n# comment\n~kick: s(\"bd\")";
         let warnings = check_for_common_mistakes(input);
 
         assert!(warnings.len() >= 2);
-        assert!(warnings.iter().any(|w| w.contains("comment")));
+        assert!(warnings.iter().any(|w| w.contains("chain operator")));
         assert!(warnings.iter().any(|w| w.contains("parentheses")));
     }
 }

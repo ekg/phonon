@@ -1,45 +1,45 @@
-# Phonon Starter Template
-# A minimal starting point for live coding
+-- Phonon Starter Template
+-- A minimal starting point for live coding
 
-# 2 cycles per second (120 BPM equivalent)
+-- 2 cycles per second (120 BPM equivalent)
 tempo: 2.0
 
-# Start with a simple kick drum
+-- Start with a simple kick drum
 ~kick: s "bd*4"
 
-# Add hi-hats (uncomment to enable)
-# ~hats: s "hh*8" * 0.6
+-- Add hi-hats (uncomment to enable)
+-- ~hats: s "hh*8" * 0.6
 
-# Add a snare on beats 2 and 4 (uncomment to enable)
-# ~snare: s "~ sn ~ sn"
+-- Add a snare on beats 2 and 4 (uncomment to enable)
+-- ~snare: s "~ sn ~ sn"
 
-# Optional: add a bassline (uncomment to enable)
-# ~bass: supersaw 55 0.4 5 # lpf 800 0.9
+-- Optional: add a bassline (uncomment to enable)
+-- ~bass: supersaw 55 0.4 5 # lpf 800 0.9
 
-# Mix everything together
-# Uncomment below to add more elements
+-- Mix everything together
+-- Uncomment below to add more elements
 out: ~kick
-# out: ~kick + ~hats + ~snare + ~bass * 0.3
+-- out: ~kick + ~hats + ~snare + ~bass * 0.3
 
-# QUICK START:
-# 1. Uncomment the hats line and save
-# 2. Uncomment the snare line and save
-# 3. Uncomment the bass line and save
-# 4. Adjust volumes with * 0.X
-# 5. Try different patterns!
+-- QUICK START:
+-- 1. Uncomment the hats line and save
+-- 2. Uncomment the snare line and save
+-- 3. Uncomment the bass line and save
+-- 4. Adjust volumes with * 0.X
+-- 5. Try different patterns!
 
-# PATTERN CHEAT SHEET:
-# bd*4        - Four kicks per cycle
-# hh*8        - Eight hi-hats per cycle
-# bd ~ sn ~   - Kick, rest, snare, rest
-# bd(3,8)     - Euclidean rhythm
-# <bd sn>     - Alternates each cycle
-# [bd, hh*8]  - Layer patterns
-# bd:0 bd:1   - Different samples
+-- PATTERN CHEAT SHEET:
+-- bd*4        - Four kicks per cycle
+-- hh*8        - Eight hi-hats per cycle
+-- bd ~ sn ~   - Kick, rest, snare, rest
+-- bd(3,8)     - Euclidean rhythm
+-- <bd sn>     - Alternates each cycle
+-- [bd, hh*8]  - Layer patterns
+-- bd:0 bd:1   - Different samples
 
-# PATTERN TRANSFORMS:
-# s "bd sn" $ fast 2   - Twice as fast
-# s "bd sn" $ slow 2   - Half speed
-# s "bd sn" $ rev      - Reverse
+-- PATTERN TRANSFORMS:
+-- s "bd sn" $ fast 2   - Twice as fast
+-- s "bd sn" $ slow 2   - Half speed
+-- s "bd sn" $ rev      - Reverse
 
-# Quick silence all: out: 0
+-- Quick silence all: out: 0

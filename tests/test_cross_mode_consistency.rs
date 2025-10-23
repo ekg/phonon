@@ -267,17 +267,17 @@ fn test_unified_vision_same_file_all_modes() {
     // This is the ultimate test: write ONE .ph file and verify it works
     // identically in Render, OSC, and Live modes
 
-    let code = r#"# Phonon Unified Vision Test
-# This exact code should work identically in ALL modes
+    let code = r#"-- Phonon Unified Vision Test
+-- This exact code should work identically in ALL modes
 
 cps: 2.0
 
-# Auto-routing pattern (TidalCycles style)
+-- Auto-routing pattern (TidalCycles style)
 ~d1: saw 110
 ~d2: sine 220
 ~out1: square 55
 
-# All three buses should auto-route to master and mix together
+-- All three buses should auto-route to master and mix together
 "#;
 
     let sample_rate = 44100.0;

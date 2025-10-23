@@ -43,13 +43,13 @@ fn assert_has_audio(buffer: &[f32], description: &str) {
 #[test]
 fn test_e2e_comments() {
     let code = r#"
-# This is a comment
+-- This is a comment
 tempo: 2.0
 
-# Another comment
+-- Another comment
 ~freq: 440
 
-# Final comment
+-- Final comment
 out: sine ~freq
 "#;
 
@@ -236,20 +236,20 @@ out: s "bd sn" $ fast 2 $ rev
 #[test]
 fn test_e2e_full_track() {
     let code = r#"
-# Full track with all features
+-- Full track with all features
 tempo: 2.0
 
-# Drums with pattern transforms
+-- Drums with pattern transforms
 ~drums: s "bd sn hh cp" $ fast 2
 
-# Pattern-controlled filter
+-- Pattern-controlled filter
 ~cutoffs: "<500 1000 2000>" $ fast 3
 ~filtered_drums: ~drums # lpf ~cutoffs 0.8
 
-# Bass with effects
+-- Bass with effects
 ~bass: saw 55 # lpf 400 0.7 # distortion 2.0 0.3
 
-# Final mix with reverb
+-- Final mix with reverb
 out: (~filtered_drums * 0.5 + ~bass * 0.3) # reverb 0.5 0.4 0.2
 "#;
 
@@ -263,11 +263,11 @@ fn test_e2e_pattern_controlled_synthesis() {
     let code = r#"
 tempo: 2.0
 
-# Pattern-controlled oscillator frequency
+-- Pattern-controlled oscillator frequency
 ~freqs: "220 440 330"
 ~osc: sine ~freqs
 
-# Pattern-controlled filter
+-- Pattern-controlled filter
 ~cutoffs: "500 1000 2000"
 ~filtered: ~osc # lpf ~cutoffs 0.8
 
@@ -334,11 +334,11 @@ fn test_e2e_complex_modulation() {
     let code = r#"
 tempo: 2.0
 
-# LFO modulating filter cutoff
+-- LFO modulating filter cutoff
 ~lfo: sine 0.5
 ~cutoff_mod: ~lfo * 1000 + 1500
 
-# Oscillator through modulated filter
+-- Oscillator through modulated filter
 ~osc: saw 110
 ~filtered: ~osc # lpf ~cutoff_mod 0.7
 

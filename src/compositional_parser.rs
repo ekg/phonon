@@ -8,9 +8,9 @@
 
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_until, take_while1},
+    bytes::complete::{tag, take_until, take_while, take_while1},
     character::complete::{alpha1, alphanumeric1, char, digit1, multispace0, space0},
-    combinator::{map, opt, recognize, value},
+    combinator::{map, not, opt, peek, recognize, value},
     multi::{many0, separated_list0, separated_list1},
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
     IResult,
@@ -317,17 +317,37 @@ fn skip_space_and_comments(input: &str) -> IResult<&str, ()> {
 
 /// Parse a complete Phonon program
 ///
-/// NOTE: Inline comments (e.g., `tempo: 2.0 # comment`) are NOT supported
-/// because # is used as the chain operator. Use full-line comments instead:
+/// Comments use -- (Haskell-style), supporting both full-line and inline:
 /// ```
-/// # This is a comment
-/// tempo: 2.0
+/// -- This is a full-line comment
+/// tempo: 2.0  -- This is an inline comment
+/// ~bass: saw 110 # lpf 1000 0.8  -- # is the chain operator
 /// ```
 pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
     let (input, _) = skip_space_and_comments(input)?;
-    let (input, statements) = separated_list0(multispace1, parse_statement)(input)?;
-    let (input, _) = skip_space_and_comments(input)?;
-    Ok((input, statements))
+
+    // Manually parse statements with proper comment/whitespace handling
+    let mut statements = Vec::new();
+    let mut current = input;
+
+    loop {
+        // Try to parse a statement
+        match parse_statement(current) {
+            Ok((rest, stmt)) => {
+                statements.push(stmt);
+                current = rest;
+
+                // Skip whitespace and comments after the statement
+                current = skip_space_and_comments(current)?.0;
+            }
+            Err(_) => {
+                // No more statements to parse
+                break;
+            }
+        }
+    }
+
+    Ok((current, statements))
 }
 
 /// Parse a single statement
@@ -470,10 +490,17 @@ fn parse_additive_expr(input: &str) -> IResult<&str, Expr> {
         let (input, _) = space0(current_input)?;
 
         // Try to parse + or -
+        // IMPORTANT: For -, we must check it's not followed by another - (which would be a comment)
         let op = if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('+')(input) {
             Some((input, BinOp::Add))
         } else if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('-')(input) {
-            Some((input, BinOp::Sub))
+            // Check that it's not followed by another - (comment start)
+            if peek::<_, _, nom::error::Error<&str>, _>(char('-'))(input).is_ok() {
+                // This is --, which is a comment, not subtraction
+                None
+            } else {
+                Some((input, BinOp::Sub))
+            }
         } else {
             None
         };
@@ -1190,14 +1217,15 @@ fn hspace1(input: &str) -> IResult<&str, &str> {
     take_while1(|c: char| c == ' ' || c == '\t')(input)
 }
 
-/// Parse a comment line: # at the very start (no leading whitespace allowed)
-/// This is stricter to avoid consuming # that's part of expressions
+/// Parse a comment: -- followed by anything until end of line
+/// This works for both full-line and inline comments
 fn parse_comment(input: &str) -> IResult<&str, ()> {
-    // Match # only if it's at the very start of the input (after statement separation)
-    let (input, _) = char('#')(input)?;
-    // Consume until end of line
-    let (input, _) = take_until("\n")(input)?;
-    let (input, _) = char('\n')(input)?;
+    // Match -- (Haskell-style comments)
+    let (input, _) = tag("--")(input)?;
+    // Consume until end of line (or end of input)
+    let (input, _) = take_while(|c| c != '\n')(input)?;
+    // Optionally consume the newline if present
+    let (input, _) = opt(char('\n'))(input)?;
     Ok((input, ()))
 }
 
@@ -1840,7 +1868,7 @@ mod tests {
 
     #[test]
     fn test_comment_at_start_of_program() {
-        let code = r#"# This is a comment
+        let code = r#"-- This is a comment
 ~drums: s "bd sn hh cp"
 out: ~drums"#;
         let result = parse_program(code);
@@ -1856,7 +1884,7 @@ out: ~drums"#;
     #[test]
     fn test_comment_between_statements() {
         let code = r#"~drums: s "bd sn hh cp"
-# This is a comment in the middle
+-- This is a comment in the middle
 out: ~drums"#;
         let result = parse_program(code);
         assert!(
@@ -1870,13 +1898,13 @@ out: ~drums"#;
 
     #[test]
     fn test_multiple_comments() {
-        let code = r#"# Comment 1
-# Comment 2
+        let code = r#"-- Comment 1
+-- Comment 2
 ~drums: s "bd sn hh cp"
-# Comment 3
-# Comment 4
+-- Comment 3
+-- Comment 4
 out: ~drums
-# Comment at end"#;
+-- Comment at end"#;
         let result = parse_program(code);
         assert!(
             result.is_ok(),
@@ -1888,32 +1916,43 @@ out: ~drums
     }
 
     #[test]
-    fn test_chain_operator_not_confused_with_comment() {
-        // Make sure # as chain operator still works
+    fn test_chain_operator_works() {
+        // Make sure # as chain operator works
         let code = "~drums: s \"bd sn\" # lpf 500 0.8";
         let result = parse_statement(code);
-        assert!(result.is_ok(), "Chain operator # should still work");
+        assert!(result.is_ok(), "Chain operator # should work");
+    }
+
+    #[test]
+    fn test_inline_comments_work() {
+        // Inline comments should work with --
+        let code = "tempo: 2.0  -- 120 BPM\n~drums: s \"bd sn\" # lpf 500 0.8  -- filtered\nout: ~drums";
+        let result = parse_program(code);
+        assert!(result.is_ok(), "Inline comments should work");
+        if let Ok((_, statements)) = result {
+            assert_eq!(statements.len(), 3);
+        }
     }
 
     #[test]
     fn test_complex_example_with_comments() {
-        let code = r#"# Complex live coding session
-tempo: 2.0
+        let code = r#"-- Complex live coding session
+tempo: 2.0  -- 120 BPM
 
-# Drums section
+-- Drums section
 ~kick: s "bd ~ bd ~"
 ~snare: s "~ sn ~ sn"
 ~hats: s "hh*8" $ fast 2
 
-# Mix drums
+-- Mix drums
 ~drums: ~kick + ~snare + ~hats
-~filtered_drums: ~drums # lpf 2000 0.6
+~filtered_drums: ~drums # lpf 2000 0.6  -- low-pass filter
 
-# Bass section
+-- Bass section
 ~bass_freq: "55 82.5 110" $ slow 2
 ~bass: saw ~bass_freq # lpf 500 0.8
 
-# Output mix
+-- Output mix
 out: ~filtered_drums * 0.6 + ~bass * 0.4
 "#;
         let result = parse_program(code);

@@ -327,7 +327,7 @@ fn test_complex_expression_parsing() {
     println!("Testing complex expression parsing...");
 
     let phonon_code = r#"
-# Complex mixing expression
+-- Complex mixing expression
 tempo: 2.0
 ~lfo: sine 2
 ~bass: saw 55

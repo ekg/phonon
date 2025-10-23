@@ -15,12 +15,12 @@ fn test_audio_rate_lfo_modulation() {
     let code = r#"
 tempo: 2.0
 
-# LFO at 0.5 Hz (oscillates between -1 and 1)
+-- LFO at 0.5 Hz (oscillates between -1 and 1)
 ~lfo: sine 0.5
 
-# Map LFO to filter cutoff range: 500-2500 Hz
-# At audio rate: lfo ranges -1 to 1, so:
-# lfo * 1000 + 1500 ranges from 500 to 2500
+-- Map LFO to filter cutoff range: 500-2500 Hz
+-- At audio rate: lfo ranges -1 to 1, so:
+-- lfo * 1000 + 1500 ranges from 500 to 2500
 ~carrier: saw 110
 ~modulated: ~carrier # lpf (~lfo * 1000 + 1500) 0.8
 
@@ -56,9 +56,9 @@ fn test_pattern_as_audio_rate_control_signal() {
     let code = r#"
 tempo: 1.0
 
-# Pattern with numeric values - should interpolate smoothly?
-# Actually, patterns query at each sample, so we get the value
-# that's active at that precise moment
+-- Pattern with numeric values - should interpolate smoothly?
+-- Actually, patterns query at each sample, so we get the value
+-- that's active at that precise moment
 ~freqs: "220 440 330"
 ~osc: sine ~freqs
 
@@ -92,11 +92,11 @@ fn test_oscillator_modulating_oscillator() {
     let code = r#"
 tempo: 2.0
 
-# Modulator: 5 Hz sine wave
+-- Modulator: 5 Hz sine wave
 ~modulator: sine 5
 
-# Carrier: 220 Hz + modulator * 50 Hz deviation
-# This is TRUE FM synthesis at audio rate!
+-- Carrier: 220 Hz + modulator * 50 Hz deviation
+-- This is TRUE FM synthesis at audio rate!
 ~carrier_freq: ~modulator * 50 + 220
 ~carrier: sine ~carrier_freq
 
@@ -131,12 +131,12 @@ fn test_feedback_loop_simulation() {
     let code = r#"
 tempo: 2.0
 
-# LFO modulating its own frequency (via separate stages)
+-- LFO modulating its own frequency (via separate stages)
 ~lfo_base: sine 0.5
 ~lfo_mod: ~lfo_base * 0.2 + 0.8
 ~lfo: sine ~lfo_mod
 
-# Use the modulated LFO to control filter
+-- Use the modulated LFO to control filter
 ~carrier: saw 110
 ~filtered: ~carrier # lpf (~lfo * 1000 + 1500) 0.8
 
@@ -170,11 +170,11 @@ fn test_pattern_modulating_pattern_parameter() {
     let code = r#"
 tempo: 2.0
 
-# Speed modulation pattern
+-- Speed modulation pattern
 ~speed_mod: sine 0.25
 
-# Base pattern with modulated speed
-# The $ fast operator uses ~speed_mod as its parameter
+-- Base pattern with modulated speed
+-- The $ fast operator uses ~speed_mod as its parameter
 ~base: "220 440 330 550"
 ~modulated: ~base $ fast (~speed_mod * 2 + 3)
 
@@ -210,11 +210,11 @@ fn test_proof_of_per_sample_evaluation() {
     let code = r#"
 tempo: 2.0
 
-# High-frequency LFO: 100 Hz
-# This is way above typical pattern event rates!
+-- High-frequency LFO: 100 Hz
+-- This is way above typical pattern event rates!
 ~lfo: sine 100
 
-# Map to filter cutoff
+-- Map to filter cutoff
 ~carrier: saw 110
 ~modulated: ~carrier # lpf (~lfo * 500 + 1500) 0.8
 
@@ -257,12 +257,12 @@ fn test_comparison_to_event_based_systems() {
     let code = r#"
 tempo: 2.0
 
-# This pattern evaluates 44,100 times per second!
-# Not 4 times per cycle, not 8 times per cycle,
-# but 44,100 times PER SECOND
+-- This pattern evaluates 44,100 times per second!
+-- Not 4 times per cycle, not 8 times per cycle,
+-- but 44,100 times PER SECOND
 ~continuous: sine 1
 
-# Use it to smoothly modulate amplitude
+-- Use it to smoothly modulate amplitude
 ~carrier: saw 110
 ~amplified: ~carrier * (~continuous * 0.5 + 0.5)
 

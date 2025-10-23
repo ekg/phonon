@@ -1,7 +1,7 @@
-# Drum pattern: kick-snare-kick-snare
-# Kick on 1 and 3, snare on 2 and 4
+-- Drum pattern: kick-snare-kick-snare
+-- Kick on 1 and 3, snare on 2 and 4
 kick = noise # lpf("100 ~ ~ ~", 20)
 snare = noise # hpf("~ 2000 ~ 2000", 10) # lpf 5000 5
 
-# Mix (would need addition support for proper mix)
+-- Mix (would need addition support for proper mix)
 out kick * 0.5

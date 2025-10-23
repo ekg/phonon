@@ -1,10 +1,10 @@
-# Gentle drum beat - lower volumes to avoid clipping
+-- Gentle drum beat - lower volumes to avoid clipping
 
-# Soft kick drum
+-- Soft kick drum
 ~kick = impulse 4 # mul 0.5 # lpf 80 0.9
 
-# Gentle hihat  
+-- Gentle hihat  
 ~hihat = impulse 8 # mul 0.05 # noise # mul 0.1 # hpf 8000 0.9
 
-# Mix at low volume
+-- Mix at low volume
 out = ~kick + ~hihat # mul 0.3

@@ -1,19 +1,19 @@
-# Simple Phonon Demo - New Syntax
-# Shows off # (signal chain) and $ (pattern transform) operators
+-- Simple Phonon Demo - New Syntax
+-- Shows off # (signal chain) and $ (pattern transform) operators
 
 tempo = 2.0  # 120 BPM
 
-# Simple drum pattern
+-- Simple drum pattern
 ~drums = s "bd sn hh sn"
 
-# Filtered drums using # (signal chain) operator
+-- Filtered drums using # (signal chain) operator
 ~filtered = ~drums # lpf 2000 0.8
 
-# Bass pattern with synthesis and filter
+-- Bass pattern with synthesis and filter
 ~bass = supersaw("55 82.5", 0.4, 5) # lpf 900 0.85
 
-# Pattern transform using $ operator - make drums twice as fast
+-- Pattern transform using $ operator - make drums twice as fast
 ~fast_drums = s "bd sn" $ fast 2
 
-# Mix everything
+-- Mix everything
 out = ~filtered * 0.7 + ~bass * 0.3

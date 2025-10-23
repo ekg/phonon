@@ -1,16 +1,16 @@
-# Phonon Live
-# Edit and save to hear changes!
+-- Phonon Live
+-- Edit and save to hear changes!
 
-# To STOP sound, use any of these:
-# hush
-# panic
-# out = 0
-# (or delete all non-comment lines)
+-- To STOP sound, use any of these:
+-- hush
+-- panic
+-- out = 0
+-- (or delete all non-comment lines)
 
 tempo 2.0
 out = sine 440 * 0.2
 
-# Try changing:
-# - sine → saw, square, noise
-# - 440 → "110 220 440" (pattern!)
-# - Add drums: out = s "bd sn hh cp"
+-- Try changing:
+-- - sine → saw, square, noise
+-- - 440 → "110 220 440" (pattern!)
+-- - Add drums: out = s "bd sn hh cp"

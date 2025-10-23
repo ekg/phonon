@@ -1,3 +1,3 @@
-# Simple test
+-- Simple test
 tempo 1.0
 out saw 110 * 0.3
