@@ -354,11 +354,17 @@ fn compile_function_call(
             Ok(ctx.graph.add_node(node))
         }
 
-        // ========== Oscillators ==========
+        // ========== Oscillators (continuous) ==========
         "sine" => compile_oscillator(ctx, Waveform::Sine, args),
         "saw" => compile_oscillator(ctx, Waveform::Saw, args),
         "square" => compile_oscillator(ctx, Waveform::Square, args),
         "tri" => compile_oscillator(ctx, Waveform::Triangle, args),
+
+        // ========== Pattern-triggered synths ==========
+        "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
+        "saw_trig" => compile_synth_pattern(ctx, Waveform::Saw, args),
+        "square_trig" => compile_synth_pattern(ctx, Waveform::Square, args),
+        "tri_trig" => compile_synth_pattern(ctx, Waveform::Triangle, args),
 
         // ========== Noise ==========
         "noise" => {
@@ -610,6 +616,79 @@ fn compile_oscillator(
         waveform,
         phase: 0.0,
     };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile pattern-triggered synth node (with envelope)
+fn compile_synth_pattern(
+    ctx: &mut CompilerContext,
+    waveform: Waveform,
+    args: Vec<Expr>,
+) -> Result<NodeId, String> {
+    if args.is_empty() {
+        return Err(format!("{:?}_trig requires pattern string argument", waveform));
+    }
+
+    // First argument should be a pattern string
+    let pattern_str = match &args[0] {
+        Expr::String(s) => s.clone(),
+        _ => return Err(format!("{:?}_trig requires a pattern string as first argument", waveform)),
+    };
+
+    let pattern = parse_mini_notation(&pattern_str);
+
+    // Parse optional ADSR parameters (attack, decay, sustain, release)
+    // Default ADSR: percussive envelope (0.001, 0.1, 0.0, 0.1)
+    let attack = if args.len() > 1 {
+        match &args[1] {
+            Expr::Number(n) => *n as f32,
+            _ => 0.001,
+        }
+    } else {
+        0.001
+    };
+
+    let decay = if args.len() > 2 {
+        match &args[2] {
+            Expr::Number(n) => *n as f32,
+            _ => 0.1,
+        }
+    } else {
+        0.1
+    };
+
+    let sustain = if args.len() > 3 {
+        match &args[3] {
+            Expr::Number(n) => *n as f32,
+            _ => 0.0,
+        }
+    } else {
+        0.0
+    };
+
+    let release = if args.len() > 4 {
+        match &args[4] {
+            Expr::Number(n) => *n as f32,
+            _ => 0.1,
+        }
+    } else {
+        0.1
+    };
+
+    // TODO: Handle gain and pan parameters
+    let node = SignalNode::SynthPattern {
+        pattern_str: pattern_str.clone(),
+        pattern,
+        last_trigger_time: -1.0,
+        waveform,
+        attack,
+        decay,
+        sustain,
+        release,
+        gain: Signal::Value(1.0),
+        pan: Signal::Value(0.0),
+    };
+
     Ok(ctx.graph.add_node(node))
 }
 
