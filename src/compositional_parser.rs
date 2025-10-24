@@ -496,8 +496,26 @@ fn parse_chain_expr(input: &str) -> IResult<&str, Expr> {
     Ok((current_input, expr))
 }
 
-/// Parse transform expression: expr $ transform
+/// Parse transform expression: expr $ transform OR transform $ expr
 fn parse_transform_expr(input: &str) -> IResult<&str, Expr> {
+    // First, try to parse: transform $ expr (Tidal-style reverse order)
+    if let Ok((input_after_transform, transform)) = parse_transform(input) {
+        let (input, _) = space0(input_after_transform)?;
+
+        // Check for $ operator
+        if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('$')(input) {
+            let (input, _) = space0(input)?;
+            let (input, expr) = parse_additive_expr(input)?;
+
+            // Return transform applied to expr
+            return Ok((input, Expr::Transform {
+                expr: Box::new(expr),
+                transform,
+            }));
+        }
+    }
+
+    // Fall back to standard order: expr $ transform
     let (input, mut expr) = parse_additive_expr(input)?;
 
     // Parse any number of transforms
