@@ -1184,6 +1184,36 @@ fn compile_transform(
     expr: Expr,
     transform: Transform,
 ) -> Result<NodeId, String> {
+    // Handle function calls like `s "bd sn" $ fast 2`
+    if let Expr::Call { name, args } = &expr {
+        // Check if this is the `s` function (sample pattern)
+        if name == "s" && !args.is_empty() {
+            if let Expr::String(pattern_str) = &args[0] {
+                // Parse and transform the pattern
+                let mut pattern = parse_mini_notation(&pattern_str);
+                pattern = apply_transform_to_pattern(pattern, transform)?;
+
+                // Create Sample node with transformed pattern
+                let node = SignalNode::Sample {
+                    pattern_str: format!("{} (transformed)", pattern_str),
+                    pattern,
+                    last_trigger_time: -1.0,
+                    last_cycle: -1,
+                    playback_positions: HashMap::new(),
+                    gain: Signal::Value(1.0),
+                    pan: Signal::Value(0.0),
+                    speed: Signal::Value(1.0),
+                    cut_group: Signal::Value(0.0),
+                    n: Signal::Value(0.0),
+                    note: Signal::Value(0.0),
+                    attack: Signal::Value(0.0),
+                    release: Signal::Value(0.0),
+                };
+                return Ok(ctx.graph.add_node(node));
+            }
+        }
+    }
+
     // For string literals, we can apply transforms directly to the parsed pattern
     if let Expr::String(pattern_str) = expr {
         let mut pattern = parse_mini_notation(&pattern_str);
