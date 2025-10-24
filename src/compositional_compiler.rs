@@ -401,7 +401,7 @@ fn compile_function_call(
 
         // ========== Envelope ==========
         "env" | "envelope" => compile_envelope(ctx, args),
-        "env_trig" => compile_envelope_pattern(ctx, args),
+        "env_trig" | "adsr" => compile_envelope_pattern(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
