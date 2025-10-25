@@ -1562,7 +1562,7 @@ impl UnifiedSignalGraph {
                 let cycle_changed = current_cycle != last_cycle;
 
                 // Get the last EVENT start time we triggered
-                // Reset if we've crossed into a new cycle to prevent accumulation
+                // DON'T reset on cycle boundaries - events can span across cycles
                 let mut last_event_start = if let Some(Some(SignalNode::Sample {
                     last_trigger_time: lt,
                     ..
@@ -1573,10 +1573,10 @@ impl UnifiedSignalGraph {
                     -1.0
                 };
 
-                // Reset event tracking when crossing cycle boundaries
-                if cycle_changed {
-                    last_event_start = -1.0;
-                }
+                // NOTE: We used to reset last_event_start on cycle boundaries,
+                // but this caused duplicate triggers for events that span cycles
+                // (e.g., "bd ~bass bd ~bass" $ slow 3 would trigger ~bass twice)
+                // The absolute event start time is sufficient for deduplication
 
                 // Track the latest event start time we trigger in this sample
                 let mut latest_triggered_start = last_event_start;
