@@ -367,6 +367,7 @@ fn compile_function_call(
         "fm" => compile_fm(ctx, args),
         "white_noise" => compile_white_noise(ctx, args),
         "pulse" => compile_pulse(ctx, args),
+        "ring_mod" => compile_ring_mod(ctx, args),
 
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
@@ -688,6 +689,29 @@ fn compile_pulse(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
         freq: Signal::Node(freq_node),
         width: Signal::Node(width_node),
         phase: 0.0,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile ring modulation (signal multiplication)
+/// Ring modulation creates sidebands at sum and difference frequencies
+fn compile_ring_mod(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "ring_mod requires 2 parameters (signal1, signal2), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile both signals
+    let signal1 = compile_expr(ctx, args[0].clone())?;
+    let signal2 = compile_expr(ctx, args[1].clone())?;
+
+    // Ring modulation is just multiplication of two signals
+    let node = SignalNode::Multiply {
+        a: Signal::Node(signal1),
+        b: Signal::Node(signal2),
     };
 
     Ok(ctx.graph.add_node(node))
