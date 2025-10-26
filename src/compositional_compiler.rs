@@ -377,6 +377,7 @@ fn compile_function_call(
         "impulse" => compile_impulse(ctx, args),
         "lag" => compile_lag(ctx, args),
         "xline" => compile_xline(ctx, args),
+        "asr" => compile_asr(ctx, args),
         "pulse" => compile_pulse(ctx, args),
         "ring_mod" => compile_ring_mod(ctx, args),
         "limiter" => compile_limiter(ctx, args),
@@ -784,6 +785,30 @@ fn compile_xline(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
         end: Signal::Node(end_node),
         duration: Signal::Node(duration_node),
         state: XLineState::default(),
+    };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile ASR (Attack-Sustain-Release) envelope
+fn compile_asr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    use crate::unified_graph::ASRState;
+
+    if args.len() != 3 {
+        return Err(format!(
+            "asr requires 3 parameters (gate, attack, release), got {}",
+            args.len()
+        ));
+    }
+
+    let gate_node = compile_expr(ctx, args[0].clone())?;
+    let attack_node = compile_expr(ctx, args[1].clone())?;
+    let release_node = compile_expr(ctx, args[2].clone())?;
+
+    let node = SignalNode::ASR {
+        gate: Signal::Node(gate_node),
+        attack: Signal::Node(attack_node),
+        release: Signal::Node(release_node),
+        state: ASRState::default(),
     };
     Ok(ctx.graph.add_node(node))
 }

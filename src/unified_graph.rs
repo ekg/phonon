@@ -492,6 +492,16 @@ pub enum SignalNode {
         state: XLineState,
     },
 
+    /// ASR (Attack-Sustain-Release) envelope
+    /// Gate-based envelope: attacks when gate rises, sustains while high, releases when gate falls
+    /// Perfect for organ-style sounds and continuous notes
+    ASR {
+        gate: Signal,      // Gate signal (0 = off, >0.5 = on)
+        attack: Signal,    // Attack time in seconds
+        release: Signal,   // Release time in seconds
+        state: ASRState,
+    },
+
     /// Pulse wave oscillator (variable pulse width)
     /// Output: +1 when phase < width, -1 otherwise
     /// width=0.5 creates square wave (only odd harmonics)
@@ -1176,6 +1186,40 @@ impl Default for XLineState {
     }
 }
 
+/// ASR envelope phase
+#[derive(Debug, Clone, PartialEq)]
+pub enum ASRPhase {
+    Idle,     // Envelope at 0, waiting for gate
+    Attack,   // Rising from 0 to 1
+    Sustain,  // Holding at 1 while gate is high
+    Release,  // Falling from current level to 0
+}
+
+/// ASR (Attack-Sustain-Release) envelope state
+/// Gate-based envelope: attacks when gate goes high, sustains while high, releases when gate goes low
+#[derive(Debug, Clone)]
+pub struct ASRState {
+    phase: ASRPhase,
+    current_level: f32,     // Current envelope output [0, 1]
+    previous_gate: f32,     // Previous gate value for edge detection
+}
+
+impl ASRState {
+    pub fn new() -> Self {
+        Self {
+            phase: ASRPhase::Idle,
+            current_level: 0.0,
+            previous_gate: 0.0,
+        }
+    }
+}
+
+impl Default for ASRState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Compressor state
 #[derive(Debug, Clone)]
 pub struct CompressorState {
@@ -1804,6 +1848,88 @@ impl UnifiedSignalGraph {
                 if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
                     if let SignalNode::XLine { state: s, .. } = node {
                         s.elapsed_samples = elapsed + 1;
+                    }
+                }
+
+                output
+            }
+
+            SignalNode::ASR {
+                gate,
+                attack,
+                release,
+                state,
+            } => {
+                let gate_val = self.eval_signal(&gate);
+                let attack_time = self.eval_signal(&attack).max(0.0001);
+                let release_time = self.eval_signal(&release).max(0.0001);
+
+                let current_phase = state.phase.clone();
+                let current_level = state.current_level;
+                let prev_gate = state.previous_gate;
+
+                // Detect gate transitions
+                let gate_rising = gate_val > 0.5 && prev_gate <= 0.5;
+                let gate_high = gate_val > 0.5;
+
+                // Determine next phase
+                let next_phase = match current_phase {
+                    ASRPhase::Idle => {
+                        if gate_rising {
+                            ASRPhase::Attack
+                        } else {
+                            ASRPhase::Idle
+                        }
+                    }
+                    ASRPhase::Attack => {
+                        if !gate_high {
+                            ASRPhase::Release
+                        } else if current_level >= 0.99 {
+                            ASRPhase::Sustain
+                        } else {
+                            ASRPhase::Attack
+                        }
+                    }
+                    ASRPhase::Sustain => {
+                        if !gate_high {
+                            ASRPhase::Release
+                        } else {
+                            ASRPhase::Sustain
+                        }
+                    }
+                    ASRPhase::Release => {
+                        if gate_rising {
+                            ASRPhase::Attack
+                        } else if current_level <= 0.01 {
+                            ASRPhase::Idle
+                        } else {
+                            ASRPhase::Release
+                        }
+                    }
+                };
+
+                // Calculate envelope output based on phase
+                let output = match next_phase {
+                    ASRPhase::Idle => 0.0,
+                    ASRPhase::Attack => {
+                        // Linear ramp up to 1.0
+                        let increment = 1.0 / (attack_time * self.sample_rate);
+                        (current_level + increment).min(1.0)
+                    }
+                    ASRPhase::Sustain => 1.0,
+                    ASRPhase::Release => {
+                        // Linear ramp down to 0.0
+                        let decrement = 1.0 / (release_time * self.sample_rate);
+                        (current_level - decrement).max(0.0)
+                    }
+                };
+
+                // Update state for next sample
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::ASR { state: s, .. } = node {
+                        s.phase = next_phase;
+                        s.current_level = output;
+                        s.previous_gate = gate_val;
                     }
                 }
 
