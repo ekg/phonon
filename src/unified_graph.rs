@@ -2785,6 +2785,12 @@ impl UnifiedSignalGraph {
                     let event_is_new = event_start_abs > last_event_start + tolerance
                         && event_start_abs <= self.cycle_position + tolerance;
 
+                    // DEBUG: Log event evaluation
+                    if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 20 {
+                        eprintln!("  Event '{}' at {:.6}: event_is_new={} (last={:.6}, current={:.6}, tolerance={:.9})",
+                                 sample_name, event_start_abs, event_is_new, last_event_start, self.cycle_position, tolerance);
+                    }
+
                     if event_is_new {
                         // DEBUG: Log triggered events
                         if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
@@ -2962,6 +2968,10 @@ impl UnifiedSignalGraph {
                         } else {
                             // Regular sample loading
                             let sample_data_opt = self.sample_bank.borrow_mut().get_sample(&final_sample_name);
+                            // DEBUG: Log sample loading
+                            if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 20 {
+                                eprintln!("  Sample '{}' loaded: {}", final_sample_name, sample_data_opt.is_some());
+                            }
                             if let Some(sample_data) = sample_data_opt {
                                 // Trigger voice using appropriate envelope type
                                 match envelope_type {
@@ -3033,6 +3043,11 @@ impl UnifiedSignalGraph {
                 // Update last_trigger_time and last_cycle
                 // This ensures we don't re-trigger the same events
                 if latest_triggered_start > last_event_start || cycle_changed {
+                    // DEBUG: Log update
+                    if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 20 {
+                        eprintln!("  Updating last_trigger_time: {:.6} -> {:.6} (cycle_changed={})",
+                                 last_event_start, latest_triggered_start, cycle_changed);
+                    }
                     if let Some(Some(SignalNode::Sample {
                         last_trigger_time: lt,
                         last_cycle: lc,

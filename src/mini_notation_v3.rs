@@ -239,7 +239,9 @@ impl Tokenizer {
     fn read_symbol(&mut self) -> String {
         let mut symbol = String::new();
         while let Some(ch) = self.peek() {
-            if ch.is_alphanumeric() || ch == '_' || ch == '-' || ch == '#' || ch == ':' {
+            // Allow alphanumerics, underscores, hyphens, hash, colon, and dots for sample names
+            // This handles samples like "808bd", "bd-10", "hh#2", "bd:0", "kick.wav"
+            if ch.is_alphanumeric() || ch == '_' || ch == '-' || ch == '#' || ch == ':' || ch == '.' {
                 symbol.push(ch);
                 self.advance();
             } else {
@@ -368,8 +370,24 @@ impl Tokenizer {
                         Token::Quote
                     }
                     '-' | '0'..='9' => {
+                        // Check if this looks like a number followed by letters (e.g., "808bd")
+                        // If so, treat the whole thing as a symbol
+                        let start_pos = self.position;
                         if let Some(num) = self.read_number() {
-                            Token::Number(num)
+                            // Check if there's an alphabetic character immediately after
+                            if let Some(next_ch) = self.peek() {
+                                if next_ch.is_alphabetic() {
+                                    // This is a symbol starting with digits, not a pure number
+                                    // Backtrack and read as symbol
+                                    self.position = start_pos;
+                                    let symbol = self.read_symbol();
+                                    Token::Symbol(symbol)
+                                } else {
+                                    Token::Number(num)
+                                }
+                            } else {
+                                Token::Number(num)
+                            }
                         } else {
                             self.advance();
                             continue;
