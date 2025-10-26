@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-26
 **Total UGens**: 90 planned
-**Implemented**: 24 (27%)
+**Implemented**: 30 (33%)
 **In Progress**: 0
-**Remaining**: 66
+**Remaining**: 60
 
 ---
 
@@ -20,7 +20,7 @@
 
 ---
 
-## Oscillators & Generators (9/20 = 45%)
+## Oscillators & Generators (10/20 = 50%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -37,7 +37,7 @@
 | Wavetable | ⏳ | | 6h | - | Arbitrary waveforms |
 | SuperSaw | ⏳ | | 3h | - | Detuned saw stack |
 | Formant | ⏳ | | 4h | - | Vowel synthesis |
-| Impulse | ⏳ | | 1h | - | Single impulse |
+| Impulse | ✅ | - | - | - | Complete - Periodic impulse generator (fixed phase init bug) |
 | Blip | ⏳ | | 2h | - | Band-limited impulse |
 | VCO | ⏳ | | 4h | - | Analog oscillator model |
 | Karplus-Strong | ⏳ | | 4h | - | Plucked string |
@@ -47,15 +47,15 @@
 
 ---
 
-## Filters (5/15 = 33%)
+## Filters (8/15 = 53%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
 | LPF | ✅ | - | - | - | Low-pass filter |
 | HPF | ✅ | - | - | - | High-pass filter |
 | BPF | ✅ | - | - | - | Band-pass filter |
-| Notch | ⏳ | | 2h | - | Band-reject |
-| Comb | ⏳ | | 3h | - | Feedback delay |
+| Notch | ✅ | - | - | - | Complete - State Variable Filter (Chamberlin) for band-reject |
+| Comb | ✅ | - | - | - | Complete - Feedback delay line for physical modeling & resonance |
 | Allpass | ⏳ | | 2h | - | Phase shift |
 | Formant | ⏳ | | 4h | - | Vowel formants |
 | Moog Ladder | ✅ | - | - | - | Complete - 4-pole 24dB/oct lowpass with resonance |
@@ -65,20 +65,20 @@
 | RLPF | ⏳ | | 2h | - | Resonant LPF |
 | RHPF | ⏳ | | 2h | - | Resonant HPF |
 | Median | ⏳ | | 3h | - | Median filter |
-| Lag | ⏳ | | 1h | - | Exponential lag |
+| Lag | ✅ | - | - | - | Complete - Exponential slew limiter (portamento/smoothing) |
 
 ---
 
-## Envelopes (3/8 = 37.5%)
+## Envelopes (5/8 = 62.5%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
 | ADSR | ✅ | - | - | - | Complete with pattern modulation |
 | AD | ✅ | - | - | - | Complete - perfect for percussive sounds |
 | Line | ✅ | - | - | - | Complete - linear ramps, fades, sweeps |
-| ASR | ⏳ | | 1.5h | - | Attack-sustain-release |
+| ASR | ✅ | - | - | - | Complete - Attack-sustain-release with gate tracking |
 | Env | ⏳ | | 3h | - | Arbitrary breakpoint |
-| XLine | ⏳ | | 1.5h | - | Exponential ramp |
+| XLine | ✅ | - | - | - | Complete - Exponential ramps for smooth sweeps |
 | Curve | ⏳ | | 2h | - | Curved ramp |
 | EnvGen | ⏳ | | 4h | 🔗 | Needs trigger system |
 
@@ -398,3 +398,28 @@ Want to implement a UGen? Here's how:
 - ✅ Verify equal-power law: L² + R² = 1 at all positions
 - ✅ Test pattern modulation and position clamping
 - ✅ Create musical example (examples/pan2_demo.ph) with 10 techniques
+- ✅ Implement Impulse UGen (2025-10-26)
+- ✅ Write 9 comprehensive tests (pattern query, basic functionality, frequency, spacing, amplitude, clock, patterns, combinations)
+- ✅ Fixed critical phase initialization bug (phase 0.0→1.0) for immediate first trigger
+- ✅ Create musical example (examples/impulse_demo.ph)
+- ✅ Implement Lag UGen (2025-10-26)
+- ✅ Write 9 comprehensive tests (smoothing, lag time, instant response, pattern modulation, musical portamento)
+- ✅ Exponential smoothing with proper coefficient calculation
+- ✅ Create musical example (examples/lag_demo.ph)
+- ✅ Implement XLine envelope (2025-10-26)
+- ✅ Write 9 comprehensive tests (exponential curves, duration, start/end values, stability, combinations)
+- ✅ Proper exponential interpolation with ratio calculation
+- ✅ Create musical example (examples/xline_demo.ph)
+- ✅ Implement ASR envelope (2025-10-26)
+- ✅ Write 9 comprehensive tests (gate tracking, attack/release phases, sustain level, pattern modulation)
+- ✅ Gate-triggered envelope with attack-sustain-release stages
+- ✅ Create musical example (examples/asr_demo.ph)
+- ✅ Implement Notch filter (2025-10-26)
+- ✅ Write 9 comprehensive tests (attenuates center, passes other frequencies, Q factor, stability, pattern modulation)
+- ✅ State Variable Filter (Chamberlin) topology: output = low + high
+- ✅ Create musical example (examples/notch_demo.ph) with 10 use cases
+- ✅ Implement Comb filter (2025-10-26) - **TIER 2 STARTED!**
+- ✅ Write 9 comprehensive tests (resonance creation, feedback decay, tuning, stability, bell sounds, cascaded combs)
+- ✅ Feedback delay line with circular buffer for physical modeling
+- ✅ Fixed Impulse phase initialization bug (discovered during testing)
+- ✅ Create musical example (examples/comb_demo.ph) with 10 use cases
