@@ -428,6 +428,30 @@ impl VoiceEnvelope {
             VoiceEnvelope::Curve(env) => env.is_active(),
         }
     }
+
+    /// Trigger a quick release for anti-click fades (used by cut groups)
+    /// Forces the envelope into release phase with the specified time
+    pub fn trigger_quick_release(&mut self, _release_time: f32) {
+        match self {
+            VoiceEnvelope::Percussion(env) => {
+                // For perc envelope, set to inactive to trigger decay
+                // The decay phase will naturally fade out
+                env.active = false;
+            }
+            VoiceEnvelope::ADSR(env) => {
+                // Trigger release phase
+                env.release();
+            }
+            VoiceEnvelope::Segments(env) => {
+                // Force to last segment for quick fade
+                env.active = false;
+            }
+            VoiceEnvelope::Curve(env) => {
+                // Force to inactive
+                env.active = false;
+            }
+        }
+    }
 }
 
 #[cfg(test)]

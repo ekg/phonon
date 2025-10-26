@@ -2796,9 +2796,9 @@ impl UnifiedSignalGraph {
                         // that let samples play through naturally.
                         let (final_attack, final_release) =
                             if attack_val == 0.0 && release_val == 0.0 {
-                                // No envelope requested: use very short attack and long release
+                                // No envelope requested: use anti-click attack and long release
                                 // to let the sample play through completely
-                                (0.001, 10.0) // 1ms attack, 10s release (longer than any sample)
+                                (0.005, 10.0) // 5ms attack (anti-click), 10s release (longer than any sample)
                             } else {
                                 // Explicit envelope requested: use the values as-is
                                 (attack_val, release_val)

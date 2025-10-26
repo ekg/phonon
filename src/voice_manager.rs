@@ -440,12 +440,13 @@ impl VoiceManager {
         attack: f32,
         release: f32,
     ) {
-        // If this has a cut group, stop all other voices in the same cut group
+        // If this has a cut group, fade out all other voices in the same cut group
+        // Use a quick 10ms release to avoid clicks
         if let Some(group) = cut_group {
             for voice in &mut self.voices {
                 if voice.cut_group == Some(group) && voice.active {
-                    voice.active = false;
-                    voice.sample_data = None;
+                    // Trigger quick release instead of hard-stop to avoid clicks
+                    voice.envelope.trigger_quick_release(0.01); // 10ms fade-out
                 }
             }
         }
