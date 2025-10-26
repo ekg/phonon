@@ -436,6 +436,7 @@ fn compile_function_call(
         "ad" => compile_ad(ctx, args),
         "line" => compile_line(ctx, args),
         "curve" => compile_curve(ctx, args),
+        "segments" => compile_segments(ctx, args),
 
         // ========== Analysis ==========
         "rms" => compile_rms(ctx, args),
@@ -1740,6 +1741,70 @@ fn compile_curve(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
         duration: Signal::Node(duration_node),
         curve: Signal::Node(curve_node),
         elapsed_time: 0.0, // Start at beginning
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Segments envelope (arbitrary breakpoint)
+/// Syntax: segments "level0 level1 level2 ..." "time1 time2 ..."
+/// Example: segments "0 1 0.5 0" "0.1 0.2 0.1"
+fn compile_segments(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "segments requires 2 parameters (levels_string, times_string), got {}",
+            args.len()
+        ));
+    }
+
+    // Extract levels string
+    let levels_str = match &args[0] {
+        Expr::String(s) => s.clone(),
+        _ => return Err("segments requires first argument to be a string of levels".to_string()),
+    };
+
+    // Extract times string
+    let times_str = match &args[1] {
+        Expr::String(s) => s.clone(),
+        _ => return Err("segments requires second argument to be a string of times".to_string()),
+    };
+
+    // Parse levels
+    let levels: Result<Vec<f32>, _> = levels_str
+        .split_whitespace()
+        .map(|s| s.parse::<f32>())
+        .collect();
+
+    let levels = levels.map_err(|e| format!("Failed to parse levels: {}", e))?;
+
+    // Parse times
+    let times: Result<Vec<f32>, _> = times_str
+        .split_whitespace()
+        .map(|s| s.parse::<f32>())
+        .collect();
+
+    let times = times.map_err(|e| format!("Failed to parse times: {}", e))?;
+
+    // Validate: N levels needs N-1 times
+    if levels.len() < 2 {
+        return Err("segments requires at least 2 levels".to_string());
+    }
+
+    if times.len() != levels.len() - 1 {
+        return Err(format!(
+            "segments requires {} times for {} levels (got {})",
+            levels.len() - 1,
+            levels.len(),
+            times.len()
+        ));
+    }
+
+    let node = SignalNode::Segments {
+        levels,
+        times,
+        current_segment: 0,
+        segment_elapsed: 0.0,
+        current_value: 0.0, // Will be set to first level on first sample
     };
 
     Ok(ctx.graph.add_node(node))

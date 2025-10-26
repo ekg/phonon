@@ -731,6 +731,17 @@ pub enum SignalNode {
         elapsed_time: f32, // Time since start
     },
 
+    /// Segments envelope (arbitrary breakpoint)
+    /// Multi-segment envelope with linear interpolation
+    /// Takes two pattern strings: levels and times
+    Segments {
+        levels: Vec<f32>,        // Target levels for each breakpoint
+        times: Vec<f32>,         // Duration for each segment
+        current_segment: usize,  // Which segment we're in
+        segment_elapsed: f32,    // Time elapsed in current segment
+        current_value: f32,      // Current interpolated value
+    },
+
     /// Delay line
     Delay {
         input: Signal,
@@ -3504,6 +3515,65 @@ impl UnifiedSignalGraph {
 
                     // Interpolate between start and end
                     output_val = start_val + (end_val - start_val) * curved_t;
+                }
+
+                output_val
+            }
+
+            SignalNode::Segments {
+                levels,
+                times,
+                current_segment,
+                segment_elapsed,
+                current_value,
+            } => {
+                let mut output_val = current_value.clone();
+
+                // Update state in the graph
+                if let Some(Some(SignalNode::Segments {
+                    levels: seg_levels,
+                    times: seg_times,
+                    current_segment: seg_idx,
+                    segment_elapsed: seg_elapsed,
+                    current_value: seg_value,
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    // Advance time
+                    *seg_elapsed += 1.0 / self.sample_rate;
+
+                    // Check if we're beyond the last segment
+                    if *seg_idx >= seg_times.len() {
+                        // Hold final level
+                        output_val = if !seg_levels.is_empty() {
+                            seg_levels[seg_levels.len() - 1]
+                        } else {
+                            0.0
+                        };
+                        *seg_value = output_val;
+                    } else {
+                        // Get current segment info
+                        let segment_duration = seg_times[*seg_idx];
+                        let start_level = if *seg_idx == 0 {
+                            seg_levels[0]
+                        } else {
+                            seg_levels[*seg_idx]
+                        };
+                        let end_level = seg_levels[*seg_idx + 1];
+
+                        // Calculate interpolation factor
+                        let t = (*seg_elapsed / segment_duration).min(1.0);
+
+                        // Linear interpolation
+                        output_val = start_level + (end_level - start_level) * t;
+                        *seg_value = output_val;
+
+                        // Check if segment is complete
+                        if *seg_elapsed >= segment_duration {
+                            // Move to next segment
+                            *seg_idx += 1;
+                            *seg_elapsed = 0.0;
+                        }
+                    }
                 }
 
                 output_val
