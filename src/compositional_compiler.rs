@@ -361,6 +361,7 @@ fn compile_function_call(
                 note: Signal::Value(0.0),
                 attack: Signal::Value(0.0),
                 release: Signal::Value(0.0),
+                envelope_type: None,
             };
             Ok(ctx.graph.add_node(node))
         }
@@ -576,6 +577,7 @@ fn compile_cat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
         note: Signal::Value(0.0),
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
+                envelope_type: None,
     };
 
     Ok(ctx.graph.add_node(node))
@@ -640,6 +642,7 @@ fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         note: Signal::Value(0.0),
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
+                envelope_type: None,
     };
 
     Ok(ctx.graph.add_node(node))
@@ -2059,6 +2062,7 @@ fn compile_transform(
                     note: Signal::Value(0.0),
                     attack: Signal::Value(0.0),
                     release: Signal::Value(0.0),
+                envelope_type: None,
                 };
                 return Ok(ctx.graph.add_node(node));
             }

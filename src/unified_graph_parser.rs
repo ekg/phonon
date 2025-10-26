@@ -176,6 +176,15 @@ pub enum DslStatement {
     Panic,
 }
 
+/// Envelope type for sample triggering
+#[derive(Debug, Clone)]
+pub enum SampleEnvelopeType {
+    Percussion,  // Default: attack + release
+    ADSR { decay: Box<DslExpression>, sustain: Box<DslExpression> },
+    Segments { levels_str: String, times_str: String },
+    Curve { start: Box<DslExpression>, end: Box<DslExpression>, duration: Box<DslExpression>, curve: Box<DslExpression> },
+}
+
 /// Helper struct for SamplePattern fields (used in apply_modifier_to_sample)
 #[derive(Debug, Clone)]
 struct SamplePatternFields {
@@ -188,6 +197,7 @@ struct SamplePatternFields {
     note: Option<Box<DslExpression>>,
     attack: Option<Box<DslExpression>>,
     release: Option<Box<DslExpression>>,
+    envelope_type: Option<SampleEnvelopeType>,
 }
 
 /// DSL expressions
@@ -272,6 +282,7 @@ pub enum DslExpression {
         note: Option<Box<DslExpression>>,
         attack: Option<Box<DslExpression>>,
         release: Option<Box<DslExpression>>,
+        envelope_type: Option<SampleEnvelopeType>,
     },
     /// Scale quantization: scale("0 1 2 3 4", "major", "c4")
     Scale {
@@ -309,6 +320,23 @@ pub enum DslExpression {
     /// Note modifier for pitch shifting: s "bd" # note 12 or s "bd" # note "0 5 7 12"
     /// Note values are in semitones: 0 = original, 12 = octave up, -12 = octave down
     Note { value: Box<DslExpression> },
+    /// Envelope modifiers for per-event envelopes
+    /// Segments envelope: s "bd" # segments "0 1 0" "0.1 0.2"
+    SegmentsModifier { levels_str: String, times_str: String },
+    /// Curve envelope: s "bd" # curve 0 1 0.3 3.0
+    CurveModifier {
+        start: Box<DslExpression>,
+        end: Box<DslExpression>,
+        duration: Box<DslExpression>,
+        curve: Box<DslExpression>,
+    },
+    /// ADSR envelope: s "bd" # adsr 0.01 0.1 0.7 0.2
+    ADSRModifier {
+        attack: Box<DslExpression>,
+        decay: Box<DslExpression>,
+        sustain: Box<DslExpression>,
+        release: Box<DslExpression>,
+    },
 }
 
 /// Pattern transformation operations
@@ -646,6 +674,49 @@ fn note_modifier(input: &str) -> IResult<&str, DslExpression> {
     })(input)
 }
 
+/// Parse envelope modifiers: segments, curve, or adsr
+fn envelope_modifier(input: &str) -> IResult<&str, DslExpression> {
+    alt((
+        // segments "0 1 0" "0.1 0.2"
+        map(preceded(tag("segments"), function_args), |args| {
+            let levels_str = if let Some(DslExpression::Pattern(s)) = args.get(0) {
+                s.clone()
+            } else {
+                String::from("0 1 0")
+            };
+
+            let times_str = if let Some(DslExpression::Pattern(s)) = args.get(1) {
+                s.clone()
+            } else {
+                String::from("0.1 0.2")
+            };
+
+            DslExpression::SegmentsModifier {
+                levels_str,
+                times_str,
+            }
+        }),
+        // curve 0 1 0.3 3.0
+        map(preceded(tag("curve"), function_args), |args| {
+            DslExpression::CurveModifier {
+                start: Box::new(args.get(0).cloned().unwrap_or(DslExpression::Value(0.0))),
+                end: Box::new(args.get(1).cloned().unwrap_or(DslExpression::Value(1.0))),
+                duration: Box::new(args.get(2).cloned().unwrap_or(DslExpression::Value(0.3))),
+                curve: Box::new(args.get(3).cloned().unwrap_or(DslExpression::Value(0.0))),
+            }
+        }),
+        // adsr 0.01 0.1 0.7 0.2
+        map(preceded(tag("adsr"), function_args), |args| {
+            DslExpression::ADSRModifier {
+                attack: Box::new(args.get(0).cloned().unwrap_or(DslExpression::Value(0.01))),
+                decay: Box::new(args.get(1).cloned().unwrap_or(DslExpression::Value(0.1))),
+                sustain: Box::new(args.get(2).cloned().unwrap_or(DslExpression::Value(0.7))),
+                release: Box::new(args.get(3).cloned().unwrap_or(DslExpression::Value(0.2))),
+            }
+        }),
+    ))(input)
+}
+
 /// Parse RMS analyzer: rms(input, window_size)
 fn rms_analyzer(input: &str) -> IResult<&str, DslExpression> {
     map(preceded(tag("rms"), function_args), |args| {
@@ -751,6 +822,7 @@ fn extract_pattern_and_rebuild_transforms(
                 note,
                 attack,
                 release,
+                envelope_type: None,
             }
         }
         DslExpression::PatternTransform { pattern, transform } => {
@@ -775,6 +847,7 @@ fn extract_pattern_and_rebuild_transforms(
                 note,
                 attack,
                 release,
+                envelope_type: None,
             }
         }
     }
@@ -812,6 +885,7 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                     note,
                     attack,
                     release,
+                    envelope_type: None,
                 }
             }
             Some(DslExpression::PatternTransform { pattern, transform }) => {
@@ -841,6 +915,7 @@ fn sample_pattern_expr(input: &str) -> IResult<&str, DslExpression> {
                     note,
                     attack,
                     release,
+                    envelope_type: None,
                 }
             }
         }
@@ -1122,6 +1197,7 @@ fn primary(input: &str) -> IResult<&str, DslExpression> {
         cut_modifier,
         n_modifier,
         note_modifier,
+        envelope_modifier, // Envelope modifiers (segments, curve, adsr)
         oscillator,
         filter,
         delay,
@@ -1622,6 +1698,50 @@ impl DslCompiler {
                         });
                         self.compile_expression(modified_left)
                     }
+                    DslExpression::SegmentsModifier { levels_str, times_str } => {
+                        let levels_str = levels_str.clone();
+                        let times_str = times_str.clone();
+                        let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
+                            sample.envelope_type = Some(SampleEnvelopeType::Segments {
+                                levels_str,
+                                times_str,
+                            });
+                            sample
+                        });
+                        self.compile_expression(modified_left)
+                    }
+                    DslExpression::CurveModifier { start, end, duration, curve } => {
+                        let start = start.clone();
+                        let end = end.clone();
+                        let duration = duration.clone();
+                        let curve = curve.clone();
+                        let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
+                            sample.envelope_type = Some(SampleEnvelopeType::Curve {
+                                start,
+                                end,
+                                duration,
+                                curve,
+                            });
+                            sample
+                        });
+                        self.compile_expression(modified_left)
+                    }
+                    DslExpression::ADSRModifier { attack, decay, sustain, release } => {
+                        let decay = decay.clone();
+                        let sustain = sustain.clone();
+                        let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
+                            // For ADSR, we use attack/release from the modifier
+                            // and set decay/sustain in the envelope_type
+                            sample.attack = Some(attack.clone());
+                            sample.release = Some(release.clone());
+                            sample.envelope_type = Some(SampleEnvelopeType::ADSR {
+                                decay,
+                                sustain,
+                            });
+                            sample
+                        });
+                        self.compile_expression(modified_left)
+                    }
                     // Default: standard chain behavior (for effects, etc.)
                     _ => {
                         let left_id = self.compile_expression(*left);
@@ -1964,6 +2084,7 @@ impl DslCompiler {
                 note,
                 attack,
                 release,
+                envelope_type,
             } => {
                 use std::collections::HashMap;
 
@@ -2003,6 +2124,39 @@ impl DslCompiler {
                     .map(|e| self.compile_expression_to_signal(*e))
                     .unwrap_or(Signal::Value(0.0)); // No release envelope by default
 
+                // Convert envelope_type to RuntimeEnvelopeType
+                let runtime_envelope = envelope_type.map(|env_type| match env_type {
+                    SampleEnvelopeType::Percussion => {
+                        crate::unified_graph::RuntimeEnvelopeType::Percussion
+                    }
+                    SampleEnvelopeType::ADSR { decay, sustain } => {
+                        crate::unified_graph::RuntimeEnvelopeType::ADSR {
+                            decay: self.compile_expression_to_signal(*decay),
+                            sustain: self.compile_expression_to_signal(*sustain),
+                        }
+                    }
+                    SampleEnvelopeType::Segments { levels_str, times_str } => {
+                        // Parse levels and times strings
+                        let levels: Vec<f32> = levels_str
+                            .split_whitespace()
+                            .filter_map(|s| s.parse().ok())
+                            .collect();
+                        let times: Vec<f32> = times_str
+                            .split_whitespace()
+                            .filter_map(|s| s.parse().ok())
+                            .collect();
+                        crate::unified_graph::RuntimeEnvelopeType::Segments { levels, times }
+                    }
+                    SampleEnvelopeType::Curve { start, end, duration, curve } => {
+                        crate::unified_graph::RuntimeEnvelopeType::Curve {
+                            start: self.compile_expression_to_signal(*start),
+                            end: self.compile_expression_to_signal(*end),
+                            duration: self.compile_expression_to_signal(*duration),
+                            curve: self.compile_expression_to_signal(*curve),
+                        }
+                    }
+                });
+
                 // Create Sample node
                 self.graph.add_node(SignalNode::Sample {
                     pattern_str: pattern,
@@ -2018,6 +2172,7 @@ impl DslCompiler {
                     note: note_signal,
                     attack: attack_signal,
                     release: release_signal,
+                    envelope_type: runtime_envelope,
                 })
             }
             DslExpression::Scale {
@@ -2246,6 +2401,7 @@ impl DslCompiler {
                                 note: Signal::Value(0.0),
                                 attack,
                                 release,
+                                envelope_type: None,  // TODO: Support envelope in pattern transforms
                             })
                         } else {
                             eprintln!("Warning: Chained transform inner expression did not produce a pattern or sample node");
@@ -2262,6 +2418,7 @@ impl DslCompiler {
                         note,
                         attack,
                         release,
+                        envelope_type,
                     } => {
                         // Handle transforms on sample patterns: s("bd sn" $ fast 2)
                         // Parse and transform the pattern
@@ -2323,6 +2480,7 @@ impl DslCompiler {
                             note: note_signal,
                             attack: attack_signal,
                             release: release_signal,
+                            envelope_type: None,  // TODO: Support envelope in this case
                         })
                     }
                     DslExpression::BusRef(bus_name) => {
@@ -2400,6 +2558,7 @@ impl DslCompiler {
                                 note: Signal::Value(0.0),
                                 attack,
                                 release,
+                                envelope_type: None,  // TODO: Support envelope in pattern transforms
                             })
                         } else if let Some(SignalNode::Pattern {
                             pattern: pattern_obj,
@@ -2478,6 +2637,7 @@ impl DslCompiler {
                 note,
                 attack,
                 release,
+                envelope_type,
             } => {
                 let fields = SamplePatternFields {
                     pattern,
@@ -2489,6 +2649,7 @@ impl DslCompiler {
                     note,
                     attack,
                     release,
+                    envelope_type: None,
                 };
                 let modified = modify(fields);
                 DslExpression::SamplePattern {
@@ -2501,6 +2662,7 @@ impl DslCompiler {
                     note: modified.note,
                     attack: modified.attack,
                     release: modified.release,
+                    envelope_type: modified.envelope_type,
                 }
             }
             // Recursive case: chain with modifiers

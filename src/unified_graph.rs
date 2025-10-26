@@ -430,6 +430,26 @@ pub enum SignalExpr {
     Scale { input: Signal, min: f32, max: f32 },
 }
 
+/// Runtime envelope type for Sample nodes (after compilation)
+#[derive(Debug, Clone)]
+pub enum RuntimeEnvelopeType {
+    Percussion,  // Use attack + release
+    ADSR {
+        decay: Signal,
+        sustain: Signal,
+    },
+    Segments {
+        levels: Vec<f32>,
+        times: Vec<f32>,
+    },
+    Curve {
+        start: Signal,
+        end: Signal,
+        duration: Signal,
+        curve: Signal,
+    },
+}
+
 /// Types of nodes in the unified graph
 #[derive(Debug, Clone)]
 pub enum SignalNode {
@@ -558,6 +578,7 @@ pub enum SignalNode {
         note: Signal,      // Note/pitch shift in semitones (0 = original, 12 = octave up)
         attack: Signal,    // Attack time in seconds (0.0 = no attack envelope)
         release: Signal,   // Release time in seconds (0.0 = no release envelope)
+        envelope_type: Option<RuntimeEnvelopeType>, // Envelope type (None = percussion)
     },
 
     /// Pattern-triggered synthesizer with ADSR envelopes
@@ -2536,6 +2557,7 @@ impl UnifiedSignalGraph {
                 note,
                 attack,
                 release,
+                envelope_type,
             } => {
                 // DEBUG: Log Sample node evaluation
                 if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 100 {

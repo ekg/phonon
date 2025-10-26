@@ -207,6 +207,229 @@ impl PercEnvelope {
     }
 }
 
+/// Segments envelope - arbitrary breakpoint envelope
+#[derive(Debug, Clone)]
+pub struct SegmentsEnvelope {
+    levels: Vec<f32>,
+    times: Vec<f32>,
+    current_segment: usize,
+    segment_elapsed: f32,
+    current_value: f32,
+    sample_rate: f32,
+    active: bool,
+}
+
+impl SegmentsEnvelope {
+    pub fn new(sample_rate: f32, levels: Vec<f32>, times: Vec<f32>) -> Self {
+        Self {
+            levels,
+            times,
+            current_segment: 0,
+            segment_elapsed: 0.0,
+            current_value: 0.0,
+            sample_rate,
+            active: false,
+        }
+    }
+
+    pub fn trigger(&mut self) {
+        self.active = true;
+        self.current_segment = 0;
+        self.segment_elapsed = 0.0;
+        if !self.levels.is_empty() {
+            self.current_value = self.levels[0];
+        }
+    }
+
+    pub fn process(&mut self) -> f32 {
+        if !self.active {
+            return 0.0;
+        }
+
+        if self.levels.is_empty() || self.times.is_empty() {
+            self.active = false;
+            return 0.0;
+        }
+
+        let dt = 1.0 / self.sample_rate;
+        self.segment_elapsed += dt;
+
+        // Check if we've finished the current segment
+        if self.current_segment < self.times.len() {
+            let segment_duration = self.times[self.current_segment];
+
+            if self.segment_elapsed >= segment_duration {
+                // Move to next segment
+                self.current_segment += 1;
+                self.segment_elapsed = 0.0;
+
+                if self.current_segment >= self.levels.len() - 1 {
+                    // Finished all segments
+                    self.current_value = *self.levels.last().unwrap();
+                    self.active = false;
+                    return self.current_value;
+                }
+            }
+
+            // Linear interpolation between current and next level
+            let start_level = self.levels[self.current_segment];
+            let end_level = self.levels[self.current_segment + 1];
+            let progress = (self.segment_elapsed / segment_duration).min(1.0);
+            self.current_value = start_level + (end_level - start_level) * progress;
+        } else {
+            // Hold at final level
+            self.current_value = *self.levels.last().unwrap();
+            self.active = false;
+        }
+
+        self.current_value
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.active
+    }
+}
+
+/// Curve envelope - exponential/logarithmic shaped ramp
+#[derive(Debug, Clone)]
+pub struct CurveEnvelope {
+    start: f32,
+    end: f32,
+    duration: f32,
+    curve: f32, // -10 to +10, 0=linear
+    elapsed_time: f32,
+    current_value: f32,
+    sample_rate: f32,
+    active: bool,
+}
+
+impl CurveEnvelope {
+    pub fn new(sample_rate: f32, start: f32, end: f32, duration: f32, curve: f32) -> Self {
+        Self {
+            start,
+            end,
+            duration: duration.max(0.001),
+            curve,
+            elapsed_time: 0.0,
+            current_value: start,
+            sample_rate,
+            active: false,
+        }
+    }
+
+    pub fn trigger(&mut self) {
+        self.active = true;
+        self.elapsed_time = 0.0;
+        self.current_value = self.start;
+    }
+
+    pub fn process(&mut self) -> f32 {
+        if !self.active {
+            return self.current_value;
+        }
+
+        let dt = 1.0 / self.sample_rate;
+        self.elapsed_time += dt;
+
+        let t = (self.elapsed_time / self.duration).min(1.0);
+
+        // Apply curve shape
+        let curved_t = if self.curve.abs() < 0.001 {
+            t // Linear
+        } else {
+            // Exponential curve
+            let exp_curve = self.curve.exp();
+            let exp_curve_t = (self.curve * t).exp();
+            (exp_curve_t - 1.0) / (exp_curve - 1.0)
+        };
+
+        self.current_value = self.start + (self.end - self.start) * curved_t;
+
+        if t >= 1.0 {
+            self.active = false;
+            self.current_value = self.end;
+        }
+
+        self.current_value
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.active
+    }
+}
+
+/// Unified envelope type that can be any of the supported envelope types
+#[derive(Debug, Clone)]
+pub enum VoiceEnvelope {
+    Percussion(PercEnvelope),
+    ADSR(ADSREnvelope),
+    Segments(SegmentsEnvelope),
+    Curve(CurveEnvelope),
+}
+
+impl VoiceEnvelope {
+    /// Create a new percussion envelope
+    pub fn new_percussion(sample_rate: f32, attack: f32, release: f32) -> Self {
+        let mut env = PercEnvelope::new(sample_rate);
+        env.set_times(attack, release);
+        VoiceEnvelope::Percussion(env)
+    }
+
+    /// Create a new ADSR envelope
+    pub fn new_adsr(sample_rate: f32, attack: f32, decay: f32, sustain: f32, release: f32) -> Self {
+        let mut env = ADSREnvelope::new(sample_rate);
+        env.set_adsr(attack, decay, sustain, release);
+        VoiceEnvelope::ADSR(env)
+    }
+
+    /// Create a new segments envelope
+    pub fn new_segments(sample_rate: f32, levels: Vec<f32>, times: Vec<f32>) -> Self {
+        VoiceEnvelope::Segments(SegmentsEnvelope::new(sample_rate, levels, times))
+    }
+
+    /// Create a new curve envelope
+    pub fn new_curve(sample_rate: f32, start: f32, end: f32, duration: f32, curve: f32) -> Self {
+        VoiceEnvelope::Curve(CurveEnvelope::new(sample_rate, start, end, duration, curve))
+    }
+
+    /// Trigger the envelope
+    pub fn trigger(&mut self) {
+        match self {
+            VoiceEnvelope::Percussion(env) => env.trigger(),
+            VoiceEnvelope::ADSR(env) => env.trigger(),
+            VoiceEnvelope::Segments(env) => env.trigger(),
+            VoiceEnvelope::Curve(env) => env.trigger(),
+        }
+    }
+
+    /// Release the envelope (for ADSR)
+    pub fn release(&mut self) {
+        if let VoiceEnvelope::ADSR(env) = self {
+            env.release();
+        }
+    }
+
+    /// Process one sample
+    pub fn process(&mut self) -> f32 {
+        match self {
+            VoiceEnvelope::Percussion(env) => env.process(),
+            VoiceEnvelope::ADSR(env) => env.process(),
+            VoiceEnvelope::Segments(env) => env.process(),
+            VoiceEnvelope::Curve(env) => env.process(),
+        }
+    }
+
+    /// Check if envelope is active
+    pub fn is_active(&self) -> bool {
+        match self {
+            VoiceEnvelope::Percussion(env) => env.is_active(),
+            VoiceEnvelope::ADSR(env) => env.is_active(),
+            VoiceEnvelope::Segments(env) => env.is_active(),
+            VoiceEnvelope::Curve(env) => env.is_active(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

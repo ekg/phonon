@@ -449,6 +449,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             note: Signal::Value(0.0),
                                             attack: Signal::Value(0.0),
                                             release: Signal::Value(0.0),
+                                envelope_type: None,
                                         })
                                     } else {
                                         graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -776,6 +777,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             note: Signal::Value(0.0),
                                             attack: Signal::Value(0.0),
                                             release: Signal::Value(0.0),
+                                envelope_type: None,
                                         }));
                                     }
                                 }
@@ -837,6 +839,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     note: Signal::Value(0.0),
                                     attack: Signal::Value(0.0),
                                     release: Signal::Value(0.0),
+                                envelope_type: None,
                                 }));
                             }
                         }

@@ -73,7 +73,7 @@
 //! voice.trigger_with_speed(sample, 1.0, 0.0, 0.5);         // half speed (octave down)
 //! ```
 
-use crate::envelope::PercEnvelope;
+use crate::envelope::VoiceEnvelope;
 use std::sync::Arc;
 
 /// Maximum number of simultaneous voices
@@ -111,13 +111,13 @@ pub struct Voice {
     /// None = no cut group, Some(n) = cut group number n
     cut_group: Option<u32>,
 
-    /// Envelope generator for amplitude shaping
-    envelope: PercEnvelope,
+    /// Envelope generator for amplitude shaping (supports multiple types)
+    envelope: VoiceEnvelope,
 
-    /// Attack time in seconds
+    /// Attack time in seconds (for backward compatibility)
     attack: f32,
 
-    /// Release time in seconds
+    /// Release time in seconds (for backward compatibility)
     release: f32,
 }
 
@@ -138,7 +138,7 @@ impl Voice {
             speed: 1.0,
             age: 0,
             cut_group: None,
-            envelope: PercEnvelope::new(SAMPLE_RATE),
+            envelope: VoiceEnvelope::new_percussion(SAMPLE_RATE, 0.001, 0.1),
             attack: 0.001, // 1ms default attack
             release: 0.1,  // 100ms default release
         }
@@ -188,8 +188,89 @@ impl Voice {
         self.attack = attack.max(0.0001); // Minimum 0.1ms
         self.release = release.max(0.001); // Minimum 1ms
 
-        // Configure and trigger envelope
-        self.envelope.set_times(self.attack, self.release);
+        // Configure and trigger envelope (recreate as percussion type)
+        self.envelope = VoiceEnvelope::new_percussion(SAMPLE_RATE, self.attack, self.release);
+        self.envelope.trigger();
+    }
+
+    /// Start playing a sample with ADSR envelope
+    pub fn trigger_with_adsr(
+        &mut self,
+        sample: Arc<Vec<f32>>,
+        gain: f32,
+        pan: f32,
+        speed: f32,
+        cut_group: Option<u32>,
+        attack: f32,
+        decay: f32,
+        sustain: f32,
+        release: f32,
+    ) {
+        self.sample_data = Some(sample);
+        self.position = 0.0;
+        self.active = true;
+        self.gain = gain;
+        self.pan = pan.clamp(-1.0, 1.0);
+        self.speed = speed.max(0.01);
+        self.age = 0;
+        self.cut_group = cut_group;
+        self.attack = attack;
+        self.release = release;
+
+        // Create and trigger ADSR envelope
+        self.envelope = VoiceEnvelope::new_adsr(SAMPLE_RATE, attack, decay, sustain, release);
+        self.envelope.trigger();
+    }
+
+    /// Start playing a sample with segments envelope
+    pub fn trigger_with_segments(
+        &mut self,
+        sample: Arc<Vec<f32>>,
+        gain: f32,
+        pan: f32,
+        speed: f32,
+        cut_group: Option<u32>,
+        levels: Vec<f32>,
+        times: Vec<f32>,
+    ) {
+        self.sample_data = Some(sample);
+        self.position = 0.0;
+        self.active = true;
+        self.gain = gain;
+        self.pan = pan.clamp(-1.0, 1.0);
+        self.speed = speed.max(0.01);
+        self.age = 0;
+        self.cut_group = cut_group;
+
+        // Create and trigger segments envelope
+        self.envelope = VoiceEnvelope::new_segments(SAMPLE_RATE, levels, times);
+        self.envelope.trigger();
+    }
+
+    /// Start playing a sample with curve envelope
+    pub fn trigger_with_curve(
+        &mut self,
+        sample: Arc<Vec<f32>>,
+        gain: f32,
+        pan: f32,
+        speed: f32,
+        cut_group: Option<u32>,
+        start: f32,
+        end: f32,
+        duration: f32,
+        curve: f32,
+    ) {
+        self.sample_data = Some(sample);
+        self.position = 0.0;
+        self.active = true;
+        self.gain = gain;
+        self.pan = pan.clamp(-1.0, 1.0);
+        self.speed = speed.max(0.01);
+        self.age = 0;
+        self.cut_group = cut_group;
+
+        // Create and trigger curve envelope
+        self.envelope = VoiceEnvelope::new_curve(SAMPLE_RATE, start, end, duration, curve);
         self.envelope.trigger();
     }
 
