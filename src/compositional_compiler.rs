@@ -178,6 +178,9 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
             if name == "white_noise" {
                 return compile_white_noise(ctx, vec![]);
             }
+            if name == "pink_noise" {
+                return compile_pink_noise(ctx, vec![]);
+            }
 
             // Otherwise, look up variable (function parameter)
             ctx.buses
@@ -366,6 +369,7 @@ fn compile_function_call(
         "tri" => compile_oscillator(ctx, Waveform::Triangle, args),
         "fm" => compile_fm(ctx, args),
         "white_noise" => compile_white_noise(ctx, args),
+        "pink_noise" => compile_pink_noise(ctx, args),
         "pulse" => compile_pulse(ctx, args),
         "ring_mod" => compile_ring_mod(ctx, args),
         "limiter" => compile_limiter(ctx, args),
@@ -673,6 +677,23 @@ fn compile_white_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
     }
 
     let node = SignalNode::WhiteNoise;
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile pink noise generator (1/f spectrum, equal energy per octave)
+fn compile_pink_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    use crate::unified_graph::PinkNoiseState;
+
+    if !args.is_empty() {
+        return Err(format!(
+            "pink_noise takes no parameters, got {}",
+            args.len()
+        ));
+    }
+
+    let node = SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    };
     Ok(ctx.graph.add_node(node))
 }
 

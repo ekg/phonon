@@ -1,11 +1,11 @@
 # UGen Implementation Status
 ## Tracking Progress Toward CSound/SuperCollider Parity
 
-**Last Updated**: 2025-10-25
+**Last Updated**: 2025-10-26
 **Total UGens**: 90 planned
-**Implemented**: 21 (23%)
+**Implemented**: 22 (24%)
 **In Progress**: 0
-**Remaining**: 69
+**Remaining**: 68
 
 ---
 
@@ -20,7 +20,7 @@
 
 ---
 
-## Oscillators & Generators (7/20 = 35%)
+## Oscillators & Generators (8/20 = 40%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -31,7 +31,7 @@
 | FM | ✅ | - | - | - | Complete with spectral analysis verification |
 | White Noise | ✅ | - | - | - | Complete with spectral flatness & uniformity verification |
 | Pulse (PWM) | ✅ | - | - | - | Complete with harmonic content analysis & duty cycle verification |
-| Pink Noise | ⏳ | | 2h | - | 1/f spectrum |
+| Pink Noise | ✅ | - | - | - | Complete - 1/f spectrum with Voss-McCartney algorithm |
 | Brown Noise | ⏳ | | 2h | - | Brownian motion |
 | PM | ⏳ | | 3h | - | Phase modulation |
 | Wavetable | ⏳ | | 6h | - | Arbitrary waveforms |
@@ -370,3 +370,10 @@ Want to implement a UGen? Here's how:
 - ✅ Create musical example (examples/moog_ladder_demo.ph) with 10 use cases
 - ✅ Implement 4-pole ladder topology (24dB/octave rolloff)
 - ✅ Linear filter stages for optimal frequency response
+- ✅ Implement Pink Noise (2025-10-26)
+- ✅ Write 7 comprehensive tests with spectral analysis
+- ✅ Verify 1/f spectrum (equal energy per octave)
+- ✅ Verify different from white noise (lower high-frequency content)
+- ✅ Create musical example (examples/pink_noise_demo.ph) with 10 use cases
+- ✅ Implement Voss-McCartney algorithm with 16 octave bins
+- ✅ Test variance, filtering, amplitude scaling, and musical integration

@@ -455,6 +455,11 @@ pub enum SignalNode {
     /// Generates uniformly distributed random samples in range [-1, 1]
     WhiteNoise,
 
+    /// Pink noise generator (1/f spectrum)
+    /// Generates noise with equal energy per octave
+    /// Uses Voss-McCartney algorithm with octave bins
+    PinkNoise { state: PinkNoiseState },
+
     /// Pulse wave oscillator (variable pulse width)
     /// Output: +1 when phase < width, -1 otherwise
     /// width=0.5 creates square wave (only odd harmonics)
@@ -1012,6 +1017,35 @@ impl Default for ParametricEQState {
     }
 }
 
+/// Pink noise state (Voss-McCartney algorithm)
+/// Uses multiple octave bins updated at different rates
+#[derive(Debug, Clone)]
+pub struct PinkNoiseState {
+    bins: [f32; 16],  // 16 octave bins for quality pink noise
+    counter: u32,     // Sample counter for bin update decisions
+}
+
+impl PinkNoiseState {
+    pub fn new() -> Self {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let mut bins = [0.0f32; 16];
+        for bin in &mut bins {
+            *bin = rng.gen_range(-1.0..1.0);
+        }
+        Self {
+            bins,
+            counter: 0,
+        }
+    }
+}
+
+impl Default for PinkNoiseState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Compressor state
 #[derive(Debug, Clone)]
 pub struct CompressorState {
@@ -1472,6 +1506,37 @@ impl UnifiedSignalGraph {
                 let mut rng = rand::thread_rng();
                 // Generate uniformly distributed random sample in [-1, 1]
                 rng.gen_range(-1.0..1.0)
+            }
+
+            SignalNode::PinkNoise { state } => {
+                use rand::Rng;
+                let mut rng = rand::thread_rng();
+
+                // Voss-McCartney algorithm: update bins based on counter bit patterns
+                // Each bin updates at 1/2^i rate (bin 0 every sample, bin 1 every 2, etc.)
+                let counter = state.counter;
+                let mut bins = state.bins;
+
+                // Update bins whose bit changed from 0 to 1
+                for i in 0..16 {
+                    let mask = 1u32 << i;
+                    if (counter & mask) == 0 {
+                        // This bin should update (its bit is 0, was 1)
+                        bins[i] = rng.gen_range(-1.0..1.0);
+                    }
+                }
+
+                // Update state for next sample
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::PinkNoise { state: s } = node {
+                        s.bins = bins;
+                        s.counter = counter.wrapping_add(1);
+                    }
+                }
+
+                // Sum all bins and normalize
+                let sum: f32 = bins.iter().sum();
+                sum / 16.0 // Normalize by number of bins
             }
 
             SignalNode::Pulse { freq, width, phase } => {
