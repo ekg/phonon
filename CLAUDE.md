@@ -305,7 +305,7 @@ for cycle in 0..8 {
 - ✅ Live coding with auto-reload
 - ✅ Mini-notation: Euclidean, alternation, subdivision, rests
 - ✅ --cycles parameter correctly accounts for tempo
-- ✅ Comment support with `#` at start of line
+- ✅ Comment support with `--` (double-dash)
 
 ### Next Priority Features (See ROADMAP.md)
 1. Multi-output system (`out1:`, `out2:`, etc. + `hush` + `panic`)
@@ -614,24 +614,24 @@ Parentheses and commas are NOT supported for function calls. This decision is de
 **Why this matters for AI agents:** Your training data overwhelmingly uses `function(arg1, arg2)` syntax. However, Phonon ONLY supports `function arg1 arg2`. You MUST actively override your training bias and use space-separated syntax.
 
 ```phonon
-# Comments
-tempo: 2.0              # Cycles per second
+-- Comments use double-dash
+tempo: 2.0              -- Cycles per second
 
-# Bus assignment
+-- Bus assignment
 ~lfo: sine 0.25
 ~bass: saw "55 82.5" # lpf (~lfo * 2000 + 500) 0.8
 
-# Sample playback
+-- Sample playback
 ~drums: s "bd sn hh*4 cp"
 
-# Pattern transformations
+-- Pattern transformations
 ~fast_drums: ~drums $ fast 2
 ~reversed: s "bd sn" $ rev
 
-# Signal flow (# chains left to right)
+-- Signal flow (# chains left to right)
 ~filtered: s "bd sn" # lpf 2000 0.8
 
-# Output (required)
+-- Output (required)
 out: ~bass * 0.4 + ~drums * 0.6
 ```
 
@@ -640,10 +640,10 @@ out: ~bass * 0.4 + ~drums * 0.6
 **Patterns ARE control signals** - evaluated at sample rate (44.1kHz)
 
 ```phonon
-# This is IMPOSSIBLE in Tidal/Strudel:
-~lfo: sine 0.25                          # Pattern as LFO
+-- This is IMPOSSIBLE in Tidal/Strudel:
+~lfo: sine 0.25                          -- Pattern as LFO
 out: saw "55 82.5" # lpf (~lfo * 2000 + 500) 0.8
-# Pattern modulates filter cutoff continuously!
+-- Pattern modulates filter cutoff continuously!
 ```
 
 In Tidal/Strudel, patterns only trigger discrete events. In Phonon, patterns can modulate any synthesis parameter in real-time.
