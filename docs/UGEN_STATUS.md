@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-26
 **Total UGens**: 90 planned
-**Implemented**: 22 (24%)
+**Implemented**: 23 (26%)
 **In Progress**: 0
-**Remaining**: 68
+**Remaining**: 67
 
 ---
 
@@ -20,7 +20,7 @@
 
 ---
 
-## Oscillators & Generators (8/20 = 40%)
+## Oscillators & Generators (9/20 = 45%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -32,7 +32,7 @@
 | White Noise | ✅ | - | - | - | Complete with spectral flatness & uniformity verification |
 | Pulse (PWM) | ✅ | - | - | - | Complete with harmonic content analysis & duty cycle verification |
 | Pink Noise | ✅ | - | - | - | Complete - 1/f spectrum with Voss-McCartney algorithm |
-| Brown Noise | ⏳ | | 2h | - | Brownian motion |
+| Brown Noise | ✅ | - | - | - | Complete - 6dB/octave rolloff with random walk algorithm |
 | PM | ⏳ | | 3h | - | Phase modulation |
 | Wavetable | ⏳ | | 6h | - | Arbitrary waveforms |
 | SuperSaw | ⏳ | | 3h | - | Detuned saw stack |
@@ -377,3 +377,11 @@ Want to implement a UGen? Here's how:
 - ✅ Create musical example (examples/pink_noise_demo.ph) with 10 use cases
 - ✅ Implement Voss-McCartney algorithm with 16 octave bins
 - ✅ Test variance, filtering, amplitude scaling, and musical integration
+- ✅ Implement Brown Noise (2025-10-26)
+- ✅ Write 8 comprehensive tests with spectral analysis
+- ✅ Verify 6dB/octave rolloff (steeper than pink)
+- ✅ Verify much more low frequency power than high frequency
+- ✅ Test stability (no DC drift over 5 seconds)
+- ✅ Create musical example (examples/brown_noise_demo.ph) with 10 use cases
+- ✅ Implement random walk with leaky integrator
+- ✅ Test filtering, amplitude scaling, and musical integration

@@ -460,6 +460,11 @@ pub enum SignalNode {
     /// Uses Voss-McCartney algorithm with octave bins
     PinkNoise { state: PinkNoiseState },
 
+    /// Brown noise generator (6dB/octave rolloff)
+    /// Generates very "warm" noise using random walk
+    /// Also called Brownian noise or red noise
+    BrownNoise { state: BrownNoiseState },
+
     /// Pulse wave oscillator (variable pulse width)
     /// Output: +1 when phase < width, -1 otherwise
     /// width=0.5 creates square wave (only odd harmonics)
@@ -1046,6 +1051,27 @@ impl Default for PinkNoiseState {
     }
 }
 
+/// Brown noise state (random walk / Brownian motion)
+/// Uses leaky integrator to prevent DC drift
+#[derive(Debug, Clone)]
+pub struct BrownNoiseState {
+    accumulator: f32, // Current accumulated value
+}
+
+impl BrownNoiseState {
+    pub fn new() -> Self {
+        Self {
+            accumulator: 0.0,
+        }
+    }
+}
+
+impl Default for BrownNoiseState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Compressor state
 #[derive(Debug, Clone)]
 pub struct CompressorState {
@@ -1537,6 +1563,33 @@ impl UnifiedSignalGraph {
                 // Sum all bins and normalize
                 let sum: f32 = bins.iter().sum();
                 sum / 16.0 // Normalize by number of bins
+            }
+
+            SignalNode::BrownNoise { state } => {
+                use rand::Rng;
+                let mut rng = rand::thread_rng();
+
+                // Random walk / Brownian motion algorithm
+                // Add small random step to accumulator
+                let current = state.accumulator;
+                let step = rng.gen_range(-1.0..1.0) * 0.1; // Small random step
+                let mut new_accumulator = current + step;
+
+                // Leaky integrator to prevent DC drift (decay toward zero)
+                new_accumulator *= 0.998; // 0.2% decay per sample
+
+                // Soft clip to prevent explosion
+                new_accumulator = new_accumulator.clamp(-1.5, 1.5);
+
+                // Update state for next sample
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::BrownNoise { state: s } = node {
+                        s.accumulator = new_accumulator;
+                    }
+                }
+
+                // Normalize output to approximately -1 to 1
+                new_accumulator * 0.7
             }
 
             SignalNode::Pulse { freq, width, phase } => {

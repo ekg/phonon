@@ -181,6 +181,9 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
             if name == "pink_noise" {
                 return compile_pink_noise(ctx, vec![]);
             }
+            if name == "brown_noise" {
+                return compile_brown_noise(ctx, vec![]);
+            }
 
             // Otherwise, look up variable (function parameter)
             ctx.buses
@@ -370,6 +373,7 @@ fn compile_function_call(
         "fm" => compile_fm(ctx, args),
         "white_noise" => compile_white_noise(ctx, args),
         "pink_noise" => compile_pink_noise(ctx, args),
+        "brown_noise" => compile_brown_noise(ctx, args),
         "pulse" => compile_pulse(ctx, args),
         "ring_mod" => compile_ring_mod(ctx, args),
         "limiter" => compile_limiter(ctx, args),
@@ -693,6 +697,23 @@ fn compile_pink_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
 
     let node = SignalNode::PinkNoise {
         state: PinkNoiseState::default(),
+    };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile brown noise generator (6dB/octave rolloff, random walk)
+fn compile_brown_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    use crate::unified_graph::BrownNoiseState;
+
+    if !args.is_empty() {
+        return Err(format!(
+            "brown_noise takes no parameters, got {}",
+            args.len()
+        ));
+    }
+
+    let node = SignalNode::BrownNoise {
+        state: BrownNoiseState::default(),
     };
     Ok(ctx.graph.add_node(node))
 }
