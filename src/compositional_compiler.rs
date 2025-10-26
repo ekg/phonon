@@ -439,6 +439,7 @@ fn compile_function_call(
         // ========== Analysis ==========
         "rms" => compile_rms(ctx, args),
         "schmidt" => compile_schmidt(ctx, args),
+        "latch" => compile_latch(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -1770,6 +1771,33 @@ fn compile_schmidt(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         high_threshold: Signal::Node(high_threshold_node),
         low_threshold: Signal::Node(low_threshold_node),
         state: false, // Start in low state
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Latch (Sample & Hold)
+/// Syntax: latch input gate
+/// Example: ~held = ~noise # latch ~clock
+fn compile_latch(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    // Latch expects 1 param after input: gate signal
+    if params.len() != 1 {
+        return Err(format!(
+            "latch requires 1 parameter (gate), got {}",
+            params.len()
+        ));
+    }
+
+    let gate_node = compile_expr(ctx, params[0].clone())?;
+
+    let node = SignalNode::Latch {
+        input: input_signal,
+        gate: Signal::Node(gate_node),
+        held_value: 0.0,  // Start with 0
+        last_gate: 0.0,   // Start with gate low
     };
 
     Ok(ctx.graph.add_node(node))

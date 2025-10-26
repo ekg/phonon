@@ -751,6 +751,15 @@ pub enum SignalNode {
         state: bool, // Current gate state (true = high, false = low)
     },
 
+    /// Latch (Sample & Hold)
+    /// Samples input when gate transitions from low to high and holds until next trigger
+    Latch {
+        input: Signal,
+        gate: Signal,
+        held_value: f32,     // The currently held sample
+        last_gate: f32,      // Previous gate value (for edge detection)
+    },
+
     /// Pitch detector
     Pitch { input: Signal, last_pitch: f32 },
 
@@ -3693,6 +3702,41 @@ impl UnifiedSignalGraph {
                 } else {
                     0.0
                 }
+            }
+
+            SignalNode::Latch {
+                input,
+                gate,
+                held_value,
+                last_gate,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let gate_val = self.eval_signal(&gate);
+
+                // Current held value and last gate (captured from pattern match)
+                let mut output_val = held_value;
+
+                // Update state if gate has rising edge (0→1)
+                if let Some(Some(SignalNode::Latch {
+                    held_value: stored_val,
+                    last_gate: stored_gate,
+                    ..
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    // Detect rising edge: last_gate < 0.5 and gate_val >= 0.5
+                    if *stored_gate < 0.5 && gate_val >= 0.5 {
+                        // Sample the input
+                        *stored_val = input_val;
+                        output_val = input_val;
+                    } else {
+                        output_val = *stored_val;
+                    }
+
+                    // Update last_gate for next sample
+                    *stored_gate = gate_val;
+                }
+
+                output_val
             }
 
             SignalNode::Pitch { input, last_pitch } => {
