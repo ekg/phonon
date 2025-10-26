@@ -114,3 +114,111 @@ If the Dirt-Samples aren't available, Fermion generates basic samples:
 ## Speed/Pitch Control
 
 Coming soon: `"bd:2*2"` for double speed, `"bd:2/2"` for half speed
+
+## Envelope Modifiers
+
+Control how samples fade in and out using envelope modifiers with the chain operator `#`:
+
+### Segments Envelope (Arbitrary Breakpoint)
+
+Create custom envelope shapes by defining levels and times:
+
+```phonon
+-- Triangle envelope: 0 -> 1 -> 0
+s "bd sn" # segments "0 1 0" "0.1 0.2"
+```
+
+- First string: level values (0.0 to 1.0)
+- Second string: time durations in seconds
+- N levels require N-1 times
+
+Examples:
+```phonon
+-- Fast attack, slow release
+s "hh*4" # segments "0 1 0" "0.01 0.3"
+
+-- Complex shape
+s "bd" # segments "0 0.8 1 0.5 0" "0.05 0.05 0.1 0.15"
+```
+
+### ADSR Envelope (Attack-Decay-Sustain-Release)
+
+Classic synthesizer envelope for sustained sounds:
+
+```phonon
+-- syntax: adsr attack decay sustain release
+s "bd sn" # adsr 0.01 0.1 0.5 0.2
+```
+
+Parameters:
+- `attack`: Time to reach peak (seconds)
+- `decay`: Time to reach sustain level (seconds)
+- `sustain`: Sustain level (0.0 to 1.0)
+- `release`: Time to fade to zero after note off (seconds)
+
+Examples:
+```phonon
+-- Punchy kick with fast attack
+s "bd*4" # adsr 0.001 0.05 0.3 0.1
+
+-- Soft pad-like envelope
+s "sn" # adsr 0.1 0.2 0.7 0.5
+```
+
+### Curve Envelope (Exponential/Logarithmic)
+
+Create shaped ramps with exponential curves:
+
+```phonon
+-- syntax: curve start end duration curvature
+s "hh*8" # curve 0 1 0.05 2
+```
+
+Parameters:
+- `start`: Starting level (0.0 to 1.0)
+- `end`: Ending level (0.0 to 1.0)
+- `duration`: Duration in seconds
+- `curvature`: Shape (-10 to +10, 0 = linear, positive = exponential, negative = logarithmic)
+
+Examples:
+```phonon
+-- Linear fade out
+s "bd" # curve 1 0 0.3 0
+
+-- Exponential decay
+s "sn" # curve 1 0 0.2 5
+
+-- Logarithmic fade in
+s "hh" # curve 0 1 0.1 -5
+```
+
+### Combining Envelopes with Other Parameters
+
+Envelopes can be combined with other sample parameters:
+
+```phonon
+tempo: 2.0
+
+-- Segments envelope with pattern gain
+~drums: s "bd sn hh cp" # segments "0 1 0" "0.05 0.1" # gain "1 0.8 0.6 0.4"
+
+-- ADSR with pan
+~bass: s "bd*4" # adsr 0.01 0.1 0.5 0.2 # pan "-1 1"
+
+-- Curve with reverb
+~perc: s "cp" # curve 0 1 0.15 3 # reverb 0.8 0.5 0.3
+
+out: ~drums * 0.4 + ~bass * 0.4 + ~perc * 0.2
+```
+
+### Default Envelope
+
+If no envelope modifier is specified, samples use a simple percussion envelope:
+- Attack: 0.01 seconds (hard-coded)
+- Release: 0.2 seconds (default, can be overridden with `release` parameter)
+
+```phonon
+-- These are equivalent:
+s "bd"
+s "bd" # attack 0.01 # release 0.2
+```

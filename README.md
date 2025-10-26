@@ -79,6 +79,10 @@ This is **not possible** in Tidal/Strudel - patterns trigger events, they don't 
 ✅ **Sample Playback**:
 - Voice-based polyphonic engine (64 voices)
 - Pattern DSP parameters: `gain`, `pan`, `speed`, `n`, `note`, `attack`, `release`, `cut_group`
+- Envelope modifiers: `segments`, `adsr`, `curve` for per-event amplitude envelopes
+  - `s "bd sn" # segments "0 1 0" "0.1 0.2"` - arbitrary breakpoint envelopes
+  - `s "bd" # adsr 0.01 0.1 0.5 0.2` - classic ADSR envelopes
+  - `s "hh*4" # curve 0 1 0.05 2` - exponential/logarithmic curves
 - Samples through effects: `s("bd sn") # reverb(0.8, 0.5, 0.3)`
 - Pattern-controlled parameters: `s "bd*4" # gain "1 0.8 0.6 0.4"`
 - Sample library compatible with Tidal/Dirt-Samples (12,532 samples)
