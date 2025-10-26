@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-26
 **Total UGens**: 90 planned
-**Implemented**: 33 (37%)
+**Implemented**: 35 (39%)
 **In Progress**: 0
-**Remaining**: 57
+**Remaining**: 55
 
 ---
 
@@ -116,22 +116,22 @@
 
 ---
 
-## Analysis & Control (3/12 = 25%)
+## Analysis & Control (5/12 = 42%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
-| Amp Follower | ⏳ | | 2h | - | Envelope detection |
+| Amp Follower | ⏳ | | 2h | - | Envelope detection (can use RMS + Peak Follower chain) |
 | Pitch Track | ⏳ | | 12h | 📚 | YIN algorithm |
 | FFT | ⏳ | | 6h | - | Use `realfft` |
 | PV_MagFreeze | ⏳ | | 4h | 🔗 | Needs FFT |
 | PV_BinShift | ⏳ | | 4h | 🔗 | Needs FFT |
 | Onset Detect | ⏳ | | 6h | 📚 | Spectral flux |
 | Beat Track | ⏳ | | 12h | 📚 | Onset + tempo |
-| Peak Follower | ⏳ | | 2h | - | Peak detection |
+| Peak Follower | ✅ | - | - | - | Complete - Tracks peak amplitude with attack/release |
 | RMS | ✅ | - | - | - | Complete - Root Mean Square analyzer with pattern-modulated window size |
 | Schmidt | ✅ | - | - | - | Complete - Trigger with hysteresis for noise-immune gate detection |
 | Latch | ✅ | - | - | - | Complete - Sample & Hold for stepped/quantized outputs |
-| Timer | ⏳ | | 2h | - | Time since trigger |
+| Timer | ✅ | - | - | - | Complete - Measures elapsed time since trigger reset |
 
 ---
 
