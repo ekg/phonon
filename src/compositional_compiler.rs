@@ -405,6 +405,7 @@ fn compile_function_call(
         "env_trig" => compile_envelope_pattern(ctx, args),
         "adsr" => compile_adsr(ctx, args),
         "ad" => compile_ad(ctx, args),
+        "line" => compile_line(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -1255,6 +1256,26 @@ fn compile_ad(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Stri
         attack: Signal::Node(attack_node),
         decay: Signal::Node(decay_node),
         state: ADState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_line(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "line requires 2 parameters (start, end), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile each parameter as a signal (supports pattern modulation!)
+    let start_node = compile_expr(ctx, args[0].clone())?;
+    let end_node = compile_expr(ctx, args[1].clone())?;
+
+    let node = SignalNode::Line {
+        start: Signal::Node(start_node),
+        end: Signal::Node(end_node),
     };
 
     Ok(ctx.graph.add_node(node))

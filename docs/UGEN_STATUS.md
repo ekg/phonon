@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-25
 **Total UGens**: 90 planned
-**Implemented**: 12 (13%)
+**Implemented**: 13 (14%)
 **In Progress**: 0
-**Remaining**: 78
+**Remaining**: 77
 
 ---
 
@@ -69,15 +69,15 @@
 
 ---
 
-## Envelopes (2/8 = 25%)
+## Envelopes (3/8 = 37.5%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
 | ADSR | ✅ | - | - | - | Complete with pattern modulation |
 | AD | ✅ | - | - | - | Complete - perfect for percussive sounds |
+| Line | ✅ | - | - | - | Complete - linear ramps, fades, sweeps |
 | ASR | ⏳ | | 1.5h | - | Attack-sustain-release |
 | Env | ⏳ | | 3h | - | Arbitrary breakpoint |
-| Line | ⏳ | 🎯 | 1h | - | Linear ramp |
 | XLine | ⏳ | | 1.5h | - | Exponential ramp |
 | Curve | ⏳ | | 2h | - | Curved ramp |
 | EnvGen | ⏳ | | 4h | 🔗 | Needs trigger system |
@@ -162,7 +162,7 @@
 |---|------|--------|------|-------|-----------|
 | 1 | ADSR | ✅ | 1 | 2 | 2025-10-25 |
 | 2 | AD | ✅ | 1 | 1 | 2025-10-25 |
-| 3 | Line | ⏳ | 2 | 1 | |
+| 3 | Line | ✅ | 1 | 1 | 2025-10-25 |
 | 4 | FM | ⏳ | 3 | 4 | |
 | 5 | White Noise | ⏳ | 4 | 1 | |
 | 6 | Pulse (PWM) | ⏳ | 5 | 2 | |
@@ -202,10 +202,14 @@
 - ✅ Write 6 comprehensive tests for AD
 - ✅ Create musical example (examples/ad_demo.ph)
 - ✅ Pattern-modulated AD parameters
+- ✅ Implement Line envelope (2025-10-25)
+- ✅ Write 6 comprehensive tests for Line (1 ignored - parser limitation)
+- ✅ Create musical example (examples/line_demo.ph)
+- ✅ Pattern-modulated Line parameters
 
 **Goals**:
-- [ ] Implement Line envelope
 - [ ] Implement FM oscillator
+- [ ] Implement white noise generator
 
 ### Week of 2025-11-04
 **Goals**:

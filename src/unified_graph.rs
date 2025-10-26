@@ -570,6 +570,13 @@ pub enum SignalNode {
         state: ADState,
     },
 
+    /// Line envelope generator (continuous, one per cycle)
+    /// Linear ramp from start to end value over one cycle
+    Line {
+        start: Signal, // Start value
+        end: Signal,   // End value
+    },
+
     /// Delay line
     Delay {
         input: Signal,
@@ -2342,6 +2349,20 @@ impl UnifiedSignalGraph {
                 }
 
                 ad_state.level
+            }
+
+            SignalNode::Line { start, end } => {
+                // Evaluate start and end values (supports pattern modulation!)
+                let start_val = self.eval_signal(&start);
+                let end_val = self.eval_signal(&end);
+
+                // Calculate position within current cycle (0.0 to 1.0)
+                let cycle_pos = (self.cycle_position % 1.0) as f32;
+
+                // Linear interpolation from start to end
+                let value = start_val + (end_val - start_val) * cycle_pos;
+
+                value
             }
 
             SignalNode::EnvelopePattern {
