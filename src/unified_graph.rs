@@ -441,6 +441,16 @@ pub enum SignalNode {
         phase: f32,
     },
 
+    /// FM (Frequency Modulation) oscillator
+    /// output = sin(2π * carrier * t + mod_index * sin(2π * modulator * t))
+    FMOscillator {
+        carrier_freq: Signal,    // Carrier frequency in Hz
+        modulator_freq: Signal,  // Modulator frequency in Hz
+        mod_index: Signal,       // Modulation index (depth)
+        carrier_phase: f32,      // Carrier phase (0.0 to 1.0)
+        modulator_phase: f32,    // Modulator phase (0.0 to 1.0)
+    },
+
     /// Pattern as a signal source
     Pattern {
         pattern_str: String,
@@ -1273,6 +1283,47 @@ impl UnifiedSignalGraph {
                         *p += f / self.sample_rate;
                         if *p >= 1.0 {
                             *p -= 1.0;
+                        }
+                    }
+                }
+
+                sample
+            }
+
+            SignalNode::FMOscillator {
+                carrier_freq,
+                modulator_freq,
+                mod_index,
+                carrier_phase,
+                modulator_phase,
+            } => {
+                // Evaluate modulatable parameters
+                let carrier_f = self.eval_signal(&carrier_freq).max(0.0);
+                let modulator_f = self.eval_signal(&modulator_freq).max(0.0);
+                let index = self.eval_signal(&mod_index).max(0.0);
+
+                // FM synthesis: carrier modulated by modulator
+                // output = sin(2π * carrier_phase + mod_index * sin(2π * modulator_phase))
+                let modulator_value = (2.0 * PI * modulator_phase).sin();
+                let modulation = index * modulator_value;
+                let sample = (2.0 * PI * carrier_phase + modulation).sin();
+
+                // Update phases for next sample
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::FMOscillator {
+                        carrier_phase: cp,
+                        modulator_phase: mp,
+                        ..
+                    } = node
+                    {
+                        *cp += carrier_f / self.sample_rate;
+                        if *cp >= 1.0 {
+                            *cp -= 1.0;
+                        }
+
+                        *mp += modulator_f / self.sample_rate;
+                        if *mp >= 1.0 {
+                            *mp -= 1.0;
                         }
                     }
                 }

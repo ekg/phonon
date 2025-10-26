@@ -359,6 +359,7 @@ fn compile_function_call(
         "saw" => compile_oscillator(ctx, Waveform::Saw, args),
         "square" => compile_oscillator(ctx, Waveform::Square, args),
         "tri" => compile_oscillator(ctx, Waveform::Triangle, args),
+        "fm" => compile_fm(ctx, args),
 
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
@@ -621,6 +622,32 @@ fn compile_oscillator(
         waveform,
         phase: 0.0,
     };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile FM oscillator
+/// Usage: fm carrier_freq modulator_freq mod_index
+fn compile_fm(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 3 {
+        return Err(format!(
+            "fm requires 3 parameters (carrier_freq, modulator_freq, mod_index), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile each parameter as a signal (supports pattern modulation!)
+    let carrier_node = compile_expr(ctx, args[0].clone())?;
+    let modulator_node = compile_expr(ctx, args[1].clone())?;
+    let index_node = compile_expr(ctx, args[2].clone())?;
+
+    let node = SignalNode::FMOscillator {
+        carrier_freq: Signal::Node(carrier_node),
+        modulator_freq: Signal::Node(modulator_node),
+        mod_index: Signal::Node(index_node),
+        carrier_phase: 0.0,
+        modulator_phase: 0.0,
+    };
+
     Ok(ctx.graph.add_node(node))
 }
 

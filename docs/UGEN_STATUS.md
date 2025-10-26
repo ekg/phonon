@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-25
 **Total UGens**: 90 planned
-**Implemented**: 13 (14%)
+**Implemented**: 14 (16%)
 **In Progress**: 0
-**Remaining**: 77
+**Remaining**: 76
 
 ---
 
@@ -20,7 +20,7 @@
 
 ---
 
-## Oscillators & Generators (4/20 = 20%)
+## Oscillators & Generators (5/20 = 25%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -28,11 +28,11 @@
 | Saw | ✅ | - | - | - | Complete |
 | Square | ✅ | - | - | - | Complete |
 | Triangle | ✅ | - | - | - | Complete |
+| FM | ✅ | - | - | - | Complete with spectral analysis verification |
 | Pulse (PWM) | ⏳ | 🎯 | 2h | - | Variable pulse width |
 | White Noise | ⏳ | 🎯 | 1h | - | Use `rand` crate |
 | Pink Noise | ⏳ | | 2h | - | 1/f spectrum |
 | Brown Noise | ⏳ | | 2h | - | Brownian motion |
-| FM | ⏳ | 🎯 | 4h | - | Frequency modulation |
 | PM | ⏳ | | 3h | - | Phase modulation |
 | Wavetable | ⏳ | | 6h | - | Arbitrary waveforms |
 | SuperSaw | ⏳ | | 3h | - | Detuned saw stack |
@@ -163,7 +163,7 @@
 | 1 | ADSR | ✅ | 1 | 2 | 2025-10-25 |
 | 2 | AD | ✅ | 1 | 1 | 2025-10-25 |
 | 3 | Line | ✅ | 1 | 1 | 2025-10-25 |
-| 4 | FM | ⏳ | 3 | 4 | |
+| 4 | FM | ✅ | 1 | 3 | 2025-10-25 |
 | 5 | White Noise | ⏳ | 4 | 1 | |
 | 6 | Pulse (PWM) | ⏳ | 5 | 2 | |
 | 7 | Pan2 | ⏳ | 6-7 | 8 | Arch work |
@@ -206,10 +206,16 @@
 - ✅ Write 6 comprehensive tests for Line (1 ignored - parser limitation)
 - ✅ Create musical example (examples/line_demo.ph)
 - ✅ Pattern-modulated Line parameters
+- ✅ Implement FM oscillator (2025-10-25)
+- ✅ Write 7 comprehensive tests with FFT spectral analysis
+- ✅ Verify sidebands at correct frequencies
+- ✅ Verify modulation index affects spectrum
+- ✅ Create musical example (examples/fm_demo.ph)
+- ✅ Pattern-modulated FM parameters
 
 **Goals**:
-- [ ] Implement FM oscillator
-- [ ] Implement white noise generator
+- [ ] Implement white noise generator with spectrum verification
+- [ ] Implement pulse oscillator (PWM) with harmonic analysis
 
 ### Week of 2025-11-04
 **Goals**:
