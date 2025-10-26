@@ -147,6 +147,28 @@ pub fn note_to_midi(note: &str) -> Option<MidiNote> {
     // Normalize note name and convert # to s
     let note_lower = note.to_lowercase().replace('#', "s");
 
+    // Check for chord notation (contains ')
+    if let Some(quote_pos) = note_lower.find('\'') {
+        // Extract root note (everything before ')
+        let root = &note_lower[..quote_pos];
+
+        // Try to parse root note with default octave if needed
+        let root_with_octave = if root.len() == 1
+            || (root.len() == 2 && (root.ends_with('s') || root.ends_with('f')))
+        {
+            format!("{root}4") // Default to octave 4
+        } else {
+            root.to_string()
+        };
+
+        // Return root note MIDI value
+        // NOTE: For full chord support, oscillators need to be polyphonic
+        // For now, we just play the root note
+        if let Some(&midi) = NOTE_TO_MIDI.get(&root_with_octave) {
+            return Some(midi);
+        }
+    }
+
     // Try direct lookup
     if let Some(&midi) = NOTE_TO_MIDI.get(&note_lower) {
         return Some(midi);
