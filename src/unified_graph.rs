@@ -740,6 +740,17 @@ pub enum SignalNode {
         write_idx: usize,
     },
 
+    /// Schmidt trigger (gate with hysteresis)
+    /// Converts analog signal to digital gate with noise immunity
+    /// high_threshold: level where gate turns ON
+    /// low_threshold: level where gate turns OFF
+    Schmidt {
+        input: Signal,
+        high_threshold: Signal,
+        low_threshold: Signal,
+        state: bool, // Current gate state (true = high, false = low)
+    },
+
     /// Pitch detector
     Pitch { input: Signal, last_pitch: f32 },
 
@@ -3641,6 +3652,47 @@ impl UnifiedSignalGraph {
                 }
 
                 (sum / window_samples as f32).sqrt()
+            }
+
+            SignalNode::Schmidt {
+                input,
+                high_threshold,
+                low_threshold,
+                state,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let high = self.eval_signal(&high_threshold);
+                let low = self.eval_signal(&low_threshold);
+
+                // Current state (captured from the pattern match)
+                let mut output_state = state;
+
+                // Update state based on hysteresis logic
+                if let Some(Some(SignalNode::Schmidt {
+                    state: current_state,
+                    ..
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    // If currently low and input exceeds high threshold, turn on
+                    if !*current_state && input_val > high {
+                        *current_state = true;
+                        output_state = true;
+                    }
+                    // If currently high and input falls below low threshold, turn off
+                    else if *current_state && input_val < low {
+                        *current_state = false;
+                        output_state = false;
+                    } else {
+                        output_state = *current_state;
+                    }
+                }
+
+                // Output 1.0 if high, 0.0 if low
+                if output_state {
+                    1.0
+                } else {
+                    0.0
+                }
             }
 
             SignalNode::Pitch { input, last_pitch } => {

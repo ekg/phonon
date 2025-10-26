@@ -438,6 +438,7 @@ fn compile_function_call(
 
         // ========== Analysis ==========
         "rms" => compile_rms(ctx, args),
+        "schmidt" => compile_schmidt(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -1741,6 +1742,34 @@ fn compile_rms(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
         window_size: Signal::Node(window_size_node),
         buffer,
         write_idx: 0,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Schmidt trigger (gate with hysteresis)
+/// Syntax: schmidt input high_threshold low_threshold
+/// Example: ~gate = ~input # schmidt 0.5 -0.5
+fn compile_schmidt(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    // Schmidt expects 2 params after input: high_threshold, low_threshold
+    if params.len() != 2 {
+        return Err(format!(
+            "schmidt requires 2 parameters (high_threshold, low_threshold), got {}",
+            params.len()
+        ));
+    }
+
+    let high_threshold_node = compile_expr(ctx, params[0].clone())?;
+    let low_threshold_node = compile_expr(ctx, params[1].clone())?;
+
+    let node = SignalNode::Schmidt {
+        input: input_signal,
+        high_threshold: Signal::Node(high_threshold_node),
+        low_threshold: Signal::Node(low_threshold_node),
+        state: false, // Start in low state
     };
 
     Ok(ctx.graph.add_node(node))
