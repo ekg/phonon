@@ -732,9 +732,10 @@ pub enum SignalNode {
 
     // === Analysis ===
     /// RMS analyzer
+    /// Window size in seconds (supports pattern modulation!)
     RMS {
         input: Signal,
-        window_size: f32,
+        window_size: Signal,
         buffer: Vec<f32>,
         write_idx: usize,
     },
@@ -3614,6 +3615,11 @@ impl UnifiedSignalGraph {
                 write_idx,
             } => {
                 let input_val = self.eval_signal(&input);
+                let window_seconds = self.eval_signal(&window_size).max(0.001).min(1.0);
+
+                // Convert window size (seconds) to samples
+                let window_samples = (window_seconds * self.sample_rate) as usize;
+                let window_samples = window_samples.clamp(1, buffer.len());
 
                 // Update buffer
                 if let Some(Some(SignalNode::RMS {
@@ -3626,9 +3632,15 @@ impl UnifiedSignalGraph {
                     *idx = (*idx + 1) % buf.len();
                 }
 
-                // Calculate RMS
-                let sum: f32 = buffer.iter().sum();
-                (sum / buffer.len() as f32).sqrt()
+                // Calculate RMS over the specified window
+                // Sum only the most recent window_samples
+                let mut sum: f32 = 0.0;
+                for i in 0..window_samples {
+                    let idx = (write_idx + buffer.len() - i) % buffer.len();
+                    sum += buffer[idx];
+                }
+
+                (sum / window_samples as f32).sqrt()
             }
 
             SignalNode::Pitch { input, last_pitch } => {

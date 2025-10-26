@@ -436,6 +436,9 @@ fn compile_function_call(
         "ad" => compile_ad(ctx, args),
         "line" => compile_line(ctx, args),
 
+        // ========== Analysis ==========
+        "rms" => compile_rms(ctx, args),
+
         _ => Err(format!("Unknown function: {}", name)),
     }
 }
@@ -1706,6 +1709,38 @@ fn compile_line(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
     let node = SignalNode::Line {
         start: Signal::Node(start_node),
         end: Signal::Node(end_node),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile RMS (Root Mean Square) analyzer
+/// Syntax: rms input window_size
+/// Example: ~level = ~signal # rms 0.01
+fn compile_rms(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    // RMS expects 1 param after input: window_size (in seconds)
+    if params.len() != 1 {
+        return Err(format!(
+            "rms requires 1 parameter (window_size), got {}",
+            params.len()
+        ));
+    }
+
+    let window_size_node = compile_expr(ctx, params[0].clone())?;
+
+    // Create buffer based on maximum expected window size
+    // We'll allocate 1 second worth of samples as max
+    let max_buffer_size = ctx.sample_rate as usize;
+    let buffer = vec![0.0; max_buffer_size];
+
+    let node = SignalNode::RMS {
+        input: input_signal,
+        window_size: Signal::Node(window_size_node),
+        buffer,
+        write_idx: 0,
     };
 
     Ok(ctx.graph.add_node(node))
