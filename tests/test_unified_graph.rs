@@ -374,8 +374,8 @@ fn test_audio_analysis_nodes() {
     // Add RMS analyzer
     let rms = graph.add_node(SignalNode::RMS {
         input: Signal::Node(osc),
-        window_size: 0.01,      // 10ms window
-        buffer: vec![0.0; 441], // 10ms at 44.1kHz
+        window_size: Signal::Value(0.01),  // 10ms window
+        buffer: vec![0.0; 441],            // 10ms at 44.1kHz
         write_idx: 0,
     });
 

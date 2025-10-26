@@ -760,6 +760,15 @@ pub enum SignalNode {
         last_gate: f32,      // Previous gate value (for edge detection)
     },
 
+    /// Timer
+    /// Measures elapsed time since last trigger reset
+    /// Resets to 0 on rising edge, counts up in seconds
+    Timer {
+        trigger: Signal,
+        elapsed_time: f32,   // Current elapsed time in seconds
+        last_trigger: f32,   // Previous trigger value (for edge detection)
+    },
+
     /// Pitch detector
     Pitch { input: Signal, last_pitch: f32 },
 
@@ -3734,6 +3743,41 @@ impl UnifiedSignalGraph {
 
                     // Update last_gate for next sample
                     *stored_gate = gate_val;
+                }
+
+                output_val
+            }
+
+            SignalNode::Timer {
+                trigger,
+                elapsed_time,
+                last_trigger,
+            } => {
+                let trigger_val = self.eval_signal(&trigger);
+
+                // Current elapsed time (captured from pattern match)
+                let mut output_val = elapsed_time;
+
+                // Update state if trigger has rising edge (0→1)
+                if let Some(Some(SignalNode::Timer {
+                    elapsed_time: stored_time,
+                    last_trigger: stored_trigger,
+                    ..
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    // Detect rising edge: last_trigger < 0.5 and trigger_val >= 0.5
+                    if *stored_trigger < 0.5 && trigger_val >= 0.5 {
+                        // Reset timer to 0
+                        *stored_time = 0.0;
+                        output_val = 0.0;
+                    } else {
+                        // Increment elapsed time by one sample
+                        *stored_time += 1.0 / self.sample_rate;
+                        output_val = *stored_time;
+                    }
+
+                    // Update last_trigger for next sample
+                    *stored_trigger = trigger_val;
                 }
 
                 output_val

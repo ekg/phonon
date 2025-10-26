@@ -440,6 +440,7 @@ fn compile_function_call(
         "rms" => compile_rms(ctx, args),
         "schmidt" => compile_schmidt(ctx, args),
         "latch" => compile_latch(ctx, args),
+        "timer" => compile_timer(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -1803,6 +1804,27 @@ fn compile_latch(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
     Ok(ctx.graph.add_node(node))
 }
 
+fn compile_timer(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    // Timer takes no additional parameters - only the trigger input
+    if !params.is_empty() {
+        return Err(format!(
+            "timer requires no parameters (only trigger input), got {}",
+            params.len()
+        ));
+    }
+
+    let node = SignalNode::Timer {
+        trigger: input_signal,
+        elapsed_time: 0.0,   // Start at 0
+        last_trigger: 0.0,   // Start with trigger low
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
 /// Compile chain operator: a # b
 fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<NodeId, String> {
     // The chain operator passes left as input to right
@@ -1812,6 +1834,13 @@ fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<N
             // Prepend left as first argument using proper ChainInput marker
             let left_node = compile_expr(ctx, left)?;
             args.insert(0, Expr::ChainInput(left_node)); // Type-safe!
+            compile_function_call(ctx, &name, args)
+        }
+        Expr::Var(name) => {
+            // Treat as zero-argument function call with chain input
+            // This handles cases like: ~trigger # timer
+            let left_node = compile_expr(ctx, left)?;
+            let args = vec![Expr::ChainInput(left_node)];
             compile_function_call(ctx, &name, args)
         }
         _ => {
