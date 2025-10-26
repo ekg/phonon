@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-26
 **Total UGens**: 90 planned
-**Implemented**: 39 (43%)
+**Implemented**: 40 (44%)
 **In Progress**: 0
-**Remaining**: 51
+**Remaining**: 50
 
 ---
 
@@ -135,7 +135,7 @@
 
 ---
 
-## Spatial & Routing (2/10 = 20%)
+## Spatial & Routing (3/10 = 30%)
 
 **NOTE**: Multi-channel architecture now implemented!
 
@@ -143,13 +143,13 @@
 |------|--------|----------|-----------|----------|-------|
 | Pan2 | ✅ | - | - | - | Complete - Equal-power panning with stereo rendering |
 | XFade | ✅ | - | - | - | Complete - Linear crossfader with pattern-modulated position |
+| Mix | ✅ | - | - | - | Complete - Sums variable number of signals together |
 | Pan4 | ⏳ | | 4h | 🔗 | Needs quad arch |
 | Rotate2 | ⏳ | | 3h | 🔗 | Stereo rotation |
 | Binaural | ⏳ | | 12h | 📚 | HRTF database |
 | Ambisonics | ⏳ | | 16h | 📚 | Complex spatial |
 | Splay | ⏳ | | 2h | 🔗 | Spread signals |
 | Select | ⏳ | | 2h | - | Route signals |
-| Mix | ⏳ | | 1h | - | Sum array |
 | NumChannels | ⏳ | | 2h | 🔗 | Channel adapter |
 
 ---
