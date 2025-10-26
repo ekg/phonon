@@ -1,0 +1,20 @@
+-- Per-Event Envelope Testing
+-- Tests the new syntax: s "bd sn" # segments "0 1 0" "0.1 0.2"
+
+tempo: 2.0
+
+-- Test 1: Segments envelope on samples
+~segments_test: s "bd sn" # segments "0 1 0" "0.1 0.2"
+
+-- Test 2: ADSR envelope on samples
+~adsr_test: s "bd*2 sn*2" # adsr 0.01 0.1 0.5 0.2
+
+-- Test 3: Curve envelope on samples
+~curve_test: s "hh*4" # curve 0 1 0.1 2
+
+-- Test 4: Compare percussion (default) vs segments
+~default: s "bd"
+~with_env: s "bd" # segments "0 1 0" "0.05 0.1"
+
+-- Output - mix all tests
+out: ~segments_test * 0.3 + ~adsr_test * 0.3 + ~curve_test * 0.2 + ~default * 0.1 + ~with_env * 0.1
