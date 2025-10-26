@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-26
 **Total UGens**: 90 planned
-**Implemented**: 31 (34%)
+**Implemented**: 33 (37%)
 **In Progress**: 0
-**Remaining**: 59
+**Remaining**: 57
 
 ---
 
@@ -116,7 +116,7 @@
 
 ---
 
-## Analysis & Control (1/12 = 8%)
+## Analysis & Control (3/12 = 25%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -129,8 +129,8 @@
 | Beat Track | ⏳ | | 12h | 📚 | Onset + tempo |
 | Peak Follower | ⏳ | | 2h | - | Peak detection |
 | RMS | ✅ | - | - | - | Complete - Root Mean Square analyzer with pattern-modulated window size |
-| Schmidt | ⏳ | | 1h | - | Trigger with hysteresis |
-| Latch | ⏳ | | 1h | - | Sample & hold |
+| Schmidt | ✅ | - | - | - | Complete - Trigger with hysteresis for noise-immune gate detection |
+| Latch | ✅ | - | - | - | Complete - Sample & Hold for stepped/quantized outputs |
 | Timer | ⏳ | | 2h | - | Time since trigger |
 
 ---
@@ -428,3 +428,13 @@ Want to implement a UGen? Here's how:
 - ✅ Root Mean Square: sqrt(sum(x²) / N) with configurable window size
 - ✅ Circular buffer windowing with pattern-modulated window_size parameter
 - ✅ Create musical example (examples/rms_demo.ph) with 10 use cases (envelope follower, sidechain ducking, VU meter, auto-gain, level-dependent effects)
+- ✅ Implement Schmidt trigger (2025-10-26)
+- ✅ Write 9 comprehensive tests (pattern query, gate creation, hysteresis, high/low thresholds, stability, gate from LFO, pattern-modulated thresholds, envelope gate)
+- ✅ Trigger with hysteresis: different on/off thresholds prevent rapid oscillation
+- ✅ Noise-immune gate detection for robust trigger generation
+- ✅ Create musical example (examples/schmidt_demo.ph) with 10 use cases (LFO gating, rhythmic chopping, envelope conversion, burst generation, polyrhythmic patterns)
+- ✅ Implement Latch (Sample & Hold) (2025-10-26)
+- ✅ Write 9 comprehensive tests (pattern query, holds value, updates on trigger, creates steps, slow gate, stability, random melody, sample & hold effect, pattern gate)
+- ✅ Edge-triggered sampling: samples input on gate rising edge (0→1) and holds until next trigger
+- ✅ Classic modular synth building block for stepped/quantized outputs
+- ✅ Create musical example (examples/latch_demo.ph) with 10 use cases (random melodies, stepped filter sweeps, rhythmic S&H, arpeggiators, complex sequences)
