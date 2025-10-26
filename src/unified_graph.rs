@@ -779,6 +779,16 @@ pub enum SignalNode {
         last_value: f32,
     },
 
+    /// Peak Follower
+    /// Tracks the peak amplitude of an input signal
+    /// Fast attack, slow decay
+    PeakFollower {
+        input: Signal,
+        attack_time: Signal,   // Attack time in seconds
+        release_time: Signal,  // Release/decay time in seconds
+        current_peak: f32,     // Current peak level
+    },
+
     // === Math & Control ===
     /// Addition
     Add { a: Signal, b: Signal },
@@ -3821,6 +3831,44 @@ impl UnifiedSignalGraph {
                 }
 
                 transient
+            }
+
+            SignalNode::PeakFollower {
+                input,
+                attack_time,
+                release_time,
+                current_peak,
+            } => {
+                let input_val = self.eval_signal(&input).abs();
+                let attack_sec = self.eval_signal(&attack_time).max(0.00001); // Min 10μs
+                let release_sec = self.eval_signal(&release_time).max(0.00001);
+
+                let mut output_val = current_peak;
+
+                // Update peak follower state
+                if let Some(Some(SignalNode::PeakFollower {
+                    current_peak: stored_peak,
+                    ..
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    // Calculate attack and release coefficients
+                    // Coefficient determines how fast we approach target
+                    // coeff = 1 - exp(-1 / (time * sample_rate))
+                    let attack_coeff = 1.0 - (-1.0 / (attack_sec * self.sample_rate)).exp();
+                    let release_coeff = 1.0 - (-1.0 / (release_sec * self.sample_rate)).exp();
+
+                    if input_val > *stored_peak {
+                        // Attack: quickly follow increases
+                        *stored_peak += (input_val - *stored_peak) * attack_coeff;
+                    } else {
+                        // Release: slowly decay
+                        *stored_peak += (input_val - *stored_peak) * release_coeff;
+                    }
+
+                    output_val = *stored_peak;
+                }
+
+                output_val
             }
 
             SignalNode::Router {

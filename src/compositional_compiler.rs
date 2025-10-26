@@ -441,6 +441,7 @@ fn compile_function_call(
         "schmidt" => compile_schmidt(ctx, args),
         "latch" => compile_latch(ctx, args),
         "timer" => compile_timer(ctx, args),
+        "peak_follower" => compile_peak_follower(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -1820,6 +1821,31 @@ fn compile_timer(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
         trigger: input_signal,
         elapsed_time: 0.0,   // Start at 0
         last_trigger: 0.0,   // Start with trigger low
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_peak_follower(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    // Peak follower requires 2 parameters: attack_time, release_time
+    if params.len() != 2 {
+        return Err(format!(
+            "peak_follower requires 2 parameters (attack_time, release_time), got {}",
+            params.len()
+        ));
+    }
+
+    let attack_node = compile_expr(ctx, params[0].clone())?;
+    let release_node = compile_expr(ctx, params[1].clone())?;
+
+    let node = SignalNode::PeakFollower {
+        input: input_signal,
+        attack_time: Signal::Node(attack_node),
+        release_time: Signal::Node(release_node),
+        current_peak: 0.0,  // Start at 0
     };
 
     Ok(ctx.graph.add_node(node))
