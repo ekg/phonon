@@ -336,14 +336,48 @@ fn compile_function_call(
                 return Err("s() requires at least one argument".to_string());
             }
 
-            // First argument should be a pattern string
-            // We need to extract the actual pattern string, not create a node
-            let pattern_str = match &args[0] {
-                Expr::String(s) => s.clone(),
+            // Handle different argument types:
+            // 1. Simple string: s "bd"
+            // 2. Parenthesized transform: s ("bd" $ fast 2)
+            // 3. Direct transform: s "bd" $ fast 2 (handled by compile_transform)
+            let (pattern_str, pattern) = match &args[0] {
+                Expr::String(s) => {
+                    // Simple case: just a pattern string
+                    (s.clone(), parse_mini_notation(s))
+                }
+                Expr::Paren(inner) => {
+                    // Unwrap parentheses and check for transform
+                    match &**inner {
+                        Expr::Transform { expr, transform } => {
+                            // Extract base pattern string
+                            let base_str = match &**expr {
+                                Expr::String(s) => s.clone(),
+                                _ => return Err("s() pattern must be a string".to_string()),
+                            };
+                            // Parse and apply transform
+                            let mut pattern = parse_mini_notation(&base_str);
+                            pattern = apply_transform_to_pattern(pattern, transform.clone())?;
+                            (format!("{} (transformed)", base_str), pattern)
+                        }
+                        Expr::String(s) => {
+                            // Just a parenthesized string
+                            (s.clone(), parse_mini_notation(s))
+                        }
+                        _ => return Err("s() requires a pattern string or transform as first argument".to_string()),
+                    }
+                }
+                Expr::Transform { expr, transform } => {
+                    // Direct transform (shouldn't normally happen, but handle it)
+                    let base_str = match &**expr {
+                        Expr::String(s) => s.clone(),
+                        _ => return Err("s() pattern must be a string".to_string()),
+                    };
+                    let mut pattern = parse_mini_notation(&base_str);
+                    pattern = apply_transform_to_pattern(pattern, transform.clone())?;
+                    (format!("{} (transformed)", base_str), pattern)
+                }
                 _ => return Err("s() requires a pattern string as first argument".to_string()),
             };
-
-            let pattern = parse_mini_notation(&pattern_str);
 
             // TODO: Handle sample-specific parameters from remaining args
             // For now, create a basic sample node with defaults
