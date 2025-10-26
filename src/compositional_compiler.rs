@@ -451,6 +451,12 @@ fn compile_function_call(
         "peak_follower" => compile_peak_follower(ctx, args),
         "amp_follower" => compile_amp_follower(ctx, args),
 
+        // ========== Sample Parameter Modifiers ==========
+        "n" => compile_n_modifier(ctx, args),
+        "gain" => compile_gain_modifier(ctx, args),
+        "pan" => compile_pan_modifier(ctx, args),
+        "speed" => compile_speed_modifier(ctx, args),
+
         _ => Err(format!("Unknown function: {}", name)),
     }
 }
@@ -2109,6 +2115,60 @@ fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<N
     }
 }
 
+/// Helper to modify a Sample node's parameter
+/// Returns a new Sample node with the updated parameter
+fn modify_sample_param(
+    ctx: &mut CompilerContext,
+    sample_node_id: NodeId,
+    param_name: &str,
+    new_value: Signal,
+) -> Result<NodeId, String> {
+    // Get the Sample node
+    let sample_node = ctx.graph.get_node(sample_node_id)
+        .ok_or_else(|| "Invalid node reference".to_string())?;
+
+    if let SignalNode::Sample {
+        pattern_str,
+        pattern,
+        gain,
+        pan,
+        speed,
+        cut_group,
+        n,
+        note,
+        attack,
+        release,
+        envelope_type,
+        ..
+    } = sample_node
+    {
+        // Create new Sample with updated parameter
+        let new_sample = SignalNode::Sample {
+            pattern_str: pattern_str.clone(),
+            pattern: pattern.clone(),
+            last_trigger_time: -1.0,
+            last_cycle: -1,
+            playback_positions: HashMap::new(),
+            gain: if param_name == "gain" { new_value.clone() } else { gain.clone() },
+            pan: if param_name == "pan" { new_value.clone() } else { pan.clone() },
+            speed: if param_name == "speed" { new_value.clone() } else { speed.clone() },
+            cut_group: cut_group.clone(),
+            n: if param_name == "n" { new_value.clone() } else { n.clone() },
+            note: if param_name == "note" { new_value } else { note.clone() },
+            attack: attack.clone(),
+            release: release.clone(),
+            envelope_type: envelope_type.clone(),
+        };
+
+        Ok(ctx.graph.add_node(new_sample))
+    } else {
+        Err(format!(
+            "{} can only be used with sample (s) patterns, not other signals",
+            param_name
+        ))
+    }
+}
+
 /// Compile pattern transform
 fn compile_transform(
     ctx: &mut CompilerContext,
@@ -2712,6 +2772,76 @@ fn compile_unop(ctx: &mut CompilerContext, op: UnOp, expr: Expr) -> Result<NodeI
             Ok(ctx.graph.add_node(node))
         }
     }
+}
+
+// ========== Sample Parameter Modifier Functions ==========
+
+/// Compile n modifier: s "bd" # n "0 1 2"
+/// Sets the sample index for sample selection
+fn compile_n_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!("n requires 2 arguments (sample_input, n_pattern), got {}", args.len()));
+    }
+
+    // First arg should be ChainInput pointing to a Sample node
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => *node_id,
+        _ => return Err("n must be used with the chain operator: s \"bd\" # n \"0 1 2\"".to_string()),
+    };
+
+    // Second arg is the n pattern
+    let n_value = compile_expr(ctx, args[1].clone())?;
+
+    // Modify the Sample node
+    modify_sample_param(ctx, sample_node_id, "n", Signal::Node(n_value))
+}
+
+/// Compile gain modifier: s "bd" # gain "0.8 0.5 1.0"
+/// Sets the volume for each sample trigger
+fn compile_gain_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!("gain requires 2 arguments (sample_input, gain_pattern), got {}", args.len()));
+    }
+
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => *node_id,
+        _ => return Err("gain must be used with the chain operator: s \"bd\" # gain \"0.8\"".to_string()),
+    };
+
+    let gain_value = compile_expr(ctx, args[1].clone())?;
+    modify_sample_param(ctx, sample_node_id, "gain", Signal::Node(gain_value))
+}
+
+/// Compile pan modifier: s "bd" # pan "-1 1 0"
+/// Sets the stereo pan position (-1 = left, 0 = center, 1 = right)
+fn compile_pan_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!("pan requires 2 arguments (sample_input, pan_pattern), got {}", args.len()));
+    }
+
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => *node_id,
+        _ => return Err("pan must be used with the chain operator: s \"bd\" # pan \"-1 1\"".to_string()),
+    };
+
+    let pan_value = compile_expr(ctx, args[1].clone())?;
+    modify_sample_param(ctx, sample_node_id, "pan", Signal::Node(pan_value))
+}
+
+/// Compile speed modifier: s "bd" # speed "1 0.5 2"
+/// Sets the playback speed (1.0 = normal, 0.5 = half speed, 2.0 = double speed)
+fn compile_speed_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!("speed requires 2 arguments (sample_input, speed_pattern), got {}", args.len()));
+    }
+
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => *node_id,
+        _ => return Err("speed must be used with the chain operator: s \"bd\" # speed \"1 2\"".to_string()),
+    };
+
+    let speed_value = compile_expr(ctx, args[1].clone())?;
+    modify_sample_param(ctx, sample_node_id, "speed", Signal::Node(speed_value))
 }
 
 #[cfg(test)]
