@@ -428,7 +428,7 @@ impl VoiceManager {
         self.trigger_sample_with_envelope(sample, gain, pan, speed, cut_group, 0.001, 0.1);
     }
 
-    /// Trigger a sample with full control including envelope parameters
+    /// Trigger a sample with full control including envelope parameters (percussion envelope)
     /// This is the most complete trigger method with all DSP parameters
     pub fn trigger_sample_with_envelope(
         &mut self,
@@ -477,6 +477,169 @@ impl VoiceManager {
         self.voices[oldest_idx]
             .trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
         let max_voices = self.voices.len();
+        self.next_voice_index = (oldest_idx + 1) % max_voices;
+    }
+
+    /// Trigger a sample with ADSR envelope
+    pub fn trigger_sample_with_adsr(
+        &mut self,
+        sample: Arc<Vec<f32>>,
+        gain: f32,
+        pan: f32,
+        speed: f32,
+        cut_group: Option<u32>,
+        attack: f32,
+        decay: f32,
+        sustain: f32,
+        release: f32,
+    ) {
+        // Handle cut groups
+        if let Some(group) = cut_group {
+            for voice in &mut self.voices {
+                if voice.cut_group == Some(group) && voice.active {
+                    voice.active = false;
+                    voice.sample_data = None;
+                }
+            }
+        }
+
+        // Try to find an inactive voice
+        let max_voices = self.voices.len();
+        for i in 0..max_voices {
+            let idx = (self.next_voice_index + i) % max_voices;
+            if self.voices[idx].is_available() {
+                self.voices[idx].trigger_with_adsr(
+                    sample, gain, pan, speed, cut_group, attack, decay, sustain, release,
+                );
+                self.next_voice_index = (idx + 1) % max_voices;
+                return;
+            }
+        }
+
+        // Steal oldest voice
+        let mut oldest_idx = 0;
+        let mut oldest_age = 0;
+        for (idx, voice) in self.voices.iter().enumerate() {
+            if voice.age > oldest_age {
+                oldest_age = voice.age;
+                oldest_idx = idx;
+            }
+        }
+        self.voices[oldest_idx].trigger_with_adsr(
+            sample, gain, pan, speed, cut_group, attack, decay, sustain, release,
+        );
+        self.next_voice_index = (oldest_idx + 1) % max_voices;
+    }
+
+    /// Trigger a sample with segments envelope
+    pub fn trigger_sample_with_segments(
+        &mut self,
+        sample: Arc<Vec<f32>>,
+        gain: f32,
+        pan: f32,
+        speed: f32,
+        cut_group: Option<u32>,
+        levels: Vec<f32>,
+        times: Vec<f32>,
+    ) {
+        // Handle cut groups
+        if let Some(group) = cut_group {
+            for voice in &mut self.voices {
+                if voice.cut_group == Some(group) && voice.active {
+                    voice.active = false;
+                    voice.sample_data = None;
+                }
+            }
+        }
+
+        // Try to find an inactive voice
+        let max_voices = self.voices.len();
+        for i in 0..max_voices {
+            let idx = (self.next_voice_index + i) % max_voices;
+            if self.voices[idx].is_available() {
+                self.voices[idx].trigger_with_segments(
+                    sample,
+                    gain,
+                    pan,
+                    speed,
+                    cut_group,
+                    levels,
+                    times,
+                );
+                self.next_voice_index = (idx + 1) % max_voices;
+                return;
+            }
+        }
+
+        // Steal oldest voice
+        let mut oldest_idx = 0;
+        let mut oldest_age = 0;
+        for (idx, voice) in self.voices.iter().enumerate() {
+            if voice.age > oldest_age {
+                oldest_age = voice.age;
+                oldest_idx = idx;
+            }
+        }
+        self.voices[oldest_idx].trigger_with_segments(
+            sample,
+            gain,
+            pan,
+            speed,
+            cut_group,
+            levels,
+            times,
+        );
+        self.next_voice_index = (oldest_idx + 1) % max_voices;
+    }
+
+    /// Trigger a sample with curve envelope
+    pub fn trigger_sample_with_curve(
+        &mut self,
+        sample: Arc<Vec<f32>>,
+        gain: f32,
+        pan: f32,
+        speed: f32,
+        cut_group: Option<u32>,
+        start: f32,
+        end: f32,
+        duration: f32,
+        curve: f32,
+    ) {
+        // Handle cut groups
+        if let Some(group) = cut_group {
+            for voice in &mut self.voices {
+                if voice.cut_group == Some(group) && voice.active {
+                    voice.active = false;
+                    voice.sample_data = None;
+                }
+            }
+        }
+
+        // Try to find an inactive voice
+        let max_voices = self.voices.len();
+        for i in 0..max_voices {
+            let idx = (self.next_voice_index + i) % max_voices;
+            if self.voices[idx].is_available() {
+                self.voices[idx].trigger_with_curve(
+                    sample, gain, pan, speed, cut_group, start, end, duration, curve,
+                );
+                self.next_voice_index = (idx + 1) % max_voices;
+                return;
+            }
+        }
+
+        // Steal oldest voice
+        let mut oldest_idx = 0;
+        let mut oldest_age = 0;
+        for (idx, voice) in self.voices.iter().enumerate() {
+            if voice.age > oldest_age {
+                oldest_age = voice.age;
+                oldest_idx = idx;
+            }
+        }
+        self.voices[oldest_idx].trigger_with_curve(
+            sample, gain, pan, speed, cut_group, start, end, duration, curve,
+        );
         self.next_voice_index = (oldest_idx + 1) % max_voices;
     }
 

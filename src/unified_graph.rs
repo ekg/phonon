@@ -2752,18 +2752,63 @@ impl UnifiedSignalGraph {
                                     synthetic_buffer.push(sample_value);
                                 }
 
-                                // Trigger voice with synthetic buffer
-                                self.voice_manager
-                                    .borrow_mut()
-                                    .trigger_sample_with_envelope(
-                                        std::sync::Arc::new(synthetic_buffer),
-                                        gain_val,
-                                        pan_val,
-                                        final_speed,
-                                        cut_group_opt,
-                                        final_attack,
-                                        final_release,
-                                    );
+                                // Trigger voice with synthetic buffer using appropriate envelope type
+                                match envelope_type {
+                                    Some(RuntimeEnvelopeType::Percussion) | None => {
+                                        self.voice_manager.borrow_mut().trigger_sample_with_envelope(
+                                            std::sync::Arc::new(synthetic_buffer),
+                                            gain_val,
+                                            pan_val,
+                                            final_speed,
+                                            cut_group_opt,
+                                            final_attack,
+                                            final_release,
+                                        );
+                                    }
+                                    Some(RuntimeEnvelopeType::ADSR { ref decay, ref sustain }) => {
+                                        let decay_val = self.eval_signal_at_time(decay, event_start_abs).max(0.001);
+                                        let sustain_val = self.eval_signal_at_time(sustain, event_start_abs).clamp(0.0, 1.0);
+                                        self.voice_manager.borrow_mut().trigger_sample_with_adsr(
+                                            std::sync::Arc::new(synthetic_buffer),
+                                            gain_val,
+                                            pan_val,
+                                            final_speed,
+                                            cut_group_opt,
+                                            final_attack,
+                                            decay_val,
+                                            sustain_val,
+                                            final_release,
+                                        );
+                                    }
+                                    Some(RuntimeEnvelopeType::Segments { ref levels, ref times }) => {
+                                        self.voice_manager.borrow_mut().trigger_sample_with_segments(
+                                            std::sync::Arc::new(synthetic_buffer),
+                                            gain_val,
+                                            pan_val,
+                                            final_speed,
+                                            cut_group_opt,
+                                            levels.clone(),
+                                            times.clone(),
+                                        );
+                                    }
+                                    Some(RuntimeEnvelopeType::Curve { ref start, ref end, ref duration, ref curve }) => {
+                                        let start_val = self.eval_signal_at_time(start, event_start_abs);
+                                        let end_val = self.eval_signal_at_time(end, event_start_abs);
+                                        let duration_val = self.eval_signal_at_time(duration, event_start_abs).max(0.001);
+                                        let curve_val = self.eval_signal_at_time(curve, event_start_abs);
+                                        self.voice_manager.borrow_mut().trigger_sample_with_curve(
+                                            std::sync::Arc::new(synthetic_buffer),
+                                            gain_val,
+                                            pan_val,
+                                            final_speed,
+                                            cut_group_opt,
+                                            start_val,
+                                            end_val,
+                                            duration_val,
+                                            curve_val,
+                                        );
+                                    }
+                                }
 
                                 // Track trigger time
                                 if event_start_abs > latest_triggered_start {
@@ -2774,20 +2819,65 @@ impl UnifiedSignalGraph {
                             }
                         } else {
                             // Regular sample loading
-                            if let Some(sample_data) =
-                                self.sample_bank.borrow_mut().get_sample(&final_sample_name)
-                            {
-                                self.voice_manager
-                                    .borrow_mut()
-                                    .trigger_sample_with_envelope(
-                                        sample_data,
-                                        gain_val,
-                                        pan_val,
-                                        final_speed,
-                                        cut_group_opt,
-                                        final_attack,
-                                        final_release,
-                                    );
+                            let sample_data_opt = self.sample_bank.borrow_mut().get_sample(&final_sample_name);
+                            if let Some(sample_data) = sample_data_opt {
+                                // Trigger voice using appropriate envelope type
+                                match envelope_type {
+                                    Some(RuntimeEnvelopeType::Percussion) | None => {
+                                        self.voice_manager.borrow_mut().trigger_sample_with_envelope(
+                                            sample_data,
+                                            gain_val,
+                                            pan_val,
+                                            final_speed,
+                                            cut_group_opt,
+                                            final_attack,
+                                            final_release,
+                                        );
+                                    }
+                                    Some(RuntimeEnvelopeType::ADSR { ref decay, ref sustain }) => {
+                                        let decay_val = self.eval_signal_at_time(decay, event_start_abs).max(0.001);
+                                        let sustain_val = self.eval_signal_at_time(sustain, event_start_abs).clamp(0.0, 1.0);
+                                        self.voice_manager.borrow_mut().trigger_sample_with_adsr(
+                                            sample_data,
+                                            gain_val,
+                                            pan_val,
+                                            final_speed,
+                                            cut_group_opt,
+                                            final_attack,
+                                            decay_val,
+                                            sustain_val,
+                                            final_release,
+                                        );
+                                    }
+                                    Some(RuntimeEnvelopeType::Segments { ref levels, ref times }) => {
+                                        self.voice_manager.borrow_mut().trigger_sample_with_segments(
+                                            sample_data,
+                                            gain_val,
+                                            pan_val,
+                                            final_speed,
+                                            cut_group_opt,
+                                            levels.clone(),
+                                            times.clone(),
+                                        );
+                                    }
+                                    Some(RuntimeEnvelopeType::Curve { ref start, ref end, ref duration, ref curve }) => {
+                                        let start_val = self.eval_signal_at_time(start, event_start_abs);
+                                        let end_val = self.eval_signal_at_time(end, event_start_abs);
+                                        let duration_val = self.eval_signal_at_time(duration, event_start_abs).max(0.001);
+                                        let curve_val = self.eval_signal_at_time(curve, event_start_abs);
+                                        self.voice_manager.borrow_mut().trigger_sample_with_curve(
+                                            sample_data,
+                                            gain_val,
+                                            pan_val,
+                                            final_speed,
+                                            cut_group_opt,
+                                            start_val,
+                                            end_val,
+                                            duration_val,
+                                            curve_val,
+                                        );
+                                    }
+                                }
 
                                 // Track this as the latest event we've triggered
                                 if event_start_abs > latest_triggered_start {
