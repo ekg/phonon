@@ -572,6 +572,15 @@ pub enum SignalNode {
         state: FilterState,
     },
 
+    /// Moog Ladder Filter (4-pole 24dB/octave lowpass with resonance)
+    /// Classic analog filter with warm sound and self-oscillation
+    MoogLadder {
+        input: Signal,
+        cutoff: Signal,   // Cutoff frequency in Hz
+        resonance: Signal, // Resonance (0.0-1.0, self-oscillates near 1.0)
+        state: MoogLadderState,
+    },
+
     /// Envelope generator (triggered)
     Envelope {
         input: Signal,
@@ -931,6 +940,32 @@ impl FlangerState {
 impl Default for FlangerState {
     fn default() -> Self {
         Self::new(44100.0)
+    }
+}
+
+/// Moog Ladder Filter state
+#[derive(Debug, Clone)]
+pub struct MoogLadderState {
+    stage1: f32, // First filter stage
+    stage2: f32, // Second filter stage
+    stage3: f32, // Third filter stage
+    stage4: f32, // Fourth filter stage (output)
+}
+
+impl MoogLadderState {
+    pub fn new() -> Self {
+        Self {
+            stage1: 0.0,
+            stage2: 0.0,
+            stage3: 0.0,
+            stage4: 0.0,
+        }
+    }
+}
+
+impl Default for MoogLadderState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -2349,6 +2384,56 @@ impl UnifiedSignalGraph {
                 }
 
                 band // Output band-pass signal
+            }
+
+            SignalNode::MoogLadder {
+                input,
+                cutoff,
+                resonance,
+                state,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let fc = self.eval_signal(&cutoff).clamp(20.0, 20000.0);
+                let res = self.eval_signal(&resonance).clamp(0.0, 1.0);
+
+                // Calculate cutoff coefficient (g) from frequency
+                // g = tan(π * fc / sr) / (1 + tan(π * fc / sr))
+                let g = (PI * fc / self.sample_rate).tan();
+                let g_normalized = g / (1.0 + g);
+
+                // Resonance scaling (0-4 is typical, higher = more resonance)
+                let resonance_amt = res * 4.0;
+
+                // Get current state
+                let (s1, s2, s3, s4) = if let Some(Some(SignalNode::MoogLadder { state, .. })) =
+                    self.nodes.get(node_id.0)
+                {
+                    (state.stage1, state.stage2, state.stage3, state.stage4)
+                } else {
+                    (0.0, 0.0, 0.0, 0.0)
+                };
+
+                // Feedback from output to input (raw, no saturation for better level)
+                let input_with_fb = input_val - resonance_amt * s4;
+
+                // Four cascaded 1-pole filters (linear stages for better response)
+                let stage1_new = s1 + g_normalized * (input_with_fb - s1);
+                let stage2_new = s2 + g_normalized * (stage1_new - s2);
+                let stage3_new = s3 + g_normalized * (stage2_new - s3);
+                let stage4_new = s4 + g_normalized * (stage3_new - s4);
+
+                // Update state
+                if let Some(Some(SignalNode::MoogLadder { state, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    state.stage1 = stage1_new;
+                    state.stage2 = stage2_new;
+                    state.stage3 = stage3_new;
+                    state.stage4 = stage4_new;
+                }
+
+                // Output from final stage
+                stage4_new
             }
 
             SignalNode::Envelope {

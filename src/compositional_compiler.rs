@@ -401,6 +401,7 @@ fn compile_function_call(
         "lpf" => compile_filter(ctx, "lpf", args),
         "hpf" => compile_filter(ctx, "hpf", args),
         "bpf" => compile_filter(ctx, "bpf", args),
+        "moog_ladder" | "moog" => compile_moog_ladder(ctx, args),
 
         // ========== Effects ==========
         "reverb" => compile_reverb(ctx, args),
@@ -857,6 +858,32 @@ fn compile_filter(
             state: FilterState::default(),
         },
         _ => return Err(format!("Unknown filter type: {}", filter_type)),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Moog Ladder filter
+fn compile_moog_ladder(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Moog ladder expects 3 params: input, cutoff, resonance
+    if args.len() != 3 {
+        return Err(format!(
+            "moog_ladder requires 3 parameters (input, cutoff, resonance), got {}",
+            args.len()
+        ));
+    }
+
+    let input_node = compile_expr(ctx, args[0].clone())?;
+    let cutoff_node = compile_expr(ctx, args[1].clone())?;
+    let resonance_node = compile_expr(ctx, args[2].clone())?;
+
+    use crate::unified_graph::MoogLadderState;
+
+    let node = SignalNode::MoogLadder {
+        input: Signal::Node(input_node),
+        cutoff: Signal::Node(cutoff_node),
+        resonance: Signal::Node(resonance_node),
+        state: MoogLadderState::default(),
     };
 
     Ok(ctx.graph.add_node(node))

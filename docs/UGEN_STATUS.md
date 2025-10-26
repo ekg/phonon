@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-25
 **Total UGens**: 90 planned
-**Implemented**: 19 (21%)
+**Implemented**: 20 (22%)
 **In Progress**: 0
-**Remaining**: 71
+**Remaining**: 70
 
 ---
 
@@ -47,7 +47,7 @@
 
 ---
 
-## Filters (3/15 = 20%)
+## Filters (4/15 = 27%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -58,7 +58,7 @@
 | Comb | ⏳ | | 3h | - | Feedback delay |
 | Allpass | ⏳ | | 2h | - | Phase shift |
 | Formant | ⏳ | | 4h | - | Vowel formants |
-| Moog Ladder | ⏳ | 🎯 | 4h | 📚 | Classic analog filter |
+| Moog Ladder | ✅ | - | - | - | Complete - 4-pole 24dB/oct lowpass with resonance |
 | SVF | ⏳ | | 3h | - | State variable filter |
 | Biquad | ⏳ | | 2h | - | Use `biquad` crate |
 | Resonz | ⏳ | | 2h | - | Resonant bandpass |
@@ -170,7 +170,7 @@
 | 8 | Limiter | ✅ | 1 | 2 | 2025-10-25 |
 | 9 | Pan2 | ⏳ | 6-7 | 8 | Arch work |
 | 10 | EQ | ⏳ | 9-10 | 4 | |
-| 11 | Moog Ladder | ⏳ | 11 | 4 | |
+| 11 | Moog Ladder | ✅ | 1 | 4 | 2025-10-25 |
 | 12 | Flanger | ✅ | 1 | 3 | 2025-10-25 |
 
 **Total: 33 hours over 13 weeks**
@@ -361,3 +361,12 @@ Want to implement a UGen? Here's how:
 
 *Last Updated: 2025-10-25 by Claude*
 *Next Review: 2025-11-01 (weekly)*
+- ✅ Implement Moog Ladder Filter (2025-10-25)
+- ✅ Write 9 comprehensive tests with resonance analysis
+- ✅ Verify low-pass frequency response
+- ✅ Verify resonance affects Q-factor and peak
+- ✅ Test self-oscillation behavior at high resonance
+- ✅ Test pattern-modulated cutoff and resonance
+- ✅ Create musical example (examples/moog_ladder_demo.ph) with 10 use cases
+- ✅ Implement 4-pole ladder topology (24dB/octave rolloff)
+- ✅ Linear filter stages for optimal frequency response
