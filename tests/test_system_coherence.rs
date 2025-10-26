@@ -107,7 +107,7 @@ fn test_bidirectional_modulation() {
 
     let rms = graph.add_node(SignalNode::RMS {
         input: Signal::Node(audio_osc),
-        window_size: 0.01,
+        window_size: Signal::Value(0.01),
         buffer: vec![0.0; 441],
         write_idx: 0,
     });
@@ -541,7 +541,7 @@ fn test_analysis_driven_synthesis() {
     // Analyze input
     let rms = graph.add_node(SignalNode::RMS {
         input: Signal::Node(input),
-        window_size: 0.01,
+        window_size: Signal::Value(0.01),
         buffer: vec![0.0; 441],
         write_idx: 0,
     });
@@ -832,7 +832,7 @@ fn test_master_system_coherence() {
     // Layer 6: Analysis and soft limiting
     let rms = graph.add_node(SignalNode::RMS {
         input: Signal::Node(delay),
-        window_size: 0.05,
+        window_size: Signal::Value(0.05),
         buffer: vec![0.0; 2205],
         write_idx: 0,
     });

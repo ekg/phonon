@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-26
 **Total UGens**: 90 planned
-**Implemented**: 30 (33%)
+**Implemented**: 31 (34%)
 **In Progress**: 0
-**Remaining**: 60
+**Remaining**: 59
 
 ---
 
@@ -116,7 +116,7 @@
 
 ---
 
-## Analysis & Control (0/12 = 0%)
+## Analysis & Control (1/12 = 8%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -128,7 +128,7 @@
 | Onset Detect | ⏳ | | 6h | 📚 | Spectral flux |
 | Beat Track | ⏳ | | 12h | 📚 | Onset + tempo |
 | Peak Follower | ⏳ | | 2h | - | Peak detection |
-| RMS | ⏳ | | 1h | - | Root mean square |
+| RMS | ✅ | - | - | - | Complete - Root Mean Square analyzer with pattern-modulated window size |
 | Schmidt | ⏳ | | 1h | - | Trigger with hysteresis |
 | Latch | ⏳ | | 1h | - | Sample & hold |
 | Timer | ⏳ | | 2h | - | Time since trigger |
@@ -423,3 +423,8 @@ Want to implement a UGen? Here's how:
 - ✅ Feedback delay line with circular buffer for physical modeling
 - ✅ Fixed Impulse phase initialization bug (discovered during testing)
 - ✅ Create musical example (examples/comb_demo.ph) with 10 use cases
+- ✅ Implement RMS analyzer (2025-10-26) - **ANALYSIS CATEGORY STARTED!**
+- ✅ Write 9 comprehensive tests (pattern query, amplitude measurement, window size effects, tracks changes, DC signal, stability, envelope follower, pattern-modulated window, VU meter)
+- ✅ Root Mean Square: sqrt(sum(x²) / N) with configurable window size
+- ✅ Circular buffer windowing with pattern-modulated window_size parameter
+- ✅ Create musical example (examples/rms_demo.ph) with 10 use cases (envelope follower, sidechain ducking, VU meter, auto-gain, level-dependent effects)
