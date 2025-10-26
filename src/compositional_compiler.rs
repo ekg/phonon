@@ -442,6 +442,7 @@ fn compile_function_call(
         "latch" => compile_latch(ctx, args),
         "timer" => compile_timer(ctx, args),
         "peak_follower" => compile_peak_follower(ctx, args),
+        "amp_follower" => compile_amp_follower(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -1846,6 +1847,38 @@ fn compile_peak_follower(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
         attack_time: Signal::Node(attack_node),
         release_time: Signal::Node(release_node),
         current_peak: 0.0,  // Start at 0
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_amp_follower(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    // Amp follower requires 3 parameters: attack_time, release_time, window_size
+    if params.len() != 3 {
+        return Err(format!(
+            "amp_follower requires 3 parameters (attack_time, release_time, window_size), got {}",
+            params.len()
+        ));
+    }
+
+    let attack_node = compile_expr(ctx, params[0].clone())?;
+    let release_node = compile_expr(ctx, params[1].clone())?;
+    let window_node = compile_expr(ctx, params[2].clone())?;
+
+    // Initialize with a reasonable default buffer size (10ms at 44.1kHz)
+    let initial_buffer_size = 441;
+
+    let node = SignalNode::AmpFollower {
+        input: input_signal,
+        attack_time: Signal::Node(attack_node),
+        release_time: Signal::Node(release_node),
+        window_size: Signal::Node(window_node),
+        buffer: vec![0.0; initial_buffer_size],
+        write_idx: 0,
+        current_envelope: 0.0,
     };
 
     Ok(ctx.graph.add_node(node))

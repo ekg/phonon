@@ -789,6 +789,19 @@ pub enum SignalNode {
         current_peak: f32,     // Current peak level
     },
 
+    /// Amp Follower
+    /// RMS-based envelope follower with attack/release smoothing
+    /// Smoother than peak follower for amplitude tracking
+    AmpFollower {
+        input: Signal,
+        attack_time: Signal,    // Attack time in seconds
+        release_time: Signal,   // Release time in seconds
+        window_size: Signal,    // RMS window size in seconds
+        buffer: Vec<f32>,       // Circular buffer for RMS
+        write_idx: usize,       // Write position in buffer
+        current_envelope: f32,  // Smoothed RMS value
+    },
+
     // === Math & Control ===
     /// Addition
     Add { a: Signal, b: Signal },
@@ -3866,6 +3879,65 @@ impl UnifiedSignalGraph {
                     }
 
                     output_val = *stored_peak;
+                }
+
+                output_val
+            }
+
+            SignalNode::AmpFollower {
+                input,
+                attack_time,
+                release_time,
+                window_size,
+                buffer,
+                write_idx,
+                current_envelope,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let attack_sec = self.eval_signal(&attack_time).max(0.00001);
+                let release_sec = self.eval_signal(&release_time).max(0.00001);
+                let window_sec = self.eval_signal(&window_size).max(0.0001);
+
+                let mut output_val = current_envelope;
+
+                // Update amp follower state
+                if let Some(Some(SignalNode::AmpFollower {
+                    buffer: buf,
+                    write_idx: idx,
+                    current_envelope: env,
+                    ..
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    // Update buffer size if window changed
+                    let target_size = (window_sec * self.sample_rate) as usize;
+                    let target_size = target_size.max(1).min(88200); // Max 2 seconds
+
+                    if buf.len() != target_size {
+                        buf.resize(target_size, 0.0);
+                        *idx = 0;
+                    }
+
+                    // Write new sample to circular buffer
+                    buf[*idx] = input_val * input_val; // Store squared value for RMS
+                    *idx = (*idx + 1) % buf.len();
+
+                    // Calculate RMS
+                    let sum: f32 = buf.iter().sum();
+                    let rms = (sum / buf.len() as f32).sqrt();
+
+                    // Apply attack/release smoothing to RMS
+                    let attack_coeff = 1.0 - (-1.0 / (attack_sec * self.sample_rate)).exp();
+                    let release_coeff = 1.0 - (-1.0 / (release_sec * self.sample_rate)).exp();
+
+                    if rms > *env {
+                        // Attack: quickly follow increases
+                        *env += (rms - *env) * attack_coeff;
+                    } else {
+                        // Release: slowly decay
+                        *env += (rms - *env) * release_coeff;
+                    }
+
+                    output_val = *env;
                 }
 
                 output_val
