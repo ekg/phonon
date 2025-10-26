@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-26
 **Total UGens**: 90 planned
-**Implemented**: 35 (39%)
+**Implemented**: 38 (42%)
 **In Progress**: 0
-**Remaining**: 55
+**Remaining**: 52
 
 ---
 
@@ -69,7 +69,7 @@
 
 ---
 
-## Envelopes (5/8 = 62.5%)
+## Envelopes (7/8 = 87.5%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -77,9 +77,9 @@
 | AD | ✅ | - | - | - | Complete - perfect for percussive sounds |
 | Line | ✅ | - | - | - | Complete - linear ramps, fades, sweeps |
 | ASR | ✅ | - | - | - | Complete - Attack-sustain-release with gate tracking |
-| Env | ⏳ | | 3h | - | Arbitrary breakpoint |
+| Segments | ✅ | - | - | - | Complete - Arbitrary breakpoint envelope with linear interpolation |
 | XLine | ✅ | - | - | - | Complete - Exponential ramps for smooth sweeps |
-| Curve | ⏳ | | 2h | - | Curved ramp |
+| Curve | ✅ | - | - | - | Complete - Curved ramps with exponential/logarithmic/linear shapes |
 | EnvGen | ⏳ | | 4h | 🔗 | Needs trigger system |
 
 ---
@@ -116,11 +116,11 @@
 
 ---
 
-## Analysis & Control (5/12 = 42%)
+## Analysis & Control (6/12 = 50%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
-| Amp Follower | ⏳ | | 2h | - | Envelope detection (can use RMS + Peak Follower chain) |
+| Amp Follower | ✅ | - | - | - | Complete - RMS-based envelope follower with attack/release smoothing |
 | Pitch Track | ⏳ | | 12h | 📚 | YIN algorithm |
 | FFT | ⏳ | | 6h | - | Use `realfft` |
 | PV_MagFreeze | ⏳ | | 4h | 🔗 | Needs FFT |
@@ -438,3 +438,39 @@ Want to implement a UGen? Here's how:
 - ✅ Edge-triggered sampling: samples input on gate rising edge (0→1) and holds until next trigger
 - ✅ Classic modular synth building block for stepped/quantized outputs
 - ✅ Create musical example (examples/latch_demo.ph) with 10 use cases (random melodies, stepped filter sweeps, rhythmic S&H, arpeggiators, complex sequences)
+- ✅ Implement Timer UGen (2025-10-26)
+- ✅ Write 9 comprehensive tests (pattern query, time measurement, reset behavior, continuous timing, pattern gate, stability, multiple timers, clock generation, rhythmic gating)
+- ✅ Measures elapsed time since last gate trigger reset
+- ✅ Edge-triggered reset on gate rising edge (0→1)
+- ✅ Create musical example (examples/timer_demo.ph) with 10 use cases (tempo measurement, delay timing, envelope timing, event sequencing, rhythm analysis)
+- ✅ Implement Peak Follower (2025-10-26)
+- ✅ Write 9 comprehensive tests (pattern query, tracks peaks, attack/release, pattern modulation, amplitude envelope, stability, drum transients, musical use cases)
+- ✅ Tracks peak amplitude with separate attack/release smoothing
+- ✅ Faster attack than release for natural envelope following
+- ✅ Create musical example (examples/peak_follower_demo.ph) with 10 use cases (sidechain ducking, transient detection, auto-gain, envelope extraction, dynamic effects)
+- ✅ Implement Amp Follower (2025-10-26)
+- ✅ Write 9 comprehensive tests (pattern query, smooth tracking, attack/release, window size, stability, sidechain, tremolo, dynamic filter, noise gate)
+- ✅ RMS-based envelope follower with attack/release smoothing
+- ✅ Smoother than peak follower for musical dynamics and ducking
+- ✅ Pattern-modulated attack, release, and window size parameters
+- ✅ Create musical example (examples/amp_follower_demo.ph) with 5 use cases (envelope extraction, sidechain ducking, tremolo, filter modulation, noise gate)
+- ✅ Implement Curve envelope (2025-10-26)
+- ✅ Write 9 comprehensive tests (pattern query, upward/downward ramps, exponential/logarithmic/linear curves, stability, filter sweep, fade)
+- ✅ Curved ramps with exponential/logarithmic/linear shapes
+- ✅ Formula: (exp(curve * t) - 1) / (exp(curve) - 1)
+- ✅ Curve parameter: 0=linear, positive=exponential (slow start), negative=logarithmic (fast start)
+- ✅ Pattern-modulated start, end, duration, and curve parameters
+- ✅ Create musical example (examples/curve_demo.ph) with 5 use cases (exponential filter sweep, logarithmic fade, linear glide, resonance sweep, tremolo)
+- ✅ Implement Segments envelope (2025-10-26) - **ENVELOPES 87.5% COMPLETE!**
+- ✅ Write 9 comprehensive tests (pattern query, reaches targets, holds final, single/multi segments, stability, ADSR-style, percussion, filter modulation)
+- ✅ Arbitrary breakpoint envelope with linear interpolation
+- ✅ Syntax: segments "level0 level1 ..." "time0 time1 ..."
+- ✅ Supports any number of breakpoints (2 levels minimum)
+- ✅ Holds final level after completion
+- ✅ Create musical example (examples/segments_demo.ph) with 5 use cases (ADSR-style, percussion, filter sweep, wobble, stepped sequencer)
+
+**Goals Met**:
+- ✅ Envelopes category: 87.5% complete (7/8 UGens)
+- ✅ Analysis & Control category: 50% complete (6/12 UGens)
+- ✅ 3 UGens in one session following strict TDD methodology
+- ✅ All tests passing, comprehensive musical examples
