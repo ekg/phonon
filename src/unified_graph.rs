@@ -465,6 +465,14 @@ pub enum SignalNode {
     /// Also called Brownian noise or red noise
     BrownNoise { state: BrownNoiseState },
 
+    /// Impulse generator (single-sample spikes)
+    /// Generates periodic impulses (1.0 for single sample, 0.0 otherwise)
+    /// Useful for triggering envelopes, creating rhythmic gates
+    Impulse {
+        frequency: Signal, // Impulse frequency in Hz
+        state: ImpulseState,
+    },
+
     /// Pulse wave oscillator (variable pulse width)
     /// Output: +1 when phase < width, -1 otherwise
     /// width=0.5 creates square wave (only odd harmonics)
@@ -1088,6 +1096,25 @@ impl Default for BrownNoiseState {
     }
 }
 
+/// Impulse generator state
+/// Generates single-sample impulses at specified frequency
+#[derive(Debug, Clone)]
+pub struct ImpulseState {
+    phase: f32, // Current phase position [0, 1)
+}
+
+impl ImpulseState {
+    pub fn new() -> Self {
+        Self { phase: 0.0 }
+    }
+}
+
+impl Default for ImpulseState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Compressor state
 #[derive(Debug, Clone)]
 pub struct CompressorState {
@@ -1606,6 +1633,40 @@ impl UnifiedSignalGraph {
 
                 // Normalize output to approximately -1 to 1
                 new_accumulator * 0.7
+            }
+
+            SignalNode::Impulse { frequency, state } => {
+                let freq = self.eval_signal(&frequency).max(0.0);
+                let current_phase = state.phase;
+
+                // Calculate phase increment based on frequency
+                let phase_increment = freq / self.sample_rate;
+
+                // Increment phase
+                let new_phase = current_phase + phase_increment;
+
+                // Determine output (impulse occurs when phase wraps around 1.0)
+                let output = if new_phase >= 1.0 {
+                    1.0 // Impulse! Phase just wrapped around
+                } else {
+                    0.0 // Silence
+                };
+
+                // Wrap phase to [0, 1)
+                let wrapped_phase = if new_phase >= 1.0 {
+                    new_phase.fract()
+                } else {
+                    new_phase
+                };
+
+                // Update state for next sample
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Impulse { state: s, .. } = node {
+                        s.phase = wrapped_phase;
+                    }
+                }
+
+                output
             }
 
             SignalNode::Pulse { freq, width, phase } => {

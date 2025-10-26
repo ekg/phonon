@@ -374,6 +374,7 @@ fn compile_function_call(
         "white_noise" => compile_white_noise(ctx, args),
         "pink_noise" => compile_pink_noise(ctx, args),
         "brown_noise" => compile_brown_noise(ctx, args),
+        "impulse" => compile_impulse(ctx, args),
         "pulse" => compile_pulse(ctx, args),
         "ring_mod" => compile_ring_mod(ctx, args),
         "limiter" => compile_limiter(ctx, args),
@@ -716,6 +717,25 @@ fn compile_brown_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
 
     let node = SignalNode::BrownNoise {
         state: BrownNoiseState::default(),
+    };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile impulse generator (periodic single-sample spikes)
+fn compile_impulse(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    use crate::unified_graph::ImpulseState;
+
+    if args.len() != 1 {
+        return Err(format!(
+            "impulse requires 1 parameter (frequency), got {}",
+            args.len()
+        ));
+    }
+
+    let freq_node = compile_expr(ctx, args[0].clone())?;
+    let node = SignalNode::Impulse {
+        frequency: Signal::Node(freq_node),
+        state: ImpulseState::default(),
     };
     Ok(ctx.graph.add_node(node))
 }
