@@ -482,6 +482,22 @@ pub enum SignalNode {
         threshold: Signal, // Maximum allowed amplitude
     },
 
+    /// Pan2 Left channel (equal-power panning law)
+    /// Takes mono input and pan position (-1=left, 0=center, 1=right)
+    /// Outputs left channel component
+    Pan2Left {
+        input: Signal,    // Mono input signal
+        position: Signal, // Pan position (-1 to 1)
+    },
+
+    /// Pan2 Right channel (equal-power panning law)
+    /// Takes mono input and pan position (-1=left, 0=center, 1=right)
+    /// Outputs right channel component
+    Pan2Right {
+        input: Signal,    // Mono input signal
+        position: Signal, // Pan position (-1 to 1)
+    },
+
     /// Pattern as a signal source
     Pattern {
         pattern_str: String,
@@ -1620,6 +1636,32 @@ impl UnifiedSignalGraph {
 
                 // Brick-wall limiting: clamp to [-threshold, +threshold]
                 input_val.clamp(-thresh, thresh)
+            }
+
+            SignalNode::Pan2Left { input, position } => {
+                // Evaluate input signal and pan position
+                let input_val = self.eval_signal(&input);
+                let pan = self.eval_signal(&position).clamp(-1.0, 1.0);
+
+                // Equal-power panning law
+                // Map pan from [-1, 1] to angle [0, π/2]
+                let angle = (pan + 1.0) * std::f32::consts::PI / 4.0;
+                let left_gain = angle.cos();
+
+                input_val * left_gain
+            }
+
+            SignalNode::Pan2Right { input, position } => {
+                // Evaluate input signal and pan position
+                let input_val = self.eval_signal(&input);
+                let pan = self.eval_signal(&position).clamp(-1.0, 1.0);
+
+                // Equal-power panning law
+                // Map pan from [-1, 1] to angle [0, π/2]
+                let angle = (pan + 1.0) * std::f32::consts::PI / 4.0;
+                let right_gain = angle.sin();
+
+                input_val * right_gain
             }
 
             SignalNode::Constant { value } => value,
@@ -3261,12 +3303,33 @@ impl UnifiedSignalGraph {
         mixed_output
     }
 
-    /// Render a buffer of audio
+    /// Render a buffer of audio (mono - mixes all channels)
     pub fn render(&mut self, num_samples: usize) -> Vec<f32> {
         let mut buffer = Vec::with_capacity(num_samples);
         for _ in 0..num_samples {
             buffer.push(self.process_sample());
         }
         buffer
+    }
+
+    /// Render stereo audio (left = out1, right = out2)
+    /// Returns (left_channel, right_channel)
+    pub fn render_stereo(&mut self, num_samples: usize) -> (Vec<f32>, Vec<f32>) {
+        let mut left = Vec::with_capacity(num_samples);
+        let mut right = Vec::with_capacity(num_samples);
+
+        for _ in 0..num_samples {
+            // Get multi-channel output
+            let channels = self.process_sample_multi();
+
+            // Extract left (channel 0/out1) and right (channel 1/out2)
+            let left_sample = channels.get(0).copied().unwrap_or(0.0);
+            let right_sample = channels.get(1).copied().unwrap_or(0.0);
+
+            left.push(left_sample);
+            right.push(right_sample);
+        }
+
+        (left, right)
     }
 }

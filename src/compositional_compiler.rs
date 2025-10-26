@@ -377,6 +377,8 @@ fn compile_function_call(
         "pulse" => compile_pulse(ctx, args),
         "ring_mod" => compile_ring_mod(ctx, args),
         "limiter" => compile_limiter(ctx, args),
+        "pan2_l" => compile_pan2_l(ctx, args),
+        "pan2_r" => compile_pan2_r(ctx, args),
 
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
@@ -779,6 +781,46 @@ fn compile_limiter(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
     let node = SignalNode::Limiter {
         input: Signal::Node(input_node),
         threshold: Signal::Node(threshold_node),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_pan2_l(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "pan2_l requires 2 parameters (input, position), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile input signal and pan position
+    let input_node = compile_expr(ctx, args[0].clone())?;
+    let position_node = compile_expr(ctx, args[1].clone())?;
+
+    let node = SignalNode::Pan2Left {
+        input: Signal::Node(input_node),
+        position: Signal::Node(position_node),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_pan2_r(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "pan2_r requires 2 parameters (input, position), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile input signal and pan position
+    let input_node = compile_expr(ctx, args[0].clone())?;
+    let position_node = compile_expr(ctx, args[1].clone())?;
+
+    let node = SignalNode::Pan2Right {
+        input: Signal::Node(input_node),
+        position: Signal::Node(position_node),
     };
 
     Ok(ctx.graph.add_node(node))
