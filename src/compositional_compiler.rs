@@ -366,6 +366,7 @@ fn compile_function_call(
         "tri" => compile_oscillator(ctx, Waveform::Triangle, args),
         "fm" => compile_fm(ctx, args),
         "white_noise" => compile_white_noise(ctx, args),
+        "pulse" => compile_pulse(ctx, args),
 
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
@@ -667,6 +668,28 @@ fn compile_white_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
     }
 
     let node = SignalNode::WhiteNoise;
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile pulse oscillator (variable pulse width)
+fn compile_pulse(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "pulse requires 2 parameters (freq, width), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile each parameter as a signal (supports pattern modulation!)
+    let freq_node = compile_expr(ctx, args[0].clone())?;
+    let width_node = compile_expr(ctx, args[1].clone())?;
+
+    let node = SignalNode::Pulse {
+        freq: Signal::Node(freq_node),
+        width: Signal::Node(width_node),
+        phase: 0.0,
+    };
+
     Ok(ctx.graph.add_node(node))
 }
 

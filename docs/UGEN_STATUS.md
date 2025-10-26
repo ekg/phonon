@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-25
 **Total UGens**: 90 planned
-**Implemented**: 15 (17%)
+**Implemented**: 16 (18%)
 **In Progress**: 0
-**Remaining**: 75
+**Remaining**: 74
 
 ---
 
@@ -20,7 +20,7 @@
 
 ---
 
-## Oscillators & Generators (6/20 = 30%)
+## Oscillators & Generators (7/20 = 35%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -30,7 +30,7 @@
 | Triangle | ✅ | - | - | - | Complete |
 | FM | ✅ | - | - | - | Complete with spectral analysis verification |
 | White Noise | ✅ | - | - | - | Complete with spectral flatness & uniformity verification |
-| Pulse (PWM) | ⏳ | 🎯 | 2h | - | Variable pulse width |
+| Pulse (PWM) | ✅ | - | - | - | Complete with harmonic content analysis & duty cycle verification |
 | Pink Noise | ⏳ | | 2h | - | 1/f spectrum |
 | Brown Noise | ⏳ | | 2h | - | Brownian motion |
 | PM | ⏳ | | 3h | - | Phase modulation |
@@ -165,7 +165,7 @@
 | 3 | Line | ✅ | 1 | 1 | 2025-10-25 |
 | 4 | FM | ✅ | 1 | 3 | 2025-10-25 |
 | 5 | White Noise | ✅ | 1 | 1 | 2025-10-25 |
-| 6 | Pulse (PWM) | ⏳ | 5 | 2 | |
+| 6 | Pulse (PWM) | ✅ | 1 | 2 | 2025-10-25 |
 | 7 | Pan2 | ⏳ | 6-7 | 8 | Arch work |
 | 8 | Limiter | ⏳ | 8 | 2 | |
 | 9 | EQ | ⏳ | 9-10 | 4 | |
@@ -218,9 +218,16 @@
 - ✅ Verify uniform spectrum across frequency bands
 - ✅ Test with filtering, envelopes, and randomness verification
 - ✅ Create musical example (examples/white_noise_demo.ph)
+- ✅ Implement Pulse (PWM) oscillator (2025-10-25)
+- ✅ Write 7 comprehensive tests with harmonic analysis
+- ✅ Verify duty cycle accuracy (30% measured vs expected)
+- ✅ Verify harmonic content varies with pulse width
+- ✅ Verify square wave (50%) has odd harmonics
+- ✅ Test pattern-modulated pulse width and PWM effects
+- ✅ Create musical example (examples/pulse_demo.ph)
 
 **Goals**:
-- [ ] Implement pulse oscillator (PWM) with harmonic analysis
+- All Tier 1 UGens for Week 1 complete! 🎉
 
 ### Week of 2025-11-04
 **Goals**:

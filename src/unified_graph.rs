@@ -455,6 +455,16 @@ pub enum SignalNode {
     /// Generates uniformly distributed random samples in range [-1, 1]
     WhiteNoise,
 
+    /// Pulse wave oscillator (variable pulse width)
+    /// Output: +1 when phase < width, -1 otherwise
+    /// width=0.5 creates square wave (only odd harmonics)
+    /// Other widths create different harmonic content
+    Pulse {
+        freq: Signal,      // Frequency in Hz
+        width: Signal,     // Pulse width / duty cycle (0.0 to 1.0)
+        phase: f32,        // Phase (0.0 to 1.0)
+    },
+
     /// Pattern as a signal source
     Pattern {
         pattern_str: String,
@@ -1340,6 +1350,27 @@ impl UnifiedSignalGraph {
                 let mut rng = rand::thread_rng();
                 // Generate uniformly distributed random sample in [-1, 1]
                 rng.gen_range(-1.0..1.0)
+            }
+
+            SignalNode::Pulse { freq, width, phase } => {
+                // Evaluate modulatable parameters
+                let f = self.eval_signal(&freq).max(0.0);
+                let w = self.eval_signal(&width).clamp(0.0, 1.0);
+
+                // Pulse wave: output +1 when phase < width, -1 otherwise
+                let sample = if phase < w { 1.0 } else { -1.0 };
+
+                // Update phase for next sample
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Pulse { phase: p, .. } = node {
+                        *p += f / self.sample_rate;
+                        if *p >= 1.0 {
+                            *p -= 1.0;
+                        }
+                    }
+                }
+
+                sample
             }
 
             SignalNode::Constant { value } => value,
