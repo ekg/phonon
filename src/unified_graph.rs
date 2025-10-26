@@ -635,6 +635,16 @@ pub enum SignalNode {
         state: FilterState,
     },
 
+    /// Notch filter (band-reject)
+    /// Removes frequencies at center frequency while passing all others
+    /// Useful for removing unwanted resonances, hum, or feedback
+    Notch {
+        input: Signal,
+        center: Signal,
+        q: Signal,
+        state: FilterState,
+    },
+
     /// Moog Ladder Filter (4-pole 24dB/octave lowpass with resonance)
     /// Classic analog filter with warm sound and self-oscillation
     MoogLadder {
@@ -2915,6 +2925,44 @@ impl UnifiedSignalGraph {
                 }
 
                 band // Output band-pass signal
+            }
+
+            SignalNode::Notch {
+                input, center, q, ..
+            } => {
+                let input_val = self.eval_signal(&input);
+                let fc = self.eval_signal(&center).max(20.0).min(20000.0);
+                let q_val = self.eval_signal(&q).max(0.5).min(20.0);
+
+                // State variable filter (Chamberlin) - notch is low + high
+                let f = 2.0 * (PI * fc / self.sample_rate).sin();
+                let damp = 1.0 / q_val;
+
+                // Get state
+                let (mut low, mut band, mut high) =
+                    if let Some(Some(SignalNode::Notch { state, .. })) =
+                        self.nodes.get(node_id.0)
+                    {
+                        (state.y1, state.x1, state.y2)
+                    } else {
+                        (0.0, 0.0, 0.0)
+                    };
+
+                // Process
+                high = input_val - low - damp * band;
+                band += f * high;
+                low += f * band;
+
+                // Update state
+                if let Some(Some(SignalNode::Notch { state, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    state.y1 = low;
+                    state.x1 = band;
+                    state.y2 = high;
+                }
+
+                low + high // Output notch (low + high = everything except band)
             }
 
             SignalNode::MoogLadder {

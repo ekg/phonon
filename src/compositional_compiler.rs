@@ -415,6 +415,7 @@ fn compile_function_call(
         "lpf" => compile_filter(ctx, "lpf", args),
         "hpf" => compile_filter(ctx, "hpf", args),
         "bpf" => compile_filter(ctx, "bpf", args),
+        "notch" => compile_filter(ctx, "notch", args),
         "moog_ladder" | "moog" => compile_moog_ladder(ctx, args),
         "parametric_eq" | "eq" => compile_parametric_eq(ctx, args),
 
@@ -1032,6 +1033,12 @@ fn compile_filter(
         "bpf" => SignalNode::BandPass {
             input: input_signal,
             center: Signal::Node(cutoff_node), // Note: center not cutoff for bandpass
+            q: Signal::Node(q_node),
+            state: FilterState::default(),
+        },
+        "notch" => SignalNode::Notch {
+            input: input_signal,
+            center: Signal::Node(cutoff_node),
             q: Signal::Node(q_node),
             state: FilterState::default(),
         },
