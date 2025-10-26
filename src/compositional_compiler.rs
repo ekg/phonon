@@ -376,6 +376,7 @@ fn compile_function_call(
         "brown_noise" => compile_brown_noise(ctx, args),
         "impulse" => compile_impulse(ctx, args),
         "lag" => compile_lag(ctx, args),
+        "xline" => compile_xline(ctx, args),
         "pulse" => compile_pulse(ctx, args),
         "ring_mod" => compile_ring_mod(ctx, args),
         "limiter" => compile_limiter(ctx, args),
@@ -759,6 +760,30 @@ fn compile_lag(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
         input: Signal::Node(input_node),
         lag_time: Signal::Node(lag_time_node),
         state: LagState::default(),
+    };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile xline (exponential envelope)
+fn compile_xline(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    use crate::unified_graph::XLineState;
+
+    if args.len() != 3 {
+        return Err(format!(
+            "xline requires 3 parameters (start, end, duration), got {}",
+            args.len()
+        ));
+    }
+
+    let start_node = compile_expr(ctx, args[0].clone())?;
+    let end_node = compile_expr(ctx, args[1].clone())?;
+    let duration_node = compile_expr(ctx, args[2].clone())?;
+
+    let node = SignalNode::XLine {
+        start: Signal::Node(start_node),
+        end: Signal::Node(end_node),
+        duration: Signal::Node(duration_node),
+        state: XLineState::default(),
     };
     Ok(ctx.graph.add_node(node))
 }

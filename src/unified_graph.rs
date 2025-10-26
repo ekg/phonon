@@ -482,6 +482,16 @@ pub enum SignalNode {
         state: LagState,
     },
 
+    /// XLine (exponential envelope)
+    /// Generates exponential ramp from start to end over duration
+    /// More natural sounding than linear ramps for pitch/amplitude
+    XLine {
+        start: Signal,     // Starting value
+        end: Signal,       // Ending value
+        duration: Signal,  // Duration in seconds
+        state: XLineState,
+    },
+
     /// Pulse wave oscillator (variable pulse width)
     /// Output: +1 when phase < width, -1 otherwise
     /// width=0.5 creates square wave (only odd harmonics)
@@ -1145,6 +1155,27 @@ impl Default for LagState {
     }
 }
 
+/// XLine (exponential envelope) state
+/// Generates exponential ramp from start to end over duration
+#[derive(Debug, Clone)]
+pub struct XLineState {
+    elapsed_samples: usize, // Number of samples generated so far
+}
+
+impl XLineState {
+    pub fn new() -> Self {
+        Self {
+            elapsed_samples: 0,
+        }
+    }
+}
+
+impl Default for XLineState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Compressor state
 #[derive(Debug, Clone)]
 pub struct CompressorState {
@@ -1727,6 +1758,52 @@ impl UnifiedSignalGraph {
                 if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
                     if let SignalNode::Lag { state: s, .. } = node {
                         s.previous_output = output;
+                    }
+                }
+
+                output
+            }
+
+            SignalNode::XLine {
+                start,
+                end,
+                duration,
+                state,
+            } => {
+                let start_val = self.eval_signal(&start);
+                let end_val = self.eval_signal(&end);
+                let dur = self.eval_signal(&duration).max(0.0);
+                let elapsed = state.elapsed_samples;
+
+                // Calculate progress (0.0 to 1.0)
+                let total_samples = (dur * self.sample_rate).max(1.0);
+                let progress = (elapsed as f32 / total_samples).min(1.0);
+
+                // Generate exponential curve
+                // Formula: value = start * (end/start)^progress
+                // This creates exponential interpolation between start and end
+                let output = if progress >= 1.0 {
+                    // After duration, hold at end value
+                    end_val
+                } else if dur < 0.00001 {
+                    // Very short duration, jump to end immediately
+                    end_val
+                } else if start_val.abs() < 0.00001 {
+                    // Start is zero, use linear interpolation
+                    start_val + (end_val - start_val) * progress
+                } else if (start_val > 0.0) != (end_val > 0.0) {
+                    // Different signs, use linear interpolation
+                    start_val + (end_val - start_val) * progress
+                } else {
+                    // Both same sign and non-zero, use exponential curve
+                    let ratio = end_val / start_val;
+                    start_val * ratio.powf(progress)
+                };
+
+                // Update state for next sample
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::XLine { state: s, .. } = node {
+                        s.elapsed_samples = elapsed + 1;
                     }
                 }
 
