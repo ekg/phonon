@@ -223,7 +223,10 @@ impl SampleBank {
                     let mut wav_files: Vec<_> = entries
                         .filter_map(|entry| entry.ok())
                         .filter(|entry| {
-                            entry.path().extension().and_then(|s| s.to_str()) == Some("wav")
+                            entry.path().extension()
+                                .and_then(|s| s.to_str())
+                                .map(|ext| ext.eq_ignore_ascii_case("wav"))
+                                .unwrap_or(false)
                         })
                         .collect();
 
@@ -260,11 +263,14 @@ impl SampleBank {
             if let Ok(entries) = std::fs::read_dir(&sample_dir) {
                 for entry in entries.flatten() {
                     let path = entry.path();
-                    if path.extension().and_then(|s| s.to_str()) == Some("wav") {
-                        if self.load_sample(name, &path).is_ok() {
-                            return self.samples.get(name).cloned();
+                    // Check for both .wav and .WAV extensions (case-insensitive)
+                    if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                        if ext.eq_ignore_ascii_case("wav") {
+                            if self.load_sample(name, &path).is_ok() {
+                                return self.samples.get(name).cloned();
+                            }
+                            break; // Just take the first one
                         }
-                        break; // Just take the first one
                     }
                 }
             }
