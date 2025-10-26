@@ -430,6 +430,7 @@ fn compile_function_call(
         "compressor" | "comp" => compile_compressor(ctx, args),
         "bitcrush" => compile_bitcrush(ctx, args),
         "tremolo" | "trem" => compile_tremolo(ctx, args),
+        "xfade" => compile_xfade(ctx, args),
 
         // ========== Envelope ==========
         "env" | "envelope" => compile_envelope(ctx, args),
@@ -1466,6 +1467,30 @@ fn compile_tremolo(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         rate: Signal::Node(rate_node),
         depth: Signal::Node(depth_node),
         phase: 0.0, // Start at phase 0
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile XFade (crossfader between two signals)
+/// Syntax: xfade signal_a signal_b position
+/// position: 0.0 = 100% signal_a, 1.0 = 100% signal_b
+fn compile_xfade(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 3 {
+        return Err(format!(
+            "xfade requires 3 parameters (signal_a, signal_b, position), got {}",
+            args.len()
+        ));
+    }
+
+    let signal_a_node = compile_expr(ctx, args[0].clone())?;
+    let signal_b_node = compile_expr(ctx, args[1].clone())?;
+    let position_node = compile_expr(ctx, args[2].clone())?;
+
+    let node = SignalNode::XFade {
+        signal_a: Signal::Node(signal_a_node),
+        signal_b: Signal::Node(signal_b_node),
+        position: Signal::Node(position_node),
     };
 
     Ok(ctx.graph.add_node(node))

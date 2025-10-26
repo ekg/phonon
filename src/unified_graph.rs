@@ -852,6 +852,16 @@ pub enum SignalNode {
     /// Multiplication
     Multiply { a: Signal, b: Signal },
 
+    /// Crossfader between two signals
+    /// position = 0.0 → 100% signal_a
+    /// position = 0.5 → 50% signal_a + 50% signal_b
+    /// position = 1.0 → 100% signal_b
+    XFade {
+        signal_a: Signal,
+        signal_b: Signal,
+        position: Signal, // 0.0 to 1.0
+    },
+
     /// Conditional gate
     When { input: Signal, condition: Signal },
 
@@ -2124,6 +2134,19 @@ impl UnifiedSignalGraph {
             SignalNode::Add { a, b } => self.eval_signal(&a) + self.eval_signal(&b),
 
             SignalNode::Multiply { a, b } => self.eval_signal(&a) * self.eval_signal(&b),
+
+            SignalNode::XFade {
+                signal_a,
+                signal_b,
+                position,
+            } => {
+                let a_val = self.eval_signal(&signal_a);
+                let b_val = self.eval_signal(&signal_b);
+                let pos = self.eval_signal(&position).clamp(0.0, 1.0);
+
+                // Linear crossfade: (1-pos)*a + pos*b
+                (1.0 - pos) * a_val + pos * b_val
+            }
 
             SignalNode::LowPass {
                 input, cutoff, q, ..
