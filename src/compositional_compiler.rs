@@ -428,6 +428,7 @@ fn compile_function_call(
         "flanger" => compile_flanger(ctx, args),
         "compressor" | "comp" => compile_compressor(ctx, args),
         "bitcrush" => compile_bitcrush(ctx, args),
+        "tremolo" | "trem" => compile_tremolo(ctx, args),
 
         // ========== Envelope ==========
         "env" | "envelope" => compile_envelope(ctx, args),
@@ -1435,6 +1436,33 @@ fn compile_bitcrush(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
         bits: Signal::Node(bits_node),
         sample_rate: Signal::Node(sr_node),
         state: BitCrushState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile tremolo effect (amplitude modulation)
+/// Syntax: tremolo rate depth
+/// Example: ~signal # tremolo 5.0 0.7
+fn compile_tremolo(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 2 {
+        return Err(format!(
+            "tremolo requires 2 parameters (rate, depth), got {}",
+            params.len()
+        ));
+    }
+
+    let rate_node = compile_expr(ctx, params[0].clone())?;
+    let depth_node = compile_expr(ctx, params[1].clone())?;
+
+    let node = SignalNode::Tremolo {
+        input: input_signal,
+        rate: Signal::Node(rate_node),
+        depth: Signal::Node(depth_node),
+        phase: 0.0, // Start at phase 0
     };
 
     Ok(ctx.graph.add_node(node))

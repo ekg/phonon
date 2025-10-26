@@ -894,6 +894,15 @@ pub enum SignalNode {
         state: CompressorState,
     },
 
+    /// Tremolo (amplitude modulation)
+    /// Classic effect that modulates amplitude with an LFO
+    Tremolo {
+        input: Signal,  // Input signal
+        rate: Signal,   // LFO rate in Hz (0.1 to 20.0)
+        depth: Signal,  // Modulation depth (0.0 to 1.0)
+        phase: f32,     // LFO phase accumulator
+    },
+
     /// Output node
     Output { input: Signal },
 }
@@ -2414,6 +2423,50 @@ impl UnifiedSignalGraph {
 
                 // Apply compression and makeup gain
                 input_val * gain_reduction * makeup_gain_lin
+            }
+
+            SignalNode::Tremolo {
+                input,
+                rate,
+                depth,
+                phase,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let rate_hz = self.eval_signal(&rate).clamp(0.1, 20.0);
+                let depth_val = self.eval_signal(&depth).clamp(0.0, 1.0);
+
+                // Fast bypass for zero depth
+                if depth_val < 0.001 {
+                    return input_val;
+                }
+
+                let mut output_val = input_val;
+
+                // Update phase and calculate LFO
+                if let Some(Some(SignalNode::Tremolo { phase: p, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    // Advance phase
+                    *p += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
+
+                    // Wrap phase to [0, 2π]
+                    if *p >= 2.0 * std::f32::consts::PI {
+                        *p -= 2.0 * std::f32::consts::PI;
+                    }
+
+                    // Calculate LFO (sine wave, -1 to +1)
+                    let lfo = p.sin();
+
+                    // Convert LFO to modulation amount
+                    // depth=0: mod=1 (no effect)
+                    // depth=1: mod oscillates 0 to 1
+                    let modulation = 1.0 - depth_val * 0.5 + depth_val * 0.5 * lfo;
+
+                    // Apply amplitude modulation
+                    output_val = input_val * modulation;
+                }
+
+                output_val
             }
 
             SignalNode::Output { input } => self.eval_signal(&input),
