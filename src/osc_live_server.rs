@@ -4,8 +4,9 @@
 //! Listens on port 7770 for OSC messages to control live coding session
 //! Handles: /eval, /hush, /panic
 
+use crate::compositional_compiler::compile_program;
+use crate::compositional_parser::parse_program;
 use crate::unified_graph::UnifiedSignalGraph;
-use crate::unified_graph_parser::DslCompiler;
 use rosc::{OscMessage, OscPacket, OscType};
 use std::net::UdpSocket;
 use std::sync::{Arc, Mutex};
@@ -168,15 +169,21 @@ impl OscLiveServer {
 pub fn apply_command_to_graph(cmd: &LiveCommand, sample_rate: f32) -> Option<UnifiedSignalGraph> {
     match cmd {
         LiveCommand::Eval { code } => {
-            // Compile the DSL code into a new graph
+            // Compile the DSL code into a new graph using compositional parser
             info!("Compiling: {}", code);
 
-            match crate::unified_graph_parser::parse_dsl(code) {
+            match parse_program(code) {
                 Ok((_remaining, statements)) => {
-                    let compiler = DslCompiler::new(sample_rate);
-                    let graph = compiler.compile(statements);
-                    info!("✅ Compiled successfully");
-                    Some(graph)
+                    match compile_program(statements, sample_rate) {
+                        Ok(graph) => {
+                            info!("✅ Compiled successfully");
+                            Some(graph)
+                        }
+                        Err(e) => {
+                            error!("❌ Compile error: {}", e);
+                            None
+                        }
+                    }
                 }
                 Err(e) => {
                     error!("❌ Parse error: {:?}", e);
@@ -262,7 +269,7 @@ mod tests {
     #[test]
     fn test_apply_eval_command() {
         let cmd = LiveCommand::Eval {
-            code: "cps: 2.0\n~d1: sine(440)".to_string(),
+            code: "tempo: 2.0\n~d1: sine 440\nout: ~d1".to_string(),
         };
 
         let graph = apply_command_to_graph(&cmd, 44100.0);

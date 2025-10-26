@@ -451,6 +451,10 @@ pub enum SignalNode {
         modulator_phase: f32,    // Modulator phase (0.0 to 1.0)
     },
 
+    /// White noise generator
+    /// Generates uniformly distributed random samples in range [-1, 1]
+    WhiteNoise,
+
     /// Pattern as a signal source
     Pattern {
         pattern_str: String,
@@ -1329,6 +1333,13 @@ impl UnifiedSignalGraph {
                 }
 
                 sample
+            }
+
+            SignalNode::WhiteNoise => {
+                use rand::Rng;
+                let mut rng = rand::thread_rng();
+                // Generate uniformly distributed random sample in [-1, 1]
+                rng.gen_range(-1.0..1.0)
             }
 
             SignalNode::Constant { value } => value,

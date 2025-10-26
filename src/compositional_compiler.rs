@@ -174,7 +174,12 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
         }
 
         Expr::Var(name) => {
-            // Look up variable (function parameter)
+            // Check if it's a zero-argument function first
+            if name == "white_noise" {
+                return compile_white_noise(ctx, vec![]);
+            }
+
+            // Otherwise, look up variable (function parameter)
             ctx.buses
                 .get(&name)
                 .copied()
@@ -360,6 +365,7 @@ fn compile_function_call(
         "square" => compile_oscillator(ctx, Waveform::Square, args),
         "tri" => compile_oscillator(ctx, Waveform::Triangle, args),
         "fm" => compile_fm(ctx, args),
+        "white_noise" => compile_white_noise(ctx, args),
 
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
@@ -648,6 +654,19 @@ fn compile_fm(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Stri
         modulator_phase: 0.0,
     };
 
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile white noise generator
+fn compile_white_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if !args.is_empty() {
+        return Err(format!(
+            "white_noise takes no parameters, got {}",
+            args.len()
+        ));
+    }
+
+    let node = SignalNode::WhiteNoise;
     Ok(ctx.graph.add_node(node))
 }
 

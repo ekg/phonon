@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-25
 **Total UGens**: 90 planned
-**Implemented**: 14 (16%)
+**Implemented**: 15 (17%)
 **In Progress**: 0
-**Remaining**: 76
+**Remaining**: 75
 
 ---
 
@@ -20,7 +20,7 @@
 
 ---
 
-## Oscillators & Generators (5/20 = 25%)
+## Oscillators & Generators (6/20 = 30%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -29,8 +29,8 @@
 | Square | ✅ | - | - | - | Complete |
 | Triangle | ✅ | - | - | - | Complete |
 | FM | ✅ | - | - | - | Complete with spectral analysis verification |
+| White Noise | ✅ | - | - | - | Complete with spectral flatness & uniformity verification |
 | Pulse (PWM) | ⏳ | 🎯 | 2h | - | Variable pulse width |
-| White Noise | ⏳ | 🎯 | 1h | - | Use `rand` crate |
 | Pink Noise | ⏳ | | 2h | - | 1/f spectrum |
 | Brown Noise | ⏳ | | 2h | - | Brownian motion |
 | PM | ⏳ | | 3h | - | Phase modulation |
@@ -164,7 +164,7 @@
 | 2 | AD | ✅ | 1 | 1 | 2025-10-25 |
 | 3 | Line | ✅ | 1 | 1 | 2025-10-25 |
 | 4 | FM | ✅ | 1 | 3 | 2025-10-25 |
-| 5 | White Noise | ⏳ | 4 | 1 | |
+| 5 | White Noise | ✅ | 1 | 1 | 2025-10-25 |
 | 6 | Pulse (PWM) | ⏳ | 5 | 2 | |
 | 7 | Pan2 | ⏳ | 6-7 | 8 | Arch work |
 | 8 | Limiter | ⏳ | 8 | 2 | |
@@ -212,9 +212,14 @@
 - ✅ Verify modulation index affects spectrum
 - ✅ Create musical example (examples/fm_demo.ph)
 - ✅ Pattern-modulated FM parameters
+- ✅ Implement White Noise generator (2025-10-25)
+- ✅ Write 7 comprehensive tests with spectral analysis
+- ✅ Verify spectral flatness (uniformly distributed random samples)
+- ✅ Verify uniform spectrum across frequency bands
+- ✅ Test with filtering, envelopes, and randomness verification
+- ✅ Create musical example (examples/white_noise_demo.ph)
 
 **Goals**:
-- [ ] Implement white noise generator with spectrum verification
 - [ ] Implement pulse oscillator (PWM) with harmonic analysis
 
 ### Week of 2025-11-04
