@@ -459,6 +459,8 @@ pub enum SignalNode {
         freq: Signal,
         waveform: Waveform,
         phase: f32,
+        pending_freq: Option<f32>, // Frequency change waiting for zero-crossing
+        last_sample: f32,          // For zero-crossing detection
     },
 
     /// FM (Frequency Modulation) oscillator
@@ -1629,7 +1631,7 @@ impl UnifiedSignalGraph {
                 // CRITICAL FIX: For Pattern nodes, query at the specified cycle_pos
                 // instead of self.cycle_position to ensure each event gets the correct
                 // parameter value from pattern-valued DSP parameters like gain "1.0 0.5"
-                if let Some(Some(SignalNode::Pattern { pattern, .. })) = self.nodes.get(id.0) {
+                if let Some(Some(SignalNode::Pattern { pattern, pattern_str, .. })) = self.nodes.get(id.0) {
                     let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
                     let state = State {
                         span: TimeSpan::new(
@@ -1640,6 +1642,17 @@ impl UnifiedSignalGraph {
                     };
 
                     let events = pattern.query(&state);
+
+                    // DEBUG: Log pattern signal evaluation
+                    if std::env::var("DEBUG_PATTERN").is_ok() && self.sample_count < 44200 && self.sample_count % 2200 == 0 {
+                        eprintln!("Signal Pattern '{}' at cycle {:.6}, sample {}: {} events",
+                                 pattern_str, cycle_pos, self.sample_count, events.len());
+                        if let Some(event) = events.first() {
+                            eprintln!("  First event: '{}' at [{:.6}, {:.6})",
+                                     event.value, event.part.begin.to_float(), event.part.end.to_float());
+                        }
+                    }
+
                     if let Some(event) = events.first() {
                         let s = event.value.as_str();
                         if s == "~" || s.is_empty() {
@@ -1760,8 +1773,17 @@ impl UnifiedSignalGraph {
                 freq,
                 waveform,
                 phase,
+                pending_freq,
+                last_sample,
             } => {
-                let f = self.eval_signal(&freq);
+                let requested_freq = self.eval_signal(&freq);
+                let mut current_freq = requested_freq;
+
+                // Zero-crossing detection for anti-click frequency changes
+                // If there's a pending frequency change, use it until zero-crossing
+                if let Some(pending) = pending_freq {
+                    current_freq = pending; // Use pending freq until zero-crossing
+                }
 
                 // Generate sample based on waveform
                 let sample = match waveform {
@@ -1783,13 +1805,32 @@ impl UnifiedSignalGraph {
                     }
                 };
 
-                // Update phase for next sample
+                // Update phase and detect zero-crossings
                 if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
-                    if let SignalNode::Oscillator { phase: p, .. } = node {
-                        *p += f / self.sample_rate;
+                    if let SignalNode::Oscillator { phase: p, pending_freq: pf, last_sample: ls, .. } = node {
+                        // Check if frequency changed
+                        if (requested_freq - current_freq).abs() > 0.1 {
+                            // Frequency change requested - set it as pending
+                            *pf = Some(current_freq);
+                        }
+
+                        // Check for zero-crossing (sign change from negative to positive)
+                        if let Some(_pending) = pf {
+                            if *ls < 0.0 && sample >= 0.0 {
+                                // Zero-crossing detected! Apply the frequency change
+                                *pf = None; // Clear pending
+                            }
+                        }
+
+                        // Update phase for next sample
+                        let freq_to_use = if pf.is_some() { current_freq } else { requested_freq };
+                        *p += freq_to_use / self.sample_rate;
                         if *p >= 1.0 {
                             *p -= 1.0;
                         }
+
+                        // Store sample for next zero-crossing detection
+                        *ls = sample;
                     }
                 }
 
@@ -2596,6 +2637,16 @@ impl UnifiedSignalGraph {
                 let events = pattern.query(&state);
                 let mut current_value = last_value; // Default to last value
 
+                // DEBUG: Log all pattern queries
+                if std::env::var("DEBUG_PATTERN").is_ok() && self.sample_count < 200 && self.sample_count % 20 == 0 {
+                    eprintln!("Pattern '{}' at cycle {:.6}, sample {}: {} events",
+                             pattern_str, self.cycle_position, self.sample_count, events.len());
+                    if let Some(event) = events.first() {
+                        eprintln!("  First event: '{}' at [{:.6}, {:.6})",
+                                 event.value, event.part.begin.to_float(), event.part.end.to_float());
+                    }
+                }
+
                 // If there's an event at this cycle position, use its value
                 if let Some(event) = events.first() {
                     if event.value.trim() != "~" && !event.value.is_empty() {
@@ -2614,6 +2665,12 @@ impl UnifiedSignalGraph {
                         } else {
                             // If neither works, keep last value
                             current_value = last_value;
+                        }
+
+                        // DEBUG: Log pattern value changes
+                        if std::env::var("DEBUG_PATTERN").is_ok() && current_value != last_value {
+                            eprintln!("Pattern '{}' at cycle {:.4}: value changed {} -> {} (event: '{}')",
+                                     pattern_str, self.cycle_position, last_value, current_value, s);
                         }
 
                         // Update last_value for next time

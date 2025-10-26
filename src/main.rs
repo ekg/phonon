@@ -486,6 +486,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 freq: freq_signal,
                                                 waveform: osc_type,
                                                 phase: 0.0,
+                                                pending_freq: None,
+                                                last_sample: 0.0,
                                             })
                                         } else {
                                             graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -890,6 +892,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         freq: freq_signal,
                                         waveform: osc_type,
                                         phase: 0.0,
+                                        pending_freq: None,
+                                        last_sample: 0.0,
                                     }))
                                 } else {
                                     None

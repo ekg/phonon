@@ -672,6 +672,8 @@ fn compile_oscillator(
         freq: Signal::Node(freq_node),
         waveform,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0,
     };
     Ok(ctx.graph.add_node(node))
 }

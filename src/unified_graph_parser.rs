@@ -1600,6 +1600,8 @@ impl DslCompiler {
                     freq: freq_signal,
                     waveform,
                     phase: 0.0,
+                    pending_freq: None,
+                    last_sample: 0.0,
                 })
             }
             DslExpression::Filter {
