@@ -432,6 +432,7 @@ fn compile_function_call(
         "tremolo" | "trem" => compile_tremolo(ctx, args),
         "xfade" => compile_xfade(ctx, args),
         "mix" => compile_mix(ctx, args),
+        "allpass" => compile_allpass(ctx, args),
 
         // ========== Envelope ==========
         "env" | "envelope" => compile_envelope(ctx, args),
@@ -1517,6 +1518,31 @@ fn compile_mix(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
 
     let node = SignalNode::Mix {
         signals: signal_nodes,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Allpass filter
+/// Syntax: allpass input coefficient
+/// Allpass filter for phase manipulation and reverb building
+fn compile_allpass(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    use crate::unified_graph::AllpassState;
+
+    if args.len() != 2 {
+        return Err(format!(
+            "allpass requires 2 parameters (input, coefficient), got {}",
+            args.len()
+        ));
+    }
+
+    let input_node = compile_expr(ctx, args[0].clone())?;
+    let coefficient_node = compile_expr(ctx, args[1].clone())?;
+
+    let node = SignalNode::Allpass {
+        input: Signal::Node(input_node),
+        coefficient: Signal::Node(coefficient_node),
+        state: AllpassState::default(),
     };
 
     Ok(ctx.graph.add_node(node))

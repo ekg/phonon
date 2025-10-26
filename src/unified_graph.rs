@@ -866,6 +866,14 @@ pub enum SignalNode {
     /// Sums all input signals together
     Mix { signals: Vec<Signal> },
 
+    /// Allpass filter (phase manipulation, reverb building block)
+    /// Passes all frequencies but changes phase relationships
+    Allpass {
+        input: Signal,
+        coefficient: Signal, // Feedback coefficient (-1.0 to 1.0)
+        state: AllpassState,
+    },
+
     /// Conditional gate
     When { input: Signal, condition: Signal },
 
@@ -968,6 +976,19 @@ impl Default for FilterState {
             y1: 0.0,
             y2: 0.0,
         }
+    }
+}
+
+/// Allpass filter state
+#[derive(Debug, Clone)]
+pub struct AllpassState {
+    pub x1: f32, // Previous input sample
+    pub y1: f32, // Previous output sample
+}
+
+impl Default for AllpassState {
+    fn default() -> Self {
+        Self { x1: 0.0, y1: 0.0 }
     }
 }
 
@@ -2155,6 +2176,38 @@ impl UnifiedSignalGraph {
             SignalNode::Mix { signals } => {
                 // Sum all input signals
                 signals.iter().map(|s| self.eval_signal(s)).sum()
+            }
+
+            SignalNode::Allpass {
+                input,
+                coefficient,
+                ..
+            } => {
+                let x = self.eval_signal(&input);
+                let g = self.eval_signal(&coefficient).clamp(-1.0, 1.0);
+
+                // Get previous state
+                let (x1, y1) = if let Some(Some(SignalNode::Allpass { state, .. })) =
+                    self.nodes.get(node_id.0)
+                {
+                    (state.x1, state.y1)
+                } else {
+                    (0.0, 0.0)
+                };
+
+                // First-order allpass filter
+                // y[n] = g * (x[n] - y[n-1]) + x[n-1]
+                let y = g * (x - y1) + x1;
+
+                // Update state
+                if let Some(Some(SignalNode::Allpass { state, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    state.x1 = x;
+                    state.y1 = y;
+                }
+
+                y
             }
 
             SignalNode::LowPass {
