@@ -404,6 +404,7 @@ fn compile_function_call(
         "env" | "envelope" => compile_envelope(ctx, args),
         "env_trig" => compile_envelope_pattern(ctx, args),
         "adsr" => compile_adsr(ctx, args),
+        "ad" => compile_ad(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -1231,6 +1232,29 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
         sustain: Signal::Node(sustain_node),
         release: Signal::Node(release_node),
         state: ADSRState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_ad(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "ad requires 2 parameters (attack, decay), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile each parameter as a signal (supports pattern modulation!)
+    let attack_node = compile_expr(ctx, args[0].clone())?;
+    let decay_node = compile_expr(ctx, args[1].clone())?;
+
+    use crate::unified_graph::ADState;
+
+    let node = SignalNode::AD {
+        attack: Signal::Node(attack_node),
+        decay: Signal::Node(decay_node),
+        state: ADState::default(),
     };
 
     Ok(ctx.graph.add_node(node))

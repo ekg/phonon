@@ -562,6 +562,14 @@ pub enum SignalNode {
         state: ADSRState,
     },
 
+    /// AD envelope generator (continuous, one per cycle)
+    /// Generates envelope over one cycle: Attack -> Decay (no sustain/release)
+    AD {
+        attack: Signal, // Attack time in seconds
+        decay: Signal,  // Decay time in seconds
+        state: ADState,
+    },
+
     /// Delay line
     Delay {
         input: Signal,
@@ -713,6 +721,29 @@ impl Default for ADSRState {
     fn default() -> Self {
         ADSRState {
             phase: ADSRPhase::Attack,
+            level: 0.0,
+            cycle_pos: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ADState {
+    phase: ADPhase,
+    level: f32,
+    cycle_pos: f32, // Current position in cycle (0.0 to 1.0)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ADPhase {
+    Attack,
+    Decay,
+}
+
+impl Default for ADState {
+    fn default() -> Self {
+        ADState {
+            phase: ADPhase::Attack,
             level: 0.0,
             cycle_pos: 0.0,
         }
@@ -2261,6 +2292,56 @@ impl UnifiedSignalGraph {
                 }
 
                 adsr_state.level
+            }
+
+            SignalNode::AD {
+                attack,
+                decay,
+                state,
+            } => {
+                // Evaluate modulatable parameters
+                let attack_time = self.eval_signal(&attack).max(0.001); // Min 1ms
+                let decay_time = self.eval_signal(&decay).max(0.001);
+
+                let mut ad_state = state.clone();
+
+                // Calculate position within current cycle (0.0 to 1.0)
+                let cycle_duration = 1.0 / self.cps;
+                let cycle_pos = (self.cycle_position % 1.0) as f32;
+                let time_in_cycle = cycle_pos * cycle_duration;
+
+                // Calculate phase boundaries (in seconds)
+                let attack_end = attack_time;
+                let decay_end = attack_end + decay_time;
+
+                // Determine phase and calculate envelope value
+                let level = if time_in_cycle < attack_end {
+                    // Attack phase: rise from 0 to 1
+                    if attack_time > 0.0 {
+                        time_in_cycle / attack_time
+                    } else {
+                        1.0
+                    }
+                } else if time_in_cycle < decay_end {
+                    // Decay phase: fall from 1 to 0
+                    let decay_progress = (time_in_cycle - attack_end) / decay_time;
+                    1.0 - decay_progress
+                } else {
+                    // After decay: silent
+                    0.0
+                };
+
+                ad_state.level = level.clamp(0.0, 1.0);
+                ad_state.cycle_pos = cycle_pos;
+
+                // Update state in graph
+                if let Some(Some(SignalNode::AD { state: s, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    *s = ad_state.clone();
+                }
+
+                ad_state.level
             }
 
             SignalNode::EnvelopePattern {

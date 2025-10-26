@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-25
 **Total UGens**: 90 planned
-**Implemented**: 11 (12%)
+**Implemented**: 12 (13%)
 **In Progress**: 0
-**Remaining**: 79
+**Remaining**: 78
 
 ---
 
@@ -69,12 +69,12 @@
 
 ---
 
-## Envelopes (1/8 = 12.5%)
+## Envelopes (2/8 = 25%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
 | ADSR | ✅ | - | - | - | Complete with pattern modulation |
-| AD | ⏳ | 🎯 | 1h | - | Attack-decay only |
+| AD | ✅ | - | - | - | Complete - perfect for percussive sounds |
 | ASR | ⏳ | | 1.5h | - | Attack-sustain-release |
 | Env | ⏳ | | 3h | - | Arbitrary breakpoint |
 | Line | ⏳ | 🎯 | 1h | - | Linear ramp |
@@ -161,7 +161,7 @@
 | # | UGen | Status | Week | Hours | Completed |
 |---|------|--------|------|-------|-----------|
 | 1 | ADSR | ✅ | 1 | 2 | 2025-10-25 |
-| 2 | AD | ⏳ | 1 | 1 | |
+| 2 | AD | ✅ | 1 | 1 | 2025-10-25 |
 | 3 | Line | ⏳ | 2 | 1 | |
 | 4 | FM | ⏳ | 3 | 4 | |
 | 5 | White Noise | ⏳ | 4 | 1 | |
@@ -198,10 +198,14 @@
 - ✅ Write 5 comprehensive tests (pattern query, envelope shape, musical, modulation, pattern params)
 - ✅ Create musical example (examples/adsr_demo.ph)
 - ✅ Support pattern modulation of all ADSR parameters
+- ✅ Implement AD envelope (2025-10-25)
+- ✅ Write 6 comprehensive tests for AD
+- ✅ Create musical example (examples/ad_demo.ph)
+- ✅ Pattern-modulated AD parameters
 
 **Goals**:
-- [ ] Implement AD envelope
 - [ ] Implement Line envelope
+- [ ] Implement FM oscillator
 
 ### Week of 2025-11-04
 **Goals**:
