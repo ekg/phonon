@@ -473,6 +473,15 @@ pub enum SignalNode {
         state: ImpulseState,
     },
 
+    /// Lag (exponential slew limiter)
+    /// Smooths abrupt changes with exponential approach to target
+    /// Useful for portamento, click removal, parameter smoothing
+    Lag {
+        input: Signal,     // Input signal to smooth
+        lag_time: Signal,  // Time constant in seconds
+        state: LagState,
+    },
+
     /// Pulse wave oscillator (variable pulse width)
     /// Output: +1 when phase < width, -1 otherwise
     /// width=0.5 creates square wave (only odd harmonics)
@@ -1115,6 +1124,27 @@ impl Default for ImpulseState {
     }
 }
 
+/// Lag (exponential slew limiter) state
+/// Smooths abrupt changes with exponential approach
+#[derive(Debug, Clone)]
+pub struct LagState {
+    previous_output: f32, // Previous smoothed output value
+}
+
+impl LagState {
+    pub fn new() -> Self {
+        Self {
+            previous_output: 0.0,
+        }
+    }
+}
+
+impl Default for LagState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Compressor state
 #[derive(Debug, Clone)]
 pub struct CompressorState {
@@ -1663,6 +1693,40 @@ impl UnifiedSignalGraph {
                 if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
                     if let SignalNode::Impulse { state: s, .. } = node {
                         s.phase = wrapped_phase;
+                    }
+                }
+
+                output
+            }
+
+            SignalNode::Lag {
+                input,
+                lag_time,
+                state,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let time = self.eval_signal(&lag_time).max(0.0);
+                let prev = state.previous_output;
+
+                // Calculate smoothing coefficient using exponential formula
+                // coefficient = 1 - e^(-1 / (lag_time * sample_rate))
+                // For lag_time = 0, coefficient ≈ 1 (bypass)
+                // For larger lag_time, coefficient gets smaller (slower response)
+                let coefficient = if time < 0.00001 {
+                    // Avoid division by zero, bypass for very small lag times
+                    1.0
+                } else {
+                    let samples_per_time_constant = time * self.sample_rate;
+                    1.0 - (-1.0 / samples_per_time_constant).exp()
+                };
+
+                // Exponential smoothing: approach target exponentially
+                let output = prev + (input_val - prev) * coefficient;
+
+                // Update state for next sample
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Lag { state: s, .. } = node {
+                        s.previous_output = output;
                     }
                 }
 

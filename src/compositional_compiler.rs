@@ -375,6 +375,7 @@ fn compile_function_call(
         "pink_noise" => compile_pink_noise(ctx, args),
         "brown_noise" => compile_brown_noise(ctx, args),
         "impulse" => compile_impulse(ctx, args),
+        "lag" => compile_lag(ctx, args),
         "pulse" => compile_pulse(ctx, args),
         "ring_mod" => compile_ring_mod(ctx, args),
         "limiter" => compile_limiter(ctx, args),
@@ -736,6 +737,28 @@ fn compile_impulse(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
     let node = SignalNode::Impulse {
         frequency: Signal::Node(freq_node),
         state: ImpulseState::default(),
+    };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile lag (exponential slew limiter / portamento)
+fn compile_lag(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    use crate::unified_graph::LagState;
+
+    if args.len() != 2 {
+        return Err(format!(
+            "lag requires 2 parameters (input, lag_time), got {}",
+            args.len()
+        ));
+    }
+
+    let input_node = compile_expr(ctx, args[0].clone())?;
+    let lag_time_node = compile_expr(ctx, args[1].clone())?;
+
+    let node = SignalNode::Lag {
+        input: Signal::Node(input_node),
+        lag_time: Signal::Node(lag_time_node),
+        state: LagState::default(),
     };
     Ok(ctx.graph.add_node(node))
 }
