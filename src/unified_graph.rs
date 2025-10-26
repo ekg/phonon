@@ -862,6 +862,10 @@ pub enum SignalNode {
         position: Signal, // 0.0 to 1.0
     },
 
+    /// Mix (sum) multiple signals
+    /// Sums all input signals together
+    Mix { signals: Vec<Signal> },
+
     /// Conditional gate
     When { input: Signal, condition: Signal },
 
@@ -2146,6 +2150,11 @@ impl UnifiedSignalGraph {
 
                 // Linear crossfade: (1-pos)*a + pos*b
                 (1.0 - pos) * a_val + pos * b_val
+            }
+
+            SignalNode::Mix { signals } => {
+                // Sum all input signals
+                signals.iter().map(|s| self.eval_signal(s)).sum()
             }
 
             SignalNode::LowPass {

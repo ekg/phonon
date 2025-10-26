@@ -431,6 +431,7 @@ fn compile_function_call(
         "bitcrush" => compile_bitcrush(ctx, args),
         "tremolo" | "trem" => compile_tremolo(ctx, args),
         "xfade" => compile_xfade(ctx, args),
+        "mix" => compile_mix(ctx, args),
 
         // ========== Envelope ==========
         "env" | "envelope" => compile_envelope(ctx, args),
@@ -1491,6 +1492,31 @@ fn compile_xfade(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
         signal_a: Signal::Node(signal_a_node),
         signal_b: Signal::Node(signal_b_node),
         position: Signal::Node(position_node),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Mix (sum multiple signals)
+/// Syntax: mix signal1 signal2 signal3 ...
+/// Sums all input signals together
+fn compile_mix(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() < 2 {
+        return Err(format!(
+            "mix requires at least 2 signals, got {}",
+            args.len()
+        ));
+    }
+
+    // Compile all signal arguments
+    let mut signal_nodes = Vec::new();
+    for arg in args {
+        let node = compile_expr(ctx, arg)?;
+        signal_nodes.push(Signal::Node(node));
+    }
+
+    let node = SignalNode::Mix {
+        signals: signal_nodes,
     };
 
     Ok(ctx.graph.add_node(node))
