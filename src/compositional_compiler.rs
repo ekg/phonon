@@ -368,6 +368,7 @@ fn compile_function_call(
         "white_noise" => compile_white_noise(ctx, args),
         "pulse" => compile_pulse(ctx, args),
         "ring_mod" => compile_ring_mod(ctx, args),
+        "limiter" => compile_limiter(ctx, args),
 
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
@@ -712,6 +713,27 @@ fn compile_ring_mod(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
     let node = SignalNode::Multiply {
         a: Signal::Node(signal1),
         b: Signal::Node(signal2),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile brick-wall limiter
+fn compile_limiter(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "limiter requires 2 parameters (input, threshold), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile input signal and threshold
+    let input_node = compile_expr(ctx, args[0].clone())?;
+    let threshold_node = compile_expr(ctx, args[1].clone())?;
+
+    let node = SignalNode::Limiter {
+        input: Signal::Node(input_node),
+        threshold: Signal::Node(threshold_node),
     };
 
     Ok(ctx.graph.add_node(node))

@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-25
 **Total UGens**: 90 planned
-**Implemented**: 17 (19%)
+**Implemented**: 18 (20%)
 **In Progress**: 0
-**Remaining**: 73
+**Remaining**: 72
 
 ---
 
@@ -84,7 +84,7 @@
 
 ---
 
-## Effects (7/25 = 28%)
+## Effects (8/25 = 32%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -95,6 +95,7 @@
 | Compressor | ✅ | - | - | - | Complete |
 | Bitcrush | ✅ | - | - | - | Complete |
 | Ring Mod | ✅ | - | - | - | Complete with sideband verification (sum/difference frequencies) |
+| Limiter | ✅ | - | - | - | Complete with brick-wall clamping verification |
 | Convolution Reverb | ⏳ | | 12h | 📚 | IR-based, complex |
 | Plate Reverb | ⏳ | | 8h | 📚 | Dattorro algorithm |
 | Spring Reverb | ⏳ | | 6h | - | Physical model |
@@ -106,7 +107,6 @@
 | Pitch Shift | ⏳ | | 8h | 📚 | Time stretch + resample |
 | Time Stretch | ⏳ | | 8h | 📚 | Phase vocoder |
 | Vocoder | ⏳ | | 12h | 📚 | FFT-based |
-| Limiter | ⏳ | 🎯 | 2h | - | Brick wall |
 | Gate | ⏳ | | 2h | - | Noise gate |
 | Expander | ⏳ | | 2h | - | Upward compression |
 | Multiband Comp | ⏳ | | 8h | 🔗 | Needs filters |
@@ -167,8 +167,8 @@
 | 5 | White Noise | ✅ | 1 | 1 | 2025-10-25 |
 | 6 | Pulse (PWM) | ✅ | 1 | 2 | 2025-10-25 |
 | 7 | Ring Mod | ✅ | 1 | 1 | 2025-10-25 |
-| 8 | Pan2 | ⏳ | 6-7 | 8 | Arch work |
-| 9 | Limiter | ⏳ | 8 | 2 | |
+| 8 | Limiter | ✅ | 1 | 2 | 2025-10-25 |
+| 9 | Pan2 | ⏳ | 6-7 | 8 | Arch work |
 | 10 | EQ | ⏳ | 9-10 | 4 | |
 | 11 | Moog Ladder | ⏳ | 11 | 4 | |
 | 12 | Flanger | ⏳ | 13 | 3 | |
@@ -231,9 +231,16 @@
 - ✅ Verify original carrier/modulator suppressed
 - ✅ Test inharmonic timbres, tremolo effect, pattern modulation
 - ✅ Create musical example (examples/ring_mod_demo.ph)
+- ✅ Implement Limiter (2025-10-25)
+- ✅ Write 8 comprehensive tests with brick-wall verification
+- ✅ Verify threshold clamping (peaks ≤ threshold)
+- ✅ Verify signals below threshold pass unchanged
+- ✅ Test bipolar limiting (both positive and negative peaks)
+- ✅ Test pattern-modulated threshold, mastering use cases
+- ✅ Create musical example (examples/limiter_demo.ph)
 
 **Goals**:
-- 7 Tier 1 UGens complete in one session! 🎉🎉
+- 8 Tier 1 UGens complete in one session! 🎉🎉🎉
 
 ### Week of 2025-11-04
 **Goals**:

@@ -465,6 +465,13 @@ pub enum SignalNode {
         phase: f32,        // Phase (0.0 to 1.0)
     },
 
+    /// Brick-wall limiter (prevents signal from exceeding threshold)
+    /// Clamps signal to [-threshold, +threshold]
+    Limiter {
+        input: Signal,     // Input signal
+        threshold: Signal, // Maximum allowed amplitude
+    },
+
     /// Pattern as a signal source
     Pattern {
         pattern_str: String,
@@ -1371,6 +1378,15 @@ impl UnifiedSignalGraph {
                 }
 
                 sample
+            }
+
+            SignalNode::Limiter { input, threshold } => {
+                // Evaluate input signal and threshold
+                let input_val = self.eval_signal(&input);
+                let thresh = self.eval_signal(&threshold).max(0.0);
+
+                // Brick-wall limiting: clamp to [-threshold, +threshold]
+                input_val.clamp(-thresh, thresh)
             }
 
             SignalNode::Constant { value } => value,
