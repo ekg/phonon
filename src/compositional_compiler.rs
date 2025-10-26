@@ -407,6 +407,7 @@ fn compile_function_call(
         "distort" | "distortion" => compile_distortion(ctx, args),
         "delay" => compile_delay(ctx, args),
         "chorus" => compile_chorus(ctx, args),
+        "flanger" => compile_flanger(ctx, args),
         "compressor" | "comp" => compile_compressor(ctx, args),
         "bitcrush" => compile_bitcrush(ctx, args),
 
@@ -1050,6 +1051,34 @@ fn compile_chorus(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         depth: Signal::Node(depth_node),
         mix: Signal::Node(mix_node),
         state: ChorusState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile flanger effect
+fn compile_flanger(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Flanger expects 4 params: input, depth, rate, feedback
+    if args.len() != 4 {
+        return Err(format!(
+            "flanger requires 4 parameters (input, depth, rate, feedback), got {}",
+            args.len()
+        ));
+    }
+
+    let input_node = compile_expr(ctx, args[0].clone())?;
+    let depth_node = compile_expr(ctx, args[1].clone())?;
+    let rate_node = compile_expr(ctx, args[2].clone())?;
+    let feedback_node = compile_expr(ctx, args[3].clone())?;
+
+    use crate::unified_graph::FlangerState;
+
+    let node = SignalNode::Flanger {
+        input: Signal::Node(input_node),
+        depth: Signal::Node(depth_node),
+        rate: Signal::Node(rate_node),
+        feedback: Signal::Node(feedback_node),
+        state: FlangerState::default(),
     };
 
     Ok(ctx.graph.add_node(node))

@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-25
 **Total UGens**: 90 planned
-**Implemented**: 18 (20%)
+**Implemented**: 19 (21%)
 **In Progress**: 0
-**Remaining**: 72
+**Remaining**: 71
 
 ---
 
@@ -84,7 +84,7 @@
 
 ---
 
-## Effects (8/25 = 32%)
+## Effects (9/25 = 36%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -99,7 +99,7 @@
 | Convolution Reverb | ⏳ | | 12h | 📚 | IR-based, complex |
 | Plate Reverb | ⏳ | | 8h | 📚 | Dattorro algorithm |
 | Spring Reverb | ⏳ | | 6h | - | Physical model |
-| Flanger | ⏳ | 🎯 | 3h | - | Delay modulation |
+| Flanger | ✅ | - | - | - | Complete with delay modulation, feedback, and pattern-modulated depth/rate |
 | Phaser | ⏳ | | 3h | - | All-pass stages |
 | Tremolo | ⏳ | | 1h | - | Amplitude LFO |
 | Vibrato | ⏳ | | 2h | - | Pitch LFO |
@@ -171,7 +171,7 @@
 | 9 | Pan2 | ⏳ | 6-7 | 8 | Arch work |
 | 10 | EQ | ⏳ | 9-10 | 4 | |
 | 11 | Moog Ladder | ⏳ | 11 | 4 | |
-| 12 | Flanger | ⏳ | 13 | 3 | |
+| 12 | Flanger | ✅ | 1 | 3 | 2025-10-25 |
 
 **Total: 33 hours over 13 weeks**
 
@@ -238,9 +238,17 @@
 - ✅ Test bipolar limiting (both positive and negative peaks)
 - ✅ Test pattern-modulated threshold, mastering use cases
 - ✅ Create musical example (examples/limiter_demo.ph)
+- ✅ Implement Flanger (2025-10-25)
+- ✅ Write 8 comprehensive tests with delay modulation analysis
+- ✅ Verify zero-depth bypass behavior
+- ✅ Verify feedback parameter affects resonance
+- ✅ Test pattern-modulated depth and rate
+- ✅ Create musical example (examples/flanger_demo.ph) with 10 use cases
+- ✅ Implement LFO-based delay modulation (1-5ms sweep)
+- ✅ Implement feedback loop for enhanced resonance
 
 **Goals**:
-- 8 Tier 1 UGens complete in one session! 🎉🎉🎉
+- 9 Tier 1 UGens complete in one session! 🎉🎉🎉
 
 ### Week of 2025-11-04
 **Goals**:

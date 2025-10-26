@@ -687,6 +687,15 @@ pub enum SignalNode {
         state: ChorusState,
     },
 
+    /// Flanger effect (sweeping comb filter via delay modulation)
+    Flanger {
+        input: Signal,
+        depth: Signal,    // Modulation depth (0.0-1.0)
+        rate: Signal,     // LFO rate in Hz
+        feedback: Signal, // Feedback amount (0.0-0.95)
+        state: FlangerState,
+    },
+
     /// Compressor (dynamic range compression)
     Compressor {
         input: Signal,
@@ -892,6 +901,34 @@ impl ChorusState {
 }
 
 impl Default for ChorusState {
+    fn default() -> Self {
+        Self::new(44100.0)
+    }
+}
+
+/// Flanger state
+#[derive(Debug, Clone)]
+pub struct FlangerState {
+    delay_buffer: Vec<f32>,
+    write_idx: usize,
+    lfo_phase: f32,
+    feedback_sample: f32, // Previous output for feedback loop
+}
+
+impl FlangerState {
+    pub fn new(sample_rate: f32) -> Self {
+        // 10ms max delay for flanging (shorter than chorus)
+        let buffer_size = (sample_rate * 0.01) as usize;
+        Self {
+            delay_buffer: vec![0.0; buffer_size],
+            write_idx: 0,
+            lfo_phase: 0.0,
+            feedback_sample: 0.0,
+        }
+    }
+}
+
+impl Default for FlangerState {
     fn default() -> Self {
         Self::new(44100.0)
     }
@@ -1593,6 +1630,67 @@ impl UnifiedSignalGraph {
 
                 // Mix dry and wet
                 input_val * (1.0 - mix_val) + delayed * mix_val
+            }
+
+            SignalNode::Flanger {
+                input,
+                depth,
+                rate,
+                feedback,
+                state,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let lfo_rate = self.eval_signal(&rate).clamp(0.1, 10.0);
+                let mod_depth = self.eval_signal(&depth).clamp(0.0, 1.0);
+                let feedback_amt = self.eval_signal(&feedback).clamp(0.0, 0.95);
+
+                // Bypass effect if depth is very small
+                if mod_depth < 0.01 {
+                    // Still update LFO phase for continuity
+                    if let Some(Some(SignalNode::Flanger { state: s, .. })) =
+                        self.nodes.get_mut(node_id.0)
+                    {
+                        s.lfo_phase = (state.lfo_phase + lfo_rate / self.sample_rate) % 1.0;
+                    }
+                    return input_val;
+                }
+
+                // LFO for delay modulation (sine wave)
+                let lfo_phase = state.lfo_phase;
+                let lfo = (lfo_phase * 2.0 * std::f32::consts::PI).sin();
+
+                // Modulated delay time (1-5ms for flanging)
+                let base_delay = 0.003; // 3ms
+                let delay_time = base_delay + lfo * mod_depth * 0.002; // ±2ms
+                let delay_samples = (delay_time * self.sample_rate) as f32;
+
+                // Read from delay buffer with linear interpolation
+                let buf_len = state.delay_buffer.len();
+                let read_pos =
+                    (state.write_idx as f32 + buf_len as f32 - delay_samples) % buf_len as f32;
+                let read_idx = read_pos.floor() as usize;
+                let frac = read_pos - read_pos.floor();
+
+                let sample1 = state.delay_buffer[read_idx % buf_len];
+                let sample2 = state.delay_buffer[(read_idx + 1) % buf_len];
+                let delayed = sample1 + (sample2 - sample1) * frac;
+
+                // Apply feedback (with feedback limiting to prevent explosion)
+                let wet = delayed + state.feedback_sample * feedback_amt;
+
+                // Update state
+                if let Some(Some(SignalNode::Flanger { state: s, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    s.delay_buffer[s.write_idx] = input_val;
+                    s.write_idx = (s.write_idx + 1) % buf_len;
+                    s.lfo_phase = (lfo_phase + lfo_rate / self.sample_rate) % 1.0;
+                    s.feedback_sample = wet;
+                }
+
+                // Classic flanger: equal mix of dry and wet, scaled by depth
+                let mix = 0.5 * mod_depth; // depth controls wet amount
+                input_val * (1.0 - mix) + wet * mix
             }
 
             SignalNode::Compressor {
