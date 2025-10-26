@@ -541,7 +541,7 @@ pub enum SignalNode {
         state: FilterState,
     },
 
-    /// Envelope generator
+    /// Envelope generator (triggered)
     Envelope {
         input: Signal,
         trigger: Signal,
@@ -550,6 +550,16 @@ pub enum SignalNode {
         sustain: f32,
         release: f32,
         state: EnvState,
+    },
+
+    /// ADSR envelope generator (continuous, one per cycle)
+    /// Generates envelope over one cycle: Attack -> Decay -> Sustain -> Release
+    ADSR {
+        attack: Signal,  // Attack time in seconds
+        decay: Signal,   // Decay time in seconds
+        sustain: Signal, // Sustain level (0.0-1.0)
+        release: Signal, // Release time in seconds
+        state: ADSRState,
     },
 
     /// Delay line
@@ -682,6 +692,31 @@ pub struct EnvState {
     level: f32,
     time_in_phase: f32,
     release_start_level: f32, // Level when release phase began
+}
+
+#[derive(Debug, Clone)]
+pub struct ADSRState {
+    phase: ADSRPhase,
+    level: f32,
+    cycle_pos: f32, // Current position in cycle (0.0 to 1.0)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ADSRPhase {
+    Attack,
+    Decay,
+    Sustain,
+    Release,
+}
+
+impl Default for ADSRState {
+    fn default() -> Self {
+        ADSRState {
+            phase: ADSRPhase::Attack,
+            level: 0.0,
+            cycle_pos: 0.0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1541,6 +1576,12 @@ impl UnifiedSignalGraph {
                 attack,
                 release,
             } => {
+                // DEBUG: Log Sample node evaluation
+                if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 100 {
+                    eprintln!("Evaluating Sample node '{}' at sample {}, cycle_pos={:.6}",
+                             pattern_str, self.sample_count, self.cycle_position);
+                }
+
                 // Query pattern for events in the current cycle
                 // Use full-cycle window to ensure transforms like degrade see all events
                 // The event deduplication logic below prevents re-triggering
@@ -1581,6 +1622,11 @@ impl UnifiedSignalGraph {
                 // Track the latest event start time we trigger in this sample
                 let mut latest_triggered_start = last_event_start;
 
+                // DEBUG: Log event processing
+                if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && !events.is_empty() {
+                    eprintln!("Sample node at cycle {:.3}: {} events", self.cycle_position, events.len());
+                }
+
                 // Trigger voices for ALL new events
                 // An event should be triggered if its START is after the last event we triggered
                 for event in events.iter() {
@@ -1615,6 +1661,12 @@ impl UnifiedSignalGraph {
                         && event_start_abs <= self.cycle_position + tolerance;
 
                     if event_is_new {
+                        // DEBUG: Log triggered events
+                        if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
+                            eprintln!("  Triggering: '{}' at {:.3} (cycle_pos={:.3})",
+                                     sample_name, event_start_abs, self.cycle_position);
+                        }
+
                         // Evaluate DSP parameters at THIS EVENT'S start time
                         // This ensures each event gets its own parameter values from the pattern
                         let gain_val = self
@@ -2150,6 +2202,65 @@ impl UnifiedSignalGraph {
                 }
 
                 input_val * env_state.level
+            }
+
+            SignalNode::ADSR {
+                attack,
+                decay,
+                sustain,
+                release,
+                state,
+            } => {
+                // Evaluate modulatable parameters
+                let attack_time = self.eval_signal(&attack).max(0.001); // Min 1ms
+                let decay_time = self.eval_signal(&decay).max(0.001);
+                let sustain_level = self.eval_signal(&sustain).clamp(0.0, 1.0);
+                let release_time = self.eval_signal(&release).max(0.001);
+
+                let mut adsr_state = state.clone();
+
+                // Calculate position within current cycle (0.0 to 1.0)
+                let cycle_duration = 1.0 / self.cps;
+                let cycle_pos = (self.cycle_position % 1.0) as f32;
+                let time_in_cycle = cycle_pos * cycle_duration;
+
+                // Calculate phase boundaries (in seconds)
+                let attack_end = attack_time;
+                let decay_end = attack_end + decay_time;
+                let release_start = cycle_duration - release_time;
+
+                // Determine phase and calculate envelope value
+                let level = if time_in_cycle < attack_end {
+                    // Attack phase: rise from 0 to 1
+                    if attack_time > 0.0 {
+                        time_in_cycle / attack_time
+                    } else {
+                        1.0
+                    }
+                } else if time_in_cycle < decay_end {
+                    // Decay phase: fall from 1 to sustain level
+                    let decay_progress = (time_in_cycle - attack_end) / decay_time;
+                    1.0 - (1.0 - sustain_level) * decay_progress
+                } else if time_in_cycle < release_start {
+                    // Sustain phase: hold at sustain level
+                    sustain_level
+                } else {
+                    // Release phase: fall from sustain level to 0
+                    let release_progress = (time_in_cycle - release_start) / release_time;
+                    sustain_level * (1.0 - release_progress)
+                };
+
+                adsr_state.level = level.clamp(0.0, 1.0);
+                adsr_state.cycle_pos = cycle_pos;
+
+                // Update state in graph
+                if let Some(Some(SignalNode::ADSR { state: s, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    *s = adsr_state.clone();
+                }
+
+                adsr_state.level
             }
 
             SignalNode::EnvelopePattern {

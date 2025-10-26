@@ -397,11 +397,13 @@ fn compile_function_call(
         "distort" | "distortion" => compile_distortion(ctx, args),
         "delay" => compile_delay(ctx, args),
         "chorus" => compile_chorus(ctx, args),
+        "compressor" | "comp" => compile_compressor(ctx, args),
         "bitcrush" => compile_bitcrush(ctx, args),
 
         // ========== Envelope ==========
         "env" | "envelope" => compile_envelope(ctx, args),
-        "env_trig" | "adsr" => compile_envelope_pattern(ctx, args),
+        "env_trig" => compile_envelope_pattern(ctx, args),
+        "adsr" => compile_adsr(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -747,9 +749,9 @@ fn compile_reverb(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
     // Extract input (handles both standalone and chained forms)
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    if params.len() != 3 {
+    if params.len() != 2 && params.len() != 3 {
         return Err(format!(
-            "reverb requires 3 parameters (room_size, damping, mix), got {}",
+            "reverb requires 2-3 parameters (room_size, damping, [mix=0.3]), got {}",
             params.len()
         ));
     }
@@ -757,7 +759,12 @@ fn compile_reverb(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
     // Compile parameters
     let room_node = compile_expr(ctx, params[0].clone())?;
     let damp_node = compile_expr(ctx, params[1].clone())?;
-    let mix_node = compile_expr(ctx, params[2].clone())?;
+    let mix_node = if params.len() == 3 {
+        compile_expr(ctx, params[2].clone())?
+    } else {
+        // Default mix = 0.3 (30% wet)
+        ctx.graph.add_node(SignalNode::Constant { value: 0.3 })
+    };
 
     use crate::unified_graph::ReverbState;
 
@@ -777,15 +784,20 @@ fn compile_distortion(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
     // Extract input (handles both standalone and chained forms)
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    if params.len() != 2 {
+    if params.len() != 1 && params.len() != 2 {
         return Err(format!(
-            "distort requires 2 parameters (drive, mix), got {}",
+            "distort requires 1-2 parameters (drive, [mix=0.5]), got {}",
             params.len()
         ));
     }
 
     let drive_node = compile_expr(ctx, params[0].clone())?;
-    let mix_node = compile_expr(ctx, params[1].clone())?;
+    let mix_node = if params.len() == 2 {
+        compile_expr(ctx, params[1].clone())?
+    } else {
+        // Default mix = 0.5 (50% wet)
+        ctx.graph.add_node(SignalNode::Constant { value: 0.5 })
+    };
 
     let node = SignalNode::Distortion {
         input: input_signal,
@@ -897,16 +909,21 @@ fn compile_chorus(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
     // Extract input (handles both standalone and chained forms)
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    if params.len() != 3 {
+    if params.len() != 2 && params.len() != 3 {
         return Err(format!(
-            "chorus requires 3 parameters (rate, depth, mix), got {}",
+            "chorus requires 2-3 parameters (rate, depth, [mix=0.3]), got {}",
             params.len()
         ));
     }
 
     let rate_node = compile_expr(ctx, params[0].clone())?;
     let depth_node = compile_expr(ctx, params[1].clone())?;
-    let mix_node = compile_expr(ctx, params[2].clone())?;
+    let mix_node = if params.len() == 3 {
+        compile_expr(ctx, params[2].clone())?
+    } else {
+        // Default mix = 0.3 (30% wet)
+        ctx.graph.add_node(SignalNode::Constant { value: 0.3 })
+    };
 
     use crate::unified_graph::ChorusState;
 
@@ -916,6 +933,39 @@ fn compile_chorus(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         depth: Signal::Node(depth_node),
         mix: Signal::Node(mix_node),
         state: ChorusState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile compressor effect
+fn compile_compressor(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 5 {
+        return Err(format!(
+            "compressor requires 5 parameters (threshold, ratio, attack, release, makeup_gain), got {}",
+            params.len()
+        ));
+    }
+
+    let threshold_node = compile_expr(ctx, params[0].clone())?;
+    let ratio_node = compile_expr(ctx, params[1].clone())?;
+    let attack_node = compile_expr(ctx, params[2].clone())?;
+    let release_node = compile_expr(ctx, params[3].clone())?;
+    let makeup_node = compile_expr(ctx, params[4].clone())?;
+
+    use crate::unified_graph::CompressorState;
+
+    let node = SignalNode::Compressor {
+        input: input_signal,
+        threshold: Signal::Node(threshold_node),
+        ratio: Signal::Node(ratio_node),
+        attack: Signal::Node(attack_node),
+        release: Signal::Node(release_node),
+        makeup_gain: Signal::Node(makeup_node),
+        state: CompressorState::default(),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -1154,6 +1204,33 @@ fn compile_envelope(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
         sustain: sustain_level,
         release,
         state: EnvState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 4 {
+        return Err(format!(
+            "adsr requires 4 parameters (attack, decay, sustain, release), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile each parameter as a signal (supports pattern modulation!)
+    let attack_node = compile_expr(ctx, args[0].clone())?;
+    let decay_node = compile_expr(ctx, args[1].clone())?;
+    let sustain_node = compile_expr(ctx, args[2].clone())?;
+    let release_node = compile_expr(ctx, args[3].clone())?;
+
+    use crate::unified_graph::ADSRState;
+
+    let node = SignalNode::ADSR {
+        attack: Signal::Node(attack_node),
+        decay: Signal::Node(decay_node),
+        sustain: Signal::Node(sustain_node),
+        release: Signal::Node(release_node),
+        state: ADSRState::default(),
     };
 
     Ok(ctx.graph.add_node(node))
