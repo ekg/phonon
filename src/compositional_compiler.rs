@@ -416,6 +416,7 @@ fn compile_function_call(
         "hpf" => compile_filter(ctx, "hpf", args),
         "bpf" => compile_filter(ctx, "bpf", args),
         "notch" => compile_filter(ctx, "notch", args),
+        "comb" => compile_comb(ctx, args),
         "moog_ladder" | "moog" => compile_moog_ladder(ctx, args),
         "parametric_eq" | "eq" => compile_parametric_eq(ctx, args),
 
@@ -1043,6 +1044,39 @@ fn compile_filter(
             state: FilterState::default(),
         },
         _ => return Err(format!("Unknown filter type: {}", filter_type)),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Comb filter (feedback delay line)
+/// Syntax: comb input frequency feedback
+/// Example: ~impulse # comb 440 0.95
+fn compile_comb(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    // Comb expects 2 params after input: frequency, feedback
+    if params.len() != 2 {
+        return Err(format!(
+            "comb requires 2 parameters (frequency, feedback), got {}",
+            params.len()
+        ));
+    }
+
+    let frequency_node = compile_expr(ctx, params[0].clone())?;
+    let feedback_node = compile_expr(ctx, params[1].clone())?;
+
+    // Create delay buffer (1 second max delay at sample rate)
+    let buffer_size = ctx.sample_rate as usize;
+    let buffer = vec![0.0; buffer_size];
+
+    let node = SignalNode::Comb {
+        input: input_signal,
+        frequency: Signal::Node(frequency_node),
+        feedback: Signal::Node(feedback_node),
+        buffer,
+        write_pos: 0,
     };
 
     Ok(ctx.graph.add_node(node))

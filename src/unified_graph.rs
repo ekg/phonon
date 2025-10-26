@@ -645,6 +645,17 @@ pub enum SignalNode {
         state: FilterState,
     },
 
+    /// Comb filter (feedback delay line)
+    /// Creates resonant peaks by feeding delayed signal back
+    /// Useful for physical modeling, bells, metallic sounds, and adding character
+    Comb {
+        input: Signal,
+        frequency: Signal, // Resonant frequency in Hz (converted to delay time)
+        feedback: Signal,  // Feedback amount (0.0-0.99, higher = more resonance)
+        buffer: Vec<f32>,  // Circular buffer for delay line
+        write_pos: usize,  // Current write position in buffer
+    },
+
     /// Moog Ladder Filter (4-pole 24dB/octave lowpass with resonance)
     /// Classic analog filter with warm sound and self-oscillation
     MoogLadder {
@@ -1144,7 +1155,8 @@ pub struct ImpulseState {
 
 impl ImpulseState {
     pub fn new() -> Self {
-        Self { phase: 0.0 }
+        // Start at 1.0 so first evaluation triggers immediately
+        Self { phase: 1.0 }
     }
 }
 
@@ -2963,6 +2975,42 @@ impl UnifiedSignalGraph {
                 }
 
                 low + high // Output notch (low + high = everything except band)
+            }
+
+            SignalNode::Comb {
+                input,
+                frequency,
+                feedback,
+                buffer,
+                write_pos,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let freq = self.eval_signal(&frequency).max(20.0).min(20000.0);
+                let fb = self.eval_signal(&feedback).clamp(0.0, 0.99);
+
+                // Convert frequency to delay time in samples
+                let delay_samples = (self.sample_rate / freq).round() as usize;
+                let delay_samples = delay_samples.clamp(1, buffer.len() - 1);
+
+                // Calculate read position (write_pos - delay_samples, wrapped)
+                let read_pos = (write_pos + buffer.len() - delay_samples) % buffer.len();
+                let delayed = buffer[read_pos];
+
+                // Comb filter: output = input + feedback * delayed_output
+                let output = input_val + fb * delayed;
+
+                // Update buffer and write position
+                if let Some(Some(SignalNode::Comb {
+                    buffer: buf,
+                    write_pos: idx,
+                    ..
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    buf[*idx] = output;
+                    *idx = (*idx + 1) % buf.len();
+                }
+
+                output
             }
 
             SignalNode::MoogLadder {
