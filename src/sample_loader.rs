@@ -114,7 +114,12 @@ impl Default for SampleBank {
 
 impl SampleBank {
     pub fn new() -> Self {
-        let dirt_samples_dir = PathBuf::from("dirt-samples");
+        // Try ~/phonon/dirt-samples first, then fall back to ./dirt-samples
+        let dirt_samples_dir = dirs::home_dir()
+            .map(|home| home.join("phonon").join("dirt-samples"))
+            .filter(|path| path.exists())
+            .unwrap_or_else(|| PathBuf::from("dirt-samples"));
+
         let mut bank = Self {
             samples: HashMap::new(),
             dirt_samples_dir,

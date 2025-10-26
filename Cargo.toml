@@ -62,6 +62,9 @@ spectrum-analyzer = "1.7"
 audio-processor-analysis = "2.4"
 audio-processor-traits = "4.3"
 
+# System directories
+dirs = "5.0"
+
 [[bin]]
 name = "wav_analyze"
 path = "src/bin/wav_analyze.rs"
