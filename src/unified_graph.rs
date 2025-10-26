@@ -720,6 +720,17 @@ pub enum SignalNode {
         end: Signal,   // End value
     },
 
+    /// Curve envelope generator (continuous)
+    /// Curved ramp from start to end over duration
+    /// Curve parameter controls shape: 0=linear, +ve=exponential, -ve=logarithmic
+    Curve {
+        start: Signal,     // Start value
+        end: Signal,       // End value
+        duration: Signal,  // Duration in seconds
+        curve: Signal,     // Curve shape (-10 to +10, 0=linear)
+        elapsed_time: f32, // Time since start
+    },
+
     /// Delay line
     Delay {
         input: Signal,
@@ -3451,6 +3462,51 @@ impl UnifiedSignalGraph {
                 let value = start_val + (end_val - start_val) * cycle_pos;
 
                 value
+            }
+
+            SignalNode::Curve {
+                start,
+                end,
+                duration,
+                curve,
+                elapsed_time,
+            } => {
+                let start_val = self.eval_signal(&start);
+                let end_val = self.eval_signal(&end);
+                let duration_val = self.eval_signal(&duration).max(0.001); // Min 1ms
+                let curve_val = self.eval_signal(&curve);
+
+                let mut output_val = start_val;
+
+                // Update elapsed time
+                if let Some(Some(SignalNode::Curve {
+                    elapsed_time: elapsed,
+                    ..
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    // Increment elapsed time
+                    *elapsed += 1.0 / self.sample_rate;
+
+                    // Calculate normalized time (0 to 1)
+                    let t = (*elapsed / duration_val).min(1.0);
+
+                    // Apply curve formula
+                    let curved_t = if curve_val.abs() < 0.001 {
+                        // Linear (curve ≈ 0)
+                        t
+                    } else {
+                        // Exponential curve
+                        // Formula: (exp(curve * t) - 1) / (exp(curve) - 1)
+                        let exp_curve = curve_val.exp();
+                        let exp_curve_t = (curve_val * t).exp();
+                        (exp_curve_t - 1.0) / (exp_curve - 1.0)
+                    };
+
+                    // Interpolate between start and end
+                    output_val = start_val + (end_val - start_val) * curved_t;
+                }
+
+                output_val
             }
 
             SignalNode::EnvelopePattern {

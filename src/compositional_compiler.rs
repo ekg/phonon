@@ -435,6 +435,7 @@ fn compile_function_call(
         "adsr" => compile_adsr(ctx, args),
         "ad" => compile_ad(ctx, args),
         "line" => compile_line(ctx, args),
+        "curve" => compile_curve(ctx, args),
 
         // ========== Analysis ==========
         "rms" => compile_rms(ctx, args),
@@ -1714,6 +1715,31 @@ fn compile_line(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
     let node = SignalNode::Line {
         start: Signal::Node(start_node),
         end: Signal::Node(end_node),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_curve(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 4 {
+        return Err(format!(
+            "curve requires 4 parameters (start, end, duration, curve), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile each parameter as a signal (supports pattern modulation!)
+    let start_node = compile_expr(ctx, args[0].clone())?;
+    let end_node = compile_expr(ctx, args[1].clone())?;
+    let duration_node = compile_expr(ctx, args[2].clone())?;
+    let curve_node = compile_expr(ctx, args[3].clone())?;
+
+    let node = SignalNode::Curve {
+        start: Signal::Node(start_node),
+        end: Signal::Node(end_node),
+        duration: Signal::Node(duration_node),
+        curve: Signal::Node(curve_node),
+        elapsed_time: 0.0, // Start at beginning
     };
 
     Ok(ctx.graph.add_node(node))
