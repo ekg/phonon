@@ -581,6 +581,25 @@ pub enum SignalNode {
         state: MoogLadderState,
     },
 
+    /// Parametric EQ (3-band peaking equalizer)
+    /// Each band can boost or cut frequencies independently
+    ParametricEQ {
+        input: Signal,
+        // Low band
+        low_freq: Signal,   // Center frequency in Hz
+        low_gain: Signal,   // Gain in dB (-20 to +20)
+        low_q: Signal,      // Bandwidth (0.1 to 10.0)
+        // Mid band
+        mid_freq: Signal,
+        mid_gain: Signal,
+        mid_q: Signal,
+        // High band
+        high_freq: Signal,
+        high_gain: Signal,
+        high_q: Signal,
+        state: ParametricEQState,
+    },
+
     /// Envelope generator (triggered)
     Envelope {
         input: Signal,
@@ -964,6 +983,30 @@ impl MoogLadderState {
 }
 
 impl Default for MoogLadderState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Parametric EQ state (3 peaking filters)
+#[derive(Debug, Clone)]
+pub struct ParametricEQState {
+    low_band: FilterState,
+    mid_band: FilterState,
+    high_band: FilterState,
+}
+
+impl ParametricEQState {
+    pub fn new() -> Self {
+        Self {
+            low_band: FilterState::default(),
+            mid_band: FilterState::default(),
+            high_band: FilterState::default(),
+        }
+    }
+}
+
+impl Default for ParametricEQState {
     fn default() -> Self {
         Self::new()
     }
@@ -2434,6 +2477,122 @@ impl UnifiedSignalGraph {
 
                 // Output from final stage
                 stage4_new
+            }
+
+            SignalNode::ParametricEQ {
+                input,
+                low_freq,
+                low_gain,
+                low_q,
+                mid_freq,
+                mid_gain,
+                mid_q,
+                high_freq,
+                high_gain,
+                high_q,
+                state,
+            } => {
+                use std::f32::consts::PI;
+
+                let input_val = self.eval_signal(&input);
+                let sample_rate = self.sample_rate; // Extract to avoid borrow issues
+
+                // Helper function to apply peaking filter
+                let apply_peaking_filter = |input: f32,
+                                            fc: f32,
+                                            gain_db: f32,
+                                            q: f32,
+                                            filter_state: &FilterState|
+                 -> (f32, FilterState) {
+                    // Clamp parameters
+                    let fc = fc.clamp(20.0, 20000.0);
+                    let gain_db = gain_db.clamp(-20.0, 20.0);
+                    let q = q.clamp(0.1, 10.0);
+
+                    // If gain is near zero, bypass filter
+                    if gain_db.abs() < 0.1 {
+                        return (input, filter_state.clone());
+                    }
+
+                    // Calculate biquad coefficients for peaking filter
+                    let a = 10.0_f32.powf(gain_db / 40.0); // Amplitude
+                    let omega = 2.0 * PI * fc / sample_rate;
+                    let alpha = omega.sin() / (2.0 * q);
+                    let cos_omega = omega.cos();
+
+                    let b0 = 1.0 + alpha * a;
+                    let b1 = -2.0 * cos_omega;
+                    let b2 = 1.0 - alpha * a;
+                    let a0 = 1.0 + alpha / a;
+                    let a1 = -2.0 * cos_omega;
+                    let a2 = 1.0 - alpha / a;
+
+                    // Normalize coefficients
+                    let b0_norm = b0 / a0;
+                    let b1_norm = b1 / a0;
+                    let b2_norm = b2 / a0;
+                    let a1_norm = a1 / a0;
+                    let a2_norm = a2 / a0;
+
+                    // Apply biquad filter (Direct Form II)
+                    let output = b0_norm * input + filter_state.x1;
+
+                    let mut new_state = filter_state.clone();
+                    new_state.x1 = b1_norm * input - a1_norm * output + filter_state.x2;
+                    new_state.x2 = b2_norm * input - a2_norm * output;
+
+                    (output, new_state)
+                };
+
+                // Get state
+                let (low_state, mid_state, high_state) =
+                    if let Some(Some(SignalNode::ParametricEQ { state, .. })) =
+                        self.nodes.get(node_id.0)
+                    {
+                        (
+                            state.low_band.clone(),
+                            state.mid_band.clone(),
+                            state.high_band.clone(),
+                        )
+                    } else {
+                        (
+                            FilterState::default(),
+                            FilterState::default(),
+                            FilterState::default(),
+                        )
+                    };
+
+                // Evaluate parameters
+                let low_f = self.eval_signal(&low_freq);
+                let low_g = self.eval_signal(&low_gain);
+                let low_q_val = self.eval_signal(&low_q);
+
+                let mid_f = self.eval_signal(&mid_freq);
+                let mid_g = self.eval_signal(&mid_gain);
+                let mid_q_val = self.eval_signal(&mid_q);
+
+                let high_f = self.eval_signal(&high_freq);
+                let high_g = self.eval_signal(&high_gain);
+                let high_q_val = self.eval_signal(&high_q);
+
+                // Apply all three bands in series
+                let (after_low, new_low_state) =
+                    apply_peaking_filter(input_val, low_f, low_g, low_q_val, &low_state);
+                let (after_mid, new_mid_state) =
+                    apply_peaking_filter(after_low, mid_f, mid_g, mid_q_val, &mid_state);
+                let (output, new_high_state) =
+                    apply_peaking_filter(after_mid, high_f, high_g, high_q_val, &high_state);
+
+                // Update state
+                if let Some(Some(SignalNode::ParametricEQ { state, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    state.low_band = new_low_state;
+                    state.mid_band = new_mid_state;
+                    state.high_band = new_high_state;
+                }
+
+                output
             }
 
             SignalNode::Envelope {

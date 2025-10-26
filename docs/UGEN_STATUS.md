@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-10-25
 **Total UGens**: 90 planned
-**Implemented**: 20 (22%)
+**Implemented**: 21 (23%)
 **In Progress**: 0
-**Remaining**: 70
+**Remaining**: 69
 
 ---
 
@@ -47,7 +47,7 @@
 
 ---
 
-## Filters (4/15 = 27%)
+## Filters (5/15 = 33%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -110,7 +110,7 @@
 | Gate | ⏳ | | 2h | - | Noise gate |
 | Expander | ⏳ | | 2h | - | Upward compression |
 | Multiband Comp | ⏳ | | 8h | 🔗 | Needs filters |
-| EQ (Parametric) | ⏳ | 🎯 | 4h | - | Multiple bands |
+| EQ (Parametric) | ✅ | - | - | - | Complete - 3-band peaking EQ with pattern modulation |
 | Graphic EQ | ⏳ | | 6h | - | Fixed bands |
 | Stereo Width | ⏳ | | 2h | 🔗 | Needs stereo |
 
@@ -169,7 +169,7 @@
 | 7 | Ring Mod | ✅ | 1 | 1 | 2025-10-25 |
 | 8 | Limiter | ✅ | 1 | 2 | 2025-10-25 |
 | 9 | Pan2 | ⏳ | 6-7 | 8 | Arch work |
-| 10 | EQ | ⏳ | 9-10 | 4 | |
+| 10 | EQ | ✅ | 1 | 4 | 2025-10-25 |
 | 11 | Moog Ladder | ✅ | 1 | 4 | 2025-10-25 |
 | 12 | Flanger | ✅ | 1 | 3 | 2025-10-25 |
 

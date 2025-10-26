@@ -402,6 +402,7 @@ fn compile_function_call(
         "hpf" => compile_filter(ctx, "hpf", args),
         "bpf" => compile_filter(ctx, "bpf", args),
         "moog_ladder" | "moog" => compile_moog_ladder(ctx, args),
+        "parametric_eq" | "eq" => compile_parametric_eq(ctx, args),
 
         // ========== Effects ==========
         "reverb" => compile_reverb(ctx, args),
@@ -884,6 +885,46 @@ fn compile_moog_ladder(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
         cutoff: Signal::Node(cutoff_node),
         resonance: Signal::Node(resonance_node),
         state: MoogLadderState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Parametric EQ (3-band peaking equalizer)
+fn compile_parametric_eq(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Parametric EQ expects 10 params: input + 3 bands × 3 params each
+    if args.len() != 10 {
+        return Err(format!(
+            "parametric_eq requires 10 parameters (input, low_freq, low_gain, low_q, mid_freq, mid_gain, mid_q, high_freq, high_gain, high_q), got {}",
+            args.len()
+        ));
+    }
+
+    let input_node = compile_expr(ctx, args[0].clone())?;
+    let low_freq_node = compile_expr(ctx, args[1].clone())?;
+    let low_gain_node = compile_expr(ctx, args[2].clone())?;
+    let low_q_node = compile_expr(ctx, args[3].clone())?;
+    let mid_freq_node = compile_expr(ctx, args[4].clone())?;
+    let mid_gain_node = compile_expr(ctx, args[5].clone())?;
+    let mid_q_node = compile_expr(ctx, args[6].clone())?;
+    let high_freq_node = compile_expr(ctx, args[7].clone())?;
+    let high_gain_node = compile_expr(ctx, args[8].clone())?;
+    let high_q_node = compile_expr(ctx, args[9].clone())?;
+
+    use crate::unified_graph::ParametricEQState;
+
+    let node = SignalNode::ParametricEQ {
+        input: Signal::Node(input_node),
+        low_freq: Signal::Node(low_freq_node),
+        low_gain: Signal::Node(low_gain_node),
+        low_q: Signal::Node(low_q_node),
+        mid_freq: Signal::Node(mid_freq_node),
+        mid_gain: Signal::Node(mid_gain_node),
+        mid_q: Signal::Node(mid_q_node),
+        high_freq: Signal::Node(high_freq_node),
+        high_gain: Signal::Node(high_gain_node),
+        high_q: Signal::Node(high_q_node),
+        state: ParametricEQState::default(),
     };
 
     Ok(ctx.graph.add_node(node))
