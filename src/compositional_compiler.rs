@@ -141,6 +141,16 @@ fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<
             );
             Ok(())
         }
+        Statement::Hush => {
+            // Silence all outputs (keeps them defined but hushed)
+            ctx.graph.hush_all();
+            Ok(())
+        }
+        Statement::Panic => {
+            // Stop all audio immediately (kills voices and silences outputs)
+            ctx.graph.panic();
+            Ok(())
+        }
     }
 }
 

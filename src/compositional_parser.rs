@@ -39,6 +39,10 @@ pub enum Statement {
         body: Vec<Statement>, // Bus assignments
         return_expr: Expr,
     },
+    /// Hush command: silence all outputs
+    Hush,
+    /// Panic command: stop all audio immediately
+    Panic,
 }
 
 /// Expression - the core of the language
@@ -365,6 +369,8 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
     // Try to parse each statement type
     alt((
         parse_function_def,   // Try function definitions first
+        parse_hush,           // Try hush command
+        parse_panic,          // Try panic command
         parse_bus_assignment,
         parse_output_channel, // Try multi-channel output first
         parse_output,         // Then single output
@@ -421,9 +427,13 @@ fn parse_bus_assignment(input: &str) -> IResult<&str, Statement> {
     ))
 }
 
-/// Parse multi-channel output: out1: expr, out2: expr, etc.
+/// Parse multi-channel output: out1:, o1:, d1: expr (all equivalent)
+/// Supports: out1:, out2:, ... (legacy)
+///           o1:, o2:, o3:, ... (primary)
+///           d1:, d2:, d3:, ... (Tidal-style alias)
 fn parse_output_channel(input: &str) -> IResult<&str, Statement> {
-    let (input, _) = tag("out")(input)?;
+    // Try to match o1, o2, o3, ... or d1, d2, d3, ... or out1, out2, out3, ...
+    let (input, prefix) = alt((tag("out"), tag("o"), tag("d")))(input)?;
     let (input, channel_str) = digit1(input)?;
     let channel: usize = channel_str.parse().unwrap();
     let (input, _) = space0(input)?;
@@ -454,6 +464,18 @@ fn parse_tempo(input: &str) -> IResult<&str, Statement> {
     let (input, value) = parse_number(input)?;
 
     Ok((input, Statement::Tempo(value)))
+}
+
+/// Parse hush command: silence all outputs
+fn parse_hush(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = tag("hush")(input)?;
+    Ok((input, Statement::Hush))
+}
+
+/// Parse panic command: stop all audio immediately
+fn parse_panic(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = tag("panic")(input)?;
+    Ok((input, Statement::Panic))
 }
 
 // ============================================================================
