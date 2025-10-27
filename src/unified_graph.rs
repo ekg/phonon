@@ -2649,10 +2649,28 @@ impl UnifiedSignalGraph {
 
                 // If there's an event at this cycle position, use its value
                 if let Some(event) = events.first() {
-                    if event.value.trim() != "~" && !event.value.is_empty() {
+                    let s = event.value.as_str();
+
+                    // Check for explicit rest
+                    if s.trim() == "~" {
+                        // Explicit rest: output 0.0 (silence)
+                        current_value = 0.0;
+
+                        // Update last_value to 0 so we know we're in rest state
+                        if let Some(Some(SignalNode::Pattern { last_value: lv, .. })) =
+                            self.nodes.get_mut(node_id.0)
+                        {
+                            *lv = 0.0;
+                        }
+
+                        // DEBUG: Log rests
+                        if std::env::var("DEBUG_PATTERN").is_ok() && last_value != 0.0 {
+                            eprintln!("Pattern '{}' at cycle {:.4}: REST (was {})",
+                                     pattern_str, self.cycle_position, last_value);
+                        }
+                    } else if !s.is_empty() {
                         // Parse the event value - Pattern nodes are for NUMERIC values
                         // (frequencies, control values, etc.), not sample names
-                        let s = event.value.as_str();
 
                         // Try numeric parsing first, then fall back to note names
                         // This ensures "1", "0", "440" etc are treated as numbers, not MIDI notes
