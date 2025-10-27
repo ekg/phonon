@@ -1025,6 +1025,13 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                 .map(|r| ast_to_pattern_value(*r))
                 .unwrap_or_else(|| Pattern::pure(PatternValue::Number(0.0)));
 
+            // Cache to store computed euclidean patterns per cycle
+            // Key: (cycle, pulses, steps, rotation), Value: cached pattern
+            use std::sync::Mutex;
+            use std::collections::HashMap as StdHashMap;
+            let cache: std::sync::Arc<Mutex<StdHashMap<(i64, usize, usize, i32), Pattern<String>>>> =
+                std::sync::Arc::new(Mutex::new(StdHashMap::new()));
+
             // Create a pattern that evaluates euclidean with pattern arguments
             Pattern::new(move |state| {
                 // Get the cycle number to determine which value to use from alternations
@@ -1058,22 +1065,31 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                     .and_then(|h| h.value.as_number())
                     .unwrap_or(0.0) as i32;
 
-                // Create the euclidean pattern for these parameters
-                let euclid_bool = Pattern::<bool>::euclid(p, s, r);
+                // Check cache for this combination
+                let cache_key = (cycle, p, s, r);
+                let mut cache_lock = cache.lock().unwrap();
 
-                // Convert to string pattern
-                let sample_pattern = euclid_bool.fmap({
-                    let sample = sample.clone();
-                    move |hit| {
-                        if hit {
-                            sample.clone()
-                        } else {
-                            "~".to_string()
+                // Get or create the euclidean pattern for these parameters
+                let sample_pattern = cache_lock.entry(cache_key).or_insert_with(|| {
+                    // Create the euclidean pattern for these parameters
+                    let euclid_bool = Pattern::<bool>::euclid(p, s, r);
+
+                    // Convert to string pattern
+                    euclid_bool.fmap({
+                        let sample = sample.clone();
+                        move |hit| {
+                            if hit {
+                                sample.clone()
+                            } else {
+                                "~".to_string()
+                            }
                         }
-                    }
-                });
+                    })
+                }).clone();
 
-                // Query the resulting pattern
+                drop(cache_lock); // Release lock before querying
+
+                // Query the cached pattern
                 sample_pattern.query(state)
             })
         }
