@@ -23,6 +23,8 @@ fn test_pattern_drives_oscillator_frequency() {
         freq: Signal::Node(pattern_node),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0,
     });
 
     graph.set_output(osc);
@@ -158,6 +160,8 @@ fn test_pattern_timing_synchronization() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0,
     });
 
     // Gate the oscillator with the pattern
@@ -234,6 +238,8 @@ fn test_complex_pattern_synthesis() {
         freq: Signal::Node(melody_node),
         waveform: Waveform::Square,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0,
     });
 
     // Apply rhythm gating

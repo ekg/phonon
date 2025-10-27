@@ -37,6 +37,7 @@ fn compare_normal_vs_degraded_sample_nodes() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
+        envelope_type: None,
     });
     graph_normal.set_output(sample_node_normal);
 
@@ -73,6 +74,7 @@ fn compare_normal_vs_degraded_sample_nodes() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
+        envelope_type: None,
     });
     graph_degraded.set_output(sample_node_degraded);
 

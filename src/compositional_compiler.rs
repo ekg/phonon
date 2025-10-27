@@ -491,6 +491,12 @@ fn compile_function_call(
         "pan" => compile_pan_modifier(ctx, args),
         "speed" => compile_speed_modifier(ctx, args),
 
+        // General amplitude modifier for any signal (oscillators, filters, etc.)
+        "amp" => compile_amp(ctx, args),
+
+        // ========== Pattern Structure ==========
+        "struct" => compile_struct(ctx, args),
+
         _ => Err(format!("Unknown function: {}", name)),
     }
 }
@@ -1786,11 +1792,13 @@ fn compile_envelope(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
 
     use crate::unified_graph::EnvState;
 
-    // For continuous signals, use a constant trigger (always on)
-    // This keeps the envelope in sustain phase
+    // env is for continuous signals - no auto-triggering
+    // For rhythmic triggering, use:
+    // - struct "pattern" (signal) - imposes rhythm with auto-envelope
+    // - env_trig "pattern" attack decay sustain release - pattern-triggered envelope
     let node = SignalNode::Envelope {
         input: input_signal,
-        trigger: Signal::Value(1.0), // Always triggered for continuous signals
+        trigger: Signal::Value(1.0), // Always on (continuous envelope, goes to sustain and stays there)
         attack,
         decay,
         sustain: sustain_level,
@@ -2878,6 +2886,78 @@ fn compile_speed_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<
 
     let speed_value = compile_expr(ctx, args[1].clone())?;
     modify_sample_param(ctx, sample_node_id, "speed", Signal::Node(speed_value))
+}
+
+/// Compile amp modifier: applies amplitude/gain to ANY signal
+/// Works with oscillators, samples, filters, etc.
+/// Usage: sine 440 # amp 0.3  OR  s "bd" # amp "0.5 0.8 1.0"
+fn compile_amp(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input signal and parameters
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 1 {
+        return Err(format!("amp requires 1 parameter (amplitude), got {}", params.len()));
+    }
+
+    // Compile the amplitude value (can be a number or pattern)
+    let amp_value = compile_expr(ctx, params[0].clone())?;
+
+    // Create a Multiply node to apply amplitude
+    let node = SignalNode::Multiply {
+        a: input_signal,
+        b: Signal::Node(amp_value),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile struct function: imposes boolean pattern structure on a signal
+/// Usage: struct "t(3,8)" (sine "444")
+/// The boolean pattern determines when the signal triggers
+/// Each "true" event triggers an envelope on the input signal
+fn compile_struct(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "struct requires 2 arguments (pattern_string, signal), got {}",
+            args.len()
+        ));
+    }
+
+    // First argument: boolean pattern string
+    let pattern_str = match &args[0] {
+        Expr::String(s) => s.clone(),
+        _ => return Err("struct requires a pattern string as first argument".to_string()),
+    };
+
+    // Parse the boolean pattern
+    // In mini-notation, "t" = true, "f" or "~" = false, "x" = true
+    let bool_pattern = parse_mini_notation(&pattern_str).fmap(|s: String| {
+        s == "t" || s == "x" || s == "1"
+    });
+
+    // Second argument: signal to apply structure to
+    let signal_node = compile_expr(ctx, args[1].clone())?;
+    let input_signal = Signal::Node(signal_node);
+
+    // Create StructuredSignal node with default percussive envelope
+    // Default: fast attack (1ms), short decay (100ms), no sustain, short release (50ms)
+    // This gives a "ping" sound typical of live coding
+    use crate::unified_graph::EnvState;
+
+    let node = SignalNode::StructuredSignal {
+        input: input_signal,
+        bool_pattern_str: pattern_str.clone(),
+        bool_pattern,
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        attack: 0.001,   // 1ms attack
+        decay: 0.1,      // 100ms decay
+        sustain: 0.0,    // No sustain (percussive)
+        release: 0.05,   // 50ms release
+        state: EnvState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
 }
 
 #[cfg(test)]

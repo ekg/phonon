@@ -32,6 +32,7 @@ fn test_alternation_cycles_have_audio() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph.set_output(sample_node);
 
@@ -86,6 +87,7 @@ fn test_concatenation_cycles_have_audio() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph.set_output(sample_node);
 
@@ -125,6 +127,7 @@ fn test_subdivision_has_audio() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph.set_output(sample_node);
 
@@ -163,6 +166,7 @@ fn test_euclidean_alternation_has_audio() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph.set_output(sample_node);
 
@@ -207,6 +211,7 @@ fn test_layering_has_louder_audio() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph.set_output(sample_node);
 
@@ -231,6 +236,7 @@ fn test_layering_has_louder_audio() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph_single.set_output(sample_node_single);
     let buffer_single = graph_single.render(sample_rate as usize);
@@ -273,6 +279,7 @@ fn test_multiple_bars_consistent() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph.set_output(sample_node);
 

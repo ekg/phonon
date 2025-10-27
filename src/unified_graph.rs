@@ -565,6 +565,13 @@ pub enum SignalNode {
         last_trigger_time: f32, // Cycle position of last trigger
     },
 
+    /// Cycle trigger: generates a short pulse at the start of each cycle
+    /// Useful for triggering envelopes rhythmically
+    CycleTrigger {
+        last_cycle: i32,  // Track which cycle triggered last
+        pulse_width: f32, // Duration of the pulse in seconds
+    },
+
     /// Sample player triggered by pattern
     Sample {
         pattern_str: String,
@@ -604,6 +611,22 @@ pub enum SignalNode {
         input: Signal,
         pattern_str: String,
         pattern: Pattern<String>,
+        last_trigger_time: f32,
+        last_cycle: i32,
+        attack: f32,
+        decay: f32,
+        sustain: f32,
+        release: f32,
+        state: EnvState,
+    },
+
+    /// Structured signal: boolean pattern imposes rhythmic structure on signal
+    /// Each "true" event in the pattern triggers an envelope on the input signal
+    /// This is what makes `struct "t(3,8)" (sine 440)` work
+    StructuredSignal {
+        input: Signal,
+        bool_pattern_str: String,
+        bool_pattern: Pattern<bool>,
         last_trigger_time: f32,
         last_cycle: i32,
         attack: f32,
@@ -2703,6 +2726,29 @@ impl UnifiedSignalGraph {
                 current_value
             }
 
+            SignalNode::CycleTrigger { last_cycle, pulse_width } => {
+                let current_cycle = self.cycle_position.floor() as i32;
+                let cycle_fraction = self.cycle_position - self.cycle_position.floor();
+                let pulse_duration = pulse_width / self.cps as f32; // Convert pulse width to cycles
+
+                // Output 1.0 if we're within the pulse duration at the start of a new cycle
+                // Output 0.0 otherwise
+                let output = if cycle_fraction < pulse_duration as f64 {
+                    1.0
+                } else {
+                    0.0
+                };
+
+                // Update last_cycle for state tracking (not currently used but good to have)
+                if let Some(Some(SignalNode::CycleTrigger { last_cycle: lc, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    *lc = current_cycle;
+                }
+
+                output
+            }
+
             SignalNode::Sample {
                 pattern_str,
                 pattern,
@@ -4072,6 +4118,171 @@ impl UnifiedSignalGraph {
 
                 // Update state in node
                 if let Some(Some(SignalNode::EnvelopePattern {
+                    state: s,
+                    last_trigger_time: lt,
+                    last_cycle: lc,
+                    ..
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    *s = env_state.clone();
+                    *lt = latest_triggered_start as f32;
+                    *lc = current_cycle;
+                }
+
+                // Output: input signal gated by envelope
+                input_val * env_state.level
+            }
+
+            SignalNode::StructuredSignal {
+                input,
+                bool_pattern,
+                last_trigger_time,
+                last_cycle,
+                attack,
+                decay,
+                sustain,
+                release,
+                state,
+                ..
+            } => {
+                let input_val = self.eval_signal(&input);
+
+                // Query boolean pattern for trigger events
+                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                let current_cycle = self.cycle_position.floor() as i32;
+
+                let query_state = State {
+                    span: TimeSpan::new(
+                        Fraction::from_float(self.cycle_position),
+                        Fraction::from_float(self.cycle_position + sample_width),
+                    ),
+                    controls: HashMap::new(),
+                };
+                let events = bool_pattern.query(&query_state);
+
+                // Get last event start time and cycle
+                let (last_event_start, prev_cycle) =
+                    if let Some(Some(SignalNode::StructuredSignal {
+                        last_trigger_time: lt,
+                        last_cycle: lc,
+                        ..
+                    })) = self.nodes.get(node_id.0)
+                    {
+                        (*lt as f64, *lc)
+                    } else {
+                        (-1.0, -1)
+                    };
+
+                let mut env_state = state.clone();
+                let mut latest_triggered_start = last_event_start;
+                let mut trigger_active = false;
+
+                // Check if cycle changed
+                let cycle_changed = current_cycle != prev_cycle;
+
+                // Check for new trigger events (true values in boolean pattern)
+                for event in events.iter() {
+                    // Only trigger on "true" values
+                    if !event.value {
+                        continue;
+                    }
+
+                    // Get event start time
+                    let event_start_abs = if let Some(whole) = &event.whole {
+                        whole.begin.to_float()
+                    } else {
+                        event.part.begin.to_float()
+                    };
+
+                    // We're inside a "true" event - keep envelope active
+                    trigger_active = true;
+
+                    // Only update last_trigger_time for NEW events
+                    let tolerance = sample_width * 0.001;
+                    let event_is_new = event_start_abs > last_event_start + tolerance || cycle_changed;
+
+                    if event_is_new && event_start_abs > latest_triggered_start {
+                        latest_triggered_start = event_start_abs;
+                    }
+                }
+
+                // Process envelope based on trigger
+                if trigger_active
+                    && matches!(env_state.phase, EnvPhase::Idle | EnvPhase::Release)
+                {
+                    // Start attack phase
+                    env_state.phase = EnvPhase::Attack;
+                    env_state.time_in_phase = 0.0;
+                } else if !trigger_active
+                    && matches!(
+                        env_state.phase,
+                        EnvPhase::Attack | EnvPhase::Decay | EnvPhase::Sustain
+                    )
+                {
+                    // Enter release phase
+                    env_state.release_start_level = env_state.level;
+                    env_state.phase = EnvPhase::Release;
+                    env_state.time_in_phase = 0.0;
+                }
+
+                // Advance envelope state
+                let dt = 1.0 / self.sample_rate;
+                env_state.time_in_phase += dt;
+
+                match env_state.phase {
+                    EnvPhase::Attack => {
+                        if attack > 0.0 {
+                            env_state.level = env_state.time_in_phase / attack;
+                            if env_state.level >= 1.0 {
+                                env_state.level = 1.0;
+                                env_state.phase = EnvPhase::Decay;
+                                env_state.time_in_phase = 0.0;
+                            }
+                        } else {
+                            env_state.level = 1.0;
+                            env_state.phase = EnvPhase::Decay;
+                            env_state.time_in_phase = 0.0;
+                        }
+                    }
+                    EnvPhase::Decay => {
+                        if decay > 0.0 {
+                            env_state.level =
+                                1.0 - (1.0 - sustain) * (env_state.time_in_phase / decay);
+                            if env_state.level <= sustain {
+                                env_state.level = sustain;
+                                env_state.phase = EnvPhase::Sustain;
+                                env_state.time_in_phase = 0.0;
+                            }
+                        } else {
+                            env_state.level = sustain;
+                            env_state.phase = EnvPhase::Sustain;
+                            env_state.time_in_phase = 0.0;
+                        }
+                    }
+                    EnvPhase::Sustain => {
+                        env_state.level = sustain;
+                    }
+                    EnvPhase::Release => {
+                        if release > 0.0 {
+                            let progress = (env_state.time_in_phase / release).min(1.0);
+                            env_state.level = env_state.release_start_level * (1.0 - progress);
+
+                            if progress >= 1.0 {
+                                env_state.level = 0.0;
+                                env_state.phase = EnvPhase::Idle;
+                            }
+                        } else {
+                            env_state.level = 0.0;
+                            env_state.phase = EnvPhase::Idle;
+                        }
+                    }
+                    EnvPhase::Idle => {
+                        env_state.level = 0.0;
+                    }
+                }
+
+                // Update state in node
+                if let Some(Some(SignalNode::StructuredSignal {
                     state: s,
                     last_trigger_time: lt,
                     last_cycle: lc,

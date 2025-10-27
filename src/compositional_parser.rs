@@ -496,16 +496,18 @@ fn parse_chain_expr(input: &str) -> IResult<&str, Expr> {
     Ok((current_input, expr))
 }
 
-/// Parse transform expression: expr $ transform OR transform $ expr
+/// Parse $ operator: generic function application (like Tidal)
+/// This is right-associative with low precedence: f $ g $ x = f (g x)
+/// Supports both: function $ arg  AND  expr $ transform
 fn parse_transform_expr(input: &str) -> IResult<&str, Expr> {
-    // First, try to parse: transform $ expr (Tidal-style reverse order)
+    // First, try to parse: transform $ expr (for backward compatibility)
     if let Ok((input_after_transform, transform)) = parse_transform(input) {
         let (input, _) = space0(input_after_transform)?;
 
         // Check for $ operator
         if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('$')(input) {
             let (input, _) = space0(input)?;
-            let (input, expr) = parse_additive_expr(input)?;
+            let (input, expr) = parse_transform_expr(input)?; // Right-associative!
 
             // Return transform applied to expr
             return Ok((input, Expr::Transform {
@@ -515,30 +517,58 @@ fn parse_transform_expr(input: &str) -> IResult<&str, Expr> {
         }
     }
 
-    // Fall back to standard order: expr $ transform
-    let (input, mut expr) = parse_additive_expr(input)?;
+    // Parse left side (could be a function or expression)
+    let (input, mut left) = parse_additive_expr(input)?;
 
-    // Parse any number of transforms
-    let mut current_input = input;
-    loop {
-        let (input, _) = space0(current_input)?;
+    // Check for $ operator
+    let (input, _) = space0(input)?;
+    if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('$')(input) {
+        let (input, _) = space0(input)?;
 
-        // Try to parse a transform operator
-        if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('$')(input) {
-            let (input, _) = space0(input)?;
-            let (input, transform) = parse_transform(input)?;
+        // Right side can be:
+        // 1. A transform (fast, slow, etc.) - for backward compatibility
+        // 2. Any other expression (generic function application)
 
-            expr = Expr::Transform {
-                expr: Box::new(expr),
+        // Try to parse as transform first
+        if let Ok((input, transform)) = parse_transform(input) {
+            return Ok((input, Expr::Transform {
+                expr: Box::new(left),
                 transform,
-            };
-            current_input = input;
-        } else {
-            break;
+            }));
         }
-    }
 
-    Ok((current_input, expr))
+        // Otherwise, parse as generic expression (right-associative!)
+        let (input, right) = parse_transform_expr(input)?;
+
+        // Generic function application: left $ right
+        // This means: apply left (as a function) to right (as argument)
+        // We represent this as a function call
+        match left {
+            Expr::Var(name) => {
+                // Function application: struct $ sine 440
+                Ok((input, Expr::Call {
+                    name,
+                    args: vec![right],
+                }))
+            }
+            Expr::Call { name, mut args } => {
+                // Partial application: lpf 2000 0.8 $ sine 440
+                args.push(right);
+                Ok((input, Expr::Call { name, args }))
+            }
+            _ => {
+                // For other expressions, treat left as a higher-order function
+                // This allows expressions like: (lpf 2000 0.8) $ sine 440
+                // For now, just wrap in a call to "apply"
+                Ok((input, Expr::Call {
+                    name: "apply".to_string(),
+                    args: vec![left, right],
+                }))
+            }
+        }
+    } else {
+        Ok((input, left))
+    }
 }
 
 /// Parse additive expression: expr + expr | expr - expr
@@ -1535,17 +1565,18 @@ mod tests {
 
     #[test]
     fn test_stacked_transforms() {
-        // Multiple transforms in sequence
-        let result = parse_expr("\"bd sn\" $ fast 2 $ slow 0.5 $ rev");
+        // Multiple transforms in sequence (Tidal-style: right-associative)
+        // fast 2 $ slow 0.5 $ "bd sn" means: fast 2 (slow 0.5 "bd sn")
+        let result = parse_expr("fast 2 $ slow 0.5 $ \"bd sn\"");
         assert!(result.is_ok());
         if let Ok((_, expr)) = result {
-            // Should be: Transform(Transform(Transform("bd sn", fast 2), slow 0.5), rev)
+            // Should be: Transform(fast 2, Transform(slow 0.5, "bd sn"))
             match expr {
                 Expr::Transform {
                     expr: inner,
                     transform,
                 } => {
-                    assert!(matches!(transform, Transform::Rev));
+                    assert!(matches!(transform, Transform::Fast(_)));
                     match *inner {
                         Expr::Transform { .. } => (), // Another transform inside
                         _ => panic!("Expected nested transform"),
