@@ -316,12 +316,10 @@ fn test_euclid_prime_numbers() {
 // ============================================================================
 
 #[test]
-#[ignore = "Transform chaining broken: neither fast $ slow nor slow $ fast work correctly (see KNOWN_ISSUES.md)"]
 fn test_slow_fast_combination() {
-    // NOTE: This test is ignored because transform chaining with $ doesn't work
-    // - fast 3 $ slow 2 gives 3x (only fast applied)
-    // - slow 2 $ fast 3 gives 0.5x (only slow applied)
-    // See docs/KNOWN_ISSUES.md for details
+    // NOTE: Transform chaining now works! Both parser and compiler fixes applied.
+    // slow 2 $ fast 3 means: apply slow 2 first, then fast 3
+    // Result: (1/2) * 3 = 1.5x speed
     let base = "bd sn";
     let cycles = 12; // LCM of factors for clean test
 

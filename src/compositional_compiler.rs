@@ -349,12 +349,77 @@ fn compile_function_call(
             // Handle different argument types:
             // 1. Simple string: s "bd"
             // 2. Parenthesized transform: s ("bd" $ fast 2)
-            // 3. Direct transform: s "bd" $ fast 2 (handled by compile_transform)
-            let (pattern_str, pattern) = match &args[0] {
-                Expr::String(s) => {
-                    // Simple case: just a pattern string
-                    (s.clone(), parse_mini_notation(s))
+            // 3. Direct transform via $: s "bd" $ rev $ fast 2
+            //    This creates: Call { name: "s", args: [String("bd"), Transform{...}] }
+            let (pattern_str, pattern) = if args.len() >= 2 {
+                // Case 3: s "pattern" $ transform(s)
+                // args[0] is the pattern, args[1..] are transforms applied via $
+                if let Expr::String(base_str) = &args[0] {
+                    // Start with base pattern
+                    let mut pattern = parse_mini_notation(base_str);
+
+                    // Apply transforms from args[1..]
+                    for transform_expr in &args[1..] {
+                        match transform_expr {
+                            Expr::Transform { expr, transform } => {
+                                // Extract all nested transforms
+                                fn extract_transforms_from_chain(
+                                    expr: &Expr,
+                                    transforms: &mut Vec<Transform>,
+                                ) -> Result<(), String> {
+                                    match expr {
+                                        Expr::Transform { expr: inner_expr, transform } => {
+                                            transforms.push(transform.clone());
+                                            extract_transforms_from_chain(inner_expr, transforms)
+                                        }
+                                        Expr::Call { name, args } => {
+                                            // Convert Call to Transform
+                                            let t = match name.as_str() {
+                                                "fast" if args.len() == 1 => Transform::Fast(Box::new(args[0].clone())),
+                                                "slow" if args.len() == 1 => Transform::Slow(Box::new(args[0].clone())),
+                                                "rev" if args.is_empty() => Transform::Rev,
+                                                "palindrome" if args.is_empty() => Transform::Palindrome,
+                                                "degrade" if args.is_empty() => Transform::Degrade,
+                                                "degradeBy" if args.len() == 1 => Transform::DegradeBy(Box::new(args[0].clone())),
+                                                "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
+                                                "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
+                                                "fastGap" if args.len() == 1 => Transform::FastGap(Box::new(args[0].clone())),
+                                                "iter" if args.len() == 1 => Transform::Iter(Box::new(args[0].clone())),
+                                                "early" if args.len() == 1 => Transform::Early(Box::new(args[0].clone())),
+                                                "late" if args.len() == 1 => Transform::Late(Box::new(args[0].clone())),
+                                                _ => return Err(format!("Unknown transform: {}", name)),
+                                            };
+                                            transforms.push(t);
+                                            Ok(())
+                                        }
+                                        Expr::String(_) => Ok(()), // Base case - no more transforms
+                                        _ => Err(format!("Unexpected expression in transform chain: {:?}", expr)),
+                                    }
+                                }
+
+                                let mut transforms = vec![transform.clone()];
+                                extract_transforms_from_chain(expr, &mut transforms)?;
+
+                                // Apply transforms in reverse order (innermost first)
+                                for t in transforms.iter().rev() {
+                                    pattern = apply_transform_to_pattern(pattern, t.clone())?;
+                                }
+                            }
+                            _ => return Err(format!("Expected transform as second argument to s(), got: {:?}", transform_expr)),
+                        }
+                    }
+
+                    (format!("{} (transformed)", base_str), pattern)
+                } else {
+                    return Err("First argument to s() must be a string pattern".to_string());
                 }
+            } else {
+                // Single argument cases
+                match &args[0] {
+                    Expr::String(s) => {
+                        // Simple case: just a pattern string
+                        (s.clone(), parse_mini_notation(s))
+                    }
                 Expr::Paren(inner) => {
                     // Unwrap parentheses and check for transform
                     match &**inner {
@@ -370,6 +435,29 @@ fn compile_function_call(
                                         // Collect transforms in reverse order (innermost first)
                                         transforms.push(transform.clone());
                                         extract_pattern_and_transforms(inner_expr, transforms)
+                                    }
+                                    // Handle Call expressions that are actually transforms
+                                    // This handles cases like "rev $ fast 2" where "fast 2" is parsed as a Call
+                                    Expr::Call { name, args } => {
+                                        let transform = match name.as_str() {
+                                            "fast" if args.len() == 1 => Transform::Fast(Box::new(args[0].clone())),
+                                            "slow" if args.len() == 1 => Transform::Slow(Box::new(args[0].clone())),
+                                            "rev" if args.is_empty() => Transform::Rev,
+                                            "palindrome" if args.is_empty() => Transform::Palindrome,
+                                            "degrade" if args.is_empty() => Transform::Degrade,
+                                            "degradeBy" if args.len() == 1 => Transform::DegradeBy(Box::new(args[0].clone())),
+                                            "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
+                                            "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
+                                            "fastGap" if args.len() == 1 => Transform::FastGap(Box::new(args[0].clone())),
+                                            "iter" if args.len() == 1 => Transform::Iter(Box::new(args[0].clone())),
+                                            "early" if args.len() == 1 => Transform::Early(Box::new(args[0].clone())),
+                                            "late" if args.len() == 1 => Transform::Late(Box::new(args[0].clone())),
+                                            _ => return Err(format!("Unknown transform or invalid call in transform chain: {}", name)),
+                                        };
+                                        transforms.push(transform);
+                                        // A Call that's a transform has no inner pattern - it's a leaf
+                                        // Return empty string as placeholder
+                                        Ok("".to_string())
                                     }
                                     _ => Err("s() pattern must be a string or transform chain".to_string()),
                                 }
@@ -426,6 +514,7 @@ fn compile_function_call(
                     (format!("{} (transformed)", base_str), pattern)
                 }
                 _ => return Err("s() requires a pattern string as first argument".to_string()),
+                }
             };
 
             // TODO: Handle sample-specific parameters from remaining args
@@ -2314,6 +2403,74 @@ fn compile_transform(
             last_trigger_time: -1.0,
         };
         return Ok(ctx.graph.add_node(node));
+    }
+
+    // Handle nested transforms: Transform { expr: Transform { ... }, transform }
+    // This happens when you chain multiple transforms: expr $ transform1 $ transform2
+    if let Expr::Transform { expr: inner_expr, transform: inner_transform } = expr.clone() {
+        // Collect all transforms in the chain
+        fn collect_transforms(expr: Expr, transforms: &mut Vec<Transform>) -> Expr {
+            match expr {
+                Expr::Transform { expr: inner, transform } => {
+                    transforms.push(transform);
+                    collect_transforms(*inner, transforms)
+                }
+                other => other,
+            }
+        }
+
+        let mut all_transforms = vec![transform];
+        let base_expr = collect_transforms(Expr::Transform { expr: inner_expr, transform: inner_transform }, &mut all_transforms);
+
+        // Now base_expr should be either a Call or String, and all_transforms has all transforms
+        // Apply all transforms in reverse order (they were collected outer-to-inner)
+        match base_expr {
+            Expr::Call { name, args } if name == "s" && !args.is_empty() => {
+                if let Expr::String(pattern_str) = &args[0] {
+                    let mut pattern = parse_mini_notation(pattern_str);
+
+                    // Apply all transforms in reverse order (innermost first)
+                    for t in all_transforms.iter().rev() {
+                        pattern = apply_transform_to_pattern(pattern, t.clone())?;
+                    }
+
+                    let node = SignalNode::Sample {
+                        pattern_str: format!("{} (transformed)", pattern_str),
+                        pattern,
+                        last_trigger_time: -1.0,
+                        last_cycle: -1,
+                        playback_positions: HashMap::new(),
+                        gain: Signal::Value(1.0),
+                        pan: Signal::Value(0.0),
+                        speed: Signal::Value(1.0),
+                        cut_group: Signal::Value(0.0),
+                        n: Signal::Value(0.0),
+                        note: Signal::Value(0.0),
+                        attack: Signal::Value(0.0),
+                        release: Signal::Value(0.0),
+                        envelope_type: None,
+                    };
+                    return Ok(ctx.graph.add_node(node));
+                }
+            }
+            Expr::String(pattern_str) => {
+                let mut pattern = parse_mini_notation(&pattern_str);
+
+                // Apply all transforms in reverse order (innermost first)
+                for t in all_transforms.iter().rev() {
+                    pattern = apply_transform_to_pattern(pattern, t.clone())?;
+                }
+
+                let node = SignalNode::Pattern {
+                    pattern_str: format!("{} (transformed)", pattern_str),
+                    pattern,
+                    last_value: 0.0,
+                    last_trigger_time: -1.0,
+                };
+                return Ok(ctx.graph.add_node(node));
+            }
+            _ => {}
+        }
     }
 
     // For other expressions, compile them first then try to extract and transform
