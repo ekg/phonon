@@ -32,7 +32,7 @@ For each transform, we verify 4 stages:
 
 ### Repetition
 - [x] **stutter** - Repeat each event ✅ FULLY VERIFIED
-- [ ] **dup** - Duplicate pattern 🟨 IMPLEMENTED, needs tests
+- [x] **dup** - Duplicate pattern ✅ FULLY VERIFIED
 - [ ] **ply** - Repeat events (like stutter) 🟨 IMPLEMENTED, needs tests
 
 ### Conditional
@@ -269,12 +269,12 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 ## Progress Tracking
 
 ### Overall Status
-- ✅ FULLY VERIFIED: 7 / ~70 (10.0%)
-- 🟨 IMPLEMENTED, needs tests: ~47 / ~70 (67.1%)
+- ✅ FULLY VERIFIED: 8 / ~70 (11.4%)
+- 🟨 IMPLEMENTED, needs tests: ~46 / ~70 (65.7%)
 - ❌ NOT IMPLEMENTED: ~16 / ~70 (22.9%)
 
 ### Tier Progress
-- **Tier 1** (Core): 7/18 verified (38.9%) - CURRENT FOCUS
+- **Tier 1** (Core): 8/18 verified (44.4%) - CURRENT FOCUS
 - **Tier 2** (Enhanced): 0/12 verified (0%)
 - **Tier 3** (Advanced): 0/24 verified (0%)
 - **Tier 4** (Numeric): 0/22 verified (0%)
