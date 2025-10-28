@@ -2784,9 +2784,6 @@ impl UnifiedSignalGraph {
                 };
                 let events = pattern.query(&state);
 
-                // Use 1-sample width for tolerance calculations
-                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-
                 // Check if we've crossed into a new cycle
                 let current_cycle = self.cycle_position.floor() as i32;
                 let cycle_changed = current_cycle != last_cycle;
@@ -2844,15 +2841,15 @@ impl UnifiedSignalGraph {
                     // Only trigger events that:
                     // 1. Start AFTER the last event we triggered (prevent re-triggering)
                     // 2. Start at or before the current cycle position (event has "arrived")
-                    // Use larger tolerance to account for fractional cycle positions (e.g., 1/7 cycles)
-                    let tolerance = sample_width * 10.0; // 10 samples of tolerance for timing jitter
-                    let event_is_new = event_start_abs > last_event_start + tolerance
-                        && event_start_abs <= self.cycle_position + tolerance;
+                    // Use tiny epsilon for floating-point comparison (1 microsecond in cycle time)
+                    let epsilon = 1e-6;
+                    let event_is_new = event_start_abs > last_event_start + epsilon
+                        && event_start_abs <= self.cycle_position + epsilon;
 
                     // DEBUG: Log event evaluation
                     if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 20 {
-                        eprintln!("  Event '{}' at {:.6}: event_is_new={} (last={:.6}, current={:.6}, tolerance={:.9})",
-                                 sample_name, event_start_abs, event_is_new, last_event_start, self.cycle_position, tolerance);
+                        eprintln!("  Event '{}' at {:.6}: event_is_new={} (last={:.6}, current={:.6})",
+                                 sample_name, event_start_abs, event_is_new, last_event_start, self.cycle_position);
                     }
 
                     if event_is_new {
