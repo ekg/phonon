@@ -2843,9 +2843,9 @@ impl UnifiedSignalGraph {
 
                     // Only trigger events that:
                     // 1. Start AFTER the last event we triggered (prevent re-triggering)
-                    // 2. Start at or before the current cycle position (don't trigger future events)
-                    // Use a very small tolerance for floating point comparison
-                    let tolerance = sample_width * 0.001;
+                    // 2. Start at or before the current cycle position (event has "arrived")
+                    // Use larger tolerance to account for fractional cycle positions (e.g., 1/7 cycles)
+                    let tolerance = sample_width * 10.0; // 10 samples of tolerance for timing jitter
                     let event_is_new = event_start_abs > last_event_start + tolerance
                         && event_start_abs <= self.cycle_position + tolerance;
 
