@@ -359,14 +359,33 @@ fn compile_function_call(
                     // Unwrap parentheses and check for transform
                     match &**inner {
                         Expr::Transform { expr, transform } => {
-                            // Extract base pattern string
-                            let base_str = match &**expr {
-                                Expr::String(s) => s.clone(),
-                                _ => return Err("s() pattern must be a string".to_string()),
-                            };
-                            // Parse and apply transform
+                            // Recursively extract base pattern and apply all transforms
+                            fn extract_pattern_and_transforms(
+                                expr: &Expr,
+                                transforms: &mut Vec<Transform>,
+                            ) -> Result<String, String> {
+                                match expr {
+                                    Expr::String(s) => Ok(s.clone()),
+                                    Expr::Transform { expr: inner_expr, transform } => {
+                                        // Collect transforms in reverse order (innermost first)
+                                        transforms.push(transform.clone());
+                                        extract_pattern_and_transforms(inner_expr, transforms)
+                                    }
+                                    _ => Err("s() pattern must be a string or transform chain".to_string()),
+                                }
+                            }
+
+                            let mut transforms = vec![transform.clone()];
+                            let base_str = extract_pattern_and_transforms(&**expr, &mut transforms)?;
+
+                            // Parse base pattern
                             let mut pattern = parse_mini_notation(&base_str);
-                            pattern = apply_transform_to_pattern(pattern, transform.clone())?;
+
+                            // Apply transforms in reverse order (innermost first)
+                            for t in transforms.iter().rev() {
+                                pattern = apply_transform_to_pattern(pattern, t.clone())?;
+                            }
+
                             (format!("{} (transformed)", base_str), pattern)
                         }
                         Expr::String(s) => {
@@ -377,13 +396,33 @@ fn compile_function_call(
                     }
                 }
                 Expr::Transform { expr, transform } => {
-                    // Direct transform (shouldn't normally happen, but handle it)
-                    let base_str = match &**expr {
-                        Expr::String(s) => s.clone(),
-                        _ => return Err("s() pattern must be a string".to_string()),
-                    };
+                    // Direct transform - recursively handle chained transforms
+                    fn extract_pattern_and_transforms(
+                        expr: &Expr,
+                        transforms: &mut Vec<Transform>,
+                    ) -> Result<String, String> {
+                        match expr {
+                            Expr::String(s) => Ok(s.clone()),
+                            Expr::Transform { expr: inner_expr, transform } => {
+                                // Collect transforms in reverse order (innermost first)
+                                transforms.push(transform.clone());
+                                extract_pattern_and_transforms(inner_expr, transforms)
+                            }
+                            _ => Err("s() pattern must be a string or transform chain".to_string()),
+                        }
+                    }
+
+                    let mut transforms = vec![transform.clone()];
+                    let base_str = extract_pattern_and_transforms(&**expr, &mut transforms)?;
+
+                    // Parse base pattern
                     let mut pattern = parse_mini_notation(&base_str);
-                    pattern = apply_transform_to_pattern(pattern, transform.clone())?;
+
+                    // Apply transforms in reverse order (innermost first)
+                    for t in transforms.iter().rev() {
+                        pattern = apply_transform_to_pattern(pattern, t.clone())?;
+                    }
+
                     (format!("{} (transformed)", base_str), pattern)
                 }
                 _ => return Err("s() requires a pattern string as first argument".to_string()),
