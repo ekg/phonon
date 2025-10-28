@@ -1551,9 +1551,7 @@ mod tests {
         // This should work: pattern $ fast 2 $ rev
         let result = parse_expr("\"bd sn\" $ fast 2 $ rev");
         assert!(result.is_ok());
-        if let Ok((remaining, ast)) = result {
-            println!("Remaining: '{}'", remaining);
-            println!("AST: {:#?}", ast);
+        if let Ok((remaining, _ast)) = result {
             assert_eq!(remaining, "", "Parser should consume entire expression");
         }
     }
@@ -1563,9 +1561,7 @@ mod tests {
         // Test with s wrapper and double transform
         let result = parse_expr(r#"s "bd sn" $ rev $ fast 2"#);
         assert!(result.is_ok());
-        if let Ok((remaining, ast)) = result {
-            println!("Remaining: '{}'", remaining);
-            println!("AST: {:#?}", ast);
+        if let Ok((remaining, _ast)) = result {
             assert_eq!(remaining, "", "Parser should consume entire expression");
         }
     }
