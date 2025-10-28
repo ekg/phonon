@@ -47,8 +47,8 @@ For each transform, we verify 4 stages:
 
 ### Structural
 - [x] **euclid** - Euclidean rhythms ✅ FULLY VERIFIED
-- [ ] **chop** - Slice into pieces 🟨 IMPLEMENTED, needs tests
-- [ ] **striate** - Alias for chop 🟨 IMPLEMENTED, needs tests
+- [x] **chop** - Slice into pieces ✅ FULLY VERIFIED
+- [x] **striate** - Alias for chop ✅ FULLY VERIFIED
 
 **Priority**: CRITICAL - These are the most-used transforms in live coding
 **Estimated Time**: 3-4 days (1-2 hours per transform with tests)
@@ -269,12 +269,12 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 ## Progress Tracking
 
 ### Overall Status
-- ✅ FULLY VERIFIED: 10 / ~70 (14.3%)
-- 🟨 IMPLEMENTED, needs tests: ~44 / ~70 (62.9%)
+- ✅ FULLY VERIFIED: 12 / ~70 (17.1%)
+- 🟨 IMPLEMENTED, needs tests: ~42 / ~70 (60.0%)
 - ❌ NOT IMPLEMENTED: ~16 / ~70 (22.9%)
 
 ### Tier Progress
-- **Tier 1** (Core): 10/18 verified (55.6%) - CURRENT FOCUS
+- **Tier 1** (Core): 12/18 verified (66.7%) - CURRENT FOCUS
 - **Tier 2** (Enhanced): 0/12 verified (0%)
 - **Tier 3** (Advanced): 0/24 verified (0%)
 - **Tier 4** (Numeric): 0/22 verified (0%)
