@@ -41,6 +41,7 @@ fn render_sample_pattern(
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -268,6 +269,7 @@ fn test_pattern_based_speed() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -317,6 +319,7 @@ fn test_pattern_based_gain() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -380,6 +383,7 @@ fn test_pattern_based_n() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -427,6 +431,7 @@ fn test_pattern_based_note() {
         note: Signal::Node(note_node), // Pattern-controlled note!
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -499,6 +504,7 @@ fn test_pattern_based_attack() {
         note: Signal::Value(0.0),
         attack: Signal::Node(attack_node), // Pattern-controlled attack!
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -545,6 +551,7 @@ fn test_pattern_based_release() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Node(release_node), // Pattern-controlled release!
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
