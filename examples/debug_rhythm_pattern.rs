@@ -21,6 +21,8 @@ fn main() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     // Gate the oscillator with the pattern

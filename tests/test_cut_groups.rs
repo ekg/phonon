@@ -131,6 +131,7 @@ fn test_cut_group_integration_with_unified_graph() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -187,6 +188,7 @@ fn test_pattern_controlled_cut_groups() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);

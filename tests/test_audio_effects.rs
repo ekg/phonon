@@ -14,6 +14,8 @@ fn test_reverb_basic() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
         last_sample: 0.0,
     });
 
@@ -43,6 +45,8 @@ fn test_reverb_extends_sound() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
         pending_freq: None,
         last_sample: 0.0,
     });
@@ -82,6 +86,8 @@ fn test_distortion_basic() {
         freq: Signal::Value(110.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
         pending_freq: None,
         last_sample: 0.0,
     });
@@ -123,6 +129,8 @@ fn test_distortion_changes_waveform() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
         last_sample: 0.0,
     });
 
@@ -156,6 +164,8 @@ fn test_bitcrush_basic() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
         last_sample: 0.0,
     });
 
@@ -183,6 +193,8 @@ fn test_bitcrush_reduces_resolution() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
         pending_freq: None,
         last_sample: 0.0,
     });
@@ -224,6 +236,8 @@ fn test_chorus_basic() {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
         last_sample: 0.0,
     });
 
@@ -252,6 +266,8 @@ fn test_chorus_creates_modulation() {
         freq: Signal::Value(220.0),
         waveform: Waveform::Saw,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
         pending_freq: None,
         last_sample: 0.0,
     });
@@ -302,6 +318,8 @@ fn test_delay_basic() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
         last_sample: 0.0,
     });
 
@@ -331,6 +349,8 @@ fn test_delay_creates_echoes() {
         freq: Signal::Value(880.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
         pending_freq: None,
         last_sample: 0.0,
     });
@@ -383,6 +403,8 @@ fn test_effects_chain() {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
         last_sample: 0.0,
     });
 
@@ -431,6 +453,8 @@ fn test_compressor_basic() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
         last_sample: 0.0,
     });
 
@@ -467,6 +491,8 @@ fn test_compressor_reduces_dynamic_range() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
         last_sample: 0.0,
     });
 
@@ -481,6 +507,8 @@ fn test_compressor_reduces_dynamic_range() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
         pending_freq: None,
         last_sample: 0.0,
     });

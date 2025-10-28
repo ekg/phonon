@@ -178,6 +178,7 @@ fn test_fast_vs_slow_attack() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001), // 1ms attack (fast)
         release: Signal::Value(0.05),
+        envelope_type: None,
     });
     graph_fast.set_output_channel(1, sample_node_fast);
 
@@ -200,6 +201,7 @@ fn test_fast_vs_slow_attack() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.15), // 150ms attack (slow)
         release: Signal::Value(0.05),
+        envelope_type: None,
     });
     graph_slow.set_output_channel(1, sample_node_slow);
 

@@ -64,6 +64,8 @@ fn test_oscillator_with_pattern_signal() {
         freq: Signal::Node(pattern_node),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     graph.set_output(osc);

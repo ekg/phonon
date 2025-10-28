@@ -36,6 +36,10 @@ fn render_simple_sine(output_path: &str) {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
+        last_sample: 0.0,
+        pending_freq: None,
         last_sample: 0.0,
     });
 
@@ -71,6 +75,10 @@ fn render_pattern_modulation(output_path: &str) {
         freq: Signal::Node(pattern_node),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
+        last_sample: 0.0,
     });
 
     let gain_node = graph.add_node(SignalNode::Multiply {
@@ -98,6 +106,10 @@ fn render_filter_modulation(output_path: &str) {
         freq: freq_signal,
         waveform: Waveform::Saw,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
+        last_sample: 0.0,
     });
 
     let pattern = parse_mini_notation("500 2000");

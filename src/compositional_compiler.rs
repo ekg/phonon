@@ -227,6 +227,14 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
             Err("Lists can only be used as function arguments (e.g., stack [...])".to_string())
         }
 
+        Expr::Kwarg { name, .. } => {
+            // Kwargs should only appear as function arguments
+            Err(format!(
+                "Keyword argument '{}' can only be used as a function argument",
+                name
+            ))
+        }
+
         Expr::ChainInput(_) => {
             // ChainInput is only used internally by the compiler
             // It should never appear in parsed code
@@ -346,20 +354,26 @@ fn compile_function_call(
                 return Err("s() requires at least one argument".to_string());
             }
 
+            // Separate positional args from kwargs
+            let (positional_args, kwargs): (Vec<_>, Vec<_>) = args.into_iter().partition(|arg| {
+                !matches!(arg, Expr::Kwarg { .. })
+            });
+
             // Handle different argument types:
             // 1. Simple string: s "bd"
             // 2. Parenthesized transform: s ("bd" $ fast 2)
             // 3. Direct transform via $: s "bd" $ rev $ fast 2
             //    This creates: Call { name: "s", args: [String("bd"), Transform{...}] }
-            let (pattern_str, pattern) = if args.len() >= 2 {
+            // 4. With kwargs: s "bd" gain="0.5 1.0" pan=~lfo
+            let (pattern_str, pattern) = if positional_args.len() >= 2 {
                 // Case 3: s "pattern" $ transform(s)
                 // args[0] is the pattern, args[1..] are transforms applied via $
-                if let Expr::String(base_str) = &args[0] {
+                if let Expr::String(base_str) = &positional_args[0] {
                     // Start with base pattern
                     let mut pattern = parse_mini_notation(base_str);
 
                     // Apply transforms from args[1..]
-                    for transform_expr in &args[1..] {
+                    for transform_expr in &positional_args[1..] {
                         match transform_expr {
                             Expr::Transform { expr, transform } => {
                                 // Extract all nested transforms
@@ -415,7 +429,7 @@ fn compile_function_call(
                 }
             } else {
                 // Single argument cases
-                match &args[0] {
+                match &positional_args[0] {
                     Expr::String(s) => {
                         // Simple case: just a pattern string
                         (s.clone(), parse_mini_notation(s))
@@ -517,22 +531,51 @@ fn compile_function_call(
                 }
             };
 
-            // TODO: Handle sample-specific parameters from remaining args
-            // For now, create a basic sample node with defaults
+            // Process kwargs to set sample parameters
+            let mut gain = Signal::Value(1.0);
+            let mut pan = Signal::Value(0.0);
+            let mut speed = Signal::Value(1.0);
+            let mut cut_group = Signal::Value(0.0);
+            let mut n = Signal::Value(0.0);
+            let mut note = Signal::Value(0.0);
+            let mut attack = Signal::Value(0.0);
+            let mut release = Signal::Value(0.0);
+
+            for kwarg in kwargs {
+                if let Expr::Kwarg { name, value } = kwarg {
+                    // Compile the value expression to a node
+                    let value_node_id = compile_expr(ctx, *value)?;
+                    let signal = Signal::Node(value_node_id);
+
+                    // Assign to appropriate parameter
+                    match name.as_str() {
+                        "gain" => gain = signal,
+                        "pan" => pan = signal,
+                        "speed" => speed = signal,
+                        "cut" | "cut_group" => cut_group = signal,
+                        "n" => n = signal,
+                        "note" => note = signal,
+                        "attack" => attack = signal,
+                        "release" => release = signal,
+                        _ => return Err(format!("Unknown sample parameter: {}", name)),
+                    }
+                }
+            }
+
             let node = SignalNode::Sample {
                 pattern_str: pattern_str.clone(),
                 pattern,
                 last_trigger_time: -1.0,
                 last_cycle: -1,
                 playback_positions: HashMap::new(),
-                gain: Signal::Value(1.0),
-                pan: Signal::Value(0.0),
-                speed: Signal::Value(1.0),
-                cut_group: Signal::Value(0.0),
-                n: Signal::Value(0.0),
-                note: Signal::Value(0.0),
-                attack: Signal::Value(0.0),
-                release: Signal::Value(0.0),
+                gain,
+                pan,
+                speed,
+                cut_group,
+                n,
+                note,
+                attack,
+                release,
                 envelope_type: None,
             };
             Ok(ctx.graph.add_node(node))

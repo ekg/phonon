@@ -27,6 +27,7 @@ fn test_single_event_slow_tempo_bug() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -63,6 +64,7 @@ fn test_single_event_fast_tempo_works() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -99,6 +101,7 @@ fn test_two_events_slow_tempo_works() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);

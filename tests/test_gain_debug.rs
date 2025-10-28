@@ -33,6 +33,7 @@ fn test_pattern_gain_debug() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);

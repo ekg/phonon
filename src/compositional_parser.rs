@@ -93,6 +93,10 @@ pub enum Expr {
     /// List literal: [expr1, expr2, ...]
     List(Vec<Expr>),
 
+    /// Keyword argument: gain="0.5 1.0", pan=~lfo
+    /// Used for passing named parameters to functions
+    Kwarg { name: String, value: Box<Expr> },
+
     /// Chain input marker (only used internally by compiler for # operator)
     /// This is NOT parsed from source code - only created during compilation
     ChainInput(crate::unified_graph::NodeId),
@@ -834,19 +838,42 @@ fn parse_var(input: &str) -> IResult<&str, Expr> {
     Ok((input, Expr::Var(name.to_string())))
 }
 
+/// Parse a kwarg: key="value" or key=expr
+fn parse_kwarg(input: &str) -> IResult<&str, Expr> {
+    let (input, name) = parse_identifier(input)?;
+
+    // Check for = without consuming space
+    let (input, _) = char('=')(input)?;
+
+    // Parse the value expression
+    let (input, value) = parse_primary_expr(input)?;
+
+    Ok((input, Expr::Kwarg {
+        name: name.to_string(),
+        value: Box::new(value)
+    }))
+}
+
+/// Parse either a kwarg or a regular argument
+fn parse_arg_or_kwarg(input: &str) -> IResult<&str, Expr> {
+    // Try kwarg first (identifier=expr), then fall back to regular primary expr
+    alt((parse_kwarg, parse_primary_expr))(input)
+}
+
 /// Parse function call: name arg1 arg2 ...
 /// ONLY space-separated syntax is supported (no parentheses/commas)
+/// Supports kwargs: name arg1 key1=val1 key2=val2
 fn parse_function_call(input: &str) -> IResult<&str, Expr> {
     let (input, name) = parse_identifier(input)?;
 
     // Require at least one space and one argument
     let (input, _) = hspace1(input)?;
 
-    // Parse first argument (primary expressions only - use parens for complex expressions)
-    let (input, first_arg) = parse_primary_expr(input)?;
+    // Parse first argument (could be positional or kwarg)
+    let (input, first_arg) = parse_arg_or_kwarg(input)?;
 
     // Parse remaining space-separated arguments (using hspace1!)
-    let (input, mut rest_args) = many0(preceded(hspace1, parse_primary_expr))(input)?;
+    let (input, mut rest_args) = many0(preceded(hspace1, parse_arg_or_kwarg))(input)?;
 
     // Combine all args
     let mut args = vec![first_arg];

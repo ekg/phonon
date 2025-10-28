@@ -62,6 +62,8 @@ fn test_manual_sine_synthesis_reference() {
         freq: Signal::Value(110.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     // ADSR envelope to gate each note (attack + decay + release = 0.5s = one cycle)
@@ -135,6 +137,8 @@ fn test_pattern_controlled_frequency_with_alternation() {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     // ADSR to gate each note
@@ -231,6 +235,8 @@ fn test_pattern_frequency_both_notes_gated() {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     // Trigger both notes: <1 1>
@@ -335,6 +341,8 @@ fn test_diagnose_4700hz_problem() {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     let scaled = graph.add_node(SignalNode::Multiply {

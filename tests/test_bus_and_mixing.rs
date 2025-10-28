@@ -20,6 +20,8 @@ fn test_bus_assignment_produces_audio() {
         freq: Signal::Value(110.0),
         waveform: Waveform::Saw,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     // Store in bus
@@ -84,12 +86,16 @@ fn test_signal_addition_mixes_correctly() {
         freq: Signal::Value(100.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     let high_freq = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(1000.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     // Scale them
@@ -171,18 +177,24 @@ fn test_multiple_signal_addition() {
         freq: Signal::Value(110.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     let sig2 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(220.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     let sig3 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     // Scale each

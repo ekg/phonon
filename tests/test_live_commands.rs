@@ -10,12 +10,20 @@ fn test_hush_command_silences_outputs() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
+        last_sample: 0.0,
     });
 
     let osc2 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(880.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
+        last_sample: 0.0,
     });
 
     graph.set_output_channel(1, osc1);
@@ -73,6 +81,7 @@ fn test_panic_command_kills_voices() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output_channel(1, sample_node);
@@ -101,12 +110,20 @@ fn test_hush_specific_channel() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
+        last_sample: 0.0,
     });
 
     let osc2 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(880.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
+        last_sample: 0.0,
     });
 
     graph.set_output_channel(1, osc1);

@@ -28,6 +28,7 @@ fn test_direct_sample_trigger() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);

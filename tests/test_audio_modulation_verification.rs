@@ -99,6 +99,8 @@ fn test_filter_pattern_actually_modulates() {
         freq: Signal::Value(110.0),
         waveform: Waveform::Saw,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     // Pattern alternates between very low and very high cutoff
@@ -173,6 +175,8 @@ fn test_oscillator_frequency_pattern_modulates() {
         freq: Signal::Node(pattern_node),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     let scaled = graph.add_node(SignalNode::Multiply {

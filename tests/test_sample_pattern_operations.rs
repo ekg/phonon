@@ -33,6 +33,7 @@ fn test_alternation_over_multiple_cycles() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph.set_output(sample_node);
 
@@ -118,6 +119,7 @@ fn test_concatenation_multiple_samples() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph.set_output(sample_node);
 
@@ -200,6 +202,7 @@ fn test_layering_simultaneous_samples() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph.set_output(sample_node);
 
@@ -262,6 +265,7 @@ fn test_alternation_with_subdivision() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph.set_output(sample_node);
 
@@ -327,6 +331,7 @@ fn test_concatenation_over_multiple_bars() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph.set_output(sample_node);
 
@@ -401,6 +406,7 @@ fn test_euclidean_alternation_combo() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph.set_output(sample_node);
 
@@ -469,6 +475,7 @@ fn test_fast_subdivision_accuracy() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph.set_output(sample_node);
 

@@ -24,6 +24,8 @@ fn test_pattern_drives_oscillator_frequency() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
         last_sample: 0.0,
     });
 
@@ -161,6 +163,8 @@ fn test_pattern_timing_synchronization() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
+        last_sample: 0.0, 
+        pending_freq: None,
         last_sample: 0.0,
     });
 
@@ -238,6 +242,8 @@ fn test_complex_pattern_synthesis() {
         freq: Signal::Node(melody_node),
         waveform: Waveform::Square,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
         pending_freq: None,
         last_sample: 0.0,
     });

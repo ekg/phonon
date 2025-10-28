@@ -73,6 +73,7 @@ fn test_dsl_vs_direct_api() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
     graph_direct.set_output(sample_node);
     let buffer_direct = graph_direct.render(44100);

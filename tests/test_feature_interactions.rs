@@ -114,6 +114,7 @@ fn test_pattern_gain_with_fast_transform() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output_channel(1, sample_node);
@@ -212,6 +213,7 @@ fn test_pattern_pan_with_slow() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.05),
+        envelope_type: None,
     });
 
     graph.set_output_channel(1, sample_node);
@@ -253,6 +255,7 @@ fn test_pattern_speed_with_every() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output_channel(1, sample_node);
@@ -445,6 +448,7 @@ fn test_different_cut_groups_independent() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.2),
+        envelope_type: None,
     });
 
     // Voice 2: cut group 2 (different)
@@ -463,6 +467,7 @@ fn test_different_cut_groups_independent() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.15),
+        envelope_type: None,
     });
 
     let mix = graph.add_node(SignalNode::Add {

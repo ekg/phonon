@@ -30,6 +30,7 @@ fn test_sample_node_reproduces_original_sample() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -90,6 +91,7 @@ fn test_pattern_with_three_drums() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);

@@ -77,6 +77,8 @@ fn render_note_pattern(pattern_str: &str) -> Vec<f32> {
         freq: Signal::Node(pattern_node),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     // Scale down amplitude
@@ -261,6 +263,8 @@ fn test_frequency_accuracy_tolerance() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         phase: 0.0,
+        pending_freq: None,
+        last_sample: 0.0, 
     });
 
     let scaled = graph.add_node(SignalNode::Multiply {
