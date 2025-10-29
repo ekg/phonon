@@ -145,6 +145,12 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     pub fn shuffle(self, amount: f64) -> Self {
         Pattern::new(move |state: &State| {
             let haps = self.query(state);
+
+            // Handle zero amount to avoid empty range panic
+            if amount == 0.0 {
+                return haps;
+            }
+
             let cycle = state.span.begin.to_float().floor() as u64;
             let mut rng = StdRng::seed_from_u64(cycle);
 
