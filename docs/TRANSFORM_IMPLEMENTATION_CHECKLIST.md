@@ -73,10 +73,10 @@ For each transform, we verify 4 stages:
 - [x] **segment** - Sample n times per cycle ✅ FULLY VERIFIED
 
 ### Structure
-- [ ] **zoom** - Focus on time range 🟨 IMPLEMENTED, needs tests
-- [ ] **compress** - Compress to range 🟨 IMPLEMENTED, needs tests
-- [ ] **spin** - Rotate versions 🟨 IMPLEMENTED, needs tests
-- [ ] **scramble** - Shuffle events 🟨 IMPLEMENTED, needs tests
+- [x] **zoom** - Focus on time range ✅ FULLY VERIFIED
+- [x] **compress** - Compress to range ✅ FULLY VERIFIED
+- [x] **spin** - Rotate versions ✅ FULLY VERIFIED
+- [x] **scramble** - Shuffle events ✅ FULLY VERIFIED
 
 **Priority**: HIGH - Used frequently, adds expressiveness
 **Estimated Time**: 2-3 days
@@ -269,13 +269,13 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 ## Progress Tracking
 
 ### Overall Status
-- ✅ FULLY VERIFIED: 27 / ~70 (38.6%)
-- 🟨 IMPLEMENTED, needs tests: ~43 / ~70 (61.4%)
+- ✅ FULLY VERIFIED: 31 / ~70 (44.3%)
+- 🟨 IMPLEMENTED, needs tests: ~39 / ~70 (55.7%)
 - ❌ NOT IMPLEMENTED: 0 / ~70 (0%)  🎉 **PHASE 1 COMPLETE!**
 
 ### Tier Progress
 - **Tier 1** (Core): 18/18 verified (100%) ✅ COMPLETE
-- **Tier 2** (Enhanced): 12/12 implemented, 9/12 verified (75%) - IN PROGRESS
+- **Tier 2** (Enhanced): 12/12 verified (100%) ✅ COMPLETE
 - **Tier 3** (Advanced): 24/24 implemented, 0/24 verified (0%)
 - **Tier 4** (Numeric): 22/22 implemented, 0/22 verified (0%)
 - **Tier 5** (All transforms): 16/16 implemented (100%) ✅ ALL IMPLEMENTED
@@ -318,20 +318,21 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 
 ## Next Session Start Here
 
-**Current Focus**: TIER 2 - Enhanced Expression (Common Usage)
+**Current Focus**: TIER 3 - Advanced Transforms (Power Users)
 
-**TIER 1 COMPLETE! 🎉** All 18 core transforms verified with 3-level tests.
+**TIER 1 & 2 COMPLETE! 🎉** All 30 core and enhanced transforms verified with 3-level tests.
 
-**Next Transform**: `swing` (add swing timing)
+**Next Transform**: `rotL` (rotate left)
 
 **Command to run**:
 ```bash
-# 1. Create test file
-touch tests/test_transform_swing.rs
+# 1. Create test file for rotation & iteration transforms
+touch tests/test_transform_rotation.rs
 
 # 2. Follow TDD workflow above
-# 3. Commit when done
-# 4. Move to next transform: shuffle
+# 3. Test rotL, rotR, iterBack together
+# 4. Commit when done
+# 5. Move to next category: meta-transforms
 ```
 
 **Quick Status Check**:
