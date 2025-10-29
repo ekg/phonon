@@ -60,8 +60,8 @@ For each transform, we verify 4 stages:
 ### Rhythmic Feel
 - [x] **swing** - Add swing timing ✅ FULLY VERIFIED
 - [x] **shuffle** - Random time shifts ✅ FULLY VERIFIED
-- [ ] **legato** - Longer duration 🟨 IMPLEMENTED, needs tests
-- [ ] **staccato** - Shorter duration 🟨 IMPLEMENTED, needs tests
+- [x] **legato** - Longer duration ✅ FULLY VERIFIED
+- [x] **staccato** - Shorter duration ✅ FULLY VERIFIED
 
 ### Time Shifting
 - [ ] **early** - Shift earlier 🟨 IMPLEMENTED, needs tests
@@ -269,13 +269,13 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 ## Progress Tracking
 
 ### Overall Status
-- ✅ FULLY VERIFIED: 18 / ~70 (25.7%)
-- 🟨 IMPLEMENTED, needs tests: ~52 / ~70 (74.3%)
+- ✅ FULLY VERIFIED: 22 / ~70 (31.4%)
+- 🟨 IMPLEMENTED, needs tests: ~48 / ~70 (68.6%)
 - ❌ NOT IMPLEMENTED: 0 / ~70 (0%)  🎉 **PHASE 1 COMPLETE!**
 
 ### Tier Progress
 - **Tier 1** (Core): 18/18 verified (100%) ✅ COMPLETE
-- **Tier 2** (Enhanced): 12/12 implemented, 0/12 verified (0%) - READY FOR PHASE 2
+- **Tier 2** (Enhanced): 12/12 implemented, 4/12 verified (33%) - IN PROGRESS
 - **Tier 3** (Advanced): 24/24 implemented, 0/24 verified (0%)
 - **Tier 4** (Numeric): 22/22 implemented, 0/22 verified (0%)
 - **Tier 5** (All transforms): 16/16 implemented (100%) ✅ ALL IMPLEMENTED
