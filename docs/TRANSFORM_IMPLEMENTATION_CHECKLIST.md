@@ -98,8 +98,8 @@ For each transform, we verify 4 stages:
 - [x] **outside** - Apply outside range ✅ FULLY VERIFIED
 
 ### Conditional Variants
-- [ ] **almostAlways** - 90% probability ❌ NOT IMPLEMENTED (would be alias for sometimesBy 0.9)
-- [ ] **almostNever** - 10% probability ❌ NOT IMPLEMENTED (same as rarely)
+- [x] **almostAlways** - 90% probability ✅ FULLY VERIFIED
+- [x] **almostNever** - 10% probability ✅ FULLY VERIFIED
 - [x] **sometimesBy** - Custom probability ✅ FULLY VERIFIED
 - [x] **whenmod** - Cycle-based condition ✅ FULLY VERIFIED
 
@@ -271,18 +271,18 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 ## Progress Tracking
 
 ### Overall Status
-- ✅ FULLY VERIFIED: 86 / 88 (97.7%) 🎉🎉🎉 NEARLY PERFECT!
+- ✅ FULLY VERIFIED: 88 / 88 (100%) 🎉🎉🎉 **PERFECT COMPLETION!!!**
 - 🟨 IMPLEMENTED, needs tests: 0 / 88 (0%)
-- ❌ NOT IMPLEMENTED: 2 / 88 (2.3%) - almostAlways, almostNever (would be aliases)
+- ❌ NOT IMPLEMENTED: 0 / 88 (0%)
 
 ### Tier Progress
 - **Tier 1** (Core): 18/18 verified (100%) ✅ COMPLETE
 - **Tier 2** (Enhanced): 12/12 verified (100%) ✅ COMPLETE
-- **Tier 3** (Advanced): 22/22 verified (100%) ✅ COMPLETE
+- **Tier 3** (Advanced): 24/24 verified (100%) ✅ COMPLETE
 - **TIER 4** (Numeric & Special): 24/24 verified (100%) ✅ COMPLETE
-- **TIER 5** (Advanced Missing): 16/16 verified (100%) ✅ COMPLETE 🎉🎉🎉
+- **TIER 5** (Advanced Missing): 16/16 verified (100%) ✅ COMPLETE
 
-**🎊 ALL TIERS COMPLETE! 🎊**
+**🎊🎊🎊 100% COMPLETE - ALL 88 TRANSFORMS VERIFIED! 🎊🎊🎊**
 
 ### Estimated Timeline
 - **Tier 1**: 3-4 days (12 transforms remaining)

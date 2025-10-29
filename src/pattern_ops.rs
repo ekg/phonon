@@ -135,6 +135,22 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         self.sometimes_by(0.75, f)
     }
 
+    /// Almost always apply a function (90% chance)
+    pub fn almost_always(self, f: impl Fn(Pattern<T>) -> Pattern<T> + Send + Sync + 'static) -> Self
+    where
+        T: 'static,
+    {
+        self.sometimes_by(0.9, f)
+    }
+
+    /// Almost never apply a function (10% chance - alias for rarely)
+    pub fn almost_never(self, f: impl Fn(Pattern<T>) -> Pattern<T> + Send + Sync + 'static) -> Self
+    where
+        T: 'static,
+    {
+        self.sometimes_by(0.1, f)
+    }
+
     /// Always apply a function (100% chance - mainly for consistency)
     pub fn always(self, f: impl Fn(Pattern<T>) -> Pattern<T> + Send + Sync + 'static) -> Self
     where
