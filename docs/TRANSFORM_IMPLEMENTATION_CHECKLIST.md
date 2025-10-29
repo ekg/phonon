@@ -69,8 +69,8 @@ For each transform, we verify 4 stages:
 - [x] **offset** - Time offset (alias) ✅ FULLY VERIFIED
 
 ### Pattern Effects
-- [ ] **echo** - Echo with decay 🟨 IMPLEMENTED, needs tests
-- [ ] **segment** - Sample n times per cycle 🟨 IMPLEMENTED, needs tests
+- [x] **echo** - Echo with decay ✅ FULLY VERIFIED
+- [x] **segment** - Sample n times per cycle ✅ FULLY VERIFIED
 
 ### Structure
 - [ ] **zoom** - Focus on time range 🟨 IMPLEMENTED, needs tests
@@ -269,13 +269,13 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 ## Progress Tracking
 
 ### Overall Status
-- ✅ FULLY VERIFIED: 25 / ~70 (35.7%)
-- 🟨 IMPLEMENTED, needs tests: ~45 / ~70 (64.3%)
+- ✅ FULLY VERIFIED: 27 / ~70 (38.6%)
+- 🟨 IMPLEMENTED, needs tests: ~43 / ~70 (61.4%)
 - ❌ NOT IMPLEMENTED: 0 / ~70 (0%)  🎉 **PHASE 1 COMPLETE!**
 
 ### Tier Progress
 - **Tier 1** (Core): 18/18 verified (100%) ✅ COMPLETE
-- **Tier 2** (Enhanced): 12/12 implemented, 7/12 verified (58%) - IN PROGRESS
+- **Tier 2** (Enhanced): 12/12 implemented, 9/12 verified (75%) - IN PROGRESS
 - **Tier 3** (Advanced): 24/24 implemented, 0/24 verified (0%)
 - **Tier 4** (Numeric): 22/22 implemented, 0/22 verified (0%)
 - **Tier 5** (All transforms): 16/16 implemented (100%) ✅ ALL IMPLEMENTED
