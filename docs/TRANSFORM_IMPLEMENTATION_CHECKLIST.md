@@ -38,12 +38,12 @@ For each transform, we verify 4 stages:
 ### Conditional
 - [x] **every** - Apply every n cycles ✅ FULLY VERIFIED
 - [x] **sometimes** - 50% probability ✅ FULLY VERIFIED
-- [ ] **often** - 75% probability 🟨 IMPLEMENTED, needs tests
-- [ ] **rarely** - 25% probability 🟨 IMPLEMENTED, needs tests
+- [x] **often** - 75% probability ✅ FULLY VERIFIED
+- [x] **rarely** - 10% probability ✅ FULLY VERIFIED
 
 ### Probability
-- [ ] **degrade** - Random removal (50%) 🟨 IMPLEMENTED, needs tests
-- [ ] **degradeBy** - Random removal (custom %) 🟨 IMPLEMENTED, needs tests
+- [x] **degrade** - Random removal (50%) ✅ FULLY VERIFIED
+- [x] **degradeBy** - Random removal (custom %) ✅ FULLY VERIFIED
 
 ### Structural
 - [x] **euclid** - Euclidean rhythms ✅ FULLY VERIFIED
@@ -269,13 +269,13 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 ## Progress Tracking
 
 ### Overall Status
-- ✅ FULLY VERIFIED: 13 / ~70 (18.6%)
-- 🟨 IMPLEMENTED, needs tests: ~41 / ~70 (58.6%)
+- ✅ FULLY VERIFIED: 18 / ~70 (25.7%)
+- 🟨 IMPLEMENTED, needs tests: ~36 / ~70 (51.4%)
 - ❌ NOT IMPLEMENTED: ~16 / ~70 (22.9%)
 
 ### Tier Progress
-- **Tier 1** (Core): 13/18 verified (72.2%) - CURRENT FOCUS
-- **Tier 2** (Enhanced): 0/12 verified (0%)
+- **Tier 1** (Core): 18/18 verified (100%) ✅ COMPLETE
+- **Tier 2** (Enhanced): 0/12 verified (0%) - CURRENT FOCUS
 - **Tier 3** (Advanced): 0/24 verified (0%)
 - **Tier 4** (Numeric): 0/22 verified (0%)
 - **Tier 5** (Future): 0/16 implemented (0%)
@@ -318,18 +318,20 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 
 ## Next Session Start Here
 
-**Current Focus**: TIER 1 - Core Transforms (Repetition)
+**Current Focus**: TIER 2 - Enhanced Expression (Common Usage)
 
-**Next Transform**: `stutter` (repeat each event)
+**TIER 1 COMPLETE! 🎉** All 18 core transforms verified with 3-level tests.
+
+**Next Transform**: `swing` (add swing timing)
 
 **Command to run**:
 ```bash
 # 1. Create test file
-touch tests/test_transform_stutter.rs
+touch tests/test_transform_swing.rs
 
 # 2. Follow TDD workflow above
 # 3. Commit when done
-# 4. Move to next transform: dup
+# 4. Move to next transform: shuffle
 ```
 
 **Quick Status Check**:
