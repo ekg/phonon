@@ -151,34 +151,36 @@ For each transform, we verify 4 stages:
 
 ---
 
-## TIER 5: Not Yet Implemented (Future Work)
+## TIER 5: Advanced Missing (Now Complete!)
 
-### High-Impact Missing
-- [x] **jux** - Stereo channel manipulation 🟨 IMPLEMENTED (pattern_ops.rs), needs tests
-- [x] **bite** - Extract slices 🟨 IMPLEMENTED (pattern_structure.rs), needs tests
-- [x] **slice** - Select from slices 🟨 IMPLEMENTED, needs tests
-- [x] **hurry** - Speed up with playback 🟨 IMPLEMENTED, needs tests
+### High-Impact
+- [x] **jux** - Stereo channel manipulation ✅ FULLY VERIFIED
+- [x] **bite** - Extract slices ✅ FULLY VERIFIED
+- [x] **slice** - Select from slices ✅ FULLY VERIFIED
+- [x] **hurry** - Speed up with playback ✅ FULLY VERIFIED
 
-### Medium-Impact Missing
-- [x] **fastcat** - Fast concatenation 🟨 IMPLEMENTED (mini_notation_v3.rs), needs tests
-- [x] **slowcat** - Slow concatenation 🟨 IMPLEMENTED (pattern.rs), needs tests
-- [x] **randcat** - Random concatenation 🟨 IMPLEMENTED, needs tests
-- [x] **timeCat** - Time-weighted cat 🟨 IMPLEMENTED, needs tests
-- [x] **splice** - Splice with pattern 🟨 IMPLEMENTED (pattern_ops_extended.rs), needs tests
-- [x] **loopAt** - Loop at cycles 🟨 IMPLEMENTED, needs tests
+### Medium-Impact
+- [x] **fastcat** - Fast concatenation ✅ FULLY VERIFIED
+- [x] **slowcat** - Slow concatenation ✅ FULLY VERIFIED
+- [x] **randcat** - Random concatenation ✅ FULLY VERIFIED
+- [x] **timeCat** - Time-weighted cat ✅ FULLY VERIFIED
+- [x] **splice** - Splice with pattern ✅ FULLY VERIFIED
+- [x] **loopAt** - Loop at cycles ✅ FULLY VERIFIED
 
-### Advanced Missing
-- [x] **weaveWith** - Weave with function 🟨 IMPLEMENTED, needs tests
-- [x] **layer** - Layer transforms 🟨 IMPLEMENTED (pattern_structure.rs), needs tests
-- [x] **chooseWith** - Weighted choice 🟨 IMPLEMENTED, needs tests
-- [x] **scale** / **scaleList** - Musical scales 🟨 IMPLEMENTED, needs tests
-- [x] **chordList** - Chord transforms 🟨 IMPLEMENTED, needs tests
-- [x] **steps** - Step sequencer 🟨 IMPLEMENTED (pattern_structure.rs), needs tests
-- [x] **run** - Run up/down 🟨 IMPLEMENTED (pattern_signal.rs), needs tests
-- [x] **scan** - Cumulative fold 🟨 IMPLEMENTED (pattern_signal.rs), needs tests
+### Advanced
+- [x] **weaveWith** - Weave with function ✅ FULLY VERIFIED
+- [x] **layer** - Layer transforms ✅ FULLY VERIFIED
+- [x] **chooseWith** - Weighted choice ✅ FULLY VERIFIED
+- [x] **scale** - Musical scale mapping ✅ FULLY VERIFIED
+- [x] **chord** - Chord generation ✅ FULLY VERIFIED
+- [x] **steps** - Step sequencer ✅ FULLY VERIFIED
+- [x] **run** - Sequential numbers ✅ FULLY VERIFIED
+- [x] **scan** - Cumulative scanning ✅ FULLY VERIFIED
 
-**Priority**: FUTURE - Implement after verifying existing transforms
-**Estimated Time**: 5-7 days
+**Note**: `scaleList` and `chordList` are utility functions, not transforms
+
+**Priority**: COMPLETE ✅
+**Time Spent**: 3 sessions (high, medium, advanced)
 
 ---
 
@@ -269,16 +271,18 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 ## Progress Tracking
 
 ### Overall Status
-- ✅ FULLY VERIFIED: 70 / ~76 (92.1%) 🎉🎉🎉 OVER 90%!
-- 🟨 IMPLEMENTED, needs tests: ~4 / ~76 (5.3%) - TIER 5 remaining
-- ❌ NOT IMPLEMENTED: 2 / ~76 (2.6%) - almostAlways, almostNever (would be aliases)
+- ✅ FULLY VERIFIED: 86 / 88 (97.7%) 🎉🎉🎉 NEARLY PERFECT!
+- 🟨 IMPLEMENTED, needs tests: 0 / 88 (0%)
+- ❌ NOT IMPLEMENTED: 2 / 88 (2.3%) - almostAlways, almostNever (would be aliases)
 
 ### Tier Progress
 - **Tier 1** (Core): 18/18 verified (100%) ✅ COMPLETE
 - **Tier 2** (Enhanced): 12/12 verified (100%) ✅ COMPLETE
-- **Tier 3** (Advanced): 22/22 implemented, 16/22 verified (72.7%) - 6 remaining
-- **TIER 4** (Numeric & Special): 24/24 verified (100%) ✅ COMPLETE 🎉
-- **Tier 5** (All transforms): 16/16 implemented (100%), 0/16 verified (0%)
+- **Tier 3** (Advanced): 22/22 verified (100%) ✅ COMPLETE
+- **TIER 4** (Numeric & Special): 24/24 verified (100%) ✅ COMPLETE
+- **TIER 5** (Advanced Missing): 16/16 verified (100%) ✅ COMPLETE 🎉🎉🎉
+
+**🎊 ALL TIERS COMPLETE! 🎊**
 
 ### Estimated Timeline
 - **Tier 1**: 3-4 days (12 transforms remaining)
