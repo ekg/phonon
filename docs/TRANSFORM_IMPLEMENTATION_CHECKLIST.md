@@ -98,10 +98,10 @@ For each transform, we verify 4 stages:
 - [x] **outside** - Apply outside range ✅ FULLY VERIFIED
 
 ### Conditional Variants
-- [ ] **almostAlways** - 90% probability 🟨 IMPLEMENTED, needs tests
-- [ ] **almostNever** - 10% probability 🟨 IMPLEMENTED, needs tests
-- [ ] **sometimesBy** - Custom probability 🟨 IMPLEMENTED, needs tests
-- [ ] **whenmod** - Cycle-based condition 🟨 IMPLEMENTED, needs tests
+- [ ] **almostAlways** - 90% probability ❌ NOT IMPLEMENTED (would be alias for sometimesBy 0.9)
+- [ ] **almostNever** - 10% probability ❌ NOT IMPLEMENTED (same as rarely)
+- [x] **sometimesBy** - Custom probability ✅ FULLY VERIFIED
+- [x] **whenmod** - Cycle-based condition ✅ FULLY VERIFIED
 
 ### Advanced Time
 - [ ] **gap** - Insert silence 🟨 IMPLEMENTED, needs tests
@@ -269,14 +269,14 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 ## Progress Tracking
 
 ### Overall Status
-- ✅ FULLY VERIFIED: 39 / ~70 (55.7%)
-- 🟨 IMPLEMENTED, needs tests: ~31 / ~70 (44.3%)
-- ❌ NOT IMPLEMENTED: 0 / ~70 (0%)  🎉 **PHASE 1 COMPLETE!**
+- ✅ FULLY VERIFIED: 41 / ~68 (60.3%) 🎉 OVER 60%!
+- 🟨 IMPLEMENTED, needs tests: ~25 / ~68 (36.8%)
+- ❌ NOT IMPLEMENTED: 2 / ~68 (2.9%) - almostAlways, almostNever (would be aliases)
 
 ### Tier Progress
 - **Tier 1** (Core): 18/18 verified (100%) ✅ COMPLETE
 - **Tier 2** (Enhanced): 12/12 verified (100%) ✅ COMPLETE
-- **Tier 3** (Advanced): 24/24 implemented, 8/24 verified (33.3%) - IN PROGRESS
+- **Tier 3** (Advanced): 22/22 implemented, 10/22 verified (45.5%) - IN PROGRESS
 - **Tier 4** (Numeric): 22/22 implemented, 0/22 verified (0%)
 - **Tier 5** (All transforms): 16/16 implemented (100%) ✅ ALL IMPLEMENTED
 
