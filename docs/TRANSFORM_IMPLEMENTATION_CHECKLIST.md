@@ -104,12 +104,12 @@ For each transform, we verify 4 stages:
 - [x] **whenmod** - Cycle-based condition ✅ FULLY VERIFIED
 
 ### Advanced Time
-- [ ] **gap** - Insert silence 🟨 IMPLEMENTED, needs tests
-- [ ] **fit** - Fit to cycles 🟨 IMPLEMENTED, needs tests
-- [ ] **stretch** - Sustain notes 🟨 IMPLEMENTED, needs tests
-- [ ] **linger** - Linger on values 🟨 IMPLEMENTED, needs tests
-- [ ] **loop** - Loop within cycle 🟨 IMPLEMENTED, needs tests
-- [ ] **chew** - Chew through pattern 🟨 IMPLEMENTED, needs tests
+- [x] **gap** - Insert silence ✅ FULLY VERIFIED
+- [x] **fit** - Fit to cycles ✅ FULLY VERIFIED
+- [x] **stretch** - Sustain notes ✅ FULLY VERIFIED
+- [x] **linger** - Linger on values ✅ FULLY VERIFIED
+- [x] **loop** - Loop within cycle ✅ FULLY VERIFIED
+- [x] **chew** - Chew through pattern ✅ FULLY VERIFIED
 
 **Priority**: MEDIUM - Used for advanced patterns
 **Estimated Time**: 3-4 days
@@ -119,13 +119,13 @@ For each transform, we verify 4 stages:
 ## TIER 4: Numeric & Special (Lower Priority)
 
 ### Numeric Transforms
-- [ ] **discretise** - Quantize time 🟨 IMPLEMENTED, needs tests
-- [ ] **range** - Scale to range 🟨 IMPLEMENTED, needs tests
-- [ ] **quantize** - Quantize values 🟨 IMPLEMENTED, needs tests
-- [ ] **smooth** - Smooth values 🟨 IMPLEMENTED, needs tests
-- [ ] **exp** - Exponential 🟨 IMPLEMENTED, needs tests
-- [ ] **log** - Logarithmic 🟨 IMPLEMENTED, needs tests
-- [ ] **walk** - Random walk 🟨 IMPLEMENTED, needs tests
+- [x] **discretise** - Quantize time ✅ FULLY VERIFIED
+- [x] **range** - Scale to range ✅ FULLY VERIFIED
+- [x] **quantize** - Quantize values ✅ FULLY VERIFIED
+- [x] **smooth** - Smooth values ✅ FULLY VERIFIED
+- [x] **exp** - Exponential ✅ FULLY VERIFIED
+- [x] **log** - Logarithmic ✅ FULLY VERIFIED
+- [x] **walk** - Random walk ✅ FULLY VERIFIED
 
 ### Special Purpose
 - [ ] **compressGap** - Compress with gaps 🟨 IMPLEMENTED, needs tests
@@ -269,15 +269,15 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 ## Progress Tracking
 
 ### Overall Status
-- ✅ FULLY VERIFIED: 41 / ~68 (60.3%) 🎉 OVER 60%!
-- 🟨 IMPLEMENTED, needs tests: ~25 / ~68 (36.8%)
+- ✅ FULLY VERIFIED: 54 / ~68 (79.4%) 🎉 ALMOST 80%!
+- 🟨 IMPLEMENTED, needs tests: ~12 / ~68 (17.6%)
 - ❌ NOT IMPLEMENTED: 2 / ~68 (2.9%) - almostAlways, almostNever (would be aliases)
 
 ### Tier Progress
 - **Tier 1** (Core): 18/18 verified (100%) ✅ COMPLETE
 - **Tier 2** (Enhanced): 12/12 verified (100%) ✅ COMPLETE
-- **Tier 3** (Advanced): 22/22 implemented, 10/22 verified (45.5%) - IN PROGRESS
-- **Tier 4** (Numeric): 22/22 implemented, 0/22 verified (0%)
+- **Tier 3** (Advanced): 22/22 implemented, 16/22 verified (72.7%) - 6 remaining
+- **Tier 4** (Numeric): 24/24 implemented, 7/24 verified (29.2%) - IN PROGRESS 🔥
 - **Tier 5** (All transforms): 16/16 implemented (100%) ✅ ALL IMPLEMENTED
 
 ### Estimated Timeline
