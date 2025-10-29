@@ -128,23 +128,23 @@ For each transform, we verify 4 stages:
 - [x] **walk** - Random walk ✅ FULLY VERIFIED
 
 ### Special Purpose
-- [ ] **compressGap** - Compress with gaps 🟨 IMPLEMENTED, needs tests
-- [ ] **reset** - Restart cycles 🟨 IMPLEMENTED, needs tests
-- [ ] **restart** - Restart alias 🟨 IMPLEMENTED, needs tests
-- [ ] **loopback** - Back then forward 🟨 IMPLEMENTED, needs tests
-- [ ] **binary** - Bit mask 🟨 IMPLEMENTED, needs tests
-- [ ] **focus** - Focus on cycles 🟨 IMPLEMENTED, needs tests
-- [ ] **trim** - Trim time range 🟨 IMPLEMENTED, needs tests
-- [ ] **wait** - Delay by cycles 🟨 IMPLEMENTED, needs tests
-- [ ] **mask** - Boolean mask 🟨 IMPLEMENTED, needs tests
-- [ ] **weave** - Weave pattern 🟨 IMPLEMENTED, needs tests
-- [ ] **degradeSeed** - Seeded degrade 🟨 IMPLEMENTED, needs tests
-- [ ] **undegrade** - Identity 🟨 IMPLEMENTED, needs tests
-- [ ] **accelerate** - Speed up over time 🟨 IMPLEMENTED, needs tests
-- [ ] **humanize** - Timing variation 🟨 IMPLEMENTED, needs tests
-- [ ] **mirror** - Palindrome alias 🟨 IMPLEMENTED, needs tests
-- [ ] **always** - Identity (100%) 🟨 IMPLEMENTED, needs tests
-- [ ] **fastGap** - Fast with gaps 🟨 IMPLEMENTED, needs tests
+- [x] **compressGap** - Compress with gaps ✅ FULLY VERIFIED
+- [x] **reset** - Restart cycles ✅ FULLY VERIFIED
+- [x] **restart** - Restart alias ✅ FULLY VERIFIED
+- [x] **loopback** - Back then forward ✅ FULLY VERIFIED
+- [x] **binary** - Bit mask ✅ FULLY VERIFIED
+- [x] **focus** - Focus on cycles ✅ FULLY VERIFIED
+- [x] **trim** - Trim time range ✅ FULLY VERIFIED
+- [x] **wait** - Delay by cycles ✅ FULLY VERIFIED
+- [x] **mask** - Boolean mask ✅ FULLY VERIFIED
+- [x] **weave** - Weave pattern ✅ FULLY VERIFIED
+- [x] **degradeSeed** - Seeded degrade ✅ FULLY VERIFIED
+- [x] **undegrade** - Identity ✅ FULLY VERIFIED
+- [x] **accelerate** - Speed up over time ✅ FULLY VERIFIED
+- [x] **humanize** - Timing variation ✅ FULLY VERIFIED
+- [x] **mirror** - Palindrome alias ✅ FULLY VERIFIED
+- [x] **always** - Identity (100%) ✅ FULLY VERIFIED
+- [x] **fastGap** - Fast with gaps ✅ FULLY VERIFIED
 
 **Priority**: LOW - Niche use cases
 **Estimated Time**: 4-5 days
@@ -269,16 +269,16 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 ## Progress Tracking
 
 ### Overall Status
-- ✅ FULLY VERIFIED: 54 / ~68 (79.4%) 🎉 ALMOST 80%!
-- 🟨 IMPLEMENTED, needs tests: ~12 / ~68 (17.6%)
-- ❌ NOT IMPLEMENTED: 2 / ~68 (2.9%) - almostAlways, almostNever (would be aliases)
+- ✅ FULLY VERIFIED: 70 / ~76 (92.1%) 🎉🎉🎉 OVER 90%!
+- 🟨 IMPLEMENTED, needs tests: ~4 / ~76 (5.3%) - TIER 5 remaining
+- ❌ NOT IMPLEMENTED: 2 / ~76 (2.6%) - almostAlways, almostNever (would be aliases)
 
 ### Tier Progress
 - **Tier 1** (Core): 18/18 verified (100%) ✅ COMPLETE
 - **Tier 2** (Enhanced): 12/12 verified (100%) ✅ COMPLETE
 - **Tier 3** (Advanced): 22/22 implemented, 16/22 verified (72.7%) - 6 remaining
-- **Tier 4** (Numeric): 24/24 implemented, 7/24 verified (29.2%) - IN PROGRESS 🔥
-- **Tier 5** (All transforms): 16/16 implemented (100%) ✅ ALL IMPLEMENTED
+- **TIER 4** (Numeric & Special): 24/24 verified (100%) ✅ COMPLETE 🎉
+- **Tier 5** (All transforms): 16/16 implemented (100%), 0/16 verified (0%)
 
 ### Estimated Timeline
 - **Tier 1**: 3-4 days (12 transforms remaining)
