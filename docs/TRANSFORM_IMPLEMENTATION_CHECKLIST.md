@@ -86,9 +86,9 @@ For each transform, we verify 4 stages:
 ## TIER 3: Advanced Transforms (Power Users)
 
 ### Rotation & Iteration
-- [ ] **rotL** - Rotate left 🟨 IMPLEMENTED, needs tests
-- [ ] **rotR** - Rotate right 🟨 IMPLEMENTED, needs tests
-- [ ] **iterBack** - Iterate backwards 🟨 IMPLEMENTED, needs tests
+- [x] **rotL** - Rotate left ✅ FULLY VERIFIED
+- [x] **rotR** - Rotate right ✅ FULLY VERIFIED
+- [x] **iterBack** - Iterate backwards ✅ FULLY VERIFIED
 
 ### Meta-transforms
 - [ ] **chunk** - Divide and transform 🟨 IMPLEMENTED, needs tests
@@ -269,14 +269,14 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 ## Progress Tracking
 
 ### Overall Status
-- ✅ FULLY VERIFIED: 31 / ~70 (44.3%)
-- 🟨 IMPLEMENTED, needs tests: ~39 / ~70 (55.7%)
+- ✅ FULLY VERIFIED: 34 / ~70 (48.6%)
+- 🟨 IMPLEMENTED, needs tests: ~36 / ~70 (51.4%)
 - ❌ NOT IMPLEMENTED: 0 / ~70 (0%)  🎉 **PHASE 1 COMPLETE!**
 
 ### Tier Progress
 - **Tier 1** (Core): 18/18 verified (100%) ✅ COMPLETE
 - **Tier 2** (Enhanced): 12/12 verified (100%) ✅ COMPLETE
-- **Tier 3** (Advanced): 24/24 implemented, 0/24 verified (0%)
+- **Tier 3** (Advanced): 24/24 implemented, 3/24 verified (12.5%) - IN PROGRESS
 - **Tier 4** (Numeric): 22/22 implemented, 0/22 verified (0%)
 - **Tier 5** (All transforms): 16/16 implemented (100%) ✅ ALL IMPLEMENTED
 
