@@ -91,11 +91,11 @@ For each transform, we verify 4 stages:
 - [x] **iterBack** - Iterate backwards ✅ FULLY VERIFIED
 
 ### Meta-transforms
-- [ ] **chunk** - Divide and transform 🟨 IMPLEMENTED, needs tests
-- [ ] **superimpose** - Layer with transform 🟨 IMPLEMENTED, needs tests
-- [ ] **within** - Apply within time 🟨 IMPLEMENTED, needs tests
-- [ ] **inside** - Apply inside range 🟨 IMPLEMENTED, needs tests
-- [ ] **outside** - Apply outside range 🟨 IMPLEMENTED, needs tests
+- [x] **chunk** - Divide and transform ✅ FULLY VERIFIED
+- [x] **superimpose** - Layer with transform ✅ FULLY VERIFIED
+- [x] **within** - Apply within time ✅ FULLY VERIFIED
+- [x] **inside** - Apply inside range ✅ FULLY VERIFIED
+- [x] **outside** - Apply outside range ✅ FULLY VERIFIED
 
 ### Conditional Variants
 - [ ] **almostAlways** - 90% probability 🟨 IMPLEMENTED, needs tests
@@ -269,14 +269,14 @@ git commit -m "Verify/implement TRANSFORM with 3-level tests
 ## Progress Tracking
 
 ### Overall Status
-- ✅ FULLY VERIFIED: 34 / ~70 (48.6%)
-- 🟨 IMPLEMENTED, needs tests: ~36 / ~70 (51.4%)
+- ✅ FULLY VERIFIED: 39 / ~70 (55.7%)
+- 🟨 IMPLEMENTED, needs tests: ~31 / ~70 (44.3%)
 - ❌ NOT IMPLEMENTED: 0 / ~70 (0%)  🎉 **PHASE 1 COMPLETE!**
 
 ### Tier Progress
 - **Tier 1** (Core): 18/18 verified (100%) ✅ COMPLETE
 - **Tier 2** (Enhanced): 12/12 verified (100%) ✅ COMPLETE
-- **Tier 3** (Advanced): 24/24 implemented, 3/24 verified (12.5%) - IN PROGRESS
+- **Tier 3** (Advanced): 24/24 implemented, 8/24 verified (33.3%) - IN PROGRESS
 - **Tier 4** (Numeric): 22/22 implemented, 0/22 verified (0%)
 - **Tier 5** (All transforms): 16/16 implemented (100%) ✅ ALL IMPLEMENTED
 
