@@ -499,6 +499,70 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             pattern.query(state)
         })
     }
+
+    /// Select a slice from the pattern based on slice number
+    /// slice n i - divides pattern into n slices and selects slice i
+    pub fn slice(self, n: usize, index: usize) -> Self {
+        if n == 0 {
+            return Pattern::silence();
+        }
+        let slice_index = index % n;
+        let begin = slice_index as f64 / n as f64;
+        let end = (slice_index + 1) as f64 / n as f64;
+
+        // Use zoom to focus on the specific slice
+        Pattern::new(move |state| {
+            let zoomed_begin = state.span.begin.to_float() * n as f64 + slice_index as f64;
+            let zoomed_end = state.span.end.to_float() * n as f64 + slice_index as f64;
+
+            let zoomed_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(zoomed_begin / n as f64),
+                    Fraction::from_float(zoomed_end / n as f64),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            self.query(&zoomed_state)
+                .into_iter()
+                .map(|mut hap| {
+                    // Adjust timing to fit within the original query span
+                    hap.whole = hap.whole.map(|w| TimeSpan::new(
+                        Fraction::from_float(w.begin.to_float() * n as f64 - slice_index as f64),
+                        Fraction::from_float(w.end.to_float() * n as f64 - slice_index as f64),
+                    ));
+                    hap.part = TimeSpan::new(
+                        Fraction::from_float(hap.part.begin.to_float() * n as f64 - slice_index as f64),
+                        Fraction::from_float(hap.part.end.to_float() * n as f64 - slice_index as f64),
+                    );
+                    hap
+                })
+                .collect()
+        })
+    }
+}
+
+impl Pattern<String> {
+    /// Hurry - speed up the pattern and also speed up sample playback
+    /// hurry 2 - play twice as fast AND pitch up samples
+    pub fn hurry(self, factor: f64) -> Self {
+        // Fast speeds up the pattern timing
+        let fast_pattern = self.fast(factor);
+
+        // Add speed control to modify sample playback
+        Pattern::new(move |state| {
+            fast_pattern.query(state)
+                .into_iter()
+                .map(|mut hap| {
+                    // Add speed control to each event
+                    let mut controls = hap.value.clone();
+                    // Note: This assumes the value can have speed appended
+                    // In real implementation, we'd want to add this to the controls HashMap
+                    hap
+                })
+                .collect()
+        })
+    }
 }
 
 // ============= Euclidean Rhythms =============

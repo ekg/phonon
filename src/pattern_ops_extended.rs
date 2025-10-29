@@ -701,6 +701,90 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         // In real implementation, this would control distortion
         self
     }
+
+    /// Loop a pattern at a given number of cycles
+    /// loopAt n - stretches the pattern to fit n cycles, then loops it
+    pub fn loop_at(self, cycles: f64) -> Self {
+        Pattern::new(move |state| {
+            // Scale time by the loop duration
+            let scaled_begin = state.span.begin.to_float() / cycles;
+            let scaled_end = state.span.end.to_float() / cycles;
+
+            let scaled_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(scaled_begin),
+                    Fraction::from_float(scaled_end),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            self.query(&scaled_state)
+                .into_iter()
+                .map(|mut hap| {
+                    // Scale times back up
+                    hap.whole = hap.whole.map(|w| TimeSpan::new(
+                        Fraction::from_float(w.begin.to_float() * cycles),
+                        Fraction::from_float(w.end.to_float() * cycles),
+                    ));
+                    hap.part = TimeSpan::new(
+                        Fraction::from_float(hap.part.begin.to_float() * cycles),
+                        Fraction::from_float(hap.part.end.to_float() * cycles),
+                    );
+                    hap
+                })
+                .collect()
+        })
+    }
+
+    /// Weave with a function - applies function to alternating cycles
+    pub fn weave_with(
+        self,
+        f: impl Fn(Pattern<T>) -> Pattern<T> + Send + Sync + 'static,
+    ) -> Pattern<T> {
+        let f = Arc::new(f);
+        Pattern::new(move |state| {
+            let cycle = state.span.begin.to_float().floor() as i64;
+
+            if cycle % 2 == 0 {
+                self.query(state)
+            } else {
+                let transformed = f(self.clone());
+                transformed.query(state)
+            }
+        })
+    }
+
+    /// Choose with weighted probability
+    /// chooseWith [(pattern1, weight1), (pattern2, weight2), ...]
+    pub fn choose_with(choices: Vec<(Pattern<T>, f64)>) -> Pattern<T> {
+        if choices.is_empty() {
+            return Pattern::silence();
+        }
+
+        // Calculate total weight
+        let total_weight: f64 = choices.iter().map(|(_, w)| w).sum();
+
+        Pattern::new(move |state| {
+            use rand::{Rng, SeedableRng};
+            use rand::rngs::StdRng;
+
+            let cycle = state.span.begin.to_float().floor() as u64;
+            let mut rng = StdRng::seed_from_u64(cycle);
+            let choice = rng.gen::<f64>() * total_weight;
+
+            // Find which pattern to use
+            let mut cumulative = 0.0;
+            for (pattern, weight) in &choices {
+                cumulative += weight;
+                if choice < cumulative {
+                    return pattern.query(state);
+                }
+            }
+
+            // Fallback to last pattern
+            choices.last().unwrap().0.query(state)
+        })
+    }
 }
 
 // Utility functions
