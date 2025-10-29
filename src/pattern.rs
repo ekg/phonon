@@ -500,6 +500,127 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
+    /// Randomly choose a pattern each cycle (deterministic based on cycle number)
+    pub fn randcat(patterns: Vec<Pattern<T>>) -> Pattern<T> {
+        if patterns.is_empty() {
+            return Pattern::silence();
+        }
+
+        let len = patterns.len();
+        Pattern::new(move |state| {
+            use rand::{Rng, SeedableRng};
+            use rand::rngs::StdRng;
+
+            // Determine which pattern is active based on random selection per cycle
+            let cycle = state.span.begin.to_float().floor() as u64;
+            let mut rng = StdRng::seed_from_u64(cycle);
+            let pattern_idx = rng.gen_range(0..len);
+            let pattern = &patterns[pattern_idx];
+
+            // Query the selected pattern with the current time span
+            pattern.query(state)
+        })
+    }
+
+    /// Time-weighted concatenation - each pattern gets a specific duration within the cycle
+    /// timeCat takes pairs of (duration, pattern) where durations are normalized to sum to 1.0
+    pub fn timecat(weighted_patterns: Vec<(f64, Pattern<T>)>) -> Pattern<T> {
+        if weighted_patterns.is_empty() {
+            return Pattern::silence();
+        }
+
+        // Normalize weights to sum to 1.0
+        let total_weight: f64 = weighted_patterns.iter().map(|(w, _)| w).sum();
+        let normalized: Vec<(f64, Pattern<T>)> = weighted_patterns
+            .into_iter()
+            .map(|(w, p)| (w / total_weight, p))
+            .collect();
+
+        Pattern::new(move |state| {
+            let mut all_haps = Vec::new();
+
+            // For each cycle that overlaps with our query span
+            let start_cycle = state.span.begin.to_float().floor() as i64;
+            let end_cycle = state.span.end.to_float().ceil() as i64;
+
+            for cycle in start_cycle..end_cycle {
+                let cycle_f = cycle as f64;
+
+                // Get the portion of this cycle that overlaps with our query
+                let cycle_start = cycle_f.max(state.span.begin.to_float());
+                let cycle_end = (cycle_f + 1.0).min(state.span.end.to_float());
+
+                if cycle_start >= cycle_end {
+                    continue;
+                }
+
+                // Within each cycle, patterns are divided by their weights
+                let local_start = cycle_start - cycle_f;
+                let local_end = cycle_end - cycle_f;
+
+                // Find which patterns overlap with our query
+                let mut cumulative = 0.0;
+                for (idx, (weight, pattern)) in normalized.iter().enumerate() {
+                    let pattern_start = cumulative;
+                    let pattern_end = cumulative + weight;
+                    cumulative = pattern_end;
+
+                    // Check if this pattern overlaps with our query range
+                    if local_end <= pattern_start || local_start >= pattern_end {
+                        continue;
+                    }
+
+                    // Calculate the overlap
+                    let overlap_start = local_start.max(pattern_start);
+                    let overlap_end = local_end.min(pattern_end);
+
+                    // Map to pattern's local time (0 to 1 within the pattern)
+                    let pattern_local_start = (overlap_start - pattern_start) / weight;
+                    let pattern_local_end = (overlap_end - pattern_start) / weight;
+
+                    // Create query for this pattern
+                    let pattern_state = State {
+                        span: TimeSpan::new(
+                            Fraction::from_float(cycle_f + pattern_local_start),
+                            Fraction::from_float(cycle_f + pattern_local_end),
+                        ),
+                        controls: state.controls.clone(),
+                    };
+
+                    // Query and remap events to global time
+                    for mut hap in pattern.query(&pattern_state) {
+                        // Remap from pattern time to global time
+                        hap.part = TimeSpan::new(
+                            Fraction::from_float(
+                                cycle_f + pattern_start
+                                    + (hap.part.begin.to_float() - cycle_f) * weight,
+                            ),
+                            Fraction::from_float(
+                                cycle_f + pattern_start + (hap.part.end.to_float() - cycle_f) * weight,
+                            ),
+                        );
+
+                        if let Some(whole) = hap.whole {
+                            hap.whole = Some(TimeSpan::new(
+                                Fraction::from_float(
+                                    cycle_f + pattern_start
+                                        + (whole.begin.to_float() - cycle_f) * weight,
+                                ),
+                                Fraction::from_float(
+                                    cycle_f + pattern_start + (whole.end.to_float() - cycle_f) * weight,
+                                ),
+                            ));
+                        }
+
+                        all_haps.push(hap);
+                    }
+                }
+            }
+
+            all_haps
+        })
+    }
+
     /// Select a slice from the pattern based on slice number
     /// slice n i - divides pattern into n slices and selects slice i
     pub fn slice(self, n: usize, index: usize) -> Self {
