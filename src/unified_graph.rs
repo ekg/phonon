@@ -1047,6 +1047,30 @@ impl FundspState {
         }
     }
 
+    /// Create a new moog_hz unit (Moog ladder filter)
+    pub fn new_moog_hz(cutoff: f32, resonance: f32, sample_rate: f64) -> Self {
+        use fundsp::prelude::AudioUnit;
+
+        let mut unit = fundsp::prelude::moog_hz(cutoff, resonance);
+        unit.reset();
+        unit.set_sample_rate(sample_rate);
+
+        // Create a closure that owns the unit and calls tick
+        let tick_fn = Box::new(move |input: f32| -> f32 {
+            // moog_hz takes 1 input, returns 1 output
+            // Convert f32 array to fundsp Frame type
+            let output_frame = unit.tick(&[input].into());
+            output_frame[0]
+        });
+
+        Self {
+            tick_fn,
+            unit_type: FundspUnitType::MoogHz,
+            params: vec![cutoff, resonance],
+            sample_rate,
+        }
+    }
+
     /// Process one sample through the fundsp unit
     pub fn tick(&mut self, input: f32) -> f32 {
         (self.tick_fn)(input)
@@ -1059,6 +1083,17 @@ impl FundspState {
             *self = Self::new_organ_hz(new_freq, sample_rate);
         }
     }
+
+    /// Update moog filter parameters (for moog_hz)
+    pub fn update_moog_params(&mut self, new_cutoff: f32, new_resonance: f32, sample_rate: f64) {
+        let cutoff_changed = (self.params[0] - new_cutoff).abs() > 1.0;
+        let resonance_changed = (self.params[1] - new_resonance).abs() > 0.01;
+
+        if cutoff_changed || resonance_changed {
+            // Recreate the unit with new parameters
+            *self = Self::new_moog_hz(new_cutoff, new_resonance, sample_rate);
+        }
+    }
 }
 
 impl Clone for FundspState {
@@ -1066,6 +1101,9 @@ impl Clone for FundspState {
         // Recreate the unit based on its type and parameters
         match self.unit_type {
             FundspUnitType::OrganHz => Self::new_organ_hz(self.params[0], self.sample_rate),
+            FundspUnitType::MoogHz => {
+                Self::new_moog_hz(self.params[0], self.params[1], self.sample_rate)
+            }
             _ => panic!("Clone not implemented for this fundsp unit type"),
         }
     }
@@ -2760,6 +2798,14 @@ impl UnifiedSignalGraph {
                         if !params.is_empty() {
                             let freq = param_values[0];
                             state_guard.update_frequency(freq, self.sample_rate as f64);
+                        }
+                    }
+                    FundspUnitType::MoogHz => {
+                        // Parameters: 0=cutoff, 1=resonance
+                        if param_values.len() >= 2 {
+                            let cutoff = param_values[0];
+                            let resonance = param_values[1];
+                            state_guard.update_moog_params(cutoff, resonance, self.sample_rate as f64);
                         }
                     }
                     _ => {

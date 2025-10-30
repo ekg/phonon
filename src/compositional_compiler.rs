@@ -602,6 +602,7 @@ fn compile_function_call(
 
         // ========== fundsp UGens ==========
         "organ_hz" | "organ" => compile_organ_hz(ctx, args),
+        "moog_hz" => compile_moog_hz(ctx, args),
 
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
@@ -1191,6 +1192,37 @@ fn compile_organ_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
         unit_type: FundspUnitType::OrganHz,
         input: Signal::Value(0.0), // organ_hz has no audio input
         params: vec![Signal::Node(freq_node)],
+        state: Arc::new(Mutex::new(state)),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_moog_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 2 {
+        return Err(format!(
+            "moog_hz requires 2 parameters (cutoff, resonance), got {}",
+            params.len()
+        ));
+    }
+
+    // Compile cutoff and resonance parameters (supports pattern modulation!)
+    let cutoff_node = compile_expr(ctx, params[0].clone())?;
+    let resonance_node = compile_expr(ctx, params[1].clone())?;
+
+    // Create fundsp moog_hz unit (initialized with default params)
+    use crate::unified_graph::{FundspState, FundspUnitType};
+    use std::sync::{Arc, Mutex};
+
+    let state = FundspState::new_moog_hz(1000.0, 0.5, ctx.graph.sample_rate() as f64);
+
+    let node = SignalNode::FundspUnit {
+        unit_type: FundspUnitType::MoogHz,
+        input: input_signal,
+        params: vec![Signal::Node(cutoff_node), Signal::Node(resonance_node)],
         state: Arc::new(Mutex::new(state)),
     };
 
