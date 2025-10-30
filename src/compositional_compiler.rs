@@ -600,6 +600,9 @@ fn compile_function_call(
         "pan2_l" => compile_pan2_l(ctx, args),
         "pan2_r" => compile_pan2_r(ctx, args),
 
+        // ========== fundsp UGens ==========
+        "organ_hz" | "organ" => compile_organ_hz(ctx, args),
+
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
         "saw_trig" => compile_synth_pattern(ctx, Waveform::Saw, args),
@@ -1162,6 +1165,33 @@ fn compile_pan2_r(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
     let node = SignalNode::Pan2Right {
         input: Signal::Node(input_node),
         position: Signal::Node(position_node),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile fundsp organ_hz oscillator
+/// Organ synthesis with additive harmonics (from fundsp library)
+/// Usage: organ_hz frequency
+fn compile_organ_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.is_empty() {
+        return Err("organ_hz requires frequency argument".to_string());
+    }
+
+    // Compile frequency parameter as a signal (supports pattern modulation!)
+    let freq_node = compile_expr(ctx, args[0].clone())?;
+
+    // Create fundsp organ_hz unit
+    use crate::unified_graph::{FundspState, FundspUnitType};
+    use std::sync::{Arc, Mutex};
+
+    let state = FundspState::new_organ_hz(440.0, ctx.graph.sample_rate() as f64);
+
+    let node = SignalNode::FundspUnit {
+        unit_type: FundspUnitType::OrganHz,
+        input: Signal::Value(0.0), // organ_hz has no audio input
+        params: vec![Signal::Node(freq_node)],
+        state: Arc::new(Mutex::new(state)),
     };
 
     Ok(ctx.graph.add_node(node))

@@ -399,6 +399,7 @@ use crate::voice_manager::VoiceManager;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::f32::consts::PI;
+use std::sync::{Arc, Mutex};
 
 /// Unique identifier for nodes in the graph
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
@@ -971,6 +972,16 @@ pub enum SignalNode {
         phase: f32,     // LFO phase accumulator
     },
 
+    /// fundsp Unit Wrapper (wraps fundsp AudioUnit for pattern modulation)
+    /// Allows using fundsp's 60+ battle-tested UGens with Phonon's pattern system
+    /// Pattern signals can modulate fundsp parameters at audio rate
+    FundspUnit {
+        unit_type: FundspUnitType,      // Which fundsp unit this is
+        input: Signal,                   // Audio input from Phonon
+        params: Vec<Signal>,             // Pattern-modulatable parameters!
+        state: Arc<Mutex<FundspState>>,  // Thread-safe shared mutable fundsp unit state
+    },
+
     /// Output node
     Output { input: Signal },
 }
@@ -982,6 +993,93 @@ pub enum Waveform {
     Saw,
     Square,
     Triangle,
+}
+
+/// fundsp Unit Types
+/// Identifies which fundsp AudioUnit is wrapped
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FundspUnitType {
+    /// Organ-like oscillator (additive synthesis with multiple harmonics)
+    OrganHz,
+    /// Moog ladder filter (4-pole 24dB/octave lowpass)
+    MoogHz,
+    /// Stereo reverb (2 input, 2 output)
+    Reverb2Stereo,
+    /// Phaser effect (frequency-domain comb filtering)
+    Phaser,
+    /// Nonlinear lowpass filter (Jatin Chowdhury's design)
+    DLowpassHz,
+}
+
+/// fundsp State Wrapper
+/// Uses a tick function pointer to avoid complex generic types
+/// This allows us to store fundsp units without exposing their concrete types
+pub struct FundspState {
+    /// Function that processes one sample
+    tick_fn: Box<dyn FnMut(f32) -> f32 + Send>,
+    /// Type of the unit (for debugging and parameter updates)
+    unit_type: FundspUnitType,
+    /// Current parameters (for recreation if needed)
+    params: Vec<f32>,
+    sample_rate: f64,
+}
+
+impl FundspState {
+    /// Create a new organ_hz unit
+    pub fn new_organ_hz(frequency: f32, sample_rate: f64) -> Self {
+        use fundsp::prelude::AudioUnit;
+
+        let mut unit = fundsp::prelude::organ_hz(frequency);
+        unit.reset();
+        unit.set_sample_rate(sample_rate);
+
+        // Create a closure that owns the unit and calls tick
+        let tick_fn = Box::new(move |_input: f32| -> f32 {
+            let output_frame = unit.tick(&Default::default());
+            output_frame[0]
+        });
+
+        Self {
+            tick_fn,
+            unit_type: FundspUnitType::OrganHz,
+            params: vec![frequency],
+            sample_rate,
+        }
+    }
+
+    /// Process one sample through the fundsp unit
+    pub fn tick(&mut self, input: f32) -> f32 {
+        (self.tick_fn)(input)
+    }
+
+    /// Update frequency parameter (for organ_hz)
+    pub fn update_frequency(&mut self, new_freq: f32, sample_rate: f64) {
+        if (self.params[0] - new_freq).abs() > 0.1 {
+            // Recreate the unit with new parameters
+            *self = Self::new_organ_hz(new_freq, sample_rate);
+        }
+    }
+}
+
+impl Clone for FundspState {
+    fn clone(&self) -> Self {
+        // Recreate the unit based on its type and parameters
+        match self.unit_type {
+            FundspUnitType::OrganHz => Self::new_organ_hz(self.params[0], self.sample_rate),
+            _ => panic!("Clone not implemented for this fundsp unit type"),
+        }
+    }
+}
+
+// Manual Debug implementation since closures don't implement Debug
+impl std::fmt::Debug for FundspState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FundspState")
+            .field("unit_type", &self.unit_type)
+            .field("params", &self.params)
+            .field("sample_rate", &self.sample_rate)
+            .finish()
+    }
 }
 
 /// Filter state for biquad filters
@@ -2637,6 +2735,42 @@ impl UnifiedSignalGraph {
                 }
 
                 output_val
+            }
+
+            SignalNode::FundspUnit {
+                unit_type,
+                input,
+                params,
+                state,
+            } => {
+                // 1. Evaluate Phonon input signal
+                let input_sample = self.eval_signal(&input);
+
+                // 2. Evaluate Phonon parameter signals (PATTERN MODULATION!)
+                let mut param_values = Vec::new();
+                for param_signal in &params {
+                    param_values.push(self.eval_signal(param_signal));
+                }
+
+                // 3. Update fundsp unit parameters based on unit type
+                let mut state_guard = state.lock().unwrap();
+                match unit_type {
+                    FundspUnitType::OrganHz => {
+                        // Parameter 0: frequency
+                        if !params.is_empty() {
+                            let freq = param_values[0];
+                            state_guard.update_frequency(freq, self.sample_rate as f64);
+                        }
+                    }
+                    _ => {
+                        // TODO: Implement other unit types
+                    }
+                }
+
+                // 4. Call fundsp tick() to generate output
+                let output = state_guard.tick(input_sample);
+
+                output
             }
 
             SignalNode::Output { input } => self.eval_signal(&input),
