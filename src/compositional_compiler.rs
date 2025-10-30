@@ -185,6 +185,9 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
 
         Expr::Var(name) => {
             // Check if it's a zero-argument function first
+            if name == "noise" {
+                return compile_noise(ctx, vec![]);
+            }
             if name == "white_noise" {
                 return compile_white_noise(ctx, vec![]);
             }
@@ -608,24 +611,13 @@ fn compile_function_call(
         "saw_hz" => compile_saw_hz(ctx, args),
         "square_hz" => compile_square_hz(ctx, args),
         "triangle_hz" => compile_triangle_hz(ctx, args),
+        "noise" => compile_noise(ctx, args),
 
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
         "saw_trig" => compile_synth_pattern(ctx, Waveform::Saw, args),
         "square_trig" => compile_synth_pattern(ctx, Waveform::Square, args),
         "tri_trig" => compile_synth_pattern(ctx, Waveform::Triangle, args),
-
-        // ========== Noise ==========
-        "noise" => {
-            // Noise generator - arguments are ignored (for parser compatibility)
-            // Parser requires at least one argument, so users call: noise 0
-            let seed = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_nanos() as u32)
-                .unwrap_or(42); // Fallback to constant seed if system time fails
-            let node = SignalNode::Noise { seed };
-            Ok(ctx.graph.add_node(node))
-        }
 
         // ========== SuperDirt Synths ==========
         "superkick" => compile_superkick(ctx, args),
@@ -1386,6 +1378,33 @@ fn compile_triangle_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
         unit_type: FundspUnitType::TriangleHz,
         input: Signal::Node(no_input),
         params: vec![Signal::Node(freq_node)],
+        state: Arc::new(Mutex::new(state)),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if !args.is_empty() {
+        return Err(format!(
+            "noise takes no parameters, got {}",
+            args.len()
+        ));
+    }
+
+    // Create fundsp noise unit
+    use crate::unified_graph::{FundspState, FundspUnitType};
+    use std::sync::{Arc, Mutex};
+
+    let state = FundspState::new_noise(ctx.graph.sample_rate() as f64);
+
+    // Create constant node for "no input" (noise is a generator)
+    let no_input = ctx.graph.add_node(SignalNode::Constant { value: 0.0 });
+
+    let node = SignalNode::FundspUnit {
+        unit_type: FundspUnitType::Noise,
+        input: Signal::Node(no_input),
+        params: vec![],  // No parameters!
         state: Arc::new(Mutex::new(state)),
     };
 

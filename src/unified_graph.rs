@@ -1013,6 +1013,8 @@ pub enum FundspUnitType {
     SquareHz,
     /// Bandlimited triangle wave oscillator
     TriangleHz,
+    /// White noise generator
+    Noise,
     /// Phaser effect (frequency-domain comb filtering)
     Phaser,
     /// Nonlinear lowpass filter (Jatin Chowdhury's design)
@@ -1201,6 +1203,28 @@ impl FundspState {
         }
     }
 
+    pub fn new_noise(sample_rate: f64) -> Self {
+        use fundsp::prelude::AudioUnit;
+
+        let mut unit = fundsp::prelude::noise();
+        unit.reset();
+        unit.set_sample_rate(sample_rate);
+
+        // Create a closure that owns the unit and calls tick
+        let tick_fn = Box::new(move |_input: f32| -> f32 {
+            // noise: 0 inputs -> 1 output (generator)
+            let output_frame = unit.tick(&Default::default());
+            output_frame[0]
+        });
+
+        Self {
+            tick_fn,
+            unit_type: FundspUnitType::Noise,
+            params: vec![],  // No parameters!
+            sample_rate,
+        }
+    }
+
     /// Process one sample through the fundsp unit
     pub fn tick(&mut self, input: f32) -> f32 {
         (self.tick_fn)(input)
@@ -1307,6 +1331,7 @@ impl Clone for FundspState {
             FundspUnitType::SawHz => Self::new_saw_hz(self.params[0], self.sample_rate),
             FundspUnitType::SquareHz => Self::new_square_hz(self.params[0], self.sample_rate),
             FundspUnitType::TriangleHz => Self::new_triangle_hz(self.params[0], self.sample_rate),
+            FundspUnitType::Noise => Self::new_noise(self.sample_rate),
             _ => panic!("Clone not implemented for this fundsp unit type"),
         }
     }
@@ -3055,6 +3080,9 @@ impl UnifiedSignalGraph {
                             let frequency = param_values[0];
                             state_guard.update_triangle_frequency(frequency, self.sample_rate as f64);
                         }
+                    }
+                    FundspUnitType::Noise => {
+                        // No parameters to update!
                     }
                     _ => {
                         // TODO: Implement other unit types
