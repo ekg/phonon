@@ -607,6 +607,7 @@ fn compile_function_call(
         "fchorus" => compile_fundsp_chorus(ctx, args),
         "saw_hz" => compile_saw_hz(ctx, args),
         "square_hz" => compile_square_hz(ctx, args),
+        "triangle_hz" => compile_triangle_hz(ctx, args),
 
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
@@ -1354,6 +1355,35 @@ fn compile_square_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
 
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::SquareHz,
+        input: Signal::Node(no_input),
+        params: vec![Signal::Node(freq_node)],
+        state: Arc::new(Mutex::new(state)),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_triangle_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "triangle_hz requires 1 parameter (frequency), got {}",
+            args.len()
+        ));
+    }
+
+    let freq_node = compile_expr(ctx, args[0].clone())?;
+
+    // Create fundsp triangle_hz unit (initialized with default frequency)
+    use crate::unified_graph::{FundspState, FundspUnitType};
+    use std::sync::{Arc, Mutex};
+
+    let state = FundspState::new_triangle_hz(440.0, ctx.graph.sample_rate() as f64);
+
+    // Create constant node for "no input" (triangle_hz is a generator)
+    let no_input = ctx.graph.add_node(SignalNode::Constant { value: 0.0 });
+
+    let node = SignalNode::FundspUnit {
+        unit_type: FundspUnitType::TriangleHz,
         input: Signal::Node(no_input),
         params: vec![Signal::Node(freq_node)],
         state: Arc::new(Mutex::new(state)),

@@ -1011,6 +1011,8 @@ pub enum FundspUnitType {
     SawHz,
     /// Bandlimited square wave oscillator
     SquareHz,
+    /// Bandlimited triangle wave oscillator
+    TriangleHz,
     /// Phaser effect (frequency-domain comb filtering)
     Phaser,
     /// Nonlinear lowpass filter (Jatin Chowdhury's design)
@@ -1177,6 +1179,28 @@ impl FundspState {
         }
     }
 
+    pub fn new_triangle_hz(frequency: f32, sample_rate: f64) -> Self {
+        use fundsp::prelude::AudioUnit;
+
+        let mut unit = fundsp::prelude::triangle_hz(frequency);
+        unit.reset();
+        unit.set_sample_rate(sample_rate);
+
+        // Create a closure that owns the unit and calls tick
+        let tick_fn = Box::new(move |_input: f32| -> f32 {
+            // triangle_hz: 0 inputs -> 1 output (generator)
+            let output_frame = unit.tick(&Default::default());
+            output_frame[0]
+        });
+
+        Self {
+            tick_fn,
+            unit_type: FundspUnitType::TriangleHz,
+            params: vec![frequency],
+            sample_rate,
+        }
+    }
+
     /// Process one sample through the fundsp unit
     pub fn tick(&mut self, input: f32) -> f32 {
         (self.tick_fn)(input)
@@ -1203,6 +1227,13 @@ impl FundspState {
         if (self.params[0] - new_freq).abs() > 0.1 {
             // Recreate the unit with new parameters
             *self = Self::new_square_hz(new_freq, sample_rate);
+        }
+    }
+
+    pub fn update_triangle_frequency(&mut self, new_freq: f32, sample_rate: f64) {
+        if (self.params[0] - new_freq).abs() > 0.1 {
+            // Recreate the unit with new parameters
+            *self = Self::new_triangle_hz(new_freq, sample_rate);
         }
     }
 
@@ -1275,6 +1306,7 @@ impl Clone for FundspState {
             ),
             FundspUnitType::SawHz => Self::new_saw_hz(self.params[0], self.sample_rate),
             FundspUnitType::SquareHz => Self::new_square_hz(self.params[0], self.sample_rate),
+            FundspUnitType::TriangleHz => Self::new_triangle_hz(self.params[0], self.sample_rate),
             _ => panic!("Clone not implemented for this fundsp unit type"),
         }
     }
@@ -3015,6 +3047,13 @@ impl UnifiedSignalGraph {
                         if param_values.len() >= 1 {
                             let frequency = param_values[0];
                             state_guard.update_square_frequency(frequency, self.sample_rate as f64);
+                        }
+                    }
+                    FundspUnitType::TriangleHz => {
+                        // Parameters: 0=frequency
+                        if param_values.len() >= 1 {
+                            let frequency = param_values[0];
+                            state_guard.update_triangle_frequency(frequency, self.sample_rate as f64);
                         }
                     }
                     _ => {
