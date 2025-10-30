@@ -603,6 +603,7 @@ fn compile_function_call(
         // ========== fundsp UGens ==========
         "organ_hz" | "organ" => compile_organ_hz(ctx, args),
         "moog_hz" => compile_moog_hz(ctx, args),
+        "reverb_stereo" => compile_reverb_stereo(ctx, args),
 
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
@@ -1223,6 +1224,37 @@ fn compile_moog_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         unit_type: FundspUnitType::MoogHz,
         input: input_signal,
         params: vec![Signal::Node(cutoff_node), Signal::Node(resonance_node)],
+        state: Arc::new(Mutex::new(state)),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_reverb_stereo(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 2 {
+        return Err(format!(
+            "reverb_stereo requires 2 parameters (wet, time), got {}",
+            params.len()
+        ));
+    }
+
+    // Compile wet and time parameters (supports pattern modulation!)
+    let wet_node = compile_expr(ctx, params[0].clone())?;
+    let time_node = compile_expr(ctx, params[1].clone())?;
+
+    // Create fundsp reverb_stereo unit (initialized with default params)
+    use crate::unified_graph::{FundspState, FundspUnitType};
+    use std::sync::{Arc, Mutex};
+
+    let state = FundspState::new_reverb_stereo(0.5, 1.0, ctx.graph.sample_rate() as f64);
+
+    let node = SignalNode::FundspUnit {
+        unit_type: FundspUnitType::ReverbStereo,
+        input: input_signal,
+        params: vec![Signal::Node(wet_node), Signal::Node(time_node)],
         state: Arc::new(Mutex::new(state)),
     };
 

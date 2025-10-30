@@ -1003,8 +1003,8 @@ pub enum FundspUnitType {
     OrganHz,
     /// Moog ladder filter (4-pole 24dB/octave lowpass)
     MoogHz,
-    /// Stereo reverb (2 input, 2 output)
-    Reverb2Stereo,
+    /// Stereo reverb (1 mono input, 2 stereo outputs - currently outputs left only)
+    ReverbStereo,
     /// Phaser effect (frequency-domain comb filtering)
     Phaser,
     /// Nonlinear lowpass filter (Jatin Chowdhury's design)
@@ -1071,6 +1071,31 @@ impl FundspState {
         }
     }
 
+    /// Create a new reverb_stereo unit (Stereo reverb - stereo in, stereo out)
+    pub fn new_reverb_stereo(wet: f32, time: f32, sample_rate: f64) -> Self {
+        // reverb_stereo takes (wet, time, diffusion) and expects stereo input
+        // Convert parameters to f64 for fundsp
+        let diffusion = 0.5;  // Fixed diffusion parameter
+        let mut unit = fundsp::prelude::reverb_stereo(wet as f64, time as f64, diffusion);
+        unit.reset();
+        unit.set_sample_rate(sample_rate);
+
+        // Create a closure that owns the unit and calls tick
+        let tick_fn = Box::new(move |input: f32| -> f32 {
+            // reverb_stereo: 2 inputs (stereo) -> 2 outputs (stereo)
+            // Convert mono to stereo input, return left channel
+            let output_frame = unit.tick(&[input, input].into());
+            output_frame[0]  // Left channel only
+        });
+
+        Self {
+            tick_fn,
+            unit_type: FundspUnitType::ReverbStereo,
+            params: vec![wet, time],
+            sample_rate,
+        }
+    }
+
     /// Process one sample through the fundsp unit
     pub fn tick(&mut self, input: f32) -> f32 {
         (self.tick_fn)(input)
@@ -1094,6 +1119,17 @@ impl FundspState {
             *self = Self::new_moog_hz(new_cutoff, new_resonance, sample_rate);
         }
     }
+
+    /// Update reverb parameters (for reverb_stereo)
+    pub fn update_reverb_params(&mut self, new_wet: f32, new_time: f32, sample_rate: f64) {
+        let wet_changed = (self.params[0] - new_wet).abs() > 0.01;
+        let time_changed = (self.params[1] - new_time).abs() > 0.05;
+
+        if wet_changed || time_changed {
+            // Recreate the unit with new parameters
+            *self = Self::new_reverb_stereo(new_wet, new_time, sample_rate);
+        }
+    }
 }
 
 impl Clone for FundspState {
@@ -1103,6 +1139,9 @@ impl Clone for FundspState {
             FundspUnitType::OrganHz => Self::new_organ_hz(self.params[0], self.sample_rate),
             FundspUnitType::MoogHz => {
                 Self::new_moog_hz(self.params[0], self.params[1], self.sample_rate)
+            }
+            FundspUnitType::ReverbStereo => {
+                Self::new_reverb_stereo(self.params[0], self.params[1], self.sample_rate)
             }
             _ => panic!("Clone not implemented for this fundsp unit type"),
         }
@@ -2806,6 +2845,14 @@ impl UnifiedSignalGraph {
                             let cutoff = param_values[0];
                             let resonance = param_values[1];
                             state_guard.update_moog_params(cutoff, resonance, self.sample_rate as f64);
+                        }
+                    }
+                    FundspUnitType::ReverbStereo => {
+                        // Parameters: 0=wet, 1=time
+                        if param_values.len() >= 2 {
+                            let wet = param_values[0];
+                            let time = param_values[1];
+                            state_guard.update_reverb_params(wet, time, self.sample_rate as f64);
                         }
                     }
                     _ => {
