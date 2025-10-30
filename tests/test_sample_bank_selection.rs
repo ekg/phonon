@@ -111,6 +111,7 @@ fn test_sample_playback_with_index() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);

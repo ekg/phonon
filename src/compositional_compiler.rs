@@ -1191,8 +1191,7 @@ fn compile_organ_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
 
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::OrganHz,
-        input: Signal::Value(0.0), // organ_hz has no audio input
-        params: vec![Signal::Node(freq_node)],
+        inputs: vec![Signal::Node(freq_node)],
         state: Arc::new(Mutex::new(state)),
     };
 
@@ -1222,8 +1221,7 @@ fn compile_moog_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
 
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::MoogHz,
-        input: input_signal,
-        params: vec![Signal::Node(cutoff_node), Signal::Node(resonance_node)],
+        inputs: vec![input_signal, Signal::Node(cutoff_node), Signal::Node(resonance_node)],
         state: Arc::new(Mutex::new(state)),
     };
 
@@ -1253,8 +1251,7 @@ fn compile_reverb_stereo(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
 
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::ReverbStereo,
-        input: input_signal,
-        params: vec![Signal::Node(wet_node), Signal::Node(time_node)],
+        inputs: vec![input_signal, Signal::Node(wet_node), Signal::Node(time_node)],
         state: Arc::new(Mutex::new(state)),
     };
 
@@ -1288,8 +1285,8 @@ fn compile_fundsp_chorus(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
 
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::Chorus,
-        input: input_signal,
-        params: vec![
+        inputs: vec![
+            input_signal,
             Signal::Node(seed_node), // Fixed seed=0
             Signal::Node(separation_node),
             Signal::Node(variation_node),
@@ -1317,13 +1314,9 @@ fn compile_saw_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
 
     let state = FundspState::new_saw_hz(440.0, ctx.graph.sample_rate() as f64);
 
-    // Create constant node for "no input" (saw_hz is a generator)
-    let no_input = ctx.graph.add_node(SignalNode::Constant { value: 0.0 });
-
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::SawHz,
-        input: Signal::Node(no_input),
-        params: vec![Signal::Node(freq_node)],
+        inputs: vec![Signal::Node(freq_node)],
         state: Arc::new(Mutex::new(state)),
     };
 
@@ -1346,13 +1339,9 @@ fn compile_square_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
 
     let state = FundspState::new_square_hz(440.0, ctx.graph.sample_rate() as f64);
 
-    // Create constant node for "no input" (square_hz is a generator)
-    let no_input = ctx.graph.add_node(SignalNode::Constant { value: 0.0 });
-
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::SquareHz,
-        input: Signal::Node(no_input),
-        params: vec![Signal::Node(freq_node)],
+        inputs: vec![Signal::Node(freq_node)],
         state: Arc::new(Mutex::new(state)),
     };
 
@@ -1375,13 +1364,9 @@ fn compile_triangle_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
 
     let state = FundspState::new_triangle_hz(440.0, ctx.graph.sample_rate() as f64);
 
-    // Create constant node for "no input" (triangle_hz is a generator)
-    let no_input = ctx.graph.add_node(SignalNode::Constant { value: 0.0 });
-
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::TriangleHz,
-        input: Signal::Node(no_input),
-        params: vec![Signal::Node(freq_node)],
+        inputs: vec![Signal::Node(freq_node)],
         state: Arc::new(Mutex::new(state)),
     };
 
@@ -1402,13 +1387,9 @@ fn compile_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
 
     let state = FundspState::new_noise(ctx.graph.sample_rate() as f64);
 
-    // Create constant node for "no input" (noise is a generator)
-    let no_input = ctx.graph.add_node(SignalNode::Constant { value: 0.0 });
-
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::Noise,
-        input: Signal::Node(no_input),
-        params: vec![],  // No parameters!
+        inputs: vec![],  // No inputs!
         state: Arc::new(Mutex::new(state)),
     };
 
@@ -1429,13 +1410,9 @@ fn compile_pink(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
 
     let state = FundspState::new_pink(ctx.graph.sample_rate() as f64);
 
-    // Create constant node for "no input" (pink is a generator)
-    let no_input = ctx.graph.add_node(SignalNode::Constant { value: 0.0 });
-
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::Pink,
-        input: Signal::Node(no_input),
-        params: vec![],  // No parameters!
+        inputs: vec![],  // No inputs!
         state: Arc::new(Mutex::new(state)),
     };
 

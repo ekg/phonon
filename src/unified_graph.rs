@@ -977,8 +977,7 @@ pub enum SignalNode {
     /// Pattern signals can modulate fundsp parameters at audio rate
     FundspUnit {
         unit_type: FundspUnitType,      // Which fundsp unit this is
-        input: Signal,                   // Audio input from Phonon
-        params: Vec<Signal>,             // Pattern-modulatable parameters!
+        inputs: Vec<Signal>,             // All inputs: [audio_input?, param1?, param2?, ...]
         state: Arc<Mutex<FundspState>>,  // Thread-safe shared mutable fundsp unit state
     },
 
@@ -1027,10 +1026,12 @@ pub enum FundspUnitType {
 /// Uses a tick function pointer to avoid complex generic types
 /// This allows us to store fundsp units without exposing their concrete types
 pub struct FundspState {
-    /// Function that processes one sample
-    tick_fn: Box<dyn FnMut(f32) -> f32 + Send>,
+    /// Function that processes one sample (now supports multiple inputs)
+    tick_fn: Box<dyn FnMut(&[f32]) -> f32 + Send>,
     /// Type of the unit (for debugging and parameter updates)
     unit_type: FundspUnitType,
+    /// Number of inputs this unit expects (0 = generator, 1+ = processor/multi-input)
+    num_inputs: usize,
     /// Current parameters (for recreation if needed)
     params: Vec<f32>,
     sample_rate: f64,
@@ -1046,7 +1047,8 @@ impl FundspState {
         unit.set_sample_rate(sample_rate);
 
         // Create a closure that owns the unit and calls tick
-        let tick_fn = Box::new(move |_input: f32| -> f32 {
+        let tick_fn = Box::new(move |_inputs: &[f32]| -> f32 {
+            // Generator: ignores inputs
             let output_frame = unit.tick(&Default::default());
             output_frame[0]
         });
@@ -1054,6 +1056,7 @@ impl FundspState {
         Self {
             tick_fn,
             unit_type: FundspUnitType::OrganHz,
+            num_inputs: 0,  // Generator (no inputs)
             params: vec![frequency],
             sample_rate,
         }
@@ -1068,16 +1071,18 @@ impl FundspState {
         unit.set_sample_rate(sample_rate);
 
         // Create a closure that owns the unit and calls tick
-        let tick_fn = Box::new(move |input: f32| -> f32 {
+        let tick_fn = Box::new(move |inputs: &[f32]| -> f32 {
+            // Processor: takes 1 audio input
+            let audio_input = inputs.get(0).copied().unwrap_or(0.0);
             // moog_hz takes 1 input, returns 1 output
-            // Convert f32 array to fundsp Frame type
-            let output_frame = unit.tick(&[input].into());
+            let output_frame = unit.tick(&[audio_input].into());
             output_frame[0]
         });
 
         Self {
             tick_fn,
             unit_type: FundspUnitType::MoogHz,
+            num_inputs: 1,  // Processor (1 audio input)
             params: vec![cutoff, resonance],
             sample_rate,
         }
@@ -1093,16 +1098,19 @@ impl FundspState {
         unit.set_sample_rate(sample_rate);
 
         // Create a closure that owns the unit and calls tick
-        let tick_fn = Box::new(move |input: f32| -> f32 {
+        let tick_fn = Box::new(move |inputs: &[f32]| -> f32 {
+            // Processor: takes 1 audio input
+            let audio_input = inputs.get(0).copied().unwrap_or(0.0);
             // reverb_stereo: 2 inputs (stereo) -> 2 outputs (stereo)
             // Convert mono to stereo input, return left channel
-            let output_frame = unit.tick(&[input, input].into());
+            let output_frame = unit.tick(&[audio_input, audio_input].into());
             output_frame[0]  // Left channel only
         });
 
         Self {
             tick_fn,
             unit_type: FundspUnitType::ReverbStereo,
+            num_inputs: 1,  // Processor (1 audio input)
             params: vec![wet, time],
             sample_rate,
         }
@@ -1123,15 +1131,18 @@ impl FundspState {
         unit.set_sample_rate(sample_rate);
 
         // Create a closure that owns the unit and calls tick
-        let tick_fn = Box::new(move |input: f32| -> f32 {
+        let tick_fn = Box::new(move |inputs: &[f32]| -> f32 {
+            // Processor: takes 1 audio input
+            let audio_input = inputs.get(0).copied().unwrap_or(0.0);
             // chorus: 1 input -> 1 output
-            let output_frame = unit.tick(&[input].into());
+            let output_frame = unit.tick(&[audio_input].into());
             output_frame[0]
         });
 
         Self {
             tick_fn,
             unit_type: FundspUnitType::Chorus,
+            num_inputs: 1,  // Processor (1 audio input)
             params: vec![seed as f32, separation, variation, mod_frequency],
             sample_rate,
         }
@@ -1146,7 +1157,7 @@ impl FundspState {
         unit.set_sample_rate(sample_rate);
 
         // Create a closure that owns the unit and calls tick
-        let tick_fn = Box::new(move |_input: f32| -> f32 {
+        let tick_fn = Box::new(move |_inputs: &[f32]| -> f32 {
             // saw_hz: 0 inputs -> 1 output (generator)
             let output_frame = unit.tick(&Default::default());
             output_frame[0]
@@ -1156,6 +1167,7 @@ impl FundspState {
             tick_fn,
             unit_type: FundspUnitType::SawHz,
             params: vec![frequency],
+            num_inputs: 0,  // Generator (no inputs)
             sample_rate,
         }
     }
@@ -1169,8 +1181,8 @@ impl FundspState {
         unit.set_sample_rate(sample_rate);
 
         // Create a closure that owns the unit and calls tick
-        let tick_fn = Box::new(move |_input: f32| -> f32 {
-            // square_hz: 0 inputs -> 1 output (generator)
+        let tick_fn = Box::new(move |_inputs: &[f32]| -> f32 {
+            // Generator: ignores inputs
             let output_frame = unit.tick(&Default::default());
             output_frame[0]
         });
@@ -1178,6 +1190,7 @@ impl FundspState {
         Self {
             tick_fn,
             unit_type: FundspUnitType::SquareHz,
+            num_inputs: 0,  // Generator (no inputs)
             params: vec![frequency],
             sample_rate,
         }
@@ -1191,14 +1204,15 @@ impl FundspState {
         unit.set_sample_rate(sample_rate);
 
         // Create a closure that owns the unit and calls tick
-        let tick_fn = Box::new(move |_input: f32| -> f32 {
-            // triangle_hz: 0 inputs -> 1 output (generator)
+        let tick_fn = Box::new(move |_inputs: &[f32]| -> f32 {
+            // Generator: ignores inputs
             let output_frame = unit.tick(&Default::default());
             output_frame[0]
         });
 
         Self {
             tick_fn,
+            num_inputs: 0,  // Generator (no inputs)
             unit_type: FundspUnitType::TriangleHz,
             params: vec![frequency],
             sample_rate,
@@ -1213,13 +1227,14 @@ impl FundspState {
         unit.set_sample_rate(sample_rate);
 
         // Create a closure that owns the unit and calls tick
-        let tick_fn = Box::new(move |_input: f32| -> f32 {
-            // noise: 0 inputs -> 1 output (generator)
+        let tick_fn = Box::new(move |_inputs: &[f32]| -> f32 {
+            // Generator: ignores inputs
             let output_frame = unit.tick(&Default::default());
             output_frame[0]
         });
 
         Self {
+            num_inputs: 0,  // Generator (no inputs)
             tick_fn,
             unit_type: FundspUnitType::Noise,
             params: vec![],  // No parameters!
@@ -1237,8 +1252,8 @@ impl FundspState {
         unit.set_sample_rate(sample_rate);
 
         // Create a closure that owns the unit and calls tick
-        let tick_fn = Box::new(move |_input: f32| -> f32 {
-            // pink: 0 inputs -> 1 output (generator)
+        let tick_fn = Box::new(move |_inputs: &[f32]| -> f32 {
+            // Generator: ignores inputs
             let output_frame = unit.tick(&Default::default());
             output_frame[0]
         });
@@ -1246,14 +1261,16 @@ impl FundspState {
         Self {
             tick_fn,
             unit_type: FundspUnitType::Pink,
+            num_inputs: 0,  // Generator (no inputs)
             params: vec![],  // No parameters!
             sample_rate,
         }
     }
 
     /// Process one sample through the fundsp unit
-    pub fn tick(&mut self, input: f32) -> f32 {
-        (self.tick_fn)(input)
+    /// Now takes a slice of inputs to support multi-input UGens
+    pub fn tick(&mut self, inputs: &[f32]) -> f32 {
+        (self.tick_fn)(inputs)
     }
 
     /// Update frequency parameter (for organ_hz)
@@ -3032,95 +3049,107 @@ impl UnifiedSignalGraph {
 
             SignalNode::FundspUnit {
                 unit_type,
-                input,
-                params,
+                inputs,
                 state,
             } => {
-                // 1. Evaluate Phonon input signal
-                let input_sample = self.eval_signal(&input);
+                // 1. Evaluate ALL input signals (audio + parameters)
+                let input_values: Vec<f32> = inputs.iter()
+                    .map(|signal| self.eval_signal(signal))
+                    .collect();
 
-                // 2. Evaluate Phonon parameter signals (PATTERN MODULATION!)
-                let mut param_values = Vec::new();
-                for param_signal in &params {
-                    param_values.push(self.eval_signal(param_signal));
-                }
-
-                // 3. Update fundsp unit parameters based on unit type
-                let mut state_guard = state.lock().unwrap();
-                match unit_type {
+                // 2. For units with static constructors, check if parameters changed
+                //    and recreate unit if needed (to update internal state)
+                let state_guard = state.lock().unwrap();
+                let needs_recreation = match unit_type {
+                    // Units with static constructors need recreation when params change
                     FundspUnitType::OrganHz => {
-                        // Parameter 0: frequency
-                        if !params.is_empty() {
-                            let freq = param_values[0];
-                            state_guard.update_frequency(freq, self.sample_rate as f64);
-                        }
+                        input_values.len() >= 1 &&
+                        (state_guard.params[0] - input_values[0]).abs() > 0.1
                     }
                     FundspUnitType::MoogHz => {
-                        // Parameters: 0=cutoff, 1=resonance
-                        if param_values.len() >= 2 {
-                            let cutoff = param_values[0];
-                            let resonance = param_values[1];
-                            state_guard.update_moog_params(cutoff, resonance, self.sample_rate as f64);
-                        }
+                        input_values.len() >= 3 && (
+                            (state_guard.params[0] - input_values[1]).abs() > 1.0 ||
+                            (state_guard.params[1] - input_values[2]).abs() > 0.01
+                        )
                     }
                     FundspUnitType::ReverbStereo => {
-                        // Parameters: 0=wet, 1=time
-                        if param_values.len() >= 2 {
-                            let wet = param_values[0];
-                            let time = param_values[1];
-                            state_guard.update_reverb_params(wet, time, self.sample_rate as f64);
-                        }
+                        input_values.len() >= 3 && (
+                            (state_guard.params[0] - input_values[1]).abs() > 0.01 ||
+                            (state_guard.params[1] - input_values[2]).abs() > 0.01
+                        )
                     }
                     FundspUnitType::Chorus => {
-                        // Parameters: 0=seed, 1=separation, 2=variation, 3=mod_frequency
-                        if param_values.len() >= 4 {
-                            let seed = param_values[0] as u64;
-                            let separation = param_values[1];
-                            let variation = param_values[2];
-                            let mod_frequency = param_values[3];
-                            state_guard.update_chorus_params(
-                                seed,
-                                separation,
-                                variation,
-                                mod_frequency,
-                                self.sample_rate as f64,
-                            );
-                        }
+                        input_values.len() >= 5 && (
+                            (state_guard.params[0] - input_values[1]).abs() > 0.5 ||
+                            (state_guard.params[1] - input_values[2]).abs() > 0.01 ||
+                            (state_guard.params[2] - input_values[3]).abs() > 0.01 ||
+                            (state_guard.params[3] - input_values[4]).abs() > 0.01
+                        )
                     }
                     FundspUnitType::SawHz => {
-                        // Parameters: 0=frequency
-                        if param_values.len() >= 1 {
-                            let frequency = param_values[0];
-                            state_guard.update_saw_frequency(frequency, self.sample_rate as f64);
-                        }
+                        input_values.len() >= 1 &&
+                        (state_guard.params[0] - input_values[0]).abs() > 0.1
                     }
                     FundspUnitType::SquareHz => {
-                        // Parameters: 0=frequency
-                        if param_values.len() >= 1 {
-                            let frequency = param_values[0];
-                            state_guard.update_square_frequency(frequency, self.sample_rate as f64);
-                        }
+                        input_values.len() >= 1 &&
+                        (state_guard.params[0] - input_values[0]).abs() > 0.1
                     }
                     FundspUnitType::TriangleHz => {
-                        // Parameters: 0=frequency
-                        if param_values.len() >= 1 {
-                            let frequency = param_values[0];
-                            state_guard.update_triangle_frequency(frequency, self.sample_rate as f64);
+                        input_values.len() >= 1 &&
+                        (state_guard.params[0] - input_values[0]).abs() > 0.1
+                    }
+                    // Parameterless units never need recreation
+                    FundspUnitType::Noise | FundspUnitType::Pink => false,
+                    _ => false,
+                };
+
+                if needs_recreation {
+                    drop(state_guard);
+                    let mut state_mut = state.lock().unwrap();
+
+                    // Recreate unit with new parameters
+                    *state_mut = match unit_type {
+                        FundspUnitType::OrganHz => {
+                            FundspState::new_organ_hz(input_values[0], self.sample_rate as f64)
                         }
-                    }
-                    FundspUnitType::Noise => {
-                        // No parameters to update!
-                    }
-                    FundspUnitType::Pink => {
-                        // No parameters to update!
-                    }
-                    _ => {
-                        // TODO: Implement other unit types
-                    }
+                        FundspUnitType::MoogHz => {
+                            FundspState::new_moog_hz(
+                                input_values[1],
+                                input_values[2],
+                                self.sample_rate as f64
+                            )
+                        }
+                        FundspUnitType::ReverbStereo => {
+                            FundspState::new_reverb_stereo(
+                                input_values[1],
+                                input_values[2],
+                                self.sample_rate as f64
+                            )
+                        }
+                        FundspUnitType::Chorus => {
+                            FundspState::new_chorus(
+                                input_values[1] as u64,
+                                input_values[2],
+                                input_values[3],
+                                input_values[4],
+                                self.sample_rate as f64
+                            )
+                        }
+                        FundspUnitType::SawHz => {
+                            FundspState::new_saw_hz(input_values[0], self.sample_rate as f64)
+                        }
+                        FundspUnitType::SquareHz => {
+                            FundspState::new_square_hz(input_values[0], self.sample_rate as f64)
+                        }
+                        FundspUnitType::TriangleHz => {
+                            FundspState::new_triangle_hz(input_values[0], self.sample_rate as f64)
+                        }
+                        _ => return 0.0,  // Should never happen
+                    };
                 }
 
-                // 4. Call fundsp tick() to generate output
-                let output = state_guard.tick(input_sample);
+                // 3. Call fundsp tick() with all inputs
+                let output = state.lock().unwrap().tick(&input_values);
 
                 output
             }
