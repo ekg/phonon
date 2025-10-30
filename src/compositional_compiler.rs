@@ -604,6 +604,7 @@ fn compile_function_call(
         "organ_hz" | "organ" => compile_organ_hz(ctx, args),
         "moog_hz" => compile_moog_hz(ctx, args),
         "reverb_stereo" => compile_reverb_stereo(ctx, args),
+        "fchorus" => compile_fundsp_chorus(ctx, args),
 
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
@@ -1255,6 +1256,46 @@ fn compile_reverb_stereo(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
         unit_type: FundspUnitType::ReverbStereo,
         input: input_signal,
         params: vec![Signal::Node(wet_node), Signal::Node(time_node)],
+        state: Arc::new(Mutex::new(state)),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_fundsp_chorus(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 3 {
+        return Err(format!(
+            "fchorus requires 3 parameters (separation, variation, mod_frequency), got {}",
+            params.len()
+        ));
+    }
+
+    // Compile parameters (supports pattern modulation!)
+    let separation_node = compile_expr(ctx, params[0].clone())?;
+    let variation_node = compile_expr(ctx, params[1].clone())?;
+    let mod_freq_node = compile_expr(ctx, params[2].clone())?;
+
+    // Create fundsp chorus unit (initialized with default params)
+    use crate::unified_graph::{FundspState, FundspUnitType};
+    use std::sync::{Arc, Mutex};
+
+    let state = FundspState::new_chorus(0, 0.015, 0.005, 0.3, ctx.graph.sample_rate() as f64);
+
+    // Create constant node for fixed seed
+    let seed_node = ctx.graph.add_node(SignalNode::Constant { value: 0.0 });
+
+    let node = SignalNode::FundspUnit {
+        unit_type: FundspUnitType::Chorus,
+        input: input_signal,
+        params: vec![
+            Signal::Node(seed_node), // Fixed seed=0
+            Signal::Node(separation_node),
+            Signal::Node(variation_node),
+            Signal::Node(mod_freq_node),
+        ],
         state: Arc::new(Mutex::new(state)),
     };
 

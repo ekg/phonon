@@ -1005,6 +1005,8 @@ pub enum FundspUnitType {
     MoogHz,
     /// Stereo reverb (1 mono input, 2 stereo outputs - currently outputs left only)
     ReverbStereo,
+    /// Chorus effect (5-voice mono chorus with LFO modulation)
+    Chorus,
     /// Phaser effect (frequency-domain comb filtering)
     Phaser,
     /// Nonlinear lowpass filter (Jatin Chowdhury's design)
@@ -1096,6 +1098,35 @@ impl FundspState {
         }
     }
 
+    /// Create a new chorus unit (5-voice mono chorus)
+    pub fn new_chorus(
+        seed: u64,
+        separation: f32,
+        variation: f32,
+        mod_frequency: f32,
+        sample_rate: f64,
+    ) -> Self {
+        use fundsp::prelude::AudioUnit;
+
+        let mut unit = fundsp::prelude::chorus(seed, separation, variation, mod_frequency);
+        unit.reset();
+        unit.set_sample_rate(sample_rate);
+
+        // Create a closure that owns the unit and calls tick
+        let tick_fn = Box::new(move |input: f32| -> f32 {
+            // chorus: 1 input -> 1 output
+            let output_frame = unit.tick(&[input].into());
+            output_frame[0]
+        });
+
+        Self {
+            tick_fn,
+            unit_type: FundspUnitType::Chorus,
+            params: vec![seed as f32, separation, variation, mod_frequency],
+            sample_rate,
+        }
+    }
+
     /// Process one sample through the fundsp unit
     pub fn tick(&mut self, input: f32) -> f32 {
         (self.tick_fn)(input)
@@ -1130,6 +1161,32 @@ impl FundspState {
             *self = Self::new_reverb_stereo(new_wet, new_time, sample_rate);
         }
     }
+
+    /// Update chorus parameters (for chorus)
+    pub fn update_chorus_params(
+        &mut self,
+        new_seed: u64,
+        new_separation: f32,
+        new_variation: f32,
+        new_mod_frequency: f32,
+        sample_rate: f64,
+    ) {
+        let seed_changed = (self.params[0] as u64) != new_seed;
+        let separation_changed = (self.params[1] - new_separation).abs() > 0.001;
+        let variation_changed = (self.params[2] - new_variation).abs() > 0.0001;
+        let mod_freq_changed = (self.params[3] - new_mod_frequency).abs() > 0.01;
+
+        if seed_changed || separation_changed || variation_changed || mod_freq_changed {
+            // Recreate the unit with new parameters
+            *self = Self::new_chorus(
+                new_seed,
+                new_separation,
+                new_variation,
+                new_mod_frequency,
+                sample_rate,
+            );
+        }
+    }
 }
 
 impl Clone for FundspState {
@@ -1143,6 +1200,13 @@ impl Clone for FundspState {
             FundspUnitType::ReverbStereo => {
                 Self::new_reverb_stereo(self.params[0], self.params[1], self.sample_rate)
             }
+            FundspUnitType::Chorus => Self::new_chorus(
+                self.params[0] as u64,
+                self.params[1],
+                self.params[2],
+                self.params[3],
+                self.sample_rate,
+            ),
             _ => panic!("Clone not implemented for this fundsp unit type"),
         }
     }
@@ -2853,6 +2917,22 @@ impl UnifiedSignalGraph {
                             let wet = param_values[0];
                             let time = param_values[1];
                             state_guard.update_reverb_params(wet, time, self.sample_rate as f64);
+                        }
+                    }
+                    FundspUnitType::Chorus => {
+                        // Parameters: 0=seed, 1=separation, 2=variation, 3=mod_frequency
+                        if param_values.len() >= 4 {
+                            let seed = param_values[0] as u64;
+                            let separation = param_values[1];
+                            let variation = param_values[2];
+                            let mod_frequency = param_values[3];
+                            state_guard.update_chorus_params(
+                                seed,
+                                separation,
+                                variation,
+                                mod_frequency,
+                                self.sample_rate as f64,
+                            );
                         }
                     }
                     _ => {
