@@ -1015,6 +1015,8 @@ pub enum FundspUnitType {
     TriangleHz,
     /// White noise generator
     Noise,
+    /// Pink noise generator (1/f spectrum)
+    Pink,
     /// Phaser effect (frequency-domain comb filtering)
     Phaser,
     /// Nonlinear lowpass filter (Jatin Chowdhury's design)
@@ -1225,6 +1227,30 @@ impl FundspState {
         }
     }
 
+    /// Create a new pink noise unit (1/f spectrum)
+    pub fn new_pink(sample_rate: f64) -> Self {
+        use fundsp::prelude::AudioUnit;
+
+        // pink::<f32>() requires type annotation
+        let mut unit = fundsp::prelude::pink::<f32>();
+        unit.reset();
+        unit.set_sample_rate(sample_rate);
+
+        // Create a closure that owns the unit and calls tick
+        let tick_fn = Box::new(move |_input: f32| -> f32 {
+            // pink: 0 inputs -> 1 output (generator)
+            let output_frame = unit.tick(&Default::default());
+            output_frame[0]
+        });
+
+        Self {
+            tick_fn,
+            unit_type: FundspUnitType::Pink,
+            params: vec![],  // No parameters!
+            sample_rate,
+        }
+    }
+
     /// Process one sample through the fundsp unit
     pub fn tick(&mut self, input: f32) -> f32 {
         (self.tick_fn)(input)
@@ -1332,6 +1358,7 @@ impl Clone for FundspState {
             FundspUnitType::SquareHz => Self::new_square_hz(self.params[0], self.sample_rate),
             FundspUnitType::TriangleHz => Self::new_triangle_hz(self.params[0], self.sample_rate),
             FundspUnitType::Noise => Self::new_noise(self.sample_rate),
+            FundspUnitType::Pink => Self::new_pink(self.sample_rate),
             _ => panic!("Clone not implemented for this fundsp unit type"),
         }
     }
@@ -3082,6 +3109,9 @@ impl UnifiedSignalGraph {
                         }
                     }
                     FundspUnitType::Noise => {
+                        // No parameters to update!
+                    }
+                    FundspUnitType::Pink => {
                         // No parameters to update!
                     }
                     _ => {
