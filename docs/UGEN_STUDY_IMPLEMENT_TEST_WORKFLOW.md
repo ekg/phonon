@@ -194,7 +194,41 @@
    }
    ```
 
-5. **Run tests**:
+5. **Write Level 4 test** (Comparative - IF fundsp equivalent exists):
+   ```rust
+   #[test]
+   fn test_[name]_level4_fundsp_comparison() {
+       // ONLY FOR UGENS WHERE FUNDSP EQUIVALENT EXISTS
+       // Compare our custom implementation to fundsp's
+
+       // Our implementation
+       let code_ours = "out: saw 220 # [name] 1000 0.8";
+       let audio_ours = render_dsl(code_ours, 1.0);
+
+       // fundsp equivalent (via test wrapper)
+       let audio_fundsp = render_fundsp_unit(
+           fundsp::prelude::[fundsp_name](1000.0, 0.8),
+           saw_input(220.0),
+           44100
+       );
+
+       // Compare outputs - should be very similar
+       let difference = calculate_difference(&audio_ours, &audio_fundsp);
+       assert!(difference < 0.01,
+           "Our implementation differs from fundsp by {:.3}%",
+           difference * 100.0);
+
+       println!("✅ [name] matches fundsp::[fundsp_name] within {:.3}%",
+                difference * 100.0);
+   }
+   ```
+
+   **When to write Level 4 test**:
+   - ✅ Write for: moogLadder, lag, flanger, limiter, pan2, ampFollow, timer
+   - ❌ Skip for: UGens without fundsp equivalent
+   - **Purpose**: Verify our custom implementation is correct by comparing to battle-tested fundsp
+
+6. **Run tests**:
    ```bash
    cargo test test_[name]
    # All 3 levels must pass
@@ -641,11 +675,13 @@ TEST:
 
 #### 38. moogLadder
 - **Status**: ✅ COMPLETE (custom implementation)
-- **Type**: Custom (but fundsp::moog_hz available as alternative)
+- **Type**: Custom (but fundsp::moog_hz available)
+- **⚠️ TODO**: Add Level 4 comparative test vs fundsp::moog_hz
 
 #### 39. lag
 - **Status**: ✅ COMPLETE (custom implementation)
-- **Type**: Custom (but fundsp::follow available as alternative)
+- **Type**: Custom (but fundsp::follow available)
+- **⚠️ TODO**: Add Level 4 comparative test vs fundsp::follow
 
 #### 40. allpass
 - **Status**: ⬜ NOT STARTED
@@ -685,14 +721,17 @@ TEST:
 
 #### 48. ringMod
 - **Status**: ✅ COMPLETE (custom implementation)
+- **Type**: Custom (no fundsp equivalent)
 
 #### 49. flanger
 - **Status**: ✅ COMPLETE (custom implementation)
 - **Type**: Custom (but fundsp::flanger available)
+- **⚠️ TODO**: Add Level 4 comparative test vs fundsp::flanger
 
 #### 50. limiter
 - **Status**: ✅ COMPLETE (custom implementation)
 - **Type**: Custom (but fundsp::limiter_stereo available)
+- **⚠️ TODO**: Add Level 4 comparative test vs fundsp::limiter_stereo
 
 #### 51. phaser
 - **Status**: ⬜ NOT STARTED
@@ -725,12 +764,15 @@ TEST:
 #### 57. pan2
 - **Status**: ✅ COMPLETE (custom implementation)
 - **Type**: Custom (but fundsp::pan available)
+- **⚠️ TODO**: Add Level 4 comparative test vs fundsp::pan
 
 #### 58. xfade
 - **Status**: ✅ COMPLETE (custom implementation)
+- **Type**: Custom (no fundsp equivalent)
 
 #### 59. mix
 - **Status**: ✅ COMPLETE (custom implementation)
+- **Type**: Custom (no fundsp equivalent)
 
 ---
 
@@ -741,22 +783,28 @@ TEST:
 #### 60. ampFollow
 - **Status**: ✅ COMPLETE (custom implementation)
 - **Type**: Custom (but fundsp::afollow available)
+- **⚠️ TODO**: Add Level 4 comparative test vs fundsp::afollow
 
 #### 61. peakFollow
 - **Status**: ✅ COMPLETE (custom implementation)
+- **Type**: Custom (no fundsp equivalent)
 
 #### 62. rms
 - **Status**: ✅ COMPLETE (custom implementation)
+- **Type**: Custom (no fundsp equivalent)
 
 #### 63. schmidt
 - **Status**: ✅ COMPLETE (custom implementation)
+- **Type**: Custom (no fundsp equivalent)
 
 #### 64. latch
 - **Status**: ✅ COMPLETE (custom implementation)
+- **Type**: Custom (no fundsp equivalent)
 
 #### 65. timer
 - **Status**: ✅ COMPLETE (custom implementation)
 - **Type**: Custom (but fundsp::timer available)
+- **⚠️ TODO**: Add Level 4 comparative test vs fundsp::timer
 
 #### 66. pitchTrack
 - **Status**: ⬜ NOT STARTED
