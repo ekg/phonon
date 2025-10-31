@@ -1477,9 +1477,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Import the phonon_poll implementation
             use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
-            use phonon::mini_notation_v3::parse_mini_notation;
-            use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
-            use std::collections::HashMap;
+            
+            use phonon::unified_graph::UnifiedSignalGraph;
+            
             use std::sync::{Arc, Mutex};
             use std::time::{Duration as StdDuration, SystemTime};
 

@@ -12,16 +12,12 @@ fn test_hush_command_silences_outputs() {
         phase: 0.0,
         pending_freq: None,
         last_sample: 0.0, 
-        pending_freq: None,
-        last_sample: 0.0,
     });
 
     let osc2 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(880.0),
         waveform: Waveform::Sine,
         phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0, 
         pending_freq: None,
         last_sample: 0.0,
     });
@@ -112,16 +108,12 @@ fn test_hush_specific_channel() {
         phase: 0.0,
         pending_freq: None,
         last_sample: 0.0, 
-        pending_freq: None,
-        last_sample: 0.0,
     });
 
     let osc2 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(880.0),
         waveform: Waveform::Sine,
         phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0, 
         pending_freq: None,
         last_sample: 0.0,
     });

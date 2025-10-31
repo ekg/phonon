@@ -173,6 +173,7 @@ fn test_pattern_envelope_with_reverse() {
         note: Signal::Value(0.0),
         attack: Signal::Pattern(attack_str.to_string()),
         release: Signal::Pattern(release_str.to_string()),
+        envelope_type: None,
     });
 
     graph.set_output_channel(1, sample_node);
@@ -297,6 +298,7 @@ fn test_64_voice_stress_test() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.3), // Long release to cause overlap
+        envelope_type: None,
     });
 
     graph.set_output_channel(1, sample_node);
@@ -341,6 +343,7 @@ fn test_rapid_triggers_long_release() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(1.0), // 1 second release - extreme overlap
+        envelope_type: None,
     });
 
     graph.set_output_channel(1, sample_node);
@@ -383,6 +386,7 @@ fn test_cut_group_stops_long_envelope() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.5), // Long release
+        envelope_type: None,
     });
 
     // Second voice: short release, same cut group
@@ -401,6 +405,7 @@ fn test_cut_group_stops_long_envelope() {
         note: Signal::Value(0.0),
         attack: Signal::Value(0.001),
         release: Signal::Value(0.05), // Short release
+        envelope_type: None,
     });
 
     // Mix both

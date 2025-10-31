@@ -37,6 +37,7 @@ fn test_sample_playback_signal_correlation() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -113,6 +114,7 @@ fn test_multiple_samples_in_pattern() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -253,6 +255,7 @@ fn test_house_beat_pattern_timing() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -365,6 +368,7 @@ fn test_bd_sample_one_cycle() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -414,6 +418,7 @@ fn test_cp_sample_one_cycle() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -462,6 +467,7 @@ fn test_hh_sample_one_cycle() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -510,6 +516,7 @@ fn test_sn_sample_one_cycle() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -612,6 +619,7 @@ fn test_euclidean_rhythm_signal_verification() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -731,6 +739,7 @@ fn test_euclidean_pattern_with_samples() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -783,6 +792,7 @@ fn test_simple_euclidean_sequence() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);
@@ -833,6 +843,7 @@ fn test_euclidean_with_offset() {
         note: phonon::unified_graph::Signal::Value(0.0),
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
+        envelope_type: None,
     });
 
     graph.set_output(sample_node);

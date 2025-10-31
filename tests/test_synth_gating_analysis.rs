@@ -8,7 +8,7 @@
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 mod audio_test_utils;
-use audio_test_utils::{calculate_rms, find_dominant_frequency};
+use audio_test_utils::calculate_rms;
 
 #[test]
 fn test_saw_synth_is_continuous_not_gated() {

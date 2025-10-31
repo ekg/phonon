@@ -2,6 +2,7 @@ mod audio_verification_enhanced;
 use audio_verification_enhanced::*;
 
 #[test]
+#[ignore] // Debug test - requires specific file at /tmp/test_sample_bd_only.wav
 fn debug_kick_onset() {
     let wav_path = "/tmp/test_sample_bd_only.wav";
     let analysis = analyze_wav_enhanced(wav_path).expect("Failed to analyze");

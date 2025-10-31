@@ -12,7 +12,7 @@ use nom::{
     bytes::complete::{tag, take_until, take_while, take_while1},
     character::complete::{alpha1, alphanumeric1, char, digit1, space0},
     combinator::{map, opt, peek, recognize, value},
-    multi::{many0, separated_list0, separated_list1},
+    multi::{many0, separated_list0},
     sequence::{delimited, pair, preceded, terminated, tuple},
     IResult,
 };

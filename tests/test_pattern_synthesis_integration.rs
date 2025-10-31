@@ -1,7 +1,5 @@
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
-use std::fs::File;
-use std::io::Write;
 
 #[test]
 fn test_pattern_drives_oscillator_frequency() {
@@ -25,8 +23,6 @@ fn test_pattern_drives_oscillator_frequency() {
         phase: 0.0,
         pending_freq: None,
         last_sample: 0.0, 
-        pending_freq: None,
-        last_sample: 0.0,
     });
 
     graph.set_output(osc);
@@ -164,8 +160,6 @@ fn test_pattern_timing_synchronization() {
         phase: 0.0,
         pending_freq: None,
         last_sample: 0.0, 
-        pending_freq: None,
-        last_sample: 0.0,
     });
 
     // Gate the oscillator with the pattern
@@ -244,8 +238,6 @@ fn test_complex_pattern_synthesis() {
         phase: 0.0,
         pending_freq: None,
         last_sample: 0.0, 
-        pending_freq: None,
-        last_sample: 0.0,
     });
 
     // Apply rhythm gating
