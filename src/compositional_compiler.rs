@@ -616,6 +616,7 @@ fn compile_function_call(
         "triangle_hz" => compile_triangle_hz(ctx, args),
         "noise" => compile_noise(ctx, args),
         "pink" => compile_pink(ctx, args),
+        "pulse" => compile_pulse(ctx, args),
 
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
@@ -1070,19 +1071,25 @@ fn compile_asr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
 fn compile_pulse(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 2 {
         return Err(format!(
-            "pulse requires 2 parameters (freq, width), got {}",
+            "pulse requires 2 parameters (frequency, pulse_width), got {}",
             args.len()
         ));
     }
 
-    // Compile each parameter as a signal (supports pattern modulation!)
+    // Compile frequency and pulse_width as signals (supports pattern modulation!)
     let freq_node = compile_expr(ctx, args[0].clone())?;
     let width_node = compile_expr(ctx, args[1].clone())?;
 
-    let node = SignalNode::Pulse {
-        freq: Signal::Node(freq_node),
-        width: Signal::Node(width_node),
-        phase: 0.0,
+    // Create fundsp pulse unit (bandlimited PWM oscillator)
+    use crate::unified_graph::{FundspState, FundspUnitType};
+    use std::sync::{Arc, Mutex};
+
+    let state = FundspState::new_pulse(ctx.graph.sample_rate() as f64);
+
+    let node = SignalNode::FundspUnit {
+        unit_type: FundspUnitType::Pulse,
+        inputs: vec![Signal::Node(freq_node), Signal::Node(width_node)],
+        state: Arc::new(Mutex::new(state)),
     };
 
     Ok(ctx.graph.add_node(node))

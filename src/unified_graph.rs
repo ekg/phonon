@@ -1016,6 +1016,8 @@ pub enum FundspUnitType {
     Noise,
     /// Pink noise generator (1/f spectrum)
     Pink,
+    /// Pulse wave oscillator with variable pulse width (PWM)
+    Pulse,
     /// Phaser effect (frequency-domain comb filtering)
     Phaser,
     /// Nonlinear lowpass filter (Jatin Chowdhury's design)
@@ -1267,6 +1269,40 @@ impl FundspState {
         }
     }
 
+    /// Create pulse wave oscillator with audio-rate frequency and pulse width
+    ///
+    /// Inputs: [frequency (Hz), pulse_width (0.0 to 1.0)]
+    ///
+    /// Unlike saw_hz/square_hz which have static frequency parameters,
+    /// pulse() takes both frequency and pulse width as audio-rate inputs,
+    /// enabling audio-rate pulse width modulation (PWM).
+    pub fn new_pulse(sample_rate: f64) -> Self {
+        use fundsp::prelude::AudioUnit;
+
+        // pulse() takes 2 audio-rate inputs
+        let mut unit = fundsp::prelude::pulse();
+        unit.reset();
+        unit.set_sample_rate(sample_rate);
+
+        // Create a closure that owns the unit and calls tick with inputs
+        let tick_fn = Box::new(move |inputs: &[f32]| -> f32 {
+            // Multi-input UGen: expects [frequency, pulse_width]
+            let freq = inputs.get(0).copied().unwrap_or(440.0);
+            let width = inputs.get(1).copied().unwrap_or(0.5);
+
+            let output_frame = unit.tick(&[freq, width].into());
+            output_frame[0]
+        });
+
+        Self {
+            tick_fn,
+            unit_type: FundspUnitType::Pulse,
+            num_inputs: 2,  // Multi-input (frequency + pulse_width)
+            params: vec![],  // No static parameters (all audio-rate)
+            sample_rate,
+        }
+    }
+
     /// Process one sample through the fundsp unit
     /// Now takes a slice of inputs to support multi-input UGens
     pub fn tick(&mut self, inputs: &[f32]) -> f32 {
@@ -1376,6 +1412,7 @@ impl Clone for FundspState {
             FundspUnitType::TriangleHz => Self::new_triangle_hz(self.params[0], self.sample_rate),
             FundspUnitType::Noise => Self::new_noise(self.sample_rate),
             FundspUnitType::Pink => Self::new_pink(self.sample_rate),
+            FundspUnitType::Pulse => Self::new_pulse(self.sample_rate),
             _ => panic!("Clone not implemented for this fundsp unit type"),
         }
     }
@@ -3098,8 +3135,8 @@ impl UnifiedSignalGraph {
                         input_values.len() >= 1 &&
                         (state_guard.params[0] - input_values[0]).abs() > 0.1
                     }
-                    // Parameterless units never need recreation
-                    FundspUnitType::Noise | FundspUnitType::Pink => false,
+                    // Parameterless units or audio-rate-only units never need recreation
+                    FundspUnitType::Noise | FundspUnitType::Pink | FundspUnitType::Pulse => false,
                     _ => false,
                 };
 
