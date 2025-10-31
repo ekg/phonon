@@ -616,7 +616,6 @@ fn compile_function_call(
         "triangle_hz" => compile_triangle_hz(ctx, args),
         "noise" => compile_noise(ctx, args),
         "pink" => compile_pink(ctx, args),
-        "pulse" => compile_pulse(ctx, args),
 
         // ========== Pattern-triggered synths ==========
         "sine_trig" => compile_synth_pattern(ctx, Waveform::Sine, args),
