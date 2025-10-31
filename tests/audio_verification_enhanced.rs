@@ -180,7 +180,7 @@ fn calculate_spectral_flux(samples: &[f32], sample_rate: u32) -> Result<f32, Str
 fn detect_onsets_simple(samples: &[f32], sample_rate: u32) -> usize {
     let window_ms = 5.0;
     let window_samples = ((sample_rate as f32 * window_ms) / 1000.0) as usize;
-    let min_distance_samples = (sample_rate as f32 * 0.06) as usize; // 60ms (further reduced for dense patterns)
+    let min_distance_samples = (sample_rate as f32 * 0.04) as usize; // 40ms (reduced from 60ms for very dense patterns)
 
     let mut envelope = Vec::new();
     for chunk in samples.chunks(window_samples) {
@@ -191,19 +191,28 @@ fn detect_onsets_simple(samples: &[f32], sample_rate: u32) -> usize {
     // Use max-based threshold instead of mean-based
     // This works better for both sparse and dense patterns
     let max_energy = envelope.iter().fold(0.0_f32, |acc, &x| acc.max(x));
-    let threshold = max_energy * 0.15; // 15% of maximum energy (further reduced for closely-spaced hihats)
+    let threshold = max_energy * 0.02; // 2% of maximum energy (lowered to catch very quiet layered samples)
 
-    // Count onsets
+    // Count onsets using DERIVATIVE (rate of change) not just threshold
+    // This avoids counting sustain as multiple onsets
     let mut onset_count = 0;
     let mut last_onset = -(min_distance_samples as isize); // Start negative to allow first onset
+    let mut prev_energy = 0.0;
+
     for (i, &energy) in envelope.iter().enumerate() {
         let i_signed = i as isize;
-        if energy > threshold
-            && (i_signed - last_onset) > (min_distance_samples as isize / window_samples as isize)
-        {
+
+        // Detect onset: current energy above threshold AND increasing from previous
+        let is_increasing = energy > prev_energy * 1.1; // Must be 10% higher than previous
+        let above_threshold = energy > threshold;
+        let far_enough = (i_signed - last_onset) > (min_distance_samples as isize / window_samples as isize);
+
+        if is_increasing && above_threshold && far_enough {
             onset_count += 1;
             last_onset = i_signed;
         }
+
+        prev_energy = energy;
     }
 
     onset_count
