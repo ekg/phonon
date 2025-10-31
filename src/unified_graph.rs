@@ -1022,6 +1022,8 @@ pub enum FundspUnitType {
     Phaser,
     /// Nonlinear lowpass filter (Jatin Chowdhury's design)
     DLowpassHz,
+    /// Soft sawtooth oscillator (fewer harmonics than regular saw)
+    SoftSawHz,
 }
 
 /// fundsp State Wrapper
@@ -1168,6 +1170,30 @@ impl FundspState {
         Self {
             tick_fn,
             unit_type: FundspUnitType::SawHz,
+            params: vec![frequency],
+            num_inputs: 0,  // Generator (no inputs)
+            sample_rate,
+        }
+    }
+
+    /// Create a new soft_saw_hz unit (softer sawtooth with fewer harmonics)
+    pub fn new_soft_saw_hz(frequency: f32, sample_rate: f64) -> Self {
+        use fundsp::prelude::AudioUnit;
+
+        let mut unit = fundsp::prelude::soft_saw_hz(frequency);
+        unit.reset();
+        unit.set_sample_rate(sample_rate);
+
+        // Create a closure that owns the unit and calls tick
+        let tick_fn = Box::new(move |_inputs: &[f32]| -> f32 {
+            // soft_saw_hz: 0 inputs -> 1 output (generator)
+            let output_frame = unit.tick(&Default::default());
+            output_frame[0]
+        });
+
+        Self {
+            tick_fn,
+            unit_type: FundspUnitType::SoftSawHz,
             params: vec![frequency],
             num_inputs: 0,  // Generator (no inputs)
             sample_rate,

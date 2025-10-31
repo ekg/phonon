@@ -121,6 +121,8 @@ fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<
             Ok(())
         }
         Statement::Tempo(cps) => {
+            // tempo: value directly sets cycles per second
+            // Example: tempo: 1.0 → 1 cycle per second
             ctx.set_cps(cps);
             Ok(())
         }
@@ -612,6 +614,7 @@ fn compile_function_call(
         "reverb_stereo" => compile_reverb_stereo(ctx, args),
         "fchorus" => compile_fundsp_chorus(ctx, args),
         "saw_hz" => compile_saw_hz(ctx, args),
+        "soft_saw_hz" | "soft_saw" => compile_soft_saw_hz(ctx, args),
         "square_hz" => compile_square_hz(ctx, args),
         "triangle_hz" => compile_triangle_hz(ctx, args),
         "noise" => compile_noise(ctx, args),
@@ -1322,6 +1325,31 @@ fn compile_saw_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
 
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::SawHz,
+        inputs: vec![Signal::Node(freq_node)],
+        state: Arc::new(Mutex::new(state)),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_soft_saw_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "soft_saw_hz requires 1 parameter (frequency), got {}",
+            args.len()
+        ));
+    }
+
+    let freq_node = compile_expr(ctx, args[0].clone())?;
+
+    // Create fundsp soft_saw_hz unit (initialized with default frequency)
+    use crate::unified_graph::{FundspState, FundspUnitType};
+    use std::sync::{Arc, Mutex};
+
+    let state = FundspState::new_soft_saw_hz(440.0, ctx.graph.sample_rate() as f64);
+
+    let node = SignalNode::FundspUnit {
+        unit_type: FundspUnitType::SoftSawHz,
         inputs: vec![Signal::Node(freq_node)],
         state: Arc::new(Mutex::new(state)),
     };
