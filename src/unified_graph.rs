@@ -1896,6 +1896,50 @@ impl Default for CompressorState {
     }
 }
 
+/// Output mixing mode - how multiple output channels are combined
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OutputMixMode {
+    /// Automatic gain compensation - divide by number of channels
+    /// Simple and predictable, prevents clipping
+    Gain,
+
+    /// RMS-based mixing - divide by sqrt(num_channels)
+    /// Preserves perceived loudness, best for music (default)
+    Sqrt,
+
+    /// Soft saturation using tanh
+    /// Prevents clipping with warm analog-style distortion
+    Tanh,
+
+    /// Hard limiting at ±1.0
+    /// Prevents clipping with brick-wall limiting
+    Hard,
+
+    /// No compensation - sum outputs directly
+    /// Can cause clipping, use with caution
+    None,
+}
+
+impl Default for OutputMixMode {
+    fn default() -> Self {
+        OutputMixMode::None // Direct sum - like a hardware mixer
+    }
+}
+
+impl OutputMixMode {
+    /// Parse from string (for DSL)
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "gain" => Some(OutputMixMode::Gain),
+            "sqrt" => Some(OutputMixMode::Sqrt),
+            "tanh" => Some(OutputMixMode::Tanh),
+            "hard" => Some(OutputMixMode::Hard),
+            "none" => Some(OutputMixMode::None),
+            _ => None,
+        }
+    }
+}
+
 /// The unified signal graph that processes everything
 pub struct UnifiedSignalGraph {
     /// All nodes in the graph
@@ -1912,6 +1956,9 @@ pub struct UnifiedSignalGraph {
 
     /// Hushed (silenced) output channels
     hushed_channels: std::collections::HashSet<usize>,
+
+    /// Output mixing mode (how to combine multiple outputs)
+    output_mix_mode: OutputMixMode,
 
     /// Sample rate
     sample_rate: f32,
@@ -1934,6 +1981,9 @@ pub struct UnifiedSignalGraph {
     /// Voice manager for polyphonic sample playback
     voice_manager: RefCell<VoiceManager>,
 
+    /// Cached voice manager output for current sample (processed once per sample)
+    voice_output_cache: f32,
+
     /// Synth voice manager for polyphonic synthesis
     synth_voice_manager: RefCell<SynthVoiceManager>,
 
@@ -1949,6 +1999,7 @@ impl UnifiedSignalGraph {
             output: None,
             outputs: HashMap::new(),
             hushed_channels: std::collections::HashSet::new(),
+            output_mix_mode: OutputMixMode::default(),
             sample_rate,
             cycle_position: 0.0,
             cps: 0.5, // Default 0.5 cycles per second
@@ -1956,6 +2007,7 @@ impl UnifiedSignalGraph {
             value_cache: HashMap::new(),
             sample_bank: RefCell::new(SampleBank::new()),
             voice_manager: RefCell::new(VoiceManager::new()),
+            voice_output_cache: 0.0,
             synth_voice_manager: RefCell::new(SynthVoiceManager::new(sample_rate)),
             sample_count: 0,
         }
@@ -1967,6 +2019,14 @@ impl UnifiedSignalGraph {
 
     pub fn get_cps(&self) -> f32 {
         self.cps
+    }
+
+    pub fn set_output_mix_mode(&mut self, mode: OutputMixMode) {
+        self.output_mix_mode = mode;
+    }
+
+    pub fn get_output_mix_mode(&self) -> OutputMixMode {
+        self.output_mix_mode
     }
 
     pub fn sample_rate(&self) -> f32 {
@@ -2014,7 +2074,7 @@ impl UnifiedSignalGraph {
 
     /// Check if output is set
     pub fn has_output(&self) -> bool {
-        self.output.is_some()
+        self.output.is_some() || !self.outputs.is_empty()
     }
 
     /// Set a specific output channel (1-indexed for user convenience)
@@ -3698,9 +3758,11 @@ impl UnifiedSignalGraph {
                     }
                 }
 
-                // Sample nodes trigger voices AND output the voice audio
-                // This allows them to work standalone or be routed through effects
-                self.voice_manager.borrow_mut().process()
+                // Sample nodes trigger voices AND return the cached voice output
+                // The voice manager was processed ONCE at the start of process_sample()
+                // All Sample nodes in this sample return the same cached voice output,
+                // which allows transformations (like `* 0.3`) to be applied correctly
+                self.voice_output_cache
             }
 
             SignalNode::SynthPattern {
@@ -5215,12 +5277,21 @@ impl UnifiedSignalGraph {
         // Clear cache for new sample
         self.value_cache.clear();
 
+        // Process voice manager ONCE per sample and cache the output
+        // Sample nodes will return this cached value (ensuring voices are only read once)
+        // This allows transformations (like `* 0.3`) to be applied correctly
+        self.voice_output_cache = self.voice_manager.borrow_mut().process();
+
+        // Count active channels for gain compensation
+        let mut num_active_channels = 0;
+
         // Start with single output (for backwards compatibility)
         // Check if channel 0 is hushed
         let mut mixed_output = if let Some(output_id) = self.output {
             if self.hushed_channels.contains(&0) {
                 0.0 // Silenced
             } else {
+                num_active_channels += 1;
                 self.eval_node(&output_id)
             }
         } else {
@@ -5238,9 +5309,43 @@ impl UnifiedSignalGraph {
                 continue;
             }
 
-            // Mix the channel output
+            // Count active channel and mix the output
+            num_active_channels += 1;
             mixed_output += self.eval_node(&node_id);
         }
+
+        // Apply output mixing strategy
+        mixed_output = match self.output_mix_mode {
+            OutputMixMode::Gain => {
+                // Automatic gain compensation - divide by number of channels
+                if num_active_channels > 1 {
+                    mixed_output / num_active_channels as f32
+                } else {
+                    mixed_output
+                }
+            }
+            OutputMixMode::Sqrt => {
+                // RMS-based mixing - divide by sqrt(num_channels)
+                // Preserves perceived loudness
+                if num_active_channels > 1 {
+                    mixed_output / (num_active_channels as f32).sqrt()
+                } else {
+                    mixed_output
+                }
+            }
+            OutputMixMode::Tanh => {
+                // Soft saturation - prevents clipping with analog warmth
+                mixed_output.tanh()
+            }
+            OutputMixMode::Hard => {
+                // Hard limiting - brick-wall at ±1.0
+                mixed_output.clamp(-1.0, 1.0)
+            }
+            OutputMixMode::None => {
+                // No compensation - sum directly (can clip)
+                mixed_output
+            }
+        };
 
         // Advance cycle position
         self.cycle_position += self.cps as f64 / self.sample_rate as f64;
