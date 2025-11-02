@@ -52,7 +52,7 @@ fn test_pattern_modulated_filter_changes_audio() {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     // Create a pattern for filter cutoff: low -> high -> low
@@ -159,7 +159,7 @@ fn test_static_filter_consistent_output() {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let filtered = graph.add_node(SignalNode::LowPass {

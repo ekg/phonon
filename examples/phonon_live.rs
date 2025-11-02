@@ -219,8 +219,8 @@ fn parse_phonon_file(content: &str, sample_rate: f32) -> Result<UnifiedSignalGra
             freq: Signal::Value(440.0),
             waveform: Waveform::Sine,
             phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0, 
+            pending_freq: None,
+            last_sample: 0.0,
         });
 
         let scaled = graph.add_node(SignalNode::Multiply {
@@ -275,8 +275,8 @@ fn parse_expression(
                 freq: Signal::Value(freq),
                 waveform: Waveform::Sine,
                 phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0, 
+                pending_freq: None,
+                last_sample: 0.0,
             }));
         }
     }

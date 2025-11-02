@@ -7,7 +7,6 @@
 /// - Pattern-modulated frequency: soft_saw_hz "110 220"
 /// - Audio generation and rendering
 /// - Spectral characteristics (fewer harmonics than regular saw)
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -32,7 +31,11 @@ out: soft_saw_hz 440 * 0.3"#;
 
     println!("Soft saw 440 Hz - RMS: {:.4}", rms);
 
-    assert!(rms > 0.01, "Soft saw should produce significant audio: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Soft saw should produce significant audio: {}",
+        rms
+    );
 }
 
 #[test]
@@ -68,7 +71,10 @@ out: soft_saw_hz "110 220 440" * 0.3"#;
 
     println!("Pattern-modulated soft saw - RMS: {:.4}", rms);
 
-    assert!(rms > 0.01, "Pattern-modulated soft saw should produce audio");
+    assert!(
+        rms > 0.01,
+        "Pattern-modulated soft saw should produce audio"
+    );
 }
 
 #[test]
@@ -157,9 +163,15 @@ out: ~saw # pan2 0.0"#;
     let left_rms = calculate_rms(&left);
     let right_rms = calculate_rms(&right);
 
-    println!("Stereo soft saw - Left RMS: {:.4}, Right RMS: {:.4}", left_rms, right_rms);
+    println!(
+        "Stereo soft saw - Left RMS: {:.4}, Right RMS: {:.4}",
+        left_rms, right_rms
+    );
 
     // Panned hard left, so left should have more energy
     assert!(left_rms > 0.01, "Left channel should have audio");
-    assert!(left_rms > right_rms * 2.0, "Left should be louder (panned left)");
+    assert!(
+        left_rms > right_rms * 2.0,
+        "Left should be louder (panned left)"
+    );
 }

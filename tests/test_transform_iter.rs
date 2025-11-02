@@ -7,7 +7,6 @@
 /// - Cycle 2: c d a b (shift 2/4)
 /// - Cycle 3: b c d a (shift 3/4)
 /// - Cycle 4: a b c d (shift 4/4 = 0, repeats)
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -80,11 +79,16 @@ fn test_iter_level1_event_count() {
     }
 
     // iter should preserve event count
-    assert_eq!(iter_total, base_total,
+    assert_eq!(
+        iter_total, base_total,
         "iter should preserve event count: expected {}, got {}",
-        base_total, iter_total);
+        base_total, iter_total
+    );
 
-    println!("✅ iter Level 1: Base events = {}, iter events = {}", base_total, iter_total);
+    println!(
+        "✅ iter Level 1: Base events = {}, iter events = {}",
+        base_total, iter_total
+    );
 }
 
 #[test]
@@ -107,7 +111,10 @@ fn test_iter_level1_progressive_shift() {
         controls: HashMap::new(),
     };
     let haps1 = iter_pattern.query(&state1);
-    assert_eq!(haps1[0].value, "d", "Cycle 1 should start with 'd' (shift 1/4)");
+    assert_eq!(
+        haps1[0].value, "d",
+        "Cycle 1 should start with 'd' (shift 1/4)"
+    );
 
     // Cycle 2: shift by 2/4 = 1/2, should start with "c"
     let state2 = State {
@@ -115,7 +122,10 @@ fn test_iter_level1_progressive_shift() {
         controls: HashMap::new(),
     };
     let haps2 = iter_pattern.query(&state2);
-    assert_eq!(haps2[0].value, "c", "Cycle 2 should start with 'c' (shift 2/4)");
+    assert_eq!(
+        haps2[0].value, "c",
+        "Cycle 2 should start with 'c' (shift 2/4)"
+    );
 
     // Cycle 3: shift by 3/4, should start with "b"
     let state3 = State {
@@ -123,7 +133,10 @@ fn test_iter_level1_progressive_shift() {
         controls: HashMap::new(),
     };
     let haps3 = iter_pattern.query(&state3);
-    assert_eq!(haps3[0].value, "b", "Cycle 3 should start with 'b' (shift 3/4)");
+    assert_eq!(
+        haps3[0].value, "b",
+        "Cycle 3 should start with 'b' (shift 3/4)"
+    );
 
     // Cycle 4: shift by 4/4 = 0 (wraps), back to "a"
     let state4 = State {
@@ -166,11 +179,17 @@ out: s "bd sn hh cp" $ iter 4
     assert!(
         ratio > 0.7 && ratio < 1.3,
         "iter should preserve event count: base={}, iter={}, ratio={:.2}",
-        base_onsets.len(), iter_onsets.len(), ratio
+        base_onsets.len(),
+        iter_onsets.len(),
+        ratio
     );
 
-    println!("✅ iter Level 2: Base onsets = {}, iter onsets = {}, ratio = {:.2}",
-             base_onsets.len(), iter_onsets.len(), ratio);
+    println!(
+        "✅ iter Level 2: Base onsets = {}, iter onsets = {}, ratio = {:.2}",
+        base_onsets.len(),
+        iter_onsets.len(),
+        ratio
+    );
 }
 
 #[test]
@@ -201,7 +220,10 @@ out: s "bd sn" $ iter 2
         assert!(time_spread > 1.0, "Events should be spread across time");
     }
 
-    println!("✅ iter Level 2: Timing progression verified, {} onsets detected", onsets.len());
+    println!(
+        "✅ iter Level 2: Timing progression verified, {} onsets detected",
+        onsets.len()
+    );
 }
 
 // ============================================================================
@@ -223,11 +245,26 @@ out: s "bd sn hh cp" $ iter 4
     let dc_offset = audio.iter().sum::<f32>() / audio.len() as f32;
 
     // Verify audio quality
-    assert!(rms > 0.01, "iter should produce audible audio (RMS = {})", rms);
-    assert!(peak > 0.1, "iter should have audible peaks (peak = {})", peak);
-    assert!(dc_offset.abs() < 0.1, "iter should not have excessive DC offset (DC = {})", dc_offset);
+    assert!(
+        rms > 0.01,
+        "iter should produce audible audio (RMS = {})",
+        rms
+    );
+    assert!(
+        peak > 0.1,
+        "iter should have audible peaks (peak = {})",
+        peak
+    );
+    assert!(
+        dc_offset.abs() < 0.1,
+        "iter should not have excessive DC offset (DC = {})",
+        dc_offset
+    );
 
-    println!("✅ iter Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}", rms, peak, dc_offset);
+    println!(
+        "✅ iter Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}",
+        rms, peak, dc_offset
+    );
 }
 
 #[test]
@@ -254,11 +291,15 @@ out: s "bd sn hh cp" $ iter 4
     assert!(
         ratio > 0.7 && ratio < 1.3,
         "iter energy should be similar to base: base RMS = {:.4}, iter RMS = {:.4}, ratio = {:.2}",
-        base_rms, iter_rms, ratio
+        base_rms,
+        iter_rms,
+        ratio
     );
 
-    println!("✅ iter Level 3: Base RMS = {:.4}, iter RMS = {:.4}, ratio = {:.2}",
-             base_rms, iter_rms, ratio);
+    println!(
+        "✅ iter Level 3: Base RMS = {:.4}, iter RMS = {:.4}, ratio = {:.2}",
+        base_rms, iter_rms, ratio
+    );
 }
 
 // ============================================================================
@@ -284,8 +325,11 @@ fn test_iter_with_iter_1() {
         let iter_haps = iter_pattern.query(&state);
 
         assert_eq!(base_haps.len(), iter_haps.len());
-        assert_eq!(base_haps[0].value, iter_haps[0].value,
-            "iter 1 should be identity for cycle {}", cycle);
+        assert_eq!(
+            base_haps[0].value, iter_haps[0].value,
+            "iter 1 should be identity for cycle {}",
+            cycle
+        );
     }
 
     println!("✅ iter edge case: iter 1 behaves as identity");

@@ -449,7 +449,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             note: Signal::Value(0.0),
                                             attack: Signal::Value(0.0),
                                             release: Signal::Value(0.0),
-                                envelope_type: None,
+                                            envelope_type: None,
                                         })
                                     } else {
                                         graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -779,7 +779,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             note: Signal::Value(0.0),
                                             attack: Signal::Value(0.0),
                                             release: Signal::Value(0.0),
-                                envelope_type: None,
+                                            envelope_type: None,
                                         }));
                                     }
                                 }
@@ -841,7 +841,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     note: Signal::Value(0.0),
                                     attack: Signal::Value(0.0),
                                     release: Signal::Value(0.0),
-                                envelope_type: None,
+                                    envelope_type: None,
                                 }));
                             }
                         }
@@ -1477,9 +1477,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Import the phonon_poll implementation
             use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
-            
             use phonon::unified_graph::UnifiedSignalGraph;
-            
+
             use std::sync::{Arc, Mutex};
             use std::time::{Duration as StdDuration, SystemTime};
 

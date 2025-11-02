@@ -1,7 +1,6 @@
 /// Test DSL syntax for pattern-based DSP parameters
 /// These tests verify that the high-level Phonon DSL can specify
 /// per-voice parameters like gain, pan, speed, etc.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -31,7 +30,10 @@ d1: s "bd bd" gain="0.5 1.0"
     let rms = calculate_rms(&audio);
 
     // Should have audible output
-    assert!(rms > 0.01, "Should produce audible sound with gain parameter");
+    assert!(
+        rms > 0.01,
+        "Should produce audible sound with gain parameter"
+    );
 
     println!("✅ gain parameter: RMS = {:.3}", rms);
 }
@@ -47,7 +49,10 @@ d1: s "bd bd" pan="-1.0 1.0"
     let rms = calculate_rms(&audio);
 
     // Should have audible output
-    assert!(rms > 0.01, "Should produce audible sound with pan parameter");
+    assert!(
+        rms > 0.01,
+        "Should produce audible sound with pan parameter"
+    );
 
     println!("✅ pan parameter: RMS = {:.3}", rms);
 }
@@ -63,7 +68,10 @@ d1: s "bd bd" speed="1.0 2.0"
     let rms = calculate_rms(&audio);
 
     // Should have audible output
-    assert!(rms > 0.01, "Should produce audible sound with speed parameter");
+    assert!(
+        rms > 0.01,
+        "Should produce audible sound with speed parameter"
+    );
 
     println!("✅ speed parameter: RMS = {:.3}", rms);
 }
@@ -79,7 +87,10 @@ d1: s "bd sn" gain="0.8 1.0" pan="-1.0 1.0" speed="1.0 0.5"
     let rms = calculate_rms(&audio);
 
     // Should have audible output
-    assert!(rms > 0.01, "Should produce audible sound with multiple parameters");
+    assert!(
+        rms > 0.01,
+        "Should produce audible sound with multiple parameters"
+    );
 
     println!("✅ multiple parameters: RMS = {:.3}", rms);
 }
@@ -96,7 +107,10 @@ d1: s "hh*8" pan=~lfo
     let rms = calculate_rms(&audio);
 
     // Should have audible output
-    assert!(rms > 0.01, "Should produce audible sound with continuous modulation");
+    assert!(
+        rms > 0.01,
+        "Should produce audible sound with continuous modulation"
+    );
 
     println!("✅ continuous modulation: RMS = {:.3}", rms);
 }

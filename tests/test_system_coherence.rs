@@ -34,7 +34,7 @@ fn test_complete_signal_flow_patterns_to_audio() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let snare_noise = graph.add_node(SignalNode::Noise { seed: 12345 });
@@ -106,7 +106,7 @@ fn test_bidirectional_modulation() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let rms = graph.add_node(SignalNode::RMS {
@@ -136,7 +136,7 @@ fn test_bidirectional_modulation() {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let output = graph.add_node(SignalNode::Output {
@@ -167,7 +167,7 @@ fn test_feedback_loop_stability() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     // Delay prevents infinite feedback
@@ -225,7 +225,7 @@ fn test_complex_routing_topology() {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let osc2 = graph.add_node(SignalNode::Oscillator {
@@ -233,7 +233,7 @@ fn test_complex_routing_topology() {
         waveform: Waveform::Square,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     // Filters with cross-modulated cutoffs
@@ -330,7 +330,7 @@ fn test_pattern_algebra_in_synthesis() {
         waveform: Waveform::Triangle,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let output = graph.add_node(SignalNode::Output {
@@ -388,7 +388,7 @@ fn test_realtime_parameter_modulation() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let lfo_fast = graph.add_node(SignalNode::Oscillator {
@@ -396,7 +396,7 @@ fn test_realtime_parameter_modulation() {
         waveform: Waveform::Triangle,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     // Main oscillator with modulated frequency
@@ -413,7 +413,7 @@ fn test_realtime_parameter_modulation() {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     // Filter with modulated cutoff - more dramatic sweep
@@ -479,7 +479,7 @@ fn test_bus_system_coherence() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
     graph.add_bus("lfo".to_string(), lfo);
 
@@ -494,7 +494,7 @@ fn test_bus_system_coherence() {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
     graph.add_bus("carrier".to_string(), carrier);
 
@@ -546,7 +546,7 @@ fn test_analysis_driven_synthesis() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let osc = graph.add_node(SignalNode::Oscillator {
@@ -554,7 +554,7 @@ fn test_analysis_driven_synthesis() {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     // Apply envelope to create variation
@@ -594,7 +594,7 @@ fn test_analysis_driven_synthesis() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     // Gate by transients
@@ -774,7 +774,7 @@ fn test_master_system_coherence() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let kick_env = graph.add_node(SignalNode::Envelope {
@@ -802,7 +802,7 @@ fn test_master_system_coherence() {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     // Sidechain compression from kick
@@ -825,7 +825,7 @@ fn test_master_system_coherence() {
         waveform: Waveform::Triangle,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
     graph.add_bus("lfo".to_string(), lfo);
 

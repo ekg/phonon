@@ -1,6 +1,5 @@
 /// Tests for `shuffle` transform - randomizes event timing within a range
 /// Shuffle adds humanization/groove by shifting each event randomly
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -115,8 +114,7 @@ fn test_shuffle_level1_deterministic() {
 
     for i in 0..haps1.len() {
         assert_eq!(
-            haps1[i].part.begin,
-            haps2[i].part.begin,
+            haps1[i].part.begin, haps2[i].part.begin,
             "shuffle should be deterministic for same query"
         );
     }
@@ -212,15 +210,10 @@ out: s "bd bd bd bd" $ shuffle 0.05
 
     // Check that intervals vary (not all exactly equal)
     if onsets.len() >= 4 {
-        let intervals: Vec<f64> = onsets
-            .windows(2)
-            .map(|w| w[1].time - w[0].time)
-            .collect();
+        let intervals: Vec<f64> = onsets.windows(2).map(|w| w[1].time - w[0].time).collect();
 
         let first_interval = intervals[0];
-        let has_variation = intervals
-            .iter()
-            .any(|&i| (i - first_interval).abs() > 0.01);
+        let has_variation = intervals.iter().any(|&i| (i - first_interval).abs() > 0.01);
 
         assert!(
             has_variation,
@@ -228,7 +221,10 @@ out: s "bd bd bd bd" $ shuffle 0.05
         );
     }
 
-    println!("✅ shuffle Level 2: Timing variation detected ({} onsets)", onsets.len());
+    println!(
+        "✅ shuffle Level 2: Timing variation detected ({} onsets)",
+        onsets.len()
+    );
 }
 
 // ============================================================================

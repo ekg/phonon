@@ -102,7 +102,8 @@ out: ~notched
     let (_, statements) = parse_program(dsl_narrow).unwrap();
     let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
     let samples_narrow = graph.render(SAMPLE_RATE as usize);
-    let rms_narrow: f32 = samples_narrow.iter().map(|s| s * s).sum::<f32>() / samples_narrow.len() as f32;
+    let rms_narrow: f32 =
+        samples_narrow.iter().map(|s| s * s).sum::<f32>() / samples_narrow.len() as f32;
 
     // Wide notch (low Q)
     let dsl_wide = r#"
@@ -117,7 +118,11 @@ out: ~notched
     let samples_wide = graph.render(SAMPLE_RATE as usize);
     let rms_wide: f32 = samples_wide.iter().map(|s| s * s).sum::<f32>() / samples_wide.len() as f32;
 
-    println!("450Hz through 440Hz notch - Narrow Q RMS: {}, Wide Q RMS: {}", rms_narrow.sqrt(), rms_wide.sqrt());
+    println!(
+        "450Hz through 440Hz notch - Narrow Q RMS: {}, Wide Q RMS: {}",
+        rms_narrow.sqrt(),
+        rms_wide.sqrt()
+    );
 
     // Narrow notch should pass more of 450Hz (frequency is outside narrow notch)
     // Wide notch should attenuate more of 450Hz (frequency is within wide notch)

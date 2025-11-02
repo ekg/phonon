@@ -7,7 +7,6 @@
 /// - Takes 1 mono input
 /// - Returns 1 mono output
 /// - Creates 5-voice chorus effect
-
 use fundsp::prelude::*;
 
 #[test]

@@ -1,7 +1,6 @@
 /// Direct fundsp pink noise API tests
 ///
 /// Level 1: Verify fundsp pink() generates pink noise correctly
-
 use fundsp::prelude::*;
 
 #[test]

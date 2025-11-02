@@ -95,16 +95,10 @@ out: ~tremolo
     let chunk_size = (SAMPLE_RATE * 0.01) as usize;
     let mut crossings_fast = 0;
     for window in samples_fast.windows(chunk_size) {
-        let rms1: f32 = window[..chunk_size / 2]
-            .iter()
-            .map(|s| s * s)
-            .sum::<f32>()
-            / (chunk_size / 2) as f32;
-        let rms2: f32 = window[chunk_size / 2..]
-            .iter()
-            .map(|s| s * s)
-            .sum::<f32>()
-            / (chunk_size / 2) as f32;
+        let rms1: f32 =
+            window[..chunk_size / 2].iter().map(|s| s * s).sum::<f32>() / (chunk_size / 2) as f32;
+        let rms2: f32 =
+            window[chunk_size / 2..].iter().map(|s| s * s).sum::<f32>() / (chunk_size / 2) as f32;
 
         if (rms1 - rms2).abs() > 0.05 {
             crossings_fast += 1;
@@ -198,16 +192,9 @@ out: ~tremolo
     // With zero depth, overall RMS should be relatively constant
     // Split into two halves and compare RMS
     let mid = samples.len() / 2;
-    let rms1: f32 = samples[..mid]
-        .iter()
-        .map(|s| s * s)
-        .sum::<f32>()
-        / mid as f32;
-    let rms2: f32 = samples[mid..]
-        .iter()
-        .map(|s| s * s)
-        .sum::<f32>()
-        / (samples.len() - mid) as f32;
+    let rms1: f32 = samples[..mid].iter().map(|s| s * s).sum::<f32>() / mid as f32;
+    let rms2: f32 =
+        samples[mid..].iter().map(|s| s * s).sum::<f32>() / (samples.len() - mid) as f32;
 
     let ratio = rms1.sqrt() / rms2.sqrt().max(0.001);
 

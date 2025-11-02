@@ -4,7 +4,6 @@
 /// - Level 1: Not applicable (triangle_hz is a continuous generator)
 /// - Level 2: Not applicable (triangle_hz is continuous, not event-based)
 /// - Level 3: Audio characteristics (signal quality verification)
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -76,7 +75,11 @@ fn test_triangle_hz_level3_pattern_control() {
 
     let rms = calculate_rms(&audio);
 
-    assert!(rms > 0.01, "Pattern-controlled triangle should work: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Pattern-controlled triangle should work: {}",
+        rms
+    );
 
     println!("Pattern control - RMS: {:.4}", rms);
 }

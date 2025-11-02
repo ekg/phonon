@@ -109,7 +109,10 @@ out: ~noise
     let mut planner = FftPlanner::<f32>::new();
     let fft = planner.plan_fft_forward(windowed.len());
 
-    let mut buffer: Vec<Complex<f32>> = windowed.iter().map(|&s| Complex { re: s, im: 0.0 }).collect();
+    let mut buffer: Vec<Complex<f32>> = windowed
+        .iter()
+        .map(|&s| Complex { re: s, im: 0.0 })
+        .collect();
     fft.process(&mut buffer);
 
     // Compute power spectrum (magnitude squared)
@@ -203,8 +206,7 @@ out: ~noise
     let samples_white = graph_white.render(SAMPLE_RATE as usize);
 
     // Both should be audible
-    let rms_pink: f32 =
-        samples_pink.iter().map(|s| s * s).sum::<f32>() / samples_pink.len() as f32;
+    let rms_pink: f32 = samples_pink.iter().map(|s| s * s).sum::<f32>() / samples_pink.len() as f32;
     let rms_white: f32 =
         samples_white.iter().map(|s| s * s).sum::<f32>() / samples_white.len() as f32;
 
@@ -221,7 +223,9 @@ out: ~noise
     // We can't directly compare samples since they're random, but we can
     // verify both are generating random output
     let all_different_pink = samples_pink.windows(2).all(|w| (w[0] - w[1]).abs() > 0.001);
-    let all_different_white = samples_white.windows(2).all(|w| (w[0] - w[1]).abs() > 0.001);
+    let all_different_white = samples_white
+        .windows(2)
+        .all(|w| (w[0] - w[1]).abs() > 0.001);
 
     assert!(
         !all_different_pink || !all_different_white,
@@ -315,12 +319,15 @@ out: ~noise
     let mut graph_quiet = compile_program(statements, SAMPLE_RATE).unwrap();
     let samples_quiet = graph_quiet.render((SAMPLE_RATE / 10.0) as usize);
 
-    let rms_loud: f32 =
-        samples_loud.iter().map(|s| s * s).sum::<f32>() / samples_loud.len() as f32;
+    let rms_loud: f32 = samples_loud.iter().map(|s| s * s).sum::<f32>() / samples_loud.len() as f32;
     let rms_quiet: f32 =
         samples_quiet.iter().map(|s| s * s).sum::<f32>() / samples_quiet.len() as f32;
 
-    println!("Loud RMS: {}, Quiet RMS: {}", rms_loud.sqrt(), rms_quiet.sqrt());
+    println!(
+        "Loud RMS: {}, Quiet RMS: {}",
+        rms_loud.sqrt(),
+        rms_quiet.sqrt()
+    );
 
     assert!(
         rms_loud > rms_quiet * 2.0,

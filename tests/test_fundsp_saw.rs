@@ -7,7 +7,6 @@
 /// - Takes 0 audio inputs (generator)
 /// - Returns 1 mono output
 /// - Bandlimited sawtooth waveform
-
 use fundsp::prelude::*;
 
 #[test]

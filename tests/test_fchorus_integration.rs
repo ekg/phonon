@@ -4,7 +4,6 @@
 /// - Level 1: Not applicable (chorus doesn't use pattern queries)
 /// - Level 2: Not applicable (chorus is continuous effect)
 /// - Level 3: Audio characteristics (signal quality verification)
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -57,11 +56,7 @@ fn test_fchorus_level3_separation_sweep() {
         let audio = render_dsl(&code, 1.0);
         let rms = calculate_rms(&audio);
 
-        assert!(
-            rms > 0.01,
-            "Separation {} should produce output",
-            sep
-        );
+        assert!(rms > 0.01, "Separation {} should produce output", sep);
         println!("Separation {}: RMS {:.4}", sep, rms);
     }
 }
@@ -76,11 +71,7 @@ fn test_fchorus_level3_variation_sweep() {
         let audio = render_dsl(&code, 1.0);
         let rms = calculate_rms(&audio);
 
-        assert!(
-            rms > 0.01,
-            "Variation {} should produce output",
-            var
-        );
+        assert!(rms > 0.01, "Variation {} should produce output", var);
         println!("Variation {}: RMS {:.4}", var, rms);
     }
 }
@@ -95,11 +86,7 @@ fn test_fchorus_level3_mod_frequency_sweep() {
         let audio = render_dsl(&code, 2.0); // 2 seconds to hear LFO
         let rms = calculate_rms(&audio);
 
-        assert!(
-            rms > 0.01,
-            "Mod frequency {} should produce output",
-            freq
-        );
+        assert!(rms > 0.01, "Mod frequency {} should produce output", freq);
         println!("Mod freq {}: RMS {:.4}", freq, rms);
     }
 }
@@ -118,11 +105,7 @@ fn test_fchorus_level3_pattern_modulation() {
     let rms = calculate_rms(&audio);
 
     // Modulated signal should have energy
-    assert!(
-        rms > 0.01,
-        "Pattern modulated fchorus should work: {}",
-        rms
-    );
+    assert!(rms > 0.01, "Pattern modulated fchorus should work: {}", rms);
 
     println!("Pattern modulation - RMS: {:.4}", rms);
 }

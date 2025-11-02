@@ -7,7 +7,6 @@
 /// Total: 6 events instead of 2
 ///
 /// Implementation: dup n = fast n
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -62,12 +61,18 @@ fn test_dup_level1_event_count() {
     }
 
     // dup 3 should triple event count
-    assert_eq!(dup_total, base_total * 3,
+    assert_eq!(
+        dup_total,
+        base_total * 3,
         "dup 3 should triple event count: base={}, dup={}",
-        base_total, dup_total);
+        base_total,
+        dup_total
+    );
 
-    println!("✅ dup Level 1: Base events = {}, dup events = {}",
-             base_total, dup_total);
+    println!(
+        "✅ dup Level 1: Base events = {}, dup events = {}",
+        base_total, dup_total
+    );
 }
 
 #[test]
@@ -100,8 +105,12 @@ fn test_dup_level1_event_timing() {
     // Each event should be shorter (0.5 / 4 = 0.125)
     for (i, hap) in haps.iter().enumerate() {
         let duration = hap.part.duration().to_float();
-        assert!((duration - 0.125).abs() < 0.001,
-            "Event {} should have duration 0.125, got {}", i, duration);
+        assert!(
+            (duration - 0.125).abs() < 0.001,
+            "Event {} should have duration 0.125, got {}",
+            i,
+            duration
+        );
     }
 
     println!("✅ dup Level 1: Event timing and pattern verified");
@@ -122,14 +131,19 @@ fn test_dup_equivalence_to_fast() {
     let dup_haps = dup_pattern.query(&state);
     let fast_haps = fast_pattern.query(&state);
 
-    assert_eq!(dup_haps.len(), fast_haps.len(),
-        "dup and fast should produce same event count");
+    assert_eq!(
+        dup_haps.len(),
+        fast_haps.len(),
+        "dup and fast should produce same event count"
+    );
 
     // Verify values match
     for (i, (dup_hap, fast_hap)) in dup_haps.iter().zip(fast_haps.iter()).enumerate() {
-        assert_eq!(dup_hap.value, fast_hap.value,
+        assert_eq!(
+            dup_hap.value, fast_hap.value,
             "Event {} value mismatch: dup='{}', fast='{}'",
-            i, dup_hap.value, fast_hap.value);
+            i, dup_hap.value, fast_hap.value
+        );
     }
 
     println!("✅ dup Level 1: dup 3 ≡ fast 3 (identical results)");
@@ -165,11 +179,17 @@ out: s "bd sn hh cp" $ dup 3
     assert!(
         ratio > 2.1 && ratio < 3.9,
         "dup 3 should roughly triple onset count: base={}, dup={}, ratio={:.2}",
-        base_onsets.len(), dup_onsets.len(), ratio
+        base_onsets.len(),
+        dup_onsets.len(),
+        ratio
     );
 
-    println!("✅ dup Level 2: Base onsets = {}, dup onsets = {}, ratio = {:.2}",
-             base_onsets.len(), dup_onsets.len(), ratio);
+    println!(
+        "✅ dup Level 2: Base onsets = {}, dup onsets = {}, ratio = {:.2}",
+        base_onsets.len(),
+        dup_onsets.len(),
+        ratio
+    );
 }
 
 #[test]
@@ -188,8 +208,11 @@ out: s "bd sn" $ dup 4
 
     // Should have many events (onset detection may find more due to sample transients)
     // Just verify we have significantly more than base (8 events over 4 cycles)
-    assert!(onsets.len() >= 16,
-        "dup 4 should produce many events (got {})", onsets.len());
+    assert!(
+        onsets.len() >= 16,
+        "dup 4 should produce many events (got {})",
+        onsets.len()
+    );
 
     // Check that events are evenly spaced (compressed timing)
     if onsets.len() >= 3 {
@@ -197,12 +220,18 @@ out: s "bd sn" $ dup 4
         let interval2 = onsets[2].time - onsets[1].time;
 
         // Intervals should be consistent (compressed)
-        assert!(interval1 < 0.6 && interval2 < 0.6,
+        assert!(
+            interval1 < 0.6 && interval2 < 0.6,
             "dup should compress event timing (intervals: {:.3}s, {:.3}s)",
-            interval1, interval2);
+            interval1,
+            interval2
+        );
     }
 
-    println!("✅ dup Level 2: Timing compression verified, {} onsets detected", onsets.len());
+    println!(
+        "✅ dup Level 2: Timing compression verified, {} onsets detected",
+        onsets.len()
+    );
 }
 
 // ============================================================================
@@ -224,11 +253,26 @@ out: s "bd sn hh cp" $ dup 3
     let dc_offset = audio.iter().sum::<f32>() / audio.len() as f32;
 
     // Verify audio quality
-    assert!(rms > 0.01, "dup should produce audible audio (RMS = {})", rms);
-    assert!(peak > 0.1, "dup should have audible peaks (peak = {})", peak);
-    assert!(dc_offset.abs() < 0.1, "dup should not have excessive DC offset (DC = {})", dc_offset);
+    assert!(
+        rms > 0.01,
+        "dup should produce audible audio (RMS = {})",
+        rms
+    );
+    assert!(
+        peak > 0.1,
+        "dup should have audible peaks (peak = {})",
+        peak
+    );
+    assert!(
+        dc_offset.abs() < 0.1,
+        "dup should not have excessive DC offset (DC = {})",
+        dc_offset
+    );
 
-    println!("✅ dup Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}", rms, peak, dc_offset);
+    println!(
+        "✅ dup Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}",
+        rms, peak, dc_offset
+    );
 }
 
 #[test]
@@ -256,11 +300,15 @@ out: s "bd sn hh cp" $ dup 3
     assert!(
         ratio > 1.5 && ratio < 3.0,
         "dup energy should be 1.5-3x base: base RMS = {:.4}, dup RMS = {:.4}, ratio = {:.2}",
-        base_rms, dup_rms, ratio
+        base_rms,
+        dup_rms,
+        ratio
     );
 
-    println!("✅ dup Level 3: Base RMS = {:.4}, dup RMS = {:.4}, ratio = {:.2}",
-             base_rms, dup_rms, ratio);
+    println!(
+        "✅ dup Level 3: Base RMS = {:.4}, dup RMS = {:.4}, ratio = {:.2}",
+        base_rms, dup_rms, ratio
+    );
 }
 
 // ============================================================================
@@ -281,8 +329,11 @@ fn test_dup_with_dup_1() {
     let base_haps = pattern.query(&state);
     let dup_haps = dup_pattern.query(&state);
 
-    assert_eq!(base_haps.len(), dup_haps.len(),
-        "dup 1 should preserve event count");
+    assert_eq!(
+        base_haps.len(),
+        dup_haps.len(),
+        "dup 1 should preserve event count"
+    );
 
     println!("✅ dup edge case: dup 1 behaves as identity");
 }

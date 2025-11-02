@@ -1,6 +1,5 @@
 /// Comprehensive tests for Mix UGen
 /// Sums multiple signals together (variable number of inputs)
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 

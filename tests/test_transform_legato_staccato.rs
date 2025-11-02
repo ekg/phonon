@@ -1,6 +1,5 @@
 /// Combined tests for `legato` (longer duration) and `staccato` (shorter duration)
 /// Both modify event duration by a multiplicative factor (staccato is alias for legato)
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -122,7 +121,10 @@ fn test_legato_level1_event_count() {
         legato_total += pattern.clone().legato(1.5).query(&state).len();
     }
 
-    assert_eq!(legato_total, base_total, "legato should preserve all events");
+    assert_eq!(
+        legato_total, base_total,
+        "legato should preserve all events"
+    );
 
     println!("✅ legato Level 1: Event count preserved: {}", base_total);
 }
@@ -143,8 +145,7 @@ fn test_legato_level1_preserves_start_time() {
 
     for i in 0..legato_haps.len() {
         assert_eq!(
-            legato_haps[i].part.begin,
-            base_haps[i].part.begin,
+            legato_haps[i].part.begin, base_haps[i].part.begin,
             "Event {} start time should not change",
             i
         );

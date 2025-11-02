@@ -7,7 +7,6 @@
 /// - Takes 0 audio inputs (generator)
 /// - Returns 1 mono output
 /// - Bandlimited triangle waveform (only odd harmonics with 1/n² falloff)
-
 use fundsp::prelude::*;
 
 #[test]
@@ -92,10 +91,7 @@ fn test_fundsp_triangle_hz_waveform_shape() {
     let min_val = samples.iter().cloned().fold(f32::INFINITY, f32::min);
     let max_val = samples.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
 
-    println!(
-        "Triangle waveform range: {:.3} to {:.3}",
-        min_val, max_val
-    );
+    println!("Triangle waveform range: {:.3} to {:.3}", min_val, max_val);
 }
 
 #[test]

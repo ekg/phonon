@@ -205,7 +205,8 @@ fn detect_onsets_simple(samples: &[f32], sample_rate: u32) -> usize {
         // Detect onset: current energy above threshold AND increasing from previous
         let is_increasing = energy > prev_energy * 1.1; // Must be 10% higher than previous
         let above_threshold = energy > threshold;
-        let far_enough = (i_signed - last_onset) > (min_distance_samples as isize / window_samples as isize);
+        let far_enough =
+            (i_signed - last_onset) > (min_distance_samples as isize / window_samples as isize);
 
         if is_increasing && above_threshold && far_enough {
             onset_count += 1;

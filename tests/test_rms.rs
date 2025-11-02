@@ -150,7 +150,10 @@ out: ~rms
     let rms_low = samples_low[mid];
     let rms_high = samples_high[mid];
 
-    println!("Low amplitude RMS: {}, High amplitude RMS: {}", rms_low, rms_high);
+    println!(
+        "Low amplitude RMS: {}, High amplitude RMS: {}",
+        rms_low, rms_high
+    );
 
     // High amplitude should have significantly higher RMS
     // Expected: 0.2/sqrt(2) ≈ 0.14 vs 1.0/sqrt(2) ≈ 0.71

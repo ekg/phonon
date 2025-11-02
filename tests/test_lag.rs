@@ -49,7 +49,7 @@ out: ~smoothed
     // Check that we don't have instant jumps
     let mut max_diff = 0.0f32;
     for i in 1..samples.len() {
-        let diff = (samples[i] - samples[i-1]).abs();
+        let diff = (samples[i] - samples[i - 1]).abs();
         max_diff = max_diff.max(diff);
     }
 
@@ -129,9 +129,7 @@ out: ~lagged
 
     // All samples should be approximately the same (constant)
     let mean = samples.iter().sum::<f32>() / samples.len() as f32;
-    let variance = samples.iter()
-        .map(|s| (s - mean).powi(2))
-        .sum::<f32>() / samples.len() as f32;
+    let variance = samples.iter().map(|s| (s - mean).powi(2)).sum::<f32>() / samples.len() as f32;
 
     println!("Mean: {}, Variance: {}", mean, variance);
 
@@ -215,7 +213,7 @@ out: ~tone * ~smooth_gate * 0.3
     // Calculate maximum sample-to-sample difference (should be small with lag)
     let mut max_diff = 0.0f32;
     for i in 1..samples.len() {
-        let diff = (samples[i] - samples[i-1]).abs();
+        let diff = (samples[i] - samples[i - 1]).abs();
         max_diff = max_diff.max(diff);
     }
 

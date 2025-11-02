@@ -1,6 +1,5 @@
 /// Tests for structural transforms: zoom, compress, spin, scramble
 /// These transforms modify the temporal structure of patterns
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -45,9 +44,16 @@ fn test_zoom_level1_focuses_on_range() {
 
     // zoom extracts a portion, so event count may differ
     assert!(zoom_haps.len() > 0, "zoom should produce events");
-    assert!(zoom_haps.len() <= base_haps.len(), "zoom should not add events");
+    assert!(
+        zoom_haps.len() <= base_haps.len(),
+        "zoom should not add events"
+    );
 
-    println!("✅ zoom Level 1: Extracted {} events from {}", zoom_haps.len(), base_haps.len());
+    println!(
+        "✅ zoom Level 1: Extracted {} events from {}",
+        zoom_haps.len(),
+        base_haps.len()
+    );
 }
 
 #[test]
@@ -86,7 +92,11 @@ fn test_zoom_level1_full_cycle() {
     let base_haps = pattern.query(&state);
     let zoom_haps = zoom_pattern.query(&state);
 
-    assert_eq!(zoom_haps.len(), base_haps.len(), "zoom(0, 1) should preserve all events");
+    assert_eq!(
+        zoom_haps.len(),
+        base_haps.len(),
+        "zoom(0, 1) should preserve all events"
+    );
 
     println!("✅ zoom Level 1: Full cycle zoom preserves pattern");
 }
@@ -111,7 +121,11 @@ fn test_compress_level1_fits_in_range() {
     // All events should be compressed into [0, 0.5]
     for hap in &compress_haps {
         let t = hap.part.begin.to_float();
-        assert!(t >= 0.0 && t <= 0.5, "Compressed event at {} should be in [0, 0.5]", t);
+        assert!(
+            t >= 0.0 && t <= 0.5,
+            "Compressed event at {} should be in [0, 0.5]",
+            t
+        );
     }
 
     println!("✅ compress Level 1: Events compressed to first half");
@@ -137,7 +151,11 @@ fn test_compress_level1_preserves_structure() {
     // All events should be within [0.25, 0.75]
     for hap in &compress_haps {
         let t = hap.part.begin.to_float();
-        assert!(t >= 0.25 && t <= 0.75, "Event at {} should be in [0.25, 0.75]", t);
+        assert!(
+            t >= 0.25 && t <= 0.75,
+            "Event at {} should be in [0.25, 0.75]",
+            t
+        );
     }
 
     println!("✅ compress Level 1: Pattern compressed to middle range");
@@ -167,7 +185,10 @@ fn test_compress_level1_event_count() {
     assert_eq!(base_total, 32, "Base should have 4 events × 8 cycles");
     assert!(compress_total > 0, "compress should produce events");
 
-    println!("✅ compress Level 1: Event count: base={}, compress={}", base_total, compress_total);
+    println!(
+        "✅ compress Level 1: Event count: base={}, compress={}",
+        base_total, compress_total
+    );
 }
 
 // ============================================================================
@@ -292,7 +313,10 @@ fn test_scramble_level1_deterministic_per_cycle() {
     assert_eq!(haps1.len(), haps2.len());
 
     for i in 0..haps1.len() {
-        assert_eq!(haps1[i].value, haps2[i].value, "scramble should be deterministic");
+        assert_eq!(
+            haps1[i].value, haps2[i].value,
+            "scramble should be deterministic"
+        );
     }
 
     println!("✅ scramble Level 1: Deterministic within cycle");
@@ -328,7 +352,10 @@ fn test_scramble_level1_different_per_cycle() {
         }
     }
 
-    assert!(order_differs, "scramble should produce different orderings across cycles");
+    assert!(
+        order_differs,
+        "scramble should produce different orderings across cycles"
+    );
 
     println!("✅ scramble Level 1: Different shuffle per cycle");
 }
@@ -393,10 +420,7 @@ out: s "bd sn hh cp" $ compress 0.0 0.5
     let compress_onsets = detect_audio_events(&compress_audio, sample_rate, 0.01);
 
     // compress fits pattern in smaller time, should have similar onset count
-    assert!(
-        compress_onsets.len() > 0,
-        "compress should produce onsets"
-    );
+    assert!(compress_onsets.len() > 0, "compress should produce onsets");
 
     println!(
         "✅ compress Level 2: Onsets: base={}, compress={}",
@@ -678,7 +702,11 @@ fn test_zoom_full_range() {
     let base_haps = pattern.query(&state);
     let zoom_haps = zoom_pattern.query(&state);
 
-    assert_eq!(zoom_haps.len(), base_haps.len(), "zoom(0, 1) should preserve pattern");
+    assert_eq!(
+        zoom_haps.len(),
+        base_haps.len(),
+        "zoom(0, 1) should preserve pattern"
+    );
 
     println!("✅ zoom edge case: Full range preserves pattern");
 }
@@ -697,7 +725,11 @@ fn test_compress_full_range() {
     let base_haps = pattern.query(&state);
     let compress_haps = compress_pattern.query(&state);
 
-    assert_eq!(compress_haps.len(), base_haps.len(), "compress(0, 1) should preserve pattern");
+    assert_eq!(
+        compress_haps.len(),
+        base_haps.len(),
+        "compress(0, 1) should preserve pattern"
+    );
 
     println!("✅ compress edge case: Full range preserves pattern");
 }
@@ -716,7 +748,11 @@ fn test_spin_single() {
     let base_haps = pattern.query(&state);
     let spin_haps = spin_pattern.query(&state);
 
-    assert_eq!(spin_haps.len(), base_haps.len(), "spin(1) should not change pattern");
+    assert_eq!(
+        spin_haps.len(),
+        base_haps.len(),
+        "spin(1) should not change pattern"
+    );
 
     println!("✅ spin edge case: spin(1) is identity");
 }
@@ -755,7 +791,10 @@ fn test_zoom_small_range() {
     // May have fewer events but should still work
     assert!(zoom_haps.len() >= 0, "zoom to small range should work");
 
-    println!("✅ zoom edge case: Small range handled ({} events)", zoom_haps.len());
+    println!(
+        "✅ zoom edge case: Small range handled ({} events)",
+        zoom_haps.len()
+    );
 }
 
 #[test]

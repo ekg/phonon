@@ -4,7 +4,6 @@
 /// - Level 1: Not applicable (square_hz is a continuous generator)
 /// - Level 2: Not applicable (square_hz is continuous, not event-based)
 /// - Level 3: Audio characteristics (signal quality verification)
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 

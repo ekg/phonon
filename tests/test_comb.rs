@@ -46,11 +46,7 @@ out: ~resonant
     let samples = graph.render(SAMPLE_RATE as usize);
 
     // Calculate RMS over time to see if resonance sustains
-    let early_rms: f32 = samples[0..1000]
-        .iter()
-        .map(|s| s * s)
-        .sum::<f32>()
-        / 1000.0;
+    let early_rms: f32 = samples[0..1000].iter().map(|s| s * s).sum::<f32>() / 1000.0;
 
     let late_rms: f32 = samples[SAMPLE_RATE as usize / 2..]
         .iter()
@@ -58,7 +54,11 @@ out: ~resonant
         .sum::<f32>()
         / (SAMPLE_RATE as usize / 2) as f32;
 
-    println!("Early RMS: {}, Late RMS: {}", early_rms.sqrt(), late_rms.sqrt());
+    println!(
+        "Early RMS: {}, Late RMS: {}",
+        early_rms.sqrt(),
+        late_rms.sqrt()
+    );
 
     // With high feedback, resonance should sustain
     assert!(
@@ -98,17 +98,17 @@ out: ~resonant
 
     // Measure tail energy (last half of buffer)
     let tail_start = SAMPLE_RATE as usize / 2;
-    let low_tail: f32 = samples_low[tail_start..]
-        .iter()
-        .map(|s| s * s)
-        .sum::<f32>();
+    let low_tail: f32 = samples_low[tail_start..].iter().map(|s| s * s).sum::<f32>();
 
     let high_tail: f32 = samples_high[tail_start..]
         .iter()
         .map(|s| s * s)
         .sum::<f32>();
 
-    println!("Low feedback tail energy: {}, High feedback tail energy: {}", low_tail, high_tail);
+    println!(
+        "Low feedback tail energy: {}, High feedback tail energy: {}",
+        low_tail, high_tail
+    );
 
     assert!(
         high_tail > low_tail * 2.0,

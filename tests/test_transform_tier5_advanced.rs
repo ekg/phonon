@@ -11,7 +11,6 @@
 /// - scan: Cumulative scanning pattern
 ///
 /// All transforms use pattern API testing (not DSL-based)
-
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use phonon::pattern_signal::{run, scan};
@@ -27,8 +26,8 @@ fn choose_with<T: Clone + Send + Sync + 'static>(choices: Vec<(Pattern<T>, f64)>
     let total_weight: f64 = choices.iter().map(|(_, w)| w).sum();
 
     Pattern::new(move |state| {
-        use rand::{Rng, SeedableRng};
         use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
 
         let cycle = state.span.begin.to_float().floor() as u64;
         let mut rng = StdRng::seed_from_u64(cycle);
@@ -70,13 +69,32 @@ fn test_weave_with_level1_alternates_cycles() {
 
         if cycle % 2 == 0 {
             // Even cycles: base pattern
-            assert_eq!(haps.len(), base_haps.len(), "Cycle {}: should be base", cycle);
+            assert_eq!(
+                haps.len(),
+                base_haps.len(),
+                "Cycle {}: should be base",
+                cycle
+            );
         } else {
             // Odd cycles: transformed pattern
-            assert_eq!(haps.len(), base_haps.len() * 2, "Cycle {}: should be fast", cycle);
+            assert_eq!(
+                haps.len(),
+                base_haps.len() * 2,
+                "Cycle {}: should be fast",
+                cycle
+            );
         }
 
-        println!("Cycle {}: {} events ({})", cycle, haps.len(), if cycle % 2 == 0 { "base" } else { "transformed" });
+        println!(
+            "Cycle {}: {} events ({})",
+            cycle,
+            haps.len(),
+            if cycle % 2 == 0 {
+                "base"
+            } else {
+                "transformed"
+            }
+        );
     }
 
     println!("✅ weaveWith alternates between base and transformed");
@@ -96,7 +114,11 @@ fn test_weave_with_identity() {
     let haps = weaved.query(&state);
     let base = pattern.query(&state);
 
-    assert_eq!(haps.len(), base.len(), "weaveWith with identity should match base");
+    assert_eq!(
+        haps.len(),
+        base.len(),
+        "weaveWith with identity should match base"
+    );
 
     println!("✅ weaveWith with identity works");
 }
@@ -201,7 +223,11 @@ fn test_choose_with_deterministic() {
     let result1 = chosen.query(&state);
     let result2 = chosen.query(&state);
 
-    assert_eq!(result1.len(), result2.len(), "chooseWith should be deterministic per cycle");
+    assert_eq!(
+        result1.len(),
+        result2.len(),
+        "chooseWith should be deterministic per cycle"
+    );
 
     println!("✅ chooseWith is deterministic per cycle");
 }
@@ -250,7 +276,11 @@ fn test_scale_unknown_scale_returns_unchanged() {
     let base_haps = degrees.query(&state);
 
     // Unknown scale should return unchanged
-    assert_eq!(scaled_haps.len(), base_haps.len(), "Unknown scale should return unchanged");
+    assert_eq!(
+        scaled_haps.len(),
+        base_haps.len(),
+        "Unknown scale should return unchanged"
+    );
 
     println!("✅ scale with unknown name returns unchanged");
 }
@@ -279,7 +309,10 @@ fn test_chord_level1_generates_chord_notes() {
 
     // Each event should have multiple notes (major = root, +4, +7)
     for hap in &haps {
-        assert!(hap.value.len() >= 3, "Major chord should have at least 3 notes");
+        assert!(
+            hap.value.len() >= 3,
+            "Major chord should have at least 3 notes"
+        );
     }
 
     println!("✅ chord generates chord notes from roots");
@@ -301,7 +334,11 @@ fn test_chord_unknown_returns_single_note() {
     assert_eq!(haps.len(), 1, "Should have one event");
 
     // Unknown chord should return single note as vec
-    assert_eq!(haps[0].value.len(), 1, "Unknown chord should return single note");
+    assert_eq!(
+        haps[0].value.len(),
+        1,
+        "Unknown chord should return single note"
+    );
 
     println!("✅ chord with unknown type returns single note");
 }
@@ -340,10 +377,7 @@ fn test_steps_level1_creates_sequence() {
 fn test_steps_weighted_durations() {
     let pattern = parse_mini_notation("bd");
 
-    let step_values = vec![
-        Some("a".to_string()),
-        Some("b".to_string()),
-    ];
+    let step_values = vec![Some("a".to_string()), Some("b".to_string())];
 
     // First step gets 3/4 of cycle, second gets 1/4
     let durations = vec![3.0, 1.0];
@@ -446,7 +480,10 @@ fn test_scan_one() {
     let haps = scanned.query(&state);
 
     assert_eq!(haps.len(), 1, "scan(1) should produce one event");
-    assert!((haps[0].value - 0.0).abs() < 0.001, "scan(1) should produce 0.0");
+    assert!(
+        (haps[0].value - 0.0).abs() < 0.001,
+        "scan(1) should produce 0.0"
+    );
 
     println!("✅ scan(1) produces constant 0.0");
 }
@@ -470,7 +507,11 @@ fn test_weave_with_multi_cycle() {
         };
 
         let haps = weaved.query(&state);
-        assert!(haps.len() > 0, "weaveWith should produce events in cycle {}", cycle);
+        assert!(
+            haps.len() > 0,
+            "weaveWith should produce events in cycle {}",
+            cycle
+        );
     }
 
     println!("✅ weaveWith consistent across multiple cycles");
@@ -511,17 +552,17 @@ fn test_weave_with_composition() {
     };
 
     let haps = weaved.query(&state);
-    assert!(haps.len() > 0, "weaveWith should compose with other transforms");
+    assert!(
+        haps.len() > 0,
+        "weaveWith should compose with other transforms"
+    );
 
     println!("✅ weaveWith composes with other transforms");
 }
 
 #[test]
 fn test_scale_with_fast() {
-    let degrees = Pattern::cat(vec![
-        Pattern::pure(0.0),
-        Pattern::pure(2.0),
-    ]);
+    let degrees = Pattern::cat(vec![Pattern::pure(0.0), Pattern::pure(2.0)]);
 
     let scaled = degrees.scale("major", 60).fast(2.0);
 
@@ -570,9 +611,8 @@ fn test_run_with_scale() {
 fn test_layer_single_function() {
     let pattern = parse_mini_notation("bd sn");
 
-    let fs: Vec<Box<dyn Fn(Pattern<String>) -> Pattern<String> + Send + Sync>> = vec![
-        Box::new(|p| p.clone()),
-    ];
+    let fs: Vec<Box<dyn Fn(Pattern<String>) -> Pattern<String> + Send + Sync>> =
+        vec![Box::new(|p| p.clone())];
 
     let layered = pattern.clone().layer(fs);
 
@@ -584,7 +624,11 @@ fn test_layer_single_function() {
     let base = pattern.query(&state);
     let layer = layered.query(&state);
 
-    assert_eq!(layer.len(), base.len(), "layer with single identity should match base");
+    assert_eq!(
+        layer.len(),
+        base.len(),
+        "layer with single identity should match base"
+    );
 
     println!("✅ layer with single function works");
 }
@@ -603,7 +647,11 @@ fn test_choose_with_single_pattern() {
     let base = p1.query(&state);
     let choice = chosen.query(&state);
 
-    assert_eq!(choice.len(), base.len(), "chooseWith with single pattern should match it");
+    assert_eq!(
+        choice.len(),
+        base.len(),
+        "chooseWith with single pattern should match it"
+    );
 
     println!("✅ chooseWith with single pattern is identity");
 }

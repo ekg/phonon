@@ -30,19 +30,20 @@ out: ~noise * 0.3
 
 /// Helper function to compute FFT and power spectrum
 fn compute_power_spectrum(samples: &[f32], _sample_rate: f32) -> Vec<f32> {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let mut planner = FftPlanner::new();
     let fft = planner.plan_fft_forward(samples.len());
 
-    let mut buffer: Vec<Complex<f32>> = samples.iter()
+    let mut buffer: Vec<Complex<f32>> = samples
+        .iter()
         .map(|&s| Complex { re: s, im: 0.0 })
         .collect();
 
     fft.process(&mut buffer);
 
     // Compute power spectrum (magnitude squared, first half only - nyquist)
-    buffer[0..buffer.len()/2]
+    buffer[0..buffer.len() / 2]
         .iter()
         .map(|c| c.norm_sqr())
         .collect()
@@ -56,7 +57,8 @@ fn spectral_flatness(power_spectrum: &[f32]) -> f32 {
     let threshold = max_power * 0.01;
 
     // Filter out bins below threshold for more robust measurement
-    let filtered: Vec<f32> = power_spectrum.iter()
+    let filtered: Vec<f32> = power_spectrum
+        .iter()
         .filter(|&&p| p > threshold)
         .copied()
         .collect();
@@ -66,9 +68,7 @@ fn spectral_flatness(power_spectrum: &[f32]) -> f32 {
     }
 
     let geometric_mean = {
-        let log_sum: f32 = filtered.iter()
-            .map(|&p| p.ln())
-            .sum();
+        let log_sum: f32 = filtered.iter().map(|&p| p.ln()).sum();
         (log_sum / filtered.len() as f32).exp()
     };
 
@@ -164,9 +164,8 @@ out: ~noise * 0.5
 
     // Calculate coefficient of variation (std dev / mean)
     let mean = band_powers.iter().sum::<f32>() / band_powers.len() as f32;
-    let variance = band_powers.iter()
-        .map(|&p| (p - mean).powi(2))
-        .sum::<f32>() / band_powers.len() as f32;
+    let variance =
+        band_powers.iter().map(|&p| (p - mean).powi(2)).sum::<f32>() / band_powers.len() as f32;
     let std_dev = variance.sqrt();
     let coef_var = std_dev / mean;
 
@@ -248,14 +247,16 @@ out: ~noise * ~env * 0.4
     assert!(rms.sqrt() > 0.01, "Enveloped noise should be audible");
 
     // Peak should be near the start (attack phase)
-    let first_quarter: f32 = samples[0..samples.len()/4]
+    let first_quarter: f32 = samples[0..samples.len() / 4]
         .iter()
         .map(|s| s * s)
-        .sum::<f32>() / (samples.len() / 4) as f32;
-    let last_quarter: f32 = samples[samples.len()*3/4..]
+        .sum::<f32>()
+        / (samples.len() / 4) as f32;
+    let last_quarter: f32 = samples[samples.len() * 3 / 4..]
         .iter()
         .map(|s| s * s)
-        .sum::<f32>() / (samples.len() / 4) as f32;
+        .sum::<f32>()
+        / (samples.len() / 4) as f32;
 
     assert!(
         first_quarter.sqrt() > last_quarter.sqrt() * 2.0,
@@ -287,7 +288,10 @@ out: ~noise * 0.3
     let low_power: f32 = power_spectrum[0..cutoff_bin].iter().sum();
     let high_power: f32 = power_spectrum[cutoff_bin..].iter().sum();
 
-    println!("Low freq power: {}, High freq power: {}", low_power, high_power);
+    println!(
+        "Low freq power: {}, High freq power: {}",
+        low_power, high_power
+    );
 
     // Low frequencies should have more power than high frequencies
     assert!(
@@ -315,7 +319,8 @@ out: ~noise * 0.5
     let samples2 = graph2.render(1000);
 
     // Samples should be different (not identical)
-    let identical_count = samples1.iter()
+    let identical_count = samples1
+        .iter()
         .zip(samples2.iter())
         .filter(|(&a, &b)| (a - b).abs() < 1e-6)
         .count();

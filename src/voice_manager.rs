@@ -558,15 +558,8 @@ impl VoiceManager {
         for i in 0..max_voices {
             let idx = (self.next_voice_index + i) % max_voices;
             if self.voices[idx].is_available() {
-                self.voices[idx].trigger_with_segments(
-                    sample,
-                    gain,
-                    pan,
-                    speed,
-                    cut_group,
-                    levels,
-                    times,
-                );
+                self.voices[idx]
+                    .trigger_with_segments(sample, gain, pan, speed, cut_group, levels, times);
                 self.next_voice_index = (idx + 1) % max_voices;
                 return;
             }
@@ -581,15 +574,8 @@ impl VoiceManager {
                 oldest_idx = idx;
             }
         }
-        self.voices[oldest_idx].trigger_with_segments(
-            sample,
-            gain,
-            pan,
-            speed,
-            cut_group,
-            levels,
-            times,
-        );
+        self.voices[oldest_idx]
+            .trigger_with_segments(sample, gain, pan, speed, cut_group, levels, times);
         self.next_voice_index = (oldest_idx + 1) % max_voices;
     }
 

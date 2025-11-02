@@ -1,7 +1,6 @@
 /// Test fundsp organ_hz integration
 ///
 /// This is the first fundsp UGen wrapper test following the Study → Implement → Test workflow
-
 use fundsp::prelude::*;
 
 #[test]

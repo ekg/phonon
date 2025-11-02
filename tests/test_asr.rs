@@ -50,11 +50,7 @@ out: ~envelope
 
     // Check that envelope starts near 0
     let start_val = samples[10]; // Skip first few samples for startup
-    assert!(
-        start_val < 0.2,
-        "Should start near 0, got {}",
-        start_val
-    );
+    assert!(start_val < 0.2, "Should start near 0, got {}", start_val);
 
     // Check that envelope rises
     let mid_val = samples[attack_samples / 2];
@@ -124,7 +120,10 @@ out: ~envelope
     let release_start = samples[mid_point];
     let release_end = samples[samples.len() - 1];
 
-    println!("Release start: {}, Release end: {}", release_start, release_end);
+    println!(
+        "Release start: {}, Release end: {}",
+        release_start, release_end
+    );
 
     // Envelope should decay during release
     assert!(
@@ -162,9 +161,18 @@ out: ~envelope
 
     println!("Found {} samples above 0.7", high_samples);
     println!("Sample values at key points:");
-    println!("  0.05s (first attack): {}", samples[(SAMPLE_RATE * 0.05) as usize]);
-    println!("  0.15s (after first release): {}", samples[(SAMPLE_RATE * 0.15) as usize]);
-    println!("  0.30s (second attack): {}", samples[(SAMPLE_RATE * 0.30) as usize]);
+    println!(
+        "  0.05s (first attack): {}",
+        samples[(SAMPLE_RATE * 0.05) as usize]
+    );
+    println!(
+        "  0.15s (after first release): {}",
+        samples[(SAMPLE_RATE * 0.15) as usize]
+    );
+    println!(
+        "  0.30s (second attack): {}",
+        samples[(SAMPLE_RATE * 0.30) as usize]
+    );
 
     assert!(
         high_samples > 100,

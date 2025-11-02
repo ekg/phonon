@@ -5,7 +5,6 @@
 /// - "a" (0-0.5) becomes: a a a (each 0.167 long)
 /// - "b" (0.5-1.0) becomes: b b b (each 0.167 long)
 /// Total: 6 events instead of 2
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -60,12 +59,18 @@ fn test_stutter_level1_event_count() {
     }
 
     // stutter 3 should triple event count
-    assert_eq!(stutter_total, base_total * 3,
+    assert_eq!(
+        stutter_total,
+        base_total * 3,
         "stutter 3 should triple event count: base={}, stutter={}",
-        base_total, stutter_total);
+        base_total,
+        stutter_total
+    );
 
-    println!("✅ stutter Level 1: Base events = {}, stutter events = {}",
-             base_total, stutter_total);
+    println!(
+        "✅ stutter Level 1: Base events = {}, stutter events = {}",
+        base_total, stutter_total
+    );
 }
 
 #[test]
@@ -83,13 +88,21 @@ fn test_stutter_level1_event_timing() {
     let haps = stutter_pattern.query(&state);
 
     // Should have 4 events (1 original * 4 stutter)
-    assert_eq!(haps.len(), 4, "stutter 4 of 1 event should produce 4 events");
+    assert_eq!(
+        haps.len(),
+        4,
+        "stutter 4 of 1 event should produce 4 events"
+    );
 
     // Each event should be 0.25 long (1.0 / 4)
     for (i, hap) in haps.iter().enumerate() {
         let duration = hap.part.duration().to_float();
-        assert!((duration - 0.25).abs() < 0.001,
-            "Event {} should have duration 0.25, got {}", i, duration);
+        assert!(
+            (duration - 0.25).abs() < 0.001,
+            "Event {} should have duration 0.25, got {}",
+            i,
+            duration
+        );
     }
 
     // Events should be sequential
@@ -131,11 +144,17 @@ out: s "bd sn hh cp" $ stutter 3
     assert!(
         ratio > 1.5 && ratio < 4.0,
         "stutter 3 should significantly increase onset count: base={}, stutter={}, ratio={:.2}",
-        base_onsets.len(), stutter_onsets.len(), ratio
+        base_onsets.len(),
+        stutter_onsets.len(),
+        ratio
     );
 
-    println!("✅ stutter Level 2: Base onsets = {}, stutter onsets = {}, ratio = {:.2}",
-             base_onsets.len(), stutter_onsets.len(), ratio);
+    println!(
+        "✅ stutter Level 2: Base onsets = {}, stutter onsets = {}, ratio = {:.2}",
+        base_onsets.len(),
+        stutter_onsets.len(),
+        ratio
+    );
 }
 
 #[test]
@@ -153,17 +172,26 @@ out: s "bd" $ stutter 4
     let onsets = detect_audio_events(&audio, sample_rate, 0.01);
 
     // Should have multiple events (at least 6 for 2 cycles with stutter 4)
-    assert!(onsets.len() >= 6,
-        "stutter 4 should produce multiple rapid events (got {})", onsets.len());
+    assert!(
+        onsets.len() >= 6,
+        "stutter 4 should produce multiple rapid events (got {})",
+        onsets.len()
+    );
 
     // Check that events are close together in time
     if onsets.len() >= 2 {
         let interval = onsets[1].time - onsets[0].time;
-        assert!(interval < 0.6,
-            "Stuttered events should be close together (interval = {:.3}s)", interval);
+        assert!(
+            interval < 0.6,
+            "Stuttered events should be close together (interval = {:.3}s)",
+            interval
+        );
     }
 
-    println!("✅ stutter Level 2: Rapid succession verified, {} onsets detected", onsets.len());
+    println!(
+        "✅ stutter Level 2: Rapid succession verified, {} onsets detected",
+        onsets.len()
+    );
 }
 
 // ============================================================================
@@ -185,11 +213,26 @@ out: s "bd sn hh cp" $ stutter 3
     let dc_offset = audio.iter().sum::<f32>() / audio.len() as f32;
 
     // Verify audio quality
-    assert!(rms > 0.01, "stutter should produce audible audio (RMS = {})", rms);
-    assert!(peak > 0.1, "stutter should have audible peaks (peak = {})", peak);
-    assert!(dc_offset.abs() < 0.1, "stutter should not have excessive DC offset (DC = {})", dc_offset);
+    assert!(
+        rms > 0.01,
+        "stutter should produce audible audio (RMS = {})",
+        rms
+    );
+    assert!(
+        peak > 0.1,
+        "stutter should have audible peaks (peak = {})",
+        peak
+    );
+    assert!(
+        dc_offset.abs() < 0.1,
+        "stutter should not have excessive DC offset (DC = {})",
+        dc_offset
+    );
 
-    println!("✅ stutter Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}", rms, peak, dc_offset);
+    println!(
+        "✅ stutter Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}",
+        rms, peak, dc_offset
+    );
 }
 
 #[test]
@@ -219,8 +262,10 @@ out: s "bd sn hh cp" $ stutter 3
         base_rms, stutter_rms, ratio
     );
 
-    println!("✅ stutter Level 3: Base RMS = {:.4}, stutter RMS = {:.4}, ratio = {:.2}",
-             base_rms, stutter_rms, ratio);
+    println!(
+        "✅ stutter Level 3: Base RMS = {:.4}, stutter RMS = {:.4}, ratio = {:.2}",
+        base_rms, stutter_rms, ratio
+    );
 }
 
 // ============================================================================
@@ -241,8 +286,11 @@ fn test_stutter_with_stutter_1() {
     let base_haps = pattern.query(&state);
     let stutter_haps = stutter_pattern.query(&state);
 
-    assert_eq!(base_haps.len(), stutter_haps.len(),
-        "stutter 1 should preserve event count");
+    assert_eq!(
+        base_haps.len(),
+        stutter_haps.len(),
+        "stutter 1 should preserve event count"
+    );
 
     println!("✅ stutter edge case: stutter 1 behaves as identity");
 }
@@ -258,7 +306,10 @@ out: s "bd sn" $ stutter 16
     let audio = render_dsl(code, 4);
     let rms = calculate_rms(&audio);
 
-    assert!(rms > 0.01, "stutter with large n should still produce audio");
+    assert!(
+        rms > 0.01,
+        "stutter with large n should still produce audio"
+    );
 
     println!("✅ stutter edge case: stutter 16 works correctly");
 }

@@ -11,7 +11,7 @@ fn test_hush_command_silences_outputs() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let osc2 = graph.add_node(SignalNode::Oscillator {
@@ -107,7 +107,7 @@ fn test_hush_specific_channel() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let osc2 = graph.add_node(SignalNode::Oscillator {

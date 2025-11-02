@@ -7,7 +7,6 @@
 /// Note: rarely, often, sometimes, always were verified in TIER 1
 ///
 /// All transforms use 3-level verification but adapted for probabilistic behavior
-
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
@@ -24,10 +23,17 @@ fn test_sometimes_by_level1_probability_0() {
     };
 
     // With prob=0.0, transform should NEVER apply
-    let transformed = pattern.clone().sometimes_by(0.0, |p| p.fast(2.0)).query(&state);
+    let transformed = pattern
+        .clone()
+        .sometimes_by(0.0, |p| p.fast(2.0))
+        .query(&state);
     let base = pattern.query(&state);
 
-    assert_eq!(transformed.len(), base.len(), "prob=0.0 should never apply transform");
+    assert_eq!(
+        transformed.len(),
+        base.len(),
+        "prob=0.0 should never apply transform"
+    );
 
     println!("✅ sometimes_by(0.0): Never applies (base events only)");
 }
@@ -42,10 +48,17 @@ fn test_sometimes_by_level1_probability_1() {
     };
 
     // With prob=1.0, transform should ALWAYS apply
-    let transformed = pattern.clone().sometimes_by(1.0, |p| p.fast(2.0)).query(&state);
+    let transformed = pattern
+        .clone()
+        .sometimes_by(1.0, |p| p.fast(2.0))
+        .query(&state);
     let just_fast = pattern.clone().fast(2.0).query(&state);
 
-    assert_eq!(transformed.len(), just_fast.len(), "prob=1.0 should always apply transform");
+    assert_eq!(
+        transformed.len(),
+        just_fast.len(),
+        "prob=1.0 should always apply transform"
+    );
 
     println!("✅ sometimes_by(1.0): Always applies (same as direct transform)");
 }
@@ -68,7 +81,10 @@ fn test_sometimes_by_level1_probability_distribution() {
         };
 
         let base = pattern.query(&state);
-        let transformed = pattern.clone().sometimes_by(0.5, |p| p.fast(2.0)).query(&state);
+        let transformed = pattern
+            .clone()
+            .sometimes_by(0.5, |p| p.fast(2.0))
+            .query(&state);
 
         // If transformed, should have 2x events
         if transformed.len() > base.len() {
@@ -84,7 +100,10 @@ fn test_sometimes_by_level1_probability_distribution() {
         probability * 100.0
     );
 
-    println!("✅ sometimes_by(0.5) over 100 cycles: applied {:.1}% (expected ~50%)", probability * 100.0);
+    println!(
+        "✅ sometimes_by(0.5) over 100 cycles: applied {:.1}% (expected ~50%)",
+        probability * 100.0
+    );
 }
 
 #[test]
@@ -97,10 +116,20 @@ fn test_sometimes_by_deterministic_per_cycle() {
         controls: HashMap::new(),
     };
 
-    let result1 = pattern.clone().sometimes_by(0.5, |p| p.fast(2.0)).query(&state);
-    let result2 = pattern.clone().sometimes_by(0.5, |p| p.fast(2.0)).query(&state);
+    let result1 = pattern
+        .clone()
+        .sometimes_by(0.5, |p| p.fast(2.0))
+        .query(&state);
+    let result2 = pattern
+        .clone()
+        .sometimes_by(0.5, |p| p.fast(2.0))
+        .query(&state);
 
-    assert_eq!(result1.len(), result2.len(), "Same cycle should give same result");
+    assert_eq!(
+        result1.len(),
+        result2.len(),
+        "Same cycle should give same result"
+    );
 
     println!("✅ sometimes_by is deterministic per cycle (seeded RNG)");
 }
@@ -120,14 +149,27 @@ fn test_when_mod_level1_every_n_cycles() {
         };
 
         let base = pattern.query(&state);
-        let when_mod = pattern.clone().when_mod(3, 0, |p| p.fast(2.0)).query(&state);
+        let when_mod = pattern
+            .clone()
+            .when_mod(3, 0, |p| p.fast(2.0))
+            .query(&state);
 
         if cycle % 3 == 0 {
             // Should apply fast(2)
-            assert_eq!(when_mod.len(), base.len() * 2, "Cycle {}: should apply transform", cycle);
+            assert_eq!(
+                when_mod.len(),
+                base.len() * 2,
+                "Cycle {}: should apply transform",
+                cycle
+            );
         } else {
             // Should NOT apply
-            assert_eq!(when_mod.len(), base.len(), "Cycle {}: should NOT apply transform", cycle);
+            assert_eq!(
+                when_mod.len(),
+                base.len(),
+                "Cycle {}: should NOT apply transform",
+                cycle
+            );
         }
     }
 
@@ -150,14 +192,26 @@ fn test_when_mod_with_offset() {
         };
 
         let base = pattern.query(&state);
-        let when_mod = pattern.clone().when_mod(4, 1, |p| p.fast(2.0)).query(&state);
+        let when_mod = pattern
+            .clone()
+            .when_mod(4, 1, |p| p.fast(2.0))
+            .query(&state);
 
         if (cycle - 1) % 4 == 0 {
             // Should apply
-            assert!(when_mod.len() >= base.len(), "Cycle {}: should apply transform", cycle);
+            assert!(
+                when_mod.len() >= base.len(),
+                "Cycle {}: should apply transform",
+                cycle
+            );
         } else {
             // Should NOT apply
-            assert_eq!(when_mod.len(), base.len(), "Cycle {}: should NOT apply", cycle);
+            assert_eq!(
+                when_mod.len(),
+                base.len(),
+                "Cycle {}: should NOT apply",
+                cycle
+            );
         }
     }
 
@@ -217,7 +271,10 @@ fn test_sometimes_by_different_probabilities() {
             };
 
             let base = pattern.query(&state);
-            let transformed = pattern.clone().sometimes_by(prob, |p| p.fast(2.0)).query(&state);
+            let transformed = pattern
+                .clone()
+                .sometimes_by(prob, |p| p.fast(2.0))
+                .query(&state);
 
             if transformed.len() > base.len() {
                 applied += 1;
@@ -235,7 +292,12 @@ fn test_sometimes_by_different_probabilities() {
             actual * 100.0
         );
 
-        println!("prob={:.2}: {:.1}% applied (expected ~{:.0}%)", prob, actual * 100.0, prob * 100.0);
+        println!(
+            "prob={:.2}: {:.1}% applied (expected ~{:.0}%)",
+            prob,
+            actual * 100.0,
+            prob * 100.0
+        );
     }
 
     println!("✅ sometimes_by respects different probability levels");
@@ -259,7 +321,10 @@ fn test_when_mod_different_modulos() {
             };
 
             let base = pattern.query(&state);
-            let when_mod = pattern.clone().when_mod(modulo, 0, |p| p.fast(2.0)).query(&state);
+            let when_mod = pattern
+                .clone()
+                .when_mod(modulo, 0, |p| p.fast(2.0))
+                .query(&state);
 
             if when_mod.len() > base.len() {
                 applied_cycles.push(cycle);
@@ -274,7 +339,10 @@ fn test_when_mod_different_modulos() {
             modulo, modulo
         );
 
-        println!("✅ when_mod({}) applies on cycles: {:?}", modulo, applied_cycles);
+        println!(
+            "✅ when_mod({}) applies on cycles: {:?}",
+            modulo, applied_cycles
+        );
     }
 }
 
@@ -321,9 +389,19 @@ fn test_when_mod_composition() {
 
         if cycle % 2 == 0 && cycle % 3 == 0 {
             // Both conditions met
-            assert_eq!(composed.len(), base.len() * 2, "Cycle {}: both conditions met", cycle);
+            assert_eq!(
+                composed.len(),
+                base.len() * 2,
+                "Cycle {}: both conditions met",
+                cycle
+            );
         } else {
-            assert_eq!(composed.len(), base.len(), "Cycle {}: conditions not met", cycle);
+            assert_eq!(
+                composed.len(),
+                base.len(),
+                "Cycle {}: conditions not met",
+                cycle
+            );
         }
     }
 
@@ -345,7 +423,11 @@ fn test_sometimes_by_identity_transform() {
     let base = pattern.query(&state);
     let transformed = pattern.clone().sometimes_by(0.5, |p| p).query(&state);
 
-    assert_eq!(transformed.len(), base.len(), "Identity transform should not change count");
+    assert_eq!(
+        transformed.len(),
+        base.len(),
+        "Identity transform should not change count"
+    );
 
     println!("✅ sometimes_by with identity transform works correctly");
 }
@@ -365,9 +447,16 @@ fn test_when_mod_every_cycle() {
         };
 
         let base = pattern.query(&state);
-        let when_mod = pattern.clone().when_mod(1, 0, |p| p.fast(2.0)).query(&state);
+        let when_mod = pattern
+            .clone()
+            .when_mod(1, 0, |p| p.fast(2.0))
+            .query(&state);
 
-        assert_eq!(when_mod.len(), base.len() * 2, "when_mod(1) should apply every cycle");
+        assert_eq!(
+            when_mod.len(),
+            base.len() * 2,
+            "when_mod(1) should apply every cycle"
+        );
     }
 
     println!("✅ when_mod(1, 0) applies on every cycle");
@@ -384,11 +473,18 @@ fn test_when_mod_negative_cycle() {
     };
 
     // when_mod(4, -1, f) - negative offset
-    let when_mod = pattern.clone().when_mod(4, -1, |p| p.fast(2.0)).query(&state);
+    let when_mod = pattern
+        .clone()
+        .when_mod(4, -1, |p| p.fast(2.0))
+        .query(&state);
 
     // Cycle 0: (0 - (-1)) % 4 = 1 % 4 = 1 (not 0, so don't apply)
     let base = pattern.query(&state);
-    assert_eq!(when_mod.len(), base.len(), "Negative offset should work correctly");
+    assert_eq!(
+        when_mod.len(),
+        base.len(),
+        "Negative offset should work correctly"
+    );
 
     println!("✅ when_mod handles negative offsets");
 }
@@ -404,7 +500,10 @@ fn test_sometimes_by_with_silence() {
 
     // Should handle rests correctly
     let base = pattern.query(&state);
-    let transformed = pattern.clone().sometimes_by(1.0, |p| p.fast(2.0)).query(&state);
+    let transformed = pattern
+        .clone()
+        .sometimes_by(1.0, |p| p.fast(2.0))
+        .query(&state);
 
     assert!(transformed.len() >= base.len(), "Should handle rests");
 

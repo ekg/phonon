@@ -508,8 +508,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
         let len = patterns.len();
         Pattern::new(move |state| {
-            use rand::{Rng, SeedableRng};
             use rand::rngs::StdRng;
+            use rand::{Rng, SeedableRng};
 
             // Determine which pattern is active based on random selection per cycle
             let cycle = state.span.begin.to_float().floor() as u64;
@@ -592,22 +592,28 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                         // Remap from pattern time to global time
                         hap.part = TimeSpan::new(
                             Fraction::from_float(
-                                cycle_f + pattern_start
+                                cycle_f
+                                    + pattern_start
                                     + (hap.part.begin.to_float() - cycle_f) * weight,
                             ),
                             Fraction::from_float(
-                                cycle_f + pattern_start + (hap.part.end.to_float() - cycle_f) * weight,
+                                cycle_f
+                                    + pattern_start
+                                    + (hap.part.end.to_float() - cycle_f) * weight,
                             ),
                         );
 
                         if let Some(whole) = hap.whole {
                             hap.whole = Some(TimeSpan::new(
                                 Fraction::from_float(
-                                    cycle_f + pattern_start
+                                    cycle_f
+                                        + pattern_start
                                         + (whole.begin.to_float() - cycle_f) * weight,
                                 ),
                                 Fraction::from_float(
-                                    cycle_f + pattern_start + (whole.end.to_float() - cycle_f) * weight,
+                                    cycle_f
+                                        + pattern_start
+                                        + (whole.end.to_float() - cycle_f) * weight,
                                 ),
                             ));
                         }
@@ -648,13 +654,21 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 .into_iter()
                 .map(|mut hap| {
                     // Adjust timing to fit within the original query span
-                    hap.whole = hap.whole.map(|w| TimeSpan::new(
-                        Fraction::from_float(w.begin.to_float() * n as f64 - slice_index as f64),
-                        Fraction::from_float(w.end.to_float() * n as f64 - slice_index as f64),
-                    ));
+                    hap.whole = hap.whole.map(|w| {
+                        TimeSpan::new(
+                            Fraction::from_float(
+                                w.begin.to_float() * n as f64 - slice_index as f64,
+                            ),
+                            Fraction::from_float(w.end.to_float() * n as f64 - slice_index as f64),
+                        )
+                    });
                     hap.part = TimeSpan::new(
-                        Fraction::from_float(hap.part.begin.to_float() * n as f64 - slice_index as f64),
-                        Fraction::from_float(hap.part.end.to_float() * n as f64 - slice_index as f64),
+                        Fraction::from_float(
+                            hap.part.begin.to_float() * n as f64 - slice_index as f64,
+                        ),
+                        Fraction::from_float(
+                            hap.part.end.to_float() * n as f64 - slice_index as f64,
+                        ),
                     );
                     hap
                 })
@@ -672,7 +686,8 @@ impl Pattern<String> {
 
         // Add speed control to modify sample playback
         Pattern::new(move |state| {
-            fast_pattern.query(state)
+            fast_pattern
+                .query(state)
                 .into_iter()
                 .map(|mut hap| {
                     // Add speed control to each event

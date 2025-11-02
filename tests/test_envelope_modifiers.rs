@@ -1,6 +1,5 @@
 /// Test per-event envelope modifiers with sample patterns
 /// Tests the syntax: s "bd sn" # segments "0 1 0" "0.1 0.2"
-
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]

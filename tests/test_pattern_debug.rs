@@ -65,7 +65,7 @@ fn test_oscillator_with_pattern_signal() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     graph.set_output(osc);

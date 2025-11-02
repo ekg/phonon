@@ -7,7 +7,6 @@
 /// - Result: "a b" and "c d" play simultaneously (stacked)
 ///
 /// Note: chop is an alias for striate
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -63,12 +62,16 @@ fn test_chop_level1_event_count() {
 
     // chop 2 stacks 2 slices: "a b" and "c d"
     // Total events: 2 + 2 = 4 (same as base, but playing simultaneously)
-    assert_eq!(chop_total, base_total,
+    assert_eq!(
+        chop_total, base_total,
         "chop should preserve total event count (stacked slices): base={}, chop={}",
-        base_total, chop_total);
+        base_total, chop_total
+    );
 
-    println!("✅ chop Level 1: Base events = {}, chop events = {}",
-             base_total, chop_total);
+    println!(
+        "✅ chop Level 1: Base events = {}, chop events = {}",
+        base_total, chop_total
+    );
 }
 
 #[test]
@@ -129,11 +132,17 @@ out: s "bd sn hh cp" $ chop 2
     assert!(
         ratio > 0.3 && ratio < 1.2,
         "chop should produce reasonable onset count: base={}, chop={}, ratio={:.2}",
-        base_onsets.len(), chop_onsets.len(), ratio
+        base_onsets.len(),
+        chop_onsets.len(),
+        ratio
     );
 
-    println!("✅ chop Level 2: Base onsets = {}, chop onsets = {}, ratio = {:.2}",
-             base_onsets.len(), chop_onsets.len(), ratio);
+    println!(
+        "✅ chop Level 2: Base onsets = {}, chop onsets = {}, ratio = {:.2}",
+        base_onsets.len(),
+        chop_onsets.len(),
+        ratio
+    );
 }
 
 #[test]
@@ -151,10 +160,16 @@ out: s "bd sn" $ chop 2
     let onsets = detect_audio_events(&audio, sample_rate, 0.01);
 
     // Should have events throughout the audio
-    assert!(onsets.len() >= 4,
-        "chop should produce multiple events (got {})", onsets.len());
+    assert!(
+        onsets.len() >= 4,
+        "chop should produce multiple events (got {})",
+        onsets.len()
+    );
 
-    println!("✅ chop Level 2: Layered sound verified, {} onsets detected", onsets.len());
+    println!(
+        "✅ chop Level 2: Layered sound verified, {} onsets detected",
+        onsets.len()
+    );
 }
 
 // ============================================================================
@@ -176,11 +191,26 @@ out: s "bd sn hh cp" $ chop 2
     let dc_offset = audio.iter().sum::<f32>() / audio.len() as f32;
 
     // Verify audio quality
-    assert!(rms > 0.01, "chop should produce audible audio (RMS = {})", rms);
-    assert!(peak > 0.1, "chop should have audible peaks (peak = {})", peak);
-    assert!(dc_offset.abs() < 0.1, "chop should not have excessive DC offset (DC = {})", dc_offset);
+    assert!(
+        rms > 0.01,
+        "chop should produce audible audio (RMS = {})",
+        rms
+    );
+    assert!(
+        peak > 0.1,
+        "chop should have audible peaks (peak = {})",
+        peak
+    );
+    assert!(
+        dc_offset.abs() < 0.1,
+        "chop should not have excessive DC offset (DC = {})",
+        dc_offset
+    );
 
-    println!("✅ chop Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}", rms, peak, dc_offset);
+    println!(
+        "✅ chop Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}",
+        rms, peak, dc_offset
+    );
 }
 
 #[test]
@@ -207,11 +237,15 @@ out: s "bd sn hh cp" $ chop 2
     assert!(
         ratio > 0.7 && ratio < 1.5,
         "chop energy should be similar to base: base RMS = {:.4}, chop RMS = {:.4}, ratio = {:.2}",
-        base_rms, chop_rms, ratio
+        base_rms,
+        chop_rms,
+        ratio
     );
 
-    println!("✅ chop Level 3: Base RMS = {:.4}, chop RMS = {:.4}, ratio = {:.2}",
-             base_rms, chop_rms, ratio);
+    println!(
+        "✅ chop Level 3: Base RMS = {:.4}, chop RMS = {:.4}, ratio = {:.2}",
+        base_rms, chop_rms, ratio
+    );
 }
 
 // ============================================================================
@@ -232,8 +266,11 @@ fn test_chop_with_chop_1() {
     let base_haps = pattern.query(&state);
     let chop_haps = chop_pattern.query(&state);
 
-    assert_eq!(base_haps.len(), chop_haps.len(),
-        "chop 1 should preserve event count");
+    assert_eq!(
+        base_haps.len(),
+        chop_haps.len(),
+        "chop 1 should preserve event count"
+    );
 
     println!("✅ chop edge case: chop 1 behaves as identity");
 }
@@ -292,16 +329,21 @@ fn test_chop_equals_striate() {
     let chop_haps = chop_pattern.query(&state);
     let striate_haps = striate_pattern.query(&state);
 
-    assert_eq!(chop_haps.len(), striate_haps.len(),
-        "chop and striate should produce same event count");
+    assert_eq!(
+        chop_haps.len(),
+        striate_haps.len(),
+        "chop and striate should produce same event count"
+    );
 
     // Verify values match (may be in different order due to stacking)
     let chop_values: Vec<String> = chop_haps.iter().map(|h| h.value.clone()).collect();
     let striate_values: Vec<String> = striate_haps.iter().map(|h| h.value.clone()).collect();
 
     for value in &chop_values {
-        assert!(striate_values.contains(value),
-            "striate should have same values as chop");
+        assert!(
+            striate_values.contains(value),
+            "striate should have same values as chop"
+        );
     }
 
     println!("✅ chop edge case: chop 3 ≡ striate 3 (identical results)");

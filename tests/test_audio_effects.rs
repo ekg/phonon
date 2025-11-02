@@ -14,7 +14,7 @@ fn test_reverb_basic() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let reverb = graph.add_node(SignalNode::Reverb {
@@ -44,7 +44,7 @@ fn test_reverb_extends_sound() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let reverb = graph.add_node(SignalNode::Reverb {
@@ -83,7 +83,7 @@ fn test_distortion_basic() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let distortion = graph.add_node(SignalNode::Distortion {
@@ -123,7 +123,7 @@ fn test_distortion_changes_waveform() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let distortion = graph.add_node(SignalNode::Distortion {
@@ -156,7 +156,7 @@ fn test_bitcrush_basic() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let bitcrush = graph.add_node(SignalNode::BitCrush {
@@ -184,7 +184,7 @@ fn test_bitcrush_reduces_resolution() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let bitcrush = graph.add_node(SignalNode::BitCrush {
@@ -224,7 +224,7 @@ fn test_chorus_basic() {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let chorus = graph.add_node(SignalNode::Chorus {
@@ -253,7 +253,7 @@ fn test_chorus_creates_modulation() {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let chorus = graph.add_node(SignalNode::Chorus {
@@ -302,7 +302,7 @@ fn test_delay_basic() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let delay = graph.add_node(SignalNode::Delay {
@@ -332,7 +332,7 @@ fn test_delay_creates_echoes() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let delay = graph.add_node(SignalNode::Delay {
@@ -383,7 +383,7 @@ fn test_effects_chain() {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let distortion = graph.add_node(SignalNode::Distortion {
@@ -431,7 +431,7 @@ fn test_compressor_basic() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let compressor = graph.add_node(SignalNode::Compressor {
@@ -467,7 +467,7 @@ fn test_compressor_reduces_dynamic_range() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     graph_uncompressed.set_output(osc_uncomp);

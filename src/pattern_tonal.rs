@@ -539,16 +539,7 @@ pub fn scale_list() -> Vec<&'static str> {
 /// List of available chord types
 pub fn chord_list() -> Vec<&'static str> {
     vec![
-        "maj",
-        "min",
-        "dim",
-        "aug",
-        "maj7",
-        "min7",
-        "dom7",
-        "dim7",
-        "sus2",
-        "sus4",
+        "maj", "min", "dim", "aug", "maj7", "min7", "dom7", "dim7", "sus2", "sus4",
     ]
 }
 

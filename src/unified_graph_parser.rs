@@ -170,6 +170,8 @@ pub enum DslStatement {
     },
     /// Set tempo: cps: 0.5
     SetCps(f32),
+    /// Set output mixing mode: outmix: sqrt|gain|tanh|hard|none
+    SetOutputMixMode(String),
     /// Silence output channel(s): hush, hush1, hush2
     Hush { channel: Option<usize> },
     /// Kill all voices and silence all outputs: panic
@@ -179,10 +181,21 @@ pub enum DslStatement {
 /// Envelope type for sample triggering
 #[derive(Debug, Clone)]
 pub enum SampleEnvelopeType {
-    Percussion,  // Default: attack + release
-    ADSR { decay: Box<DslExpression>, sustain: Box<DslExpression> },
-    Segments { levels_str: String, times_str: String },
-    Curve { start: Box<DslExpression>, end: Box<DslExpression>, duration: Box<DslExpression>, curve: Box<DslExpression> },
+    Percussion, // Default: attack + release
+    ADSR {
+        decay: Box<DslExpression>,
+        sustain: Box<DslExpression>,
+    },
+    Segments {
+        levels_str: String,
+        times_str: String,
+    },
+    Curve {
+        start: Box<DslExpression>,
+        end: Box<DslExpression>,
+        duration: Box<DslExpression>,
+        curve: Box<DslExpression>,
+    },
 }
 
 /// Helper struct for SamplePattern fields (used in apply_modifier_to_sample)
@@ -322,7 +335,10 @@ pub enum DslExpression {
     Note { value: Box<DslExpression> },
     /// Envelope modifiers for per-event envelopes
     /// Segments envelope: s "bd" # segments "0 1 0" "0.1 0.2"
-    SegmentsModifier { levels_str: String, times_str: String },
+    SegmentsModifier {
+        levels_str: String,
+        times_str: String,
+    },
     /// Curve envelope: s "bd" # curve 0 1 0.3 3.0
     CurveModifier {
         start: Box<DslExpression>,
@@ -1307,11 +1323,17 @@ fn bus_definition(input: &str) -> IResult<&str, DslStatement> {
 }
 
 /// Parse output definition: out: expression, out1: expression, out2: expression, etc.
+/// Also supports Tidal-style o1, o2, o3 and d1, d2, d3 syntax
 fn output_definition(input: &str) -> IResult<&str, DslStatement> {
     map(
         tuple((
-            tag("out"),
-            // Optional channel number: out1, out2, etc.
+            // Match "out", "o", or "d" prefix
+            alt((
+                value("out", tag("out")),
+                value("o", tag("o")),
+                value("d", tag("d")),
+            )),
+            // Optional channel number: out1, o1, d1, etc.
             alt((
                 map_res(digit1, |s: &str| s.parse::<usize>()),
                 value(0, tag("")), // Default to channel 0 for plain "out"
@@ -1319,9 +1341,22 @@ fn output_definition(input: &str) -> IResult<&str, DslStatement> {
             ws(char(':')),
             expression,
         )),
-        |(_, channel, _, expr)| DslStatement::Output {
-            channel: if channel == 0 { None } else { Some(channel) },
-            expr,
+        |(prefix, channel, _, expr)| {
+            // For "out" without number, use None (backwards compatible single output)
+            // For "out1", "o1", "d1", etc., use the channel number
+            let channel_num = if prefix == "out" && channel == 0 {
+                None // Plain "out:" goes to backwards-compatible single output
+            } else if channel == 0 {
+                // "o:" or "d:" without number defaults to channel 1
+                Some(1)
+            } else {
+                Some(channel)
+            };
+
+            DslStatement::Output {
+                channel: channel_num,
+                expr,
+            }
         },
     )(input)
 }
@@ -1371,6 +1406,14 @@ fn cps_setting(input: &str) -> IResult<&str, DslStatement> {
     ))(input)
 }
 
+/// Parse output mix mode setting: outmix: sqrt|gain|tanh|hard|none
+fn outmix_setting(input: &str) -> IResult<&str, DslStatement> {
+    map(
+        preceded(tuple((tag("outmix"), ws(char(':')))), identifier),
+        |mode| DslStatement::SetOutputMixMode(mode.to_string()),
+    )(input)
+}
+
 /// Parse hush statement: hush, hush1, hush2, etc.
 fn hush_statement(input: &str) -> IResult<&str, DslStatement> {
     map(
@@ -1412,6 +1455,7 @@ fn statement(input: &str) -> IResult<&str, DslStatement> {
         bus_definition,
         output_definition,
         cps_setting,
+        outmix_setting,
         hush_statement,
         panic_statement,
     ))(input)
@@ -1466,6 +1510,7 @@ impl DslCompiler {
                 .filter(|name| {
                     // Match "out" followed by digits (out1, out2, out3...)
                     // or "d" followed by digits (d1, d2, d3...)
+                    // or "o" followed by digits (o1, o2, o3...) - common Tidal-style syntax
                     let matches_out_pattern = name.starts_with("out")
                         && name.len() > 3
                         && name[3..].chars().all(|c| c.is_ascii_digit());
@@ -1474,7 +1519,11 @@ impl DslCompiler {
                         && name.len() > 1
                         && name[1..].chars().all(|c| c.is_ascii_digit());
 
-                    matches_out_pattern || matches_d_pattern
+                    let matches_o_pattern = name.starts_with('o')
+                        && name.len() > 1
+                        && name[1..].chars().all(|c| c.is_ascii_digit());
+
+                    matches_out_pattern || matches_d_pattern || matches_o_pattern
                 })
                 .cloned()
                 .collect();
@@ -1558,6 +1607,17 @@ impl DslCompiler {
             }
             DslStatement::SetCps(cps) => {
                 self.graph.set_cps(cps);
+            }
+            DslStatement::SetOutputMixMode(mode_str) => {
+                use crate::unified_graph::OutputMixMode;
+                if let Some(mode) = OutputMixMode::from_str(&mode_str) {
+                    self.graph.set_output_mix_mode(mode);
+                } else {
+                    eprintln!(
+                        "Warning: Invalid output mix mode '{}'. Valid modes: gain, sqrt, tanh, hard, none. Using default (sqrt).",
+                        mode_str
+                    );
+                }
             }
             DslStatement::Hush { channel } => match channel {
                 None => self.graph.hush_all(),
@@ -1700,7 +1760,10 @@ impl DslCompiler {
                         });
                         self.compile_expression(modified_left)
                     }
-                    DslExpression::SegmentsModifier { levels_str, times_str } => {
+                    DslExpression::SegmentsModifier {
+                        levels_str,
+                        times_str,
+                    } => {
                         let levels_str = levels_str.clone();
                         let times_str = times_str.clone();
                         let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
@@ -1712,7 +1775,12 @@ impl DslCompiler {
                         });
                         self.compile_expression(modified_left)
                     }
-                    DslExpression::CurveModifier { start, end, duration, curve } => {
+                    DslExpression::CurveModifier {
+                        start,
+                        end,
+                        duration,
+                        curve,
+                    } => {
                         let start = start.clone();
                         let end = end.clone();
                         let duration = duration.clone();
@@ -1728,7 +1796,12 @@ impl DslCompiler {
                         });
                         self.compile_expression(modified_left)
                     }
-                    DslExpression::ADSRModifier { attack, decay, sustain, release } => {
+                    DslExpression::ADSRModifier {
+                        attack,
+                        decay,
+                        sustain,
+                        release,
+                    } => {
                         let decay = decay.clone();
                         let sustain = sustain.clone();
                         let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
@@ -1736,10 +1809,8 @@ impl DslCompiler {
                             // and set decay/sustain in the envelope_type
                             sample.attack = Some(attack.clone());
                             sample.release = Some(release.clone());
-                            sample.envelope_type = Some(SampleEnvelopeType::ADSR {
-                                decay,
-                                sustain,
-                            });
+                            sample.envelope_type =
+                                Some(SampleEnvelopeType::ADSR { decay, sustain });
                             sample
                         });
                         self.compile_expression(modified_left)
@@ -2137,7 +2208,10 @@ impl DslCompiler {
                             sustain: self.compile_expression_to_signal(*sustain),
                         }
                     }
-                    SampleEnvelopeType::Segments { levels_str, times_str } => {
+                    SampleEnvelopeType::Segments {
+                        levels_str,
+                        times_str,
+                    } => {
                         // Parse levels and times strings
                         let levels: Vec<f32> = levels_str
                             .split_whitespace()
@@ -2149,14 +2223,17 @@ impl DslCompiler {
                             .collect();
                         crate::unified_graph::RuntimeEnvelopeType::Segments { levels, times }
                     }
-                    SampleEnvelopeType::Curve { start, end, duration, curve } => {
-                        crate::unified_graph::RuntimeEnvelopeType::Curve {
-                            start: self.compile_expression_to_signal(*start),
-                            end: self.compile_expression_to_signal(*end),
-                            duration: self.compile_expression_to_signal(*duration),
-                            curve: self.compile_expression_to_signal(*curve),
-                        }
-                    }
+                    SampleEnvelopeType::Curve {
+                        start,
+                        end,
+                        duration,
+                        curve,
+                    } => crate::unified_graph::RuntimeEnvelopeType::Curve {
+                        start: self.compile_expression_to_signal(*start),
+                        end: self.compile_expression_to_signal(*end),
+                        duration: self.compile_expression_to_signal(*duration),
+                        curve: self.compile_expression_to_signal(*curve),
+                    },
                 });
 
                 // Create Sample node
@@ -2403,7 +2480,7 @@ impl DslCompiler {
                                 note: Signal::Value(0.0),
                                 attack,
                                 release,
-                                envelope_type: None,  // TODO: Support envelope in pattern transforms
+                                envelope_type: None, // TODO: Support envelope in pattern transforms
                             })
                         } else {
                             eprintln!("Warning: Chained transform inner expression did not produce a pattern or sample node");
@@ -2482,7 +2559,7 @@ impl DslCompiler {
                             note: note_signal,
                             attack: attack_signal,
                             release: release_signal,
-                            envelope_type: None,  // TODO: Support envelope in this case
+                            envelope_type: None, // TODO: Support envelope in this case
                         })
                     }
                     DslExpression::BusRef(bus_name) => {
@@ -2560,7 +2637,7 @@ impl DslCompiler {
                                 note: Signal::Value(0.0),
                                 attack,
                                 release,
-                                envelope_type: None,  // TODO: Support envelope in pattern transforms
+                                envelope_type: None, // TODO: Support envelope in pattern transforms
                             })
                         } else if let Some(SignalNode::Pattern {
                             pattern: pattern_obj,
@@ -2765,7 +2842,6 @@ impl DslCompiler {
         pattern: crate::pattern::Pattern<String>,
         transform: PatternTransformOp,
     ) -> Result<crate::pattern::Pattern<String>, String> {
-
         match transform {
             PatternTransformOp::Fast(factor_expr) => {
                 // Extract the numeric value

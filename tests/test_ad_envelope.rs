@@ -157,7 +157,11 @@ out: ~saw * ~env * 0.4
     // Should produce audible output
     let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
     let rms = rms.sqrt();
-    assert!(rms > 0.01, "AD-modulated saw should be audible, got RMS {}", rms);
+    assert!(
+        rms > 0.01,
+        "AD-modulated saw should be audible, got RMS {}",
+        rms
+    );
 }
 
 /// Test that AD parameters can be pattern-controlled
@@ -199,7 +203,11 @@ out: ~kick * ~env
 
     // Should have a sharp attack and quick decay
     let peak = samples.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-    assert!(peak > 0.5, "Percussive AD should have clear peak, got {}", peak);
+    assert!(
+        peak > 0.5,
+        "Percussive AD should have clear peak, got {}",
+        peak
+    );
 
     // Most of the envelope should be near zero (quick decay)
     let near_zero_count = samples.iter().filter(|s| s.abs() < 0.1).count();

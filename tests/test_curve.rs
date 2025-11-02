@@ -47,7 +47,10 @@ out: ~ramp
     let t_0_5 = samples[(SAMPLE_RATE * 0.5) as usize];
     let t_1_0 = samples[(SAMPLE_RATE * 0.99) as usize];
 
-    println!("Curve values: t=0: {}, t=0.5: {}, t=1: {}", t_0_0, t_0_5, t_1_0);
+    println!(
+        "Curve values: t=0: {}, t=0.5: {}, t=1: {}",
+        t_0_0, t_0_5, t_1_0
+    );
 
     // Should start near 0
     assert!(t_0_0 < 0.1, "Should start at 0, got {}", t_0_0);
@@ -79,7 +82,10 @@ out: ~ramp
     let t_0_5 = samples[(SAMPLE_RATE * 0.5) as usize];
     let t_1_0 = samples[(SAMPLE_RATE * 0.99) as usize];
 
-    println!("Curve values: t=0: {}, t=0.5: {}, t=1: {}", t_0_0, t_0_5, t_1_0);
+    println!(
+        "Curve values: t=0: {}, t=0.5: {}, t=1: {}",
+        t_0_0, t_0_5, t_1_0
+    );
 
     // Should start near 1
     assert!(t_0_0 > 0.9, "Should start at 1, got {}", t_0_0);
@@ -111,17 +117,29 @@ out: ~exp_curve
     let t_0_50 = samples[(SAMPLE_RATE * 0.50) as usize];
     let t_0_75 = samples[(SAMPLE_RATE * 0.75) as usize];
 
-    println!("Exponential curve: t=0.25: {}, t=0.5: {}, t=0.75: {}", t_0_25, t_0_50, t_0_75);
+    println!(
+        "Exponential curve: t=0.25: {}, t=0.5: {}, t=0.75: {}",
+        t_0_25, t_0_50, t_0_75
+    );
 
     // Exponential: slow start, fast end
     // At t=0.25, should still be relatively low (< 0.1)
-    assert!(t_0_25 < 0.1, "Exponential should start slow, got {} at t=0.25", t_0_25);
+    assert!(
+        t_0_25 < 0.1,
+        "Exponential should start slow, got {} at t=0.25",
+        t_0_25
+    );
 
     // Growth should accelerate - difference between later intervals should be larger
     let delta_early = t_0_50 - t_0_25;
     let delta_late = t_0_75 - t_0_50;
 
-    assert!(delta_late > delta_early, "Exponential should accelerate: late growth {} > early growth {}", delta_late, delta_early);
+    assert!(
+        delta_late > delta_early,
+        "Exponential should accelerate: late growth {} > early growth {}",
+        delta_late,
+        delta_early
+    );
 }
 
 /// LEVEL 2: Logarithmic Curve (Negative Curve Value)
@@ -143,17 +161,29 @@ out: ~log_curve
     let t_0_50 = samples[(SAMPLE_RATE * 0.50) as usize];
     let t_0_75 = samples[(SAMPLE_RATE * 0.75) as usize];
 
-    println!("Logarithmic curve: t=0.25: {}, t=0.5: {}, t=0.75: {}", t_0_25, t_0_50, t_0_75);
+    println!(
+        "Logarithmic curve: t=0.25: {}, t=0.5: {}, t=0.75: {}",
+        t_0_25, t_0_50, t_0_75
+    );
 
     // Logarithmic: fast start, slow end
     // At t=0.25, should already be relatively high (> 0.3)
-    assert!(t_0_25 > 0.3, "Logarithmic should start fast, got {} at t=0.25", t_0_25);
+    assert!(
+        t_0_25 > 0.3,
+        "Logarithmic should start fast, got {} at t=0.25",
+        t_0_25
+    );
 
     // Growth should slow down toward end
     let delta_early = t_0_25;
     let delta_late = t_0_75 - t_0_50;
 
-    assert!(delta_early > delta_late, "Should slow down: early growth {} > late growth {}", delta_early, delta_late);
+    assert!(
+        delta_early > delta_late,
+        "Should slow down: early growth {} > late growth {}",
+        delta_early,
+        delta_late
+    );
 }
 
 /// LEVEL 2: Linear Curve (Zero Curve Value)
@@ -175,12 +205,27 @@ out: ~linear
     let t_0_50 = samples[(SAMPLE_RATE * 0.50) as usize];
     let t_0_75 = samples[(SAMPLE_RATE * 0.75) as usize];
 
-    println!("Linear curve: t=0.25: {}, t=0.5: {}, t=0.75: {}", t_0_25, t_0_50, t_0_75);
+    println!(
+        "Linear curve: t=0.25: {}, t=0.5: {}, t=0.75: {}",
+        t_0_25, t_0_50, t_0_75
+    );
 
     // Linear should be approximately proportional
-    assert!((t_0_25 - 0.25).abs() < 0.1, "Should be ~0.25 at t=0.25, got {}", t_0_25);
-    assert!((t_0_50 - 0.50).abs() < 0.1, "Should be ~0.50 at t=0.50, got {}", t_0_50);
-    assert!((t_0_75 - 0.75).abs() < 0.1, "Should be ~0.75 at t=0.75, got {}", t_0_75);
+    assert!(
+        (t_0_25 - 0.25).abs() < 0.1,
+        "Should be ~0.25 at t=0.25, got {}",
+        t_0_25
+    );
+    assert!(
+        (t_0_50 - 0.50).abs() < 0.1,
+        "Should be ~0.50 at t=0.50, got {}",
+        t_0_50
+    );
+    assert!(
+        (t_0_75 - 0.75).abs() < 0.1,
+        "Should be ~0.75 at t=0.75, got {}",
+        t_0_75
+    );
 }
 
 /// LEVEL 2: Curve Stability

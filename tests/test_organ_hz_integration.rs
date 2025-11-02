@@ -4,7 +4,6 @@
 /// - Level 1: Pattern query verification (not applicable - organ_hz is continuous)
 /// - Level 2: Onset detection (not applicable - organ_hz is continuous tone)
 /// - Level 3: Audio characteristics (signal quality verification)
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -124,11 +123,7 @@ fn test_organ_hz_level3_dc_offset() {
     let dc_offset: f32 = audio.iter().sum::<f32>() / audio.len() as f32;
 
     // DC offset should be very small (< 0.01)
-    assert!(
-        dc_offset.abs() < 0.01,
-        "DC offset too high: {}",
-        dc_offset
-    );
+    assert!(dc_offset.abs() < 0.01, "DC offset too high: {}", dc_offset);
 
     println!("DC offset: {:.6}", dc_offset);
 }

@@ -46,7 +46,11 @@ out: impulse 2.0
     // Count impulses (values significantly above 0.0)
     let impulse_count = samples.iter().filter(|&&s| s > 0.5).count();
 
-    println!("Found {} impulses in {} samples", impulse_count, samples.len());
+    println!(
+        "Found {} impulses in {} samples",
+        impulse_count,
+        samples.len()
+    );
 
     // Should have approximately 2 impulses (at 2 Hz for 1 second)
     assert!(
@@ -164,10 +168,7 @@ out: impulse 4.0
 
     // Calculate spacing between impulses
     if impulse_positions.len() >= 2 {
-        let spacings: Vec<_> = impulse_positions
-            .windows(2)
-            .map(|w| w[1] - w[0])
-            .collect();
+        let spacings: Vec<_> = impulse_positions.windows(2).map(|w| w[1] - w[0]).collect();
 
         println!("Spacings: {:?}", spacings);
 
@@ -290,7 +291,11 @@ out: ~kick
     // RMS will be low because impulses are sparse (only 4 samples out of 22050)
     let nonzero_count = samples.iter().filter(|&&s| s.abs() > 0.001).count();
 
-    println!("Clock test: {} non-zero samples out of {}", nonzero_count, samples.len());
+    println!(
+        "Clock test: {} non-zero samples out of {}",
+        nonzero_count,
+        samples.len()
+    );
 
     assert!(
         nonzero_count > 0,

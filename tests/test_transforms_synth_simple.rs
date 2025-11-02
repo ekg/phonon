@@ -53,7 +53,11 @@ fn test_fast_with_synthesis() {
     println!("   Normal: {} events over {} cycles", normal_count, cycles);
     println!("   Fast x2: {} events over {} cycles", fast2_count, cycles);
 
-    assert_eq!(fast2_count, normal_count * 2, "fast 2 should double event count");
+    assert_eq!(
+        fast2_count,
+        normal_count * 2,
+        "fast 2 should double event count"
+    );
 
     // STEP 2: Audio verification with synthesis
     println!("\n2. Audio Verification:");
@@ -92,16 +96,16 @@ fn test_fast_with_synthesis() {
 #[test]
 fn test_plain_sine() {
     use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
-    
+
     let input = r#"
         tempo: 2.0
         out: sine 440 * 0.3
     "#;
-    
+
     let (_, statements) = parse_dsl(input).expect("Parse");
     let mut graph = DslCompiler::new(44100.0).compile(statements);
     let buffer = graph.render(44100); // 1 second
-    
+
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
     println!("Plain sine RMS: {:.6}", rms);
     assert!(rms > 0.05, "Sine should produce audio");

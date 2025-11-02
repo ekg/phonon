@@ -434,7 +434,7 @@ pub enum SignalExpr {
 /// Runtime envelope type for Sample nodes (after compilation)
 #[derive(Debug, Clone)]
 pub enum RuntimeEnvelopeType {
-    Percussion,  // Use attack + release
+    Percussion, // Use attack + release
     ADSR {
         decay: Signal,
         sustain: Signal,
@@ -467,11 +467,11 @@ pub enum SignalNode {
     /// FM (Frequency Modulation) oscillator
     /// output = sin(2π * carrier * t + mod_index * sin(2π * modulator * t))
     FMOscillator {
-        carrier_freq: Signal,    // Carrier frequency in Hz
-        modulator_freq: Signal,  // Modulator frequency in Hz
-        mod_index: Signal,       // Modulation index (depth)
-        carrier_phase: f32,      // Carrier phase (0.0 to 1.0)
-        modulator_phase: f32,    // Modulator phase (0.0 to 1.0)
+        carrier_freq: Signal,   // Carrier frequency in Hz
+        modulator_freq: Signal, // Modulator frequency in Hz
+        mod_index: Signal,      // Modulation index (depth)
+        carrier_phase: f32,     // Carrier phase (0.0 to 1.0)
+        modulator_phase: f32,   // Modulator phase (0.0 to 1.0)
     },
 
     /// White noise generator
@@ -500,8 +500,8 @@ pub enum SignalNode {
     /// Smooths abrupt changes with exponential approach to target
     /// Useful for portamento, click removal, parameter smoothing
     Lag {
-        input: Signal,     // Input signal to smooth
-        lag_time: Signal,  // Time constant in seconds
+        input: Signal,    // Input signal to smooth
+        lag_time: Signal, // Time constant in seconds
         state: LagState,
     },
 
@@ -509,9 +509,9 @@ pub enum SignalNode {
     /// Generates exponential ramp from start to end over duration
     /// More natural sounding than linear ramps for pitch/amplitude
     XLine {
-        start: Signal,     // Starting value
-        end: Signal,       // Ending value
-        duration: Signal,  // Duration in seconds
+        start: Signal,    // Starting value
+        end: Signal,      // Ending value
+        duration: Signal, // Duration in seconds
         state: XLineState,
     },
 
@@ -519,9 +519,9 @@ pub enum SignalNode {
     /// Gate-based envelope: attacks when gate rises, sustains while high, releases when gate falls
     /// Perfect for organ-style sounds and continuous notes
     ASR {
-        gate: Signal,      // Gate signal (0 = off, >0.5 = on)
-        attack: Signal,    // Attack time in seconds
-        release: Signal,   // Release time in seconds
+        gate: Signal,    // Gate signal (0 = off, >0.5 = on)
+        attack: Signal,  // Attack time in seconds
+        release: Signal, // Release time in seconds
         state: ASRState,
     },
 
@@ -530,9 +530,9 @@ pub enum SignalNode {
     /// width=0.5 creates square wave (only odd harmonics)
     /// Other widths create different harmonic content
     Pulse {
-        freq: Signal,      // Frequency in Hz
-        width: Signal,     // Pulse width / duty cycle (0.0 to 1.0)
-        phase: f32,        // Phase (0.0 to 1.0)
+        freq: Signal,  // Frequency in Hz
+        width: Signal, // Pulse width / duty cycle (0.0 to 1.0)
+        phase: f32,    // Phase (0.0 to 1.0)
     },
 
     /// Brick-wall limiter (prevents signal from exceeding threshold)
@@ -707,7 +707,7 @@ pub enum SignalNode {
     /// Classic analog filter with warm sound and self-oscillation
     MoogLadder {
         input: Signal,
-        cutoff: Signal,   // Cutoff frequency in Hz
+        cutoff: Signal,    // Cutoff frequency in Hz
         resonance: Signal, // Resonance (0.0-1.0, self-oscillates near 1.0)
         state: MoogLadderState,
     },
@@ -717,9 +717,9 @@ pub enum SignalNode {
     ParametricEQ {
         input: Signal,
         // Low band
-        low_freq: Signal,   // Center frequency in Hz
-        low_gain: Signal,   // Gain in dB (-20 to +20)
-        low_q: Signal,      // Bandwidth (0.1 to 10.0)
+        low_freq: Signal, // Center frequency in Hz
+        low_gain: Signal, // Gain in dB (-20 to +20)
+        low_q: Signal,    // Bandwidth (0.1 to 10.0)
         // Mid band
         mid_freq: Signal,
         mid_gain: Signal,
@@ -782,11 +782,11 @@ pub enum SignalNode {
     /// Multi-segment envelope with linear interpolation
     /// Takes two pattern strings: levels and times
     Segments {
-        levels: Vec<f32>,        // Target levels for each breakpoint
-        times: Vec<f32>,         // Duration for each segment
-        current_segment: usize,  // Which segment we're in
-        segment_elapsed: f32,    // Time elapsed in current segment
-        current_value: f32,      // Current interpolated value
+        levels: Vec<f32>,       // Target levels for each breakpoint
+        times: Vec<f32>,        // Duration for each segment
+        current_segment: usize, // Which segment we're in
+        segment_elapsed: f32,   // Time elapsed in current segment
+        current_value: f32,     // Current interpolated value
     },
 
     /// Delay line
@@ -825,8 +825,8 @@ pub enum SignalNode {
     Latch {
         input: Signal,
         gate: Signal,
-        held_value: f32,     // The currently held sample
-        last_gate: f32,      // Previous gate value (for edge detection)
+        held_value: f32, // The currently held sample
+        last_gate: f32,  // Previous gate value (for edge detection)
     },
 
     /// Timer
@@ -834,8 +834,8 @@ pub enum SignalNode {
     /// Resets to 0 on rising edge, counts up in seconds
     Timer {
         trigger: Signal,
-        elapsed_time: f32,   // Current elapsed time in seconds
-        last_trigger: f32,   // Previous trigger value (for edge detection)
+        elapsed_time: f32, // Current elapsed time in seconds
+        last_trigger: f32, // Previous trigger value (for edge detection)
     },
 
     /// Pitch detector
@@ -853,9 +853,9 @@ pub enum SignalNode {
     /// Fast attack, slow decay
     PeakFollower {
         input: Signal,
-        attack_time: Signal,   // Attack time in seconds
-        release_time: Signal,  // Release/decay time in seconds
-        current_peak: f32,     // Current peak level
+        attack_time: Signal,  // Attack time in seconds
+        release_time: Signal, // Release/decay time in seconds
+        current_peak: f32,    // Current peak level
     },
 
     /// Amp Follower
@@ -863,12 +863,12 @@ pub enum SignalNode {
     /// Smoother than peak follower for amplitude tracking
     AmpFollower {
         input: Signal,
-        attack_time: Signal,    // Attack time in seconds
-        release_time: Signal,   // Release time in seconds
-        window_size: Signal,    // RMS window size in seconds
-        buffer: Vec<f32>,       // Circular buffer for RMS
-        write_idx: usize,       // Write position in buffer
-        current_envelope: f32,  // Smoothed RMS value
+        attack_time: Signal,   // Attack time in seconds
+        release_time: Signal,  // Release time in seconds
+        window_size: Signal,   // RMS window size in seconds
+        buffer: Vec<f32>,      // Circular buffer for RMS
+        write_idx: usize,      // Write position in buffer
+        current_envelope: f32, // Smoothed RMS value
     },
 
     // === Math & Control ===
@@ -966,10 +966,10 @@ pub enum SignalNode {
     /// Tremolo (amplitude modulation)
     /// Classic effect that modulates amplitude with an LFO
     Tremolo {
-        input: Signal,  // Input signal
-        rate: Signal,   // LFO rate in Hz (0.1 to 20.0)
-        depth: Signal,  // Modulation depth (0.0 to 1.0)
-        phase: f32,     // LFO phase accumulator
+        input: Signal, // Input signal
+        rate: Signal,  // LFO rate in Hz (0.1 to 20.0)
+        depth: Signal, // Modulation depth (0.0 to 1.0)
+        phase: f32,    // LFO phase accumulator
     },
 
     /// fundsp Unit Wrapper (wraps fundsp AudioUnit for pattern modulation)
@@ -977,8 +977,8 @@ pub enum SignalNode {
     /// Pattern signals can modulate fundsp parameters at audio rate
     FundspUnit {
         unit_type: FundspUnitType,      // Which fundsp unit this is
-        inputs: Vec<Signal>,             // All inputs: [audio_input?, param1?, param2?, ...]
-        state: Arc<Mutex<FundspState>>,  // Thread-safe shared mutable fundsp unit state
+        inputs: Vec<Signal>,            // All inputs: [audio_input?, param1?, param2?, ...]
+        state: Arc<Mutex<FundspState>>, // Thread-safe shared mutable fundsp unit state
     },
 
     /// Output node
@@ -1060,7 +1060,7 @@ impl FundspState {
         Self {
             tick_fn,
             unit_type: FundspUnitType::OrganHz,
-            num_inputs: 0,  // Generator (no inputs)
+            num_inputs: 0, // Generator (no inputs)
             params: vec![frequency],
             sample_rate,
         }
@@ -1086,7 +1086,7 @@ impl FundspState {
         Self {
             tick_fn,
             unit_type: FundspUnitType::MoogHz,
-            num_inputs: 1,  // Processor (1 audio input)
+            num_inputs: 1, // Processor (1 audio input)
             params: vec![cutoff, resonance],
             sample_rate,
         }
@@ -1096,7 +1096,7 @@ impl FundspState {
     pub fn new_reverb_stereo(wet: f32, time: f32, sample_rate: f64) -> Self {
         // reverb_stereo takes (wet, time, diffusion) and expects stereo input
         // Convert parameters to f64 for fundsp
-        let diffusion = 0.5;  // Fixed diffusion parameter
+        let diffusion = 0.5; // Fixed diffusion parameter
         let mut unit = fundsp::prelude::reverb_stereo(wet as f64, time as f64, diffusion);
         unit.reset();
         unit.set_sample_rate(sample_rate);
@@ -1108,13 +1108,13 @@ impl FundspState {
             // reverb_stereo: 2 inputs (stereo) -> 2 outputs (stereo)
             // Convert mono to stereo input, return left channel
             let output_frame = unit.tick(&[audio_input, audio_input].into());
-            output_frame[0]  // Left channel only
+            output_frame[0] // Left channel only
         });
 
         Self {
             tick_fn,
             unit_type: FundspUnitType::ReverbStereo,
-            num_inputs: 1,  // Processor (1 audio input)
+            num_inputs: 1, // Processor (1 audio input)
             params: vec![wet, time],
             sample_rate,
         }
@@ -1146,7 +1146,7 @@ impl FundspState {
         Self {
             tick_fn,
             unit_type: FundspUnitType::Chorus,
-            num_inputs: 1,  // Processor (1 audio input)
+            num_inputs: 1, // Processor (1 audio input)
             params: vec![seed as f32, separation, variation, mod_frequency],
             sample_rate,
         }
@@ -1171,7 +1171,7 @@ impl FundspState {
             tick_fn,
             unit_type: FundspUnitType::SawHz,
             params: vec![frequency],
-            num_inputs: 0,  // Generator (no inputs)
+            num_inputs: 0, // Generator (no inputs)
             sample_rate,
         }
     }
@@ -1195,7 +1195,7 @@ impl FundspState {
             tick_fn,
             unit_type: FundspUnitType::SoftSawHz,
             params: vec![frequency],
-            num_inputs: 0,  // Generator (no inputs)
+            num_inputs: 0, // Generator (no inputs)
             sample_rate,
         }
     }
@@ -1218,7 +1218,7 @@ impl FundspState {
         Self {
             tick_fn,
             unit_type: FundspUnitType::SquareHz,
-            num_inputs: 0,  // Generator (no inputs)
+            num_inputs: 0, // Generator (no inputs)
             params: vec![frequency],
             sample_rate,
         }
@@ -1240,7 +1240,7 @@ impl FundspState {
 
         Self {
             tick_fn,
-            num_inputs: 0,  // Generator (no inputs)
+            num_inputs: 0, // Generator (no inputs)
             unit_type: FundspUnitType::TriangleHz,
             params: vec![frequency],
             sample_rate,
@@ -1262,10 +1262,10 @@ impl FundspState {
         });
 
         Self {
-            num_inputs: 0,  // Generator (no inputs)
+            num_inputs: 0, // Generator (no inputs)
             tick_fn,
             unit_type: FundspUnitType::Noise,
-            params: vec![],  // No parameters!
+            params: vec![], // No parameters!
             sample_rate,
         }
     }
@@ -1290,7 +1290,7 @@ impl FundspState {
             tick_fn,
             unit_type: FundspUnitType::Pink,
             num_inputs: 0,  // Generator (no inputs)
-            params: vec![],  // No parameters!
+            params: vec![], // No parameters!
             sample_rate,
         }
     }
@@ -1324,7 +1324,7 @@ impl FundspState {
             tick_fn,
             unit_type: FundspUnitType::Pulse,
             num_inputs: 2,  // Multi-input (frequency + pulse_width)
-            params: vec![],  // No static parameters (all audio-rate)
+            params: vec![], // No static parameters (all audio-rate)
             sample_rate,
         }
     }
@@ -1736,8 +1736,8 @@ impl Default for ParametricEQState {
 /// Uses multiple octave bins updated at different rates
 #[derive(Debug, Clone)]
 pub struct PinkNoiseState {
-    bins: [f32; 16],  // 16 octave bins for quality pink noise
-    counter: u32,     // Sample counter for bin update decisions
+    bins: [f32; 16], // 16 octave bins for quality pink noise
+    counter: u32,    // Sample counter for bin update decisions
 }
 
 impl PinkNoiseState {
@@ -1748,10 +1748,7 @@ impl PinkNoiseState {
         for bin in &mut bins {
             *bin = rng.gen_range(-1.0..1.0);
         }
-        Self {
-            bins,
-            counter: 0,
-        }
+        Self { bins, counter: 0 }
     }
 }
 
@@ -1770,9 +1767,7 @@ pub struct BrownNoiseState {
 
 impl BrownNoiseState {
     pub fn new() -> Self {
-        Self {
-            accumulator: 0.0,
-        }
+        Self { accumulator: 0.0 }
     }
 }
 
@@ -1832,9 +1827,7 @@ pub struct XLineState {
 
 impl XLineState {
     pub fn new() -> Self {
-        Self {
-            elapsed_samples: 0,
-        }
+        Self { elapsed_samples: 0 }
     }
 }
 
@@ -1847,10 +1840,10 @@ impl Default for XLineState {
 /// ASR envelope phase
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASRPhase {
-    Idle,     // Envelope at 0, waiting for gate
-    Attack,   // Rising from 0 to 1
-    Sustain,  // Holding at 1 while gate is high
-    Release,  // Falling from current level to 0
+    Idle,    // Envelope at 0, waiting for gate
+    Attack,  // Rising from 0 to 1
+    Sustain, // Holding at 1 while gate is high
+    Release, // Falling from current level to 0
 }
 
 /// ASR (Attack-Sustain-Release) envelope state
@@ -1858,8 +1851,8 @@ pub enum ASRPhase {
 #[derive(Debug, Clone)]
 pub struct ASRState {
     phase: ASRPhase,
-    current_level: f32,     // Current envelope output [0, 1]
-    previous_gate: f32,     // Previous gate value for edge detection
+    current_level: f32, // Current envelope output [0, 1]
+    previous_gate: f32, // Previous gate value for edge detection
 }
 
 impl ASRState {
@@ -2185,7 +2178,12 @@ impl UnifiedSignalGraph {
                 // CRITICAL FIX: For Pattern nodes, query at the specified cycle_pos
                 // instead of self.cycle_position to ensure each event gets the correct
                 // parameter value from pattern-valued DSP parameters like gain "1.0 0.5"
-                if let Some(Some(SignalNode::Pattern { pattern, pattern_str, .. })) = self.nodes.get(id.0) {
+                if let Some(Some(SignalNode::Pattern {
+                    pattern,
+                    pattern_str,
+                    ..
+                })) = self.nodes.get(id.0)
+                {
                     let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
                     let state = State {
                         span: TimeSpan::new(
@@ -2198,12 +2196,24 @@ impl UnifiedSignalGraph {
                     let events = pattern.query(&state);
 
                     // DEBUG: Log pattern signal evaluation
-                    if std::env::var("DEBUG_PATTERN").is_ok() && self.sample_count < 44200 && self.sample_count % 2200 == 0 {
-                        eprintln!("Signal Pattern '{}' at cycle {:.6}, sample {}: {} events",
-                                 pattern_str, cycle_pos, self.sample_count, events.len());
+                    if std::env::var("DEBUG_PATTERN").is_ok()
+                        && self.sample_count < 44200
+                        && self.sample_count % 2200 == 0
+                    {
+                        eprintln!(
+                            "Signal Pattern '{}' at cycle {:.6}, sample {}: {} events",
+                            pattern_str,
+                            cycle_pos,
+                            self.sample_count,
+                            events.len()
+                        );
                         if let Some(event) = events.first() {
-                            eprintln!("  First event: '{}' at [{:.6}, {:.6})",
-                                     event.value, event.part.begin.to_float(), event.part.end.to_float());
+                            eprintln!(
+                                "  First event: '{}' at [{:.6}, {:.6})",
+                                event.value,
+                                event.part.begin.to_float(),
+                                event.part.end.to_float()
+                            );
                         }
                     }
 
@@ -2361,7 +2371,13 @@ impl UnifiedSignalGraph {
 
                 // Update phase and detect zero-crossings
                 if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
-                    if let SignalNode::Oscillator { phase: p, pending_freq: pf, last_sample: ls, .. } = node {
+                    if let SignalNode::Oscillator {
+                        phase: p,
+                        pending_freq: pf,
+                        last_sample: ls,
+                        ..
+                    } = node
+                    {
                         // Check if frequency changed
                         if (requested_freq - current_freq).abs() > 0.1 {
                             // Frequency change requested - set it as pending
@@ -2377,7 +2393,11 @@ impl UnifiedSignalGraph {
                         }
 
                         // Update phase for next sample
-                        let freq_to_use = if pf.is_some() { current_freq } else { requested_freq };
+                        let freq_to_use = if pf.is_some() {
+                            current_freq
+                        } else {
+                            requested_freq
+                        };
                         *p += freq_to_use / self.sample_rate;
                         if *p >= 1.0 {
                             *p -= 1.0;
@@ -2774,9 +2794,7 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::Allpass {
-                input,
-                coefficient,
-                ..
+                input, coefficient, ..
             } => {
                 let x = self.eval_signal(&input);
                 let g = self.eval_signal(&coefficient).clamp(-1.0, 1.0);
@@ -2795,8 +2813,7 @@ impl UnifiedSignalGraph {
                 let y = g * (x - y1) + x1;
 
                 // Update state
-                if let Some(Some(SignalNode::Allpass { state, .. })) =
-                    self.nodes.get_mut(node_id.0)
+                if let Some(Some(SignalNode::Allpass { state, .. })) = self.nodes.get_mut(node_id.0)
                 {
                     state.x1 = x;
                     state.y1 = y;
@@ -3176,7 +3193,8 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 // 1. Evaluate ALL input signals (audio + parameters)
-                let input_values: Vec<f32> = inputs.iter()
+                let input_values: Vec<f32> = inputs
+                    .iter()
                     .map(|signal| self.eval_signal(signal))
                     .collect();
 
@@ -3186,40 +3204,37 @@ impl UnifiedSignalGraph {
                 let needs_recreation = match unit_type {
                     // Units with static constructors need recreation when params change
                     FundspUnitType::OrganHz => {
-                        input_values.len() >= 1 &&
-                        (state_guard.params[0] - input_values[0]).abs() > 0.1
+                        input_values.len() >= 1
+                            && (state_guard.params[0] - input_values[0]).abs() > 0.1
                     }
                     FundspUnitType::MoogHz => {
-                        input_values.len() >= 3 && (
-                            (state_guard.params[0] - input_values[1]).abs() > 1.0 ||
-                            (state_guard.params[1] - input_values[2]).abs() > 0.01
-                        )
+                        input_values.len() >= 3
+                            && ((state_guard.params[0] - input_values[1]).abs() > 1.0
+                                || (state_guard.params[1] - input_values[2]).abs() > 0.01)
                     }
                     FundspUnitType::ReverbStereo => {
-                        input_values.len() >= 3 && (
-                            (state_guard.params[0] - input_values[1]).abs() > 0.01 ||
-                            (state_guard.params[1] - input_values[2]).abs() > 0.01
-                        )
+                        input_values.len() >= 3
+                            && ((state_guard.params[0] - input_values[1]).abs() > 0.01
+                                || (state_guard.params[1] - input_values[2]).abs() > 0.01)
                     }
                     FundspUnitType::Chorus => {
-                        input_values.len() >= 5 && (
-                            (state_guard.params[0] - input_values[1]).abs() > 0.5 ||
-                            (state_guard.params[1] - input_values[2]).abs() > 0.01 ||
-                            (state_guard.params[2] - input_values[3]).abs() > 0.01 ||
-                            (state_guard.params[3] - input_values[4]).abs() > 0.01
-                        )
+                        input_values.len() >= 5
+                            && ((state_guard.params[0] - input_values[1]).abs() > 0.5
+                                || (state_guard.params[1] - input_values[2]).abs() > 0.01
+                                || (state_guard.params[2] - input_values[3]).abs() > 0.01
+                                || (state_guard.params[3] - input_values[4]).abs() > 0.01)
                     }
                     FundspUnitType::SawHz => {
-                        input_values.len() >= 1 &&
-                        (state_guard.params[0] - input_values[0]).abs() > 0.1
+                        input_values.len() >= 1
+                            && (state_guard.params[0] - input_values[0]).abs() > 0.1
                     }
                     FundspUnitType::SquareHz => {
-                        input_values.len() >= 1 &&
-                        (state_guard.params[0] - input_values[0]).abs() > 0.1
+                        input_values.len() >= 1
+                            && (state_guard.params[0] - input_values[0]).abs() > 0.1
                     }
                     FundspUnitType::TriangleHz => {
-                        input_values.len() >= 1 &&
-                        (state_guard.params[0] - input_values[0]).abs() > 0.1
+                        input_values.len() >= 1
+                            && (state_guard.params[0] - input_values[0]).abs() > 0.1
                     }
                     // Parameterless units or audio-rate-only units never need recreation
                     FundspUnitType::Noise | FundspUnitType::Pink | FundspUnitType::Pulse => false,
@@ -3235,29 +3250,23 @@ impl UnifiedSignalGraph {
                         FundspUnitType::OrganHz => {
                             FundspState::new_organ_hz(input_values[0], self.sample_rate as f64)
                         }
-                        FundspUnitType::MoogHz => {
-                            FundspState::new_moog_hz(
-                                input_values[1],
-                                input_values[2],
-                                self.sample_rate as f64
-                            )
-                        }
-                        FundspUnitType::ReverbStereo => {
-                            FundspState::new_reverb_stereo(
-                                input_values[1],
-                                input_values[2],
-                                self.sample_rate as f64
-                            )
-                        }
-                        FundspUnitType::Chorus => {
-                            FundspState::new_chorus(
-                                input_values[1] as u64,
-                                input_values[2],
-                                input_values[3],
-                                input_values[4],
-                                self.sample_rate as f64
-                            )
-                        }
+                        FundspUnitType::MoogHz => FundspState::new_moog_hz(
+                            input_values[1],
+                            input_values[2],
+                            self.sample_rate as f64,
+                        ),
+                        FundspUnitType::ReverbStereo => FundspState::new_reverb_stereo(
+                            input_values[1],
+                            input_values[2],
+                            self.sample_rate as f64,
+                        ),
+                        FundspUnitType::Chorus => FundspState::new_chorus(
+                            input_values[1] as u64,
+                            input_values[2],
+                            input_values[3],
+                            input_values[4],
+                            self.sample_rate as f64,
+                        ),
                         FundspUnitType::SawHz => {
                             FundspState::new_saw_hz(input_values[0], self.sample_rate as f64)
                         }
@@ -3267,7 +3276,7 @@ impl UnifiedSignalGraph {
                         FundspUnitType::TriangleHz => {
                             FundspState::new_triangle_hz(input_values[0], self.sample_rate as f64)
                         }
-                        _ => return 0.0,  // Should never happen
+                        _ => return 0.0, // Should never happen
                     };
                 }
 
@@ -3299,12 +3308,24 @@ impl UnifiedSignalGraph {
                 let mut current_value = last_value; // Default to last value
 
                 // DEBUG: Log all pattern queries
-                if std::env::var("DEBUG_PATTERN").is_ok() && self.sample_count < 200 && self.sample_count % 20 == 0 {
-                    eprintln!("Pattern '{}' at cycle {:.6}, sample {}: {} events",
-                             pattern_str, self.cycle_position, self.sample_count, events.len());
+                if std::env::var("DEBUG_PATTERN").is_ok()
+                    && self.sample_count < 200
+                    && self.sample_count % 20 == 0
+                {
+                    eprintln!(
+                        "Pattern '{}' at cycle {:.6}, sample {}: {} events",
+                        pattern_str,
+                        self.cycle_position,
+                        self.sample_count,
+                        events.len()
+                    );
                     if let Some(event) = events.first() {
-                        eprintln!("  First event: '{}' at [{:.6}, {:.6})",
-                                 event.value, event.part.begin.to_float(), event.part.end.to_float());
+                        eprintln!(
+                            "  First event: '{}' at [{:.6}, {:.6})",
+                            event.value,
+                            event.part.begin.to_float(),
+                            event.part.end.to_float()
+                        );
                     }
                 }
 
@@ -3326,8 +3347,10 @@ impl UnifiedSignalGraph {
 
                         // DEBUG: Log rests
                         if std::env::var("DEBUG_PATTERN").is_ok() && last_value != 0.0 {
-                            eprintln!("Pattern '{}' at cycle {:.4}: REST (was {})",
-                                     pattern_str, self.cycle_position, last_value);
+                            eprintln!(
+                                "Pattern '{}' at cycle {:.4}: REST (was {})",
+                                pattern_str, self.cycle_position, last_value
+                            );
                         }
                     } else if !s.is_empty() {
                         // Parse the event value - Pattern nodes are for NUMERIC values
@@ -3348,8 +3371,10 @@ impl UnifiedSignalGraph {
 
                         // DEBUG: Log pattern value changes
                         if std::env::var("DEBUG_PATTERN").is_ok() && current_value != last_value {
-                            eprintln!("Pattern '{}' at cycle {:.4}: value changed {} -> {} (event: '{}')",
-                                     pattern_str, self.cycle_position, last_value, current_value, s);
+                            eprintln!(
+                                "Pattern '{}' at cycle {:.4}: value changed {} -> {} (event: '{}')",
+                                pattern_str, self.cycle_position, last_value, current_value, s
+                            );
                         }
 
                         // Update last_value for next time
@@ -3364,7 +3389,10 @@ impl UnifiedSignalGraph {
                 current_value
             }
 
-            SignalNode::CycleTrigger { last_cycle, pulse_width } => {
+            SignalNode::CycleTrigger {
+                last_cycle,
+                pulse_width,
+            } => {
                 let current_cycle = self.cycle_position.floor() as i32;
                 let cycle_fraction = self.cycle_position - self.cycle_position.floor();
                 let pulse_duration = pulse_width / self.cps as f32; // Convert pulse width to cycles
@@ -3405,8 +3433,10 @@ impl UnifiedSignalGraph {
             } => {
                 // DEBUG: Log Sample node evaluation
                 if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 100 {
-                    eprintln!("Evaluating Sample node '{}' at sample {}, cycle_pos={:.6}",
-                             pattern_str, self.sample_count, self.cycle_position);
+                    eprintln!(
+                        "Evaluating Sample node '{}' at sample {}, cycle_pos={:.6}",
+                        pattern_str, self.sample_count, self.cycle_position
+                    );
                 }
 
                 // Query pattern for events in the current cycle
@@ -3448,7 +3478,11 @@ impl UnifiedSignalGraph {
 
                 // DEBUG: Log event processing
                 if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && !events.is_empty() {
-                    eprintln!("Sample node at cycle {:.3}: {} events", self.cycle_position, events.len());
+                    eprintln!(
+                        "Sample node at cycle {:.3}: {} events",
+                        self.cycle_position,
+                        events.len()
+                    );
                 }
 
                 // Trigger voices for ALL new events
@@ -3486,15 +3520,23 @@ impl UnifiedSignalGraph {
 
                     // DEBUG: Log event evaluation
                     if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 20 {
-                        eprintln!("  Event '{}' at {:.6}: event_is_new={} (last={:.6}, current={:.6})",
-                                 sample_name, event_start_abs, event_is_new, last_event_start, self.cycle_position);
+                        eprintln!(
+                            "  Event '{}' at {:.6}: event_is_new={} (last={:.6}, current={:.6})",
+                            sample_name,
+                            event_start_abs,
+                            event_is_new,
+                            last_event_start,
+                            self.cycle_position
+                        );
                     }
 
                     if event_is_new {
                         // DEBUG: Log triggered events
                         if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
-                            eprintln!("  Triggering: '{}' at {:.3} (cycle_pos={:.3})",
-                                     sample_name, event_start_abs, self.cycle_position);
+                            eprintln!(
+                                "  Triggering: '{}' at {:.3} (cycle_pos={:.3})",
+                                sample_name, event_start_abs, self.cycle_position
+                            );
                         }
 
                         // Evaluate DSP parameters at THIS EVENT'S start time
@@ -3602,19 +3644,28 @@ impl UnifiedSignalGraph {
                                 // Trigger voice with synthetic buffer using appropriate envelope type
                                 match envelope_type {
                                     Some(RuntimeEnvelopeType::Percussion) | None => {
-                                        self.voice_manager.borrow_mut().trigger_sample_with_envelope(
-                                            std::sync::Arc::new(synthetic_buffer),
-                                            gain_val,
-                                            pan_val,
-                                            final_speed,
-                                            cut_group_opt,
-                                            final_attack,
-                                            final_release,
-                                        );
+                                        self.voice_manager
+                                            .borrow_mut()
+                                            .trigger_sample_with_envelope(
+                                                std::sync::Arc::new(synthetic_buffer),
+                                                gain_val,
+                                                pan_val,
+                                                final_speed,
+                                                cut_group_opt,
+                                                final_attack,
+                                                final_release,
+                                            );
                                     }
-                                    Some(RuntimeEnvelopeType::ADSR { ref decay, ref sustain }) => {
-                                        let decay_val = self.eval_signal_at_time(decay, event_start_abs).max(0.001);
-                                        let sustain_val = self.eval_signal_at_time(sustain, event_start_abs).clamp(0.0, 1.0);
+                                    Some(RuntimeEnvelopeType::ADSR {
+                                        ref decay,
+                                        ref sustain,
+                                    }) => {
+                                        let decay_val = self
+                                            .eval_signal_at_time(decay, event_start_abs)
+                                            .max(0.001);
+                                        let sustain_val = self
+                                            .eval_signal_at_time(sustain, event_start_abs)
+                                            .clamp(0.0, 1.0);
                                         self.voice_manager.borrow_mut().trigger_sample_with_adsr(
                                             std::sync::Arc::new(synthetic_buffer),
                                             gain_val,
@@ -3627,22 +3678,37 @@ impl UnifiedSignalGraph {
                                             final_release,
                                         );
                                     }
-                                    Some(RuntimeEnvelopeType::Segments { ref levels, ref times }) => {
-                                        self.voice_manager.borrow_mut().trigger_sample_with_segments(
-                                            std::sync::Arc::new(synthetic_buffer),
-                                            gain_val,
-                                            pan_val,
-                                            final_speed,
-                                            cut_group_opt,
-                                            levels.clone(),
-                                            times.clone(),
-                                        );
+                                    Some(RuntimeEnvelopeType::Segments {
+                                        ref levels,
+                                        ref times,
+                                    }) => {
+                                        self.voice_manager
+                                            .borrow_mut()
+                                            .trigger_sample_with_segments(
+                                                std::sync::Arc::new(synthetic_buffer),
+                                                gain_val,
+                                                pan_val,
+                                                final_speed,
+                                                cut_group_opt,
+                                                levels.clone(),
+                                                times.clone(),
+                                            );
                                     }
-                                    Some(RuntimeEnvelopeType::Curve { ref start, ref end, ref duration, ref curve }) => {
-                                        let start_val = self.eval_signal_at_time(start, event_start_abs);
-                                        let end_val = self.eval_signal_at_time(end, event_start_abs);
-                                        let duration_val = self.eval_signal_at_time(duration, event_start_abs).max(0.001);
-                                        let curve_val = self.eval_signal_at_time(curve, event_start_abs);
+                                    Some(RuntimeEnvelopeType::Curve {
+                                        ref start,
+                                        ref end,
+                                        ref duration,
+                                        ref curve,
+                                    }) => {
+                                        let start_val =
+                                            self.eval_signal_at_time(start, event_start_abs);
+                                        let end_val =
+                                            self.eval_signal_at_time(end, event_start_abs);
+                                        let duration_val = self
+                                            .eval_signal_at_time(duration, event_start_abs)
+                                            .max(0.001);
+                                        let curve_val =
+                                            self.eval_signal_at_time(curve, event_start_abs);
                                         self.voice_manager.borrow_mut().trigger_sample_with_curve(
                                             std::sync::Arc::new(synthetic_buffer),
                                             gain_val,
@@ -3666,28 +3732,44 @@ impl UnifiedSignalGraph {
                             }
                         } else {
                             // Regular sample loading
-                            let sample_data_opt = self.sample_bank.borrow_mut().get_sample(&final_sample_name);
+                            let sample_data_opt =
+                                self.sample_bank.borrow_mut().get_sample(&final_sample_name);
                             // DEBUG: Log sample loading
-                            if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 20 {
-                                eprintln!("  Sample '{}' loaded: {}", final_sample_name, sample_data_opt.is_some());
+                            if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok()
+                                && self.sample_count < 20
+                            {
+                                eprintln!(
+                                    "  Sample '{}' loaded: {}",
+                                    final_sample_name,
+                                    sample_data_opt.is_some()
+                                );
                             }
                             if let Some(sample_data) = sample_data_opt {
                                 // Trigger voice using appropriate envelope type
                                 match envelope_type {
                                     Some(RuntimeEnvelopeType::Percussion) | None => {
-                                        self.voice_manager.borrow_mut().trigger_sample_with_envelope(
-                                            sample_data,
-                                            gain_val,
-                                            pan_val,
-                                            final_speed,
-                                            cut_group_opt,
-                                            final_attack,
-                                            final_release,
-                                        );
+                                        self.voice_manager
+                                            .borrow_mut()
+                                            .trigger_sample_with_envelope(
+                                                sample_data,
+                                                gain_val,
+                                                pan_val,
+                                                final_speed,
+                                                cut_group_opt,
+                                                final_attack,
+                                                final_release,
+                                            );
                                     }
-                                    Some(RuntimeEnvelopeType::ADSR { ref decay, ref sustain }) => {
-                                        let decay_val = self.eval_signal_at_time(decay, event_start_abs).max(0.001);
-                                        let sustain_val = self.eval_signal_at_time(sustain, event_start_abs).clamp(0.0, 1.0);
+                                    Some(RuntimeEnvelopeType::ADSR {
+                                        ref decay,
+                                        ref sustain,
+                                    }) => {
+                                        let decay_val = self
+                                            .eval_signal_at_time(decay, event_start_abs)
+                                            .max(0.001);
+                                        let sustain_val = self
+                                            .eval_signal_at_time(sustain, event_start_abs)
+                                            .clamp(0.0, 1.0);
                                         self.voice_manager.borrow_mut().trigger_sample_with_adsr(
                                             sample_data,
                                             gain_val,
@@ -3700,22 +3782,37 @@ impl UnifiedSignalGraph {
                                             final_release,
                                         );
                                     }
-                                    Some(RuntimeEnvelopeType::Segments { ref levels, ref times }) => {
-                                        self.voice_manager.borrow_mut().trigger_sample_with_segments(
-                                            sample_data,
-                                            gain_val,
-                                            pan_val,
-                                            final_speed,
-                                            cut_group_opt,
-                                            levels.clone(),
-                                            times.clone(),
-                                        );
+                                    Some(RuntimeEnvelopeType::Segments {
+                                        ref levels,
+                                        ref times,
+                                    }) => {
+                                        self.voice_manager
+                                            .borrow_mut()
+                                            .trigger_sample_with_segments(
+                                                sample_data,
+                                                gain_val,
+                                                pan_val,
+                                                final_speed,
+                                                cut_group_opt,
+                                                levels.clone(),
+                                                times.clone(),
+                                            );
                                     }
-                                    Some(RuntimeEnvelopeType::Curve { ref start, ref end, ref duration, ref curve }) => {
-                                        let start_val = self.eval_signal_at_time(start, event_start_abs);
-                                        let end_val = self.eval_signal_at_time(end, event_start_abs);
-                                        let duration_val = self.eval_signal_at_time(duration, event_start_abs).max(0.001);
-                                        let curve_val = self.eval_signal_at_time(curve, event_start_abs);
+                                    Some(RuntimeEnvelopeType::Curve {
+                                        ref start,
+                                        ref end,
+                                        ref duration,
+                                        ref curve,
+                                    }) => {
+                                        let start_val =
+                                            self.eval_signal_at_time(start, event_start_abs);
+                                        let end_val =
+                                            self.eval_signal_at_time(end, event_start_abs);
+                                        let duration_val = self
+                                            .eval_signal_at_time(duration, event_start_abs)
+                                            .max(0.001);
+                                        let curve_val =
+                                            self.eval_signal_at_time(curve, event_start_abs);
                                         self.voice_manager.borrow_mut().trigger_sample_with_curve(
                                             sample_data,
                                             gain_val,
@@ -3744,8 +3841,10 @@ impl UnifiedSignalGraph {
                 if latest_triggered_start > last_event_start || cycle_changed {
                     // DEBUG: Log update
                     if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 20 {
-                        eprintln!("  Updating last_trigger_time: {:.6} -> {:.6} (cycle_changed={})",
-                                 last_event_start, latest_triggered_start, cycle_changed);
+                        eprintln!(
+                            "  Updating last_trigger_time: {:.6} -> {:.6} (cycle_changed={})",
+                            last_event_start, latest_triggered_start, cycle_changed
+                        );
                     }
                     if let Some(Some(SignalNode::Sample {
                         last_trigger_time: lt,
@@ -4049,14 +4148,15 @@ impl UnifiedSignalGraph {
                 let damp = 1.0 / q_val;
 
                 // Get state
-                let (mut low, mut band, mut high) =
-                    if let Some(Some(SignalNode::Notch { state, .. })) =
-                        self.nodes.get(node_id.0)
-                    {
-                        (state.y1, state.x1, state.y2)
-                    } else {
-                        (0.0, 0.0, 0.0)
-                    };
+                let (mut low, mut band, mut high) = if let Some(Some(SignalNode::Notch {
+                    state,
+                    ..
+                })) = self.nodes.get(node_id.0)
+                {
+                    (state.y1, state.x1, state.y2)
+                } else {
+                    (0.0, 0.0, 0.0)
+                };
 
                 // Process
                 high = input_val - low - damp * band;
@@ -4064,9 +4164,7 @@ impl UnifiedSignalGraph {
                 low += f * band;
 
                 // Update state
-                if let Some(Some(SignalNode::Notch { state, .. })) =
-                    self.nodes.get_mut(node_id.0)
-                {
+                if let Some(Some(SignalNode::Notch { state, .. })) = self.nodes.get_mut(node_id.0) {
                     state.y1 = low;
                     state.x1 = band;
                     state.y2 = high;
@@ -4425,8 +4523,7 @@ impl UnifiedSignalGraph {
                 adsr_state.cycle_pos = cycle_pos;
 
                 // Update state in graph
-                if let Some(Some(SignalNode::ADSR { state: s, .. })) =
-                    self.nodes.get_mut(node_id.0)
+                if let Some(Some(SignalNode::ADSR { state: s, .. })) = self.nodes.get_mut(node_id.0)
                 {
                     *s = adsr_state.clone();
                 }
@@ -4475,9 +4572,7 @@ impl UnifiedSignalGraph {
                 ad_state.cycle_pos = cycle_pos;
 
                 // Update state in graph
-                if let Some(Some(SignalNode::AD { state: s, .. })) =
-                    self.nodes.get_mut(node_id.0)
-                {
+                if let Some(Some(SignalNode::AD { state: s, .. })) = self.nodes.get_mut(node_id.0) {
                     *s = ad_state.clone();
                 }
 
@@ -4671,7 +4766,8 @@ impl UnifiedSignalGraph {
 
                     // Only update last_trigger_time for NEW events
                     let tolerance = sample_width * 0.001;
-                    let event_is_new = event_start_abs > last_event_start + tolerance || cycle_changed;
+                    let event_is_new =
+                        event_start_abs > last_event_start + tolerance || cycle_changed;
 
                     if event_is_new && event_start_abs > latest_triggered_start {
                         latest_triggered_start = event_start_abs;
@@ -4679,9 +4775,7 @@ impl UnifiedSignalGraph {
                 }
 
                 // Process envelope based on trigger
-                if trigger_active
-                    && matches!(env_state.phase, EnvPhase::Idle | EnvPhase::Release)
-                {
+                if trigger_active && matches!(env_state.phase, EnvPhase::Idle | EnvPhase::Release) {
                     // Start attack phase
                     env_state.phase = EnvPhase::Attack;
                     env_state.time_in_phase = 0.0;
@@ -4836,7 +4930,8 @@ impl UnifiedSignalGraph {
 
                     // Only update last_trigger_time for NEW events
                     let tolerance = sample_width * 0.001;
-                    let event_is_new = event_start_abs > last_event_start + tolerance || cycle_changed;
+                    let event_is_new =
+                        event_start_abs > last_event_start + tolerance || cycle_changed;
 
                     if event_is_new && event_start_abs > latest_triggered_start {
                         latest_triggered_start = event_start_abs;
@@ -4844,9 +4939,7 @@ impl UnifiedSignalGraph {
                 }
 
                 // Process envelope based on trigger
-                if trigger_active
-                    && matches!(env_state.phase, EnvPhase::Idle | EnvPhase::Release)
-                {
+                if trigger_active && matches!(env_state.phase, EnvPhase::Idle | EnvPhase::Release) {
                     // Start attack phase
                     env_state.phase = EnvPhase::Attack;
                     env_state.time_in_phase = 0.0;

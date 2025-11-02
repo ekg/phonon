@@ -53,7 +53,10 @@ out: ~held
     let mid = samples[(SAMPLE_RATE * 0.5) as usize];
     let late = samples[(SAMPLE_RATE * 0.9) as usize];
 
-    println!("Latched values: early={}, mid={}, late={}", early, mid, late);
+    println!(
+        "Latched values: early={}, mid={}, late={}",
+        early, mid, late
+    );
 
     // With only one impulse at the start, all values should be similar (near 0)
     // because the latch samples the input once and holds it
@@ -92,10 +95,10 @@ out: ~held
 
     // Impulse at 4 Hz gives triggers at t=0, 0.25, 0.5, 0.75
     // Sample shortly after each trigger to see the held values
-    let s1 = samples[(SAMPLE_RATE * 0.02) as usize];  // Just after 1st trigger (t=0)
-    let s2 = samples[(SAMPLE_RATE * 0.27) as usize];  // Just after 2nd trigger (t=0.25)
-    let s3 = samples[(SAMPLE_RATE * 0.52) as usize];  // Just after 3rd trigger (t=0.5)
-    let s4 = samples[(SAMPLE_RATE * 0.77) as usize];  // Just after 4th trigger (t=0.75)
+    let s1 = samples[(SAMPLE_RATE * 0.02) as usize]; // Just after 1st trigger (t=0)
+    let s2 = samples[(SAMPLE_RATE * 0.27) as usize]; // Just after 2nd trigger (t=0.25)
+    let s3 = samples[(SAMPLE_RATE * 0.52) as usize]; // Just after 3rd trigger (t=0.5)
+    let s4 = samples[(SAMPLE_RATE * 0.77) as usize]; // Just after 4th trigger (t=0.75)
 
     println!("Sampled values: {} {} {} {}", s1, s2, s3, s4);
 
@@ -144,11 +147,8 @@ out: ~stepped
         let window = &samples[start..end];
 
         let mean: f32 = window.iter().sum::<f32>() / window.len() as f32;
-        let variance: f32 = window
-            .iter()
-            .map(|&s| (s - mean).powi(2))
-            .sum::<f32>()
-            / window.len() as f32;
+        let variance: f32 =
+            window.iter().map(|&s| (s - mean).powi(2)).sum::<f32>() / window.len() as f32;
 
         variances.push(variance);
     }
@@ -188,7 +188,9 @@ out: ~held * 0.5
     let end = (SAMPLE_RATE * 0.4) as usize;
     let first_val = samples[start];
 
-    let all_same = samples[start..end].iter().all(|&s| (s - first_val).abs() < 0.0001);
+    let all_same = samples[start..end]
+        .iter()
+        .all(|&s| (s - first_val).abs() < 0.0001);
 
     println!("All samples identical between triggers: {}", all_same);
     assert!(all_same, "Values should be held constant between triggers");

@@ -2,7 +2,6 @@
 ///
 /// This is the first multi-input UGen, demonstrating the new architecture.
 /// pulse() takes 2 audio-rate inputs: frequency and pulse_width
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::unified_graph::{FundspState, FundspUnitType, Signal, SignalNode, UnifiedSignalGraph};
@@ -51,7 +50,11 @@ fn test_pulse_level3_basic_audio() {
 
     // Verify audio characteristics
     let rms = calculate_rms(&samples);
-    assert!(rms > 0.1, "Pulse should produce audible output (RMS: {})", rms);
+    assert!(
+        rms > 0.1,
+        "Pulse should produce audible output (RMS: {})",
+        rms
+    );
     assert!(rms < 0.9, "Pulse should not clip (RMS: {})", rms);
 
     // Check for periodicity (440 Hz = ~100 samples per cycle at 44.1kHz)

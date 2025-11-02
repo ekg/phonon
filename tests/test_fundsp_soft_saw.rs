@@ -7,7 +7,6 @@
 /// - Takes 0 audio inputs (generator)
 /// - Returns 1 mono output
 /// - Softer/smoother sawtooth waveform (less harmonics than regular saw)
-
 use fundsp::prelude::*;
 
 #[test]
@@ -150,15 +149,20 @@ fn test_fundsp_soft_saw_vs_regular_saw() {
     }
 
     // Calculate RMS (energy)
-    let soft_rms: f32 = (soft_samples.iter().map(|s| s * s).sum::<f32>() / soft_samples.len() as f32).sqrt();
-    let regular_rms: f32 = (regular_samples.iter().map(|s| s * s).sum::<f32>() / regular_samples.len() as f32).sqrt();
+    let soft_rms: f32 =
+        (soft_samples.iter().map(|s| s * s).sum::<f32>() / soft_samples.len() as f32).sqrt();
+    let regular_rms: f32 =
+        (regular_samples.iter().map(|s| s * s).sum::<f32>() / regular_samples.len() as f32).sqrt();
 
     println!("Soft saw RMS: {:.4}", soft_rms);
     println!("Regular saw RMS: {:.4}", regular_rms);
 
     // Both should produce audio
     assert!(soft_rms > 0.01, "Soft saw should have significant energy");
-    assert!(regular_rms > 0.01, "Regular saw should have significant energy");
+    assert!(
+        regular_rms > 0.01,
+        "Regular saw should have significant energy"
+    );
 
     // Soft saw might be slightly quieter or similar in RMS
     // (Mostly just verify both work - spectral analysis would be better for harmonic content)

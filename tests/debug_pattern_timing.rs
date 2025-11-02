@@ -22,7 +22,7 @@ fn debug_pattern_value_changes() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     graph.set_output(osc);
@@ -69,7 +69,7 @@ fn debug_pattern_value_changes() {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     graph2.set_output(osc2);
@@ -91,8 +91,8 @@ fn debug_pattern_value_changes() {
             freq: Signal::Node(pn),
             waveform: Waveform::Sine,
             phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0, 
+            pending_freq: None,
+            last_sample: 0.0,
         });
         g.set_output(o);
 

@@ -9,7 +9,6 @@
 /// - chew(n): Progressively shift pattern by (cycle % n) / n
 ///
 /// All transforms use 3-level verification
-
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
@@ -57,7 +56,11 @@ fn test_gap_event_count() {
     let gap_haps = pattern.clone().gap(1).query(&state);
 
     // gap(1) should play every cycle (cycle 0 % 1 == 0)
-    assert_eq!(gap_haps.len(), base_haps.len(), "gap(1) should play every cycle");
+    assert_eq!(
+        gap_haps.len(),
+        base_haps.len(),
+        "gap(1) should play every cycle"
+    );
 
     println!("✅ gap(1) plays every cycle (equivalent to identity on cycle 0)");
 }
@@ -78,7 +81,11 @@ fn test_fit_level1_slows_down() {
     let fit_haps = fit_pattern.query(&state);
     let slow_haps = slow_pattern.query(&state);
 
-    assert_eq!(fit_haps.len(), slow_haps.len(), "fit(2) should equal slow(2)");
+    assert_eq!(
+        fit_haps.len(),
+        slow_haps.len(),
+        "fit(2) should equal slow(2)"
+    );
 
     println!("✅ fit is alias for slow (fits pattern to n cycles)");
 }
@@ -150,7 +157,11 @@ fn test_loop_level1_repeats_within_cycle() {
 
     // loop(n) does fast(n) then overlays n shifted versions
     // So loop(3): fast(3) = 6 events, overlay 3 times = 18 events = base × n²
-    assert_eq!(loop_haps.len(), base_haps.len() * 3 * 3, "loop(3) should have n² multiplier");
+    assert_eq!(
+        loop_haps.len(),
+        base_haps.len() * 3 * 3,
+        "loop(3) should have n² multiplier"
+    );
 
     println!("✅ loop overlays n fast(n) versions (n² multiplier)");
 }
@@ -172,7 +183,11 @@ fn test_chew_level1_progressive_shift() {
         };
 
         let chew_haps = chew_pattern.query(&state);
-        assert!(chew_haps.len() > 0, "chew should produce events on cycle {}", cycle);
+        assert!(
+            chew_haps.len() > 0,
+            "chew should produce events on cycle {}",
+            cycle
+        );
 
         // Events should be shifted by (cycle % 4) / 4
         let expected_shift = (cycle % 4) as f64 / 4.0;
@@ -181,8 +196,10 @@ fn test_chew_level1_progressive_shift() {
         if let Some(first) = chew_haps.first() {
             let time_in_cycle = first.part.begin.to_float() - cycle as f64;
             // Should be shifted by expected amount
-            println!("Cycle {}: first event at {:.3}, expected shift ~{:.3}",
-                cycle, time_in_cycle, expected_shift);
+            println!(
+                "Cycle {}: first event at {:.3}, expected shift ~{:.3}",
+                cycle, time_in_cycle, expected_shift
+            );
         }
     }
 
@@ -217,9 +234,15 @@ fn test_gap_over_many_cycles() {
 
     // Over 16 cycles, should play on 0, 4, 8, 12 = 4 times
     // 2 events per cycle × 4 = 8 events
-    assert_eq!(total_events, 8, "gap(4) over 16 cycles should have 8 events");
+    assert_eq!(
+        total_events, 8,
+        "gap(4) over 16 cycles should have 8 events"
+    );
 
-    println!("✅ gap over 16 cycles: {} events (4 × 2 events/cycle)", total_events);
+    println!(
+        "✅ gap over 16 cycles: {} events (4 × 2 events/cycle)",
+        total_events
+    );
 }
 
 #[test]
@@ -245,7 +268,13 @@ fn test_linger_different_factors() {
         // All should have same count (lingering on same cycle)
         let first_len = cycle_haps[0].len();
         for (i, haps) in cycle_haps.iter().enumerate() {
-            assert_eq!(haps.len(), first_len, "linger({}) cycle {} should have same count", factor, i);
+            assert_eq!(
+                haps.len(),
+                first_len,
+                "linger({}) cycle {} should have same count",
+                factor,
+                i
+            );
         }
 
         println!("✅ linger({}) repeats values for {} cycles", factor, factor);
@@ -296,7 +325,11 @@ fn test_chew_cycles_through_pattern() {
         };
 
         let haps = chew_pattern.query(&state);
-        assert!(haps.len() > 0, "chew should produce events on cycle {}", cycle);
+        assert!(
+            haps.len() > 0,
+            "chew should produce events on cycle {}",
+            cycle
+        );
     }
 
     println!("✅ chew cycles through shifts correctly");
@@ -406,7 +439,11 @@ fn test_loop_one_identity() {
     let loop_haps = pattern.clone().loop_pattern(1).query(&state);
 
     // loop(1) = fast(1) overlaid 1 time = 1² = identity
-    assert_eq!(loop_haps.len(), base_haps.len(), "loop(1) should be identity (1²)");
+    assert_eq!(
+        loop_haps.len(),
+        base_haps.len(),
+        "loop(1) should be identity (1²)"
+    );
 
     println!("✅ loop(1) is identity");
 }
@@ -424,7 +461,11 @@ fn test_chew_one_identity() {
     let base_haps = pattern.query(&state);
     let chew_haps = pattern.clone().chew(1).query(&state);
 
-    assert_eq!(chew_haps.len(), base_haps.len(), "chew(1) should preserve count");
+    assert_eq!(
+        chew_haps.len(),
+        base_haps.len(),
+        "chew(1) should preserve count"
+    );
 
     println!("✅ chew(1) behaves like identity");
 }
@@ -442,7 +483,11 @@ fn test_linger_one_identity() {
     let linger_haps = pattern.clone().linger(1.0).query(&state);
 
     // linger(1) should be close to identity
-    assert_eq!(linger_haps.len(), base_haps.len(), "linger(1) should preserve count");
+    assert_eq!(
+        linger_haps.len(),
+        base_haps.len(),
+        "linger(1) should preserve count"
+    );
 
     println!("✅ linger(1) is identity");
 }
@@ -475,7 +520,11 @@ fn test_stretch_preserves_count() {
     let base_haps = pattern.query(&state);
     let stretch_haps = pattern.clone().stretch().query(&state);
 
-    assert_eq!(stretch_haps.len(), base_haps.len(), "stretch preserves event count");
+    assert_eq!(
+        stretch_haps.len(),
+        base_haps.len(),
+        "stretch preserves event count"
+    );
 
     println!("✅ stretch preserves event count while extending durations");
 }

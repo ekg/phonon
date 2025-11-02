@@ -119,13 +119,19 @@ out: ~gate
     let t_quarter = samples[(SAMPLE_RATE * 0.25) as usize];
     let t_half = samples[(SAMPLE_RATE * 0.5) as usize];
 
-    println!("Samples at t=0: {}, t=0.25: {}, t=0.5: {}", t0, t_quarter, t_half);
+    println!(
+        "Samples at t=0: {}, t=0.25: {}, t=0.5: {}",
+        t0, t_quarter, t_half
+    );
 
     // Initially LOW (sine starts at 0.5, below high threshold 0.7)
     assert!(t0 < 0.5, "Should start LOW");
 
     // After quarter cycle, should be HIGH (sine peaked above 0.7)
-    assert!(t_quarter > 0.5, "Should be HIGH after exceeding high threshold");
+    assert!(
+        t_quarter > 0.5,
+        "Should be HIGH after exceeding high threshold"
+    );
 
     // At half cycle, should still be HIGH (hysteresis - hasn't fallen below 0.3)
     assert!(t_half > 0.5, "Should stay HIGH (hysteresis)");
@@ -153,8 +159,8 @@ out: ~gate
     // At t=0.25s: sine(π/2) = 1, so 1*0.5+0.5 = 1.0, gate HIGH (exceeded 0.7)
     // At t=0.75s: sine(3π/2) = -1, so -1*0.5+0.5 = 0.0, gate LOW (fell below 0.3)
     let t0 = samples[0];
-    let t_peak = samples[(SAMPLE_RATE * 0.30) as usize];    // After peak (t=0.25s)
-    let t_trough = samples[(SAMPLE_RATE * 0.75) as usize];  // At trough
+    let t_peak = samples[(SAMPLE_RATE * 0.30) as usize]; // After peak (t=0.25s)
+    let t_trough = samples[(SAMPLE_RATE * 0.75) as usize]; // At trough
 
     println!(
         "Samples at t=0: {}, t=0.30: {}, t=0.75: {}",
@@ -165,10 +171,16 @@ out: ~gate
     assert!(t0 < 0.5, "Should start LOW");
 
     // After rising above 0.7, should be HIGH
-    assert!(t_peak > 0.5, "Should be HIGH after rising above high threshold");
+    assert!(
+        t_peak > 0.5,
+        "Should be HIGH after rising above high threshold"
+    );
 
     // At trough (signal = 0.0, below low threshold 0.3), should be LOW
-    assert!(t_trough < 0.5, "Should be LOW after falling below low threshold");
+    assert!(
+        t_trough < 0.5,
+        "Should be LOW after falling below low threshold"
+    );
 }
 
 /// LEVEL 2: Schmidt Stability

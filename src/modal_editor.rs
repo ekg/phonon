@@ -98,7 +98,8 @@ impl ModalEditor {
             content,
             duration,
             file_path,
-            status_message: "🎵 Ready - C-x: eval | C-u: undo | C-r: redo | Tab: complete".to_string(),
+            status_message: "🎵 Ready - C-x: eval | C-u: undo | C-r: redo | Tab: complete"
+                .to_string(),
             is_playing: false,
             error_message: None,
             live_engine,
@@ -1297,11 +1298,41 @@ impl ModalEditor {
 
         // Built-in functions (from syntax highlighter)
         let functions = vec![
-            "s", "euclid", "fast", "slow", "rev", "every", "degrade", "degradeBy",
-            "stutter", "palindrome", "sine", "saw", "square", "tri", "lpf", "hpf",
-            "bpf", "notch", "reverb", "delay", "chorus", "bitcrush", "distortion",
-            "tempo", "out", "out1", "out2", "out3", "out4", "out5", "out6", "out7",
-            "out8", "hush", "panic",
+            "s",
+            "euclid",
+            "fast",
+            "slow",
+            "rev",
+            "every",
+            "degrade",
+            "degradeBy",
+            "stutter",
+            "palindrome",
+            "sine",
+            "saw",
+            "square",
+            "tri",
+            "lpf",
+            "hpf",
+            "bpf",
+            "notch",
+            "reverb",
+            "delay",
+            "chorus",
+            "bitcrush",
+            "distortion",
+            "tempo",
+            "out",
+            "out1",
+            "out2",
+            "out3",
+            "out4",
+            "out5",
+            "out6",
+            "out7",
+            "out8",
+            "hush",
+            "panic",
         ];
         completions.extend(functions.iter().map(|s| s.to_string()));
 
@@ -1378,7 +1409,8 @@ impl ModalEditor {
             // If only one suggestion, auto-complete immediately
             if suggestions.len() == 1 {
                 let completion = suggestions[0].clone();
-                self.content.replace_range(word_start..self.cursor_pos, &completion);
+                self.content
+                    .replace_range(word_start..self.cursor_pos, &completion);
                 self.cursor_pos = word_start + completion.len();
                 self.status_message = format!("✓ Completed: {}", completion);
             } else {
@@ -1390,7 +1422,10 @@ impl ModalEditor {
                     word_start_pos: word_start,
                 });
                 self.apply_current_completion();
-                self.status_message = format!("Tab: {} completions | ↑↓: select | Enter: accept | Esc: cancel", suggestions.len());
+                self.status_message = format!(
+                    "Tab: {} completions | ↑↓: select | Enter: accept | Esc: cancel",
+                    suggestions.len()
+                );
             }
         }
     }
@@ -1399,7 +1434,8 @@ impl ModalEditor {
     fn apply_current_completion(&mut self) {
         if let Some(ref state) = self.completion_state {
             let completion = &state.suggestions[state.selected_index];
-            self.content.replace_range(state.word_start_pos..self.cursor_pos, completion);
+            self.content
+                .replace_range(state.word_start_pos..self.cursor_pos, completion);
             self.cursor_pos = state.word_start_pos + completion.len();
         }
     }
@@ -1437,7 +1473,8 @@ impl ModalEditor {
     fn cancel_completion(&mut self) {
         if let Some(ref state) = self.completion_state {
             // Restore original word
-            self.content.replace_range(state.word_start_pos..self.cursor_pos, &state.original_word);
+            self.content
+                .replace_range(state.word_start_pos..self.cursor_pos, &state.original_word);
             self.cursor_pos = state.word_start_pos + state.original_word.len();
         }
         self.completion_state = None;

@@ -7,13 +7,12 @@
 /// - Takes 2 parameters (wet 0-1, time in seconds)
 /// - Returns 2 stereo outputs (left and right)
 /// - Has reverb tail that persists after input stops
-
 use fundsp::prelude::*;
 
 #[test]
 fn test_fundsp_reverb_stereo_basic() {
     // Test that fundsp reverb_stereo processes audio
-    let mut unit = reverb_stereo(0.5, 1.0, 0.5);  // wet, time, diffusion
+    let mut unit = reverb_stereo(0.5, 1.0, 0.5); // wet, time, diffusion
     unit.reset();
     unit.set_sample_rate(44100.0);
 
@@ -21,23 +20,35 @@ fn test_fundsp_reverb_stereo_basic() {
     let mut left_sum = 0.0;
     let mut right_sum = 0.0;
 
-    for _ in 0..4410 {  // 0.1 seconds
+    for _ in 0..4410 {
+        // 0.1 seconds
         let frame = unit.tick(&[1.0, 1.0].into());
         left_sum += frame[0].abs();
         right_sum += frame[1].abs();
     }
 
     // Should have output on both channels
-    assert!(left_sum > 0.0, "Left channel should have output: {}", left_sum);
-    assert!(right_sum > 0.0, "Right channel should have output: {}", right_sum);
+    assert!(
+        left_sum > 0.0,
+        "Left channel should have output: {}",
+        left_sum
+    );
+    assert!(
+        right_sum > 0.0,
+        "Right channel should have output: {}",
+        right_sum
+    );
 
-    println!("Basic reverb - L sum: {:.2}, R sum: {:.2}", left_sum, right_sum);
+    println!(
+        "Basic reverb - L sum: {:.2}, R sum: {:.2}",
+        left_sum, right_sum
+    );
 }
 
 #[test]
 fn test_fundsp_reverb_stereo_tail() {
     // Test reverb tail after impulse
-    let mut unit = reverb_stereo(0.8, 2.0, 0.5);  // High wet, 2 second time, diffusion
+    let mut unit = reverb_stereo(0.8, 2.0, 0.5); // High wet, 2 second time, diffusion
     unit.reset();
     unit.set_sample_rate(44100.0);
 
@@ -49,7 +60,7 @@ fn test_fundsp_reverb_stereo_tail() {
     // Measure reverb tail over 1 second
     let mut tail_sum = 0.0;
     for _ in 0..44100 {
-        let frame = unit.tick(&[0.0, 0.0].into());  // No input
+        let frame = unit.tick(&[0.0, 0.0].into()); // No input
         tail_sum += frame[0].abs() + frame[1].abs();
     }
 
@@ -82,7 +93,8 @@ fn test_fundsp_reverb_stereo_wet_dry() {
     let mut wet_sum = 0.0;
 
     // Send continuous signal (stereo input)
-    for _ in 0..4410 {  // 0.1 seconds
+    for _ in 0..4410 {
+        // 0.1 seconds
         let dry_frame = unit_dry.tick(&[1.0, 1.0].into());
         let wet_frame = unit_wet.tick(&[1.0, 1.0].into());
 

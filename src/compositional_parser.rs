@@ -32,6 +32,8 @@ pub enum Statement {
     OutputChannel { channel: usize, expr: Expr },
     /// Tempo: cps: 2.0 or tempo: 120
     Tempo(f64),
+    /// Output mixing mode: outmix: sqrt, gain, tanh, hard, none
+    OutputMixMode(String),
     /// Function definition: fn name param1 param2: body
     FunctionDef {
         name: String,
@@ -372,20 +374,21 @@ pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
 fn parse_statement(input: &str) -> IResult<&str, Statement> {
     // Try to parse each statement type
     alt((
-        parse_function_def,   // Try function definitions first
-        parse_hush,           // Try hush command
-        parse_panic,          // Try panic command
+        parse_function_def, // Try function definitions first
+        parse_hush,         // Try hush command
+        parse_panic,        // Try panic command
         parse_bus_assignment,
         parse_output_channel, // Try multi-channel output first
         parse_output,         // Then single output
         parse_tempo,
+        parse_outmix, // Output mixing mode
     ))(input)
 }
 
 /// Parse function definition (single-line): fn name param1 param2 = expr
 fn parse_function_def(input: &str) -> IResult<&str, Statement> {
     let (input, _) = tag("fn")(input)?;
-    let (input, _) = hspace1(input)?;  // Require at least one space after "fn"
+    let (input, _) = hspace1(input)?; // Require at least one space after "fn"
     let (input, name) = parse_identifier(input)?;
     let (input, _) = space0(input)?;
 
@@ -470,6 +473,17 @@ fn parse_tempo(input: &str) -> IResult<&str, Statement> {
     Ok((input, Statement::Tempo(value)))
 }
 
+/// Parse output mixing mode: outmix: sqrt|gain|tanh|hard|none
+fn parse_outmix(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = tag("outmix")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(':')(input)?;
+    let (input, _) = space0(input)?;
+    let (input, mode) = parse_identifier(input)?;
+
+    Ok((input, Statement::OutputMixMode(mode.to_string())))
+}
+
 /// Parse hush command: silence all outputs
 fn parse_hush(input: &str) -> IResult<&str, Statement> {
     let (input, _) = tag("hush")(input)?;
@@ -526,23 +540,21 @@ fn parse_chain_expr(input: &str) -> IResult<&str, Expr> {
 /// Returns (transform, should_convert) - if should_convert is true, the expr should be wrapped
 fn try_extract_transform_from_call(expr: &Expr) -> Option<Transform> {
     match expr {
-        Expr::Call { name, args } => {
-            match name.as_str() {
-                "fast" if args.len() == 1 => Some(Transform::Fast(Box::new(args[0].clone()))),
-                "slow" if args.len() == 1 => Some(Transform::Slow(Box::new(args[0].clone()))),
-                "rev" if args.is_empty() => Some(Transform::Rev),
-                "palindrome" if args.is_empty() => Some(Transform::Palindrome),
-                "degrade" if args.is_empty() => Some(Transform::Degrade),
-                "degradeBy" if args.len() == 1 => Some(Transform::DegradeBy(Box::new(args[0].clone()))),
-                "stutter" if args.len() == 1 => Some(Transform::Stutter(Box::new(args[0].clone()))),
-                "shuffle" if args.len() == 1 => Some(Transform::Shuffle(Box::new(args[0].clone()))),
-                "fastGap" if args.len() == 1 => Some(Transform::FastGap(Box::new(args[0].clone()))),
-                "iter" if args.len() == 1 => Some(Transform::Iter(Box::new(args[0].clone()))),
-                "early" if args.len() == 1 => Some(Transform::Early(Box::new(args[0].clone()))),
-                "late" if args.len() == 1 => Some(Transform::Late(Box::new(args[0].clone()))),
-                _ => None,
-            }
-        }
+        Expr::Call { name, args } => match name.as_str() {
+            "fast" if args.len() == 1 => Some(Transform::Fast(Box::new(args[0].clone()))),
+            "slow" if args.len() == 1 => Some(Transform::Slow(Box::new(args[0].clone()))),
+            "rev" if args.is_empty() => Some(Transform::Rev),
+            "palindrome" if args.is_empty() => Some(Transform::Palindrome),
+            "degrade" if args.is_empty() => Some(Transform::Degrade),
+            "degradeBy" if args.len() == 1 => Some(Transform::DegradeBy(Box::new(args[0].clone()))),
+            "stutter" if args.len() == 1 => Some(Transform::Stutter(Box::new(args[0].clone()))),
+            "shuffle" if args.len() == 1 => Some(Transform::Shuffle(Box::new(args[0].clone()))),
+            "fastGap" if args.len() == 1 => Some(Transform::FastGap(Box::new(args[0].clone()))),
+            "iter" if args.len() == 1 => Some(Transform::Iter(Box::new(args[0].clone()))),
+            "early" if args.len() == 1 => Some(Transform::Early(Box::new(args[0].clone()))),
+            "late" if args.len() == 1 => Some(Transform::Late(Box::new(args[0].clone()))),
+            _ => None,
+        },
         _ => None,
     }
 }
@@ -570,12 +582,10 @@ fn convert_call_to_transform_if_applicable(expr: Expr) -> Expr {
 
     // Recursively process nested Transform expressions
     match expr {
-        Expr::Transform { expr, transform } => {
-            Expr::Transform {
-                expr: Box::new(convert_call_to_transform_if_applicable(*expr)),
-                transform,
-            }
-        }
+        Expr::Transform { expr, transform } => Expr::Transform {
+            expr: Box::new(convert_call_to_transform_if_applicable(*expr)),
+            transform,
+        },
         _ => expr,
     }
 }
@@ -598,10 +608,13 @@ fn parse_transform_expr(input: &str) -> IResult<&str, Expr> {
             expr = convert_call_to_transform_if_applicable(expr);
 
             // Return transform applied to expr
-            return Ok((input, Expr::Transform {
-                expr: Box::new(expr),
-                transform,
-            }));
+            return Ok((
+                input,
+                Expr::Transform {
+                    expr: Box::new(expr),
+                    transform,
+                },
+            ));
         }
     }
 
@@ -665,10 +678,13 @@ fn parse_transform_expr(input: &str) -> IResult<&str, Expr> {
         match left {
             Expr::Var(name) => {
                 // Function application: struct $ sine 440
-                Ok((input, Expr::Call {
-                    name,
-                    args: vec![right],
-                }))
+                Ok((
+                    input,
+                    Expr::Call {
+                        name,
+                        args: vec![right],
+                    },
+                ))
             }
             Expr::Call { name, mut args } => {
                 // Partial application: lpf 2000 0.8 $ sine 440
@@ -679,10 +695,13 @@ fn parse_transform_expr(input: &str) -> IResult<&str, Expr> {
                 // For other expressions, treat left as a higher-order function
                 // This allows expressions like: (lpf 2000 0.8) $ sine 440
                 // For now, just wrap in a call to "apply"
-                Ok((input, Expr::Call {
-                    name: "apply".to_string(),
-                    args: vec![left, right],
-                }))
+                Ok((
+                    input,
+                    Expr::Call {
+                        name: "apply".to_string(),
+                        args: vec![left, right],
+                    },
+                ))
             }
         }
     } else {
@@ -793,8 +812,8 @@ fn parse_primary_expr(input: &str) -> IResult<&str, Expr> {
         map(parse_number, Expr::Number),
         parse_string_literal,
         parse_bus_ref_expr,
-        parse_function_call,  // Try function call first (requires space + args)
-        parse_var,            // Then try bare variable (no args)
+        parse_function_call, // Try function call first (requires space + args)
+        parse_var,           // Then try bare variable (no args)
         parse_list_expr,
         parse_paren_expr,
     ))(input)
@@ -848,10 +867,13 @@ fn parse_kwarg(input: &str) -> IResult<&str, Expr> {
     // Parse the value expression
     let (input, value) = parse_primary_expr(input)?;
 
-    Ok((input, Expr::Kwarg {
-        name: name.to_string(),
-        value: Box::new(value)
-    }))
+    Ok((
+        input,
+        Expr::Kwarg {
+            name: name.to_string(),
+            value: Box::new(value),
+        },
+    ))
 }
 
 /// Parse either a kwarg or a regular argument
@@ -2228,7 +2250,11 @@ out: ~filtered_drums * 0.6 + ~bass * 0.4
     fn test_var_parsing() {
         // Test that bare identifiers are parsed as variables
         let result = parse_expr("freq");
-        assert!(result.is_ok(), "Failed to parse 'freq' as var: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse 'freq' as var: {:?}",
+            result
+        );
         if let Ok((rest, expr)) = result {
             assert_eq!(rest, "", "Should consume all input, but rest = {:?}", rest);
             match expr {
@@ -2257,7 +2283,11 @@ out: ~filtered_drums * 0.6 + ~bass * 0.4
                 eprintln!("ERROR: {:?}", e);
             }
         }
-        assert!(result.is_ok(), "Failed to parse 'freq - detune': {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse 'freq - detune': {:?}",
+            result
+        );
     }
 
     #[test]
@@ -2271,26 +2301,43 @@ out: ~filtered_drums * 0.6 + ~bass * 0.4
     fn test_paren_expr_with_var() {
         // Test parsing (freq - detune)
         let result = parse_expr("(freq - detune)");
-        assert!(result.is_ok(), "Failed to parse '(freq - detune)': {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse '(freq - detune)': {:?}",
+            result
+        );
     }
 
     #[test]
     fn test_function_call_with_paren_arg() {
         // Test parsing saw (freq - detune)
         let result = parse_expr("saw (freq - detune)");
-        assert!(result.is_ok(), "Failed to parse 'saw (freq - detune)': {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse 'saw (freq - detune)': {:?}",
+            result
+        );
     }
 
     #[test]
     fn test_function_definition() {
         let code = "fn doublesaw freq detune = saw (freq - detune) + saw (freq + detune)";
         let result = parse_statement(code);
-        assert!(result.is_ok(), "Failed to parse function definition: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse function definition: {:?}",
+            result
+        );
 
         if let Ok((rest, stmt)) = result {
             assert_eq!(rest.trim(), "", "Should consume entire statement");
             match stmt {
-                Statement::FunctionDef { name, params, return_expr, .. } => {
+                Statement::FunctionDef {
+                    name,
+                    params,
+                    return_expr,
+                    ..
+                } => {
                     assert_eq!(name, "doublesaw");
                     assert_eq!(params, vec!["freq".to_string(), "detune".to_string()]);
                 }
@@ -2307,11 +2354,19 @@ tempo: 2.0
 out: doublesaw 110 5
 "#;
         let result = parse_program(code);
-        assert!(result.is_ok(), "Failed to parse program with function: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse program with function: {:?}",
+            result
+        );
 
         if let Ok((rest, statements)) = result {
             assert_eq!(rest.trim(), "", "Should consume entire program");
-            assert_eq!(statements.len(), 3, "Should have 3 statements (fn, tempo, out)");
+            assert_eq!(
+                statements.len(),
+                3,
+                "Should have 3 statements (fn, tempo, out)"
+            );
         }
     }
 }

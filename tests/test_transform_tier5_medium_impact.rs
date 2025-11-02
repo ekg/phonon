@@ -9,7 +9,6 @@
 /// - loopAt: Loop pattern at specified cycle duration
 ///
 /// All transforms use pattern API testing (not DSL-based)
-
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use phonon::pattern_structure::timecat;
@@ -34,7 +33,11 @@ fn test_fastcat_level1_concatenates_in_one_cycle() {
     let haps = concatenated.query(&state);
 
     // Should have all 3 patterns' events in one cycle
-    assert_eq!(haps.len(), 3, "fastcat should concatenate all patterns in one cycle");
+    assert_eq!(
+        haps.len(),
+        3,
+        "fastcat should concatenate all patterns in one cycle"
+    );
 
     println!("✅ fastcat concatenates all patterns in one cycle");
 }
@@ -111,7 +114,12 @@ fn test_slowcat_level1_one_pattern_per_cycle() {
         assert_eq!(haps.len(), 1, "slowcat should have 1 pattern per cycle");
 
         let expected_index = cycle % 3;
-        println!("Cycle {}: pattern {} - {} events", cycle, expected_index, haps.len());
+        println!(
+            "Cycle {}: pattern {} - {} events",
+            cycle,
+            expected_index,
+            haps.len()
+        );
     }
 
     println!("✅ slowcat plays one pattern per cycle");
@@ -131,7 +139,11 @@ fn test_slowcat_level1_pattern_fills_cycle() {
     let base = p1.query(&state);
     let slow = concatenated.query(&state);
 
-    assert_eq!(slow.len(), base.len(), "Single pattern should fill whole cycle");
+    assert_eq!(
+        slow.len(),
+        base.len(),
+        "Single pattern should fill whole cycle"
+    );
 
     println!("✅ slowcat with single pattern fills cycle");
 }
@@ -175,7 +187,11 @@ fn test_randcat_deterministic_per_cycle() {
     let result1 = concatenated.query(&state);
     let result2 = concatenated.query(&state);
 
-    assert_eq!(result1.len(), result2.len(), "Same cycle should give same result");
+    assert_eq!(
+        result1.len(),
+        result2.len(),
+        "Same cycle should give same result"
+    );
 
     println!("✅ randcat is deterministic per cycle");
 }
@@ -490,7 +506,10 @@ fn test_splice_composition() {
     };
 
     let haps = spliced.query(&state);
-    assert!(haps.len() > 0, "splice should compose with other transforms");
+    assert!(
+        haps.len() > 0,
+        "splice should compose with other transforms"
+    );
 
     println!("✅ splice composes with other transforms");
 }
@@ -511,7 +530,11 @@ fn test_fastcat_single_pattern() {
     let base = p1.query(&state);
     let fast = concatenated.query(&state);
 
-    assert_eq!(fast.len(), base.len(), "fastcat with single pattern should be identity");
+    assert_eq!(
+        fast.len(),
+        base.len(),
+        "fastcat with single pattern should be identity"
+    );
 
     println!("✅ fastcat with single pattern is identity");
 }
@@ -545,7 +568,11 @@ fn test_randcat_single_pattern() {
     let base = p1.query(&state);
     let rand = concatenated.query(&state);
 
-    assert_eq!(rand.len(), base.len(), "randcat with single pattern should be identity");
+    assert_eq!(
+        rand.len(),
+        base.len(),
+        "randcat with single pattern should be identity"
+    );
 
     println!("✅ randcat with single pattern is identity");
 }

@@ -6,7 +6,6 @@
 /// - Some cycles: fast 2 applied (8 events)
 /// - Other cycles: normal (4 events)
 /// - Over many cycles: ~50% should have transform applied
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -54,8 +53,8 @@ fn test_sometimes_level1_probabilistic_application() {
         };
 
         // Manually apply sometimes logic with same RNG seed
-        use rand::{Rng, SeedableRng};
         use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
         let mut rng = StdRng::seed_from_u64(cycle);
 
         if rng.gen::<f64>() < 0.5 {
@@ -70,12 +69,20 @@ fn test_sometimes_level1_probabilistic_application() {
     // Should be roughly 50/50 (within reasonable variance for 20 samples)
     // Allow 30-70% range (binomial distribution variance)
     let fast_ratio = fast_cycles as f64 / 20.0;
-    assert!(fast_ratio >= 0.3 && fast_ratio <= 0.7,
+    assert!(
+        fast_ratio >= 0.3 && fast_ratio <= 0.7,
         "sometimes should apply transform ~50% of time: {}/{} cycles ({:.1}%)",
-        fast_cycles, 20, fast_ratio * 100.0);
+        fast_cycles,
+        20,
+        fast_ratio * 100.0
+    );
 
-    println!("✅ sometimes Level 1: Fast cycles = {}, Normal cycles = {}, ratio = {:.1}%",
-             fast_cycles, normal_cycles, fast_ratio * 100.0);
+    println!(
+        "✅ sometimes Level 1: Fast cycles = {}, Normal cycles = {}, ratio = {:.1}%",
+        fast_cycles,
+        normal_cycles,
+        fast_ratio * 100.0
+    );
 }
 
 #[test]
@@ -90,12 +97,15 @@ fn test_sometimes_level1_deterministic_behavior() {
     };
 
     // Check if cycle 5 gets fast applied (deterministic)
-    use rand::{Rng, SeedableRng};
     use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
     let mut rng = StdRng::seed_from_u64(5);
     let should_apply = rng.gen::<f64>() < 0.5;
 
-    println!("✅ sometimes Level 1: Cycle 5 transform = {} (deterministic)", should_apply);
+    println!(
+        "✅ sometimes Level 1: Cycle 5 transform = {} (deterministic)",
+        should_apply
+    );
 }
 
 // ============================================================================
@@ -129,11 +139,17 @@ out: s "bd sn hh cp" $ sometimes (fast 2)
     assert!(
         ratio > 1.2 && ratio < 2.0,
         "sometimes should increase onset count by 1.2-2x: base={}, sometimes={}, ratio={:.2}",
-        base_onsets.len(), sometimes_onsets.len(), ratio
+        base_onsets.len(),
+        sometimes_onsets.len(),
+        ratio
     );
 
-    println!("✅ sometimes Level 2: Base onsets = {}, sometimes onsets = {}, ratio = {:.2}",
-             base_onsets.len(), sometimes_onsets.len(), ratio);
+    println!(
+        "✅ sometimes Level 2: Base onsets = {}, sometimes onsets = {}, ratio = {:.2}",
+        base_onsets.len(),
+        sometimes_onsets.len(),
+        ratio
+    );
 }
 
 #[test]
@@ -151,10 +167,16 @@ out: s "bd sn" $ sometimes (fast 3)
     let onsets = detect_audio_events(&audio, sample_rate, 0.01);
 
     // Should have varied event count (some cycles fast, some normal)
-    assert!(onsets.len() >= 30,
-        "sometimes should produce varied events (got {})", onsets.len());
+    assert!(
+        onsets.len() >= 30,
+        "sometimes should produce varied events (got {})",
+        onsets.len()
+    );
 
-    println!("✅ sometimes Level 2: Varied timing verified, {} onsets detected", onsets.len());
+    println!(
+        "✅ sometimes Level 2: Varied timing verified, {} onsets detected",
+        onsets.len()
+    );
 }
 
 // ============================================================================
@@ -176,11 +198,26 @@ out: s "bd sn hh cp" $ sometimes (fast 2)
     let dc_offset = audio.iter().sum::<f32>() / audio.len() as f32;
 
     // Verify audio quality
-    assert!(rms > 0.01, "sometimes should produce audible audio (RMS = {})", rms);
-    assert!(peak > 0.1, "sometimes should have audible peaks (peak = {})", peak);
-    assert!(dc_offset.abs() < 0.1, "sometimes should not have excessive DC offset (DC = {})", dc_offset);
+    assert!(
+        rms > 0.01,
+        "sometimes should produce audible audio (RMS = {})",
+        rms
+    );
+    assert!(
+        peak > 0.1,
+        "sometimes should have audible peaks (peak = {})",
+        peak
+    );
+    assert!(
+        dc_offset.abs() < 0.1,
+        "sometimes should not have excessive DC offset (DC = {})",
+        dc_offset
+    );
 
-    println!("✅ sometimes Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}", rms, peak, dc_offset);
+    println!(
+        "✅ sometimes Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}",
+        rms, peak, dc_offset
+    );
 }
 
 #[test]
@@ -210,8 +247,10 @@ out: s "bd sn hh cp" $ sometimes (fast 2)
         base_rms, sometimes_rms, ratio
     );
 
-    println!("✅ sometimes Level 3: Base RMS = {:.4}, sometimes RMS = {:.4}, ratio = {:.2}",
-             base_rms, sometimes_rms, ratio);
+    println!(
+        "✅ sometimes Level 3: Base RMS = {:.4}, sometimes RMS = {:.4}, ratio = {:.2}",
+        base_rms, sometimes_rms, ratio
+    );
 }
 
 // ============================================================================
@@ -276,15 +315,19 @@ fn test_sometimes_preserves_base_cycles() {
         let base_haps = pattern.query(&state);
 
         // Check if this cycle should get transform (deterministic)
-        use rand::{Rng, SeedableRng};
         use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
         let mut rng = StdRng::seed_from_u64(cycle);
         let should_transform = rng.gen::<f64>() < 0.5;
 
         if !should_transform {
             // On non-transform cycles, should match base
-            assert_eq!(base_haps.len(), 4,
-                "Cycle {} should be unchanged (4 events)", cycle);
+            assert_eq!(
+                base_haps.len(),
+                4,
+                "Cycle {} should be unchanged (4 events)",
+                cycle
+            );
         }
     }
 
@@ -300,8 +343,8 @@ fn test_sometimes_long_term_probability() {
     let total_cycles = 100;
 
     for cycle in 0..total_cycles {
-        use rand::{Rng, SeedableRng};
         use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
         let mut rng = StdRng::seed_from_u64(cycle);
 
         if rng.gen::<f64>() < 0.5 {
@@ -312,10 +355,18 @@ fn test_sometimes_long_term_probability() {
     let probability = transform_count as f64 / total_cycles as f64;
 
     // With 100 cycles, should be very close to 50% (within 10%)
-    assert!(probability >= 0.40 && probability <= 0.60,
+    assert!(
+        probability >= 0.40 && probability <= 0.60,
         "Long-term probability should approach 50%: {}/{} = {:.1}%",
-        transform_count, total_cycles, probability * 100.0);
+        transform_count,
+        total_cycles,
+        probability * 100.0
+    );
 
-    println!("✅ sometimes edge case: Long-term probability = {:.1}% ({}/{})",
-             probability * 100.0, transform_count, total_cycles);
+    println!(
+        "✅ sometimes edge case: Long-term probability = {:.1}% ({}/{})",
+        probability * 100.0,
+        transform_count,
+        total_cycles
+    );
 }

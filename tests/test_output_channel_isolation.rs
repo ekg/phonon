@@ -103,7 +103,10 @@ fn test_output_channels_sum_correctly_simple() {
     }
     let manual_rms = calculate_rms(&manual_sum);
     let manual_peak = find_peak(&manual_sum);
-    println!("Manual sum:   RMS = {:.6}, Peak = {:.6}", manual_rms, manual_peak);
+    println!(
+        "Manual sum:   RMS = {:.6}, Peak = {:.6}",
+        manual_rms, manual_peak
+    );
 
     // Compare sample-by-sample
     let (matches, max_diff, mismatch_count) = buffers_match(&all_together, &manual_sum, 0.0001);
@@ -181,7 +184,10 @@ fn test_output_channels_sum_correctly_with_samples() {
     let all_together = graph.render(duration);
     let all_rms = calculate_rms(&all_together);
     let all_peak = find_peak(&all_together);
-    println!("All together:  RMS = {:.6}, Peak = {:.6}", all_rms, all_peak);
+    println!(
+        "All together:  RMS = {:.6}, Peak = {:.6}",
+        all_rms, all_peak
+    );
 
     // Manually sum the individual channels
     let mut manual_sum = vec![0.0f32; duration];
@@ -190,7 +196,10 @@ fn test_output_channels_sum_correctly_with_samples() {
     }
     let manual_rms = calculate_rms(&manual_sum);
     let manual_peak = find_peak(&manual_sum);
-    println!("Manual sum:    RMS = {:.6}, Peak = {:.6}", manual_rms, manual_peak);
+    println!(
+        "Manual sum:    RMS = {:.6}, Peak = {:.6}",
+        manual_rms, manual_peak
+    );
 
     // Compare sample-by-sample
     let (matches, max_diff, mismatch_count) = buffers_match(&all_together, &manual_sum, 0.0001);
@@ -243,7 +252,8 @@ fn test_user_reported_bug() {
     let find_first_peak = |buffer: &[f32]| -> (usize, f32) {
         let mut max_val = 0.0f32;
         let mut max_idx = 0;
-        for i in 0..buffer.len().min(22050) { // First 0.5 seconds
+        for i in 0..buffer.len().min(22050) {
+            // First 0.5 seconds
             if buffer[i].abs() > max_val {
                 max_val = buffer[i].abs();
                 max_idx = i;
@@ -255,12 +265,22 @@ fn test_user_reported_bug() {
     let (idx_alone, peak_alone) = find_first_peak(&o2_alone);
     let (idx_together, peak_together) = find_first_peak(&all_together);
 
-    println!("o2 alone:      First peak at sample {}, amplitude {:.6}", idx_alone, peak_alone);
-    println!("All together:  First peak at sample {}, amplitude {:.6}", idx_together, peak_together);
+    println!(
+        "o2 alone:      First peak at sample {}, amplitude {:.6}",
+        idx_alone, peak_alone
+    );
+    println!(
+        "All together:  First peak at sample {}, amplitude {:.6}",
+        idx_together, peak_together
+    );
 
     // The peak should be at roughly the same time
     let time_diff = (idx_alone as i32 - idx_together as i32).abs();
-    println!("Peak timing difference: {} samples ({:.2} ms)", time_diff, time_diff as f32 / 44.1);
+    println!(
+        "Peak timing difference: {} samples ({:.2} ms)",
+        time_diff,
+        time_diff as f32 / 44.1
+    );
 
     // Check if the waveform shape is similar around the peak
     let window = 100; // Compare 100 samples around the peak
@@ -269,7 +289,7 @@ fn test_user_reported_bug() {
 
     let mut correlation = 0.0f32;
     let mut samples_compared = 0;
-    for i in 0..window*2 {
+    for i in 0..window * 2 {
         if start_alone + i < o2_alone.len() && start_together + i < all_together.len() {
             correlation += o2_alone[start_alone + i] * all_together[start_together + i];
             samples_compared += 1;

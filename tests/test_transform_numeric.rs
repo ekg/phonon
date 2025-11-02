@@ -10,7 +10,6 @@
 /// - randwalk(step_size, initial): Random walk generator
 ///
 /// All transforms use pattern API testing methodology
-
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, State, TimeSpan};
 use phonon::pattern_signal::randwalk;
@@ -48,7 +47,13 @@ fn test_discretise_different_sample_rates() {
 
     for n in [2, 4, 8, 16] {
         let disc = pattern.clone().discretise(n).query(&state);
-        assert_eq!(disc.len(), n, "discretise({}) should create {} events", n, n);
+        assert_eq!(
+            disc.len(),
+            n,
+            "discretise({}) should create {} events",
+            n,
+            n
+        );
     }
 
     println!("✅ discretise creates exactly n events per cycle");
@@ -95,7 +100,12 @@ fn test_discretise_over_cycles() {
         };
 
         let disc8 = pattern.clone().discretise(8).query(&state);
-        assert_eq!(disc8.len(), 8, "Cycle {}: discretise(8) creates 8 events", cycle);
+        assert_eq!(
+            disc8.len(),
+            8,
+            "Cycle {}: discretise(8) creates 8 events",
+            cycle
+        );
     }
 
     println!("✅ discretise consistent across cycles");
@@ -210,9 +220,7 @@ fn test_quantize_level1_snaps_to_steps() {
     let valid_values = [0.0, 0.25, 0.5, 0.75, 1.0];
 
     for hap in quant_haps.iter() {
-        let is_valid = valid_values
-            .iter()
-            .any(|&v| (hap.value - v).abs() < 0.01);
+        let is_valid = valid_values.iter().any(|&v| (hap.value - v).abs() < 0.01);
         assert!(
             is_valid,
             "Value {} should be quantized to 0, 0.25, 0.5, 0.75, or 1.0",
@@ -482,7 +490,10 @@ fn test_randwalk_level1_generates_continuous_signal() {
     let haps = walk.query(&state);
 
     // Should generate multiple samples (16 per cycle based on implementation)
-    assert!(haps.len() >= 10, "randwalk should generate continuous samples");
+    assert!(
+        haps.len() >= 10,
+        "randwalk should generate continuous samples"
+    );
 
     // All values should be in [0, 1] range (clamped)
     for hap in haps.iter() {
@@ -604,8 +615,16 @@ fn test_numeric_transforms_over_cycles() {
         let smoothed = sin_pattern.clone().smooth(0.5).query(&state);
 
         assert!(ranged.len() > 0, "Cycle {}: range produces events", cycle);
-        assert!(quantized.len() > 0, "Cycle {}: quantize produces events", cycle);
-        assert!(smoothed.len() > 0, "Cycle {}: smooth produces events", cycle);
+        assert!(
+            quantized.len() > 0,
+            "Cycle {}: quantize produces events",
+            cycle
+        );
+        assert!(
+            smoothed.len() > 0,
+            "Cycle {}: smooth produces events",
+            cycle
+        );
     }
 
     println!("✅ Numeric transforms consistent across cycles");
@@ -623,11 +642,7 @@ fn test_numeric_transforms_composition() {
     };
 
     // Chain multiple transforms
-    let composed = sine()
-        .range(0.0, 1.0)
-        .quantize(8.0)
-        .smooth(0.3)
-        .exp(2.0);
+    let composed = sine().range(0.0, 1.0).quantize(8.0).smooth(0.3).exp(2.0);
 
     let haps = composed.query(&state);
 

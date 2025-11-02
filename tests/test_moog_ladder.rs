@@ -251,7 +251,11 @@ out: ~filtered_noise * 0.2
     let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
     let rms_val = rms.sqrt();
     println!("Filtered noise RMS: {}", rms_val);
-    assert!(rms_val > 0.001, "Filtered noise should produce some output (RMS > 0.001), got {}", rms_val);
+    assert!(
+        rms_val > 0.001,
+        "Filtered noise should produce some output (RMS > 0.001), got {}",
+        rms_val
+    );
 
     // Test with square wave
     let dsl = r#"

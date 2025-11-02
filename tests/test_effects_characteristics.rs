@@ -3,8 +3,8 @@
 //! These tests verify that audio effects actually modify the signal in expected ways.
 //! We use signal analysis (RMS, spectral analysis, decay time) to verify effects work.
 
-use phonon::compositional_parser::parse_program;
 use phonon::compositional_compiler::compile_program;
+use phonon::compositional_parser::parse_program;
 
 mod audio_test_utils;
 use audio_test_utils::{calculate_rms, compute_spectral_centroid, find_peak};

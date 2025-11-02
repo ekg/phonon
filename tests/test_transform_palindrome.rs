@@ -6,7 +6,6 @@
 /// - Cycle 1-2: d c b a (backward, slowed 2x, shifted)
 ///
 /// Over 2 cycles: plays a b c d d c b a
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -61,12 +60,16 @@ fn test_palindrome_level1_event_count() {
     }
 
     // palindrome maintains same event count (stacked, not concatenated)
-    assert_eq!(palindrome_total, base_total,
+    assert_eq!(
+        palindrome_total, base_total,
         "palindrome should preserve event count: base={}, palindrome={}",
-        base_total, palindrome_total);
+        base_total, palindrome_total
+    );
 
-    println!("✅ palindrome Level 1: Base events = {}, palindrome events = {}",
-             base_total, palindrome_total);
+    println!(
+        "✅ palindrome Level 1: Base events = {}, palindrome events = {}",
+        base_total, palindrome_total
+    );
 }
 
 #[test]
@@ -126,11 +129,17 @@ out: s "bd sn hh cp" $ palindrome
     assert!(
         ratio > 0.45 && ratio < 1.5,
         "palindrome should preserve onset count: base={}, palindrome={}, ratio={:.2}",
-        base_onsets.len(), palindrome_onsets.len(), ratio
+        base_onsets.len(),
+        palindrome_onsets.len(),
+        ratio
     );
 
-    println!("✅ palindrome Level 2: Base onsets = {}, palindrome onsets = {}, ratio = {:.2}",
-             base_onsets.len(), palindrome_onsets.len(), ratio);
+    println!(
+        "✅ palindrome Level 2: Base onsets = {}, palindrome onsets = {}, ratio = {:.2}",
+        base_onsets.len(),
+        palindrome_onsets.len(),
+        ratio
+    );
 }
 
 #[test]
@@ -148,8 +157,11 @@ out: s "bd sn" $ palindrome
     let onsets = detect_audio_events(&audio, sample_rate, 0.01);
 
     // Should have at least 4 events (2 forward + 2 backward)
-    assert!(onsets.len() >= 4,
-        "palindrome should have multiple events (got {})", onsets.len());
+    assert!(
+        onsets.len() >= 4,
+        "palindrome should have multiple events (got {})",
+        onsets.len()
+    );
 
     // Check that events are spread across the 2 cycles
     if onsets.len() >= 2 {
@@ -157,11 +169,17 @@ out: s "bd sn" $ palindrome
         let last_time = onsets.last().unwrap().time;
         let span = last_time - first_time;
 
-        assert!(span > 1.0,
-            "palindrome events should span at least 1 second (got {:.2}s)", span);
+        assert!(
+            span > 1.0,
+            "palindrome events should span at least 1 second (got {:.2}s)",
+            span
+        );
     }
 
-    println!("✅ palindrome Level 2: Timing symmetry verified, {} onsets detected", onsets.len());
+    println!(
+        "✅ palindrome Level 2: Timing symmetry verified, {} onsets detected",
+        onsets.len()
+    );
 }
 
 // ============================================================================
@@ -183,11 +201,26 @@ out: s "bd sn hh cp" $ palindrome
     let dc_offset = audio.iter().sum::<f32>() / audio.len() as f32;
 
     // Verify audio quality
-    assert!(rms > 0.01, "palindrome should produce audible audio (RMS = {})", rms);
-    assert!(peak > 0.1, "palindrome should have audible peaks (peak = {})", peak);
-    assert!(dc_offset.abs() < 0.1, "palindrome should not have excessive DC offset (DC = {})", dc_offset);
+    assert!(
+        rms > 0.01,
+        "palindrome should produce audible audio (RMS = {})",
+        rms
+    );
+    assert!(
+        peak > 0.1,
+        "palindrome should have audible peaks (peak = {})",
+        peak
+    );
+    assert!(
+        dc_offset.abs() < 0.1,
+        "palindrome should not have excessive DC offset (DC = {})",
+        dc_offset
+    );
 
-    println!("✅ palindrome Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}", rms, peak, dc_offset);
+    println!(
+        "✅ palindrome Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}",
+        rms, peak, dc_offset
+    );
 }
 
 #[test]
@@ -217,8 +250,10 @@ out: s "bd sn hh cp" $ palindrome
         base_rms, palindrome_rms, ratio
     );
 
-    println!("✅ palindrome Level 3: Base RMS = {:.4}, palindrome RMS = {:.4}, ratio = {:.2}",
-             base_rms, palindrome_rms, ratio);
+    println!(
+        "✅ palindrome Level 3: Base RMS = {:.4}, palindrome RMS = {:.4}, ratio = {:.2}",
+        base_rms, palindrome_rms, ratio
+    );
 }
 
 // ============================================================================
@@ -239,8 +274,16 @@ fn test_palindrome_with_single_event() {
     let base_haps = pattern.query(&state);
     let palindrome_haps = palindrome_pattern.query(&state);
 
-    assert_eq!(base_haps.len(), 2, "Base should have 2 events over 2 cycles");
-    assert_eq!(palindrome_haps.len(), 2, "palindrome should preserve event count (2 events over 2 cycles)");
+    assert_eq!(
+        base_haps.len(),
+        2,
+        "Base should have 2 events over 2 cycles"
+    );
+    assert_eq!(
+        palindrome_haps.len(),
+        2,
+        "palindrome should preserve event count (2 events over 2 cycles)"
+    );
 
     println!("✅ palindrome edge case: single event works correctly");
 }
@@ -256,7 +299,10 @@ out: s "bd sn hh cp lt mt ht cp" $ palindrome
     let audio = render_dsl(code, 8);
     let rms = calculate_rms(&audio);
 
-    assert!(rms > 0.01, "palindrome with long pattern should still produce audio");
+    assert!(
+        rms > 0.01,
+        "palindrome with long pattern should still produce audio"
+    );
 
     println!("✅ palindrome edge case: long pattern (8 events) works correctly");
 }

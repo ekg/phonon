@@ -9,7 +9,6 @@
 /// - Level 1: Pattern query tests (exact event counts and timing)
 /// - Level 2: Onset detection (audio event verification)
 /// - Level 3: Audio quality (RMS, peak, DC offset)
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -45,7 +44,11 @@ fn test_rotl_level1_shifts_backward() {
     let rotl_haps = pattern.clone().rotate_left(0.25).query(&state);
 
     // rotL shifts events backward by 0.25
-    assert_eq!(base_haps.len(), rotl_haps.len(), "rotL preserves event count");
+    assert_eq!(
+        base_haps.len(),
+        rotl_haps.len(),
+        "rotL preserves event count"
+    );
 
     // Check that events are shifted
     for i in 0..base_haps.len() {
@@ -77,7 +80,11 @@ fn test_rotr_level1_shifts_forward() {
     let rotr_haps = pattern.clone().rotate_right(0.25).query(&state);
 
     // rotR shifts events forward by 0.25
-    assert_eq!(base_haps.len(), rotr_haps.len(), "rotR preserves event count");
+    assert_eq!(
+        base_haps.len(),
+        rotr_haps.len(),
+        "rotR preserves event count"
+    );
 
     // Check that events are shifted
     for i in 0..base_haps.len() {

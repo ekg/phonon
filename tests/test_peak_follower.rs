@@ -78,11 +78,14 @@ out: ~peak
     let samples = graph.render(SAMPLE_RATE as usize);
 
     // After first impulse (t=0), check values during decay
-    let t_0_05 = samples[(SAMPLE_RATE * 0.05) as usize];  // 50ms after impulse
-    let t_0_10 = samples[(SAMPLE_RATE * 0.10) as usize];  // 100ms after impulse
-    let t_0_20 = samples[(SAMPLE_RATE * 0.20) as usize];  // 200ms after impulse
+    let t_0_05 = samples[(SAMPLE_RATE * 0.05) as usize]; // 50ms after impulse
+    let t_0_10 = samples[(SAMPLE_RATE * 0.10) as usize]; // 100ms after impulse
+    let t_0_20 = samples[(SAMPLE_RATE * 0.20) as usize]; // 200ms after impulse
 
-    println!("Decay values: t=0.05: {}, t=0.1: {}, t=0.2: {}", t_0_05, t_0_10, t_0_20);
+    println!(
+        "Decay values: t=0.05: {}, t=0.1: {}, t=0.2: {}",
+        t_0_05, t_0_10, t_0_20
+    );
 
     // Values should decrease over time (decay)
     assert!(t_0_05 > t_0_10, "Should decay: {} > {}", t_0_05, t_0_10);
@@ -112,7 +115,10 @@ out: ~peak
         .iter()
         .fold(0.0f32, |a, &b| a.max(b));
 
-    println!("Max in first 100ms with fast attack: {}", max_in_first_100ms);
+    println!(
+        "Max in first 100ms with fast attack: {}",
+        max_in_first_100ms
+    );
 
     assert!(
         max_in_first_100ms > 0.8,
@@ -143,11 +149,14 @@ out: ~peak
     // Check values at different times
     // Square wave at 4Hz means period is 0.25s
     // High from 0-0.125, low from 0.125-0.25
-    let t_0_10 = samples[(SAMPLE_RATE * 0.10) as usize];  // During high portion
-    let t_0_20 = samples[(SAMPLE_RATE * 0.20) as usize];  // During low/decay portion
-    let t_0_30 = samples[(SAMPLE_RATE * 0.30) as usize];  // During next high
+    let t_0_10 = samples[(SAMPLE_RATE * 0.10) as usize]; // During high portion
+    let t_0_20 = samples[(SAMPLE_RATE * 0.20) as usize]; // During low/decay portion
+    let t_0_30 = samples[(SAMPLE_RATE * 0.30) as usize]; // During next high
 
-    println!("Slow release: t=0.1: {}, t=0.2: {}, t=0.3: {}", t_0_10, t_0_20, t_0_30);
+    println!(
+        "Slow release: t=0.1: {}, t=0.2: {}, t=0.3: {}",
+        t_0_10, t_0_20, t_0_30
+    );
 
     // During high portion, should reach near peak
     assert!(

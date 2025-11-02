@@ -74,9 +74,7 @@ out: ~env
     // Sustain phase: from 0.2s to 0.8s should hold near 0.5
     let sustain_start = decay_end;
     let sustain_end = (0.8 * SAMPLE_RATE) as usize;
-    let sustain_avg: f32 = samples[sustain_start..sustain_end]
-        .iter()
-        .sum::<f32>()
+    let sustain_avg: f32 = samples[sustain_start..sustain_end].iter().sum::<f32>()
         / (sustain_end - sustain_start) as f32;
     assert!(
         (sustain_avg - 0.5).abs() < 0.1,
@@ -178,7 +176,11 @@ out: ~saw * ~env * 0.3
     // Should produce audible output
     let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
     let rms = rms.sqrt();
-    assert!(rms > 0.01, "ADSR-modulated saw should be audible, got RMS {}", rms);
+    assert!(
+        rms > 0.01,
+        "ADSR-modulated saw should be audible, got RMS {}",
+        rms
+    );
 }
 
 /// Test that ADSR parameters can be pattern-controlled

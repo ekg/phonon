@@ -109,10 +109,9 @@ out: ~eq * 0.3
     let samples_flat = graph_flat.render((SAMPLE_RATE / 10.0) as usize);
 
     // Boosted should have higher RMS
-    let rms_boost: f32 = samples_boost.iter().map(|s| s * s).sum::<f32>()
-        / samples_boost.len() as f32;
-    let rms_flat: f32 =
-        samples_flat.iter().map(|s| s * s).sum::<f32>() / samples_flat.len() as f32;
+    let rms_boost: f32 =
+        samples_boost.iter().map(|s| s * s).sum::<f32>() / samples_boost.len() as f32;
+    let rms_flat: f32 = samples_flat.iter().map(|s| s * s).sum::<f32>() / samples_flat.len() as f32;
 
     println!("RMS with +12dB boost: {}", rms_boost.sqrt());
     println!("RMS with flat EQ: {}", rms_flat.sqrt());
@@ -153,10 +152,8 @@ out: ~eq
     let samples_flat = graph_flat.render((SAMPLE_RATE / 10.0) as usize);
 
     // Cut should have lower RMS
-    let rms_cut: f32 =
-        samples_cut.iter().map(|s| s * s).sum::<f32>() / samples_cut.len() as f32;
-    let rms_flat: f32 =
-        samples_flat.iter().map(|s| s * s).sum::<f32>() / samples_flat.len() as f32;
+    let rms_cut: f32 = samples_cut.iter().map(|s| s * s).sum::<f32>() / samples_cut.len() as f32;
+    let rms_flat: f32 = samples_flat.iter().map(|s| s * s).sum::<f32>() / samples_flat.len() as f32;
 
     println!("RMS with -12dB cut: {}", rms_cut.sqrt());
     println!("RMS with flat EQ: {}", rms_flat.sqrt());

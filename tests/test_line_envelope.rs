@@ -77,9 +77,13 @@ out: ~ramp
     let mut prev = samples[0];
     let mut monotonic = true;
     for (i, &sample) in samples.iter().enumerate().skip(1) {
-        if sample < prev - 0.01 { // Allow small numerical error
+        if sample < prev - 0.01 {
+            // Allow small numerical error
             monotonic = false;
-            println!("Non-monotonic at sample {}: prev={}, current={}", i, prev, sample);
+            println!(
+                "Non-monotonic at sample {}: prev={}, current={}",
+                i, prev, sample
+            );
             break;
         }
         prev = sample;
@@ -206,7 +210,11 @@ out: ~sweep * 0.3
     // Should produce audible output
     let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
     let rms = rms.sqrt();
-    assert!(rms > 0.1, "Frequency sweep should be audible, got RMS {}", rms);
+    assert!(
+        rms > 0.1,
+        "Frequency sweep should be audible, got RMS {}",
+        rms
+    );
 }
 
 /// Test that Line parameters can be pattern-controlled

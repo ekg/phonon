@@ -7,7 +7,6 @@
 /// - hurry: Speed up pattern with sample playback speed modification
 ///
 /// All transforms use pattern API testing (not DSL-based)
-
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
@@ -105,9 +104,17 @@ fn test_bite_level1_cycles_through_patterns() {
 
         // Pattern should alternate: cycle 0 = pattern1, cycle 1 = pattern2, cycle 2 = pattern1...
         if cycle % 2 == 0 {
-            println!("Cycle {}: using pattern1 (fast) - {} events", cycle, haps.len());
+            println!(
+                "Cycle {}: using pattern1 (fast) - {} events",
+                cycle,
+                haps.len()
+            );
         } else {
-            println!("Cycle {}: using pattern2 (slow) - {} events", cycle, haps.len());
+            println!(
+                "Cycle {}: using pattern2 (slow) - {} events",
+                cycle,
+                haps.len()
+            );
         }
     }
 
@@ -297,7 +304,11 @@ fn test_jux_multi_cycle_consistency() {
         };
 
         let haps = pattern.clone().jux(|p| p.fast(2.0)).query(&state);
-        assert!(haps.len() > 0, "jux should produce events in cycle {}", cycle);
+        assert!(
+            haps.len() > 0,
+            "jux should produce events in cycle {}",
+            cycle
+        );
     }
 
     println!("✅ jux consistent across multiple cycles");
@@ -329,7 +340,12 @@ fn test_bite_pattern_selection_sequence() {
         // Verify we got events
         assert!(haps.len() > 0, "Cycle {} should have events", cycle);
 
-        println!("Cycle {}: pattern index {} - {} events", cycle, expected_index, haps.len());
+        println!(
+            "Cycle {}: pattern index {} - {} events",
+            cycle,
+            expected_index,
+            haps.len()
+        );
     }
 
     println!("✅ bite cycles through patterns correctly");
@@ -437,7 +453,11 @@ fn test_jux_with_identity() {
     let stereo = pattern.clone().jux(|p| p).query(&state);
     let base = pattern.query(&state);
 
-    assert_eq!(stereo.len(), base.len(), "jux with identity should match base count");
+    assert_eq!(
+        stereo.len(),
+        base.len(),
+        "jux with identity should match base count"
+    );
 
     println!("✅ jux with identity transform works");
 }
@@ -484,11 +504,7 @@ fn test_slice_n1_is_identity() {
     let base = pattern.query(&state);
     let sliced = pattern.clone().slice(1, 0).query(&state);
 
-    assert_eq!(
-        sliced.len(),
-        base.len(),
-        "slice(1, 0) should be identity"
-    );
+    assert_eq!(sliced.len(), base.len(), "slice(1, 0) should be identity");
 
     println!("✅ slice(1, 0) is identity transform");
 }

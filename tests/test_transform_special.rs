@@ -18,7 +18,6 @@
 /// - fastGap: Fast with gaps
 ///
 /// Focus on non-alias transforms with actual behavior
-
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use phonon::pattern_structure::wait;
@@ -309,9 +308,20 @@ fn test_wait_different_durations() {
             let haps = wait_pattern.query(&state);
 
             if cycle < wait_cycles {
-                assert_eq!(haps.len(), 0, "wait({}): cycle {} silent", wait_cycles, cycle);
+                assert_eq!(
+                    haps.len(),
+                    0,
+                    "wait({}): cycle {} silent",
+                    wait_cycles,
+                    cycle
+                );
             } else {
-                assert!(haps.len() > 0, "wait({}): cycle {} playing", wait_cycles, cycle);
+                assert!(
+                    haps.len() > 0,
+                    "wait({}): cycle {} playing",
+                    wait_cycles,
+                    cycle
+                );
             }
         }
     }
@@ -518,15 +528,25 @@ fn test_fast_gap_different_factors() {
         // Query first 1/factor of cycle (should have events)
         let active_range = 1.0 / factor;
         let state_active = State {
-            span: TimeSpan::new(Fraction::new(0, 1), Fraction::from_float(active_range * 0.9)),
+            span: TimeSpan::new(
+                Fraction::new(0, 1),
+                Fraction::from_float(active_range * 0.9),
+            ),
             controls: HashMap::new(),
         };
         let haps_active = fast_gap.query(&state_active);
-        assert!(haps_active.len() > 0, "factor={}: active range has events", factor);
+        assert!(
+            haps_active.len() > 0,
+            "factor={}: active range has events",
+            factor
+        );
 
         // Query rest of cycle (should be silent)
         let state_silent = State {
-            span: TimeSpan::new(Fraction::from_float(active_range + 0.01), Fraction::new(1, 1)),
+            span: TimeSpan::new(
+                Fraction::from_float(active_range + 0.01),
+                Fraction::new(1, 1),
+            ),
             controls: HashMap::new(),
         };
         let haps_silent = fast_gap.query(&state_silent);
@@ -550,7 +570,11 @@ fn test_focus_is_alias_for_zoom() {
     let focused = pattern.clone().focus(0.25, 0.75).query(&state);
     let zoomed = pattern.clone().zoom(0.25, 0.75).query(&state);
 
-    assert_eq!(focused.len(), zoomed.len(), "focus should be alias for zoom");
+    assert_eq!(
+        focused.len(),
+        zoomed.len(),
+        "focus should be alias for zoom"
+    );
 
     println!("✅ focus is alias for zoom");
 }
@@ -584,7 +608,11 @@ fn test_mirror_is_alias_for_palindrome() {
     let mirrored = pattern.clone().mirror().query(&state);
     let palindrome = pattern.clone().palindrome().query(&state);
 
-    assert_eq!(mirrored.len(), palindrome.len(), "mirror should be alias for palindrome");
+    assert_eq!(
+        mirrored.len(),
+        palindrome.len(),
+        "mirror should be alias for palindrome"
+    );
 
     println!("✅ mirror is alias for palindrome");
 }
@@ -602,7 +630,11 @@ fn test_humanize_is_alias_for_shuffle() {
     let shuffled = pattern.clone().shuffle(0.1).query(&state);
 
     // Both should have same event count (just different timing)
-    assert_eq!(humanized.len(), shuffled.len(), "humanize should be alias for shuffle");
+    assert_eq!(
+        humanized.len(),
+        shuffled.len(),
+        "humanize should be alias for shuffle"
+    );
 
     println!("✅ humanize is alias for shuffle");
 }

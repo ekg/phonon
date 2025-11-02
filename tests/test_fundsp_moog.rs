@@ -7,7 +7,6 @@
 /// - Takes 2 parameters (cutoff Hz, resonance 0-1)
 /// - Returns filtered audio
 /// - 4-pole 24dB/oct Moog ladder lowpass filter
-
 use fundsp::prelude::*;
 
 #[test]

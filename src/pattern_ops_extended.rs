@@ -728,10 +728,12 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 .into_iter()
                 .map(|mut hap| {
                     // Scale times back up
-                    hap.whole = hap.whole.map(|w| TimeSpan::new(
-                        Fraction::from_float(w.begin.to_float() * cycles),
-                        Fraction::from_float(w.end.to_float() * cycles),
-                    ));
+                    hap.whole = hap.whole.map(|w| {
+                        TimeSpan::new(
+                            Fraction::from_float(w.begin.to_float() * cycles),
+                            Fraction::from_float(w.end.to_float() * cycles),
+                        )
+                    });
                     hap.part = TimeSpan::new(
                         Fraction::from_float(hap.part.begin.to_float() * cycles),
                         Fraction::from_float(hap.part.end.to_float() * cycles),
@@ -771,8 +773,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         let total_weight: f64 = choices.iter().map(|(_, w)| w).sum();
 
         Pattern::new(move |state| {
-            use rand::{Rng, SeedableRng};
             use rand::rngs::StdRng;
+            use rand::{Rng, SeedableRng};
 
             let cycle = state.span.begin.to_float().floor() as u64;
             let mut rng = StdRng::seed_from_u64(cycle);

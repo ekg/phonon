@@ -126,6 +126,21 @@ fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<
             ctx.set_cps(cps);
             Ok(())
         }
+        Statement::OutputMixMode(mode_str) => {
+            // outmix: sqrt|gain|tanh|hard|none
+            // Sets how multiple output channels are mixed together
+            use crate::unified_graph::OutputMixMode;
+            match OutputMixMode::from_str(&mode_str) {
+                Some(mode) => {
+                    ctx.graph.set_output_mix_mode(mode);
+                    Ok(())
+                }
+                None => Err(format!(
+                    "Invalid output mix mode '{}'. Valid modes: gain, sqrt, tanh, hard, none",
+                    mode_str
+                )),
+            }
+        }
         Statement::FunctionDef {
             name,
             params,
@@ -329,7 +344,10 @@ fn substitute_params(expr: Expr, params: &HashMap<String, NodeId>) -> Expr {
             expr: Box::new(substitute_params(*inner, params)),
         },
         Expr::Paren(inner) => Expr::Paren(Box::new(substitute_params(*inner, params))),
-        Expr::Transform { expr: inner, transform } => Expr::Transform {
+        Expr::Transform {
+            expr: inner,
+            transform,
+        } => Expr::Transform {
             expr: Box::new(substitute_params(*inner, params)),
             transform,
         },
@@ -363,9 +381,9 @@ fn compile_function_call(
             }
 
             // Separate positional args from kwargs
-            let (positional_args, kwargs): (Vec<_>, Vec<_>) = args.into_iter().partition(|arg| {
-                !matches!(arg, Expr::Kwarg { .. })
-            });
+            let (positional_args, kwargs): (Vec<_>, Vec<_>) = args
+                .into_iter()
+                .partition(|arg| !matches!(arg, Expr::Kwarg { .. }));
 
             // Handle different argument types:
             // 1. Simple string: s "bd"
@@ -390,32 +408,63 @@ fn compile_function_call(
                                     transforms: &mut Vec<Transform>,
                                 ) -> Result<(), String> {
                                     match expr {
-                                        Expr::Transform { expr: inner_expr, transform } => {
+                                        Expr::Transform {
+                                            expr: inner_expr,
+                                            transform,
+                                        } => {
                                             transforms.push(transform.clone());
                                             extract_transforms_from_chain(inner_expr, transforms)
                                         }
                                         Expr::Call { name, args } => {
                                             // Convert Call to Transform
                                             let t = match name.as_str() {
-                                                "fast" if args.len() == 1 => Transform::Fast(Box::new(args[0].clone())),
-                                                "slow" if args.len() == 1 => Transform::Slow(Box::new(args[0].clone())),
+                                                "fast" if args.len() == 1 => {
+                                                    Transform::Fast(Box::new(args[0].clone()))
+                                                }
+                                                "slow" if args.len() == 1 => {
+                                                    Transform::Slow(Box::new(args[0].clone()))
+                                                }
                                                 "rev" if args.is_empty() => Transform::Rev,
-                                                "palindrome" if args.is_empty() => Transform::Palindrome,
+                                                "palindrome" if args.is_empty() => {
+                                                    Transform::Palindrome
+                                                }
                                                 "degrade" if args.is_empty() => Transform::Degrade,
-                                                "degradeBy" if args.len() == 1 => Transform::DegradeBy(Box::new(args[0].clone())),
-                                                "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
-                                                "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
-                                                "fastGap" if args.len() == 1 => Transform::FastGap(Box::new(args[0].clone())),
-                                                "iter" if args.len() == 1 => Transform::Iter(Box::new(args[0].clone())),
-                                                "early" if args.len() == 1 => Transform::Early(Box::new(args[0].clone())),
-                                                "late" if args.len() == 1 => Transform::Late(Box::new(args[0].clone())),
-                                                _ => return Err(format!("Unknown transform: {}", name)),
+                                                "degradeBy" if args.len() == 1 => {
+                                                    Transform::DegradeBy(Box::new(args[0].clone()))
+                                                }
+                                                "stutter" if args.len() == 1 => {
+                                                    Transform::Stutter(Box::new(args[0].clone()))
+                                                }
+                                                "shuffle" if args.len() == 1 => {
+                                                    Transform::Shuffle(Box::new(args[0].clone()))
+                                                }
+                                                "fastGap" if args.len() == 1 => {
+                                                    Transform::FastGap(Box::new(args[0].clone()))
+                                                }
+                                                "iter" if args.len() == 1 => {
+                                                    Transform::Iter(Box::new(args[0].clone()))
+                                                }
+                                                "early" if args.len() == 1 => {
+                                                    Transform::Early(Box::new(args[0].clone()))
+                                                }
+                                                "late" if args.len() == 1 => {
+                                                    Transform::Late(Box::new(args[0].clone()))
+                                                }
+                                                _ => {
+                                                    return Err(format!(
+                                                        "Unknown transform: {}",
+                                                        name
+                                                    ))
+                                                }
                                             };
                                             transforms.push(t);
                                             Ok(())
                                         }
                                         Expr::String(_) => Ok(()), // Base case - no more transforms
-                                        _ => Err(format!("Unexpected expression in transform chain: {:?}", expr)),
+                                        _ => Err(format!(
+                                            "Unexpected expression in transform chain: {:?}",
+                                            expr
+                                        )),
                                     }
                                 }
 
@@ -427,7 +476,12 @@ fn compile_function_call(
                                     pattern = apply_transform_to_pattern(pattern, t.clone())?;
                                 }
                             }
-                            _ => return Err(format!("Expected transform as second argument to s(), got: {:?}", transform_expr)),
+                            _ => {
+                                return Err(format!(
+                                    "Expected transform as second argument to s(), got: {:?}",
+                                    transform_expr
+                                ))
+                            }
                         }
                     }
 
@@ -442,26 +496,29 @@ fn compile_function_call(
                         // Simple case: just a pattern string
                         (s.clone(), parse_mini_notation(s))
                     }
-                Expr::Paren(inner) => {
-                    // Unwrap parentheses and check for transform
-                    match &**inner {
-                        Expr::Transform { expr, transform } => {
-                            // Recursively extract base pattern and apply all transforms
-                            fn extract_pattern_and_transforms(
-                                expr: &Expr,
-                                transforms: &mut Vec<Transform>,
-                            ) -> Result<String, String> {
-                                match expr {
-                                    Expr::String(s) => Ok(s.clone()),
-                                    Expr::Transform { expr: inner_expr, transform } => {
-                                        // Collect transforms in reverse order (innermost first)
-                                        transforms.push(transform.clone());
-                                        extract_pattern_and_transforms(inner_expr, transforms)
-                                    }
-                                    // Handle Call expressions that are actually transforms
-                                    // This handles cases like "rev $ fast 2" where "fast 2" is parsed as a Call
-                                    Expr::Call { name, args } => {
-                                        let transform = match name.as_str() {
+                    Expr::Paren(inner) => {
+                        // Unwrap parentheses and check for transform
+                        match &**inner {
+                            Expr::Transform { expr, transform } => {
+                                // Recursively extract base pattern and apply all transforms
+                                fn extract_pattern_and_transforms(
+                                    expr: &Expr,
+                                    transforms: &mut Vec<Transform>,
+                                ) -> Result<String, String> {
+                                    match expr {
+                                        Expr::String(s) => Ok(s.clone()),
+                                        Expr::Transform {
+                                            expr: inner_expr,
+                                            transform,
+                                        } => {
+                                            // Collect transforms in reverse order (innermost first)
+                                            transforms.push(transform.clone());
+                                            extract_pattern_and_transforms(inner_expr, transforms)
+                                        }
+                                        // Handle Call expressions that are actually transforms
+                                        // This handles cases like "rev $ fast 2" where "fast 2" is parsed as a Call
+                                        Expr::Call { name, args } => {
+                                            let transform = match name.as_str() {
                                             "fast" if args.len() == 1 => Transform::Fast(Box::new(args[0].clone())),
                                             "slow" if args.len() == 1 => Transform::Slow(Box::new(args[0].clone())),
                                             "rev" if args.is_empty() => Transform::Rev,
@@ -476,66 +533,79 @@ fn compile_function_call(
                                             "late" if args.len() == 1 => Transform::Late(Box::new(args[0].clone())),
                                             _ => return Err(format!("Unknown transform or invalid call in transform chain: {}", name)),
                                         };
-                                        transforms.push(transform);
-                                        // A Call that's a transform has no inner pattern - it's a leaf
-                                        // Return empty string as placeholder
-                                        Ok("".to_string())
+                                            transforms.push(transform);
+                                            // A Call that's a transform has no inner pattern - it's a leaf
+                                            // Return empty string as placeholder
+                                            Ok("".to_string())
+                                        }
+                                        _ => Err("s() pattern must be a string or transform chain"
+                                            .to_string()),
                                     }
-                                    _ => Err("s() pattern must be a string or transform chain".to_string()),
+                                }
+
+                                let mut transforms = vec![transform.clone()];
+                                let base_str =
+                                    extract_pattern_and_transforms(&**expr, &mut transforms)?;
+
+                                // Parse base pattern
+                                let mut pattern = parse_mini_notation(&base_str);
+
+                                // Apply transforms in reverse order (innermost first)
+                                for t in transforms.iter().rev() {
+                                    pattern = apply_transform_to_pattern(pattern, t.clone())?;
+                                }
+
+                                (format!("{} (transformed)", base_str), pattern)
+                            }
+                            Expr::String(s) => {
+                                // Just a parenthesized string
+                                (s.clone(), parse_mini_notation(s))
+                            }
+                            _ => {
+                                return Err(
+                                    "s() requires a pattern string or transform as first argument"
+                                        .to_string(),
+                                )
+                            }
+                        }
+                    }
+                    Expr::Transform { expr, transform } => {
+                        // Direct transform - recursively handle chained transforms
+                        fn extract_pattern_and_transforms(
+                            expr: &Expr,
+                            transforms: &mut Vec<Transform>,
+                        ) -> Result<String, String> {
+                            match expr {
+                                Expr::String(s) => Ok(s.clone()),
+                                Expr::Transform {
+                                    expr: inner_expr,
+                                    transform,
+                                } => {
+                                    // Collect transforms in reverse order (innermost first)
+                                    transforms.push(transform.clone());
+                                    extract_pattern_and_transforms(inner_expr, transforms)
+                                }
+                                _ => {
+                                    Err("s() pattern must be a string or transform chain"
+                                        .to_string())
                                 }
                             }
-
-                            let mut transforms = vec![transform.clone()];
-                            let base_str = extract_pattern_and_transforms(&**expr, &mut transforms)?;
-
-                            // Parse base pattern
-                            let mut pattern = parse_mini_notation(&base_str);
-
-                            // Apply transforms in reverse order (innermost first)
-                            for t in transforms.iter().rev() {
-                                pattern = apply_transform_to_pattern(pattern, t.clone())?;
-                            }
-
-                            (format!("{} (transformed)", base_str), pattern)
                         }
-                        Expr::String(s) => {
-                            // Just a parenthesized string
-                            (s.clone(), parse_mini_notation(s))
+
+                        let mut transforms = vec![transform.clone()];
+                        let base_str = extract_pattern_and_transforms(&**expr, &mut transforms)?;
+
+                        // Parse base pattern
+                        let mut pattern = parse_mini_notation(&base_str);
+
+                        // Apply transforms in reverse order (innermost first)
+                        for t in transforms.iter().rev() {
+                            pattern = apply_transform_to_pattern(pattern, t.clone())?;
                         }
-                        _ => return Err("s() requires a pattern string or transform as first argument".to_string()),
+
+                        (format!("{} (transformed)", base_str), pattern)
                     }
-                }
-                Expr::Transform { expr, transform } => {
-                    // Direct transform - recursively handle chained transforms
-                    fn extract_pattern_and_transforms(
-                        expr: &Expr,
-                        transforms: &mut Vec<Transform>,
-                    ) -> Result<String, String> {
-                        match expr {
-                            Expr::String(s) => Ok(s.clone()),
-                            Expr::Transform { expr: inner_expr, transform } => {
-                                // Collect transforms in reverse order (innermost first)
-                                transforms.push(transform.clone());
-                                extract_pattern_and_transforms(inner_expr, transforms)
-                            }
-                            _ => Err("s() pattern must be a string or transform chain".to_string()),
-                        }
-                    }
-
-                    let mut transforms = vec![transform.clone()];
-                    let base_str = extract_pattern_and_transforms(&**expr, &mut transforms)?;
-
-                    // Parse base pattern
-                    let mut pattern = parse_mini_notation(&base_str);
-
-                    // Apply transforms in reverse order (innermost first)
-                    for t in transforms.iter().rev() {
-                        pattern = apply_transform_to_pattern(pattern, t.clone())?;
-                    }
-
-                    (format!("{} (transformed)", base_str), pattern)
-                }
-                _ => return Err("s() requires a pattern string as first argument".to_string()),
+                    _ => return Err("s() requires a pattern string as first argument".to_string()),
                 }
             };
 
@@ -815,7 +885,7 @@ fn compile_cat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
         note: Signal::Value(0.0),
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
-                envelope_type: None,
+        envelope_type: None,
     };
 
     Ok(ctx.graph.add_node(node))
@@ -880,7 +950,7 @@ fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         note: Signal::Value(0.0),
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
-                envelope_type: None,
+        envelope_type: None,
     };
 
     Ok(ctx.graph.add_node(node))
@@ -1230,7 +1300,11 @@ fn compile_moog_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
 
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::MoogHz,
-        inputs: vec![input_signal, Signal::Node(cutoff_node), Signal::Node(resonance_node)],
+        inputs: vec![
+            input_signal,
+            Signal::Node(cutoff_node),
+            Signal::Node(resonance_node),
+        ],
         state: Arc::new(Mutex::new(state)),
     };
 
@@ -1260,7 +1334,11 @@ fn compile_reverb_stereo(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
 
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::ReverbStereo,
-        inputs: vec![input_signal, Signal::Node(wet_node), Signal::Node(time_node)],
+        inputs: vec![
+            input_signal,
+            Signal::Node(wet_node),
+            Signal::Node(time_node),
+        ],
         state: Arc::new(Mutex::new(state)),
     };
 
@@ -1409,10 +1487,7 @@ fn compile_triangle_hz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
 
 fn compile_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if !args.is_empty() {
-        return Err(format!(
-            "noise takes no parameters, got {}",
-            args.len()
-        ));
+        return Err(format!("noise takes no parameters, got {}", args.len()));
     }
 
     // Create fundsp noise unit
@@ -1423,7 +1498,7 @@ fn compile_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
 
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::Noise,
-        inputs: vec![],  // No inputs!
+        inputs: vec![], // No inputs!
         state: Arc::new(Mutex::new(state)),
     };
 
@@ -1432,10 +1507,7 @@ fn compile_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
 
 fn compile_pink(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if !args.is_empty() {
-        return Err(format!(
-            "pink takes no parameters, got {}",
-            args.len()
-        ));
+        return Err(format!("pink takes no parameters, got {}", args.len()));
     }
 
     // Create fundsp pink noise unit
@@ -1446,7 +1518,7 @@ fn compile_pink(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
 
     let node = SignalNode::FundspUnit {
         unit_type: FundspUnitType::Pink,
-        inputs: vec![],  // No inputs!
+        inputs: vec![], // No inputs!
         state: Arc::new(Mutex::new(state)),
     };
 
@@ -1460,13 +1532,21 @@ fn compile_synth_pattern(
     args: Vec<Expr>,
 ) -> Result<NodeId, String> {
     if args.is_empty() {
-        return Err(format!("{:?}_trig requires pattern string argument", waveform));
+        return Err(format!(
+            "{:?}_trig requires pattern string argument",
+            waveform
+        ));
     }
 
     // First argument should be a pattern string
     let pattern_str = match &args[0] {
         Expr::String(s) => s.clone(),
-        _ => return Err(format!("{:?}_trig requires a pattern string as first argument", waveform)),
+        _ => {
+            return Err(format!(
+                "{:?}_trig requires a pattern string as first argument",
+                waveform
+            ))
+        }
     };
 
     let pattern = parse_mini_notation(&pattern_str);
@@ -1746,10 +1826,7 @@ fn compile_distortion(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
 
 /// Compile pattern-triggered envelope (rhythmic gate)
 /// Usage: signal # env_trig("pattern", attack, decay, sustain, release)
-fn compile_envelope_pattern(
-    ctx: &mut CompilerContext,
-    args: Vec<Expr>,
-) -> Result<NodeId, String> {
+fn compile_envelope_pattern(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     // Extract input (handles both standalone and chained forms)
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
@@ -2515,8 +2592,8 @@ fn compile_latch(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
     let node = SignalNode::Latch {
         input: input_signal,
         gate: Signal::Node(gate_node),
-        held_value: 0.0,  // Start with 0
-        last_gate: 0.0,   // Start with gate low
+        held_value: 0.0, // Start with 0
+        last_gate: 0.0,  // Start with gate low
     };
 
     Ok(ctx.graph.add_node(node))
@@ -2536,8 +2613,8 @@ fn compile_timer(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
 
     let node = SignalNode::Timer {
         trigger: input_signal,
-        elapsed_time: 0.0,   // Start at 0
-        last_trigger: 0.0,   // Start with trigger low
+        elapsed_time: 0.0, // Start at 0
+        last_trigger: 0.0, // Start with trigger low
     };
 
     Ok(ctx.graph.add_node(node))
@@ -2562,7 +2639,7 @@ fn compile_peak_follower(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
         input: input_signal,
         attack_time: Signal::Node(attack_node),
         release_time: Signal::Node(release_node),
-        current_peak: 0.0,  // Start at 0
+        current_peak: 0.0, // Start at 0
     };
 
     Ok(ctx.graph.add_node(node))
@@ -2635,7 +2712,9 @@ fn modify_sample_param(
     new_value: Signal,
 ) -> Result<NodeId, String> {
     // Get the Sample node
-    let sample_node = ctx.graph.get_node(sample_node_id)
+    let sample_node = ctx
+        .graph
+        .get_node(sample_node_id)
         .ok_or_else(|| "Invalid node reference".to_string())?;
 
     if let SignalNode::Sample {
@@ -2660,12 +2739,32 @@ fn modify_sample_param(
             last_trigger_time: -1.0,
             last_cycle: -1,
             playback_positions: HashMap::new(),
-            gain: if param_name == "gain" { new_value.clone() } else { gain.clone() },
-            pan: if param_name == "pan" { new_value.clone() } else { pan.clone() },
-            speed: if param_name == "speed" { new_value.clone() } else { speed.clone() },
+            gain: if param_name == "gain" {
+                new_value.clone()
+            } else {
+                gain.clone()
+            },
+            pan: if param_name == "pan" {
+                new_value.clone()
+            } else {
+                pan.clone()
+            },
+            speed: if param_name == "speed" {
+                new_value.clone()
+            } else {
+                speed.clone()
+            },
             cut_group: cut_group.clone(),
-            n: if param_name == "n" { new_value.clone() } else { n.clone() },
-            note: if param_name == "note" { new_value } else { note.clone() },
+            n: if param_name == "n" {
+                new_value.clone()
+            } else {
+                n.clone()
+            },
+            note: if param_name == "note" {
+                new_value
+            } else {
+                note.clone()
+            },
             attack: attack.clone(),
             release: release.clone(),
             envelope_type: envelope_type.clone(),
@@ -2710,7 +2809,7 @@ fn compile_transform(
                     note: Signal::Value(0.0),
                     attack: Signal::Value(0.0),
                     release: Signal::Value(0.0),
-                envelope_type: None,
+                    envelope_type: None,
                 };
                 return Ok(ctx.graph.add_node(node));
             }
@@ -2736,11 +2835,18 @@ fn compile_transform(
 
     // Handle nested transforms: Transform { expr: Transform { ... }, transform }
     // This happens when you chain multiple transforms: expr $ transform1 $ transform2
-    if let Expr::Transform { expr: inner_expr, transform: inner_transform } = expr.clone() {
+    if let Expr::Transform {
+        expr: inner_expr,
+        transform: inner_transform,
+    } = expr.clone()
+    {
         // Collect all transforms in the chain
         fn collect_transforms(expr: Expr, transforms: &mut Vec<Transform>) -> Expr {
             match expr {
-                Expr::Transform { expr: inner, transform } => {
+                Expr::Transform {
+                    expr: inner,
+                    transform,
+                } => {
                     transforms.push(transform);
                     collect_transforms(*inner, transforms)
                 }
@@ -2749,7 +2855,13 @@ fn compile_transform(
         }
 
         let mut all_transforms = vec![transform];
-        let base_expr = collect_transforms(Expr::Transform { expr: inner_expr, transform: inner_transform }, &mut all_transforms);
+        let base_expr = collect_transforms(
+            Expr::Transform {
+                expr: inner_expr,
+                transform: inner_transform,
+            },
+            &mut all_transforms,
+        );
 
         // Now base_expr should be either a Call or String, and all_transforms has all transforms
         // Apply all transforms in reverse order (they were collected outer-to-inner)
@@ -3359,13 +3471,20 @@ fn compile_unop(ctx: &mut CompilerContext, op: UnOp, expr: Expr) -> Result<NodeI
 /// Sets the sample index for sample selection
 fn compile_n_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 2 {
-        return Err(format!("n requires 2 arguments (sample_input, n_pattern), got {}", args.len()));
+        return Err(format!(
+            "n requires 2 arguments (sample_input, n_pattern), got {}",
+            args.len()
+        ));
     }
 
     // First arg should be ChainInput pointing to a Sample node
     let sample_node_id = match &args[0] {
         Expr::ChainInput(node_id) => *node_id,
-        _ => return Err("n must be used with the chain operator: s \"bd\" # n \"0 1 2\"".to_string()),
+        _ => {
+            return Err(
+                "n must be used with the chain operator: s \"bd\" # n \"0 1 2\"".to_string(),
+            )
+        }
     };
 
     // Second arg is the n pattern
@@ -3379,12 +3498,19 @@ fn compile_n_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
 /// Sets the volume for each sample trigger
 fn compile_gain_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 2 {
-        return Err(format!("gain requires 2 arguments (sample_input, gain_pattern), got {}", args.len()));
+        return Err(format!(
+            "gain requires 2 arguments (sample_input, gain_pattern), got {}",
+            args.len()
+        ));
     }
 
     let sample_node_id = match &args[0] {
         Expr::ChainInput(node_id) => *node_id,
-        _ => return Err("gain must be used with the chain operator: s \"bd\" # gain \"0.8\"".to_string()),
+        _ => {
+            return Err(
+                "gain must be used with the chain operator: s \"bd\" # gain \"0.8\"".to_string(),
+            )
+        }
     };
 
     let gain_value = compile_expr(ctx, args[1].clone())?;
@@ -3395,12 +3521,19 @@ fn compile_gain_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
 /// Sets the stereo pan position (-1 = left, 0 = center, 1 = right)
 fn compile_pan_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 2 {
-        return Err(format!("pan requires 2 arguments (sample_input, pan_pattern), got {}", args.len()));
+        return Err(format!(
+            "pan requires 2 arguments (sample_input, pan_pattern), got {}",
+            args.len()
+        ));
     }
 
     let sample_node_id = match &args[0] {
         Expr::ChainInput(node_id) => *node_id,
-        _ => return Err("pan must be used with the chain operator: s \"bd\" # pan \"-1 1\"".to_string()),
+        _ => {
+            return Err(
+                "pan must be used with the chain operator: s \"bd\" # pan \"-1 1\"".to_string(),
+            )
+        }
     };
 
     let pan_value = compile_expr(ctx, args[1].clone())?;
@@ -3411,12 +3544,19 @@ fn compile_pan_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<No
 /// Sets the playback speed (1.0 = normal, 0.5 = half speed, 2.0 = double speed)
 fn compile_speed_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 2 {
-        return Err(format!("speed requires 2 arguments (sample_input, speed_pattern), got {}", args.len()));
+        return Err(format!(
+            "speed requires 2 arguments (sample_input, speed_pattern), got {}",
+            args.len()
+        ));
     }
 
     let sample_node_id = match &args[0] {
         Expr::ChainInput(node_id) => *node_id,
-        _ => return Err("speed must be used with the chain operator: s \"bd\" # speed \"1 2\"".to_string()),
+        _ => {
+            return Err(
+                "speed must be used with the chain operator: s \"bd\" # speed \"1 2\"".to_string(),
+            )
+        }
     };
 
     let speed_value = compile_expr(ctx, args[1].clone())?;
@@ -3431,7 +3571,10 @@ fn compile_amp(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
     if params.len() != 1 {
-        return Err(format!("amp requires 1 parameter (amplitude), got {}", params.len()));
+        return Err(format!(
+            "amp requires 1 parameter (amplitude), got {}",
+            params.len()
+        ));
     }
 
     // Compile the amplitude value (can be a number or pattern)
@@ -3466,9 +3609,8 @@ fn compile_struct(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
 
     // Parse the boolean pattern
     // In mini-notation, "t" = true, "f" or "~" = false, "x" = true
-    let bool_pattern = parse_mini_notation(&pattern_str).fmap(|s: String| {
-        s == "t" || s == "x" || s == "1"
-    });
+    let bool_pattern =
+        parse_mini_notation(&pattern_str).fmap(|s: String| s == "t" || s == "x" || s == "1");
 
     // Second argument: signal to apply structure to
     let signal_node = compile_expr(ctx, args[1].clone())?;
@@ -3485,10 +3627,10 @@ fn compile_struct(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         bool_pattern,
         last_trigger_time: -1.0,
         last_cycle: -1,
-        attack: 0.001,   // 1ms attack
-        decay: 0.1,      // 100ms decay
-        sustain: 0.0,    // No sustain (percussive)
-        release: 0.05,   // 50ms release
+        attack: 0.001, // 1ms attack
+        decay: 0.1,    // 100ms decay
+        sustain: 0.0,  // No sustain (percussive)
+        release: 0.05, // 50ms release
         state: EnvState::default(),
     };
 

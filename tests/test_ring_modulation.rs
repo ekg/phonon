@@ -32,31 +32,33 @@ out: ~ring * 0.3
 
 /// Helper function to compute FFT and find peak frequencies
 fn find_peak_frequencies(samples: &[f32], sample_rate: f32, num_peaks: usize) -> Vec<f32> {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let mut planner = FftPlanner::new();
     let fft = planner.plan_fft_forward(samples.len());
 
-    let mut buffer: Vec<Complex<f32>> = samples.iter()
+    let mut buffer: Vec<Complex<f32>> = samples
+        .iter()
         .map(|&s| Complex { re: s, im: 0.0 })
         .collect();
 
     fft.process(&mut buffer);
 
     // Compute magnitude spectrum (first half only - nyquist)
-    let magnitudes: Vec<f32> = buffer[0..buffer.len()/2]
+    let magnitudes: Vec<f32> = buffer[0..buffer.len() / 2]
         .iter()
         .map(|c| c.norm())
         .collect();
 
     // Find peaks
-    let mut peaks: Vec<(usize, f32)> = magnitudes.iter()
+    let mut peaks: Vec<(usize, f32)> = magnitudes
+        .iter()
         .enumerate()
         .filter(|(i, &mag)| {
             if *i == 0 || *i >= magnitudes.len() - 1 {
                 return false;
             }
-            mag > magnitudes[i-1] && mag > magnitudes[i+1] && mag > 0.01
+            mag > magnitudes[i - 1] && mag > magnitudes[i + 1] && mag > 0.01
         })
         .map(|(i, &mag)| (i, mag))
         .collect();
@@ -66,7 +68,8 @@ fn find_peak_frequencies(samples: &[f32], sample_rate: f32, num_peaks: usize) ->
 
     // Convert bin indices to frequencies
     let bin_to_freq = sample_rate / samples.len() as f32;
-    peaks.iter()
+    peaks
+        .iter()
         .take(num_peaks)
         .map(|(bin, _)| *bin as f32 * bin_to_freq)
         .collect()
@@ -139,7 +142,10 @@ out: ~ring * 0.5
 
     // Note: Due to numerical precision, the carrier/modulator might have very small
     // components, but they should NOT be in the top peaks
-    println!("Carrier present: {}, Modulator present: {}", has_carrier, has_modulator);
+    println!(
+        "Carrier present: {}, Modulator present: {}",
+        has_carrier, has_modulator
+    );
 }
 
 /// LEVEL 3: Musical Integration Test
@@ -213,14 +219,16 @@ out: ~ring * ~env * 0.4
     assert!(rms.sqrt() > 0.01, "Enveloped ring mod should be audible");
 
     // Peak should be near the start
-    let first_quarter: f32 = samples[0..samples.len()/4]
+    let first_quarter: f32 = samples[0..samples.len() / 4]
         .iter()
         .map(|s| s * s)
-        .sum::<f32>() / (samples.len() / 4) as f32;
-    let last_quarter: f32 = samples[samples.len()*3/4..]
+        .sum::<f32>()
+        / (samples.len() / 4) as f32;
+    let last_quarter: f32 = samples[samples.len() * 3 / 4..]
         .iter()
         .map(|s| s * s)
-        .sum::<f32>() / (samples.len() / 4) as f32;
+        .sum::<f32>()
+        / (samples.len() / 4) as f32;
 
     assert!(
         first_quarter.sqrt() > last_quarter.sqrt() * 2.0,

@@ -4,7 +4,6 @@
 /// - Level 1: Pattern query (event count/structure)
 /// - Level 2: Audio onset detection (events actually occur)
 /// - Level 3: Audio quality (RMS/DC offset/peak)
-
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
@@ -38,7 +37,8 @@ fn detect_onsets(samples: &[f32], sample_rate: u32, threshold: f32) -> Vec<usize
     let min_peak_distance = (sample_rate as usize / 10) / hop_size; // 100ms in energy frames
 
     for i in 1..energies.len() - 1 {
-        if energies[i] > threshold && energies[i] > energies[i - 1] && energies[i] > energies[i + 1] {
+        if energies[i] > threshold && energies[i] > energies[i - 1] && energies[i] > energies[i + 1]
+        {
             // Check minimum distance (in energy frame indices)
             if peaks.is_empty() || i >= last_peak_idx + min_peak_distance {
                 peaks.push(i * hop_size);
@@ -65,7 +65,10 @@ fn count_pattern_events(pattern_str: &str, cycles: usize) -> usize {
             controls: HashMap::new(),
         };
         let events = pattern.query(&state);
-        total += events.iter().filter(|e| e.value != "~" && !e.value.is_empty()).count();
+        total += events
+            .iter()
+            .filter(|e| e.value != "~" && !e.value.is_empty())
+            .count();
     }
 
     total
@@ -123,7 +126,10 @@ fn test_fast_2_three_levels() {
 
     // Level 1: Pattern events (test base pattern only - transforms tested via audio)
     let normal_events = count_pattern_events(base_pattern, cycles);
-    assert_eq!(normal_events, 8, "Base pattern should have 8 events (2 per cycle × 4)");
+    assert_eq!(
+        normal_events, 8,
+        "Base pattern should have 8 events (2 per cycle × 4)"
+    );
 
     // Level 2: Audio onsets (verify transform works via audio)
     let normal_audio = render_test_pattern(base_pattern, "", cycles);
@@ -143,12 +149,24 @@ fn test_fast_2_three_levels() {
     let fast_rms = calculate_rms(&fast_audio);
     let fast_dc = calculate_dc_offset(&fast_audio);
 
-    assert!(fast_rms > 0.01, "Level 3: fast 2 should produce audible sound (RMS = {})", fast_rms);
-    assert!(fast_dc.abs() < 0.1, "Level 3: fast 2 DC offset too high: {}", fast_dc);
+    assert!(
+        fast_rms > 0.01,
+        "Level 3: fast 2 should produce audible sound (RMS = {})",
+        fast_rms
+    );
+    assert!(
+        fast_dc.abs() < 0.1,
+        "Level 3: fast 2 DC offset too high: {}",
+        fast_dc
+    );
 
-    println!("✅ fast 2: Onsets={}/{}, RMS={:.3}, DC={:.3}",
-             fast_onsets, normal_onsets * 2,
-             fast_rms, fast_dc);
+    println!(
+        "✅ fast 2: Onsets={}/{}, RMS={:.3}, DC={:.3}",
+        fast_onsets,
+        normal_onsets * 2,
+        fast_rms,
+        fast_dc
+    );
 }
 
 #[test]
@@ -158,7 +176,10 @@ fn test_slow_2_three_levels() {
 
     // Level 1: Pattern events (mini-notation only)
     let normal_events = count_pattern_events(base_pattern, cycles);
-    assert_eq!(normal_events, 32, "Base pattern should have 32 events over 8 cycles");
+    assert_eq!(
+        normal_events, 32,
+        "Base pattern should have 32 events over 8 cycles"
+    );
 
     // Level 2: Audio onsets (verify transform via audio)
     let normal_audio = render_test_pattern(base_pattern, "", cycles);
@@ -178,13 +199,24 @@ fn test_slow_2_three_levels() {
     let slow_rms = calculate_rms(&slow_audio);
     let slow_dc = calculate_dc_offset(&slow_audio);
 
-    assert!(slow_rms > 0.01, "Level 3: slow 2 should produce audible sound");
-    assert!(slow_dc.abs() < 0.1, "Level 3: slow 2 DC offset too high: {}", slow_dc);
+    assert!(
+        slow_rms > 0.01,
+        "Level 3: slow 2 should produce audible sound"
+    );
+    assert!(
+        slow_dc.abs() < 0.1,
+        "Level 3: slow 2 DC offset too high: {}",
+        slow_dc
+    );
 
-    println!("✅ slow 2: Onsets={}/{} (ratio={:.2}), RMS={:.3}, DC={:.3}",
-             slow_onsets, normal_onsets,
-             slow_onsets as f32 / normal_onsets as f32,
-             slow_rms, slow_dc);
+    println!(
+        "✅ slow 2: Onsets={}/{} (ratio={:.2}), RMS={:.3}, DC={:.3}",
+        slow_onsets,
+        normal_onsets,
+        slow_onsets as f32 / normal_onsets as f32,
+        slow_rms,
+        slow_dc
+    );
 }
 
 #[test]
@@ -194,7 +226,10 @@ fn test_rev_three_levels() {
 
     // Level 1: Pattern events (mini-notation only)
     let normal_events = count_pattern_events(base_pattern, cycles);
-    assert_eq!(normal_events, 16, "Base pattern should have 16 events over 4 cycles");
+    assert_eq!(
+        normal_events, 16,
+        "Base pattern should have 16 events over 4 cycles"
+    );
 
     // Level 2: Audio onsets (should preserve count, different timing)
     let normal_audio = render_test_pattern(base_pattern, "", cycles);
@@ -215,11 +250,16 @@ fn test_rev_three_levels() {
     let rev_dc = calculate_dc_offset(&rev_audio);
 
     assert!(rev_rms > 0.01, "Level 3: rev should produce audible sound");
-    assert!(rev_dc.abs() < 0.1, "Level 3: rev DC offset too high: {}", rev_dc);
+    assert!(
+        rev_dc.abs() < 0.1,
+        "Level 3: rev DC offset too high: {}",
+        rev_dc
+    );
 
-    println!("✅ rev: Onsets={}/{}, RMS={:.3}, DC={:.3}",
-             rev_onsets, normal_onsets,
-             rev_rms, rev_dc);
+    println!(
+        "✅ rev: Onsets={}/{}, RMS={:.3}, DC={:.3}",
+        rev_onsets, normal_onsets, rev_rms, rev_dc
+    );
 }
 
 // ============================================================================
@@ -251,7 +291,7 @@ fn test_euclid_odd_denominators_three_levels() {
 
         // Level 2 & 3: Audio verification
         let audio = render_test_pattern(&pattern, "", cycles); // Full pattern including "bd"
-        // Use lower threshold for Euclidean patterns (tighter spacing)
+                                                               // Use lower threshold for Euclidean patterns (tighter spacing)
         let onsets = count_audio_onsets(&audio, 44100.0, 0.1);
         let rms = calculate_rms(&audio);
         let dc = calculate_dc_offset(&audio);
@@ -272,8 +312,10 @@ fn test_euclid_odd_denominators_three_levels() {
             dc
         );
 
-        println!("✅ {}: Events={}, Onsets={}, RMS={:.3}, DC={:.3}",
-                 pattern, events, onsets, rms, dc);
+        println!(
+            "✅ {}: Events={}, Onsets={}, RMS={:.3}, DC={:.3}",
+            pattern, events, onsets, rms, dc
+        );
     }
 }
 
@@ -307,7 +349,10 @@ fn test_euclid_prime_numbers() {
             dc
         );
 
-        println!("✅ Euclid ({},{}) prime: Events={}, DC={:.3}", pulses, prime, events, dc);
+        println!(
+            "✅ Euclid ({},{}) prime: Events={}, DC={:.3}",
+            pulses, prime, events, dc
+        );
     }
 }
 
@@ -325,7 +370,10 @@ fn test_slow_fast_combination() {
 
     // Level 1: Base pattern events (mini-notation only)
     let base_events = count_pattern_events(base, cycles);
-    assert_eq!(base_events, 24, "Base pattern should have 24 events over 12 cycles");
+    assert_eq!(
+        base_events, 24,
+        "Base pattern should have 24 events over 12 cycles"
+    );
 
     // Level 2: Audio verification (slow 2 $ fast 3 = net 1.5x speed)
     let normal_audio = render_test_pattern(base, "", cycles);
@@ -348,8 +396,10 @@ fn test_slow_fast_combination() {
     let dc = calculate_dc_offset(&combined_audio);
     assert!(dc.abs() < 0.1, "Combined transform DC offset: {}", dc);
 
-    println!("✅ slow 2 $ fast 3: Onsets={}/{} (ratio={:.2}), DC={:.3}",
-             combined_onsets, normal_onsets, actual_ratio, dc);
+    println!(
+        "✅ slow 2 $ fast 3: Onsets={}/{} (ratio={:.2}), DC={:.3}",
+        combined_onsets, normal_onsets, actual_ratio, dc
+    );
 }
 
 #[test]
@@ -361,7 +411,10 @@ fn test_fast_rev_correct_order() {
 
     // Level 1: Base pattern events (mini-notation only)
     let base_events = count_pattern_events(base, cycles);
-    assert_eq!(base_events, 16, "Base pattern should have 16 events over 4 cycles");
+    assert_eq!(
+        base_events, 16,
+        "Base pattern should have 16 events over 4 cycles"
+    );
 
     // Level 2: Audio verification (fast 2 $ rev should double events)
     let normal_audio = render_test_pattern(base, "", cycles);
@@ -384,6 +437,11 @@ fn test_fast_rev_correct_order() {
     assert!(rms > 0.01, "fast 2 $ rev should be audible");
     assert!(dc.abs() < 0.1, "fast 2 $ rev DC offset: {}", dc);
 
-    println!("✅ fast 2 $ rev: Onsets={}/{}, RMS={:.3}, DC={:.3}",
-             fast_rev_onsets, normal_onsets * 2, rms, dc);
+    println!(
+        "✅ fast 2 $ rev: Onsets={}/{}, RMS={:.3}, DC={:.3}",
+        fast_rev_onsets,
+        normal_onsets * 2,
+        rms,
+        dc
+    );
 }

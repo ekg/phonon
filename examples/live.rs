@@ -78,7 +78,7 @@ fn patch_1_basic_lfo(graph: &mut UnifiedSignalGraph) {
         waveform: Waveform::Sine, // Try: Triangle, Saw
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     // Oscillator
@@ -139,7 +139,7 @@ fn patch_2_pattern_drums(graph: &mut UnifiedSignalGraph) {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     // Kick envelope
@@ -229,7 +229,7 @@ fn patch_3_bass_sidechain(graph: &mut UnifiedSignalGraph) {
         waveform: Waveform::Saw,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     // Sidechain envelope (inverted kick)
@@ -304,7 +304,7 @@ fn patch_4_fm_synthesis(graph: &mut UnifiedSignalGraph) {
         waveform: Waveform::Sine,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let modulator = graph.add_node(SignalNode::Multiply {
@@ -349,7 +349,7 @@ fn patch_5_ambient_pad(graph: &mut UnifiedSignalGraph) {
         waveform: Waveform::Triangle,
         phase: 0.0,
         pending_freq: None,
-        last_sample: 0.0, 
+        last_sample: 0.0,
     });
 
     let osc2 = graph.add_node(SignalNode::Oscillator {

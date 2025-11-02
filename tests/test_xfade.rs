@@ -1,6 +1,5 @@
 /// Comprehensive tests for XFade (Crossfader) UGen
 /// Tests crossfading between two signals with pattern-modulated position
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -53,7 +52,7 @@ out: ~faded
     // Generate 1 second of audio
     let duration = 1.0;
     let num_samples = (SAMPLE_RATE * duration) as usize;
-    
+
     let buffer = graph.render(num_samples);
 
     // Calculate RMS of output
@@ -87,7 +86,7 @@ out: ~faded
     // Generate 1 second of audio
     let duration = 1.0;
     let num_samples = (SAMPLE_RATE * duration) as usize;
-    
+
     let buffer = graph.render(num_samples);
 
     // Calculate RMS of output
@@ -121,7 +120,7 @@ out: ~faded
     // Generate 1 second of audio
     let duration = 1.0;
     let num_samples = (SAMPLE_RATE * duration) as usize;
-    
+
     let buffer = graph.render(num_samples);
 
     // Calculate RMS of output
@@ -156,7 +155,7 @@ out: ~faded * 0.5
     // Generate 1 second of audio
     let duration = 1.0;
     let num_samples = (SAMPLE_RATE * duration) as usize;
-    
+
     let buffer = graph.render(num_samples);
 
     // Calculate RMS of output
@@ -190,7 +189,7 @@ out: ~faded * 0.5
     // Generate 1 second of audio
     let duration = 1.0;
     let num_samples = (SAMPLE_RATE * duration) as usize;
-    
+
     let buffer = graph.render(num_samples);
 
     // Calculate RMS of output
@@ -226,7 +225,7 @@ out: ~faded * 0.5
     // Generate 2 seconds of audio (full ADSR cycle)
     let duration = 2.0;
     let num_samples = (SAMPLE_RATE * duration) as usize;
-    
+
     let buffer = graph.render(num_samples);
 
     // Calculate RMS of output

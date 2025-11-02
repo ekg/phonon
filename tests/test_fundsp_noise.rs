@@ -7,7 +7,6 @@
 /// - Takes 0 audio inputs (generator)
 /// - Returns 1 mono output
 /// - White noise (equal energy across all frequencies)
-
 use fundsp::prelude::*;
 
 #[test]

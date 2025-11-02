@@ -50,16 +50,41 @@ out: ~time
     let t_0_5 = samples[(SAMPLE_RATE * 0.5) as usize];
     let t_0_9 = samples[(SAMPLE_RATE * 0.9) as usize];
 
-    println!("Time values: t=0.1: {}, t=0.5: {}, t=0.9: {}", t_0_1, t_0_5, t_0_9);
+    println!(
+        "Time values: t=0.1: {}, t=0.5: {}, t=0.9: {}",
+        t_0_1, t_0_5, t_0_9
+    );
 
     // Timer should increase over time
-    assert!(t_0_5 > t_0_1, "Timer should increase: {} > {}", t_0_5, t_0_1);
-    assert!(t_0_9 > t_0_5, "Timer should increase: {} > {}", t_0_9, t_0_5);
+    assert!(
+        t_0_5 > t_0_1,
+        "Timer should increase: {} > {}",
+        t_0_5,
+        t_0_1
+    );
+    assert!(
+        t_0_9 > t_0_5,
+        "Timer should increase: {} > {}",
+        t_0_9,
+        t_0_5
+    );
 
     // Values should be approximately correct (within 10%)
-    assert!((t_0_1 - 0.1).abs() < 0.02, "At t=0.1s, timer should read ~0.1, got {}", t_0_1);
-    assert!((t_0_5 - 0.5).abs() < 0.02, "At t=0.5s, timer should read ~0.5, got {}", t_0_5);
-    assert!((t_0_9 - 0.9).abs() < 0.02, "At t=0.9s, timer should read ~0.9, got {}", t_0_9);
+    assert!(
+        (t_0_1 - 0.1).abs() < 0.02,
+        "At t=0.1s, timer should read ~0.1, got {}",
+        t_0_1
+    );
+    assert!(
+        (t_0_5 - 0.5).abs() < 0.02,
+        "At t=0.5s, timer should read ~0.5, got {}",
+        t_0_5
+    );
+    assert!(
+        (t_0_9 - 0.9).abs() < 0.02,
+        "At t=0.9s, timer should read ~0.9, got {}",
+        t_0_9
+    );
 }
 
 /// LEVEL 2: Timer Resets on Trigger
@@ -81,7 +106,7 @@ out: ~time
     // After first trigger (t=0), timer counts up to t=0.4
     // Then trigger at t=0.5 resets to 0, counts up to t=0.4 again
     let before_first_reset = samples[(SAMPLE_RATE * 0.4) as usize];
-    let after_reset = samples[(SAMPLE_RATE * 0.52) as usize];  // Just after t=0.5 trigger
+    let after_reset = samples[(SAMPLE_RATE * 0.52) as usize]; // Just after t=0.5 trigger
     let before_second_reset = samples[(SAMPLE_RATE * 0.9) as usize];
 
     println!(
@@ -132,16 +157,31 @@ out: ~time
     let t_0_50 = samples[(SAMPLE_RATE * 0.50) as usize];
     let t_0_75 = samples[(SAMPLE_RATE * 0.75) as usize];
 
-    println!("Continuous timer: t=0.25: {}, t=0.5: {}, t=0.75: {}", t_0_25, t_0_50, t_0_75);
+    println!(
+        "Continuous timer: t=0.25: {}, t=0.5: {}, t=0.75: {}",
+        t_0_25, t_0_50, t_0_75
+    );
 
     // Should continuously increase
     assert!(t_0_50 > t_0_25, "Should increase continuously");
     assert!(t_0_75 > t_0_50, "Should increase continuously");
 
     // Values should be approximately correct
-    assert!((t_0_25 - 0.25).abs() < 0.05, "Should read ~0.25s, got {}", t_0_25);
-    assert!((t_0_50 - 0.50).abs() < 0.05, "Should read ~0.50s, got {}", t_0_50);
-    assert!((t_0_75 - 0.75).abs() < 0.05, "Should read ~0.75s, got {}", t_0_75);
+    assert!(
+        (t_0_25 - 0.25).abs() < 0.05,
+        "Should read ~0.25s, got {}",
+        t_0_25
+    );
+    assert!(
+        (t_0_50 - 0.50).abs() < 0.05,
+        "Should read ~0.50s, got {}",
+        t_0_50
+    );
+    assert!(
+        (t_0_75 - 0.75).abs() < 0.05,
+        "Should read ~0.75s, got {}",
+        t_0_75
+    );
 }
 
 /// LEVEL 2: Timer with Fast Triggers

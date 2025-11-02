@@ -5,7 +5,6 @@
 /// - Level 2: Not applicable (filters are continuous)
 /// - Level 3: Audio characteristics (signal quality verification)
 /// - Level 4: Comparative testing (fundsp vs custom moogLadder)
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -54,7 +53,10 @@ fn test_moog_hz_level3_basic_filtering() {
     assert!(rms < 1.0, "RMS too high: {}", rms);
     assert!(peak > rms, "Peak should be higher than RMS");
 
-    println!("moog_hz basic filtering - RMS: {:.4}, Peak: {:.4}", rms, peak);
+    println!(
+        "moog_hz basic filtering - RMS: {:.4}, Peak: {:.4}",
+        rms, peak
+    );
 }
 
 #[test]
@@ -172,7 +174,10 @@ fn test_moog_hz_level3_low_cutoff() {
 
     // Very low cutoff should heavily attenuate 220 Hz saw
     // But should still produce some output
-    assert!(rms > 0.001, "Very low cutoff should still produce some output");
+    assert!(
+        rms > 0.001,
+        "Very low cutoff should still produce some output"
+    );
     assert!(rms < 0.5, "Very low cutoff should attenuate signal");
 
     println!("Very low cutoff (50 Hz) - RMS: {:.4}", rms);
@@ -293,8 +298,16 @@ fn test_moog_hz_level4_resonance_comparison() {
         );
 
         // Both should produce output
-        assert!(rms_fundsp > 0.01, "fundsp should produce output at Q={}", res);
-        assert!(rms_custom > 0.01, "custom should produce output at Q={}", res);
+        assert!(
+            rms_fundsp > 0.01,
+            "fundsp should produce output at Q={}",
+            res
+        );
+        assert!(
+            rms_custom > 0.01,
+            "custom should produce output at Q={}",
+            res
+        );
     }
 }
 

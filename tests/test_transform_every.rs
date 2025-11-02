@@ -8,7 +8,6 @@
 /// - Cycle 3: a b → 2 events (normal)
 ///
 /// The transform is applied on cycles 0, n, 2n, 3n, ...
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -67,14 +66,35 @@ fn test_every_level1_cycle_pattern() {
     }
 
     // Verify pattern: [8, 4, 8, 4, 8, 4, 8, 4]
-    assert_eq!(total_events_per_cycle[0], 8, "Cycle 0 should have fast applied (8 events)");
-    assert_eq!(total_events_per_cycle[1], 4, "Cycle 1 should be normal (4 events)");
-    assert_eq!(total_events_per_cycle[2], 8, "Cycle 2 should have fast applied (8 events)");
-    assert_eq!(total_events_per_cycle[3], 4, "Cycle 3 should be normal (4 events)");
-    assert_eq!(total_events_per_cycle[4], 8, "Cycle 4 should have fast applied (8 events)");
-    assert_eq!(total_events_per_cycle[5], 4, "Cycle 5 should be normal (4 events)");
+    assert_eq!(
+        total_events_per_cycle[0], 8,
+        "Cycle 0 should have fast applied (8 events)"
+    );
+    assert_eq!(
+        total_events_per_cycle[1], 4,
+        "Cycle 1 should be normal (4 events)"
+    );
+    assert_eq!(
+        total_events_per_cycle[2], 8,
+        "Cycle 2 should have fast applied (8 events)"
+    );
+    assert_eq!(
+        total_events_per_cycle[3], 4,
+        "Cycle 3 should be normal (4 events)"
+    );
+    assert_eq!(
+        total_events_per_cycle[4], 8,
+        "Cycle 4 should have fast applied (8 events)"
+    );
+    assert_eq!(
+        total_events_per_cycle[5], 4,
+        "Cycle 5 should be normal (4 events)"
+    );
 
-    println!("✅ every Level 1: Cycle pattern verified: {:?}", total_events_per_cycle);
+    println!(
+        "✅ every Level 1: Cycle pattern verified: {:?}",
+        total_events_per_cycle
+    );
 }
 
 #[test]
@@ -108,11 +128,19 @@ fn test_every_level1_total_events() {
 
     // Normal: 8 cycles * 2 events = 16 events
     // every 2 (fast 2): 4 cycles with fast (4 * 4 = 16) + 4 cycles normal (4 * 2 = 8) = 24 events
-    assert_eq!(total_normal, 16, "Normal pattern should have 16 events over 8 cycles");
-    assert_eq!(total_every_2_fast_2, 24, "every 2 (fast 2) should have 24 events over 8 cycles");
+    assert_eq!(
+        total_normal, 16,
+        "Normal pattern should have 16 events over 8 cycles"
+    );
+    assert_eq!(
+        total_every_2_fast_2, 24,
+        "every 2 (fast 2) should have 24 events over 8 cycles"
+    );
 
-    println!("✅ every Level 1: Total events - normal={}, every 2 fast 2={}",
-             total_normal, total_every_2_fast_2);
+    println!(
+        "✅ every Level 1: Total events - normal={}, every 2 fast 2={}",
+        total_normal, total_every_2_fast_2
+    );
 }
 
 // ============================================================================
@@ -148,11 +176,17 @@ out: s "bd sn hh cp" $ every 2 (fast 2)
     assert!(
         ratio > 1.2 && ratio < 2.0,
         "every 2 (fast 2) should increase onset count by ~1.5x: base={}, every={}, ratio={:.2}",
-        base_onsets.len(), every_onsets.len(), ratio
+        base_onsets.len(),
+        every_onsets.len(),
+        ratio
     );
 
-    println!("✅ every Level 2: Base onsets = {}, every onsets = {}, ratio = {:.2}",
-             base_onsets.len(), every_onsets.len(), ratio);
+    println!(
+        "✅ every Level 2: Base onsets = {}, every onsets = {}, ratio = {:.2}",
+        base_onsets.len(),
+        every_onsets.len(),
+        ratio
+    );
 }
 
 #[test]
@@ -170,8 +204,11 @@ out: s "bd sn" $ every 2 (fast 2)
     let onsets = detect_audio_events(&audio, sample_rate, 0.01);
 
     // Should have varied timing (some events close together, some far apart)
-    assert!(onsets.len() >= 10,
-        "every 2 (fast 2) should produce multiple events (got {})", onsets.len());
+    assert!(
+        onsets.len() >= 10,
+        "every 2 (fast 2) should produce multiple events (got {})",
+        onsets.len()
+    );
 
     // Check for timing variation by comparing intervals
     if onsets.len() >= 3 {
@@ -182,11 +219,16 @@ out: s "bd sn" $ every 2 (fast 2)
         // (This is a loose check - just verify some variation exists)
         let variation = (interval1 - interval2).abs() / interval1.max(interval2);
 
-        println!("  Interval variation: {:.2} (interval1={:.3}s, interval2={:.3}s)",
-                 variation, interval1, interval2);
+        println!(
+            "  Interval variation: {:.2} (interval1={:.3}s, interval2={:.3}s)",
+            variation, interval1, interval2
+        );
     }
 
-    println!("✅ every Level 2: Timing variation detected, {} onsets", onsets.len());
+    println!(
+        "✅ every Level 2: Timing variation detected, {} onsets",
+        onsets.len()
+    );
 }
 
 // ============================================================================
@@ -208,11 +250,26 @@ out: s "bd sn hh cp" $ every 2 (fast 2)
     let dc_offset = audio.iter().sum::<f32>() / audio.len() as f32;
 
     // Verify audio quality
-    assert!(rms > 0.01, "every should produce audible audio (RMS = {})", rms);
-    assert!(peak > 0.1, "every should have audible peaks (peak = {})", peak);
-    assert!(dc_offset.abs() < 0.1, "every should not have excessive DC offset (DC = {})", dc_offset);
+    assert!(
+        rms > 0.01,
+        "every should produce audible audio (RMS = {})",
+        rms
+    );
+    assert!(
+        peak > 0.1,
+        "every should have audible peaks (peak = {})",
+        peak
+    );
+    assert!(
+        dc_offset.abs() < 0.1,
+        "every should not have excessive DC offset (DC = {})",
+        dc_offset
+    );
 
-    println!("✅ every Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}", rms, peak, dc_offset);
+    println!(
+        "✅ every Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}",
+        rms, peak, dc_offset
+    );
 }
 
 #[test]
@@ -240,11 +297,15 @@ out: s "bd sn hh cp" $ every 2 (fast 2)
     assert!(
         ratio > 1.1 && ratio < 2.0,
         "every energy should be 1.1-2x base: base RMS = {:.4}, every RMS = {:.4}, ratio = {:.2}",
-        base_rms, every_rms, ratio
+        base_rms,
+        every_rms,
+        ratio
     );
 
-    println!("✅ every Level 3: Base RMS = {:.4}, every RMS = {:.4}, ratio = {:.2}",
-             base_rms, every_rms, ratio);
+    println!(
+        "✅ every Level 3: Base RMS = {:.4}, every RMS = {:.4}, ratio = {:.2}",
+        base_rms, every_rms, ratio
+    );
 }
 
 // ============================================================================
@@ -269,7 +330,8 @@ fn test_every_with_every_1() {
         };
 
         // every 1 (fast 2)
-        if cycle % 1 == 0 {  // Always true
+        if cycle % 1 == 0 {
+            // Always true
             total_every_1 += pattern.clone().fast(2.0).query(&state).len();
         } else {
             total_every_1 += pattern.query(&state).len();
@@ -280,10 +342,15 @@ fn test_every_with_every_1() {
     }
 
     // every 1 (fast 2) should be equivalent to always applying fast 2
-    assert_eq!(total_every_1, total_always_fast,
-        "every 1 should always apply transform");
+    assert_eq!(
+        total_every_1, total_always_fast,
+        "every 1 should always apply transform"
+    );
 
-    println!("✅ every edge case: every 1 applies transform every cycle ({}  events)", total_every_1);
+    println!(
+        "✅ every edge case: every 1 applies transform every cycle ({}  events)",
+        total_every_1
+    );
 }
 
 #[test]
@@ -294,7 +361,7 @@ tempo: 0.5
 out: s "bd sn hh cp" $ every 3 rev
 "#;
 
-    let audio = render_dsl(code, 9);  // 9 cycles to get 3 complete every-3 periods
+    let audio = render_dsl(code, 9); // 9 cycles to get 3 complete every-3 periods
     let rms = calculate_rms(&audio);
 
     assert!(rms > 0.01, "every with rev should produce audio");
@@ -310,7 +377,7 @@ tempo: 0.5
 out: s "bd sn" $ every 8 (fast 4)
 "#;
 
-    let audio = render_dsl(code, 16);  // 16 cycles to see pattern
+    let audio = render_dsl(code, 16); // 16 cycles to see pattern
     let rms = calculate_rms(&audio);
 
     assert!(rms > 0.01, "every with large n should still produce audio");
@@ -336,8 +403,12 @@ fn test_every_preserves_base_pattern() {
 
         // On odd cycles (when every 2 doesn't apply), should match base
         if cycle % 2 == 1 {
-            assert_eq!(base_haps.len(), 3,
-                "Cycle {} should be unchanged (3 events)", cycle);
+            assert_eq!(
+                base_haps.len(),
+                3,
+                "Cycle {} should be unchanged (3 events)",
+                cycle
+            );
         }
     }
 

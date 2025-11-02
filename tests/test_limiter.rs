@@ -109,7 +109,8 @@ out: ~quiet
     let samples_unlimited = graph_unlimited.render((SAMPLE_RATE / 10.0) as usize);
 
     // Samples should be nearly identical (below threshold)
-    let max_diff = samples_limited.iter()
+    let max_diff = samples_limited
+        .iter()
         .zip(samples_unlimited.iter())
         .map(|(a, b)| (a - b).abs())
         .fold(0.0f32, f32::max);

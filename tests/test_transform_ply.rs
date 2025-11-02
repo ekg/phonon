@@ -7,7 +7,6 @@
 /// Total: 6 events instead of 2
 ///
 /// Note: ply is functionally equivalent to stutter in Phonon
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -62,12 +61,18 @@ fn test_ply_level1_event_count() {
     }
 
     // ply 3 should triple event count
-    assert_eq!(ply_total, base_total * 3,
+    assert_eq!(
+        ply_total,
+        base_total * 3,
         "ply 3 should triple event count: base={}, ply={}",
-        base_total, ply_total);
+        base_total,
+        ply_total
+    );
 
-    println!("✅ ply Level 1: Base events = {}, ply events = {}",
-             base_total, ply_total);
+    println!(
+        "✅ ply Level 1: Base events = {}, ply events = {}",
+        base_total, ply_total
+    );
 }
 
 #[test]
@@ -90,8 +95,12 @@ fn test_ply_level1_event_timing() {
     // Each event should be 0.25 long (1.0 / 4)
     for (i, hap) in haps.iter().enumerate() {
         let duration = hap.part.duration().to_float();
-        assert!((duration - 0.25).abs() < 0.001,
-            "Event {} should have duration 0.25, got {}", i, duration);
+        assert!(
+            (duration - 0.25).abs() < 0.001,
+            "Event {} should have duration 0.25, got {}",
+            i,
+            duration
+        );
     }
 
     // Events should be sequential
@@ -133,11 +142,17 @@ out: s "bd sn hh cp" $ ply 3
     assert!(
         ratio > 1.5 && ratio < 4.0,
         "ply 3 should significantly increase onset count: base={}, ply={}, ratio={:.2}",
-        base_onsets.len(), ply_onsets.len(), ratio
+        base_onsets.len(),
+        ply_onsets.len(),
+        ratio
     );
 
-    println!("✅ ply Level 2: Base onsets = {}, ply onsets = {}, ratio = {:.2}",
-             base_onsets.len(), ply_onsets.len(), ratio);
+    println!(
+        "✅ ply Level 2: Base onsets = {}, ply onsets = {}, ratio = {:.2}",
+        base_onsets.len(),
+        ply_onsets.len(),
+        ratio
+    );
 }
 
 #[test]
@@ -155,17 +170,26 @@ out: s "bd" $ ply 4
     let onsets = detect_audio_events(&audio, sample_rate, 0.01);
 
     // Should have multiple events (at least 6 for 2 cycles with ply 4)
-    assert!(onsets.len() >= 6,
-        "ply 4 should produce multiple rapid events (got {})", onsets.len());
+    assert!(
+        onsets.len() >= 6,
+        "ply 4 should produce multiple rapid events (got {})",
+        onsets.len()
+    );
 
     // Check that events are close together in time
     if onsets.len() >= 2 {
         let interval = onsets[1].time - onsets[0].time;
-        assert!(interval < 0.6,
-            "Ply events should be close together (interval = {:.3}s)", interval);
+        assert!(
+            interval < 0.6,
+            "Ply events should be close together (interval = {:.3}s)",
+            interval
+        );
     }
 
-    println!("✅ ply Level 2: Rapid succession verified, {} onsets detected", onsets.len());
+    println!(
+        "✅ ply Level 2: Rapid succession verified, {} onsets detected",
+        onsets.len()
+    );
 }
 
 // ============================================================================
@@ -187,11 +211,26 @@ out: s "bd sn hh cp" $ ply 3
     let dc_offset = audio.iter().sum::<f32>() / audio.len() as f32;
 
     // Verify audio quality
-    assert!(rms > 0.01, "ply should produce audible audio (RMS = {})", rms);
-    assert!(peak > 0.1, "ply should have audible peaks (peak = {})", peak);
-    assert!(dc_offset.abs() < 0.1, "ply should not have excessive DC offset (DC = {})", dc_offset);
+    assert!(
+        rms > 0.01,
+        "ply should produce audible audio (RMS = {})",
+        rms
+    );
+    assert!(
+        peak > 0.1,
+        "ply should have audible peaks (peak = {})",
+        peak
+    );
+    assert!(
+        dc_offset.abs() < 0.1,
+        "ply should not have excessive DC offset (DC = {})",
+        dc_offset
+    );
 
-    println!("✅ ply Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}", rms, peak, dc_offset);
+    println!(
+        "✅ ply Level 3: RMS = {:.4}, Peak = {:.4}, DC = {:.4}",
+        rms, peak, dc_offset
+    );
 }
 
 #[test]
@@ -218,11 +257,15 @@ out: s "bd sn hh cp" $ ply 3
     assert!(
         ratio > 1.5 && ratio < 4.5,
         "ply energy should be 1.5-4.5x base: base RMS = {:.4}, ply RMS = {:.4}, ratio = {:.2}",
-        base_rms, ply_rms, ratio
+        base_rms,
+        ply_rms,
+        ratio
     );
 
-    println!("✅ ply Level 3: Base RMS = {:.4}, ply RMS = {:.4}, ratio = {:.2}",
-             base_rms, ply_rms, ratio);
+    println!(
+        "✅ ply Level 3: Base RMS = {:.4}, ply RMS = {:.4}, ratio = {:.2}",
+        base_rms, ply_rms, ratio
+    );
 }
 
 // ============================================================================
@@ -243,8 +286,11 @@ fn test_ply_with_ply_1() {
     let base_haps = pattern.query(&state);
     let ply_haps = ply_pattern.query(&state);
 
-    assert_eq!(base_haps.len(), ply_haps.len(),
-        "ply 1 should preserve event count");
+    assert_eq!(
+        base_haps.len(),
+        ply_haps.len(),
+        "ply 1 should preserve event count"
+    );
 
     println!("✅ ply edge case: ply 1 behaves as identity");
 }

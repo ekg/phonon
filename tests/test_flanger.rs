@@ -111,7 +111,10 @@ out: ~input
         .map(|(a, b)| (a - b).abs())
         .fold(0.0f32, f32::max);
 
-    println!("Max difference between flanged (depth=0) and dry: {}", max_diff);
+    println!(
+        "Max difference between flanged (depth=0) and dry: {}",
+        max_diff
+    );
 
     assert!(
         max_diff < 0.1,

@@ -241,7 +241,8 @@ impl Tokenizer {
         while let Some(ch) = self.peek() {
             // Allow alphanumerics, underscores, hyphens, hash, colon, and dots for sample names
             // This handles samples like "808bd", "bd-10", "hh#2", "bd:0", "kick.wav"
-            if ch.is_alphanumeric() || ch == '_' || ch == '-' || ch == '#' || ch == ':' || ch == '.' {
+            if ch.is_alphanumeric() || ch == '_' || ch == '-' || ch == '#' || ch == ':' || ch == '.'
+            {
                 symbol.push(ch);
                 self.advance();
             } else {
@@ -1027,10 +1028,11 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
 
             // Cache to store computed euclidean patterns per cycle
             // Key: (cycle, pulses, steps, rotation), Value: cached pattern
-            use std::sync::Mutex;
             use std::collections::HashMap as StdHashMap;
-            let cache: std::sync::Arc<Mutex<StdHashMap<(i64, usize, usize, i32), Pattern<String>>>> =
-                std::sync::Arc::new(Mutex::new(StdHashMap::new()));
+            use std::sync::Mutex;
+            let cache: std::sync::Arc<
+                Mutex<StdHashMap<(i64, usize, usize, i32), Pattern<String>>>,
+            > = std::sync::Arc::new(Mutex::new(StdHashMap::new()));
 
             // Create a pattern that evaluates euclidean with pattern arguments
             Pattern::new(move |state| {
@@ -1070,22 +1072,25 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                 let mut cache_lock = cache.lock().unwrap();
 
                 // Get or create the euclidean pattern for these parameters
-                let sample_pattern = cache_lock.entry(cache_key).or_insert_with(|| {
-                    // Create the euclidean pattern for these parameters
-                    let euclid_bool = Pattern::<bool>::euclid(p, s, r);
+                let sample_pattern = cache_lock
+                    .entry(cache_key)
+                    .or_insert_with(|| {
+                        // Create the euclidean pattern for these parameters
+                        let euclid_bool = Pattern::<bool>::euclid(p, s, r);
 
-                    // Convert to string pattern
-                    euclid_bool.fmap({
-                        let sample = sample.clone();
-                        move |hit| {
-                            if hit {
-                                sample.clone()
-                            } else {
-                                "~".to_string()
+                        // Convert to string pattern
+                        euclid_bool.fmap({
+                            let sample = sample.clone();
+                            move |hit| {
+                                if hit {
+                                    sample.clone()
+                                } else {
+                                    "~".to_string()
+                                }
                             }
-                        }
+                        })
                     })
-                }).clone();
+                    .clone();
 
                 drop(cache_lock); // Release lock before querying
 

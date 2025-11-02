@@ -1,7 +1,6 @@
 /// Combined tests for `echo` and `segment` - pattern effect transforms
 /// - echo: creates echoes with delay and decay
 /// - segment: samples pattern n times per cycle
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -41,17 +40,9 @@ fn test_echo_level1_multiplies_events() {
     let echo_haps = echo_pattern.query(&state);
 
     // echo(3, ...) should create 3 copies (original + 2 echoes)
-    assert_eq!(
-        base_haps.len(),
-        1,
-        "Base pattern should have 1 event"
-    );
+    assert_eq!(base_haps.len(), 1, "Base pattern should have 1 event");
 
-    assert_eq!(
-        echo_haps.len(),
-        3,
-        "echo(3) should create 3 events"
-    );
+    assert_eq!(echo_haps.len(), 3, "echo(3) should create 3 events");
 
     println!("✅ echo Level 1: 3 echoes created from 1 event");
 }
@@ -117,9 +108,15 @@ fn test_echo_level1_event_count() {
     }
 
     assert_eq!(base_total, 16, "Base should have 2 events × 8 cycles");
-    assert_eq!(echo_total, 64, "echo(4) should create 4× events: 16 × 4 = 64");
+    assert_eq!(
+        echo_total, 64,
+        "echo(4) should create 4× events: 16 × 4 = 64"
+    );
 
-    println!("✅ echo Level 1: Event count: base={}, echo={}", base_total, echo_total);
+    println!(
+        "✅ echo Level 1: Event count: base={}, echo={}",
+        base_total, echo_total
+    );
 }
 
 #[test]
@@ -142,7 +139,8 @@ fn test_echo_level1_preserves_values() {
     // Each original event should have 2 copies (original + 1 echo)
     // Verify by checking that values match base values
     for base_hap in &base_haps {
-        let matches = echo_haps.iter()
+        let matches = echo_haps
+            .iter()
             .filter(|h| h.value == base_hap.value)
             .count();
         assert_eq!(matches, 2, "Each base event should have 2 echoes");
@@ -175,7 +173,10 @@ fn test_segment_level1_queries_subdivisions() {
 
     // With "bd sn", segment(2) queries [0-0.5] and [0.5-1.0]
     // This may or may not increase event count depending on pattern structure
-    assert!(segment_haps.len() >= base_haps.len(), "segment should not lose events");
+    assert!(
+        segment_haps.len() >= base_haps.len(),
+        "segment should not lose events"
+    );
 
     println!("✅ segment Level 1: Subdivides cycle into segments");
 }
@@ -205,10 +206,17 @@ fn test_segment_level1_event_count() {
 
     // segment behavior: subdivides cycle, actual multiplier depends on pattern structure
     // For "bd sn hh cp", segment(3) creates more events but not necessarily 3×
-    assert!(segment_total > base_total, "segment should increase event count");
+    assert!(
+        segment_total > base_total,
+        "segment should increase event count"
+    );
 
-    println!("✅ segment Level 1: Event count: base={}, segment={} ({}× increase)",
-        base_total, segment_total, segment_total as f32 / base_total as f32);
+    println!(
+        "✅ segment Level 1: Event count: base={}, segment={} ({}× increase)",
+        base_total,
+        segment_total,
+        segment_total as f32 / base_total as f32
+    );
 }
 
 #[test]
@@ -232,10 +240,15 @@ fn test_segment_level1_timing_compression() {
 
     // segment(2) queries the pattern in [0-0.5] and [0.5-1.0] subdivisions
     // Actual event count depends on pattern structure and how it interacts with subdivisions
-    assert!(segment_haps.len() >= base_haps.len(), "segment should not lose events");
+    assert!(
+        segment_haps.len() >= base_haps.len(),
+        "segment should not lose events"
+    );
 
-    println!("✅ segment Level 1: Pattern queried in subdivisions ({} events)",
-        segment_haps.len());
+    println!(
+        "✅ segment Level 1: Pattern queried in subdivisions ({} events)",
+        segment_haps.len()
+    );
 }
 
 #[test]
@@ -252,7 +265,10 @@ fn test_segment_level1_preserves_values() {
     let base_haps = pattern.query(&state);
     let segment_haps = segment_pattern.query(&state);
 
-    assert!(segment_haps.len() >= base_haps.len(), "segment should not lose events");
+    assert!(
+        segment_haps.len() >= base_haps.len(),
+        "segment should not lose events"
+    );
 
     // Verify all segment values come from the base pattern
     for seg_hap in &segment_haps {
@@ -329,7 +345,10 @@ out: s "bd ~ ~ ~" $ echo 2 0.25 0.7
     // and onset detection granularity. The important verification is that
     // we get multiple distinct onset events, which we verify above.
 
-    println!("✅ echo Level 2: Echo onsets detected ({} onsets)", onsets.len());
+    println!(
+        "✅ echo Level 2: Echo onsets detected ({} onsets)",
+        onsets.len()
+    );
 }
 
 #[test]
@@ -390,7 +409,10 @@ out: s "bd ~ ~ ~" $ segment 4
         onsets.len()
     );
 
-    println!("✅ segment Level 2: Increased density verified ({} onsets)", onsets.len());
+    println!(
+        "✅ segment Level 2: Increased density verified ({} onsets)",
+        onsets.len()
+    );
 }
 
 // ============================================================================
@@ -578,7 +600,10 @@ fn test_echo_zero_delay() {
     // All events should be at same time
     let times: Vec<f64> = echo_haps.iter().map(|h| h.part.begin.to_float()).collect();
     for t in &times {
-        assert!((t - times[0]).abs() < 0.001, "All events should be at same time");
+        assert!(
+            (t - times[0]).abs() < 0.001,
+            "All events should be at same time"
+        );
     }
 
     println!("✅ echo edge case: Zero delay stacks events");
@@ -618,7 +643,11 @@ fn test_segment_single_event() {
 
     let segment_haps = pattern.clone().segment(4).query(&state);
 
-    assert_eq!(segment_haps.len(), 4, "segment(4) should create 4 events from 1");
+    assert_eq!(
+        segment_haps.len(),
+        4,
+        "segment(4) should create 4 events from 1"
+    );
 
     println!("✅ segment edge case: Single event handled");
 }
@@ -663,5 +692,8 @@ fn test_segment_large_n() {
         "segment(8) should not lose events"
     );
 
-    println!("✅ segment edge case: Large n handled ({} events)", segment_haps.len());
+    println!(
+        "✅ segment edge case: Large n handled ({} events)",
+        segment_haps.len()
+    );
 }

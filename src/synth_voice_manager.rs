@@ -246,9 +246,7 @@ impl SynthVoiceManager {
 
     pub fn with_max_voices(sample_rate: f32, max_voices: usize) -> Self {
         let max_voices = max_voices.max(1).min(4096); // Clamp to reasonable range
-        let voices = (0..max_voices)
-            .map(|_| SynthVoice::new())
-            .collect();
+        let voices = (0..max_voices).map(|_| SynthVoice::new()).collect();
 
         Self {
             voices,

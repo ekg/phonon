@@ -1,6 +1,5 @@
 /// Tests for `swing` transform - delays every odd-indexed event
 /// Swing creates a "triplet feel" by delaying off-beat events
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -92,10 +91,7 @@ fn test_swing_level1_event_count() {
         swing_total += pattern.clone().swing(0.1).query(&state).len();
     }
 
-    assert_eq!(
-        swing_total, base_total,
-        "swing should preserve all events"
-    );
+    assert_eq!(swing_total, base_total, "swing should preserve all events");
 
     println!("✅ swing Level 1: Event count preserved: {}", base_total);
 }
@@ -196,12 +192,12 @@ out: s "bd sn hh cp" $ swing 0.1
     // Even-to-odd intervals should be shorter (delayed second event)
     // Odd-to-even intervals should be longer (compensating)
     if onsets.len() >= 4 {
-        let intervals: Vec<f64> = onsets
-            .windows(2)
-            .map(|w| w[1].time - w[0].time)
-            .collect();
+        let intervals: Vec<f64> = onsets.windows(2).map(|w| w[1].time - w[0].time).collect();
 
-        println!("Onset intervals: {:?}", &intervals[0..4.min(intervals.len())]);
+        println!(
+            "Onset intervals: {:?}",
+            &intervals[0..4.min(intervals.len())]
+        );
     }
 
     println!("✅ swing Level 2: Onset intervals analyzed");
@@ -299,8 +295,7 @@ fn test_swing_zero_amount() {
 
     for i in 0..base_haps.len() {
         assert_eq!(
-            swing_haps[i].part.begin,
-            base_haps[i].part.begin,
+            swing_haps[i].part.begin, base_haps[i].part.begin,
             "swing(0.0) should not change timing"
         );
     }

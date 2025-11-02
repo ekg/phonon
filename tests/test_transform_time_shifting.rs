@@ -2,7 +2,6 @@
 /// - late: shifts events forward in time
 /// - early: shifts events backward in time (alias for late with negative amount)
 /// - offset: alias for late
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -120,13 +119,11 @@ fn test_offset_level1_alias_for_late() {
 
     for i in 0..late_haps.len() {
         assert_eq!(
-            late_haps[i].part.begin,
-            offset_haps[i].part.begin,
+            late_haps[i].part.begin, offset_haps[i].part.begin,
             "offset and late should produce identical timing"
         );
         assert_eq!(
-            late_haps[i].part.end,
-            offset_haps[i].part.end,
+            late_haps[i].part.end, offset_haps[i].part.end,
             "offset and late should produce identical timing"
         );
     }
@@ -183,10 +180,7 @@ fn test_early_level1_event_count() {
         early_total += pattern.clone().early(0.05).query(&state).len();
     }
 
-    assert_eq!(
-        early_total, base_total,
-        "early should preserve all events"
-    );
+    assert_eq!(early_total, base_total, "early should preserve all events");
 
     println!("✅ early Level 1: Event count preserved: {}", base_total);
 }
@@ -637,8 +631,7 @@ fn test_late_zero_amount() {
 
     for i in 0..base_haps.len() {
         assert_eq!(
-            late_haps[i].part.begin,
-            base_haps[i].part.begin,
+            late_haps[i].part.begin, base_haps[i].part.begin,
             "late(0.0) should not change timing"
         );
     }
@@ -661,8 +654,7 @@ fn test_early_zero_amount() {
 
     for i in 0..base_haps.len() {
         assert_eq!(
-            early_haps[i].part.begin,
-            base_haps[i].part.begin,
+            early_haps[i].part.begin, base_haps[i].part.begin,
             "early(0.0) should not change timing"
         );
     }
@@ -716,19 +708,13 @@ fn test_late_extreme_values() {
 
     // Large shift - should still work
     let late_haps = pattern.clone().late(5.0).query(&state);
-    assert!(
-        late_haps.len() > 0,
-        "late should handle large shifts"
-    );
+    assert!(late_haps.len() > 0, "late should handle large shifts");
 
     // Verify shift amount
     let base_haps = pattern.query(&state);
     if base_haps.len() > 0 && late_haps.len() > 0 {
         let shift = late_haps[0].part.begin.to_float() - base_haps[0].part.begin.to_float();
-        assert!(
-            (shift - 5.0).abs() < 0.001,
-            "Should shift by exactly 5.0"
-        );
+        assert!((shift - 5.0).abs() < 0.001, "Should shift by exactly 5.0");
     }
 
     println!("✅ late edge case: Large shifts handled");
@@ -746,19 +732,13 @@ fn test_early_extreme_values() {
 
     // Large backward shift
     let early_haps = pattern.clone().early(5.0).query(&state);
-    assert!(
-        early_haps.len() > 0,
-        "early should handle large shifts"
-    );
+    assert!(early_haps.len() > 0, "early should handle large shifts");
 
     // Verify shift amount
     let base_haps = pattern.query(&state);
     if base_haps.len() > 0 && early_haps.len() > 0 {
         let shift = early_haps[0].part.begin.to_float() - base_haps[0].part.begin.to_float();
-        assert!(
-            (shift + 5.0).abs() < 0.001,
-            "Should shift by exactly -5.0"
-        );
+        assert!((shift + 5.0).abs() < 0.001, "Should shift by exactly -5.0");
     }
 
     println!("✅ early edge case: Large shifts handled");

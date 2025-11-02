@@ -11,7 +11,6 @@
 /// - Level 1: Pattern query tests (exact event counts)
 /// - Level 2: Onset detection (not applicable - these are API-only)
 /// - Level 3: Behavioral verification (comparing with expected compositions)
-
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
@@ -82,7 +81,12 @@ fn test_chunk_level1_applies_to_specific_chunk() {
 
         // On cycle N, chunk N gets fast(2)
         // The chunk that gets transformed should have more events
-        println!("Cycle {}: base={}, chunked={}", cycle, base_haps.len(), chunked.len());
+        println!(
+            "Cycle {}: base={}, chunked={}",
+            cycle,
+            base_haps.len(),
+            chunked.len()
+        );
 
         // Chunk size = 1/4 = 0.25
         // Events in chunk N should be transformed
@@ -105,15 +109,25 @@ fn test_within_level1_applies_in_time_range() {
 
     let base_haps = pattern.query(&state);
     // Apply fast(2) only within first half of cycle [0, 0.5)
-    let within_pattern = pattern.clone().within(0.0, 0.5, |p| p.fast(2.0)).query(&state);
+    let within_pattern = pattern
+        .clone()
+        .within(0.0, 0.5, |p| p.fast(2.0))
+        .query(&state);
 
     // Events before 0.5 should be doubled, events after should be unchanged
     // Base: 4 events at 0, 0.25, 0.5, 0.75
     // Within [0, 0.5): events at 0, 0.25 get fast(2) → 0, 0.125, 0.25, 0.375
     // Events at 0.5, 0.75 stay unchanged
     // Total: 4 + 2 = 6 events
-    println!("Base events: {}, Within events: {}", base_haps.len(), within_pattern.len());
-    assert!(within_pattern.len() >= base_haps.len(), "within should have at least as many events");
+    println!(
+        "Base events: {}, Within events: {}",
+        base_haps.len(),
+        within_pattern.len()
+    );
+    assert!(
+        within_pattern.len() >= base_haps.len(),
+        "within should have at least as many events"
+    );
 
     println!("✅ within Level 1: Applies transform only within time range");
 }
@@ -193,7 +207,10 @@ fn test_superimpose_over_cycles() {
     assert_eq!(base_total, 8, "Base: 2 events × 4 cycles = 8");
     assert_eq!(super_total, 24, "Superimposed: (2 + 4) × 4 cycles = 24");
 
-    println!("✅ superimpose over 4 cycles: {} events (base: {})", super_total, base_total);
+    println!(
+        "✅ superimpose over 4 cycles: {} events (base: {})",
+        super_total, base_total
+    );
 }
 
 #[test]
@@ -216,7 +233,12 @@ fn test_chunk_cycles_through_chunks() {
         };
 
         let haps = chunked.query(&state);
-        println!("Cycle {}: {} events (chunk {})", cycle, haps.len(), cycle % 3);
+        println!(
+            "Cycle {}: {} events (chunk {})",
+            cycle,
+            haps.len(),
+            cycle % 3
+        );
         assert!(haps.len() > 0, "Should have events on cycle {}", cycle);
     }
 
@@ -247,7 +269,10 @@ fn test_within_consistency() {
         "within should be consistent across cycles"
     );
 
-    println!("✅ within consistent across cycles: {} events per cycle", haps1.len());
+    println!(
+        "✅ within consistent across cycles: {} events per cycle",
+        haps1.len()
+    );
 }
 
 // ============= Composition Tests =============
@@ -289,8 +314,15 @@ fn test_inside_outside_symmetry() {
     let inside_haps = pattern.clone().inside(2.0, |p| p).query(&state);
     let outside_haps = pattern.clone().outside(2.0, |p| p).query(&state);
 
-    println!("inside(2): {} events, outside(2): {} events", inside_haps.len(), outside_haps.len());
-    assert!(inside_haps.len() > outside_haps.len(), "inside should produce more events than outside");
+    println!(
+        "inside(2): {} events, outside(2): {} events",
+        inside_haps.len(),
+        outside_haps.len()
+    );
+    assert!(
+        inside_haps.len() > outside_haps.len(),
+        "inside should produce more events than outside"
+    );
 
     println!("✅ inside/outside have symmetric behavior");
 }
@@ -310,9 +342,16 @@ fn test_superimpose_with_silence() {
     let superimposed = pattern.clone().superimpose(|p| p.fast(2.0)).query(&state);
 
     // Should handle rests correctly
-    assert!(superimposed.len() >= base_haps.len(), "Should have at least base events");
+    assert!(
+        superimposed.len() >= base_haps.len(),
+        "Should have at least base events"
+    );
 
-    println!("✅ superimpose handles rests: base={}, superimposed={}", base_haps.len(), superimposed.len());
+    println!(
+        "✅ superimpose handles rests: base={}, superimposed={}",
+        base_haps.len(),
+        superimposed.len()
+    );
 }
 
 #[test]
@@ -325,7 +364,10 @@ fn test_within_full_range() {
     };
 
     // within(0.0, 1.0, f) should apply to all events
-    let within_all = pattern.clone().within(0.0, 1.0, |p| p.fast(2.0)).query(&state);
+    let within_all = pattern
+        .clone()
+        .within(0.0, 1.0, |p| p.fast(2.0))
+        .query(&state);
     let just_fast = pattern.clone().fast(2.0).query(&state);
 
     assert_eq!(
@@ -351,7 +393,11 @@ fn test_chunk_single_chunk() {
     let just_fast = pattern.clone().fast(2.0).query(&state);
 
     // With chunk(1), every cycle is chunk 0, so transform always applies
-    println!("chunk(1): {} events, fast(2): {} events", chunked.len(), just_fast.len());
+    println!(
+        "chunk(1): {} events, fast(2): {} events",
+        chunked.len(),
+        just_fast.len()
+    );
 
     println!("✅ chunk(1) always applies transform");
 }

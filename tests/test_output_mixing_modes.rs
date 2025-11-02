@@ -42,13 +42,12 @@ fn test_outmix_gain_mode() {
         "Gain mode should prevent excessive peaks, got peak: {}",
         peak
     );
-    assert!(
-        rms > 0.05,
-        "Should still produce audio, got RMS: {}",
-        rms
-    );
+    assert!(rms > 0.05, "Should still produce audio, got RMS: {}", rms);
 
-    println!("✅ test_outmix_gain_mode: RMS = {:.6}, Peak = {:.6}", rms, peak);
+    println!(
+        "✅ test_outmix_gain_mode: RMS = {:.6}, Peak = {:.6}",
+        rms, peak
+    );
 }
 
 #[test]
@@ -78,13 +77,12 @@ fn test_outmix_sqrt_mode() {
         "Sqrt mode should prevent clipping, got peak: {}",
         peak
     );
-    assert!(
-        rms > 0.05,
-        "Should produce audio, got RMS: {}",
-        rms
-    );
+    assert!(rms > 0.05, "Should produce audio, got RMS: {}", rms);
 
-    println!("✅ test_outmix_sqrt_mode: RMS = {:.6}, Peak = {:.6}", rms, peak);
+    println!(
+        "✅ test_outmix_sqrt_mode: RMS = {:.6}, Peak = {:.6}",
+        rms, peak
+    );
 }
 
 #[test]
@@ -120,7 +118,10 @@ fn test_outmix_tanh_mode() {
         rms
     );
 
-    println!("✅ test_outmix_tanh_mode: RMS = {:.6}, Peak = {:.6}", rms, peak);
+    println!(
+        "✅ test_outmix_tanh_mode: RMS = {:.6}, Peak = {:.6}",
+        rms, peak
+    );
 }
 
 #[test]
@@ -155,7 +156,10 @@ fn test_outmix_hard_mode() {
         rms
     );
 
-    println!("✅ test_outmix_hard_mode: RMS = {:.6}, Peak = {:.6}", rms, peak);
+    println!(
+        "✅ test_outmix_hard_mode: RMS = {:.6}, Peak = {:.6}",
+        rms, peak
+    );
 }
 
 #[test]
@@ -179,11 +183,7 @@ fn test_outmix_none_mode() {
     let rms = calculate_rms(&buffer);
 
     // None mode just sums - no guarantees about clipping
-    assert!(
-        rms > 0.05,
-        "Should produce audio, got RMS: {}",
-        rms
-    );
+    assert!(rms > 0.05, "Should produce audio, got RMS: {}", rms);
 
     println!("✅ test_outmix_none_mode: RMS = {:.6}", rms);
 }
@@ -234,13 +234,12 @@ fn test_outmix_three_channels_gain() {
         "Gain mode with 3 channels should keep peaks low, got: {}",
         peak
     );
-    assert!(
-        rms > 0.05,
-        "Should produce audio, got RMS: {}",
-        rms
-    );
+    assert!(rms > 0.05, "Should produce audio, got RMS: {}", rms);
 
-    println!("✅ test_outmix_three_channels_gain: RMS = {:.6}, Peak = {:.6}", rms, peak);
+    println!(
+        "✅ test_outmix_three_channels_gain: RMS = {:.6}, Peak = {:.6}",
+        rms, peak
+    );
 }
 
 #[test]
@@ -273,7 +272,10 @@ fn test_outmix_three_channels_sqrt() {
         rms
     );
 
-    println!("✅ test_outmix_three_channels_sqrt: RMS = {:.6}, Peak = {:.6}", rms, peak);
+    println!(
+        "✅ test_outmix_three_channels_sqrt: RMS = {:.6}, Peak = {:.6}",
+        rms, peak
+    );
 }
 
 #[test]
@@ -328,10 +330,7 @@ fn test_outmix_invalid_mode() {
     let parse_result = parse_dsl(input);
 
     // Parser should accept the syntax
-    assert!(
-        parse_result.is_ok(),
-        "Parser should accept outmix syntax"
-    );
+    assert!(parse_result.is_ok(), "Parser should accept outmix syntax");
 
     // But compiler should reject invalid mode names
     // (This test documents expected behavior - actual validation happens at compile time)
@@ -361,13 +360,12 @@ fn test_outmix_single_channel_no_effect() {
         "Single channel should work normally, got peak: {}",
         peak
     );
-    assert!(
-        rms > 0.1,
-        "Should produce audio, got RMS: {}",
-        rms
-    );
+    assert!(rms > 0.1, "Should produce audio, got RMS: {}", rms);
 
-    println!("✅ test_outmix_single_channel_no_effect: RMS = {:.6}, Peak = {:.6}", rms, peak);
+    println!(
+        "✅ test_outmix_single_channel_no_effect: RMS = {:.6}, Peak = {:.6}",
+        rms, peak
+    );
 }
 
 #[test]

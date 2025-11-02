@@ -242,14 +242,8 @@ fn test_slow_three_level_verification() {
         let interval_normal = onsets_normal[1].time - onsets_normal[0].time;
         let interval_slow = onsets_slow2[1].time - onsets_slow2[0].time;
 
-        println!(
-            "   Normal interval: {:.3}s",
-            interval_normal
-        );
-        println!(
-            "   Slow x2 interval: {:.3}s",
-            interval_slow
-        );
+        println!("   Normal interval: {:.3}s", interval_normal);
+        println!("   Slow x2 interval: {:.3}s", interval_slow);
 
         assert!(
             interval_slow > interval_normal,

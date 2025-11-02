@@ -1,6 +1,5 @@
 /// Combined tests for `degrade` (50% removal) and `degradeBy` (custom % removal)
 /// Both use per-event probabilistic removal with deterministic RNG
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -223,8 +222,16 @@ out: s "bd sn hh cp bd sn hh cp" $ degrade
     let peak = audio.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
     let dc_offset = audio.iter().sum::<f32>() / audio.len() as f32;
 
-    assert!(rms > 0.01, "degrade should produce audible audio (RMS = {})", rms);
-    assert!(peak > 0.1, "degrade should have audible peaks (peak = {})", peak);
+    assert!(
+        rms > 0.01,
+        "degrade should produce audible audio (RMS = {})",
+        rms
+    );
+    assert!(
+        peak > 0.1,
+        "degrade should have audible peaks (peak = {})",
+        peak
+    );
     assert!(
         dc_offset.abs() < 0.1,
         "degrade should not have excessive DC offset (DC = {})",

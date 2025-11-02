@@ -4,7 +4,6 @@
 /// - Level 1: Not applicable (reverb doesn't use pattern queries)
 /// - Level 2: Not applicable (reverb is continuous)
 /// - Level 3: Audio characteristics (signal quality verification)
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -120,7 +119,7 @@ fn test_reverb_stereo_level3_tail_length() {
     // Send brief signal then measure decay
 
     let code = "out: saw 220 # reverb_stereo 0.8 3.0";
-    let audio = render_dsl(code, 4.0);  // 4 seconds to hear full tail
+    let audio = render_dsl(code, 4.0); // 4 seconds to hear full tail
 
     let rms = calculate_rms(&audio);
 

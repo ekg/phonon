@@ -173,18 +173,16 @@ pub fn apply_command_to_graph(cmd: &LiveCommand, sample_rate: f32) -> Option<Uni
             info!("Compiling: {}", code);
 
             match parse_program(code) {
-                Ok((_remaining, statements)) => {
-                    match compile_program(statements, sample_rate) {
-                        Ok(graph) => {
-                            info!("✅ Compiled successfully");
-                            Some(graph)
-                        }
-                        Err(e) => {
-                            error!("❌ Compile error: {}", e);
-                            None
-                        }
+                Ok((_remaining, statements)) => match compile_program(statements, sample_rate) {
+                    Ok(graph) => {
+                        info!("✅ Compiled successfully");
+                        Some(graph)
                     }
-                }
+                    Err(e) => {
+                        error!("❌ Compile error: {}", e);
+                        None
+                    }
+                },
                 Err(e) => {
                     error!("❌ Parse error: {:?}", e);
                     None

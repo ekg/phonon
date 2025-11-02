@@ -262,11 +262,7 @@ out: ~drum * 0.5
     );
 
     // Should have sharp attack
-    let first_100_rms: f32 = samples[..441]
-        .iter()
-        .map(|s| s * s)
-        .sum::<f32>()
-        / 441.0;
+    let first_100_rms: f32 = samples[..441].iter().map(|s| s * s).sum::<f32>() / 441.0;
 
     assert!(
         first_100_rms.sqrt() > 0.1,

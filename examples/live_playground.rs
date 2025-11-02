@@ -196,8 +196,8 @@ fn build_simple_graph(content: &str, sample_rate: f32) -> Result<UnifiedSignalGr
                 freq: Signal::Value(440.0),
                 waveform: Waveform::Sine,
                 phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+                pending_freq: None,
+                last_sample: 0.0,
             });
 
             let output = graph.add_node(SignalNode::Output {
