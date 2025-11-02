@@ -9,12 +9,12 @@ fn test_drum_kit_mixing() {
     let phonon_code = r#"
 cps: 2.0
 
-# Drum kit with kick, snare, and hats
-~kick: noise 0 # lpf "100 ~ ~ ~ 100 ~ ~ ~" 20
-~snare: noise 0 # hpf "~ ~ 2000 ~" 10 # lpf 5000 5
-~hats: noise 0 # hpf 8000 10
+-- Drum kit with kick, snare, and hats
+~kick: noise # lpf "100 ~ ~ ~ 100 ~ ~ ~" 20
+~snare: noise # hpf "~ ~ 2000 ~" 10 # lpf 5000 5
+~hats: noise # hpf 8000 10
 
-# Mix all drums
+-- Mix all drums
 out: ~kick * 0.5 + ~snare * 0.3 + ~hats * 0.05
 "#;
 
@@ -78,12 +78,12 @@ fn test_arithmetic_precedence() {
     let phonon_code = r#"
 cps: 2.0
 
-# Test order of operations
+-- Test order of operations
 ~sig1: sine 220
 ~sig2: sine 440
 ~sig3: sine 880
 
-# Should be (sig1 * 0.3) + (sig2 * 0.2) + (sig3 * 0.1)
+-- Should be (sig1 * 0.3) + (sig2 * 0.2) + (sig3 * 0.1)
 out: ~sig1 * 0.3 + ~sig2 * 0.2 + ~sig3 * 0.1
 "#;
 
@@ -203,11 +203,11 @@ fn test_pattern_modulation_in_mix() {
     let phonon_code = r#"
 cps: 2.0
 
-# Pattern-modulated signals
+-- Pattern-modulated signals
 ~bass: saw "55 82.5" # lpf "500 1000" 3
 ~lead: square "440 550 660 550"
 
-# Mix them
+-- Mix them
 out: ~bass * 0.4 + ~lead * 0.1
 "#;
 
