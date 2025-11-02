@@ -223,7 +223,9 @@ impl SampleBank {
                     let mut wav_files: Vec<_> = entries
                         .filter_map(|entry| entry.ok())
                         .filter(|entry| {
-                            entry.path().extension()
+                            entry
+                                .path()
+                                .extension()
                                 .and_then(|s| s.to_str())
                                 .map(|ext| ext.eq_ignore_ascii_case("wav"))
                                 .unwrap_or(false)
@@ -233,10 +235,14 @@ impl SampleBank {
                     // Sort by filename for consistent ordering
                     wav_files.sort_by_key(|entry| entry.file_name());
 
-                    // Get the file at the requested index
-                    if let Some(wav_file) = wav_files.get(index) {
-                        if self.load_sample(name, &wav_file.path()).is_ok() {
-                            return self.samples.get(name).cloned();
+                    // Get the file at the requested index with wrapping (modulo)
+                    // This allows n values to wrap: n=5 with 3 samples becomes index 2
+                    if !wav_files.is_empty() {
+                        let wrapped_index = index % wav_files.len();
+                        if let Some(wav_file) = wav_files.get(wrapped_index) {
+                            if self.load_sample(name, &wav_file.path()).is_ok() {
+                                return self.samples.get(name).cloned();
+                            }
                         }
                     }
                 }
