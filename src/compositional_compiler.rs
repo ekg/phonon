@@ -749,6 +749,9 @@ fn compile_function_call(
         "gain" => compile_gain_modifier(ctx, args),
         "pan" => compile_pan_modifier(ctx, args),
         "speed" => compile_speed_modifier(ctx, args),
+        "cut" => compile_cut_modifier(ctx, args),
+        "attack" => compile_attack_modifier(ctx, args),
+        "release" => compile_release_modifier(ctx, args),
 
         // General amplitude modifier for any signal (oscillators, filters, etc.)
         "amp" => compile_amp(ctx, args),
@@ -3561,6 +3564,75 @@ fn compile_speed_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<
 
     let speed_value = compile_expr(ctx, args[1].clone())?;
     modify_sample_param(ctx, sample_node_id, "speed", Signal::Node(speed_value))
+}
+
+/// Compile cut modifier: s "bd" # cut "1 2 1"
+/// Sets the cut group for voice stealing (samples in same group stop each other)
+fn compile_cut_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "cut requires 2 arguments (sample_input, cut_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => *node_id,
+        _ => {
+            return Err(
+                "cut must be used with the chain operator: s \"bd\" # cut \"1\"".to_string(),
+            )
+        }
+    };
+
+    let cut_value = compile_expr(ctx, args[1].clone())?;
+    modify_sample_param(ctx, sample_node_id, "cut", Signal::Node(cut_value))
+}
+
+/// Compile attack modifier: s "bd" # attack "0.01 0.1"
+/// Sets the envelope attack time in seconds
+fn compile_attack_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "attack requires 2 arguments (sample_input, attack_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => *node_id,
+        _ => {
+            return Err(
+                "attack must be used with the chain operator: s \"bd\" # attack \"0.01\"".to_string(),
+            )
+        }
+    };
+
+    let attack_value = compile_expr(ctx, args[1].clone())?;
+    modify_sample_param(ctx, sample_node_id, "attack", Signal::Node(attack_value))
+}
+
+/// Compile release modifier: s "bd" # release "0.1 0.2"
+/// Sets the envelope release time in seconds
+fn compile_release_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "release requires 2 arguments (sample_input, release_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => *node_id,
+        _ => {
+            return Err(
+                "release must be used with the chain operator: s \"bd\" # release \"0.1\"".to_string(),
+            )
+        }
+    };
+
+    let release_value = compile_expr(ctx, args[1].clone())?;
+    modify_sample_param(ctx, sample_node_id, "release", Signal::Node(release_value))
 }
 
 /// Compile amp modifier: applies amplitude/gain to ANY signal

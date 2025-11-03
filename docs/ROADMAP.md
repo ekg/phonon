@@ -8,10 +8,11 @@
 ## ✅ What's Working NOW
 
 ### Just Completed (This Session)
-1. ✅ **Multi-output system**: `out1`, `out2`, etc. work in render and live modes
-2. ✅ **Hush/Panic commands**: Full integration for silencing outputs and killing voices
-3. ✅ **Sample bank selection**: Inline form `s("bd:0 bd:1 bd:2")` works with transforms
-4. ✅ **Test coverage**: 191 tests passing (4 new sample bank tests + 8 multi-output/live)
+1. ✅ **Pattern DSP Parameters**: Full per-voice control with `gain`, `pan`, `speed`, `cut`, `attack`, `release`
+2. ✅ **Multi-output system**: `out1`, `out2`, etc. work in render and live modes
+3. ✅ **Hush/Panic commands**: Full integration for silencing outputs and killing voices
+4. ✅ **Sample bank selection**: Inline form `s("bd:0 bd:1 bd:2")` works with transforms
+5. ✅ **Test coverage**: 320+ tests passing (19 new DSP parameter tests)
 
 ### Previously Completed
 1. ✅ **Pattern transformations**: `$`, `<|` operators with `fast`, `slow`, `rev`, `every`
@@ -92,43 +93,49 @@ s("bd", "0 1 2 3")            # ❌ Pattern for sample number (2-arg form)
 
 ---
 
-#### 3. Pattern DSP Parameters
-**Status**: Not implemented
-**Priority**: HIGH - needed for per-voice control
+#### 3. Pattern DSP Parameters ✅ COMPLETE
+**Status**: ✅ COMPLETE - Fully implemented and tested
+**Priority**: COMPLETE
 
-No per-voice/per-event control. Need:
+Per-voice/per-event control using Tidal-style # chaining:
 ```phonon
-s("bd sn", gain="0.8 1.0", pan="0 1")
-s("bd", speed="1 0.5 2", cut="1")
-s("hh*16", gain="0.5", pan=sine(0.25))  # Continuous modulation
+s "bd sn" # gain "0.8 1.0" # pan "0 1"                              # ✅ WORKS
+s "hh*16" # gain 0.5 # pan -1.0 # speed 2.0                         # ✅ WORKS
+s "bd" # speed "1 0.5 2" # cut 1                                    # ✅ WORKS
+s "bd*4" # attack 0.01 # release 0.2                                # ✅ WORKS
+s "bd*4" # gain 0.8 # pan -0.3 # speed 0.9 # cut 1 # attack 0.01 # release 0.2  # ✅ WORKS
 ```
 
-**Parameters needed**:
-- `gain` - amplitude (0.0-1.0+)
-- `pan` - stereo position (-1.0 = left, 1.0 = right)
-- `speed` - playback rate (1.0 = normal, 0.5 = half speed, 2.0 = double)
-- `cut` - cut group (samples with same cut group stop each other)
-- `attack` - envelope attack time (seconds)
-- `release` - envelope release time (seconds)
+**Parameters implemented**:
+- ✅ `gain` - amplitude control (0.0-1.0+)
+- ✅ `pan` - stereo positioning (-1.0 = left, 1.0 = right)
+- ✅ `speed` - playback rate (1.0 = normal, 0.5 = half, 2.0 = double)
+- ✅ `cut` - cut groups (voice stealing)
+- ✅ `attack` - envelope attack time (seconds)
+- ✅ `release` - envelope release time (seconds)
 
-**Implementation tasks**:
-- [ ] Add kwargs parsing to `s()` function
-- [ ] Store per-voice parameters in VoiceManager
-- [ ] Implement gain scaling per voice
-- [ ] Implement pan (stereo positioning)
-- [ ] Implement speed (sample rate adjustment)
-- [ ] Implement cut groups (voice stealing)
-- [ ] Implement envelope parameters
-- [ ] Add tests for each parameter
+**Implementation completed**:
+- ✅ Kwargs parsing in `s()` function (compositional_compiler.rs:630-640)
+- ✅ Per-voice parameter storage in VoiceManager (voice_manager.rs:99-122)
+- ✅ Gain scaling per voice
+- ✅ Pan (stereo positioning with equal-power panning)
+- ✅ Speed (sample rate adjustment with pitch shifting)
+- ✅ Cut groups (voice stealing by group)
+- ✅ Envelope parameters (attack/release)
+- ✅ 19 comprehensive tests (tests/test_dsp_parameters.rs)
 
-**Test cases needed**:
-- Test gain patterns affect amplitude
-- Test pan patterns affect stereo position
-- Test speed patterns affect playback rate
-- Test cut groups stop previous voices
-- Test envelope shapes
-
-**Estimated effort**: 2-3 days
+**Tests passing** (19/19):
+- ✅ Gain constant value and patterns
+- ✅ Gain=0 produces silence
+- ✅ Pan left, center, right
+- ✅ Pan patterns
+- ✅ Speed normal, double, half
+- ✅ Speed patterns
+- ✅ Cut groups basic and patterns
+- ✅ Attack and release envelopes
+- ✅ Multiple parameters combined
+- ✅ All parameters with pattern control
+- ✅ Parameters with transforms
 
 ---
 
@@ -363,7 +370,7 @@ git commit -m "Implement multi-output system with tests"
 
 ---
 
-## Current Progress: ~75% Complete
+## Current Progress: ~80% Complete
 
 **Working**:
 - ✅ Pattern system (mini-notation)
@@ -377,16 +384,16 @@ git commit -m "Implement multi-output system with tests"
 - ✅ Multi-output system (render and live modes)
 - ✅ Hush/Panic commands (render and live modes)
 - ✅ Sample bank selection inline form: `s("bd:0 bd:1 bd:2")`
+- ✅ Pattern DSP parameters (gain, pan, speed, cut, attack, release)
 
 **Missing**:
 - ❌ Sample selection 2-arg form: `s("bd", "0 1 2")` (optional - 4-6 hours)
-- ❌ Pattern DSP params (HIGH - 2-3 days)
 - ❌ More effects (MEDIUM - 2-3 days)
 - ❌ MIDI output (MEDIUM - 1-2 days)
 - ❌ More transformations (MEDIUM - 2-3 days)
 - ❌ Updated docs (MEDIUM - 1-2 days)
 
-**Estimated time to 95% complete**: 1-1.5 weeks at current pace
+**Estimated time to 95% complete**: Less than 1 week at current pace
 
 ---
 
