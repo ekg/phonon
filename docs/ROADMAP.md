@@ -366,7 +366,7 @@ git commit -m "Implement multi-output system with tests"
 
 ---
 
-## Current Progress: ~80% Complete
+## Current Progress: ~90% Complete
 
 **Working**:
 - ✅ Pattern system (mini-notation)
@@ -375,21 +375,21 @@ git commit -m "Implement multi-output system with tests"
 - ✅ Pattern-controlled synthesis
 - ✅ Sample routing through effects
 - ✅ Live coding workflow
-- ✅ Pattern transformations (fast, slow, rev, every)
+- ✅ Pattern transformations (fast, slow, rev, every, jux, stutter, chop, degradeBy, scramble)
 - ✅ Bidirectional operators (|>, <|, >>, <<)
 - ✅ Multi-output system (render and live modes)
 - ✅ Hush/Panic commands (render and live modes)
 - ✅ Sample bank selection inline form: `s("bd:0 bd:1 bd:2")`
 - ✅ Pattern DSP parameters (gain, pan, speed, cut, attack, release)
+- ✅ Effects (reverb, delay, distortion, compressor, bitcrush)
 
 **Missing**:
 - ❌ Sample selection 2-arg form: `s("bd", "0 1 2")` (optional - 4-6 hours)
-- ❌ More effects (MEDIUM - 2-3 days)
 - ❌ MIDI output (MEDIUM - 1-2 days)
-- ❌ More transformations (MEDIUM - 2-3 days)
-- ❌ Updated docs (MEDIUM - 1-2 days)
+- ❌ Updated docs (HIGH - 1-2 days)
+- ❌ More UGens (see UGEN_STATUS.md - ongoing)
 
-**Estimated time to 95% complete**: Less than 1 week at current pace
+**Estimated time to 95% complete**: 1-2 days for documentation + MIDI
 
 ---
 
