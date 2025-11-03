@@ -101,8 +101,10 @@ Pattern operations transform event sequences using the `$` operator:
 # Structural transformations
 "bd sn hh cp" $ rev       # Reverse
 "bd sn" $ palindrome      # Forward then backward
-"bd sn" $ chop 4          # Slice into 4 parts
-"bd sn" $ shuffle 3       # Shuffle with seed 3
+"bd sn" $ chop 4          # Slice into 4 equal parts
+"bd sn" $ scramble 4      # Randomize event order
+"bd sn" $ stutter 3       # Repeat each event 3 times
+"bd sn" $ jux rev         # Apply transform to one stereo channel
 
 # Conditional transformations
 "bd sn" $ every 3 rev     # Reverse every 3rd cycle
@@ -112,7 +114,7 @@ Pattern operations transform event sequences using the `$` operator:
 
 # Degradation
 "bd*16" $ degrade         # Random dropout (50%)
-"bd*16" $ degradeBy 0.3   # 30% chance of dropout
+"bd*16" $ degradeBy 0.3   # 30% chance of dropout per event
 
 # Chaining transformations
 "bd sn" $ fast 2 $ every 4 rev $ rotate 0.125
@@ -144,26 +146,35 @@ notch 1000 10             # Notch filter
 
 #### Effects
 ```phonon
-delay 0.25 0.5 0.3        # Delay (time, feedback, mix)
-reverb 0.8 0.5 0.3        # Reverb (room, damping, mix)
-chorus 1.5 0.8 0.5        # Chorus (rate, depth, mix)
-phaser 0.5 0.9 0.3        # Phaser
-distortion 2.0            # Distortion (gain)
-clip -0.8 0.8            # Hard clipper
+# Time-based effects
+delay 0.25 0.5 0.3                    # Delay (time, feedback, mix)
+reverb 0.5 0.8                        # Reverb (room_size, damping, [mix=0.3])
+chorus 1.5 0.8                        # Chorus (rate, depth, [mix=0.3])
+
+# Dynamics & distortion
+compressor -12 4.0 0.01 0.1 3.0      # Compressor (threshold, ratio, attack, release, makeup)
+distortion 2.0                        # Distortion (drive, [mix=0.5])
+
+# Lo-fi effects
+bitcrush 8 22050                      # Bitcrusher (bits, sample_rate)
 ```
 
-#### Math Operations
+#### Envelopes
 ```phonon
-mul 0.5                   # Multiply signal
-add 0.25                  # Add to signal
-sub 0.1                   # Subtract from signal
-div 2                     # Divide signal
+env 0.01 0.1 0.7 0.2      # ADSR envelope (attack, decay, sustain, release)
 ```
 
-#### Envelopes & Modulation
+#### Pattern Sample Control (Tidal-style # chaining)
 ```phonon
-env 0.01 0.1 0.7 0.5      # ADSR envelope
-lfo 0.5                   # LFO (as modulation source)
+s "bd sn" # gain 0.8              # Amplitude control
+s "bd sn" # pan "-1 0 1"          # Stereo positioning (-1=left, 1=right)
+s "bd sn" # speed 2.0              # Playback rate (1.0=normal, 2.0=double)
+s "bd sn" # cut 1                  # Cut group (voice stealing)
+s "bd sn" # attack 0.01            # Envelope attack time
+s "bd sn" # release 0.2            # Envelope release time
+
+# Chain multiple parameters
+s "bd*4" # gain 0.8 # pan -0.3 # speed 0.9 # attack 0.01 # release 0.2
 ```
 
 ### 5. Signal Math
