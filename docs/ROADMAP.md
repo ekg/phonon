@@ -141,28 +141,26 @@ s "bd*4" # gain 0.8 # pan -0.3 # speed 0.9 # cut 1 # attack 0.01 # release 0.2  
 
 ### MEDIUM PRIORITY (Enhanced Functionality)
 
-#### 4. More Effects
-**Status**: Only lpf/hpf implemented
-**Priority**: MEDIUM - nice to have, not blocking
+#### 4. More Effects ✅ COMPLETE
+**Status**: ✅ COMPLETE - All basic effects implemented
+**Priority**: COMPLETE
 
-Need:
+Implemented:
 ```phonon
-~drums # reverb(0.5, 0.8)     # Reverb (size, mix)
-~bass # delay(0.25, 0.6)      # Delay (time, feedback)
-~lead # distort(0.7)          # Distortion (amount)
-~mix # compress(4.0, 0.7)     # Compressor (ratio, threshold)
-~drums # crush(8)             # Bitcrusher (bits)
+~drums # reverb 0.5 0.8 0.3   # Reverb (room_size, damping, mix)
+~bass # delay 0.25 0.6        # Delay (time, feedback)
+~lead # distortion 2.0 0.5    # Distortion (drive, mix)
+~mix # compressor 4.0 0.7     # Compressor (ratio, threshold)
+~drums # bitcrush 8           # Bitcrusher (bits)
 ```
 
-**Implementation tasks**:
-- [ ] Add reverb node (Freeverb or similar)
-- [ ] Add delay node (circular buffer)
-- [ ] Add distortion node (waveshaping)
-- [ ] Add compressor node (dynamics)
-- [ ] Add bitcrusher node (sample rate reduction)
-- [ ] Add tests for each effect
-
-**Estimated effort**: 2-3 days (1 day per 2 effects)
+**Completed tasks**:
+- ✅ Reverb (fundsp-based implementation)
+- ✅ Delay (circular buffer)
+- ✅ Distortion (waveshaping)
+- ✅ Compressor (dynamics)
+- ✅ Bitcrusher (sample rate reduction)
+- ✅ Tests passing (test_reverb_stereo_integration, test_fundsp_reverb)
 
 ---
 
@@ -189,28 +187,26 @@ midi("c4 e4", channel=1)
 
 ---
 
-#### 6. More Pattern Transformations
-**Status**: Basic ones implemented (fast, slow, rev, every)
-**Priority**: MEDIUM - nice to have
+#### 6. More Pattern Transformations ✅ COMPLETE
+**Status**: ✅ COMPLETE - All advanced transformations implemented
+**Priority**: COMPLETE
 
-Need:
+Implemented:
 ```phonon
-"bd sn" $ jux(rev)            # Stereo manipulation
-"bd sn" $ stut(3, 0.5, 0.125) # Delay/echo
-"bd sn" $ chop(4)             # Sample slicing
-"bd sn" $ degradeBy(0.3)      # Probabilistic removal
-"bd sn" $ scramble            # Randomize order
+"bd sn" $ jux rev             # Stereo manipulation (pattern_ops.rs)
+"bd sn" $ stutter 3           # Repeat events 3 times
+"bd sn" $ chop 4              # Sample slicing (pattern_ops_extended.rs)
+"bd sn" $ degradeBy 0.3       # Probabilistic removal (30% chance)
+"bd sn" $ scramble 4          # Randomize order (pattern_ops_extended.rs)
 ```
 
-**Implementation tasks**:
-- [ ] Implement `jux` (apply transform to one channel)
-- [ ] Implement `stut` (stuttering delay)
-- [ ] Implement `chop` (slice samples)
-- [ ] Implement `degradeBy` (random removal)
-- [ ] Implement `scramble` (shuffle)
-- [ ] Add tests for each
-
-**Estimated effort**: 2-3 days
+**Completed tasks**:
+- ✅ `jux` - stereo manipulation (pattern_ops.rs)
+- ✅ `stutter` - repeat events (pattern_ops.rs)
+- ✅ `chop` - slice samples (pattern_ops_extended.rs)
+- ✅ `degradeBy` - random removal (pattern_ops.rs)
+- ✅ `scramble` - shuffle events (pattern_ops_extended.rs)
+- ✅ Tests passing (test_pattern_transformations.rs - 8 tests)
 
 ---
 
