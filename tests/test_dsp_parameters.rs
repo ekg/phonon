@@ -1,6 +1,7 @@
 //! Test Pattern DSP Parameters: gain, pan, speed, cut_group, attack, release
 //!
 //! All parameters use Tidal-style # chaining syntax
+//! Kwargs syntax is BANNED and should produce syntax errors
 
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
@@ -17,6 +18,151 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 /// Calculate peak amplitude of audio buffer
 fn calculate_peak(buffer: &[f32]) -> f32 {
     buffer.iter().map(|x| x.abs()).fold(0.0f32, f32::max)
+}
+
+// ========== SYNTAX ENFORCEMENT TESTS ==========
+
+#[test]
+fn test_kwargs_syntax_banned_gain() {
+    // Kwargs syntax should be rejected - only # chaining allowed
+    let code = r#"
+tempo: 2.0
+out: s "bd" gain=0.7
+"#;
+
+    let result = parse_program(code);
+    match result {
+        Ok((rest, _)) => {
+            // If parsing succeeded, there should be unparsed input (the = and value)
+            assert!(
+                !rest.trim().is_empty(),
+                "Kwargs syntax 'gain=0.7' should be rejected. Use '# gain 0.7' instead"
+            );
+        }
+        Err(_) => {
+            // Parse error is also acceptable
+        }
+    }
+}
+
+#[test]
+fn test_kwargs_syntax_banned_pan() {
+    // Kwargs syntax should be rejected
+    let code = r#"
+tempo: 2.0
+out: s "bd" pan=0.5
+"#;
+
+    let result = parse_program(code);
+    match result {
+        Ok((rest, _)) => {
+            assert!(
+                !rest.trim().is_empty(),
+                "Kwargs syntax 'pan=0.5' should be rejected. Use '# pan 0.5' instead"
+            );
+        }
+        Err(_) => {}
+    }
+}
+
+#[test]
+fn test_kwargs_syntax_banned_speed() {
+    // Kwargs syntax should be rejected
+    let code = r#"
+tempo: 2.0
+out: s "bd" speed=2.0
+"#;
+
+    let result = parse_program(code);
+    match result {
+        Ok((rest, _)) => {
+            assert!(
+                !rest.trim().is_empty(),
+                "Kwargs syntax 'speed=2.0' should be rejected. Use '# speed 2.0' instead"
+            );
+        }
+        Err(_) => {}
+    }
+}
+
+#[test]
+fn test_kwargs_syntax_banned_cut() {
+    // Kwargs syntax should be rejected
+    let code = r#"
+tempo: 2.0
+out: s "bd" cut=1
+"#;
+
+    let result = parse_program(code);
+    match result {
+        Ok((rest, _)) => {
+            assert!(
+                !rest.trim().is_empty(),
+                "Kwargs syntax 'cut=1' should be rejected. Use '# cut 1' instead"
+            );
+        }
+        Err(_) => {}
+    }
+}
+
+#[test]
+fn test_kwargs_syntax_banned_attack() {
+    // Kwargs syntax should be rejected
+    let code = r#"
+tempo: 2.0
+out: s "bd" attack=0.01
+"#;
+
+    let result = parse_program(code);
+    match result {
+        Ok((rest, _)) => {
+            assert!(
+                !rest.trim().is_empty(),
+                "Kwargs syntax 'attack=0.01' should be rejected. Use '# attack 0.01' instead"
+            );
+        }
+        Err(_) => {}
+    }
+}
+
+#[test]
+fn test_kwargs_syntax_banned_release() {
+    // Kwargs syntax should be rejected
+    let code = r#"
+tempo: 2.0
+out: s "bd" release=0.1
+"#;
+
+    let result = parse_program(code);
+    match result {
+        Ok((rest, _)) => {
+            assert!(
+                !rest.trim().is_empty(),
+                "Kwargs syntax 'release=0.1' should be rejected. Use '# release 0.1' instead"
+            );
+        }
+        Err(_) => {}
+    }
+}
+
+#[test]
+fn test_kwargs_syntax_banned_multiple() {
+    // Multiple kwargs should also be rejected
+    let code = r#"
+tempo: 2.0
+out: s "bd" gain=0.7 pan=0.5
+"#;
+
+    let result = parse_program(code);
+    match result {
+        Ok((rest, _)) => {
+            assert!(
+                !rest.trim().is_empty(),
+                "Kwargs syntax should be rejected. Use '# gain 0.7 # pan 0.5' instead"
+            );
+        }
+        Err(_) => {}
+    }
 }
 
 // ========== GAIN PARAMETER TESTS ==========

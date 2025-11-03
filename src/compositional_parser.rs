@@ -858,11 +858,22 @@ fn parse_var(input: &str) -> IResult<&str, Expr> {
 }
 
 /// Parse a kwarg: key="value" or key=expr
+/// BANNED: DSP parameter names (gain, pan, speed, cut, attack, release)
+/// These must use # chaining syntax instead: s "bd" # gain 0.7
 fn parse_kwarg(input: &str) -> IResult<&str, Expr> {
     let (input, name) = parse_identifier(input)?;
 
     // Check for = without consuming space
     let (input, _) = char('=')(input)?;
+
+    // Reject DSP parameter names - these must use # chaining
+    const BANNED_KWARGS: &[&str] = &["gain", "pan", "speed", "cut", "attack", "release", "n"];
+    if BANNED_KWARGS.contains(&name) {
+        return Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        )));
+    }
 
     // Parse the value expression
     let (input, value) = parse_primary_expr(input)?;
