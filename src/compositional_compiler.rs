@@ -665,6 +665,7 @@ fn compile_function_call(
         "square" => compile_oscillator(ctx, Waveform::Square, args),
         "tri" => compile_oscillator(ctx, Waveform::Triangle, args),
         "fm" => compile_fm(ctx, args),
+        "wavetable" => compile_wavetable(ctx, args),
         "white_noise" => compile_white_noise(ctx, args),
         "pink_noise" => compile_pink_noise(ctx, args),
         "brown_noise" => compile_brown_noise(ctx, args),
@@ -1001,6 +1002,29 @@ fn compile_fm(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Stri
         mod_index: Signal::Node(index_node),
         carrier_phase: 0.0,
         modulator_phase: 0.0,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile wavetable oscillator
+/// Reads through stored waveform at variable speeds for pitch control
+fn compile_wavetable(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "wavetable requires 1 parameter (frequency), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile frequency parameter as a signal (supports pattern modulation!)
+    let freq_node = compile_expr(ctx, args[0].clone())?;
+
+    use crate::unified_graph::WavetableState;
+
+    let node = SignalNode::Wavetable {
+        freq: Signal::Node(freq_node),
+        state: WavetableState::new(), // Default: sine wave
     };
 
     Ok(ctx.graph.add_node(node))

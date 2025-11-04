@@ -535,6 +535,14 @@ pub enum SignalNode {
         phase: f32,    // Phase (0.0 to 1.0)
     },
 
+    /// Wavetable oscillator
+    /// Reads through stored waveform at variable speeds for pitch control
+    /// Classic technique: PPG Wave, Waldorf, Serum
+    Wavetable {
+        freq: Signal,          // Frequency in Hz
+        state: WavetableState, // Wavetable data and phase
+    },
+
     /// Brick-wall limiter (prevents signal from exceeding threshold)
     /// Clamps signal to [-threshold, +threshold]
     Limiter {
@@ -1797,6 +1805,52 @@ impl Default for ImpulseState {
     }
 }
 
+/// Wavetable oscillator state
+/// Reads through a stored waveform at variable speeds for different pitches
+#[derive(Debug, Clone)]
+pub struct WavetableState {
+    table: Vec<f32>, // Wavetable data (one cycle)
+    phase: f32,      // Current phase position [0, 1)
+}
+
+impl WavetableState {
+    pub fn new() -> Self {
+        // Default: 2048-sample sine wave for high quality
+        let table_size = 2048;
+        let mut table = Vec::with_capacity(table_size);
+
+        for i in 0..table_size {
+            let phase = i as f32 / table_size as f32;
+            table.push((phase * 2.0 * std::f32::consts::PI).sin());
+        }
+
+        Self { table, phase: 0.0 }
+    }
+
+    /// Create wavetable with custom waveform
+    pub fn with_table(table: Vec<f32>) -> Self {
+        Self { table, phase: 0.0 }
+    }
+
+    /// Get interpolated sample at given phase [0, 1)
+    pub fn get_sample(&self, phase: f32) -> f32 {
+        let table_size = self.table.len() as f32;
+        let index = (phase * table_size) % table_size;
+        let i0 = index.floor() as usize % self.table.len();
+        let i1 = (i0 + 1) % self.table.len();
+        let frac = index.fract();
+
+        // Linear interpolation
+        self.table[i0] * (1.0 - frac) + self.table[i1] * frac
+    }
+}
+
+impl Default for WavetableState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Lag (exponential slew limiter) state
 /// Smooths abrupt changes with exponential approach
 #[derive(Debug, Clone)]
@@ -2727,6 +2781,26 @@ impl UnifiedSignalGraph {
                         *p += f / self.sample_rate;
                         if *p >= 1.0 {
                             *p -= 1.0;
+                        }
+                    }
+                }
+
+                sample
+            }
+
+            SignalNode::Wavetable { freq, state } => {
+                // Evaluate frequency (pattern-modulatable)
+                let f = self.eval_signal(&freq).max(0.0);
+
+                // Get interpolated sample at current phase
+                let sample = state.get_sample(state.phase);
+
+                // Update phase for next sample
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Wavetable { state: s, .. } = node {
+                        s.phase += f / self.sample_rate;
+                        if s.phase >= 1.0 {
+                            s.phase -= 1.0;
                         }
                     }
                 }
