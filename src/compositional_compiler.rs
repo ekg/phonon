@@ -667,6 +667,7 @@ fn compile_function_call(
         "fm" => compile_fm(ctx, args),
         "wavetable" => compile_wavetable(ctx, args),
         "granular" => compile_granular(ctx, args),
+        "pluck" => compile_karplus_strong(ctx, args),
         "white_noise" => compile_white_noise(ctx, args),
         "pink_noise" => compile_pink_noise(ctx, args),
         "brown_noise" => compile_brown_noise(ctx, args),
@@ -1055,6 +1056,44 @@ fn compile_granular(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
         density: Signal::Node(density_node),
         pitch: Signal::Node(pitch_node),
         state: GranularState::default(), // 2-second buffer
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Karplus-Strong string synthesis
+/// Physical modeling of plucked strings using delay line
+fn compile_karplus_strong(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Support both 1 arg (freq only) and 2 args (freq + damping)
+    if args.is_empty() || args.len() > 2 {
+        return Err(format!(
+            "pluck requires 1-2 parameters (frequency, [damping=0.5]), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile frequency parameter (pattern-modulatable)
+    let freq_node = compile_expr(ctx, args[0].clone())?;
+
+    // Compile damping parameter (default 0.5 if not provided)
+    let damping_signal = if args.len() == 2 {
+        Signal::Node(compile_expr(ctx, args[1].clone())?)
+    } else {
+        // Default damping: 0.5 (moderate decay)
+        Signal::Value(0.5)
+    };
+
+    use crate::unified_graph::KarplusStrongState;
+
+    // Calculate initial delay line size based on default frequency
+    // We'll resize dynamically if frequency changes
+    let initial_size = (ctx.graph.sample_rate() / 440.0) as usize;
+
+    let node = SignalNode::KarplusStrong {
+        freq: Signal::Node(freq_node),
+        damping: damping_signal,
+        state: KarplusStrongState::new(initial_size),
+        last_freq: 440.0, // Will be updated on first sample
     };
 
     Ok(ctx.graph.add_node(node))

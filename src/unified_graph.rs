@@ -554,6 +554,16 @@ pub enum SignalNode {
         state: GranularState,   // Grain buffer and active grains
     },
 
+    /// Karplus-Strong string synthesis
+    /// Physical modeling of plucked strings
+    /// Uses delay line + averaging for realistic string decay
+    KarplusStrong {
+        freq: Signal,              // Fundamental frequency in Hz
+        damping: Signal,           // Damping factor (0.0 = fast decay, 1.0 = slow)
+        state: KarplusStrongState, // Delay line state
+        last_freq: f32,            // Previous frequency (for detecting changes)
+    },
+
     /// Brick-wall limiter (prevents signal from exceeding threshold)
     /// Clamps signal to [-threshold, +threshold]
     Limiter {
@@ -1985,6 +1995,83 @@ impl Default for GranularState {
     }
 }
 
+/// Karplus-Strong string synthesis state
+/// Physical modeling of plucked strings using delay line + lowpass filter
+#[derive(Debug, Clone)]
+pub struct KarplusStrongState {
+    delay_line: Vec<f32>, // Circular buffer for string simulation
+    write_pos: usize,     // Current write position
+    initialized: bool,    // Whether delay line has been filled with noise
+}
+
+impl KarplusStrongState {
+    pub fn new(buffer_size: usize) -> Self {
+        Self {
+            delay_line: vec![0.0; buffer_size.max(2)], // Minimum 2 samples
+            write_pos: 0,
+            initialized: false,
+        }
+    }
+
+    /// Initialize delay line with noise (simulates initial pluck)
+    pub fn initialize_with_noise(&mut self) {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        for sample in &mut self.delay_line {
+            *sample = rng.gen_range(-1.0..1.0);
+        }
+        self.initialized = true;
+        self.write_pos = 0;
+    }
+
+    /// Get sample from delay line with averaging (Karplus-Strong algorithm)
+    pub fn get_sample(&mut self, damping: f32) -> f32 {
+        if !self.initialized {
+            self.initialize_with_noise();
+        }
+
+        let len = self.delay_line.len();
+        let current_pos = self.write_pos;
+        let prev_pos = if current_pos == 0 { len - 1 } else { current_pos - 1 };
+
+        // Karplus-Strong algorithm: average current + previous sample
+        // Damping: 0.0 = long sustain (low energy loss), 1.0 = short sustain (high energy loss)
+        let current = self.delay_line[current_pos];
+        let previous = self.delay_line[prev_pos];
+        let averaged = (current + previous) * 0.5;
+
+        // Energy retention factor: higher damping = less energy retained (faster decay)
+        // Keep values close to 1.0 for longer sustain
+        let energy_retention = 0.9995 - (damping * 0.001); // Range: 0.9995 (no damp) to 0.9985 (max damp)
+        let output = averaged * energy_retention;
+
+        // Write back to delay line
+        self.delay_line[self.write_pos] = output;
+
+        // Advance write position
+        self.write_pos = (self.write_pos + 1) % len;
+
+        output
+    }
+
+    /// Resize delay line (for frequency changes)
+    pub fn resize(&mut self, new_size: usize) {
+        let new_size = new_size.max(2); // Minimum 2 samples
+        if new_size != self.delay_line.len() {
+            self.delay_line.resize(new_size, 0.0);
+            self.write_pos = 0;
+            self.initialized = false; // Will re-initialize on next sample
+        }
+    }
+}
+
+impl Default for KarplusStrongState {
+    fn default() -> Self {
+        // Default: 100 samples (440Hz at 44.1kHz)
+        Self::new(100)
+    }
+}
+
 /// Lag (exponential slew limiter) state
 /// Smooths abrupt changes with exponential approach
 #[derive(Debug, Clone)]
@@ -2978,6 +3065,43 @@ impl UnifiedSignalGraph {
                         s.advance();
 
                         return output;
+                    }
+                }
+
+                0.0
+            }
+
+            SignalNode::KarplusStrong {
+                freq,
+                damping,
+                state,
+                last_freq,
+            } => {
+                // Evaluate pattern-modulatable parameters
+                let f = self.eval_signal(&freq).max(20.0).min(10000.0);
+                let damp = self.eval_signal(&damping).clamp(0.0, 1.0);
+
+                // Calculate required delay line size for this frequency
+                let required_size = (self.sample_rate / f) as usize;
+
+                // Check if frequency changed significantly (need to resize delay line)
+                let freq_changed = (f - last_freq).abs() > 1.0;
+
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::KarplusStrong {
+                        state: s,
+                        last_freq: lf,
+                        ..
+                    } = node
+                    {
+                        // Resize delay line if frequency changed
+                        if freq_changed {
+                            s.resize(required_size);
+                            *lf = f;
+                        }
+
+                        // Get sample from Karplus-Strong algorithm
+                        return s.get_sample(damp);
                     }
                 }
 
