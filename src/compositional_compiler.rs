@@ -671,6 +671,7 @@ fn compile_function_call(
         "waveguide" => compile_waveguide(ctx, args),
         "formant" => compile_formant(ctx, args),
         "additive" => compile_additive(ctx, args),
+        "vocoder" => compile_vocoder(ctx, args),
         "white_noise" => compile_white_noise(ctx, args),
         "pink_noise" => compile_pink_noise(ctx, args),
         "brown_noise" => compile_brown_noise(ctx, args),
@@ -1238,6 +1239,53 @@ fn compile_additive(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
     let node = SignalNode::Additive {
         freq: Signal::Node(freq_node),
         amplitudes,
+        state,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile vocoder
+/// Syntax: vocoder modulator carrier num_bands
+/// Example: vocoder ~voice ~synth 8
+fn compile_vocoder(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Requires 3 parameters: modulator, carrier, num_bands
+    if args.len() != 3 {
+        return Err(format!(
+            "vocoder requires 3 parameters (modulator, carrier, num_bands), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile modulator signal (usually voice or rhythmic source)
+    let modulator_node = compile_expr(ctx, args[0].clone())?;
+
+    // Compile carrier signal (usually synth with rich harmonics)
+    let carrier_node = compile_expr(ctx, args[1].clone())?;
+
+    // Parse num_bands parameter
+    let num_bands = match &args[2] {
+        Expr::Number(n) => {
+            let bands = *n as usize;
+            if bands < 2 || bands > 32 {
+                return Err("vocoder num_bands must be between 2 and 32".to_string());
+            }
+            bands
+        }
+        _ => {
+            return Err("vocoder num_bands must be a number (e.g., 8, 16)".to_string());
+        }
+    };
+
+    use crate::unified_graph::VocoderState;
+
+    // Create vocoder state with specified number of bands
+    let state = VocoderState::new(num_bands, ctx.graph.sample_rate());
+
+    let node = SignalNode::Vocoder {
+        modulator: Signal::Node(modulator_node),
+        carrier: Signal::Node(carrier_node),
+        num_bands,
         state,
     };
 

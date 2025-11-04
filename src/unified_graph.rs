@@ -599,6 +599,17 @@ pub enum SignalNode {
         state: AdditiveState,   // Phase tracking state
     },
 
+    /// Vocoder
+    /// Analyzes modulator amplitude envelope in frequency bands and applies to carrier
+    /// Classic use: Robot voice effect (voice modulating synth)
+    /// Example: vocoder ~voice ~synth 16 → 16-band vocoder
+    Vocoder {
+        modulator: Signal,  // Modulator signal (usually voice/rhythmic)
+        carrier: Signal,    // Carrier signal (usually synth/rich harmonics)
+        num_bands: usize,   // Number of frequency bands (2-32, default 8)
+        state: VocoderState,
+    },
+
     /// Brick-wall limiter (prevents signal from exceeding threshold)
     /// Clamps signal to [-threshold, +threshold]
     Limiter {
@@ -2381,6 +2392,112 @@ impl Default for AdditiveState {
     }
 }
 
+/// Vocoder state
+/// Analyzes modulator amplitude in multiple frequency bands and applies
+/// those envelopes to carrier bands to create robot voice effects
+///
+/// Uses bandpass filters to split signals into bands + envelope followers
+#[derive(Debug, Clone)]
+pub struct VocoderState {
+    num_bands: usize,
+    /// Bandpass filter states for modulator bands
+    modulator_filters: Vec<FilterState>,
+    /// Bandpass filter states for carrier bands
+    carrier_filters: Vec<FilterState>,
+    /// Envelope follower state for each band
+    envelopes: Vec<f32>,
+    sample_rate: f32,
+}
+
+impl VocoderState {
+    pub fn new(num_bands: usize, sample_rate: f32) -> Self {
+        let num_bands = num_bands.max(2).min(32); // Limit 2-32 bands
+        Self {
+            num_bands,
+            modulator_filters: vec![FilterState::default(); num_bands],
+            carrier_filters: vec![FilterState::default(); num_bands],
+            envelopes: vec![0.0; num_bands],
+            sample_rate,
+        }
+    }
+
+    /// Process one sample through the vocoder
+    pub fn process(&mut self, modulator_sample: f32, carrier_sample: f32) -> f32 {
+        use std::f32::consts::PI;
+
+        // Calculate frequency bands (logarithmic spacing from 100Hz to 10kHz)
+        let min_freq: f32 = 100.0;
+        let max_freq: f32 = 10000.0;
+        let freq_ratio = (max_freq / min_freq).powf(1.0 / (self.num_bands as f32));
+
+        let mut output = 0.0;
+
+        for band in 0..self.num_bands {
+            // Calculate center frequency for this band (logarithmic spacing)
+            let center_freq = min_freq * freq_ratio.powi(band as i32);
+            let bandwidth = center_freq * 0.5; // 50% bandwidth
+
+            // Calculate filter coefficients (Chamberlin state variable filter)
+            let q = center_freq / bandwidth;
+            let f = 2.0 * (PI * center_freq / self.sample_rate).sin();
+            let damp = 1.0 / q.max(0.5);
+
+            // Filter modulator through bandpass
+            let mod_state = &mut self.modulator_filters[band];
+            let mut low_mod = mod_state.y1;
+            let mut band_mod = mod_state.x1;
+            let mut high_mod = mod_state.y2;
+
+            high_mod = modulator_sample - low_mod - damp * band_mod;
+            band_mod += f * high_mod;
+            low_mod += f * band_mod;
+
+            mod_state.y1 = low_mod;
+            mod_state.x1 = band_mod;
+            mod_state.y2 = high_mod;
+
+            // Filter carrier through bandpass
+            let carr_state = &mut self.carrier_filters[band];
+            let mut low_carr = carr_state.y1;
+            let mut band_carr = carr_state.x1;
+            let mut high_carr = carr_state.y2;
+
+            high_carr = carrier_sample - low_carr - damp * band_carr;
+            band_carr += f * high_carr;
+            low_carr += f * band_carr;
+
+            carr_state.y1 = low_carr;
+            carr_state.x1 = band_carr;
+            carr_state.y2 = high_carr;
+
+            // Envelope follower on modulator band (smoothed rectifier)
+            let modulator_amplitude = band_mod.abs();
+            let attack = 0.01; // Fast attack (10ms)
+            let release = 0.1; // Slower release (100ms)
+
+            if modulator_amplitude > self.envelopes[band] {
+                // Attack
+                self.envelopes[band] += (modulator_amplitude - self.envelopes[band]) * attack;
+            } else {
+                // Release
+                self.envelopes[band] += (modulator_amplitude - self.envelopes[band]) * release;
+            }
+
+            // Apply modulator envelope to carrier band
+            output += band_carr * self.envelopes[band];
+        }
+
+        // Normalize by number of bands
+        output / (self.num_bands as f32).sqrt()
+    }
+}
+
+impl Default for VocoderState {
+    fn default() -> Self {
+        Self::new(8, 44100.0) // Default: 8 bands
+    }
+}
+
 /// Lag (exponential slew limiter) state
 /// Smooths abrupt changes with exponential approach
 #[derive(Debug, Clone)]
@@ -3504,6 +3621,26 @@ impl UnifiedSignalGraph {
                     } = node
                     {
                         return s.process(f, amps);
+                    }
+                }
+
+                0.0
+            }
+
+            SignalNode::Vocoder {
+                modulator,
+                carrier,
+                num_bands,
+                state,
+            } => {
+                // Evaluate modulator and carrier signals
+                let mod_sample = self.eval_signal(&modulator);
+                let carr_sample = self.eval_signal(&carrier);
+
+                // Get mutable state and process
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Vocoder { state: s, .. } = node {
+                        return s.process(mod_sample, carr_sample);
                     }
                 }
 
