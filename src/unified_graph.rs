@@ -2262,6 +2262,21 @@ pub struct FormantState {
     state3: FilterState,
 
     sample_rate: f32,
+
+    // PERFORMANCE OPTIMIZATION: Cache last formant frequencies and computed coefficients
+    // Only recompute expensive sin() when frequencies change
+    last_f1: f32,
+    last_f2: f32,
+    last_f3: f32,
+    last_bw1: f32,
+    last_bw2: f32,
+    last_bw3: f32,
+    cached_f_1: f32,
+    cached_f_2: f32,
+    cached_f_3: f32,
+    cached_damp1: f32,
+    cached_damp2: f32,
+    cached_damp3: f32,
 }
 
 impl FormantState {
@@ -2271,6 +2286,18 @@ impl FormantState {
             state2: FilterState::default(),
             state3: FilterState::default(),
             sample_rate,
+            last_f1: -1.0,
+            last_f2: -1.0,
+            last_f3: -1.0,
+            last_bw1: -1.0,
+            last_bw2: -1.0,
+            last_bw3: -1.0,
+            cached_f_1: 0.0,
+            cached_f_2: 0.0,
+            cached_f_3: 0.0,
+            cached_damp1: 0.0,
+            cached_damp2: 0.0,
+            cached_damp3: 0.0,
         }
     }
 
@@ -2288,10 +2315,20 @@ impl FormantState {
     ) -> f32 {
         use std::f32::consts::PI;
 
-        // Formant 1 (lowest frequency)
-        let q1 = f1 / bw1.max(1.0); // Q = center_freq / bandwidth
-        let f_1 = 2.0 * (PI * f1 / self.sample_rate).sin();
-        let damp1 = 1.0 / q1.max(0.5);
+        // PERFORMANCE FIX: Only recompute coefficients when formants change
+        // Formant 1
+        let (f_1, damp1) = if f1 != self.last_f1 || bw1 != self.last_bw1 {
+            let q1 = f1 / bw1.max(1.0);
+            let f_1 = 2.0 * (PI * f1 / self.sample_rate).sin();
+            let damp1 = 1.0 / q1.max(0.5);
+            self.last_f1 = f1;
+            self.last_bw1 = bw1;
+            self.cached_f_1 = f_1;
+            self.cached_damp1 = damp1;
+            (f_1, damp1)
+        } else {
+            (self.cached_f_1, self.cached_damp1)
+        };
 
         let mut low1 = self.state1.y1;
         let mut band1 = self.state1.x1;
@@ -2305,10 +2342,19 @@ impl FormantState {
         self.state1.x1 = band1;
         self.state1.y2 = high1;
 
-        // Formant 2 (mid frequency)
-        let q2 = f2 / bw2.max(1.0);
-        let f_2 = 2.0 * (PI * f2 / self.sample_rate).sin();
-        let damp2 = 1.0 / q2.max(0.5);
+        // Formant 2
+        let (f_2, damp2) = if f2 != self.last_f2 || bw2 != self.last_bw2 {
+            let q2 = f2 / bw2.max(1.0);
+            let f_2 = 2.0 * (PI * f2 / self.sample_rate).sin();
+            let damp2 = 1.0 / q2.max(0.5);
+            self.last_f2 = f2;
+            self.last_bw2 = bw2;
+            self.cached_f_2 = f_2;
+            self.cached_damp2 = damp2;
+            (f_2, damp2)
+        } else {
+            (self.cached_f_2, self.cached_damp2)
+        };
 
         let mut low2 = self.state2.y1;
         let mut band2 = self.state2.x1;
@@ -2322,10 +2368,19 @@ impl FormantState {
         self.state2.x1 = band2;
         self.state2.y2 = high2;
 
-        // Formant 3 (highest frequency)
-        let q3 = f3 / bw3.max(1.0);
-        let f_3 = 2.0 * (PI * f3 / self.sample_rate).sin();
-        let damp3 = 1.0 / q3.max(0.5);
+        // Formant 3
+        let (f_3, damp3) = if f3 != self.last_f3 || bw3 != self.last_bw3 {
+            let q3 = f3 / bw3.max(1.0);
+            let f_3 = 2.0 * (PI * f3 / self.sample_rate).sin();
+            let damp3 = 1.0 / q3.max(0.5);
+            self.last_f3 = f3;
+            self.last_bw3 = bw3;
+            self.cached_f_3 = f_3;
+            self.cached_damp3 = damp3;
+            (f_3, damp3)
+        } else {
+            (self.cached_f_3, self.cached_damp3)
+        };
 
         let mut low3 = self.state3.y1;
         let mut band3 = self.state3.x1;
