@@ -670,6 +670,7 @@ fn compile_function_call(
         "pluck" => compile_karplus_strong(ctx, args),
         "waveguide" => compile_waveguide(ctx, args),
         "formant" => compile_formant(ctx, args),
+        "additive" => compile_additive(ctx, args),
         "white_noise" => compile_white_noise(ctx, args),
         "pink_noise" => compile_pink_noise(ctx, args),
         "brown_noise" => compile_brown_noise(ctx, args),
@@ -1179,6 +1180,64 @@ fn compile_formant(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         bw1: Signal::Node(bw1_node),
         bw2: Signal::Node(bw2_node),
         bw3: Signal::Node(bw3_node),
+        state,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Additive synthesis - creates complex timbres by summing sine wave partials
+/// Each partial is a harmonic (integer multiple of fundamental) with independent amplitude
+///
+/// Parameters: freq, amplitudes
+/// - freq: fundamental frequency (Hz) - pattern-modulatable
+/// - amplitudes: space-separated amplitude values for each partial (e.g., "1.0 0.5 0.25")
+///   Partial 1 = fundamental, Partial 2 = 2×fundamental, etc.
+///
+/// Example: additive 440 "1.0 0.5 0.25" creates 440Hz + 880Hz(×0.5) + 1320Hz(×0.25)
+fn compile_additive(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Requires 2 parameters: freq, amplitudes
+    if args.len() != 2 {
+        return Err(format!(
+            "additive requires 2 parameters (freq, amplitudes), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile frequency parameter (pattern-modulatable)
+    let freq_node = compile_expr(ctx, args[0].clone())?;
+
+    // Parse amplitudes - extract numeric values from pattern string
+    let amplitudes: Vec<f32> = match &args[1] {
+        Expr::String(s) => {
+            // Parse mini-notation string to extract numbers
+            s.split_whitespace()
+                .filter_map(|token| token.parse::<f32>().ok())
+                .collect()
+        }
+        Expr::Number(n) => {
+            // Single amplitude value
+            vec![*n as f32]
+        }
+        _ => {
+            return Err(
+                "additive amplitudes must be a string (e.g., \"1.0 0.5 0.25\") or number".to_string(),
+            );
+        }
+    };
+
+    if amplitudes.is_empty() {
+        return Err("additive requires at least one amplitude value".to_string());
+    }
+
+    use crate::unified_graph::AdditiveState;
+
+    // Create additive state
+    let state = AdditiveState::new(ctx.graph.sample_rate());
+
+    let node = SignalNode::Additive {
+        freq: Signal::Node(freq_node),
+        amplitudes,
         state,
     };
 

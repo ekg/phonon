@@ -589,6 +589,16 @@ pub enum SignalNode {
         state: FormantState, // Bandpass filter state
     },
 
+    /// Additive Synthesis
+    /// Creates complex timbres by summing multiple sine wave partials (harmonics)
+    /// Each partial is a multiple of the fundamental frequency with independent amplitude
+    /// Example: additive 440 "1.0 0.5 0.25" → 440Hz + 880Hz(×0.5) + 1320Hz(×0.25)
+    Additive {
+        freq: Signal,           // Fundamental frequency (Hz) - pattern-modulatable
+        amplitudes: Vec<f32>,   // Fixed amplitude for each partial [1, 2, 3, ...]
+        state: AdditiveState,   // Phase tracking state
+    },
+
     /// Brick-wall limiter (prevents signal from exceeding threshold)
     /// Clamps signal to [-threshold, +threshold]
     Limiter {
@@ -2320,6 +2330,57 @@ impl Default for FormantState {
     }
 }
 
+/// Additive Synthesis state
+/// Creates complex timbres by summing multiple sine waves (partials/harmonics)
+/// Each partial has independent amplitude control based on the amplitude pattern
+///
+/// Classic additive synthesis: fundamental + harmonics weighted by amplitudes
+/// Example: additive 440 "1.0 0.5 0.25" creates 440Hz + 880Hz + 1320Hz
+#[derive(Debug, Clone)]
+pub struct AdditiveState {
+    phase: f32,       // Phase accumulator [0, 1)
+    sample_rate: f32, // Sample rate for phase increment calculation
+}
+
+impl AdditiveState {
+    pub fn new(sample_rate: f32) -> Self {
+        Self {
+            phase: 0.0,
+            sample_rate,
+        }
+    }
+
+    /// Generate one sample of additive synthesis
+    /// freq: fundamental frequency (Hz)
+    /// amplitudes: amplitude for each partial (partial 1, 2, 3, ...)
+    pub fn process(&mut self, freq: f32, amplitudes: &[f32]) -> f32 {
+        use std::f32::consts::PI;
+
+        // Calculate phase increment for fundamental
+        let phase_inc = freq / self.sample_rate;
+
+        // Sum all partials
+        let mut output = 0.0;
+        for (i, &amp) in amplitudes.iter().enumerate() {
+            let partial_num = (i + 1) as f32; // Partial 1, 2, 3, ...
+            let partial_phase = (self.phase * partial_num).fract(); // Wrap [0, 1)
+            output += amp * (2.0 * PI * partial_phase).sin();
+        }
+
+        // Advance phase for next sample
+        self.phase = (self.phase + phase_inc).fract();
+
+        // Normalize by number of partials to prevent clipping
+        output / (amplitudes.len() as f32).sqrt()
+    }
+}
+
+impl Default for AdditiveState {
+    fn default() -> Self {
+        Self::new(44100.0)
+    }
+}
+
 /// Lag (exponential slew limiter) state
 /// Smooths abrupt changes with exponential approach
 #[derive(Debug, Clone)]
@@ -3420,6 +3481,29 @@ impl UnifiedSignalGraph {
                 if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
                     if let SignalNode::Formant { state: s, .. } = node {
                         return s.process(input, f1_val, f2_val, f3_val, bw1_val, bw2_val, bw3_val);
+                    }
+                }
+
+                0.0
+            }
+
+            SignalNode::Additive {
+                freq,
+                amplitudes,
+                state,
+            } => {
+                // Evaluate fundamental frequency (pattern-modulatable)
+                let f = self.eval_signal(&freq).max(20.0).min(10000.0);
+
+                // Get mutable state and process with fixed amplitudes
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Additive {
+                        state: s,
+                        amplitudes: amps,
+                        ..
+                    } = node
+                    {
+                        return s.process(f, amps);
                     }
                 }
 
