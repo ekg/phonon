@@ -668,6 +668,7 @@ fn compile_function_call(
         "wavetable" => compile_wavetable(ctx, args),
         "granular" => compile_granular(ctx, args),
         "pluck" => compile_karplus_strong(ctx, args),
+        "waveguide" => compile_waveguide(ctx, args),
         "white_noise" => compile_white_noise(ctx, args),
         "pink_noise" => compile_pink_noise(ctx, args),
         "brown_noise" => compile_brown_noise(ctx, args),
@@ -1093,6 +1094,39 @@ fn compile_karplus_strong(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<
         freq: Signal::Node(freq_node),
         damping: damping_signal,
         state: KarplusStrongState::new(initial_size),
+        last_freq: 440.0, // Will be updated on first sample
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Digital waveguide physical modeling (more sophisticated than Karplus-Strong)
+/// Uses bidirectional delay lines to simulate wave propagation in strings/tubes
+fn compile_waveguide(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Requires 3 parameters: frequency, damping, pickup_position
+    if args.len() != 3 {
+        return Err(format!(
+            "waveguide requires 3 parameters (frequency, damping, pickup_position), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile all parameters (all pattern-modulatable)
+    let freq_node = compile_expr(ctx, args[0].clone())?;
+    let damping_node = compile_expr(ctx, args[1].clone())?;
+    let pickup_node = compile_expr(ctx, args[2].clone())?;
+
+    use crate::unified_graph::WaveguideState;
+
+    // Calculate initial delay line size based on default frequency
+    // We'll resize dynamically if frequency changes
+    let initial_size = (ctx.graph.sample_rate() / 440.0) as usize;
+
+    let node = SignalNode::Waveguide {
+        freq: Signal::Node(freq_node),
+        damping: Signal::Node(damping_node),
+        pickup_position: Signal::Node(pickup_node),
+        state: WaveguideState::new(initial_size),
         last_freq: 440.0, // Will be updated on first sample
     };
 

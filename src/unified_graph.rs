@@ -564,6 +564,17 @@ pub enum SignalNode {
         last_freq: f32,            // Previous frequency (for detecting changes)
     },
 
+    /// Digital Waveguide Physical Modeling
+    /// Simulates wave propagation in strings/tubes using bidirectional delay lines
+    /// More sophisticated than Karplus-Strong with separate forward/backward waves
+    Waveguide {
+        freq: Signal,            // Fundamental frequency in Hz
+        damping: Signal,         // Energy loss at boundaries (0.0 = no loss, 1.0 = max loss)
+        pickup_position: Signal, // Where to read from string (0.0 to 1.0)
+        state: WaveguideState,   // Bidirectional delay line state
+        last_freq: f32,          // Previous frequency (for detecting changes)
+    },
+
     /// Brick-wall limiter (prevents signal from exceeding threshold)
     /// Clamps signal to [-threshold, +threshold]
     Limiter {
@@ -2072,6 +2083,119 @@ impl Default for KarplusStrongState {
     }
 }
 
+/// Digital Waveguide Physical Modeling state
+/// Uses bidirectional delay lines to simulate wave propagation in physical media
+/// More sophisticated than Karplus-Strong, can model various acoustic instruments
+#[derive(Debug, Clone)]
+pub struct WaveguideState {
+    forward_delay: Vec<f32>,  // Forward-propagating wave
+    backward_delay: Vec<f32>, // Backward-propagating wave
+    forward_pos: usize,       // Write position for forward delay
+    backward_pos: usize,      // Write position for backward delay
+    initialized: bool,        // Whether delay lines have been filled with noise
+}
+
+impl WaveguideState {
+    pub fn new(delay_length: usize) -> Self {
+        let delay_length = delay_length.max(2); // Minimum 2 samples
+        Self {
+            forward_delay: vec![0.0; delay_length],
+            backward_delay: vec![0.0; delay_length],
+            forward_pos: 0,
+            backward_pos: 0,
+            initialized: false,
+        }
+    }
+
+    /// Initialize delay lines with noise (simulates initial pluck/bow)
+    pub fn initialize_with_noise(&mut self) {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+
+        for sample in &mut self.forward_delay {
+            *sample = rng.gen_range(-1.0..1.0);
+        }
+        for sample in &mut self.backward_delay {
+            *sample = rng.gen_range(-1.0..1.0);
+        }
+
+        self.initialized = true;
+    }
+
+    /// Get sample from waveguide at given pickup position and damping
+    /// pickup_position: 0.0 to 1.0 (where along string to read)
+    /// damping: 0.0 to 1.0 (energy loss at boundaries)
+    pub fn get_sample(&mut self, pickup_position: f32, damping: f32) -> f32 {
+        if !self.initialized {
+            self.initialize_with_noise();
+        }
+
+        let len = self.forward_delay.len();
+
+        // Clamp pickup position to valid range
+        let pickup_pos = pickup_position.clamp(0.0, 1.0);
+
+        // Calculate read positions for pickup
+        let pickup_idx = (pickup_pos * (len - 1) as f32) as usize;
+
+        // Read from both delay lines at pickup position
+        let forward_sample = self.forward_delay[pickup_idx];
+        let backward_sample = self.backward_delay[pickup_idx];
+
+        // Output is sum of both waves at pickup point
+        let output = (forward_sample + backward_sample) * 0.5;
+
+        // Calculate reflection coefficient (energy retention at boundaries)
+        // Higher damping = more energy loss
+        let reflection_coeff = 0.999 - (damping * 0.002);
+
+        // Read from ends of delay lines for reflection
+        let forward_end = self.forward_delay[self.forward_pos];
+        let backward_end = self.backward_delay[self.backward_pos];
+
+        // Reflect with damping: forward wave becomes backward wave (and vice versa)
+        // Simple lowpass: average with previous sample for damping
+        let forward_prev_pos = if self.forward_pos == 0 { len - 1 } else { self.forward_pos - 1 };
+        let backward_prev_pos = if self.backward_pos == 0 { len - 1 } else { self.backward_pos - 1 };
+
+        let forward_prev = self.forward_delay[forward_prev_pos];
+        let backward_prev = self.backward_delay[backward_prev_pos];
+
+        // Average for lowpass filtering effect
+        let forward_averaged = (forward_end + forward_prev) * 0.5;
+        let backward_averaged = (backward_end + backward_prev) * 0.5;
+
+        // Write reflected waves with damping
+        self.forward_delay[self.forward_pos] = -backward_averaged * reflection_coeff;
+        self.backward_delay[self.backward_pos] = -forward_averaged * reflection_coeff;
+
+        // Advance write positions
+        self.forward_pos = (self.forward_pos + 1) % len;
+        self.backward_pos = (self.backward_pos + 1) % len;
+
+        output
+    }
+
+    /// Resize delay lines (for frequency changes)
+    pub fn resize(&mut self, new_size: usize) {
+        let new_size = new_size.max(2); // Minimum 2 samples
+        if new_size != self.forward_delay.len() {
+            self.forward_delay.resize(new_size, 0.0);
+            self.backward_delay.resize(new_size, 0.0);
+            self.forward_pos = 0;
+            self.backward_pos = 0;
+            self.initialized = false; // Will re-initialize on next sample
+        }
+    }
+}
+
+impl Default for WaveguideState {
+    fn default() -> Self {
+        // Default: 100 samples (440Hz at 44.1kHz)
+        Self::new(100)
+    }
+}
+
 /// Lag (exponential slew limiter) state
 /// Smooths abrupt changes with exponential approach
 #[derive(Debug, Clone)]
@@ -3102,6 +3226,45 @@ impl UnifiedSignalGraph {
 
                         // Get sample from Karplus-Strong algorithm
                         return s.get_sample(damp);
+                    }
+                }
+
+                0.0
+            }
+
+            SignalNode::Waveguide {
+                freq,
+                damping,
+                pickup_position,
+                state,
+                last_freq,
+            } => {
+                // Evaluate pattern-modulatable parameters
+                let f = self.eval_signal(&freq).max(20.0).min(10000.0);
+                let damp = self.eval_signal(&damping).clamp(0.0, 1.0);
+                let pickup = self.eval_signal(&pickup_position).clamp(0.0, 1.0);
+
+                // Calculate required delay line size for this frequency
+                let required_size = (self.sample_rate / f) as usize;
+
+                // Check if frequency changed significantly (need to resize delay lines)
+                let freq_changed = (f - last_freq).abs() > 1.0;
+
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Waveguide {
+                        state: s,
+                        last_freq: lf,
+                        ..
+                    } = node
+                    {
+                        // Resize delay lines if frequency changed
+                        if freq_changed {
+                            s.resize(required_size);
+                            *lf = f;
+                        }
+
+                        // Get sample from waveguide algorithm
+                        return s.get_sample(pickup, damp);
                     }
                 }
 
