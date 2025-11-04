@@ -666,6 +666,7 @@ fn compile_function_call(
         "tri" => compile_oscillator(ctx, Waveform::Triangle, args),
         "fm" => compile_fm(ctx, args),
         "wavetable" => compile_wavetable(ctx, args),
+        "granular" => compile_granular(ctx, args),
         "white_noise" => compile_white_noise(ctx, args),
         "pink_noise" => compile_pink_noise(ctx, args),
         "brown_noise" => compile_brown_noise(ctx, args),
@@ -1025,6 +1026,35 @@ fn compile_wavetable(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
     let node = SignalNode::Wavetable {
         freq: Signal::Node(freq_node),
         state: WavetableState::new(), // Default: sine wave
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile granular synthesizer
+/// Breaks audio into small grains and overlaps them with varying parameters
+fn compile_granular(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 4 {
+        return Err(format!(
+            "granular requires 4 parameters (source, grain_size_ms, density, pitch), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile all parameters as signals (supports pattern modulation!)
+    let source_node = compile_expr(ctx, args[0].clone())?;
+    let grain_size_node = compile_expr(ctx, args[1].clone())?;
+    let density_node = compile_expr(ctx, args[2].clone())?;
+    let pitch_node = compile_expr(ctx, args[3].clone())?;
+
+    use crate::unified_graph::GranularState;
+
+    let node = SignalNode::Granular {
+        source: Signal::Node(source_node),
+        grain_size_ms: Signal::Node(grain_size_node),
+        density: Signal::Node(density_node),
+        pitch: Signal::Node(pitch_node),
+        state: GranularState::default(), // 2-second buffer
     };
 
     Ok(ctx.graph.add_node(node))

@@ -543,6 +543,17 @@ pub enum SignalNode {
         state: WavetableState, // Wavetable data and phase
     },
 
+    /// Granular synthesis
+    /// Breaks audio into small grains (5-100ms) and overlaps them
+    /// Classic technique: Reaktor, Ableton Granulator, Max/MSP
+    Granular {
+        source: Signal,         // Input audio source
+        grain_size_ms: Signal,  // Grain duration in milliseconds
+        density: Signal,        // Grain spawn rate (0.0 to 1.0)
+        pitch: Signal,          // Playback speed/pitch multiplier
+        state: GranularState,   // Grain buffer and active grains
+    },
+
     /// Brick-wall limiter (prevents signal from exceeding threshold)
     /// Clamps signal to [-threshold, +threshold]
     Limiter {
@@ -1851,6 +1862,129 @@ impl Default for WavetableState {
     }
 }
 
+/// Individual grain for granular synthesis
+#[derive(Debug, Clone)]
+pub struct Grain {
+    position: f32,       // Read position in source buffer (samples)
+    playback_rate: f32,  // Speed/pitch multiplier (1.0 = normal)
+    age_samples: usize,  // How many samples this grain has played
+    grain_length: usize, // Total length of this grain in samples
+}
+
+impl Grain {
+    pub fn new(position: f32, playback_rate: f32, grain_length: usize) -> Self {
+        Self {
+            position,
+            playback_rate,
+            age_samples: 0,
+            grain_length,
+        }
+    }
+
+    /// Get windowed sample from this grain (Hann window)
+    pub fn get_sample(&self, source_buffer: &[f32]) -> f32 {
+        if self.age_samples >= self.grain_length {
+            return 0.0; // Grain finished
+        }
+
+        // Hann window: 0.5 * (1 - cos(2π * t))
+        let t = self.age_samples as f32 / self.grain_length as f32;
+        let window = 0.5 * (1.0 - (2.0 * std::f32::consts::PI * t).cos());
+
+        // Get sample from source buffer with linear interpolation
+        let buffer_len = source_buffer.len();
+        if buffer_len == 0 {
+            return 0.0;
+        }
+
+        let index = (self.position as usize) % buffer_len;
+        let sample = source_buffer[index];
+
+        sample * window
+    }
+
+    /// Advance grain by one sample
+    pub fn advance(&mut self) {
+        self.position += self.playback_rate;
+        self.age_samples += 1;
+    }
+
+    /// Check if grain is finished
+    pub fn is_finished(&self) -> bool {
+        self.age_samples >= self.grain_length
+    }
+}
+
+/// Granular synthesis state
+/// Breaks audio into small grains and overlaps them with varying parameters
+#[derive(Debug, Clone)]
+pub struct GranularState {
+    source_buffer: Vec<f32>,   // Circular buffer storing source audio
+    buffer_write_pos: usize,   // Current write position in buffer
+    active_grains: Vec<Grain>, // Currently playing grains
+    grain_spawn_phase: f32,    // Phase for spawning new grains [0, 1)
+}
+
+impl GranularState {
+    pub fn new(buffer_size: usize) -> Self {
+        Self {
+            source_buffer: vec![0.0; buffer_size],
+            buffer_write_pos: 0,
+            active_grains: Vec::new(),
+            grain_spawn_phase: 0.0,
+        }
+    }
+
+    /// Write a sample to the source buffer
+    pub fn write_sample(&mut self, sample: f32) {
+        self.source_buffer[self.buffer_write_pos] = sample;
+        self.buffer_write_pos = (self.buffer_write_pos + 1) % self.source_buffer.len();
+    }
+
+    /// Spawn a new grain at current position
+    pub fn spawn_grain(&mut self, grain_size_samples: usize, playback_rate: f32) {
+        // Random position in buffer for variety
+        let position = (self.buffer_write_pos as f32 * 0.8) % self.source_buffer.len() as f32;
+        let grain = Grain::new(position, playback_rate, grain_size_samples);
+        self.active_grains.push(grain);
+    }
+
+    /// Get mixed output from all active grains
+    pub fn get_sample(&mut self) -> f32 {
+        let mut output = 0.0;
+        let count = self.active_grains.len() as f32;
+
+        // Mix all active grains
+        for grain in &self.active_grains {
+            output += grain.get_sample(&self.source_buffer);
+        }
+
+        // Normalize by grain count to prevent clipping
+        if count > 0.0 {
+            output / count.sqrt()
+        } else {
+            0.0
+        }
+    }
+
+    /// Advance all grains and remove finished ones
+    pub fn advance(&mut self) {
+        for grain in &mut self.active_grains {
+            grain.advance();
+        }
+
+        // Remove finished grains
+        self.active_grains.retain(|g| !g.is_finished());
+    }
+}
+
+impl Default for GranularState {
+    fn default() -> Self {
+        // Default: 2 second buffer at 44.1kHz
+        Self::new(88200)
+    }
+}
+
 /// Lag (exponential slew limiter) state
 /// Smooths abrupt changes with exponential approach
 #[derive(Debug, Clone)]
@@ -2806,6 +2940,48 @@ impl UnifiedSignalGraph {
                 }
 
                 sample
+            }
+
+            SignalNode::Granular {
+                source,
+                grain_size_ms,
+                density,
+                pitch,
+                state,
+            } => {
+                // Evaluate pattern-modulatable parameters
+                let source_sample = self.eval_signal(&source);
+                let grain_ms = self.eval_signal(&grain_size_ms).max(5.0).min(500.0);
+                let density_val = self.eval_signal(&density).clamp(0.0, 1.0);
+                let pitch_val = self.eval_signal(&pitch).max(0.1).min(4.0);
+
+                // Convert grain size from milliseconds to samples
+                let grain_size_samples = (grain_ms * self.sample_rate / 1000.0) as usize;
+
+                // Write source sample to buffer
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Granular { state: s, .. } = node {
+                        s.write_sample(source_sample);
+
+                        // Spawn new grain based on density
+                        // density controls spawn rate: 0.0 = never, 1.0 = every sample
+                        s.grain_spawn_phase += density_val;
+                        if s.grain_spawn_phase >= 1.0 {
+                            s.grain_spawn_phase -= 1.0;
+                            s.spawn_grain(grain_size_samples, pitch_val);
+                        }
+
+                        // Get mixed output from all active grains
+                        let output = s.get_sample();
+
+                        // Advance all grains
+                        s.advance();
+
+                        return output;
+                    }
+                }
+
+                0.0
             }
 
             SignalNode::Limiter { input, threshold } => {
