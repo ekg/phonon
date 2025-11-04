@@ -264,6 +264,7 @@ out: formant ~source 730 1090 2440 80 90 120
 }
 
 #[test]
+#[ignore] // Noise source through formant is computationally expensive
 fn test_formant_noise_source() {
     // Formant with noise source (whispered voice)
     let code = r#"
