@@ -575,6 +575,20 @@ pub enum SignalNode {
         last_freq: f32,          // Previous frequency (for detecting changes)
     },
 
+    /// Formant Synthesis
+    /// Filters source signal through three resonant bandpass filters to create vowel sounds
+    /// Each vowel is characterized by specific formant frequencies (F1, F2, F3)
+    Formant {
+        source: Signal,   // Input signal to filter
+        f1: Signal,       // First formant frequency (Hz)
+        f2: Signal,       // Second formant frequency (Hz)
+        f3: Signal,       // Third formant frequency (Hz)
+        bw1: Signal,      // First formant bandwidth (Hz)
+        bw2: Signal,      // Second formant bandwidth (Hz)
+        bw3: Signal,      // Third formant bandwidth (Hz)
+        state: FormantState, // Bandpass filter state
+    },
+
     /// Brick-wall limiter (prevents signal from exceeding threshold)
     /// Clamps signal to [-threshold, +threshold]
     Limiter {
@@ -2196,6 +2210,116 @@ impl Default for WaveguideState {
     }
 }
 
+/// Formant Synthesis state
+/// Filters source signal through three resonant bandpass filters (formants)
+/// to create vowel sounds. Each vowel is characterized by specific formant
+/// frequencies that resonate in the vocal tract.
+///
+/// Uses Chamberlin state variable filters (same as BandPass node) for each formant.
+///
+/// Common vowel formants (male voice, Hz):
+/// - /a/ (father): F1=730, F2=1090, F3=2440
+/// - /e/ (bet):    F1=530, F2=1840, F3=2480
+/// - /i/ (beet):   F1=270, F2=2290, F3=3010
+/// - /o/ (boat):   F1=570, F2=840,  F3=2410
+/// - /u/ (boot):   F1=300, F2=870,  F3=2240
+#[derive(Debug, Clone)]
+pub struct FormantState {
+    /// State variable filter states for each formant
+    state1: FilterState,
+    state2: FilterState,
+    state3: FilterState,
+
+    sample_rate: f32,
+}
+
+impl FormantState {
+    pub fn new(sample_rate: f32) -> Self {
+        Self {
+            state1: FilterState::default(),
+            state2: FilterState::default(),
+            state3: FilterState::default(),
+            sample_rate,
+        }
+    }
+
+    /// Process input through three formant bandpass filters
+    /// Uses Chamberlin state variable filter (same as BandPass node)
+    pub fn process(
+        &mut self,
+        input: f32,
+        f1: f32,
+        f2: f32,
+        f3: f32,
+        bw1: f32,
+        bw2: f32,
+        bw3: f32,
+    ) -> f32 {
+        use std::f32::consts::PI;
+
+        // Formant 1 (lowest frequency)
+        let q1 = f1 / bw1.max(1.0); // Q = center_freq / bandwidth
+        let f_1 = 2.0 * (PI * f1 / self.sample_rate).sin();
+        let damp1 = 1.0 / q1.max(0.5);
+
+        let mut low1 = self.state1.y1;
+        let mut band1 = self.state1.x1;
+        let mut high1 = self.state1.y2;
+
+        high1 = input - low1 - damp1 * band1;
+        band1 += f_1 * high1;
+        low1 += f_1 * band1;
+
+        self.state1.y1 = low1;
+        self.state1.x1 = band1;
+        self.state1.y2 = high1;
+
+        // Formant 2 (mid frequency)
+        let q2 = f2 / bw2.max(1.0);
+        let f_2 = 2.0 * (PI * f2 / self.sample_rate).sin();
+        let damp2 = 1.0 / q2.max(0.5);
+
+        let mut low2 = self.state2.y1;
+        let mut band2 = self.state2.x1;
+        let mut high2 = self.state2.y2;
+
+        high2 = input - low2 - damp2 * band2;
+        band2 += f_2 * high2;
+        low2 += f_2 * band2;
+
+        self.state2.y1 = low2;
+        self.state2.x1 = band2;
+        self.state2.y2 = high2;
+
+        // Formant 3 (highest frequency)
+        let q3 = f3 / bw3.max(1.0);
+        let f_3 = 2.0 * (PI * f3 / self.sample_rate).sin();
+        let damp3 = 1.0 / q3.max(0.5);
+
+        let mut low3 = self.state3.y1;
+        let mut band3 = self.state3.x1;
+        let mut high3 = self.state3.y2;
+
+        high3 = input - low3 - damp3 * band3;
+        band3 += f_3 * high3;
+        low3 += f_3 * band3;
+
+        self.state3.y1 = low3;
+        self.state3.x1 = band3;
+        self.state3.y2 = high3;
+
+        // Sum the three bandpass outputs (formants)
+        // Weight them to balance energy across frequency ranges
+        (band1 + band2 + band3) * 0.5
+    }
+}
+
+impl Default for FormantState {
+    fn default() -> Self {
+        Self::new(44100.0)
+    }
+}
+
 /// Lag (exponential slew limiter) state
 /// Smooths abrupt changes with exponential approach
 #[derive(Debug, Clone)]
@@ -3265,6 +3389,37 @@ impl UnifiedSignalGraph {
 
                         // Get sample from waveguide algorithm
                         return s.get_sample(pickup, damp);
+                    }
+                }
+
+                0.0
+            }
+
+            SignalNode::Formant {
+                source,
+                f1,
+                f2,
+                f3,
+                bw1,
+                bw2,
+                bw3,
+                state,
+            } => {
+                // Evaluate input source signal
+                let input = self.eval_signal(&source);
+
+                // Evaluate formant parameters (all pattern-modulatable)
+                let f1_val = self.eval_signal(&f1).max(50.0).min(5000.0);
+                let f2_val = self.eval_signal(&f2).max(50.0).min(5000.0);
+                let f3_val = self.eval_signal(&f3).max(50.0).min(10000.0);
+                let bw1_val = self.eval_signal(&bw1).max(10.0).min(1000.0);
+                let bw2_val = self.eval_signal(&bw2).max(10.0).min(1000.0);
+                let bw3_val = self.eval_signal(&bw3).max(10.0).min(1000.0);
+
+                // Get mutable state and process
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Formant { state: s, .. } = node {
+                        return s.process(input, f1_val, f2_val, f3_val, bw1_val, bw2_val, bw3_val);
                     }
                 }
 

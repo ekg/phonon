@@ -669,6 +669,7 @@ fn compile_function_call(
         "granular" => compile_granular(ctx, args),
         "pluck" => compile_karplus_strong(ctx, args),
         "waveguide" => compile_waveguide(ctx, args),
+        "formant" => compile_formant(ctx, args),
         "white_noise" => compile_white_noise(ctx, args),
         "pink_noise" => compile_pink_noise(ctx, args),
         "brown_noise" => compile_brown_noise(ctx, args),
@@ -1128,6 +1129,57 @@ fn compile_waveguide(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
         pickup_position: Signal::Node(pickup_node),
         state: WaveguideState::new(initial_size),
         last_freq: 440.0, // Will be updated on first sample
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Formant synthesis - filters source through three resonant bandpass filters
+/// Creates vowel sounds by emphasizing specific frequency ranges (formants)
+///
+/// Parameters: source, f1, f2, f3, bw1, bw2, bw3
+/// - source: input signal to filter
+/// - f1, f2, f3: formant frequencies (Hz)
+/// - bw1, bw2, bw3: formant bandwidths (Hz)
+///
+/// Common vowel formants (male voice, Hz):
+/// - /a/ (father): formant 730 1090 2440 80 90 120
+/// - /e/ (bet):    formant 530 1840 2480 80 90 120
+/// - /i/ (beet):   formant 270 2290 3010 60 90 150
+/// - /o/ (boat):   formant 570 840 2410 80 90 120
+/// - /u/ (boot):   formant 300 870 2240 60 70 100
+fn compile_formant(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Requires 7 parameters: source, f1, f2, f3, bw1, bw2, bw3
+    if args.len() != 7 {
+        return Err(format!(
+            "formant requires 7 parameters (source, f1, f2, f3, bw1, bw2, bw3), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile all parameters
+    let source_node = compile_expr(ctx, args[0].clone())?;
+    let f1_node = compile_expr(ctx, args[1].clone())?;
+    let f2_node = compile_expr(ctx, args[2].clone())?;
+    let f3_node = compile_expr(ctx, args[3].clone())?;
+    let bw1_node = compile_expr(ctx, args[4].clone())?;
+    let bw2_node = compile_expr(ctx, args[5].clone())?;
+    let bw3_node = compile_expr(ctx, args[6].clone())?;
+
+    use crate::unified_graph::FormantState;
+
+    // Create formant state
+    let state = FormantState::new(ctx.graph.sample_rate());
+
+    let node = SignalNode::Formant {
+        source: Signal::Node(source_node),
+        f1: Signal::Node(f1_node),
+        f2: Signal::Node(f2_node),
+        f3: Signal::Node(f3_node),
+        bw1: Signal::Node(bw1_node),
+        bw2: Signal::Node(bw2_node),
+        bw3: Signal::Node(bw3_node),
+        state,
     };
 
     Ok(ctx.graph.add_node(node))
