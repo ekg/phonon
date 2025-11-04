@@ -2372,6 +2372,9 @@ impl AdditiveState {
 
         // Sum all partials
         let mut output = 0.0;
+        let amp_sum: f32 = amplitudes.iter().sum();
+        let norm_factor = if amp_sum > 0.0 { amp_sum } else { 1.0 };
+
         for (i, &amp) in amplitudes.iter().enumerate() {
             let partial_num = (i + 1) as f32; // Partial 1, 2, 3, ...
             let partial_phase = (self.phase * partial_num).fract(); // Wrap [0, 1)
@@ -2381,8 +2384,9 @@ impl AdditiveState {
         // Advance phase for next sample
         self.phase = (self.phase + phase_inc).fract();
 
-        // Normalize by number of partials to prevent clipping
-        output / (amplitudes.len() as f32).sqrt()
+        // Normalize by sum of amplitudes to prevent clipping
+        // This keeps relative loudness proportional to total amplitude
+        output / norm_factor
     }
 }
 
@@ -2407,40 +2411,55 @@ pub struct VocoderState {
     /// Envelope follower state for each band
     envelopes: Vec<f32>,
     sample_rate: f32,
+    /// Pre-calculated filter coefficients (computed once at initialization)
+    filter_f: Vec<f32>,    // f coefficient for each band
+    filter_damp: Vec<f32>, // damp coefficient for each band
 }
 
 impl VocoderState {
     pub fn new(num_bands: usize, sample_rate: f32) -> Self {
+        use std::f32::consts::PI;
+
         let num_bands = num_bands.max(2).min(32); // Limit 2-32 bands
+
+        // Pre-calculate filter coefficients for all bands
+        let min_freq: f32 = 100.0;
+        let max_freq: f32 = 10000.0;
+        let freq_ratio = (max_freq / min_freq).powf(1.0 / (num_bands as f32));
+
+        let mut filter_f = Vec::with_capacity(num_bands);
+        let mut filter_damp = Vec::with_capacity(num_bands);
+
+        for band in 0..num_bands {
+            let center_freq = min_freq * freq_ratio.powi(band as i32);
+            let bandwidth = center_freq * 0.5;
+            let q = center_freq / bandwidth;
+            let f = 2.0 * (PI * center_freq / sample_rate).sin();
+            let damp = 1.0 / q.max(0.5);
+
+            filter_f.push(f);
+            filter_damp.push(damp);
+        }
+
         Self {
             num_bands,
             modulator_filters: vec![FilterState::default(); num_bands],
             carrier_filters: vec![FilterState::default(); num_bands],
             envelopes: vec![0.0; num_bands],
             sample_rate,
+            filter_f,
+            filter_damp,
         }
     }
 
     /// Process one sample through the vocoder
     pub fn process(&mut self, modulator_sample: f32, carrier_sample: f32) -> f32 {
-        use std::f32::consts::PI;
-
-        // Calculate frequency bands (logarithmic spacing from 100Hz to 10kHz)
-        let min_freq: f32 = 100.0;
-        let max_freq: f32 = 10000.0;
-        let freq_ratio = (max_freq / min_freq).powf(1.0 / (self.num_bands as f32));
-
         let mut output = 0.0;
 
         for band in 0..self.num_bands {
-            // Calculate center frequency for this band (logarithmic spacing)
-            let center_freq = min_freq * freq_ratio.powi(band as i32);
-            let bandwidth = center_freq * 0.5; // 50% bandwidth
-
-            // Calculate filter coefficients (Chamberlin state variable filter)
-            let q = center_freq / bandwidth;
-            let f = 2.0 * (PI * center_freq / self.sample_rate).sin();
-            let damp = 1.0 / q.max(0.5);
+            // Use pre-calculated filter coefficients
+            let f = self.filter_f[band];
+            let damp = self.filter_damp[band];
 
             // Filter modulator through bandpass
             let mod_state = &mut self.modulator_filters[band];
