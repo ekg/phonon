@@ -610,6 +610,12 @@ pub enum SignalNode {
         state: VocoderState,
     },
 
+    PitchShift {
+        input: Signal,      // Input signal to pitch shift
+        semitones: Signal,  // Pitch shift amount in semitones (can be pattern-modulated)
+        state: PitchShifterState,
+    },
+
     /// Brick-wall limiter (prevents signal from exceeding threshold)
     /// Clamps signal to [-threshold, +threshold]
     Limiter {
@@ -2582,6 +2588,102 @@ impl Default for VocoderState {
     }
 }
 
+/// Pitch Shifter state
+/// Shifts pitch of audio without changing duration using granular synthesis
+/// Converts semitones to playback rate and uses overlapping grains
+#[derive(Debug, Clone)]
+pub struct PitchShifterState {
+    delay_buffer: Vec<f32>,  // Circular buffer for input audio
+    write_pos: usize,        // Write position in buffer
+    grain1_pos: f32,         // Read position for grain 1
+    grain2_pos: f32,         // Read position for grain 2
+    grain1_phase: f32,       // Phase for grain 1 window [0, 1]
+    grain2_phase: f32,       // Phase for grain 2 window [0, 1]
+    grain_size: usize,       // Size of each grain in samples
+    sample_rate: f32,
+}
+
+impl PitchShifterState {
+    pub fn new(grain_size_ms: f32, sample_rate: f32) -> Self {
+        let grain_size = ((grain_size_ms / 1000.0) * sample_rate) as usize;
+        let grain_size = grain_size.max(128); // Minimum grain size
+        let buffer_size = grain_size * 4; // 4x grain size for buffer
+
+        Self {
+            delay_buffer: vec![0.0; buffer_size],
+            write_pos: 0,
+            grain1_pos: 0.0,
+            grain2_pos: (grain_size / 2) as f32, // Offset by half grain
+            grain1_phase: 0.0,
+            grain2_phase: 0.5, // 50% phase offset
+            grain_size,
+            sample_rate,
+        }
+    }
+
+    /// Process one sample with pitch shifting
+    /// semitones: pitch shift in semitones (positive = higher, negative = lower)
+    pub fn process(&mut self, input: f32, semitones: f32) -> f32 {
+        // Write input to delay buffer
+        self.delay_buffer[self.write_pos] = input;
+        self.write_pos = (self.write_pos + 1) % self.delay_buffer.len();
+
+        // Convert semitones to playback rate: rate = 2^(semitones/12)
+        let playback_rate = (semitones / 12.0).exp2();
+
+        // Hann window function
+        let window = |phase: f32| -> f32 {
+            let phase = phase.clamp(0.0, 1.0);
+            0.5 * (1.0 - (2.0 * std::f32::consts::PI * phase).cos())
+        };
+
+        // Read from grain 1
+        let grain1_idx = self.grain1_pos as usize % self.delay_buffer.len();
+        let grain1_sample = self.delay_buffer[grain1_idx];
+        let grain1_window = window(self.grain1_phase);
+        let grain1_out = grain1_sample * grain1_window;
+
+        // Read from grain 2
+        let grain2_idx = self.grain2_pos as usize % self.delay_buffer.len();
+        let grain2_sample = self.delay_buffer[grain2_idx];
+        let grain2_window = window(self.grain2_phase);
+        let grain2_out = grain2_sample * grain2_window;
+
+        // Mix grains
+        let output = grain1_out + grain2_out;
+
+        // Advance grain positions at playback rate
+        self.grain1_pos += playback_rate;
+        self.grain2_pos += playback_rate;
+
+        // Advance phases (always at normal rate to maintain duration)
+        let phase_inc = 1.0 / self.grain_size as f32;
+        self.grain1_phase += phase_inc;
+        self.grain2_phase += phase_inc;
+
+        // Reset grain 1 when complete
+        if self.grain1_phase >= 1.0 {
+            self.grain1_phase = 0.0;
+            // Start reading from current write position
+            self.grain1_pos = self.write_pos as f32;
+        }
+
+        // Reset grain 2 when complete
+        if self.grain2_phase >= 1.0 {
+            self.grain2_phase = 0.0;
+            self.grain2_pos = self.write_pos as f32;
+        }
+
+        output * 0.5 // Normalize for 2 grains
+    }
+}
+
+impl Default for PitchShifterState {
+    fn default() -> Self {
+        Self::new(50.0, 44100.0) // Default: 50ms grains at 44.1kHz
+    }
+}
+
 /// Lag (exponential slew limiter) state
 /// Smooths abrupt changes with exponential approach
 #[derive(Debug, Clone)]
@@ -3725,6 +3827,25 @@ impl UnifiedSignalGraph {
                 if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
                     if let SignalNode::Vocoder { state: s, .. } = node {
                         return s.process(mod_sample, carr_sample);
+                    }
+                }
+
+                0.0
+            }
+
+            SignalNode::PitchShift {
+                input,
+                semitones,
+                state,
+            } => {
+                // Evaluate input and semitones
+                let input_sample = self.eval_signal(&input);
+                let semitones_val = self.eval_signal(&semitones);
+
+                // Get mutable state and process
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::PitchShift { state: s, .. } = node {
+                        return s.process(input_sample, semitones_val);
                     }
                 }
 

@@ -672,6 +672,7 @@ fn compile_function_call(
         "formant" => compile_formant(ctx, args),
         "additive" => compile_additive(ctx, args),
         "vocoder" => compile_vocoder(ctx, args),
+        "pitch_shift" => compile_pitch_shift(ctx, args),
         "white_noise" => compile_white_noise(ctx, args),
         "pink_noise" => compile_pink_noise(ctx, args),
         "brown_noise" => compile_brown_noise(ctx, args),
@@ -1286,6 +1287,36 @@ fn compile_vocoder(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         modulator: Signal::Node(modulator_node),
         carrier: Signal::Node(carrier_node),
         num_bands,
+        state,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile pitch shifter
+fn compile_pitch_shift(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Requires 2 parameters: input signal, semitones
+    if args.len() != 2 {
+        return Err(format!(
+            "pitch_shift requires 2 parameters (input, semitones), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile input signal
+    let input_node = compile_expr(ctx, args[0].clone())?;
+
+    // Compile semitones parameter (can be pattern-modulated)
+    let semitones_node = compile_expr(ctx, args[1].clone())?;
+
+    use crate::unified_graph::PitchShifterState;
+
+    // Create pitch shifter state with default grain size (50ms)
+    let state = PitchShifterState::new(50.0, ctx.graph.sample_rate());
+
+    let node = SignalNode::PitchShift {
+        input: Signal::Node(input_node),
+        semitones: Signal::Node(semitones_node),
         state,
     };
 
