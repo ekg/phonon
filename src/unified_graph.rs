@@ -4359,8 +4359,11 @@ impl UnifiedSignalGraph {
                     _ => false,
                 };
 
+                // CRITICAL: Drop the lock guard before attempting to lock again for tick
+                // Otherwise we get a deadlock for units that don't need recreation
+                drop(state_guard);
+
                 if needs_recreation {
-                    drop(state_guard);
                     let mut state_mut = state.lock().unwrap();
 
                     // Recreate unit with new parameters
