@@ -1925,15 +1925,26 @@ pub struct Grain {
     playback_rate: f32,  // Speed/pitch multiplier (1.0 = normal)
     age_samples: usize,  // How many samples this grain has played
     grain_length: usize, // Total length of this grain in samples
+    window_table: Vec<f32>, // Pre-computed Hann window values
 }
 
 impl Grain {
     pub fn new(position: f32, playback_rate: f32, grain_length: usize) -> Self {
+        // Pre-compute Hann window for this grain
+        // Hann window: 0.5 * (1 - cos(2π * t))
+        let window_table: Vec<f32> = (0..grain_length)
+            .map(|i| {
+                let t = i as f32 / grain_length as f32;
+                0.5 * (1.0 - (2.0 * std::f32::consts::PI * t).cos())
+            })
+            .collect();
+
         Self {
             position,
             playback_rate,
             age_samples: 0,
             grain_length,
+            window_table,
         }
     }
 
@@ -1943,9 +1954,8 @@ impl Grain {
             return 0.0; // Grain finished
         }
 
-        // Hann window: 0.5 * (1 - cos(2π * t))
-        let t = self.age_samples as f32 / self.grain_length as f32;
-        let window = 0.5 * (1.0 - (2.0 * std::f32::consts::PI * t).cos());
+        // Use pre-computed window value (PERFORMANCE FIX)
+        let window = self.window_table[self.age_samples];
 
         // Get sample from source buffer with linear interpolation
         let buffer_len = source_buffer.len();
