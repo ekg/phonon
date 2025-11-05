@@ -282,6 +282,81 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         self.fast(1.0 / factor)
     }
 
+    /// Squeeze pattern to first 1/n of cycle and speed up by n
+    /// squeeze 2 - squeezes pattern to first half of cycle, plays 2x faster
+    /// Like fast but compressed into a smaller time window
+    pub fn squeeze(self, factor: f64) -> Self {
+        let compressed_duration = 1.0 / factor;
+        Pattern::new(move |state| {
+            // Per-cycle compression: within each cycle, map [0, 1/factor] to source [0, 1]
+            // For each cycle in query span, decompress to get source time
+            let query_begin = state.span.begin.to_float();
+            let query_end = state.span.end.to_float();
+
+            // Find which cycles are touched by this query
+            let start_cycle = query_begin.floor() as i64;
+            let end_cycle = query_end.ceil() as i64;
+
+            let mut result = Vec::new();
+
+            // Process each cycle in the query range
+            for cycle in start_cycle..end_cycle {
+                let cycle_f = cycle as f64;
+                let cycle_begin = cycle_f.max(query_begin);
+                let cycle_end = (cycle_f + 1.0).min(query_end);
+
+                // Map query within this cycle to source time
+                let rel_begin = cycle_begin - cycle_f;
+                let rel_end = cycle_end - cycle_f;
+
+                // Only query if we're in the compressed region (first 1/factor of cycle)
+                if rel_begin < compressed_duration {
+                    // Map compressed time to source time within the cycle
+                    let source_rel_begin = rel_begin / compressed_duration;
+                    let source_rel_end = (rel_end / compressed_duration).min(1.0);
+
+                    let source_begin = cycle_f + source_rel_begin;
+                    let source_end = cycle_f + source_rel_end;
+
+                    let new_span = TimeSpan::new(
+                        Fraction::from_float(source_begin),
+                        Fraction::from_float(source_end),
+                    );
+                    let new_state = State {
+                        span: new_span,
+                        controls: state.controls.clone(),
+                    };
+
+                    // Query source and compress results
+                    for mut hap in self.query(&new_state) {
+                        let hap_rel_begin = hap.part.begin.to_float() - cycle_f;
+                        let hap_rel_end = hap.part.end.to_float() - cycle_f;
+
+                        // Compress: map source [0,1] to [0, 1/factor]
+                        let compressed_rel_begin = hap_rel_begin * compressed_duration;
+                        let compressed_rel_end = hap_rel_end * compressed_duration;
+
+                        hap.part = TimeSpan::new(
+                            Fraction::from_float(cycle_f + compressed_rel_begin),
+                            Fraction::from_float(cycle_f + compressed_rel_end),
+                        );
+                        if let Some(whole) = hap.whole {
+                            let whole_rel_begin = whole.begin.to_float() - cycle_f;
+                            let whole_rel_end = whole.end.to_float() - cycle_f;
+                            hap.whole = Some(TimeSpan::new(
+                                Fraction::from_float(cycle_f + whole_rel_begin * compressed_duration),
+                                Fraction::from_float(cycle_f + whole_rel_end * compressed_duration),
+                            ));
+                        }
+                        result.push(hap);
+                    }
+                }
+            }
+
+            result
+        })
+    }
+
     /// Reverse a pattern within each cycle
     pub fn rev(self) -> Self {
         Pattern::new(move |state| {

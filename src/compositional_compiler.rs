@@ -424,6 +424,9 @@ fn compile_function_call(
                                                 "slow" if args.len() == 1 => {
                                                     Transform::Slow(Box::new(args[0].clone()))
                                                 }
+                                                "squeeze" if args.len() == 1 => {
+                                                    Transform::Squeeze(Box::new(args[0].clone()))
+                                                }
                                                 "rev" if args.is_empty() => Transform::Rev,
                                                 "palindrome" if args.is_empty() => {
                                                     Transform::Palindrome
@@ -476,6 +479,23 @@ fn compile_function_call(
                                     pattern = apply_transform_to_pattern(pattern, t.clone())?;
                                 }
                             }
+                            Expr::Call { name, args } => {
+                                // Handle Call expressions as transforms (e.g., s "bd" $ squeeze 3)
+                                let transform = match name.as_str() {
+                                    "fast" if args.len() == 1 => Transform::Fast(Box::new(args[0].clone())),
+                                    "slow" if args.len() == 1 => Transform::Slow(Box::new(args[0].clone())),
+                                    "squeeze" if args.len() == 1 => Transform::Squeeze(Box::new(args[0].clone())),
+                                    "rev" if args.is_empty() => Transform::Rev,
+                                    "palindrome" if args.is_empty() => Transform::Palindrome,
+                                    "degrade" if args.is_empty() => Transform::Degrade,
+                                    "degradeBy" if args.len() == 1 => Transform::DegradeBy(Box::new(args[0].clone())),
+                                    "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
+                                    _ => {
+                                        return Err(format!("Unknown transform: {}", name))
+                                    }
+                                };
+                                pattern = apply_transform_to_pattern(pattern, transform)?;
+                            }
                             _ => {
                                 return Err(format!(
                                     "Expected transform as second argument to s(), got: {:?}",
@@ -521,6 +541,7 @@ fn compile_function_call(
                                             let transform = match name.as_str() {
                                             "fast" if args.len() == 1 => Transform::Fast(Box::new(args[0].clone())),
                                             "slow" if args.len() == 1 => Transform::Slow(Box::new(args[0].clone())),
+                                            "squeeze" if args.len() == 1 => Transform::Squeeze(Box::new(args[0].clone())),
                                             "rev" if args.is_empty() => Transform::Rev,
                                             "palindrome" if args.is_empty() => Transform::Palindrome,
                                             "degrade" if args.is_empty() => Transform::Degrade,
@@ -3305,6 +3326,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         Transform::Slow(speed_expr) => {
             let speed = extract_number(&speed_expr)?;
             Ok(pattern.slow(speed))
+        }
+        Transform::Squeeze(factor_expr) => {
+            let factor = extract_number(&factor_expr)?;
+            Ok(pattern.squeeze(factor))
         }
         Transform::Rev => Ok(pattern.rev()),
         Transform::Degrade => Ok(pattern.degrade()),

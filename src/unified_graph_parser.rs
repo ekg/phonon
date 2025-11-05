@@ -362,6 +362,8 @@ pub enum PatternTransformOp {
     Fast(Box<DslExpression>),
     /// Slow down pattern: slow 2
     Slow(Box<DslExpression>),
+    /// Squeeze pattern to first 1/n of cycle: squeeze 2
+    Squeeze(Box<DslExpression>),
     /// Reverse pattern: rev
     Rev,
     /// Apply transform every n cycles: every 4 (fast 2)
@@ -1140,6 +1142,10 @@ fn parse_transform_op_group2(input: &str) -> IResult<&str, PatternTransformOp> {
         // slow n
         map(preceded(tag("slow"), ws(primary)), |n| {
             PatternTransformOp::Slow(Box::new(n))
+        }),
+        // squeeze n
+        map(preceded(tag("squeeze"), ws(primary)), |n| {
+            PatternTransformOp::Squeeze(Box::new(n))
         }),
         // every n (transform)
         map(
@@ -2852,6 +2858,10 @@ impl DslCompiler {
                 let factor = self.extract_constant(*factor_expr)?;
                 Ok(pattern.slow(factor))
             }
+            PatternTransformOp::Squeeze(factor_expr) => {
+                let factor = self.extract_constant(*factor_expr)?;
+                Ok(pattern.squeeze(factor))
+            }
             PatternTransformOp::Rev => Ok(pattern.rev()),
             PatternTransformOp::Every { n, f } => {
                 let n_val = self.extract_constant(*n)? as i32;
@@ -2872,6 +2882,13 @@ impl DslCompiler {
                         PatternTransformOp::Slow(ref factor_expr) => {
                             if let DslExpression::Value(v) = **factor_expr {
                                 p.slow(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Squeeze(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.squeeze(v as f64)
                             } else {
                                 p
                             }
@@ -3006,6 +3023,13 @@ impl DslCompiler {
                                 p
                             }
                         }
+                        PatternTransformOp::Squeeze(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.squeeze(v as f64)
+                            } else {
+                                p
+                            }
+                        }
                         PatternTransformOp::Rev => p.rev(),
                         PatternTransformOp::Palindrome => p.palindrome(),
                         PatternTransformOp::Degrade => p.degrade(),
@@ -3071,6 +3095,13 @@ impl DslCompiler {
                         PatternTransformOp::Slow(ref factor_expr) => {
                             if let DslExpression::Value(v) = **factor_expr {
                                 p.slow(v as f64)
+                            } else {
+                                p
+                            }
+                        }
+                        PatternTransformOp::Squeeze(ref factor_expr) => {
+                            if let DslExpression::Value(v) = **factor_expr {
+                                p.squeeze(v as f64)
                             } else {
                                 p
                             }

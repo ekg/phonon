@@ -111,6 +111,8 @@ pub enum Transform {
     Fast(Box<Expr>),
     /// slow n: slow down by factor n
     Slow(Box<Expr>),
+    /// squeeze n: compress to first 1/n of cycle and speed up
+    Squeeze(Box<Expr>),
     /// rev: reverse pattern
     Rev,
     /// every n f: apply transform f every n cycles
