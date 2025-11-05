@@ -763,6 +763,15 @@ pub enum SignalNode {
         state: FilterState,
     },
 
+    /// DJ Filter (sweep from lowpass to highpass)
+    /// TidalCycles-style DJ filter: value 0-0.5 = lowpass, 0.5-1 = highpass
+    /// Single parameter control makes it perfect for live performance
+    DJFilter {
+        input: Signal,
+        value: Signal, // 0-1: 0=full lowpass, 0.5=neutral, 1=full highpass
+        state: FilterState,
+    },
+
     /// Notch filter (band-reject)
     /// Removes frequencies at center frequency while passing all others
     /// Useful for removing unwanted resonances, hum, or feedback
@@ -5585,6 +5594,82 @@ impl UnifiedSignalGraph {
                 }
 
                 band // Output band-pass signal
+            }
+
+            SignalNode::DJFilter { input, value, .. } => {
+                let input_val = self.eval_signal(&input);
+                let djf_value = self.eval_signal(&value).clamp(0.0, 1.0);
+
+                // Map djf value to filter cutoff frequency
+                // Keep cutoff well below Nyquist (22050 Hz) to avoid instability
+                // 0.0 -> very low cutoff (80 Hz) for aggressive lowpass
+                // 0.5 -> mid cutoff (800 Hz) - neutral point
+                // 1.0 -> high cutoff (8000 Hz) for aggressive highpass
+                let cutoff = if djf_value < 0.5 {
+                    // Lowpass mode: map 0-0.5 to 80-800 Hz
+                    80.0 + (djf_value * 2.0) * 720.0
+                } else {
+                    // Highpass mode: map 0.5-1.0 to 800-8000 Hz
+                    800.0 + ((djf_value - 0.5) * 2.0) * 7200.0
+                };
+
+                // Clamp cutoff to safe range to prevent filter instability
+                let cutoff = cutoff.max(20.0).min(self.sample_rate * 0.4);
+                let q_val = 0.707; // Standard Q for Butterworth response
+
+                // State variable filter (Chamberlin)
+                let f = (2.0 * (PI * cutoff / self.sample_rate).sin()).min(1.9);
+                let damp = 1.0 / q_val;
+
+                // Get state
+                let (mut low, mut band, mut high) =
+                    if let Some(Some(SignalNode::DJFilter { state, .. })) =
+                        self.nodes.get(node_id.0)
+                    {
+                        (state.y1, state.x1, state.y2)
+                    } else {
+                        (0.0, 0.0, 0.0)
+                    };
+
+                // Process
+                high = input_val - low - damp * band;
+                band += f * high;
+                low += f * band;
+
+                // Flush denormals to zero to prevent numerical instability
+                const DENORMAL_THRESHOLD: f32 = 1e-30;
+                if high.abs() < DENORMAL_THRESHOLD {
+                    high = 0.0;
+                }
+                if band.abs() < DENORMAL_THRESHOLD {
+                    band = 0.0;
+                }
+                if low.abs() < DENORMAL_THRESHOLD {
+                    low = 0.0;
+                }
+
+                // Update state with sanitized values
+                if let Some(Some(SignalNode::DJFilter { state, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    state.y1 = if low.is_finite() { low } else { 0.0 };
+                    state.x1 = if band.is_finite() { band } else { 0.0 };
+                    state.y2 = if high.is_finite() { high } else { 0.0 };
+                }
+
+                // Output selection: lowpass for < 0.5, highpass for > 0.5
+                let output = if djf_value < 0.5 {
+                    low // Lowpass output
+                } else {
+                    high // Highpass output
+                };
+
+                // Ensure output is finite
+                if output.is_finite() {
+                    output
+                } else {
+                    0.0
+                }
             }
 
             SignalNode::Notch {

@@ -754,6 +754,7 @@ fn compile_function_call(
         "compressor" | "comp" => compile_compressor(ctx, args),
         "bitcrush" => compile_bitcrush(ctx, args),
         "coarse" => compile_coarse(ctx, args),
+        "djf" => compile_djf(ctx, args),
         "tremolo" | "trem" => compile_tremolo(ctx, args),
         "xfade" => compile_xfade(ctx, args),
         "mix" => compile_mix(ctx, args),
@@ -2456,6 +2457,37 @@ fn compile_coarse(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         bits: Signal::Value(16.0), // Full bit depth - no bit reduction
         sample_rate: Signal::Node(sr_node),
         state: BitCrushState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile djf (DJ filter) effect
+/// djf value - DJ filter sweep: 0-0.5 = lowpass, 0.5-1 = highpass
+/// Maps 0-1 parameter to filter type and cutoff frequency
+fn compile_djf(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 1 {
+        return Err(format!(
+            "djf requires 1 parameter (filter value 0-1), got {}",
+            params.len()
+        ));
+    }
+
+    let value_node = compile_expr(ctx, params[0].clone())?;
+
+    // Create a DJFilter node that internally handles the low/high pass transition
+    // The value parameter (0-1) controls the filter sweep:
+    // 0.0-0.5: lowpass (cutoff increases with value)
+    // 0.5-1.0: highpass (cutoff increases with value)
+    use crate::unified_graph::FilterState;
+
+    let node = SignalNode::DJFilter {
+        input: input_signal,
+        value: Signal::Node(value_node),
+        state: FilterState::default(),
     };
 
     Ok(ctx.graph.add_node(node))
