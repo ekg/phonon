@@ -1000,6 +1000,12 @@ pub enum SignalNode {
         state: ReverbState,
     },
 
+    /// Convolution Reverb
+    Convolution {
+        input: Signal,
+        state: ConvolutionState,
+    },
+
     /// Distortion / Waveshaper
     Distortion {
         input: Signal,
@@ -2784,6 +2790,89 @@ impl Default for CompressorState {
     }
 }
 
+/// Convolution reverb state
+#[derive(Debug, Clone)]
+pub struct ConvolutionState {
+    // Input buffer for convolution (stores recent samples)
+    input_buffer: Vec<f32>,
+    buffer_index: usize,
+
+    // Impulse response (IR) - hardcoded for now
+    impulse_response: Vec<f32>,
+}
+
+impl ConvolutionState {
+    pub fn new(sample_rate: f32) -> Self {
+        // Create a simple built-in impulse response
+        // This creates a small room-like reverb with early reflections
+        let ir_length = (sample_rate * 0.5) as usize; // 500ms IR
+        let mut impulse_response = vec![0.0; ir_length];
+
+        // Initial impulse
+        impulse_response[0] = 1.0;
+
+        // Early reflections at various delays with decay
+        let reflections = [
+            (0.021, 0.6),  // 21ms, -4.4dB
+            (0.043, 0.4),  // 43ms, -8dB
+            (0.067, 0.3),  // 67ms, -10.5dB
+            (0.089, 0.2),  // 89ms, -14dB
+            (0.121, 0.15), // 121ms, -16.5dB
+            (0.156, 0.1),  // 156ms, -20dB
+        ];
+
+        for (delay_sec, gain) in reflections.iter() {
+            let delay_samples = (delay_sec * sample_rate) as usize;
+            if delay_samples < ir_length {
+                impulse_response[delay_samples] = *gain;
+            }
+        }
+
+        // Add exponential decay tail
+        for i in 1..ir_length {
+            let t = i as f32 / sample_rate;
+            let decay = (-3.0 * t).exp(); // RT60 ≈ 0.3 seconds
+            impulse_response[i] += decay * 0.05; // Add diffuse tail
+        }
+
+        // Input buffer needs to be at least IR length
+        let input_buffer = vec![0.0; ir_length];
+
+        Self {
+            input_buffer,
+            buffer_index: 0,
+            impulse_response,
+        }
+    }
+
+    pub fn process(&mut self, input: f32) -> f32 {
+        // Store input in circular buffer
+        self.input_buffer[self.buffer_index] = input;
+
+        // Perform convolution
+        let mut output = 0.0;
+        let ir_len = self.impulse_response.len();
+        let buf_len = self.input_buffer.len();
+
+        for i in 0..ir_len {
+            // Read backwards through input buffer (circular)
+            let buffer_pos = (self.buffer_index + buf_len - i) % buf_len;
+            output += self.input_buffer[buffer_pos] * self.impulse_response[i];
+        }
+
+        // Advance buffer index
+        self.buffer_index = (self.buffer_index + 1) % buf_len;
+
+        output
+    }
+}
+
+impl Default for ConvolutionState {
+    fn default() -> Self {
+        Self::new(44100.0)
+    }
+}
+
 /// Output mixing mode - how multiple output channels are combined
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OutputMixMode {
@@ -4055,6 +4144,21 @@ impl UnifiedSignalGraph {
 
                 // Mix dry and wet
                 input_val * (1.0 - mix_val) + allpass_out * mix_val
+            }
+
+            SignalNode::Convolution { input, state } => {
+                let input_val = self.eval_signal(&input);
+
+                // Process through convolution
+                let output = if let Some(Some(SignalNode::Convolution { state: s, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    s.process(input_val)
+                } else {
+                    input_val // Fallback: pass through
+                };
+
+                output
             }
 
             SignalNode::Distortion { input, drive, mix } => {

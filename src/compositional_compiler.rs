@@ -724,6 +724,7 @@ fn compile_function_call(
 
         // ========== Effects ==========
         "reverb" => compile_reverb(ctx, args),
+        "convolve" | "convolution" => compile_convolve(ctx, args),
         "distort" | "distortion" => compile_distortion(ctx, args),
         "delay" => compile_delay(ctx, args),
         "chorus" => compile_chorus(ctx, args),
@@ -2110,6 +2111,28 @@ fn compile_reverb(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         damping: Signal::Node(damp_node),
         mix: Signal::Node(mix_node),
         state: ReverbState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile convolution reverb
+fn compile_convolve(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if !params.is_empty() {
+        return Err(format!(
+            "convolve requires no additional parameters (uses built-in IR), got {}",
+            params.len()
+        ));
+    }
+
+    use crate::unified_graph::ConvolutionState;
+
+    let node = SignalNode::Convolution {
+        input: input_signal,
+        state: ConvolutionState::new(ctx.graph.sample_rate()),
     };
 
     Ok(ctx.graph.add_node(node))
