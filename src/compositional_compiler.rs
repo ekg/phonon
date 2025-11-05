@@ -753,6 +753,7 @@ fn compile_function_call(
         "flanger" => compile_flanger(ctx, args),
         "compressor" | "comp" => compile_compressor(ctx, args),
         "bitcrush" => compile_bitcrush(ctx, args),
+        "coarse" => compile_coarse(ctx, args),
         "tremolo" | "trem" => compile_tremolo(ctx, args),
         "xfade" => compile_xfade(ctx, args),
         "mix" => compile_mix(ctx, args),
@@ -2423,6 +2424,36 @@ fn compile_bitcrush(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
     let node = SignalNode::BitCrush {
         input: input_signal,
         bits: Signal::Node(bits_node),
+        sample_rate: Signal::Node(sr_node),
+        state: BitCrushState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile coarse effect (sample rate reduction)
+/// coarse n - reduces sample rate to 1/n (TidalCycles equivalent)
+/// Implemented as bitcrush with bits=16 (no bit reduction, just sample rate reduction)
+fn compile_coarse(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 1 {
+        return Err(format!(
+            "coarse requires 1 parameter (sample_rate factor), got {}",
+            params.len()
+        ));
+    }
+
+    let sr_node = compile_expr(ctx, params[0].clone())?;
+
+    // Use bitcrush with full bit depth (16 bits = no bit reduction)
+    // Only apply sample rate reduction
+    use crate::unified_graph::BitCrushState;
+
+    let node = SignalNode::BitCrush {
+        input: input_signal,
+        bits: Signal::Value(16.0), // Full bit depth - no bit reduction
         sample_rate: Signal::Node(sr_node),
         state: BitCrushState::default(),
     };
