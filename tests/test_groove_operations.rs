@@ -6,7 +6,7 @@ fn test_swing_transform() {
     // swing should add swing/shuffle feel to events
     let input = r#"
         cps: 1.0
-        out: s("bd sn hh cp" $ swing 0.5) * 0.5
+        out: s "bd sn hh cp" $ swing 0.5 * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -28,7 +28,7 @@ fn test_shuffle_transform() {
     // shuffle should shuffle pattern by n
     let input = r#"
         cps: 1.0
-        out: s("bd sn hh cp" $ shuffle 2) * 0.5
+        out: s "bd sn hh cp" $ shuffle 2 * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -122,7 +122,7 @@ fn test_swing_with_chained_transforms() {
     // swing should work with other transforms
     let input = r#"
         cps: 1.0
-        out: s("bd sn hh cp" $ swing 0.5 $ fast 2) * 0.5
+        out: s "bd sn hh cp" $ swing 0.5 $ fast 2 * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -143,7 +143,7 @@ fn test_shuffle_with_chained_transforms() {
     // shuffle should work with other transforms
     let input = r#"
         cps: 1.0
-        out: s("bd sn hh cp" $ shuffle 2 $ rev) * 0.5
+        out: s "bd sn hh cp" $ shuffle 2 $ rev * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
