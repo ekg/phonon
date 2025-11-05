@@ -2015,6 +2015,14 @@ impl GranularState {
 
     /// Spawn a new grain at current position
     pub fn spawn_grain(&mut self, grain_size_samples: usize, playback_rate: f32) {
+        // PERFORMANCE: Limit max active grains to prevent exponential slowdown
+        // With very high density (0.9+), thousands of grains can accumulate
+        const MAX_ACTIVE_GRAINS: usize = 128;
+
+        if self.active_grains.len() >= MAX_ACTIVE_GRAINS {
+            return; // Skip grain spawn if at limit
+        }
+
         // Random position in buffer for variety
         let position = (self.buffer_write_pos as f32 * 0.8) % self.source_buffer.len() as f32;
         let grain = Grain::new(position, playback_rate, grain_size_samples);
