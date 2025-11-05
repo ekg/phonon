@@ -589,6 +589,15 @@ pub enum SignalNode {
         state: FormantState, // Bandpass filter state
     },
 
+    /// Vowel Filter (TidalCycles-style formant filter)
+    /// Simplified formant filter using vowel selector: 0=a, 1=e, 2=i, 3=o, 4=u
+    /// Pattern-controllable vowel selection for live coding convenience
+    Vowel {
+        source: Signal,   // Input signal to filter
+        vowel: Signal,    // Vowel selector (0-4 maps to a,e,i,o,u)
+        state: FormantState, // Bandpass filter state
+    },
+
     /// Additive Synthesis
     /// Creates complex timbres by summing multiple sine wave partials (harmonics)
     /// Each partial is a multiple of the fundamental frequency with independent amplitude
@@ -4088,6 +4097,39 @@ impl UnifiedSignalGraph {
                 if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
                     if let SignalNode::Formant { state: s, .. } = node {
                         return s.process(input, f1_val, f2_val, f3_val, bw1_val, bw2_val, bw3_val);
+                    }
+                }
+
+                0.0
+            }
+
+            SignalNode::Vowel { source, vowel, state } => {
+                // Evaluate input source signal
+                let input = self.eval_signal(&source);
+
+                // Evaluate vowel selector (0-4 maps to a,e,i,o,u)
+                let vowel_val = self.eval_signal(&vowel).round().clamp(0.0, 4.0) as i32;
+
+                // Map vowel to formant frequencies (male voice)
+                // a, e, i, o, u
+                let (f1, f2, f3) = match vowel_val {
+                    0 => (730.0, 1090.0, 2440.0), // 'a' (father)
+                    1 => (530.0, 1840.0, 2480.0), // 'e' (bet)
+                    2 => (270.0, 2290.0, 3010.0), // 'i' (beet)
+                    3 => (570.0, 840.0, 2410.0),  // 'o' (boat)
+                    4 => (300.0, 870.0, 2240.0),  // 'u' (boot)
+                    _ => (730.0, 1090.0, 2440.0), // Default to 'a'
+                };
+
+                // Standard bandwidths for formants
+                let bw1 = 60.0;
+                let bw2 = 80.0;
+                let bw3 = 100.0;
+
+                // Get mutable state and process
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Vowel { state: s, .. } = node {
+                        return s.process(input, f1, f2, f3, bw1, bw2, bw3);
                     }
                 }
 

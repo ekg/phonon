@@ -691,6 +691,7 @@ fn compile_function_call(
         "pluck" => compile_karplus_strong(ctx, args),
         "waveguide" => compile_waveguide(ctx, args),
         "formant" => compile_formant(ctx, args),
+        "vowel" => compile_vowel(ctx, args),
         "additive" => compile_additive(ctx, args),
         "vocoder" => compile_vocoder(ctx, args),
         "pitch_shift" => compile_pitch_shift(ctx, args),
@@ -1208,6 +1209,60 @@ fn compile_formant(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         bw2: Signal::Node(bw2_node),
         bw3: Signal::Node(bw3_node),
         state,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile vowel filter (TidalCycles-style formant filter)
+/// vowel "pattern" - accepts patterns of vowel letters: a, e, i, o, u
+/// Maps vowel letters to formant filter frequencies
+fn compile_vowel(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 1 {
+        return Err(format!(
+            "vowel requires 1 parameter (vowel pattern), got {}",
+            params.len()
+        ));
+    }
+
+    // Parse vowel pattern - convert vowel letters to numeric selectors
+    // For now, compile the expression and expect it to be a pattern of vowel letters
+    // The pattern should output values like "a", "e", etc.
+    // We'll create a mapping node that converts letters to numbers
+
+    // For simplicity in first implementation: accept a single vowel letter
+    // or a pattern that will be interpreted as vowel selector numbers
+    let vowel_expr = &params[0];
+
+    // Check if it's a string literal with vowel letters
+    let vowel_signal = if let Expr::String(s) = vowel_expr {
+        // Map first vowel letter to index
+        let vowel_idx = match s.chars().next().unwrap_or('a') {
+            'a' | 'A' => 0.0,
+            'e' | 'E' => 1.0,
+            'i' | 'I' => 2.0,
+            'o' | 'O' => 3.0,
+            'u' | 'U' => 4.0,
+            _ => 0.0, // Default to 'a'
+        };
+
+        // Use Signal::Value for constant
+        Signal::Value(vowel_idx)
+    } else {
+        // For numeric patterns, compile as-is
+        let node = compile_expr(ctx, vowel_expr.clone())?;
+        Signal::Node(node)
+    };
+
+    use crate::unified_graph::FormantState;
+
+    let node = SignalNode::Vowel {
+        source: input_signal,
+        vowel: vowel_signal,
+        state: FormantState::new(ctx.graph.sample_rate()),
     };
 
     Ok(ctx.graph.add_node(node))
