@@ -1733,8 +1733,10 @@ dependencies = [
  "midir",
  "nom",
  "notify",
+ "num-complex",
  "rand",
  "ratatui",
+ "realfft",
  "rosc",
  "rustfft",
  "serde",
@@ -1888,6 +1890,15 @@ dependencies = [
  "strum",
  "unicode-segmentation",
  "unicode-width",
+]
+
+[[package]]
+name = "realfft"
+version = "3.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f821338fddb99d089116342c46e9f1fbf3828dba077674613e734e01d6ea8677"
+dependencies = [
+ "rustfft",
 ]
 
 [[package]]

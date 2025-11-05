@@ -1006,6 +1006,13 @@ pub enum SignalNode {
         state: ConvolutionState,
     },
 
+    /// Spectral Freeze - FFT-based spectrum freezing
+    SpectralFreeze {
+        input: Signal,
+        trigger: Signal, // Freeze on rising edge (0.0 to 1.0)
+        state: SpectralFreezeState,
+    },
+
     /// Distortion / Waveshaper
     Distortion {
         input: Signal,
@@ -2873,6 +2880,197 @@ impl Default for ConvolutionState {
     }
 }
 
+/// Spectral Freeze state - FFT-based spectrum freezing
+pub struct SpectralFreezeState {
+    // FFT parameters
+    fft_size: usize,
+    hop_size: usize,
+
+    // FFT/IFFT processors
+    r2c: std::sync::Arc<dyn realfft::RealToComplex<f32>>,
+    c2r: std::sync::Arc<dyn realfft::ComplexToReal<f32>>,
+
+    // Buffers
+    input_buffer: Vec<f32>,
+    output_buffer: Vec<f32>,
+    buffer_index: usize,
+
+    // Window function (Hann window)
+    window: Vec<f32>,
+
+    // Frozen spectrum (complex values)
+    frozen_spectrum: Option<Vec<num_complex::Complex<f32>>>,
+
+    // Overlap-add output accumulator
+    overlap_add: Vec<f32>,
+    read_index: usize,
+
+    // Last trigger state (for edge detection)
+    last_trigger: f32,
+}
+
+impl SpectralFreezeState {
+    pub fn new() -> Self {
+        let fft_size = 2048;
+        let hop_size = 512; // 75% overlap
+
+        // Create FFT planner
+        let mut real_planner = realfft::RealFftPlanner::<f32>::new();
+        let r2c = real_planner.plan_fft_forward(fft_size);
+        let c2r = real_planner.plan_fft_inverse(fft_size);
+
+        // Create Hann window
+        let window: Vec<f32> = (0..fft_size)
+            .map(|i| {
+                let t = i as f32 / (fft_size - 1) as f32;
+                0.5 * (1.0 - (2.0 * std::f32::consts::PI * t).cos())
+            })
+            .collect();
+
+        Self {
+            fft_size,
+            hop_size,
+            r2c,
+            c2r,
+            input_buffer: vec![0.0; fft_size],
+            output_buffer: vec![0.0; fft_size],
+            buffer_index: 0,
+            window,
+            frozen_spectrum: None,
+            overlap_add: vec![0.0; fft_size],
+            read_index: 0,
+            last_trigger: 0.0,
+        }
+    }
+
+    pub fn process(&mut self, input: f32, trigger: f32) -> f32 {
+        // Store input sample
+        self.input_buffer[self.buffer_index] = input;
+        self.buffer_index += 1;
+
+        // Detect trigger (rising edge)
+        let triggered = trigger > 0.5 && self.last_trigger <= 0.5;
+        self.last_trigger = trigger;
+
+        // Process FFT frame when buffer is full
+        if self.buffer_index >= self.hop_size {
+            // Apply window
+            let mut windowed: Vec<f32> = self
+                .input_buffer
+                .iter()
+                .zip(self.window.iter())
+                .map(|(x, w)| x * w)
+                .collect();
+
+            // Perform FFT
+            let mut spectrum = self.r2c.make_output_vec();
+            self.r2c
+                .process(&mut windowed, &mut spectrum)
+                .unwrap_or(());
+
+            // Freeze spectrum on trigger
+            if triggered {
+                self.frozen_spectrum = Some(spectrum.clone());
+            }
+
+            // Use frozen spectrum if available, otherwise pass through
+            let output_spectrum = if let Some(ref frozen) = self.frozen_spectrum {
+                frozen.clone()
+            } else {
+                spectrum
+            };
+
+            // Perform IFFT
+            let mut output = self.c2r.make_output_vec();
+            self.c2r
+                .process(&mut output_spectrum.clone(), &mut output)
+                .unwrap_or(());
+
+            // Normalize IFFT output
+            let scale = 1.0 / self.fft_size as f32;
+            for x in output.iter_mut() {
+                *x *= scale;
+            }
+
+            // Apply window again and accumulate (overlap-add)
+            for (i, (out_sample, window_sample)) in
+                output.iter().zip(self.window.iter()).enumerate()
+            {
+                self.overlap_add[i] += out_sample * window_sample;
+            }
+
+            // Shift buffers
+            self.input_buffer.copy_within(self.hop_size.., 0);
+            for i in (self.fft_size - self.hop_size)..self.fft_size {
+                self.input_buffer[i] = 0.0;
+            }
+            self.buffer_index = self.fft_size - self.hop_size;
+
+            // Copy overlap-add to output and shift
+            for i in 0..self.hop_size {
+                self.output_buffer[i] = self.overlap_add[i];
+            }
+            self.overlap_add.copy_within(self.hop_size.., 0);
+            for i in (self.fft_size - self.hop_size)..self.fft_size {
+                self.overlap_add[i] = 0.0;
+            }
+            self.read_index = 0;
+        }
+
+        // Return output sample
+        let output = if self.read_index < self.hop_size {
+            self.output_buffer[self.read_index]
+        } else {
+            0.0
+        };
+        self.read_index += 1;
+
+        output
+    }
+}
+
+impl Default for SpectralFreezeState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Clone for SpectralFreezeState {
+    fn clone(&self) -> Self {
+        // Recreate FFT planners (they can't be cloned directly)
+        let mut real_planner = realfft::RealFftPlanner::<f32>::new();
+        let r2c = real_planner.plan_fft_forward(self.fft_size);
+        let c2r = real_planner.plan_fft_inverse(self.fft_size);
+
+        Self {
+            fft_size: self.fft_size,
+            hop_size: self.hop_size,
+            r2c,
+            c2r,
+            input_buffer: self.input_buffer.clone(),
+            output_buffer: self.output_buffer.clone(),
+            buffer_index: self.buffer_index,
+            window: self.window.clone(),
+            frozen_spectrum: self.frozen_spectrum.clone(),
+            overlap_add: self.overlap_add.clone(),
+            read_index: self.read_index,
+            last_trigger: self.last_trigger,
+        }
+    }
+}
+
+impl std::fmt::Debug for SpectralFreezeState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SpectralFreezeState")
+            .field("fft_size", &self.fft_size)
+            .field("hop_size", &self.hop_size)
+            .field("buffer_index", &self.buffer_index)
+            .field("read_index", &self.read_index)
+            .field("frozen", &self.frozen_spectrum.is_some())
+            .finish()
+    }
+}
+
 /// Output mixing mode - how multiple output channels are combined
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OutputMixMode {
@@ -4154,6 +4352,26 @@ impl UnifiedSignalGraph {
                     self.nodes.get_mut(node_id.0)
                 {
                     s.process(input_val)
+                } else {
+                    input_val // Fallback: pass through
+                };
+
+                output
+            }
+
+            SignalNode::SpectralFreeze {
+                input,
+                trigger,
+                state,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let trigger_val = self.eval_signal(&trigger);
+
+                // Process through spectral freeze
+                let output = if let Some(Some(SignalNode::SpectralFreeze { state: s, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    s.process(input_val, trigger_val)
                 } else {
                     input_val // Fallback: pass through
                 };

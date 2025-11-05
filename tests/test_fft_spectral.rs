@@ -31,7 +31,6 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 // ========== LEVEL 1: Basic Functionality ==========
 
 #[test]
-#[ignore] // TODO: Implement FFT/Spectral processing infrastructure
 fn test_spectral_freeze_produces_sound() {
     // Spectral freeze should capture and hold a spectrum
     // freeze source trigger
@@ -57,7 +56,6 @@ out: freeze ~source ~trigger
 }
 
 #[test]
-#[ignore] // TODO: Implement FFT/Spectral processing infrastructure
 fn test_spectral_freeze_without_trigger() {
     // Without trigger, freeze should pass through or be silent
     let code = r#"
@@ -81,7 +79,6 @@ out: freeze ~source ~trigger
 // ========== LEVEL 2: Different Sources ==========
 
 #[test]
-#[ignore] // TODO: Implement FFT/Spectral processing infrastructure
 fn test_spectral_freeze_complex_source() {
     // Freeze should work with complex sounds (chords, noise, etc.)
     let code = r#"
@@ -109,7 +106,6 @@ out: freeze ~chord ~trigger * 0.3
 // ========== LEVEL 3: Pattern Modulation ==========
 
 #[test]
-#[ignore] // TODO: Implement FFT/Spectral processing infrastructure
 fn test_spectral_freeze_pattern_trigger() {
     // Pattern-modulated freeze triggers
     let code = r#"

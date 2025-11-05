@@ -58,6 +58,8 @@ notify = "6.1"
 
 # Audio analysis for testing
 rustfft = "6.1"
+realfft = "3.3"  # Real-valued FFT for spectral processing
+num-complex = "0.4"  # Complex numbers for FFT
 spectrum-analyzer = "1.7"
 audio-processor-analysis = "2.4"
 audio-processor-traits = "4.3"

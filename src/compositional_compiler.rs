@@ -725,6 +725,7 @@ fn compile_function_call(
         // ========== Effects ==========
         "reverb" => compile_reverb(ctx, args),
         "convolve" | "convolution" => compile_convolve(ctx, args),
+        "freeze" => compile_freeze(ctx, args),
         "distort" | "distortion" => compile_distortion(ctx, args),
         "delay" => compile_delay(ctx, args),
         "chorus" => compile_chorus(ctx, args),
@@ -2133,6 +2134,32 @@ fn compile_convolve(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
     let node = SignalNode::Convolution {
         input: input_signal,
         state: ConvolutionState::new(ctx.graph.sample_rate()),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile spectral freeze
+fn compile_freeze(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 1 {
+        return Err(format!(
+            "freeze requires 1 parameter (trigger), got {}",
+            params.len()
+        ));
+    }
+
+    // Compile trigger parameter
+    let trigger_node = compile_expr(ctx, params[0].clone())?;
+
+    use crate::unified_graph::SpectralFreezeState;
+
+    let node = SignalNode::SpectralFreeze {
+        input: input_signal,
+        trigger: Signal::Node(trigger_node),
+        state: SpectralFreezeState::new(),
     };
 
     Ok(ctx.graph.add_node(node))
