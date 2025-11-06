@@ -5324,17 +5324,8 @@ impl UnifiedSignalGraph {
                         // Evaluate note modifier for pitch shifting
                         // Note is in semitones: 0 = original, 12 = octave up, -12 = octave down
                         // Supports: numbers (5), letter notes (c4, e4, g4), solfège (do, re, mi)
-                        let note_val = self.eval_note_signal_at_time(&note, event_start_abs);
-
-                        // Calculate pitch shift: speed = original_speed * 2^(semitones/12)
-                        let pitch_shift_multiplier = if note_val != 0.0 {
-                            2.0_f32.powf(note_val / 12.0)
-                        } else {
-                            1.0
-                        };
-
-                        // Apply pitch shift to speed
-                        let final_speed = speed_val * pitch_shift_multiplier;
+                        // Also supports chord notation: "c4'maj" -> vec![0, 4, 7] (C, E, G)
+                        let chord_notes = self.eval_note_signal_as_chord(&note, event_start_abs);
 
                         // Evaluate envelope parameters
                         let attack_val = self
@@ -5376,6 +5367,16 @@ impl UnifiedSignalGraph {
                             eprintln!("Triggering {} at cycle {:.3}, cut_group_val={:.1}, cut_group_opt={:?}",
                                 final_sample_name, event_start_abs, cut_group_val, cut_group_opt);
                         }
+
+                        // Loop over all chord notes (for single notes, this is just one iteration)
+                        for &note_semitones in &chord_notes {
+                            // Calculate pitch shift for this specific chord note
+                            let pitch_shift_multiplier = if note_semitones != 0.0 {
+                                2.0_f32.powf(note_semitones / 12.0)
+                            } else {
+                                1.0
+                            };
+                            let final_speed = speed_val * pitch_shift_multiplier;
 
                         // Handle bus triggering vs regular sample loading
                         if is_bus_trigger {
@@ -5493,11 +5494,6 @@ impl UnifiedSignalGraph {
                                 self.voice_manager
                                     .borrow_mut()
                                     .set_last_voice_loop_enabled(loop_enabled_bool);
-
-                                // Track trigger time
-                                if event_start_abs > latest_triggered_start {
-                                    latest_triggered_start = event_start_abs;
-                                }
                             } else {
                                 eprintln!("Warning: Bus '{}' not found for trigger", actual_name);
                             }
@@ -5605,12 +5601,13 @@ impl UnifiedSignalGraph {
                                 self.voice_manager
                                     .borrow_mut()
                                     .set_last_voice_loop_enabled(loop_enabled_bool);
-
-                                // Track this as the latest event we've triggered
-                                if event_start_abs > latest_triggered_start {
-                                    latest_triggered_start = event_start_abs;
-                                }
                             }
+                        }
+                        } // End chord loop
+
+                        // Track trigger time once per event (not per chord note)
+                        if event_start_abs > latest_triggered_start {
+                            latest_triggered_start = event_start_abs;
                         }
                     }
                 }

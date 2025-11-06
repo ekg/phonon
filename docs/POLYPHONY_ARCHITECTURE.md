@@ -318,10 +318,33 @@ What needs to change:
 **Goal**: `note "c4'maj"` triggers 3 voices (C, E, G)
 
 **Tasks**:
-- [ ] Parse chord notation in eval_note_signal_at_time()
-- [ ] Use existing CHORD_INTERVALS from pattern_tonal.rs
-- [ ] Return Vec<f32> instead of f32 for chord notes
-- [ ] Update voice triggering to handle multiple notes
+- [x] Parse chord notation in eval_note_signal_as_chord()
+  - ✅ Created eval_note_signal_as_chord() returning Vec<f32>
+  - ✅ Parses "c4'maj" → vec![0.0, 4.0, 7.0] (C, E, G semitones)
+  - ✅ Uses existing CHORD_INTERVALS from pattern_tonal.rs (30+ types)
+  - ✅ Backward compatible: single notes return vec with one element
+- [ ] **REMAINING**: Update voice triggering to loop over chord notes
+  - **Location**: src/unified_graph.rs around line 5327
+  - **Current code**: Single call to `eval_note_signal_at_time()`
+  - **Needed change**:
+    ```rust
+    // Replace line 5327:
+    let chord_notes = self.eval_note_signal_as_chord(&note, event_start_abs);
+
+    // Add loop after line 5378 (after DEBUG print, before "Handle bus triggering"):
+    for &note_semitones in &chord_notes {
+        let pitch_shift_multiplier = if note_semitones != 0.0 {
+            2.0_f32.powf(note_semitones / 12.0)
+        } else { 1.0 };
+        let final_speed = speed_val * pitch_shift_multiplier;
+
+        // ... keep existing bus/sample triggering code ...
+    } // Close loop ONCE after BOTH branches complete (line ~5608)
+
+    // Move event tracking OUTSIDE loop (currently at line 5612-5614)
+    ```
+  - **Key structure**: One for loop wraps BOTH bus trigger AND regular sample branches
+  - **Careful with braces**: Bus branch ends ~line 5499, regular sample ~line 5608
 - [ ] Test: `s "bd" # note "c4'maj"` produces 3-voice chord
 - [ ] Test: `s "bd*4" # note "c4'maj e4'min g4'dom7 c5'maj"`
 - [ ] Add tests for all 30+ chord types
@@ -330,6 +353,12 @@ What needs to change:
 - Chords sound correct (all notes simultaneous)
 - No timing drift between chord voices
 - Can play chord progressions smoothly
+
+**Implementation Notes**:
+- Voice triggering has nested structure (bus vs regular, multiple envelope types)
+- Need careful brace matching to wrap loop around both code paths
+- Unit mode/loop configuration happens inside loop (per voice)
+- Event tracking happens outside loop (once per event)
 
 ### Phase 3: Multi-threading (1-2 days)
 **Goal**: Parallel voice rendering for performance
