@@ -420,6 +420,12 @@ pub struct VoiceManager {
 
     /// Sample counter for periodic pool shrinking
     shrink_counter: usize,
+
+    /// Performance monitoring: peak voice count
+    peak_voice_count: usize,
+
+    /// Performance monitoring: total samples processed
+    total_samples_processed: u64,
 }
 
 impl Default for VoiceManager {
@@ -475,6 +481,8 @@ impl VoiceManager {
             max_voices,
             initial_voices,
             shrink_counter: 0,
+            peak_voice_count: initial_voices,
+            total_samples_processed: 0,
         }
     }
 
@@ -832,6 +840,13 @@ impl VoiceManager {
             self.shrink_voice_pool();
         }
 
+        // Performance monitoring: track peak voice count and samples
+        let active_count = self.voices.iter().filter(|v| v.state != VoiceState::Free).count();
+        if active_count > self.peak_voice_count {
+            self.peak_voice_count = active_count;
+        }
+        self.total_samples_processed += 1;
+
         for voice in &mut self.voices {
             let (voice_left, voice_right) = voice.process_stereo();
             left += voice_left;
@@ -899,5 +914,36 @@ impl VoiceManager {
     /// Kill all active voices (alias for reset)
     pub fn kill_all(&mut self) {
         self.reset();
+    }
+
+    /// Get peak voice count since startup
+    pub fn peak_voice_count(&self) -> usize {
+        self.peak_voice_count
+    }
+
+    /// Get total samples processed
+    pub fn total_samples_processed(&self) -> u64 {
+        self.total_samples_processed
+    }
+
+    /// Get current pool size
+    pub fn pool_size(&self) -> usize {
+        self.voices.len()
+    }
+
+    /// Get performance statistics as a formatted string
+    pub fn performance_summary(&self) -> String {
+        let active = self.active_voice_count();
+        let pool_size = self.voices.len();
+        let usage_pct = if pool_size > 0 {
+            (active as f32 / pool_size as f32 * 100.0) as usize
+        } else {
+            0
+        };
+
+        format!(
+            "Voices: {}/{} ({}% usage) | Peak: {} | Samples: {}",
+            active, pool_size, usage_pct, self.peak_voice_count, self.total_samples_processed
+        )
     }
 }
