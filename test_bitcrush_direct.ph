@@ -1,2 +1,0 @@
-tempo: 2.0
-out: bitcrush(sine 440, 4.0, 8.0) * 0.3

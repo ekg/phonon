@@ -1,2 +1,0 @@
-tempo 1.0
-out: s "bd sd bd sd"

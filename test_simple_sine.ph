@@ -1,2 +1,0 @@
-tempo: 2.0
-out: sine 440 * 0.3

@@ -679,6 +679,8 @@ pub enum SignalNode {
         attack: Signal,    // Attack time in seconds (0.0 = no attack envelope)
         release: Signal,   // Release time in seconds (0.0 = no release envelope)
         envelope_type: Option<RuntimeEnvelopeType>, // Envelope type (None = percussion)
+        unit_mode: Signal,      // Unit mode: 0="r" (rate), 1="c" (cycle-sync)
+        loop_enabled: Signal,   // Loop mode: 0=play once, 1=loop continuously
     },
 
     /// Pattern-triggered synthesizer with ADSR envelopes
@@ -1082,6 +1084,15 @@ pub enum SignalNode {
         rate: Signal,  // LFO rate in Hz (0.1 to 20.0)
         depth: Signal, // Modulation depth (0.0 to 1.0)
         phase: f32,    // LFO phase accumulator
+    },
+
+    /// Ring Modulation
+    /// Classic effect that multiplies input by a carrier frequency
+    /// Creates metallic, inharmonic tones
+    RingMod {
+        input: Signal, // Input signal
+        freq: Signal,  // Carrier frequency in Hz (20.0 to 5000.0)
+        phase: f32,    // Carrier oscillator phase
     },
 
     /// fundsp Unit Wrapper (wraps fundsp AudioUnit for pattern modulation)
@@ -4686,6 +4697,24 @@ impl UnifiedSignalGraph {
                 output_val
             }
 
+            SignalNode::RingMod { input, freq, phase } => {
+                let input_val = self.eval_signal(&input);
+                let carrier_freq = self.eval_signal(&freq).clamp(20.0, 5000.0);
+
+                let mut output_val = input_val;
+
+                if let Some(Some(SignalNode::RingMod { phase: p, .. })) = self.nodes.get_mut(node_id.0) {
+                    *p += carrier_freq * 2.0 * std::f32::consts::PI / self.sample_rate;
+                    if *p >= 2.0 * std::f32::consts::PI {
+                        *p -= 2.0 * std::f32::consts::PI;
+                    }
+                    let carrier = p.sin();
+                    output_val = input_val * carrier;
+                }
+
+                output_val
+            }
+
             SignalNode::FundspUnit {
                 unit_type,
                 inputs,
@@ -4932,6 +4961,8 @@ impl UnifiedSignalGraph {
                 attack,
                 release,
                 envelope_type,
+                unit_mode,
+                loop_enabled,
             } => {
                 // DEBUG: Log Sample node evaluation
                 if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 100 {
@@ -5014,11 +5045,11 @@ impl UnifiedSignalGraph {
 
                     // Only trigger events that:
                     // 1. Start AFTER the last event we triggered (prevent re-triggering)
-                    // 2. Start at or before the current cycle position (event has "arrived")
+                    // 2. Start BEFORE the current cycle position (we've passed the event time)
                     // Use tiny epsilon for floating-point comparison (1 microsecond in cycle time)
                     let epsilon = 1e-6;
                     let event_is_new = event_start_abs > last_event_start + epsilon
-                        && event_start_abs <= self.cycle_position + epsilon;
+                        && event_start_abs < self.cycle_position + epsilon;
 
                     // DEBUG: Log event evaluation
                     if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 20 {
@@ -5035,9 +5066,10 @@ impl UnifiedSignalGraph {
                     if event_is_new {
                         // DEBUG: Log triggered events
                         if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
+                            let audio_time = self.sample_count as f64 / self.sample_rate as f64;
                             eprintln!(
-                                "  Triggering: '{}' at {:.3} (cycle_pos={:.3})",
-                                sample_name, event_start_abs, self.cycle_position
+                                "  Triggering: '{}' at cycle {:.6} (cycle_pos={:.6}, sample={}, audio_time={:.6}s)",
+                                sample_name, event_start_abs, self.cycle_position, self.sample_count, audio_time
                             );
                         }
 
@@ -5109,6 +5141,18 @@ impl UnifiedSignalGraph {
                                 // Explicit envelope requested: use the values as-is
                                 (attack_val, release_val)
                             };
+
+                        // Evaluate unit mode and loop parameters
+                        let unit_mode_val = self.eval_signal_at_time(&unit_mode, event_start_abs);
+                        let loop_enabled_val = self.eval_signal_at_time(&loop_enabled, event_start_abs);
+
+                        // Convert to appropriate types
+                        let unit_mode_enum = if unit_mode_val > 0.5 {
+                            crate::voice_manager::UnitMode::Cycle
+                        } else {
+                            crate::voice_manager::UnitMode::Rate
+                        };
+                        let loop_enabled_bool = loop_enabled_val > 0.5;
 
                         // DEBUG: Print cut group info
                         if std::env::var("DEBUG_CUT_GROUPS").is_ok() {
@@ -5225,6 +5269,14 @@ impl UnifiedSignalGraph {
                                     }
                                 }
 
+                                // Configure unit mode and loop for this voice
+                                self.voice_manager
+                                    .borrow_mut()
+                                    .set_last_voice_unit_mode(unit_mode_enum);
+                                self.voice_manager
+                                    .borrow_mut()
+                                    .set_last_voice_loop_enabled(loop_enabled_bool);
+
                                 // Track trigger time
                                 if event_start_abs > latest_triggered_start {
                                     latest_triggered_start = event_start_abs;
@@ -5328,6 +5380,14 @@ impl UnifiedSignalGraph {
                                         );
                                     }
                                 }
+
+                                // Configure unit mode and loop for this voice
+                                self.voice_manager
+                                    .borrow_mut()
+                                    .set_last_voice_unit_mode(unit_mode_enum);
+                                self.voice_manager
+                                    .borrow_mut()
+                                    .set_last_voice_loop_enabled(loop_enabled_bool);
 
                                 // Track this as the latest event we've triggered
                                 if event_start_abs > latest_triggered_start {

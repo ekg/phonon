@@ -1,2 +1,0 @@
--- Most basic test
-out sine 440 * 0.2

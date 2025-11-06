@@ -112,6 +112,8 @@ fn test_sample_playback_with_index() {
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: phonon::unified_graph::Signal::Value(0.0),      // 0 = rate mode (default)
+        loop_enabled: phonon::unified_graph::Signal::Value(0.0),   // 0 = no loop (default)
     });
 
     graph.set_output(sample_node);

@@ -1,5 +1,0 @@
--- Test euclidean rhythm notation
--- This should parse "bd(4,16)" using mini-notation
-gate = "1(4,16)"
-tone = sine 440 * gate
-out tone * 0.3

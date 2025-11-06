@@ -1,3 +1,0 @@
--- Test with bus assignment
-gate = "1(4,16)"
-out sine 110 * gate * 0.5

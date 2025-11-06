@@ -1,3 +1,0 @@
--- Test with faster tempo to trigger more often
-tempo 20.0
-out sine 220 * "0.1 0.2"

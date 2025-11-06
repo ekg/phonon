@@ -119,6 +119,22 @@ pub struct Voice {
 
     /// Release time in seconds (for backward compatibility)
     release: f32,
+
+    /// Unit mode: "r" (rate) or "c" (cycle-sync)
+    /// In rate mode, speed is a multiplier. In cycle mode, speed syncs to cycle duration.
+    unit_mode: UnitMode,
+
+    /// Loop mode: whether sample should loop when it reaches the end
+    loop_enabled: bool,
+}
+
+/// Unit mode for sample playback speed interpretation
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum UnitMode {
+    /// Rate mode (default): speed is a rate multiplier (2.0 = double speed)
+    Rate,
+    /// Cycle mode: speed syncs to cycle duration (1.0 = one cycle)
+    Cycle,
 }
 
 impl Default for Voice {
@@ -141,6 +157,8 @@ impl Voice {
             envelope: VoiceEnvelope::new_percussion(SAMPLE_RATE, 0.001, 0.1),
             attack: 0.001, // 1ms default attack
             release: 0.1,  // 100ms default release
+            unit_mode: UnitMode::Rate, // Default to rate mode
+            loop_enabled: false,       // Default to no looping
         }
     }
 
@@ -274,6 +292,16 @@ impl Voice {
         self.envelope.trigger();
     }
 
+    /// Set unit mode (rate or cycle-sync)
+    pub fn set_unit_mode(&mut self, mode: UnitMode) {
+        self.unit_mode = mode;
+    }
+
+    /// Set loop mode (whether sample loops)
+    pub fn set_loop_enabled(&mut self, enabled: bool) {
+        self.loop_enabled = enabled;
+    }
+
     /// Process one sample of audio (mono)
     pub fn process(&mut self) -> f32 {
         let (left, right) = self.process_stereo();
@@ -289,6 +317,12 @@ impl Voice {
             return (0.0, 0.0);
         }
 
+        // DEBUG: Log voice processing
+        if std::env::var("DEBUG_VOICE_PROCESS").is_ok() && self.age < 10 {
+            eprintln!("[VOICE] process_stereo called, age={}, position={:.1}",
+                self.age, self.position);
+        }
+
         // Process envelope
         let env_value = self.envelope.process();
 
@@ -301,6 +335,11 @@ impl Voice {
 
         if let Some(ref samples) = self.sample_data {
             let sample_len = samples.len() as f32;
+
+            // Handle looping: wrap position if it exceeds sample length
+            if self.loop_enabled && self.position >= sample_len {
+                self.position = self.position % sample_len;
+            }
 
             if self.position < sample_len {
                 // Linear interpolation for fractional positions
@@ -358,6 +397,9 @@ pub struct VoiceManager {
 
     /// Next voice index for round-robin allocation
     next_voice_index: usize,
+
+    /// Index of the last triggered voice (for post-trigger configuration)
+    last_triggered_voice_index: Option<usize>,
 }
 
 impl Default for VoiceManager {
@@ -391,6 +433,7 @@ impl VoiceManager {
         Self {
             voices,
             next_voice_index: 0,
+            last_triggered_voice_index: None,
         }
     }
 
@@ -440,6 +483,12 @@ impl VoiceManager {
         attack: f32,
         release: f32,
     ) {
+        // DEBUG: Log voice triggers to detect duplication
+        if std::env::var("DEBUG_VOICE_TRIGGERS").is_ok() {
+            eprintln!("[VOICE_MGR] trigger_sample_with_envelope called: sample_len={}, gain={:.3}, pan={:.3}, speed={:.3}",
+                sample.len(), gain, pan, speed);
+        }
+
         // If this has a cut group, fade out all other voices in the same cut group
         // Use a quick 10ms release to avoid clicks
         if let Some(group) = cut_group {
@@ -459,6 +508,7 @@ impl VoiceManager {
                 self.voices[idx]
                     .trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
                 self.next_voice_index = (idx + 1) % max_voices;
+                self.last_triggered_voice_index = Some(idx); // Track for post-trigger config
                 return;
             }
         }
@@ -479,6 +529,7 @@ impl VoiceManager {
             .trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
         let max_voices = self.voices.len();
         self.next_voice_index = (oldest_idx + 1) % max_voices;
+        self.last_triggered_voice_index = Some(oldest_idx); // Track for post-trigger config
     }
 
     /// Trigger a sample with ADSR envelope
@@ -644,6 +695,14 @@ impl VoiceManager {
         let mut left = 0.0;
         let mut right = 0.0;
 
+        // DEBUG: Count active voices
+        if std::env::var("DEBUG_VOICE_COUNT").is_ok() {
+            let active_count = self.voices.iter().filter(|v| v.active).count();
+            if active_count > 0 {
+                eprintln!("[VOICE_MGR] {} active voices", active_count);
+            }
+        }
+
         for voice in &mut self.voices {
             let (voice_left, voice_right) = voice.process_stereo();
             left += voice_left;
@@ -675,6 +734,22 @@ impl VoiceManager {
         }
 
         output
+    }
+
+    /// Configure unit mode for the last triggered voice
+    /// Must be called immediately after a trigger_sample_* method
+    pub fn set_last_voice_unit_mode(&mut self, mode: UnitMode) {
+        if let Some(idx) = self.last_triggered_voice_index {
+            self.voices[idx].set_unit_mode(mode);
+        }
+    }
+
+    /// Configure loop mode for the last triggered voice
+    /// Must be called immediately after a trigger_sample_* method
+    pub fn set_last_voice_loop_enabled(&mut self, enabled: bool) {
+        if let Some(idx) = self.last_triggered_voice_index {
+            self.voices[idx].set_loop_enabled(enabled);
+        }
     }
 
     /// Get number of active voices

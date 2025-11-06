@@ -1,2 +1,0 @@
-tempo 1.0
-out s "bd sn hh*4 cp" # lpf 1000 0.8

@@ -30,8 +30,13 @@ pub enum Statement {
     Output(Expr),
     /// Multi-channel output: out1: expr, out2: expr, etc.
     OutputChannel { channel: usize, expr: Expr },
-    /// Tempo: cps: 2.0 or tempo: 120
+    /// Tempo: cps: 2.0 or tempo: 0.5 (cycles per second)
     Tempo(f64),
+    /// BPM: bpm: 120 or bpm: 120 "4/4" (beats per minute with optional time signature)
+    Bpm {
+        bpm: f64,
+        time_signature: Option<(u32, u32)>, // numerator/denominator (e.g., 4/4, 3/4)
+    },
     /// Output mixing mode: outmix: sqrt, gain, tanh, hard, none
     OutputMixMode(String),
     /// Function definition: fn name param1 param2: body
@@ -382,6 +387,7 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
         parse_bus_assignment,
         parse_output_channel, // Try multi-channel output first
         parse_output,         // Then single output
+        parse_bpm,    // Try BPM before tempo (bpm: vs tempo:)
         parse_tempo,
         parse_outmix, // Output mixing mode
     ))(input)
@@ -464,7 +470,7 @@ fn parse_output(input: &str) -> IResult<&str, Statement> {
     Ok((input, Statement::Output(expr)))
 }
 
-/// Parse tempo: cps: 2.0 or tempo: 120
+/// Parse tempo: cps: 2.0 or tempo: 0.5 (cycles per second)
 fn parse_tempo(input: &str) -> IResult<&str, Statement> {
     let (input, _) = alt((tag("cps"), tag("tempo")))(input)?;
     let (input, _) = space0(input)?;
@@ -473,6 +479,45 @@ fn parse_tempo(input: &str) -> IResult<&str, Statement> {
     let (input, value) = parse_number(input)?;
 
     Ok((input, Statement::Tempo(value)))
+}
+
+/// Parse time signature like "4/4"
+fn parse_time_signature(input: &str) -> IResult<&str, (u32, u32)> {
+    let (input, _) = char('"')(input)?;
+    let (input, numerator_str) = digit1(input)?;
+    let (input, _) = char('/')(input)?;
+    let (input, denominator_str) = digit1(input)?;
+    let (input, _) = char('"')(input)?;
+
+    let numerator = numerator_str.parse::<u32>().map_err(|_| {
+        nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Digit))
+    })?;
+    let denominator = denominator_str.parse::<u32>().map_err(|_| {
+        nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Digit))
+    })?;
+
+    Ok((input, (numerator, denominator)))
+}
+
+/// Parse BPM: bpm: 120 or bpm: 120 "4/4"
+fn parse_bpm(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = tag("bpm")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(':')(input)?;
+    let (input, _) = space0(input)?;
+    let (input, bpm) = parse_number(input)?;
+    let (input, _) = space0(input)?;
+
+    // Try to parse optional time signature like "4/4"
+    let (input, time_signature) = opt(parse_time_signature)(input)?;
+
+    Ok((
+        input,
+        Statement::Bpm {
+            bpm,
+            time_signature,
+        },
+    ))
 }
 
 /// Parse output mixing mode: outmix: sqrt|gain|tanh|hard|none

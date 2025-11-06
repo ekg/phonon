@@ -1,2 +1,0 @@
-tempo 2.0
-out = s "bd:0 bd:1 bd:2 bd:3"

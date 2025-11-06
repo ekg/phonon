@@ -1,5 +1,0 @@
--- Test pattern controlling amplitude
-tempo 2.0
--- Oscillator at constant freq, amplitude modulated by pattern
-~osc = sine 220
-out ~osc * "0.1 0.2"

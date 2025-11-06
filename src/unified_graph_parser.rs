@@ -2258,6 +2258,8 @@ impl DslCompiler {
                     attack: attack_signal,
                     release: release_signal,
                     envelope_type: runtime_envelope,
+                    unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
+                    loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
                 })
             }
             DslExpression::Scale {
@@ -2487,6 +2489,8 @@ impl DslCompiler {
                                 attack,
                                 release,
                                 envelope_type: None, // TODO: Support envelope in pattern transforms
+                                unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
+                                loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
                             })
                         } else {
                             eprintln!("Warning: Chained transform inner expression did not produce a pattern or sample node");
@@ -2566,6 +2570,8 @@ impl DslCompiler {
                             attack: attack_signal,
                             release: release_signal,
                             envelope_type: None, // TODO: Support envelope in this case
+                            unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
+                            loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
                         })
                     }
                     DslExpression::BusRef(bus_name) => {
@@ -2644,6 +2650,8 @@ impl DslCompiler {
                                 attack,
                                 release,
                                 envelope_type: None, // TODO: Support envelope in pattern transforms
+                                unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
+                                loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
                             })
                         } else if let Some(SignalNode::Pattern {
                             pattern: pattern_obj,

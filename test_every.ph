@@ -1,2 +1,0 @@
-tempo 2.0
-out s "bd" $ every 4 (fast 2)

@@ -126,6 +126,25 @@ fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<
             ctx.set_cps(cps);
             Ok(())
         }
+        Statement::Bpm {
+            bpm,
+            time_signature,
+        } => {
+            // bpm: value sets beats per minute
+            // Convert to cycles per second based on time signature
+            // Default time signature is 4/4 (4 beats per bar/cycle)
+
+            let (numerator, _denominator) = time_signature.unwrap_or((4, 4));
+            let beats_per_bar = numerator as f64;
+
+            // Formula: cps = bpm / (beats_per_bar × 60)
+            // Example: 120 BPM in 4/4 → 120 / (4 × 60) = 0.5 cps
+            // Example: 120 BPM in 3/4 → 120 / (3 × 60) = 0.67 cps
+            let cps = bpm / (beats_per_bar * 60.0);
+
+            ctx.set_cps(cps);
+            Ok(())
+        }
         Statement::OutputMixMode(mode_str) => {
             // outmix: sqrt|gain|tanh|hard|none
             // Sets how multiple output channels are mixed together
@@ -639,24 +658,46 @@ fn compile_function_call(
             let mut note = Signal::Value(0.0);
             let mut attack = Signal::Value(0.0);
             let mut release = Signal::Value(0.0);
+            let mut unit_mode = Signal::Value(0.0);      // 0 = rate mode (default)
+            let mut loop_enabled = Signal::Value(0.0);   // 0 = no loop (default)
 
             for kwarg in kwargs {
                 if let Expr::Kwarg { name, value } = kwarg {
-                    // Compile the value expression to a node
-                    let value_node_id = compile_expr(ctx, *value)?;
-                    let signal = Signal::Node(value_node_id);
-
                     // Assign to appropriate parameter
                     match name.as_str() {
-                        "gain" => gain = signal,
-                        "pan" => pan = signal,
-                        "speed" => speed = signal,
-                        "cut" | "cut_group" => cut_group = signal,
-                        "n" => n = signal,
-                        "note" => note = signal,
-                        "attack" => attack = signal,
-                        "release" => release = signal,
-                        _ => return Err(format!("Unknown sample parameter: {}", name)),
+                        "unit" => {
+                            // Convert string "r"/"c" to numeric: 0=rate, 1=cycle
+                            if let Expr::String(s) = *value {
+                                let mode_val = if s == "c" || s == "C" { 1.0 } else { 0.0 };
+                                unit_mode = Signal::Value(mode_val);
+                            } else {
+                                // Pattern or expression
+                                let value_node_id = compile_expr(ctx, *value)?;
+                                unit_mode = Signal::Node(value_node_id);
+                            }
+                        }
+                        "loop" => {
+                            // Compile the loop value expression
+                            let value_node_id = compile_expr(ctx, *value)?;
+                            loop_enabled = Signal::Node(value_node_id);
+                        }
+                        _ => {
+                            // Compile the value expression to a node
+                            let value_node_id = compile_expr(ctx, *value)?;
+                            let signal = Signal::Node(value_node_id);
+
+                            match name.as_str() {
+                                "gain" => gain = signal,
+                                "pan" => pan = signal,
+                                "speed" => speed = signal,
+                                "cut" | "cut_group" => cut_group = signal,
+                                "n" => n = signal,
+                                "note" => note = signal,
+                                "attack" => attack = signal,
+                                "release" => release = signal,
+                                _ => return Err(format!("Unknown sample parameter: {}", name)),
+                            }
+                        }
                     }
                 }
             }
@@ -676,6 +717,8 @@ fn compile_function_call(
                 attack,
                 release,
                 envelope_type: None,
+                unit_mode,
+                loop_enabled,
             };
             Ok(ctx.graph.add_node(node))
         }
@@ -756,6 +799,7 @@ fn compile_function_call(
         "bitcrush" => compile_bitcrush(ctx, args),
         "coarse" => compile_coarse(ctx, args),
         "djf" => compile_djf(ctx, args),
+        "ring" => compile_ring(ctx, args),
         "tremolo" | "trem" => compile_tremolo(ctx, args),
         "xfade" => compile_xfade(ctx, args),
         "mix" => compile_mix(ctx, args),
@@ -923,6 +967,8 @@ fn compile_cat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
+        loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
     };
 
     Ok(ctx.graph.add_node(node))
@@ -988,6 +1034,8 @@ fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
+        loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
     };
 
     Ok(ctx.graph.add_node(node))
@@ -2548,6 +2596,31 @@ fn compile_djf(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     Ok(ctx.graph.add_node(node))
 }
 
+/// Compile ring modulation effect
+/// ring freq - multiplies input by carrier frequency
+/// Example: saw 220 # ring 440
+fn compile_ring(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 1 {
+        return Err(format!(
+            "ring requires 1 parameter (carrier frequency), got {}",
+            params.len()
+        ));
+    }
+
+    let freq_node = compile_expr(ctx, params[0].clone())?;
+
+    let node = SignalNode::RingMod {
+        input: input_signal,
+        freq: Signal::Node(freq_node),
+        phase: 0.0,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
 /// Compile tremolo effect (amplitude modulation)
 /// Syntax: tremolo rate depth
 /// Example: ~signal # tremolo 5.0 0.7
@@ -3277,6 +3350,8 @@ fn modify_sample_param(
             attack: attack.clone(),
             release: release.clone(),
             envelope_type: envelope_type.clone(),
+            unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
+            loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
         };
 
         Ok(ctx.graph.add_node(new_sample))
@@ -3319,6 +3394,8 @@ fn compile_transform(
                     attack: Signal::Value(0.0),
                     release: Signal::Value(0.0),
                     envelope_type: None,
+                    unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
+                    loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
                 };
                 return Ok(ctx.graph.add_node(node));
             }
@@ -3399,6 +3476,8 @@ fn compile_transform(
                         attack: Signal::Value(0.0),
                         release: Signal::Value(0.0),
                         envelope_type: None,
+                        unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
+                        loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
                     };
                     return Ok(ctx.graph.add_node(node));
                 }
