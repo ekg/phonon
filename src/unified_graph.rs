@@ -5640,12 +5640,14 @@ impl UnifiedSignalGraph {
 
                 // Update last_trigger_time and last_cycle
                 // This ensures we don't re-trigger the same events
-                if latest_triggered_start > last_event_start || cycle_changed {
+                // IMPORTANT: Only update when we actually triggered a new event
+                // The old condition `|| cycle_changed` caused duplicate triggers
+                if latest_triggered_start > last_event_start {
                     // DEBUG: Log update
                     if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 20 {
                         eprintln!(
-                            "  Updating last_trigger_time: {:.6} -> {:.6} (cycle_changed={})",
-                            last_event_start, latest_triggered_start, cycle_changed
+                            "  Updating last_trigger_time: {:.6} -> {:.6}",
+                            last_event_start, latest_triggered_start
                         );
                     }
                     if let Some(Some(SignalNode::Sample {
