@@ -31,6 +31,8 @@ fn test_samples_through_lowpass_filter() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     // Route through lowpass filter
@@ -88,6 +90,8 @@ fn test_samples_through_multiply() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     // Multiply by 0.5 (reduce volume)

@@ -72,6 +72,8 @@ fn debug_direct_pattern_in_sample_node() {
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);

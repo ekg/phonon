@@ -42,6 +42,8 @@ fn render_sample_pattern(
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -270,6 +272,8 @@ fn test_pattern_based_speed() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -320,6 +324,8 @@ fn test_pattern_based_gain() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -384,6 +390,8 @@ fn test_pattern_based_n() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -432,6 +440,8 @@ fn test_pattern_based_note() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -505,6 +515,8 @@ fn test_pattern_based_attack() {
         attack: Signal::Node(attack_node), // Pattern-controlled attack!
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);
@@ -552,6 +564,8 @@ fn test_pattern_based_release() {
         attack: Signal::Value(0.001),
         release: Signal::Node(release_node), // Pattern-controlled release!
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output(sample_node);

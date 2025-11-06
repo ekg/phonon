@@ -78,6 +78,8 @@ fn test_panic_command_kills_voices() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output_channel(1, sample_node);

@@ -38,6 +38,8 @@ fn compare_normal_vs_degraded_sample_nodes() {
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph_normal.set_output(sample_node_normal);
 
@@ -75,6 +77,8 @@ fn compare_normal_vs_degraded_sample_nodes() {
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph_degraded.set_output(sample_node_degraded);
 

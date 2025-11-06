@@ -9,11 +9,11 @@ fn test_note_modifier_pitch_shift() {
     // note values change playback speed: 0 = normal, 12 = octave up, -12 = octave down
     // Using semitone formula: speed = 2^(note/12)
     let phonon_code = r#"
-tempo 2.0
+tempo: 2.0
 
-# Play sample at different pitches using note modifier
-# 0 = original pitch, 5 = perfect fourth up, 7 = perfect fifth up, 12 = octave up
-out s "bd" # note "0 5 7 12"
+-- Play sample at different pitches using note modifier
+-- 0 = original pitch, 5 = perfect fourth up, 7 = perfect fifth up, 12 = octave up
+out: s "bd" # note "0 5 7 12"
 "#;
 
     std::fs::write("/tmp/test_note_modifier.phonon", phonon_code).unwrap();
@@ -76,10 +76,10 @@ fn test_note_modifier_scale() {
 
     // A minor scale in semitones: 0, 2, 3, 5, 7, 8, 10, 12
     let phonon_code = r#"
-tempo 2.0
+tempo: 2.0
 
-# Play minor scale using note modifier
-out s "bd*8" # note "0 2 3 5 7 8 10 12"
+-- Play minor scale using note modifier
+out: s "bd*8" # note "0 2 3 5 7 8 10 12"
 "#;
 
     std::fs::write("/tmp/test_note_scale.phonon", phonon_code).unwrap();
@@ -123,10 +123,10 @@ fn test_note_modifier_negative() {
     println!("Testing note modifier with negative values...");
 
     let phonon_code = r#"
-tempo 2.0
+tempo: 2.0
 
-# Pitch down by octave and fifth
-out s "bd*4" # note "0 -5 -7 -12"
+-- Pitch down by octave and fifth
+out: s "bd*4" # note "0 -5 -7 -12"
 "#;
 
     std::fs::write("/tmp/test_note_negative.phonon", phonon_code).unwrap();
@@ -170,10 +170,10 @@ fn test_note_modifier_constant() {
     println!("Testing note modifier with constant value...");
 
     let phonon_code = r#"
-tempo 2.0
+tempo: 2.0
 
-# Play all samples one octave up
-out s "bd*4" # note 12
+-- Play all samples one octave up
+out: s "bd*4" # note 12
 "#;
 
     std::fs::write("/tmp/test_note_constant.phonon", phonon_code).unwrap();
@@ -209,6 +209,60 @@ out s "bd*4" # note 12
     );
 
     println!("✅ note modifier constant test passed");
+}
+
+/// Test n and note modifiers working together
+#[test]
+fn test_n_and_note_together() {
+    println!("Testing n and note modifiers together...");
+
+    let phonon_code = r#"
+tempo: 2.0
+
+-- Select different samples with different pitches
+out: s "bd*4" # n "0 1 0 1" # note "0 5 7 12"
+"#;
+
+    std::fs::write("/tmp/test_n_note_combo.phonon", phonon_code).unwrap();
+
+    let output = Command::new("cargo")
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_n_note_combo.phonon",
+            "/tmp/test_n_note_combo.wav",
+            "--duration",
+            "1",
+        ])
+        .output()
+        .expect("Failed to run phonon render");
+
+    assert!(
+        output.status.success(),
+        "n + note combination render failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let analysis = analyze_wav("/tmp/test_n_note_combo.wav");
+
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "n + note combination produced no audio!\n{}",
+        analysis
+    );
+
+    let onset_count = extract_onset_count(&analysis);
+    assert!(
+        onset_count >= 1,
+        "Too few onset events for n + note combination: {} (expected >=1)",
+        onset_count
+    );
+
+    println!("✅ n + note combination test passed");
 }
 
 // Helper functions

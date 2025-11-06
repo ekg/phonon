@@ -26,6 +26,8 @@ fn test_attack_parameter_shapes_onset() {
         attack: Signal::Value(0.1),   // 100ms attack
         release: Signal::Value(0.05), // 50ms release
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output_channel(1, sample_node);
@@ -91,6 +93,8 @@ fn test_release_parameter_controls_tail() {
         attack: Signal::Value(0.001), // 1ms attack
         release: Signal::Value(0.01), // 10ms release (short)
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph1.set_output_channel(1, sample_node1);
 
@@ -114,6 +118,8 @@ fn test_release_parameter_controls_tail() {
         attack: Signal::Value(0.001), // 1ms attack
         release: Signal::Value(0.2),  // 200ms release (long)
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph2.set_output_channel(1, sample_node2);
 
@@ -182,6 +188,8 @@ fn test_fast_vs_slow_attack() {
         attack: Signal::Value(0.001), // 1ms attack (fast)
         release: Signal::Value(0.05),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph_fast.set_output_channel(1, sample_node_fast);
 
@@ -205,6 +213,8 @@ fn test_fast_vs_slow_attack() {
         attack: Signal::Value(0.15), // 150ms attack (slow)
         release: Signal::Value(0.05),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph_slow.set_output_channel(1, sample_node_slow);
 
@@ -263,6 +273,8 @@ fn test_default_envelope_values() {
         attack: Signal::Value(0.0),  // Default attack
         release: Signal::Value(0.0), // Default release
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output_channel(1, sample_node);
@@ -304,6 +316,8 @@ fn test_envelope_gain_interaction() {
         attack: Signal::Value(0.01),  // 10ms attack
         release: Signal::Value(0.05), // 50ms release
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output_channel(1, sample_node);
@@ -356,6 +370,8 @@ fn test_multiple_events_different_envelopes() {
         attack: Signal::Value(0.01), // 10ms attack
         release: Signal::Value(0.1), // 100ms release
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output_channel(1, sample_node);
@@ -415,6 +431,8 @@ fn test_extreme_envelope_values_clamped() {
         attack: Signal::Value(100.0),  // 100s attack (extreme)
         release: Signal::Value(100.0), // 100s release (extreme)
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output_channel(1, sample_node);
@@ -461,6 +479,8 @@ fn test_very_short_envelope() {
         attack: Signal::Value(0.00001), // 0.01ms attack (very short)
         release: Signal::Value(0.0001), // 0.1ms release (very short)
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
 
     graph.set_output_channel(1, sample_node);

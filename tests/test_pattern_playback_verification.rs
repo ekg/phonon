@@ -33,6 +33,8 @@ fn test_alternation_cycles_have_audio() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph.set_output(sample_node);
 
@@ -88,6 +90,8 @@ fn test_concatenation_cycles_have_audio() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph.set_output(sample_node);
 
@@ -128,6 +132,8 @@ fn test_subdivision_has_audio() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph.set_output(sample_node);
 
@@ -167,6 +173,8 @@ fn test_euclidean_alternation_has_audio() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph.set_output(sample_node);
 
@@ -212,6 +220,8 @@ fn test_layering_has_louder_audio() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph.set_output(sample_node);
 
@@ -237,6 +247,8 @@ fn test_layering_has_louder_audio() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph_single.set_output(sample_node_single);
     let buffer_single = graph_single.render(sample_rate as usize);
@@ -280,6 +292,8 @@ fn test_multiple_bars_consistent() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph.set_output(sample_node);
 

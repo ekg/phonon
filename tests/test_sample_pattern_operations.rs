@@ -34,6 +34,8 @@ fn test_alternation_over_multiple_cycles() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph.set_output(sample_node);
 
@@ -120,6 +122,8 @@ fn test_concatenation_multiple_samples() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph.set_output(sample_node);
 
@@ -203,6 +207,8 @@ fn test_layering_simultaneous_samples() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph.set_output(sample_node);
 
@@ -266,6 +272,8 @@ fn test_alternation_with_subdivision() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph.set_output(sample_node);
 
@@ -332,6 +340,8 @@ fn test_concatenation_over_multiple_bars() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph.set_output(sample_node);
 
@@ -407,6 +417,8 @@ fn test_euclidean_alternation_combo() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph.set_output(sample_node);
 
@@ -476,6 +488,8 @@ fn test_fast_subdivision_accuracy() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
     });
     graph.set_output(sample_node);
 

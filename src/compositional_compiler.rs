@@ -824,6 +824,7 @@ fn compile_function_call(
 
         // ========== Sample Parameter Modifiers ==========
         "n" => compile_n_modifier(ctx, args),
+        "note" => compile_note_modifier(ctx, args),
         "gain" => compile_gain_modifier(ctx, args),
         "pan" => compile_pan_modifier(ctx, args),
         "speed" => compile_speed_modifier(ctx, args),
@@ -3311,6 +3312,8 @@ fn modify_sample_param(
         attack,
         release,
         envelope_type,
+        unit_mode,
+        loop_enabled,
         ..
     } = sample_node
     {
@@ -3343,15 +3346,23 @@ fn modify_sample_param(
                 n.clone()
             },
             note: if param_name == "note" {
-                new_value
+                new_value.clone()
             } else {
                 note.clone()
             },
-            attack: attack.clone(),
-            release: release.clone(),
+            attack: if param_name == "attack" {
+                new_value.clone()
+            } else {
+                attack.clone()
+            },
+            release: if param_name == "release" {
+                new_value
+            } else {
+                release.clone()
+            },
             envelope_type: envelope_type.clone(),
-            unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
-            loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
+            unit_mode: unit_mode.clone(),
+            loop_enabled: loop_enabled.clone(),
         };
 
         Ok(ctx.graph.add_node(new_sample))
@@ -4079,11 +4090,42 @@ fn compile_n_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
         }
     };
 
+    eprintln!("[DEBUG] n modifier: input node = {}, creating modified node...", sample_node_id.0);
+
     // Second arg is the n pattern
     let n_value = compile_expr(ctx, args[1].clone())?;
 
     // Modify the Sample node
-    modify_sample_param(ctx, sample_node_id, "n", Signal::Node(n_value))
+    let result = modify_sample_param(ctx, sample_node_id, "n", Signal::Node(n_value))?;
+    eprintln!("[DEBUG] n modifier: output node = {}", result.0);
+    Ok(result)
+}
+
+/// Compile note modifier: s "bd" # note "0 5 7"
+/// Sets the pitch shift in semitones for sample playback
+fn compile_note_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "note requires 2 arguments (sample_input, note_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    // First arg should be ChainInput pointing to a Sample node
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => *node_id,
+        _ => {
+            return Err(
+                "note must be used with the chain operator: s \"bd\" # note \"0 5 7\"".to_string(),
+            )
+        }
+    };
+
+    // Second arg is the note pattern (semitone offsets)
+    let note_value = compile_expr(ctx, args[1].clone())?;
+
+    // Modify the Sample node
+    modify_sample_param(ctx, sample_node_id, "note", Signal::Node(note_value))
 }
 
 /// Compile gain modifier: s "bd" # gain "0.8 0.5 1.0"
