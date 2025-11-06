@@ -417,6 +417,9 @@ pub struct VoiceManager {
 
     /// Initial voice pool size
     initial_voices: usize,
+
+    /// Sample counter for periodic pool shrinking
+    shrink_counter: usize,
 }
 
 impl Default for VoiceManager {
@@ -471,6 +474,44 @@ impl VoiceManager {
             last_triggered_voice_index: None,
             max_voices,
             initial_voices,
+            shrink_counter: 0,
+        }
+    }
+
+    /// Shrink the voice pool if too many voices are unused
+    /// Only shrinks down to initial_voices, never below
+    /// Returns number of voices removed
+    pub fn shrink_voice_pool(&mut self) -> usize {
+        let current_count = self.voices.len();
+        if current_count <= self.initial_voices {
+            return 0; // Don't shrink below initial size
+        }
+
+        // Count active voices
+        let active_count = self.voices.iter()
+            .filter(|v| v.state != VoiceState::Free)
+            .count();
+
+        // Only shrink if less than 25% of voices are in use
+        let usage_ratio = active_count as f32 / current_count as f32;
+        if usage_ratio > 0.25 {
+            return 0; // Still using too many voices, don't shrink
+        }
+
+        // Shrink to 150% of active count or initial_voices, whichever is larger
+        let target_size = ((active_count as f32 * 1.5) as usize)
+            .max(self.initial_voices);
+
+        if target_size < current_count {
+            // Truncate to target size (removes from end)
+            let remove_count = current_count - target_size;
+            self.voices.truncate(target_size);
+
+            eprintln!("🔻 Voice pool shrunk: {} → {} voices ({}% usage)",
+                current_count, target_size, (usage_ratio * 100.0) as u32);
+            remove_count
+        } else {
+            0
         }
     }
 
@@ -782,6 +823,13 @@ impl VoiceManager {
             if active_count > 0 {
                 eprintln!("[VOICE_MGR] {} active voices", active_count);
             }
+        }
+
+        // Periodic voice pool shrinking (once per second at 44.1kHz)
+        self.shrink_counter += 1;
+        if self.shrink_counter >= 44100 {
+            self.shrink_counter = 0;
+            self.shrink_voice_pool();
         }
 
         for voice in &mut self.voices {

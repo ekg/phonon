@@ -1,5 +1,5 @@
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 use std::collections::HashMap;
 
 #[test]
