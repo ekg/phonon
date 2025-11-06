@@ -50,7 +50,10 @@ fn test_degrade_by_removes_events() {
     }
 
     // Should have no events
-    assert_eq!(total_full_degrade, 0, "degradeBy 1.0 should remove all events");
+    assert_eq!(
+        total_full_degrade, 0,
+        "degradeBy 1.0 should remove all events"
+    );
 
     // Test with degradeBy 0.5 (probabilistic removal)
     let pattern_half_degrade = pattern.clone().degrade_by(0.5);
@@ -113,10 +116,7 @@ fn test_chop_slices_pattern() {
     // Test with chop 4 - one event should become 4 slices
     let pattern_chop = pattern.clone().chop(4);
     let state = State {
-        span: TimeSpan::new(
-            Fraction::from_float(0.0),
-            Fraction::from_float(1.0),
-        ),
+        span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),
         controls: HashMap::new(),
     };
     let events = pattern_chop.query(&state);
@@ -183,7 +183,11 @@ out: s "bd*8" $ degradeBy 1.0
     let buffer = graph.render(44100);
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
-    assert!(rms < 0.001, "degradeBy 1.0 should produce near-silence, got RMS={}", rms);
+    assert!(
+        rms < 0.001,
+        "degradeBy 1.0 should produce near-silence, got RMS={}",
+        rms
+    );
 }
 
 #[test]

@@ -280,11 +280,7 @@ out: s "bd*4" # pan -1.0
     let rms = calculate_rms(&buffer);
 
     // Should produce audio (panning works in voice manager)
-    assert!(
-        rms > 0.01,
-        "Pan=-1 should produce audio, got RMS={}",
-        rms
-    );
+    assert!(rms > 0.01, "Pan=-1 should produce audio, got RMS={}", rms);
 }
 
 #[test]
@@ -305,11 +301,7 @@ out: s "bd*4" # pan 1.0
     let rms = calculate_rms(&buffer);
 
     // Should produce audio
-    assert!(
-        rms > 0.01,
-        "Pan=1 should produce audio, got RMS={}",
-        rms
-    );
+    assert!(rms > 0.01, "Pan=1 should produce audio, got RMS={}", rms);
 }
 
 #[test]

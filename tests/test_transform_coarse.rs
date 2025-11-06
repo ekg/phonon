@@ -2,7 +2,6 @@
 ///
 /// coarse n - reduces sample rate to 1/n
 /// coarse: 1 for original, 2 for half, 3 for a third and so on
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -41,7 +40,11 @@ out: saw 110 # coarse 3
     let rms = calculate_rms(&buffer);
     println!("Coarse synthesis RMS: {:.6}", rms);
 
-    assert!(rms > 0.05, "Coarse synthesis should produce sound, got RMS {}", rms);
+    assert!(
+        rms > 0.05,
+        "Coarse synthesis should produce sound, got RMS {}",
+        rms
+    );
 }
 
 #[test]

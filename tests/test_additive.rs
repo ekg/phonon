@@ -87,7 +87,10 @@ out: additive 440 "1.0 0.5 0.25"
     let rms_multiple = calculate_rms(&buffer_multiple);
 
     assert!(rms_single > 0.01, "Single partial should produce sound");
-    assert!(rms_multiple > 0.01, "Multiple partials should produce sound");
+    assert!(
+        rms_multiple > 0.01,
+        "Multiple partials should produce sound"
+    );
 
     // With amplitude-sum normalization, both signals have similar peak amplitude
     // but multiple partials have different harmonic content

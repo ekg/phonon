@@ -35,10 +35,7 @@ fn measure_frequency(buffer: &[f32], sample_rate: f32) -> Option<f32> {
         return None;
     }
 
-    let periods: Vec<f32> = crossings
-        .windows(2)
-        .map(|w| (w[1] - w[0]) as f32)
-        .collect();
+    let periods: Vec<f32> = crossings.windows(2).map(|w| (w[1] - w[0]) as f32).collect();
 
     let avg_period = periods.iter().sum::<f32>() / periods.len() as f32;
     Some(sample_rate / avg_period)
@@ -112,8 +109,7 @@ out: wavetable {}
         let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
         let buffer = graph.render(44100);
 
-        let measured_freq = measure_frequency(&buffer, 44100.0)
-            .expect("Should detect frequency");
+        let measured_freq = measure_frequency(&buffer, 44100.0).expect("Should detect frequency");
 
         // Within 2% tolerance
         let tolerance = freq * 0.02;

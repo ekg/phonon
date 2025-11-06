@@ -74,8 +74,8 @@
 //! ```
 
 use crate::envelope::VoiceEnvelope;
-use std::sync::Arc;
 use rayon::prelude::*;
+use std::sync::Arc;
 
 /// Maximum number of simultaneous voices
 /// Default number of voices if not specified
@@ -167,8 +167,8 @@ impl Voice {
             age: 0,
             cut_group: None,
             envelope: VoiceEnvelope::new_percussion(SAMPLE_RATE, 0.001, 0.1),
-            attack: 0.001, // 1ms default attack
-            release: 0.1,  // 100ms default release
+            attack: 0.001,             // 1ms default attack
+            release: 0.1,              // 100ms default release
             unit_mode: UnitMode::Rate, // Default to rate mode
             loop_enabled: false,       // Default to no looping
         }
@@ -331,8 +331,10 @@ impl Voice {
 
         // DEBUG: Log voice processing
         if std::env::var("DEBUG_VOICE_PROCESS").is_ok() && self.age < 10 {
-            eprintln!("[VOICE] process_stereo called, age={}, position={:.1}",
-                self.age, self.position);
+            eprintln!(
+                "[VOICE] process_stereo called, age={}, position={:.1}",
+                self.age, self.position
+            );
         }
 
         // Process envelope
@@ -497,7 +499,9 @@ impl VoiceManager {
         }
 
         // Count active voices
-        let active_count = self.voices.iter()
+        let active_count = self
+            .voices
+            .iter()
             .filter(|v| v.state != VoiceState::Free)
             .count();
 
@@ -508,16 +512,19 @@ impl VoiceManager {
         }
 
         // Shrink to 150% of active count or initial_voices, whichever is larger
-        let target_size = ((active_count as f32 * 1.5) as usize)
-            .max(self.initial_voices);
+        let target_size = ((active_count as f32 * 1.5) as usize).max(self.initial_voices);
 
         if target_size < current_count {
             // Truncate to target size (removes from end)
             let remove_count = current_count - target_size;
             self.voices.truncate(target_size);
 
-            eprintln!("🔻 Voice pool shrunk: {} → {} voices ({}% usage)",
-                current_count, target_size, (usage_ratio * 100.0) as u32);
+            eprintln!(
+                "🔻 Voice pool shrunk: {} → {} voices ({}% usage)",
+                current_count,
+                target_size,
+                (usage_ratio * 100.0) as u32
+            );
             remove_count
         } else {
             0
@@ -532,7 +539,10 @@ impl VoiceManager {
         // Check if we've hit the max limit
         if let Some(max) = self.max_voices {
             if current_count >= max {
-                eprintln!("⚠️  Voice limit reached: {} voices (max: {})", current_count, max);
+                eprintln!(
+                    "⚠️  Voice limit reached: {} voices (max: {})",
+                    current_count, max
+                );
                 return false;
             }
         }
@@ -550,7 +560,10 @@ impl VoiceManager {
             for _ in 0..voices_to_add {
                 self.voices.push(Voice::new());
             }
-            eprintln!("🎵 Voice pool grown: {} → {} voices", current_count, new_count);
+            eprintln!(
+                "🎵 Voice pool grown: {} → {} voices",
+                current_count, new_count
+            );
             true
         } else {
             false
@@ -828,7 +841,11 @@ impl VoiceManager {
 
         // DEBUG: Count active voices
         if std::env::var("DEBUG_VOICE_COUNT").is_ok() {
-            let active_count = self.voices.iter().filter(|v| v.state != VoiceState::Free).count();
+            let active_count = self
+                .voices
+                .iter()
+                .filter(|v| v.state != VoiceState::Free)
+                .count();
             if active_count > 0 {
                 eprintln!("[VOICE_MGR] {} active voices", active_count);
             }
@@ -842,7 +859,11 @@ impl VoiceManager {
         }
 
         // Performance monitoring: track peak voice count and samples
-        let active_count = self.voices.iter().filter(|v| v.state != VoiceState::Free).count();
+        let active_count = self
+            .voices
+            .iter()
+            .filter(|v| v.state != VoiceState::Free)
+            .count();
         if active_count > self.peak_voice_count {
             self.peak_voice_count = active_count;
         }
@@ -850,7 +871,8 @@ impl VoiceManager {
 
         // Parallel voice processing: each voice renders independently
         // This is the key performance optimization for high voice counts
-        let voice_outputs: Vec<(f32, f32)> = self.voices
+        let voice_outputs: Vec<(f32, f32)> = self
+            .voices
             .par_iter_mut()
             .map(|voice| voice.process_stereo())
             .collect();
@@ -906,7 +928,10 @@ impl VoiceManager {
 
     /// Get number of active voices
     pub fn active_voice_count(&self) -> usize {
-        self.voices.iter().filter(|v| v.state != VoiceState::Free).count()
+        self.voices
+            .iter()
+            .filter(|v| v.state != VoiceState::Free)
+            .count()
     }
 
     /// Reset all voices

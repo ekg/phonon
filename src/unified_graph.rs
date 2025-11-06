@@ -547,11 +547,11 @@ pub enum SignalNode {
     /// Breaks audio into small grains (5-100ms) and overlaps them
     /// Classic technique: Reaktor, Ableton Granulator, Max/MSP
     Granular {
-        source: Signal,         // Input audio source
-        grain_size_ms: Signal,  // Grain duration in milliseconds
-        density: Signal,        // Grain spawn rate (0.0 to 1.0)
-        pitch: Signal,          // Playback speed/pitch multiplier
-        state: GranularState,   // Grain buffer and active grains
+        source: Signal,        // Input audio source
+        grain_size_ms: Signal, // Grain duration in milliseconds
+        density: Signal,       // Grain spawn rate (0.0 to 1.0)
+        pitch: Signal,         // Playback speed/pitch multiplier
+        state: GranularState,  // Grain buffer and active grains
     },
 
     /// Karplus-Strong string synthesis
@@ -579,13 +579,13 @@ pub enum SignalNode {
     /// Filters source signal through three resonant bandpass filters to create vowel sounds
     /// Each vowel is characterized by specific formant frequencies (F1, F2, F3)
     Formant {
-        source: Signal,   // Input signal to filter
-        f1: Signal,       // First formant frequency (Hz)
-        f2: Signal,       // Second formant frequency (Hz)
-        f3: Signal,       // Third formant frequency (Hz)
-        bw1: Signal,      // First formant bandwidth (Hz)
-        bw2: Signal,      // Second formant bandwidth (Hz)
-        bw3: Signal,      // Third formant bandwidth (Hz)
+        source: Signal,      // Input signal to filter
+        f1: Signal,          // First formant frequency (Hz)
+        f2: Signal,          // Second formant frequency (Hz)
+        f3: Signal,          // Third formant frequency (Hz)
+        bw1: Signal,         // First formant bandwidth (Hz)
+        bw2: Signal,         // Second formant bandwidth (Hz)
+        bw3: Signal,         // Third formant bandwidth (Hz)
         state: FormantState, // Bandpass filter state
     },
 
@@ -593,8 +593,8 @@ pub enum SignalNode {
     /// Simplified formant filter using vowel selector: 0=a, 1=e, 2=i, 3=o, 4=u
     /// Pattern-controllable vowel selection for live coding convenience
     Vowel {
-        source: Signal,   // Input signal to filter
-        vowel: Signal,    // Vowel selector (0-4 maps to a,e,i,o,u)
+        source: Signal,      // Input signal to filter
+        vowel: Signal,       // Vowel selector (0-4 maps to a,e,i,o,u)
         state: FormantState, // Bandpass filter state
     },
 
@@ -603,9 +603,9 @@ pub enum SignalNode {
     /// Each partial is a multiple of the fundamental frequency with independent amplitude
     /// Example: additive 440 "1.0 0.5 0.25" → 440Hz + 880Hz(×0.5) + 1320Hz(×0.25)
     Additive {
-        freq: Signal,           // Fundamental frequency (Hz) - pattern-modulatable
-        amplitudes: Vec<f32>,   // Fixed amplitude for each partial [1, 2, 3, ...]
-        state: AdditiveState,   // Phase tracking state
+        freq: Signal,         // Fundamental frequency (Hz) - pattern-modulatable
+        amplitudes: Vec<f32>, // Fixed amplitude for each partial [1, 2, 3, ...]
+        state: AdditiveState, // Phase tracking state
     },
 
     /// Vocoder
@@ -613,15 +613,15 @@ pub enum SignalNode {
     /// Classic use: Robot voice effect (voice modulating synth)
     /// Example: vocoder ~voice ~synth 16 → 16-band vocoder
     Vocoder {
-        modulator: Signal,  // Modulator signal (usually voice/rhythmic)
-        carrier: Signal,    // Carrier signal (usually synth/rich harmonics)
-        num_bands: usize,   // Number of frequency bands (2-32, default 8)
+        modulator: Signal, // Modulator signal (usually voice/rhythmic)
+        carrier: Signal,   // Carrier signal (usually synth/rich harmonics)
+        num_bands: usize,  // Number of frequency bands (2-32, default 8)
         state: VocoderState,
     },
 
     PitchShift {
-        input: Signal,      // Input signal to pitch shift
-        semitones: Signal,  // Pitch shift amount in semitones (can be pattern-modulated)
+        input: Signal,     // Input signal to pitch shift
+        semitones: Signal, // Pitch shift amount in semitones (can be pattern-modulated)
         state: PitchShifterState,
     },
 
@@ -679,8 +679,8 @@ pub enum SignalNode {
         attack: Signal,    // Attack time in seconds (0.0 = no attack envelope)
         release: Signal,   // Release time in seconds (0.0 = no release envelope)
         envelope_type: Option<RuntimeEnvelopeType>, // Envelope type (None = percussion)
-        unit_mode: Signal,      // Unit mode: 0="r" (rate), 1="c" (cycle-sync)
-        loop_enabled: Signal,   // Loop mode: 0=play once, 1=loop continuously
+        unit_mode: Signal, // Unit mode: 0="r" (rate), 1="c" (cycle-sync)
+        loop_enabled: Signal, // Loop mode: 0=play once, 1=loop continuously
     },
 
     /// Pattern-triggered synthesizer with ADSR envelopes
@@ -1969,10 +1969,10 @@ impl Default for WavetableState {
 /// Individual grain for granular synthesis
 #[derive(Debug, Clone)]
 pub struct Grain {
-    position: f32,       // Read position in source buffer (samples)
-    playback_rate: f32,  // Speed/pitch multiplier (1.0 = normal)
-    age_samples: usize,  // How many samples this grain has played
-    grain_length: usize, // Total length of this grain in samples
+    position: f32,          // Read position in source buffer (samples)
+    playback_rate: f32,     // Speed/pitch multiplier (1.0 = normal)
+    age_samples: usize,     // How many samples this grain has played
+    grain_length: usize,    // Total length of this grain in samples
     window_table: Vec<f32>, // Pre-computed Hann window values
 }
 
@@ -2144,7 +2144,11 @@ impl KarplusStrongState {
 
         let len = self.delay_line.len();
         let current_pos = self.write_pos;
-        let prev_pos = if current_pos == 0 { len - 1 } else { current_pos - 1 };
+        let prev_pos = if current_pos == 0 {
+            len - 1
+        } else {
+            current_pos - 1
+        };
 
         // Karplus-Strong algorithm: average current + previous sample
         // Damping: 0.0 = long sustain (low energy loss), 1.0 = short sustain (high energy loss)
@@ -2256,8 +2260,16 @@ impl WaveguideState {
 
         // Reflect with damping: forward wave becomes backward wave (and vice versa)
         // Simple lowpass: average with previous sample for damping
-        let forward_prev_pos = if self.forward_pos == 0 { len - 1 } else { self.forward_pos - 1 };
-        let backward_prev_pos = if self.backward_pos == 0 { len - 1 } else { self.backward_pos - 1 };
+        let forward_prev_pos = if self.forward_pos == 0 {
+            len - 1
+        } else {
+            self.forward_pos - 1
+        };
+        let backward_prev_pos = if self.backward_pos == 0 {
+            len - 1
+        } else {
+            self.backward_pos - 1
+        };
 
         let forward_prev = self.forward_delay[forward_prev_pos];
         let backward_prev = self.backward_delay[backward_prev_pos];
@@ -2533,7 +2545,7 @@ pub struct VocoderState {
     envelopes: Vec<f32>,
     sample_rate: f32,
     /// Pre-calculated filter coefficients (computed once at initialization)
-    filter_f: Vec<f32>,    // f coefficient for each band
+    filter_f: Vec<f32>, // f coefficient for each band
     filter_damp: Vec<f32>, // damp coefficient for each band
 }
 
@@ -2643,13 +2655,13 @@ impl Default for VocoderState {
 /// Converts semitones to playback rate and uses overlapping grains
 #[derive(Debug, Clone)]
 pub struct PitchShifterState {
-    delay_buffer: Vec<f32>,  // Circular buffer for input audio
-    write_pos: usize,        // Write position in buffer
-    grain1_pos: f32,         // Read position for grain 1
-    grain2_pos: f32,         // Read position for grain 2
-    grain1_phase: f32,       // Phase for grain 1 window [0, 1]
-    grain2_phase: f32,       // Phase for grain 2 window [0, 1]
-    grain_size: usize,       // Size of each grain in samples
+    delay_buffer: Vec<f32>, // Circular buffer for input audio
+    write_pos: usize,       // Write position in buffer
+    grain1_pos: f32,        // Read position for grain 1
+    grain2_pos: f32,        // Read position for grain 2
+    grain1_phase: f32,      // Phase for grain 1 window [0, 1]
+    grain2_phase: f32,      // Phase for grain 2 window [0, 1]
+    grain_size: usize,      // Size of each grain in samples
     sample_rate: f32,
 }
 
@@ -2993,9 +3005,7 @@ impl SpectralFreezeState {
 
             // Perform FFT
             let mut spectrum = self.r2c.make_output_vec();
-            self.r2c
-                .process(&mut windowed, &mut spectrum)
-                .unwrap_or(());
+            self.r2c.process(&mut windowed, &mut spectrum).unwrap_or(());
 
             // Freeze spectrum on trigger
             if triggered {
@@ -3386,11 +3396,7 @@ impl UnifiedSignalGraph {
     fn eval_note_signal_at_time(&mut self, signal: &Signal, cycle_pos: f64) -> f32 {
         match signal {
             Signal::Node(id) => {
-                if let Some(Some(SignalNode::Pattern {
-                    pattern,
-                    ..
-                })) = self.nodes.get(id.0)
-                {
+                if let Some(Some(SignalNode::Pattern { pattern, .. })) = self.nodes.get(id.0) {
                     let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
                     let state = State {
                         span: TimeSpan::new(
@@ -3427,7 +3433,7 @@ impl UnifiedSignalGraph {
                                     "sol" | "so" => 7.0,
                                     "la" => 9.0,
                                     "ti" | "si" => 11.0,
-                                    _ => 0.0 // Unknown, treat as 0
+                                    _ => 0.0, // Unknown, treat as 0
                                 }
                             }
                         }
@@ -3484,7 +3490,7 @@ impl UnifiedSignalGraph {
                                 "sol" | "so" => 7.0,
                                 "la" => 9.0,
                                 "ti" | "si" => 11.0,
-                                _ => 0.0
+                                _ => 0.0,
                             }
                         }
                     }
@@ -3534,7 +3540,8 @@ impl UnifiedSignalGraph {
                                         // Look up chord intervals
                                         if let Some(intervals) = CHORD_INTERVALS.get(chord_type) {
                                             // Return root + all intervals as semitone offsets
-                                            intervals.iter()
+                                            intervals
+                                                .iter()
                                                 .map(|&interval| root_semitones + interval as f32)
                                                 .collect()
                                         } else {
@@ -4330,7 +4337,11 @@ impl UnifiedSignalGraph {
                 0.0
             }
 
-            SignalNode::Vowel { source, vowel, state } => {
+            SignalNode::Vowel {
+                source,
+                vowel,
+                state,
+            } => {
                 // Evaluate input source signal
                 let input = self.eval_signal(&source);
 
@@ -4919,7 +4930,9 @@ impl UnifiedSignalGraph {
 
                 let mut output_val = input_val;
 
-                if let Some(Some(SignalNode::RingMod { phase: p, .. })) = self.nodes.get_mut(node_id.0) {
+                if let Some(Some(SignalNode::RingMod { phase: p, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
                     *p += carrier_freq * 2.0 * std::f32::consts::PI / self.sample_rate;
                     if *p >= 2.0 * std::f32::consts::PI {
                         *p -= 2.0 * std::f32::consts::PI;
@@ -5352,7 +5365,8 @@ impl UnifiedSignalGraph {
 
                         // Evaluate unit mode and loop parameters
                         let unit_mode_val = self.eval_signal_at_time(&unit_mode, event_start_abs);
-                        let loop_enabled_val = self.eval_signal_at_time(&loop_enabled, event_start_abs);
+                        let loop_enabled_val =
+                            self.eval_signal_at_time(&loop_enabled, event_start_abs);
 
                         // Convert to appropriate types
                         let unit_mode_enum = if unit_mode_val > 0.5 {
@@ -5378,231 +5392,243 @@ impl UnifiedSignalGraph {
                             };
                             let final_speed = speed_val * pitch_shift_multiplier;
 
-                        // Handle bus triggering vs regular sample loading
-                        if is_bus_trigger {
-                            // Look up the bus
-                            if let Some(bus_node_id) = self.buses.get(actual_name).copied() {
-                                // Calculate event duration from pattern
-                                let event_duration = if let Some(whole) = &event.whole {
-                                    whole.end.to_float() - whole.begin.to_float()
-                                } else {
-                                    event.part.end.to_float() - event.part.begin.to_float()
-                                };
+                            // Handle bus triggering vs regular sample loading
+                            if is_bus_trigger {
+                                // Look up the bus
+                                if let Some(bus_node_id) = self.buses.get(actual_name).copied() {
+                                    // Calculate event duration from pattern
+                                    let event_duration = if let Some(whole) = &event.whole {
+                                        whole.end.to_float() - whole.begin.to_float()
+                                    } else {
+                                        event.part.end.to_float() - event.part.begin.to_float()
+                                    };
 
-                                // Convert duration to samples (duration is in cycles)
-                                let duration_samples =
-                                    (event_duration * self.sample_rate as f64 * self.cps as f64)
+                                    // Convert duration to samples (duration is in cycles)
+                                    let duration_samples = (event_duration
+                                        * self.sample_rate as f64
+                                        * self.cps as f64)
                                         as usize;
-                                let duration_samples =
-                                    duration_samples.max(1).min(self.sample_rate as usize * 2); // Cap at 2 seconds
+                                    let duration_samples =
+                                        duration_samples.max(1).min(self.sample_rate as usize * 2); // Cap at 2 seconds
 
-                                // Create synthetic sample buffer by evaluating bus signal
-                                // IMPORTANT: Clear cache between each sample to get fresh oscillator values
-                                let mut synthetic_buffer = Vec::with_capacity(duration_samples);
-                                for _ in 0..duration_samples {
-                                    self.value_cache.clear();
-                                    let sample_value = self.eval_node(&bus_node_id);
-                                    synthetic_buffer.push(sample_value);
+                                    // Create synthetic sample buffer by evaluating bus signal
+                                    // IMPORTANT: Clear cache between each sample to get fresh oscillator values
+                                    let mut synthetic_buffer = Vec::with_capacity(duration_samples);
+                                    for _ in 0..duration_samples {
+                                        self.value_cache.clear();
+                                        let sample_value = self.eval_node(&bus_node_id);
+                                        synthetic_buffer.push(sample_value);
+                                    }
+
+                                    // Trigger voice with synthetic buffer using appropriate envelope type
+                                    match envelope_type {
+                                        Some(RuntimeEnvelopeType::Percussion) | None => {
+                                            self.voice_manager
+                                                .borrow_mut()
+                                                .trigger_sample_with_envelope(
+                                                    std::sync::Arc::new(synthetic_buffer),
+                                                    gain_val,
+                                                    pan_val,
+                                                    final_speed,
+                                                    cut_group_opt,
+                                                    final_attack,
+                                                    final_release,
+                                                );
+                                        }
+                                        Some(RuntimeEnvelopeType::ADSR {
+                                            ref decay,
+                                            ref sustain,
+                                        }) => {
+                                            let decay_val = self
+                                                .eval_signal_at_time(decay, event_start_abs)
+                                                .max(0.001);
+                                            let sustain_val = self
+                                                .eval_signal_at_time(sustain, event_start_abs)
+                                                .clamp(0.0, 1.0);
+                                            self.voice_manager
+                                                .borrow_mut()
+                                                .trigger_sample_with_adsr(
+                                                    std::sync::Arc::new(synthetic_buffer),
+                                                    gain_val,
+                                                    pan_val,
+                                                    final_speed,
+                                                    cut_group_opt,
+                                                    final_attack,
+                                                    decay_val,
+                                                    sustain_val,
+                                                    final_release,
+                                                );
+                                        }
+                                        Some(RuntimeEnvelopeType::Segments {
+                                            ref levels,
+                                            ref times,
+                                        }) => {
+                                            self.voice_manager
+                                                .borrow_mut()
+                                                .trigger_sample_with_segments(
+                                                    std::sync::Arc::new(synthetic_buffer),
+                                                    gain_val,
+                                                    pan_val,
+                                                    final_speed,
+                                                    cut_group_opt,
+                                                    levels.clone(),
+                                                    times.clone(),
+                                                );
+                                        }
+                                        Some(RuntimeEnvelopeType::Curve {
+                                            ref start,
+                                            ref end,
+                                            ref duration,
+                                            ref curve,
+                                        }) => {
+                                            let start_val =
+                                                self.eval_signal_at_time(start, event_start_abs);
+                                            let end_val =
+                                                self.eval_signal_at_time(end, event_start_abs);
+                                            let duration_val = self
+                                                .eval_signal_at_time(duration, event_start_abs)
+                                                .max(0.001);
+                                            let curve_val =
+                                                self.eval_signal_at_time(curve, event_start_abs);
+                                            self.voice_manager
+                                                .borrow_mut()
+                                                .trigger_sample_with_curve(
+                                                    std::sync::Arc::new(synthetic_buffer),
+                                                    gain_val,
+                                                    pan_val,
+                                                    final_speed,
+                                                    cut_group_opt,
+                                                    start_val,
+                                                    end_val,
+                                                    duration_val,
+                                                    curve_val,
+                                                );
+                                        }
+                                    }
+
+                                    // Configure unit mode and loop for this voice
+                                    self.voice_manager
+                                        .borrow_mut()
+                                        .set_last_voice_unit_mode(unit_mode_enum);
+                                    self.voice_manager
+                                        .borrow_mut()
+                                        .set_last_voice_loop_enabled(loop_enabled_bool);
+                                } else {
+                                    eprintln!(
+                                        "Warning: Bus '{}' not found for trigger",
+                                        actual_name
+                                    );
                                 }
-
-                                // Trigger voice with synthetic buffer using appropriate envelope type
-                                match envelope_type {
-                                    Some(RuntimeEnvelopeType::Percussion) | None => {
-                                        self.voice_manager
-                                            .borrow_mut()
-                                            .trigger_sample_with_envelope(
-                                                std::sync::Arc::new(synthetic_buffer),
-                                                gain_val,
-                                                pan_val,
-                                                final_speed,
-                                                cut_group_opt,
-                                                final_attack,
-                                                final_release,
-                                            );
-                                    }
-                                    Some(RuntimeEnvelopeType::ADSR {
-                                        ref decay,
-                                        ref sustain,
-                                    }) => {
-                                        let decay_val = self
-                                            .eval_signal_at_time(decay, event_start_abs)
-                                            .max(0.001);
-                                        let sustain_val = self
-                                            .eval_signal_at_time(sustain, event_start_abs)
-                                            .clamp(0.0, 1.0);
-                                        self.voice_manager.borrow_mut().trigger_sample_with_adsr(
-                                            std::sync::Arc::new(synthetic_buffer),
-                                            gain_val,
-                                            pan_val,
-                                            final_speed,
-                                            cut_group_opt,
-                                            final_attack,
-                                            decay_val,
-                                            sustain_val,
-                                            final_release,
-                                        );
-                                    }
-                                    Some(RuntimeEnvelopeType::Segments {
-                                        ref levels,
-                                        ref times,
-                                    }) => {
-                                        self.voice_manager
-                                            .borrow_mut()
-                                            .trigger_sample_with_segments(
-                                                std::sync::Arc::new(synthetic_buffer),
-                                                gain_val,
-                                                pan_val,
-                                                final_speed,
-                                                cut_group_opt,
-                                                levels.clone(),
-                                                times.clone(),
-                                            );
-                                    }
-                                    Some(RuntimeEnvelopeType::Curve {
-                                        ref start,
-                                        ref end,
-                                        ref duration,
-                                        ref curve,
-                                    }) => {
-                                        let start_val =
-                                            self.eval_signal_at_time(start, event_start_abs);
-                                        let end_val =
-                                            self.eval_signal_at_time(end, event_start_abs);
-                                        let duration_val = self
-                                            .eval_signal_at_time(duration, event_start_abs)
-                                            .max(0.001);
-                                        let curve_val =
-                                            self.eval_signal_at_time(curve, event_start_abs);
-                                        self.voice_manager.borrow_mut().trigger_sample_with_curve(
-                                            std::sync::Arc::new(synthetic_buffer),
-                                            gain_val,
-                                            pan_val,
-                                            final_speed,
-                                            cut_group_opt,
-                                            start_val,
-                                            end_val,
-                                            duration_val,
-                                            curve_val,
-                                        );
-                                    }
-                                }
-
-                                // Configure unit mode and loop for this voice
-                                self.voice_manager
-                                    .borrow_mut()
-                                    .set_last_voice_unit_mode(unit_mode_enum);
-                                self.voice_manager
-                                    .borrow_mut()
-                                    .set_last_voice_loop_enabled(loop_enabled_bool);
                             } else {
-                                eprintln!("Warning: Bus '{}' not found for trigger", actual_name);
-                            }
-                        } else {
-                            // Regular sample loading
-                            let sample_data_opt =
-                                self.sample_bank.borrow_mut().get_sample(&final_sample_name);
-                            // DEBUG: Log sample loading
-                            if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok()
-                                && self.sample_count < 20
-                            {
-                                eprintln!(
-                                    "  Sample '{}' loaded: {}",
-                                    final_sample_name,
-                                    sample_data_opt.is_some()
-                                );
-                            }
-                            if let Some(sample_data) = sample_data_opt {
-                                // Trigger voice using appropriate envelope type
-                                match envelope_type {
-                                    Some(RuntimeEnvelopeType::Percussion) | None => {
-                                        self.voice_manager
-                                            .borrow_mut()
-                                            .trigger_sample_with_envelope(
-                                                sample_data,
-                                                gain_val,
-                                                pan_val,
-                                                final_speed,
-                                                cut_group_opt,
-                                                final_attack,
-                                                final_release,
-                                            );
-                                    }
-                                    Some(RuntimeEnvelopeType::ADSR {
-                                        ref decay,
-                                        ref sustain,
-                                    }) => {
-                                        let decay_val = self
-                                            .eval_signal_at_time(decay, event_start_abs)
-                                            .max(0.001);
-                                        let sustain_val = self
-                                            .eval_signal_at_time(sustain, event_start_abs)
-                                            .clamp(0.0, 1.0);
-                                        self.voice_manager.borrow_mut().trigger_sample_with_adsr(
-                                            sample_data,
-                                            gain_val,
-                                            pan_val,
-                                            final_speed,
-                                            cut_group_opt,
-                                            final_attack,
-                                            decay_val,
-                                            sustain_val,
-                                            final_release,
-                                        );
-                                    }
-                                    Some(RuntimeEnvelopeType::Segments {
-                                        ref levels,
-                                        ref times,
-                                    }) => {
-                                        self.voice_manager
-                                            .borrow_mut()
-                                            .trigger_sample_with_segments(
-                                                sample_data,
-                                                gain_val,
-                                                pan_val,
-                                                final_speed,
-                                                cut_group_opt,
-                                                levels.clone(),
-                                                times.clone(),
-                                            );
-                                    }
-                                    Some(RuntimeEnvelopeType::Curve {
-                                        ref start,
-                                        ref end,
-                                        ref duration,
-                                        ref curve,
-                                    }) => {
-                                        let start_val =
-                                            self.eval_signal_at_time(start, event_start_abs);
-                                        let end_val =
-                                            self.eval_signal_at_time(end, event_start_abs);
-                                        let duration_val = self
-                                            .eval_signal_at_time(duration, event_start_abs)
-                                            .max(0.001);
-                                        let curve_val =
-                                            self.eval_signal_at_time(curve, event_start_abs);
-                                        self.voice_manager.borrow_mut().trigger_sample_with_curve(
-                                            sample_data,
-                                            gain_val,
-                                            pan_val,
-                                            final_speed,
-                                            cut_group_opt,
-                                            start_val,
-                                            end_val,
-                                            duration_val,
-                                            curve_val,
-                                        );
-                                    }
+                                // Regular sample loading
+                                let sample_data_opt =
+                                    self.sample_bank.borrow_mut().get_sample(&final_sample_name);
+                                // DEBUG: Log sample loading
+                                if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok()
+                                    && self.sample_count < 20
+                                {
+                                    eprintln!(
+                                        "  Sample '{}' loaded: {}",
+                                        final_sample_name,
+                                        sample_data_opt.is_some()
+                                    );
                                 }
+                                if let Some(sample_data) = sample_data_opt {
+                                    // Trigger voice using appropriate envelope type
+                                    match envelope_type {
+                                        Some(RuntimeEnvelopeType::Percussion) | None => {
+                                            self.voice_manager
+                                                .borrow_mut()
+                                                .trigger_sample_with_envelope(
+                                                    sample_data,
+                                                    gain_val,
+                                                    pan_val,
+                                                    final_speed,
+                                                    cut_group_opt,
+                                                    final_attack,
+                                                    final_release,
+                                                );
+                                        }
+                                        Some(RuntimeEnvelopeType::ADSR {
+                                            ref decay,
+                                            ref sustain,
+                                        }) => {
+                                            let decay_val = self
+                                                .eval_signal_at_time(decay, event_start_abs)
+                                                .max(0.001);
+                                            let sustain_val = self
+                                                .eval_signal_at_time(sustain, event_start_abs)
+                                                .clamp(0.0, 1.0);
+                                            self.voice_manager
+                                                .borrow_mut()
+                                                .trigger_sample_with_adsr(
+                                                    sample_data,
+                                                    gain_val,
+                                                    pan_val,
+                                                    final_speed,
+                                                    cut_group_opt,
+                                                    final_attack,
+                                                    decay_val,
+                                                    sustain_val,
+                                                    final_release,
+                                                );
+                                        }
+                                        Some(RuntimeEnvelopeType::Segments {
+                                            ref levels,
+                                            ref times,
+                                        }) => {
+                                            self.voice_manager
+                                                .borrow_mut()
+                                                .trigger_sample_with_segments(
+                                                    sample_data,
+                                                    gain_val,
+                                                    pan_val,
+                                                    final_speed,
+                                                    cut_group_opt,
+                                                    levels.clone(),
+                                                    times.clone(),
+                                                );
+                                        }
+                                        Some(RuntimeEnvelopeType::Curve {
+                                            ref start,
+                                            ref end,
+                                            ref duration,
+                                            ref curve,
+                                        }) => {
+                                            let start_val =
+                                                self.eval_signal_at_time(start, event_start_abs);
+                                            let end_val =
+                                                self.eval_signal_at_time(end, event_start_abs);
+                                            let duration_val = self
+                                                .eval_signal_at_time(duration, event_start_abs)
+                                                .max(0.001);
+                                            let curve_val =
+                                                self.eval_signal_at_time(curve, event_start_abs);
+                                            self.voice_manager
+                                                .borrow_mut()
+                                                .trigger_sample_with_curve(
+                                                    sample_data,
+                                                    gain_val,
+                                                    pan_val,
+                                                    final_speed,
+                                                    cut_group_opt,
+                                                    start_val,
+                                                    end_val,
+                                                    duration_val,
+                                                    curve_val,
+                                                );
+                                        }
+                                    }
 
-                                // Configure unit mode and loop for this voice
-                                self.voice_manager
-                                    .borrow_mut()
-                                    .set_last_voice_unit_mode(unit_mode_enum);
-                                self.voice_manager
-                                    .borrow_mut()
-                                    .set_last_voice_loop_enabled(loop_enabled_bool);
+                                    // Configure unit mode and loop for this voice
+                                    self.voice_manager
+                                        .borrow_mut()
+                                        .set_last_voice_unit_mode(unit_mode_enum);
+                                    self.voice_manager
+                                        .borrow_mut()
+                                        .set_last_voice_loop_enabled(loop_enabled_bool);
+                                }
                             }
-                        }
                         } // End chord loop
 
                         // Track trigger time once per event (not per chord note)

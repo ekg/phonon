@@ -387,7 +387,7 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
         parse_bus_assignment,
         parse_output_channel, // Try multi-channel output first
         parse_output,         // Then single output
-        parse_bpm,    // Try BPM before tempo (bpm: vs tempo:)
+        parse_bpm,            // Try BPM before tempo (bpm: vs tempo:)
         parse_tempo,
         parse_outmix, // Output mixing mode
     ))(input)

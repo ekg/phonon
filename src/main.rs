@@ -450,8 +450,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             attack: Signal::Value(0.0),
                                             release: Signal::Value(0.0),
                                             envelope_type: None,
-                                            unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
-                                            loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
+                                            unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
+                                            loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
                                         })
                                     } else {
                                         graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -782,8 +782,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             attack: Signal::Value(0.0),
                                             release: Signal::Value(0.0),
                                             envelope_type: None,
-                                            unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
-                                            loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
+                                            unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
+                                            loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
                                         }));
                                     }
                                 }
@@ -846,8 +846,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     attack: Signal::Value(0.0),
                                     release: Signal::Value(0.0),
                                     envelope_type: None,
-                                    unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
-                                    loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
+                                    unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
+                                    loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
                                 }));
                             }
                         }

@@ -140,11 +140,13 @@ out: saw 220
 "#;
 
     let (_, statements_vocoded) = parse_program(code_vocoded).expect("Failed to parse");
-    let mut graph_vocoded = compile_program(statements_vocoded, 44100.0).expect("Failed to compile");
+    let mut graph_vocoded =
+        compile_program(statements_vocoded, 44100.0).expect("Failed to compile");
     let buffer_vocoded = graph_vocoded.render(44100);
 
     let (_, statements_carrier) = parse_program(code_carrier_only).expect("Failed to parse");
-    let mut graph_carrier = compile_program(statements_carrier, 44100.0).expect("Failed to compile");
+    let mut graph_carrier =
+        compile_program(statements_carrier, 44100.0).expect("Failed to compile");
     let buffer_carrier = graph_carrier.render(44100);
 
     let rms_vocoded = calculate_rms(&buffer_vocoded);

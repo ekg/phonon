@@ -70,14 +70,8 @@ out: formant ~source 730 1090 2440 80 90 120
     let rms_no = calculate_rms(&buffer_no);
     let rms_yes = calculate_rms(&buffer_yes);
 
-    assert!(
-        rms_no < 0.01,
-        "Formant with no source should be silent"
-    );
-    assert!(
-        rms_yes > 0.01,
-        "Formant with source should produce sound"
-    );
+    assert!(rms_no < 0.01, "Formant with no source should be silent");
+    assert!(rms_yes > 0.01, "Formant with source should produce sound");
 }
 
 #[test]
@@ -334,9 +328,5 @@ out: (~voice1 + ~voice2 + ~voice3) * 0.3
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
-    assert!(
-        rms > 0.01,
-        "Choir should produce sound, got RMS={}",
-        rms
-    );
+    assert!(rms > 0.01, "Choir should produce sound, got RMS={}", rms);
 }

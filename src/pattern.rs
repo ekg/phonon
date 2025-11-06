@@ -344,7 +344,9 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                             let whole_rel_begin = whole.begin.to_float() - cycle_f;
                             let whole_rel_end = whole.end.to_float() - cycle_f;
                             hap.whole = Some(TimeSpan::new(
-                                Fraction::from_float(cycle_f + whole_rel_begin * compressed_duration),
+                                Fraction::from_float(
+                                    cycle_f + whole_rel_begin * compressed_duration,
+                                ),
                                 Fraction::from_float(cycle_f + whole_rel_end * compressed_duration),
                             ));
                         }

@@ -258,7 +258,11 @@ out: pulse 110 ~width * 0.3
 
     let audio = render_dsl(code, 2.0);
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.03, "PWM synthesis should produce audio (RMS: {})", rms);
+    assert!(
+        rms > 0.03,
+        "PWM synthesis should produce audio (RMS: {})",
+        rms
+    );
 
     // PWM creates a characteristic "hollow" sound due to spectral movement
     println!("PWM synthesis RMS: {}", rms);

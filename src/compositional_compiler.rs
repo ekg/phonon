@@ -501,17 +501,25 @@ fn compile_function_call(
                             Expr::Call { name, args } => {
                                 // Handle Call expressions as transforms (e.g., s "bd" $ squeeze 3)
                                 let transform = match name.as_str() {
-                                    "fast" if args.len() == 1 => Transform::Fast(Box::new(args[0].clone())),
-                                    "slow" if args.len() == 1 => Transform::Slow(Box::new(args[0].clone())),
-                                    "squeeze" if args.len() == 1 => Transform::Squeeze(Box::new(args[0].clone())),
+                                    "fast" if args.len() == 1 => {
+                                        Transform::Fast(Box::new(args[0].clone()))
+                                    }
+                                    "slow" if args.len() == 1 => {
+                                        Transform::Slow(Box::new(args[0].clone()))
+                                    }
+                                    "squeeze" if args.len() == 1 => {
+                                        Transform::Squeeze(Box::new(args[0].clone()))
+                                    }
                                     "rev" if args.is_empty() => Transform::Rev,
                                     "palindrome" if args.is_empty() => Transform::Palindrome,
                                     "degrade" if args.is_empty() => Transform::Degrade,
-                                    "degradeBy" if args.len() == 1 => Transform::DegradeBy(Box::new(args[0].clone())),
-                                    "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
-                                    _ => {
-                                        return Err(format!("Unknown transform: {}", name))
+                                    "degradeBy" if args.len() == 1 => {
+                                        Transform::DegradeBy(Box::new(args[0].clone()))
                                     }
+                                    "stutter" if args.len() == 1 => {
+                                        Transform::Stutter(Box::new(args[0].clone()))
+                                    }
+                                    _ => return Err(format!("Unknown transform: {}", name)),
                                 };
                                 pattern = apply_transform_to_pattern(pattern, transform)?;
                             }
@@ -658,8 +666,8 @@ fn compile_function_call(
             let mut note = Signal::Value(0.0);
             let mut attack = Signal::Value(0.0);
             let mut release = Signal::Value(0.0);
-            let mut unit_mode = Signal::Value(0.0);      // 0 = rate mode (default)
-            let mut loop_enabled = Signal::Value(0.0);   // 0 = no loop (default)
+            let mut unit_mode = Signal::Value(0.0); // 0 = rate mode (default)
+            let mut loop_enabled = Signal::Value(0.0); // 0 = no loop (default)
 
             for kwarg in kwargs {
                 if let Expr::Kwarg { name, value } = kwarg {
@@ -968,8 +976,8 @@ fn compile_cat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
         envelope_type: None,
-        unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
-        loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
+        unit_mode: Signal::Value(0.0),    // 0 = rate mode (default)
+        loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
     };
 
     Ok(ctx.graph.add_node(node))
@@ -1035,8 +1043,8 @@ fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
         envelope_type: None,
-        unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
-        loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
+        unit_mode: Signal::Value(0.0),    // 0 = rate mode (default)
+        loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
     };
 
     Ok(ctx.graph.add_node(node))
@@ -1352,7 +1360,8 @@ fn compile_additive(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
         }
         _ => {
             return Err(
-                "additive amplitudes must be a string (e.g., \"1.0 0.5 0.25\") or number".to_string(),
+                "additive amplitudes must be a string (e.g., \"1.0 0.5 0.25\") or number"
+                    .to_string(),
             );
         }
     };
@@ -3405,8 +3414,8 @@ fn compile_transform(
                     attack: Signal::Value(0.0),
                     release: Signal::Value(0.0),
                     envelope_type: None,
-                    unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
-                    loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
+                    unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
+                    loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
                 };
                 return Ok(ctx.graph.add_node(node));
             }
@@ -3487,8 +3496,8 @@ fn compile_transform(
                         attack: Signal::Value(0.0),
                         release: Signal::Value(0.0),
                         envelope_type: None,
-                        unit_mode: Signal::Value(0.0),      // 0 = rate mode (default)
-                        loop_enabled: Signal::Value(0.0),   // 0 = no loop (default)
+                        unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
+                        loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
                     };
                     return Ok(ctx.graph.add_node(node));
                 }
@@ -4090,7 +4099,10 @@ fn compile_n_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
         }
     };
 
-    eprintln!("[DEBUG] n modifier: input node = {}, creating modified node...", sample_node_id.0);
+    eprintln!(
+        "[DEBUG] n modifier: input node = {}, creating modified node...",
+        sample_node_id.0
+    );
 
     // Second arg is the n pattern
     let n_value = compile_expr(ctx, args[1].clone())?;
@@ -4234,7 +4246,8 @@ fn compile_attack_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result
         Expr::ChainInput(node_id) => *node_id,
         _ => {
             return Err(
-                "attack must be used with the chain operator: s \"bd\" # attack \"0.01\"".to_string(),
+                "attack must be used with the chain operator: s \"bd\" # attack \"0.01\""
+                    .to_string(),
             )
         }
     };
@@ -4257,7 +4270,8 @@ fn compile_release_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resul
         Expr::ChainInput(node_id) => *node_id,
         _ => {
             return Err(
-                "release must be used with the chain operator: s \"bd\" # release \"0.1\"".to_string(),
+                "release must be used with the chain operator: s \"bd\" # release \"0.1\""
+                    .to_string(),
             )
         }
     };

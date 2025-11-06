@@ -3,7 +3,6 @@
 /// ring freq - classic ring modulation effect
 /// Multiplies input signal with a carrier frequency
 /// Creates metallic, inharmonic tones
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 

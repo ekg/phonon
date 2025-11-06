@@ -34,10 +34,7 @@ fn measure_frequency(buffer: &[f32], sample_rate: f32) -> Option<f32> {
         return None;
     }
 
-    let periods: Vec<f32> = crossings
-        .windows(2)
-        .map(|w| (w[1] - w[0]) as f32)
-        .collect();
+    let periods: Vec<f32> = crossings.windows(2).map(|w| (w[1] - w[0]) as f32).collect();
 
     let avg_period = periods.iter().sum::<f32>() / periods.len() as f32;
     Some(sample_rate / avg_period)
@@ -86,8 +83,8 @@ out: pluck 220
     let analysis_start = 4410;
     let analysis_buffer = &buffer[analysis_start..];
 
-    let measured_freq = measure_frequency(analysis_buffer, 44100.0)
-        .expect("Should detect frequency");
+    let measured_freq =
+        measure_frequency(analysis_buffer, 44100.0).expect("Should detect frequency");
 
     // Should be within 15% of 220Hz (looser tolerance due to noise initialization
     // and inherent pitch instability of Karplus-Strong algorithm)

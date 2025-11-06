@@ -3,7 +3,6 @@
 /// djf - DJ filter sweep from low-pass to high-pass
 /// Values 0-0.5: low pass filter
 /// Values 0.5-1: high pass filter
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -42,7 +41,11 @@ out: saw 220 # djf 0.2
     let rms = calculate_rms(&buffer);
     println!("djf low-pass RMS: {:.6}", rms);
 
-    assert!(rms > 0.01, "djf low-pass should produce sound, got RMS {}", rms);
+    assert!(
+        rms > 0.01,
+        "djf low-pass should produce sound, got RMS {}",
+        rms
+    );
 }
 
 #[test]
@@ -57,7 +60,11 @@ out: saw 55 # djf 0.8
     let rms = calculate_rms(&buffer);
     println!("djf high-pass RMS: {:.6}", rms);
 
-    assert!(rms > 0.01, "djf high-pass should produce sound, got RMS {}", rms);
+    assert!(
+        rms > 0.01,
+        "djf high-pass should produce sound, got RMS {}",
+        rms
+    );
 }
 
 #[test]

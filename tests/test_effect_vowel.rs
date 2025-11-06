@@ -2,7 +2,6 @@
 ///
 /// vowel - TidalCycles-style formant filter using vowel letters
 /// Accepts patterns of: a, e, i, o, u
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -41,7 +40,11 @@ out: saw 110 # vowel "a"
     let rms = calculate_rms(&buffer);
     println!("vowel 'a' RMS: {:.6}", rms);
 
-    assert!(rms > 0.01, "vowel 'a' should produce sound, got RMS {}", rms);
+    assert!(
+        rms > 0.01,
+        "vowel 'a' should produce sound, got RMS {}",
+        rms
+    );
 }
 
 #[test]
@@ -56,7 +59,11 @@ out: square 220 # vowel "e"
     let rms = calculate_rms(&buffer);
     println!("vowel 'e' RMS: {:.6}", rms);
 
-    assert!(rms > 0.01, "vowel 'e' should produce sound, got RMS {}", rms);
+    assert!(
+        rms > 0.01,
+        "vowel 'e' should produce sound, got RMS {}",
+        rms
+    );
 }
 
 #[test]
@@ -71,7 +78,11 @@ out: saw 110 # vowel "a e i o"
     let rms = calculate_rms(&buffer);
     println!("vowel pattern RMS: {:.6}", rms);
 
-    assert!(rms > 0.01, "vowel pattern should produce sound, got RMS {}", rms);
+    assert!(
+        rms > 0.01,
+        "vowel pattern should produce sound, got RMS {}",
+        rms
+    );
 }
 
 #[test]

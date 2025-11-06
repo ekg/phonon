@@ -8,7 +8,6 @@
 ///
 /// Note: These parameters are now passed as kwargs to the s function.
 /// Syntax: s "pattern" unit="r" loop=1
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -119,7 +118,11 @@ out: s "bd" loop=0
     let threshold = 0.001;
     let duration = find_audio_duration(&buffer, threshold);
 
-    println!("loop=0 duration: {} samples ({:.3}s)", duration, duration as f32 / 44100.0);
+    println!(
+        "loop=0 duration: {} samples ({:.3}s)",
+        duration,
+        duration as f32 / 44100.0
+    );
 
     // Should have audio but not fill entire buffer (plays once)
     assert!(duration > 1000, "Should have some audio");
@@ -146,7 +149,10 @@ out: s "bd" loop=1
 
     // Both halves should have audio (looping continues)
     assert!(first_half_rms > 0.01, "First half should have audio");
-    assert!(second_half_rms > 0.01, "Second half should have audio (looping)");
+    assert!(
+        second_half_rms > 0.01,
+        "Second half should have audio (looping)"
+    );
 }
 
 #[test]
