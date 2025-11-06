@@ -3381,6 +3381,126 @@ impl UnifiedSignalGraph {
         self.eval_signal_at_time(signal, self.cycle_position)
     }
 
+    /// Evaluate a signal for the note parameter (converts notes to semitone offsets)
+    /// Reference pitch is C4 (MIDI 60) = 0 semitones
+    fn eval_note_signal_at_time(&mut self, signal: &Signal, cycle_pos: f64) -> f32 {
+        match signal {
+            Signal::Node(id) => {
+                if let Some(Some(SignalNode::Pattern {
+                    pattern,
+                    ..
+                })) = self.nodes.get(id.0)
+                {
+                    let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                    let state = State {
+                        span: TimeSpan::new(
+                            Fraction::from_float(cycle_pos),
+                            Fraction::from_float(cycle_pos + sample_width),
+                        ),
+                        controls: HashMap::new(),
+                    };
+
+                    let events = pattern.query(&state);
+
+                    if let Some(event) = events.first() {
+                        let s = event.value.as_str();
+                        if s == "~" || s.is_empty() {
+                            0.0
+                        } else {
+                            use crate::pattern_tonal::note_to_midi;
+
+                            // Try parsing as number first (semitone offset)
+                            if let Ok(numeric_value) = s.parse::<f32>() {
+                                numeric_value
+                            }
+                            // Try parsing as note name (convert to semitone offset from C4)
+                            else if let Some(midi) = note_to_midi(s) {
+                                (midi as i32 - 60) as f32 // C4 (MIDI 60) = 0 semitones
+                            }
+                            // Check for solfège
+                            else {
+                                match s.to_lowercase().as_str() {
+                                    "do" => 0.0,
+                                    "re" => 2.0,
+                                    "mi" => 4.0,
+                                    "fa" => 5.0,
+                                    "sol" | "so" => 7.0,
+                                    "la" => 9.0,
+                                    "ti" | "si" => 11.0,
+                                    _ => 0.0 // Unknown, treat as 0
+                                }
+                            }
+                        }
+                    } else {
+                        0.0
+                    }
+                } else {
+                    self.eval_node(id)
+                }
+            }
+            Signal::Value(v) => *v,
+            Signal::Bus(name) => {
+                if let Some(id) = self.buses.get(name).cloned() {
+                    self.eval_node(&id)
+                } else {
+                    0.0
+                }
+            }
+            Signal::Pattern(pattern_str) => {
+                // Parse and evaluate inline pattern at specified cycle position
+                let pattern = parse_mini_notation(pattern_str);
+                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                let state = State {
+                    span: TimeSpan::new(
+                        Fraction::from_float(cycle_pos),
+                        Fraction::from_float(cycle_pos + sample_width),
+                    ),
+                    controls: HashMap::new(),
+                };
+
+                let events = pattern.query(&state);
+                if let Some(event) = events.first() {
+                    let s = event.value.as_str();
+                    if s == "~" || s.is_empty() {
+                        0.0
+                    } else {
+                        use crate::pattern_tonal::note_to_midi;
+
+                        // Try parsing as number first (semitone offset)
+                        if let Ok(numeric_value) = s.parse::<f32>() {
+                            numeric_value
+                        }
+                        // Try parsing as note name (convert to semitone offset from C4)
+                        else if let Some(midi) = note_to_midi(s) {
+                            (midi as i32 - 60) as f32
+                        }
+                        // Check for solfège
+                        else {
+                            match s.to_lowercase().as_str() {
+                                "do" => 0.0,
+                                "re" => 2.0,
+                                "mi" => 4.0,
+                                "fa" => 5.0,
+                                "sol" | "so" => 7.0,
+                                "la" => 9.0,
+                                "ti" | "si" => 11.0,
+                                _ => 0.0
+                            }
+                        }
+                    }
+                } else {
+                    0.0
+                }
+            }
+            Signal::Expression(expr) => self.eval_note_expression(expr),
+        }
+    }
+
+    /// Evaluate expression for note parameter (delegates to standard evaluation)
+    fn eval_note_expression(&mut self, expr: &SignalExpr) -> f32 {
+        self.eval_expression(expr)
+    }
+
     /// Evaluate a signal at a specific cycle position
     /// This allows per-event DSP parameter evaluation
     fn eval_signal_at_time(&mut self, signal: &Signal, cycle_pos: f64) -> f32 {
@@ -5107,7 +5227,8 @@ impl UnifiedSignalGraph {
 
                         // Evaluate note modifier for pitch shifting
                         // Note is in semitones: 0 = original, 12 = octave up, -12 = octave down
-                        let note_val = self.eval_signal_at_time(&note, event_start_abs);
+                        // Supports: numbers (5), letter notes (c4, e4, g4), solfège (do, re, mi)
+                        let note_val = self.eval_note_signal_at_time(&note, event_start_abs);
 
                         // Calculate pitch shift: speed = original_speed * 2^(semitones/12)
                         let pitch_shift_multiplier = if note_val != 0.0 {
