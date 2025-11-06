@@ -403,7 +403,7 @@ impl Voice {
 
 /// Manages a pool of voices for polyphonic playback
 pub struct VoiceManager {
-    /// Pool of available voices
+    /// Pool of available voices (grows dynamically)
     voices: Vec<Voice>,
 
     /// Next voice index for round-robin allocation
@@ -411,6 +411,12 @@ pub struct VoiceManager {
 
     /// Index of the last triggered voice (for post-trigger configuration)
     last_triggered_voice_index: Option<usize>,
+
+    /// Maximum voices allowed (None = unlimited)
+    max_voices: Option<usize>,
+
+    /// Initial voice pool size
+    initial_voices: usize,
 }
 
 impl Default for VoiceManager {
@@ -420,24 +426,42 @@ impl Default for VoiceManager {
 }
 
 impl VoiceManager {
-    /// Create a new VoiceManager with default voice count (256)
+    /// Create a new VoiceManager with unlimited voices (grows dynamically from 16)
     pub fn new() -> Self {
-        Self::with_max_voices(DEFAULT_MAX_VOICES)
+        Self::with_config(16, None)
     }
 
-    /// Create a new VoiceManager with specified max voices
+    /// Create a new VoiceManager with specified max voices (deprecated, use with_config)
     ///
     /// # Arguments
-    /// * `max_voices` - Maximum number of simultaneous voices (recommended: 64-1024)
+    /// * `max_voices` - Maximum number of simultaneous voices
     ///
     /// # Example
     /// ```
-    /// let vm = VoiceManager::with_max_voices(512); // 512 voices
+    /// let vm = VoiceManager::with_max_voices(512); // Max 512 voices
     /// ```
     pub fn with_max_voices(max_voices: usize) -> Self {
-        let max_voices = max_voices.max(1).min(4096); // Clamp to reasonable range
-        let mut voices = Vec::with_capacity(max_voices);
-        for _ in 0..max_voices {
+        Self::with_config(16.min(max_voices), Some(max_voices))
+    }
+
+    /// Create a new VoiceManager with custom configuration
+    ///
+    /// # Arguments
+    /// * `initial_voices` - Initial voice pool size (grows from here)
+    /// * `max_voices` - Optional maximum voices (None = unlimited)
+    ///
+    /// # Example
+    /// ```
+    /// // Start with 32 voices, grow to 500 max
+    /// let vm = VoiceManager::with_config(32, Some(500));
+    ///
+    /// // Start with 16 voices, unlimited growth
+    /// let vm = VoiceManager::with_config(16, None);
+    /// ```
+    pub fn with_config(initial_voices: usize, max_voices: Option<usize>) -> Self {
+        let initial_voices = initial_voices.max(1).min(4096);
+        let mut voices = Vec::with_capacity(initial_voices * 2); // Reserve 2x for growth
+        for _ in 0..initial_voices {
             voices.push(Voice::new());
         }
 
@@ -445,6 +469,41 @@ impl VoiceManager {
             voices,
             next_voice_index: 0,
             last_triggered_voice_index: None,
+            max_voices,
+            initial_voices,
+        }
+    }
+
+    /// Grow the voice pool by adding more voices
+    /// Returns true if growth succeeded, false if at max_voices limit
+    fn grow_voice_pool(&mut self) -> bool {
+        let current_count = self.voices.len();
+
+        // Check if we've hit the max limit
+        if let Some(max) = self.max_voices {
+            if current_count >= max {
+                eprintln!("⚠️  Voice limit reached: {} voices (max: {})", current_count, max);
+                return false;
+            }
+        }
+
+        // Grow by 50% or 16 voices, whichever is larger
+        let growth = (current_count / 2).max(16);
+        let new_count = if let Some(max) = self.max_voices {
+            (current_count + growth).min(max)
+        } else {
+            current_count + growth
+        };
+
+        let voices_to_add = new_count - current_count;
+        if voices_to_add > 0 {
+            for _ in 0..voices_to_add {
+                self.voices.push(Voice::new());
+            }
+            eprintln!("🎵 Voice pool grown: {} → {} voices", current_count, new_count);
+            true
+        } else {
+            false
         }
     }
 
@@ -524,7 +583,18 @@ impl VoiceManager {
             }
         }
 
-        // All voices are active - steal the oldest one
+        // All voices are active - try to grow the pool first
+        if self.grow_voice_pool() {
+            // Growth succeeded, allocate from the newly added voices
+            let idx = self.voices.len() - 1; // Use the last (newest) voice
+            self.voices[idx]
+                .trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
+            self.next_voice_index = 0; // Reset to beginning
+            self.last_triggered_voice_index = Some(idx);
+            return;
+        }
+
+        // Growth failed or at limit - steal the oldest one
         let mut oldest_idx = 0;
         let mut oldest_age = 0;
 

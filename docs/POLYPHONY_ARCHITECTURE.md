@@ -277,6 +277,13 @@ What needs to change:
   - Replaced `active: bool` with `state: VoiceState`
   - Updated all 19 references to active in voice_manager.rs
   - Tested: audio renders correctly
+- [x] Implement dynamic voice growth (remove pre-allocation limit)
+  - Added `max_voices: Option<usize>` field (None = unlimited)
+  - Added `grow_voice_pool()` method (grows by 50% or 16 voices)
+  - Start with 16 voices, grow on demand
+  - Growth triggered when all voices busy (before stealing)
+  - Tested: 16→32→48→72→108 voices (s "bd*100")
+  - Growth messages logged for user visibility
 - [ ] Create `DynamicVoiceManager` struct
 - [ ] Replace fixed array with `Vec<Voice>`
 - [ ] Implement `allocate_voice()` and `free_voice()`
