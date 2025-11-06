@@ -272,9 +272,13 @@ What needs to change:
 **Tasks**:
 - [x] Research existing approaches
 - [x] Research current VoiceManager implementation
+- [x] Add `VoiceState` enum (Free, Playing, Releasing)
+  - Added enum with 3 states: Free, Playing, Releasing
+  - Replaced `active: bool` with `state: VoiceState`
+  - Updated all 19 references to active in voice_manager.rs
+  - Tested: audio renders correctly
 - [ ] Create `DynamicVoiceManager` struct
 - [ ] Replace fixed array with `Vec<Voice>`
-- [ ] Add `VoiceState` enum (Free, Playing, Releasing)
 - [ ] Implement `allocate_voice()` and `free_voice()`
 - [ ] Add voice lifecycle management
 - [ ] Update voice triggering in unified_graph.rs

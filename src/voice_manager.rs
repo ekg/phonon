@@ -83,6 +83,17 @@ const DEFAULT_MAX_VOICES: usize = 256;
 /// Sample rate for envelope calculations (will be set per-voice)
 const SAMPLE_RATE: f32 = 44100.0;
 
+/// Voice lifecycle state for proper management
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VoiceState {
+    /// Voice is free and available for allocation
+    Free,
+    /// Voice is actively playing (attack or sustain phase)
+    Playing,
+    /// Voice is in release phase (envelope releasing)
+    Releasing,
+}
+
 /// A single voice that plays a sample
 #[derive(Clone)]
 pub struct Voice {
@@ -92,8 +103,8 @@ pub struct Voice {
     /// Current playback position in the sample (fractional for speed control)
     position: f32,
 
-    /// Whether this voice is currently active
-    active: bool,
+    /// Current lifecycle state of this voice
+    state: VoiceState,
 
     /// Gain for this voice
     gain: f32,
@@ -148,7 +159,7 @@ impl Voice {
         Self {
             sample_data: None,
             position: 0.0,
-            active: false,
+            state: VoiceState::Free,
             gain: 1.0,
             pan: 0.0,
             speed: 1.0,
@@ -197,7 +208,7 @@ impl Voice {
     ) {
         self.sample_data = Some(sample);
         self.position = 0.0;
-        self.active = true;
+        self.state = VoiceState::Playing;
         self.gain = gain;
         self.pan = pan.clamp(-1.0, 1.0);
         self.speed = speed.max(0.01); // Prevent zero or negative speed for now
@@ -226,7 +237,7 @@ impl Voice {
     ) {
         self.sample_data = Some(sample);
         self.position = 0.0;
-        self.active = true;
+        self.state = VoiceState::Playing;
         self.gain = gain;
         self.pan = pan.clamp(-1.0, 1.0);
         self.speed = speed.max(0.01);
@@ -253,7 +264,7 @@ impl Voice {
     ) {
         self.sample_data = Some(sample);
         self.position = 0.0;
-        self.active = true;
+        self.state = VoiceState::Playing;
         self.gain = gain;
         self.pan = pan.clamp(-1.0, 1.0);
         self.speed = speed.max(0.01);
@@ -280,7 +291,7 @@ impl Voice {
     ) {
         self.sample_data = Some(sample);
         self.position = 0.0;
-        self.active = true;
+        self.state = VoiceState::Playing;
         self.gain = gain;
         self.pan = pan.clamp(-1.0, 1.0);
         self.speed = speed.max(0.01);
@@ -313,7 +324,7 @@ impl Voice {
 
     /// Process one sample of audio (stereo with panning)
     pub fn process_stereo(&mut self) -> (f32, f32) {
-        if !self.active {
+        if self.state == VoiceState::Free {
             return (0.0, 0.0);
         }
 
@@ -328,7 +339,7 @@ impl Voice {
 
         // Check if envelope finished
         if !self.envelope.is_active() {
-            self.active = false;
+            self.state = VoiceState::Free;
             self.sample_data = None;
             return (0.0, 0.0);
         }
@@ -379,14 +390,14 @@ impl Voice {
                 (0.0, 0.0)
             }
         } else {
-            self.active = false;
+            self.state = VoiceState::Free;
             (0.0, 0.0)
         }
     }
 
     /// Check if voice is available for allocation
     pub fn is_available(&self) -> bool {
-        !self.active
+        self.state == VoiceState::Free
     }
 }
 
@@ -493,7 +504,7 @@ impl VoiceManager {
         // Use a quick 10ms release to avoid clicks
         if let Some(group) = cut_group {
             for voice in &mut self.voices {
-                if voice.cut_group == Some(group) && voice.active {
+                if voice.cut_group == Some(group) && voice.state != VoiceState::Free {
                     // Trigger quick release instead of hard-stop to avoid clicks
                     voice.envelope.trigger_quick_release(0.01); // 10ms fade-out
                 }
@@ -548,8 +559,8 @@ impl VoiceManager {
         // Handle cut groups
         if let Some(group) = cut_group {
             for voice in &mut self.voices {
-                if voice.cut_group == Some(group) && voice.active {
-                    voice.active = false;
+                if voice.cut_group == Some(group) && voice.state != VoiceState::Free {
+                    voice.state = VoiceState::Free;
                     voice.sample_data = None;
                 }
             }
@@ -597,8 +608,8 @@ impl VoiceManager {
         // Handle cut groups
         if let Some(group) = cut_group {
             for voice in &mut self.voices {
-                if voice.cut_group == Some(group) && voice.active {
-                    voice.active = false;
+                if voice.cut_group == Some(group) && voice.state != VoiceState::Free {
+                    voice.state = VoiceState::Free;
                     voice.sample_data = None;
                 }
             }
@@ -646,8 +657,8 @@ impl VoiceManager {
         // Handle cut groups
         if let Some(group) = cut_group {
             for voice in &mut self.voices {
-                if voice.cut_group == Some(group) && voice.active {
-                    voice.active = false;
+                if voice.cut_group == Some(group) && voice.state != VoiceState::Free {
+                    voice.state = VoiceState::Free;
                     voice.sample_data = None;
                 }
             }
@@ -697,7 +708,7 @@ impl VoiceManager {
 
         // DEBUG: Count active voices
         if std::env::var("DEBUG_VOICE_COUNT").is_ok() {
-            let active_count = self.voices.iter().filter(|v| v.active).count();
+            let active_count = self.voices.iter().filter(|v| v.state != VoiceState::Free).count();
             if active_count > 0 {
                 eprintln!("[VOICE_MGR] {} active voices", active_count);
             }
@@ -754,13 +765,13 @@ impl VoiceManager {
 
     /// Get number of active voices
     pub fn active_voice_count(&self) -> usize {
-        self.voices.iter().filter(|v| v.active).count()
+        self.voices.iter().filter(|v| v.state != VoiceState::Free).count()
     }
 
     /// Reset all voices
     pub fn reset(&mut self) {
         for voice in &mut self.voices {
-            voice.active = false;
+            voice.state = VoiceState::Free;
             voice.sample_data = None;
             voice.position = 0.0;
         }
