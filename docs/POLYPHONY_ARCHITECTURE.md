@@ -284,13 +284,18 @@ What needs to change:
   - Growth triggered when all voices busy (before stealing)
   - Tested: 16→32→48→72→108 voices (s "bd*100")
   - Growth messages logged for user visibility
-- [ ] Create `DynamicVoiceManager` struct
-- [ ] Replace fixed array with `Vec<Voice>`
-- [ ] Implement `allocate_voice()` and `free_voice()`
-- [ ] Add voice lifecycle management
-- [ ] Update voice triggering in unified_graph.rs
+- [x] Add automatic voice cleanup when done
+  - **CRITICAL BUG FIX**: Changed default envelope from (0.005, 10.0) to (0.001, 0.2)
+  - 10-second release was causing voices to never finish
+  - Voices now correctly transition to Free state when envelope expires
+  - Added `shrink_counter` field for periodic shrinking
+  - Added `shrink_voice_pool()` method (shrinks when usage < 25%)
+  - Shrinks to 150% of active count or initial_voices (16)
+  - Called every 1 second (44100 samples at 44.1kHz)
+  - Tested: pool correctly grows (16→72) and shrinks (72→16)
+  - Fixed test_sample_playback.rs missing Signal import
 - [ ] Add performance monitoring
-- [ ] Test with 100+ simultaneous voices
+- [ ] Test with 200+ simultaneous voices
 
 **Success Criteria**:
 - Can trigger 200+ voices without hard limit
