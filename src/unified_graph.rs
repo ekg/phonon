@@ -3496,6 +3496,102 @@ impl UnifiedSignalGraph {
         }
     }
 
+    /// Evaluate a signal as a chord, returning all semitone offsets
+    /// For single notes returns vec with one element
+    /// For chords like "c4'maj" returns vec![0.0, 4.0, 7.0] (C, E, G)
+    fn eval_note_signal_as_chord(&mut self, signal: &Signal, cycle_pos: f64) -> Vec<f32> {
+        match signal {
+            Signal::Node(id) => {
+                if let Some(Some(SignalNode::Pattern { pattern, .. })) = self.nodes.get(id.0) {
+                    let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                    let state = State {
+                        span: TimeSpan::new(
+                            Fraction::from_float(cycle_pos),
+                            Fraction::from_float(cycle_pos + sample_width),
+                        ),
+                        controls: HashMap::new(),
+                    };
+
+                    let events = pattern.query(&state);
+
+                    if let Some(event) = events.first() {
+                        let s = event.value.as_str();
+                        if s == "~" || s.is_empty() {
+                            vec![0.0]
+                        } else {
+                            use crate::pattern_tonal::{note_to_midi, CHORD_INTERVALS};
+
+                            // Check if this is chord notation (contains apostrophe)
+                            if s.contains('\'') {
+                                // Parse chord: "c4'maj" -> root note + chord intervals
+                                if let Some(midi_root) = note_to_midi(s) {
+                                    let root_semitones = (midi_root as i32 - 60) as f32;
+
+                                    // Extract chord type from notation (everything after ')
+                                    if let Some(apostrophe_pos) = s.find('\'') {
+                                        let chord_type = &s[apostrophe_pos + 1..];
+
+                                        // Look up chord intervals
+                                        if let Some(intervals) = CHORD_INTERVALS.get(chord_type) {
+                                            // Return root + all intervals as semitone offsets
+                                            intervals.iter()
+                                                .map(|&interval| root_semitones + interval as f32)
+                                                .collect()
+                                        } else {
+                                            // Unknown chord type, just play root
+                                            vec![root_semitones]
+                                        }
+                                    } else {
+                                        vec![root_semitones]
+                                    }
+                                } else {
+                                    vec![0.0]
+                                }
+                            } else {
+                                // Single note - use existing logic
+                                let single_note = if let Ok(numeric_value) = s.parse::<f32>() {
+                                    numeric_value
+                                } else if let Some(midi) = note_to_midi(s) {
+                                    (midi as i32 - 60) as f32
+                                } else {
+                                    match s.to_lowercase().as_str() {
+                                        "do" => 0.0,
+                                        "re" => 2.0,
+                                        "mi" => 4.0,
+                                        "fa" => 5.0,
+                                        "sol" | "so" => 7.0,
+                                        "la" => 9.0,
+                                        "ti" | "si" => 11.0,
+                                        _ => 0.0,
+                                    }
+                                };
+                                vec![single_note]
+                            }
+                        }
+                    } else {
+                        vec![0.0]
+                    }
+                } else {
+                    vec![self.eval_node(id)]
+                }
+            }
+            Signal::Value(v) => vec![*v],
+            Signal::Bus(name) => {
+                if let Some(id) = self.buses.get(name).cloned() {
+                    vec![self.eval_node(&id)]
+                } else {
+                    vec![0.0]
+                }
+            }
+            Signal::Pattern(pattern_str) => {
+                // For inline patterns, evaluate as single note
+                let note_val = self.eval_note_signal_at_time(signal, cycle_pos);
+                vec![note_val]
+            }
+            Signal::Expression(expr) => vec![self.eval_note_expression(expr)],
+        }
+    }
+
     /// Evaluate expression for note parameter (delegates to standard evaluation)
     fn eval_note_expression(&mut self, expr: &SignalExpr) -> f32 {
         self.eval_expression(expr)
