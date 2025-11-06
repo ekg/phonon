@@ -67,6 +67,9 @@ audio-processor-traits = "4.3"
 # System directories
 dirs = "5.0"
 
+# Parallel processing
+rayon = "1.10"
+
 [[bin]]
 name = "wav_analyze"
 path = "src/bin/wav_analyze.rs"

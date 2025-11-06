@@ -75,6 +75,7 @@
 
 use crate::envelope::VoiceEnvelope;
 use std::sync::Arc;
+use rayon::prelude::*;
 
 /// Maximum number of simultaneous voices
 /// Default number of voices if not specified
@@ -847,8 +848,15 @@ impl VoiceManager {
         }
         self.total_samples_processed += 1;
 
-        for voice in &mut self.voices {
-            let (voice_left, voice_right) = voice.process_stereo();
+        // Parallel voice processing: each voice renders independently
+        // This is the key performance optimization for high voice counts
+        let voice_outputs: Vec<(f32, f32)> = self.voices
+            .par_iter_mut()
+            .map(|voice| voice.process_stereo())
+            .collect();
+
+        // Sequential sum (very fast, not worth parallelizing)
+        for (voice_left, voice_right) in voice_outputs {
             left += voice_left;
             right += voice_right;
         }
