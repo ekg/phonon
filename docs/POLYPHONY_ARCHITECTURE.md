@@ -249,8 +249,29 @@ impl PerfMonitor {
 ### Phase 1: Dynamic Voice Pool (2 days)
 **Goal**: Remove 64-voice limit, enable dynamic allocation
 
+**RESEARCH FINDINGS**:
+
+Current VoiceManager (src/voice_manager.rs:394):
+- Already uses `Vec<Voice>` (not fixed array) ✅
+- Pre-allocates 256 voices at startup (DEFAULT_MAX_VOICES = 256)
+- Voice struct has: sample_data, position, active, gain, pan, speed, age, cut_group, envelope
+- Allocation: Round-robin search for free voice
+- Voice stealing: Steals oldest voice by age when all voices busy
+- Single-threaded: Sequential voice processing
+- No VoiceState enum (just `active: bool`)
+- No automatic voice cleanup (voices stay in pool even when done)
+
+What needs to change:
+1. ✅ Vec-based storage (already done)
+2. ❌ Dynamic growth (currently pre-allocated)
+3. ❌ VoiceState lifecycle (currently just active/inactive)
+4. ❌ Automatic voice freeing (currently voices never removed)
+5. ❌ Multi-threading (currently single-threaded)
+6. ❌ Performance monitoring (no tracking)
+
 **Tasks**:
 - [x] Research existing approaches
+- [x] Research current VoiceManager implementation
 - [ ] Create `DynamicVoiceManager` struct
 - [ ] Replace fixed array with `Vec<Voice>`
 - [ ] Add `VoiceState` enum (Free, Playing, Releasing)
