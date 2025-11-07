@@ -3256,6 +3256,29 @@ impl UnifiedSignalGraph {
 
     pub fn set_cycle_position(&mut self, position: f64) {
         self.cycle_position = position;
+
+        // CRITICAL: Also update last_cycle in all pattern nodes to prevent re-triggering
+        // When we reload at cycle 5.3, we need Sample nodes to know we're already IN cycle 5
+        // Otherwise they think cycle_changed = true and re-trigger events
+        let current_cycle = position.floor() as i32;
+
+        for node_opt in self.nodes.iter_mut() {
+            if let Some(node) = node_opt {
+                match node {
+                    SignalNode::Sample { last_cycle, .. } => {
+                        *last_cycle = current_cycle;
+                    }
+                    SignalNode::CycleTrigger { last_cycle, .. } => {
+                        *last_cycle = current_cycle;
+                    }
+                    SignalNode::Pattern { .. } => {
+                        // Pattern nodes use last_trigger_time, not last_cycle
+                        // They don't have the same re-trigger issue
+                    }
+                    _ => {}
+                }
+            }
+        }
     }
 
     pub fn set_output_mix_mode(&mut self, mode: OutputMixMode) {
