@@ -413,9 +413,11 @@ impl ModalEditor {
 
             // Regular character input
             KeyCode::Char(c) => {
-                // Cancel completion on any character input
-                self.cancel_completion();
                 self.insert_char(c);
+                // Re-filter completions if active
+                if self.completion_state.is_visible() {
+                    self.update_completion_filter();
+                }
                 KeyResult::Continue
             }
             KeyCode::Enter => {
@@ -428,8 +430,11 @@ impl ModalEditor {
                 KeyResult::Continue
             }
             KeyCode::Backspace => {
-                self.cancel_completion();
                 self.delete_char();
+                // Re-filter completions if active
+                if self.completion_state.is_visible() {
+                    self.update_completion_filter();
+                }
                 KeyResult::Continue
             }
             // Arrow keys still work
@@ -1479,6 +1484,78 @@ impl ModalEditor {
     /// Cancel completion (Esc or movement)
     fn cancel_completion(&mut self) {
         self.completion_state.hide();
+    }
+
+    /// Update completion filter based on current cursor position
+    /// Used when typing to narrow down completions in real-time
+    fn update_completion_filter(&mut self) {
+        // Update bus names
+        self.bus_names = completion::extract_bus_names(&self.content);
+
+        // Get current line and column
+        let lines: Vec<&str> = self.content.split('\n').collect();
+        let (line_idx, col) = self.pos_to_line_col(self.cursor_pos);
+
+        if line_idx >= lines.len() {
+            self.cancel_completion();
+            return;
+        }
+
+        let line = lines[line_idx];
+
+        // Get context
+        let context = completion::get_completion_context(line, col);
+
+        // Get token (may be None if at empty space)
+        let token = completion::get_token_at_cursor(line, col);
+
+        // Determine partial text
+        let (partial_text, token_start) = match token {
+            Some(t) => (t.text.clone(), t.start),
+            None => {
+                // No token - check if we're in a completable context
+                match context {
+                    completion::CompletionContext::Sample | completion::CompletionContext::Bus => {
+                        ("".to_string(), col)
+                    }
+                    _ => {
+                        self.cancel_completion();
+                        return;
+                    }
+                }
+            }
+        };
+
+        // Filter completions
+        let completions = completion::filter_completions(
+            &partial_text,
+            &context,
+            &self.sample_names,
+            &self.bus_names,
+        );
+
+        if completions.is_empty() {
+            // No matches - hide completion
+            self.cancel_completion();
+            return;
+        }
+
+        // Update completion state with new filtered results
+        let line_start = self.content[..self.cursor_pos]
+            .rfind('\n')
+            .map(|i| i + 1)
+            .unwrap_or(0);
+
+        self.completion_state.show(
+            completions.clone(),
+            partial_text,
+            line_start + token_start,
+        );
+
+        self.status_message = format!(
+            "{} completions | Tab/↑↓: navigate | Enter: accept | Esc: cancel",
+            completions.len()
+        );
     }
 }
 
