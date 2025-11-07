@@ -152,8 +152,11 @@ impl ModalEditor {
             String::from("# Phonon Live Coding\n# C-x: Eval block | C-r: Reload all | C-h: Hush | C-s: Save | Alt-q: Quit\n\n# Example: Simple drum pattern\ntempo: 2.0\n~drums: s \"bd sn bd sn\"\nout: ~drums * 0.8\n")
         };
 
+        let cursor_pos = content.len();
+        let bus_names = completion::extract_bus_names(&content);
+
         Ok(Self {
-            cursor_pos: content.len(),
+            cursor_pos,
             content,
             file_path,
             status_message: "🎵 Ready - C-x: eval | C-u: undo | C-r: redo | Tab: complete"
@@ -170,7 +173,7 @@ impl ModalEditor {
             console_messages: vec!["Welcome to Phonon Live Coding".to_string()],
             completion_state: completion::CompletionState::new(),
             sample_names: completion::discover_samples(),
-            bus_names: completion::extract_bus_names(&content),
+            bus_names,
         })
     }
 
@@ -410,7 +413,7 @@ impl ModalEditor {
             }
             KeyCode::Enter => {
                 // If completion is active, accept the current suggestion
-                if self.completion_state.is_some() {
+                if self.completion_state.is_visible() {
                     self.accept_completion();
                 } else {
                     self.insert_char('\n');
@@ -435,7 +438,7 @@ impl ModalEditor {
             }
             KeyCode::Up => {
                 // If completion active, cycle up through suggestions
-                if self.completion_state.is_some() {
+                if self.completion_state.is_visible() {
                     self.cycle_completion_backward();
                 } else {
                     self.move_cursor_up();
@@ -444,7 +447,7 @@ impl ModalEditor {
             }
             KeyCode::Down => {
                 // If completion active, cycle down through suggestions
-                if self.completion_state.is_some() {
+                if self.completion_state.is_visible() {
                     self.cycle_completion_forward();
                 } else {
                     self.move_cursor_down();
@@ -523,9 +526,12 @@ impl ModalEditor {
         f.render_widget(paragraph, editor_chunk);
 
         // Completion popup (if active)
-        if let Some(ref state) = self.completion_state {
-            let popup_width = 40;
-            let popup_height = (state.suggestions.len() + 2).min(10) as u16;
+        if self.completion_state.is_visible() {
+            let completions = self.completion_state.completions();
+            let selected_index = self.completion_state.selected_index();
+
+            let popup_width = 50;
+            let popup_height = (completions.len() + 2).min(10) as u16;
 
             // Position popup near cursor (simplified - center of screen)
             let popup_x = editor_chunk.width.saturating_sub(popup_width + 2).max(2);
@@ -538,20 +544,25 @@ impl ModalEditor {
                 height: popup_height,
             };
 
-            // Build popup content
+            // Build popup content with type labels
             let mut popup_lines = Vec::new();
-            for (idx, suggestion) in state.suggestions.iter().enumerate() {
-                let is_selected = idx == state.selected_index;
+            for (idx, completion) in completions.iter().enumerate() {
+                let is_selected = idx == selected_index;
                 let prefix = if is_selected { "► " } else { "  " };
                 let style = if is_selected {
                     Style::default().fg(Color::Black).bg(Color::Cyan)
                 } else {
                     Style::default().fg(Color::White)
                 };
-                popup_lines.push(Line::from(Span::styled(
-                    format!("{}{}", prefix, suggestion),
-                    style,
-                )));
+
+                // Format: "  completion_text     [type]"
+                let line_text = format!("{}{:20} {}",
+                    prefix,
+                    completion.text,
+                    completion.label()
+                );
+
+                popup_lines.push(Line::from(Span::styled(line_text, style)));
             }
 
             let popup_block = Block::default()
@@ -1335,104 +1346,113 @@ impl ModalEditor {
         (word, word_start)
     }
 
-    /// Trigger completion or cycle to next if already active
-    fn trigger_or_cycle_completion(&mut self) {
-        if let Some(ref mut state) = self.completion_state {
-            // Already completing - cycle forward
-            state.selected_index = (state.selected_index + 1) % state.suggestions.len();
-            self.apply_current_completion();
-        } else {
-            // Start new completion
-            let (word, word_start) = self.get_word_at_cursor();
-
-            if word.is_empty() {
-                return;
+    /// Convert absolute cursor position to (line_index, column)
+    fn pos_to_line_col(&self, pos: usize) -> (usize, usize) {
+        let mut current_pos = 0;
+        for (line_idx, line) in self.content.split('\n').enumerate() {
+            let line_len = line.len();
+            if current_pos + line_len >= pos {
+                return (line_idx, pos - current_pos);
             }
-
-            // Get all completions and filter by prefix
-            let all_completions = self.get_all_completions();
-            let suggestions: Vec<String> = all_completions
-                .into_iter()
-                .filter(|s| s.starts_with(&word) && s != &word)
-                .collect();
-
-            if suggestions.is_empty() {
-                self.status_message = "No completions found".to_string();
-                return;
-            }
-
-            // If only one suggestion, auto-complete immediately
-            if suggestions.len() == 1 {
-                let completion = suggestions[0].clone();
-                self.content
-                    .replace_range(word_start..self.cursor_pos, &completion);
-                self.cursor_pos = word_start + completion.len();
-                self.status_message = format!("✓ Completed: {}", completion);
-            } else {
-                // Multiple suggestions - show popup
-                self.completion_state = Some(CompletionState {
-                    suggestions: suggestions.clone(),
-                    selected_index: 0,
-                    original_word: word,
-                    word_start_pos: word_start,
-                });
-                self.apply_current_completion();
-                self.status_message = format!(
-                    "Tab: {} completions | ↑↓: select | Enter: accept | Esc: cancel",
-                    suggestions.len()
-                );
-            }
+            current_pos += line_len + 1; // +1 for newline
         }
+        // If we're at the end, return last line
+        let line_count = self.content.split('\n').count();
+        (line_count.saturating_sub(1), 0)
     }
 
-    /// Apply the currently selected completion
-    fn apply_current_completion(&mut self) {
-        if let Some(ref state) = self.completion_state {
-            let completion = &state.suggestions[state.selected_index];
-            self.content
-                .replace_range(state.word_start_pos..self.cursor_pos, completion);
-            self.cursor_pos = state.word_start_pos + completion.len();
+    /// Trigger completion or cycle to next if already active
+    fn trigger_or_cycle_completion(&mut self) {
+        if self.completion_state.is_visible() {
+            // Already completing - cycle forward
+            self.completion_state.next();
+        } else {
+            // Start new completion
+            // Update bus names first
+            self.bus_names = completion::extract_bus_names(&self.content);
+
+            // Get current line
+            let lines: Vec<&str> = self.content.split('\n').collect();
+            let (line_idx, col) = self.pos_to_line_col(self.cursor_pos);
+
+            if line_idx >= lines.len() {
+                return;
+            }
+
+            let line = lines[line_idx];
+
+            // Get token and context at cursor
+            let token = match completion::get_token_at_cursor(line, col) {
+                Some(t) => t,
+                None => return,
+            };
+
+            let context = completion::get_completion_context(line, col);
+
+            // Get completions
+            let completions = completion::filter_completions(
+                &token.text,
+                &context,
+                &self.sample_names,
+                &self.bus_names,
+            );
+
+            if completions.is_empty() {
+                self.status_message = "No completions found".to_string();
+                // Flash visual feedback for no matches
+                self.flash_highlight = Some((line_idx, line_idx, 3));
+                return;
+            }
+
+            // Show completions
+            let line_start = self.content[..self.cursor_pos]
+                .rfind('\n')
+                .map(|i| i + 1)
+                .unwrap_or(0);
+
+            self.completion_state.show(
+                completions.clone(),
+                token.text.clone(),
+                line_start + token.start,
+            );
+
+            self.status_message = format!(
+                "{} completions | Tab/↑↓: navigate | Enter: accept | Esc: cancel",
+                completions.len()
+            );
         }
     }
 
     /// Cycle completion forward (Down arrow)
     fn cycle_completion_forward(&mut self) {
-        if let Some(ref mut state) = self.completion_state {
-            state.selected_index = (state.selected_index + 1) % state.suggestions.len();
-            self.apply_current_completion();
-        }
+        self.completion_state.next();
     }
 
-    /// Cycle completion backward (Up arrow or Shift+Tab)
+    /// Cycle completion backward (Up arrow)
     fn cycle_completion_backward(&mut self) {
-        if let Some(ref mut state) = self.completion_state {
-            if state.selected_index == 0 {
-                state.selected_index = state.suggestions.len() - 1;
-            } else {
-                state.selected_index -= 1;
-            }
-            self.apply_current_completion();
-        }
+        self.completion_state.previous();
     }
 
     /// Accept the current completion (Enter)
     fn accept_completion(&mut self) {
-        if let Some(ref state) = self.completion_state {
-            let completion = state.suggestions[state.selected_index].clone();
-            self.status_message = format!("✓ {}", completion);
+        if let Some(completion) = self.completion_state.accept() {
+            // Replace the token at cursor with the completion
+            let token_start = self.completion_state.token_start();
+            let token_end = self.cursor_pos;
+
+            if token_start < self.content.len() {
+                self.content
+                    .replace_range(token_start..token_end, &completion.text);
+                self.cursor_pos = token_start + completion.text.len();
+            }
+
+            self.status_message = format!("✓ {}", completion.text);
         }
-        self.completion_state = None;
     }
 
     /// Cancel completion (Esc or movement)
     fn cancel_completion(&mut self) {
-        if let Some(ref state) = self.completion_state {
-            // Restore original word
-            self.content
-                .replace_range(state.word_start_pos..self.cursor_pos, &state.original_word);
-            self.cursor_pos = state.word_start_pos + state.original_word.len();
-        }
-        self.completion_state = None;
+        self.completion_state.hide();
     }
 }
 
