@@ -392,8 +392,14 @@ impl ModalEditor {
             // Tab: trigger completion or cycle through suggestions
             KeyCode::Tab => {
                 if key.modifiers.contains(KeyModifiers::SHIFT) {
-                    self.cycle_completion_backward();
+                    // Shift+Tab: trigger or cycle backward
+                    if self.completion_state.is_visible() {
+                        self.cycle_completion_backward();
+                    } else {
+                        self.trigger_or_cycle_completion();
+                    }
                 } else {
+                    // Tab: trigger or cycle forward
                     self.trigger_or_cycle_completion();
                 }
                 KeyResult::Continue
@@ -531,11 +537,14 @@ impl ModalEditor {
             let selected_index = self.completion_state.selected_index();
 
             let popup_width = 50;
-            let popup_height = (completions.len() + 2).min(10) as u16;
+            let popup_y = 3;
+
+            // Calculate max height: from popup_y to bottom of screen
+            let max_height = editor_chunk.height.saturating_sub(popup_y + 1);
+            let popup_height = (completions.len() + 2).min(max_height as usize) as u16;
 
             // Position popup near cursor (simplified - center of screen)
             let popup_x = editor_chunk.width.saturating_sub(popup_width + 2).max(2);
-            let popup_y = 3;
 
             let popup_area = ratatui::layout::Rect {
                 x: editor_chunk.x + popup_x,
