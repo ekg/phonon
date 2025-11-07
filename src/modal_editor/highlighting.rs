@@ -14,8 +14,8 @@ pub const FUNCTIONS: &[&str] = &[
     // Filters
     "lpf", "hpf", "bpf", "notch",
     // Effects
-    "reverb", "delay", "chorus", "bitcrush", "distortion", "dist",
-    "comp", "compressor", "crush", "coarse", "djf", "vowel",
+    "reverb", "delay", "chorus", "bitcrush", "distort", "distortion",
+    "comp", "compressor", "coarse", "djf", "vowel",
     // Envelopes
     "adsr", "ad", "ar",
     // DSP modifiers

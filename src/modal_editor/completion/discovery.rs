@@ -5,9 +5,14 @@
 use std::fs;
 use std::path::PathBuf;
 
-/// Discover sample names from ~/dirt-samples/ directory
+/// Discover sample names from multiple possible locations
 ///
-/// Returns a sorted list of directory names (sample banks) found in ~/dirt-samples/
+/// Searches in order:
+/// 1. ~/dirt-samples/
+/// 2. ~/phonon/dirt-samples/
+/// 3. ./dirt-samples/ (relative to current directory)
+///
+/// Returns a sorted list of directory names (sample banks) found
 pub fn discover_samples() -> Vec<String> {
     let home = match std::env::var("HOME") {
         Ok(h) => h,
@@ -17,14 +22,26 @@ pub fn discover_samples() -> Vec<String> {
         }
     };
 
-    let dirt_samples = PathBuf::from(home).join("dirt-samples");
+    // Try multiple locations
+    let search_paths = vec![
+        PathBuf::from(&home).join("dirt-samples"),
+        PathBuf::from(&home).join("phonon").join("dirt-samples"),
+        PathBuf::from(".").join("dirt-samples"),
+    ];
 
-    if !dirt_samples.exists() {
-        eprintln!(
-            "Warning: ~/dirt-samples not found, no samples available for completion"
-        );
-        return Vec::new();
-    }
+    let dirt_samples = search_paths.iter()
+        .find(|path| path.exists())
+        .cloned();
+
+    let dirt_samples = match dirt_samples {
+        Some(path) => path,
+        None => {
+            eprintln!(
+                "Warning: dirt-samples not found in any of: ~/dirt-samples, ~/phonon/dirt-samples, ./dirt-samples"
+            );
+            return Vec::new();
+        }
+    };
 
     let mut samples = Vec::new();
 

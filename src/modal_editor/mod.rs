@@ -1381,17 +1381,33 @@ impl ModalEditor {
 
             let line = lines[line_idx];
 
-            // Get token and context at cursor
-            let token = match completion::get_token_at_cursor(line, col) {
-                Some(t) => t,
-                None => return,
-            };
-
+            // Get context first to determine if we should complete
             let context = completion::get_completion_context(line, col);
+
+            // Get token at cursor (may be None if cursor is at empty space)
+            let token = completion::get_token_at_cursor(line, col);
+
+            // Determine partial text and token start position
+            let (partial_text, token_start) = match token {
+                Some(t) => (t.text.clone(), t.start),
+                None => {
+                    // No token found - check if we're in a context that allows empty completion
+                    match context {
+                        completion::CompletionContext::Sample | completion::CompletionContext::Bus => {
+                            // Inside string - show all completions
+                            ("".to_string(), col)
+                        }
+                        _ => {
+                            // Not in a completable context
+                            return;
+                        }
+                    }
+                }
+            };
 
             // Get completions
             let completions = completion::filter_completions(
-                &token.text,
+                &partial_text,
                 &context,
                 &self.sample_names,
                 &self.bus_names,
@@ -1412,8 +1428,8 @@ impl ModalEditor {
 
             self.completion_state.show(
                 completions.clone(),
-                token.text.clone(),
-                line_start + token.start,
+                partial_text,
+                line_start + token_start,
             );
 
             self.status_message = format!(
