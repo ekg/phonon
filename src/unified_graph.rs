@@ -3250,6 +3250,14 @@ impl UnifiedSignalGraph {
         self.cps
     }
 
+    pub fn get_cycle_position(&self) -> f64 {
+        self.cycle_position
+    }
+
+    pub fn set_cycle_position(&mut self, position: f64) {
+        self.cycle_position = position;
+    }
+
     pub fn set_output_mix_mode(&mut self, mode: OutputMixMode) {
         self.output_mix_mode = mode;
     }

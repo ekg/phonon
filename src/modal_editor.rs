@@ -213,6 +213,17 @@ impl ModalEditor {
         // Set default tempo (will be overridden if tempo: is in the code)
         new_graph.set_cps(1.0);
 
+        // CRITICAL: Preserve cycle position from old graph to prevent timing shift on reload
+        // This ensures seamless hot-swapping - the new pattern picks up at the exact
+        // same point in the cycle where the old one left off
+        {
+            let mut graph_lock = self.graph.lock().unwrap();
+            if let Some(old_graph) = graph_lock.as_ref() {
+                let current_cycle = old_graph.get_cycle_position();
+                new_graph.set_cycle_position(current_cycle);
+            }
+        }
+
         // Hot-swap the graph atomically
         *self.graph.lock().unwrap() = Some(new_graph);
 
