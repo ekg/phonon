@@ -49,10 +49,10 @@ fn test_complete_signal_flow_patterns_to_audio() {
     let env = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(kick_osc),
         trigger: Signal::Node(rhythm),
-        attack: 0.001,
-        decay: 0.1,
-        sustain: 0.0,
-        release: 0.05,
+        attack: Signal::Value(0.001),
+        decay: Signal::Value(0.1),
+        sustain: Signal::Value(0.0),
+        release: Signal::Value(0.05),
         state: Default::default(),
     });
 
@@ -780,10 +780,10 @@ fn test_master_system_coherence() {
     let kick_env = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(kick),
         trigger: Signal::Bus("kick_trig".to_string()),
-        attack: 0.001,
-        decay: 0.1,
-        sustain: 0.0,
-        release: 0.05,
+        attack: Signal::Value(0.001),
+        decay: Signal::Value(0.1),
+        sustain: Signal::Value(0.0),
+        release: Signal::Value(0.05),
         state: Default::default(),
     });
     graph.add_bus("kick".to_string(), kick_env);

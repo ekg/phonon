@@ -3004,10 +3004,11 @@ fn compile_envelope(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
         ));
     }
 
-    let attack = extract_number(&params[0])? as f32;
-    let decay = extract_number(&params[1])? as f32;
-    let sustain_level = extract_number(&params[2])? as f32;
-    let release = extract_number(&params[3])? as f32;
+    // Compile all parameters as signals (supports pattern modulation!)
+    let attack_node = compile_expr(ctx, params[0].clone())?;
+    let decay_node = compile_expr(ctx, params[1].clone())?;
+    let sustain_node = compile_expr(ctx, params[2].clone())?;
+    let release_node = compile_expr(ctx, params[3].clone())?;
 
     use crate::unified_graph::EnvState;
 
@@ -3018,10 +3019,10 @@ fn compile_envelope(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
     let node = SignalNode::Envelope {
         input: input_signal,
         trigger: Signal::Value(1.0), // Always on (continuous envelope, goes to sustain and stays there)
-        attack,
-        decay,
-        sustain: sustain_level,
-        release,
+        attack: Signal::Node(attack_node),
+        decay: Signal::Node(decay_node),
+        sustain: Signal::Node(sustain_node),
+        release: Signal::Node(release_node),
         state: EnvState::default(),
     };
 

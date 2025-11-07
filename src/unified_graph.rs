@@ -833,13 +833,14 @@ pub enum SignalNode {
     },
 
     /// Envelope generator (triggered)
+    /// Parameters are pattern-modulatable signals
     Envelope {
         input: Signal,
         trigger: Signal,
-        attack: f32,
-        decay: f32,
-        sustain: f32,
-        release: f32,
+        attack: Signal,
+        decay: Signal,
+        sustain: Signal,
+        release: Signal,
         state: EnvState,
     },
 
@@ -6487,6 +6488,12 @@ impl UnifiedSignalGraph {
                 let input_val = self.eval_signal(&input);
                 let trig = self.eval_signal(&trigger);
 
+                // Evaluate pattern-modulatable parameters
+                let attack_val = self.eval_signal(&attack);
+                let decay_val = self.eval_signal(&decay);
+                let sustain_val = self.eval_signal(&sustain);
+                let release_val = self.eval_signal(&release);
+
                 // Clone state to work with it
                 let mut env_state = state.clone();
 
@@ -6512,8 +6519,8 @@ impl UnifiedSignalGraph {
 
                 match env_state.phase {
                     EnvPhase::Attack => {
-                        if attack > 0.0 {
-                            env_state.level = env_state.time_in_phase / attack;
+                        if attack_val > 0.0 {
+                            env_state.level = env_state.time_in_phase / attack_val;
                             if env_state.level >= 1.0 {
                                 env_state.level = 1.0;
                                 env_state.phase = EnvPhase::Decay;
@@ -6526,27 +6533,27 @@ impl UnifiedSignalGraph {
                         }
                     }
                     EnvPhase::Decay => {
-                        if decay > 0.0 {
+                        if decay_val > 0.0 {
                             env_state.level =
-                                1.0 - (1.0 - sustain) * (env_state.time_in_phase / decay);
-                            if env_state.level <= sustain {
-                                env_state.level = sustain;
+                                1.0 - (1.0 - sustain_val) * (env_state.time_in_phase / decay_val);
+                            if env_state.level <= sustain_val {
+                                env_state.level = sustain_val;
                                 env_state.phase = EnvPhase::Sustain;
                                 env_state.time_in_phase = 0.0;
                             }
                         } else {
-                            env_state.level = sustain;
+                            env_state.level = sustain_val;
                             env_state.phase = EnvPhase::Sustain;
                             env_state.time_in_phase = 0.0;
                         }
                     }
                     EnvPhase::Sustain => {
-                        env_state.level = sustain;
+                        env_state.level = sustain_val;
                     }
                     EnvPhase::Release => {
-                        if release > 0.0 {
+                        if release_val > 0.0 {
                             // Linear decay from release_start_level to 0 over release time
-                            let progress = (env_state.time_in_phase / release).min(1.0);
+                            let progress = (env_state.time_in_phase / release_val).min(1.0);
                             env_state.level = env_state.release_start_level * (1.0 - progress);
 
                             if progress >= 1.0 {

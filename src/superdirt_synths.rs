@@ -86,10 +86,10 @@ impl SynthLibrary {
         let pitch_env_node = graph.add_node(SignalNode::Envelope {
             input: Signal::Value(1.0),
             trigger: Signal::Value(1.0),
-            attack: 0.001,
-            decay: 0.05,
-            sustain: 0.0,
-            release: 0.001,
+            attack: Signal::Value(0.001),
+            decay: Signal::Value(0.05),
+            sustain: Signal::Value(0.0),
+            release: Signal::Value(0.001),
             state: EnvState::default(),
         });
 
@@ -121,10 +121,10 @@ impl SynthLibrary {
         let amp_env = graph.add_node(SignalNode::Envelope {
             input: Signal::Node(osc),
             trigger: Signal::Value(1.0),
-            attack: 0.001,
-            decay: sustain * 0.7,
-            sustain: 0.3,
-            release: sustain * 0.3,
+            attack: Signal::Value(0.001),
+            decay: Signal::Value(sustain * 0.7),
+            sustain: Signal::Value(0.3),
+            release: Signal::Value(sustain * 0.3),
             state: EnvState::default(),
         });
 
@@ -134,10 +134,10 @@ impl SynthLibrary {
         let noise_env = graph.add_node(SignalNode::Envelope {
             input: Signal::Node(noise),
             trigger: Signal::Value(1.0),
-            attack: 0.001,
-            decay: 0.01,
-            sustain: 0.0,
-            release: 0.005,
+            attack: Signal::Value(0.001),
+            decay: Signal::Value(0.01),
+            sustain: Signal::Value(0.0),
+            release: Signal::Value(0.005),
             state: EnvState::default(),
         });
 
@@ -425,10 +425,10 @@ impl SynthLibrary {
         let body_env = graph.add_node(SignalNode::Envelope {
             input: Signal::Node(body),
             trigger: Signal::Value(1.0),
-            attack: 0.001,
-            decay: sustain * 0.3,
-            sustain: 0.0,
-            release: 0.001,
+            attack: Signal::Value(0.001),
+            decay: Signal::Value(sustain * 0.3),
+            sustain: Signal::Value(0.0),
+            release: Signal::Value(0.001),
             state: EnvState::default(),
         });
 
@@ -445,10 +445,10 @@ impl SynthLibrary {
         let noise_env = graph.add_node(SignalNode::Envelope {
             input: Signal::Node(noise_filtered),
             trigger: Signal::Value(1.0),
-            attack: 0.001,
-            decay: sustain,
-            sustain: 0.0,
-            release: 0.001,
+            attack: Signal::Value(0.001),
+            decay: Signal::Value(sustain),
+            sustain: Signal::Value(0.0),
+            release: Signal::Value(0.001),
             state: EnvState::default(),
         });
 
@@ -498,10 +498,10 @@ impl SynthLibrary {
         let hat = graph.add_node(SignalNode::Envelope {
             input: Signal::Node(filtered),
             trigger: Signal::Value(1.0),
-            attack: 0.001,
-            decay: sustain,
-            sustain: 0.0,
-            release: sustain * 0.3,
+            attack: Signal::Value(0.001),
+            decay: Signal::Value(sustain),
+            sustain: Signal::Value(0.0),
+            release: Signal::Value(sustain * 0.3),
             state: EnvState::default(),
         });
 

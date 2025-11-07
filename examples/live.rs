@@ -146,10 +146,10 @@ fn patch_2_pattern_drums(graph: &mut UnifiedSignalGraph) {
     let kick_env = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(kick),
         trigger: Signal::Node(kick_trig),
-        attack: 0.001,
-        decay: 0.15, // Try: 0.05 to 0.3
-        sustain: 0.0,
-        release: 0.05,
+        attack: Signal::Value(0.001),
+        decay: Signal::Value(0.15), // Try: 0.05 to 0.3
+        sustain: Signal::Value(0.0),
+        release: Signal::Value(0.05),
         state: Default::default(),
     });
 
@@ -175,10 +175,10 @@ fn patch_2_pattern_drums(graph: &mut UnifiedSignalGraph) {
     let snare_env = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(snare_filtered),
         trigger: Signal::Node(snare_trig),
-        attack: 0.001,
-        decay: 0.05,
-        sustain: 0.0,
-        release: 0.02,
+        attack: Signal::Value(0.001),
+        decay: Signal::Value(0.05),
+        sustain: Signal::Value(0.0),
+        release: Signal::Value(0.02),
         state: Default::default(),
     });
 

@@ -79,10 +79,10 @@ fn test_manual_sine_synthesis_reference() {
     let gated = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(osc),
         trigger: Signal::Node(trigger),
-        attack: 0.01, // 10ms attack
-        decay: 0.0,   // No decay phase
-        sustain: 1.0, // Full sustain
-        release: 0.2, // 200ms release (within 0.5s cycle)
+        attack: Signal::Value(0.01), // 10ms attack
+        decay: Signal::Value(0.0),   // No decay phase
+        sustain: Signal::Value(1.0), // Full sustain
+        release: Signal::Value(0.2), // 200ms release (within 0.5s cycle)
         state: Default::default(),
     });
 
@@ -153,10 +153,10 @@ fn test_pattern_controlled_frequency_with_alternation() {
     let gated = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(osc),
         trigger: Signal::Node(trigger),
-        attack: 0.01,
-        decay: 0.0,
-        sustain: 1.0,
-        release: 0.2,
+        attack: Signal::Value(0.01),
+        decay: Signal::Value(0.0),
+        sustain: Signal::Value(1.0),
+        release: Signal::Value(0.2),
         state: Default::default(),
     });
 
@@ -251,10 +251,10 @@ fn test_pattern_frequency_both_notes_gated() {
     let gated = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(osc),
         trigger: Signal::Node(trigger),
-        attack: 0.01,
-        decay: 0.0,
-        sustain: 1.0,
-        release: 0.2,
+        attack: Signal::Value(0.01),
+        decay: Signal::Value(0.0),
+        sustain: Signal::Value(1.0),
+        release: Signal::Value(0.2),
         state: Default::default(),
     });
 

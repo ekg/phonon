@@ -206,10 +206,10 @@ fn test_envelope_generator() {
     let env = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(osc),
         trigger: Signal::Node(trigger),
-        attack: 0.01,
-        decay: 0.1,
-        sustain: 0.5,
-        release: 0.2,
+        attack: Signal::Value(0.01),
+        decay: Signal::Value(0.1),
+        sustain: Signal::Value(0.5),
+        release: Signal::Value(0.2),
         state: Default::default(),
     });
 
