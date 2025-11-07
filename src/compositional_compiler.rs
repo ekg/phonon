@@ -3029,30 +3029,98 @@ fn compile_envelope(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
 }
 
 fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
-    if args.len() != 4 {
-        return Err(format!(
+    // ADSR can be used in two ways:
+    // 1. Standalone ADSR envelope generator: adsr 0.01 0.1 0.7 0.2 (4 args)
+    // 2. Sample envelope modifier: s "bd" # adsr 0.01 0.1 0.7 0.2 (ChainInput + 4 args)
+
+    // Check if this is a chained modifier (for samples)
+    if args.len() == 5 && matches!(args[0], Expr::ChainInput(_)) {
+        // Chained form: s "bd" # adsr 0.01 0.1 0.7 0.2
+        let sample_node_id = match &args[0] {
+            Expr::ChainInput(node_id) => *node_id,
+            _ => unreachable!("Already checked for ChainInput"),
+        };
+
+        // Compile ADSR parameters
+        let attack_node = compile_expr(ctx, args[1].clone())?;
+        let decay_node = compile_expr(ctx, args[2].clone())?;
+        let sustain_node = compile_expr(ctx, args[3].clone())?;
+        let release_node = compile_expr(ctx, args[4].clone())?;
+
+        // Modify the Sample node to use ADSR envelope
+        use crate::unified_graph::RuntimeEnvelopeType;
+
+        let sample_node = ctx
+            .graph
+            .get_node(sample_node_id)
+            .ok_or_else(|| "Invalid node reference".to_string())?;
+
+        if let SignalNode::Sample {
+            pattern_str,
+            pattern,
+            gain,
+            pan,
+            speed,
+            cut_group,
+            n,
+            note,
+            unit_mode,
+            loop_enabled,
+            ..
+        } = sample_node
+        {
+            // Create new Sample with ADSR envelope
+            let new_sample = SignalNode::Sample {
+                pattern_str: pattern_str.clone(),
+                pattern: pattern.clone(),
+                last_trigger_time: -1.0,
+                last_cycle: -1,
+                playback_positions: HashMap::new(),
+                gain: gain.clone(),
+                pan: pan.clone(),
+                speed: speed.clone(),
+                cut_group: cut_group.clone(),
+                n: n.clone(),
+                note: note.clone(),
+                attack: Signal::Node(attack_node),
+                release: Signal::Node(release_node),
+                envelope_type: Some(RuntimeEnvelopeType::ADSR {
+                    decay: Signal::Node(decay_node),
+                    sustain: Signal::Node(sustain_node),
+                }),
+                unit_mode: unit_mode.clone(),
+                loop_enabled: loop_enabled.clone(),
+            };
+
+            Ok(ctx.graph.add_node(new_sample))
+        } else {
+            Err("adsr modifier can only be used with sample (s) patterns".to_string())
+        }
+    } else if args.len() == 4 {
+        // Standalone form: adsr 0.01 0.1 0.7 0.2
+        // Compile each parameter as a signal (supports pattern modulation!)
+        let attack_node = compile_expr(ctx, args[0].clone())?;
+        let decay_node = compile_expr(ctx, args[1].clone())?;
+        let sustain_node = compile_expr(ctx, args[2].clone())?;
+        let release_node = compile_expr(ctx, args[3].clone())?;
+
+        use crate::unified_graph::ADSRState;
+
+        let node = SignalNode::ADSR {
+            attack: Signal::Node(attack_node),
+            decay: Signal::Node(decay_node),
+            sustain: Signal::Node(sustain_node),
+            release: Signal::Node(release_node),
+            state: ADSRState::default(),
+        };
+
+        Ok(ctx.graph.add_node(node))
+    } else {
+        Err(format!(
             "adsr requires 4 parameters (attack, decay, sustain, release), got {}",
             args.len()
-        ));
+        ))
     }
-
-    // Compile each parameter as a signal (supports pattern modulation!)
-    let attack_node = compile_expr(ctx, args[0].clone())?;
-    let decay_node = compile_expr(ctx, args[1].clone())?;
-    let sustain_node = compile_expr(ctx, args[2].clone())?;
-    let release_node = compile_expr(ctx, args[3].clone())?;
-
-    use crate::unified_graph::ADSRState;
-
-    let node = SignalNode::ADSR {
-        attack: Signal::Node(attack_node),
-        decay: Signal::Node(decay_node),
-        sustain: Signal::Node(sustain_node),
-        release: Signal::Node(release_node),
-        state: ADSRState::default(),
-    };
-
-    Ok(ctx.graph.add_node(node))
 }
 
 fn compile_ad(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
