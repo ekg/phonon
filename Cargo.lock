@@ -1749,6 +1749,7 @@ dependencies = [
  "glicol",
  "hound",
  "lazy_static",
+ "libc",
  "midir",
  "nom",
  "notify",
