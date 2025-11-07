@@ -191,7 +191,22 @@ impl ModalEditor {
                     }
                 }
             },
-            |err| eprintln!("Audio stream error: {}", err),
+            |err| {
+                // Log audio errors to file instead of stderr to avoid breaking TUI
+                use std::io::Write;
+                if let Ok(mut file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open("/tmp/phonon_audio_errors.log")
+                {
+                    let _ = writeln!(file, "[{}] Audio stream error: {}",
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs(),
+                        err);
+                }
+            },
             None,
         )
     }
