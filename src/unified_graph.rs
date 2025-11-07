@@ -2097,8 +2097,9 @@ impl GranularState {
         }
 
         // Normalize by grain count to prevent clipping
+        // Linear normalization: with N overlapping grains, divide by N
         if count > 0.0 {
-            output / count.sqrt()
+            output / count
         } else {
             0.0
         }
