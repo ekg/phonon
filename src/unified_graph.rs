@@ -3257,23 +3257,27 @@ impl UnifiedSignalGraph {
     pub fn set_cycle_position(&mut self, position: f64) {
         self.cycle_position = position;
 
-        // CRITICAL: Also update last_cycle in all pattern nodes to prevent re-triggering
-        // When we reload at cycle 5.3, we need Sample nodes to know we're already IN cycle 5
-        // Otherwise they think cycle_changed = true and re-trigger events
+        // CRITICAL: Update ALL timing state in pattern nodes to prevent re-triggering
+        // When we reload at cycle 5.3, nodes must know:
+        // 1. We're already IN cycle 5 (not entering it for the first time)
+        // 2. Don't re-trigger events that already happened earlier in this cycle
+        // 3. last_trigger_time = current position means "act like we just processed up to here"
         let current_cycle = position.floor() as i32;
 
         for node_opt in self.nodes.iter_mut() {
             if let Some(node) = node_opt {
                 match node {
-                    SignalNode::Sample { last_cycle, .. } => {
+                    SignalNode::Sample { last_cycle, last_trigger_time, .. } => {
                         *last_cycle = current_cycle;
+                        // Set to current position: "don't trigger anything before this point"
+                        *last_trigger_time = position as f32;
                     }
                     SignalNode::CycleTrigger { last_cycle, .. } => {
                         *last_cycle = current_cycle;
                     }
-                    SignalNode::Pattern { .. } => {
-                        // Pattern nodes use last_trigger_time, not last_cycle
-                        // They don't have the same re-trigger issue
+                    SignalNode::Pattern { last_trigger_time, .. } => {
+                        // Pattern nodes also track last trigger time
+                        *last_trigger_time = position as f32;
                     }
                     _ => {}
                 }
