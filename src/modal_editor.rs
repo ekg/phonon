@@ -86,28 +86,38 @@ impl ModalEditor {
             .default_output_device()
             .ok_or("No output device available")?;
 
-        let config = device
+        let default_config = device
             .default_output_config()
             .map_err(|e| format!("Failed to get default config: {}", e))?;
 
-        let sample_rate = config.sample_rate().0 as f32;
-        let channels = config.channels() as usize;
+        let sample_rate = default_config.sample_rate().0 as f32;
+        let channels = default_config.channels() as usize;
+        let sample_format = default_config.sample_format();
+
+        // Create config with larger buffer to prevent underruns
+        // Use 1024 samples (~23ms at 44.1kHz) for stable playback
+        let mut config: cpal::StreamConfig = default_config.into();
+        config.buffer_size = cpal::BufferSize::Fixed(1024);
+
+        eprintln!("🎵 Audio: {} Hz, {} channels, buffer: 1024 samples (~{:.1}ms)",
+                 sample_rate as u32, channels,
+                 (1024.0 / sample_rate) * 1000.0);
 
         // Shared graph (starts as None, will be loaded)
         let graph = Arc::new(Mutex::new(None));
         let graph_clone = graph.clone();
 
         // Build audio stream with callback
-        let stream = match config.sample_format() {
+        let stream = match sample_format {
             cpal::SampleFormat::F32 => Self::build_stream::<f32>(
                 &device,
-                &config.into(),
+                &config,
                 graph_clone,
                 channels,
             ),
             cpal::SampleFormat::I16 => Self::build_stream::<i16>(
                 &device,
-                &config.into(),
+                &config,
                 graph_clone,
                 channels,
             ),
