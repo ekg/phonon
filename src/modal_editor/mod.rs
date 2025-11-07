@@ -152,7 +152,8 @@ impl ModalEditor {
             String::from("# Phonon Live Coding\n# C-x: Eval block | C-r: Reload all | C-h: Hush | C-s: Save | Alt-q: Quit\n\n# Example: Simple drum pattern\ntempo: 2.0\n~drums: s \"bd sn bd sn\"\nout: ~drums * 0.8\n")
         };
 
-        let cursor_pos = content.len();
+        // Start cursor at beginning of file (not end)
+        let cursor_pos = 0;
         let bus_names = completion::extract_bus_names(&content);
 
         Ok(Self {
