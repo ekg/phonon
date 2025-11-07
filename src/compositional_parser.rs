@@ -350,7 +350,77 @@ fn skip_space_and_comments(input: &str) -> IResult<&str, ()> {
 /// tempo: 2.0  -- This is an inline comment
 /// ~bass: saw 110 # lpf 1000 0.8  -- # is the chain operator
 /// ```
+///
+/// Preprocess input to join continuation lines
+/// A line is a continuation if it doesn't start with a definition pattern (identifier:)
+fn preprocess_multiline(input: &str) -> String {
+    let lines: Vec<&str> = input.lines().collect();
+    let mut result = Vec::new();
+    let mut current_statement = String::new();
+
+    for line in lines {
+        let trimmed = line.trim();
+
+        // Skip empty lines and pure comment lines
+        if trimmed.is_empty() || trimmed.starts_with("--") {
+            // If we have accumulated a statement, push it
+            if !current_statement.is_empty() {
+                result.push(current_statement.clone());
+                current_statement.clear();
+            }
+            // Preserve comments and empty lines
+            result.push(line.to_string());
+            continue;
+        }
+
+        // Check if this line starts a new definition
+        // A definition line has the pattern: identifier followed by colon
+        // Examples: tempo:, out:, o1:, d1:, ~bus:, fn name = ..., etc.
+        let is_definition = if let Some(colon_pos) = trimmed.find(':') {
+            let before_colon = &trimmed[..colon_pos];
+            // Check if what's before the colon looks like an identifier
+            // It should be alphanumeric, possibly starting with ~ or o/d followed by digits
+            let is_valid_identifier = before_colon.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
+                && !before_colon.is_empty();
+            is_valid_identifier
+        } else if trimmed.starts_with("fn ") {
+            // Function definitions also start a new statement
+            true
+        } else {
+            false
+        };
+
+        if is_definition {
+            // Push accumulated statement if any
+            if !current_statement.is_empty() {
+                result.push(current_statement.clone());
+                current_statement.clear();
+            }
+            // Start new statement
+            current_statement = line.to_string();
+        } else {
+            // Continuation line - append with a space
+            if !current_statement.is_empty() {
+                current_statement.push(' ');
+            }
+            current_statement.push_str(line.trim());
+        }
+    }
+
+    // Push final statement if any
+    if !current_statement.is_empty() {
+        result.push(current_statement);
+    }
+
+    result.join("\n")
+}
+
 pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
+    // Preprocess to join continuation lines
+    let preprocessed = preprocess_multiline(input);
+    let static_input: &'static str = Box::leak(preprocessed.into_boxed_str());
+    let input = static_input;
+
     let (input, _) = skip_space_and_comments(input)?;
 
     // Manually parse statements with proper comment/whitespace handling
@@ -2425,6 +2495,50 @@ out: doublesaw 110 5
                 3,
                 "Should have 3 statements (fn, tempo, out)"
             );
+        }
+    }
+
+    #[test]
+    fn test_multiline_stack() {
+        // Test that stack definitions can span multiple lines
+        let code = r#"
+tempo: 0.5
+
+-- Multi-line stack definition
+o1: stack [
+  s "bd(4,4)" # gain 0.5,
+  s "hh*8" # gain 0.3
+]
+
+-- Another output
+o2: s "cp(2,4)"
+"#;
+
+        let result = parse_program(code);
+        assert!(result.is_ok(), "Multi-line stack should parse: {:?}", result);
+
+        if let Ok((rest, statements)) = result {
+            assert_eq!(rest.trim(), "", "Should consume entire program");
+            assert_eq!(
+                statements.len(),
+                3,
+                "Should have 3 statements (tempo, o1 with stack, o2)"
+            );
+
+            // Verify the stack statement was parsed correctly
+            if let Statement::OutputChannel { channel, expr } = &statements[1] {
+                assert_eq!(*channel, 1);
+                // The expression should be a stack function call
+                match expr {
+                    Expr::Call { name, args } => {
+                        assert_eq!(name, "stack");
+                        assert_eq!(args.len(), 1, "stack should have 1 argument (the list)");
+                    }
+                    _ => panic!("Expected function call for stack, got: {:?}", expr),
+                }
+            } else {
+                panic!("Expected OutputChannel statement, got: {:?}", statements[1]);
+            }
         }
     }
 }

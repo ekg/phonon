@@ -5,6 +5,11 @@
 //! Provides a full-screen text editor for writing Phonon DSL code with
 //! real-time audio generation triggered by Shift+Enter
 
+mod completion;
+mod highlighting;
+
+use highlighting::highlight_line;
+
 use crate::compositional_compiler::compile_program;
 use crate::compositional_parser::parse_program;
 use crate::unified_graph::UnifiedSignalGraph;
@@ -26,19 +31,6 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-
-/// Completion state for tab completion
-#[derive(Clone)]
-struct CompletionState {
-    /// List of completion suggestions
-    suggestions: Vec<String>,
-    /// Currently selected suggestion index
-    selected_index: usize,
-    /// The original word being completed
-    original_word: String,
-    /// Position where the word starts
-    word_start_pos: usize,
-}
 
 /// Modal live coding editor state
 pub struct ModalEditor {
@@ -71,7 +63,11 @@ pub struct ModalEditor {
     /// Console messages for display
     console_messages: Vec<String>,
     /// Tab completion state
-    completion_state: Option<CompletionState>,
+    completion_state: completion::CompletionState,
+    /// Available sample names from ~/dirt-samples/
+    sample_names: Vec<String>,
+    /// Available bus names from current content
+    bus_names: Vec<String>,
 }
 
 impl ModalEditor {
@@ -172,7 +168,9 @@ impl ModalEditor {
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
             console_messages: vec!["Welcome to Phonon Live Coding".to_string()],
-            completion_state: None,
+            completion_state: completion::CompletionState::new(),
+            sample_names: completion::discover_samples(),
+            bus_names: completion::extract_bus_names(&content),
         })
     }
 
@@ -631,187 +629,6 @@ impl ModalEditor {
         }
     }
 
-    /// Apply syntax highlighting to a line of Phonon code
-    /// Simple scheme:
-    /// - All functions → Blue
-    /// - Buses (~name) → Purple/Magenta
-    /// - Strings/mininotation → White
-    /// - # and $ → Hot Pink
-    /// - Numbers → Orange
-    /// - Comments → Dark Gray
-    fn highlight_line(line: &str) -> Vec<Span> {
-        let mut spans = Vec::new();
-        let mut current = String::new();
-        let mut in_string = false;
-        let mut in_comment = false;
-
-        // All function names (patterns, transforms, synth, DSP, structure)
-        let functions = [
-            "s",
-            "euclid",
-            "fast",
-            "slow",
-            "rev",
-            "every",
-            "degrade",
-            "degradeBy",
-            "stutter",
-            "palindrome",
-            "sine",
-            "saw",
-            "square",
-            "tri",
-            "lpf",
-            "hpf",
-            "bpf",
-            "notch",
-            "reverb",
-            "delay",
-            "chorus",
-            "bitcrush",
-            "distortion",
-            "tempo",
-            "out",
-            "out1",
-            "out2",
-            "out3",
-            "out4",
-            "out5",
-            "out6",
-            "out7",
-            "out8",
-            "hush",
-            "panic",
-        ];
-
-        // Check if line starts with # (comment)
-        let line_trimmed = line.trim_start();
-        if line_trimmed.starts_with('#') {
-            // Entire line is a comment
-            spans.push(Span::styled(
-                line.to_string(),
-                Style::default().fg(Color::Rgb(100, 100, 100)),
-            ));
-            return spans;
-        }
-
-        for (i, ch) in line.chars().enumerate() {
-            if in_comment {
-                current.push(ch);
-                continue;
-            }
-
-            // String detection
-            if ch == '"' {
-                if in_string {
-                    current.push(ch);
-                    // Mininotation strings → White
-                    spans.push(Span::styled(
-                        current.clone(),
-                        Style::default().fg(Color::White),
-                    ));
-                    current.clear();
-                    in_string = false;
-                } else {
-                    // Flush current token
-                    if !current.is_empty() {
-                        let style = if functions.contains(&current.as_str()) {
-                            Style::default().fg(Color::Blue) // Functions → Blue
-                        } else if current.starts_with('~') {
-                            Style::default().fg(Color::Magenta) // Buses → Purple
-                        } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                            Style::default().fg(Color::Rgb(255, 165, 0)) // Numbers → Orange
-                        } else {
-                            Style::default().fg(Color::White) // Default
-                        };
-                        spans.push(Span::styled(current.clone(), style));
-                        current.clear();
-                    }
-                    current.push(ch);
-                    in_string = true;
-                }
-                continue;
-            }
-
-            if in_string {
-                current.push(ch);
-                continue;
-            }
-
-            // Operators and delimiters
-            if "(){}[]:|$<>=+*-/,".contains(ch) {
-                // Flush current token
-                if !current.is_empty() {
-                    let style = if functions.contains(&current.as_str()) {
-                        Style::default().fg(Color::Blue)
-                    } else if current.starts_with('~') {
-                        Style::default().fg(Color::Magenta)
-                    } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                        Style::default().fg(Color::Rgb(255, 165, 0))
-                    } else {
-                        Style::default().fg(Color::White)
-                    };
-                    spans.push(Span::styled(current.clone(), style));
-                    current.clear();
-                }
-                // # and $ → Hot Pink, others → Light Gray
-                let color = if ch == '#' || ch == '$' {
-                    Color::Rgb(255, 20, 147) // Hot Pink
-                } else {
-                    Color::Rgb(150, 150, 150) // Light Gray
-                };
-                spans.push(Span::styled(ch.to_string(), Style::default().fg(color)));
-                continue;
-            }
-
-            // Whitespace
-            if ch.is_whitespace() {
-                // Flush current token
-                if !current.is_empty() {
-                    let style = if functions.contains(&current.as_str()) {
-                        Style::default().fg(Color::Blue)
-                    } else if current.starts_with('~') {
-                        Style::default().fg(Color::Magenta)
-                    } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                        Style::default().fg(Color::Rgb(255, 165, 0))
-                    } else {
-                        Style::default().fg(Color::White)
-                    };
-                    spans.push(Span::styled(current.clone(), style));
-                    current.clear();
-                }
-                spans.push(Span::raw(ch.to_string()));
-                continue;
-            }
-
-            current.push(ch);
-        }
-
-        // Flush remaining
-        if !current.is_empty() {
-            let style = if in_comment {
-                Style::default().fg(Color::Rgb(100, 100, 100)) // Comments → Dark gray
-            } else if in_string {
-                Style::default().fg(Color::White) // Strings → White
-            } else if functions.contains(&current.as_str()) {
-                Style::default().fg(Color::Blue) // Functions → Blue
-            } else if current.starts_with('~') {
-                Style::default().fg(Color::Magenta) // Buses → Purple
-            } else if current.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                Style::default().fg(Color::Rgb(255, 165, 0)) // Numbers → Orange
-            } else {
-                Style::default().fg(Color::White) // Default → White
-            };
-            spans.push(Span::styled(current, style));
-        }
-
-        if spans.is_empty() {
-            spans.push(Span::raw(" "));
-        }
-
-        spans
-    }
-
     /// Get content with cursor indicator and syntax highlighting
     fn content_with_cursor(&self) -> Vec<Line> {
         let mut lines = Vec::new();
@@ -871,7 +688,7 @@ impl ModalEditor {
                     }
                 } else if cursor_col < line_text.len() {
                     // Cursor in middle of line - highlight whole line, then add cursor
-                    let mut highlighted = Self::highlight_line(line_text);
+                    let mut highlighted = highlight_line(line_text);
 
                     // Find which character position cursor is at
                     let mut char_count = 0;
@@ -933,7 +750,7 @@ impl ModalEditor {
                     spans = modified_spans;
                 } else {
                     // Cursor at end of line
-                    let mut highlighted = Self::highlight_line(line_text);
+                    let mut highlighted = highlight_line(line_text);
                     if is_flashing {
                         // Add flash background to all spans
                         for span in &mut highlighted {
@@ -957,7 +774,7 @@ impl ModalEditor {
                         lines.push(Line::from(Span::raw(" "))); // Ensure empty lines take space
                     }
                 } else {
-                    let mut spans = Self::highlight_line(line_text);
+                    let mut spans = highlight_line(line_text);
                     if is_flashing {
                         // Add flash background to all spans
                         for span in &mut spans {

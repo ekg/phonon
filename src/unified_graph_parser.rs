@@ -1467,13 +1467,80 @@ fn statement(input: &str) -> IResult<&str, DslStatement> {
     ))(input)
 }
 
+/// Preprocess input to join continuation lines
+/// A line is a continuation if it doesn't start with a definition pattern (identifier:)
+fn preprocess_multiline(input: &str) -> String {
+    let lines: Vec<&str> = input.lines().collect();
+    let mut result = Vec::new();
+    let mut current_statement = String::new();
+
+    for line in lines {
+        let trimmed = line.trim();
+
+        // Skip empty lines and pure comment lines
+        if trimmed.is_empty() || trimmed.starts_with("--") {
+            // If we have accumulated a statement, push it
+            if !current_statement.is_empty() {
+                result.push(current_statement.clone());
+                current_statement.clear();
+            }
+            // Preserve comments and empty lines
+            result.push(line.to_string());
+            continue;
+        }
+
+        // Check if this line starts a new definition
+        // A definition line has the pattern: identifier followed by colon
+        // Examples: tempo:, out:, o1:, d1:, ~bus:, etc.
+        let is_definition = if let Some(colon_pos) = trimmed.find(':') {
+            let before_colon = &trimmed[..colon_pos];
+            // Check if what's before the colon looks like an identifier
+            // It should be alphanumeric, possibly starting with ~ or o/d followed by digits
+            let is_valid_identifier = before_colon.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
+                && !before_colon.is_empty();
+            is_valid_identifier
+        } else {
+            false
+        };
+
+        if is_definition {
+            // Push accumulated statement if any
+            if !current_statement.is_empty() {
+                result.push(current_statement.clone());
+                current_statement.clear();
+            }
+            // Start new statement
+            current_statement = line.to_string();
+        } else {
+            // Continuation line - append with a space
+            if !current_statement.is_empty() {
+                current_statement.push(' ');
+            }
+            current_statement.push_str(line.trim());
+        }
+    }
+
+    // Push final statement if any
+    if !current_statement.is_empty() {
+        result.push(current_statement);
+    }
+
+    result.join("\n")
+}
+
 /// Parse multiple statements separated by newlines
 pub fn parse_dsl(input: &str) -> IResult<&str, Vec<DslStatement>> {
+    // Preprocess to join continuation lines
+    // We need to leak the string to get a 'static lifetime for nom
+    // This is acceptable since DSL parsing happens infrequently (on file load)
+    let preprocessed = preprocess_multiline(input);
+    let static_input: &'static str = Box::leak(preprocessed.into_boxed_str());
+
     // Skip leading whitespace and comments
-    let (input, _) = skip_whitespace_and_comments(input)?;
+    let (remaining, _) = skip_whitespace_and_comments(static_input)?;
 
     // Parse statements separated by whitespace/comments
-    separated_list0(skip_whitespace_and_comments, statement)(input)
+    separated_list0(skip_whitespace_and_comments, statement)(remaining)
 }
 
 /// Compile DSL to UnifiedSignalGraph
