@@ -1,6 +1,6 @@
 use hound::{SampleFormat, WavSpec, WavWriter};
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 use std::process::Command;
 
 #[test]

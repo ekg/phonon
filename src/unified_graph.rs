@@ -1192,7 +1192,6 @@ pub struct FundspState {
 impl FundspState {
     /// Create a new organ_hz unit
     pub fn new_organ_hz(frequency: f32, sample_rate: f64) -> Self {
-        use fundsp::prelude::AudioUnit;
 
         let mut unit = fundsp::prelude::organ_hz(frequency);
         unit.reset();
@@ -1216,7 +1215,6 @@ impl FundspState {
 
     /// Create a new moog_hz unit (Moog ladder filter)
     pub fn new_moog_hz(cutoff: f32, resonance: f32, sample_rate: f64) -> Self {
-        use fundsp::prelude::AudioUnit;
 
         let mut unit = fundsp::prelude::moog_hz(cutoff, resonance);
         unit.reset();
@@ -1276,7 +1274,6 @@ impl FundspState {
         mod_frequency: f32,
         sample_rate: f64,
     ) -> Self {
-        use fundsp::prelude::AudioUnit;
 
         let mut unit = fundsp::prelude::chorus(seed, separation, variation, mod_frequency);
         unit.reset();
@@ -1302,7 +1299,6 @@ impl FundspState {
 
     /// Create a new saw_hz unit (bandlimited sawtooth oscillator)
     pub fn new_saw_hz(frequency: f32, sample_rate: f64) -> Self {
-        use fundsp::prelude::AudioUnit;
 
         let mut unit = fundsp::prelude::saw_hz(frequency);
         unit.reset();
@@ -1326,7 +1322,6 @@ impl FundspState {
 
     /// Create a new soft_saw_hz unit (softer sawtooth with fewer harmonics)
     pub fn new_soft_saw_hz(frequency: f32, sample_rate: f64) -> Self {
-        use fundsp::prelude::AudioUnit;
 
         let mut unit = fundsp::prelude::soft_saw_hz(frequency);
         unit.reset();
@@ -1350,7 +1345,6 @@ impl FundspState {
 
     /// Create a new square_hz unit (bandlimited square wave oscillator)
     pub fn new_square_hz(frequency: f32, sample_rate: f64) -> Self {
-        use fundsp::prelude::AudioUnit;
 
         let mut unit = fundsp::prelude::square_hz(frequency);
         unit.reset();
@@ -1373,7 +1367,6 @@ impl FundspState {
     }
 
     pub fn new_triangle_hz(frequency: f32, sample_rate: f64) -> Self {
-        use fundsp::prelude::AudioUnit;
 
         let mut unit = fundsp::prelude::triangle_hz(frequency);
         unit.reset();
@@ -1396,7 +1389,6 @@ impl FundspState {
     }
 
     pub fn new_noise(sample_rate: f64) -> Self {
-        use fundsp::prelude::AudioUnit;
 
         let mut unit = fundsp::prelude::noise();
         unit.reset();
@@ -1420,7 +1412,6 @@ impl FundspState {
 
     /// Create a new pink noise unit (1/f spectrum)
     pub fn new_pink(sample_rate: f64) -> Self {
-        use fundsp::prelude::AudioUnit;
 
         // pink::<f32>() requires type annotation
         let mut unit = fundsp::prelude::pink::<f32>();
@@ -1451,7 +1442,6 @@ impl FundspState {
     /// pulse() takes both frequency and pulse width as audio-rate inputs,
     /// enabling audio-rate pulse width modulation (PWM).
     pub fn new_pulse(sample_rate: f64) -> Self {
-        use fundsp::prelude::AudioUnit;
 
         // pulse() takes 2 audio-rate inputs
         let mut unit = fundsp::prelude::pulse();
