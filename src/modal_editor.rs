@@ -239,11 +239,10 @@ impl ModalEditor {
         }
 
         // Compile into a graph
+        // Note: compile_program sets CPS from tempo:/bpm: statements in the code
+        // Default is 0.5 CPS if not specified
         let mut new_graph = compile_program(statements, self.sample_rate)
             .map_err(|e| format!("Compile error: {}", e))?;
-
-        // Set default tempo (will be overridden if tempo: is in the code)
-        new_graph.set_cps(1.0);
 
         // CRITICAL: Preserve cycle position from old graph to prevent timing shift on reload
         // This ensures seamless hot-swapping - the new pattern picks up at the exact

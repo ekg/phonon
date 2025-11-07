@@ -156,11 +156,11 @@ impl LiveSession {
             return Err(format!("Failed to parse entire file, remaining: {}", rest));
         }
 
+        // Compile into a graph
+        // Note: compile_program sets CPS from tempo:/bpm: statements in the file
+        // Default is 0.5 CPS if not specified
         let mut new_graph = compile_program(statements, self.sample_rate)
             .map_err(|e| format!("Compile error: {}", e))?;
-
-        // Set tempo from DSL (default 1.0)
-        new_graph.set_cps(1.0); // This will be overridden if tempo: is in the file
 
         // CRITICAL: Preserve cycle position from old graph to prevent timing shift on reload
         // This ensures seamless hot-swapping - the new pattern picks up at the exact
