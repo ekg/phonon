@@ -332,16 +332,27 @@ impl Voice {
         // DEBUG: Log voice processing
         if std::env::var("DEBUG_VOICE_PROCESS").is_ok() && self.age < 10 {
             eprintln!(
-                "[VOICE] process_stereo called, age={}, position={:.1}",
-                self.age, self.position
+                "[VOICE] process_stereo called, age={}, position={:.1}, state={:?}",
+                self.age, self.position, self.state
             );
         }
 
         // Process envelope
         let env_value = self.envelope.process();
 
+        // DEBUG: Log envelope state
+        if std::env::var("DEBUG_VOICE_PROCESS").is_ok() && self.age < 10 {
+            eprintln!(
+                "[VOICE] envelope processed, env_value={:.6}, is_active={}",
+                env_value, self.envelope.is_active()
+            );
+        }
+
         // Check if envelope finished
         if !self.envelope.is_active() {
+            if std::env::var("DEBUG_VOICE_PROCESS").is_ok() {
+                eprintln!("[VOICE] envelope not active, setting state to Free");
+            }
             self.state = VoiceState::Free;
             self.sample_data = None;
             return (0.0, 0.0);
@@ -642,6 +653,12 @@ impl VoiceManager {
                     .trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
                 self.next_voice_index = (idx + 1) % max_voices;
                 self.last_triggered_voice_index = Some(idx); // Track for post-trigger config
+
+                // DEBUG: Verify voice state after triggering
+                if std::env::var("DEBUG_VOICE_TRIGGERS").is_ok() {
+                    eprintln!("[VOICE_MGR] Voice {} triggered, state={:?}, envelope_active={}",
+                        idx, self.voices[idx].state, self.voices[idx].envelope.is_active());
+                }
                 return;
             }
         }
@@ -846,6 +863,8 @@ impl VoiceManager {
                 .iter()
                 .filter(|v| v.state != VoiceState::Free)
                 .count();
+            eprintln!("[VOICE_MGR] process_stereo: total_voices={}, active_voices={}",
+                self.voices.len(), active_count);
             if active_count > 0 {
                 eprintln!("[VOICE_MGR] {} active voices", active_count);
             }

@@ -3383,6 +3383,11 @@ impl UnifiedSignalGraph {
         // Clear cache for new sample
         self.value_cache.clear();
 
+        // Process voice manager ONCE per sample and cache the output
+        // Sample nodes will return this cached value (ensuring voices are only read once)
+        // This allows transformations (like `* 0.3`) to be applied correctly
+        self.voice_output_cache = self.voice_manager.borrow_mut().process();
+
         // Collect outputs to avoid borrow checker issues
         let outputs_to_process: Vec<(usize, NodeId)> =
             self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();

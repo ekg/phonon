@@ -3,9 +3,7 @@ use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 use std::collections::HashMap;
 
 /// Test that attack parameter creates gradual fade-in
-/// TODO: Fix - broken by voice architecture changes (see commit 5996fc8)
 #[test]
-#[ignore]
 fn test_attack_parameter_shapes_onset() {
     let sample_rate = 44100.0;
     let mut graph = UnifiedSignalGraph::new(sample_rate);
@@ -72,7 +70,6 @@ fn test_attack_parameter_shapes_onset() {
 
 /// Test that release parameter controls tail length
 #[test]
-#[ignore]
 fn test_release_parameter_controls_tail() {
     let sample_rate = 44100.0;
 
@@ -168,7 +165,6 @@ fn test_release_parameter_controls_tail() {
 
 /// Test attack with fast vs slow attack times
 #[test]
-#[ignore]
 fn test_fast_vs_slow_attack() {
     let sample_rate = 44100.0;
 
@@ -255,7 +251,6 @@ fn test_fast_vs_slow_attack() {
 
 /// Test default envelope behavior (0.0 values)
 #[test]
-#[ignore]
 fn test_default_envelope_values() {
     let sample_rate = 44100.0;
     let mut graph = UnifiedSignalGraph::new(sample_rate);
@@ -298,9 +293,7 @@ fn test_default_envelope_values() {
 }
 
 /// Test envelope interaction with gain parameter
-/// TODO: Fix - broken by voice architecture changes (see commit 5996fc8)
 #[test]
-#[ignore]
 fn test_envelope_gain_interaction() {
     let sample_rate = 44100.0;
     let mut graph = UnifiedSignalGraph::new(sample_rate);
@@ -355,7 +348,6 @@ fn test_envelope_gain_interaction() {
 
 /// Test multiple events with different envelope times
 #[test]
-#[ignore]
 fn test_multiple_events_different_envelopes() {
     let sample_rate = 44100.0;
     let mut graph = UnifiedSignalGraph::new(sample_rate);
@@ -417,7 +409,6 @@ fn test_multiple_events_different_envelopes() {
 
 /// Test extreme envelope values are clamped
 #[test]
-#[ignore]
 fn test_extreme_envelope_values_clamped() {
     let sample_rate = 44100.0;
     let mut graph = UnifiedSignalGraph::new(sample_rate);
