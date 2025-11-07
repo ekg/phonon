@@ -809,6 +809,7 @@ fn compile_function_call(
         "djf" => compile_djf(ctx, args),
         "ring" => compile_ring(ctx, args),
         "tremolo" | "trem" => compile_tremolo(ctx, args),
+        "vibrato" | "vib" => compile_vibrato(ctx, args),
         "xfade" => compile_xfade(ctx, args),
         "mix" => compile_mix(ctx, args),
         "allpass" => compile_allpass(ctx, args),
@@ -2653,6 +2654,35 @@ fn compile_tremolo(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         rate: Signal::Node(rate_node),
         depth: Signal::Node(depth_node),
         phase: 0.0, // Start at phase 0
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile vibrato effect (pitch modulation)
+/// Syntax: vibrato rate depth
+/// Example: ~signal # vibrato 5.5 0.4
+fn compile_vibrato(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 2 {
+        return Err(format!(
+            "vibrato requires 2 parameters (rate, depth), got {}",
+            params.len()
+        ));
+    }
+
+    let rate_node = compile_expr(ctx, params[0].clone())?;
+    let depth_node = compile_expr(ctx, params[1].clone())?;
+
+    let node = SignalNode::Vibrato {
+        input: input_signal,
+        rate: Signal::Node(rate_node),
+        depth: Signal::Node(depth_node),
+        phase: 0.0,              // Start at phase 0
+        delay_buffer: Vec::new(), // Initialized on first use
+        buffer_pos: 0,           // Start at buffer position 0
     };
 
     Ok(ctx.graph.add_node(node))

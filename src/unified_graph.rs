@@ -1086,6 +1086,17 @@ pub enum SignalNode {
         phase: f32,    // LFO phase accumulator
     },
 
+    /// Vibrato (pitch modulation)
+    /// Classic effect that modulates pitch with an LFO using time-varying delay
+    Vibrato {
+        input: Signal,           // Input signal
+        rate: Signal,            // LFO rate in Hz (0.1 to 20.0)
+        depth: Signal,           // Modulation depth in semitones (0.0 to 2.0)
+        phase: f32,              // LFO phase accumulator
+        delay_buffer: Vec<f32>,  // Circular delay buffer (50ms)
+        buffer_pos: usize,       // Current write position in buffer
+    },
+
     /// Ring Modulation
     /// Classic effect that multiplies input by a carrier frequency
     /// Creates metallic, inharmonic tones
@@ -4919,6 +4930,82 @@ impl UnifiedSignalGraph {
 
                     // Apply amplitude modulation
                     output_val = input_val * modulation;
+                }
+
+                output_val
+            }
+
+            SignalNode::Vibrato {
+                input,
+                rate,
+                depth,
+                phase,
+                delay_buffer,
+                buffer_pos,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let rate_hz = self.eval_signal(&rate).clamp(0.1, 20.0);
+                let depth_semitones = self.eval_signal(&depth).clamp(0.0, 2.0);
+
+                // Fast bypass for zero depth
+                if depth_semitones < 0.001 {
+                    return input_val;
+                }
+
+                let mut output_val = input_val;
+
+                // Access and update vibrato state
+                if let Some(Some(SignalNode::Vibrato {
+                    phase: p,
+                    delay_buffer: buf,
+                    buffer_pos: pos,
+                    ..
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    // Initialize buffer if empty (first call)
+                    let buffer_size = (self.sample_rate * 0.05) as usize; // 50ms buffer
+                    if buf.is_empty() {
+                        buf.resize(buffer_size, 0.0);
+                    }
+
+                    // Write input to delay buffer
+                    buf[*pos] = input_val;
+
+                    // Advance phase
+                    *p += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
+
+                    // Wrap phase to [0, 2π]
+                    if *p >= 2.0 * std::f32::consts::PI {
+                        *p -= 2.0 * std::f32::consts::PI;
+                    }
+
+                    // Calculate LFO (sine wave, -1 to +1)
+                    let lfo = p.sin();
+
+                    // Convert depth from semitones to delay time
+                    // depth in semitones -> frequency ratio -> time ratio
+                    // 1 semitone = 2^(1/12) ≈ 1.059 frequency ratio
+                    let max_delay_ms = 10.0; // Maximum 10ms delay
+                    let delay_ms = max_delay_ms * (depth_semitones / 2.0) * (1.0 + lfo);
+                    let delay_samples = (delay_ms * self.sample_rate / 1000.0).max(0.0);
+
+                    // Calculate read position (fractional)
+                    let read_pos_float = *pos as f32 - delay_samples;
+                    let read_pos_wrapped = if read_pos_float < 0.0 {
+                        read_pos_float + buf.len() as f32
+                    } else {
+                        read_pos_float
+                    };
+
+                    // Linear interpolation for fractional delay
+                    let read_pos_int = read_pos_wrapped as usize % buf.len();
+                    let read_pos_next = (read_pos_int + 1) % buf.len();
+                    let frac = read_pos_wrapped.fract();
+
+                    output_val = buf[read_pos_int] * (1.0 - frac) + buf[read_pos_next] * frac;
+
+                    // Advance buffer position
+                    *pos = (*pos + 1) % buf.len();
                 }
 
                 output_val
