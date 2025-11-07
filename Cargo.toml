@@ -6,6 +6,7 @@ authors = ["Erik Garrison <erik.garrison@gmail.com>"]
 description = "Phonon: A Rust-based live coding language combining TidalCycles patterns with modular synthesis"
 
 [dependencies]
+libc = "0.2"
 # Audio synthesis
 fundsp = "0.18"
 glicol = "0.13"

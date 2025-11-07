@@ -80,6 +80,23 @@ impl ModalEditor {
         _duration: f32, // Deprecated parameter, kept for API compatibility
         file_path: Option<PathBuf>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
+        // Suppress ALSA error messages that would break the TUI
+        // ALSA lib prints directly to stderr from C code, which we can't intercept in Rust
+        // Redirect stderr to log file to prevent TUI corruption
+        #[cfg(unix)]
+        {
+            use std::os::unix::io::AsRawFd;
+            if let Ok(log_file) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/phonon_audio_errors.log")
+            {
+                unsafe {
+                    libc::dup2(log_file.as_raw_fd(), libc::STDERR_FILENO);
+                }
+            }
+        }
+
         // Get audio device
         let host = cpal::default_host();
         let device = host
