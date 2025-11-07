@@ -5,7 +5,10 @@
 //! Provides a full-screen text editor for writing Phonon DSL code with
 //! real-time audio generation triggered by Shift+Enter
 
-use crate::live_engine::LiveEngine;
+use crate::compositional_compiler::compile_program;
+use crate::compositional_parser::parse_program;
+use crate::unified_graph::UnifiedSignalGraph;
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
@@ -22,6 +25,7 @@ use ratatui::{
 use std::fs;
 use std::io;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /// Completion state for tab completion
 #[derive(Clone)]
@@ -42,8 +46,6 @@ pub struct ModalEditor {
     content: String,
     /// Cursor position in the content
     cursor_pos: usize,
-    /// Duration for audio renders (cycle length)
-    duration: f32,
     /// Current file path (if any)
     file_path: Option<PathBuf>,
     /// Status message to display
@@ -52,8 +54,12 @@ pub struct ModalEditor {
     is_playing: bool,
     /// Error message (if any)
     error_message: Option<String>,
-    /// Live audio engine
-    live_engine: Option<LiveEngine>,
+    /// Shared audio graph (callback-driven)
+    graph: Arc<Mutex<Option<UnifiedSignalGraph>>>,
+    /// Audio stream (kept alive)
+    _stream: cpal::Stream,
+    /// Sample rate
+    sample_rate: f32,
     /// Flash highlight for evaluated chunk (start_line, end_line, frames_remaining)
     flash_highlight: Option<(usize, usize, u8)>,
     /// Kill buffer for Emacs-style cut/yank
@@ -71,9 +77,47 @@ pub struct ModalEditor {
 impl ModalEditor {
     /// Create a new modal editor
     pub fn new(
-        duration: f32,
+        _duration: f32, // Deprecated parameter, kept for API compatibility
         file_path: Option<PathBuf>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
+        // Get audio device
+        let host = cpal::default_host();
+        let device = host
+            .default_output_device()
+            .ok_or("No output device available")?;
+
+        let config = device
+            .default_output_config()
+            .map_err(|e| format!("Failed to get default config: {}", e))?;
+
+        let sample_rate = config.sample_rate().0 as f32;
+        let channels = config.channels() as usize;
+
+        // Shared graph (starts as None, will be loaded)
+        let graph = Arc::new(Mutex::new(None));
+        let graph_clone = graph.clone();
+
+        // Build audio stream with callback
+        let stream = match config.sample_format() {
+            cpal::SampleFormat::F32 => Self::build_stream::<f32>(
+                &device,
+                &config.into(),
+                graph_clone,
+                channels,
+            ),
+            cpal::SampleFormat::I16 => Self::build_stream::<i16>(
+                &device,
+                &config.into(),
+                graph_clone,
+                channels,
+            ),
+            _ => return Err("Unsupported sample format".into()),
+        }
+        .map_err(|e| format!("Failed to build stream: {}", e))?;
+
+        stream.play().map_err(|e| format!("Failed to play stream: {}", e))?;
+
+        // Load initial content
         let content = if let Some(ref path) = file_path {
             if path.exists() {
                 fs::read_to_string(path)?
@@ -85,24 +129,17 @@ impl ModalEditor {
             String::from("# Phonon Live Coding\n# C-x: Eval block | C-r: Reload all | C-h: Hush | C-s: Save | Alt-q: Quit\n\n# Example: Simple drum pattern\ntempo: 2.0\n~drums: s \"bd sn bd sn\"\nout: ~drums * 0.8\n")
         };
 
-        // Start the live audio engine
-        let live_engine = LiveEngine::new(44100.0, duration).ok();
-
-        // Load the initial pattern into the engine
-        if let Some(ref engine) = live_engine {
-            let _ = engine.load_code(&content);
-        }
-
         Ok(Self {
             cursor_pos: content.len(),
             content,
-            duration,
             file_path,
             status_message: "🎵 Ready - C-x: eval | C-u: undo | C-r: redo | Tab: complete"
                 .to_string(),
             is_playing: false,
             error_message: None,
-            live_engine,
+            graph,
+            _stream: stream,
+            sample_rate,
             flash_highlight: None,
             kill_buffer: String::new(),
             undo_stack: Vec::new(),
@@ -110,6 +147,66 @@ impl ModalEditor {
             console_messages: vec!["Welcome to Phonon Live Coding".to_string()],
             completion_state: None,
         })
+    }
+
+    fn build_stream<T>(
+        device: &cpal::Device,
+        config: &cpal::StreamConfig,
+        graph: Arc<Mutex<Option<UnifiedSignalGraph>>>,
+        channels: usize,
+    ) -> Result<cpal::Stream, cpal::BuildStreamError>
+    where
+        T: cpal::SizedSample + cpal::FromSample<f32>,
+    {
+        device.build_output_stream(
+            config,
+            move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
+                // Audio callback - called by hardware when it needs samples
+                let mut graph_lock = graph.lock().unwrap();
+
+                if let Some(graph) = graph_lock.as_mut() {
+                    // Generate samples directly from graph
+                    for frame in data.chunks_mut(channels) {
+                        let sample = graph.process_sample();
+
+                        // Write to all channels (mono to stereo)
+                        for channel_sample in frame.iter_mut() {
+                            *channel_sample = T::from_sample(sample);
+                        }
+                    }
+                } else {
+                    // No graph loaded yet - output silence
+                    for sample in data.iter_mut() {
+                        *sample = T::from_sample(0.0);
+                    }
+                }
+            },
+            |err| eprintln!("Audio stream error: {}", err),
+            None,
+        )
+    }
+
+    /// Load and compile DSL code into the audio graph
+    fn load_code(&mut self, code: &str) -> Result<(), String> {
+        // Parse the DSL code
+        let (rest, statements) = parse_program(code)
+            .map_err(|e| format!("Parse error: {}", e))?;
+
+        if !rest.trim().is_empty() {
+            return Err(format!("Failed to parse entire code, remaining: {}", rest));
+        }
+
+        // Compile into a graph
+        let mut new_graph = compile_program(statements, self.sample_rate)
+            .map_err(|e| format!("Compile error: {}", e))?;
+
+        // Set default tempo (will be overridden if tempo: is in the code)
+        new_graph.set_cps(1.0);
+
+        // Hot-swap the graph atomically
+        *self.graph.lock().unwrap() = Some(new_graph);
+
+        Ok(())
     }
 
     /// Run the modal editor
@@ -1074,18 +1171,17 @@ impl ModalEditor {
 
     /// Reload pattern into live engine
     fn play_code(&mut self) {
-        if let Some(ref engine) = self.live_engine {
-            self.error_message = None;
-            self.status_message = "🔄 Reloading pattern...".to_string();
+        self.error_message = None;
+        self.status_message = "🔄 Reloading pattern...".to_string();
 
-            // Send the code to the live engine
-            if let Err(e) = engine.load_code(&self.content) {
-                self.error_message = Some(format!("Failed to load: {e}"));
-            } else {
-                self.status_message = "✅ Pattern reloaded!".to_string();
-            }
+        // Clone content to avoid borrow checker issues
+        let content = self.content.clone();
+
+        // Load the code into the graph
+        if let Err(e) = self.load_code(&content) {
+            self.error_message = Some(format!("Failed to load: {e}"));
         } else {
-            self.error_message = Some("Live engine not running".to_string());
+            self.status_message = "✅ Pattern reloaded!".to_string();
         }
     }
 
@@ -1104,64 +1200,63 @@ impl ModalEditor {
         // Get chunk boundaries for flash highlight
         let (start_line, end_line) = self.get_current_chunk_lines();
 
-        if let Some(ref engine) = self.live_engine {
-            self.error_message = None;
-            self.status_message = format!("🔄 Evaluating chunk ({} chars)...", chunk.len());
+        self.error_message = None;
+        self.status_message = format!("🔄 Evaluating chunk ({} chars)...", chunk.len());
 
-            // Collect data before borrowing engine
-            let preview = chunk.lines().take(2).collect::<Vec<_>>().join(" ");
-            let preview_short = if preview.len() > 60 {
-                format!("{}...", &preview[..60])
-            } else {
-                preview
-            };
-            let bus_count = self
-                .content
-                .lines()
-                .filter(|l| l.trim().starts_with("~"))
-                .count();
-            let has_out = self
-                .content
-                .lines()
-                .any(|l| l.trim().starts_with("out:") || l.trim().starts_with("out "));
-
-            // Check if chunk starts with "hush" - if so, clear audio first
-            let did_hush = if chunk.trim_start().starts_with("hush") {
-                let _ = engine.hush();
-                true
-            } else {
-                false
-            };
-
-            // IMPORTANT: Send the full session content, not just the chunk!
-            // This ensures all buses, tempo, and output assignments are preserved.
-            let result = engine.load_code(&self.content);
-
-            // Now we can mutate self safely - add all console messages
-            self.add_console_message(&format!("📝 Evaluating: {} chars", chunk.len()));
-            self.add_console_message(&format!("   {}", preview_short));
-
-            if did_hush {
-                self.add_console_message("🔇 Hush - clearing audio");
-            }
-
-            if let Err(e) = result {
-                self.error_message = Some(format!("Eval failed: {e}"));
-                self.add_console_message(&format!("❌ Parse error: {e}"));
-            } else {
-                self.status_message = "✅ Chunk evaluated!".to_string();
-                self.add_console_message("✅ Sent to engine");
-                self.add_console_message(&format!(
-                    "   {} buses, out: {}",
-                    bus_count,
-                    if has_out { "yes" } else { "NO!" }
-                ));
-
-                // Flash the evaluated chunk: 10 frames = 500ms (pop + fade)
-                self.flash_highlight = Some((start_line, end_line, 10));
-            }
+        // Collect data before evaluation
+        let preview = chunk.lines().take(2).collect::<Vec<_>>().join(" ");
+        let preview_short = if preview.len() > 60 {
+            format!("{}...", &preview[..60])
         } else {
-            self.error_message = Some("Live engine not running".to_string());
+            preview
+        };
+        let bus_count = self
+            .content
+            .lines()
+            .filter(|l| l.trim().starts_with("~"))
+            .count();
+        let has_out = self
+            .content
+            .lines()
+            .any(|l| l.trim().starts_with("out:") || l.trim().starts_with("out "));
+
+        // Check if chunk starts with "hush" - if so, clear audio first
+        let did_hush = if chunk.trim_start().starts_with("hush") {
+            self.hush();
+            true
+        } else {
+            false
+        };
+
+        // Clone content to avoid borrow checker issues
+        let content = self.content.clone();
+
+        // IMPORTANT: Send the full session content, not just the chunk!
+        // This ensures all buses, tempo, and output assignments are preserved.
+        let result = self.load_code(&content);
+
+        // Now we can mutate self safely - add all console messages
+        self.add_console_message(&format!("📝 Evaluating: {} chars", chunk.len()));
+        self.add_console_message(&format!("   {}", preview_short));
+
+        if did_hush {
+            self.add_console_message("🔇 Hush - clearing audio");
+        }
+
+        if let Err(e) = result {
+            self.error_message = Some(format!("Eval failed: {e}"));
+            self.add_console_message(&format!("❌ Parse error: {e}"));
+        } else {
+            self.status_message = "✅ Chunk evaluated!".to_string();
+            self.add_console_message("✅ Sent to engine");
+            self.add_console_message(&format!(
+                "   {} buses, out: {}",
+                bus_count,
+                if has_out { "yes" } else { "NO!" }
+            ));
+
+            // Flash the evaluated chunk: 10 frames = 500ms (pop + fade)
+            self.flash_highlight = Some((start_line, end_line, 10));
         }
     }
 
@@ -1172,17 +1267,16 @@ impl ModalEditor {
             return;
         }
 
-        if let Some(ref engine) = self.live_engine {
-            self.error_message = None;
-            self.status_message = "🔄 Reloading entire session...".to_string();
+        self.error_message = None;
+        self.status_message = "🔄 Reloading entire session...".to_string();
 
-            if let Err(e) = engine.load_code(&self.content) {
-                self.error_message = Some(format!("Reload failed: {e}"));
-            } else {
-                self.status_message = "✅ Session reloaded!".to_string();
-            }
+        // Clone content to avoid borrow checker issues
+        let content = self.content.clone();
+
+        if let Err(e) = self.load_code(&content) {
+            self.error_message = Some(format!("Reload failed: {e}"));
         } else {
-            self.error_message = Some("Live engine not running".to_string());
+            self.status_message = "✅ Session reloaded!".to_string();
         }
     }
 
@@ -1254,24 +1348,16 @@ impl ModalEditor {
 
     /// Hush - silence all sound
     fn hush(&mut self) {
-        if let Some(ref engine) = self.live_engine {
-            if let Err(e) = engine.hush() {
-                self.error_message = Some(format!("Hush failed: {e}"));
-            } else {
-                self.status_message = "🔇 Hushed - C-r to reload".to_string();
-            }
-        }
+        // Clear the graph to silence all sound
+        *self.graph.lock().unwrap() = None;
+        self.status_message = "🔇 Hushed - C-r to reload".to_string();
     }
 
     /// Panic - stop everything
     fn panic(&mut self) {
-        if let Some(ref engine) = self.live_engine {
-            if let Err(e) = engine.panic() {
-                self.error_message = Some(format!("Panic failed: {e}"));
-            } else {
-                self.status_message = "🚨 PANIC! All stopped - C-r to restart".to_string();
-            }
-        }
+        // Clear the graph to stop everything
+        *self.graph.lock().unwrap() = None;
+        self.status_message = "🚨 PANIC! All stopped - C-r to restart".to_string();
     }
 
     /// Save the current file

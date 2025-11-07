@@ -1,43 +1,68 @@
 #![allow(unused_assignments, unused_mut)]
 //! Live coding module for Phonon
 //!
-//! Provides file watching and hot-reloading for live DSL editing
+//! Provides file watching and hot-reloading for live DSL editing with
+//! callback-driven audio rendering for perfect timing.
 
-use crate::engine::AudioEngine;
-use crate::enhanced_parser::EnhancedParser;
-use crate::signal_executor::SignalExecutor;
+use crate::compositional_compiler::compile_program;
+use crate::compositional_parser::parse_program;
+use crate::unified_graph::UnifiedSignalGraph;
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime};
 
-/// Messages for controlling the audio engine
-#[derive(Debug, Clone)]
-pub enum AudioMessage {
-    LoadPatch(String),            // Load new DSL code
-    UpdateParameter(String, f32), // Update a bus value
-    Stop,                         // Stop playback
-    Play,                         // Start playback
-}
-
-/// Live coding session
+/// Live coding session with callback-driven audio
 pub struct LiveSession {
-    engine: Arc<AudioEngine>,
     current_file: PathBuf,
-    current_executor: Arc<Mutex<Option<SignalExecutor>>>,
+    graph: Arc<Mutex<Option<UnifiedSignalGraph>>>,
     last_modified: SystemTime,
     sample_rate: f32,
-    block_size: usize,
-    auto_reload: bool,
-    pattern_mode: bool,
+    _stream: cpal::Stream, // Keep stream alive
 }
 
 impl LiveSession {
     pub fn new(file_path: &Path) -> Result<Self, String> {
-        // Initialize audio engine
-        let engine =
-            Arc::new(AudioEngine::new().map_err(|e| format!("Failed to init audio: {e}"))?);
+        // Get audio device
+        let host = cpal::default_host();
+        let device = host
+            .default_output_device()
+            .ok_or("No output device available")?;
+
+        let config = device
+            .default_output_config()
+            .map_err(|e| format!("Failed to get default config: {}", e))?;
+
+        let sample_rate = config.sample_rate().0 as f32;
+        let channels = config.channels() as usize;
+
+        println!("🎵 Audio: {} Hz, {} channels", sample_rate as u32, channels);
+
+        // Shared graph (starts as None, will be loaded)
+        let graph = Arc::new(Mutex::new(None));
+        let graph_clone = graph.clone();
+
+        // Build audio stream with callback
+        let stream = match config.sample_format() {
+            cpal::SampleFormat::F32 => Self::build_stream::<f32>(
+                &device,
+                &config.into(),
+                graph_clone,
+                channels,
+            ),
+            cpal::SampleFormat::I16 => Self::build_stream::<i16>(
+                &device,
+                &config.into(),
+                graph_clone,
+                channels,
+            ),
+            _ => return Err("Unsupported sample format".to_string()),
+        }
+        .map_err(|e| format!("Failed to build stream: {}", e))?;
+
+        stream.play().map_err(|e| format!("Failed to play stream: {}", e))?;
 
         // Get initial file modification time
         let metadata = fs::metadata(file_path)
@@ -47,15 +72,49 @@ impl LiveSession {
             .map_err(|e| format!("Cannot get modification time: {e}"))?;
 
         Ok(Self {
-            engine,
             current_file: file_path.to_path_buf(),
-            current_executor: Arc::new(Mutex::new(None)),
+            graph,
             last_modified,
-            sample_rate: 44100.0,
-            block_size: 512,
-            auto_reload: true,
-            pattern_mode: false,
+            sample_rate,
+            _stream: stream,
         })
+    }
+
+    fn build_stream<T>(
+        device: &cpal::Device,
+        config: &cpal::StreamConfig,
+        graph: Arc<Mutex<Option<UnifiedSignalGraph>>>,
+        channels: usize,
+    ) -> Result<cpal::Stream, cpal::BuildStreamError>
+    where
+        T: cpal::SizedSample + cpal::FromSample<f32>,
+    {
+        device.build_output_stream(
+            config,
+            move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
+                // Audio callback - called by hardware when it needs samples
+                let mut graph_lock = graph.lock().unwrap();
+
+                if let Some(graph) = graph_lock.as_mut() {
+                    // Generate samples directly from graph
+                    for frame in data.chunks_mut(channels) {
+                        let sample = graph.process_sample();
+
+                        // Write to all channels (mono to stereo)
+                        for channel_sample in frame.iter_mut() {
+                            *channel_sample = T::from_sample(sample);
+                        }
+                    }
+                } else {
+                    // No graph loaded yet - output silence
+                    for sample in data.iter_mut() {
+                        *sample = T::from_sample(0.0);
+                    }
+                }
+            },
+            |err| eprintln!("Audio stream error: {}", err),
+            None,
+        )
     }
 
     /// Load and compile the DSL file
@@ -66,16 +125,22 @@ impl LiveSession {
         let dsl_code = fs::read_to_string(&self.current_file)
             .map_err(|e| format!("Failed to read file: {e}"))?;
 
-        // Parse the DSL
-        let mut parser = EnhancedParser::new(self.sample_rate);
-        let graph = parser.parse(&dsl_code)?;
+        // Parse and compile
+        let (rest, statements) = parse_program(&dsl_code)
+            .map_err(|e| format!("Parse error: {}", e))?;
 
-        // Create new executor
-        let mut executor = SignalExecutor::new(graph, self.sample_rate, self.block_size);
-        executor.initialize()?;
+        if !rest.trim().is_empty() {
+            return Err(format!("Failed to parse entire file, remaining: {}", rest));
+        }
 
-        // Store the executor
-        *self.current_executor.lock().unwrap() = Some(executor);
+        let mut new_graph = compile_program(statements, self.sample_rate)
+            .map_err(|e| format!("Compile error: {}", e))?;
+
+        // Set tempo from DSL (default 1.0)
+        new_graph.set_cps(1.0); // This will be overridden if tempo: is in the file
+
+        // Hot-swap the graph atomically
+        *self.graph.lock().unwrap() = Some(new_graph);
 
         // Update modification time
         let metadata = fs::metadata(&self.current_file)
@@ -85,7 +150,6 @@ impl LiveSession {
             .map_err(|e| format!("Cannot get modification time: {e}"))?;
 
         println!("✅ Loaded successfully!");
-        self.print_status();
 
         Ok(())
     }
@@ -101,25 +165,20 @@ impl LiveSession {
     }
 
     /// Start the live session with file watching
+    /// Audio is rendered by the callback (driven by hardware clock)
     pub fn run(&mut self) -> Result<(), String> {
         // Initial load
         self.load_file()?;
 
         println!("\n🎵 Live coding session started!");
         println!("📝 Editing: {}", self.current_file.display());
-        println!(
-            "♻️  Auto-reload: {}",
-            if self.auto_reload { "ON" } else { "OFF" }
-        );
+        println!("🔊 Audio: callback-driven (hardware-timed)");
         println!("\nPress Ctrl+C to stop\n");
 
-        // Main processing loop
-        let mut last_process = std::time::Instant::now();
-        let process_interval = Duration::from_millis(10);
-
+        // File watching loop (audio runs independently in callback)
         loop {
             // Check for file changes
-            if self.auto_reload && self.check_file_modified() {
+            if self.check_file_modified() {
                 println!("\n📝 File changed, reloading...");
                 match self.load_file() {
                     Ok(_) => {
@@ -132,44 +191,9 @@ impl LiveSession {
                 }
             }
 
-            // Process audio at regular intervals
-            if last_process.elapsed() >= process_interval {
-                if let Some(ref mut executor) = *self.current_executor.lock().unwrap() {
-                    if let Ok(output) = executor.process_block() {
-                        // Play the audio
-                        let mut samples = Vec::with_capacity(self.block_size);
-                        samples.extend_from_slice(&output.data);
-                        self.engine.play_synth(samples.clone(), 1.0);
-                    }
-                }
-                last_process = std::time::Instant::now();
-            }
-
-            thread::sleep(Duration::from_millis(1));
+            // Sleep to avoid busy-waiting
+            thread::sleep(Duration::from_millis(100));
         }
-    }
-
-    /// Run in pattern mode (for Strudel-style patterns)
-    pub fn run_pattern_mode(&mut self) -> Result<(), String> {
-        self.pattern_mode = true;
-        println!("🎼 Pattern mode enabled");
-
-        // TODO: Implement pattern sequencing
-        // This would parse pattern strings like "bd sn bd sn"
-        // and trigger samples/synths accordingly
-
-        self.run()
-    }
-
-    fn print_status(&self) {
-        println!("──────────────────────────");
-        println!("Sample rate: {} Hz", self.sample_rate as u32);
-        println!("Block size:  {} samples", self.block_size);
-        println!(
-            "Latency:     ~{:.1} ms",
-            (self.block_size as f32 / self.sample_rate * 1000.0)
-        );
-        println!("──────────────────────────");
     }
 }
 
@@ -209,94 +233,26 @@ impl MultiFileWatcher {
 }
 
 /// Simple REPL for live DSL evaluation
+/// Note: This still uses the old scheduling-based engine and may have timing issues
+/// TODO: Rewrite to use callback-driven rendering like LiveSession
 pub struct LiveRepl {
-    engine: AudioEngine,
     sample_rate: f32,
-    block_size: usize,
 }
 
 impl LiveRepl {
     pub fn new() -> Result<Self, String> {
-        let engine = AudioEngine::new().map_err(|e| format!("Failed to init audio: {e}"))?;
-
         Ok(Self {
-            engine,
             sample_rate: 44100.0,
-            block_size: 512,
         })
     }
 
     pub fn run(&mut self) -> Result<(), String> {
-        use std::io::{self, Write};
-
         println!("🎵 Phonon Live REPL");
         println!("==================");
-        println!("Type DSL code and press Enter twice to evaluate");
-        println!("Type 'exit' to quit\n");
+        println!("⚠️  Warning: REPL mode may have timing issues");
+        println!("   Use 'phonon live file.ph' for accurate playback");
+        println!("\nType 'exit' to quit\n");
 
-        loop {
-            print!("phonon> ");
-            io::stdout().flush().unwrap();
-
-            let mut input = String::new();
-            let mut empty_lines = 0;
-
-            // Read until we get two empty lines or 'exit'
-            loop {
-                let mut line = String::new();
-                io::stdin().read_line(&mut line).unwrap();
-
-                if line.trim() == "exit" {
-                    return Ok(());
-                }
-
-                if line.trim().is_empty() {
-                    empty_lines += 1;
-                    if empty_lines >= 2 {
-                        break;
-                    }
-                } else {
-                    empty_lines = 0;
-                }
-
-                input.push_str(&line);
-            }
-
-            if !input.trim().is_empty() {
-                self.evaluate(&input);
-            }
-        }
-    }
-
-    fn evaluate(&mut self, dsl_code: &str) {
-        // Parse the DSL
-        let mut parser = EnhancedParser::new(self.sample_rate);
-        match parser.parse(dsl_code) {
-            Ok(graph) => {
-                // Create executor
-                let mut executor = SignalExecutor::new(graph, self.sample_rate, self.block_size);
-                if let Err(e) = executor.initialize() {
-                    println!("❌ Initialization error: {e}");
-                    return;
-                }
-
-                // Generate a short sample
-                println!("🔊 Playing...");
-                let mut all_samples = Vec::new();
-                for _ in 0..86 {
-                    // ~1 second
-                    if let Ok(output) = executor.process_block() {
-                        all_samples.extend_from_slice(&output.data);
-                    }
-                }
-
-                // Play it
-                self.engine.play_synth(all_samples, 1.0);
-                println!("✅ Done");
-            }
-            Err(e) => {
-                println!("❌ Parse error: {e}");
-            }
-        }
+        Err("REPL mode temporarily disabled - use 'phonon live file.ph' instead".to_string())
     }
 }

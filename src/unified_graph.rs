@@ -5193,13 +5193,13 @@ impl UnifiedSignalGraph {
                 unit_mode,
                 loop_enabled,
             } => {
-                // DEBUG: Log Sample node evaluation
-                if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 100 {
-                    eprintln!(
-                        "Evaluating Sample node '{}' at sample {}, cycle_pos={:.6}",
-                        pattern_str, self.sample_count, self.cycle_position
-                    );
-                }
+                // DEBUG: Log Sample node evaluation (disabled - too verbose)
+                // if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 100 {
+                //     eprintln!(
+                //         "Evaluating Sample node '{}' at sample {}, cycle_pos={:.6}",
+                //         pattern_str, self.sample_count, self.cycle_position
+                //     );
+                // }
 
                 // Query pattern for events in the current cycle
                 // Use full-cycle window to ensure transforms like degrade see all events
@@ -5238,14 +5238,14 @@ impl UnifiedSignalGraph {
                 // Track the latest event start time we trigger in this sample
                 let mut latest_triggered_start = last_event_start;
 
-                // DEBUG: Log event processing
-                if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && !events.is_empty() {
-                    eprintln!(
-                        "Sample node at cycle {:.3}: {} events",
-                        self.cycle_position,
-                        events.len()
-                    );
-                }
+                // DEBUG: Log event processing (disabled - too verbose)
+                // if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && !events.is_empty() {
+                //     eprintln!(
+                //         "Sample node at cycle {:.3}: {} events",
+                //         self.cycle_position,
+                //         events.len()
+                //     );
+                // }
 
                 // Trigger voices for ALL new events
                 // An event should be triggered if its START is after the last event we triggered
@@ -5280,8 +5280,8 @@ impl UnifiedSignalGraph {
                     let event_is_new = event_start_abs > last_event_start + epsilon
                         && event_start_abs < self.cycle_position + epsilon;
 
-                    // DEBUG: Log event evaluation
-                    if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 20 {
+                    // DEBUG: Log event evaluation (disabled - too verbose)
+                    if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && false {
                         eprintln!(
                             "  Event '{}' at {:.6}: event_is_new={} (last={:.6}, current={:.6})",
                             sample_name,
@@ -5339,6 +5339,11 @@ impl UnifiedSignalGraph {
                         // Supports: numbers (5), letter notes (c4, e4, g4), solfège (do, re, mi)
                         // Also supports chord notation: "c4'maj" -> vec![0, 4, 7] (C, E, G)
                         let chord_notes = self.eval_note_signal_as_chord(&note, event_start_abs);
+
+                        // DEBUG: Log chord notes
+                        if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
+                            eprintln!("    Chord notes for '{}': {:?}", sample_name, chord_notes);
+                        }
 
                         // Evaluate envelope parameters
                         let attack_val = self
