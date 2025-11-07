@@ -144,6 +144,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
     tracing_subscriber::fmt::init();
 
+    // Configure rayon thread pool to use 4 threads by default
+    // This prevents excessive CPU usage during rendering
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(4)
+        .build_global()
+        .expect("Failed to initialize thread pool");
+
     let cli = Cli::parse();
 
     match cli.command {
