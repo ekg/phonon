@@ -9,6 +9,10 @@ use std::path::PathBuf;
 #[command(name = "phonon")]
 #[command(about = "Phonon modular synthesis system", long_about = None)]
 struct Cli {
+    /// Number of threads for parallel processing (default: 4)
+    #[arg(short = 't', long, default_value = "4", global = true)]
+    threads: usize,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -144,14 +148,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
     tracing_subscriber::fmt::init();
 
-    // Configure rayon thread pool to use 4 threads by default
-    // This prevents excessive CPU usage during rendering
+    let cli = Cli::parse();
+
+    // Configure rayon thread pool with user-specified thread count
+    // Default is 4 threads to prevent excessive CPU usage during rendering
     rayon::ThreadPoolBuilder::new()
-        .num_threads(4)
+        .num_threads(cli.threads)
         .build_global()
         .expect("Failed to initialize thread pool");
-
-    let cli = Cli::parse();
 
     match cli.command {
         Commands::Render {
