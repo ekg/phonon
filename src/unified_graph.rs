@@ -1097,6 +1097,20 @@ pub enum SignalNode {
         buffer_pos: usize,       // Current write position in buffer
     },
 
+    /// Phaser (spectral sweeping via allpass filter cascade)
+    /// Classic effect that creates moving notches in the frequency spectrum
+    Phaser {
+        input: Signal,    // Input signal
+        rate: Signal,     // LFO rate in Hz (0.05 to 5.0)
+        depth: Signal,    // Modulation depth (0.0 to 1.0)
+        feedback: Signal, // Feedback amount (0.0 to 0.95)
+        stages: usize,    // Number of allpass filter stages (2 to 12)
+        phase: f32,       // LFO phase accumulator
+        allpass_z1: Vec<f32>, // Previous input per stage
+        allpass_y1: Vec<f32>, // Previous output per stage
+        feedback_sample: f32, // Feedback buffer
+    },
+
     /// Ring Modulation
     /// Classic effect that multiplies input by a carrier frequency
     /// Creates metallic, inharmonic tones
@@ -5006,6 +5020,89 @@ impl UnifiedSignalGraph {
 
                     // Advance buffer position
                     *pos = (*pos + 1) % buf.len();
+                }
+
+                output_val
+            }
+
+            SignalNode::Phaser {
+                input,
+                rate,
+                depth,
+                feedback,
+                stages,
+                phase,
+                allpass_z1,
+                allpass_y1,
+                feedback_sample,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let rate_hz = self.eval_signal(&rate).clamp(0.05, 5.0);
+                let depth_val = self.eval_signal(&depth).clamp(0.0, 1.0);
+                let feedback_val = self.eval_signal(&feedback).clamp(0.0, 0.95);
+
+                // Fast bypass for zero depth
+                if depth_val < 0.001 {
+                    return input_val;
+                }
+
+                let mut output_val = input_val;
+
+                // Access and update phaser state
+                if let Some(Some(SignalNode::Phaser {
+                    phase: p,
+                    allpass_z1: z1,
+                    allpass_y1: y1,
+                    feedback_sample: fb_sample,
+                    stages: num_stages,
+                    ..
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    // Initialize allpass filter states if needed
+                    if z1.is_empty() {
+                        z1.resize(*num_stages, 0.0);
+                        y1.resize(*num_stages, 0.0);
+                    }
+
+                    // Advance LFO phase
+                    *p += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
+                    if *p >= 2.0 * std::f32::consts::PI {
+                        *p -= 2.0 * std::f32::consts::PI;
+                    }
+
+                    // Calculate LFO (sine wave, 0 to 1)
+                    let lfo = (p.sin() + 1.0) * 0.5;
+
+                    // Map LFO to cutoff frequency (200 Hz to 2000 Hz sweep)
+                    let min_freq = 200.0;
+                    let max_freq = 2000.0;
+                    let cutoff = min_freq + (max_freq - min_freq) * lfo * depth_val;
+
+                    // Calculate allpass coefficient
+                    // a = (tan(π*fc/fs) - 1) / (tan(π*fc/fs) + 1)
+                    let tan_val = (std::f32::consts::PI * cutoff / self.sample_rate).tan();
+                    let a = (tan_val - 1.0) / (tan_val + 1.0);
+
+                    // Apply feedback
+                    let mut signal = input_val + *fb_sample * feedback_val;
+
+                    // Apply allpass filter cascade
+                    for stage in 0..*num_stages {
+                        // First-order allpass: y[n] = a*x[n] + x[n-1] - a*y[n-1]
+                        let output = a * signal + z1[stage] - a * y1[stage];
+
+                        // Update state
+                        z1[stage] = signal;
+                        y1[stage] = output;
+
+                        signal = output;
+                    }
+
+                    // Store for feedback
+                    *fb_sample = signal;
+
+                    // Mix filtered signal with dry signal (creates notches)
+                    output_val = (input_val + signal) * 0.5;
                 }
 
                 output_val

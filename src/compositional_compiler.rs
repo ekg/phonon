@@ -810,6 +810,7 @@ fn compile_function_call(
         "ring" => compile_ring(ctx, args),
         "tremolo" | "trem" => compile_tremolo(ctx, args),
         "vibrato" | "vib" => compile_vibrato(ctx, args),
+        "phaser" | "ph" => compile_phaser(ctx, args),
         "xfade" => compile_xfade(ctx, args),
         "mix" => compile_mix(ctx, args),
         "allpass" => compile_allpass(ctx, args),
@@ -2683,6 +2684,58 @@ fn compile_vibrato(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         phase: 0.0,              // Start at phase 0
         delay_buffer: Vec::new(), // Initialized on first use
         buffer_pos: 0,           // Start at buffer position 0
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile phaser effect (spectral sweeping via allpass filter cascade)
+/// Syntax: phaser rate depth feedback stages
+/// Example: ~signal # phaser 0.5 0.7 0.4 6
+fn compile_phaser(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 4 {
+        return Err(format!(
+            "phaser requires 4 parameters (rate, depth, feedback, stages), got {}",
+            params.len()
+        ));
+    }
+
+    let rate_node = compile_expr(ctx, params[0].clone())?;
+    let depth_node = compile_expr(ctx, params[1].clone())?;
+    let feedback_node = compile_expr(ctx, params[2].clone())?;
+
+    // stages parameter must be a constant integer
+    let stages = match &params[3] {
+        Expr::Number(n) => {
+            let val = *n as usize;
+            if val < 2 || val > 12 {
+                return Err(format!(
+                    "phaser stages must be between 2 and 12, got {}",
+                    val
+                ));
+            }
+            val
+        }
+        _ => {
+            return Err(
+                "phaser stages parameter must be a constant number (2 to 12)".to_string()
+            )
+        }
+    };
+
+    let node = SignalNode::Phaser {
+        input: input_signal,
+        rate: Signal::Node(rate_node),
+        depth: Signal::Node(depth_node),
+        feedback: Signal::Node(feedback_node),
+        stages,
+        phase: 0.0,
+        allpass_z1: Vec::new(), // Initialized on first use
+        allpass_y1: Vec::new(), // Initialized on first use
+        feedback_sample: 0.0,
     };
 
     Ok(ctx.graph.add_node(node))
