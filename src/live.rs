@@ -40,13 +40,13 @@ impl LiveSession {
         let sample_format = default_config.sample_format();
 
         // Create config with larger buffer to prevent underruns
-        // Use 1024 samples (~23ms at 44.1kHz) for stable playback
+        // Use 2048 samples (~46ms at 44.1kHz) for stable playback under load
         let mut config: cpal::StreamConfig = default_config.into();
-        config.buffer_size = cpal::BufferSize::Fixed(1024);
+        config.buffer_size = cpal::BufferSize::Fixed(2048);
 
-        println!("🎵 Audio: {} Hz, {} channels, buffer: 1024 samples (~{:.1}ms)",
+        println!("🎵 Audio: {} Hz, {} channels, buffer: 2048 samples (~{:.1}ms)",
                  sample_rate as u32, channels,
-                 (1024.0 / sample_rate) * 1000.0);
+                 (2048.0 / sample_rate) * 1000.0);
 
         // Shared graph (starts as None, will be loaded)
         let graph = Arc::new(Mutex::new(None));
