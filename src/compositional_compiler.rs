@@ -2511,20 +2511,16 @@ fn compile_distortion(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
     // Extract input (handles both standalone and chained forms)
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    if params.len() != 1 && params.len() != 2 {
-        return Err(format!(
-            "distort requires 1-2 parameters (drive, [mix=0.5]), got {}",
-            params.len()
-        ));
-    }
+    // Use ParamExtractor for optional mix parameter
+    let extractor = ParamExtractor::new(params);
 
-    let drive_node = compile_expr(ctx, params[0].clone())?;
-    let mix_node = if params.len() == 2 {
-        compile_expr(ctx, params[1].clone())?
-    } else {
-        // Default mix = 0.5 (50% wet)
-        ctx.graph.add_node(SignalNode::Constant { value: 0.5 })
-    };
+    // drive is required
+    let drive_expr = extractor.get_required(0, "drive")?;
+    let drive_node = compile_expr(ctx, drive_expr)?;
+
+    // mix is optional (defaults to 0.5 = 50% wet/dry)
+    let mix_expr = extractor.get_optional(1, "mix", 0.5);
+    let mix_node = compile_expr(ctx, mix_expr)?;
 
     let node = SignalNode::Distortion {
         input: input_signal,
@@ -2602,16 +2598,20 @@ fn compile_delay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
     // Extract input (handles both standalone and chained forms)
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    if params.len() != 3 {
-        return Err(format!(
-            "delay requires 3 parameters (time, feedback, mix), got {}",
-            params.len()
-        ));
-    }
+    // Use ParamExtractor for optional feedback and mix parameters
+    let extractor = ParamExtractor::new(params);
 
-    let time_node = compile_expr(ctx, params[0].clone())?;
-    let feedback_node = compile_expr(ctx, params[1].clone())?;
-    let mix_node = compile_expr(ctx, params[2].clone())?;
+    // time is required (delay time in seconds)
+    let time_expr = extractor.get_required(0, "time")?;
+    let time_node = compile_expr(ctx, time_expr)?;
+
+    // feedback is optional (defaults to 0.5 = moderate repeats)
+    let feedback_expr = extractor.get_optional(1, "feedback", 0.5);
+    let feedback_node = compile_expr(ctx, feedback_expr)?;
+
+    // mix is optional (defaults to 0.5 = 50% wet/dry)
+    let mix_expr = extractor.get_optional(2, "mix", 0.5);
+    let mix_node = compile_expr(ctx, mix_expr)?;
 
     // Create delay buffer (1 second max)
     let buffer_size = ctx.sample_rate as usize; // 1 second buffer
