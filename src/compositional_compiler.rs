@@ -67,7 +67,7 @@ impl CompilerContext {
     fn is_effect_function(name: &str) -> bool {
         matches!(
             name,
-            // Effects from line 828-846
+            // Effects that support effect bus routing
             "reverb" | "convolve" | "convolution" | "freeze" |
             "distort" | "distortion" |
             "delay" | "tapedelay" | "tape" | "multitap" | "pingpong" | "plate" |
@@ -78,12 +78,7 @@ impl CompilerContext {
             "tremolo" | "trem" |
             "vibrato" | "vib" |
             "phaser" | "ph" |
-            "xfade" | "mix" | "allpass" |
-            // Filters from line 819-826
-            "lpf" | "hpf" | "bpf" | "notch" |
-            "comb" |
-            "moog_ladder" | "moog" |
-            "parametric_eq" | "eq"
+            "xfade" | "mix"
         )
     }
 
@@ -3076,18 +3071,20 @@ fn compile_mix(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
 fn compile_allpass(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     use crate::unified_graph::AllpassState;
 
-    if args.len() != 2 {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 1 {
         return Err(format!(
-            "allpass requires 2 parameters (input, coefficient), got {}",
-            args.len()
+            "allpass requires 1 parameter (coefficient), got {}",
+            params.len()
         ));
     }
 
-    let input_node = compile_expr(ctx, args[0].clone())?;
-    let coefficient_node = compile_expr(ctx, args[1].clone())?;
+    let coefficient_node = compile_expr(ctx, params[0].clone())?;
 
     let node = SignalNode::Allpass {
-        input: Signal::Node(input_node),
+        input: input_signal,
         coefficient: Signal::Node(coefficient_node),
         state: AllpassState::default(),
     };

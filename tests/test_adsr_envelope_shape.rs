@@ -36,10 +36,10 @@ fn test_adsr_attack_phase() {
     let envelope = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(source),
         trigger: Signal::Node(trigger),
-        attack: 0.1,  // 100ms attack
-        decay: 0.0,   // Instant decay
-        sustain: 1.0, // Full sustain
-        release: 0.0, // Instant release
+        attack: Signal::Value(0.1),  // 100ms attack
+        decay: Signal::Value(0.0),   // Instant decay
+        sustain: Signal::Value(1.0), // Full sustain
+        release: Signal::Value(0.0), // Instant release
         state: EnvState::default(),
     });
 
@@ -104,10 +104,10 @@ fn test_adsr_decay_and_sustain() {
     let envelope = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(source),
         trigger: Signal::Node(trigger),
-        attack: 0.001, // 1ms attack (essentially instant)
-        decay: 0.1,    // 100ms decay
-        sustain: 0.5,  // 50% sustain level
-        release: 0.0,
+        attack: Signal::Value(0.001), // 1ms attack (essentially instant)
+        decay: Signal::Value(0.1),    // 100ms decay
+        sustain: Signal::Value(0.5),  // 50% sustain level
+        release: Signal::Value(0.0),
         state: EnvState::default(),
     });
 
@@ -169,10 +169,10 @@ fn test_adsr_release_phase() {
     let envelope = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(source),
         trigger: Signal::Node(trigger),
-        attack: 0.001,
-        decay: 0.0,
-        sustain: 1.0,
-        release: 0.1, // 100ms release
+        attack: Signal::Value(0.001),
+        decay: Signal::Value(0.0),
+        sustain: Signal::Value(1.0),
+        release: Signal::Value(0.1), // 100ms release
         state: EnvState::default(),
     });
 
@@ -244,10 +244,10 @@ fn test_adsr_percussive_envelope() {
     let envelope = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(source),
         trigger: Signal::Node(trigger),
-        attack: 0.005, // 5ms attack
-        decay: 0.05,   // 50ms decay
-        sustain: 0.0,  // No sustain (percussive)
-        release: 0.05, // 50ms release
+        attack: Signal::Value(0.005), // 5ms attack
+        decay: Signal::Value(0.05),   // 50ms decay
+        sustain: Signal::Value(0.0),  // No sustain (percussive)
+        release: Signal::Value(0.05), // 50ms release
         state: EnvState::default(),
     });
 
@@ -303,10 +303,10 @@ fn test_adsr_with_varying_sustain_levels() {
         let envelope = graph.add_node(SignalNode::Envelope {
             input: Signal::Node(source),
             trigger: Signal::Node(trigger),
-            attack: 0.01,
-            decay: 0.05,
-            sustain: sustain_level,
-            release: 0.05,
+            attack: Signal::Value(0.01),
+            decay: Signal::Value(0.05),
+            sustain: Signal::Value(sustain_level),
+            release: Signal::Value(0.05),
             state: EnvState::default(),
         });
 

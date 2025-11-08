@@ -362,11 +362,21 @@ impl ModalEditor {
                 KeyResult::Continue
             }
             KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.move_cursor_down(); // Next line
+                // If completion is visible, navigate through completions
+                if self.completion_state.is_visible() {
+                    self.cycle_completion_forward();
+                } else {
+                    self.move_cursor_down(); // Next line
+                }
                 KeyResult::Continue
             }
             KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.move_cursor_up(); // Previous line
+                // If completion is visible, navigate through completions
+                if self.completion_state.is_visible() {
+                    self.cycle_completion_backward();
+                } else {
+                    self.move_cursor_up(); // Previous line
+                }
                 KeyResult::Continue
             }
             KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -390,18 +400,14 @@ impl ModalEditor {
                 KeyResult::Continue
             }
 
-            // Tab: trigger completion or cycle through suggestions
+            // Tab: trigger completion or accept current selection
             KeyCode::Tab => {
-                if key.modifiers.contains(KeyModifiers::SHIFT) {
-                    // Shift+Tab: trigger or cycle backward
-                    if self.completion_state.is_visible() {
-                        self.cycle_completion_backward();
-                    } else {
-                        self.trigger_or_cycle_completion();
-                    }
+                if self.completion_state.is_visible() {
+                    // Second Tab: accept current selection
+                    self.accept_completion();
                 } else {
-                    // Tab: trigger or cycle forward
-                    self.trigger_or_cycle_completion();
+                    // First Tab: show completions with first item selected
+                    self.trigger_completion();
                 }
                 KeyResult::Continue
             }
@@ -1382,76 +1388,80 @@ impl ModalEditor {
             // Already completing - cycle forward
             self.completion_state.next();
         } else {
-            // Start new completion
-            // Update bus names first
-            self.bus_names = completion::extract_bus_names(&self.content);
+            self.trigger_completion();
+        }
+    }
 
-            // Get current line
-            let lines: Vec<&str> = self.content.split('\n').collect();
-            let (line_idx, col) = self.pos_to_line_col(self.cursor_pos);
+    /// Trigger completion popup (first Tab press)
+    fn trigger_completion(&mut self) {
+        // Update bus names first
+        self.bus_names = completion::extract_bus_names(&self.content);
 
-            if line_idx >= lines.len() {
-                return;
-            }
+        // Get current line
+        let lines: Vec<&str> = self.content.split('\n').collect();
+        let (line_idx, col) = self.pos_to_line_col(self.cursor_pos);
 
-            let line = lines[line_idx];
+        if line_idx >= lines.len() {
+            return;
+        }
 
-            // Get context first to determine if we should complete
-            let context = completion::get_completion_context(line, col);
+        let line = lines[line_idx];
 
-            // Get token at cursor (may be None if cursor is at empty space)
-            let token = completion::get_token_at_cursor(line, col);
+        // Get context first to determine if we should complete
+        let context = completion::get_completion_context(line, col);
 
-            // Determine partial text and token start position
-            let (partial_text, token_start) = match token {
-                Some(t) => (t.text.clone(), t.start),
-                None => {
-                    // No token found - check if we're in a context that allows empty completion
-                    match context {
-                        completion::CompletionContext::Sample | completion::CompletionContext::Bus => {
-                            // Inside string - show all completions
-                            ("".to_string(), col)
-                        }
-                        _ => {
-                            // Not in a completable context
-                            return;
-                        }
+        // Get token at cursor (may be None if cursor is at empty space)
+        let token = completion::get_token_at_cursor(line, col);
+
+        // Determine partial text and token start position
+        let (partial_text, token_start) = match token {
+            Some(t) => (t.text.clone(), t.start),
+            None => {
+                // No token found - check if we're in a context that allows empty completion
+                match context {
+                    completion::CompletionContext::Sample | completion::CompletionContext::Bus => {
+                        // Inside string - show all completions
+                        ("".to_string(), col)
+                    }
+                    _ => {
+                        // Not in a completable context
+                        return;
                     }
                 }
-            };
-
-            // Get completions
-            let completions = completion::filter_completions(
-                &partial_text,
-                &context,
-                &self.sample_names,
-                &self.bus_names,
-            );
-
-            if completions.is_empty() {
-                self.status_message = "No completions found".to_string();
-                // Flash visual feedback for no matches
-                self.flash_highlight = Some((line_idx, line_idx, 3));
-                return;
             }
+        };
 
-            // Show completions
-            let line_start = self.content[..self.cursor_pos]
-                .rfind('\n')
-                .map(|i| i + 1)
-                .unwrap_or(0);
+        // Get completions
+        let completions = completion::filter_completions(
+            &partial_text,
+            &context,
+            &self.sample_names,
+            &self.bus_names,
+        );
 
-            self.completion_state.show(
-                completions.clone(),
-                partial_text,
-                line_start + token_start,
-            );
-
-            self.status_message = format!(
-                "{} completions | Tab/↑↓: navigate | Enter: accept | Esc: cancel",
-                completions.len()
-            );
+        if completions.is_empty() {
+            self.status_message = "No completions found".to_string();
+            // Flash visual feedback for no matches
+            self.flash_highlight = Some((line_idx, line_idx, 3));
+            return;
         }
+
+        // Show completions
+        let line_start = self.content[..self.cursor_pos]
+            .rfind('\n')
+            .map(|i| i + 1)
+            .unwrap_or(0);
+
+        self.completion_state.show(
+            completions.clone(),
+            partial_text,
+            line_start + token_start,
+        );
+
+        self.status_message = format!(
+            "{} completions | Tab/↑↓: navigate | Enter: accept | Esc: cancel",
+            completions.len()
+        );
     }
 
     /// Cycle completion forward (Down arrow)

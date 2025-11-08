@@ -14,10 +14,10 @@ fn test_envelope_trigger_basic() {
     let envelope = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(source),
         trigger: Signal::Node(trigger),
-        attack: 0.01,
-        decay: 0.0,
-        sustain: 1.0,
-        release: 0.0,
+        attack: Signal::Value(0.01),
+        decay: Signal::Value(0.0),
+        sustain: Signal::Value(1.0),
+        release: Signal::Value(0.0),
         state: EnvState::default(),
     });
 
@@ -54,10 +54,10 @@ fn test_envelope_trigger_pattern() {
     let envelope = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(source),
         trigger: Signal::Node(trigger),
-        attack: 0.001,
-        decay: 0.0,
-        sustain: 1.0,
-        release: 0.1,
+        attack: Signal::Value(0.001),
+        decay: Signal::Value(0.0),
+        sustain: Signal::Value(1.0),
+        release: Signal::Value(0.1),
         state: EnvState::default(),
     });
 

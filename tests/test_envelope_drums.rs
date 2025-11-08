@@ -57,10 +57,10 @@ fn render_kick_with_envelope(output_path: &str) {
     let enveloped = graph.add_node(SignalNode::Envelope {
         input: Signal::Node(filtered),
         trigger: Signal::Node(trigger_node),
-        attack: 0.001, // 1ms attack
-        decay: 0.1,    // 100ms decay
-        sustain: 0.0,  // No sustain (percussive)
-        release: 0.05, // 50ms release
+        attack: Signal::Value(0.001), // 1ms attack
+        decay: Signal::Value(0.1),    // 100ms decay
+        sustain: Signal::Value(0.0),  // No sustain (percussive)
+        release: Signal::Value(0.05), // 50ms release
         state: Default::default(),
     });
 
