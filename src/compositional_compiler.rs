@@ -2557,21 +2557,53 @@ fn compile_delay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
 fn compile_tapedelay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    if params.len() != 8 {
+    if params.len() < 2 {
         return Err(format!(
-            "tapedelay requires 8 parameters (time, feedback, wow_rate, wow_depth, flutter_rate, flutter_depth, saturation, mix), got {}",
+            "tapedelay requires at least 2 parameters (time, feedback), got {}",
             params.len()
         ));
     }
 
+    // Required parameters
     let time_node = compile_expr(ctx, params[0].clone())?;
     let feedback_node = compile_expr(ctx, params[1].clone())?;
-    let wow_rate_node = compile_expr(ctx, params[2].clone())?;
-    let wow_depth_node = compile_expr(ctx, params[3].clone())?;
-    let flutter_rate_node = compile_expr(ctx, params[4].clone())?;
-    let flutter_depth_node = compile_expr(ctx, params[5].clone())?;
-    let saturation_node = compile_expr(ctx, params[6].clone())?;
-    let mix_node = compile_expr(ctx, params[7].clone())?;
+
+    // Optional parameters with defaults
+    let wow_rate_node = if params.len() > 2 {
+        compile_expr(ctx, params[2].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.5 })  // Default: subtle wobble
+    };
+
+    let wow_depth_node = if params.len() > 3 {
+        compile_expr(ctx, params[3].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.02 })
+    };
+
+    let flutter_rate_node = if params.len() > 4 {
+        compile_expr(ctx, params[4].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 6.0 })  // Default: 6 Hz shimmer
+    };
+
+    let flutter_depth_node = if params.len() > 5 {
+        compile_expr(ctx, params[5].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.05 })
+    };
+
+    let saturation_node = if params.len() > 6 {
+        compile_expr(ctx, params[6].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.3 })  // Default: mild warmth
+    };
+
+    let mix_node = if params.len() > 7 {
+        compile_expr(ctx, params[7].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.5 })  // Default: 50/50 mix
+    };
 
     let node = SignalNode::TapeDelay {
         input: input_signal,
@@ -2593,22 +2625,34 @@ fn compile_tapedelay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
 fn compile_multitap(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    if params.len() != 4 {
+    if params.len() < 2 {
         return Err(format!(
-            "multitap requires 4 parameters (time, taps, feedback, mix), got {}",
+            "multitap requires at least 2 parameters (time, taps), got {}",
             params.len()
         ));
     }
 
+    // Required parameters
     let time_node = compile_expr(ctx, params[0].clone())?;
-    let feedback_node = compile_expr(ctx, params[2].clone())?;
-    let mix_node = compile_expr(ctx, params[3].clone())?;
 
     // Extract taps count (must be a constant)
     let taps = if let Expr::Number(n) = params[1].clone() {
         n as usize
     } else {
         return Err("multitap 'taps' parameter must be a constant number".to_string());
+    };
+
+    // Optional parameters with defaults
+    let feedback_node = if params.len() > 2 {
+        compile_expr(ctx, params[2].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.5 })  // Default: moderate feedback
+    };
+
+    let mix_node = if params.len() > 3 {
+        compile_expr(ctx, params[3].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.6 })  // Default: 60% wet
     };
 
     // Create delay buffer (1 second max)
@@ -2631,23 +2675,38 @@ fn compile_multitap(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
 fn compile_pingpong(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    if params.len() != 5 {
+    if params.len() < 2 {
         return Err(format!(
-            "pingpong requires 5 parameters (time, feedback, stereo_width, channel, mix), got {}",
+            "pingpong requires at least 2 parameters (time, feedback), got {}",
             params.len()
         ));
     }
 
+    // Required parameters
     let time_node = compile_expr(ctx, params[0].clone())?;
     let feedback_node = compile_expr(ctx, params[1].clone())?;
-    let stereo_width_node = compile_expr(ctx, params[2].clone())?;
-    let mix_node = compile_expr(ctx, params[4].clone())?;
 
-    // Extract channel (must be a constant boolean: 0=left, 1=right)
-    let channel = if let Expr::Number(n) = params[3].clone() {
-        n != 0.0
+    // Optional parameters with defaults
+    let stereo_width_node = if params.len() > 2 {
+        compile_expr(ctx, params[2].clone())?
     } else {
-        return Err("pingpong 'channel' parameter must be a constant (0=left, 1=right)".to_string());
+        ctx.graph.add_node(SignalNode::Constant { value: 0.8 })  // Default: strong ping-pong
+    };
+
+    let channel = if params.len() > 3 {
+        if let Expr::Number(n) = params[3].clone() {
+            n != 0.0
+        } else {
+            return Err("pingpong 'channel' parameter must be a constant (0=left, 1=right)".to_string());
+        }
+    } else {
+        false  // Default: start on left
+    };
+
+    let mix_node = if params.len() > 4 {
+        compile_expr(ctx, params[4].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.7 })  // Default: 70% wet
     };
 
     // Create delay buffers (1 second max each)
@@ -2672,19 +2731,41 @@ fn compile_pingpong(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
 fn compile_plate(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    if params.len() != 6 {
+    if params.len() < 2 {
         return Err(format!(
-            "plate requires 6 parameters (pre_delay, decay, diffusion, damping, mod_depth, mix), got {}",
+            "plate requires at least 2 parameters (pre_delay, decay), got {}",
             params.len()
         ));
     }
 
+    // Required parameters
     let pre_delay_node = compile_expr(ctx, params[0].clone())?;
     let decay_node = compile_expr(ctx, params[1].clone())?;
-    let diffusion_node = compile_expr(ctx, params[2].clone())?;
-    let damping_node = compile_expr(ctx, params[3].clone())?;
-    let mod_depth_node = compile_expr(ctx, params[4].clone())?;
-    let mix_node = compile_expr(ctx, params[5].clone())?;
+
+    // Optional parameters with defaults
+    let diffusion_node = if params.len() > 2 {
+        compile_expr(ctx, params[2].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.7 })  // Default: dense diffusion
+    };
+
+    let damping_node = if params.len() > 3 {
+        compile_expr(ctx, params[3].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.3 })  // Default: some HF rolloff
+    };
+
+    let mod_depth_node = if params.len() > 4 {
+        compile_expr(ctx, params[4].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.3 })  // Default: subtle shimmer
+    };
+
+    let mix_node = if params.len() > 5 {
+        compile_expr(ctx, params[5].clone())?
+    } else {
+        ctx.graph.add_node(SignalNode::Constant { value: 0.5 })  // Default: 50/50 mix
+    };
 
     let node = SignalNode::DattorroReverb {
         input: input_signal,
