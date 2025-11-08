@@ -901,6 +901,47 @@ pub enum SignalNode {
         write_idx: usize,
     },
 
+    /// Tape Delay (analog tape simulation with wow, flutter, saturation)
+    /// Emulates vintage tape delay machines with realistic tape artifacts
+    TapeDelay {
+        input: Signal,
+        time: Signal,           // Delay time in seconds
+        feedback: Signal,       // Feedback amount (0.0 to 0.95)
+        wow_rate: Signal,       // Wow modulation rate (Hz, 0.1-2.0)
+        wow_depth: Signal,      // Wow modulation depth (0.0-1.0)
+        flutter_rate: Signal,   // Flutter modulation rate (Hz, 5.0-10.0)
+        flutter_depth: Signal,  // Flutter modulation depth (0.0-1.0)
+        saturation: Signal,     // Tape saturation (0.0-1.0)
+        mix: Signal,            // Dry/wet mix (0.0-1.0)
+        state: TapeDelayState,
+    },
+
+    /// Multi-Tap Delay (multiple equally-spaced echoes)
+    /// Creates rhythmic delay patterns with multiple taps
+    MultiTapDelay {
+        input: Signal,
+        time: Signal,     // Base delay time in seconds
+        taps: usize,      // Number of taps (2-8)
+        feedback: Signal, // Feedback amount
+        mix: Signal,      // Dry/wet mix
+        buffer: Vec<f32>,
+        write_idx: usize,
+    },
+
+    /// Ping-Pong Delay (stereo bouncing delay)
+    /// NOTE: Returns only one channel - use two nodes for stereo
+    PingPongDelay {
+        input: Signal,
+        time: Signal,       // Delay time per side
+        feedback: Signal,   // Feedback amount
+        stereo_width: Signal, // Stereo spread (0.0-1.0)
+        channel: bool,      // false = left, true = right
+        mix: Signal,        // Dry/wet mix
+        buffer_l: Vec<f32>, // Left channel buffer
+        buffer_r: Vec<f32>, // Right channel buffer
+        write_idx: usize,
+    },
+
     // === Analysis ===
     /// RMS analyzer
     /// Window size in seconds (supports pattern modulation!)
@@ -1019,6 +1060,21 @@ pub enum SignalNode {
         damping: Signal,   // 0.0-1.0
         mix: Signal,       // 0.0-1.0 (dry/wet)
         state: ReverbState,
+    },
+
+    /// Dattorro Plate Reverb (professional plate/hall reverb)
+    /// Based on Jon Dattorro's figure-8 reverberator design
+    /// Used in Lexicon, Valhalla, and other pro reverbs
+    /// Produces rich, dense, smooth reverb tails
+    DattorroReverb {
+        input: Signal,
+        pre_delay: Signal,  // Pre-delay time in ms (0-500)
+        decay: Signal,      // Decay time multiplier (0.1-10.0)
+        diffusion: Signal,  // Input diffusion (0.0-1.0)
+        damping: Signal,    // High-frequency damping (0.0-1.0)
+        mod_depth: Signal,  // Modulation depth (0.0-1.0) for lushness
+        mix: Signal,        // Dry/wet mix (0.0-1.0)
+        state: DattorroState,
     },
 
     /// Convolution Reverb
@@ -1746,6 +1802,154 @@ impl ReverbState {
 }
 
 impl Default for ReverbState {
+    fn default() -> Self {
+        Self::new(44100.0)
+    }
+}
+
+/// Dattorro Reverb State
+/// Based on Jon Dattorro's 1997 AES paper "Effect Design, Part 1: Reverberator and Other Filters"
+/// Figure-8 feedback delay network with modulated allpass filters
+#[derive(Debug, Clone)]
+pub struct DattorroState {
+    // Pre-delay
+    predelay_buffer: Vec<f32>,
+    predelay_idx: usize,
+
+    // Input diffusion (4 allpass filters)
+    input_diffusion_buffers: [Vec<f32>; 4],
+    input_diffusion_indices: [usize; 4],
+
+    // Left tank (decay diffusion network 1)
+    left_apf1_buffer: Vec<f32>,
+    left_apf1_idx: usize,
+    left_delay1_buffer: Vec<f32>,
+    left_delay1_idx: usize,
+    left_apf2_buffer: Vec<f32>,
+    left_apf2_idx: usize,
+    left_delay2_buffer: Vec<f32>,
+    left_delay2_idx: usize,
+    left_lpf_state: f32, // One-pole lowpass for damping
+
+    // Right tank (decay diffusion network 2)
+    right_apf1_buffer: Vec<f32>,
+    right_apf1_idx: usize,
+    right_delay1_buffer: Vec<f32>,
+    right_delay1_idx: usize,
+    right_apf2_buffer: Vec<f32>,
+    right_apf2_idx: usize,
+    right_delay2_buffer: Vec<f32>,
+    right_delay2_idx: usize,
+    right_lpf_state: f32,
+
+    // Modulation LFOs
+    lfo_phase: f32,
+
+    sample_rate: f32,
+}
+
+impl DattorroState {
+    pub fn new(sample_rate: f32) -> Self {
+        let sr = sample_rate;
+
+        // Dattorro delay line lengths (in samples at given sample rate)
+        // Scaled from original 29.7kHz design
+        let scale = sr / 29761.0;
+
+        let predelay_samples = (sr * 0.5) as usize; // 500ms max pre-delay
+
+        // Input diffusion allpass delays
+        let input_diffusion_lengths = [
+            (142.0 * scale) as usize,
+            (107.0 * scale) as usize,
+            (379.0 * scale) as usize,
+            (277.0 * scale) as usize,
+        ];
+
+        // Left tank delays
+        let left_apf1_len = (672.0 * scale) as usize;
+        let left_delay1_len = (4453.0 * scale) as usize;
+        let left_apf2_len = (1800.0 * scale) as usize;
+        let left_delay2_len = (3720.0 * scale) as usize;
+
+        // Right tank delays (slightly detuned for stereo spread)
+        let right_apf1_len = (908.0 * scale) as usize;
+        let right_delay1_len = (4217.0 * scale) as usize;
+        let right_apf2_len = (2656.0 * scale) as usize;
+        let right_delay2_len = (3163.0 * scale) as usize;
+
+        Self {
+            predelay_buffer: vec![0.0; predelay_samples],
+            predelay_idx: 0,
+
+            input_diffusion_buffers: [
+                vec![0.0; input_diffusion_lengths[0]],
+                vec![0.0; input_diffusion_lengths[1]],
+                vec![0.0; input_diffusion_lengths[2]],
+                vec![0.0; input_diffusion_lengths[3]],
+            ],
+            input_diffusion_indices: [0; 4],
+
+            left_apf1_buffer: vec![0.0; left_apf1_len],
+            left_apf1_idx: 0,
+            left_delay1_buffer: vec![0.0; left_delay1_len],
+            left_delay1_idx: 0,
+            left_apf2_buffer: vec![0.0; left_apf2_len],
+            left_apf2_idx: 0,
+            left_delay2_buffer: vec![0.0; left_delay2_len],
+            left_delay2_idx: 0,
+            left_lpf_state: 0.0,
+
+            right_apf1_buffer: vec![0.0; right_apf1_len],
+            right_apf1_idx: 0,
+            right_delay1_buffer: vec![0.0; right_delay1_len],
+            right_delay1_idx: 0,
+            right_apf2_buffer: vec![0.0; right_apf2_len],
+            right_apf2_idx: 0,
+            right_delay2_buffer: vec![0.0; right_delay2_len],
+            right_delay2_idx: 0,
+            right_lpf_state: 0.0,
+
+            lfo_phase: 0.0,
+            sample_rate: sr,
+        }
+    }
+}
+
+impl Default for DattorroState {
+    fn default() -> Self {
+        Self::new(44100.0)
+    }
+}
+
+/// Tape Delay State
+#[derive(Debug, Clone)]
+pub struct TapeDelayState {
+    buffer: Vec<f32>,
+    write_idx: usize,
+    // LFO phases for wow and flutter
+    wow_phase: f32,
+    flutter_phase: f32,
+    // One-pole lowpass for tape head filtering
+    lpf_state: f32,
+    sample_rate: f32,
+}
+
+impl TapeDelayState {
+    pub fn new(sample_rate: f32) -> Self {
+        let buffer_size = sample_rate as usize; // 1 second max
+        Self {
+            buffer: vec![0.0; buffer_size],
+            write_idx: 0,
+            wow_phase: 0.0,
+            flutter_phase: 0.0,
+            lpf_state: 0.0,
+            sample_rate,
+        }
+    }
+}
+
+impl Default for TapeDelayState {
     fn default() -> Self {
         Self::new(44100.0)
     }
@@ -4690,6 +4894,192 @@ impl UnifiedSignalGraph {
                 input_val * (1.0 - mix_val) + allpass_out * mix_val
             }
 
+            SignalNode::DattorroReverb {
+                input,
+                pre_delay,
+                decay,
+                diffusion,
+                damping,
+                mod_depth,
+                mix,
+                state,
+            } => {
+                // Full Dattorro reverb implementation
+                // Based on Jon Dattorro's 1997 AES paper
+                let input_val = self.eval_signal(&input);
+                let pre_delay_ms = self.eval_signal(&pre_delay).clamp(0.0, 500.0);
+                let decay_val = self.eval_signal(&decay).clamp(0.1, 10.0);
+                let diffusion_val = self.eval_signal(&diffusion).clamp(0.0, 1.0);
+                let damping_val = self.eval_signal(&damping).clamp(0.0, 1.0);
+                let mod_depth_val = self.eval_signal(&mod_depth).clamp(0.0, 1.0);
+                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+
+                // Helper function for allpass filter
+                // y[n] = -x[n] + x[n-D] + g * (x[n] - y[n-D])
+                let allpass = |buffer: &mut Vec<f32>, idx: &mut usize, input: f32, gain: f32| -> f32 {
+                    let buffer_len = buffer.len();
+                    let delayed = buffer[*idx];
+                    let output = -input + delayed + gain * (input - delayed);
+                    buffer[*idx] = input + gain * delayed;
+                    *idx = (*idx + 1) % buffer_len;
+                    output
+                };
+
+                // Helper function for simple delay
+                let delay = |buffer: &mut Vec<f32>, idx: &mut usize, input: f32| -> f32 {
+                    let buffer_len = buffer.len();
+                    let output = buffer[*idx];
+                    buffer[*idx] = input;
+                    *idx = (*idx + 1) % buffer_len;
+                    output
+                };
+
+                // Get mutable state
+                let (left_out, right_out) = if let Some(Some(SignalNode::DattorroReverb {
+                    state: s, ..
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    // 1. PRE-DELAY
+                    let pre_delay_samples = ((pre_delay_ms / 1000.0) * s.sample_rate) as usize;
+                    let pre_delay_samples = pre_delay_samples.min(s.predelay_buffer.len() - 1);
+
+                    let predelay_out = if pre_delay_samples > 0 {
+                        let read_idx = (s.predelay_idx + s.predelay_buffer.len() - pre_delay_samples)
+                            % s.predelay_buffer.len();
+                        let output = s.predelay_buffer[read_idx];
+                        s.predelay_buffer[s.predelay_idx] = input_val;
+                        s.predelay_idx = (s.predelay_idx + 1) % s.predelay_buffer.len();
+                        output
+                    } else {
+                        input_val
+                    };
+
+                    // 2. INPUT DIFFUSION (4 series allpass filters)
+                    let input_diffusion_gain = 0.75 * diffusion_val;
+                    let mut diffused = predelay_out;
+
+                    for i in 0..4 {
+                        diffused = allpass(
+                            &mut s.input_diffusion_buffers[i],
+                            &mut s.input_diffusion_indices[i],
+                            diffused,
+                            input_diffusion_gain,
+                        );
+                    }
+
+                    // Split into left and right for the figure-8 network
+                    let input_to_tanks = diffused;
+
+                    // 3. FIGURE-8 DECAY NETWORK
+                    // Coefficients from Dattorro paper
+                    let decay_diffusion1 = 0.7 * diffusion_val;
+                    let decay_diffusion2 = 0.5 * diffusion_val;
+                    let decay_gain = 0.4 + (decay_val - 0.1) / 9.9 * 0.55; // Map 0.1-10.0 to 0.4-0.95
+
+                    // Damping (one-pole lowpass coefficient)
+                    let damp_coef = 1.0 - damping_val * 0.7; // Higher damping = darker sound
+
+                    // Modulation (simple LFO for chorus effect)
+                    let lfo_rate = 0.8; // Hz
+                    let lfo = (s.lfo_phase * std::f32::consts::TAU).sin() * mod_depth_val * 8.0; // ±8 samples modulation
+                    s.lfo_phase = (s.lfo_phase + lfo_rate / s.sample_rate) % 1.0;
+
+                    // LEFT TANK
+                    // Read previous right tank output for cross-coupling
+                    let right_to_left = s.right_delay2_buffer[s.right_delay2_idx];
+
+                    // Input to left tank (with cross-coupling from right)
+                    let left_input = input_to_tanks + right_to_left * decay_gain;
+
+                    // Left APF1 (modulated)
+                    let left_apf1_out = {
+                        // Apply modulation by varying read position slightly
+                        let mod_offset = lfo as isize;
+                        let read_idx = ((s.left_apf1_idx as isize + s.left_apf1_buffer.len() as isize + mod_offset)
+                            % s.left_apf1_buffer.len() as isize) as usize;
+                        let delayed = s.left_apf1_buffer[read_idx];
+                        let output = -left_input + delayed + decay_diffusion1 * (left_input - delayed);
+                        s.left_apf1_buffer[s.left_apf1_idx] = left_input + decay_diffusion1 * delayed;
+                        s.left_apf1_idx = (s.left_apf1_idx + 1) % s.left_apf1_buffer.len();
+                        output
+                    };
+
+                    // Left Delay1
+                    let left_delay1_out = delay(&mut s.left_delay1_buffer, &mut s.left_delay1_idx, left_apf1_out);
+
+                    // Left APF2 (modulated differently)
+                    let left_apf2_out = {
+                        let mod_offset = -lfo as isize;
+                        let read_idx = ((s.left_apf2_idx as isize + s.left_apf2_buffer.len() as isize + mod_offset)
+                            % s.left_apf2_buffer.len() as isize) as usize;
+                        let delayed = s.left_apf2_buffer[read_idx];
+                        let output = -left_delay1_out + delayed + decay_diffusion2 * (left_delay1_out - delayed);
+                        s.left_apf2_buffer[s.left_apf2_idx] = left_delay1_out + decay_diffusion2 * delayed;
+                        s.left_apf2_idx = (s.left_apf2_idx + 1) % s.left_apf2_buffer.len();
+                        output
+                    };
+
+                    // Damping LPF and Delay2
+                    let left_damped = s.left_lpf_state * damp_coef + left_apf2_out * (1.0 - damp_coef);
+                    s.left_lpf_state = left_damped;
+
+                    let left_delay2_out = delay(&mut s.left_delay2_buffer, &mut s.left_delay2_idx, left_damped * decay_gain);
+
+                    // RIGHT TANK
+                    // Read previous left tank output for cross-coupling
+                    let left_to_right = left_delay2_out;
+
+                    // Input to right tank (with cross-coupling from left)
+                    let right_input = input_to_tanks + left_to_right;
+
+                    // Right APF1 (modulated)
+                    let right_apf1_out = {
+                        let mod_offset = -lfo as isize;
+                        let read_idx = ((s.right_apf1_idx as isize + s.right_apf1_buffer.len() as isize + mod_offset)
+                            % s.right_apf1_buffer.len() as isize) as usize;
+                        let delayed = s.right_apf1_buffer[read_idx];
+                        let output = -right_input + delayed + decay_diffusion1 * (right_input - delayed);
+                        s.right_apf1_buffer[s.right_apf1_idx] = right_input + decay_diffusion1 * delayed;
+                        s.right_apf1_idx = (s.right_apf1_idx + 1) % s.right_apf1_buffer.len();
+                        output
+                    };
+
+                    // Right Delay1
+                    let right_delay1_out = delay(&mut s.right_delay1_buffer, &mut s.right_delay1_idx, right_apf1_out);
+
+                    // Right APF2 (modulated differently)
+                    let right_apf2_out = {
+                        let mod_offset = lfo as isize;
+                        let read_idx = ((s.right_apf2_idx as isize + s.right_apf2_buffer.len() as isize + mod_offset)
+                            % s.right_apf2_buffer.len() as isize) as usize;
+                        let delayed = s.right_apf2_buffer[read_idx];
+                        let output = -right_delay1_out + delayed + decay_diffusion2 * (right_delay1_out - delayed);
+                        s.right_apf2_buffer[s.right_apf2_idx] = right_delay1_out + decay_diffusion2 * delayed;
+                        s.right_apf2_idx = (s.right_apf2_idx + 1) % s.right_apf2_buffer.len();
+                        output
+                    };
+
+                    // Damping LPF and Delay2
+                    let right_damped = s.right_lpf_state * damp_coef + right_apf2_out * (1.0 - damp_coef);
+                    s.right_lpf_state = right_damped;
+
+                    let right_delay2_out = delay(&mut s.right_delay2_buffer, &mut s.right_delay2_idx, right_damped * decay_gain);
+
+                    // 4. OUTPUT TAPS (sum multiple points for density)
+                    // Using multiple tap points as suggested by Dattorro
+                    let left_output = (left_delay1_out + left_apf2_out + left_delay2_out) * 0.33;
+                    let right_output = (right_delay1_out + right_apf2_out + right_delay2_out) * 0.33;
+
+                    (left_output, right_output)
+                } else {
+                    (0.0, 0.0)
+                };
+
+                // Mix stereo output (average L+R for mono)
+                let wet = (left_out + right_out) * 0.5;
+                input_val * (1.0 - mix_val) + wet * mix_val
+            }
+
             SignalNode::Convolution { input, state } => {
                 let input_val = self.eval_signal(&input);
 
@@ -7172,6 +7562,189 @@ impl UnifiedSignalGraph {
 
                 // Mix dry and wet
                 input_val * (1.0 - mix_val) + delayed * mix_val
+            }
+
+            SignalNode::TapeDelay {
+                input,
+                time,
+                feedback,
+                wow_rate,
+                wow_depth,
+                flutter_rate,
+                flutter_depth,
+                saturation,
+                mix,
+                state,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let delay_time = self.eval_signal(&time).max(0.001).min(1.0);
+                let fb = self.eval_signal(&feedback).clamp(0.0, 0.95);
+                let wow_r = self.eval_signal(&wow_rate).clamp(0.1, 2.0);
+                let wow_d = self.eval_signal(&wow_depth).clamp(0.0, 1.0);
+                let flutter_r = self.eval_signal(&flutter_rate).clamp(5.0, 10.0);
+                let flutter_d = self.eval_signal(&flutter_depth).clamp(0.0, 1.0);
+                let sat = self.eval_signal(&saturation).clamp(0.0, 1.0);
+                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+
+                let buffer_len = state.buffer.len();
+                let sample_rate = state.sample_rate;
+
+                // Update wow and flutter LFOs
+                let wow_phase_inc = wow_r / sample_rate;
+                let flutter_phase_inc = flutter_r / sample_rate;
+
+                // Modulate delay time with wow (slow) and flutter (fast)
+                let wow = (state.wow_phase * std::f32::consts::TAU).sin() * wow_d * 0.001;
+                let flutter = (state.flutter_phase * std::f32::consts::TAU).sin() * flutter_d * 0.0001;
+
+                let modulated_time = delay_time + wow + flutter;
+                let delay_samples = (modulated_time * sample_rate).max(1.0).min(buffer_len as f32 - 1.0);
+
+                // Fractional delay using linear interpolation
+                let read_pos_f = (state.write_idx as f32) - delay_samples;
+                let read_pos = if read_pos_f < 0.0 {
+                    read_pos_f + buffer_len as f32
+                } else {
+                    read_pos_f
+                };
+
+                let read_idx = read_pos as usize % buffer_len;
+                let next_idx = (read_idx + 1) % buffer_len;
+                let frac = read_pos.fract();
+
+                let delayed = state.buffer[read_idx] * (1.0 - frac) + state.buffer[next_idx] * frac;
+
+                // Tape saturation (soft clipping)
+                let saturated = if sat > 0.01 {
+                    let drive = 1.0 + sat * 3.0;
+                    (delayed * drive).tanh() / drive
+                } else {
+                    delayed
+                };
+
+                // Tape head filtering (one-pole lowpass)
+                let cutoff_coef = 0.7 + sat * 0.2;
+                let filtered = state.lpf_state * cutoff_coef + saturated * (1.0 - cutoff_coef);
+
+                // Write to buffer
+                let to_write = input_val + filtered * fb;
+
+                // Update state
+                if let Some(Some(SignalNode::TapeDelay { state: s, .. })) =
+                    self.nodes.get_mut(node_id.0)
+                {
+                    s.buffer[s.write_idx] = to_write;
+                    s.write_idx = (s.write_idx + 1) % buffer_len;
+                    s.wow_phase = (s.wow_phase + wow_phase_inc) % 1.0;
+                    s.flutter_phase = (s.flutter_phase + flutter_phase_inc) % 1.0;
+                    s.lpf_state = filtered;
+                }
+
+                // Mix dry and wet
+                input_val * (1.0 - mix_val) + filtered * mix_val
+            }
+
+            SignalNode::MultiTapDelay {
+                input,
+                time,
+                taps,
+                feedback,
+                mix,
+                buffer,
+                write_idx,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let base_time = self.eval_signal(&time).max(0.001).min(1.0);
+                let fb = self.eval_signal(&feedback).clamp(0.0, 0.95);
+                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+
+                let buffer_len = buffer.len();
+                let sample_rate = self.sample_rate();
+                let base_delay_samples = (base_time * sample_rate) as usize;
+
+                // Sum multiple tap outputs
+                let mut tap_sum = 0.0;
+                let tap_count = taps.min(8).max(2);
+
+                for i in 1..=tap_count {
+                    let tap_delay = base_delay_samples * i;
+                    if tap_delay < buffer_len {
+                        let read_idx = (write_idx + buffer_len - tap_delay) % buffer_len;
+                        let tap_amp = 1.0 / (i as f32);
+                        tap_sum += buffer[read_idx] * tap_amp;
+                    }
+                }
+
+                tap_sum /= tap_count as f32;
+
+                // Write with feedback
+                let to_write = input_val + tap_sum * fb;
+
+                if let Some(Some(SignalNode::MultiTapDelay {
+                    buffer: buf,
+                    write_idx: idx,
+                    ..
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    buf[*idx] = to_write;
+                    *idx = (*idx + 1) % buffer_len;
+                }
+
+                // Mix
+                input_val * (1.0 - mix_val) + tap_sum * mix_val
+            }
+
+            SignalNode::PingPongDelay {
+                input,
+                time,
+                feedback,
+                stereo_width,
+                channel,
+                mix,
+                buffer_l,
+                buffer_r,
+                write_idx,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let delay_time = self.eval_signal(&time).max(0.001).min(1.0);
+                let fb = self.eval_signal(&feedback).clamp(0.0, 0.95);
+                let width = self.eval_signal(&stereo_width).clamp(0.0, 1.0);
+                let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
+
+                let buffer_len = buffer_l.len();
+                let sample_rate = self.sample_rate();
+                let delay_samples = (delay_time * sample_rate) as usize;
+
+                let read_idx = (write_idx + buffer_len - delay_samples.min(buffer_len - 1)) % buffer_len;
+
+                // Read from opposite channel for ping-pong effect
+                let (delayed, opposite) = if channel {
+                    (buffer_r[read_idx], buffer_l[read_idx])
+                } else {
+                    (buffer_l[read_idx], buffer_r[read_idx])
+                };
+
+                // Mix with opposite channel
+                let ping_ponged = delayed * (1.0 - width) + opposite * width;
+
+                // Write to both buffers
+                let to_write_l = if channel { ping_ponged * fb } else { input_val + ping_ponged * fb };
+                let to_write_r = if channel { input_val + ping_ponged * fb } else { ping_ponged * fb };
+
+                if let Some(Some(SignalNode::PingPongDelay {
+                    buffer_l: buf_l,
+                    buffer_r: buf_r,
+                    write_idx: idx,
+                    ..
+                })) = self.nodes.get_mut(node_id.0)
+                {
+                    buf_l[*idx] = to_write_l;
+                    buf_r[*idx] = to_write_r;
+                    *idx = (*idx + 1) % buffer_len;
+                }
+
+                // Mix
+                input_val * (1.0 - mix_val) + ping_ponged * mix_val
             }
 
             SignalNode::RMS {

@@ -8,15 +8,21 @@ use crate::compositional_parser::{BinOp, Expr, Statement, Transform, UnOp};
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
 use crate::superdirt_synths::SynthLibrary;
-use crate::unified_graph::{NodeId, Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
+use crate::unified_graph::{DattorroState, NodeId, Signal, SignalExpr, SignalNode, TapeDelayState, UnifiedSignalGraph, Waveform};
 use std::collections::HashMap;
 
-/// Compilation context - tracks buses, functions, and node IDs
+/// Compilation context - tracks buses, functions, templates, and node IDs
 pub struct CompilerContext {
     /// Map of bus names to node IDs
     buses: HashMap<String, NodeId>,
+    /// Map of template names to their expressions
+    templates: HashMap<String, Expr>,
     /// Map of function names to their definitions
     functions: HashMap<String, FunctionDef>,
+    /// Effect bus definitions (name -> (effect_function, params))
+    effect_buses: HashMap<String, (String, Vec<Expr>)>,
+    /// Effect bus sends (bus_name -> vec of input node IDs)
+    effect_bus_sends: HashMap<String, Vec<NodeId>>,
     /// The signal graph we're building
     graph: UnifiedSignalGraph,
     /// Sample rate for creating buffers
@@ -37,7 +43,10 @@ impl CompilerContext {
     pub fn new(sample_rate: f32) -> Self {
         Self {
             buses: HashMap::new(),
+            templates: HashMap::new(),
             functions: HashMap::new(),
+            effect_buses: HashMap::new(),
+            effect_bus_sends: HashMap::new(),
             graph: UnifiedSignalGraph::new(sample_rate),
             sample_rate,
             synth_lib: SynthLibrary::with_sample_rate(sample_rate),
@@ -52,6 +61,87 @@ impl CompilerContext {
     /// Set CPS (cycles per second)
     pub fn set_cps(&mut self, cps: f64) {
         self.graph.set_cps(cps as f32);
+    }
+
+    /// Check if a function name is an effect
+    fn is_effect_function(name: &str) -> bool {
+        matches!(
+            name,
+            // Effects from line 828-846
+            "reverb" | "convolve" | "convolution" | "freeze" |
+            "distort" | "distortion" |
+            "delay" | "tapedelay" | "tape" | "multitap" | "pingpong" | "plate" |
+            "chorus" | "flanger" |
+            "compressor" | "comp" |
+            "bitcrush" | "coarse" |
+            "djf" | "ring" |
+            "tremolo" | "trem" |
+            "vibrato" | "vib" |
+            "phaser" | "ph" |
+            "xfade" | "mix" | "allpass" |
+            // Filters from line 819-826
+            "lpf" | "hpf" | "bpf" | "notch" |
+            "comb" |
+            "moog_ladder" | "moog" |
+            "parametric_eq" | "eq"
+        )
+    }
+
+    /// Compile an effect bus by mixing all its sends and applying the effect
+    fn compile_effect_bus(&mut self, bus_name: &str) -> Result<NodeId, String> {
+        // Check if already compiled
+        if let Some(&node_id) = self.buses.get(bus_name) {
+            return Ok(node_id);
+        }
+
+        // Get effect definition
+        let (effect_name, effect_args) = self
+            .effect_buses
+            .get(bus_name)
+            .cloned()
+            .ok_or_else(|| format!("Effect bus '{}' not found", bus_name))?;
+
+        // Get all sends to this bus
+        let sends = self
+            .effect_bus_sends
+            .get(bus_name)
+            .cloned()
+            .unwrap_or_default();
+
+        if sends.is_empty() {
+            return Err(format!(
+                "Effect bus '{}' has no inputs. Use 'signal # {}' to send signals to it.",
+                bus_name, bus_name
+            ));
+        }
+
+        // Mix all sends together
+        let mixed_input = if sends.len() == 1 {
+            sends[0]
+        } else {
+            // Chain Add nodes to mix all sends
+            let mut result = sends[0];
+            for &send_node in &sends[1..] {
+                result = self.graph.add_node(SignalNode::Add {
+                    a: Signal::Node(result),
+                    b: Signal::Node(send_node),
+                });
+            }
+            result
+        };
+
+        // Apply the effect to the mixed input
+        // Create args with ChainInput as first argument
+        let mut full_args = vec![Expr::ChainInput(mixed_input)];
+        full_args.extend(effect_args);
+
+        let effect_node = compile_function_call(self, &effect_name, full_args)?;
+
+        // Store the compiled effect bus
+        self.buses.insert(bus_name.to_string(), effect_node);
+        self.graph.add_bus(bus_name.to_string(), effect_node);
+
+        Ok(effect_node)
     }
 }
 
@@ -105,9 +195,26 @@ pub fn compile_program(
 fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<(), String> {
     match statement {
         Statement::BusAssignment { name, expr } => {
+            // Check if this is an effect bus assignment (e.g., ~myReverb: reverb 0.9 0.5)
+            if let Expr::Call { name: func_name, args } = &expr {
+                if CompilerContext::is_effect_function(func_name) {
+                    // Store as effect bus definition, don't compile yet
+                    ctx.effect_buses.insert(name.clone(), (func_name.clone(), args.clone()));
+                    // Initialize empty sends list
+                    ctx.effect_bus_sends.insert(name.clone(), Vec::new());
+                    return Ok(());
+                }
+            }
+
+            // Normal bus assignment - compile immediately
             let node_id = compile_expr(ctx, expr)?;
             ctx.buses.insert(name.clone(), node_id);
             ctx.graph.add_bus(name, node_id); // Register bus in graph for auto-routing
+            Ok(())
+        }
+        Statement::TemplateAssignment { name, expr } => {
+            // Store the template expression for later substitution
+            ctx.templates.insert(name, expr);
             Ok(())
         }
         Statement::Output(expr) => {
@@ -212,11 +319,29 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
         }
 
         Expr::BusRef(name) => {
-            // Look up bus reference
+            // Check if this is an effect bus
+            if ctx.effect_buses.contains_key(&name) {
+                // Compile the effect bus (mixing all sends)
+                return ctx.compile_effect_bus(&name);
+            }
+
+            // Otherwise, look up normal bus reference
             ctx.buses
                 .get(&name)
                 .copied()
                 .ok_or_else(|| format!("Undefined bus: ~{}", name))
+        }
+
+        Expr::TemplateRef(name) => {
+            // Look up template and substitute (macro expansion)
+            let template_expr = ctx
+                .templates
+                .get(&name)
+                .cloned()
+                .ok_or_else(|| format!("Undefined template: @{}", name))?;
+
+            // Recursively compile the template expression
+            compile_expr(ctx, template_expr)
         }
 
         Expr::Var(name) => {
@@ -495,7 +620,7 @@ fn compile_function_call(
 
                                 // Apply transforms in reverse order (innermost first)
                                 for t in transforms.iter().rev() {
-                                    pattern = apply_transform_to_pattern(pattern, t.clone())?;
+                                    pattern = apply_transform_to_pattern(&ctx.templates, pattern, t.clone())?;
                                 }
                             }
                             Expr::Call { name, args } => {
@@ -521,7 +646,11 @@ fn compile_function_call(
                                     }
                                     _ => return Err(format!("Unknown transform: {}", name)),
                                 };
-                                pattern = apply_transform_to_pattern(pattern, transform)?;
+                                pattern = apply_transform_to_pattern(&ctx.templates, pattern, transform)?;
+                            }
+                            Expr::TemplateRef(name) => {
+                                // Handle template references (e.g., s "bd" $ @swing)
+                                pattern = apply_transform_to_pattern(&ctx.templates, pattern, Transform::TemplateRef(name.clone()))?;
                             }
                             _ => {
                                 return Err(format!(
@@ -600,7 +729,7 @@ fn compile_function_call(
 
                                 // Apply transforms in reverse order (innermost first)
                                 for t in transforms.iter().rev() {
-                                    pattern = apply_transform_to_pattern(pattern, t.clone())?;
+                                    pattern = apply_transform_to_pattern(&ctx.templates, pattern, t.clone())?;
                                 }
 
                                 (format!("{} (transformed)", base_str), pattern)
@@ -648,7 +777,7 @@ fn compile_function_call(
 
                         // Apply transforms in reverse order (innermost first)
                         for t in transforms.iter().rev() {
-                            pattern = apply_transform_to_pattern(pattern, t.clone())?;
+                            pattern = apply_transform_to_pattern(&ctx.templates, pattern, t.clone())?;
                         }
 
                         (format!("{} (transformed)", base_str), pattern)
@@ -801,6 +930,10 @@ fn compile_function_call(
         "freeze" => compile_freeze(ctx, args),
         "distort" | "distortion" => compile_distortion(ctx, args),
         "delay" => compile_delay(ctx, args),
+        "tapedelay" | "tape" => compile_tapedelay(ctx, args),
+        "multitap" => compile_multitap(ctx, args),
+        "pingpong" => compile_pingpong(ctx, args),
+        "plate" => compile_plate(ctx, args),
         "chorus" => compile_chorus(ctx, args),
         "flanger" => compile_flanger(ctx, args),
         "compressor" | "comp" => compile_compressor(ctx, args),
@@ -2425,6 +2558,153 @@ fn compile_delay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
     Ok(ctx.graph.add_node(node))
 }
 
+/// Compile tape delay effect (vintage tape simulation)
+fn compile_tapedelay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 8 {
+        return Err(format!(
+            "tapedelay requires 8 parameters (time, feedback, wow_rate, wow_depth, flutter_rate, flutter_depth, saturation, mix), got {}",
+            params.len()
+        ));
+    }
+
+    let time_node = compile_expr(ctx, params[0].clone())?;
+    let feedback_node = compile_expr(ctx, params[1].clone())?;
+    let wow_rate_node = compile_expr(ctx, params[2].clone())?;
+    let wow_depth_node = compile_expr(ctx, params[3].clone())?;
+    let flutter_rate_node = compile_expr(ctx, params[4].clone())?;
+    let flutter_depth_node = compile_expr(ctx, params[5].clone())?;
+    let saturation_node = compile_expr(ctx, params[6].clone())?;
+    let mix_node = compile_expr(ctx, params[7].clone())?;
+
+    let node = SignalNode::TapeDelay {
+        input: input_signal,
+        time: Signal::Node(time_node),
+        feedback: Signal::Node(feedback_node),
+        wow_rate: Signal::Node(wow_rate_node),
+        wow_depth: Signal::Node(wow_depth_node),
+        flutter_rate: Signal::Node(flutter_rate_node),
+        flutter_depth: Signal::Node(flutter_depth_node),
+        saturation: Signal::Node(saturation_node),
+        mix: Signal::Node(mix_node),
+        state: TapeDelayState::new(ctx.sample_rate),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile multi-tap delay (rhythmic multiple echoes)
+fn compile_multitap(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 4 {
+        return Err(format!(
+            "multitap requires 4 parameters (time, taps, feedback, mix), got {}",
+            params.len()
+        ));
+    }
+
+    let time_node = compile_expr(ctx, params[0].clone())?;
+    let feedback_node = compile_expr(ctx, params[2].clone())?;
+    let mix_node = compile_expr(ctx, params[3].clone())?;
+
+    // Extract taps count (must be a constant)
+    let taps = if let Expr::Number(n) = params[1].clone() {
+        n as usize
+    } else {
+        return Err("multitap 'taps' parameter must be a constant number".to_string());
+    };
+
+    // Create delay buffer (1 second max)
+    let buffer_size = ctx.sample_rate as usize;
+
+    let node = SignalNode::MultiTapDelay {
+        input: input_signal,
+        time: Signal::Node(time_node),
+        taps,
+        feedback: Signal::Node(feedback_node),
+        mix: Signal::Node(mix_node),
+        buffer: vec![0.0; buffer_size],
+        write_idx: 0,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile ping-pong delay (stereo bouncing)
+fn compile_pingpong(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 5 {
+        return Err(format!(
+            "pingpong requires 5 parameters (time, feedback, stereo_width, channel, mix), got {}",
+            params.len()
+        ));
+    }
+
+    let time_node = compile_expr(ctx, params[0].clone())?;
+    let feedback_node = compile_expr(ctx, params[1].clone())?;
+    let stereo_width_node = compile_expr(ctx, params[2].clone())?;
+    let mix_node = compile_expr(ctx, params[4].clone())?;
+
+    // Extract channel (must be a constant boolean: 0=left, 1=right)
+    let channel = if let Expr::Number(n) = params[3].clone() {
+        n != 0.0
+    } else {
+        return Err("pingpong 'channel' parameter must be a constant (0=left, 1=right)".to_string());
+    };
+
+    // Create delay buffers (1 second max each)
+    let buffer_size = ctx.sample_rate as usize;
+
+    let node = SignalNode::PingPongDelay {
+        input: input_signal,
+        time: Signal::Node(time_node),
+        feedback: Signal::Node(feedback_node),
+        stereo_width: Signal::Node(stereo_width_node),
+        channel,
+        mix: Signal::Node(mix_node),
+        buffer_l: vec![0.0; buffer_size],
+        buffer_r: vec![0.0; buffer_size],
+        write_idx: 0,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Dattorro plate reverb
+fn compile_plate(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 6 {
+        return Err(format!(
+            "plate requires 6 parameters (pre_delay, decay, diffusion, damping, mod_depth, mix), got {}",
+            params.len()
+        ));
+    }
+
+    let pre_delay_node = compile_expr(ctx, params[0].clone())?;
+    let decay_node = compile_expr(ctx, params[1].clone())?;
+    let diffusion_node = compile_expr(ctx, params[2].clone())?;
+    let damping_node = compile_expr(ctx, params[3].clone())?;
+    let mod_depth_node = compile_expr(ctx, params[4].clone())?;
+    let mix_node = compile_expr(ctx, params[5].clone())?;
+
+    let node = SignalNode::DattorroReverb {
+        input: input_signal,
+        pre_delay: Signal::Node(pre_delay_node),
+        decay: Signal::Node(decay_node),
+        diffusion: Signal::Node(diffusion_node),
+        damping: Signal::Node(damping_node),
+        mod_depth: Signal::Node(mod_depth_node),
+        mix: Signal::Node(mix_node),
+        state: DattorroState::new(ctx.sample_rate),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
 /// Compile chorus effect
 fn compile_chorus(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     // Extract input (handles both standalone and chained forms)
@@ -3432,12 +3712,44 @@ fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<N
             args.insert(0, Expr::ChainInput(left_node)); // Type-safe!
             compile_function_call(ctx, &name, args)
         }
+        Expr::BusRef(bus_name) => {
+            // Check if this is an effect bus reference
+            if ctx.effect_buses.contains_key(&bus_name) {
+                // Compile the left side to get the signal node
+                let left_node = compile_expr(ctx, left)?;
+
+                // Add this signal as a send to the effect bus
+                ctx.effect_bus_sends
+                    .entry(bus_name.clone())
+                    .or_insert_with(Vec::new)
+                    .push(left_node);
+
+                // Compile the effect bus (mixing all sends) and return its output
+                return ctx.compile_effect_bus(&bus_name);
+            }
+
+            // Normal bus reference - compile left and ignore it, return bus
+            let _left_node = compile_expr(ctx, left)?;
+            compile_expr(ctx, Expr::BusRef(bus_name))
+        }
         Expr::Var(name) => {
             // Treat as zero-argument function call with chain input
             // This handles cases like: ~trigger # timer
             let left_node = compile_expr(ctx, left)?;
             let args = vec![Expr::ChainInput(left_node)];
             compile_function_call(ctx, &name, args)
+        }
+        Expr::TemplateRef(name) => {
+            // Expand template and re-chain with the expanded expression
+            // This handles: s "bd" # @filt where @filt: lpf 1000 0.8
+            let template_expr = ctx
+                .templates
+                .get(&name)
+                .cloned()
+                .ok_or_else(|| format!("Undefined template: @{}", name))?;
+
+            // Recursively compile chain with expanded template
+            compile_chain(ctx, left, template_expr)
         }
         _ => {
             // For other expressions, just compile them separately and connect
@@ -3548,7 +3860,7 @@ fn compile_transform(
             if let Expr::String(pattern_str) = &args[0] {
                 // Parse and transform the pattern
                 let mut pattern = parse_mini_notation(&pattern_str);
-                pattern = apply_transform_to_pattern(pattern, transform)?;
+                pattern = apply_transform_to_pattern(&ctx.templates, pattern, transform)?;
 
                 // Create Sample node with transformed pattern
                 let node = SignalNode::Sample {
@@ -3579,7 +3891,7 @@ fn compile_transform(
         let mut pattern = parse_mini_notation(&pattern_str);
 
         // Apply the transform to the pattern
-        pattern = apply_transform_to_pattern(pattern, transform)?;
+        pattern = apply_transform_to_pattern(&ctx.templates, pattern, transform)?;
 
         // Create a Pattern node with the transformed pattern
         let node = SignalNode::Pattern {
@@ -3630,7 +3942,7 @@ fn compile_transform(
 
                     // Apply all transforms in reverse order (innermost first)
                     for t in all_transforms.iter().rev() {
-                        pattern = apply_transform_to_pattern(pattern, t.clone())?;
+                        pattern = apply_transform_to_pattern(&ctx.templates, pattern, t.clone())?;
                     }
 
                     let node = SignalNode::Sample {
@@ -3659,7 +3971,7 @@ fn compile_transform(
 
                 // Apply all transforms in reverse order (innermost first)
                 for t in all_transforms.iter().rev() {
-                    pattern = apply_transform_to_pattern(pattern, t.clone())?;
+                    pattern = apply_transform_to_pattern(&ctx.templates, pattern, t.clone())?;
                 }
 
                 let node = SignalNode::Pattern {
@@ -3683,10 +3995,48 @@ fn compile_transform(
 
 /// Apply a transform to a pattern
 fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
+    templates: &HashMap<String, Expr>,
     pattern: Pattern<T>,
     transform: Transform,
 ) -> Result<Pattern<T>, String> {
     match transform {
+        // Template reference: look up template and apply it
+        Transform::TemplateRef(name) => {
+            // Look up the template expression
+            let template_expr = templates
+                .get(&name)
+                .cloned()
+                .ok_or_else(|| format!("Undefined template: @{}", name))?;
+
+            // The template should be a transform function call
+            // Extract the transform from the expression
+            if let Expr::Call { name: fn_name, args } = template_expr {
+                // Match against known transform functions
+                let transform = match fn_name.as_str() {
+                    "fast" if args.len() == 1 => Transform::Fast(Box::new(args[0].clone())),
+                    "slow" if args.len() == 1 => Transform::Slow(Box::new(args[0].clone())),
+                    "squeeze" if args.len() == 1 => Transform::Squeeze(Box::new(args[0].clone())),
+                    "rev" if args.is_empty() => Transform::Rev,
+                    "palindrome" if args.is_empty() => Transform::Palindrome,
+                    "degrade" if args.is_empty() => Transform::Degrade,
+                    "degradeBy" if args.len() == 1 => Transform::DegradeBy(Box::new(args[0].clone())),
+                    "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
+                    "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
+                    "swing" if args.len() == 1 => Transform::Swing(Box::new(args[0].clone())),
+                    "chop" if args.len() == 1 => Transform::Chop(Box::new(args[0].clone())),
+                    "scramble" if args.len() == 1 => Transform::Scramble(Box::new(args[0].clone())),
+                    "iter" if args.len() == 1 => Transform::Iter(Box::new(args[0].clone())),
+                    "early" if args.len() == 1 => Transform::Early(Box::new(args[0].clone())),
+                    "late" if args.len() == 1 => Transform::Late(Box::new(args[0].clone())),
+                    _ => return Err(format!("Template @{} is not a valid transform", name)),
+                };
+
+                // Recursively apply the extracted transform
+                apply_transform_to_pattern(templates, pattern, transform)
+            } else {
+                Err(format!("Template @{} is not a transform function", name))
+            }
+        }
         Transform::Fast(speed_expr) => {
             // Extract numeric value from expression
             let speed = extract_number(&speed_expr)?;
@@ -3790,16 +4140,17 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             // Extract the cycle interval
             let n_val = extract_number(&n)? as i32;
 
-            // Clone the pattern and transform for use in the closure
+            // Clone the pattern, transform, and templates for use in the closure
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
 
             // Manually inline Pattern::every logic to avoid closure issues
             Ok(Pattern::new(move |state| {
                 let cycle = state.span.begin.to_float().floor() as i32;
                 if cycle % n_val == 0 {
                     // Apply the transform on cycles divisible by n
-                    match apply_transform_to_pattern(pattern_clone.clone(), inner_transform.clone())
+                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
                     {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state), // Fallback to original on error
@@ -3918,15 +4269,16 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         } => {
             let begin_val = extract_number(&begin)?;
             let end_val = extract_number(&end)?;
-            // Clone pattern and transform for use in closure
+            // Clone pattern, transform, and templates for use in closure
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
 
             Ok(Pattern::new(move |state| {
                 let cycle_phase = state.span.begin.to_float() % 1.0;
                 if cycle_phase >= begin_val && cycle_phase < end_val {
                     // Inside the range: apply transform
-                    match apply_transform_to_pattern(pattern_clone.clone(), inner_transform.clone())
+                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
                     {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state),
@@ -3944,15 +4296,16 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         } => {
             let begin_val = extract_number(&begin)?;
             let end_val = extract_number(&end)?;
-            // Clone pattern and transform for use in closure
+            // Clone pattern, transform, and templates for use in closure
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
 
             Ok(Pattern::new(move |state| {
                 let cycle_phase = state.span.begin.to_float() % 1.0;
                 if cycle_phase < begin_val || cycle_phase >= end_val {
                     // Outside the range: apply transform
-                    match apply_transform_to_pattern(pattern_clone.clone(), inner_transform.clone())
+                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
                     {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state),
@@ -3966,9 +4319,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         Transform::Superimpose(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
 
             Ok(pattern.superimpose(move |p| {
-                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -3979,9 +4333,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let n_val = extract_number(&n)? as usize;
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
 
             Ok(pattern.chunk(n_val, move |p| {
-                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -3991,9 +4346,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         Transform::Sometimes(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
 
             Ok(pattern.sometimes(move |p| {
-                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -4003,9 +4359,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         Transform::Often(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
 
             Ok(pattern.often(move |p| {
-                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -4015,9 +4372,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         Transform::Rarely(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
 
             Ok(pattern.rarely(move |p| {
-                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -4028,9 +4386,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let prob_val = extract_number(&prob)?;
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
 
             Ok(pattern.sometimes_by(prob_val, move |p| {
-                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -4040,9 +4399,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         Transform::AlmostAlways(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
 
             Ok(pattern.sometimes_by(0.9, move |p| {
-                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -4052,9 +4412,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         Transform::AlmostNever(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
 
             Ok(pattern.sometimes_by(0.1, move |p| {
-                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -4063,9 +4424,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
 
         Transform::Always(transform) => {
             let inner_transform = (*transform).clone();
+            let templates_clone = templates.clone();
 
             Ok(pattern.always(move |p| {
-                match apply_transform_to_pattern(p, inner_transform.clone()) {
+                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(e) => panic!("Transform error in always: {}", e),
                 }
@@ -4081,11 +4443,12 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let offset_val = extract_number(&offset)? as i32;
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
 
             Ok(pattern.when_mod(
                 modulo_val,
                 offset_val,
-                move |p| match apply_transform_to_pattern(p, inner_transform.clone()) {
+                move |p| match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 },
@@ -4144,11 +4507,12 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let end_val = extract_number(&end)?;
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
 
             Ok(pattern.within(
                 begin_val,
                 end_val,
-                move |p| match apply_transform_to_pattern(p, inner_transform.clone()) {
+                move |p| match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 },
