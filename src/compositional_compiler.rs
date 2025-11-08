@@ -1786,16 +1786,18 @@ fn compile_xline(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
 fn compile_asr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     use crate::unified_graph::ASRState;
 
-    if args.len() != 3 {
-        return Err(format!(
-            "asr requires 3 parameters (gate, attack, release), got {}",
-            args.len()
-        ));
-    }
+    // Use ParamExtractor for keyword argument support
+    let extractor = ParamExtractor::new(args);
 
-    let gate_node = compile_expr(ctx, args[0].clone())?;
-    let attack_node = compile_expr(ctx, args[1].clone())?;
-    let release_node = compile_expr(ctx, args[2].clone())?;
+    // All three parameters are required
+    let gate_expr = extractor.get_required(0, "gate")?;
+    let gate_node = compile_expr(ctx, gate_expr)?;
+
+    let attack_expr = extractor.get_required(1, "attack")?;
+    let attack_node = compile_expr(ctx, attack_expr)?;
+
+    let release_expr = extractor.get_required(2, "release")?;
+    let release_node = compile_expr(ctx, release_expr)?;
 
     let node = SignalNode::ASR {
         gate: Signal::Node(gate_node),
@@ -3556,16 +3558,15 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
 }
 
 fn compile_ad(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
-    if args.len() != 2 {
-        return Err(format!(
-            "ad requires 2 parameters (attack, decay), got {}",
-            args.len()
-        ));
-    }
+    // Use ParamExtractor for keyword argument support
+    let extractor = ParamExtractor::new(args);
 
-    // Compile each parameter as a signal (supports pattern modulation!)
-    let attack_node = compile_expr(ctx, args[0].clone())?;
-    let decay_node = compile_expr(ctx, args[1].clone())?;
+    // Both parameters are required
+    let attack_expr = extractor.get_required(0, "attack")?;
+    let attack_node = compile_expr(ctx, attack_expr)?;
+
+    let decay_expr = extractor.get_required(1, "decay")?;
+    let decay_node = compile_expr(ctx, decay_expr)?;
 
     use crate::unified_graph::ADState;
 
