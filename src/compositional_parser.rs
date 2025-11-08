@@ -1008,16 +1008,44 @@ fn parse_var(input: &str) -> IResult<&str, Expr> {
     Ok((input, Expr::Var(name.to_string())))
 }
 
-/// Parse a kwarg: key="value" or key=expr
+/// Parse a kwarg: BOTH syntaxes supported!
+/// - Colon style: :cutoff 1000, :q 0.8 (better for autocomplete - editor knows you want kwargs)
+/// - Equals style: cutoff=1000, q=0.8 (familiar syntax)
 /// BANNED: DSP parameter names (gain, pan, speed, cut, attack, release)
 /// These must use # chaining syntax instead: s "bd" # gain 0.7
 fn parse_kwarg(input: &str) -> IResult<&str, Expr> {
-    let (input, name) = parse_identifier(input)?;
+    // Try colon syntax first: :name value
+    if let Ok((rest, _)) = char::<_, nom::error::Error<&str>>(':')(input) {
+        // Parse parameter name
+        let (rest, name) = parse_identifier(rest)?;
 
-    // Check for = without consuming space
+        // Reject DSP parameter names
+        const BANNED_KWARGS: &[&str] = &["gain", "pan", "speed", "cut", "attack", "release", "n"];
+        if BANNED_KWARGS.contains(&name) {
+            return Err(nom::Err::Error(nom::error::Error::new(
+                rest,
+                nom::error::ErrorKind::Tag,
+            )));
+        }
+
+        // Require space before value
+        let (rest, _) = space1(rest)?;
+        let (rest, value) = parse_primary_expr(rest)?;
+
+        return Ok((
+            rest,
+            Expr::Kwarg {
+                name: name.to_string(),
+                value: Box::new(value),
+            },
+        ));
+    }
+
+    // Fall back to equals syntax: name=value
+    let (input, name) = parse_identifier(input)?;
     let (input, _) = char('=')(input)?;
 
-    // Reject DSP parameter names - these must use # chaining
+    // Reject DSP parameter names
     const BANNED_KWARGS: &[&str] = &["gain", "pan", "speed", "cut", "attack", "release", "n"];
     if BANNED_KWARGS.contains(&name) {
         return Err(nom::Err::Error(nom::error::Error::new(
@@ -1026,7 +1054,6 @@ fn parse_kwarg(input: &str) -> IResult<&str, Expr> {
         )));
     }
 
-    // Parse the value expression
     let (input, value) = parse_primary_expr(input)?;
 
     Ok((
@@ -1040,13 +1067,13 @@ fn parse_kwarg(input: &str) -> IResult<&str, Expr> {
 
 /// Parse either a kwarg or a regular argument
 fn parse_arg_or_kwarg(input: &str) -> IResult<&str, Expr> {
-    // Try kwarg first (identifier=expr), then fall back to regular primary expr
+    // Try kwarg first (both :name value and name=value), then fall back to regular primary expr
     alt((parse_kwarg, parse_primary_expr))(input)
 }
 
 /// Parse function call: name arg1 arg2 ...
 /// ONLY space-separated syntax is supported (no parentheses/commas)
-/// Supports kwargs: name arg1 key1=val1 key2=val2
+/// Supports kwargs: name arg1 :key1 val1 key2=val2 (both syntaxes work!)
 fn parse_function_call(input: &str) -> IResult<&str, Expr> {
     let (input, name) = parse_identifier(input)?;
 

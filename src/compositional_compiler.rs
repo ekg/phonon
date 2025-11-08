@@ -39,6 +39,85 @@ struct FunctionDef {
     return_expr: Expr,
 }
 
+/// Parameter extractor - handles mixed positional and keyword arguments
+/// Supports both `:name value` and `name=value` syntax
+struct ParamExtractor {
+    positional: Vec<Expr>,
+    kwargs: HashMap<String, Expr>,
+}
+
+impl ParamExtractor {
+    /// Create a new extractor from a list of arguments
+    fn new(args: Vec<Expr>) -> Self {
+        let mut positional = Vec::new();
+        let mut kwargs = HashMap::new();
+
+        for arg in args {
+            match arg {
+                Expr::Kwarg { name, value } => {
+                    kwargs.insert(name, *value);
+                }
+                _ => {
+                    positional.push(arg);
+                }
+            }
+        }
+
+        Self { positional, kwargs }
+    }
+
+    /// Get a required parameter (no default)
+    /// Looks first at positional[index], then at kwargs[name]
+    fn get_required(&self, index: usize, name: &str) -> Result<Expr, String> {
+        // Try positional first
+        if let Some(expr) = self.positional.get(index) {
+            return Ok(expr.clone());
+        }
+
+        // Try keyword
+        if let Some(expr) = self.kwargs.get(name) {
+            return Ok(expr.clone());
+        }
+
+        Err(format!(
+            "Missing required parameter '{}' (positional index {})",
+            name, index
+        ))
+    }
+
+    /// Get an optional parameter with a default value
+    /// Returns positional[index] if present, else kwargs[name], else default
+    fn get_optional(
+        &self,
+        index: usize,
+        name: &str,
+        default: f32,
+    ) -> Expr {
+        // Try positional first
+        if let Some(expr) = self.positional.get(index) {
+            return expr.clone();
+        }
+
+        // Try keyword
+        if let Some(expr) = self.kwargs.get(name) {
+            return expr.clone();
+        }
+
+        // Use default
+        Expr::Number(default as f64)
+    }
+
+    /// Get count of positional arguments provided
+    fn positional_count(&self) -> usize {
+        self.positional.len()
+    }
+
+    /// Check if a keyword argument was provided
+    fn has_kwarg(&self, name: &str) -> bool {
+        self.kwargs.contains_key(name)
+    }
+}
+
 impl CompilerContext {
     pub fn new(sample_rate: f32) -> Self {
         Self {
@@ -2203,17 +2282,16 @@ fn compile_filter(
     // Extract input (handles both standalone and chained forms)
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    if params.len() != 2 {
-        return Err(format!(
-            "{} requires 2 parameters (cutoff, q), got {}",
-            filter_type,
-            params.len()
-        ));
-    }
+    // Use ParamExtractor for optional q parameter
+    let extractor = ParamExtractor::new(params);
 
-    // Compile cutoff and q expressions
-    let cutoff_node = compile_expr(ctx, params[0].clone())?;
-    let q_node = compile_expr(ctx, params[1].clone())?;
+    // cutoff is required (positional index 0, or :cutoff)
+    let cutoff_expr = extractor.get_required(0, "cutoff")?;
+    let cutoff_node = compile_expr(ctx, cutoff_expr)?;
+
+    // q is optional (positional index 1, or :q, defaults to 1.0)
+    let q_expr = extractor.get_optional(1, "q", 1.0);
+    let q_node = compile_expr(ctx, q_expr)?;
 
     // Create the appropriate filter node
     use crate::unified_graph::FilterState;
