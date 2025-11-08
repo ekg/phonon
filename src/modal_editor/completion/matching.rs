@@ -3,6 +3,7 @@
 //! Filters available completions based on partial input and context
 
 use super::context::CompletionContext;
+use super::function_metadata::FUNCTION_METADATA;
 use crate::modal_editor::highlighting::FUNCTIONS;
 
 /// Type of completion item
@@ -11,6 +12,7 @@ pub enum CompletionType {
     Function,
     Sample,
     Bus,
+    Keyword,
 }
 
 impl CompletionType {
@@ -20,6 +22,7 @@ impl CompletionType {
             CompletionType::Function => "[function]",
             CompletionType::Sample => "[sample]",
             CompletionType::Bus => "[bus]",
+            CompletionType::Keyword => "[param]",
         }
     }
 }
@@ -127,17 +130,36 @@ pub fn filter_completions(
             }
         }
 
+        CompletionContext::Keyword(func_name) => {
+            // Show parameter names for this function
+            if let Some(metadata) = FUNCTION_METADATA.get(func_name) {
+                for param in &metadata.params {
+                    let param_with_colon = format!(":{}", param.name);
+                    if param_with_colon.starts_with(partial) || param.name.starts_with(partial.trim_start_matches(':')) {
+                        completions.push(Completion::new(
+                            param_with_colon,
+                            CompletionType::Keyword,
+                        ));
+                    }
+                }
+            }
+        }
+
         CompletionContext::None => {
             // No completions
         }
     }
 
-    // Sort: samples first, then buses, alphabetically within each group
+    // Sort: samples first, then buses, then keywords, alphabetically within each group
     completions.sort_by(|a, b| {
         use std::cmp::Ordering;
         match (a.completion_type, b.completion_type) {
             (CompletionType::Sample, CompletionType::Bus) => Ordering::Less,
+            (CompletionType::Sample, CompletionType::Keyword) => Ordering::Less,
             (CompletionType::Bus, CompletionType::Sample) => Ordering::Greater,
+            (CompletionType::Bus, CompletionType::Keyword) => Ordering::Less,
+            (CompletionType::Keyword, CompletionType::Sample) => Ordering::Greater,
+            (CompletionType::Keyword, CompletionType::Bus) => Ordering::Greater,
             _ => a.text.cmp(&b.text),
         }
     });
@@ -308,5 +330,62 @@ mod tests {
         assert_eq!(CompletionType::Function.label(), "[function]");
         assert_eq!(CompletionType::Sample.label(), "[sample]");
         assert_eq!(CompletionType::Bus.label(), "[bus]");
+        assert_eq!(CompletionType::Keyword.label(), "[param]");
+    }
+
+    #[test]
+    fn test_keyword_completions_lpf() {
+        let samples = make_samples();
+        let buses = make_buses();
+        let context = CompletionContext::Keyword("lpf");
+
+        // Should show lpf parameters
+        let completions = filter_completions("", &context, &samples, &buses);
+
+        // lpf has cutoff and q parameters
+        assert!(completions.iter().any(|c| c.text == ":cutoff"));
+        assert!(completions.iter().any(|c| c.text == ":q"));
+        assert!(completions
+            .iter()
+            .all(|c| c.completion_type == CompletionType::Keyword));
+    }
+
+    #[test]
+    fn test_keyword_completions_reverb() {
+        let samples = make_samples();
+        let buses = make_buses();
+        let context = CompletionContext::Keyword("reverb");
+
+        let completions = filter_completions("", &context, &samples, &buses);
+
+        // reverb has room_size, damping, mix parameters
+        assert!(completions.iter().any(|c| c.text == ":room_size"));
+        assert!(completions.iter().any(|c| c.text == ":damping"));
+        assert!(completions.iter().any(|c| c.text == ":mix"));
+    }
+
+    #[test]
+    fn test_keyword_completions_filtered() {
+        let samples = make_samples();
+        let buses = make_buses();
+        let context = CompletionContext::Keyword("reverb");
+
+        // Filter by partial match
+        let completions = filter_completions(":m", &context, &samples, &buses);
+
+        // Should only show :mix (starts with :m)
+        assert_eq!(completions.len(), 1);
+        assert_eq!(completions[0].text, ":mix");
+    }
+
+    #[test]
+    fn test_keyword_completions_no_metadata() {
+        let samples = make_samples();
+        let buses = make_buses();
+        let context = CompletionContext::Keyword("unknown");
+
+        // Unknown function should return no completions
+        let completions = filter_completions("", &context, &samples, &buses);
+        assert!(completions.is_empty());
     }
 }
