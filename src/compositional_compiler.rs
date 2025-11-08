@@ -3467,22 +3467,32 @@ fn compile_envelope(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
 
 fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     // ADSR can be used in two ways:
-    // 1. Standalone ADSR envelope generator: adsr 0.01 0.1 0.7 0.2 (4 args)
-    // 2. Sample envelope modifier: s "bd" # adsr 0.01 0.1 0.7 0.2 (ChainInput + 4 args)
+    // 1. Standalone ADSR envelope generator: adsr 0.01 0.1 [:sustain 0.7] [:release 0.2]
+    // 2. Sample envelope modifier: s "bd" # adsr 0.01 0.1 [:sustain 0.7] [:release 0.2]
+
+    // Extract input (handles chained form)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    // Use ParamExtractor for optional parameters
+    let extractor = ParamExtractor::new(params);
+
+    // attack and decay are required
+    let attack_expr = extractor.get_required(0, "attack")?;
+    let attack_node = compile_expr(ctx, attack_expr)?;
+
+    let decay_expr = extractor.get_required(1, "decay")?;
+    let decay_node = compile_expr(ctx, decay_expr)?;
+
+    // sustain and release are optional
+    let sustain_expr = extractor.get_optional(2, "sustain", 0.7);  // 70% sustain level
+    let sustain_node = compile_expr(ctx, sustain_expr)?;
+
+    let release_expr = extractor.get_optional(3, "release", 0.2);  // 200ms release
+    let release_node = compile_expr(ctx, release_expr)?;
 
     // Check if this is a chained modifier (for samples)
-    if args.len() == 5 && matches!(args[0], Expr::ChainInput(_)) {
-        // Chained form: s "bd" # adsr 0.01 0.1 0.7 0.2
-        let sample_node_id = match &args[0] {
-            Expr::ChainInput(node_id) => *node_id,
-            _ => unreachable!("Already checked for ChainInput"),
-        };
-
-        // Compile ADSR parameters
-        let attack_node = compile_expr(ctx, args[1].clone())?;
-        let decay_node = compile_expr(ctx, args[2].clone())?;
-        let sustain_node = compile_expr(ctx, args[3].clone())?;
-        let release_node = compile_expr(ctx, args[4].clone())?;
+    if let Signal::Node(sample_node_id) = input_signal {
+        // Chained form: s "bd" # adsr 0.01 0.1
 
         // Modify the Sample node to use ADSR envelope
         use crate::unified_graph::RuntimeEnvelopeType;
@@ -3533,14 +3543,9 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
         } else {
             Err("adsr modifier can only be used with sample (s) patterns".to_string())
         }
-    } else if args.len() == 4 {
-        // Standalone form: adsr 0.01 0.1 0.7 0.2
-        // Compile each parameter as a signal (supports pattern modulation!)
-        let attack_node = compile_expr(ctx, args[0].clone())?;
-        let decay_node = compile_expr(ctx, args[1].clone())?;
-        let sustain_node = compile_expr(ctx, args[2].clone())?;
-        let release_node = compile_expr(ctx, args[3].clone())?;
-
+    } else {
+        // Standalone form: adsr 0.01 0.1 [:sustain 0.7] [:release 0.2]
+        // Parameters already compiled above
         use crate::unified_graph::ADSRState;
 
         let node = SignalNode::ADSR {
@@ -3552,11 +3557,6 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
         };
 
         Ok(ctx.graph.add_node(node))
-    } else {
-        Err(format!(
-            "adsr requires 4 parameters (attack, decay, sustain, release), got {}",
-            args.len()
-        ))
     }
 }
 
