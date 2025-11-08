@@ -2431,22 +2431,19 @@ fn compile_reverb(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
     // Extract input (handles both standalone and chained forms)
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    if params.len() != 2 && params.len() != 3 {
-        return Err(format!(
-            "reverb requires 2-3 parameters (room_size, damping, [mix=0.3]), got {}",
-            params.len()
-        ));
-    }
+    // Use ParamExtractor for optional mix parameter
+    let extractor = ParamExtractor::new(params);
 
-    // Compile parameters
-    let room_node = compile_expr(ctx, params[0].clone())?;
-    let damp_node = compile_expr(ctx, params[1].clone())?;
-    let mix_node = if params.len() == 3 {
-        compile_expr(ctx, params[2].clone())?
-    } else {
-        // Default mix = 0.3 (30% wet)
-        ctx.graph.add_node(SignalNode::Constant { value: 0.3 })
-    };
+    // room_size and damping are required
+    let room_expr = extractor.get_required(0, "room_size")?;
+    let room_node = compile_expr(ctx, room_expr)?;
+
+    let damp_expr = extractor.get_required(1, "damping")?;
+    let damp_node = compile_expr(ctx, damp_expr)?;
+
+    // mix is optional (defaults to 0.3 = 30% wet)
+    let mix_expr = extractor.get_optional(2, "mix", 0.3);
+    let mix_node = compile_expr(ctx, mix_expr)?;
 
     use crate::unified_graph::ReverbState;
 
@@ -2864,21 +2861,19 @@ fn compile_chorus(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
     // Extract input (handles both standalone and chained forms)
     let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    if params.len() != 2 && params.len() != 3 {
-        return Err(format!(
-            "chorus requires 2-3 parameters (rate, depth, [mix=0.3]), got {}",
-            params.len()
-        ));
-    }
+    // Use ParamExtractor for optional mix parameter
+    let extractor = ParamExtractor::new(params);
 
-    let rate_node = compile_expr(ctx, params[0].clone())?;
-    let depth_node = compile_expr(ctx, params[1].clone())?;
-    let mix_node = if params.len() == 3 {
-        compile_expr(ctx, params[2].clone())?
-    } else {
-        // Default mix = 0.3 (30% wet)
-        ctx.graph.add_node(SignalNode::Constant { value: 0.3 })
-    };
+    // rate and depth are required
+    let rate_expr = extractor.get_required(0, "rate")?;
+    let rate_node = compile_expr(ctx, rate_expr)?;
+
+    let depth_expr = extractor.get_required(1, "depth")?;
+    let depth_node = compile_expr(ctx, depth_expr)?;
+
+    // mix is optional (defaults to 0.3 = 30% wet)
+    let mix_expr = extractor.get_optional(2, "mix", 0.3);
+    let mix_node = compile_expr(ctx, mix_expr)?;
 
     use crate::unified_graph::ChorusState;
 
