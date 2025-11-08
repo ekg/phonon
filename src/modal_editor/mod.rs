@@ -5,9 +5,11 @@
 //! Provides a full-screen text editor for writing Phonon DSL code with
 //! real-time audio generation triggered by Shift+Enter
 
+mod command_console;
 mod completion;
 mod highlighting;
 
+use command_console::CommandConsole;
 use highlighting::highlight_line;
 
 use crate::compositional_compiler::compile_program;
@@ -68,6 +70,8 @@ pub struct ModalEditor {
     sample_names: Vec<String>,
     /// Available bus names from current content
     bus_names: Vec<String>,
+    /// Command console for help and discovery
+    command_console: CommandConsole,
 }
 
 impl ModalEditor {
@@ -160,7 +164,7 @@ impl ModalEditor {
             cursor_pos,
             content,
             file_path,
-            status_message: "🎵 Ready - C-x: eval | C-u: undo | C-r: redo | Tab: complete"
+            status_message: "🎵 Ready - C-x: eval | C-u: undo | C-r: redo | Tab: complete | Alt-/: help"
                 .to_string(),
             is_playing: false,
             error_message: None,
@@ -175,6 +179,7 @@ impl ModalEditor {
             completion_state: completion::CompletionState::new(),
             sample_names: completion::discover_samples(),
             bus_names,
+            command_console: CommandConsole::new(),
         })
     }
 
@@ -321,9 +326,20 @@ impl ModalEditor {
 
     /// Handle keyboard input
     fn handle_key_event(&mut self, key: KeyEvent) -> KeyResult {
+        // If command console is visible, route keys to it
+        if self.command_console.is_visible() {
+            return self.handle_console_key_event(key);
+        }
+
         match key.code {
             // Quit with Alt+Q (Ctrl+Q conflicts with terminal flow control)
             KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::ALT) => KeyResult::Quit,
+
+            // Alt+/ : Toggle command console
+            KeyCode::Char('/') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.command_console.toggle();
+                KeyResult::Continue
+            }
 
             // Ctrl+X: Evaluate current block (chunk)
             KeyCode::Char('x') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -658,6 +674,25 @@ impl ModalEditor {
                 .style(Style::default().fg(Color::White));
 
             f.render_widget(console_paragraph, console_area);
+        }
+
+        // Command console overlay (rendered on top of everything)
+        if self.command_console.is_visible() {
+            // Create centered popup area (80% width, 60% height)
+            let area = f.size();
+            let popup_width = (area.width as f32 * 0.8) as u16;
+            let popup_height = (area.height as f32 * 0.6) as u16;
+            let popup_x = (area.width - popup_width) / 2;
+            let popup_y = (area.height - popup_height) / 2;
+
+            let popup_area = ratatui::layout::Rect {
+                x: popup_x,
+                y: popup_y,
+                width: popup_width,
+                height: popup_height,
+            };
+
+            self.command_console.render(f, popup_area);
         }
     }
 
@@ -1566,6 +1601,51 @@ impl ModalEditor {
             "{} completions | Tab/↑↓: navigate | Enter: accept | Esc: cancel",
             completions.len()
         );
+    }
+
+    /// Handle key events when command console is visible
+    fn handle_console_key_event(&mut self, key: KeyEvent) -> KeyResult {
+        match key.code {
+            // Esc or Alt+/ : Close console
+            KeyCode::Esc => {
+                self.command_console.hide();
+                KeyResult::Continue
+            }
+            KeyCode::Char('/') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.command_console.toggle();
+                KeyResult::Continue
+            }
+
+            // Enter : Execute command
+            KeyCode::Enter => {
+                self.command_console.execute_command();
+                KeyResult::Continue
+            }
+
+            // Character input
+            KeyCode::Char(c) => {
+                self.command_console.insert_char(c);
+                KeyResult::Continue
+            }
+
+            // Backspace
+            KeyCode::Backspace => {
+                self.command_console.delete_char();
+                KeyResult::Continue
+            }
+
+            // Arrow keys for cursor movement
+            KeyCode::Left => {
+                self.command_console.cursor_left();
+                KeyResult::Continue
+            }
+            KeyCode::Right => {
+                self.command_console.cursor_right();
+                KeyResult::Continue
+            }
+
+            _ => KeyResult::Continue,
+        }
     }
 }
 

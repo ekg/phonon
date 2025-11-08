@@ -4,6 +4,8 @@
 
 Phonon supports optional keyword arguments for all function parameters using the `:param value` syntax. This makes the language more ergonomic and discoverable while maintaining fast positional syntax for live coding.
 
+**NEW: Interactive Help System!** Press `Alt+/` in the live editor to open the command console and explore functions, parameters, and examples interactively.
+
 ## Syntax
 
 ```phonon
@@ -231,3 +233,43 @@ out: ~delayed * 0.25
 ```
 
 This example shows how keyword arguments make complex signal chains more readable while maintaining the live-coding flow.
+
+## Command Console (Alt+/)
+
+The interactive command console provides searchable help and documentation for all functions. Press `Alt+/` in the live editor to open it.
+
+### Available Commands
+
+```
+/help [function]        - Show help for a specific function (or general help)
+/functions [category]   - List all functions (optionally filter by category)
+/search <query>         - Search functions by name, description, or category
+/params <function>      - Show detailed parameter information for a function
+/categories             - List all function categories
+```
+
+### Examples
+
+```bash
+# Get help on the lpf function
+/help lpf
+
+# List all filter functions
+/functions Filters
+
+# Search for reverb-related functions
+/search reverb
+
+# Show parameters for adsr envelope
+/params adsr
+```
+
+### Categories
+
+- **Filters** - lpf, hpf, bpf, notch
+- **Envelopes** - adsr, ad, asr
+- **Effects** - reverb, chorus, delay, distort
+- **Patterns** - s (sample trigger)
+- **Transforms** - fast, slow, every, rev
+
+Press `Esc` or `Alt+/` again to close the console.
