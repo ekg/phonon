@@ -4,6 +4,37 @@
 
 I've successfully implemented **4 new effects** with full Dattorro reverb algorithm, comprehensive testing, and effect bus integration.
 
+## 🎯 Optional Positional Arguments (NEW!)
+
+**All 4 effects now support minimal syntax for live coding ergonomics!**
+
+You can now specify just the essential parameters, and the remaining parameters use sensible defaults:
+
+| Effect | Minimal Syntax | Required Params | Optional Params |
+|--------|----------------|-----------------|-----------------|
+| **tapedelay** | `tapedelay 0.375 0.7` | time, feedback | wow_rate, wow_depth, flutter_rate, flutter_depth, saturation, mix |
+| **multitap** | `multitap 0.25 4` | time, taps | feedback, mix |
+| **pingpong** | `pingpong 0.5 0.6` | time, feedback | stereo_width, channel, mix |
+| **plate** | `plate 0.02 0.85` | pre_delay, decay | diffusion, damping, mod_depth, mix |
+
+**Examples**:
+```phonon
+-- Minimal (just required params)
+~dub: s "bd sn" # tapedelay 0.375 0.7
+
+-- Partial (some optional params)
+~dub: s "bd sn" # tapedelay 0.375 0.7 0.8 0.04
+
+-- Full control (all params)
+~dub: s "bd sn" # tapedelay 0.375 0.7 0.5 0.02 6.0 0.05 0.3 0.5
+```
+
+**Default Values**:
+- **tapedelay**: wow_rate=0.5, wow_depth=0.02, flutter_rate=6.0, flutter_depth=0.05, saturation=0.3, mix=0.5
+- **multitap**: feedback=0.5, mix=0.6
+- **pingpong**: stereo_width=0.8, channel=0 (left), mix=0.7
+- **plate**: diffusion=0.7, damping=0.3, mod_depth=0.3, mix=0.5
+
 ## ✅ What's Implemented
 
 ### 1. **Tape Delay** - Vintage Tape Simulation
