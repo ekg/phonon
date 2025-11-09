@@ -2914,23 +2914,25 @@ fn compile_chorus(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
 
 /// Compile flanger effect
 fn compile_flanger(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
-    // Flanger expects 4 params: input, depth, rate, feedback
-    if args.len() != 4 {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    // Flanger expects 3 params after input: depth, rate, feedback
+    if params.len() != 3 {
         return Err(format!(
-            "flanger requires 4 parameters (input, depth, rate, feedback), got {}",
-            args.len()
+            "flanger requires 3 parameters (depth, rate, feedback), got {}",
+            params.len()
         ));
     }
 
-    let input_node = compile_expr(ctx, args[0].clone())?;
-    let depth_node = compile_expr(ctx, args[1].clone())?;
-    let rate_node = compile_expr(ctx, args[2].clone())?;
-    let feedback_node = compile_expr(ctx, args[3].clone())?;
+    let depth_node = compile_expr(ctx, params[0].clone())?;
+    let rate_node = compile_expr(ctx, params[1].clone())?;
+    let feedback_node = compile_expr(ctx, params[2].clone())?;
 
     use crate::unified_graph::FlangerState;
 
     let node = SignalNode::Flanger {
-        input: Signal::Node(input_node),
+        input: input_signal,
         depth: Signal::Node(depth_node),
         rate: Signal::Node(rate_node),
         feedback: Signal::Node(feedback_node),
