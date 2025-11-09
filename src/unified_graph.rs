@@ -5919,8 +5919,7 @@ impl UnifiedSignalGraph {
                             .clamp(-1.0, 1.0);
                         let speed_val = self
                             .eval_signal_at_time(&speed, event_start_abs)
-                            .max(0.01)
-                            .min(10.0);
+                            .clamp(-10.0, 10.0); // Allow negative speed for reverse playback
                         let cut_group_val = self.eval_signal_at_time(&cut_group, event_start_abs);
                         let cut_group_opt = if cut_group_val > 0.0 {
                             Some(cut_group_val as u32)

@@ -207,12 +207,20 @@ impl Voice {
         attack: f32,
         release: f32,
     ) {
+        // Initialize position based on speed direction
+        // For reverse playback (negative speed), start at end of sample
+        let initial_position = if speed < 0.0 {
+            sample.len() as f32 - 1.0
+        } else {
+            0.0
+        };
+
         self.sample_data = Some(sample);
-        self.position = 0.0;
+        self.position = initial_position;
         self.state = VoiceState::Playing;
         self.gain = gain;
         self.pan = pan.clamp(-1.0, 1.0);
-        self.speed = speed.max(0.01); // Prevent zero or negative speed for now
+        self.speed = speed; // Allow negative speed for reverse playback
         self.age = 0;
         self.cut_group = cut_group;
         self.attack = attack.max(0.0001); // Minimum 0.1ms
@@ -236,12 +244,19 @@ impl Voice {
         sustain: f32,
         release: f32,
     ) {
+        // Initialize position based on speed direction
+        let initial_position = if speed < 0.0 {
+            sample.len() as f32 - 1.0
+        } else {
+            0.0
+        };
+
         self.sample_data = Some(sample);
-        self.position = 0.0;
+        self.position = initial_position;
         self.state = VoiceState::Playing;
         self.gain = gain;
         self.pan = pan.clamp(-1.0, 1.0);
-        self.speed = speed.max(0.01);
+        self.speed = speed; // Allow negative speed for reverse playback
         self.age = 0;
         self.cut_group = cut_group;
         self.attack = attack;
@@ -263,12 +278,19 @@ impl Voice {
         levels: Vec<f32>,
         times: Vec<f32>,
     ) {
+        // Initialize position based on speed direction
+        let initial_position = if speed < 0.0 {
+            sample.len() as f32 - 1.0
+        } else {
+            0.0
+        };
+
         self.sample_data = Some(sample);
-        self.position = 0.0;
+        self.position = initial_position;
         self.state = VoiceState::Playing;
         self.gain = gain;
         self.pan = pan.clamp(-1.0, 1.0);
-        self.speed = speed.max(0.01);
+        self.speed = speed; // Allow negative speed for reverse playback
         self.age = 0;
         self.cut_group = cut_group;
 
@@ -290,12 +312,19 @@ impl Voice {
         duration: f32,
         curve: f32,
     ) {
+        // Initialize position based on speed direction
+        let initial_position = if speed < 0.0 {
+            sample.len() as f32 - 1.0
+        } else {
+            0.0
+        };
+
         self.sample_data = Some(sample);
-        self.position = 0.0;
+        self.position = initial_position;
         self.state = VoiceState::Playing;
         self.gain = gain;
         self.pan = pan.clamp(-1.0, 1.0);
-        self.speed = speed.max(0.01);
+        self.speed = speed; // Allow negative speed for reverse playback
         self.age = 0;
         self.cut_group = cut_group;
 
@@ -361,30 +390,48 @@ impl Voice {
         if let Some(ref samples) = self.sample_data {
             let sample_len = samples.len() as f32;
 
-            // Handle looping: wrap position if it exceeds sample length
-            if self.loop_enabled && self.position >= sample_len {
-                self.position = self.position % sample_len;
+            // Handle looping: wrap position if it exceeds boundaries
+            if self.loop_enabled {
+                if self.speed >= 0.0 && self.position >= sample_len {
+                    self.position = self.position % sample_len;
+                } else if self.speed < 0.0 && self.position < 0.0 {
+                    // Reverse looping: wrap from end
+                    self.position = sample_len - 1.0 + (self.position % sample_len);
+                }
             }
 
-            if self.position < sample_len {
+            // Check if position is within bounds (handles both forward and reverse)
+            let is_in_bounds = self.position >= 0.0 && self.position < sample_len;
+
+            if is_in_bounds {
                 // Linear interpolation for fractional positions
                 let pos_floor = self.position.floor() as usize;
                 let pos_frac = self.position - pos_floor as f32;
 
-                let sample_value = if pos_floor + 1 < samples.len() {
-                    // Interpolate between current and next sample
-                    let current = samples[pos_floor];
-                    let next = samples[pos_floor + 1];
-                    current * (1.0 - pos_frac) + next * pos_frac
+                let sample_value = if self.speed >= 0.0 {
+                    // Forward playback: interpolate forward
+                    if pos_floor + 1 < samples.len() {
+                        let current = samples[pos_floor];
+                        let next = samples[pos_floor + 1];
+                        current * (1.0 - pos_frac) + next * pos_frac
+                    } else {
+                        samples[pos_floor]
+                    }
                 } else {
-                    // Last sample, no interpolation
-                    samples[pos_floor]
+                    // Reverse playback: interpolate backward
+                    if pos_floor > 0 {
+                        let current = samples[pos_floor];
+                        let prev = samples[pos_floor - 1];
+                        current * (1.0 - pos_frac) + prev * pos_frac
+                    } else {
+                        samples[pos_floor]
+                    }
                 };
 
                 // Apply gain and envelope
                 let output_value = sample_value * self.gain * env_value;
 
-                // Advance position by speed
+                // Advance position by speed (negative speed moves backward)
                 self.position += self.speed;
                 self.age += 1;
 
