@@ -5969,9 +5969,10 @@ impl UnifiedSignalGraph {
                         // that let samples play through naturally.
                         let (final_attack, final_release) =
                             if attack_val == 0.0 && release_val == 0.0 {
-                                // No envelope requested: use anti-click attack and moderate release
-                                // to let the sample play through completely
-                                (0.001, 0.2) // 1ms attack (anti-click), 200ms release (enough for most samples)
+                                // No envelope requested: use anti-click attack and long release
+                                // to let the sample play through completely (TidalCycles behavior)
+                                // Long release (10s) ensures even long samples/loops play through
+                                (0.001, 10.0) // 1ms attack (anti-click), 10s release (enough for long samples)
                             } else {
                                 // Explicit envelope requested: use the values as-is
                                 (attack_val, release_val)
