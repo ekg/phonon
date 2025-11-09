@@ -1013,6 +1013,35 @@ fn parse_var(input: &str) -> IResult<&str, Expr> {
 /// The colon prefix makes autocomplete work better - editor knows you want kwargs
 /// BANNED: DSP parameter names (gain, pan, speed, cut, attack, release)
 /// These must use # chaining syntax instead: s "bd" # gain 0.7
+/// Parse key="value" or key=number syntax
+fn parse_kwarg_equals(input: &str) -> IResult<&str, Expr> {
+    // Parse parameter name
+    let (rest, name) = parse_identifier(input)?;
+
+    // Parse '=' sign
+    let (rest, _) = char::<_, nom::error::Error<&str>>('=')(rest)?;
+
+    // Reject DSP parameter names that should use # chaining
+    const BANNED_KWARGS: &[&str] = &["gain", "pan", "speed", "cut", "n"];
+    if BANNED_KWARGS.contains(&name) {
+        return Err(nom::Err::Error(nom::error::Error::new(
+            rest,
+            nom::error::ErrorKind::Tag,
+        )));
+    }
+
+    // Parse value (string literal, number, or identifier)
+    let (rest, value) = parse_primary_expr(rest)?;
+
+    Ok((
+        rest,
+        Expr::Kwarg {
+            name: name.to_string(),
+            value: Box::new(value),
+        },
+    ))
+}
+
 fn parse_kwarg(input: &str) -> IResult<&str, Expr> {
     // Parse :name value syntax
     let (rest, _) = char::<_, nom::error::Error<&str>>(':')(input)?;
@@ -1045,8 +1074,8 @@ fn parse_kwarg(input: &str) -> IResult<&str, Expr> {
 
 /// Parse either a kwarg or a regular argument
 fn parse_arg_or_kwarg(input: &str) -> IResult<&str, Expr> {
-    // Try kwarg first (:name value), then fall back to regular primary expr
-    alt((parse_kwarg, parse_primary_expr))(input)
+    // Try kwarg with = first, then :name value, then fall back to regular primary expr
+    alt((parse_kwarg_equals, parse_kwarg, parse_primary_expr))(input)
 }
 
 /// Parse function call: name arg1 arg2 ...
