@@ -7,10 +7,15 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler, DslStatement};
 fn test_parse_hush_all() {
     let input = "hush";
     let result = parse_dsl(input);
-    assert!(result.is_ok(), "Should parse hush statement");
+
+    if let Err(ref e) = result {
+        println!("Parse error: {:?}", e);
+    }
+
+    assert!(result.is_ok(), "Should parse hush statement: {:?}", result);
 
     if let Ok((_, statements)) = result {
-        assert_eq!(statements.len(), 1);
+        assert_eq!(statements.len(), 1, "Expected 1 statement, got {:?}", statements);
         match &statements[0] {
             DslStatement::Hush { channel } => {
                 assert!(
@@ -18,7 +23,7 @@ fn test_parse_hush_all() {
                     "Plain 'hush' should have no channel (hushes all)"
                 );
             }
-            _ => panic!("Expected Hush statement"),
+            _ => panic!("Expected Hush statement, got: {:?}", statements[0]),
         }
     }
 }

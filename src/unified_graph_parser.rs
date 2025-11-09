@@ -1489,9 +1489,10 @@ fn preprocess_multiline(input: &str) -> String {
             continue;
         }
 
-        // Check if this line starts a new definition
+        // Check if this line starts a new definition or is a standalone command
         // A definition line has the pattern: identifier followed by colon
         // Examples: tempo:, out:, o1:, d1:, ~bus:, etc.
+        // Standalone commands: hush, hush1, hush2, panic
         let is_definition = if let Some(colon_pos) = trimmed.find(':') {
             let before_colon = &trimmed[..colon_pos];
             // Check if what's before the colon looks like an identifier
@@ -1500,7 +1501,8 @@ fn preprocess_multiline(input: &str) -> String {
                 && !before_colon.is_empty();
             is_valid_identifier
         } else {
-            false
+            // No colon - check if it's a standalone command
+            trimmed == "panic" || trimmed.starts_with("hush")
         };
 
         if is_definition {
@@ -1537,10 +1539,25 @@ pub fn parse_dsl(input: &str) -> IResult<&str, Vec<DslStatement>> {
     let static_input: &'static str = Box::leak(preprocessed.into_boxed_str());
 
     // Skip leading whitespace and comments
-    let (remaining, _) = skip_whitespace_and_comments(static_input)?;
+    let (mut remaining, _) = skip_whitespace_and_comments(static_input)?;
 
-    // Parse statements separated by whitespace/comments
-    separated_list0(skip_whitespace_and_comments, statement)(remaining)
+    // Parse statements manually to avoid issues with separated_list0
+    let mut statements = Vec::new();
+    while !remaining.is_empty() {
+        match statement(remaining) {
+            Ok((rest, stmt)) => {
+                statements.push(stmt);
+                // Skip whitespace after statement
+                match skip_whitespace_and_comments(rest) {
+                    Ok((new_rest, _)) => remaining = new_rest,
+                    Err(_) => break,
+                }
+            }
+            Err(_) => break,
+        }
+    }
+
+    Ok((remaining, statements))
 }
 
 /// Compile DSL to UnifiedSignalGraph
