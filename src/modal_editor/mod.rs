@@ -581,10 +581,38 @@ impl ModalEditor {
                 height: popup_height,
             };
 
-            // Build popup content with type labels
+            // Calculate scroll offset to keep selected item visible
+            // popup_height - 2 for borders = visible lines
+            let visible_items = (popup_height.saturating_sub(2)) as usize;
+            let scroll_offset = if selected_index < visible_items {
+                // Near the top, no scrolling needed
+                0
+            } else {
+                // Keep selected item in the middle of visible area when possible
+                let ideal_offset = selected_index.saturating_sub(visible_items / 2);
+                // But don't scroll past the end
+                let max_offset = completions.len().saturating_sub(visible_items);
+                ideal_offset.min(max_offset)
+            };
+
+            // Build popup content with type labels (only visible items)
             let mut popup_lines = Vec::new();
-            for (idx, completion) in completions.iter().enumerate() {
-                let is_selected = idx == selected_index;
+
+            // Show scroll indicator at top if there are items above
+            if scroll_offset > 0 {
+                popup_lines.push(Line::from(Span::styled(
+                    "  ▲ more above ▲",
+                    Style::default().fg(Color::DarkGray)
+                )));
+            }
+
+            let visible_completions = completions.iter()
+                .skip(scroll_offset)
+                .take(visible_items);
+
+            for (displayed_idx, completion) in visible_completions.enumerate() {
+                let actual_idx = scroll_offset + displayed_idx;
+                let is_selected = actual_idx == selected_index;
                 let prefix = if is_selected { "► " } else { "  " };
                 let style = if is_selected {
                     Style::default().fg(Color::Black).bg(Color::Cyan)
@@ -600,6 +628,14 @@ impl ModalEditor {
                 );
 
                 popup_lines.push(Line::from(Span::styled(line_text, style)));
+            }
+
+            // Show scroll indicator at bottom if there are items below
+            if scroll_offset + visible_items < completions.len() {
+                popup_lines.push(Line::from(Span::styled(
+                    "  ▼ more below ▼",
+                    Style::default().fg(Color::DarkGray)
+                )));
             }
 
             let popup_block = Block::default()
