@@ -367,7 +367,12 @@ impl Voice {
         }
 
         // Process envelope
-        let env_value = self.envelope.process();
+        // For reverse playback, skip envelope (sample plays backwards, envelope would sound wrong)
+        let env_value = if self.speed < 0.0 {
+            1.0  // Full gain for reverse playback
+        } else {
+            self.envelope.process()
+        };
 
         // DEBUG: Log envelope state
         if std::env::var("DEBUG_VOICE_PROCESS").is_ok() && self.age < 10 {

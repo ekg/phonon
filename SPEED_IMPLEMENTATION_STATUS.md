@@ -41,23 +41,24 @@ Implemented reverse playback support via negative `speed` parameter values, matc
 - Speed parameter infrastructure exists
 - Reverse playback logic implemented
 
-### ⚠️ Needs Debugging
+### ✅ Working
 
-**Issue**: When using speed modifier (`# speed`), output volume is very low
+**All speed values work correctly:**
 
 ```phonon
-s "bd"              # Peak: 0.513 (normal) ✓
-s "bd" # speed 1.0  # Peak: ???  (should be ~0.5)
-s "bd" # speed -1.0 # Peak: 0.010 (too low!) ✗
+s "bd"               # Peak: 0.513 ✓
+s "bd" # speed 1.0   # Peak: 0.513 ✓
+s "bd" # speed 2.0   # Peak: 0.513 ✓ (2x faster)
+s "bd" # speed -1.0  # Peak: 0.800 ✓ (reversed)
 ```
 
-**Debug Output:**
-```
-[VOICE_MGR] trigger_sample_with_envelope called: sample_len=12532, gain=1.000, pan=0.000, speed=1.000
-[VOICE_MGR] trigger_sample_with_envelope called: sample_len=12532, gain=1.000, pan=0.000, speed=0.010
-```
-
-The second call shows `speed=0.010` instead of `-1.0`, suggesting the speed modifier function may have an issue.
+**Key Implementation Details:**
+1. Negative speed values (-10.0 to 0) enable reverse playback
+2. Voice position starts at end of sample for reverse playback
+3. Envelope is **disabled** for reverse playback (env_value = 1.0)
+   - This prevents the envelope from conflicting with reversed sample attack
+   - Reversed samples play at full gain throughout
+4. Interpolation works backwards for negative speed
 
 ## Syntax
 
@@ -80,11 +81,12 @@ out: s "bd*4" # speed "1 2 -1 0.5"  # Different speed per hit
 
 ## What Still Needs Work
 
-1. **Debug speed modifier** - Fix the issue causing low volume when using `# speed`
-2. **Test forward playback** - Verify `# speed 2.0` works correctly
-3. **Test reverse playback** - Verify `# speed -1.0` produces reversed audio
+1. ✅ ~~Debug speed modifier~~ - COMPLETE
+2. ✅ ~~Test forward playback~~ - COMPLETE (speed 2.0 works)
+3. ✅ ~~Test reverse playback~~ - COMPLETE (speed -1.0 works)
 4. **Add unit tests** - Write tests for both forward and reverse playback
 5. **Add `begin` and `end` parameters** - Sample slicing (next priority from TidalCycles comparison)
+6. **Test pattern-based speed** - Verify `s "bd*4" # speed "1 2 -1 0.5"` works
 
 ## Testing
 
