@@ -871,6 +871,8 @@ fn compile_function_call(
             let mut release = Signal::Value(0.0);
             let mut unit_mode = Signal::Value(0.0); // 0 = rate mode (default)
             let mut loop_enabled = Signal::Value(0.0); // 0 = no loop (default)
+            let mut begin = Signal::Value(0.0); // 0.0 = start of sample
+            let mut end = Signal::Value(1.0);   // 1.0 = end of sample
 
             for kwarg in kwargs {
                 if let Expr::Kwarg { name, value } = kwarg {
@@ -906,6 +908,8 @@ fn compile_function_call(
                                 "note" => note = signal,
                                 "attack" => attack = signal,
                                 "release" => release = signal,
+                                "begin" => begin = signal,
+                                "end" => end = signal,
                                 _ => return Err(format!("Unknown sample parameter: {}", name)),
                             }
                         }
@@ -930,6 +934,8 @@ fn compile_function_call(
                 envelope_type: None,
                 unit_mode,
                 loop_enabled,
+                begin,
+                end,
             };
             Ok(ctx.graph.add_node(node))
         }
@@ -1048,6 +1054,8 @@ fn compile_function_call(
         "cut" => compile_cut_modifier(ctx, args),
         "attack" => compile_attack_modifier(ctx, args),
         "release" => compile_release_modifier(ctx, args),
+        "begin" => compile_begin_modifier(ctx, args),
+        "end" => compile_end_modifier(ctx, args),
 
         // General amplitude modifier for any signal (oscillators, filters, etc.)
         "amp" => compile_amp(ctx, args),
@@ -1187,6 +1195,8 @@ fn compile_cat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
         envelope_type: None,
         unit_mode: Signal::Value(0.0),    // 0 = rate mode (default)
         loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
+        begin: Signal::Value(0.0),        // 0.0 = start of sample
+        end: Signal::Value(1.0),          // 1.0 = end of sample
     };
 
     Ok(ctx.graph.add_node(node))
@@ -1254,6 +1264,8 @@ fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         envelope_type: None,
         unit_mode: Signal::Value(0.0),    // 0 = rate mode (default)
         loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
+        begin: Signal::Value(0.0),        // 0.0 = start of sample
+        end: Signal::Value(1.0),          // 1.0 = end of sample
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3534,6 +3546,8 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
                 }),
                 unit_mode: unit_mode.clone(),
                 loop_enabled: loop_enabled.clone(),
+                begin: Signal::Value(0.0),
+                end: Signal::Value(1.0),
             };
 
             Ok(ctx.graph.add_node(new_sample))
@@ -3988,6 +4002,8 @@ fn modify_sample_param(
             envelope_type: envelope_type.clone(),
             unit_mode: unit_mode.clone(),
             loop_enabled: loop_enabled.clone(),
+            begin: Signal::Value(0.0),
+            end: Signal::Value(1.0),
         };
 
         Ok(ctx.graph.add_node(new_sample))
@@ -4032,6 +4048,8 @@ fn compile_transform(
                     envelope_type: None,
                     unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
                     loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
+                    begin: Signal::Value(0.0),
+                    end: Signal::Value(1.0),
                 };
                 return Ok(ctx.graph.add_node(node));
             }
@@ -4114,6 +4132,8 @@ fn compile_transform(
                         envelope_type: None,
                         unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
                         loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
+                        begin: Signal::Value(0.0),
+                        end: Signal::Value(1.0),
                     };
                     return Ok(ctx.graph.add_node(node));
                 }
@@ -4875,6 +4895,52 @@ fn compile_speed_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<
 
     let speed_value = compile_expr(ctx, args[1].clone())?;
     modify_sample_param(ctx, sample_node_id, "speed", Signal::Node(speed_value))
+}
+
+/// Compile begin modifier: s "bd" # begin "0 0.25 0.5"
+/// Sets the start point for sample slicing (0.0 = start, 0.5 = middle, 1.0 = end)
+fn compile_begin_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "begin requires 2 arguments (sample_input, begin_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => *node_id,
+        _ => {
+            return Err(
+                "begin must be used with the chain operator: s \"bd\" # begin \"0.5\"".to_string(),
+            )
+        }
+    };
+
+    let begin_value = compile_expr(ctx, args[1].clone())?;
+    modify_sample_param(ctx, sample_node_id, "begin", Signal::Node(begin_value))
+}
+
+/// Compile end modifier: s "bd" # end "0.5 0.75 1"
+/// Sets the end point for sample slicing (0.0 = start, 0.5 = middle, 1.0 = end)
+fn compile_end_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "end requires 2 arguments (sample_input, end_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => *node_id,
+        _ => {
+            return Err(
+                "end must be used with the chain operator: s \"bd\" # end \"1\"".to_string(),
+            )
+        }
+    };
+
+    let end_value = compile_expr(ctx, args[1].clone())?;
+    modify_sample_param(ctx, sample_node_id, "end", Signal::Node(end_value))
 }
 
 /// Compile cut modifier: s "bd" # cut "1 2 1"

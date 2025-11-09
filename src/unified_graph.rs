@@ -681,6 +681,8 @@ pub enum SignalNode {
         envelope_type: Option<RuntimeEnvelopeType>, // Envelope type (None = percussion)
         unit_mode: Signal, // Unit mode: 0="r" (rate), 1="c" (cycle-sync)
         loop_enabled: Signal, // Loop mode: 0=play once, 1=loop continuously
+        begin: Signal,     // Sample start point (0.0 = start, 0.5 = middle, 1.0 = end)
+        end: Signal,       // Sample end point (0.0 = start, 1.0 = end)
     },
 
     /// Pattern-triggered synthesizer with ADSR envelopes
@@ -5798,6 +5800,8 @@ impl UnifiedSignalGraph {
                 envelope_type,
                 unit_mode,
                 loop_enabled,
+                begin,
+                end,
             } => {
                 // DEBUG: Log Sample node evaluation (disabled - too verbose)
                 // if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 100 {
@@ -5986,6 +5990,11 @@ impl UnifiedSignalGraph {
                         };
                         let loop_enabled_bool = loop_enabled_val > 0.5;
 
+                        // Evaluate begin and end parameters for sample slicing
+                        // begin and end are 0.0-1.0 values representing fraction of sample
+                        let begin_val = self.eval_signal_at_time(&begin, event_start_abs).clamp(0.0, 1.0);
+                        let end_val = self.eval_signal_at_time(&end, event_start_abs).clamp(0.0, 1.0);
+
                         // DEBUG: Print cut group info
                         if std::env::var("DEBUG_CUT_GROUPS").is_ok() {
                             eprintln!("Triggering {} at cycle {:.3}, cut_group_val={:.1}, cut_group_opt={:?}",
@@ -6144,13 +6153,31 @@ impl UnifiedSignalGraph {
                                     );
                                 }
                                 if let Some(sample_data) = sample_data_opt {
+                                    // Apply begin/end slicing if specified
+                                    let sliced_sample_data = if begin_val > 0.0 || end_val < 1.0 {
+                                        let sample_len = sample_data.len();
+                                        let begin_sample = (begin_val * sample_len as f32) as usize;
+                                        let end_sample = (end_val * sample_len as f32) as usize;
+
+                                        // Ensure valid range
+                                        let begin_sample = begin_sample.min(sample_len.saturating_sub(1));
+                                        let end_sample = end_sample.clamp(begin_sample + 1, sample_len);
+
+                                        // Create sliced copy of the sample
+                                        let sliced_vec = sample_data[begin_sample..end_sample].to_vec();
+                                        std::sync::Arc::new(sliced_vec)
+                                    } else {
+                                        // No slicing needed, use original sample
+                                        sample_data
+                                    };
+
                                     // Trigger voice using appropriate envelope type
                                     match envelope_type {
                                         Some(RuntimeEnvelopeType::Percussion) | None => {
                                             self.voice_manager
                                                 .borrow_mut()
                                                 .trigger_sample_with_envelope(
-                                                    sample_data,
+                                                    sliced_sample_data.clone(),
                                                     gain_val,
                                                     pan_val,
                                                     final_speed,
@@ -6172,7 +6199,7 @@ impl UnifiedSignalGraph {
                                             self.voice_manager
                                                 .borrow_mut()
                                                 .trigger_sample_with_adsr(
-                                                    sample_data,
+                                                    sliced_sample_data.clone(),
                                                     gain_val,
                                                     pan_val,
                                                     final_speed,
@@ -6190,7 +6217,7 @@ impl UnifiedSignalGraph {
                                             self.voice_manager
                                                 .borrow_mut()
                                                 .trigger_sample_with_segments(
-                                                    sample_data,
+                                                    sliced_sample_data.clone(),
                                                     gain_val,
                                                     pan_val,
                                                     final_speed,
@@ -6217,7 +6244,7 @@ impl UnifiedSignalGraph {
                                             self.voice_manager
                                                 .borrow_mut()
                                                 .trigger_sample_with_curve(
-                                                    sample_data,
+                                                    sliced_sample_data.clone(),
                                                     gain_val,
                                                     pan_val,
                                                     final_speed,

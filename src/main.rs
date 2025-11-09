@@ -463,6 +463,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             envelope_type: None,
                                             unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
                                             loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
+                                            begin: Signal::Value(0.0),
+                                            end: Signal::Value(1.0),
                                         })
                                     } else {
                                         graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -795,6 +797,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             envelope_type: None,
                                             unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
                                             loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
+                                            begin: Signal::Value(0.0),
+                                            end: Signal::Value(1.0),
                                         }));
                                     }
                                 }
@@ -859,6 +863,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     envelope_type: None,
                                     unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
                                     loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
+                                    begin: Signal::Value(0.0),
+                                    end: Signal::Value(1.0),
                                 }));
                             }
                         }

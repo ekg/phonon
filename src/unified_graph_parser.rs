@@ -2327,6 +2327,8 @@ impl DslCompiler {
                     envelope_type: runtime_envelope,
                     unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
                     loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
+                    begin: Signal::Value(0.0),
+                    end: Signal::Value(1.0),
                 })
             }
             DslExpression::Scale {
@@ -2558,6 +2560,8 @@ impl DslCompiler {
                                 envelope_type: None, // TODO: Support envelope in pattern transforms
                                 unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
                                 loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
+                                begin: Signal::Value(0.0),
+                                end: Signal::Value(1.0),
                             })
                         } else {
                             eprintln!("Warning: Chained transform inner expression did not produce a pattern or sample node");
@@ -2639,6 +2643,8 @@ impl DslCompiler {
                             envelope_type: None, // TODO: Support envelope in this case
                             unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
                             loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
+                            begin: Signal::Value(0.0),
+                            end: Signal::Value(1.0),
                         })
                     }
                     DslExpression::BusRef(bus_name) => {
@@ -2719,6 +2725,8 @@ impl DslCompiler {
                                 envelope_type: None, // TODO: Support envelope in pattern transforms
                                 unit_mode: Signal::Value(0.0), // 0 = rate mode (default)
                                 loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
+                                begin: Signal::Value(0.0),
+                                end: Signal::Value(1.0),
                             })
                         } else if let Some(SignalNode::Pattern {
                             pattern: pattern_obj,
