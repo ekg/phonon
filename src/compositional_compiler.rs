@@ -1272,16 +1272,24 @@ fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
 }
 
 /// Compile oscillator node
+/// Supports both positional and keyword arguments:
+///   sine 440           - positional
+///   sine :freq 440     - keyword
 fn compile_oscillator(
     ctx: &mut CompilerContext,
     waveform: Waveform,
     args: Vec<Expr>,
 ) -> Result<NodeId, String> {
-    if args.is_empty() {
-        return Err(format!("{:?} requires frequency argument", waveform));
-    }
+    // Use ParamExtractor for keyword argument support
+    let extractor = ParamExtractor::new(args);
 
-    let freq_node = compile_expr(ctx, args[0].clone())?;
+    // Required parameter: frequency
+    let freq_expr = extractor.get_required(0, "freq")?;
+    let freq_node = compile_expr(ctx, freq_expr)?;
+
+    // Future: Optional parameters can be added here
+    // let phase_expr = extractor.get_optional(1, "phase", 0.0);
+
     let node = SignalNode::Oscillator {
         freq: Signal::Node(freq_node),
         waveform,

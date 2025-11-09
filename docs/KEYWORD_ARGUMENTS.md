@@ -201,6 +201,61 @@ Phonon supports optional keyword arguments for all function parameters using the
   # gain 0.8
 ```
 
+### Oscillators
+
+Oscillators now support both positional and keyword syntax:
+
+#### Sine
+```phonon
+~tone1: sine 440                  -- positional (A4)
+~tone2: sine :freq 440            -- keyword
+```
+
+**Parameters:**
+- `freq` (required) - Oscillator frequency in Hz
+
+#### Saw
+```phonon
+~bass1: saw 55                    -- positional
+~bass2: saw :freq 110             -- keyword
+```
+
+**Parameters:**
+- `freq` (required) - Oscillator frequency in Hz
+
+#### Square
+```phonon
+~lead1: square 220                -- positional
+~lead2: square :freq 440          -- keyword
+```
+
+**Parameters:**
+- `freq` (required) - Oscillator frequency in Hz
+
+#### Triangle
+```phonon
+~pad1: tri 330                    -- positional
+~pad2: tri :freq 660              -- keyword
+```
+
+**Parameters:**
+- `freq` (required) - Oscillator frequency in Hz
+
+**Example - All oscillators together:**
+```phonon
+tempo: 2.0
+~tone: sine 440 * 0.25
+~bass: saw 55 * 0.25
+~lead: square 220 * 0.25
+~pad: tri 330 * 0.25
+out: ~tone + ~bass + ~lead + ~pad
+```
+
+**Note:** Oscillators currently only have one required parameter (frequency), so keyword syntax provides no immediate benefit. However, it's supported for:
+- Consistency with other functions
+- Future extensibility (phase, detune, etc.)
+- Documentation clarity
+
 ## Design Philosophy
 
 ### Positional for Speed
@@ -338,6 +393,7 @@ The interactive command console provides searchable help and documentation for a
 - **Filters** - lpf, hpf, bpf, notch
 - **Envelopes** - adsr, ad, asr
 - **Effects** - reverb, chorus, delay, distort
+- **Oscillators** - sine, saw, square, tri
 - **Patterns** - s (sample trigger)
 - **Modifiers** - gain, pan, speed, begin, end
 - **Transforms** - fast, slow, every, rev

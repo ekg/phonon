@@ -468,6 +468,71 @@ lazy_static::lazy_static! {
             category: "Modifiers",
         });
 
+        // Oscillators
+        m.insert("sine", FunctionMetadata {
+            name: "sine",
+            description: "Sine wave oscillator",
+            params: vec![
+                ParamMetadata {
+                    name: "freq",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Oscillator frequency in Hz",
+                },
+            ],
+            example: "~tone: sine 440\n~keyword: sine :freq 440",
+            category: "Oscillators",
+        });
+
+        m.insert("saw", FunctionMetadata {
+            name: "saw",
+            description: "Sawtooth wave oscillator",
+            params: vec![
+                ParamMetadata {
+                    name: "freq",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Oscillator frequency in Hz",
+                },
+            ],
+            example: "~bass: saw 55\n~keyword: saw :freq 110",
+            category: "Oscillators",
+        });
+
+        m.insert("square", FunctionMetadata {
+            name: "square",
+            description: "Square wave oscillator",
+            params: vec![
+                ParamMetadata {
+                    name: "freq",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Oscillator frequency in Hz",
+                },
+            ],
+            example: "~lead: square 220\n~keyword: square :freq 440",
+            category: "Oscillators",
+        });
+
+        m.insert("tri", FunctionMetadata {
+            name: "tri",
+            description: "Triangle wave oscillator",
+            params: vec![
+                ParamMetadata {
+                    name: "freq",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Oscillator frequency in Hz",
+                },
+            ],
+            example: "~pad: tri 330\n~keyword: tri :freq 660",
+            category: "Oscillators",
+        });
+
         m.insert("fast", FunctionMetadata {
             name: "fast",
             description: "Speed up pattern - plays N times faster",
