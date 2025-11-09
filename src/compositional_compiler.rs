@@ -1056,6 +1056,8 @@ fn compile_function_call(
         "release" => compile_release_modifier(ctx, args),
         "begin" => compile_begin_modifier(ctx, args),
         "end" => compile_end_modifier(ctx, args),
+        "unit" => compile_unit_modifier(ctx, args),
+        "loop" => compile_loop_modifier(ctx, args),
 
         // General amplitude modifier for any signal (oscillators, filters, etc.)
         "amp" => compile_amp(ctx, args),
@@ -4003,13 +4005,21 @@ fn modify_sample_param(
                 attack.clone()
             },
             release: if param_name == "release" {
-                new_value
+                new_value.clone()
             } else {
                 release.clone()
             },
             envelope_type: envelope_type.clone(),
-            unit_mode: unit_mode.clone(),
-            loop_enabled: loop_enabled.clone(),
+            unit_mode: if param_name == "unit" {
+                new_value.clone()
+            } else {
+                unit_mode.clone()
+            },
+            loop_enabled: if param_name == "loop" {
+                new_value
+            } else {
+                loop_enabled.clone()
+            },
             begin: Signal::Value(0.0),
             end: Signal::Value(1.0),
         };
@@ -4972,6 +4982,52 @@ fn compile_cut_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<No
 
     let cut_value = compile_expr(ctx, args[1].clone())?;
     modify_sample_param(ctx, sample_node_id, "cut", Signal::Node(cut_value))
+}
+
+/// Compile unit modifier: s "bd" # unit "c"
+/// Sets the playback unit mode ("r" = rate mode, "c" = cycle mode)
+fn compile_unit_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "unit requires 2 arguments (sample_input, unit_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => *node_id,
+        _ => {
+            return Err(
+                "unit must be used with the chain operator: s \"bd\" # unit \"c\"".to_string(),
+            )
+        }
+    };
+
+    let unit_value = compile_expr(ctx, args[1].clone())?;
+    modify_sample_param(ctx, sample_node_id, "unit", Signal::Node(unit_value))
+}
+
+/// Compile loop modifier: s "bd" # loop "1"
+/// Sets whether the sample should loop (0 = play once, 1 = loop continuously)
+fn compile_loop_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "loop requires 2 arguments (sample_input, loop_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => *node_id,
+        _ => {
+            return Err(
+                "loop must be used with the chain operator: s \"bd\" # loop \"1\"".to_string(),
+            )
+        }
+    };
+
+    let loop_value = compile_expr(ctx, args[1].clone())?;
+    modify_sample_param(ctx, sample_node_id, "loop", Signal::Node(loop_value))
 }
 
 /// Compile attack modifier: s "bd" # attack "0.01 0.1"
