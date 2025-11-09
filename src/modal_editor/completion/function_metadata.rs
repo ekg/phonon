@@ -387,6 +387,87 @@ lazy_static::lazy_static! {
             category: "Patterns",
         });
 
+        // Sample Modifiers
+        m.insert("gain", FunctionMetadata {
+            name: "gain",
+            description: "Adjust sample amplitude/volume",
+            params: vec![
+                ParamMetadata {
+                    name: "amount",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Gain multiplier (1.0 = normal, 0.5 = half volume, 2.0 = double)",
+                },
+            ],
+            example: "~drums: s \"bd sn\" # gain 0.8",
+            category: "Modifiers",
+        });
+
+        m.insert("pan", FunctionMetadata {
+            name: "pan",
+            description: "Control stereo panning position",
+            params: vec![
+                ParamMetadata {
+                    name: "position",
+                    param_type: "-1 to 1",
+                    optional: false,
+                    default: None,
+                    description: "Pan position (-1 = left, 0 = center, 1 = right)",
+                },
+            ],
+            example: "~drums: s \"bd sn\" # pan \"-1 1\"",
+            category: "Modifiers",
+        });
+
+        m.insert("speed", FunctionMetadata {
+            name: "speed",
+            description: "Change sample playback speed and pitch",
+            params: vec![
+                ParamMetadata {
+                    name: "rate",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Playback speed (1.0 = normal, 2.0 = double speed/octave up, -1.0 = reverse)",
+                },
+            ],
+            example: "~fast: s \"bd\" # speed 2.0\n~reverse: s \"sn\" # speed -1.0",
+            category: "Modifiers",
+        });
+
+        m.insert("begin", FunctionMetadata {
+            name: "begin",
+            description: "Set sample start point for slicing",
+            params: vec![
+                ParamMetadata {
+                    name: "position",
+                    param_type: "0-1",
+                    optional: false,
+                    default: None,
+                    description: "Start position (0.0 = beginning, 0.5 = middle, 1.0 = end)",
+                },
+            ],
+            example: "~slice: s \"bd\" # begin 0.5",
+            category: "Modifiers",
+        });
+
+        m.insert("end", FunctionMetadata {
+            name: "end",
+            description: "Set sample end point for slicing",
+            params: vec![
+                ParamMetadata {
+                    name: "position",
+                    param_type: "0-1",
+                    optional: false,
+                    default: None,
+                    description: "End position (0.0 = beginning, 1.0 = end)",
+                },
+            ],
+            example: "~slice: s \"bd\" # begin 0.25 # end 0.75",
+            category: "Modifiers",
+        });
+
         m.insert("fast", FunctionMetadata {
             name: "fast",
             description: "Speed up pattern - plays N times faster",

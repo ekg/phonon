@@ -132,6 +132,75 @@ Phonon supports optional keyword arguments for all function parameters using the
 - `drive` (required) - Distortion amount/gain
 - `mix` (optional, default 0.5) - Wet/dry mix (0-1)
 
+### Sample Modifiers
+
+#### Gain
+```phonon
+~drums: s "bd sn" # gain 0.8      -- 80% volume
+~quiet: s "hh*4" # gain 0.3       -- 30% volume
+~loud: s "cp" # gain 2.0          -- double volume
+~pattern: s "bd*4" # gain "0.5 1.0 0.7 1.5"  -- pattern-based gain
+```
+
+**Parameters:**
+- `amount` (required) - Gain multiplier (1.0 = normal, 0.5 = half volume, 2.0 = double)
+
+#### Pan
+```phonon
+~left: s "bd" # pan -1.0          -- full left
+~center: s "sn" # pan 0.0         -- center (default)
+~right: s "hh" # pan 1.0          -- full right
+~pattern: s "bd*4" # pan "-1 -0.5 0.5 1"  -- pattern-based panning
+```
+
+**Parameters:**
+- `position` (required) - Pan position (-1 = left, 0 = center, 1 = right)
+
+#### Speed
+```phonon
+~normal: s "bd" # speed 1.0       -- normal speed
+~fast: s "bd" # speed 2.0         -- double speed (octave up)
+~slow: s "bd" # speed 0.5         -- half speed (octave down)
+~reverse: s "sn" # speed -1.0     -- reverse playback
+~pattern: s "bd*4" # speed "1 2 0.5 -1"  -- pattern-based speed
+```
+
+**Parameters:**
+- `rate` (required) - Playback speed (1.0 = normal, 2.0 = double speed/octave up, negative = reverse)
+
+#### Begin
+```phonon
+~start: s "bd" # begin 0.0        -- start from beginning (default)
+~middle: s "bd" # begin 0.5       -- start from middle
+~end: s "bd" # begin 0.8          -- start near end
+~pattern: s "bd*4" # begin "0 0.25 0.5 0.75"  -- pattern-based slicing
+```
+
+**Parameters:**
+- `position` (required) - Start position (0.0 = beginning, 0.5 = middle, 1.0 = end)
+
+#### End
+```phonon
+~full: s "bd" # end 1.0           -- play to end (default)
+~half: s "bd" # end 0.5           -- play first half
+~quarter: s "bd" # end 0.25       -- play first quarter
+~slice: s "bd" # begin 0.25 # end 0.75  -- play middle 50%
+```
+
+**Parameters:**
+- `position` (required) - End position (0.0 = beginning, 1.0 = end)
+
+**Combined Example:**
+```phonon
+-- Slice, reverse, pan, and adjust gain
+~complex: s "bd"
+  # begin 0.25
+  # end 0.75
+  # speed -1.0
+  # pan -0.5
+  # gain 0.8
+```
+
 ## Design Philosophy
 
 ### Positional for Speed
@@ -270,6 +339,7 @@ The interactive command console provides searchable help and documentation for a
 - **Envelopes** - adsr, ad, asr
 - **Effects** - reverb, chorus, delay, distort
 - **Patterns** - s (sample trigger)
+- **Modifiers** - gain, pan, speed, begin, end
 - **Transforms** - fast, slow, every, rev
 
 Press `Esc` or `Alt+/` again to close the console.
