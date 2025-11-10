@@ -709,17 +709,30 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Loop a pattern at a given number of cycles
-    /// loopAt n - stretches the pattern to fit n cycles, then loops it
+    /// loopAt n - stretches pattern over n cycles AND slows sample playback
     ///
-    /// NOTE: Currently implemented as slow(n) - affects pattern timing only.
-    /// Works well for multi-element patterns like "bd sn hh cp" $ loopAt 2
-    /// For single repeating patterns like "bd" $ loopAt 4, consider using
-    /// speed parameter instead: s "bd" # speed 0.25
+    /// This combines pattern timing (slow) with playback speed adjustment:
+    /// - Slows pattern structure by n (events spread over n cycles)
+    /// - Divides playback speed by n (samples play n times slower)
     ///
-    /// TidalCycles' loopAt reads sample duration and adjusts speed accordingly,
-    /// but Phonon currently only affects pattern structure timing.
+    /// Examples:
+    /// - s "bd sn hh cp" $ loopAt 2 -> 4 events over 2 cycles, each plays at 0.5x speed
+    /// - s "bd" $ loopAt 4 -> Sample plays at 0.25x speed (pitched down 2 octaves)
     pub fn loop_at(self, cycles: f64) -> Self {
-        self.slow(cycles)
+        let slowed = self.slow(cycles);
+        let speed_factor = 1.0 / cycles;
+
+        Pattern::new(move |state| {
+            slowed
+                .query(state)
+                .into_iter()
+                .map(|mut hap| {
+                    // Add speed control to context
+                    hap.context.insert("speed".to_string(), speed_factor.to_string());
+                    hap
+                })
+                .collect()
+        })
     }
 
     /// Weave with a function - applies function to alternating cycles

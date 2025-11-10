@@ -5921,9 +5921,16 @@ impl UnifiedSignalGraph {
                         let pan_val = self
                             .eval_signal_at_time(&pan, event_start_abs)
                             .clamp(-1.0, 1.0);
-                        let speed_val = self
+                        let mut speed_val = self
                             .eval_signal_at_time(&speed, event_start_abs)
                             .clamp(-10.0, 10.0); // Allow negative speed for reverse playback
+
+                        // Check if event has speed control in context (from loopAt, hurry, etc.)
+                        if let Some(context_speed) = event.context.get("speed") {
+                            if let Ok(multiplier) = context_speed.parse::<f32>() {
+                                speed_val *= multiplier;
+                            }
+                        }
                         let cut_group_val = self.eval_signal_at_time(&cut_group, event_start_abs);
                         let cut_group_opt = if cut_group_val > 0.0 {
                             Some(cut_group_val as u32)
