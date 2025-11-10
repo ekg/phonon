@@ -1285,6 +1285,549 @@ lazy_static::lazy_static! {
             category: "Transforms",
         });
 
+        // Numeric Pattern Transforms
+        m.insert("quantize", FunctionMetadata {
+            name: "quantize",
+            description: "Quantize numeric values to steps",
+            params: vec![
+                ParamMetadata {
+                    name: "steps",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of quantization steps",
+                },
+            ],
+            example: "~quant: sine \"0 1\" $ quantize 8",
+            category: "Transforms",
+        });
+
+        m.insert("smooth", FunctionMetadata {
+            name: "smooth",
+            description: "Smooth numeric values (low-pass filter on pattern)",
+            params: vec![
+                ParamMetadata {
+                    name: "amount",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Smoothing amount (0.0-1.0)",
+                },
+            ],
+            example: "~smooth: sine \"0 1\" $ smooth 0.5",
+            category: "Transforms",
+        });
+
+        m.insert("exp", FunctionMetadata {
+            name: "exp",
+            description: "Exponential transformation on numeric values",
+            params: vec![
+                ParamMetadata {
+                    name: "base",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Exponent base",
+                },
+            ],
+            example: "~exp: sine \"0 1\" $ exp 2",
+            category: "Transforms",
+        });
+
+        m.insert("log", FunctionMetadata {
+            name: "log",
+            description: "Logarithmic transformation on numeric values",
+            params: vec![
+                ParamMetadata {
+                    name: "base",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Logarithm base",
+                },
+            ],
+            example: "~log: sine \"1 100\" $ log 10",
+            category: "Transforms",
+        });
+
+        m.insert("walk", FunctionMetadata {
+            name: "walk",
+            description: "Random walk on numeric values",
+            params: vec![
+                ParamMetadata {
+                    name: "step_size",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Maximum step size per change",
+                },
+            ],
+            example: "~walk: sine 440 $ walk 50",
+            category: "Transforms",
+        });
+
+        // Time/Cycle Transforms
+        m.insert("focus", FunctionMetadata {
+            name: "focus",
+            description: "Focus on specific cycles (cycle range)",
+            params: vec![
+                ParamMetadata {
+                    name: "cycle_begin",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Start cycle",
+                },
+                ParamMetadata {
+                    name: "cycle_end",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "End cycle",
+                },
+            ],
+            example: "~focused: s \"bd sn hh cp\" $ focus 0 2",
+            category: "Transforms",
+        });
+
+        m.insert("trim", FunctionMetadata {
+            name: "trim",
+            description: "Trim pattern to time range (0.0-1.0 within cycle)",
+            params: vec![
+                ParamMetadata {
+                    name: "begin",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Start position (0.0-1.0)",
+                },
+                ParamMetadata {
+                    name: "end",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "End position (0.0-1.0)",
+                },
+            ],
+            example: "~trimmed: s \"bd sn hh cp\" $ trim 0.25 0.75",
+            category: "Transforms",
+        });
+
+        m.insert("wait", FunctionMetadata {
+            name: "wait",
+            description: "Delay pattern by N cycles",
+            params: vec![
+                ParamMetadata {
+                    name: "cycles",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Number of cycles to wait",
+                },
+            ],
+            example: "~waited: s \"bd sn\" $ wait 2",
+            category: "Transforms",
+        });
+
+        m.insert("accelerate", FunctionMetadata {
+            name: "accelerate",
+            description: "Speed up pattern over time",
+            params: vec![
+                ParamMetadata {
+                    name: "rate",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Acceleration rate",
+                },
+            ],
+            example: "~accel: s \"bd sn\" $ accelerate 1.5",
+            category: "Transforms",
+        });
+
+        // Conditional/Layering Transforms
+        m.insert("inside", FunctionMetadata {
+            name: "inside",
+            description: "Apply transform only inside time range",
+            params: vec![
+                ParamMetadata {
+                    name: "begin",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Start position (0.0-1.0)",
+                },
+                ParamMetadata {
+                    name: "end",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "End position (0.0-1.0)",
+                },
+                ParamMetadata {
+                    name: "transform",
+                    param_type: "function",
+                    optional: false,
+                    default: None,
+                    description: "Transform to apply inside range",
+                },
+            ],
+            example: "~inside: s \"bd sn hh cp\" $ inside 0.25 0.75 (fast 2)",
+            category: "Transforms",
+        });
+
+        m.insert("outside", FunctionMetadata {
+            name: "outside",
+            description: "Apply transform only outside time range",
+            params: vec![
+                ParamMetadata {
+                    name: "begin",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Start position (0.0-1.0)",
+                },
+                ParamMetadata {
+                    name: "end",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "End position (0.0-1.0)",
+                },
+                ParamMetadata {
+                    name: "transform",
+                    param_type: "function",
+                    optional: false,
+                    default: None,
+                    description: "Transform to apply outside range",
+                },
+            ],
+            example: "~outside: s \"bd sn hh cp\" $ outside 0.25 0.75 (fast 2)",
+            category: "Transforms",
+        });
+
+        m.insert("within", FunctionMetadata {
+            name: "within",
+            description: "Apply transform within time window",
+            params: vec![
+                ParamMetadata {
+                    name: "begin",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Start position (0.0-1.0)",
+                },
+                ParamMetadata {
+                    name: "end",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "End position (0.0-1.0)",
+                },
+                ParamMetadata {
+                    name: "transform",
+                    param_type: "function",
+                    optional: false,
+                    default: None,
+                    description: "Transform to apply within window",
+                },
+            ],
+            example: "~within: s \"bd sn\" $ within 0.0 0.5 (fast 4)",
+            category: "Transforms",
+        });
+
+        m.insert("superimpose", FunctionMetadata {
+            name: "superimpose",
+            description: "Layer pattern with transformed version",
+            params: vec![
+                ParamMetadata {
+                    name: "transform",
+                    param_type: "function",
+                    optional: false,
+                    default: None,
+                    description: "Transform to apply to layered copy",
+                },
+            ],
+            example: "~layered: s \"bd sn\" $ superimpose (fast 2)",
+            category: "Transforms",
+        });
+
+        m.insert("chunk", FunctionMetadata {
+            name: "chunk",
+            description: "Divide into N chunks and apply transform to each",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of chunks",
+                },
+                ParamMetadata {
+                    name: "transform",
+                    param_type: "function",
+                    optional: false,
+                    default: None,
+                    description: "Transform to apply per chunk",
+                },
+            ],
+            example: "~chunked: s \"bd sn hh cp\" $ chunk 2 (fast 2)",
+            category: "Transforms",
+        });
+
+        // Probabilistic Transforms
+        m.insert("sometimes", FunctionMetadata {
+            name: "sometimes",
+            description: "Apply transform with 50% probability",
+            params: vec![
+                ParamMetadata {
+                    name: "transform",
+                    param_type: "function",
+                    optional: false,
+                    default: None,
+                    description: "Transform to sometimes apply",
+                },
+            ],
+            example: "~maybe: s \"bd sn\" $ sometimes (fast 2)",
+            category: "Transforms",
+        });
+
+        m.insert("often", FunctionMetadata {
+            name: "often",
+            description: "Apply transform with 75% probability",
+            params: vec![
+                ParamMetadata {
+                    name: "transform",
+                    param_type: "function",
+                    optional: false,
+                    default: None,
+                    description: "Transform to often apply",
+                },
+            ],
+            example: "~often: s \"bd sn\" $ often (fast 2)",
+            category: "Transforms",
+        });
+
+        m.insert("rarely", FunctionMetadata {
+            name: "rarely",
+            description: "Apply transform with 25% probability",
+            params: vec![
+                ParamMetadata {
+                    name: "transform",
+                    param_type: "function",
+                    optional: false,
+                    default: None,
+                    description: "Transform to rarely apply",
+                },
+            ],
+            example: "~rare: s \"bd sn\" $ rarely (fast 2)",
+            category: "Transforms",
+        });
+
+        m.insert("sometimesBy", FunctionMetadata {
+            name: "sometimesBy",
+            description: "Apply transform with specific probability",
+            params: vec![
+                ParamMetadata {
+                    name: "probability",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Probability (0.0-1.0)",
+                },
+                ParamMetadata {
+                    name: "transform",
+                    param_type: "function",
+                    optional: false,
+                    default: None,
+                    description: "Transform to apply",
+                },
+            ],
+            example: "~prob: s \"bd sn\" $ sometimesBy 0.3 (fast 2)",
+            category: "Transforms",
+        });
+
+        m.insert("almostAlways", FunctionMetadata {
+            name: "almostAlways",
+            description: "Apply transform with 90% probability",
+            params: vec![
+                ParamMetadata {
+                    name: "transform",
+                    param_type: "function",
+                    optional: false,
+                    default: None,
+                    description: "Transform to almost always apply",
+                },
+            ],
+            example: "~mostly: s \"bd sn\" $ almostAlways (fast 2)",
+            category: "Transforms",
+        });
+
+        m.insert("almostNever", FunctionMetadata {
+            name: "almostNever",
+            description: "Apply transform with 10% probability",
+            params: vec![
+                ParamMetadata {
+                    name: "transform",
+                    param_type: "function",
+                    optional: false,
+                    default: None,
+                    description: "Transform to almost never apply",
+                },
+            ],
+            example: "~seldom: s \"bd sn\" $ almostNever (fast 2)",
+            category: "Transforms",
+        });
+
+        m.insert("always", FunctionMetadata {
+            name: "always",
+            description: "Always apply transform (100% probability)",
+            params: vec![
+                ParamMetadata {
+                    name: "transform",
+                    param_type: "function",
+                    optional: false,
+                    default: None,
+                    description: "Transform to always apply",
+                },
+            ],
+            example: "~always: s \"bd sn\" $ always (fast 2)",
+            category: "Transforms",
+        });
+
+        m.insert("whenmod", FunctionMetadata {
+            name: "whenmod",
+            description: "Apply when (cycle - offset) % modulo == 0",
+            params: vec![
+                ParamMetadata {
+                    name: "modulo",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Modulo value",
+                },
+                ParamMetadata {
+                    name: "offset",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Offset value",
+                },
+                ParamMetadata {
+                    name: "transform",
+                    param_type: "function",
+                    optional: false,
+                    default: None,
+                    description: "Transform to apply",
+                },
+            ],
+            example: "~when: s \"bd sn\" $ whenmod 4 0 (fast 2)",
+            category: "Transforms",
+        });
+
+        // Pattern Manipulation Transforms
+        m.insert("mask", FunctionMetadata {
+            name: "mask",
+            description: "Apply boolean mask pattern to filter events",
+            params: vec![
+                ParamMetadata {
+                    name: "pattern",
+                    param_type: "pattern",
+                    optional: false,
+                    default: None,
+                    description: "Mask pattern (true/false values)",
+                },
+            ],
+            example: "~masked: s \"bd sn hh cp\" $ mask \"t f t f\"",
+            category: "Transforms",
+        });
+
+        m.insert("weave", FunctionMetadata {
+            name: "weave",
+            description: "Weave pattern with interleaving",
+            params: vec![
+                ParamMetadata {
+                    name: "count",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Weave count",
+                },
+            ],
+            example: "~woven: s \"bd sn\" $ weave 4",
+            category: "Transforms",
+        });
+
+        m.insert("degradeSeed", FunctionMetadata {
+            name: "degradeSeed",
+            description: "Degrade with specific random seed (reproducible)",
+            params: vec![
+                ParamMetadata {
+                    name: "seed",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Random seed value",
+                },
+            ],
+            example: "~seeded: s \"bd sn hh cp\" $ degradeSeed 42",
+            category: "Transforms",
+        });
+
+        m.insert("undegrade", FunctionMetadata {
+            name: "undegrade",
+            description: "Return pattern unchanged (opposite of degrade)",
+            params: vec![],
+            example: "~normal: s \"bd sn\" $ undegrade",
+            category: "Transforms",
+        });
+
+        m.insert("humanize", FunctionMetadata {
+            name: "humanize",
+            description: "Add human timing and velocity variation",
+            params: vec![
+                ParamMetadata {
+                    name: "time_var",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Time variation amount",
+                },
+                ParamMetadata {
+                    name: "velocity_var",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Velocity variation amount",
+                },
+            ],
+            example: "~human: s \"bd sn\" $ humanize 0.02 0.1",
+            category: "Transforms",
+        });
+
+        m.insert("euclid", FunctionMetadata {
+            name: "euclid",
+            description: "Euclidean rhythm pattern (distribute pulses evenly)",
+            params: vec![
+                ParamMetadata {
+                    name: "pulses",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of pulses",
+                },
+                ParamMetadata {
+                    name: "steps",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Total steps",
+                },
+            ],
+            example: "~euclid: s \"bd\" $ euclid 3 8",
+            category: "Transforms",
+        });
+
         m
     };
 }
