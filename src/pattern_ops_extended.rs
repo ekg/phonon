@@ -794,6 +794,56 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
+    /// Pattern-controlled loop_at - the cycles parameter comes from a pattern
+    /// Queries the duration pattern for each cycle to get the loop duration
+    pub fn loop_at_pattern(self, duration_pattern: Pattern<String>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        Pattern::new(move |state| {
+            // Query the duration pattern at a single point (cycle start) to get one value
+            // This ensures we get alternating values like "1" then "2" for pattern "1 2"
+            let cycle_start = state.span.begin.to_float().floor();
+
+            // Query at a single time point (cycle start) to get the active value
+            let query_time = cycle_start;
+            let point_state = crate::pattern::State {
+                span: crate::pattern::TimeSpan::new(
+                    crate::pattern::Fraction::from_float(query_time),
+                    crate::pattern::Fraction::from_float(query_time + 0.001), // Tiny span for point query
+                ),
+                controls: state.controls.clone(),
+            };
+
+            // Get the duration value active at this cycle
+            let duration_haps = duration_pattern.query(&point_state);
+            let cycles = if let Some(first_hap) = duration_haps.first() {
+                // Parse the duration string to f64
+                first_hap
+                    .value
+                    .parse::<f64>()
+                    .unwrap_or(1.0)
+                    .max(0.001) // Minimum duration to avoid division by zero
+            } else {
+                1.0 // Default to 1 cycle if no value
+            };
+
+            // Apply loop_at with the queried duration
+            let slowed = self.clone().slow(cycles);
+            let speed_factor = 1.0 / cycles;
+
+            slowed
+                .query(state)
+                .into_iter()
+                .map(|mut hap| {
+                    hap.context
+                        .insert("speed".to_string(), speed_factor.to_string());
+                    hap
+                })
+                .collect()
+        })
+    }
+
     /// Weave with a function - applies function to alternating cycles
     pub fn weave_with(
         self,

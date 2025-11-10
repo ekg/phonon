@@ -4434,8 +4434,19 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             Ok(pattern.loop_pattern(n))
         }
         Transform::LoopAt(n_expr) => {
-            let n = extract_number(&n_expr)?;
-            Ok(pattern.loop_at(n))
+            // Check if this is a pattern (string) or constant (number)
+            match n_expr.as_ref() {
+                Expr::String(pattern_str) => {
+                    // Pattern-based loopAt
+                    let duration_pattern = parse_mini_notation(pattern_str);
+                    Ok(pattern.loop_at_pattern(duration_pattern))
+                }
+                _ => {
+                    // Constant loopAt
+                    let n = extract_number(&n_expr)?;
+                    Ok(pattern.loop_at(n))
+                }
+            }
         }
         Transform::Chew(n_expr) => {
             let n = extract_number(&n_expr)? as usize;
