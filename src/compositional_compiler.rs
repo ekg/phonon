@@ -4425,6 +4425,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let n = extract_number(&n_expr)? as usize;
             Ok(pattern.loop_pattern(n))
         }
+        Transform::LoopAt(n_expr) => {
+            let n = extract_number(&n_expr)?;
+            Ok(pattern.loop_at(n))
+        }
         Transform::Chew(n_expr) => {
             let n = extract_number(&n_expr)? as usize;
             Ok(pattern.chew(n))

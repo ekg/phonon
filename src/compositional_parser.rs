@@ -198,6 +198,8 @@ pub enum Transform {
     Offset(Box<Expr>),
     /// loop n: loop pattern n times within cycle
     Loop(Box<Expr>),
+    /// loopAt n: stretch pattern to fit n cycles exactly
+    LoopAt(Box<Expr>),
     /// chew n: chew through pattern
     Chew(Box<Expr>),
     /// fastGap factor: fast with gaps
