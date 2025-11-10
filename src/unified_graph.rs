@@ -6014,8 +6014,17 @@ impl UnifiedSignalGraph {
 
                         // Evaluate begin and end parameters for sample slicing
                         // begin and end are 0.0-1.0 values representing fraction of sample
-                        let begin_val = self.eval_signal_at_time(&begin, event_start_abs).clamp(0.0, 1.0);
-                        let end_val = self.eval_signal_at_time(&end, event_start_abs).clamp(0.0, 1.0);
+                        // Check event context first (set by transforms like striate/slice)
+                        let begin_val = if let Some(begin_str) = event.context.get("begin") {
+                            begin_str.parse::<f32>().unwrap_or(0.0).clamp(0.0, 1.0)
+                        } else {
+                            self.eval_signal_at_time(&begin, event_start_abs).clamp(0.0, 1.0)
+                        };
+                        let end_val = if let Some(end_str) = event.context.get("end") {
+                            end_str.parse::<f32>().unwrap_or(1.0).clamp(0.0, 1.0)
+                        } else {
+                            self.eval_signal_at_time(&end, event_start_abs).clamp(0.0, 1.0)
+                        };
 
                         // DEBUG: Print cut group info
                         if std::env::var("DEBUG_CUT_GROUPS").is_ok() {

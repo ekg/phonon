@@ -195,10 +195,18 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         Pattern::new(move |state: &State| {
             let mut all_haps = Vec::new();
             for i in 0..n {
-                let begin = i as f64 / n as f64;
-                let end = (i + 1) as f64 / n as f64;
-                let sliced = self.clone().zoom(begin, end);
-                all_haps.extend(sliced.query(state));
+                let slice_begin = i as f64 / n as f64;
+                let slice_end = (i + 1) as f64 / n as f64;
+                let sliced = self.clone().zoom(slice_begin, slice_end);
+                let mut sliced_haps = sliced.query(state);
+
+                // Add begin/end to context for sample slicing
+                for hap in &mut sliced_haps {
+                    hap.context.insert("begin".to_string(), slice_begin.to_string());
+                    hap.context.insert("end".to_string(), slice_end.to_string());
+                }
+
+                all_haps.extend(sliced_haps);
             }
             all_haps
         })

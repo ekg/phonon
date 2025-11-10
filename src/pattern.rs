@@ -820,6 +820,10 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                             )
                         });
 
+                        // Add begin/end to context for sample slicing
+                        hap.context.insert("begin".to_string(), slice_begin.to_string());
+                        hap.context.insert("end".to_string(), slice_end.to_string());
+
                         result.push(hap);
                     }
                 }
