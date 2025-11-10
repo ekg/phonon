@@ -5972,13 +5972,17 @@ impl UnifiedSignalGraph {
                             .min(10.0); // Release time in seconds
 
                         // Check if event has legato duration in context (from legato transform)
-                        if let Some(legato_duration_str) = event.context.get("legato_duration") {
-                            if let Ok(duration_cycles) = legato_duration_str.parse::<f32>() {
-                                // Convert duration from cycles to seconds using tempo
-                                // cps is cycles/second, so seconds = cycles / cps
-                                let duration_seconds = duration_cycles / self.cps;
-                                release_val = duration_seconds.max(0.001).min(10.0);
-                            }
+                        // Store for later use in auto-release calculation
+                        let legato_duration_opt = event.context.get("legato_duration")
+                            .and_then(|s| s.parse::<f32>().ok());
+
+
+                        // Legacy: Update release_val for old code paths (will be superseded by ADSR+auto-release)
+                        if let Some(duration_cycles) = legato_duration_opt {
+                            // Convert duration from cycles to seconds using tempo
+                            // cps is cycles/second, so seconds = cycles / cps
+                            let duration_seconds = duration_cycles / self.cps;
+                            release_val = duration_seconds.max(0.001).min(10.0);
                         }
 
                         // CRITICAL FIX: When attack=0 and release=0 (default), don't apply
@@ -6058,88 +6062,126 @@ impl UnifiedSignalGraph {
                                     }
 
                                     // Trigger voice with synthetic buffer using appropriate envelope type
-                                    match envelope_type {
-                                        Some(RuntimeEnvelopeType::Percussion) | None => {
-                                            self.voice_manager
-                                                .borrow_mut()
-                                                .trigger_sample_with_envelope(
-                                                    std::sync::Arc::new(synthetic_buffer),
-                                                    gain_val,
-                                                    pan_val,
-                                                    final_speed,
-                                                    cut_group_opt,
-                                                    final_attack,
-                                                    final_release,
-                                                );
-                                        }
-                                        Some(RuntimeEnvelopeType::ADSR {
-                                            ref decay,
-                                            ref sustain,
-                                        }) => {
-                                            let decay_val = self
-                                                .eval_signal_at_time(decay, event_start_abs)
-                                                .max(0.001);
-                                            let sustain_val = self
-                                                .eval_signal_at_time(sustain, event_start_abs)
-                                                .clamp(0.0, 1.0);
-                                            self.voice_manager
-                                                .borrow_mut()
-                                                .trigger_sample_with_adsr(
-                                                    std::sync::Arc::new(synthetic_buffer),
-                                                    gain_val,
-                                                    pan_val,
-                                                    final_speed,
-                                                    cut_group_opt,
-                                                    final_attack,
-                                                    decay_val,
-                                                    sustain_val,
-                                                    final_release,
-                                                );
-                                        }
-                                        Some(RuntimeEnvelopeType::Segments {
-                                            ref levels,
-                                            ref times,
-                                        }) => {
-                                            self.voice_manager
-                                                .borrow_mut()
-                                                .trigger_sample_with_segments(
-                                                    std::sync::Arc::new(synthetic_buffer),
-                                                    gain_val,
-                                                    pan_val,
-                                                    final_speed,
-                                                    cut_group_opt,
-                                                    levels.clone(),
-                                                    times.clone(),
-                                                );
-                                        }
-                                        Some(RuntimeEnvelopeType::Curve {
-                                            ref start,
-                                            ref end,
-                                            ref duration,
-                                            ref curve,
-                                        }) => {
-                                            let start_val =
-                                                self.eval_signal_at_time(start, event_start_abs);
-                                            let end_val =
-                                                self.eval_signal_at_time(end, event_start_abs);
-                                            let duration_val = self
-                                                .eval_signal_at_time(duration, event_start_abs)
-                                                .max(0.001);
-                                            let curve_val =
-                                                self.eval_signal_at_time(curve, event_start_abs);
-                                            self.voice_manager
-                                                .borrow_mut()
-                                                .trigger_sample_with_curve(
-                                                    std::sync::Arc::new(synthetic_buffer),
-                                                    gain_val,
-                                                    pan_val,
-                                                    final_speed,
-                                                    cut_group_opt,
-                                                    start_val,
-                                                    end_val,
-                                                    duration_val,
-                                                    curve_val,
-                                                );
+                                    // LEGATO OVERRIDE: When legato is present, use ADSR with sharp settings
+                                    if let Some(legato_cycles) = legato_duration_opt {
+                                        // Use ADSR with brick-wall envelope for legato
+                                        // Attack: 1ms (instant), Decay: 1ms, Sustain: 100%, Release: 3ms (instant)
+                                        let sharp_attack = 0.001;
+                                        let sharp_decay = 0.001;
+                                        let sharp_sustain = 1.0;
+                                        let sharp_release = 0.003;
+
+                                        self.voice_manager
+                                            .borrow_mut()
+                                            .trigger_sample_with_adsr(
+                                                std::sync::Arc::new(synthetic_buffer),
+                                                gain_val,
+                                                pan_val,
+                                                final_speed,
+                                                cut_group_opt,
+                                                sharp_attack,
+                                                sharp_decay,
+                                                sharp_sustain,
+                                                sharp_release,
+                                            );
+
+                                        // Calculate auto-release time
+                                        // Convert legato duration from cycles to seconds
+                                        let duration_seconds = legato_cycles / self.cps;
+                                        // Subtract attack and release times to get sustain duration
+                                        let sustain_seconds = (duration_seconds - sharp_attack - sharp_release).max(0.0);
+                                        // Convert to samples
+                                        let auto_release_samples = (sustain_seconds * self.sample_rate as f32) as usize;
+
+                                        // Set auto-release on the last triggered voice
+                                        self.voice_manager
+                                            .borrow_mut()
+                                            .set_last_voice_auto_release(auto_release_samples);
+                                    } else {
+                                        // No legato: use normal envelope behavior
+                                        match envelope_type {
+                                            Some(RuntimeEnvelopeType::Percussion) | None => {
+                                                self.voice_manager
+                                                    .borrow_mut()
+                                                    .trigger_sample_with_envelope(
+                                                        std::sync::Arc::new(synthetic_buffer),
+                                                        gain_val,
+                                                        pan_val,
+                                                        final_speed,
+                                                        cut_group_opt,
+                                                        final_attack,
+                                                        final_release,
+                                                    );
+                                            }
+                                            Some(RuntimeEnvelopeType::ADSR {
+                                                ref decay,
+                                                ref sustain,
+                                            }) => {
+                                                let decay_val = self
+                                                    .eval_signal_at_time(decay, event_start_abs)
+                                                    .max(0.001);
+                                                let sustain_val = self
+                                                    .eval_signal_at_time(sustain, event_start_abs)
+                                                    .clamp(0.0, 1.0);
+                                                self.voice_manager
+                                                    .borrow_mut()
+                                                    .trigger_sample_with_adsr(
+                                                        std::sync::Arc::new(synthetic_buffer),
+                                                        gain_val,
+                                                        pan_val,
+                                                        final_speed,
+                                                        cut_group_opt,
+                                                        final_attack,
+                                                        decay_val,
+                                                        sustain_val,
+                                                        final_release,
+                                                    );
+                                            }
+                                            Some(RuntimeEnvelopeType::Segments {
+                                                ref levels,
+                                                ref times,
+                                            }) => {
+                                                self.voice_manager
+                                                    .borrow_mut()
+                                                    .trigger_sample_with_segments(
+                                                        std::sync::Arc::new(synthetic_buffer),
+                                                        gain_val,
+                                                        pan_val,
+                                                        final_speed,
+                                                        cut_group_opt,
+                                                        levels.clone(),
+                                                        times.clone(),
+                                                    );
+                                            }
+                                            Some(RuntimeEnvelopeType::Curve {
+                                                ref start,
+                                                ref end,
+                                                ref duration,
+                                                ref curve,
+                                            }) => {
+                                                let start_val =
+                                                    self.eval_signal_at_time(start, event_start_abs);
+                                                let end_val =
+                                                    self.eval_signal_at_time(end, event_start_abs);
+                                                let duration_val = self
+                                                    .eval_signal_at_time(duration, event_start_abs)
+                                                    .max(0.001);
+                                                let curve_val =
+                                                    self.eval_signal_at_time(curve, event_start_abs);
+                                                self.voice_manager
+                                                    .borrow_mut()
+                                                    .trigger_sample_with_curve(
+                                                        std::sync::Arc::new(synthetic_buffer),
+                                                        gain_val,
+                                                        pan_val,
+                                                        final_speed,
+                                                        cut_group_opt,
+                                                        start_val,
+                                                        end_val,
+                                                        duration_val,
+                                                        curve_val,
+                                                    );
+                                            }
                                         }
                                     }
 
@@ -6190,88 +6232,126 @@ impl UnifiedSignalGraph {
                                     };
 
                                     // Trigger voice using appropriate envelope type
-                                    match envelope_type {
-                                        Some(RuntimeEnvelopeType::Percussion) | None => {
-                                            self.voice_manager
-                                                .borrow_mut()
-                                                .trigger_sample_with_envelope(
-                                                    sliced_sample_data.clone(),
-                                                    gain_val,
-                                                    pan_val,
-                                                    final_speed,
-                                                    cut_group_opt,
-                                                    final_attack,
-                                                    final_release,
-                                                );
-                                        }
-                                        Some(RuntimeEnvelopeType::ADSR {
-                                            ref decay,
-                                            ref sustain,
-                                        }) => {
-                                            let decay_val = self
-                                                .eval_signal_at_time(decay, event_start_abs)
-                                                .max(0.001);
-                                            let sustain_val = self
-                                                .eval_signal_at_time(sustain, event_start_abs)
-                                                .clamp(0.0, 1.0);
-                                            self.voice_manager
-                                                .borrow_mut()
-                                                .trigger_sample_with_adsr(
-                                                    sliced_sample_data.clone(),
-                                                    gain_val,
-                                                    pan_val,
-                                                    final_speed,
-                                                    cut_group_opt,
-                                                    final_attack,
-                                                    decay_val,
-                                                    sustain_val,
-                                                    final_release,
-                                                );
-                                        }
-                                        Some(RuntimeEnvelopeType::Segments {
-                                            ref levels,
-                                            ref times,
-                                        }) => {
-                                            self.voice_manager
-                                                .borrow_mut()
-                                                .trigger_sample_with_segments(
-                                                    sliced_sample_data.clone(),
-                                                    gain_val,
-                                                    pan_val,
-                                                    final_speed,
-                                                    cut_group_opt,
-                                                    levels.clone(),
-                                                    times.clone(),
-                                                );
-                                        }
-                                        Some(RuntimeEnvelopeType::Curve {
-                                            ref start,
-                                            ref end,
-                                            ref duration,
-                                            ref curve,
-                                        }) => {
-                                            let start_val =
-                                                self.eval_signal_at_time(start, event_start_abs);
-                                            let end_val =
-                                                self.eval_signal_at_time(end, event_start_abs);
-                                            let duration_val = self
-                                                .eval_signal_at_time(duration, event_start_abs)
-                                                .max(0.001);
-                                            let curve_val =
-                                                self.eval_signal_at_time(curve, event_start_abs);
-                                            self.voice_manager
-                                                .borrow_mut()
-                                                .trigger_sample_with_curve(
-                                                    sliced_sample_data.clone(),
-                                                    gain_val,
-                                                    pan_val,
-                                                    final_speed,
-                                                    cut_group_opt,
-                                                    start_val,
-                                                    end_val,
-                                                    duration_val,
-                                                    curve_val,
-                                                );
+                                    // LEGATO OVERRIDE: When legato is present, use ADSR with sharp settings
+                                    if let Some(legato_cycles) = legato_duration_opt {
+                                        // Use ADSR with brick-wall envelope for legato
+                                        // Attack: 1ms (instant), Decay: 1ms, Sustain: 100%, Release: 3ms (instant)
+                                        let sharp_attack = 0.001;
+                                        let sharp_decay = 0.001;
+                                        let sharp_sustain = 1.0;
+                                        let sharp_release = 0.003;
+
+                                        self.voice_manager
+                                            .borrow_mut()
+                                            .trigger_sample_with_adsr(
+                                                sliced_sample_data.clone(),
+                                                gain_val,
+                                                pan_val,
+                                                final_speed,
+                                                cut_group_opt,
+                                                sharp_attack,
+                                                sharp_decay,
+                                                sharp_sustain,
+                                                sharp_release,
+                                            );
+
+                                        // Calculate auto-release time
+                                        // Convert legato duration from cycles to seconds
+                                        let duration_seconds = legato_cycles / self.cps;
+                                        // Subtract attack and release times to get sustain duration
+                                        let sustain_seconds = (duration_seconds - sharp_attack - sharp_release).max(0.0);
+                                        // Convert to samples
+                                        let auto_release_samples = (sustain_seconds * self.sample_rate as f32) as usize;
+
+                                        // Set auto-release on the last triggered voice
+                                        self.voice_manager
+                                            .borrow_mut()
+                                            .set_last_voice_auto_release(auto_release_samples);
+                                    } else {
+                                        // No legato: use normal envelope behavior
+                                        match envelope_type {
+                                            Some(RuntimeEnvelopeType::Percussion) | None => {
+                                                self.voice_manager
+                                                    .borrow_mut()
+                                                    .trigger_sample_with_envelope(
+                                                        sliced_sample_data.clone(),
+                                                        gain_val,
+                                                        pan_val,
+                                                        final_speed,
+                                                        cut_group_opt,
+                                                        final_attack,
+                                                        final_release,
+                                                    );
+                                            }
+                                            Some(RuntimeEnvelopeType::ADSR {
+                                                ref decay,
+                                                ref sustain,
+                                            }) => {
+                                                let decay_val = self
+                                                    .eval_signal_at_time(decay, event_start_abs)
+                                                    .max(0.001);
+                                                let sustain_val = self
+                                                    .eval_signal_at_time(sustain, event_start_abs)
+                                                    .clamp(0.0, 1.0);
+                                                self.voice_manager
+                                                    .borrow_mut()
+                                                    .trigger_sample_with_adsr(
+                                                        sliced_sample_data.clone(),
+                                                        gain_val,
+                                                        pan_val,
+                                                        final_speed,
+                                                        cut_group_opt,
+                                                        final_attack,
+                                                        decay_val,
+                                                        sustain_val,
+                                                        final_release,
+                                                    );
+                                            }
+                                            Some(RuntimeEnvelopeType::Segments {
+                                                ref levels,
+                                                ref times,
+                                            }) => {
+                                                self.voice_manager
+                                                    .borrow_mut()
+                                                    .trigger_sample_with_segments(
+                                                        sliced_sample_data.clone(),
+                                                        gain_val,
+                                                        pan_val,
+                                                        final_speed,
+                                                        cut_group_opt,
+                                                        levels.clone(),
+                                                        times.clone(),
+                                                    );
+                                            }
+                                            Some(RuntimeEnvelopeType::Curve {
+                                                ref start,
+                                                ref end,
+                                                ref duration,
+                                                ref curve,
+                                            }) => {
+                                                let start_val =
+                                                    self.eval_signal_at_time(start, event_start_abs);
+                                                let end_val =
+                                                    self.eval_signal_at_time(end, event_start_abs);
+                                                let duration_val = self
+                                                    .eval_signal_at_time(duration, event_start_abs)
+                                                    .max(0.001);
+                                                let curve_val =
+                                                    self.eval_signal_at_time(curve, event_start_abs);
+                                                self.voice_manager
+                                                    .borrow_mut()
+                                                    .trigger_sample_with_curve(
+                                                        sliced_sample_data.clone(),
+                                                        gain_val,
+                                                        pan_val,
+                                                        final_speed,
+                                                        cut_group_opt,
+                                                        start_val,
+                                                        end_val,
+                                                        duration_val,
+                                                        curve_val,
+                                                    );
+                                            }
                                         }
                                     }
 

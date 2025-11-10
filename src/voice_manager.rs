@@ -138,6 +138,11 @@ pub struct Voice {
 
     /// Loop mode: whether sample should loop when it reaches the end
     loop_enabled: bool,
+
+    /// Auto-release time: trigger release() when age reaches this value
+    /// Used for legato to create sharp note durations
+    /// None = no auto-release (envelope controls duration)
+    auto_release_at_sample: Option<usize>,
 }
 
 /// Unit mode for sample playback speed interpretation
@@ -171,6 +176,7 @@ impl Voice {
             release: 0.1,              // 100ms default release
             unit_mode: UnitMode::Rate, // Default to rate mode
             loop_enabled: false,       // Default to no looping
+            auto_release_at_sample: None, // No auto-release by default
         }
     }
 
@@ -225,6 +231,7 @@ impl Voice {
         self.cut_group = cut_group;
         self.attack = attack.max(0.0001); // Minimum 0.1ms
         self.release = release.max(0.001); // Minimum 1ms
+        self.auto_release_at_sample = None; // No auto-release for percussion
 
         // Configure and trigger envelope (recreate as percussion type)
         self.envelope = VoiceEnvelope::new_percussion(SAMPLE_RATE, self.attack, self.release);
@@ -261,6 +268,7 @@ impl Voice {
         self.cut_group = cut_group;
         self.attack = attack;
         self.release = release;
+        self.auto_release_at_sample = None; // Will be set externally for legato
 
         // Create and trigger ADSR envelope
         self.envelope = VoiceEnvelope::new_adsr(SAMPLE_RATE, attack, decay, sustain, release);
@@ -380,6 +388,14 @@ impl Voice {
                 "[VOICE] envelope processed, env_value={:.6}, is_active={}",
                 env_value, self.envelope.is_active()
             );
+        }
+
+        // Auto-release for legato: trigger release at exact sample count
+        if let Some(release_at) = self.auto_release_at_sample {
+            if self.age >= release_at {
+                self.envelope.release();
+                self.auto_release_at_sample = None; // Only trigger once
+            }
         }
 
         // Check if envelope finished
@@ -777,6 +793,7 @@ impl VoiceManager {
                     sample, gain, pan, speed, cut_group, attack, decay, sustain, release,
                 );
                 self.next_voice_index = (idx + 1) % max_voices;
+                self.last_triggered_voice_index = Some(idx); // Track for post-trigger config
                 return;
             }
         }
@@ -794,6 +811,7 @@ impl VoiceManager {
             sample, gain, pan, speed, cut_group, attack, decay, sustain, release,
         );
         self.next_voice_index = (oldest_idx + 1) % max_voices;
+        self.last_triggered_voice_index = Some(oldest_idx); // Track for post-trigger config
     }
 
     /// Trigger a sample with segments envelope
@@ -994,6 +1012,15 @@ impl VoiceManager {
     pub fn set_last_voice_loop_enabled(&mut self, enabled: bool) {
         if let Some(idx) = self.last_triggered_voice_index {
             self.voices[idx].set_loop_enabled(enabled);
+        }
+    }
+
+    /// Configure auto-release time for the last triggered voice (for legato)
+    /// Must be called immediately after a trigger_sample_* method
+    /// The voice will trigger envelope release when it reaches the specified sample count
+    pub fn set_last_voice_auto_release(&mut self, sample_count: usize) {
+        if let Some(idx) = self.last_triggered_voice_index {
+            self.voices[idx].auto_release_at_sample = Some(sample_count);
         }
     }
 
