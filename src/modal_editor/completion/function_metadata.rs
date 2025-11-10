@@ -1144,17 +1144,17 @@ lazy_static::lazy_static! {
 
         m.insert("loopAt", FunctionMetadata {
             name: "loopAt",
-            description: "Stretch pattern to fit exactly N cycles (precise loop control)",
+            description: "Stretch pattern timing to N cycles (use with multi-element patterns)",
             params: vec![
                 ParamMetadata {
                     name: "cycles",
                     param_type: "float",
                     optional: false,
                     default: None,
-                    description: "Number of cycles to fit pattern exactly",
+                    description: "Number of cycles - affects pattern timing only",
                 },
             ],
-            example: "~fitted: s \"bd sn hh cp\" $ loopAt 4",
+            example: "~fitted: s \"bd sn hh cp\" $ loopAt 2",
             category: "Transforms",
         });
 

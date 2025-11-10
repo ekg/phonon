@@ -710,38 +710,16 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
     /// Loop a pattern at a given number of cycles
     /// loopAt n - stretches the pattern to fit n cycles, then loops it
+    ///
+    /// NOTE: Currently implemented as slow(n) - affects pattern timing only.
+    /// Works well for multi-element patterns like "bd sn hh cp" $ loopAt 2
+    /// For single repeating patterns like "bd" $ loopAt 4, consider using
+    /// speed parameter instead: s "bd" # speed 0.25
+    ///
+    /// TidalCycles' loopAt reads sample duration and adjusts speed accordingly,
+    /// but Phonon currently only affects pattern structure timing.
     pub fn loop_at(self, cycles: f64) -> Self {
-        Pattern::new(move |state| {
-            // Scale time by the loop duration
-            let scaled_begin = state.span.begin.to_float() / cycles;
-            let scaled_end = state.span.end.to_float() / cycles;
-
-            let scaled_state = State {
-                span: TimeSpan::new(
-                    Fraction::from_float(scaled_begin),
-                    Fraction::from_float(scaled_end),
-                ),
-                controls: state.controls.clone(),
-            };
-
-            self.query(&scaled_state)
-                .into_iter()
-                .map(|mut hap| {
-                    // Scale times back up
-                    hap.whole = hap.whole.map(|w| {
-                        TimeSpan::new(
-                            Fraction::from_float(w.begin.to_float() * cycles),
-                            Fraction::from_float(w.end.to_float() * cycles),
-                        )
-                    });
-                    hap.part = TimeSpan::new(
-                        Fraction::from_float(hap.part.begin.to_float() * cycles),
-                        Fraction::from_float(hap.part.end.to_float() * cycles),
-                    );
-                    hap
-                })
-                .collect()
-        })
+        self.slow(cycles)
     }
 
     /// Weave with a function - applies function to alternating cycles
