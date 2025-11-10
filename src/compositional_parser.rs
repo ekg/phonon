@@ -309,6 +309,10 @@ pub enum Transform {
         amount: Box<Expr>,
         transform: Box<Transform>,
     },
+    /// compose transforms: apply transforms in sequence (left-to-right with $)
+    /// Example: (fast 2 $ rev) becomes Compose(vec![Fast(2), Rev])
+    /// Applies Rev first, then Fast(2) to the result
+    Compose(Vec<Transform>),
     /// Template reference: @name
     TemplateRef(String),
 }
@@ -1092,15 +1096,10 @@ fn parse_function_call(input: &str) -> IResult<&str, Expr> {
 /// Parse a transform (with optional parentheses)
 fn parse_transform(input: &str) -> IResult<&str, Transform> {
     alt((
-        // Parenthesized transform: (transform)
+        // Parenthesized transform: (transform) or (transform $ transform)
         delimited(
             terminated(char('('), space0),
-            alt((
-                parse_transform_group_1,
-                parse_transform_group_2,
-                parse_transform_group_3,
-                parse_transform_group_4,
-            )),
+            parse_transform_chain,
             preceded(space0, char(')')),
         ),
         // Unparenthesized transforms
@@ -1109,6 +1108,58 @@ fn parse_transform(input: &str) -> IResult<&str, Transform> {
         parse_transform_group_3,
         parse_transform_group_4,
     ))(input)
+}
+
+/// Parse a transform chain: transform $ transform $ transform
+/// Used inside parentheses to support: jux (fast 2 $ rev)
+/// Creates a Compose transform that applies transforms in sequence
+fn parse_transform_chain(input: &str) -> IResult<&str, Transform> {
+    // Parse first transform
+    let (input, first_transform) = alt((
+        parse_transform_group_1,
+        parse_transform_group_2,
+        parse_transform_group_3,
+        parse_transform_group_4,
+    ))(input)?;
+
+    // Collect all transforms in the chain
+    let mut transforms = vec![first_transform];
+    let mut current_input = input;
+
+    loop {
+        // Try to parse $ and more transforms
+        let (input, _) = space0(current_input)?;
+
+        // Check for $ operator
+        if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('$')(input) {
+            let (input, _) = space0(input)?;
+
+            // Parse next transform
+            let (input, next_transform) = alt((
+                parse_transform_group_1,
+                parse_transform_group_2,
+                parse_transform_group_3,
+                parse_transform_group_4,
+            ))(input)?;
+
+            transforms.push(next_transform);
+            current_input = input;
+        } else {
+            // No more $ operators
+            break;
+        }
+    }
+
+    // If we only have one transform, return it directly
+    // If we have multiple, wrap in Compose
+    if transforms.len() == 1 {
+        Ok((current_input, transforms.into_iter().next().unwrap()))
+    } else {
+        // Reverse the order because $ is right-associative
+        // (fast 2 $ rev) means: apply rev first, then fast 2
+        transforms.reverse();
+        Ok((current_input, Transform::Compose(transforms)))
+    }
 }
 
 /// Parse transform group 1 (first half of transforms)

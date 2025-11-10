@@ -4751,6 +4751,15 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             }))
         }
 
+        Transform::Compose(transforms) => {
+            // Apply transforms in sequence (left to right)
+            let mut result = pattern;
+            for transform in transforms {
+                result = apply_transform_to_pattern(templates, result, transform)?;
+            }
+            Ok(result)
+        }
+
         Transform::Undegrade => Ok(pattern.undegrade()),
 
         Transform::Accelerate(rate_expr) => {
