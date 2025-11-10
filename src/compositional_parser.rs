@@ -144,6 +144,8 @@ pub enum Transform {
     Chop(Box<Expr>),
     /// striate n: alias for chop
     Striate(Box<Expr>),
+    /// slice n indices: reorder n slices by indices pattern
+    Slice { n: Box<Expr>, indices: Box<Expr> },
     /// scramble n: Fisher-Yates shuffle of events
     Scramble(Box<Expr>),
     /// swing amount: add swing feel

@@ -668,6 +668,12 @@ fn compile_function_call(
                                                 "early" if args.len() == 1 => {
                                                     Transform::Early(Box::new(args[0].clone()))
                                                 }
+                                                "slice" if args.len() == 2 => {
+                                                    Transform::Slice {
+                                                        n: Box::new(args[0].clone()),
+                                                        indices: Box::new(args[1].clone()),
+                                                    }
+                                                }
                                                 "late" if args.len() == 1 => {
                                                     Transform::Late(Box::new(args[0].clone()))
                                                 }
@@ -714,6 +720,12 @@ fn compile_function_call(
                                     "degrade" if args.is_empty() => Transform::Degrade,
                                     "degradeBy" if args.len() == 1 => {
                                         Transform::DegradeBy(Box::new(args[0].clone()))
+                                    }
+                                    "slice" if args.len() == 2 => {
+                                        Transform::Slice {
+                                            n: Box::new(args[0].clone()),
+                                            indices: Box::new(args[1].clone()),
+                                        }
                                     }
                                     "stutter" if args.len() == 1 => {
                                         Transform::Stutter(Box::new(args[0].clone()))
@@ -779,6 +791,10 @@ fn compile_function_call(
                                             "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
                                             "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
                                             "fastGap" if args.len() == 1 => Transform::FastGap(Box::new(args[0].clone())),
+                                            "slice" if args.len() == 2 => Transform::Slice {
+                                                n: Box::new(args[0].clone()),
+                                                indices: Box::new(args[1].clone()),
+                                            },
                                             "iter" if args.len() == 1 => Transform::Iter(Box::new(args[0].clone())),
                                             "early" if args.len() == 1 => Transform::Early(Box::new(args[0].clone())),
                                             "late" if args.len() == 1 => Transform::Late(Box::new(args[0].clone())),
@@ -4216,6 +4232,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
                     "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
                     "swing" if args.len() == 1 => Transform::Swing(Box::new(args[0].clone())),
                     "chop" if args.len() == 1 => Transform::Chop(Box::new(args[0].clone())),
+                    "slice" if args.len() == 2 => Transform::Slice {
+                        n: Box::new(args[0].clone()),
+                        indices: Box::new(args[1].clone()),
+                    },
                     "scramble" if args.len() == 1 => Transform::Scramble(Box::new(args[0].clone())),
                     "iter" if args.len() == 1 => Transform::Iter(Box::new(args[0].clone())),
                     "early" if args.len() == 1 => Transform::Early(Box::new(args[0].clone())),
@@ -4261,6 +4281,26 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             // chop and striate are aliases - both slice pattern into n parts
             let n = extract_number(&n_expr)? as usize;
             Ok(pattern.chop(n))
+        }
+        Transform::Slice { n, indices } => {
+            // slice n indices_pattern - reorder n slices by indices
+            let n_val = extract_number(&n)? as usize;
+
+            // Extract indices pattern from the expression
+            let indices_pattern = match indices.as_ref() {
+                Expr::String(s) => {
+                    // Parse mini-notation pattern
+                    use crate::mini_notation_v3::parse_mini_notation;
+                    parse_mini_notation(s)
+                }
+                Expr::Number(num) => {
+                    // Single number - create a pattern with just that index
+                    Pattern::from_string(&num.to_string())
+                }
+                _ => return Err("slice indices must be a string pattern (e.g., \"0 2 1 3\")".to_string()),
+            };
+
+            Ok(pattern.slice_pattern(n_val, indices_pattern))
         }
         Transform::Scramble(n_expr) => {
             let n = extract_number(&n_expr)? as usize;

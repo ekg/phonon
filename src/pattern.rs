@@ -752,6 +752,82 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 .collect()
         })
     }
+
+    /// Pattern-based slice - indices from a pattern
+    /// slice_pattern n indices_pattern - divides into n slices, pattern selects which
+    /// Example: slice_pattern(4, Pattern::from("0 2 1 3")) reorders 4 chunks
+    pub fn slice_pattern(self, n: usize, indices: Pattern<String>) -> Self {
+        if n == 0 {
+            return Pattern::silence();
+        }
+
+        Pattern::new(move |state| {
+            // Query the indices pattern to find which slice to use
+            let index_haps = indices.query(state);
+
+            let mut result = Vec::new();
+
+            for index_hap in index_haps {
+                // Parse the index value
+                let index_str = &index_hap.value;
+                if let Ok(index_value) = index_str.parse::<usize>() {
+                    let slice_index = index_value % n;
+
+                    // Calculate slice boundaries
+                    let slice_begin = slice_index as f64 / n as f64;
+                    let slice_end = (slice_index + 1) as f64 / n as f64;
+
+                    // Query the pattern for this slice within the event's time span
+                    let event_begin = index_hap.part.begin;
+                    let event_end = index_hap.part.end;
+                    let event_duration = event_end - event_begin;
+
+                    // Map the slice to the event's time window
+                    let query_begin = Fraction::from_float(slice_begin);
+                    let query_end = Fraction::from_float(slice_end);
+
+                    let slice_state = State {
+                        span: TimeSpan::new(query_begin, query_end),
+                        controls: state.controls.clone(),
+                    };
+
+                    let slice_haps = self.query(&slice_state);
+
+                    // Map the slice events to the index event's time window
+                    for mut hap in slice_haps {
+                        // Calculate relative position within slice
+                        let hap_begin = hap.part.begin.to_float();
+                        let hap_end = hap.part.end.to_float();
+
+                        // Normalize to 0-1 within the slice
+                        let slice_duration = slice_end - slice_begin;
+                        let norm_begin = (hap_begin - slice_begin) / slice_duration;
+                        let norm_end = (hap_end - slice_begin) / slice_duration;
+
+                        // Map to event window
+                        let new_begin = event_begin + event_duration * Fraction::from_float(norm_begin);
+                        let new_end = event_begin + event_duration * Fraction::from_float(norm_end);
+
+                        hap.part = TimeSpan::new(new_begin, new_end);
+                        hap.whole = hap.whole.map(|w| {
+                            let w_begin = w.begin.to_float();
+                            let w_end = w.end.to_float();
+                            let norm_w_begin = (w_begin - slice_begin) / slice_duration;
+                            let norm_w_end = (w_end - slice_begin) / slice_duration;
+                            TimeSpan::new(
+                                event_begin + event_duration * Fraction::from_float(norm_w_begin),
+                                event_begin + event_duration * Fraction::from_float(norm_w_end),
+                            )
+                        });
+
+                        result.push(hap);
+                    }
+                }
+            }
+
+            result
+        })
+    }
 }
 
 impl Pattern<String> {
