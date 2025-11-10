@@ -588,6 +588,703 @@ lazy_static::lazy_static! {
             category: "Transforms",
         });
 
+        // Time Manipulation Transforms
+        m.insert("shuffle", FunctionMetadata {
+            name: "shuffle",
+            description: "Randomly shift events in time by amount",
+            params: vec![
+                ParamMetadata {
+                    name: "amount",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Maximum time shift (0.0-1.0)",
+                },
+            ],
+            example: "~drums: s \"bd sn hh cp\" $ shuffle 0.5",
+            category: "Transforms",
+        });
+
+        m.insert("chop", FunctionMetadata {
+            name: "chop",
+            description: "Slice pattern into N parts and stack (play simultaneously)",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of slices",
+                },
+            ],
+            example: "~chopped: s \"bd sn\" $ chop 8",
+            category: "Transforms",
+        });
+
+        m.insert("striate", FunctionMetadata {
+            name: "striate",
+            description: "Alias for chop - slice and stack pattern",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of slices",
+                },
+            ],
+            example: "~striate: s \"bd sn\" $ striate 4",
+            category: "Transforms",
+        });
+
+        m.insert("slice", FunctionMetadata {
+            name: "slice",
+            description: "Reorder N slices by index pattern (deterministic control)",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of slices",
+                },
+                ParamMetadata {
+                    name: "indices",
+                    param_type: "pattern",
+                    optional: false,
+                    default: None,
+                    description: "Pattern of indices to select slices",
+                },
+            ],
+            example: "~sliced: s \"bd sn hh cp\" $ slice 4 \"3 2 1 0\"",
+            category: "Transforms",
+        });
+
+        m.insert("scramble", FunctionMetadata {
+            name: "scramble",
+            description: "Fisher-Yates shuffle - randomize event order",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of subdivisions to scramble",
+                },
+            ],
+            example: "~scrambled: s \"bd sn hh cp\" $ scramble 4",
+            category: "Transforms",
+        });
+
+        // Pattern Structure Transforms
+        m.insert("rev", FunctionMetadata {
+            name: "rev",
+            description: "Reverse pattern - plays backwards",
+            params: vec![],
+            example: "~reversed: s \"bd sn hh cp\" $ rev",
+            category: "Transforms",
+        });
+
+        m.insert("palindrome", FunctionMetadata {
+            name: "palindrome",
+            description: "Pattern followed by its reverse",
+            params: vec![],
+            example: "~palindrome: s \"bd sn hh\" $ palindrome",
+            category: "Transforms",
+        });
+
+        m.insert("mirror", FunctionMetadata {
+            name: "mirror",
+            description: "Alias for palindrome - pattern then reverse",
+            params: vec![],
+            example: "~mirrored: s \"bd sn\" $ mirror",
+            category: "Transforms",
+        });
+
+        m.insert("rotL", FunctionMetadata {
+            name: "rotL",
+            description: "Rotate pattern left by N steps",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of steps to rotate left",
+                },
+            ],
+            example: "~rotated: s \"bd sn hh cp\" $ rotL 1",
+            category: "Transforms",
+        });
+
+        m.insert("rotR", FunctionMetadata {
+            name: "rotR",
+            description: "Rotate pattern right by N steps",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of steps to rotate right",
+                },
+            ],
+            example: "~rotated: s \"bd sn hh cp\" $ rotR 1",
+            category: "Transforms",
+        });
+
+        // Timing/Feel Transforms
+        m.insert("swing", FunctionMetadata {
+            name: "swing",
+            description: "Add swing feel - delays every other event",
+            params: vec![
+                ParamMetadata {
+                    name: "amount",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Swing amount (0.0-1.0)",
+                },
+            ],
+            example: "~swung: s \"bd*8\" $ swing 0.5",
+            category: "Transforms",
+        });
+
+        m.insert("late", FunctionMetadata {
+            name: "late",
+            description: "Delay pattern in time",
+            params: vec![
+                ParamMetadata {
+                    name: "amount",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Time delay in cycles",
+                },
+            ],
+            example: "~delayed: s \"bd sn\" $ late 0.25",
+            category: "Transforms",
+        });
+
+        m.insert("early", FunctionMetadata {
+            name: "early",
+            description: "Shift pattern earlier in time",
+            params: vec![
+                ParamMetadata {
+                    name: "amount",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Time advance in cycles",
+                },
+            ],
+            example: "~advanced: s \"bd sn\" $ early 0.1",
+            category: "Transforms",
+        });
+
+        m.insert("offset", FunctionMetadata {
+            name: "offset",
+            description: "Alias for late - shift pattern in time",
+            params: vec![
+                ParamMetadata {
+                    name: "amount",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Time offset in cycles",
+                },
+            ],
+            example: "~offset: s \"bd sn\" $ offset 0.5",
+            category: "Transforms",
+        });
+
+        // Duration Transforms
+        m.insert("legato", FunctionMetadata {
+            name: "legato",
+            description: "Adjust event duration - makes events longer/shorter",
+            params: vec![
+                ParamMetadata {
+                    name: "factor",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Duration multiplier (>1 = longer, <1 = shorter)",
+                },
+            ],
+            example: "~legato: s \"bd sn\" $ legato 2.0",
+            category: "Transforms",
+        });
+
+        m.insert("staccato", FunctionMetadata {
+            name: "staccato",
+            description: "Make events shorter (opposite of legato)",
+            params: vec![
+                ParamMetadata {
+                    name: "factor",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Shortening factor (0.5 = half duration)",
+                },
+            ],
+            example: "~short: s \"bd sn\" $ staccato 0.5",
+            category: "Transforms",
+        });
+
+        m.insert("stretch", FunctionMetadata {
+            name: "stretch",
+            description: "Sustain notes to fill gaps (legato 1.0)",
+            params: vec![],
+            example: "~stretched: s \"bd ~ sn ~\" $ stretch",
+            category: "Transforms",
+        });
+
+        m.insert("linger", FunctionMetadata {
+            name: "linger",
+            description: "Linger on values for longer",
+            params: vec![
+                ParamMetadata {
+                    name: "factor",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Linger duration multiplier",
+                },
+            ],
+            example: "~lingering: s \"bd sn\" $ linger 2.0",
+            category: "Transforms",
+        });
+
+        // Repetition Transforms
+        m.insert("stutter", FunctionMetadata {
+            name: "stutter",
+            description: "Repeat each event N times",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of repetitions",
+                },
+            ],
+            example: "~stutter: s \"bd sn\" $ stutter 4",
+            category: "Transforms",
+        });
+
+        m.insert("ply", FunctionMetadata {
+            name: "ply",
+            description: "Repeat each event N times (similar to stutter)",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of repetitions per event",
+                },
+            ],
+            example: "~plied: s \"bd sn\" $ ply 3",
+            category: "Transforms",
+        });
+
+        m.insert("dup", FunctionMetadata {
+            name: "dup",
+            description: "Duplicate pattern N times (like bd*n)",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of duplications",
+                },
+            ],
+            example: "~duped: s \"bd sn\" $ dup 4",
+            category: "Transforms",
+        });
+
+        m.insert("iter", FunctionMetadata {
+            name: "iter",
+            description: "Iterate pattern shifting by 1/N each cycle",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of iterations",
+                },
+            ],
+            example: "~iter: s \"bd sn hh cp\" $ iter 4",
+            category: "Transforms",
+        });
+
+        m.insert("iterBack", FunctionMetadata {
+            name: "iterBack",
+            description: "Iterate pattern backwards",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of iterations",
+                },
+            ],
+            example: "~iterBack: s \"bd sn hh cp\" $ iterBack 4",
+            category: "Transforms",
+        });
+
+        m.insert("echo", FunctionMetadata {
+            name: "echo",
+            description: "Echo/delay effect on pattern level",
+            params: vec![
+                ParamMetadata {
+                    name: "times",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of echoes",
+                },
+                ParamMetadata {
+                    name: "time",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Time between echoes (cycles)",
+                },
+                ParamMetadata {
+                    name: "feedback",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Feedback amount (0.0-1.0)",
+                },
+            ],
+            example: "~echoed: s \"bd sn\" $ echo 3 0.25 0.5",
+            category: "Transforms",
+        });
+
+        // Control/Filter Transforms
+        m.insert("degrade", FunctionMetadata {
+            name: "degrade",
+            description: "Randomly remove events (50% probability)",
+            params: vec![],
+            example: "~degraded: s \"bd sn hh cp\" $ degrade",
+            category: "Transforms",
+        });
+
+        m.insert("degradeBy", FunctionMetadata {
+            name: "degradeBy",
+            description: "Remove events with probability P",
+            params: vec![
+                ParamMetadata {
+                    name: "probability",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Removal probability (0.0-1.0)",
+                },
+            ],
+            example: "~sparse: s \"bd sn hh cp\" $ degradeBy 0.7",
+            category: "Transforms",
+        });
+
+        m.insert("gap", FunctionMetadata {
+            name: "gap",
+            description: "Insert silence every N cycles",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Gap interval in cycles",
+                },
+            ],
+            example: "~gapped: s \"bd sn\" $ gap 2",
+            category: "Transforms",
+        });
+
+        m.insert("segment", FunctionMetadata {
+            name: "segment",
+            description: "Divide pattern into N segments",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of segments",
+                },
+            ],
+            example: "~segmented: s \"bd sn\" $ segment 8",
+            category: "Transforms",
+        });
+
+        // Time Range Transforms
+        m.insert("zoom", FunctionMetadata {
+            name: "zoom",
+            description: "Focus on specific time range (begin to end)",
+            params: vec![
+                ParamMetadata {
+                    name: "begin",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Start position (0.0-1.0)",
+                },
+                ParamMetadata {
+                    name: "end",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "End position (0.0-1.0)",
+                },
+            ],
+            example: "~zoomed: s \"bd sn hh cp\" $ zoom 0.25 0.75",
+            category: "Transforms",
+        });
+
+        m.insert("compress", FunctionMetadata {
+            name: "compress",
+            description: "Compress pattern to time range",
+            params: vec![
+                ParamMetadata {
+                    name: "begin",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Start position (0.0-1.0)",
+                },
+                ParamMetadata {
+                    name: "end",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "End position (0.0-1.0)",
+                },
+            ],
+            example: "~compressed: s \"bd sn\" $ compress 0.0 0.5",
+            category: "Transforms",
+        });
+
+        m.insert("compressGap", FunctionMetadata {
+            name: "compressGap",
+            description: "Compress to range with gaps",
+            params: vec![
+                ParamMetadata {
+                    name: "begin",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Start position (0.0-1.0)",
+                },
+                ParamMetadata {
+                    name: "end",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "End position (0.0-1.0)",
+                },
+            ],
+            example: "~gapcompress: s \"bd sn\" $ compressGap 0.0 0.25",
+            category: "Transforms",
+        });
+
+        m.insert("fit", FunctionMetadata {
+            name: "fit",
+            description: "Fit pattern to N cycles",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Number of cycles to fit",
+                },
+            ],
+            example: "~fitted: s \"bd sn hh cp\" $ fit 2",
+            category: "Transforms",
+        });
+
+        // Advanced Transforms
+        m.insert("spin", FunctionMetadata {
+            name: "spin",
+            description: "Rotate through N different versions",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of rotations",
+                },
+            ],
+            example: "~spinning: s \"bd sn hh cp\" $ spin 4",
+            category: "Transforms",
+        });
+
+        m.insert("loop", FunctionMetadata {
+            name: "loop",
+            description: "Loop pattern N times within cycle",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of loops per cycle",
+                },
+            ],
+            example: "~looped: s \"bd sn\" $ loop 4",
+            category: "Transforms",
+        });
+
+        m.insert("chew", FunctionMetadata {
+            name: "chew",
+            description: "Chew through pattern (granular slicing)",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Chew factor",
+                },
+            ],
+            example: "~chewed: s \"bd sn\" $ chew 8",
+            category: "Transforms",
+        });
+
+        m.insert("fastGap", FunctionMetadata {
+            name: "fastGap",
+            description: "Fast with gaps between repetitions",
+            params: vec![
+                ParamMetadata {
+                    name: "factor",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Speed factor",
+                },
+            ],
+            example: "~fastgap: s \"bd sn\" $ fastGap 2",
+            category: "Transforms",
+        });
+
+        m.insert("discretise", FunctionMetadata {
+            name: "discretise",
+            description: "Quantize time to N divisions",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of time divisions",
+                },
+            ],
+            example: "~quantized: s \"bd sn hh\" $ discretise 16",
+            category: "Transforms",
+        });
+
+        m.insert("binary", FunctionMetadata {
+            name: "binary",
+            description: "Bit mask pattern for binary rhythms",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Binary number as bitmask",
+                },
+            ],
+            example: "~binary: s \"bd\" $ binary 13",
+            category: "Transforms",
+        });
+
+        m.insert("range", FunctionMetadata {
+            name: "range",
+            description: "Scale numeric values to min-max range",
+            params: vec![
+                ParamMetadata {
+                    name: "min",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Minimum value",
+                },
+                ParamMetadata {
+                    name: "max",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Maximum value",
+                },
+            ],
+            example: "~scaled: sine \"0.5 1.0\" $ range 200 800",
+            category: "Transforms",
+        });
+
+        m.insert("reset", FunctionMetadata {
+            name: "reset",
+            description: "Restart pattern every N cycles",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Reset interval in cycles",
+                },
+            ],
+            example: "~reset: s \"bd sn hh cp\" $ reset 4",
+            category: "Transforms",
+        });
+
+        m.insert("restart", FunctionMetadata {
+            name: "restart",
+            description: "Alias for reset - restart pattern every N cycles",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Restart interval in cycles",
+                },
+            ],
+            example: "~restart: s \"bd sn\" $ restart 2",
+            category: "Transforms",
+        });
+
+        m.insert("loopback", FunctionMetadata {
+            name: "loopback",
+            description: "Play backwards then forwards (bidirectional)",
+            params: vec![],
+            example: "~loopback: s \"bd sn hh cp\" $ loopback",
+            category: "Transforms",
+        });
+
+        m.insert("squeeze", FunctionMetadata {
+            name: "squeeze",
+            description: "Compress to first 1/N of cycle and speed up",
+            params: vec![
+                ParamMetadata {
+                    name: "n",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Squeeze factor",
+                },
+            ],
+            example: "~squeezed: s \"bd sn hh cp\" $ squeeze 4",
+            category: "Transforms",
+        });
+
         m
     };
 }
