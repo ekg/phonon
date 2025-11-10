@@ -665,6 +665,9 @@ fn compile_function_call(
                                                 "iter" if args.len() == 1 => {
                                                     Transform::Iter(Box::new(args[0].clone()))
                                                 }
+                                                "loopAt" if args.len() == 1 => {
+                                                    Transform::LoopAt(Box::new(args[0].clone()))
+                                                }
                                                 "early" if args.len() == 1 => {
                                                     Transform::Early(Box::new(args[0].clone()))
                                                 }
@@ -729,6 +732,9 @@ fn compile_function_call(
                                     }
                                     "stutter" if args.len() == 1 => {
                                         Transform::Stutter(Box::new(args[0].clone()))
+                                    }
+                                    "loopAt" if args.len() == 1 => {
+                                        Transform::LoopAt(Box::new(args[0].clone()))
                                     }
                                     _ => return Err(format!("Unknown transform: {}", name)),
                                 };
@@ -796,6 +802,7 @@ fn compile_function_call(
                                                 indices: Box::new(args[1].clone()),
                                             },
                                             "iter" if args.len() == 1 => Transform::Iter(Box::new(args[0].clone())),
+                                            "loopAt" if args.len() == 1 => Transform::LoopAt(Box::new(args[0].clone())),
                                             "early" if args.len() == 1 => Transform::Early(Box::new(args[0].clone())),
                                             "late" if args.len() == 1 => Transform::Late(Box::new(args[0].clone())),
                                             _ => return Err(format!("Unknown transform or invalid call in transform chain: {}", name)),
@@ -4238,6 +4245,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
                     },
                     "scramble" if args.len() == 1 => Transform::Scramble(Box::new(args[0].clone())),
                     "iter" if args.len() == 1 => Transform::Iter(Box::new(args[0].clone())),
+                    "loopAt" if args.len() == 1 => Transform::LoopAt(Box::new(args[0].clone())),
                     "early" if args.len() == 1 => Transform::Early(Box::new(args[0].clone())),
                     "late" if args.len() == 1 => Transform::Late(Box::new(args[0].clone())),
                     _ => return Err(format!("Template @{} is not a valid transform", name)),
