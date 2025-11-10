@@ -698,6 +698,7 @@ fn try_extract_transform_from_call(expr: &Expr) -> Option<Transform> {
             "shuffle" if args.len() == 1 => Some(Transform::Shuffle(Box::new(args[0].clone()))),
             "fastGap" if args.len() == 1 => Some(Transform::FastGap(Box::new(args[0].clone()))),
             "iter" if args.len() == 1 => Some(Transform::Iter(Box::new(args[0].clone()))),
+            "loopAt" if args.len() == 1 => Some(Transform::LoopAt(Box::new(args[0].clone()))),
             "early" if args.len() == 1 => Some(Transform::Early(Box::new(args[0].clone()))),
             "late" if args.len() == 1 => Some(Transform::Late(Box::new(args[0].clone()))),
             _ => None,
@@ -1286,6 +1287,11 @@ fn parse_transform_group_2(input: &str) -> IResult<&str, Transform> {
         map(
             preceded(terminated(tag("iterBack"), space1), parse_primary_expr),
             |expr| Transform::IterBack(Box::new(expr)),
+        ),
+        // loopAt n
+        map(
+            preceded(terminated(tag("loopAt"), space1), parse_primary_expr),
+            |expr| Transform::LoopAt(Box::new(expr)),
         ),
         // ply n
         map(
