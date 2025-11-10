@@ -5966,10 +5966,20 @@ impl UnifiedSignalGraph {
                             .eval_signal_at_time(&attack, event_start_abs)
                             .max(0.0)
                             .min(10.0); // Attack time in seconds
-                        let release_val = self
+                        let mut release_val = self
                             .eval_signal_at_time(&release, event_start_abs)
                             .max(0.0)
                             .min(10.0); // Release time in seconds
+
+                        // Check if event has legato duration in context (from legato transform)
+                        if let Some(legato_duration_str) = event.context.get("legato_duration") {
+                            if let Ok(duration_cycles) = legato_duration_str.parse::<f32>() {
+                                // Convert duration from cycles to seconds using tempo
+                                // cps is cycles/second, so seconds = cycles / cps
+                                let duration_seconds = duration_cycles / self.cps;
+                                release_val = duration_seconds.max(0.001).min(10.0);
+                            }
+                        }
 
                         // CRITICAL FIX: When attack=0 and release=0 (default), don't apply
                         // a short envelope that cuts off samples. Instead use sensible defaults

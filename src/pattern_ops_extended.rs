@@ -105,6 +105,10 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                     let duration = hap.part.duration();
                     let new_duration = Fraction::from_float(duration.to_float() * factor);
                     hap.part = TimeSpan::new(hap.part.begin, hap.part.begin + new_duration);
+
+                    // Add legato duration to context (in cycles) for sample playback
+                    // This will be converted to release time in seconds at render time
+                    hap.context.insert("legato_duration".to_string(), new_duration.to_float().to_string());
                     hap
                 })
                 .collect()
