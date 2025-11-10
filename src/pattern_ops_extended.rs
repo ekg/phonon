@@ -398,6 +398,53 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     pub fn mirror(self) -> Self {
         self.palindrome()
     }
+
+    /// JuxBy - apply transform to one channel with specified pan amount (context-based for samples)
+    /// Original pattern panned to -amount, transformed pattern panned to +amount
+    /// This version uses pan context for sample playback (not stereo tuples)
+    pub fn jux_by_ctx<F>(self, amount: f64, transform: F) -> Self
+    where
+        F: Fn(Pattern<T>) -> Pattern<T> + 'static + Send + Sync,
+    {
+        // Create left channel: original pattern panned to -amount
+        let left = Pattern::new({
+            let pattern = self.clone();
+            let pan_left = -amount;
+            move |state: &State| {
+                let mut haps = pattern.query(state);
+                for hap in &mut haps {
+                    hap.context.insert("pan".to_string(), pan_left.to_string());
+                }
+                haps
+            }
+        });
+
+        // Create right channel: transformed pattern panned to +amount
+        let right = Pattern::new({
+            let pattern = transform(self);
+            let pan_right = amount;
+            move |state: &State| {
+                let mut haps = pattern.query(state);
+                for hap in &mut haps {
+                    hap.context.insert("pan".to_string(), pan_right.to_string());
+                }
+                haps
+            }
+        });
+
+        // Stack (layer) left and right channels
+        Pattern::stack(vec![left, right])
+    }
+
+    /// Jux - apply transform to right channel only (context-based for samples)
+    /// Original pattern panned left (-1.0), transformed pattern panned right (+1.0)
+    /// This version uses pan context for sample playback (not stereo tuples)
+    pub fn jux_ctx<F>(self, transform: F) -> Self
+    where
+        F: Fn(Pattern<T>) -> Pattern<T> + 'static + Send + Sync,
+    {
+        self.jux_by_ctx(1.0, transform)
+    }
 }
 
 // Numeric pattern operations

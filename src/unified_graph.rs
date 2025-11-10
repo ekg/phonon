@@ -5918,9 +5918,13 @@ impl UnifiedSignalGraph {
                             .eval_signal_at_time(&gain, event_start_abs)
                             .max(0.0)
                             .min(10.0);
-                        let pan_val = self
-                            .eval_signal_at_time(&pan, event_start_abs)
-                            .clamp(-1.0, 1.0);
+
+                        // Check event context for pan override (set by transforms like jux)
+                        let pan_val = if let Some(pan_str) = event.context.get("pan") {
+                            pan_str.parse::<f32>().unwrap_or(0.0).clamp(-1.0, 1.0)
+                        } else {
+                            self.eval_signal_at_time(&pan, event_start_abs).clamp(-1.0, 1.0)
+                        };
                         let mut speed_val = self
                             .eval_signal_at_time(&speed, event_start_abs)
                             .clamp(-10.0, 10.0); // Allow negative speed for reverse playback

@@ -4726,6 +4726,31 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             Ok(pattern.degrade_seed(seed))
         }
 
+        Transform::Jux(transform) => {
+            let inner_transform = (*transform).clone();
+            let templates_clone = templates.clone();
+
+            Ok(pattern.jux_ctx(move |p| {
+                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                    Ok(transformed) => transformed,
+                    Err(e) => panic!("Transform error in jux: {}", e),
+                }
+            }))
+        }
+
+        Transform::JuxBy { amount, transform } => {
+            let amount_val = extract_number(&amount)?;
+            let inner_transform = (*transform).clone();
+            let templates_clone = templates.clone();
+
+            Ok(pattern.jux_by_ctx(amount_val, move |p| {
+                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                    Ok(transformed) => transformed,
+                    Err(e) => panic!("Transform error in juxBy: {}", e),
+                }
+            }))
+        }
+
         Transform::Undegrade => Ok(pattern.undegrade()),
 
         Transform::Accelerate(rate_expr) => {

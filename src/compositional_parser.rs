@@ -302,6 +302,13 @@ pub enum Transform {
     },
     /// euclid pulses steps: euclidean rhythm pattern
     Euclid { pulses: Box<Expr>, steps: Box<Expr> },
+    /// jux transform: apply transform to right channel only
+    Jux(Box<Transform>),
+    /// juxBy amount transform: apply transform to one channel with pan amount
+    JuxBy {
+        amount: Box<Expr>,
+        transform: Box<Transform>,
+    },
     /// Template reference: @name
     TemplateRef(String),
 }
@@ -1118,6 +1125,23 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
                 n: Box::new(n),
                 transform: Box::new(transform),
             },
+        ),
+        // juxBy amount transform (MUST come before jux!)
+        map(
+            tuple((
+                terminated(tag("juxBy"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_transform,
+            )),
+            |(_, amount, transform)| Transform::JuxBy {
+                amount: Box::new(amount),
+                transform: Box::new(transform),
+            },
+        ),
+        // jux transform
+        map(
+            preceded(terminated(tag("jux"), space1), parse_transform),
+            |transform| Transform::Jux(Box::new(transform)),
         ),
         // fast n
         map(
