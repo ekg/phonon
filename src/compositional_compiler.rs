@@ -4310,6 +4310,37 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
 
             Ok(pattern.slice_pattern(n_val, indices_pattern))
         }
+        Transform::Struct(struct_expr) => {
+            // struct pattern - apply structure/rhythm from boolean pattern to values
+            // Example: struct "t ~ t ~" or struct "t(3,8)"
+            let struct_pattern = match struct_expr.as_ref() {
+                Expr::String(s) => {
+                    // Parse mini-notation pattern for structure
+                    // Convert "t" to true, "~" to false
+                    use crate::mini_notation_v3::parse_mini_notation;
+
+                    // Parse as string pattern first
+                    let string_pattern = parse_mini_notation(s);
+
+                    // Convert to boolean pattern: "t" -> true, anything else (including "~") -> false
+                    Pattern::new(move |state| {
+                        string_pattern
+                            .query(state)
+                            .into_iter()
+                            .map(|hap| crate::pattern::Hap {
+                                whole: hap.whole,
+                                part: hap.part,
+                                value: hap.value == "t",
+                                context: hap.context,
+                            })
+                            .collect()
+                    })
+                }
+                _ => return Err("struct pattern must be a string (e.g., \"t ~ t ~\" or \"t(3,8)\")".to_string()),
+            };
+
+            Ok(pattern.struct_pattern(struct_pattern))
+        }
         Transform::Scramble(n_expr) => {
             let n = extract_number(&n_expr)? as usize;
             Ok(pattern.scramble(n))

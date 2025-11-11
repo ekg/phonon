@@ -146,6 +146,8 @@ pub enum Transform {
     Striate(Box<Expr>),
     /// slice n indices: reorder n slices by indices pattern
     Slice { n: Box<Expr>, indices: Box<Expr> },
+    /// struct pattern: apply structure/rhythm from pattern to values
+    Struct(Box<Expr>),
     /// scramble n: Fisher-Yates shuffle of events
     Scramble(Box<Expr>),
     /// swing amount: add swing feel
@@ -1244,6 +1246,11 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
         map(
             preceded(terminated(tag("scramble"), space1), parse_primary_expr),
             |expr| Transform::Scramble(Box::new(expr)),
+        ),
+        // struct pattern
+        map(
+            preceded(terminated(tag("struct"), space1), parse_primary_expr),
+            |expr| Transform::Struct(Box::new(expr)),
         ),
         // swing amount
         map(

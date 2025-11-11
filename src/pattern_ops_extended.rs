@@ -274,9 +274,86 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
-    /// Struct pattern - apply euclidean mask
-    pub fn struct_pattern(self, struct_pat: Pattern<bool>) -> Self {
-        self.mask(struct_pat)
+    /// Struct pattern - apply structure/rhythm from one pattern to values from another
+    /// Takes trigger times from struct_pat and pulls values sequentially from self
+    ///
+    /// Example: struct "t ~ t ~" $ s "bd sn hh"
+    /// - Structure has triggers at 0, 0.5 (two per cycle)
+    /// - Values cycle through: bd, sn, hh
+    /// - Result: bd at 0, sn at 0.5 (cycle 0), hh at 0 (cycle 1), etc.
+    ///
+    /// This works like Tidal's struct: structure determines WHEN, values determine WHAT.
+    /// Values are pulled sequentially as triggers fire, advancing a global counter.
+    pub fn struct_pattern(self, struct_pat: Pattern<bool>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        // We need to track value index across all cycles
+        // Use a long query span to get many value events, then index into them
+        Pattern::new(move |state: &State| {
+            // Get structure events (triggers) for the requested span
+            let struct_haps = struct_pat.query(state);
+
+            // Filter to only true triggers
+            let triggers: Vec<_> = struct_haps
+                .into_iter()
+                .filter(|hap| hap.value)
+                .collect();
+
+            if triggers.is_empty() {
+                return vec![];
+            }
+
+            // Query value pattern over a LARGE span to get enough values
+            // We need enough values to cover all triggers that will ever fire
+            // Query from cycle 0 to well beyond current span
+            let max_cycle = state.span.end.to_float().ceil() as i64;
+            let value_state = State {
+                span: TimeSpan::new(
+                    Fraction::new(0, 1),
+                    Fraction::new(max_cycle + 100, 1), // Query far ahead
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let value_haps = self.query(&value_state);
+
+            if value_haps.is_empty() {
+                return vec![];
+            }
+
+            // Calculate triggers per cycle BEFORE consuming triggers
+            let triggers_per_cycle = triggers
+                .iter()
+                .filter(|t| t.part.begin.to_float() < 1.0)
+                .count()
+                .max(1);
+
+            // For each trigger, use a simple sequential index
+            // This assumes triggers are in temporal order (which they should be from query)
+            triggers
+                .into_iter()
+                .enumerate()
+                .map(|(idx, trigger_hap)| {
+                    // Calculate absolute trigger index across all cycles
+                    // Get the cycle number and add it to offset our index
+                    let cycle = trigger_hap.part.begin.to_float().floor() as usize;
+                    let global_idx = cycle * triggers_per_cycle + (idx % triggers_per_cycle);
+
+                    // Use that to index into values (wrapping)
+                    let value_idx = global_idx % value_haps.len();
+                    let value_hap = &value_haps[value_idx];
+
+                    // Create event at trigger's time with value's data
+                    crate::pattern::Hap {
+                        whole: trigger_hap.whole,
+                        part: trigger_hap.part,
+                        value: value_hap.value.clone(),
+                        context: value_hap.context.clone(),
+                    }
+                })
+                .collect()
+        })
     }
 
     /// Reset on cycle boundary
