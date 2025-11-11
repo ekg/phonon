@@ -93,7 +93,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// Compress and repeat
     pub fn compress_to(self, begin: f64, end: f64) -> Self {
         let duration = end - begin;
-        self.fast(Pattern::pure(1.0 / duration)).late(begin)
+        self.fast(Pattern::pure(1.0 / duration)).late(Pattern::pure(begin))
     }
 
     /// Legato - stretch note durations
@@ -184,7 +184,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             .map(|i| {
                 let delay = time * i as f64;
                 let gain = feedback.powi(i as i32);
-                self.clone().late(delay) // In real implementation, would also scale amplitude
+                self.clone().late(Pattern::pure(delay)) // In real implementation, would also scale amplitude
             })
             .collect();
         Pattern::stack(patterns)

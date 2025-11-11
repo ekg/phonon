@@ -3077,11 +3077,11 @@ impl DslCompiler {
             }
             PatternTransformOp::Late(amount_expr) => {
                 let amount = self.extract_constant(*amount_expr)?;
-                Ok(pattern.late(amount))
+                Ok(pattern.late(Pattern::pure(amount)))
             }
             PatternTransformOp::Early(amount_expr) => {
                 let amount = self.extract_constant(*amount_expr)?;
-                Ok(pattern.early(amount))
+                Ok(pattern.early(Pattern::pure(amount)))
             }
             PatternTransformOp::Dup(n_expr) => {
                 let n = self.extract_constant(*n_expr)? as usize;

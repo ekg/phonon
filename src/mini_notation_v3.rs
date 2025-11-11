@@ -921,7 +921,7 @@ pub fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
                     })
                 }
                 Operator::Degrade(amount) => pat.degrade_by(amount),
-                Operator::Late(amount) => pat.late(amount),
+                Operator::Late(amount) => pat.late(Pattern::pure(amount)),
             }
         }
 
@@ -1009,7 +1009,7 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                     })
                 }
                 Operator::Degrade(amount) => pat.degrade_by(amount),
-                Operator::Late(amount) => pat.late(amount),
+                Operator::Late(amount) => pat.late(Pattern::pure(amount)),
             }
         }
 

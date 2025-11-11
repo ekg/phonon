@@ -646,7 +646,7 @@ impl MiniNotationParser {
                     if let Some(Token::Number(n)) = self.current() {
                         let n = *n;
                         self.advance();
-                        return Some(pattern.late(n));
+                        return Some(pattern.late(Pattern::pure(n)));
                     }
                 }
                 Token::Question => {

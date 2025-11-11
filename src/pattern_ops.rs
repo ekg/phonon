@@ -2,7 +2,7 @@
 //! Complete set of pattern operators ported from Strudel
 //! All the pattern transformation functions you know and love
 
-use crate::pattern::{Fraction, Hap, Pattern, TimeSpan};
+use crate::pattern::{Fraction, Hap, Pattern, State, TimeSpan};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::sync::Arc;
 
@@ -10,19 +10,40 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     // ============= Time Manipulation =============
 
     /// Shift pattern forward in time
-    pub fn late(self, amount: f64) -> Self {
+    pub fn late(self, amount: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
         Pattern::new(move |state| {
+            // Query amount pattern at cycle start to get current amount
+            let cycle_start = state.span.begin.to_float().floor();
+            let amount_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let amount_haps = amount.query(&amount_state);
+            let shift = if let Some(hap) = amount_haps.first() {
+                hap.value
+            } else {
+                0.0
+            };
+
+            // Apply time shift with the queried amount
             self.query(state)
                 .into_iter()
                 .map(|mut hap| {
                     hap.part = TimeSpan::new(
-                        Fraction::from_float(hap.part.begin.to_float() + amount),
-                        Fraction::from_float(hap.part.end.to_float() + amount),
+                        Fraction::from_float(hap.part.begin.to_float() + shift),
+                        Fraction::from_float(hap.part.end.to_float() + shift),
                     );
                     if let Some(whole) = hap.whole {
                         hap.whole = Some(TimeSpan::new(
-                            Fraction::from_float(whole.begin.to_float() + amount),
-                            Fraction::from_float(whole.end.to_float() + amount),
+                            Fraction::from_float(whole.begin.to_float() + shift),
+                            Fraction::from_float(whole.end.to_float() + shift),
                         ));
                     }
                     hap
@@ -32,13 +53,27 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Shift pattern backward in time
-    pub fn early(self, amount: f64) -> Self {
-        self.late(-amount)
+    pub fn early(self, amount: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        // Invert the amount pattern: 0.5 -> -0.5
+        let inverted = Pattern::new(move |state| {
+            amount
+                .query(state)
+                .into_iter()
+                .map(|mut hap| {
+                    hap.value = -hap.value;
+                    hap
+                })
+                .collect()
+        });
+        self.late(inverted)
     }
 
     /// Offset pattern by a fraction of a cycle
     pub fn offset(self, amount: f64) -> Self {
-        self.late(amount)
+        self.late(Pattern::pure(amount))
     }
 
     /// Loop a pattern within a cycle
@@ -48,7 +83,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             for i in 0..n {
                 let offset = i as f64 / n as f64;
                 let scaled = self.clone().fast(Pattern::pure(n as f64));
-                let shifted = scaled.late(offset);
+                let shifted = scaled.late(Pattern::pure(offset));
                 all_haps.extend(shifted.query(state));
             }
             all_haps
@@ -215,7 +250,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     pub fn palindrome(self) -> Self {
         // Create a pattern that plays forward then backward, spread over 2 cycles
         let forward = self.clone().slow(Pattern::pure(2.0)); // First half
-        let backward = self.rev().slow(Pattern::pure(2.0)).late(1.0); // Second half, shifted by 1 cycle
+        let backward = self.rev().slow(Pattern::pure(2.0)).late(Pattern::pure(1.0)); // Second half, shifted by 1 cycle
         Pattern::stack(vec![forward, backward])
     }
 

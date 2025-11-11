@@ -4,9 +4,36 @@
 
 Our goal: A fully working end-to-end system where the Phonon language allows rapid transformation of musical ideas into audio reality. Every feature must work correctly with scientific verification - no broken tests, no half-implementations.
 
+## 🚨 CRITICAL ARCHITECTURAL RULE 🚨
+
+**EVERY PARAMETER MUST BE A PATTERN**
+
+```rust
+// ❌ WRONG - bare types not allowed:
+pub fn swing(self, amount: f64) -> Self
+
+// ✅ CORRECT - all parameters are patterns:
+pub fn swing(self, amount: Pattern<f64>) -> Self
+where T: Clone + Send + Sync + 'static
+```
+
+**This applies to:**
+- ALL transforms (fast, slow, swing, late, early, etc.)
+- ALL effects parameters (lpf cutoff, delay time, reverb size)
+- ALL UGens (oscillator frequency, filter Q, envelope times)
+- EVERYTHING - no exceptions
+
+**Why**: Pattern-controlled parameters are Phonon's superpower. Unlike Tidal/Strudel where patterns only trigger discrete events, in Phonon patterns modulate ANY parameter in real-time.
+
+**Enforcement**: The compiler wraps constants with `Pattern::pure()`, so `fast 2` and `fast "2 3 4"` both work. Methods MUST accept `Pattern<T>`, never bare types.
+
+**See**: `docs/PATTERN_PARAMETERS_SYSTEMATIC_PLAN.md` for implementation details.
+
+---
+
 ## CURRENT SESSION CONTEXT (2025-10-25)
 
-**CURRENT PHASE: AUDIO-BASED TEST DEVELOPMENT**
+**CURRENT PHASE: PATTERN PARAMETERS ARCHITECTURE (P0.0)**
 
 We are in a critical testing and verification phase. Recent discoveries revealed:
 - ✅ **Two critical bugs fixed**: Transforms not applying, duplicate event triggers

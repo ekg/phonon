@@ -4416,12 +4416,36 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             Ok(pattern.gap(n))
         }
         Transform::Late(amount_expr) => {
-            let amount = extract_number(&amount_expr)?;
-            Ok(pattern.late(amount))
+            // All amounts are patterns - constants wrapped with Pattern::pure()
+            let amount_pattern = match amount_expr.as_ref() {
+                Expr::String(s) => {
+                    // Pattern-based amount: late "0.25 0.5"
+                    let string_pattern = parse_mini_notation(s);
+                    string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(0.0))
+                }
+                _ => {
+                    // Constant amount: late 0.5 -> Pattern::pure(0.5)
+                    let amount = extract_number(&amount_expr)?;
+                    Pattern::pure(amount)
+                }
+            };
+            Ok(pattern.late(amount_pattern))
         }
         Transform::Early(amount_expr) => {
-            let amount = extract_number(&amount_expr)?;
-            Ok(pattern.early(amount))
+            // All amounts are patterns - constants wrapped with Pattern::pure()
+            let amount_pattern = match amount_expr.as_ref() {
+                Expr::String(s) => {
+                    // Pattern-based amount: early "0.25 0.5"
+                    let string_pattern = parse_mini_notation(s);
+                    string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(0.0))
+                }
+                _ => {
+                    // Constant amount: early 0.5 -> Pattern::pure(0.5)
+                    let amount = extract_number(&amount_expr)?;
+                    Pattern::pure(amount)
+                }
+            };
+            Ok(pattern.early(amount_pattern))
         }
         Transform::Dup(n_expr) => {
             let n = extract_number(&n_expr)? as usize;
@@ -4769,7 +4793,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         Transform::Wait(cycles_expr) => {
             let cycles = extract_number(&cycles_expr)?;
             // wait is an alias for late
-            Ok(pattern.late(cycles))
+            Ok(pattern.late(Pattern::pure(cycles)))
         }
         Transform::Mask(mask_expr) => {
             // Note: mask() works with boolean patterns or patterns that can be converted to bool

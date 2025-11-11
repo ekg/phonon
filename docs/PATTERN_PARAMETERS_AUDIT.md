@@ -167,17 +167,19 @@ Methods that take `f64` and should take `Pattern<f64>`:
 
 ### Phase 1: Core Transforms (HIGHEST IMPACT)
 Start with most-used transforms from livecode:
-1. `fast` / `slow` (very common)
-2. `every` (n parameter)
-3. `swing` (common for groove)
-4. `late` / `early` (timing adjustments)
+1. ✅ `fast` / `slow` - DONE! (very common)
+2. `every` (n parameter) - TODO
+3. `swing` (common for groove) - TODO
+4. `late` / `early` (timing adjustments) - TODO
 
 ### Phase 2: Effects Parameters (HIGH IMPACT)
 FX parameters used in every pattern:
-1. `lpf` / `hpf` / `bpf` (cutoff frequency)
-2. `delay` (time, feedback)
-3. `reverb` (size, damping)
-4. `gain` (amplitude control)
+1. ✅ `lpf` / `hpf` / `bpf` (cutoff frequency) - ALREADY WORKING! Signal::Node handles patterns
+2. ✅ `delay` (time, feedback) - ALREADY WORKING! Signal::Node handles patterns
+3. ✅ `reverb` (size, damping) - ALREADY WORKING! Signal::Node handles patterns
+4. ✅ `gain` (amplitude control) - ALREADY WORKING! Signal::Node handles patterns
+
+**NOTE**: Effect parameters already support patterns via the Signal/Node architecture!
 
 ### Phase 3: Structural Transforms (MEDIUM IMPACT)
 Transforms affecting pattern structure:
