@@ -4258,13 +4258,34 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             }
         }
         Transform::Fast(speed_expr) => {
-            // Extract numeric value from expression
-            let speed = extract_number(&speed_expr)?;
-            Ok(pattern.fast(speed))
+            // Support both constant and pattern speeds
+            match speed_expr.as_ref() {
+                Expr::String(s) => {
+                    // Pattern-based speed: fast "2 3 4"
+                    let speed_pattern = parse_mini_notation(s);
+                    Ok(pattern.fast_pattern(speed_pattern))
+                }
+                _ => {
+                    // Constant speed: fast 2
+                    let speed = extract_number(&speed_expr)?;
+                    Ok(pattern.fast(speed))
+                }
+            }
         }
         Transform::Slow(speed_expr) => {
-            let speed = extract_number(&speed_expr)?;
-            Ok(pattern.slow(speed))
+            // Support both constant and pattern speeds
+            match speed_expr.as_ref() {
+                Expr::String(s) => {
+                    // Pattern-based speed: slow "2 3 4"
+                    let speed_pattern = parse_mini_notation(s);
+                    Ok(pattern.slow_pattern(speed_pattern))
+                }
+                _ => {
+                    // Constant speed: slow 2
+                    let speed = extract_number(&speed_expr)?;
+                    Ok(pattern.slow(speed))
+                }
+            }
         }
         Transform::Squeeze(factor_expr) => {
             let factor = extract_number(&factor_expr)?;

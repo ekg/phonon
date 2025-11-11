@@ -282,6 +282,58 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         self.fast(1.0 / factor)
     }
 
+    /// Pattern-controlled fast - speed varies according to pattern
+    /// Example: fast_pattern("2 3 4") alternates speeds 2x, 3x, 4x per cycle
+    pub fn fast_pattern(self, speed_pattern: Pattern<String>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        Pattern::new(move |state| {
+            // Query speed pattern at cycle start to get current speed
+            let cycle_start = state.span.begin.to_float().floor();
+            let speed_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001), // Point query
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let speed_haps = speed_pattern.query(&speed_state);
+            let factor = if let Some(hap) = speed_haps.first() {
+                hap.value.parse::<f64>().unwrap_or(1.0).max(0.001)
+            } else {
+                1.0
+            };
+
+            // Apply fast with the queried factor
+            self.clone().fast(factor).query(state)
+        })
+    }
+
+    /// Pattern-controlled slow - inverse of fast_pattern
+    pub fn slow_pattern(self, speed_pattern: Pattern<String>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        // Convert to inverted speeds: "2 3 4" -> "0.5 0.333 0.25"
+        let inverted_pattern = Pattern::new(move |state| {
+            speed_pattern
+                .query(state)
+                .into_iter()
+                .map(|mut hap| {
+                    if let Ok(speed) = hap.value.parse::<f64>() {
+                        let inverted = 1.0 / speed.max(0.001);
+                        hap.value = inverted.to_string();
+                    }
+                    hap
+                })
+                .collect()
+        });
+
+        self.fast_pattern(inverted_pattern)
+    }
+
     /// Squeeze pattern to first 1/n of cycle and speed up by n
     /// squeeze 2 - squeezes pattern to first half of cycle, plays 2x faster
     /// Like fast but compressed into a smaller time window
