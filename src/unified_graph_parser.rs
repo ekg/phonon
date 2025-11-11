@@ -141,6 +141,7 @@
 //! ```
 
 use crate::mini_notation_v3::parse_mini_notation;
+use crate::pattern::Pattern;
 use crate::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 use nom::{
     branch::alt,
@@ -2952,11 +2953,11 @@ impl DslCompiler {
             PatternTransformOp::Fast(factor_expr) => {
                 // Extract the numeric value
                 let factor = self.extract_constant(*factor_expr)?;
-                Ok(pattern.fast(factor))
+                Ok(pattern.fast(Pattern::pure(factor)))
             }
             PatternTransformOp::Slow(factor_expr) => {
                 let factor = self.extract_constant(*factor_expr)?;
-                Ok(pattern.slow(factor))
+                Ok(pattern.slow(Pattern::pure(factor)))
             }
             PatternTransformOp::Squeeze(factor_expr) => {
                 let factor = self.extract_constant(*factor_expr)?;
@@ -2974,14 +2975,14 @@ impl DslCompiler {
                     match inner_transform {
                         PatternTransformOp::Fast(ref factor_expr) => {
                             if let DslExpression::Value(v) = **factor_expr {
-                                p.fast(v as f64)
+                                p.fast(Pattern::pure(v as f64))
                             } else {
                                 p // Can't evaluate non-constant, return unchanged
                             }
                         }
                         PatternTransformOp::Slow(ref factor_expr) => {
                             if let DslExpression::Value(v) = **factor_expr {
-                                p.slow(v as f64)
+                                p.slow(Pattern::pure(v as f64))
                             } else {
                                 p
                             }
@@ -3006,14 +3007,14 @@ impl DslCompiler {
                 Ok(pattern.sometimes(move |p| match inner_transform {
                     PatternTransformOp::Fast(ref factor_expr) => {
                         if let DslExpression::Value(v) = **factor_expr {
-                            p.fast(v as f64)
+                            p.fast(Pattern::pure(v as f64))
                         } else {
                             p
                         }
                     }
                     PatternTransformOp::Slow(ref factor_expr) => {
                         if let DslExpression::Value(v) = **factor_expr {
-                            p.slow(v as f64)
+                            p.slow(Pattern::pure(v as f64))
                         } else {
                             p
                         }
@@ -3027,14 +3028,14 @@ impl DslCompiler {
                 Ok(pattern.often(move |p| match inner_transform {
                     PatternTransformOp::Fast(ref factor_expr) => {
                         if let DslExpression::Value(v) = **factor_expr {
-                            p.fast(v as f64)
+                            p.fast(Pattern::pure(v as f64))
                         } else {
                             p
                         }
                     }
                     PatternTransformOp::Slow(ref factor_expr) => {
                         if let DslExpression::Value(v) = **factor_expr {
-                            p.slow(v as f64)
+                            p.slow(Pattern::pure(v as f64))
                         } else {
                             p
                         }
@@ -3048,14 +3049,14 @@ impl DslCompiler {
                 Ok(pattern.rarely(move |p| match inner_transform {
                     PatternTransformOp::Fast(ref factor_expr) => {
                         if let DslExpression::Value(v) = **factor_expr {
-                            p.fast(v as f64)
+                            p.fast(Pattern::pure(v as f64))
                         } else {
                             p
                         }
                     }
                     PatternTransformOp::Slow(ref factor_expr) => {
                         if let DslExpression::Value(v) = **factor_expr {
-                            p.slow(v as f64)
+                            p.slow(Pattern::pure(v as f64))
                         } else {
                             p
                         }
@@ -3111,14 +3112,14 @@ impl DslCompiler {
                     match inner_transform {
                         PatternTransformOp::Fast(ref factor_expr) => {
                             if let DslExpression::Value(v) = **factor_expr {
-                                p.fast(v as f64)
+                                p.fast(Pattern::pure(v as f64))
                             } else {
                                 p
                             }
                         }
                         PatternTransformOp::Slow(ref factor_expr) => {
                             if let DslExpression::Value(v) = **factor_expr {
-                                p.slow(v as f64)
+                                p.slow(Pattern::pure(v as f64))
                             } else {
                                 p
                             }
@@ -3187,14 +3188,14 @@ impl DslCompiler {
                     match inner_transform {
                         PatternTransformOp::Fast(ref factor_expr) => {
                             if let DslExpression::Value(v) = **factor_expr {
-                                p.fast(v as f64)
+                                p.fast(Pattern::pure(v as f64))
                             } else {
                                 p
                             }
                         }
                         PatternTransformOp::Slow(ref factor_expr) => {
                             if let DslExpression::Value(v) = **factor_expr {
-                                p.slow(v as f64)
+                                p.slow(Pattern::pure(v as f64))
                             } else {
                                 p
                             }

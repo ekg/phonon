@@ -93,7 +93,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// Compress and repeat
     pub fn compress_to(self, begin: f64, end: f64) -> Self {
         let duration = end - begin;
-        self.fast(1.0 / duration).late(begin)
+        self.fast(Pattern::pure(1.0 / duration)).late(begin)
     }
 
     /// Legato - stretch note durations
@@ -381,7 +381,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
     /// Fit pattern to n cycles
     pub fn fit(self, n: i32) -> Self {
-        self.slow(n as f64)
+        self.slow(Pattern::pure(n as f64))
     }
 
     /// Chunk pattern and apply function to each chunk
@@ -796,7 +796,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
     /// Speed/rate control
     pub fn speed(self, rate: f64) -> Self {
-        self.fast(rate)
+        self.fast(Pattern::pure(rate))
     }
 
     /// Accelerate - speed up over time
@@ -855,7 +855,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// - s "bd sn hh cp" $ loopAt 2 -> 4 events over 2 cycles, each plays at 0.5x speed
     /// - s "bd" $ loopAt 4 -> Sample plays at 0.25x speed (pitched down 2 octaves)
     pub fn loop_at(self, cycles: f64) -> Self {
-        let slowed = self.slow(cycles);
+        let slowed = self.slow(Pattern::pure(cycles));
         let speed_factor = 1.0 / cycles;
 
         Pattern::new(move |state| {
@@ -906,7 +906,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             };
 
             // Apply loop_at with the queried duration
-            let slowed = self.clone().slow(cycles);
+            let slowed = self.clone().slow(Pattern::pure(cycles));
             let speed_factor = 1.0 / cycles;
 
             slowed

@@ -33,6 +33,8 @@ fn test_alternation_cycles_have_audio() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -90,6 +92,8 @@ fn test_concatenation_cycles_have_audio() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -132,6 +136,8 @@ fn test_subdivision_has_audio() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -173,6 +179,8 @@ fn test_euclidean_alternation_has_audio() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -220,6 +228,8 @@ fn test_layering_has_louder_audio() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -247,6 +257,8 @@ fn test_layering_has_louder_audio() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -292,6 +304,8 @@ fn test_multiple_bars_consistent() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });

@@ -638,7 +638,7 @@ impl MiniNotationParser {
                     if let Some(Token::Number(n)) = self.current() {
                         let n = *n;
                         self.advance();
-                        return Some(pattern.slow(n));
+                        return Some(pattern.slow(Pattern::pure(n)));
                     }
                 }
                 Token::At => {

@@ -119,6 +119,8 @@ fn test_pattern_gain_with_fast_transform() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -180,6 +182,8 @@ fn test_pattern_envelope_with_reverse() {
         attack: Signal::Pattern(attack_str.to_string()),
         release: Signal::Pattern(release_str.to_string()),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -224,6 +228,8 @@ fn test_pattern_pan_with_slow() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.05),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -268,6 +274,8 @@ fn test_pattern_speed_with_every() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -312,6 +320,8 @@ fn test_64_voice_stress_test() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.3), // Long release to cause overlap
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -359,6 +369,8 @@ fn test_rapid_triggers_long_release() {
         attack: Signal::Value(0.001),
         release: Signal::Value(1.0), // 1 second release - extreme overlap
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -404,6 +416,8 @@ fn test_cut_group_stops_long_envelope() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.5), // Long release
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -425,6 +439,8 @@ fn test_cut_group_stops_long_envelope() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.05), // Short release
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -475,6 +491,8 @@ fn test_different_cut_groups_independent() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.2),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -496,6 +514,8 @@ fn test_different_cut_groups_independent() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.15),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });

@@ -105,7 +105,7 @@ mod time_operations {
 
     #[test]
     fn test_fast() {
-        let p = Pattern::from_string("a b c d").fast(2.0);
+        let p = Pattern::from_string("a b c d").fast(Pattern::pure(2.0));
         let output = pattern_to_string(p, 1.0);
         // Should have 8 events (pattern repeated twice)
         let lines: Vec<&str> = output.lines().collect();
@@ -114,7 +114,7 @@ mod time_operations {
 
     #[test]
     fn test_slow() {
-        let p = Pattern::from_string("a b c d").slow(2.0);
+        let p = Pattern::from_string("a b c d").slow(Pattern::pure(2.0));
         let output = pattern_to_string(p, 2.0);
         // Should have 4 events spread over 2 cycles
         assert!(output.contains("0.000-0.500:\"a\""));
@@ -187,7 +187,7 @@ mod conditional_operations {
 
     #[test]
     fn test_when_mod() {
-        let p = Pattern::from_string("a").when_mod(3, 0, |p| p.fast(2.0));
+        let p = Pattern::from_string("a").when_mod(3, 0, |p| p.fast(Pattern::pure(2.0)));
         let output = pattern_to_string(p, 3.0);
         eprintln!("when_mod output:\n{}", output);
         // Every 3rd cycle should be fast
@@ -219,7 +219,7 @@ mod probabilistic_operations {
 
     #[test]
     fn test_sometimes_deterministic() {
-        let p = Pattern::from_string("a").sometimes(|p| p.fast(4.0));
+        let p = Pattern::from_string("a").sometimes(|p| p.fast(Pattern::pure(4.0)));
         // Check multiple cycles for deterministic behavior
         let output1 = pattern_to_string(p.clone(), 4.0);
         let output2 = pattern_to_string(p.clone(), 4.0);
@@ -315,7 +315,7 @@ mod hash_verification {
         let string_test_cases = vec![
             (Pattern::from_string("a b c d"), 1.0, "basic_sequence"),
             (
-                Pattern::from_string("a b c d").fast(2.0),
+                Pattern::from_string("a b c d").fast(Pattern::pure(2.0)),
                 1.0,
                 "fast_pattern",
             ),
@@ -350,7 +350,7 @@ mod hash_verification {
     fn test_complex_combinations() {
         // Test complex combinations of operations
         let p = Pattern::from_string("a b c d")
-            .fast(2.0)
+            .fast(Pattern::pure(2.0))
             .every(3, |p| p.rev())
             .late(0.125);
 
@@ -359,7 +359,7 @@ mod hash_verification {
 
         // Verify it's deterministic
         let p2 = Pattern::from_string("a b c d")
-            .fast(2.0)
+            .fast(Pattern::pure(2.0))
             .every(3, |p| p.rev())
             .late(0.125);
         let hash2 = pattern_hash(p2, 3.0);
@@ -388,8 +388,8 @@ mod integration_tests {
     fn test_nested_operations() {
         // Test deeply nested operations
         let p = Pattern::from_string("a b")
-            .fast(2.0)
-            .every(2, |p| p.slow(2.0))
+            .fast(Pattern::pure(2.0))
+            .every(2, |p| p.slow(Pattern::pure(2.0)))
             .every(4, |p| p.rev());
 
         let output = pattern_to_string(p, 4.0);
@@ -399,8 +399,8 @@ mod integration_tests {
         // Verify determinism
         let output2 = pattern_to_string(
             Pattern::from_string("a b")
-                .fast(2.0)
-                .every(2, |p| p.slow(2.0))
+                .fast(Pattern::pure(2.0))
+                .every(2, |p| p.slow(Pattern::pure(2.0)))
                 .every(4, |p| p.rev()),
             4.0,
         );

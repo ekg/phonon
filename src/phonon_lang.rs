@@ -210,13 +210,13 @@ impl PhononEnv {
                     let factor: f64 = args
                         .parse()
                         .map_err(|_| format!("Invalid fast factor: {args}"))?;
-                    Ok(pattern.fast(factor))
+                    Ok(pattern.fast(Pattern::pure(factor)))
                 }
                 "slow" => {
                     let factor: f64 = args
                         .parse()
                         .map_err(|_| format!("Invalid slow factor: {args}"))?;
-                    Ok(pattern.slow(factor))
+                    Ok(pattern.slow(Pattern::pure(factor)))
                 }
                 "every" => {
                     // Parse "every n (transformation)"
@@ -237,13 +237,13 @@ impl PhononEnv {
                                     let factor: f64 = transform[5..]
                                         .parse()
                                         .map_err(|_| "Invalid fast factor in every")?;
-                                    Ok(pattern.every(n, move |p| p.fast(factor)))
+                                    Ok(pattern.every(n, move |p| p.fast(Pattern::pure(factor))))
                                 }
                                 transform if transform.starts_with("slow ") => {
                                     let factor: f64 = transform[5..]
                                         .parse()
                                         .map_err(|_| "Invalid slow factor in every")?;
-                                    Ok(pattern.every(n, move |p| p.slow(factor)))
+                                    Ok(pattern.every(n, move |p| p.slow(Pattern::pure(factor))))
                                 }
                                 _ => Err(format!(
                                     "Unsupported transformation in every: {inner_transform}"
@@ -324,13 +324,13 @@ impl PhononEnv {
             .and_then(|s| s.strip_suffix(')'))
         {
             let factor: f64 = arg.parse().map_err(|_| "Invalid fast factor")?;
-            Ok(pattern.fast(factor))
+            Ok(pattern.fast(Pattern::pure(factor)))
         } else if let Some(arg) = method
             .strip_prefix("slow(")
             .and_then(|s| s.strip_suffix(')'))
         {
             let factor: f64 = arg.parse().map_err(|_| "Invalid slow factor")?;
-            Ok(pattern.slow(factor))
+            Ok(pattern.slow(Pattern::pure(factor)))
         } else if method == "rev()" || method == "rev" {
             Ok(pattern.rev())
         } else if method == "palindrome()" || method == "palindrome" {
@@ -402,7 +402,7 @@ pub fn parse_mini_notation(input: &str) -> Pattern<String> {
     // Handle groups [a b c]
     if input.starts_with('[') && input.ends_with(']') {
         let inner = &input[1..input.len() - 1];
-        return parse_mini_notation(inner).fast(1.0); // Groups play faster
+        return parse_mini_notation(inner).fast(Pattern::pure(1.0)); // Groups play faster
     }
 
     // Handle alternation <a b c>
@@ -419,7 +419,7 @@ pub fn parse_mini_notation(input: &str) -> Pattern<String> {
     if let Some((pattern, count)) = input.split_once('*') {
         if let Ok(n) = count.parse::<usize>() {
             let base = parse_mini_notation(pattern);
-            return base.fast(n as f64);
+            return base.fast(Pattern::pure(n as f64));
         }
     }
 
@@ -432,7 +432,7 @@ pub fn parse_mini_notation(input: &str) -> Pattern<String> {
     if let Some((pattern, div)) = input.split_once('/') {
         if let Ok(n) = div.parse::<f64>() {
             let base = parse_mini_notation(pattern);
-            return base.slow(n);
+            return base.slow(Pattern::pure(n));
         }
     }
 

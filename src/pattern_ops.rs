@@ -47,7 +47,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             let mut all_haps = Vec::new();
             for i in 0..n {
                 let offset = i as f64 / n as f64;
-                let scaled = self.clone().fast(n as f64);
+                let scaled = self.clone().fast(Pattern::pure(n as f64));
                 let shifted = scaled.late(offset);
                 all_haps.extend(shifted.query(state));
             }
@@ -183,7 +183,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             return self;
         }
         // Use fast to speed up and repeat
-        self.fast(n as f64)
+        self.fast(Pattern::pure(n as f64))
     }
 
     /// Stutter - repeat each event n times with subdivision
@@ -214,8 +214,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// Create a palindrome (pattern + reversed pattern)
     pub fn palindrome(self) -> Self {
         // Create a pattern that plays forward then backward, spread over 2 cycles
-        let forward = self.clone().slow(2.0); // First half
-        let backward = self.rev().slow(2.0).late(1.0); // Second half, shifted by 1 cycle
+        let forward = self.clone().slow(Pattern::pure(2.0)); // First half
+        let backward = self.rev().slow(Pattern::pure(2.0)).late(1.0); // Second half, shifted by 1 cycle
         Pattern::stack(vec![forward, backward])
     }
 

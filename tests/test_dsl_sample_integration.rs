@@ -74,6 +74,8 @@ fn test_dsl_vs_direct_api() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });

@@ -28,6 +28,8 @@ fn test_single_event_slow_tempo_bug() {
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -67,6 +69,8 @@ fn test_single_event_fast_tempo_works() {
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -106,6 +110,8 @@ fn test_two_events_slow_tempo_works() {
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });

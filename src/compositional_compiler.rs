@@ -4258,34 +4258,38 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             }
         }
         Transform::Fast(speed_expr) => {
-            // Support both constant and pattern speeds
-            match speed_expr.as_ref() {
+            // All speeds are patterns - constants wrapped with Pattern::pure()
+            let speed_pattern = match speed_expr.as_ref() {
                 Expr::String(s) => {
                     // Pattern-based speed: fast "2 3 4"
-                    let speed_pattern = parse_mini_notation(s);
-                    Ok(pattern.fast_pattern(speed_pattern))
+                    let string_pattern = parse_mini_notation(s);
+                    // Convert Pattern<String> to Pattern<f64>
+                    string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(1.0))
                 }
                 _ => {
-                    // Constant speed: fast 2
+                    // Constant speed: fast 2 -> Pattern::pure(2.0)
                     let speed = extract_number(&speed_expr)?;
-                    Ok(pattern.fast(speed))
+                    Pattern::pure(speed)
                 }
-            }
+            };
+            Ok(pattern.fast(speed_pattern))
         }
         Transform::Slow(speed_expr) => {
-            // Support both constant and pattern speeds
-            match speed_expr.as_ref() {
+            // All speeds are patterns - constants wrapped with Pattern::pure()
+            let speed_pattern = match speed_expr.as_ref() {
                 Expr::String(s) => {
                     // Pattern-based speed: slow "2 3 4"
-                    let speed_pattern = parse_mini_notation(s);
-                    Ok(pattern.slow_pattern(speed_pattern))
+                    let string_pattern = parse_mini_notation(s);
+                    // Convert Pattern<String> to Pattern<f64>
+                    string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(1.0))
                 }
                 _ => {
-                    // Constant speed: slow 2
+                    // Constant speed: slow 2 -> Pattern::pure(2.0)
                     let speed = extract_number(&speed_expr)?;
-                    Ok(pattern.slow(speed))
+                    Pattern::pure(speed)
                 }
-            }
+            };
+            Ok(pattern.slow(speed_pattern))
         }
         Transform::Squeeze(factor_expr) => {
             let factor = extract_number(&factor_expr)?;

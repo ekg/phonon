@@ -2,6 +2,7 @@
 //! Phonon CLI - Command-line interface for the Phonon synthesis system
 
 use clap::{Parser, Subcommand};
+use phonon::pattern::Pattern;
 use phonon::simple_dsp_executor;
 use std::path::PathBuf;
 
@@ -701,11 +702,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     // Parse transformation: fast 2, slow 2, rev, every 4 fast 2
                     if transform.starts_with("fast ") {
                         if let Ok(factor) = transform[5..].trim().parse::<f64>() {
-                            return pattern.fast(factor);
+                            return pattern.fast(Pattern::pure(factor));
                         }
                     } else if transform.starts_with("slow ") {
                         if let Ok(factor) = transform[5..].trim().parse::<f64>() {
-                            return pattern.slow(factor);
+                            return pattern.slow(Pattern::pure(factor));
                         }
                     } else if transform == "rev" {
                         return pattern.rev();

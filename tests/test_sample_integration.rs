@@ -38,6 +38,8 @@ fn test_sample_playback_signal_correlation() {
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -117,6 +119,8 @@ fn test_multiple_samples_in_pattern() {
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -260,6 +264,8 @@ fn test_house_beat_pattern_timing() {
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -375,6 +381,8 @@ fn test_bd_sample_one_cycle() {
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -427,6 +435,8 @@ fn test_cp_sample_one_cycle() {
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -478,6 +488,8 @@ fn test_hh_sample_one_cycle() {
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -529,6 +541,8 @@ fn test_sn_sample_one_cycle() {
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -634,6 +648,8 @@ fn test_euclidean_rhythm_signal_verification() {
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -756,6 +772,8 @@ fn test_euclidean_pattern_with_samples() {
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -811,6 +829,8 @@ fn test_simple_euclidean_sequence() {
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -864,6 +884,8 @@ fn test_euclidean_with_offset() {
         attack: phonon::unified_graph::Signal::Value(0.001),
         release: phonon::unified_graph::Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });

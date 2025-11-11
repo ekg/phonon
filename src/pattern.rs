@@ -246,9 +246,31 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
-    /// Speed up a pattern by a factor
-    pub fn fast(self, factor: f64) -> Self {
+    /// Speed up a pattern by a factor (pattern-controlled)
+    /// Accepts a Pattern<f64> for the speed - use Pattern::pure(2.0) for constants
+    pub fn fast(self, speed: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
         Pattern::new(move |state| {
+            // Query speed pattern at cycle start to get current speed
+            let cycle_start = state.span.begin.to_float().floor();
+            let speed_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let speed_haps = speed.query(&speed_state);
+            let factor = if let Some(hap) = speed_haps.first() {
+                hap.value.max(0.001)
+            } else {
+                1.0
+            };
+
+            // Apply time transformation with the queried factor
             let new_span = TimeSpan::new(
                 Fraction::from_float(state.span.begin.to_float() * factor),
                 Fraction::from_float(state.span.end.to_float() * factor),
@@ -277,61 +299,24 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
-    /// Slow down a pattern by a factor
-    pub fn slow(self, factor: f64) -> Self {
-        self.fast(1.0 / factor)
-    }
-
-    /// Pattern-controlled fast - speed varies according to pattern
-    /// Example: fast_pattern("2 3 4") alternates speeds 2x, 3x, 4x per cycle
-    pub fn fast_pattern(self, speed_pattern: Pattern<String>) -> Self
+    /// Slow down a pattern by a factor (pattern-controlled)
+    /// Accepts a Pattern<f64> for the speed - use Pattern::pure(2.0) for constants
+    pub fn slow(self, speed: Pattern<f64>) -> Self
     where
         T: Clone + Send + Sync + 'static,
     {
-        Pattern::new(move |state| {
-            // Query speed pattern at cycle start to get current speed
-            let cycle_start = state.span.begin.to_float().floor();
-            let speed_state = State {
-                span: TimeSpan::new(
-                    Fraction::from_float(cycle_start),
-                    Fraction::from_float(cycle_start + 0.001), // Point query
-                ),
-                controls: state.controls.clone(),
-            };
-
-            let speed_haps = speed_pattern.query(&speed_state);
-            let factor = if let Some(hap) = speed_haps.first() {
-                hap.value.parse::<f64>().unwrap_or(1.0).max(0.001)
-            } else {
-                1.0
-            };
-
-            // Apply fast with the queried factor
-            self.clone().fast(factor).query(state)
-        })
-    }
-
-    /// Pattern-controlled slow - inverse of fast_pattern
-    pub fn slow_pattern(self, speed_pattern: Pattern<String>) -> Self
-    where
-        T: Clone + Send + Sync + 'static,
-    {
-        // Convert to inverted speeds: "2 3 4" -> "0.5 0.333 0.25"
-        let inverted_pattern = Pattern::new(move |state| {
-            speed_pattern
+        // Invert the speed pattern: 2 -> 0.5, 3 -> 0.333, etc.
+        let inverted = Pattern::new(move |state| {
+            speed
                 .query(state)
                 .into_iter()
                 .map(|mut hap| {
-                    if let Ok(speed) = hap.value.parse::<f64>() {
-                        let inverted = 1.0 / speed.max(0.001);
-                        hap.value = inverted.to_string();
-                    }
+                    hap.value = 1.0 / hap.value.max(0.001);
                     hap
                 })
                 .collect()
         });
-
-        self.fast_pattern(inverted_pattern)
+        self.fast(inverted)
     }
 
     /// Squeeze pattern to first 1/n of cycle and speed up by n
@@ -891,7 +876,7 @@ impl Pattern<String> {
     /// hurry 2 - play twice as fast AND pitch up samples
     pub fn hurry(self, factor: f64) -> Self {
         // Fast speeds up the pattern timing
-        let fast_pattern = self.fast(factor);
+        let fast_pattern = self.fast(Pattern::pure(factor));
 
         // Add speed control to modify sample playback
         Pattern::new(move |state| {
@@ -1000,7 +985,7 @@ mod tests {
 
     #[test]
     fn test_fast_pattern() {
-        let p = Pattern::pure(1).fast(2.0);
+        let p = Pattern::pure(1).fast(Pattern::pure(2.0));
         let state = State {
             span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
             controls: HashMap::new(),

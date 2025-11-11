@@ -132,6 +132,8 @@ fn test_cut_group_integration_with_unified_graph() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });
@@ -191,6 +193,8 @@ fn test_pattern_controlled_cut_groups() {
         attack: Signal::Value(0.001),
         release: Signal::Value(0.1),
         envelope_type: None,
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
         unit_mode: Signal::Value(0.0),
         loop_enabled: Signal::Value(0.0),
     });

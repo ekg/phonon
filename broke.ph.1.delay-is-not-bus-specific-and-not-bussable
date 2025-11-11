@@ -1,0 +1,3 @@
+~feel: delay 0.334 0.3 # reverb 0.9 0.1
+o1: s "arpy" # note "<<c4'min g3'maj> <b5'min f3'min7>>" # ~feel
+o2: s "bd*4"

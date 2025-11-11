@@ -878,11 +878,11 @@ pub fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
             let pat = ast_to_pattern_value(*pattern);
             match op {
                 Operator::Fast(amount) => match *amount {
-                    AstNode::Atom(PatternValue::Number(n)) => pat.fast(n),
+                    AstNode::Atom(PatternValue::Number(n)) => pat.fast(Pattern::pure(n)),
                     _ => pat,
                 },
                 Operator::Slow(amount) => match *amount {
-                    AstNode::Atom(PatternValue::Number(n)) => pat.slow(n),
+                    AstNode::Atom(PatternValue::Number(n)) => pat.slow(Pattern::pure(n)),
                     _ => pat,
                 },
                 Operator::Replicate(n) => {
@@ -964,12 +964,12 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                     // Evaluate the amount pattern to get a number
                     // For now, just handle simple cases
                     match *amount {
-                        AstNode::Atom(PatternValue::Number(n)) => pat.fast(n),
+                        AstNode::Atom(PatternValue::Number(n)) => pat.fast(Pattern::pure(n)),
                         _ => pat, // TODO: Handle pattern-based speed
                     }
                 }
                 Operator::Slow(amount) => match *amount {
-                    AstNode::Atom(PatternValue::Number(n)) => pat.slow(n),
+                    AstNode::Atom(PatternValue::Number(n)) => pat.slow(Pattern::pure(n)),
                     _ => pat,
                 },
                 Operator::Replicate(n) => {

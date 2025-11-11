@@ -572,8 +572,8 @@ where
     T: Clone + Send + Sync + 'static,
 {
     match op {
-        TransformOp::Fast(n) => Ok(pattern.fast(*n)),
-        TransformOp::Slow(n) => Ok(pattern.slow(*n)),
+        TransformOp::Fast(n) => Ok(pattern.fast(Pattern::pure(*n))),
+        TransformOp::Slow(n) => Ok(pattern.slow(Pattern::pure(*n))),
         TransformOp::Rev => Ok(pattern.rev()),
         TransformOp::Early(n) => Ok(pattern.early(*n)),
         TransformOp::Late(n) => Ok(pattern.late(*n)),
