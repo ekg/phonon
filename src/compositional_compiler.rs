@@ -4308,7 +4308,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         Transform::Palindrome => Ok(pattern.palindrome()),
         Transform::Shuffle(amount_expr) => {
             let amount = extract_number(&amount_expr)?;
-            Ok(pattern.shuffle(amount))
+            Ok(pattern.shuffle(Pattern::pure(amount)))
         }
         Transform::Chop(n_expr) | Transform::Striate(n_expr) => {
             // chop and striate are aliases - both slice pattern into n parts
@@ -4372,15 +4372,15 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         }
         Transform::Swing(amount_expr) => {
             let amount = extract_number(&amount_expr)?;
-            Ok(pattern.swing(amount))
+            Ok(pattern.swing(Pattern::pure(amount)))
         }
         Transform::Legato(factor_expr) => {
             let factor = extract_number(&factor_expr)?;
-            Ok(pattern.legato(factor))
+            Ok(pattern.legato(Pattern::pure(factor)))
         }
         Transform::Staccato(factor_expr) => {
             let factor = extract_number(&factor_expr)?;
-            Ok(pattern.staccato(factor))
+            Ok(pattern.staccato(Pattern::pure(factor)))
         }
         Transform::Echo {
             times,

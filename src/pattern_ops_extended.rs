@@ -97,13 +97,29 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Legato - stretch note durations
-    pub fn legato(self, factor: f64) -> Self {
+    pub fn legato(self, factor: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
         Pattern::new(move |state: &State| {
+            // Query factor pattern at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let factor_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let factor_haps = factor.query(&factor_state);
+            let legato_factor = factor_haps.first().map(|h| h.value).unwrap_or(1.0);
+
             let haps = self.query(state);
             haps.into_iter()
                 .map(|mut hap| {
                     let duration = hap.part.duration();
-                    let new_duration = Fraction::from_float(duration.to_float() * factor);
+                    let new_duration = Fraction::from_float(duration.to_float() * legato_factor);
                     hap.part = TimeSpan::new(hap.part.begin, hap.part.begin + new_duration);
 
                     // Add legato duration to context (in cycles) for sample playback
@@ -117,23 +133,43 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
     /// Stretch note durations to fill gaps
     pub fn stretch(self) -> Self {
-        self.legato(1.0)
+        self.legato(Pattern::pure(1.0))
     }
 
     /// Shorten note durations
-    pub fn staccato(self, factor: f64) -> Self {
+    pub fn staccato(self, factor: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
         self.legato(factor)
     }
 
     /// Swing time - delay every other event
-    pub fn swing(self, amount: f64) -> Self {
+    pub fn swing(self, amount: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
         Pattern::new(move |state: &State| {
+            // Query amount pattern at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let amount_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let amount_haps = amount.query(&amount_state);
+            let swing_amount = amount_haps.first().map(|h| h.value).unwrap_or(0.0);
+
+            // Apply swing with queried amount
             let haps = self.query(state);
             haps.into_iter()
                 .enumerate()
                 .map(|(i, mut hap)| {
                     if i % 2 == 1 {
-                        let shift = Fraction::from_float(amount);
+                        let shift = Fraction::from_float(swing_amount);
                         hap.part = TimeSpan::new(hap.part.begin + shift, hap.part.end + shift);
                         if let Some(whole) = hap.whole.as_mut() {
                             *whole = TimeSpan::new(whole.begin + shift, whole.end + shift);
@@ -146,12 +182,28 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Shuffle time - randomize event timing slightly
-    pub fn shuffle(self, amount: f64) -> Self {
+    pub fn shuffle(self, amount: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
         Pattern::new(move |state: &State| {
+            // Query amount pattern at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let amount_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let amount_haps = amount.query(&amount_state);
+            let shuffle_amount = amount_haps.first().map(|h| h.value).unwrap_or(0.0);
+
             let haps = self.query(state);
 
             // Handle zero amount to avoid empty range panic
-            if amount == 0.0 {
+            if shuffle_amount == 0.0 {
                 return haps;
             }
 
@@ -160,7 +212,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
             haps.into_iter()
                 .map(|mut hap| {
-                    let shift = rng.gen_range(-amount..amount);
+                    let shift = rng.gen_range(-shuffle_amount..shuffle_amount);
                     let shift_frac = Fraction::from_float(shift);
                     hap.part =
                         TimeSpan::new(hap.part.begin + shift_frac, hap.part.end + shift_frac);
@@ -175,7 +227,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
     /// Humanize - add slight random variations
     pub fn humanize(self, time_var: f64, velocity_var: f64) -> Self {
-        self.shuffle(time_var)
+        self.shuffle(Pattern::pure(time_var))
     }
 
     /// Echo/delay effect

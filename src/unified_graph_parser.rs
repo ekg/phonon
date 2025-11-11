@@ -3172,11 +3172,11 @@ impl DslCompiler {
             }
             PatternTransformOp::Swing(amount_expr) => {
                 let amount = self.extract_constant(*amount_expr)?;
-                Ok(pattern.swing(amount))
+                Ok(pattern.swing(Pattern::pure(amount)))
             }
             PatternTransformOp::Shuffle(amount_expr) => {
                 let amount = self.extract_constant(*amount_expr)?;
-                Ok(pattern.shuffle(amount))
+                Ok(pattern.shuffle(Pattern::pure(amount)))
             }
             PatternTransformOp::Chunk { n, transform } => {
                 let n_val = self.extract_constant(*n)? as usize;
