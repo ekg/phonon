@@ -1,17 +1,33 @@
 # Livecode Compatibility TODO
 
-**Priority based on actual usage frequency in ~/livecode/*.tidal**
+**CRITICAL: See docs/CRITICAL_BUGS.md for blocking issues that must be fixed FIRST**
 
 Last updated: 2025-11-10
 
-## ✅ COMPLETED (P0/P1)
+## 🔴 BLOCKING ISSUES (Fix Before Anything Else)
 
-All critical blockers resolved:
+**See docs/CRITICAL_BUGS.md for details**
+
+These issues make Phonon unusable in production:
+1. **P0.0**: ALL parameters must accept patterns (not bare numbers) - ARCHITECTURAL
+2. **P0.1**: Delay not bus-specific/chainable - BROKEN
+3. **P0.2**: stack multiplies volume instead of mixing - BROKEN
+4. **P0.3**: Output volumes affect each other - BROKEN
+5. **P0.4**: Multi-threading broken, poor performance - BROKEN
+
+**DO NOT ADD NEW FEATURES UNTIL THESE ARE FIXED**
+
+---
+
+## ✅ COMPLETED (P0/P1 - Before Critical Issues Discovered)
+
+Features that work (but may need pattern parameter support):
 - ✅ jux/juxBy - Stereo panning with transforms
 - ✅ loopAt patterns - Pattern-controlled durations
 - ✅ striate/slice - Sample slicing with begin/end context
 - ✅ legato - ADSR envelope with auto-release
 - ✅ Transform chains - `jux (fast 2 $ rev)` syntax
+- ✅ struct - Apply structure/rhythm (284 uses in livecode)
 
 ## 🎯 P2 - HIGH PRIORITY (By Usage Frequency)
 
