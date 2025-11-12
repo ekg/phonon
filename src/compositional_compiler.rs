@@ -269,18 +269,9 @@ pub fn compile_program(
 fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<(), String> {
     match statement {
         Statement::BusAssignment { name, expr } => {
-            // Check if this is an effect bus assignment (e.g., ~myReverb: reverb 0.9 0.5)
-            if let Expr::Call { name: func_name, args } = &expr {
-                if CompilerContext::is_effect_function(func_name) {
-                    // Store as effect bus definition, don't compile yet
-                    ctx.effect_buses.insert(name.clone(), (func_name.clone(), args.clone()));
-                    // Initialize empty sends list
-                    ctx.effect_bus_sends.insert(name.clone(), Vec::new());
-                    return Ok(());
-                }
-            }
-
-            // Normal bus assignment - compile immediately
+            // All bus assignments are compiled immediately as normal signal chains
+            // This allows effects to be chained and used inline: ~feel: delay ... # reverb ...
+            // Previous "effect bus" system was for send/return routing, which is not the current design
             let node_id = compile_expr(ctx, expr)?;
             ctx.buses.insert(name.clone(), node_id);
             ctx.graph.add_bus(name, node_id); // Register bus in graph for auto-routing
@@ -3914,22 +3905,11 @@ fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<N
             compile_function_call(ctx, &name, args)
         }
         Expr::BusRef(bus_name) => {
-            // Check if this is an effect bus reference
-            if ctx.effect_buses.contains_key(&bus_name) {
-                // Compile the left side to get the signal node
-                let left_node = compile_expr(ctx, left)?;
+            // Bus references in chains work like inline signal processing
+            // For now, just pass through the bus value (doesn't actually chain properly yet)
+            // TODO: Properly handle chaining by applying bus signal chain to left input
 
-                // Add this signal as a send to the effect bus
-                ctx.effect_bus_sends
-                    .entry(bus_name.clone())
-                    .or_insert_with(Vec::new)
-                    .push(left_node);
-
-                // Compile the effect bus (mixing all sends) and return its output
-                return ctx.compile_effect_bus(&bus_name);
-            }
-
-            // Normal bus reference - compile left and ignore it, return bus
+            // Compile left and return bus
             let _left_node = compile_expr(ctx, left)?;
             compile_expr(ctx, Expr::BusRef(bus_name))
         }
