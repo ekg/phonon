@@ -28,7 +28,7 @@ fn render_dsl(code: &str, cycles: usize) -> Vec<f32> {
 fn test_legato_level1_extends_duration() {
     // legato should multiply event duration
     let base_pattern = parse_mini_notation("bd sn hh cp");
-    let legato_pattern = base_pattern.clone().legato(2.0);
+    let legato_pattern = base_pattern.clone().legato(Pattern::pure(2.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -66,7 +66,7 @@ fn test_legato_level1_extends_duration() {
 fn test_staccato_level1_shortens_duration() {
     // staccato should shorten event duration
     let base_pattern = parse_mini_notation("bd sn hh cp");
-    let staccato_pattern = base_pattern.clone().staccato(0.5);
+    let staccato_pattern = base_pattern.clone().staccato(Pattern::pure(0.5));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -118,7 +118,7 @@ fn test_legato_level1_event_count() {
         };
 
         base_total += pattern.query(&state).len();
-        legato_total += pattern.clone().legato(1.5).query(&state).len();
+        legato_total += pattern.clone().legato(Pattern::pure(1.5)).query(&state).len();
     }
 
     assert_eq!(
@@ -133,7 +133,7 @@ fn test_legato_level1_event_count() {
 fn test_legato_level1_preserves_start_time() {
     // legato should only change duration, not start time
     let base_pattern = parse_mini_notation("bd sn hh cp");
-    let legato_pattern = base_pattern.clone().legato(2.0);
+    let legato_pattern = base_pattern.clone().legato(Pattern::pure(2.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -382,7 +382,7 @@ out: s "bd sn hh cp" $ staccato 0.3
 fn test_legato_factor_one() {
     // legato(1.0) should have no effect
     let base_pattern = parse_mini_notation("bd sn hh cp");
-    let legato_pattern = base_pattern.clone().legato(1.0);
+    let legato_pattern = base_pattern.clone().legato(Pattern::pure(1.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -409,7 +409,7 @@ fn test_legato_factor_one() {
 fn test_staccato_preserves_values() {
     // staccato should only affect duration, not values
     let base_pattern = parse_mini_notation("bd sn hh cp");
-    let staccato_pattern = base_pattern.clone().staccato(0.5);
+    let staccato_pattern = base_pattern.clone().staccato(Pattern::pure(0.5));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -440,14 +440,14 @@ fn test_legato_extreme_values() {
     };
 
     // Very short
-    let short = pattern.clone().legato(0.1).query(&state);
+    let short = pattern.clone().legato(Pattern::pure(0.1)).query(&state);
     assert!(
         short.len() > 0 && short[0].part.duration().to_float() < 0.1,
         "legato(0.1) should create very short events"
     );
 
     // Very long
-    let long = pattern.clone().legato(5.0).query(&state);
+    let long = pattern.clone().legato(Pattern::pure(5.0)).query(&state);
     assert!(
         long.len() > 0 && long[0].part.duration().to_float() > 1.0,
         "legato(5.0) should create very long events"

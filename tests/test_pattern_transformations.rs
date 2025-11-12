@@ -5,7 +5,7 @@
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Fraction, State, TimeSpan};
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 
 // ========== Level 1: Pattern Query Tests ==========

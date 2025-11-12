@@ -13,7 +13,7 @@ fn test_jux_fast2_rev_pattern_structure() {
     let pattern = parse_mini_notation("bd sn hh cp");
 
     // Manual composition: first fast 2, then rev
-    let fast2 = pattern.clone().fast(2.0);
+    let fast2 = pattern.clone().fast(Pattern::pure(2.0));
     let fast2_rev = fast2.rev();
 
     // Manual jux: stack original (left) with transformed (right)
@@ -120,7 +120,7 @@ fn test_jux_rev_fast2_pattern_structure() {
 
     // Manual composition: first rev, then fast 2
     let rev_pattern = pattern.clone().rev();
-    let rev_fast2 = rev_pattern.fast(2.0);
+    let rev_fast2 = rev_pattern.fast(Pattern::pure(2.0));
 
     // Manual jux
     let left = Pattern::new({

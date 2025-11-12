@@ -476,9 +476,9 @@ fn test_always_applies_function() {
     };
 
     // always(fast(2)) should always apply fast(2)
-    let transformed = pattern.clone().always(|p| p.fast(2.0));
+    let transformed = pattern.clone().always(|p| p.fast(Pattern::pure(2.0)));
 
-    let fast_haps = pattern.clone().fast(2.0).query(&state);
+    let fast_haps = pattern.clone().fast(Pattern::pure(2.0)).query(&state);
     let always_haps = transformed.query(&state);
 
     assert_eq!(

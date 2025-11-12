@@ -65,8 +65,8 @@ fn test_fast_doubles_event_density() {
     let pattern = parse_mini_notation("bd sn hh cp");
 
     let normal = pattern.clone();
-    let fast2 = pattern.clone().fast(2.0);
-    let fast4 = pattern.clone().fast(4.0);
+    let fast2 = pattern.clone().fast(Pattern::pure(2.0));
+    let fast4 = pattern.clone().fast(Pattern::pure(4.0));
 
     let cycles = 8;
     let normal_count = count_events_over_cycles(&normal, cycles);
@@ -139,8 +139,8 @@ fn test_slow_reduces_event_density() {
     let pattern = parse_mini_notation("bd sn hh cp");
 
     let normal = pattern.clone();
-    let slow2 = pattern.clone().slow(2.0);
-    let slow4 = pattern.clone().slow(4.0);
+    let slow2 = pattern.clone().slow(Pattern::pure(2.0));
+    let slow4 = pattern.clone().slow(Pattern::pure(4.0));
 
     let cycles = 8;
     let normal_count = count_events_over_cycles(&normal, cycles);
@@ -284,7 +284,7 @@ fn test_every_alternates_transformation() {
     let pattern = parse_mini_notation("bd sn hh cp");
 
     // every 2 (fast 2) - apply fast 2 every 2nd cycle
-    let every_pattern = pattern.clone().every(2, |p| p.fast(2.0));
+    let every_pattern = pattern.clone().every(2, |p| p.fast(Pattern::pure(2.0)));
 
     let mut event_counts = Vec::new();
     for cycle in 0..8 {

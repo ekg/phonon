@@ -1,4 +1,5 @@
 use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::pattern::Pattern;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 use std::collections::HashMap;
@@ -102,7 +103,7 @@ fn test_pattern_gain_with_fast_transform() {
     let pattern_str = "bd sn hh cp";
     let gain_pattern_str = "1.0 0.8 0.6 0.9";
 
-    let pattern = parse_mini_notation(pattern_str).fast(2.0);
+    let pattern = parse_mini_notation(pattern_str).fast(Pattern::pure(2.0));
 
     let sample_node = graph.add_node(SignalNode::Sample {
         pattern_str: pattern_str.to_string(),
@@ -211,7 +212,7 @@ fn test_pattern_pan_with_slow() {
     let pattern_str = "hh*8";
     let pan_str = "-1.0 -0.5 0.0 0.5";
 
-    let pattern = parse_mini_notation(pattern_str).slow(2.0);
+    let pattern = parse_mini_notation(pattern_str).slow(Pattern::pure(2.0));
 
     let sample_node = graph.add_node(SignalNode::Sample {
         pattern_str: pattern_str.to_string(),
@@ -257,7 +258,7 @@ fn test_pattern_speed_with_every() {
     let speed_str = "1.0 1.2 0.8 1.5";
 
     let pattern = parse_mini_notation(pattern_str);
-    let pattern_with_every = pattern.every(2, |p| p.fast(2.0));
+    let pattern_with_every = pattern.every(2, |p| p.fast(Pattern::pure(2.0)));
 
     let sample_node = graph.add_node(SignalNode::Sample {
         pattern_str: pattern_str.to_string(),

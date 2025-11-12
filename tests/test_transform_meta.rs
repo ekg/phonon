@@ -12,7 +12,7 @@
 /// - Level 2: Onset detection (not applicable - these are API-only)
 /// - Level 3: Behavioral verification (comparing with expected compositions)
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Fraction, State, TimeSpan};
+use phonon::pattern::{Fraction, State, TimeSpan}, Pattern};
 use std::collections::HashMap;
 
 // ============= Level 1: Pattern Query Tests =============
@@ -27,7 +27,7 @@ fn test_superimpose_level1_doubles_events() {
     };
 
     let base_haps = pattern.query(&state);
-    let superimposed = pattern.clone().superimpose(|p| p.fast(2.0)).query(&state);
+    let superimposed = pattern.clone().superimpose(|p| p.fast(Pattern::pure(2.0))).query(&state);
 
     // superimpose should have: original (4) + fast(2) version (8) = 12 events
     assert_eq!(base_haps.len(), 4, "Base pattern has 4 events");
@@ -77,7 +77,7 @@ fn test_chunk_level1_applies_to_specific_chunk() {
         };
 
         let base_haps = pattern.query(&state);
-        let chunked = pattern.clone().chunk(4, |p| p.fast(2.0)).query(&state);
+        let chunked = pattern.clone().chunk(4, |p| p.fast(Pattern::pure(2.0))).query(&state);
 
         // On cycle N, chunk N gets fast(2)
         // The chunk that gets transformed should have more events
@@ -111,7 +111,7 @@ fn test_within_level1_applies_in_time_range() {
     // Apply fast(2) only within first half of cycle [0, 0.5)
     let within_pattern = pattern
         .clone()
-        .within(0.0, 0.5, |p| p.fast(2.0))
+        .within(0.0, 0.5, |p| p.fast(Pattern::pure(2.0)))
         .query(&state);
 
     // Events before 0.5 should be doubled, events after should be unchanged
@@ -143,9 +143,9 @@ fn test_inside_level1_fast_then_transform() {
 
     let base_haps = pattern.query(&state);
     // inside(2, rev) = fast(2) then rev
-    // Should be same as pattern.fast(2).rev()
+    // Should be same as pattern.fast(Pattern::pure(2)).rev()
     let inside_pattern = pattern.clone().inside(2.0, |p| p.rev()).query(&state);
-    let direct_pattern = pattern.clone().fast(2.0).rev().query(&state);
+    let direct_pattern = pattern.clone().fast(Pattern::pure(2.0)).rev().query(&state);
 
     assert_eq!(
         inside_pattern.len(),
@@ -167,9 +167,9 @@ fn test_outside_level1_slow_then_transform() {
 
     let base_haps = pattern.query(&state);
     // outside(2, rev) = slow(2) then rev
-    // Should be same as pattern.slow(2).rev()
+    // Should be same as pattern.slow(Pattern::pure(2)).rev()
     let outside_pattern = pattern.clone().outside(2.0, |p| p.rev()).query(&state);
-    let direct_pattern = pattern.clone().slow(2.0).rev().query(&state);
+    let direct_pattern = pattern.clone().slow(Pattern::pure(2.0)).rev().query(&state);
 
     assert_eq!(
         outside_pattern.len(),
@@ -185,7 +185,7 @@ fn test_outside_level1_slow_then_transform() {
 #[test]
 fn test_superimpose_over_cycles() {
     let pattern = parse_mini_notation("bd sn");
-    let superimposed = pattern.clone().superimpose(|p| p.fast(2.0));
+    let superimposed = pattern.clone().superimpose(|p| p.fast(Pattern::pure(2.0)));
 
     let mut base_total = 0;
     let mut super_total = 0;
@@ -216,7 +216,7 @@ fn test_superimpose_over_cycles() {
 #[test]
 fn test_chunk_cycles_through_chunks() {
     let pattern = parse_mini_notation("bd sn");
-    let chunked = pattern.clone().chunk(3, |p| p.fast(2.0));
+    let chunked = pattern.clone().chunk(3, |p| p.fast(Pattern::pure(2.0)));
 
     // Cycle 0: chunk 0 transformed
     // Cycle 1: chunk 1 transformed
@@ -248,7 +248,7 @@ fn test_chunk_cycles_through_chunks() {
 #[test]
 fn test_within_consistency() {
     let pattern = parse_mini_notation("bd sn hh cp");
-    let within_pattern = pattern.clone().within(0.0, 0.5, |p| p.fast(2.0));
+    let within_pattern = pattern.clone().within(0.0, 0.5, |p| p.fast(Pattern::pure(2.0)));
 
     // Should behave consistently across cycles
     let state1 = State {
@@ -284,8 +284,8 @@ fn test_superimpose_composition() {
     // Superimpose multiple transforms
     let multi = pattern
         .clone()
-        .superimpose(|p| p.fast(2.0))
-        .superimpose(|p| p.slow(2.0));
+        .superimpose(|p| p.fast(Pattern::pure(2.0)))
+        .superimpose(|p| p.slow(Pattern::pure(2.0)));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -339,7 +339,7 @@ fn test_superimpose_with_silence() {
     };
 
     let base_haps = pattern.query(&state);
-    let superimposed = pattern.clone().superimpose(|p| p.fast(2.0)).query(&state);
+    let superimposed = pattern.clone().superimpose(|p| p.fast(Pattern::pure(2.0))).query(&state);
 
     // Should handle rests correctly
     assert!(
@@ -366,9 +366,9 @@ fn test_within_full_range() {
     // within(0.0, 1.0, f) should apply to all events
     let within_all = pattern
         .clone()
-        .within(0.0, 1.0, |p| p.fast(2.0))
+        .within(0.0, 1.0, |p| p.fast(Pattern::pure(2.0)))
         .query(&state);
-    let just_fast = pattern.clone().fast(2.0).query(&state);
+    let just_fast = pattern.clone().fast(Pattern::pure(2.0)).query(&state);
 
     assert_eq!(
         within_all.len(),
@@ -389,8 +389,8 @@ fn test_chunk_single_chunk() {
     };
 
     // chunk(1, f) should always apply f (only one chunk)
-    let chunked = pattern.clone().chunk(1, |p| p.fast(2.0)).query(&state);
-    let just_fast = pattern.clone().fast(2.0).query(&state);
+    let chunked = pattern.clone().chunk(1, |p| p.fast(Pattern::pure(2.0))).query(&state);
+    let just_fast = pattern.clone().fast(Pattern::pure(2.0)).query(&state);
 
     // With chunk(1), every cycle is chunk 0, so transform always applies
     println!(

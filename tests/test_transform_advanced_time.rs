@@ -10,7 +10,7 @@
 ///
 /// All transforms use 3-level verification
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Fraction, State, TimeSpan};
+use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 // ============= Level 1: Pattern Query Tests =============
@@ -71,7 +71,7 @@ fn test_fit_level1_slows_down() {
 
     // fit(2) should be same as slow(2)
     let fit_pattern = pattern.clone().fit(2);
-    let slow_pattern = pattern.clone().slow(2.0);
+    let slow_pattern = pattern.clone().slow(Pattern::pure(2.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -379,7 +379,7 @@ fn test_loop_with_slow() {
     };
 
     // loop with slow
-    let composed = pattern.clone().slow(2.0).loop_pattern(2).query(&state);
+    let composed = pattern.clone().slow(Pattern::pure(2.0)).loop_pattern(2).query(&state);
     assert!(composed.len() > 0, "loop should work with slow");
 
     println!("✅ loop composes with slow");

@@ -58,7 +58,7 @@ fn test_fast_three_level_verification() {
 
     let pattern = parse_mini_notation("bd sn hh cp");
     let normal = pattern.clone();
-    let fast2 = pattern.clone().fast(2.0);
+    let fast2 = pattern.clone().fast(Pattern::pure(2.0));
 
     let cycles = 4;
     let tempo = 2.0; // CPS
@@ -185,7 +185,7 @@ fn test_slow_three_level_verification() {
 
     let pattern = parse_mini_notation("bd*8"); // 8 events per cycle for better detection
     let normal = pattern.clone();
-    let slow2 = pattern.clone().slow(2.0);
+    let slow2 = pattern.clone().slow(Pattern::pure(2.0));
 
     let cycles = 4;
     let tempo = 2.0;

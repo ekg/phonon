@@ -11,7 +11,7 @@
 ///
 /// All transforms use pattern API testing methodology
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Fraction, State, TimeSpan};
+use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
 use phonon::pattern_signal::randwalk;
 use std::collections::HashMap;
 

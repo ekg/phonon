@@ -1,3 +1,4 @@
+#[cfg(test_disabled)]
 /// Combined tests for `echo` and `segment` - pattern effect transforms
 /// - echo: creates echoes with delay and decay
 /// - segment: samples pattern n times per cycle

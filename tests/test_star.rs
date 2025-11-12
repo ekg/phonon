@@ -41,10 +41,10 @@ fn test_star_operator() {
     }
 
     // Test fast directly
-    let fast_pattern = Pattern::pure("fast".to_string()).fast(4.0);
+    let fast_pattern = Pattern::pure("fast".to_string()).fast(Pattern::pure(4.0));
     let fast_events = fast_pattern.query(&state);
 
-    println!("\nDirect pattern.fast(4) events:");
+    println!("\nDirect pattern.fast(Pattern::pure(4)) events:");
     for event in &fast_events {
         println!(
             "  {:.3} -> {:.3} : {}",
@@ -56,7 +56,7 @@ fn test_star_operator() {
 
     // Test with a sequence pattern
     let seq_pattern = parse_mini_notation("a b");
-    let seq_fast = parse_mini_notation("a b").fast(4.0);
+    let seq_fast = parse_mini_notation("a b").fast(Pattern::pure(4.0));
 
     let seq_events = seq_pattern.query(&state);
     println!("\n'a b' events:");
@@ -70,7 +70,7 @@ fn test_star_operator() {
     }
 
     let seq_fast_events = seq_fast.query(&state);
-    println!("\n'a b'.fast(4) events:");
+    println!("\n'a b'.fast(Pattern::pure(4)) events:");
     for event in &seq_fast_events {
         println!(
             "  {:.3} -> {:.3} : {}",

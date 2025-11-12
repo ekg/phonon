@@ -3,7 +3,7 @@
 /// squeeze n - squeezes pattern to 1/n of cycle and speeds up by n
 /// Similar to fast but compresses time window
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Fraction, State, TimeSpan};
+use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 #[test]
@@ -90,7 +90,7 @@ fn test_squeeze_multiple_cycles() {
 fn test_squeeze_chained_transforms() {
     // Test squeeze with other transforms
     let pattern = parse_mini_notation("bd sn hh cp");
-    let transformed = pattern.squeeze(2.0).fast(2.0);
+    let transformed = pattern.squeeze(2.0).fast(Pattern::pure(2.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),

@@ -48,7 +48,7 @@ fn test_shuffle_transform() {
 fn test_swing_at_pattern_level() {
     // Test swing directly at pattern level
     use phonon::mini_notation_v3::parse_mini_notation;
-    use phonon::pattern::{Fraction, State, TimeSpan};
+    use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
     use std::collections::HashMap;
 
     let pattern = parse_mini_notation("bd sn hh cp");
@@ -85,7 +85,7 @@ fn test_swing_at_pattern_level() {
 fn test_shuffle_at_pattern_level() {
     // Test shuffle directly at pattern level
     use phonon::mini_notation_v3::parse_mini_notation;
-    use phonon::pattern::{Fraction, State, TimeSpan};
+    use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
     use std::collections::HashMap;
 
     let pattern = parse_mini_notation("bd sn hh cp");

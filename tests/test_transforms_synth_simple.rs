@@ -44,7 +44,7 @@ fn test_fast_with_synthesis() {
     let pattern = parse_mini_notation("110 220");
 
     let normal = pattern.clone();
-    let fast2 = pattern.clone().fast(2.0);
+    let fast2 = pattern.clone().fast(Pattern::pure(2.0));
 
     let cycles = 4;
     let normal_count = count_events_over_cycles(&normal, cycles);

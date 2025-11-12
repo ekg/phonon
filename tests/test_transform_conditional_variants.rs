@@ -8,7 +8,7 @@
 ///
 /// All transforms use 3-level verification but adapted for probabilistic behavior
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Fraction, State, TimeSpan};
+use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 // ============= Level 1: Pattern Query Tests =============
@@ -25,7 +25,7 @@ fn test_sometimes_by_level1_probability_0() {
     // With prob=0.0, transform should NEVER apply
     let transformed = pattern
         .clone()
-        .sometimes_by(0.0, |p| p.fast(2.0))
+        .sometimes_by(0.0, |p| p.fast(Pattern::pure(2.0)))
         .query(&state);
     let base = pattern.query(&state);
 
@@ -50,9 +50,9 @@ fn test_sometimes_by_level1_probability_1() {
     // With prob=1.0, transform should ALWAYS apply
     let transformed = pattern
         .clone()
-        .sometimes_by(1.0, |p| p.fast(2.0))
+        .sometimes_by(1.0, |p| p.fast(Pattern::pure(2.0)))
         .query(&state);
-    let just_fast = pattern.clone().fast(2.0).query(&state);
+    let just_fast = pattern.clone().fast(Pattern::pure(2.0)).query(&state);
 
     assert_eq!(
         transformed.len(),
@@ -83,7 +83,7 @@ fn test_sometimes_by_level1_probability_distribution() {
         let base = pattern.query(&state);
         let transformed = pattern
             .clone()
-            .sometimes_by(0.5, |p| p.fast(2.0))
+            .sometimes_by(0.5, |p| p.fast(Pattern::pure(2.0)))
             .query(&state);
 
         // If transformed, should have 2x events
@@ -118,11 +118,11 @@ fn test_sometimes_by_deterministic_per_cycle() {
 
     let result1 = pattern
         .clone()
-        .sometimes_by(0.5, |p| p.fast(2.0))
+        .sometimes_by(0.5, |p| p.fast(Pattern::pure(2.0)))
         .query(&state);
     let result2 = pattern
         .clone()
-        .sometimes_by(0.5, |p| p.fast(2.0))
+        .sometimes_by(0.5, |p| p.fast(Pattern::pure(2.0)))
         .query(&state);
 
     assert_eq!(
@@ -151,7 +151,7 @@ fn test_when_mod_level1_every_n_cycles() {
         let base = pattern.query(&state);
         let when_mod = pattern
             .clone()
-            .when_mod(3, 0, |p| p.fast(2.0))
+            .when_mod(3, 0, |p| p.fast(Pattern::pure(2.0)))
             .query(&state);
 
         if cycle % 3 == 0 {
@@ -194,7 +194,7 @@ fn test_when_mod_with_offset() {
         let base = pattern.query(&state);
         let when_mod = pattern
             .clone()
-            .when_mod(4, 1, |p| p.fast(2.0))
+            .when_mod(4, 1, |p| p.fast(Pattern::pure(2.0)))
             .query(&state);
 
         if (cycle - 1) % 4 == 0 {
@@ -224,8 +224,8 @@ fn test_when_mod_with_every() {
 
     // when_mod(2, 0, f) should apply on even cycles
     // This should be similar to every(2, f)
-    let when_mod_pattern = pattern.clone().when_mod(2, 0, |p| p.fast(2.0));
-    let every_pattern = pattern.clone().every(2, |p| p.fast(2.0));
+    let when_mod_pattern = pattern.clone().when_mod(2, 0, |p| p.fast(Pattern::pure(2.0)));
+    let every_pattern = pattern.clone().every(2, |p| p.fast(Pattern::pure(2.0)));
 
     for cycle in 0..8 {
         let state = State {
@@ -273,7 +273,7 @@ fn test_sometimes_by_different_probabilities() {
             let base = pattern.query(&state);
             let transformed = pattern
                 .clone()
-                .sometimes_by(prob, |p| p.fast(2.0))
+                .sometimes_by(prob, |p| p.fast(Pattern::pure(2.0)))
                 .query(&state);
 
             if transformed.len() > base.len() {
@@ -323,7 +323,7 @@ fn test_when_mod_different_modulos() {
             let base = pattern.query(&state);
             let when_mod = pattern
                 .clone()
-                .when_mod(modulo, 0, |p| p.fast(2.0))
+                .when_mod(modulo, 0, |p| p.fast(Pattern::pure(2.0)))
                 .query(&state);
 
             if when_mod.len() > base.len() {
@@ -361,7 +361,7 @@ fn test_sometimes_by_nested() {
     // Effective probability = 0.5 * 0.5 = 0.25
     let nested = pattern
         .clone()
-        .sometimes_by(0.5, |p| p.sometimes_by(0.5, |p2| p2.fast(2.0)))
+        .sometimes_by(0.5, |p| p.sometimes_by(0.5, |p2| p2.fast(Pattern::pure(2.0))))
         .query(&state);
 
     println!("✅ sometimes_by can be nested (effective prob = product)");
@@ -384,7 +384,7 @@ fn test_when_mod_composition() {
         let base = pattern.query(&state);
         let composed = pattern
             .clone()
-            .when_mod(2, 0, |p| p.when_mod(3, 0, |p2| p2.fast(2.0)))
+            .when_mod(2, 0, |p| p.when_mod(3, 0, |p2| p2.fast(Pattern::pure(2.0))))
             .query(&state);
 
         if cycle % 2 == 0 && cycle % 3 == 0 {
@@ -449,7 +449,7 @@ fn test_when_mod_every_cycle() {
         let base = pattern.query(&state);
         let when_mod = pattern
             .clone()
-            .when_mod(1, 0, |p| p.fast(2.0))
+            .when_mod(1, 0, |p| p.fast(Pattern::pure(2.0)))
             .query(&state);
 
         assert_eq!(
@@ -475,7 +475,7 @@ fn test_when_mod_negative_cycle() {
     // when_mod(4, -1, f) - negative offset
     let when_mod = pattern
         .clone()
-        .when_mod(4, -1, |p| p.fast(2.0))
+        .when_mod(4, -1, |p| p.fast(Pattern::pure(2.0)))
         .query(&state);
 
     // Cycle 0: (0 - (-1)) % 4 = 1 % 4 = 1 (not 0, so don't apply)
@@ -502,7 +502,7 @@ fn test_sometimes_by_with_silence() {
     let base = pattern.query(&state);
     let transformed = pattern
         .clone()
-        .sometimes_by(1.0, |p| p.fast(2.0))
+        .sometimes_by(1.0, |p| p.fast(Pattern::pure(2.0)))
         .query(&state);
 
     assert!(transformed.len() >= base.len(), "Should handle rests");

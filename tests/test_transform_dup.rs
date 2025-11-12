@@ -121,7 +121,7 @@ fn test_dup_equivalence_to_fast() {
     // dup n should produce identical results to fast n
     let pattern = parse_mini_notation("a b c d");
     let dup_pattern = pattern.clone().dup(3);
-    let fast_pattern = pattern.clone().fast(3.0);
+    let fast_pattern = pattern.clone().fast(Pattern::pure(3.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(2, 1)),

@@ -23,7 +23,7 @@ fn test_jux_level1_creates_stereo_pairs() {
     };
 
     // jux applies transform to right channel only
-    let stereo = pattern.clone().jux(|p| p.fast(2.0));
+    let stereo = pattern.clone().jux(|p| p.fast(Pattern::pure(2.0)));
     let haps = stereo.query(&state);
 
     // Should produce stereo pairs (left, right)
@@ -48,7 +48,7 @@ fn test_jux_level1_left_unchanged_right_transformed() {
     };
 
     let base_haps = pattern.query(&state);
-    let stereo_haps = pattern.clone().jux(|p| p.fast(2.0)).query(&state);
+    let stereo_haps = pattern.clone().jux(|p| p.fast(Pattern::pure(2.0))).query(&state);
 
     // jux zips left and right channels
     // If left has 2 events and right has 4 events (from fast(2)),
@@ -85,8 +85,8 @@ fn test_jux_rev() {
 #[test]
 fn test_bite_level1_cycles_through_patterns() {
     let base = parse_mini_notation("bd sn");
-    let pattern1 = base.clone().fast(2.0);
-    let pattern2 = base.clone().slow(2.0);
+    let pattern1 = base.clone().fast(Pattern::pure(2.0));
+    let pattern2 = base.clone().slow(Pattern::pure(2.0));
 
     // bite cycles through patterns based on cycle number
     let bitten = base.clone().bite(4, vec![pattern1, pattern2]);
@@ -124,7 +124,7 @@ fn test_bite_level1_cycles_through_patterns() {
 #[test]
 fn test_bite_level1_n_parameter_divides_cycle() {
     let base = parse_mini_notation("bd sn hh cp");
-    let pattern1 = base.clone().fast(2.0);
+    let pattern1 = base.clone().fast(Pattern::pure(2.0));
     let pattern2 = base.clone();
 
     // n=8 means divide cycle into 8 pieces
@@ -303,7 +303,7 @@ fn test_jux_multi_cycle_consistency() {
             controls: HashMap::new(),
         };
 
-        let haps = pattern.clone().jux(|p| p.fast(2.0)).query(&state);
+        let haps = pattern.clone().jux(|p| p.fast(Pattern::pure(2.0))).query(&state);
         assert!(
             haps.len() > 0,
             "jux should produce events in cycle {}",
@@ -317,8 +317,8 @@ fn test_jux_multi_cycle_consistency() {
 #[test]
 fn test_bite_pattern_selection_sequence() {
     let base = parse_mini_notation("bd sn");
-    let p1 = base.clone().fast(2.0);
-    let p2 = base.clone().slow(2.0);
+    let p1 = base.clone().fast(Pattern::pure(2.0));
+    let p2 = base.clone().slow(Pattern::pure(2.0));
     let p3 = base.clone();
 
     let bitten = base.bite(4, vec![p1.clone(), p2.clone(), p3.clone()]);
@@ -391,7 +391,7 @@ fn test_jux_composition() {
     };
 
     // jux composed with multiple transforms
-    let composed = pattern.clone().fast(2.0).jux(|p| p.rev());
+    let composed = pattern.clone().fast(Pattern::pure(2.0)).jux(|p| p.rev());
     let haps = composed.query(&state);
 
     assert!(haps.len() > 0, "Composed jux should work");
@@ -409,7 +409,7 @@ fn test_slice_with_fast() {
     };
 
     // fast(2) $ slice(4, 0) - should fast the first slice
-    let transformed = pattern.clone().slice(4, 0).fast(2.0).query(&state);
+    let transformed = pattern.clone().slice(4, 0).fast(Pattern::pure(2.0)).query(&state);
 
     assert!(transformed.len() > 0, "slice + fast should work");
 
@@ -465,7 +465,7 @@ fn test_jux_with_identity() {
 #[test]
 fn test_bite_with_single_pattern() {
     let base = parse_mini_notation("bd sn");
-    let pattern1 = base.clone().fast(2.0);
+    let pattern1 = base.clone().fast(Pattern::pure(2.0));
 
     // bite with single pattern should always use that pattern
     let bitten = base.bite(4, vec![pattern1.clone()]);

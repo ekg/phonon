@@ -53,7 +53,7 @@ fn test_weave_with_level1_alternates_cycles() {
     let pattern = parse_mini_notation("bd sn");
 
     // weaveWith alternates: even cycles = base, odd cycles = transformed
-    let weaved = pattern.clone().weave_with(|p| p.fast(2.0));
+    let weaved = pattern.clone().weave_with(|p| p.fast(Pattern::pure(2.0)));
 
     for cycle in 0..6 {
         let state = State {
@@ -132,8 +132,8 @@ fn test_layer_level1_applies_all_functions() {
     // layer applies all functions and stacks results
     let fs: Vec<Box<dyn Fn(Pattern<String>) -> Pattern<String> + Send + Sync>> = vec![
         Box::new(|p| p.clone()), // identity
-        Box::new(|p| p.fast(2.0)),
-        Box::new(|p| p.fast(3.0)),
+        Box::new(|p| p.fast(Pattern::pure(2.0))),
+        Box::new(|p| p.fast(Pattern::pure(3.0))),
     ];
 
     let layered = pattern.clone().layer(fs);
@@ -494,7 +494,7 @@ fn test_scan_one() {
 fn test_weave_with_multi_cycle() {
     let pattern = parse_mini_notation("bd sn");
 
-    let weaved = pattern.weave_with(|p| p.fast(2.0));
+    let weaved = pattern.weave_with(|p| p.fast(Pattern::pure(2.0)));
 
     // Verify consistent behavior over many cycles
     for cycle in 0..8 {
@@ -544,7 +544,7 @@ fn test_run_multi_cycle() {
 fn test_weave_with_composition() {
     let pattern = parse_mini_notation("bd");
 
-    let weaved = pattern.clone().weave_with(|p| p.fast(2.0)).fast(2.0);
+    let weaved = pattern.clone().weave_with(|p| p.fast(Pattern::pure(2.0))).fast(Pattern::pure(2.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -564,7 +564,7 @@ fn test_weave_with_composition() {
 fn test_scale_with_fast() {
     let degrees = Pattern::cat(vec![Pattern::pure(0.0), Pattern::pure(2.0)]);
 
-    let scaled = degrees.scale("major", 60).fast(2.0);
+    let scaled = degrees.scale("major", 60).fast(Pattern::pure(2.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),

@@ -1,5 +1,5 @@
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Fraction, State, TimeSpan};
+use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 #[test]
@@ -8,7 +8,7 @@ fn test_combined_transform_at_pattern_level() {
     let base_pattern = parse_mini_notation(pattern_str);
 
     // Apply fast then rev
-    let combined = base_pattern.fast(2.0).rev();
+    let combined = base_pattern.fast(Pattern::pure(2.0)).rev();
 
     // Query over 1 cycle
     let state = State {

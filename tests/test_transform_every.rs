@@ -55,7 +55,7 @@ fn test_every_level1_cycle_pattern() {
 
         if cycle % 2 == 0 {
             // Apply fast 2 on even cycles
-            let fast_pattern = pattern.clone().fast(2.0);
+            let fast_pattern = pattern.clone().fast(Pattern::pure(2.0));
             let events = fast_pattern.query(&state);
             total_events_per_cycle.push(events.len());
         } else {
@@ -120,7 +120,7 @@ fn test_every_level1_total_events() {
 
         // every 2 (fast 2) pattern
         if cycle % 2 == 0 {
-            total_every_2_fast_2 += pattern.clone().fast(2.0).query(&state).len();
+            total_every_2_fast_2 += pattern.clone().fast(Pattern::pure(2.0)).query(&state).len();
         } else {
             total_every_2_fast_2 += pattern.query(&state).len();
         }
@@ -332,13 +332,13 @@ fn test_every_with_every_1() {
         // every 1 (fast 2)
         if cycle % 1 == 0 {
             // Always true
-            total_every_1 += pattern.clone().fast(2.0).query(&state).len();
+            total_every_1 += pattern.clone().fast(Pattern::pure(2.0)).query(&state).len();
         } else {
             total_every_1 += pattern.query(&state).len();
         }
 
         // Always fast 2
-        total_always_fast += pattern.clone().fast(2.0).query(&state).len();
+        total_always_fast += pattern.clone().fast(Pattern::pure(2.0)).query(&state).len();
     }
 
     // every 1 (fast 2) should be equivalent to always applying fast 2

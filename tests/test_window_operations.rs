@@ -151,7 +151,7 @@ fn test_within_at_pattern_level() {
 
     let pattern = parse_mini_notation("bd sn hh cp");
     // Apply fast(2) to middle half (0.25-0.75)
-    let with_transform = pattern.within(0.25, 0.75, |p| p.fast(2.0));
+    let with_transform = pattern.within(0.25, 0.75, |p| p.fast(Pattern::pure(2.0)));
 
     let state = State {
         span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),

@@ -4,7 +4,7 @@ use phonon::pattern::Pattern;
 #[test]
 fn test_fast_transform() {
     let pattern = parse_mini_notation("bd sn");
-    let fast_pattern = pattern.fast(2.0);
+    let fast_pattern = pattern.fast(Pattern::pure(2.0));
 
     // Pattern should have twice as many events
     use phonon::pattern::{Fraction, State, TimeSpan};
@@ -22,7 +22,7 @@ fn test_fast_transform() {
 #[test]
 fn test_slow_transform() {
     let pattern = parse_mini_notation("bd sn hh cp");
-    let slow_pattern = pattern.slow(2.0);
+    let slow_pattern = pattern.slow(Pattern::pure(2.0));
 
     use phonon::pattern::{Fraction, State, TimeSpan};
     use std::collections::HashMap;
@@ -56,7 +56,7 @@ fn test_rev_transform() {
 #[test]
 fn test_every_transform() {
     let pattern = parse_mini_notation("bd");
-    let every_pattern = pattern.clone().every(4, |p| p.fast(2.0));
+    let every_pattern = pattern.clone().every(4, |p| p.fast(Pattern::pure(2.0)));
 
     use phonon::pattern::{Fraction, State, TimeSpan};
     use std::collections::HashMap;
