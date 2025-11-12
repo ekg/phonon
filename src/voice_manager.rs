@@ -517,6 +517,18 @@ pub struct VoiceManager {
 
     /// Performance monitoring: total samples processed
     total_samples_processed: u64,
+
+    /// Adaptive parallelism: current threshold (dynamically adjusted)
+    parallel_threshold: usize,
+
+    /// Performance tracking: processing time history (in microseconds per sample)
+    processing_times: Vec<f32>,
+
+    /// Performance tracking: number of times we exceeded time budget
+    underrun_count: u64,
+
+    /// Performance tracking: samples processed since last adjustment
+    samples_since_adjustment: usize,
 }
 
 impl Default for VoiceManager {
@@ -575,6 +587,10 @@ impl VoiceManager {
             shrink_counter: 0,
             peak_voice_count: initial_voices,
             total_samples_processed: 0,
+            parallel_threshold: 64, // Start with conservative threshold
+            processing_times: Vec::with_capacity(1000), // Track last 1000 samples
+            underrun_count: 0,
+            samples_since_adjustment: 0,
         }
     }
 
@@ -1001,11 +1017,12 @@ impl VoiceManager {
         }
         self.total_samples_processed += 1;
 
-        // Parallel voice processing: only beneficial for high voice counts
-        // Rayon overhead dominates for small counts, so use threshold
-        const PARALLEL_THRESHOLD: usize = 64;
+        // Adaptive parallel voice processing with performance tracking
+        // Measure processing time to detect underruns
+        let start_time = std::time::Instant::now();
 
-        if self.voices.len() >= PARALLEL_THRESHOLD {
+        // Use dynamic threshold instead of const
+        if self.voices.len() >= self.parallel_threshold {
             // Parallel processing for high voice counts
             let voice_outputs: Vec<(f32, f32)> = self
                 .voices
@@ -1025,6 +1042,29 @@ impl VoiceManager {
                 left += voice_left;
                 right += voice_right;
             }
+        }
+
+        // Track processing time (in microseconds)
+        let elapsed_us = start_time.elapsed().as_micros() as f32;
+        self.processing_times.push(elapsed_us);
+
+        // Keep only last 1000 samples for rolling average
+        if self.processing_times.len() > 1000 {
+            self.processing_times.remove(0);
+        }
+
+        // Detect underrun: at 44.1kHz, we have ~22.7 microseconds per sample
+        // If we're taking longer than 20 microseconds consistently, we're falling behind
+        const TIME_BUDGET_US: f32 = 20.0;
+        if elapsed_us > TIME_BUDGET_US {
+            self.underrun_count += 1;
+        }
+
+        // Adaptive threshold adjustment every 10000 samples (~0.22 seconds at 44.1kHz)
+        self.samples_since_adjustment += 1;
+        if self.samples_since_adjustment >= 10000 {
+            self.adjust_parallel_threshold();
+            self.samples_since_adjustment = 0;
         }
 
         // Apply some limiting to prevent clipping
@@ -1133,6 +1173,73 @@ impl VoiceManager {
         self.voices.len()
     }
 
+    /// Adjust parallelism threshold based on recent performance
+    /// This is called periodically to adapt to workload
+    fn adjust_parallel_threshold(&mut self) {
+        if self.processing_times.is_empty() {
+            return;
+        }
+
+        // Calculate average processing time over last period
+        let avg_time_us: f32 = self.processing_times.iter().sum::<f32>()
+            / self.processing_times.len() as f32;
+
+        // Calculate underrun rate (% of samples that exceeded budget)
+        let total_samples = self.processing_times.len() as f32;
+        let underrun_rate = self.underrun_count as f32 / total_samples;
+
+        const TIME_BUDGET_US: f32 = 20.0;
+
+        // Decision logic:
+        // 1. If underrun rate > 5% AND avg_time > 15us → Lower threshold (enable parallelism earlier)
+        // 2. If underrun rate < 1% AND avg_time < 10us → Raise threshold (avoid unnecessary overhead)
+        // 3. Otherwise → Keep current threshold
+
+        let old_threshold = self.parallel_threshold;
+
+        if underrun_rate > 0.05 && avg_time_us > 15.0 {
+            // We're struggling - enable parallelism earlier
+            self.parallel_threshold = (self.parallel_threshold / 2).max(16);
+            if std::env::var("DEBUG_ADAPTIVE_PARALLEL").is_ok() {
+                eprintln!(
+                    "[ADAPTIVE] Lowering threshold {} → {} (underrun rate: {:.1}%, avg time: {:.1}µs)",
+                    old_threshold, self.parallel_threshold, underrun_rate * 100.0, avg_time_us
+                );
+            }
+        } else if underrun_rate < 0.01 && avg_time_us < 10.0 {
+            // We have headroom - avoid parallelism overhead
+            self.parallel_threshold = (self.parallel_threshold * 3 / 2).min(128);
+            if std::env::var("DEBUG_ADAPTIVE_PARALLEL").is_ok() {
+                eprintln!(
+                    "[ADAPTIVE] Raising threshold {} → {} (underrun rate: {:.1}%, avg time: {:.1}µs)",
+                    old_threshold, self.parallel_threshold, underrun_rate * 100.0, avg_time_us
+                );
+            }
+        }
+
+        // Reset counters for next period
+        self.underrun_count = 0;
+        self.processing_times.clear();
+    }
+
+    /// Get current adaptive parallelism threshold
+    pub fn get_parallel_threshold(&self) -> usize {
+        self.parallel_threshold
+    }
+
+    /// Get underrun statistics
+    pub fn get_underrun_count(&self) -> u64 {
+        self.underrun_count
+    }
+
+    /// Get average processing time (in microseconds) over recent samples
+    pub fn get_avg_processing_time_us(&self) -> f32 {
+        if self.processing_times.is_empty() {
+            return 0.0;
+        }
+        self.processing_times.iter().sum::<f32>() / self.processing_times.len() as f32
+    }
+
     /// Get performance statistics as a formatted string
     pub fn performance_summary(&self) -> String {
         let active = self.active_voice_count();
@@ -1143,9 +1250,11 @@ impl VoiceManager {
             0
         };
 
+        let avg_time = self.get_avg_processing_time_us();
         format!(
-            "Voices: {}/{} ({}% usage) | Peak: {} | Samples: {}",
-            active, pool_size, usage_pct, self.peak_voice_count, self.total_samples_processed
+            "Voices: {}/{} ({}% usage) | Peak: {} | Samples: {} | Parallel threshold: {} | Avg time: {:.1}µs | Underruns: {}",
+            active, pool_size, usage_pct, self.peak_voice_count, self.total_samples_processed,
+            self.parallel_threshold, avg_time, self.underrun_count
         )
     }
 }
