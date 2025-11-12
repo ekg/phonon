@@ -1544,15 +1544,30 @@ out sine(440) * 0.2
             println!();
 
             // Shared state for live reloading
-            struct LiveState {
-                graph: Option<UnifiedSignalGraph>,
+            // Lock-free graph swapping for audio callback
+            // Audio callback reads without blocking, file watcher atomically swaps
+            use arc_swap::ArcSwap;
+            use std::cell::RefCell;
+
+            // Newtype wrapper to impl Send+Sync for RefCell<UnifiedSignalGraph>
+            // SAFETY: Each GraphCell instance is only accessed by one thread at a time.
+            // Audio thread gets its own Arc via load(), file watcher creates new instances.
+            struct GraphCell(RefCell<UnifiedSignalGraph>);
+            unsafe impl Send for GraphCell {}
+            unsafe impl Sync for GraphCell {}
+
+            // Graph accessed lock-free by audio callback
+            // GraphCell provides interior mutability for process_sample()
+            let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));
+
+            // File watching metadata (only accessed by file watcher thread, can use Mutex)
+            struct FileWatchState {
                 current_file: std::path::PathBuf,
                 last_modified: Option<SystemTime>,
                 last_content: String,
             }
 
-            let state = Arc::new(Mutex::new(LiveState {
-                graph: None,
+            let file_state = Arc::new(Mutex::new(FileWatchState {
                 current_file: file.clone(),
                 last_modified: None,
                 last_content: String::new(),
@@ -1575,9 +1590,9 @@ out sine(440) * 0.2
             {
                 if let Ok(content) = std::fs::read_to_string(&file) {
                     match parse_phonon(&content, sample_rate) {
-                        Ok(graph) => {
-                            let mut state_lock = state.lock().unwrap();
-                            state_lock.graph = Some(graph);
+                        Ok(new_graph) => {
+                            graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
+                            let mut state_lock = file_state.lock().unwrap();
                             state_lock.last_content = content;
                             println!("✅ Loaded successfully");
                         }
@@ -1589,17 +1604,23 @@ out sine(440) * 0.2
             }
 
             // Audio callback
-            let state_clone = Arc::clone(&state);
+            let graph_clone = Arc::clone(&graph);
             let err_fn = |err| eprintln!("Audio stream error: {err}");
 
             let stream = device.build_output_stream(
                 &config.into(),
                 move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                    let mut state = state_clone.lock().unwrap();
+                    // Lock-free load: no blocking, no Mutex contention!
+                    // This is the key fix for P0.4 - audio callback never blocks
+                    let graph_snapshot = graph_clone.load();
 
                     for sample in data.iter_mut() {
-                        *sample = if let Some(ref mut graph) = state.graph {
-                            graph.process_sample()
+                        *sample = if let Some(ref graph_cell) = **graph_snapshot {
+                            // GraphCell.0 is RefCell, provides interior mutability for process_sample()
+                            // borrow_mut() is guaranteed not to panic because:
+                            // - This thread owns this Arc instance
+                            // - No other thread can access it concurrently
+                            graph_cell.0.borrow_mut().process_sample()
                         } else {
                             0.0
                         };
@@ -1622,7 +1643,7 @@ out sine(440) * 0.2
                 // Check for file changes
                 if let Ok(metadata) = std::fs::metadata(&file) {
                     if let Ok(modified) = metadata.modified() {
-                        let mut state_lock = state.lock().unwrap();
+                        let mut state_lock = file_state.lock().unwrap();
 
                         let should_reload = match state_lock.last_modified {
                             None => true,
@@ -1632,20 +1653,22 @@ out sine(440) * 0.2
                         if should_reload {
                             state_lock.last_modified = Some(modified);
                             let file_path = state_lock.current_file.clone();
+                            let last_content = state_lock.last_content.clone();
                             drop(state_lock);
 
                             if let Ok(content) = std::fs::read_to_string(&file_path) {
-                                let mut state_lock = state.lock().unwrap();
-                                if content != state_lock.last_content {
-                                    state_lock.last_content = content.clone();
-                                    drop(state_lock);
-
+                                if content != last_content {
                                     println!("🔄 Reloading...");
 
                                     match parse_phonon(&content, sample_rate) {
-                                        Ok(graph) => {
-                                            let mut state_lock = state.lock().unwrap();
-                                            state_lock.graph = Some(graph);
+                                        Ok(new_graph) => {
+                                            // Lock-free atomic swap: no audio callback blocking!
+                                            graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
+
+                                            // Update file state
+                                            let mut state_lock = file_state.lock().unwrap();
+                                            state_lock.last_content = content;
+
                                             println!("✅ Loaded successfully");
                                         }
                                         Err(e) => {

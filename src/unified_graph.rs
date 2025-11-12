@@ -3500,6 +3500,16 @@ pub struct UnifiedSignalGraph {
     sample_count: usize,
 }
 
+// SAFETY: UnifiedSignalGraph contains RefCell which is !Send and !Sync, but we ensure
+// that each graph instance is only accessed by a single thread at a time.
+// In live mode:
+// - Audio thread has its own Arc instance (via ArcSwap::load())
+// - File watcher creates NEW graphs and stores them atomically
+// - They never access the same graph instance concurrently
+// Therefore, it's safe to send UnifiedSignalGraph between threads and share references.
+unsafe impl Send for UnifiedSignalGraph {}
+unsafe impl Sync for UnifiedSignalGraph {}
+
 impl UnifiedSignalGraph {
     pub fn new(sample_rate: f32) -> Self {
         Self {

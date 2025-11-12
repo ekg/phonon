@@ -14,6 +14,9 @@ glicol = "0.13"
 # Audio output - cross-platform (JACK, ALSA, OpenSL ES on Android)
 cpal = "0.15"
 
+# Lock-free atomic Arc swapping for live mode
+arc-swap = "1.7"
+
 # MIDI support
 midir = "0.9"
 

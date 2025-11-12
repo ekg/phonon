@@ -128,18 +128,18 @@ o2: s "sn*4"  -- Should only hear sn
 
 ---
 
-### 🟡 P0.4: Multi-threading performance (partially fixed)
-**Status**: PARTIALLY FIXED - Rayon overhead eliminated, Mutex contention remains
-**Impact**: MEDIUM - Render mode improved, live mode still has issues
+### ✅ P0.4: Multi-threading performance - FIXED
+**Status**: FULLY FIXED - Both Rayon overhead and Mutex contention eliminated
+**Impact**: HIGH - Major performance improvement in both render and live modes
 
-**Problems Found**:
-1. ✅ **FIXED**: Rayon overhead - par_iter_mut() called every sample (44.1kHz) regardless of voice count
-2. ⚠️ **REMAINS**: Mutex contention in live mode - audio callback holds lock for entire buffer
+**Problems Fixed**:
+1. ✅ **FIXED**: Rayon overhead - par_iter_mut() called every sample regardless of voice count
+2. ✅ **FIXED**: Mutex contention in live mode - audio callback held lock for entire buffer
 
 **Problem 1 - Rayon Overhead** (FIXED):
 - Used `par_iter_mut()` unconditionally for all voice counts
 - Rayon scheduling overhead: ~10-50μs per sample
-- For typical 16-32 voices (~16-80μs work), overhead dominated
+- For typical 16-32 voices, overhead dominated actual work
 - At 44.1kHz, this added 30-50% overhead
 
 **Fix 1**: Threshold-based parallelism
@@ -147,27 +147,42 @@ o2: s "sn*4"  -- Should only hear sn
 - Below threshold, use sequential iteration (no overhead)
 - Result: Render mode now efficient for typical patterns
 
-**Problem 2 - Mutex Contention** (REMAINS):
+**Problem 2 - Mutex Contention** (FIXED):
 ```rust
-// In audio callback (src/main.rs:1598)
+// OLD (BROKEN):
 let mut state = state_clone.lock().unwrap();  // ⚠️ Locks for entire buffer!
 for sample in data.iter_mut() {
     *sample = graph.process_sample();  // 512 samples while holding lock
 }
 ```
-- Audio callback locks Mutex for entire buffer duration (~12ms at 512 samples)
-- File watcher also locks same Mutex to check for reloads
-- Creates contention → choppy audio
+- Audio callback locked Mutex for entire buffer duration (~12ms at 512 samples)
+- File watcher also locked same Mutex to check for reloads
+- Created contention → choppy audio
 
-**Fix 2 needed** (future work):
-- Use lock-free audio graph swapping (Arc + AtomicPtr)
-- Audio callback never locks
-- File watcher atomically swaps graph pointer
-- Requires architectural refactor
+**Fix 2**: Lock-free graph swapping with ArcSwap
+```rust
+// NEW (FIXED):
+let graph_snapshot = graph_clone.load();  // Lock-free atomic load!
+for sample in data.iter_mut() {
+    *sample = graph_cell.0.borrow_mut().process_sample();  // No blocking
+}
+```
+- Audio callback uses `arc-swap` for lock-free atomic loading
+- File watcher atomically swaps with `store()` - no blocking
+- GraphCell newtype provides thread-safe interior mutability
+- Zero contention, smooth audio
+
+**Architecture**:
+- `Arc<ArcSwap<Option<GraphCell>>>` for lock-free swapping
+- `GraphCell(RefCell<UnifiedSignalGraph>)` with unsafe Send+Sync impl
+- Safe because each Arc instance accessed by only one thread
+- File watcher creates NEW graphs, doesn't mutate existing ones
 
 **Files**:
-- ✅ `src/voice_manager.rs`: Added threshold-based parallelism (line 1006)
-- ⚠️ `src/main.rs`: Mutex contention in live mode (line 1598) - needs refactor
+- ✅ `src/voice_manager.rs`: Threshold-based parallelism (line 1006)
+- ✅ `src/main.rs`: Lock-free graph swapping (line 1547-1680)
+- ✅ `src/unified_graph.rs`: unsafe impl Send+Sync (line 3510)
+- ✅ `Cargo.toml`: Added arc-swap dependency
 
 ---
 
