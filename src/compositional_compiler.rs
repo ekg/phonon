@@ -4315,14 +4315,38 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             Ok(pattern.slow(speed_pattern))
         }
         Transform::Squeeze(factor_expr) => {
-            let factor = extract_number(&factor_expr)?;
-            Ok(pattern.squeeze(factor))
+            // Support both pattern strings and constant numbers
+            match factor_expr.as_ref() {
+                Expr::String(pattern_str) => {
+                    // Pattern-based squeeze - parse string pattern and convert to f64
+                    let string_pattern = parse_mini_notation(pattern_str);
+                    let factor_pattern = string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(1.0));
+                    Ok(pattern.squeeze_pattern(factor_pattern))
+                }
+                _ => {
+                    // Constant squeeze
+                    let factor = extract_number(&factor_expr)?;
+                    Ok(pattern.squeeze(factor))
+                }
+            }
         }
         Transform::Rev => Ok(pattern.rev()),
         Transform::Degrade => Ok(pattern.degrade()),
         Transform::DegradeBy(prob_expr) => {
-            let prob = extract_number(&prob_expr)?;
-            Ok(pattern.degrade_by(Pattern::pure(prob)))
+            // Support both pattern strings and constant numbers
+            match prob_expr.as_ref() {
+                Expr::String(pattern_str) => {
+                    // Pattern-based probability - parse string pattern and convert to f64
+                    let string_pattern = parse_mini_notation(pattern_str);
+                    let prob_pattern = string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(0.5));
+                    Ok(pattern.degrade_by(prob_pattern))
+                }
+                _ => {
+                    // Constant probability
+                    let prob = extract_number(&prob_expr)?;
+                    Ok(pattern.degrade_by(Pattern::pure(prob)))
+                }
+            }
         }
         Transform::Stutter(n_expr) => {
             let n = extract_number(&n_expr)? as usize;
@@ -4330,8 +4354,20 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         }
         Transform::Palindrome => Ok(pattern.palindrome()),
         Transform::Shuffle(amount_expr) => {
-            let amount = extract_number(&amount_expr)?;
-            Ok(pattern.shuffle(Pattern::pure(amount)))
+            // Support both pattern strings and constant numbers
+            match amount_expr.as_ref() {
+                Expr::String(pattern_str) => {
+                    // Pattern-based shuffle amount - parse string pattern and convert to f64
+                    let string_pattern = parse_mini_notation(pattern_str);
+                    let amount_pattern = string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(0.5));
+                    Ok(pattern.shuffle(amount_pattern))
+                }
+                _ => {
+                    // Constant shuffle amount
+                    let amount = extract_number(&amount_expr)?;
+                    Ok(pattern.shuffle(Pattern::pure(amount)))
+                }
+            }
         }
         Transform::Chop(n_expr) | Transform::Striate(n_expr) => {
             // chop and striate are aliases - both slice pattern into n parts
