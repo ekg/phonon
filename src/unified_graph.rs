@@ -1033,8 +1033,8 @@ pub enum SignalNode {
         position: Signal, // 0.0 to 1.0
     },
 
-    /// Mix (sum) multiple signals
-    /// Sums all input signals together
+    /// Mix multiple signals with normalization
+    /// Sums all input signals and divides by N to prevent volume multiplication
     Mix { signals: Vec<Signal> },
 
     /// Allpass filter (phase manipulation, reverb building block)
@@ -4847,8 +4847,15 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::Mix { signals } => {
-                // Sum all input signals
-                signals.iter().map(|s| self.eval_signal(s)).sum()
+                // Mix all input signals with normalization
+                // Sum and divide by N to prevent volume multiplication
+                let sum: f32 = signals.iter().map(|s| self.eval_signal(s)).sum();
+                let n = signals.len() as f32;
+                if n > 0.0 {
+                    sum / n
+                } else {
+                    0.0
+                }
             }
 
             SignalNode::Allpass {

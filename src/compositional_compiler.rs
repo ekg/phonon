@@ -1140,18 +1140,13 @@ fn compile_stack(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
 
     let nodes = nodes?;
 
-    // Mix all nodes together by chaining Add nodes
-    // For [a, b, c], create: Add(Add(a, b), c)
-    let mut result = nodes[0];
-    for &node in &nodes[1..] {
-        let add_node = SignalNode::Add {
-            a: Signal::Node(result),
-            b: Signal::Node(node),
-        };
-        result = ctx.graph.add_node(add_node);
-    }
+    // Mix all nodes together using Mix node (normalizes automatically)
+    // This prevents volume multiplication when stacking multiple patterns
+    let signals: Vec<Signal> = nodes.iter().map(|&n| Signal::Node(n)).collect();
 
-    Ok(result)
+    let mix_node = SignalNode::Mix { signals };
+
+    Ok(ctx.graph.add_node(mix_node))
 }
 
 /// Compile cat combinator - concatenates patterns within each cycle

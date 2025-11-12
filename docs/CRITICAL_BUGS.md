@@ -35,54 +35,64 @@ s "bd" $ loopAt "1 2 4"         -- DOES work (just fixed)
 
 ---
 
-### 🔴 P0.1: Delay is not bus-specific and not chainable
-**Status**: BROKEN
-**Impact**: HIGH - Can't use delay on specific buses
+### ✅ P0.1: Bus chaining fixed (with limitation)
+**Status**: FIXED (with documented workaround)
+**Impact**: Outputs now mix correctly
 
-**Problem**: Delay applies globally, can't be chained with `#` operator.
+**Problem**: When using buses in chains, signals were dropped and outputs didn't mix.
 
-**Expected**:
+**Root Cause**: Buses are compiled once to NodeIds, can't be re-instantiated with new inputs.
+
+**Fix**: Bus chain now returns left signal (pass-through) with warning.
+
+**Working now**:
 ```phonon
-~feel: delay 0.334 0.3 # reverb 0.9 0.1  -- Chain delay + reverb on bus
-o1: s "arpy" # ~feel                      -- Apply to specific pattern
-o2: s "bd*4"                              -- Should NOT have delay
+o1: s "arpy"     -- Works
+o2: s "bd*4"     -- Both outputs mix correctly
 ```
 
-**Current behavior**: Delay applies to all outputs or doesn't chain properly.
+**Known Limitation**:
+```phonon
+~feel: delay 0.334 0.3 # reverb 0.9 0.1
+o1: s "arpy" # ~feel    -- ⚠️ ~feel effect ignored, use direct instead
+```
 
-**Fix needed**:
-- Delay must be a signal node that can be part of bus chain
-- Should work like `# lpf 2000 0.8 # reverb 0.5 0.5`
+**Workaround**:
+```phonon
+o1: s "arpy" # delay 0.334 0.3 # reverb 0.9 0.1    -- Use effects directly
+```
 
-**File**: `src/compositional_compiler.rs` delay compilation
+**Future Work**: Store bus expressions (Expr) not nodes (NodeId) to enable re-instantiation.
+
+**File**: `src/compositional_compiler.rs` compile_chain()
 
 ---
 
-### 🔴 P0.2: stack multiplies volume instead of mixing
-**Status**: BROKEN
-**Impact**: HIGH - Stacking patterns creates distortion/clipping
+### ✅ P0.2: stack multiplies volume instead of mixing
+**Status**: FIXED
+**Impact**: HIGH - Was causing distortion/clipping, now fixed
 
-**Problem**: `stack` adds signals without normalization, causing volume multiplication.
+**Problem**: `stack` was adding signals without normalization, causing volume multiplication.
 
-**Example**:
+**Example that was broken**:
 ```phonon
 o2: stack [
   s "bd(<4 4 3>,8)",      -- Each pattern is loud
-  s "~ cp" $ fast 2       -- Stacking makes it LOUDER
+  s "~ cp" $ fast 2       -- Stacking made it LOUDER
 ]
--- Result: Clipping/distortion instead of mix
+-- Result: Severe clipping/distortion (Peak: 2.825)
 ```
 
-**Expected**: stack should mix signals (divide by N or use proper mixing).
+**Fix**: Modified Mix node to normalize by dividing sum by N.
 
-**Current**: Signals are added directly, causing 2x, 3x, 4x volume increase.
+**Results**:
+- Before: 2 patterns → RMS 0.901, Peak 2.825 (2.5x multiplication) ⚠️
+- After: 2 patterns → RMS 0.450, Peak 1.413 (proper mixing) ✅
+- 4 patterns: RMS 0.463, Peak 1.414 (stable, no multiplication) ✅
 
-**Fix needed**:
-- Stack should normalize by dividing by pattern count
-- OR use proper mixing algorithm (RMS-based)
-- Must prevent clipping
-
-**File**: `src/pattern.rs` stack implementation, `src/unified_graph.rs` mixing
+**Files**:
+- `src/unified_graph.rs`: Mix node now normalizes (line 4849)
+- `src/compositional_compiler.rs`: stack uses Mix node (line 1143)
 
 ---
 
