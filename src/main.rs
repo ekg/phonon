@@ -1375,6 +1375,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let metadata = std::fs::metadata(&output)?;
             let size_kb = metadata.len() as f32 / 1024.0;
             println!("   File size: {size_kb:.1} KB");
+
+            // Write tap debug files if any
+            let tap_files = graph.write_tap_files();
+            if !tap_files.is_empty() {
+                println!();
+                println!("🔍 Tap recordings:");
+                for file in tap_files {
+                    println!("   {}", file);
+                }
+            }
         }
 
         Commands::Play {

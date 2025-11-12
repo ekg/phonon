@@ -1041,6 +1041,7 @@ fn compile_function_call(
         "xfade" => compile_xfade(ctx, args),
         "mix" => compile_mix(ctx, args),
         "allpass" => compile_allpass(ctx, args),
+        "tap" | "probe" => compile_tap(ctx, args),
 
         // ========== Envelope ==========
         "env" | "envelope" => compile_envelope(ctx, args),
@@ -3281,6 +3282,46 @@ fn compile_allpass(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         input: input_signal,
         coefficient: Signal::Node(coefficient_node),
         state: AllpassState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile tap/probe effect for debugging signal flow
+/// Usage: signal # tap "filename.wav" duration
+/// Records signal to WAV file while passing it through unchanged
+fn compile_tap(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    use crate::unified_graph::TapState;
+    use std::sync::{Arc, Mutex};
+
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() < 2 {
+        return Err(format!(
+            "tap requires 2 parameters (filename, duration), got {}",
+            params.len()
+        ));
+    }
+
+    // Extract filename (must be a string literal)
+    let filename = match &params[0] {
+        Expr::String(s) => s.clone(),
+        _ => return Err("tap filename must be a string literal".to_string()),
+    };
+
+    // Extract duration in seconds
+    let duration = extract_number(&params[1])?;
+    if duration <= 0.0 {
+        return Err("tap duration must be positive".to_string());
+    }
+
+    // Create tap state
+    let tap_state = TapState::new(filename, duration as f32, ctx.sample_rate);
+
+    let node = SignalNode::Tap {
+        input: input_signal,
+        state: Arc::new(Mutex::new(tap_state)),
     };
 
     Ok(ctx.graph.add_node(node))

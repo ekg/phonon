@@ -1188,6 +1188,14 @@ pub enum SignalNode {
         state: Arc<Mutex<FundspState>>, // Thread-safe shared mutable fundsp unit state
     },
 
+    /// Tap/Probe - Records signal to buffer for debugging
+    /// Passes signal through unchanged while recording to file
+    /// Useful for debugging signal flow and analyzing what's happening at different points
+    Tap {
+        input: Signal,             // Input signal to record
+        state: Arc<Mutex<TapState>>, // Shared mutable state for recording
+    },
+
     /// Output node
     Output { input: Signal },
 }
@@ -2990,6 +2998,68 @@ impl Default for LagState {
     }
 }
 
+/// Tap State - Records signal to buffer for debugging
+#[derive(Debug, Clone)]
+pub struct TapState {
+    pub buffer: Vec<f32>,      // Recording buffer
+    pub filename: String,       // Output filename
+    pub max_samples: usize,     // Maximum samples to record
+    pub sample_rate: f32,       // Sample rate for WAV output
+    pub enabled: bool,          // Whether recording is active
+}
+
+impl TapState {
+    pub fn new(filename: String, duration_secs: f32, sample_rate: f32) -> Self {
+        let max_samples = (duration_secs * sample_rate) as usize;
+        Self {
+            buffer: Vec::with_capacity(max_samples),
+            filename,
+            max_samples,
+            sample_rate,
+            enabled: true,
+        }
+    }
+
+    /// Record a sample (if still recording)
+    pub fn record(&mut self, sample: f32) {
+        if self.enabled && self.buffer.len() < self.max_samples {
+            self.buffer.push(sample);
+
+            // Disable when full
+            if self.buffer.len() >= self.max_samples {
+                self.enabled = false;
+            }
+        }
+    }
+
+    /// Write buffer to WAV file
+    pub fn write_to_file(&self) -> Result<(), String> {
+        use hound::{WavSpec, WavWriter};
+
+        let spec = WavSpec {
+            channels: 1,
+            sample_rate: self.sample_rate as u32,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        };
+
+        let mut writer = WavWriter::create(&self.filename, spec)
+            .map_err(|e| format!("Failed to create WAV file: {}", e))?;
+
+        for &sample in &self.buffer {
+            writer
+                .write_sample(sample)
+                .map_err(|e| format!("Failed to write sample: {}", e))?;
+        }
+
+        writer
+            .finalize()
+            .map_err(|e| format!("Failed to finalize WAV file: {}", e))?;
+
+        Ok(())
+    }
+}
+
 /// XLine (exponential envelope) state
 /// Generates exponential ramp from start to end over duration
 #[derive(Debug, Clone)]
@@ -3503,6 +3573,29 @@ impl UnifiedSignalGraph {
 
     pub fn sample_rate(&self) -> f32 {
         self.sample_rate
+    }
+
+    /// Write all tap buffers to their respective files
+    /// Call this after rendering is complete to save debug recordings
+    pub fn write_tap_files(&self) -> Vec<String> {
+        let mut written_files = Vec::new();
+
+        for node_option in &self.nodes {
+            if let Some(SignalNode::Tap { state, .. }) = node_option {
+                if let Ok(tap_state) = state.lock() {
+                    match tap_state.write_to_file() {
+                        Ok(()) => {
+                            written_files.push(tap_state.filename.clone());
+                        }
+                        Err(e) => {
+                            eprintln!("⚠️  Failed to write tap file {}: {}", tap_state.filename, e);
+                        }
+                    }
+                }
+            }
+        }
+
+        written_files
     }
 
     /// Get a reference to a node by its ID
@@ -5652,6 +5745,19 @@ impl UnifiedSignalGraph {
                 let output = state.lock().unwrap().tick(&input_values);
 
                 output
+            }
+
+            SignalNode::Tap { input, state } => {
+                // Evaluate input signal
+                let sample = self.eval_signal(&input);
+
+                // Record sample (thread-safe)
+                if let Ok(mut tap_state) = state.lock() {
+                    tap_state.record(sample);
+                }
+
+                // Pass through unchanged
+                sample
             }
 
             SignalNode::Output { input } => self.eval_signal(&input),
