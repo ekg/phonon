@@ -3946,13 +3946,20 @@ fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<N
             compile_function_call(ctx, &name, args)
         }
         Expr::BusRef(bus_name) => {
-            // Bus references in chains work like inline signal processing
-            // For now, just pass through the bus value (doesn't actually chain properly yet)
-            // TODO: Properly handle chaining by applying bus signal chain to left input
+            // Bus references in chains are BROKEN
+            // The correct behavior would be to re-instantiate the bus's effect chain
+            // with the left signal as input, but buses are compiled to NodeIds which
+            // can't be cloned with new inputs.
+            //
+            // For now: just return the left signal (pass-through)
+            // This at least preserves the signal instead of dropping it
 
-            // Compile left and return bus
-            let _left_node = compile_expr(ctx, left)?;
-            compile_expr(ctx, Expr::BusRef(bus_name))
+            eprintln!("⚠️  Warning: Bus '~{}' used in chain - effect will be ignored", bus_name);
+            eprintln!("   Workaround: Use the effect directly instead of through a bus");
+            eprintln!("   e.g., 's \"bd\" # delay 0.25 0.8' instead of 's \"bd\" # ~mydelay'");
+
+            // Return left signal (pass-through)
+            compile_expr(ctx, left)
         }
         Expr::Var(name) => {
             // Treat as zero-argument function call with chain input
