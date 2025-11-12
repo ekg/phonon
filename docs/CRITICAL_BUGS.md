@@ -239,26 +239,35 @@ fast 3             -- Just makes 3x more events, SAME tempo
 
 ---
 
-### 🟠 P1.2: ar (attack/release envelope) doesn't exist
-**Status**: MISSING FEATURE
-**Impact**: MEDIUM - Can't control envelopes easily
+### ✅ P1.2: ar (attack/release envelope) doesn't exist
+**Status**: FIXED ✅
+**Impact**: MEDIUM - Quick envelope shaping now available
 
-**Problem**: User tried `# ar 0.1 0.9` but `ar` is not implemented.
+**Problem**: User tried `# ar 0.1 0.9` but `ar` was not implemented.
 
-**Expected**:
+**What now works**:
 ```phonon
-s "arpy" # ar 0.1 0.9  -- Attack 0.1, Release 0.9
+-- ar shorthand (sets both attack and release)
+s "arpy" # ar 0.01 0.5  -- Attack 0.01, Release 0.5
+
+-- Equivalent to:
+s "arpy" # attack 0.01 # release 0.5
+
+-- Pattern values work too
+s "bd*8" # ar "0.01 0.1" "0.1 0.5"  -- Varying envelopes
 ```
 
-**Current**:
-- Must use `# attack 0.1 # release 0.9` (verbose)
-- No shorthand `ar` parameter
+**Implementation**:
+- Added `compile_ar_modifier()` function that sets both attack and release
+- Registered in function table as "ar"
+- Common shorthand from Tidal/SuperCollider
 
-**Fix needed**:
-- Add `ar` as shorthand for attack + release
-- Common in Tidal/SuperCollider
+**Tests**:
+- `tests/test_ar_parameter.rs`: 4 tests verifying ar functionality
+- Tests constant values, pattern values, and envelope effects
+- All 8 tests passing (including 4 audio_test_utils tests)
 
-**File**: `src/compositional_compiler.rs` DSP parameter compilation
+**File**: `src/compositional_compiler.rs` lines 5355-5383
 
 ---
 

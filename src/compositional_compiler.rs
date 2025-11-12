@@ -1069,6 +1069,7 @@ fn compile_function_call(
         "cut" => compile_cut_modifier(ctx, args),
         "attack" => compile_attack_modifier(ctx, args),
         "release" => compile_release_modifier(ctx, args),
+        "ar" => compile_ar_modifier(ctx, args),
         "begin" => compile_begin_modifier(ctx, args),
         "end" => compile_end_modifier(ctx, args),
         "unit" => compile_unit_modifier(ctx, args),
@@ -5350,6 +5351,36 @@ fn compile_release_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resul
 
     let release_value = compile_expr(ctx, args[1].clone())?;
     modify_sample_param(ctx, sample_node_id, "release", Signal::Node(release_value))
+}
+
+/// Compile ar modifier: s "bd" # ar 0.01 0.5
+/// Shorthand for setting both attack and release times
+/// Common in Tidal/SuperCollider for quick envelope shaping
+fn compile_ar_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 3 {
+        return Err(format!(
+            "ar requires 3 arguments (sample_input, attack_time, release_time), got {}",
+            args.len()
+        ));
+    }
+
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => *node_id,
+        _ => {
+            return Err(
+                "ar must be used with the chain operator: s \"bd\" # ar 0.01 0.5"
+                    .to_string(),
+            )
+        }
+    };
+
+    // Set attack time
+    let attack_value = compile_expr(ctx, args[1].clone())?;
+    let node_after_attack = modify_sample_param(ctx, sample_node_id, "attack", Signal::Node(attack_value))?;
+
+    // Set release time
+    let release_value = compile_expr(ctx, args[2].clone())?;
+    modify_sample_param(ctx, node_after_attack, "release", Signal::Node(release_value))
 }
 
 /// Compile amp modifier: applies amplitude/gain to ANY signal
