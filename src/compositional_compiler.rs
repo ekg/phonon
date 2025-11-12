@@ -4394,16 +4394,52 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             Ok(pattern.scramble(n))
         }
         Transform::Swing(amount_expr) => {
-            let amount = extract_number(&amount_expr)?;
-            Ok(pattern.swing(Pattern::pure(amount)))
+            // Support both pattern strings and constant numbers
+            match amount_expr.as_ref() {
+                Expr::String(pattern_str) => {
+                    // Pattern-based swing - parse string pattern and convert to f64
+                    let string_pattern = parse_mini_notation(pattern_str);
+                    let amount_pattern = string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(0.5));
+                    Ok(pattern.swing(amount_pattern))
+                }
+                _ => {
+                    // Constant swing
+                    let amount = extract_number(&amount_expr)?;
+                    Ok(pattern.swing(Pattern::pure(amount)))
+                }
+            }
         }
         Transform::Legato(factor_expr) => {
-            let factor = extract_number(&factor_expr)?;
-            Ok(pattern.legato(Pattern::pure(factor)))
+            // Support both pattern strings and constant numbers
+            match factor_expr.as_ref() {
+                Expr::String(pattern_str) => {
+                    // Pattern-based legato - parse string pattern and convert to f64
+                    let string_pattern = parse_mini_notation(pattern_str);
+                    let factor_pattern = string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(1.0));
+                    Ok(pattern.legato(factor_pattern))
+                }
+                _ => {
+                    // Constant legato
+                    let factor = extract_number(&factor_expr)?;
+                    Ok(pattern.legato(Pattern::pure(factor)))
+                }
+            }
         }
         Transform::Staccato(factor_expr) => {
-            let factor = extract_number(&factor_expr)?;
-            Ok(pattern.staccato(Pattern::pure(factor)))
+            // Support both pattern strings and constant numbers
+            match factor_expr.as_ref() {
+                Expr::String(pattern_str) => {
+                    // Pattern-based staccato - parse string pattern and convert to f64
+                    let string_pattern = parse_mini_notation(pattern_str);
+                    let factor_pattern = string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(1.0));
+                    Ok(pattern.staccato(factor_pattern))
+                }
+                _ => {
+                    // Constant staccato
+                    let factor = extract_number(&factor_expr)?;
+                    Ok(pattern.staccato(Pattern::pure(factor)))
+                }
+            }
         }
         Transform::Echo {
             times,
