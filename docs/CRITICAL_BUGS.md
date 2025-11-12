@@ -96,27 +96,35 @@ o2: stack [
 
 ---
 
-### 🔴 P0.3: Output volume affected by other outputs
-**Status**: BROKEN
-**Impact**: HIGH - Unpredictable mixing behavior
+### ✅ P0.3: Output volume affected by other outputs
+**Status**: FIXED
+**Impact**: HIGH - Was causing outputs to contaminate each other, now fixed
 
-**Problem**: Disabling one output changes volume of other outputs.
+**Problem**: All outputs were returning the same mixed voice signal, so disabling one output changed volume of others.
 
-**Example**:
+**Root Cause**: Voice manager processed all voices once and returned a single global mix. ALL Sample nodes returned this same mix regardless of which output they belonged to.
+
+**Example that was broken**:
 ```phonon
-o1: s "arpy(7,17)" # note "c4'min7"
-o2: s "kick(4,17)"
--- Commenting out o2 makes o1 QUIETER
+o1: s "bd*4"  -- Should only hear bd
+o2: s "sn*4"  -- Should only hear sn
+-- But both outputs returned the SAME mix (bd+sn)!
 ```
 
-**This makes no sense**: Each output should have independent volume.
+**Fix**: Tag voices with source node ID and return per-node mixes.
+1. Added `source_node` field to Voice
+2. Added `default_source_node` to VoiceManager (set before triggering)
+3. Changed voice processing to return `HashMap<usize, f32>` (node → mix)
+4. Sample nodes look up their node ID in the HashMap
 
-**Hypothesis**: Auto-routing mixer is incorrectly normalizing or cross-affecting outputs.
+**Results**:
+- Before: o1 single RMS = 0.354, o1 dual RMS = 0.450 (contaminated) ⚠️
+- After: o1 single RMS = 0.354, o1 dual RMS = 0.354 (independent) ✅
+- o2 has different RMS (0.301) as expected for different samples ✅
 
-**Fix needed**:
-- Each output (`o1`, `o2`, etc.) should have fixed independent gain
-- Auto-routing mixer must not change individual output levels
-- Investigate `src/unified_graph.rs` auto-routing logic
+**Files**:
+- `src/voice_manager.rs`: Added source_node field and per-node processing
+- `src/unified_graph.rs`: Process per-node, set default_source_node before Sample evaluation
 
 ---
 

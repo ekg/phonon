@@ -3489,7 +3489,9 @@ pub struct UnifiedSignalGraph {
     voice_manager: RefCell<VoiceManager>,
 
     /// Cached voice manager output for current sample (processed once per sample)
-    voice_output_cache: f32,
+    /// Maps source node ID -> mixed voice output for that node
+    /// This allows multiple outputs to have independent sample streams
+    voice_output_cache: HashMap<usize, f32>,
 
     /// Synth voice manager for polyphonic synthesis
     synth_voice_manager: RefCell<SynthVoiceManager>,
@@ -3514,7 +3516,7 @@ impl UnifiedSignalGraph {
             value_cache: HashMap::new(),
             sample_bank: RefCell::new(SampleBank::new()),
             voice_manager: RefCell::new(VoiceManager::new()),
-            voice_output_cache: 0.0,
+            voice_output_cache: HashMap::new(),
             synth_voice_manager: RefCell::new(SynthVoiceManager::new(sample_rate)),
             sample_count: 0,
         }
@@ -3684,10 +3686,10 @@ impl UnifiedSignalGraph {
         // Clear cache for new sample
         self.value_cache.clear();
 
-        // Process voice manager ONCE per sample and cache the output
-        // Sample nodes will return this cached value (ensuring voices are only read once)
-        // This allows transformations (like `* 0.3`) to be applied correctly
-        self.voice_output_cache = self.voice_manager.borrow_mut().process();
+        // Process voice manager ONCE per sample and cache per-node outputs
+        // This separates outputs so each output only hears its own samples
+        // Sample nodes will look up their node ID in this cache
+        self.voice_output_cache = self.voice_manager.borrow_mut().process_per_node();
 
         // Collect outputs to avoid borrow checker issues
         let outputs_to_process: Vec<(usize, NodeId)> =
@@ -5924,6 +5926,10 @@ impl UnifiedSignalGraph {
                 //     );
                 // }
 
+                // Set the default source node for all voice triggers in this Sample node
+                // This separates outputs so each output only hears its own samples
+                self.voice_manager.borrow_mut().set_default_source_node(node_id.0);
+
                 // Query pattern for events in the current cycle
                 // Use full-cycle window to ensure transforms like degrade see all events
                 // The event deduplication logic below prevents re-triggering
@@ -6519,11 +6525,11 @@ impl UnifiedSignalGraph {
                     }
                 }
 
-                // Sample nodes trigger voices AND return the cached voice output
+                // Sample nodes trigger voices AND return their cached voice output
                 // The voice manager was processed ONCE at the start of process_sample()
-                // All Sample nodes in this sample return the same cached voice output,
-                // which allows transformations (like `* 0.3`) to be applied correctly
-                self.voice_output_cache
+                // Each Sample node returns only its own voice mix (by node ID)
+                // This allows multiple outputs to have independent sample streams
+                self.voice_output_cache.get(&node_id.0).copied().unwrap_or(0.0)
             }
 
             SignalNode::SynthPattern {
@@ -8297,10 +8303,10 @@ impl UnifiedSignalGraph {
         // Clear cache for new sample
         self.value_cache.clear();
 
-        // Process voice manager ONCE per sample and cache the output
-        // Sample nodes will return this cached value (ensuring voices are only read once)
-        // This allows transformations (like `* 0.3`) to be applied correctly
-        self.voice_output_cache = self.voice_manager.borrow_mut().process();
+        // Process voice manager ONCE per sample and cache per-node outputs
+        // This separates outputs so each output only hears its own samples
+        // Sample nodes will look up their node ID in this cache
+        self.voice_output_cache = self.voice_manager.borrow_mut().process_per_node();
 
         // Count active channels for gain compensation
         let mut num_active_channels = 0;

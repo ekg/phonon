@@ -123,6 +123,10 @@ pub struct Voice {
     /// None = no cut group, Some(n) = cut group number n
     cut_group: Option<u32>,
 
+    /// Source node ID: identifies which Sample node triggered this voice
+    /// Used to separate outputs so each output only hears its own samples
+    source_node: usize,
+
     /// Envelope generator for amplitude shaping (supports multiple types)
     envelope: VoiceEnvelope,
 
@@ -171,6 +175,7 @@ impl Voice {
             speed: 1.0,
             age: 0,
             cut_group: None,
+            source_node: 0,            // Default source node (will be set on trigger)
             envelope: VoiceEnvelope::new_percussion(SAMPLE_RATE, 0.001, 0.1),
             attack: 0.001,             // 1ms default attack
             release: 0.1,              // 100ms default release
@@ -494,6 +499,10 @@ pub struct VoiceManager {
     /// Index of the last triggered voice (for post-trigger configuration)
     last_triggered_voice_index: Option<usize>,
 
+    /// Default source node ID to assign to newly triggered voices
+    /// This is set before triggering and applied automatically
+    default_source_node: usize,
+
     /// Maximum voices allowed (None = unlimited)
     max_voices: Option<usize>,
 
@@ -560,6 +569,7 @@ impl VoiceManager {
             voices,
             next_voice_index: 0,
             last_triggered_voice_index: None,
+            default_source_node: 0,
             max_voices,
             initial_voices,
             shrink_counter: 0,
@@ -719,6 +729,7 @@ impl VoiceManager {
             if self.voices[idx].is_available() {
                 self.voices[idx]
                     .trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
+                self.voices[idx].source_node = self.default_source_node; // Set source node
                 self.next_voice_index = (idx + 1) % max_voices;
                 self.last_triggered_voice_index = Some(idx); // Track for post-trigger config
 
@@ -737,6 +748,7 @@ impl VoiceManager {
             let idx = self.voices.len() - 1; // Use the last (newest) voice
             self.voices[idx]
                 .trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
+            self.voices[idx].source_node = self.default_source_node; // Set source node
             self.next_voice_index = 0; // Reset to beginning
             self.last_triggered_voice_index = Some(idx);
             return;
@@ -756,6 +768,7 @@ impl VoiceManager {
         // Steal the oldest voice
         self.voices[oldest_idx]
             .trigger_with_envelope(sample, gain, pan, speed, cut_group, attack, release);
+        self.voices[oldest_idx].source_node = self.default_source_node; // Set source node
         let max_voices = self.voices.len();
         self.next_voice_index = (oldest_idx + 1) % max_voices;
         self.last_triggered_voice_index = Some(oldest_idx); // Track for post-trigger config
@@ -921,6 +934,36 @@ impl VoiceManager {
         (left + right) / std::f32::consts::SQRT_2
     }
 
+    /// Process all voices and return per-node mixes (HashMap: source_node -> mono_output)
+    /// This allows multiple outputs to have independent sample streams
+    /// Each voice is processed ONCE, then outputs are grouped by source_node
+    pub fn process_per_node(&mut self) -> std::collections::HashMap<usize, f32> {
+        use std::collections::HashMap;
+
+        let mut node_sums: HashMap<usize, (f32, f32)> = HashMap::new();
+
+        // Process each voice ONCE and accumulate by source_node
+        for voice in &mut self.voices {
+            let (l, r) = voice.process_stereo();
+            node_sums
+                .entry(voice.source_node)
+                .and_modify(|(left, right)| {
+                    *left += l;
+                    *right += r;
+                })
+                .or_insert((l, r));
+        }
+
+        // Convert stereo sums to mono with proper equal-power conversion
+        node_sums
+            .into_iter()
+            .map(|(node, (left, right))| {
+                let mono = (left + right) / std::f32::consts::SQRT_2;
+                (node, mono)
+            })
+            .collect()
+    }
+
     /// Process one sample from all active voices (stereo)
     pub fn process_stereo(&mut self) -> (f32, f32) {
         let mut left = 0.0;
@@ -1022,6 +1065,22 @@ impl VoiceManager {
         if let Some(idx) = self.last_triggered_voice_index {
             self.voices[idx].auto_release_at_sample = Some(sample_count);
         }
+    }
+
+    /// Set the source node ID for the last triggered voice
+    /// This is used to separate outputs so each output only hears its own samples
+    /// Must be called immediately after a trigger_sample_* method
+    pub fn set_last_voice_source_node(&mut self, source_node: usize) {
+        if let Some(idx) = self.last_triggered_voice_index {
+            self.voices[idx].source_node = source_node;
+        }
+    }
+
+    /// Set the default source node ID for all future trigger calls
+    /// This is applied automatically when voices are triggered
+    /// More convenient than calling set_last_voice_source_node after each trigger
+    pub fn set_default_source_node(&mut self, source_node: usize) {
+        self.default_source_node = source_node;
     }
 
     /// Get number of active voices
