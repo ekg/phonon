@@ -212,30 +212,29 @@ for sample in data.iter_mut() {
 
 ## P1 - HIGH PRIORITY (Fix Soon)
 
-### 🟠 P1.1: fast should speed up cycles, not just density
-**Status**: DESIGN ISSUE
-**Impact**: MEDIUM - Confusing behavior vs Tidal
+### ✅ P1.1: fast/slow/hurry speed up patterns, NOT tempo
+**Status**: NOT A BUG - Working as designed ✅
+**Impact**: NONE - This is the correct, intentional behavior
 
-**Problem**: `fast 3` speeds up pattern density but NOT playback tempo.
+**Clarification**: Pattern modifiers affect pattern density WITHIN cycles, not tempo.
 
-**Expected (Tidal behavior)**:
+**Correct behavior**:
 ```phonon
-setcps 2.0         -- 2 cycles per second (120 BPM)
-fast 3             -- Should speed up to 6 cycles per second (360 BPM)
+tempo: 2.0         -- 2 cycles per second (global tempo, unchanged)
+fast 3             -- 3x more events per cycle, still 2 cycles/second ✅
+slow 2             -- 0.5x events per cycle, still 2 cycles/second ✅
+hurry 1.5          -- Speed up pattern 1.5x, still 2 cycles/second ✅
 ```
 
-**Current (Phonon behavior)**:
-```phonon
-tempo: 2.0         -- 2 cycles per second
-fast 3             -- Just makes 3x more events, SAME tempo
-```
+**Why this is correct**:
+- `tempo` controls cycle rate (global clock)
+- `fast`, `slow`, `hurry`, etc. control pattern density/speed OVER cycles
+- These are independent dimensions: tempo = cycles/second, fast = events/cycle
+- Allows patterns to speed up/slow down while maintaining sync with other patterns
 
-**Decision needed**:
-- Should Phonon match Tidal's behavior?
-- OR is this intentional design difference?
-- Affects lots of existing code if changed
+**To change tempo**: Modify the `tempo:` declaration, not pattern transforms
 
-**Impact**: This might be a breaking change. Discuss before fixing.
+**Not a bug**: This is fundamental to Phonon's design. Pattern transforms affect patterns, not tempo.
 
 ---
 
