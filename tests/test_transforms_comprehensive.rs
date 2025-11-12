@@ -339,8 +339,8 @@ fn test_degrade_removes_events() {
 
     let normal = pattern.clone();
     let degrade50 = pattern.clone().degrade(); // 50% by default
-    let degrade25 = pattern.clone().degrade_by(0.25);
-    let degrade75 = pattern.clone().degrade_by(0.75);
+    let degrade25 = pattern.clone().degrade_by(Pattern::pure(0.25));
+    let degrade75 = pattern.clone().degrade_by(Pattern::pure(0.75));
 
     let cycles = 8;
     let normal_count = count_events_over_cycles(&normal, cycles);

@@ -126,7 +126,7 @@ fn demo_advanced_structures() {
 
     // Inside/Outside
     let inside = base.clone().inside(2.0, |p| p.rev());
-    let outside = base.clone().outside(2.0, |p| p.fast(2.0));
+    let outside = base.clone().outside(2.0, |p| p.fast(Pattern::pure(2.0)));
     println!("  Inside/Outside: apply functions at different time scales");
 
     // Time concatenation
@@ -143,7 +143,7 @@ fn demo_advanced_structures() {
     println!("  Gaps: fast_gap, compress_gap - patterns with silence");
 
     // Superimpose and layer
-    let superimposed = base.clone().superimpose(|p| p.fast(2.0));
+    let superimposed = base.clone().superimpose(|p| p.fast(Pattern::pure(2.0)));
     println!("  Superimpose: layer transformed versions");
 
     // Wait

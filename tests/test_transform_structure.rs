@@ -30,7 +30,7 @@ fn test_zoom_level1_focuses_on_range() {
     let pattern = parse_mini_notation("bd sn hh cp");
 
     // zoom to middle half (0.25 to 0.75)
-    let zoom_pattern = pattern.clone().zoom(0.25, 0.75);
+    let zoom_pattern = pattern.clone().zoom(Pattern::pure(0.25), Pattern::pure(0.75));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -60,7 +60,7 @@ fn test_zoom_level1_focuses_on_range() {
 fn test_zoom_level1_event_timing() {
     // Verify zoom maintains relative event timing within the zoomed range
     let pattern = parse_mini_notation("bd sn hh cp");
-    let zoom_pattern = pattern.clone().zoom(0.0, 0.5);
+    let zoom_pattern = pattern.clone().zoom(Pattern::pure(0.0), Pattern::pure(0.5));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -82,7 +82,7 @@ fn test_zoom_level1_event_timing() {
 fn test_zoom_level1_full_cycle() {
     // zoom(0, 1) should be identical to original
     let pattern = parse_mini_notation("bd sn hh cp");
-    let zoom_pattern = pattern.clone().zoom(0.0, 1.0);
+    let zoom_pattern = pattern.clone().zoom(Pattern::pure(0.0), Pattern::pure(1.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -109,7 +109,7 @@ fn test_zoom_level1_full_cycle() {
 fn test_compress_level1_fits_in_range() {
     // compress should fit the entire pattern within a time range
     let pattern = parse_mini_notation("bd sn hh cp");
-    let compress_pattern = pattern.clone().compress(0.0, 0.5);
+    let compress_pattern = pattern.clone().compress(Pattern::pure(0.0), Pattern::pure(0.5));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -135,7 +135,7 @@ fn test_compress_level1_fits_in_range() {
 fn test_compress_level1_preserves_structure() {
     // compress should maintain relative event structure
     let pattern = parse_mini_notation("bd sn");
-    let compress_pattern = pattern.clone().compress(0.25, 0.75);
+    let compress_pattern = pattern.clone().compress(Pattern::pure(0.25), Pattern::pure(0.75));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -179,7 +179,7 @@ fn test_compress_level1_event_count() {
         };
 
         base_total += pattern.query(&state).len();
-        compress_total += pattern.clone().compress(0.0, 0.5).query(&state).len();
+        compress_total += pattern.clone().compress(Pattern::pure(0.0), Pattern::pure(0.5)).query(&state).len();
     }
 
     assert_eq!(base_total, 32, "Base should have 4 events × 8 cycles");
@@ -692,7 +692,7 @@ out: s "bd sn hh cp" $ scramble 1
 fn test_zoom_full_range() {
     // zoom(0, 1) should preserve pattern
     let pattern = parse_mini_notation("bd sn hh cp");
-    let zoom_pattern = pattern.clone().zoom(0.0, 1.0);
+    let zoom_pattern = pattern.clone().zoom(Pattern::pure(0.0), Pattern::pure(1.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -715,7 +715,7 @@ fn test_zoom_full_range() {
 fn test_compress_full_range() {
     // compress(0, 1) should preserve pattern
     let pattern = parse_mini_notation("bd sn hh cp");
-    let compress_pattern = pattern.clone().compress(0.0, 1.0);
+    let compress_pattern = pattern.clone().compress(Pattern::pure(0.0), Pattern::pure(1.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -779,7 +779,7 @@ fn test_scramble_single_event() {
 fn test_zoom_small_range() {
     // zoom to very small range should still work
     let pattern = parse_mini_notation("bd sn hh cp");
-    let zoom_pattern = pattern.clone().zoom(0.4, 0.6);
+    let zoom_pattern = pattern.clone().zoom(Pattern::pure(0.4), Pattern::pure(0.6));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -801,7 +801,7 @@ fn test_zoom_small_range() {
 fn test_compress_small_range() {
     // compress to very small range
     let pattern = parse_mini_notation("bd sn");
-    let compress_pattern = pattern.clone().compress(0.0, 0.1);
+    let compress_pattern = pattern.clone().compress(Pattern::pure(0.0), Pattern::pure(0.1));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),

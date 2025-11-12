@@ -29,7 +29,7 @@ fn render_dsl(code: &str, cycles: usize) -> Vec<f32> {
 fn test_loopAt_level1_constant_value() {
     // Constant loopAt should produce events with correct speed context
     let pattern = parse_mini_notation("bd sn hh cp");
-    let looped = pattern.loop_at(2.0);
+    let looped = pattern.loop_at(Pattern::pure(2.0));
 
     let mut total_events = 0;
     for cycle in 0..4 {

@@ -28,7 +28,7 @@ fn render_dsl(code: &str, cycles: usize) -> Vec<f32> {
 fn test_shuffle_level1_shifts_timing() {
     // shuffle should shift each event's timing randomly
     let base_pattern = parse_mini_notation("bd sn hh cp");
-    let shuffle_pattern = base_pattern.clone().shuffle(0.05);
+    let shuffle_pattern = base_pattern.clone().shuffle(Pattern::pure(0.05));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -85,7 +85,7 @@ fn test_shuffle_level1_event_count() {
         };
 
         base_total += pattern.query(&state).len();
-        shuffle_total += pattern.clone().shuffle(0.05).query(&state).len();
+        shuffle_total += pattern.clone().shuffle(Pattern::pure(0.05)).query(&state).len();
     }
 
     assert_eq!(
@@ -106,7 +106,7 @@ fn test_shuffle_level1_deterministic() {
         controls: HashMap::new(),
     };
 
-    let shuffle_pattern = pattern.clone().shuffle(0.1);
+    let shuffle_pattern = pattern.clone().shuffle(Pattern::pure(0.1));
     let haps1 = shuffle_pattern.query(&state);
     let haps2 = shuffle_pattern.query(&state);
 
@@ -134,7 +134,7 @@ fn test_shuffle_level1_timing_bounds() {
     };
 
     let base_haps = pattern.query(&state);
-    let shuffle_haps = pattern.clone().shuffle(amount).query(&state);
+    let shuffle_haps = pattern.clone().shuffle(Pattern::pure(amount)).query(&state);
 
     for i in 0..shuffle_haps.len() {
         let shift = shuffle_haps[i].part.begin.to_float() - base_haps[i].part.begin.to_float();
@@ -315,7 +315,7 @@ fn test_shuffle_zero_amount() {
     };
 
     let base_haps = pattern.query(&state);
-    let shuffle_haps = pattern.clone().shuffle(0.0).query(&state);
+    let shuffle_haps = pattern.clone().shuffle(Pattern::pure(0.0)).query(&state);
 
     // With zero range, all shifts should be 0.0
     for i in 0..base_haps.len() {
@@ -339,7 +339,7 @@ fn test_shuffle_single_event() {
         controls: HashMap::new(),
     };
 
-    let shuffle_haps = pattern.clone().shuffle(0.1).query(&state);
+    let shuffle_haps = pattern.clone().shuffle(Pattern::pure(0.1)).query(&state);
 
     assert_eq!(shuffle_haps.len(), 1, "Should have 1 event");
 
@@ -357,7 +357,7 @@ fn test_shuffle_preserves_values() {
     };
 
     let base_haps = pattern.query(&state);
-    let shuffle_haps = pattern.clone().shuffle(0.1).query(&state);
+    let shuffle_haps = pattern.clone().shuffle(Pattern::pure(0.1)).query(&state);
 
     for i in 0..base_haps.len() {
         assert_eq!(
@@ -384,7 +384,7 @@ fn test_shuffle_different_per_cycle() {
         controls: HashMap::new(),
     };
 
-    let shuffle_pattern = pattern.clone().shuffle(0.1);
+    let shuffle_pattern = pattern.clone().shuffle(Pattern::pure(0.1));
     let haps1 = shuffle_pattern.query(&state1);
     let haps2 = shuffle_pattern.query(&state2);
 

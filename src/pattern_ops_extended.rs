@@ -13,10 +13,26 @@ use std::sync::Arc;
 
 impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// Zoom in on a portion of the pattern
-    pub fn zoom(self, begin: f64, end: f64) -> Self {
-        let b = Fraction::from_float(begin);
-        let e = Fraction::from_float(end);
+    pub fn zoom(self, begin: Pattern<f64>, end: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
         Pattern::new(move |state: &State| {
+            // Query begin/end at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let param_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let begin_val = begin.query(&param_state).first().map(|h| h.value).unwrap_or(0.0);
+            let end_val = end.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+
+            let b = Fraction::from_float(begin_val);
+            let e = Fraction::from_float(end_val);
             let duration = e - b;
             let scaled_begin = state.span.begin * duration + b;
             let scaled_end = state.span.end * duration + b;
@@ -29,7 +45,10 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Focus on a specific cycle
-    pub fn focus(self, cycle_begin: f64, cycle_end: f64) -> Self {
+    pub fn focus(self, cycle_begin: Pattern<f64>, cycle_end: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
         self.zoom(cycle_begin, cycle_end)
     }
 
@@ -56,10 +75,26 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Compress pattern to fit within a time range
-    pub fn compress(self, begin: f64, end: f64) -> Self {
-        let b = Fraction::from_float(begin);
-        let e = Fraction::from_float(end);
+    pub fn compress(self, begin: Pattern<f64>, end: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
         Pattern::new(move |state: &State| {
+            // Query begin/end at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let param_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let begin_val = begin.query(&param_state).first().map(|h| h.value).unwrap_or(0.0);
+            let end_val = end.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+
+            let b = Fraction::from_float(begin_val);
+            let e = Fraction::from_float(end_val);
             // Map the entire cycle [0,1] to [begin,end]
             let duration = e - b;
             let unscaled_begin = (state.span.begin - b) / duration;
@@ -91,9 +126,27 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Compress and repeat
-    pub fn compress_to(self, begin: f64, end: f64) -> Self {
-        let duration = end - begin;
-        self.fast(Pattern::pure(1.0 / duration)).late(Pattern::pure(begin))
+    pub fn compress_to(self, begin: Pattern<f64>, end: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        Pattern::new(move |state: &State| {
+            // Query begin/end at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let param_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let begin_val = begin.query(&param_state).first().map(|h| h.value).unwrap_or(0.0);
+            let end_val = end.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+
+            let duration = end_val - begin_val;
+            self.clone().fast(Pattern::pure(1.0 / duration)).late(Pattern::pure(begin_val)).query(state)
+        })
     }
 
     /// Legato - stretch note durations
@@ -226,20 +279,35 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Humanize - add slight random variations
-    pub fn humanize(self, time_var: f64, velocity_var: f64) -> Self {
-        self.shuffle(Pattern::pure(time_var))
+    pub fn humanize(self, time_var: Pattern<f64>, velocity_var: Pattern<f64>) -> Self {
+        self.shuffle(time_var)
     }
 
     /// Echo/delay effect
-    pub fn echo(self, times: usize, time: f64, feedback: f64) -> Self {
-        let patterns: Vec<Pattern<T>> = (0..times)
-            .map(|i| {
-                let delay = time * i as f64;
-                let gain = feedback.powi(i as i32);
-                self.clone().late(Pattern::pure(delay)) // In real implementation, would also scale amplitude
-            })
-            .collect();
-        Pattern::stack(patterns)
+    pub fn echo(self, times: usize, time: Pattern<f64>, feedback: Pattern<f64>) -> Self {
+        Pattern::new(move |state: &State| {
+            // Query time/feedback at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let param_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let time_val = time.query(&param_state).first().map(|h| h.value).unwrap_or(0.25);
+            let feedback_val = feedback.query(&param_state).first().map(|h| h.value).unwrap_or(0.7);
+
+            let patterns: Vec<Pattern<T>> = (0..times)
+                .map(|i| {
+                    let delay = time_val * i as f64;
+                    let gain = feedback_val.powi(i as i32);
+                    self.clone().late(Pattern::pure(delay)) // In real implementation, would also scale amplitude
+                })
+                .collect();
+            Pattern::stack(patterns).query(state)
+        })
     }
 
     /// Striate - slice pattern into n parts
@@ -249,7 +317,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             for i in 0..n {
                 let slice_begin = i as f64 / n as f64;
                 let slice_end = (i + 1) as f64 / n as f64;
-                let sliced = self.clone().zoom(slice_begin, slice_end);
+                let sliced = self.clone().zoom(Pattern::pure(slice_begin), Pattern::pure(slice_end));
                 let mut sliced_haps = sliced.query(state);
 
                 // Add begin/end to context for sample slicing
@@ -463,15 +531,30 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Trim pattern to length
-    pub fn trim(self, begin: f64, end: f64) -> Self {
+    pub fn trim(self, begin: Pattern<f64>, end: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
         self.zoom(begin, end)
     }
 
     /// Splice patterns at specific point
-    pub fn splice(self, at: f64, other: Pattern<T>) -> Pattern<T> {
+    pub fn splice(self, at: Pattern<f64>, other: Pattern<T>) -> Pattern<T> {
         Pattern::new(move |state: &State| {
+            // Query 'at' position at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let param_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let at_val = at.query(&param_state).first().map(|h| h.value).unwrap_or(0.5);
+
             let cycle_pos = state.span.begin.to_float() - state.span.begin.to_float().floor();
-            if cycle_pos < at {
+            if cycle_pos < at_val {
                 self.query(state)
             } else {
                 other.query(state)
@@ -531,15 +614,26 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// JuxBy - apply transform to one channel with specified pan amount (context-based for samples)
     /// Original pattern panned to -amount, transformed pattern panned to +amount
     /// This version uses pan context for sample playback (not stereo tuples)
-    pub fn jux_by_ctx<F>(self, amount: f64, transform: F) -> Self
+    pub fn jux_by_ctx<F>(self, amount: Pattern<f64>, transform: F) -> Self
     where
         F: Fn(Pattern<T>) -> Pattern<T> + 'static + Send + Sync,
     {
         // Create left channel: original pattern panned to -amount
         let left = Pattern::new({
             let pattern = self.clone();
-            let pan_left = -amount;
+            let amount_clone = amount.clone();
             move |state: &State| {
+                // Query amount at cycle start
+                let cycle_start = state.span.begin.to_float().floor();
+                let param_state = State {
+                    span: TimeSpan::new(
+                        Fraction::from_float(cycle_start),
+                        Fraction::from_float(cycle_start + 0.001),
+                    ),
+                    controls: state.controls.clone(),
+                };
+                let pan_left = -amount_clone.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+
                 let mut haps = pattern.query(state);
                 for hap in &mut haps {
                     hap.context.insert("pan".to_string(), pan_left.to_string());
@@ -551,8 +645,19 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         // Create right channel: transformed pattern panned to +amount
         let right = Pattern::new({
             let pattern = transform(self);
-            let pan_right = amount;
+            let amount_clone = amount.clone();
             move |state: &State| {
+                // Query amount at cycle start
+                let cycle_start = state.span.begin.to_float().floor();
+                let param_state = State {
+                    span: TimeSpan::new(
+                        Fraction::from_float(cycle_start),
+                        Fraction::from_float(cycle_start + 0.001),
+                    ),
+                    controls: state.controls.clone(),
+                };
+                let pan_right = amount_clone.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+
                 let mut haps = pattern.query(state);
                 for hap in &mut haps {
                     hap.context.insert("pan".to_string(), pan_right.to_string());
@@ -572,19 +677,32 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     where
         F: Fn(Pattern<T>) -> Pattern<T> + 'static + Send + Sync,
     {
-        self.jux_by_ctx(1.0, transform)
+        self.jux_by_ctx(Pattern::pure(1.0), transform)
     }
 }
 
 // Numeric pattern operations
 impl Pattern<f64> {
     /// Scale values to range
-    pub fn range(self, min: f64, max: f64) -> Self {
+    pub fn range(self, min: Pattern<f64>, max: Pattern<f64>) -> Self {
         Pattern::new(move |state: &State| {
+            // Query min/max at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let param_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let min_val = min.query(&param_state).first().map(|h| h.value).unwrap_or(0.0);
+            let max_val = max.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+
             let haps = self.query(state);
             haps.into_iter()
                 .map(|mut hap| {
-                    hap.value = min + (hap.value * (max - min));
+                    hap.value = min_val + (hap.value * (max_val - min_val));
                     hap
                 })
                 .collect()
@@ -592,12 +710,24 @@ impl Pattern<f64> {
     }
 
     /// Quantize to nearest value
-    pub fn quantize(self, steps: f64) -> Self {
+    pub fn quantize(self, steps: Pattern<f64>) -> Self {
         Pattern::new(move |state: &State| {
+            // Query steps at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let param_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let steps_val = steps.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+
             let haps = self.query(state);
             haps.into_iter()
                 .map(|mut hap| {
-                    hap.value = (hap.value * steps).round() / steps;
+                    hap.value = (hap.value * steps_val).round() / steps_val;
                     hap
                 })
                 .collect()
@@ -605,8 +735,20 @@ impl Pattern<f64> {
     }
 
     /// Smooth transitions between values
-    pub fn smooth(self, amount: f64) -> Self {
+    pub fn smooth(self, amount: Pattern<f64>) -> Self {
         Pattern::new(move |state: &State| {
+            // Query amount at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let param_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let amount_val = amount.query(&param_state).first().map(|h| h.value).unwrap_or(0.5);
+
             let haps = self.query(state);
             if haps.is_empty() {
                 return haps;
@@ -615,7 +757,7 @@ impl Pattern<f64> {
             let mut smoothed = vec![haps[0].clone()];
             for i in 1..haps.len() {
                 let mut hap = haps[i].clone();
-                hap.value = smoothed[i - 1].value * (1.0 - amount) + hap.value * amount;
+                hap.value = smoothed[i - 1].value * (1.0 - amount_val) + hap.value * amount_val;
                 smoothed.push(hap);
             }
             smoothed
@@ -623,25 +765,49 @@ impl Pattern<f64> {
     }
 
     /// Exponential scaling
-    pub fn exp(self, base: f64) -> Self {
+    pub fn exp(self, base: Pattern<f64>) -> Self {
         Pattern::new(move |state: &State| {
+            // Query base at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let param_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let base_val = base.query(&param_state).first().map(|h| h.value).unwrap_or(2.0);
+
             let haps = self.query(state);
             haps.into_iter()
                 .map(|mut hap| {
-                    hap.value = base.powf(hap.value);
+                    hap.value = base_val.powf(hap.value);
                     hap
                 })
                 .collect()
         })
     }
 
-    /// Logarithmic scaling  
-    pub fn log(self, base: f64) -> Self {
+    /// Logarithmic scaling
+    pub fn log(self, base: Pattern<f64>) -> Self {
         Pattern::new(move |state: &State| {
+            // Query base at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let param_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let base_val = base.query(&param_state).first().map(|h| h.value).unwrap_or(2.0);
+
             let haps = self.query(state);
             haps.into_iter()
                 .map(|mut hap| {
-                    hap.value = hap.value.log(base);
+                    hap.value = hap.value.log(base_val);
                     hap
                 })
                 .collect()
@@ -719,15 +885,27 @@ impl Pattern<f64> {
     }
 
     /// Random walk
-    pub fn walk(self, step_size: f64) -> Self {
+    pub fn walk(self, step_size: Pattern<f64>) -> Self {
         Pattern::new(move |state: &State| {
+            // Query step_size at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let param_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let step_size_val = step_size.query(&param_state).first().map(|h| h.value).unwrap_or(0.1);
+
             let haps = self.query(state);
             let cycle = state.span.begin.to_float().floor() as u64;
             let mut rng = StdRng::seed_from_u64(cycle);
 
             haps.into_iter()
                 .map(|mut hap| {
-                    let step = rng.gen_range(-step_size..step_size);
+                    let step = rng.gen_range(-step_size_val..step_size_val);
                     hap.value += step;
                     hap
                 })
@@ -835,30 +1013,44 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 // Control/Effect patterns
 impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// Gain control
-    pub fn gain(self, amount: f64) -> Self {
+    pub fn gain(self, amount: Pattern<f64>) -> Self {
         // In real implementation, this would affect audio amplitude
+        // For now just accept pattern for consistency
         self
     }
 
-    /// Pan control  
-    pub fn pan(self, position: f64) -> Self {
+    /// Pan control
+    pub fn pan(self, position: Pattern<f64>) -> Self {
         // In real implementation, this would affect stereo position
+        // For now just accept pattern for consistency
         self
     }
 
     /// Speed/rate control
-    pub fn speed(self, rate: f64) -> Self {
-        self.fast(Pattern::pure(rate))
+    pub fn speed(self, rate: Pattern<f64>) -> Self {
+        self.fast(rate)
     }
 
     /// Accelerate - speed up over time
-    pub fn accelerate(self, rate: f64) -> Self {
+    pub fn accelerate(self, rate: Pattern<f64>) -> Self {
         Pattern::new(move |state: &State| {
+            // Query rate at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let param_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let rate_val = rate.query(&param_state).first().map(|h| h.value).unwrap_or(0.0);
+
             let haps = self.query(state);
             haps.into_iter()
                 .enumerate()
                 .map(|(i, hap)| {
-                    let accel = 1.0 + (rate * i as f64);
+                    let accel = 1.0 + (rate_val * i as f64);
                     // Would apply acceleration to playback
                     hap
                 })
@@ -867,32 +1059,37 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     }
 
     /// Cutoff frequency control
-    pub fn cutoff(self, freq: f64) -> Self {
+    pub fn cutoff(self, freq: Pattern<f64>) -> Self {
         // In real implementation, this would control filter cutoff
+        // For now just accept pattern for consistency
         self
     }
 
     /// Resonance control
-    pub fn resonance(self, amount: f64) -> Self {
+    pub fn resonance(self, amount: Pattern<f64>) -> Self {
         // In real implementation, this would control filter resonance
+        // For now just accept pattern for consistency
         self
     }
 
     /// Delay send
-    pub fn delay(self, amount: f64) -> Self {
+    pub fn delay(self, amount: Pattern<f64>) -> Self {
         // In real implementation, this would control delay send
+        // For now just accept pattern for consistency
         self
     }
 
     /// Reverb send
-    pub fn room(self, amount: f64) -> Self {
+    pub fn room(self, amount: Pattern<f64>) -> Self {
         // In real implementation, this would control reverb send
+        // For now just accept pattern for consistency
         self
     }
 
     /// Distortion amount
-    pub fn distort(self, amount: f64) -> Self {
+    pub fn distort(self, amount: Pattern<f64>) -> Self {
         // In real implementation, this would control distortion
+        // For now just accept pattern for consistency
         self
     }
 
@@ -906,11 +1103,22 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// Examples:
     /// - s "bd sn hh cp" $ loopAt 2 -> 4 events over 2 cycles, each plays at 0.5x speed
     /// - s "bd" $ loopAt 4 -> Sample plays at 0.25x speed (pitched down 2 octaves)
-    pub fn loop_at(self, cycles: f64) -> Self {
-        let slowed = self.slow(Pattern::pure(cycles));
-        let speed_factor = 1.0 / cycles;
+    pub fn loop_at(self, cycles: Pattern<f64>) -> Self {
+        let slowed = self.slow(cycles.clone());
 
         Pattern::new(move |state| {
+            // Query cycles at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let param_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+            let cycles_val = cycles.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+            let speed_factor = 1.0 / cycles_val.max(0.001);
+
             slowed
                 .query(state)
                 .into_iter()
@@ -1097,7 +1305,7 @@ mod tests {
     #[test]
     fn test_zoom() {
         let p = Pattern::from_string("a b c d");
-        let zoomed = p.zoom(0.25, 0.75);
+        let zoomed = p.zoom(Pattern::pure(0.25), Pattern::pure(0.75));
         let state = State {
             span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
             controls: HashMap::new(),
@@ -1110,7 +1318,7 @@ mod tests {
     #[test]
     fn test_compress() {
         let p = Pattern::from_string("a b c d");
-        let compressed = p.compress(0.0, 0.5);
+        let compressed = p.compress(Pattern::pure(0.0), Pattern::pure(0.5));
         let state = State {
             span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
             controls: HashMap::new(),
@@ -1123,7 +1331,7 @@ mod tests {
     #[test]
     fn test_swing() {
         let p = Pattern::from_string("a b c d");
-        let swung = p.swing(0.1);
+        let swung = p.swing(Pattern::pure(0.1));
         let state = State {
             span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
             controls: HashMap::new(),
@@ -1136,7 +1344,7 @@ mod tests {
     #[test]
     fn test_range() {
         let p = Pattern::pure(0.5);
-        let ranged = p.range(10.0, 20.0);
+        let ranged = p.range(Pattern::pure(10.0), Pattern::pure(20.0));
         let state = State {
             span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
             controls: HashMap::new(),
@@ -1149,7 +1357,7 @@ mod tests {
     fn test_quantize() {
         let p = Pattern::pure(0.37);
         // Quantize to 4 steps means 0, 0.25, 0.5, 0.75
-        let quantized = p.quantize(4.0);
+        let quantized = p.quantize(Pattern::pure(4.0));
         let state = State {
             span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
             controls: HashMap::new(),
@@ -1166,7 +1374,7 @@ mod tests {
     #[test]
     fn test_echo() {
         let p = Pattern::from_string("a");
-        let echoed = p.echo(3, 0.25, 0.5);
+        let echoed = p.echo(3, Pattern::pure(0.25), Pattern::pure(0.5));
         let state = State {
             span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
             controls: HashMap::new(),

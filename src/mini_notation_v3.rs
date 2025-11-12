@@ -920,7 +920,7 @@ pub fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
                         replicated.query(state)
                     })
                 }
-                Operator::Degrade(amount) => pat.degrade_by(amount),
+                Operator::Degrade(amount) => pat.degrade_by(Pattern::pure(amount)),
                 Operator::Late(amount) => pat.late(Pattern::pure(amount)),
             }
         }
@@ -1008,7 +1008,7 @@ pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                         replicated.query(state)
                     })
                 }
-                Operator::Degrade(amount) => pat.degrade_by(amount),
+                Operator::Degrade(amount) => pat.degrade_by(Pattern::pure(amount)),
                 Operator::Late(amount) => pat.late(Pattern::pure(amount)),
             }
         }

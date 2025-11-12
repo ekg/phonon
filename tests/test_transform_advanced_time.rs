@@ -347,7 +347,7 @@ fn test_gap_with_fast() {
     };
 
     // gap(1) with fast(2) should work
-    let composed = pattern.clone().fast(2.0).gap(1).query(&state);
+    let composed = pattern.clone().fast(Pattern::pure(2.0)).gap(1).query(&state);
     assert!(composed.len() > 0, "gap should work with fast");
 
     println!("✅ gap composes with fast");
@@ -363,7 +363,7 @@ fn test_linger_with_fast() {
     };
 
     // linger should work with fast
-    let composed = pattern.clone().fast(2.0).linger(2.0).query(&state);
+    let composed = pattern.clone().fast(Pattern::pure(2.0)).linger(2.0).query(&state);
     assert!(composed.len() > 0, "linger should work with fast");
 
     println!("✅ linger composes with fast");

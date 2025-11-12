@@ -67,7 +67,7 @@ fn test_degrade_level1_event_removal() {
 fn test_degradeBy_level1_custom_probability() {
     // degradeBy 0.25 should remove ~25% of events (keep 75%)
     let base_pattern = parse_mini_notation("a b c d e f g h");
-    let degrade_pattern = base_pattern.clone().degrade_by(0.25);
+    let degrade_pattern = base_pattern.clone().degrade_by(Pattern::pure(0.25));
 
     let mut base_total = 0;
     let mut degrade_total = 0;
@@ -349,7 +349,7 @@ fn test_degrade_preserves_timing() {
 fn test_degradeBy_zero_removes_nothing() {
     // degradeBy 0.0 should keep all events
     let base_pattern = parse_mini_notation("a b c d");
-    let degrade_pattern = base_pattern.clone().degrade_by(0.0);
+    let degrade_pattern = base_pattern.clone().degrade_by(Pattern::pure(0.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -372,7 +372,7 @@ fn test_degradeBy_zero_removes_nothing() {
 fn test_degradeBy_one_removes_all() {
     // degradeBy 1.0 should remove all events
     let base_pattern = parse_mini_notation("a b c d");
-    let degrade_pattern = base_pattern.clone().degrade_by(1.0);
+    let degrade_pattern = base_pattern.clone().degrade_by(Pattern::pure(1.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),

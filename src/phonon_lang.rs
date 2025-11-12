@@ -260,7 +260,7 @@ impl PhononEnv {
                     let prob: f64 = args
                         .parse()
                         .map_err(|_| format!("Invalid degrade probability: {args}"))?;
-                    Ok(pattern.degrade_by(prob))
+                    Ok(pattern.degrade_by(Pattern::pure(prob)))
                 }
                 "pan" => {
                     // Pan would need to convert pattern type
@@ -343,7 +343,7 @@ impl PhononEnv {
                 Ok(pattern.degrade())
             } else {
                 let prob: f64 = arg.parse().map_err(|_| "Invalid degrade probability")?;
-                Ok(pattern.degrade_by(prob))
+                Ok(pattern.degrade_by(Pattern::pure(prob)))
             }
         } else if method == "s()" || method == "s" {
             // Convert to sample pattern

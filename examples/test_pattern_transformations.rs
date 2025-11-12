@@ -26,8 +26,8 @@ fn main() {
     }
 
     // Test 2: Apply fast transformation
-    println!("\nAfter .fast(2):");
-    let fast_pattern = pattern.clone().fast(2.0);
+    println!("\nAfter .fast(Pattern::pure(2)):");
+    let fast_pattern = pattern.clone().fast(Pattern::pure(2.0));
     let fast_events = fast_pattern.query(&state);
     for event in &fast_events {
         println!(
@@ -52,8 +52,8 @@ fn main() {
     }
 
     // Test 4: Chain transformations
-    println!("\nAfter .fast(2).rev():");
-    let chained = pattern.clone().fast(2.0).rev();
+    println!("\nAfter .fast(Pattern::pure(2)).rev():");
+    let chained = pattern.clone().fast(Pattern::pure(2.0)).rev();
     let chained_events = chained.query(&state);
     for event in &chained_events {
         println!(
@@ -65,8 +65,8 @@ fn main() {
     }
 
     // Test 5: Every transformation
-    println!("\nAfter .every(2, |p| p.fast(2.0)):");
-    let every_pattern = pattern.clone().every(2, |p| p.fast(2.0));
+    println!("\nAfter .every(2, |p| p.fast(Pattern::pure(2.0))):");
+    let every_pattern = pattern.clone().every(2, |p| p.fast(Pattern::pure(2.0)));
 
     // Query two cycles to see the effect
     for cycle in 0..2 {
@@ -102,8 +102,8 @@ fn main() {
 
     println!("\n=== Summary ===");
     println!("Pattern transformations work by method chaining:");
-    println!("  pattern.fast(2)         - Speed up by factor of 2");
-    println!("  pattern.slow(2)         - Slow down by factor of 2");
+    println!("  pattern.fast(Pattern::pure(2))         - Speed up by factor of 2");
+    println!("  pattern.slow(Pattern::pure(2))         - Slow down by factor of 2");
     println!("  pattern.rev()           - Reverse pattern");
     println!("  pattern.every(n, f)     - Apply f every n cycles");
     println!("  pattern.jux(f)          - Apply f to right channel");
@@ -111,5 +111,5 @@ fn main() {
     println!("  pattern.stutter(n)      - Repeat each event n times");
     println!("  pattern.chunk(n, f)     - Apply f to chunks");
     println!("\nTransformations can be chained:");
-    println!("  pattern.fast(2).rev().every(3, |p| p.slow(2))");
+    println!("  pattern.fast(Pattern::pure(2)).rev().every(3, |p| p.slow(Pattern::pure(2)))");
 }

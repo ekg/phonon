@@ -295,7 +295,7 @@ fn test_splice_level1_switches_at_position() {
     let p2 = parse_mini_notation("sn sn sn sn");
 
     // splice at 0.5 = first half is p1, second half is p2
-    let spliced = p1.clone().splice(0.5, p2.clone());
+    let spliced = p1.clone().splice(Pattern::pure(0.5), p2.clone());
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -316,7 +316,7 @@ fn test_splice_at_zero_is_second_pattern() {
     let p2 = parse_mini_notation("sn");
 
     // splice at 0.0 = all p2
-    let spliced = p1.clone().splice(0.0, p2.clone());
+    let spliced = p1.clone().splice(Pattern::pure(0.0), p2.clone());
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -341,7 +341,7 @@ fn test_splice_at_one_is_first_pattern() {
     let p2 = parse_mini_notation("sn");
 
     // splice at 1.0 = all p1
-    let spliced = p1.clone().splice(1.0, p2.clone());
+    let spliced = p1.clone().splice(Pattern::pure(1.0), p2.clone());
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -367,7 +367,7 @@ fn test_loopat_level1_loops_at_duration() {
     let pattern = parse_mini_notation("bd sn");
 
     // loopAt(2) loops pattern every 2 cycles
-    let looped = pattern.clone().loop_at(2.0);
+    let looped = pattern.clone().loop_at(Pattern::pure(2.0));
 
     for cycle in 0..4 {
         let state = State {
@@ -395,7 +395,7 @@ fn test_loopat_1_is_identity() {
     };
 
     let base = pattern.query(&state);
-    let looped = pattern.clone().loop_at(1.0).query(&state);
+    let looped = pattern.clone().loop_at(Pattern::pure(1.0)).query(&state);
 
     assert_eq!(looped.len(), base.len(), "loopAt(1) should be identity");
 
@@ -498,7 +498,7 @@ fn test_splice_composition() {
     let p1 = parse_mini_notation("bd");
     let p2 = parse_mini_notation("sn");
 
-    let spliced = p1.clone().splice(0.5, p2.clone()).fast(2.0);
+    let spliced = p1.clone().splice(Pattern::pure(0.5), p2.clone()).fast(2.0);
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -582,7 +582,7 @@ fn test_loopat_fractional_cycles() {
     let pattern = parse_mini_notation("bd sn");
 
     // loopAt(0.5) should speed up pattern (loop twice per cycle)
-    let looped = pattern.clone().loop_at(0.5);
+    let looped = pattern.clone().loop_at(Pattern::pure(0.5));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),

@@ -194,10 +194,10 @@ fn test_pattern_operations() {
     assert_eq!(query_pattern_count(&p, 1.0), 4);
 
     // Test fast/slow
-    let fast_p = p.clone().fast(2.0);
+    let fast_p = p.clone().fast(Pattern::pure(2.0));
     assert_eq!(query_pattern_count(&fast_p, 1.0), 8);
 
-    let slow_p = p.clone().slow(2.0);
+    let slow_p = p.clone().slow(Pattern::pure(2.0));
     assert_eq!(query_pattern_count(&slow_p, 2.0), 4);
 
     // Test mini-notation

@@ -29,7 +29,7 @@ fn test_pattern_polyrhythm() {
 #[should_panic(expected = "not yet implemented")]
 fn test_pattern_swing() {
     // Test swing/shuffle rhythm modification
-    // Would be: let p = Pattern::from_string("a b c d").swing(0.67);
+    // Would be: let p = Pattern::from_string("a b c d").swing(Pattern::pure(0.67));
     let p = Pattern::from_string("a b c d"); // Placeholder
 
     let state = State {

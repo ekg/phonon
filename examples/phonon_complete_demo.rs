@@ -55,7 +55,7 @@ fn demo_patterns() {
 
     // Demonstrate pattern transformations
     let melody = Pattern::from_string("c4 e4 g4 c5")
-        .fast(2.0)
+        .fast(Pattern::pure(2.0))
         .every(4, |p| p.rev());
 
     println!("\n  Melody pattern (fast(2).every(4, rev)):");
@@ -126,11 +126,11 @@ fn demo_integrated() {
 
     let future_code = r#"
 // Rhythm pattern drives filter cutoff!
-~rhythm: "1 0 1 0".fast(2)
+~rhythm: "1 0 1 0".fast(Pattern::pure(2))
 ~cutoff: ~rhythm * 1500 + 500
 
 // Melody pattern
-~notes: "c3 e3 g3 c4".slow(2).note()
+~notes: "c3 e3 g3 c4".slow(Pattern::pure(2)).note()
 
 // Synthesis with pattern modulation
 ~bass: saw(~notes) >> lpf(~cutoff, 2.0)

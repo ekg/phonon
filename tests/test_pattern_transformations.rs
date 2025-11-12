@@ -19,7 +19,7 @@ fn test_degrade_by_removes_events() {
     let pattern = parse_mini_notation("bd sn hh cp");
 
     // Test with degradeBy 0.0 (no removal)
-    let pattern_no_degrade = pattern.clone().degrade_by(0.0);
+    let pattern_no_degrade = pattern.clone().degrade_by(Pattern::pure(0.0));
     let mut total_no_degrade = 0;
     for cycle in 0..4 {
         let state = State {
@@ -36,7 +36,7 @@ fn test_degrade_by_removes_events() {
     assert_eq!(total_no_degrade, 16, "degradeBy 0.0 should keep all events");
 
     // Test with degradeBy 1.0 (full removal)
-    let pattern_full_degrade = pattern.clone().degrade_by(1.0);
+    let pattern_full_degrade = pattern.clone().degrade_by(Pattern::pure(1.0));
     let mut total_full_degrade = 0;
     for cycle in 0..4 {
         let state = State {
@@ -56,7 +56,7 @@ fn test_degrade_by_removes_events() {
     );
 
     // Test with degradeBy 0.5 (probabilistic removal)
-    let pattern_half_degrade = pattern.clone().degrade_by(0.5);
+    let pattern_half_degrade = pattern.clone().degrade_by(Pattern::pure(0.5));
     let mut total_half_degrade = 0;
     for cycle in 0..8 {
         let state = State {

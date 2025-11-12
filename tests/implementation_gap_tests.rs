@@ -168,7 +168,7 @@ fn test_probability_operator() {
 #[should_panic(expected = "not yet implemented")]
 fn test_degrade_pattern() {
     // degrade should randomly drop events
-    // Would be: let pattern = parse_mini_notation("bd sn hh cp").degrade_by(0.5);
+    // Would be: let pattern = parse_mini_notation("bd sn hh cp").degrade_by(Pattern::pure(0.5));
     let pattern = parse_mini_notation("bd sn hh cp"); // placeholder
 
     let state = State {

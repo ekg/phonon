@@ -140,7 +140,7 @@ mod time_operations {
 
     #[test]
     fn test_late() {
-        let p = Pattern::from_string("a b").late(0.25);
+        let p = Pattern::from_string("a b").late(Pattern::pure(0.25));
         let output = pattern_to_string(p, 1.0);
         // Events should be shifted by 0.25
         // "a" was at [0-0.5], now at [0.25-0.75]
@@ -151,7 +151,7 @@ mod time_operations {
 
     #[test]
     fn test_early() {
-        let p = Pattern::from_string("a b").early(0.25);
+        let p = Pattern::from_string("a b").early(Pattern::pure(0.25));
         let output = pattern_to_string(p, 1.25);
         // Events should be shifted earlier
         // Note: early events might wrap around
@@ -352,7 +352,7 @@ mod hash_verification {
         let p = Pattern::from_string("a b c d")
             .fast(Pattern::pure(2.0))
             .every(3, |p| p.rev())
-            .late(0.125);
+            .late(Pattern::pure(0.125));
 
         let output = pattern_to_string(p.clone(), 3.0);
         let hash = pattern_hash(p, 3.0);
@@ -361,7 +361,7 @@ mod hash_verification {
         let p2 = Pattern::from_string("a b c d")
             .fast(Pattern::pure(2.0))
             .every(3, |p| p.rev())
-            .late(0.125);
+            .late(Pattern::pure(0.125));
         let hash2 = pattern_hash(p2, 3.0);
 
         assert_eq!(hash, hash2, "Complex pattern should be deterministic");

@@ -38,8 +38,8 @@ fn main() {
     // Time transformations
     println!("TIME TRANSFORMATIONS");
     println!("{}", "-".repeat(40));
-    print_events("fast(2)", base.clone().fast(2.0));
-    print_events("slow(2)", base.clone().slow(2.0));
+    print_events("fast(2)", base.clone().fast(Pattern::pure(2.0)));
+    print_events("slow(2)", base.clone().slow(Pattern::pure(2.0)));
     print_events("rev()", base.clone().rev());
 
     // Repetition
@@ -49,7 +49,7 @@ fn main() {
 
     // Show echo effect (would need audio to hear properly)
     println!("echo(3, 0.125, 0.5) - adds echoes with decay");
-    let echo_pattern = base.clone().echo(3, 0.125, 0.5);
+    let echo_pattern = base.clone().echo(3, Pattern::pure(0.125), Pattern::pure(0.5));
     let echo_events = query_cycle(echo_pattern, 0);
     println!("  Original + {} echo events\n", echo_events.len() - 4);
 
@@ -82,7 +82,7 @@ fn main() {
 
     println!("every(n, f) - Apply transformation every n cycles\n");
 
-    let every_pattern = base.clone().every(2, |p| p.fast(2.0));
+    let every_pattern = base.clone().every(2, |p| p.fast(Pattern::pure(2.0)));
     println!("every(2, fast(2)) - doubles speed every 2nd cycle:");
     for cycle in 0..4 {
         let events = query_cycle(every_pattern.clone(), cycle);
@@ -102,9 +102,9 @@ fn main() {
     println!("CHAINING TRANSFORMATIONS");
     println!("{}", "-".repeat(40));
 
-    let chained = base.clone().fast(2.0).rev().every(3, |p| p.slow(1.5));
+    let chained = base.clone().fast(Pattern::pure(2.0)).rev().every(3, |p| p.slow(Pattern::pure(1.5)));
 
-    println!("Pattern: base.fast(2).rev().every(3, slow(1.5))");
+    println!("Pattern: base.fast(Pattern::pure(2)).rev().every(3, slow(1.5))");
     println!("This chains multiple transformations together\n");
 
     // Summary
@@ -139,7 +139,7 @@ fn main() {
     println!("1. Parse a pattern:");
     println!("   let pattern = parse_mini_notation(\"bd sn hh cp\");");
     println!("\n2. Apply transformations (can chain):");
-    println!("   let transformed = pattern.fast(2.0).rev().every(4, |p| p.slow(2.0));");
+    println!("   let transformed = pattern.fast(Pattern::pure(2.0)).rev().every(4, |p| p.slow(Pattern::pure(2.0)));");
     println!("\n3. Use in DSP context:");
     println!("   Currently transformations work on Pattern<T> objects.");
     println!("   Integration with DSP synthesis chains is in progress.");

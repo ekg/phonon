@@ -76,7 +76,7 @@ fn test_zoom_at_pattern_level() {
     use std::collections::HashMap;
 
     let pattern = parse_mini_notation("bd sn hh cp");
-    let zoomed = pattern.zoom(0.0, 0.5); // Focus on first half
+    let zoomed = pattern.zoom(Pattern::pure(0.0), Pattern::pure(0.5)); // Focus on first half
 
     // Query over 1 cycle
     let state = State {
@@ -114,7 +114,7 @@ fn test_focus_at_pattern_level() {
     use std::collections::HashMap;
 
     let pattern = parse_mini_notation("bd sn hh cp");
-    let focused = pattern.focus(0.25, 0.75); // Focus on middle half
+    let focused = pattern.focus(Pattern::pure(0.25), Pattern::pure(0.75)); // Focus on middle half
 
     let state = State {
         span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),

@@ -128,7 +128,7 @@ fn test_range_level1_scales_values() {
     use phonon::pattern_signal::sine;
 
     let sin_pattern = sine();
-    let ranged = sin_pattern.clone().range(100.0, 200.0);
+    let ranged = sin_pattern.clone().range(Pattern::pure(100.0), Pattern::pure(200.0));
 
     let base_haps = sin_pattern.query(&state);
     let ranged_haps = ranged.query(&state);
@@ -157,7 +157,7 @@ fn test_range_linear_mapping() {
     };
 
     let saw_pattern = saw();
-    let ranged = saw_pattern.clone().range(0.0, 100.0);
+    let ranged = saw_pattern.clone().range(Pattern::pure(0.0), Pattern::pure(100.0));
 
     let base = saw_pattern.query(&state);
     let scaled = ranged.query(&state);
@@ -212,7 +212,7 @@ fn test_quantize_level1_snaps_to_steps() {
         controls: HashMap::new(),
     };
 
-    let quantized = sine().quantize(4.0);
+    let quantized = sine().quantize(Pattern::pure(4.0));
 
     let quant_haps = quantized.query(&state);
 
@@ -423,7 +423,7 @@ fn test_log_level1_logarithmic_scaling() {
         controls: HashMap::new(),
     };
 
-    let saw_pattern = saw().range(1.0, 100.0); // Avoid log(0)
+    let saw_pattern = saw().range(Pattern::pure(1.0), Pattern::pure(100.0)); // Avoid log(0)
     let log_pattern = saw_pattern.clone().log(10.0);
 
     let base_haps = saw_pattern.query(&state);
@@ -610,8 +610,8 @@ fn test_numeric_transforms_over_cycles() {
             controls: HashMap::new(),
         };
 
-        let ranged = sin_pattern.clone().range(0.0, 100.0).query(&state);
-        let quantized = sin_pattern.clone().quantize(4.0).query(&state);
+        let ranged = sin_pattern.clone().range(Pattern::pure(0.0), Pattern::pure(100.0)).query(&state);
+        let quantized = sin_pattern.clone().quantize(Pattern::pure(4.0)).query(&state);
         let smoothed = sin_pattern.clone().smooth(0.5).query(&state);
 
         assert!(ranged.len() > 0, "Cycle {}: range produces events", cycle);
@@ -642,7 +642,7 @@ fn test_numeric_transforms_composition() {
     };
 
     // Chain multiple transforms
-    let composed = sine().range(0.0, 1.0).quantize(8.0).smooth(0.3).exp(2.0);
+    let composed = sine().range(Pattern::pure(0.0), Pattern::pure(1.0)).quantize(Pattern::pure(8.0)).smooth(0.3).exp(2.0);
 
     let haps = composed.query(&state);
 
@@ -661,7 +661,7 @@ fn test_discretise_with_numeric_transforms() {
     };
 
     // Discretise then transform
-    let composed = saw().discretise(8).range(100.0, 200.0);
+    let composed = saw().discretise(8).range(Pattern::pure(100.0), Pattern::pure(200.0));
 
     let haps = composed.query(&state);
 

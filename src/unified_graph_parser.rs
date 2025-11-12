@@ -3068,7 +3068,7 @@ impl DslCompiler {
             PatternTransformOp::Degrade => Ok(pattern.degrade()),
             PatternTransformOp::DegradeBy(prob_expr) => {
                 let prob = self.extract_constant(*prob_expr)?;
-                Ok(pattern.degrade_by(prob))
+                Ok(pattern.degrade_by(Pattern::pure(prob)))
             }
             PatternTransformOp::Palindrome => Ok(pattern.palindrome()),
             PatternTransformOp::Stutter(n_expr) => {
@@ -3090,12 +3090,12 @@ impl DslCompiler {
             PatternTransformOp::Zoom { begin, end } => {
                 let begin_val = self.extract_constant(*begin)?;
                 let end_val = self.extract_constant(*end)?;
-                Ok(pattern.zoom(begin_val, end_val))
+                Ok(pattern.zoom(Pattern::pure(begin_val), Pattern::pure(end_val)))
             }
             PatternTransformOp::Focus { begin, end } => {
                 let begin_val = self.extract_constant(*begin)?;
                 let end_val = self.extract_constant(*end)?;
-                Ok(pattern.focus(begin_val, end_val))
+                Ok(pattern.focus(Pattern::pure(begin_val), Pattern::pure(end_val)))
             }
             PatternTransformOp::Within {
                 begin,
@@ -3136,7 +3136,7 @@ impl DslCompiler {
                         PatternTransformOp::Degrade => p.degrade(),
                         PatternTransformOp::DegradeBy(ref prob_expr) => {
                             if let DslExpression::Value(v) = **prob_expr {
-                                p.degrade_by(v as f64)
+                                p.degrade_by(Pattern::pure(v as f64))
                             } else {
                                 p
                             }
@@ -3212,7 +3212,7 @@ impl DslCompiler {
                         PatternTransformOp::Degrade => p.degrade(),
                         PatternTransformOp::DegradeBy(ref prob_expr) => {
                             if let DslExpression::Value(v) = **prob_expr {
-                                p.degrade_by(v as f64)
+                                p.degrade_by(Pattern::pure(v as f64))
                             } else {
                                 p
                             }

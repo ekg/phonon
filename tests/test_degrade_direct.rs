@@ -7,7 +7,7 @@ fn test_degrade_direct() {
     println!("\n=== Test Degrade Direct ===");
 
     // Create a simple pattern
-    let pattern = Pattern::pure("bd".to_string()).degrade_by(0.5);
+    let pattern = Pattern::pure("bd".to_string()).degrade_by(Pattern::pure(0.5));
 
     for cycle in 0..5 {
         let state = State {

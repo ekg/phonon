@@ -28,7 +28,7 @@ fn render_dsl(code: &str, cycles: usize) -> Vec<f32> {
 fn test_swing_level1_delays_odd_events() {
     // swing should delay every odd-indexed event (indices 1, 3, 5, ...)
     let base_pattern = parse_mini_notation("bd sn hh cp");
-    let swing_pattern = base_pattern.clone().swing(0.1);
+    let swing_pattern = base_pattern.clone().swing(Pattern::pure(0.1));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -88,7 +88,7 @@ fn test_swing_level1_event_count() {
         };
 
         base_total += pattern.query(&state).len();
-        swing_total += pattern.clone().swing(0.1).query(&state).len();
+        swing_total += pattern.clone().swing(Pattern::pure(0.1)).query(&state).len();
     }
 
     assert_eq!(swing_total, base_total, "swing should preserve all events");
@@ -291,7 +291,7 @@ fn test_swing_zero_amount() {
     };
 
     let base_haps = pattern.query(&state);
-    let swing_haps = pattern.clone().swing(0.0).query(&state);
+    let swing_haps = pattern.clone().swing(Pattern::pure(0.0)).query(&state);
 
     for i in 0..base_haps.len() {
         assert_eq!(
@@ -313,7 +313,7 @@ fn test_swing_single_event() {
         controls: HashMap::new(),
     };
 
-    let swing_haps = pattern.clone().swing(0.1).query(&state);
+    let swing_haps = pattern.clone().swing(Pattern::pure(0.1)).query(&state);
 
     assert_eq!(swing_haps.len(), 1, "Should have 1 event");
 
@@ -331,7 +331,7 @@ fn test_swing_preserves_values() {
     };
 
     let base_haps = pattern.query(&state);
-    let swing_haps = pattern.clone().swing(0.1).query(&state);
+    let swing_haps = pattern.clone().swing(Pattern::pure(0.1)).query(&state);
 
     for i in 0..base_haps.len() {
         assert_eq!(

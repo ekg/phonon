@@ -4299,7 +4299,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         Transform::Degrade => Ok(pattern.degrade()),
         Transform::DegradeBy(prob_expr) => {
             let prob = extract_number(&prob_expr)?;
-            Ok(pattern.degrade_by(prob))
+            Ok(pattern.degrade_by(Pattern::pure(prob)))
         }
         Transform::Stutter(n_expr) => {
             let n = extract_number(&n_expr)? as usize;
@@ -4390,7 +4390,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let times_val = extract_number(&times)? as usize;
             let time_val = extract_number(&time)?;
             let feedback_val = extract_number(&feedback)?;
-            Ok(pattern.echo(times_val, time_val, feedback_val))
+            Ok(pattern.echo(times_val, Pattern::pure(time_val), Pattern::pure(feedback_val)))
         }
         Transform::Segment(n_expr) => {
             let n = extract_number(&n_expr)? as usize;
@@ -4399,12 +4399,12 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         Transform::Zoom { begin, end } => {
             let begin_val = extract_number(&begin)?;
             let end_val = extract_number(&end)?;
-            Ok(pattern.zoom(begin_val, end_val))
+            Ok(pattern.zoom(Pattern::pure(begin_val), Pattern::pure(end_val)))
         }
         Transform::Compress { begin, end } => {
             let begin_val = extract_number(&begin)?;
             let end_val = extract_number(&end)?;
-            Ok(pattern.compress(begin_val, end_val))
+            Ok(pattern.compress(Pattern::pure(begin_val), Pattern::pure(end_val)))
         }
         Transform::Spin(n_expr) => {
             let n = extract_number(&n_expr)? as i32;
@@ -4524,7 +4524,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
                 _ => {
                     // Constant loopAt
                     let n = extract_number(&n_expr)?;
-                    Ok(pattern.loop_at(n))
+                    Ok(pattern.loop_at(Pattern::pure(n)))
                 }
             }
         }
@@ -4574,7 +4574,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         } => {
             let begin_val = extract_number(&cycle_begin)?;
             let end_val = extract_number(&cycle_end)?;
-            Ok(pattern.focus(begin_val, end_val))
+            Ok(pattern.focus(Pattern::pure(begin_val), Pattern::pure(end_val)))
         }
         Transform::Smooth(_amount_expr) => {
             // Note: smooth() only works on Pattern<f64>, not Pattern<T>
@@ -4583,7 +4583,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         Transform::Trim { begin, end } => {
             let begin_val = extract_number(&begin)?;
             let end_val = extract_number(&end)?;
-            Ok(pattern.trim(begin_val, end_val))
+            Ok(pattern.trim(Pattern::pure(begin_val), Pattern::pure(end_val)))
         }
         Transform::Exp(_base_expr) => {
             // Note: exp() only works on Pattern<f64>, not Pattern<T>
@@ -4834,7 +4834,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let inner_transform = (*transform).clone();
             let templates_clone = templates.clone();
 
-            Ok(pattern.jux_by_ctx(amount_val, move |p| {
+            Ok(pattern.jux_by_ctx(Pattern::pure(amount_val), move |p| {
                 match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(e) => panic!("Transform error in juxBy: {}", e),
@@ -4855,7 +4855,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
 
         Transform::Accelerate(rate_expr) => {
             let rate = extract_number(&rate_expr)?;
-            Ok(pattern.accelerate(rate))
+            Ok(pattern.accelerate(Pattern::pure(rate)))
         }
 
         Transform::Humanize {
@@ -4864,7 +4864,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
         } => {
             let time_var_val = extract_number(&time_var)?;
             let velocity_var_val = extract_number(&velocity_var)?;
-            Ok(pattern.humanize(time_var_val, velocity_var_val))
+            Ok(pattern.humanize(Pattern::pure(time_var_val), Pattern::pure(velocity_var_val)))
         }
 
         Transform::Within {

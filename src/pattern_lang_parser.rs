@@ -578,7 +578,7 @@ where
         TransformOp::Early(n) => Ok(pattern.early(Pattern::pure(*n))),
         TransformOp::Late(n) => Ok(pattern.late(Pattern::pure(*n))),
         TransformOp::Degrade => Ok(pattern.degrade()),
-        TransformOp::DegradeBy(n) => Ok(pattern.degrade_by(*n)),
+        TransformOp::DegradeBy(n) => Ok(pattern.degrade_by(Pattern::pure(*n))),
         TransformOp::Stutter(n) => Ok(pattern.stutter(*n)),
         TransformOp::Every(n, f) => {
             // This needs special handling for the nested function

@@ -52,7 +52,7 @@ fn test_swing_at_pattern_level() {
     use std::collections::HashMap;
 
     let pattern = parse_mini_notation("bd sn hh cp");
-    let swung = pattern.swing(0.5); // Add 50% swing
+    let swung = pattern.swing(Pattern::pure(0.5)); // Add 50% swing
 
     // Query over 1 cycle
     let state = State {
@@ -89,7 +89,7 @@ fn test_shuffle_at_pattern_level() {
     use std::collections::HashMap;
 
     let pattern = parse_mini_notation("bd sn hh cp");
-    let shuffled = pattern.shuffle(3.0); // Shuffle by 3
+    let shuffled = pattern.shuffle(Pattern::pure(3.0)); // Shuffle by 3
 
     let state = State {
         span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),

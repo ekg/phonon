@@ -8,7 +8,7 @@ fn test_degrade_working() {
     let p1 = Pattern::pure("bd".to_string());
     let p2 = Pattern::pure("sn".to_string());
     let seq = Pattern::cat(vec![p1, p2]);
-    let degraded = seq.degrade_by(0.5);
+    let degraded = seq.degrade_by(Pattern::pure(0.5));
 
     for cycle in 0..3 {
         let state = State {

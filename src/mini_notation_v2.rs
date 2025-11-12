@@ -377,7 +377,7 @@ impl MiniNotationParser {
             },
             Some(Token::Question) => {
                 self.advance();
-                Some(pattern.degrade_by(0.5))
+                Some(pattern.degrade_by(Pattern::pure(0.5)))
             },
             _ => None
         }

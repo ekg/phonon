@@ -30,7 +30,7 @@ fn render_dsl(code: &str, cycles: usize) -> Vec<f32> {
 fn test_late_level1_shifts_forward() {
     // late should shift all events forward in time
     let base_pattern = parse_mini_notation("bd sn hh cp");
-    let late_pattern = base_pattern.clone().late(0.1);
+    let late_pattern = base_pattern.clone().late(Pattern::pure(0.1));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -68,7 +68,7 @@ fn test_late_level1_shifts_forward() {
 fn test_early_level1_shifts_backward() {
     // early should shift all events backward in time
     let base_pattern = parse_mini_notation("bd sn hh cp");
-    let early_pattern = base_pattern.clone().early(0.1);
+    let early_pattern = base_pattern.clone().early(Pattern::pure(0.1));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -112,7 +112,7 @@ fn test_offset_level1_alias_for_late() {
         controls: HashMap::new(),
     };
 
-    let late_haps = pattern.clone().late(0.15).query(&state);
+    let late_haps = pattern.clone().late(Pattern::pure(0.15)).query(&state);
     let offset_haps = pattern.clone().offset(0.15).query(&state);
 
     assert_eq!(late_haps.len(), offset_haps.len(), "Same event count");
@@ -135,7 +135,7 @@ fn test_offset_level1_alias_for_late() {
 fn test_late_level1_preserves_duration() {
     // late should only shift timing, not change duration
     let base_pattern = parse_mini_notation("bd sn hh cp");
-    let late_pattern = base_pattern.clone().late(0.2);
+    let late_pattern = base_pattern.clone().late(Pattern::pure(0.2));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -177,7 +177,7 @@ fn test_early_level1_event_count() {
         };
 
         base_total += pattern.query(&state).len();
-        early_total += pattern.clone().early(0.05).query(&state).len();
+        early_total += pattern.clone().early(Pattern::pure(0.05)).query(&state).len();
     }
 
     assert_eq!(early_total, base_total, "early should preserve all events");
@@ -203,7 +203,7 @@ fn test_late_level1_event_count() {
         };
 
         base_total += pattern.query(&state).len();
-        late_total += pattern.clone().late(0.05).query(&state).len();
+        late_total += pattern.clone().late(Pattern::pure(0.05)).query(&state).len();
     }
 
     assert_eq!(late_total, base_total, "late should preserve all events");
@@ -222,7 +222,7 @@ fn test_early_late_inverse() {
     };
 
     let base_haps = pattern.query(&state);
-    let shifted = pattern.clone().late(0.1).early(0.1).query(&state);
+    let shifted = pattern.clone().late(Pattern::pure(0.1)).early(Pattern::pure(0.1)).query(&state);
 
     assert_eq!(base_haps.len(), shifted.len());
 
@@ -243,7 +243,7 @@ fn test_early_late_inverse() {
 fn test_late_level1_preserves_values() {
     // late should only affect timing, not values
     let base_pattern = parse_mini_notation("bd sn hh cp");
-    let late_pattern = base_pattern.clone().late(0.1);
+    let late_pattern = base_pattern.clone().late(Pattern::pure(0.1));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -627,7 +627,7 @@ fn test_late_zero_amount() {
     };
 
     let base_haps = pattern.query(&state);
-    let late_haps = pattern.clone().late(0.0).query(&state);
+    let late_haps = pattern.clone().late(Pattern::pure(0.0)).query(&state);
 
     for i in 0..base_haps.len() {
         assert_eq!(
@@ -650,7 +650,7 @@ fn test_early_zero_amount() {
     };
 
     let base_haps = pattern.query(&state);
-    let early_haps = pattern.clone().early(0.0).query(&state);
+    let early_haps = pattern.clone().early(Pattern::pure(0.0)).query(&state);
 
     for i in 0..base_haps.len() {
         assert_eq!(
@@ -672,7 +672,7 @@ fn test_late_single_event() {
         controls: HashMap::new(),
     };
 
-    let late_haps = pattern.clone().late(0.1).query(&state);
+    let late_haps = pattern.clone().late(Pattern::pure(0.1)).query(&state);
 
     assert_eq!(late_haps.len(), 1, "Should have 1 event");
 
@@ -689,7 +689,7 @@ fn test_early_single_event() {
         controls: HashMap::new(),
     };
 
-    let early_haps = pattern.clone().early(0.1).query(&state);
+    let early_haps = pattern.clone().early(Pattern::pure(0.1)).query(&state);
 
     assert_eq!(early_haps.len(), 1, "Should have 1 event");
 
@@ -707,7 +707,7 @@ fn test_late_extreme_values() {
     };
 
     // Large shift - should still work
-    let late_haps = pattern.clone().late(5.0).query(&state);
+    let late_haps = pattern.clone().late(Pattern::pure(5.0)).query(&state);
     assert!(late_haps.len() > 0, "late should handle large shifts");
 
     // Verify shift amount
@@ -731,7 +731,7 @@ fn test_early_extreme_values() {
     };
 
     // Large backward shift
-    let early_haps = pattern.clone().early(5.0).query(&state);
+    let early_haps = pattern.clone().early(Pattern::pure(5.0)).query(&state);
     assert!(early_haps.len() > 0, "early should handle large shifts");
 
     // Verify shift amount

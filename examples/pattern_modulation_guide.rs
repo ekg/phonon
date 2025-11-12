@@ -19,25 +19,25 @@ fn main() {
     println!("In Rust code, you can chain pattern operations directly:");
     println!("```rust");
     println!("let pattern = parse_mini_notation(\"100 200 300 400\")");
-    println!("    .fast(2)      // Speed up 2x");
+    println!("    .fast(Pattern::pure(2))      // Speed up 2x");
     println!("    .rev()        // Reverse");
     println!("    .degrade();   // Random dropout");
     println!("```\n");
 
     // Demonstrate the effect
     let basic = parse_mini_notation("100 200 300 400");
-    let fast = basic.clone().fast(2.0);
-    let slow = basic.clone().slow(2.0);
+    let fast = basic.clone().fast(Pattern::pure(2.0));
+    let slow = basic.clone().slow(Pattern::pure(2.0));
     let reversed = basic.clone().rev();
 
     println!("Original: \"100 200 300 400\"");
     println!("  → Events in first cycle: [100, 200, 300, 400]");
 
-    println!("\nAfter .fast(2):");
+    println!("\nAfter .fast(Pattern::pure(2)):");
     println!("  → Events in first cycle: [100, 200, 300, 400, 100, 200, 300, 400]");
     println!("  → Pattern plays twice as fast");
 
-    println!("\nAfter .slow(2):");
+    println!("\nAfter .slow(Pattern::pure(2)):");
     println!("  → Events in first cycle: [100, 200]");
     println!("  → Pattern plays at half speed");
 

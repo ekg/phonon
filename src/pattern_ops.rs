@@ -93,8 +93,20 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     // ============= Randomness & Probability =============
 
     /// Randomly drop events with given probability
-    pub fn degrade_by(self, probability: f64) -> Self {
+    pub fn degrade_by(self, probability: Pattern<f64>) -> Self {
         Pattern::new(move |state| {
+            // Query probability at cycle start
+            let cycle_start = state.span.begin.to_float().floor();
+            let prob_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let prob_val = probability.query(&prob_state).first().map(|h| h.value).unwrap_or(0.5);
+
             self.query(state)
                 .into_iter()
                 .filter_map(|hap| {
@@ -107,7 +119,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                         .wrapping_add(position_hash);
 
                     let mut event_rng = StdRng::seed_from_u64(event_seed);
-                    let keep = event_rng.gen::<f64>() >= probability;
+                    let keep = event_rng.gen::<f64>() >= prob_val;
                     if keep {
                         Some(hap)
                     } else {
@@ -120,7 +132,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
     /// Degrade 50% of events
     pub fn degrade(self) -> Self {
-        self.degrade_by(0.5)
+        self.degrade_by(Pattern::pure(0.5))
     }
 
     /// Sometimes apply a function (50% chance per cycle)
