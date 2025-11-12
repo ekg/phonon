@@ -17,6 +17,9 @@ cpal = "0.15"
 # Lock-free atomic Arc swapping for live mode
 arc-swap = "1.7"
 
+# Lock-free ring buffer for audio streaming
+ringbuf = "0.4"
+
 # MIDI support
 midir = "0.9"
 

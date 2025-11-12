@@ -1543,22 +1543,34 @@ out sine(440) * 0.2
             println!("🎧 Audio: {} @ {} Hz", device.name()?, sample_rate);
             println!();
 
-            // Shared state for live reloading
-            // Lock-free graph swapping for audio callback
-            // Audio callback reads without blocking, file watcher atomically swaps
+            // Shared state for live reloading with ring-buffered synthesis
+            //
+            // Architecture:
+            // 1. File watcher thread: Detects changes, swaps graph
+            // 2. Background synth thread: Continuously renders samples → ring buffer
+            // 3. Audio callback: Just reads from ring buffer (FAST!)
+            //
+            // Key insight: Audio callback doesn't synthesize, just copies pre-rendered samples
             use arc_swap::ArcSwap;
             use std::cell::RefCell;
+            use ringbuf::traits::{Consumer, Observer, Producer, Split};
+            use ringbuf::HeapRb;
 
             // Newtype wrapper to impl Send+Sync for RefCell<UnifiedSignalGraph>
             // SAFETY: Each GraphCell instance is only accessed by one thread at a time.
-            // Audio thread gets its own Arc via load(), file watcher creates new instances.
             struct GraphCell(RefCell<UnifiedSignalGraph>);
             unsafe impl Send for GraphCell {}
             unsafe impl Sync for GraphCell {}
 
-            // Graph accessed lock-free by audio callback
-            // GraphCell provides interior mutability for process_sample()
+            // Graph for background synthesis thread (lock-free swap)
             let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));
+
+            // Ring buffer: background synth writes, audio callback reads
+            // Size: 1 second of audio @ 48kHz = 48000 samples
+            // Provides smooth playback even if synth thread lags briefly
+            let ring_buffer_size = (sample_rate * 1.0) as usize;  // 1 second buffer
+            let ring = HeapRb::<f32>::new(ring_buffer_size);
+            let (mut ring_producer, mut ring_consumer) = ring.split();
 
             // File watching metadata (only accessed by file watcher thread, can use Mutex)
             struct FileWatchState {
@@ -1603,27 +1615,71 @@ out sine(440) * 0.2
                 }
             }
 
-            // Audio callback
-            let graph_clone = Arc::clone(&graph);
+            // Background synthesis thread: continuously renders samples into ring buffer
+            // This is the KEY FIX for P1.3 - synthesis happens in background, not in audio callback!
+            let graph_clone_synth = Arc::clone(&graph);
+            std::thread::spawn(move || {
+                let mut buffer = [0.0f32; 512];  // Render in chunks of 512 samples
+
+                loop {
+                    // Check if we have space in ring buffer
+                    let space = ring_producer.vacant_len();
+
+                    if space >= buffer.len() {
+                        // Render a chunk of audio
+                        let graph_snapshot = graph_clone_synth.load();
+
+                        if let Some(ref graph_cell) = **graph_snapshot {
+                            // Synthesize samples
+                            for sample in buffer.iter_mut() {
+                                *sample = graph_cell.0.borrow_mut().process_sample();
+                            }
+
+                            // Write to ring buffer
+                            let written = ring_producer.push_slice(&buffer);
+                            if written < buffer.len() {
+                                eprintln!("⚠️  Ring buffer full, dropped {} samples", buffer.len() - written);
+                            }
+                        } else {
+                            // No graph yet, write silence
+                            ring_producer.push_slice(&buffer);
+                        }
+                    } else {
+                        // Ring buffer is full, sleep briefly
+                        std::thread::sleep(StdDuration::from_micros(100));
+                    }
+                }
+            });
+
+            // Audio callback: just reads from ring buffer (FAST!)
+            // No synthesis, no processing, just copy pre-rendered samples
             let err_fn = |err| eprintln!("Audio stream error: {err}");
 
             let stream = device.build_output_stream(
                 &config.into(),
                 move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                    // Lock-free load: no blocking, no Mutex contention!
-                    // This is the key fix for P0.4 - audio callback never blocks
-                    let graph_snapshot = graph_clone.load();
+                    // Read from ring buffer - this is MUCH faster than synthesis!
+                    let available = ring_consumer.occupied_len();
 
-                    for sample in data.iter_mut() {
-                        *sample = if let Some(ref graph_cell) = **graph_snapshot {
-                            // GraphCell.0 is RefCell, provides interior mutability for process_sample()
-                            // borrow_mut() is guaranteed not to panic because:
-                            // - This thread owns this Arc instance
-                            // - No other thread can access it concurrently
-                            graph_cell.0.borrow_mut().process_sample()
-                        } else {
-                            0.0
-                        };
+                    if available >= data.len() {
+                        // Ring buffer has enough samples, read them
+                        ring_consumer.pop_slice(data);
+                    } else {
+                        // Underrun: not enough samples in buffer
+                        // Read what we have, fill rest with silence
+                        let read = ring_consumer.pop_slice(data);
+                        for sample in data[read..].iter_mut() {
+                            *sample = 0.0;
+                        }
+
+                        // Only warn occasionally to avoid spam
+                        static mut UNDERRUN_COUNT: usize = 0;
+                        unsafe {
+                            UNDERRUN_COUNT += 1;
+                            if UNDERRUN_COUNT % 100 == 0 {
+                                eprintln!("⚠️  Audio underrun (synth can't keep up)");
+                            }
+                        }
                     }
                 },
                 err_fn,
