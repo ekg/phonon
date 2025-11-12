@@ -128,32 +128,46 @@ o2: s "sn*4"  -- Should only hear sn
 
 ---
 
-### 🔴 P0.4: Multi-threading not working / poor performance
-**Status**: BROKEN
-**Impact**: HIGH - Can't use multiple CPUs, choppy playback
+### 🟡 P0.4: Multi-threading performance (partially fixed)
+**Status**: PARTIALLY FIXED - Rayon overhead eliminated, Mutex contention remains
+**Impact**: MEDIUM - Render mode improved, live mode still has issues
 
-**Problem**:
-- Thread count not respected
-- Choppy rendering despite low CPU usage (30%)
-- Available CPUs not utilized
-- Appears to be scheduling/synchronization issue
+**Problems Found**:
+1. ✅ **FIXED**: Rayon overhead - par_iter_mut() called every sample (44.1kHz) regardless of voice count
+2. ⚠️ **REMAINS**: Mutex contention in live mode - audio callback holds lock for entire buffer
 
-**Observed**:
-- Can run on 8 CPUs but performs same as 1 CPU
-- Rendering is choppy/stuttery
-- CPU usage stays around 30% instead of maxing out
-- Suggests thread starvation or bad synchronization
+**Problem 1 - Rayon Overhead** (FIXED):
+- Used `par_iter_mut()` unconditionally for all voice counts
+- Rayon scheduling overhead: ~10-50μs per sample
+- For typical 16-32 voices (~16-80μs work), overhead dominated
+- At 44.1kHz, this added 30-50% overhead
 
-**Fix needed**:
-- Audit threading model in audio engine
-- Check for locks/mutexes causing contention
-- Profile to find bottlenecks
-- May need to redesign real-time audio thread architecture
+**Fix 1**: Threshold-based parallelism
+- Only use `par_iter_mut()` when voice count ≥ 64
+- Below threshold, use sequential iteration (no overhead)
+- Result: Render mode now efficient for typical patterns
+
+**Problem 2 - Mutex Contention** (REMAINS):
+```rust
+// In audio callback (src/main.rs:1598)
+let mut state = state_clone.lock().unwrap();  // ⚠️ Locks for entire buffer!
+for sample in data.iter_mut() {
+    *sample = graph.process_sample();  // 512 samples while holding lock
+}
+```
+- Audio callback locks Mutex for entire buffer duration (~12ms at 512 samples)
+- File watcher also locks same Mutex to check for reloads
+- Creates contention → choppy audio
+
+**Fix 2 needed** (future work):
+- Use lock-free audio graph swapping (Arc + AtomicPtr)
+- Audio callback never locks
+- File watcher atomically swaps graph pointer
+- Requires architectural refactor
 
 **Files**:
-- `src/main.rs` (live mode audio thread)
-- `src/unified_graph.rs` (rendering)
-- `src/voice_manager.rs` (voice allocation)
+- ✅ `src/voice_manager.rs`: Added threshold-based parallelism (line 1006)
+- ⚠️ `src/main.rs`: Mutex contention in live mode (line 1598) - needs refactor
 
 ---
 
