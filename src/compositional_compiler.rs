@@ -148,7 +148,7 @@ impl CompilerContext {
             name,
             // Effects that support effect bus routing
             "reverb" | "convolve" | "convolution" | "freeze" |
-            "distort" | "distortion" |
+            "distort" | "distortion" | "dist" |
             "delay" | "tapedelay" | "tape" | "multitap" | "pingpong" | "plate" |
             "chorus" | "flanger" |
             "compressor" | "comp" |
@@ -1022,7 +1022,7 @@ fn compile_function_call(
         "reverb" => compile_reverb(ctx, args),
         "convolve" | "convolution" => compile_convolve(ctx, args),
         "freeze" => compile_freeze(ctx, args),
-        "distort" | "distortion" => compile_distortion(ctx, args),
+        "distort" | "distortion" | "dist" => compile_distortion(ctx, args),
         "delay" => compile_delay(ctx, args),
         "tapedelay" | "tape" => compile_tapedelay(ctx, args),
         "multitap" => compile_multitap(ctx, args),
