@@ -1,18 +1,24 @@
 # Phonon Development Roadmap
 
-**Last Updated**: 2025-10-11
-**Current Status**: ~75% feature-complete for core vision
+**Last Updated**: 2025-11-13
+**Current Status**: ~85% feature-complete for core vision
 
 ---
 
 ## ✅ What's Working NOW
 
-### Just Completed (This Session)
-1. ✅ **Pattern DSP Parameters**: Full per-voice control with `gain`, `pan`, `speed`, `cut`, `attack`, `release`
-2. ✅ **Multi-output system**: `out1`, `out2`, etc. work in render and live modes
-3. ✅ **Hush/Panic commands**: Full integration for silencing outputs and killing voices
-4. ✅ **Sample bank selection**: Inline form `s("bd:0 bd:1 bd:2")` works with transforms
-5. ✅ **Test coverage**: 320+ tests passing (19 new DSP parameter tests)
+### Just Completed (This Session - 2025-11-13)
+1. ✅ **Systematic Pattern Testing**: 58 comprehensive tests for pattern parameters
+   - Dynamics: compressor, bitcrush (17 tests)
+   - Modulation effects: chorus, flanger, phaser, tremolo, vibrato (24 tests)
+   - Oscillators: sine, saw, square with FM/LFO modulation (17 tests)
+   - All tests verify audio production + pattern modulation differs from constant
+2. ✅ **API Verification**: Fixed parameter counts for all effects
+   - compressor(threshold, ratio, attack, release, makeup_gain) - 5 params
+   - bitcrush(bits, sample_rate) - 2 params
+   - flanger(depth, rate, feedback) - 3 params
+   - phaser(rate, depth, feedback, stages) - 4 params
+3. ✅ **Test Suite**: 400+ tests passing total
 
 ### Previously Completed
 1. ✅ **Pattern transformations**: `$`, `<|` operators with `fast`, `slow`, `rev`, `every`
@@ -60,36 +66,30 @@
 
 ---
 
-#### 2. Sample Bank Selection ✅ INLINE FORM COMPLETE
-**Status**: ✅ Inline form working, 2-arg form not yet implemented
-**Priority**: HIGH - needed for expressive sample playback
+#### 2. Sample Bank Selection ✅ COMPLETE
+**Status**: ✅ Inline form working (final form)
+**Priority**: COMPLETE - no 2-arg form needed
 
 **What's working**:
 ```phonon
-s("bd:0 bd:1 bd:2")           # ✅ Inline sample numbers WORK
-s("bd:0 bd:1") $ fast 2      # ✅ Works with transforms
-```
-
-**Still needed**:
-```phonon
-s("bd", "0 1 2 3")            # ❌ Pattern for sample number (2-arg form)
+s "bd:0 bd:1 bd:2"           # ✅ Inline sample numbers WORK
+s "bd:0 bd:1" $ fast 2       # ✅ Works with transforms
 ```
 
 **Implementation completed**:
 - ✅ Updated mini-notation parser to handle `:` in sample names (mini_notation_v3.rs:140)
-- ✅ Parse `s("bd:0")` into sample name + number (sample_loader.rs already had this)
+- ✅ Parse `s "bd:0"` into sample name + number (sample_loader.rs already had this)
 - ✅ SampleBank supports numbered sample lookup (existing functionality)
 - ✅ Added comprehensive tests (tests/test_sample_bank_selection.rs)
 - ✅ End-to-end audio rendering verification
 
 **Tests passing**:
-- ✅ Test `s("bd:0 bd:1 bd:2")` picks different samples
+- ✅ Test `s "bd:0 bd:1 bd:2"` picks different samples
 - ✅ Test mini-notation preserves colon syntax
 - ✅ Test fallback behavior for out-of-range indices
 - ✅ End-to-end audio rendering with sample selection
 
-**Remaining work**:
-- [ ] Implement 2-arg form: `s("name", "pattern")` (optional enhancement)
+**Design decision**: Only inline form `s "bd:0"` will be supported. No 2-arg form needed.
 
 ---
 
@@ -299,37 +299,58 @@ In Tidal, you can't use patterns to modulate synthesis parameters in real-time. 
 
 ## 📋 Recommended Implementation Order
 
-### Phase 1: Core Functionality (1 week)
-1. **Multi-output system** (1-2 days) - HIGHEST PRIORITY
-   - Unlocks live performance workflows
-   - Enables `hush` and `panic` commands
+### Phase 1: Core Synthesis ✅ COMPLETE
+1. ✅ **Multi-output system** - COMPLETE
+2. ✅ **Sample selection** - COMPLETE (inline form only)
+3. ✅ **Pattern DSP parameters** - COMPLETE
+4. ✅ **Systematic testing** - COMPLETE (58 new tests)
 
-2. **Sample selection** (1 day) - HIGH PRIORITY
-   - `s("bd:0 bd:1 bd:2")`
-   - Enables expressive sample playback
+### Phase 2: Synthesis Expansion (CURRENT PRIORITY)
+**Focus**: More synthesis capabilities (NOT MIDI/OSC)
 
-3. **Pattern DSP parameters** (2-3 days) - HIGH PRIORITY
-   - `gain`, `pan`, `speed`, `cut`
-   - Per-voice control
+1. **FM Synthesis** (1-2 days) - HIGH PRIORITY
+   - Implement FM oscillator with modulation index
+   - Pattern-controlled FM synthesis
+   - Tests for FM sounds
 
-### Phase 2: Polish & Documentation (3-4 days)
-4. **Update documentation** (1-2 days)
-   - Fix outdated references
-   - Add tutorials and cookbook
+2. **Granular Synthesis** (2-3 days) - HIGH PRIORITY
+   - Grain-based sample playback
+   - Pattern-controlled grain parameters (size, density, pitch)
+   - Tests for granular effects
 
-5. **More effects** (2-3 days)
-   - Reverb, delay, distortion
-   - One effect every 6-8 hours
+3. **Wavetable Synthesis** (2-3 days) - HIGH PRIORITY
+   - Wavetable oscillator with position scanning
+   - Pattern-controlled wavetable position
+   - Tests for wavetable sounds
 
-### Phase 3: Enhancement (1 week)
-6. **More pattern transformations** (2-3 days)
-   - `jux`, `stut`, `chop`, `degradeBy`
+4. **More Filters** (1-2 days) - MEDIUM PRIORITY
+   - Moog ladder filter
+   - State variable filter
+   - Comb filter
+   - All pattern-controllable
 
-7. **MIDI output** (1-2 days)
-   - Hardware integration
+5. **More Effects** (1-2 days) - MEDIUM PRIORITY
+   - Convolution reverb
+   - Pitch shifter
+   - Vocoder
+   - Ring modulator
 
-8. **REPL improvements** (2-3 days)
-   - Better UX for interactive use
+### Phase 3: Documentation & Polish (1-2 days)
+6. **Update documentation** (1-2 days)
+   - Fix outdated syntax references (`:` → `$` for outputs)
+   - Remove 2-arg sample bank references
+   - Add synthesis cookbook
+   - Update language reference
+
+### Phase 4: LOWER PRIORITY (Future)
+7. **MIDI output** - DEPRIORITIZED
+   - Hardware integration (when needed)
+
+8. **OSC integration** - DEPRIORITIZED
+   - Network communication (when needed)
+
+9. **C integration** - DEPRIORITIZED
+   - Embedding (when needed)
 
 ---
 
@@ -383,23 +404,32 @@ git commit -m "Implement multi-output system with tests"
 - ✅ Pattern DSP parameters (gain, pan, speed, cut, attack, release)
 - ✅ Effects (reverb, delay, distortion, compressor, bitcrush)
 
-**Missing**:
-- ❌ Sample selection 2-arg form: `s("bd", "0 1 2")` (optional - 4-6 hours)
-- ❌ MIDI output (MEDIUM - 1-2 days)
+**Current Priorities (Phase 2)**:
+- ❌ FM Synthesis (HIGH - 1-2 days)
+- ❌ Granular Synthesis (HIGH - 2-3 days)
+- ❌ Wavetable Synthesis (HIGH - 2-3 days)
+- ❌ More Filters: Moog, SVF, Comb (MEDIUM - 1-2 days)
+- ❌ More Effects: Convolution reverb, pitch shifter, vocoder, ring mod (MEDIUM - 1-2 days)
 - ❌ Updated docs (HIGH - 1-2 days)
-- ❌ More UGens (see UGEN_STATUS.md - ongoing)
 
-**Estimated time to 95% complete**: 1-2 days for documentation + MIDI
+**Deprioritized** (will implement later when needed):
+- ⏸ MIDI output
+- ⏸ OSC integration
+- ⏸ C integration
+- ⏸ Sample selection 2-arg form (not needed - inline form is final)
+
+**Estimated time to Phase 2 complete**: 7-12 days for all synthesis expansion
 
 ---
 
-## Questions to Answer
+## Design Decisions Made
 
-1. How many outputs do we need? (4? 8? 16?)
-2. Should pattern buses be fixed or removed?
-3. Do we need all Tidal effects, or just the essential ones?
-4. Is MIDI output important for your workflow?
-5. What should default sample bank selection behavior be?
+1. ✅ **Outputs**: Multiple outputs working (out1, out2, etc.)
+2. ✅ **Sample bank**: Inline form only (`s "bd:0"`) - no 2-arg form
+3. ✅ **Pattern parameters**: ALL parameters accept patterns (P0.0 complete)
+4. ✅ **Priority**: Synthesis expansion > MIDI/OSC/C integration
+5. ✅ **Testing**: Systematic 3-level testing for all features
+6. 🔄 **Output syntax**: Will change from `:` to `$` (e.g., `o1 $ s "bd"`) - NOT YET IMPLEMENTED
 
 ---
 
