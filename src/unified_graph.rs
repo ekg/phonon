@@ -665,6 +665,17 @@ pub enum SignalNode {
         threshold: Signal, // Maximum allowed amplitude
     },
 
+    /// State Variable Filter (Chamberlin topology)
+    /// Multi-mode filter producing LP, HP, BP, and Notch outputs
+    /// Mode: 0=lowpass, 1=highpass, 2=bandpass, 3=notch
+    SVF {
+        input: Signal,      // Input signal
+        frequency: Signal,  // Cutoff/center frequency in Hz
+        resonance: Signal,  // Resonance/Q (0.0 to ~10.0)
+        mode: usize,        // Filter mode (0=LP, 1=HP, 2=BP, 3=Notch)
+        state: SVFState,    // Filter state (integrators)
+    },
+
     /// Pan2 Left channel (equal-power panning law)
     /// Takes mono input and pan position (-1=left, 0=center, 1=right)
     /// Outputs left channel component
@@ -1723,6 +1734,20 @@ pub struct AllpassState {
 impl Default for AllpassState {
     fn default() -> Self {
         Self { x1: 0.0, y1: 0.0 }
+    }
+}
+
+/// SVF (State Variable Filter) state
+/// Chamberlin topology for multi-mode filtering
+#[derive(Debug, Clone)]
+pub struct SVFState {
+    pub low: f32,  // Lowpass integrator state
+    pub band: f32, // Bandpass integrator state
+}
+
+impl Default for SVFState {
+    fn default() -> Self {
+        Self { low: 0.0, band: 0.0 }
     }
 }
 
@@ -4988,6 +5013,64 @@ impl UnifiedSignalGraph {
 
                 // Brick-wall limiting: clamp to [-threshold, +threshold]
                 input_val.clamp(-thresh, thresh)
+            }
+
+            SignalNode::SVF {
+                input,
+                frequency,
+                resonance,
+                mode,
+                state,
+            } => {
+                // Chamberlin State Variable Filter
+                // Produces LP, HP, BP, and Notch outputs simultaneously
+
+                let input_val = self.eval_signal(&input);
+                let freq = self.eval_signal(&frequency).clamp(10.0, self.sample_rate * 0.45);
+                let res = self.eval_signal(&resonance).max(0.1); // Prevent division by zero
+
+                // Calculate filter coefficients
+                // f = 2 * sin(π * cutoff / sampleRate)
+                // Prevent instability at high frequencies
+                let f = (std::f32::consts::PI * freq / self.sample_rate).sin().min(0.95);
+                let q = 1.0 / res.max(0.1); // Convert resonance to damping
+
+                // Get current state
+                let mut low = state.low;
+                let mut band = state.band;
+
+                // Update filter
+                low = low + f * band;
+                let high = input_val - low - q * band;
+                band = f * high + band;
+                let notch = high + low;
+
+                // Clamp state to prevent runaway values and NaN
+                low = low.clamp(-10.0, 10.0);
+                band = band.clamp(-10.0, 10.0);
+
+                // Check for NaN and reset if needed
+                if !low.is_finite() || !band.is_finite() {
+                    low = 0.0;
+                    band = 0.0;
+                }
+
+                // Update state
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::SVF { state: s, .. } = node {
+                        s.low = low;
+                        s.band = band;
+                    }
+                }
+
+                // Select output based on mode
+                match mode {
+                    0 => low,        // Lowpass
+                    1 => high,       // Highpass
+                    2 => band,       // Bandpass
+                    3 => notch,      // Notch
+                    _ => low,        // Default to lowpass
+                }
             }
 
             SignalNode::Pan2Left { input, position } => {

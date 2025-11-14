@@ -1044,6 +1044,10 @@ fn compile_function_call(
         "xfade" => compile_xfade(ctx, args),
         "mix" => compile_mix(ctx, args),
         "allpass" => compile_allpass(ctx, args),
+        "svf_lp" => compile_svf_lp(ctx, args),
+        "svf_hp" => compile_svf_hp(ctx, args),
+        "svf_bp" => compile_svf_bp(ctx, args),
+        "svf_notch" => compile_svf_notch(ctx, args),
         "tap" | "probe" => compile_tap(ctx, args),
 
         // ========== Envelope ==========
@@ -3361,6 +3365,58 @@ fn compile_allpass(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         input: input_signal,
         coefficient: Signal::Node(coefficient_node),
         state: AllpassState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile SVF lowpass filter
+/// Usage: signal # svf_lp frequency resonance
+fn compile_svf_lp(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    compile_svf_mode(ctx, args, 0)
+}
+
+/// Compile SVF highpass filter
+/// Usage: signal # svf_hp frequency resonance
+fn compile_svf_hp(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    compile_svf_mode(ctx, args, 1)
+}
+
+/// Compile SVF bandpass filter
+/// Usage: signal # svf_bp frequency resonance
+fn compile_svf_bp(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    compile_svf_mode(ctx, args, 2)
+}
+
+/// Compile SVF notch filter
+/// Usage: signal # svf_notch frequency resonance
+fn compile_svf_notch(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    compile_svf_mode(ctx, args, 3)
+}
+
+/// Helper function to compile SVF with specified mode
+fn compile_svf_mode(ctx: &mut CompilerContext, args: Vec<Expr>, mode: usize) -> Result<NodeId, String> {
+    use crate::unified_graph::SVFState;
+
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 2 {
+        return Err(format!(
+            "svf requires 2 parameters (frequency, resonance), got {}",
+            params.len()
+        ));
+    }
+
+    let frequency_node = compile_expr(ctx, params[0].clone())?;
+    let resonance_node = compile_expr(ctx, params[1].clone())?;
+
+    let node = SignalNode::SVF {
+        input: input_signal,
+        frequency: Signal::Node(frequency_node),
+        resonance: Signal::Node(resonance_node),
+        mode,
+        state: SVFState::default(),
     };
 
     Ok(ctx.graph.add_node(node))
