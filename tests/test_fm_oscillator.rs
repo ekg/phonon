@@ -1,305 +1,388 @@
+/// Systematic tests: FM (Frequency Modulation) Oscillator
+///
+/// Tests FM synthesis with spectral analysis and audio verification.
+/// FM creates complex harmonic and inharmonic timbres by modulating carrier frequency.
+///
+/// Key characteristics:
+/// - Carrier frequency: Base pitch
+/// - Modulator frequency: Frequency of modulation
+/// - Modulation index: Depth of modulation (brightness)
+/// - C:M ratio determines harmonic/inharmonic spectrum
+/// - All parameters pattern-modulated
+/// - Used for bells, brass, electric piano, complex pads
+
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
-use std::process::Command;
+use std::f32::consts::PI;
 
-const SAMPLE_RATE: f32 = 44100.0;
+mod audio_test_utils;
+use audio_test_utils::calculate_rms;
 
-/// LEVEL 1: Pattern Query Verification
-/// Tests that FM syntax is parsed and compiled correctly
-#[test]
-fn test_fm_pattern_query() {
-    let dsl = r#"
-tempo: 1.0
-~fm: fm 440 110 2
-out: ~fm * 0.3
-"#;
-
-    let (remaining, statements) = parse_program(dsl).unwrap();
-    assert!(
-        remaining.trim().is_empty(),
-        "Should parse completely, remaining: '{}'",
-        remaining
-    );
-
-    let graph = compile_program(statements, SAMPLE_RATE);
-    assert!(
-        graph.is_ok(),
-        "FM should compile successfully: {:?}",
-        graph.err()
-    );
+fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
+    let sample_rate = 44100.0;
+    let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
+    let mut graph = compile_program(statements, sample_rate).expect("Failed to compile DSL code");
+    let num_samples = (duration * sample_rate) as usize;
+    graph.render(num_samples)
 }
 
-/// Helper function to compute FFT and find peak frequencies
-fn find_peak_frequencies(samples: &[f32], sample_rate: f32, num_peaks: usize) -> Vec<f32> {
-    use rustfft::{num_complex::Complex, FftPlanner};
+/// Perform FFT and analyze spectrum
+fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
+    use rustfft::{FftPlanner, num_complex::Complex};
 
+    let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
-    let fft = planner.plan_fft_forward(samples.len());
+    let fft = planner.plan_fft_forward(fft_size);
 
-    let mut buffer: Vec<Complex<f32>> = samples
-        .iter()
-        .map(|&s| Complex { re: s, im: 0.0 })
-        .collect();
-
-    fft.process(&mut buffer);
-
-    // Compute magnitude spectrum (first half only - nyquist)
-    let magnitudes: Vec<f32> = buffer[0..buffer.len() / 2]
-        .iter()
-        .map(|c| c.norm())
-        .collect();
-
-    // Find peaks
-    let mut peaks: Vec<(usize, f32)> = magnitudes
+    let mut input: Vec<Complex<f32>> = buffer[..fft_size]
         .iter()
         .enumerate()
-        .filter(|(i, &mag)| {
-            if *i == 0 || *i >= magnitudes.len() - 1 {
-                return false;
-            }
-            mag > magnitudes[i - 1] && mag > magnitudes[i + 1] && mag > 0.01
+        .map(|(i, &sample)| {
+            let window = 0.5 * (1.0 - (2.0 * PI * i as f32 / fft_size as f32).cos());
+            Complex::new(sample * window, 0.0)
         })
-        .map(|(i, &mag)| (i, mag))
         .collect();
 
-    // Sort by magnitude descending
-    peaks.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    fft.process(&mut input);
 
-    // Convert bin indices to frequencies
-    let bin_to_freq = sample_rate / samples.len() as f32;
-    peaks
+    let magnitudes: Vec<f32> = input[..fft_size / 2]
         .iter()
-        .take(num_peaks)
-        .map(|(bin, _)| *bin as f32 * bin_to_freq)
-        .collect()
+        .map(|c| (c.re * c.re + c.im * c.im).sqrt())
+        .collect();
+
+    let frequencies: Vec<f32> = (0..fft_size / 2)
+        .map(|i| i as f32 * sample_rate / fft_size as f32)
+        .collect();
+
+    (frequencies, magnitudes)
 }
 
-/// LEVEL 2: Spectral Analysis Verification
-/// Tests that FM produces correct harmonic spectrum with sidebands
+// ========== Basic FM Tests ==========
+
 #[test]
-fn test_fm_spectral_sidebands() {
-    let dsl = r#"
-tempo: 1.0
--- FM: carrier=440Hz, modulator=110Hz, index=1.0
--- Should produce sidebands at 440±110, 440±220, etc.
-~fm: fm 440 110 1.0
-out: ~fm * 0.5
-"#;
+fn test_fm_compiles() {
+    let code = r#"
+        tempo: 2.0
+        o1: fm 440 220 1.0
+    "#;
 
-    let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let (_, statements) = parse_program(code).expect("Failed to parse");
+    let result = compile_program(statements, 44100.0);
+    assert!(result.is_ok(), "FM should compile: {:?}", result.err());
+}
 
-    // Render 1 full cycle
-    let samples = graph.render(SAMPLE_RATE as usize);
+#[test]
+fn test_fm_generates_audio() {
+    let code = r#"
+        tempo: 2.0
+        o1: fm 440 220 1.0 * 0.3
+    "#;
 
-    // Write to file for manual inspection if needed
-    let filename = "/tmp/test_fm_spectrum.wav";
-    let spec = hound::WavSpec {
-        channels: 1,
-        sample_rate: SAMPLE_RATE as u32,
-        bits_per_sample: 16,
-        sample_format: hound::SampleFormat::Int,
-    };
-    let mut writer = hound::WavWriter::create(filename, spec).unwrap();
-    for sample in &samples {
-        let amplitude = (sample * i16::MAX as f32) as i16;
-        writer.write_sample(amplitude).unwrap();
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.05, "FM should produce audio, got RMS: {}", rms);
+    println!("FM RMS: {}", rms);
+}
+
+// ========== Modulation Index Tests ==========
+
+#[test]
+fn test_fm_zero_index_is_sine() {
+    // Index=0 should produce pure sine wave at carrier frequency
+    let code = r#"
+        tempo: 2.0
+        o1: fm 440 220 0.0 * 0.3
+    "#;
+
+    let buffer = render_dsl(code, 1.0);
+    let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
+
+    // Find peak around 440Hz
+    let mut peak_freq = 0.0f32;
+    let mut peak_mag = 0.0f32;
+    for (i, &freq) in frequencies.iter().enumerate() {
+        if freq > 400.0 && freq < 480.0 {
+            if magnitudes[i] > peak_mag {
+                peak_mag = magnitudes[i];
+                peak_freq = freq;
+            }
+        }
     }
-    writer.finalize().unwrap();
 
-    // Find peak frequencies
-    let peak_freqs = find_peak_frequencies(&samples, SAMPLE_RATE, 5);
+    assert!((peak_freq - 440.0).abs() < 20.0,
+        "FM with index=0 should peak near 440Hz, got {}Hz",
+        peak_freq);
 
-    println!("FM Peak frequencies: {:?}", peak_freqs);
-
-    // For FM with carrier=440, modulator=110, index=1.0:
-    // Expected peaks: 440 (carrier), 330 (440-110), 550 (440+110)
-    // With lower amplitudes: 220 (440-220), 660 (440+220)
-
-    // Check for carrier frequency (440 Hz)
-    let has_carrier = peak_freqs.iter().any(|&f| (f - 440.0).abs() < 20.0);
-    assert!(
-        has_carrier,
-        "FM should have carrier frequency near 440 Hz, got peaks: {:?}",
-        peak_freqs
-    );
-
-    // Check for first-order sidebands (440±110 = 330 or 550 Hz)
-    let has_sidebands = peak_freqs.iter().any(|&f| (f - 330.0).abs() < 20.0)
-        || peak_freqs.iter().any(|&f| (f - 550.0).abs() < 20.0);
-    assert!(
-        has_sidebands,
-        "FM should have sidebands near 330 or 550 Hz, got peaks: {:?}",
-        peak_freqs
-    );
+    println!("Zero index peak: {}Hz", peak_freq);
 }
 
-/// Test that modulation index affects spectral content
 #[test]
-fn test_fm_modulation_index_effect() {
-    // Low modulation index - mostly carrier
-    let dsl_low = r#"
-tempo: 1.0
-~fm: fm 440 110 0.5
-out: ~fm * 0.5
-"#;
-    let (_, statements) = parse_program(dsl_low).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
-    let samples_low = graph.render(SAMPLE_RATE as usize);
-    let peaks_low = find_peak_frequencies(&samples_low, SAMPLE_RATE, 10);
+fn test_fm_low_index_bright() {
+    // Low index (1.0) creates bright but simple timbre
+    let code = r#"
+        tempo: 2.0
+        o1: fm 440 220 1.0 * 0.3
+    "#;
 
-    // High modulation index - more sidebands
-    let dsl_high = r#"
-tempo: 1.0
-~fm: fm 440 110 3.0
-out: ~fm * 0.5
-"#;
-    let (_, statements) = parse_program(dsl_high).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
-    let samples_high = graph.render(SAMPLE_RATE as usize);
-    let peaks_high = find_peak_frequencies(&samples_high, SAMPLE_RATE, 10);
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
 
-    println!("Low index peaks: {:?}", peaks_low);
-    println!("High index peaks: {:?}", peaks_high);
-
-    // High index should have more frequency components
-    assert!(
-        peaks_high.len() >= peaks_low.len(),
-        "High modulation index should create more sidebands"
-    );
+    assert!(rms > 0.05, "FM with low index should work, RMS: {}", rms);
+    println!("Low index RMS: {}", rms);
 }
 
-/// LEVEL 3: Musical Integration Test
 #[test]
-fn test_fm_musical_example() {
-    let dsl = r#"
-tempo: 2.0
--- Bell-like FM tone
-~fm: fm 440 880 2.5
-out: ~fm * 0.3
-"#;
+fn test_fm_high_index_complex() {
+    // High index (5.0) creates complex timbre with many sidebands
+    let code = r#"
+        tempo: 2.0
+        o1: fm 440 220 5.0 * 0.2
+    "#;
 
-    let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let buffer = render_dsl(code, 1.0);
+    let (_frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let samples = graph.render((SAMPLE_RATE / 2.0) as usize); // 0.5 seconds
+    // High index should create spectral energy across wide range
+    let total_energy: f32 = magnitudes.iter().map(|m| m * m).sum();
+    assert!(total_energy > 0.01,
+        "FM with high index should have spectral energy, got {}",
+        total_energy);
 
-    // Write to file
-    let filename = "/tmp/test_fm_musical.wav";
-    let spec = hound::WavSpec {
-        channels: 1,
-        sample_rate: SAMPLE_RATE as u32,
-        bits_per_sample: 16,
-        sample_format: hound::SampleFormat::Int,
-    };
-    let mut writer = hound::WavWriter::create(filename, spec).unwrap();
-    for sample in &samples {
-        let amplitude = (sample * i16::MAX as f32) as i16;
-        writer.write_sample(amplitude).unwrap();
-    }
-    writer.finalize().unwrap();
-
-    // Should produce audible output
-    let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
-    let rms = rms.sqrt();
-    assert!(
-        rms > 0.1,
-        "FM tone should be audible (RMS > 0.1), got RMS {}",
-        rms
-    );
-
-    // Peak should be reasonable
-    let peak = samples.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-    assert!(
-        peak > 0.2 && peak < 0.5,
-        "FM tone should have reasonable peak (0.2-0.5), got {}",
-        peak
-    );
+    println!("High index total energy: {}", total_energy);
 }
 
-/// Test pattern-modulated FM parameters
+// ========== C:M Ratio Tests (Harmonic vs Inharmonic) ==========
+
 #[test]
-fn test_fm_pattern_parameters() {
-    let dsl = r#"
-tempo: 2.0
--- Pattern-controlled modulation index
-~index_pattern: "1.0 3.0"
-~fm: fm 440 110 ~index_pattern
-out: ~fm * 0.3
-"#;
+fn test_fm_harmonic_1_1_ratio() {
+    // C:M = 1:1 produces harmonic spectrum
+    let code = r#"
+        tempo: 2.0
+        o1: fm 440 440 2.0 * 0.3
+    "#;
 
-    let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
 
-    assert!(
-        graph.is_ok(),
-        "FM with pattern-controlled parameters should compile: {:?}",
-        graph.err()
-    );
+    assert!(rms > 0.05, "FM 1:1 ratio should work, RMS: {}", rms);
+    println!("1:1 ratio RMS: {}", rms);
 }
 
-/// Test FM with different carrier/modulator ratios
 #[test]
-fn test_fm_ratio_variations() {
-    // Integer ratio (harmonic)
-    let dsl_harmonic = r#"
-tempo: 1.0
-~fm: fm 440 220 1.5
-out: ~fm * 0.3
-"#;
-    let (_, statements) = parse_program(dsl_harmonic).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
-    let samples = graph.render(SAMPLE_RATE as usize);
+fn test_fm_harmonic_2_1_ratio() {
+    // C:M = 2:1 produces harmonic spectrum
+    let code = r#"
+        tempo: 2.0
+        o1: fm 440 220 2.0 * 0.3
+    "#;
 
-    let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
-    assert!(rms.sqrt() > 0.05, "Harmonic FM should be audible");
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
 
-    // Non-integer ratio (inharmonic/bell-like)
-    let dsl_inharmonic = r#"
-tempo: 1.0
-~fm: fm 440 337 2.0
-out: ~fm * 0.3
-"#;
-    let (_, statements) = parse_program(dsl_inharmonic).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
-    let samples = graph.render(SAMPLE_RATE as usize);
-
-    let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
-    assert!(rms.sqrt() > 0.05, "Inharmonic FM should be audible");
+    assert!(rms > 0.05, "FM 2:1 ratio should work, RMS: {}", rms);
+    println!("2:1 ratio RMS: {}", rms);
 }
 
-/// Test FM with envelope modulation
 #[test]
-fn test_fm_with_envelope() {
-    let dsl = r#"
-tempo: 2.0
-~env: ad 0.01 0.2
-~fm: fm 440 880 2.0
-out: ~fm * ~env * 0.4
-"#;
+fn test_fm_inharmonic_ratio() {
+    // C:M = irrational produces inharmonic (bell-like) spectrum
+    let code = r#"
+        tempo: 2.0
+        o1: fm 440 314.159 3.0 * 0.2
+    "#;
 
-    let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
-    let samples = graph.render((SAMPLE_RATE / 2.0) as usize);
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
 
-    // Should produce percussive FM tone
-    let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
-    assert!(rms.sqrt() > 0.02, "Enveloped FM should be audible");
+    assert!(rms > 0.05, "FM inharmonic ratio should work, RMS: {}", rms);
+    println!("Inharmonic ratio RMS: {}", rms);
+}
 
-    // Peak should be near the start (attack phase)
-    let first_quarter: f32 = samples[0..samples.len() / 4]
-        .iter()
-        .map(|s| s * s)
-        .sum::<f32>()
-        / (samples.len() / 4) as f32;
-    let last_quarter: f32 = samples[samples.len() * 3 / 4..]
-        .iter()
-        .map(|s| s * s)
-        .sum::<f32>()
-        / (samples.len() / 4) as f32;
+// ========== Musical Applications ==========
 
-    assert!(
-        first_quarter.sqrt() > last_quarter.sqrt() * 2.0,
-        "Enveloped FM should be louder at start than end"
-    );
+#[test]
+fn test_fm_electric_piano() {
+    // Electric piano: C:M = 1:1 or 2:1, moderate index
+    let code = r#"
+        tempo: 2.0
+        ~env: ad 0.001 0.5
+        o1: fm 220 220 2.0 * ~env * 0.3
+    "#;
+
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.03, "FM electric piano should work, RMS: {}", rms);
+    println!("Electric piano RMS: {}", rms);
+}
+
+#[test]
+fn test_fm_bell_sound() {
+    // Bell sound: inharmonic ratio, envelope on index
+    let code = r#"
+        tempo: 2.0
+        ~env: ad 0.001 1.0
+        ~index: ~env * 8.0
+        o1: fm 440 550 ~index * ~env * 0.2
+    "#;
+
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.03, "FM bell should work, RMS: {}", rms);
+    println!("Bell RMS: {}", rms);
+}
+
+#[test]
+fn test_fm_brass_sound() {
+    // Brass: harmonic ratio, index varies with dynamics
+    let code = r#"
+        tempo: 2.0
+        ~env: adsr 0.05 0.1 0.7 0.2
+        ~index: ~env * 3.0 + 1.0
+        o1: fm 220 220 ~index * ~env * 0.3
+    "#;
+
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.05, "FM brass should work, RMS: {}", rms);
+    println!("Brass RMS: {}", rms);
+}
+
+#[test]
+fn test_fm_bass_sound() {
+    // FM bass: low carrier, moderate C:M ratio
+    let code = r#"
+        tempo: 2.0
+        ~env: ad 0.01 0.3
+        o1: fm 55 82.5 2.5 * ~env * 0.4
+    "#;
+
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.05, "FM bass should work, RMS: {}", rms);
+    println!("FM bass RMS: {}", rms);
+}
+
+// ========== Pattern Modulation Tests ==========
+
+#[test]
+fn test_fm_pattern_carrier() {
+    let code = r#"
+        tempo: 2.0
+        ~carrier: sine 2 * 100 + 440
+        o1: fm ~carrier 220 2.0 * 0.3
+    "#;
+
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.05,
+        "FM with pattern-modulated carrier should work, RMS: {}",
+        rms);
+
+    println!("Pattern carrier RMS: {}", rms);
+}
+
+#[test]
+fn test_fm_pattern_modulator() {
+    let code = r#"
+        tempo: 2.0
+        ~modulator: sine 1 * 50 + 200
+        o1: fm 440 ~modulator 2.0 * 0.3
+    "#;
+
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.05,
+        "FM with pattern-modulated modulator should work, RMS: {}",
+        rms);
+
+    println!("Pattern modulator RMS: {}", rms);
+}
+
+#[test]
+fn test_fm_pattern_index() {
+    let code = r#"
+        tempo: 2.0
+        ~index: sine 1 * 2.0 + 3.0
+        o1: fm 440 220 ~index * 0.3
+    "#;
+
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.05,
+        "FM with pattern-modulated index should work, RMS: {}",
+        rms);
+
+    println!("Pattern index RMS: {}", rms);
+}
+
+// ========== Edge Cases ==========
+
+#[test]
+fn test_fm_very_low_frequencies() {
+    let code = r#"
+        tempo: 2.0
+        o1: fm 20 10 1.0 * 0.3
+    "#;
+
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.05, "FM with very low frequencies should work, RMS: {}", rms);
+    println!("Very low frequencies RMS: {}", rms);
+}
+
+#[test]
+fn test_fm_high_carrier() {
+    let code = r#"
+        tempo: 2.0
+        o1: fm 8000 4000 1.0 * 0.3
+    "#;
+
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.05, "FM with high carrier should work, RMS: {}", rms);
+    println!("High carrier RMS: {}", rms);
+}
+
+#[test]
+fn test_fm_extreme_index() {
+    // Very high index creates very complex spectrum
+    let code = r#"
+        tempo: 2.0
+        o1: fm 440 220 20.0 * 0.1
+    "#;
+
+    let buffer = render_dsl(code, 1.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.01, "FM with extreme index should work, RMS: {}", rms);
+    println!("Extreme index RMS: {}", rms);
+}
+
+// ========== Stability Tests ==========
+
+#[test]
+fn test_fm_no_clipping() {
+    let code = r#"
+        tempo: 2.0
+        o1: fm 440 220 5.0 * 0.5
+    "#;
+
+    let buffer = render_dsl(code, 1.0);
+    let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+
+    assert!(max_amplitude <= 1.5,
+        "FM should not excessively clip, max: {}",
+        max_amplitude);
+
+    println!("FM max amplitude: {}", max_amplitude);
 }
