@@ -474,6 +474,17 @@ pub enum SignalNode {
         modulator_phase: f32,   // Modulator phase (0.0 to 1.0)
     },
 
+    /// Phase Modulation (PM) oscillator
+    /// Takes external modulation signal directly (not internal oscillator)
+    /// PM: output = sin(2π * carrier_phase + mod_index * modulation_signal)
+    /// Unlike FM, modulator can be any signal (noise, envelope, audio, etc.)
+    PMOscillator {
+        carrier_freq: Signal,   // Carrier frequency in Hz
+        modulation: Signal,     // External modulation signal
+        mod_index: Signal,      // Modulation index (depth)
+        carrier_phase: f32,     // Carrier phase (0.0 to 1.0)
+    },
+
     /// White noise generator
     /// Generates uniformly distributed random samples in range [-1, 1]
     WhiteNoise,
@@ -4247,6 +4258,39 @@ impl UnifiedSignalGraph {
                         *mp += modulator_f / self.sample_rate;
                         if *mp >= 1.0 {
                             *mp -= 1.0;
+                        }
+                    }
+                }
+
+                sample
+            }
+
+            SignalNode::PMOscillator {
+                carrier_freq,
+                modulation,
+                mod_index,
+                carrier_phase,
+            } => {
+                // Evaluate modulatable parameters
+                let carrier_f = self.eval_signal(&carrier_freq).max(0.0);
+                let mod_signal = self.eval_signal(&modulation);
+                let index = self.eval_signal(&mod_index);
+
+                // PM synthesis: carrier phase modulated directly by external signal
+                // output = sin(2π * carrier_phase + mod_index * modulation_signal)
+                let modulation_value = index * mod_signal;
+                let sample = (2.0 * PI * carrier_phase + modulation_value).sin();
+
+                // Update carrier phase for next sample
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::PMOscillator {
+                        carrier_phase: cp,
+                        ..
+                    } = node
+                    {
+                        *cp += carrier_f / self.sample_rate;
+                        if *cp >= 1.0 {
+                            *cp -= 1.0;
                         }
                     }
                 }

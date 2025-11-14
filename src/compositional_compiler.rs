@@ -960,6 +960,7 @@ fn compile_function_call(
         "square" => compile_oscillator(ctx, Waveform::Square, args),
         "tri" | "triangle" => compile_oscillator(ctx, Waveform::Triangle, args),
         "fm" => compile_fm(ctx, args),
+        "pm" => compile_pm(ctx, args),
         "wavetable" => compile_wavetable(ctx, args),
         "granular" => compile_granular(ctx, args),
         "pluck" => compile_karplus_strong(ctx, args),
@@ -1334,6 +1335,32 @@ fn compile_fm(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Stri
         mod_index: Signal::Node(index_node),
         carrier_phase: 0.0,
         modulator_phase: 0.0,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Phase Modulation (PM) oscillator
+/// PM uses external modulation signal directly (not internal oscillator like FM)
+/// Syntax: pm carrier_freq modulation_signal mod_index
+fn compile_pm(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 3 {
+        return Err(format!(
+            "pm requires 3 parameters (carrier_freq, modulation, mod_index), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile each parameter as a signal (supports pattern modulation!)
+    let carrier_node = compile_expr(ctx, args[0].clone())?;
+    let modulation_node = compile_expr(ctx, args[1].clone())?;
+    let index_node = compile_expr(ctx, args[2].clone())?;
+
+    let node = SignalNode::PMOscillator {
+        carrier_freq: Signal::Node(carrier_node),
+        modulation: Signal::Node(modulation_node),
+        mod_index: Signal::Node(index_node),
+        carrier_phase: 0.0,
     };
 
     Ok(ctx.graph.add_node(node))
