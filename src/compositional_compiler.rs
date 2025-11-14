@@ -1052,6 +1052,7 @@ fn compile_function_call(
         "bq_hp" => compile_bq_hp(ctx, args),
         "bq_bp" => compile_bq_bp(ctx, args),
         "bq_notch" => compile_bq_notch(ctx, args),
+        "resonz" => compile_resonz(ctx, args),
         "tap" | "probe" => compile_tap(ctx, args),
 
         // ========== Envelope ==========
@@ -3472,6 +3473,34 @@ fn compile_biquad_mode(ctx: &mut CompilerContext, args: Vec<Expr>, mode: usize) 
         frequency: Signal::Node(frequency_node),
         q: Signal::Node(q_node),
         mode,
+        state: BiquadState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Resonz (resonant bandpass) filter
+/// Usage: signal # resonz frequency q
+fn compile_resonz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    use crate::unified_graph::BiquadState;
+
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 2 {
+        return Err(format!(
+            "resonz requires 2 parameters (frequency, q), got {}",
+            params.len()
+        ));
+    }
+
+    let frequency_node = compile_expr(ctx, params[0].clone())?;
+    let q_node = compile_expr(ctx, params[1].clone())?;
+
+    let node = SignalNode::Resonz {
+        input: input_signal,
+        frequency: Signal::Node(frequency_node),
+        q: Signal::Node(q_node),
         state: BiquadState::default(),
     };
 
