@@ -962,6 +962,7 @@ fn compile_function_call(
         "fm" => compile_fm(ctx, args),
         "pm" => compile_pm(ctx, args),
         "blip" => compile_blip(ctx, args),
+        "vco" => compile_vco(ctx, args),
         "wavetable" => compile_wavetable(ctx, args),
         "granular" => compile_granular(ctx, args),
         "pluck" => compile_karplus_strong(ctx, args),
@@ -1382,6 +1383,39 @@ fn compile_blip(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
 
     let node = SignalNode::Blip {
         frequency: Signal::Node(frequency_node),
+        phase: 0.0,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile VCO (Voltage-Controlled Oscillator)
+/// Syntax: vco frequency waveform [pulse_width]
+/// Waveforms: 0=saw, 1=square, 2=triangle, 3=sine
+fn compile_vco(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() < 2 || args.len() > 3 {
+        return Err(format!(
+            "vco requires 2-3 parameters (frequency, waveform, [pulse_width]), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile parameters as signals (supports pattern modulation!)
+    let frequency_node = compile_expr(ctx, args[0].clone())?;
+    let waveform_node = compile_expr(ctx, args[1].clone())?;
+
+    // Pulse width is optional, defaults to 0.5 (50% duty cycle)
+    let pulse_width_node = if args.len() == 3 {
+        compile_expr(ctx, args[2].clone())?
+    } else {
+        // Default to 0.5
+        ctx.graph.add_node(SignalNode::Constant { value: 0.5 })
+    };
+
+    let node = SignalNode::VCO {
+        frequency: Signal::Node(frequency_node),
+        waveform: Signal::Node(waveform_node),
+        pulse_width: Signal::Node(pulse_width_node),
         phase: 0.0,
     };
 

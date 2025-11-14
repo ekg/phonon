@@ -495,6 +495,18 @@ pub enum SignalNode {
         phase: f32,         // Current phase (0.0 to 1.0)
     },
 
+    /// VCO (Voltage-Controlled Oscillator)
+    /// Analog-style oscillator with multiple waveforms and PWM
+    /// Models classic synthesizer oscillators (Moog, ARP, Sequential)
+    /// Waveforms: 0=saw, 1=square, 2=triangle, 3=sine
+    /// Band-limited using PolyBLEP algorithm
+    VCO {
+        frequency: Signal,    // Oscillator frequency in Hz
+        waveform: Signal,     // Waveform selection (0-3)
+        pulse_width: Signal,  // Pulse width for square wave (0.0-1.0, default 0.5)
+        phase: f32,           // Current phase (0.0 to 1.0)
+    },
+
     /// White noise generator
     /// Generates uniformly distributed random samples in range [-1, 1]
     WhiteNoise,
@@ -4346,6 +4358,72 @@ impl UnifiedSignalGraph {
                 // Update phase for next sample
                 if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
                     if let SignalNode::Blip { phase: p, .. } = node {
+                        *p += phase_inc;
+                        if *p >= 1.0 {
+                            *p -= 1.0;
+                        }
+                    }
+                }
+
+                sample
+            }
+
+            SignalNode::VCO {
+                frequency,
+                waveform,
+                pulse_width,
+                phase,
+            } => {
+                // Analog-style VCO with multiple waveforms and PolyBLEP anti-aliasing
+                let freq = self.eval_signal(&frequency).max(0.0);
+                let waveform_select = self.eval_signal(&waveform);
+                let pw = self.eval_signal(&pulse_width).clamp(0.01, 0.99);
+
+                let phase_val = phase;
+                let phase_inc = freq / self.sample_rate;
+
+                // PolyBLEP function for band-limiting discontinuities
+                fn poly_blep(t: f32, dt: f32) -> f32 {
+                    if t < dt {
+                        let t = t / dt;
+                        2.0 * t - t * t - 1.0
+                    } else if t > 1.0 - dt {
+                        let t = (t - 1.0) / dt;
+                        t * t + 2.0 * t + 1.0
+                    } else {
+                        0.0
+                    }
+                }
+
+                // Generate waveform based on selection
+                let sample = if waveform_select < 0.5 {
+                    // 0: Saw wave (ramp down from 1 to -1)
+                    let mut s = 2.0 * phase_val - 1.0;
+                    s -= poly_blep(phase_val, phase_inc);
+                    s
+                } else if waveform_select < 1.5 {
+                    // 1: Square wave with PWM
+                    let mut s = if phase_val < pw { 1.0 } else { -1.0 };
+                    s += poly_blep(phase_val, phase_inc);
+                    s -= poly_blep((phase_val + (1.0 - pw)).rem_euclid(1.0), phase_inc);
+                    s
+                } else if waveform_select < 2.5 {
+                    // 2: Triangle wave (integrate square wave)
+                    // Triangle is band-limited by nature, no PolyBLEP needed
+                    let triangle_val = if phase_val < 0.5 {
+                        4.0 * phase_val - 1.0
+                    } else {
+                        3.0 - 4.0 * phase_val
+                    };
+                    triangle_val
+                } else {
+                    // 3: Sine wave (naturally band-limited)
+                    (2.0 * PI * phase_val).sin()
+                };
+
+                // Update phase for next sample
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::VCO { phase: p, .. } = node {
                         *p += phase_inc;
                         if *p >= 1.0 {
                             *p -= 1.0;

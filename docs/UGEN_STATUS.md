@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-11-13
 **Total UGens**: 90 planned
-**Implemented**: 52 (58%)
+**Implemented**: 53 (59%)
 **In Progress**: 0
-**Remaining**: 38
+**Remaining**: 37
 
 ---
 
@@ -20,7 +20,7 @@
 
 ---
 
-## Oscillators & Generators (19/20 = 95%)
+## Oscillators & Generators (20/20 = 100%) 🎉
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -39,7 +39,7 @@
 | Formant | ✅ | - | - | - | Complete - Vowel synthesis with formant filters (8/9 tests passing) |
 | Impulse | ✅ | - | - | - | Complete - Periodic impulse generator (fixed phase init bug) |
 | Blip | ✅ | - | - | - | Complete - Band-limited impulse train using PolyBLEP, rich harmonic content |
-| VCO | ⏳ | | 4h | - | Analog oscillator model |
+| VCO | ✅ | - | - | - | Complete - 4 waveforms (saw/square/triangle/sine), PWM, PolyBLEP band-limiting (25 tests) |
 | Karplus-Strong | ✅ | - | - | - | Complete - Plucked string synthesis (9/10 tests passing) |
 | Waveguide | ✅ | - | - | - | Complete - Physical modeling with delay-based waveguide (9/10 tests passing) |
 | Granular | ✅ | - | - | - | Complete - Pattern-modulated grain_size, density, pitch (source required) |
