@@ -66,10 +66,9 @@ Date: 2025-10-16
    - Need: reverb, delay, distortion, compress, bitcrush
    - Estimated: 2-3 days
 
-3. **Sample bank 2-arg form** - Not implemented
-   - Have: `s("bd:0")` ✅
-   - Need: `s("bd", "0 1 2")` ❌
-   - Estimated: 4-6 hours
+3. **Sample bank selection** - ✅ COMPLETE
+   - Have: `s "bd:0 bd:1 bd:2"` ✅ (inline form)
+   - Design decision: No 2-arg form needed (inline is final)
 
 #### ❌ Documentation Updates Needed
 1. Update all docs from `$` → `$` and `#` → `#`

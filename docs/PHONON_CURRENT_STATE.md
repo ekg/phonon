@@ -213,10 +213,10 @@ out = (~kick + ~bass * 0.5) # hpf(~lfo * 500 + 200, 0.7)
    panic        # Kill all voices + outputs
    ```
 
-2. **Sample bank selection** (HIGH PRIORITY):
+2. **Sample bank selection** - ✅ COMPLETE:
    ```
-   s("bd:0 bd:1 bd:2")           # Sample number inline
-   s("bd", "0 1 2 3")            # Pattern for sample number
+   s "bd:0 bd:1 bd:2"            # Sample number inline ✅ WORKING
+   -- No 2-arg form (inline is final design)
    ```
 
 3. **Basic pattern transformations** (MEDIUM PRIORITY):
@@ -318,10 +318,10 @@ hpf(cutoff, q)         # High-pass filter
 - [ ] Add `hush N` (silence specific output)
 - [ ] Add `panic` keyword (kill voices + silence)
 
-### 3. Implement Sample Selection (THIS WEEK)
-- [ ] Add `s("bd:0 bd:1")` syntax
-- [ ] Add `s("bd", "0 1 2")` two-arg form
-- [ ] Update sample loader to support numbered banks
+### 3. Implement Sample Selection - ✅ COMPLETE
+- [x] Add `s "bd:0 bd:1"` syntax ✅ WORKING
+- [x] Update sample loader to support numbered banks ✅ WORKING
+- Design decision: No 2-arg form (inline is final)
 
 ### 4. Pattern Transformations (NEXT SPRINT)
 Start with just 5 essential ones:
