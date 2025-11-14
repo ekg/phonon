@@ -485,6 +485,16 @@ pub enum SignalNode {
         carrier_phase: f32,     // Carrier phase (0.0 to 1.0)
     },
 
+    /// Blip oscillator (Band-Limited Impulse Train)
+    /// Generates periodic band-limited impulses using PolyBLEP algorithm
+    /// Creates a train of narrow pulses that are band-limited to prevent aliasing
+    /// Rich harmonic content up to Nyquist frequency
+    /// Useful for percussive sounds and as building block for other waveforms
+    Blip {
+        frequency: Signal,  // Impulse train frequency in Hz
+        phase: f32,         // Current phase (0.0 to 1.0)
+    },
+
     /// White noise generator
     /// Generates uniformly distributed random samples in range [-1, 1]
     WhiteNoise,
@@ -4291,6 +4301,54 @@ impl UnifiedSignalGraph {
                         *cp += carrier_f / self.sample_rate;
                         if *cp >= 1.0 {
                             *cp -= 1.0;
+                        }
+                    }
+                }
+
+                sample
+            }
+
+            SignalNode::Blip { frequency, phase } => {
+                // Band-limited impulse train using PolyBLEP algorithm
+                let freq = self.eval_signal(&frequency).max(0.0);
+
+                // Naive impulse: 1.0 at phase crossing, 0.0 elsewhere
+                // Width of impulse is 1 sample
+                let naive_impulse = if phase < 0.001 { 1.0 } else { 0.0 };
+
+                // PolyBLEP correction for band-limiting
+                // Calculate phase increment per sample
+                let phase_inc = freq / self.sample_rate;
+
+                // PolyBLEP function: corrects discontinuities
+                fn poly_blep(phase: f32, phase_inc: f32) -> f32 {
+                    // If we're near the phase wrap point (0.0), apply correction
+                    if phase < phase_inc {
+                        // Rising edge (phase wrapping from 1.0 to 0.0)
+                        let t = phase / phase_inc;
+                        return t + t - t * t - 1.0;
+                    } else if phase > 1.0 - phase_inc {
+                        // Falling edge (approaching wrap)
+                        let t = (phase - 1.0) / phase_inc;
+                        return t * t + t + t + 1.0;
+                    }
+                    0.0
+                }
+
+                // Generate band-limited pulse
+                // Pulse is derivative of sawtooth, band-limited with PolyBLEP
+                let mut sample = naive_impulse;
+                sample -= poly_blep(phase, phase_inc);
+
+                // Scale to reasonable amplitude (impulse train is naturally quiet)
+                sample *= 0.5;
+
+                // Update phase for next sample
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Blip { phase: p, .. } = node {
+                        *p += phase_inc;
+                        if *p >= 1.0 {
+                            *p -= 1.0;
                         }
                     }
                 }

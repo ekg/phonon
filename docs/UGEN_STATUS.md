@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-11-13
 **Total UGens**: 90 planned
-**Implemented**: 50 (56%)
+**Implemented**: 52 (58%)
 **In Progress**: 0
-**Remaining**: 40
+**Remaining**: 38
 
 ---
 
@@ -20,7 +20,7 @@
 
 ---
 
-## Oscillators & Generators (17/20 = 85%)
+## Oscillators & Generators (19/20 = 95%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -38,10 +38,10 @@
 | SuperSaw | ✅ | - | - | - | Complete - 7-voice detuned saw stack with beating/chorus (9 tests passing) |
 | Formant | ✅ | - | - | - | Complete - Vowel synthesis with formant filters (8/9 tests passing) |
 | Impulse | ✅ | - | - | - | Complete - Periodic impulse generator (fixed phase init bug) |
-| Blip | ⏳ | | 2h | - | Band-limited impulse |
+| Blip | ✅ | - | - | - | Complete - Band-limited impulse train using PolyBLEP, rich harmonic content |
 | VCO | ⏳ | | 4h | - | Analog oscillator model |
 | Karplus-Strong | ✅ | - | - | - | Complete - Plucked string synthesis (9/10 tests passing) |
-| Waveguide | ⏳ | | 6h | 📚 | Physical modeling |
+| Waveguide | ✅ | - | - | - | Complete - Physical modeling with delay-based waveguide (9/10 tests passing) |
 | Granular | ✅ | - | - | - | Complete - Pattern-modulated grain_size, density, pitch (source required) |
 | Additive | ✅ | - | - | - | Complete - Harmonic series synthesis (10/11 tests passing) |
 

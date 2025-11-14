@@ -961,6 +961,7 @@ fn compile_function_call(
         "tri" | "triangle" => compile_oscillator(ctx, Waveform::Triangle, args),
         "fm" => compile_fm(ctx, args),
         "pm" => compile_pm(ctx, args),
+        "blip" => compile_blip(ctx, args),
         "wavetable" => compile_wavetable(ctx, args),
         "granular" => compile_granular(ctx, args),
         "pluck" => compile_karplus_strong(ctx, args),
@@ -1361,6 +1362,27 @@ fn compile_pm(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Stri
         modulation: Signal::Node(modulation_node),
         mod_index: Signal::Node(index_node),
         carrier_phase: 0.0,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Blip oscillator (band-limited impulse train)
+/// Syntax: blip frequency
+fn compile_blip(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "blip requires 1 parameter (frequency), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile frequency parameter as signal (supports pattern modulation!)
+    let frequency_node = compile_expr(ctx, args[0].clone())?;
+
+    let node = SignalNode::Blip {
+        frequency: Signal::Node(frequency_node),
+        phase: 0.0,
     };
 
     Ok(ctx.graph.add_node(node))
