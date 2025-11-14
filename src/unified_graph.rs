@@ -707,6 +707,16 @@ pub enum SignalNode {
         state: BiquadState, // Filter state (reuses biquad implementation)
     },
 
+    /// RHPF - Resonant Highpass Filter
+    /// Highpass filter with resonant peak at cutoff
+    /// Used for removing low end, creating air, and rhythmic filtering
+    RHPF {
+        input: Signal,      // Input signal
+        cutoff: Signal,     // Cutoff frequency in Hz
+        resonance: Signal,  // Resonance/Q (0.5 to ~20.0)
+        state: BiquadState, // Filter state (reuses biquad implementation)
+    },
+
     /// Pan2 Left channel (equal-power panning law)
     /// Takes mono input and pan position (-1=left, 0=center, 1=right)
     /// Outputs left channel component
@@ -5385,6 +5395,78 @@ impl UnifiedSignalGraph {
                 // Update state
                 if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
                     if let SignalNode::RLPF { state: s, .. } = node {
+                        s.x2 = x1;
+                        s.x1 = input_val;
+                        s.y2 = y1;
+                        s.y1 = final_output;
+                        s.b0 = b0_norm;
+                        s.b1 = b1_norm;
+                        s.b2 = b2_norm;
+                        s.a1 = a1_norm;
+                        s.a2 = a2_norm;
+                    }
+                }
+
+                final_output
+            }
+
+            SignalNode::RHPF {
+                input,
+                cutoff,
+                resonance,
+                state,
+            } => {
+                // RHPF - Resonant Highpass Filter
+                // Highpass filter with resonance peak at cutoff
+                // Implemented as biquad highpass with Q parameter
+
+                let input_val = self.eval_signal(&input);
+                let freq = self.eval_signal(&cutoff).clamp(10.0, self.sample_rate * 0.45);
+                let q_val = self.eval_signal(&resonance).clamp(0.1, 20.0);
+
+                // Calculate normalized frequency
+                let omega = 2.0 * std::f32::consts::PI * freq / self.sample_rate;
+                let sin_omega = omega.sin();
+                let cos_omega = omega.cos();
+                let alpha = sin_omega / (2.0 * q_val);
+
+                // Highpass filter coefficients (RBJ)
+                let b0 = (1.0 + cos_omega) / 2.0;
+                let b1 = -(1.0 + cos_omega);
+                let b2 = b0;
+                let a0 = 1.0 + alpha;
+                let a1 = -2.0 * cos_omega;
+                let a2 = 1.0 - alpha;
+
+                // Normalize coefficients by a0
+                let b0_norm = b0 / a0;
+                let b1_norm = b1 / a0;
+                let b2_norm = b2 / a0;
+                let a1_norm = a1 / a0;
+                let a2_norm = a2 / a0;
+
+                // Get current state
+                let x1 = state.x1;
+                let x2 = state.x2;
+                let y1 = state.y1;
+                let y2 = state.y2;
+
+                // Apply biquad difference equation
+                let output = b0_norm * input_val + b1_norm * x1 + b2_norm * x2 - a1_norm * y1 - a2_norm * y2;
+
+                // Clamp output to prevent runaway values
+                let output_clamped = output.clamp(-10.0, 10.0);
+
+                // Check for NaN and reset if needed
+                let final_output = if output_clamped.is_finite() {
+                    output_clamped
+                } else {
+                    0.0
+                };
+
+                // Update state
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::RHPF { state: s, .. } = node {
                         s.x2 = x1;
                         s.x1 = input_val;
                         s.y2 = y1;

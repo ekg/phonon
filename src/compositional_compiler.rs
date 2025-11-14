@@ -1054,6 +1054,7 @@ fn compile_function_call(
         "bq_notch" => compile_bq_notch(ctx, args),
         "resonz" => compile_resonz(ctx, args),
         "rlpf" => compile_rlpf(ctx, args),
+        "rhpf" => compile_rhpf(ctx, args),
         "tap" | "probe" => compile_tap(ctx, args),
 
         // ========== Envelope ==========
@@ -3527,6 +3528,34 @@ fn compile_rlpf(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
     let resonance_node = compile_expr(ctx, params[1].clone())?;
 
     let node = SignalNode::RLPF {
+        input: input_signal,
+        cutoff: Signal::Node(cutoff_node),
+        resonance: Signal::Node(resonance_node),
+        state: BiquadState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile RHPF (resonant highpass) filter
+/// Usage: signal # rhpf cutoff resonance
+fn compile_rhpf(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    use crate::unified_graph::BiquadState;
+
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 2 {
+        return Err(format!(
+            "rhpf requires 2 parameters (cutoff, resonance), got {}",
+            params.len()
+        ));
+    }
+
+    let cutoff_node = compile_expr(ctx, params[0].clone())?;
+    let resonance_node = compile_expr(ctx, params[1].clone())?;
+
+    let node = SignalNode::RHPF {
         input: input_signal,
         cutoff: Signal::Node(cutoff_node),
         resonance: Signal::Node(resonance_node),
