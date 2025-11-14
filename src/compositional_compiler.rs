@@ -1048,6 +1048,10 @@ fn compile_function_call(
         "svf_hp" => compile_svf_hp(ctx, args),
         "svf_bp" => compile_svf_bp(ctx, args),
         "svf_notch" => compile_svf_notch(ctx, args),
+        "bq_lp" => compile_bq_lp(ctx, args),
+        "bq_hp" => compile_bq_hp(ctx, args),
+        "bq_bp" => compile_bq_bp(ctx, args),
+        "bq_notch" => compile_bq_notch(ctx, args),
         "tap" | "probe" => compile_tap(ctx, args),
 
         // ========== Envelope ==========
@@ -3417,6 +3421,58 @@ fn compile_svf_mode(ctx: &mut CompilerContext, args: Vec<Expr>, mode: usize) -> 
         resonance: Signal::Node(resonance_node),
         mode,
         state: SVFState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Biquad lowpass filter
+/// Usage: signal # bq_lp frequency q
+fn compile_bq_lp(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    compile_biquad_mode(ctx, args, 0)
+}
+
+/// Compile Biquad highpass filter
+/// Usage: signal # bq_hp frequency q
+fn compile_bq_hp(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    compile_biquad_mode(ctx, args, 1)
+}
+
+/// Compile Biquad bandpass filter
+/// Usage: signal # bq_bp frequency q
+fn compile_bq_bp(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    compile_biquad_mode(ctx, args, 2)
+}
+
+/// Compile Biquad notch filter
+/// Usage: signal # bq_notch frequency q
+fn compile_bq_notch(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    compile_biquad_mode(ctx, args, 3)
+}
+
+/// Helper function to compile Biquad with specified mode
+fn compile_biquad_mode(ctx: &mut CompilerContext, args: Vec<Expr>, mode: usize) -> Result<NodeId, String> {
+    use crate::unified_graph::BiquadState;
+
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 2 {
+        return Err(format!(
+            "biquad requires 2 parameters (frequency, q), got {}",
+            params.len()
+        ));
+    }
+
+    let frequency_node = compile_expr(ctx, params[0].clone())?;
+    let q_node = compile_expr(ctx, params[1].clone())?;
+
+    let node = SignalNode::Biquad {
+        input: input_signal,
+        frequency: Signal::Node(frequency_node),
+        q: Signal::Node(q_node),
+        mode,
+        state: BiquadState::default(),
     };
 
     Ok(ctx.graph.add_node(node))

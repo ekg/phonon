@@ -10,6 +10,7 @@ libc = "0.2"
 # Audio synthesis
 fundsp = "0.18"
 glicol = "0.13"
+biquad = "0.4"  # High-quality IIR filters (lowpass, highpass, bandpass, notch)
 
 # Audio output - cross-platform (JACK, ALSA, OpenSL ES on Android)
 cpal = "0.15"

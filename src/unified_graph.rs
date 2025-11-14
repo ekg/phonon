@@ -676,6 +676,17 @@ pub enum SignalNode {
         state: SVFState,    // Filter state (integrators)
     },
 
+    /// Biquad Filter (high-quality second-order IIR)
+    /// Based on RBJ Audio EQ Cookbook formulas
+    /// Mode: 0=lowpass, 1=highpass, 2=bandpass, 3=notch
+    Biquad {
+        input: Signal,      // Input signal
+        frequency: Signal,  // Cutoff/center frequency in Hz
+        q: Signal,          // Quality factor (0.1 to ~20.0)
+        mode: usize,        // Filter mode (0=LP, 1=HP, 2=BP, 3=Notch)
+        state: BiquadState, // Filter state (coefficients and history)
+    },
+
     /// Pan2 Left channel (equal-power panning law)
     /// Takes mono input and pan position (-1=left, 0=center, 1=right)
     /// Outputs left channel component
@@ -1748,6 +1759,38 @@ pub struct SVFState {
 impl Default for SVFState {
     fn default() -> Self {
         Self { low: 0.0, band: 0.0 }
+    }
+}
+
+/// Biquad Filter state
+/// High-quality second-order IIR filter (uses `biquad` crate)
+/// Stores filter coefficients and internal state
+#[derive(Debug, Clone)]
+pub struct BiquadState {
+    pub x1: f32, // Previous input sample 1
+    pub x2: f32, // Previous input sample 2
+    pub y1: f32, // Previous output sample 1
+    pub y2: f32, // Previous output sample 2
+    pub b0: f32, // Feedforward coefficient 0
+    pub b1: f32, // Feedforward coefficient 1
+    pub b2: f32, // Feedforward coefficient 2
+    pub a1: f32, // Feedback coefficient 1
+    pub a2: f32, // Feedback coefficient 2
+}
+
+impl Default for BiquadState {
+    fn default() -> Self {
+        Self {
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
+            b0: 1.0,
+            b1: 0.0,
+            b2: 0.0,
+            a1: 0.0,
+            a2: 0.0,
+        }
     }
 }
 
@@ -5071,6 +5114,125 @@ impl UnifiedSignalGraph {
                     3 => notch,      // Notch
                     _ => low,        // Default to lowpass
                 }
+            }
+
+            SignalNode::Biquad {
+                input,
+                frequency,
+                q,
+                mode,
+                state,
+            } => {
+                // Biquad Filter (RBJ Audio EQ Cookbook)
+                // High-quality second-order IIR filter with multiple modes
+
+                let input_val = self.eval_signal(&input);
+                let freq = self.eval_signal(&frequency).clamp(10.0, self.sample_rate * 0.45);
+                let q_val = self.eval_signal(&q).clamp(0.1, 20.0); // Prevent instability
+
+                // Calculate normalized frequency
+                let omega = 2.0 * std::f32::consts::PI * freq / self.sample_rate;
+                let sin_omega = omega.sin();
+                let cos_omega = omega.cos();
+                let alpha = sin_omega / (2.0 * q_val);
+
+                // Calculate coefficients based on mode (RBJ formulas)
+                let (b0, b1, b2, a0, a1, a2) = match mode {
+                    0 => {
+                        // Lowpass
+                        let b1_temp = 1.0 - cos_omega;
+                        let b0_temp = b1_temp / 2.0;
+                        let b2_temp = b0_temp;
+                        let a0_temp = 1.0 + alpha;
+                        let a1_temp = -2.0 * cos_omega;
+                        let a2_temp = 1.0 - alpha;
+                        (b0_temp, b1_temp, b2_temp, a0_temp, a1_temp, a2_temp)
+                    }
+                    1 => {
+                        // Highpass
+                        let b0_temp = (1.0 + cos_omega) / 2.0;
+                        let b1_temp = -(1.0 + cos_omega);
+                        let b2_temp = b0_temp;
+                        let a0_temp = 1.0 + alpha;
+                        let a1_temp = -2.0 * cos_omega;
+                        let a2_temp = 1.0 - alpha;
+                        (b0_temp, b1_temp, b2_temp, a0_temp, a1_temp, a2_temp)
+                    }
+                    2 => {
+                        // Bandpass (constant skirt gain)
+                        let b0_temp = alpha;
+                        let b1_temp = 0.0;
+                        let b2_temp = -alpha;
+                        let a0_temp = 1.0 + alpha;
+                        let a1_temp = -2.0 * cos_omega;
+                        let a2_temp = 1.0 - alpha;
+                        (b0_temp, b1_temp, b2_temp, a0_temp, a1_temp, a2_temp)
+                    }
+                    3 => {
+                        // Notch
+                        let b0_temp = 1.0;
+                        let b1_temp = -2.0 * cos_omega;
+                        let b2_temp = 1.0;
+                        let a0_temp = 1.0 + alpha;
+                        let a1_temp = -2.0 * cos_omega;
+                        let a2_temp = 1.0 - alpha;
+                        (b0_temp, b1_temp, b2_temp, a0_temp, a1_temp, a2_temp)
+                    }
+                    _ => {
+                        // Default to lowpass
+                        let b1_temp = 1.0 - cos_omega;
+                        let b0_temp = b1_temp / 2.0;
+                        let b2_temp = b0_temp;
+                        let a0_temp = 1.0 + alpha;
+                        let a1_temp = -2.0 * cos_omega;
+                        let a2_temp = 1.0 - alpha;
+                        (b0_temp, b1_temp, b2_temp, a0_temp, a1_temp, a2_temp)
+                    }
+                };
+
+                // Normalize coefficients by a0
+                let b0_norm = b0 / a0;
+                let b1_norm = b1 / a0;
+                let b2_norm = b2 / a0;
+                let a1_norm = a1 / a0;
+                let a2_norm = a2 / a0;
+
+                // Get current state
+                let x1 = state.x1;
+                let x2 = state.x2;
+                let y1 = state.y1;
+                let y2 = state.y2;
+
+                // Apply biquad difference equation (Direct Form II)
+                // y[n] = b0*x[n] + b1*x[n-1] + b2*x[n-2] - a1*y[n-1] - a2*y[n-2]
+                let output = b0_norm * input_val + b1_norm * x1 + b2_norm * x2 - a1_norm * y1 - a2_norm * y2;
+
+                // Clamp output to prevent runaway values
+                let output_clamped = output.clamp(-10.0, 10.0);
+
+                // Check for NaN and reset if needed
+                let final_output = if output_clamped.is_finite() {
+                    output_clamped
+                } else {
+                    0.0
+                };
+
+                // Update state
+                if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Biquad { state: s, .. } = node {
+                        s.x2 = x1;
+                        s.x1 = input_val;
+                        s.y2 = y1;
+                        s.y1 = final_output;
+                        s.b0 = b0_norm;
+                        s.b1 = b1_norm;
+                        s.b2 = b2_norm;
+                        s.a1 = a1_norm;
+                        s.a2 = a2_norm;
+                    }
+                }
+
+                final_output
             }
 
             SignalNode::Pan2Left { input, position } => {
