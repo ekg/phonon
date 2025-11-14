@@ -3824,85 +3824,109 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
     // 1. Standalone ADSR envelope generator: adsr 0.01 0.1 [:sustain 0.7] [:release 0.2]
     // 2. Sample envelope modifier: s "bd" # adsr 0.01 0.1 [:sustain 0.7] [:release 0.2]
 
-    // Extract input (handles chained form)
-    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+    if args.is_empty() {
+        return Err("adsr requires at least 2 parameters (attack, decay)".to_string());
+    }
 
-    // Use ParamExtractor for optional parameters
-    let extractor = ParamExtractor::new(params);
+    // Check if first argument is ChainInput (chained form)
+    let is_chained = matches!(&args[0], Expr::ChainInput(_));
 
-    // attack and decay are required
-    let attack_expr = extractor.get_required(0, "attack")?;
-    let attack_node = compile_expr(ctx, attack_expr)?;
+    if is_chained {
+        // Chained form: s "bd" # adsr 0.01 0.1 [:sustain 0.7] [:release 0.2]
+        let (input_signal, params) = extract_chain_input(ctx, &args)?;
 
-    let decay_expr = extractor.get_required(1, "decay")?;
-    let decay_node = compile_expr(ctx, decay_expr)?;
+        // Use ParamExtractor for optional parameters
+        let extractor = ParamExtractor::new(params);
 
-    // sustain and release are optional
-    let sustain_expr = extractor.get_optional(2, "sustain", 0.7);  // 70% sustain level
-    let sustain_node = compile_expr(ctx, sustain_expr)?;
+        // attack and decay are required
+        let attack_expr = extractor.get_required(0, "attack")?;
+        let attack_node = compile_expr(ctx, attack_expr)?;
 
-    let release_expr = extractor.get_optional(3, "release", 0.2);  // 200ms release
-    let release_node = compile_expr(ctx, release_expr)?;
+        let decay_expr = extractor.get_required(1, "decay")?;
+        let decay_node = compile_expr(ctx, decay_expr)?;
 
-    // Check if this is a chained modifier (for samples)
-    if let Signal::Node(sample_node_id) = input_signal {
-        // Chained form: s "bd" # adsr 0.01 0.1
+        // sustain and release are optional
+        let sustain_expr = extractor.get_optional(2, "sustain", 0.7);  // 70% sustain level
+        let sustain_node = compile_expr(ctx, sustain_expr)?;
+
+        let release_expr = extractor.get_optional(3, "release", 0.2);  // 200ms release
+        let release_node = compile_expr(ctx, release_expr)?;
 
         // Modify the Sample node to use ADSR envelope
         use crate::unified_graph::RuntimeEnvelopeType;
 
-        let sample_node = ctx
-            .graph
-            .get_node(sample_node_id)
-            .ok_or_else(|| "Invalid node reference".to_string())?;
+        if let Signal::Node(sample_node_id) = input_signal {
+            let sample_node = ctx
+                .graph
+                .get_node(sample_node_id)
+                .ok_or_else(|| "Invalid node reference".to_string())?;
 
-        if let SignalNode::Sample {
-            pattern_str,
-            pattern,
-            gain,
-            pan,
-            speed,
-            cut_group,
-            n,
-            note,
-            unit_mode,
-            loop_enabled,
-            ..
-        } = sample_node
-        {
-            // Create new Sample with ADSR envelope
-            let new_sample = SignalNode::Sample {
-                pattern_str: pattern_str.clone(),
-                pattern: pattern.clone(),
-                last_trigger_time: -1.0,
-                last_cycle: -1,
-                playback_positions: HashMap::new(),
-                gain: gain.clone(),
-                pan: pan.clone(),
-                speed: speed.clone(),
-                cut_group: cut_group.clone(),
-                n: n.clone(),
-                note: note.clone(),
-                attack: Signal::Node(attack_node),
-                release: Signal::Node(release_node),
-                envelope_type: Some(RuntimeEnvelopeType::ADSR {
-                    decay: Signal::Node(decay_node),
-                    sustain: Signal::Node(sustain_node),
-                }),
-                unit_mode: unit_mode.clone(),
-                loop_enabled: loop_enabled.clone(),
-                begin: Signal::Value(0.0),
-                end: Signal::Value(1.0),
-            };
+            if let SignalNode::Sample {
+                pattern_str,
+                pattern,
+                gain,
+                pan,
+                speed,
+                cut_group,
+                n,
+                note,
+                unit_mode,
+                loop_enabled,
+                ..
+            } = sample_node
+            {
+                // Create new Sample with ADSR envelope
+                let new_sample = SignalNode::Sample {
+                    pattern_str: pattern_str.clone(),
+                    pattern: pattern.clone(),
+                    last_trigger_time: -1.0,
+                    last_cycle: -1,
+                    playback_positions: HashMap::new(),
+                    gain: gain.clone(),
+                    pan: pan.clone(),
+                    speed: speed.clone(),
+                    cut_group: cut_group.clone(),
+                    n: n.clone(),
+                    note: note.clone(),
+                    attack: Signal::Node(attack_node),
+                    release: Signal::Node(release_node),
+                    envelope_type: Some(RuntimeEnvelopeType::ADSR {
+                        decay: Signal::Node(decay_node),
+                        sustain: Signal::Node(sustain_node),
+                    }),
+                    unit_mode: unit_mode.clone(),
+                    loop_enabled: loop_enabled.clone(),
+                    begin: Signal::Value(0.0),
+                    end: Signal::Value(1.0),
+                };
 
-            Ok(ctx.graph.add_node(new_sample))
+                Ok(ctx.graph.add_node(new_sample))
+            } else {
+                Err("adsr modifier can only be used with sample (s) patterns".to_string())
+            }
         } else {
-            Err("adsr modifier can only be used with sample (s) patterns".to_string())
+            Err("adsr modifier requires input from chain operator (#)".to_string())
         }
     } else {
         // Standalone form: adsr 0.01 0.1 [:sustain 0.7] [:release 0.2]
-        // Parameters already compiled above
         use crate::unified_graph::ADSRState;
+
+        // Use ParamExtractor for optional parameters
+        let extractor = ParamExtractor::new(args);
+
+        // attack and decay are required
+        let attack_expr = extractor.get_required(0, "attack")?;
+        let attack_node = compile_expr(ctx, attack_expr)?;
+
+        let decay_expr = extractor.get_required(1, "decay")?;
+        let decay_node = compile_expr(ctx, decay_expr)?;
+
+        // sustain and release are optional
+        let sustain_expr = extractor.get_optional(2, "sustain", 0.7);  // 70% sustain level
+        let sustain_node = compile_expr(ctx, sustain_expr)?;
+
+        let release_expr = extractor.get_optional(3, "release", 0.2);  // 200ms release
+        let release_node = compile_expr(ctx, release_expr)?;
 
         let node = SignalNode::ADSR {
             attack: Signal::Node(attack_node),
