@@ -1,11 +1,11 @@
 # UGen Implementation Status
 ## Tracking Progress Toward CSound/SuperCollider Parity
 
-**Last Updated**: 2025-10-26
+**Last Updated**: 2025-11-13
 **Total UGens**: 90 planned
-**Implemented**: 40 (44%)
+**Implemented**: 45 (50%)
 **In Progress**: 0
-**Remaining**: 50
+**Remaining**: 45
 
 ---
 
@@ -20,7 +20,7 @@
 
 ---
 
-## Oscillators & Generators (10/20 = 50%)
+## Oscillators & Generators (12/20 = 60%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -34,7 +34,7 @@
 | Pink Noise | ✅ | - | - | - | Complete - 1/f spectrum with Voss-McCartney algorithm |
 | Brown Noise | ✅ | - | - | - | Complete - 6dB/octave rolloff with random walk algorithm |
 | PM | ⏳ | | 3h | - | Phase modulation |
-| Wavetable | ⏳ | | 6h | - | Arbitrary waveforms |
+| Wavetable | ✅ | - | - | - | Complete - Pattern-modulated frequency, defaults to sine wave |
 | SuperSaw | ⏳ | | 3h | - | Detuned saw stack |
 | Formant | ⏳ | | 4h | - | Vowel synthesis |
 | Impulse | ✅ | - | - | - | Complete - Periodic impulse generator (fixed phase init bug) |
@@ -42,7 +42,7 @@
 | VCO | ⏳ | | 4h | - | Analog oscillator model |
 | Karplus-Strong | ⏳ | | 4h | - | Plucked string |
 | Waveguide | ⏳ | | 6h | 📚 | Physical modeling |
-| Grain | ⏳ | | 8h | 📚 | Granular synthesis |
+| Granular | ✅ | - | - | - | Complete - Pattern-modulated grain_size, density, pitch (source required) |
 | Additive | ⏳ | | 4h | - | Harmonic series |
 
 ---
@@ -84,7 +84,7 @@
 
 ---
 
-## Effects (9/25 = 36%)
+## Effects (13/25 = 52%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -100,9 +100,9 @@
 | Plate Reverb | ⏳ | | 8h | 📚 | Dattorro algorithm |
 | Spring Reverb | ⏳ | | 6h | - | Physical model |
 | Flanger | ✅ | - | - | - | Complete with delay modulation, feedback, and pattern-modulated depth/rate |
-| Phaser | ⏳ | | 3h | - | All-pass stages |
-| Tremolo | ⏳ | | 1h | - | Amplitude LFO |
-| Vibrato | ⏳ | | 2h | - | Pitch LFO |
+| Phaser | ✅ | - | - | - | Complete with pattern-modulated rate, depth, feedback, stages |
+| Tremolo | ✅ | - | - | - | Complete with pattern-modulated rate and depth |
+| Vibrato | ✅ | - | - | - | Complete with pattern-modulated rate and depth |
 | Freq Shift | ⏳ | | 4h | 📚 | Hilbert transform |
 | Pitch Shift | ⏳ | | 8h | 📚 | Time stretch + resample |
 | Time Stretch | ⏳ | | 8h | 📚 | Phase vocoder |
