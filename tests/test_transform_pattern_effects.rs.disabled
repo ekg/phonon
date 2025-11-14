@@ -1,7 +1,10 @@
-#[cfg(test_disabled)]
 /// Combined tests for `echo` and `segment` - pattern effect transforms
 /// - echo: creates echoes with delay and decay
 /// - segment: samples pattern n times per cycle
+///
+/// NOTE: Tests disabled - needs investigation
+#[cfg(any())] // Disabled
+mod disabled_tests {
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
@@ -30,7 +33,7 @@ fn render_dsl(code: &str, cycles: usize) -> Vec<f32> {
 fn test_echo_level1_multiplies_events() {
     // echo should create multiple delayed copies of the pattern
     let base_pattern = parse_mini_notation("bd");
-    let echo_pattern = base_pattern.clone().echo(3, 0.25, 0.5);
+    let echo_pattern = base_pattern.clone().echo(3, Pattern::pure(0.25), Pattern::pure(0.5));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -52,7 +55,7 @@ fn test_echo_level1_multiplies_events() {
 fn test_echo_level1_timing_delays() {
     // Verify echo timing delays are correct
     let pattern = parse_mini_notation("bd");
-    let echo_pattern = pattern.clone().echo(3, 0.25, 0.5);
+    let echo_pattern = pattern.clone().echo(3, Pattern::pure(0.25), Pattern::pure(0.5));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -105,7 +108,7 @@ fn test_echo_level1_event_count() {
         };
 
         base_total += pattern.query(&state).len();
-        echo_total += pattern.clone().echo(4, 0.125, 0.6).query(&state).len();
+        echo_total += pattern.clone().echo(4, Pattern::pure(0.125), Pattern::pure(0.6)).query(&state).len();
     }
 
     assert_eq!(base_total, 16, "Base should have 2 events × 8 cycles");
@@ -124,7 +127,7 @@ fn test_echo_level1_event_count() {
 fn test_echo_level1_preserves_values() {
     // echo should preserve event values in all copies
     let pattern = parse_mini_notation("bd sn");
-    let echo_pattern = pattern.clone().echo(2, 0.25, 0.5);
+    let echo_pattern = pattern.clone().echo(2, Pattern::pure(0.25), Pattern::pure(0.5));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -573,7 +576,7 @@ fn test_echo_single_repeat() {
     };
 
     let base_haps = pattern.query(&state);
-    let echo_haps = pattern.clone().echo(1, 0.25, 0.5).query(&state);
+    let echo_haps = pattern.clone().echo(1, Pattern::pure(0.25), Pattern::pure(0.5)).query(&state);
 
     assert_eq!(
         echo_haps.len(),
@@ -594,7 +597,7 @@ fn test_echo_zero_delay() {
         controls: HashMap::new(),
     };
 
-    let echo_haps = pattern.clone().echo(3, 0.0, 0.5).query(&state);
+    let echo_haps = pattern.clone().echo(3, Pattern::pure(0.0), Pattern::pure(0.5)).query(&state);
 
     assert_eq!(echo_haps.len(), 3, "Should have 3 events");
 
@@ -657,7 +660,7 @@ fn test_segment_single_event() {
 fn test_echo_preserves_structure() {
     // echo should preserve relative timing structure
     let pattern = parse_mini_notation("bd ~ sn ~");
-    let echo_pattern = pattern.clone().echo(2, 0.5, 0.6);
+    let echo_pattern = pattern.clone().echo(2, Pattern::pure(0.5), Pattern::pure(0.6));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -697,4 +700,5 @@ fn test_segment_large_n() {
         "✅ segment edge case: Large n handled ({} events)",
         segment_haps.len()
     );
+}
 }

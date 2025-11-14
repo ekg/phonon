@@ -308,7 +308,9 @@ fn test_vco_triangle_soft_harmonics() {
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
     let max_magnitude = magnitudes.iter().cloned().fold(0.0f32, f32::max);
-    let threshold = max_magnitude * 0.1;
+    // Triangle harmonics fall off as 1/n², so use lower threshold
+    // Fundamental=1.0, 3rd=1/9≈0.11, 5th=1/25=0.04
+    let threshold = max_magnitude * 0.03;  // Lower threshold to catch weaker harmonics
     let peaks = find_spectral_peaks(&frequencies, &magnitudes, threshold);
 
     // Triangle should have fewer prominent harmonics than saw/square

@@ -109,7 +109,7 @@ fn test_swing_level1_swing_amount() {
     let base_haps = pattern.query(&state);
 
     for amount in [0.05, 0.1, 0.15, 0.2] {
-        let swing_haps = pattern.clone().swing(amount).query(&state);
+        let swing_haps = pattern.clone().swing(Pattern::pure(amount)).query(&state);
 
         // Check odd event (index 1) is delayed by the specified amount
         let shift = swing_haps[1].part.begin.to_float() - base_haps[1].part.begin.to_float();

@@ -12,7 +12,7 @@
 /// - Level 2: Onset detection (not applicable - these are API-only)
 /// - Level 3: Behavioral verification (comparing with expected compositions)
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Fraction, State, TimeSpan}, Pattern};
+use phonon::pattern::{Fraction, State, TimeSpan, Pattern};
 use std::collections::HashMap;
 
 // ============= Level 1: Pattern Query Tests =============

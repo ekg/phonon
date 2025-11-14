@@ -186,7 +186,7 @@ fn test_range_negative_values() {
         controls: HashMap::new(),
     };
 
-    let ranged = sine().range(-1.0, 1.0);
+    let ranged = sine().range(Pattern::pure(-1.0), Pattern::pure(1.0));
 
     let ranged_haps = ranged.query(&state);
 
@@ -242,7 +242,7 @@ fn test_quantize_different_step_counts() {
 
     for steps in [2.0, 4.0, 8.0, 16.0] {
         let saw_pattern = saw();
-        let quantized = saw_pattern.quantize(steps);
+        let quantized = saw_pattern.quantize(Pattern::pure(steps));
 
         let quant_haps = quantized.query(&state);
 
@@ -275,7 +275,7 @@ fn test_smooth_level1_interpolates() {
     };
 
     let saw_pattern = saw();
-    let smoothed = saw_pattern.clone().smooth(0.5);
+    let smoothed = saw_pattern.clone().smooth(Pattern::pure(0.5));
 
     let base_haps = saw_pattern.query(&state);
     let smooth_haps = smoothed.query(&state);
@@ -302,7 +302,7 @@ fn test_smooth_amount_zero_stays_previous() {
     };
 
     let sin_pattern = sine();
-    let smoothed = sin_pattern.clone().smooth(0.0);
+    let smoothed = sin_pattern.clone().smooth(Pattern::pure(0.0));
 
     let base_haps = sin_pattern.query(&state);
     let smooth_haps = smoothed.query(&state);
@@ -335,7 +335,7 @@ fn test_smooth_amount_one_full_smoothing() {
         controls: HashMap::new(),
     };
 
-    let smoothed = saw().smooth(1.0);
+    let smoothed = saw().smooth(Pattern::pure(1.0));
 
     let smooth_haps = smoothed.query(&state);
 
@@ -358,7 +358,7 @@ fn test_exp_level1_exponential_scaling() {
     };
 
     let saw_pattern = saw();
-    let exp_pattern = saw_pattern.clone().exp(2.0);
+    let exp_pattern = saw_pattern.clone().exp(Pattern::pure(2.0));
 
     let base_haps = saw_pattern.query(&state);
     let exp_haps = exp_pattern.query(&state);
@@ -391,7 +391,7 @@ fn test_exp_different_bases() {
 
     for base in [2.0, 10.0, std::f64::consts::E] {
         let sin_pattern = sine();
-        let exp_pattern = sin_pattern.clone().exp(base);
+        let exp_pattern = sin_pattern.clone().exp(Pattern::pure(base));
 
         let sin_haps = sin_pattern.query(&state);
         let exp_haps = exp_pattern.query(&state);
@@ -424,7 +424,7 @@ fn test_log_level1_logarithmic_scaling() {
     };
 
     let saw_pattern = saw().range(Pattern::pure(1.0), Pattern::pure(100.0)); // Avoid log(0)
-    let log_pattern = saw_pattern.clone().log(10.0);
+    let log_pattern = saw_pattern.clone().log(Pattern::pure(10.0));
 
     let base_haps = saw_pattern.query(&state);
     let log_haps = log_pattern.query(&state);
@@ -458,7 +458,7 @@ fn test_log_exp_inverse_relationship() {
     let sin_pattern = sine();
 
     // exp then log should return original (approximately)
-    let transformed = sin_pattern.clone().exp(2.0).log(2.0);
+    let transformed = sin_pattern.clone().exp(Pattern::pure(2.0)).log(Pattern::pure(2.0));
 
     let original_haps = sin_pattern.query(&state);
     let round_trip_haps = transformed.query(&state);
@@ -612,7 +612,7 @@ fn test_numeric_transforms_over_cycles() {
 
         let ranged = sin_pattern.clone().range(Pattern::pure(0.0), Pattern::pure(100.0)).query(&state);
         let quantized = sin_pattern.clone().quantize(Pattern::pure(4.0)).query(&state);
-        let smoothed = sin_pattern.clone().smooth(0.5).query(&state);
+        let smoothed = sin_pattern.clone().smooth(Pattern::pure(0.5)).query(&state);
 
         assert!(ranged.len() > 0, "Cycle {}: range produces events", cycle);
         assert!(
@@ -642,7 +642,7 @@ fn test_numeric_transforms_composition() {
     };
 
     // Chain multiple transforms
-    let composed = sine().range(Pattern::pure(0.0), Pattern::pure(1.0)).quantize(Pattern::pure(8.0)).smooth(0.3).exp(2.0);
+    let composed = sine().range(Pattern::pure(0.0), Pattern::pure(1.0)).quantize(Pattern::pure(8.0)).smooth(Pattern::pure(0.3)).exp(Pattern::pure(2.0));
 
     let haps = composed.query(&state);
 

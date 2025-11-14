@@ -1,9 +1,8 @@
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
-use phonon::pattern_ops::*;
 use std::collections::HashMap;
 
 fn main() {
-    let p = Pattern::from_string("a b").late(0.25);
+    let p = Pattern::from_string("a b").late(Pattern::pure(0.25));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),

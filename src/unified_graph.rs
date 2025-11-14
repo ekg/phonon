@@ -4321,41 +4321,38 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::Blip { frequency, phase } => {
-                // Band-limited impulse train using PolyBLEP algorithm
-                let freq = self.eval_signal(&frequency).max(0.0);
+                // Band-limited impulse train using explicit harmonic summation
+                // This is more stable and clearly band-limited than closed-form sinc
+                // Formula: blip(phase) = sum(cos(2πkφ) for k=1 to N) + 0.5
+                // where N = number of harmonics limited by Nyquist frequency
 
-                // Naive impulse: 1.0 at phase crossing, 0.0 elsewhere
-                // Width of impulse is 1 sample
-                let naive_impulse = if phase < 0.001 { 1.0 } else { 0.0 };
+                let freq = self.eval_signal(&frequency).max(0.1); // Avoid division by zero
+                let phase_val = phase;
 
-                // PolyBLEP correction for band-limiting
-                // Calculate phase increment per sample
-                let phase_inc = freq / self.sample_rate;
+                // Calculate number of harmonics before aliasing
+                // Limit to Nyquist frequency to prevent aliasing
+                let nyquist = self.sample_rate * 0.5;
+                let num_harmonics = (nyquist / freq).floor() as usize;
 
-                // PolyBLEP function: corrects discontinuities
-                fn poly_blep(phase: f32, phase_inc: f32) -> f32 {
-                    // If we're near the phase wrap point (0.0), apply correction
-                    if phase < phase_inc {
-                        // Rising edge (phase wrapping from 1.0 to 0.0)
-                        let t = phase / phase_inc;
-                        return t + t - t * t - 1.0;
-                    } else if phase > 1.0 - phase_inc {
-                        // Falling edge (approaching wrap)
-                        let t = (phase - 1.0) / phase_inc;
-                        return t * t + t + t + 1.0;
-                    }
-                    0.0
+                // Limit total harmonics for performance (max 1000)
+                let num_harmonics = num_harmonics.min(1000);
+
+                // Sum harmonics explicitly
+                // Each harmonic is a cosine wave at frequency k*fundamental
+                let mut sample = 0.0;
+                let two_pi_phase = 2.0 * PI * phase_val;
+
+                for k in 1..=num_harmonics {
+                    sample += (k as f32 * two_pi_phase).cos();
                 }
 
-                // Generate band-limited pulse
-                // Pulse is derivative of sawtooth, band-limited with PolyBLEP
-                let mut sample = naive_impulse;
-                sample -= poly_blep(phase, phase_inc);
-
-                // Scale to reasonable amplitude (impulse train is naturally quiet)
-                sample *= 0.5;
+                // Normalize to prevent clipping
+                // Peak value at phase=0 is num_harmonics (all cosines sum to 1)
+                // Divide by num_harmonics to get peak of 1.0
+                let output = sample / num_harmonics.max(1) as f32;
 
                 // Update phase for next sample
+                let phase_inc = freq / self.sample_rate;
                 if let Some(Some(node)) = self.nodes.get_mut(node_id.0) {
                     if let SignalNode::Blip { phase: p, .. } = node {
                         *p += phase_inc;
@@ -4365,7 +4362,7 @@ impl UnifiedSignalGraph {
                     }
                 }
 
-                sample
+                output
             }
 
             SignalNode::VCO {
