@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-11-13
 **Total UGens**: 90 planned
-**Implemented**: 45 (50%)
+**Implemented**: 46 (51%)
 **In Progress**: 0
-**Remaining**: 45
+**Remaining**: 44
 
 ---
 
@@ -20,7 +20,7 @@
 
 ---
 
-## Oscillators & Generators (12/20 = 60%)
+## Oscillators & Generators (13/20 = 65%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -33,7 +33,7 @@
 | Pulse (PWM) | ✅ | - | - | - | Complete with harmonic content analysis & duty cycle verification |
 | Pink Noise | ✅ | - | - | - | Complete - 1/f spectrum with Voss-McCartney algorithm |
 | Brown Noise | ✅ | - | - | - | Complete - 6dB/octave rolloff with random walk algorithm |
-| PM | ⏳ | | 3h | - | Phase modulation |
+| PM | ✅ | - | - | - | Complete - Phase modulation with external signal, spectral analysis verified |
 | Wavetable | ✅ | - | - | - | Complete - Pattern-modulated frequency, defaults to sine wave |
 | SuperSaw | ⏳ | | 3h | - | Detuned saw stack |
 | Formant | ⏳ | | 4h | - | Vowel synthesis |
