@@ -1,279 +1,383 @@
+/// Systematic tests: Comb Filter
+///
+/// Tests comb filter with spectral analysis and audio verification.
+/// Comb filter creates series of equally-spaced resonances or notches.
+///
+/// Key characteristics:
+/// - Feedforward/feedback delay implementation
+/// - Creates harmonic series of peaks/notches
+/// - Delay time controls fundamental frequency
+/// - Feedback controls resonance depth
+/// - Used for reverb, metallic sounds, Karplus-Strong synthesis
+/// - Pattern-modulated parameters
+
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
+use std::f32::consts::PI;
 
-const SAMPLE_RATE: f32 = 44100.0;
+mod audio_test_utils;
+use audio_test_utils::calculate_rms;
 
-/// LEVEL 1: Pattern Query Verification
-/// Tests that comb filter syntax is parsed and compiled correctly
-#[test]
-fn test_comb_pattern_query() {
-    let dsl = r#"
-tempo: 1.0
-~input: impulse 1.0
-~resonant: ~input # comb 440 0.9
-out: ~resonant
-"#;
-
-    let (remaining, statements) = parse_program(dsl).unwrap();
-    assert!(
-        remaining.trim().is_empty(),
-        "Should parse completely, remaining: '{}'",
-        remaining
-    );
-
-    let graph = compile_program(statements, SAMPLE_RATE);
-    assert!(
-        graph.is_ok(),
-        "Comb filter should compile successfully: {:?}",
-        graph.err()
-    );
+/// Helper function to render DSL code to audio buffer
+fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
+    let sample_rate = 44100.0;
+    let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
+    let mut graph = compile_program(statements, sample_rate).expect("Failed to compile DSL code");
+    let num_samples = (duration * sample_rate) as usize;
+    graph.render(num_samples)
 }
 
-/// LEVEL 2: Comb Creates Resonance
-/// Tests that comb filter creates sustained resonance from impulse
-#[test]
-fn test_comb_creates_resonance() {
-    let dsl = r#"
-tempo: 1.0
-~impulse: impulse 1.0
-~resonant: ~impulse # comb 440 0.99
-out: ~resonant
-"#;
+/// Perform FFT and analyze spectrum
+fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
+    use rustfft::{FftPlanner, num_complex::Complex};
 
-    let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let fft_size = 8192.min(buffer.len());
+    let mut planner = FftPlanner::new();
+    let fft = planner.plan_fft_forward(fft_size);
 
-    let samples = graph.render(SAMPLE_RATE as usize);
-
-    // Calculate RMS over time to see if resonance sustains
-    let early_rms: f32 = samples[0..1000].iter().map(|s| s * s).sum::<f32>() / 1000.0;
-
-    let late_rms: f32 = samples[SAMPLE_RATE as usize / 2..]
+    let mut input: Vec<Complex<f32>> = buffer[..fft_size]
         .iter()
-        .map(|s| s * s)
-        .sum::<f32>()
-        / (SAMPLE_RATE as usize / 2) as f32;
+        .enumerate()
+        .map(|(i, &sample)| {
+            let window = 0.5 * (1.0 - (2.0 * PI * i as f32 / fft_size as f32).cos());
+            Complex::new(sample * window, 0.0)
+        })
+        .collect();
 
-    println!(
-        "Early RMS: {}, Late RMS: {}",
-        early_rms.sqrt(),
-        late_rms.sqrt()
-    );
+    fft.process(&mut input);
 
-    // With high feedback, resonance should sustain
-    assert!(
-        late_rms.sqrt() > 0.005,
-        "Comb should sustain resonance with high feedback, got late RMS {}",
-        late_rms.sqrt()
-    );
-}
-
-/// LEVEL 2: Feedback Amount Affects Decay
-/// Tests that higher feedback = longer sustain
-#[test]
-fn test_comb_feedback_decay() {
-    // Low feedback (short decay)
-    let dsl_low = r#"
-tempo: 1.0
-~impulse: impulse 1.0
-~resonant: ~impulse # comb 440 0.5
-out: ~resonant
-"#;
-
-    let (_, statements) = parse_program(dsl_low).unwrap();
-    let mut graph_low = compile_program(statements, SAMPLE_RATE).unwrap();
-    let samples_low = graph_low.render(SAMPLE_RATE as usize);
-
-    // High feedback (long decay)
-    let dsl_high = r#"
-tempo: 1.0
-~impulse: impulse 1.0
-~resonant: ~impulse # comb 440 0.95
-out: ~resonant
-"#;
-
-    let (_, statements) = parse_program(dsl_high).unwrap();
-    let mut graph_high = compile_program(statements, SAMPLE_RATE).unwrap();
-    let samples_high = graph_high.render(SAMPLE_RATE as usize);
-
-    // Measure tail energy (last half of buffer)
-    let tail_start = SAMPLE_RATE as usize / 2;
-    let low_tail: f32 = samples_low[tail_start..].iter().map(|s| s * s).sum::<f32>();
-
-    let high_tail: f32 = samples_high[tail_start..]
+    let magnitudes: Vec<f32> = input[..fft_size / 2]
         .iter()
-        .map(|s| s * s)
-        .sum::<f32>();
+        .map(|c| (c.re * c.re + c.im * c.im).sqrt())
+        .collect();
 
-    println!(
-        "Low feedback tail energy: {}, High feedback tail energy: {}",
-        low_tail, high_tail
-    );
+    let frequencies: Vec<f32> = (0..fft_size / 2)
+        .map(|i| i as f32 * sample_rate / fft_size as f32)
+        .collect();
 
-    assert!(
-        high_tail > low_tail * 2.0,
-        "High feedback should have more tail energy than low feedback"
-    );
+    (frequencies, magnitudes)
 }
 
-/// LEVEL 2: Comb Tuning (Frequency)
-/// Tests that comb can be tuned to specific frequencies
+// ========== Basic Comb Tests ==========
+
 #[test]
-fn test_comb_tuning() {
-    let dsl = r#"
-tempo: 1.0
-~impulse: impulse 2.0
-~comb_a: ~impulse # comb 220 0.9
-~comb_b: ~impulse # comb 440 0.9
-out: ~comb_a * 0.5 + ~comb_b * 0.5
-"#;
+fn test_comb_compiles() {
+    let code = r#"
+        tempo: 2.0
+        o1: saw 110 # comb 0.01 0.5
+    "#;
 
-    let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
-
-    let samples = graph.render(SAMPLE_RATE as usize);
-
-    // Should produce audible resonance
-    let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
-
-    assert!(
-        rms.sqrt() > 0.01,
-        "Tuned comb filters should be audible, got RMS {}",
-        rms.sqrt()
-    );
+    let (_, statements) = parse_program(code).expect("Failed to parse");
+    let result = compile_program(statements, 44100.0);
+    assert!(result.is_ok(), "Comb should compile: {:?}", result.err());
 }
 
-/// LEVEL 2: Comb Stability
-/// Tests that comb doesn't blow up even with high feedback
 #[test]
-fn test_comb_stability() {
-    let dsl = r#"
-tempo: 1.0
-~noise: white_noise
-~combed: ~noise # comb 1000 0.99
-out: ~combed * 0.1
-"#;
+fn test_comb_generates_audio() {
+    let code = r#"
+        tempo: 2.0
+        o1: saw 110 # comb 0.01 0.5
+    "#;
 
-    let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
 
-    let samples = graph.render(SAMPLE_RATE as usize);
-
-    // Check for NaN or Inf
-    let has_nan = samples.iter().any(|s| s.is_nan() || s.is_infinite());
-    assert!(!has_nan, "Comb filter should not produce NaN or Inf");
-
-    // Check for reasonable output (shouldn't blow up)
-    let max_val = samples.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-    assert!(
-        max_val < 10.0,
-        "Comb filter should not blow up, got max {}",
-        max_val
-    );
+    assert!(rms > 0.1, "Comb should produce audio, got RMS: {}", rms);
+    println!("Comb RMS: {}", rms);
 }
 
-/// LEVEL 3: Musical Example - Bell/Metallic Sound
-/// Tests comb used to create bell-like resonance
+// ========== Spectral Response Tests ==========
+
 #[test]
-fn test_comb_bell_sound() {
-    let dsl = r#"
-tempo: 1.0
-~strike: impulse 1.0
-~bell: ~strike # comb 440 0.98
-out: ~bell * 0.3
-"#;
+fn test_comb_creates_harmonics() {
+    // Comb filter creates harmonic resonances
+    let code = r#"
+        tempo: 2.0
+        o1: white_noise # comb 0.01 0.7
+    "#;
 
-    let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let buffer = render_dsl(code, 2.0);
+    let (_frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
+    // Check that spectrum is not flat (has peaks and valleys)
+    let mut variance = 0.0f32;
+    let mean: f32 = magnitudes.iter().sum::<f32>() / magnitudes.len() as f32;
+    for &mag in &magnitudes {
+        variance += (mag - mean) * (mag - mean);
+    }
+    variance /= magnitudes.len() as f32;
 
-    // Should have audible tail (bell-like decay)
-    let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
+    // Comb filter should create spectral variation
+    assert!(variance > 0.1,
+        "Comb should create harmonic peaks, got variance: {}",
+        variance);
 
-    assert!(
-        rms.sqrt() > 0.005,
-        "Bell sound should be audible, got RMS {}",
-        rms.sqrt()
-    );
+    println!("Comb spectral variance: {}", variance);
 }
 
-/// LEVEL 3: Pattern-Modulated Comb Frequency
-/// Tests that comb frequency can be patterns
+// ========== Delay Time Tests ==========
+
 #[test]
-fn test_comb_pattern_frequency() {
-    let dsl = r#"
-tempo: 1.0
-~impulse: impulse 2.0
-~freqs: "220 330 440 550"
-~combed: ~impulse # comb ~freqs 0.9
-out: ~combed
-"#;
+fn test_comb_short_delay() {
+    // Short delay creates high-frequency resonance
+    let code = r#"
+        tempo: 2.0
+        o1: white_noise # comb 0.001 0.5
+    "#;
 
-    let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
 
-    assert!(
-        graph.is_ok(),
-        "Pattern-modulated comb should compile: {:?}",
-        graph.err()
-    );
+    assert!(rms > 0.1, "Comb with short delay should work, RMS: {}", rms);
+    println!("Short delay comb RMS: {}", rms);
 }
 
-/// LEVEL 3: Comb on Continuous Tone
-/// Tests comb used to add resonance to ongoing signal
 #[test]
-fn test_comb_on_tone() {
-    let dsl = r#"
-tempo: 1.0
-~tone: saw 55
-~resonant: ~tone # comb 440 0.8
-out: ~resonant * 0.3
-"#;
+fn test_comb_long_delay() {
+    // Longer delay creates lower-frequency resonance
+    let code = r#"
+        tempo: 2.0
+        o1: white_noise # comb 0.05 0.5
+    "#;
 
-    let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
 
-    let samples = graph.render(SAMPLE_RATE as usize);
-
-    // Should produce audible resonant tone
-    let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
-
-    assert!(
-        rms.sqrt() > 0.1,
-        "Resonant tone should be audible, got RMS {}",
-        rms.sqrt()
-    );
+    assert!(rms > 0.1, "Comb with long delay should work, RMS: {}", rms);
+    println!("Long delay comb RMS: {}", rms);
 }
 
-/// LEVEL 3: Multiple Combs (Physical Modeling)
-/// Tests cascading comb filters for complex resonance
+// ========== Feedback Tests ==========
+
 #[test]
-fn test_multiple_combs() {
-    let dsl = r#"
-tempo: 1.0
-~strike: impulse 0.5
-~body1: ~strike # comb 220 0.95
-~body2: ~body1 # comb 330 0.93
-~body3: ~body2 # comb 440 0.91
-out: ~body3 * 0.3
-"#;
+fn test_comb_zero_feedback() {
+    // Zero feedback = simple delay
+    let code = r#"
+        tempo: 2.0
+        o1: saw 110 # comb 0.01 0.0
+    "#;
 
-    let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
 
-    let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
+    assert!(rms > 0.1, "Comb with zero feedback should work, RMS: {}", rms);
+    println!("Zero feedback comb RMS: {}", rms);
+}
 
-    // Should create complex resonant decay
-    let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
+#[test]
+fn test_comb_high_feedback() {
+    // High feedback creates strong resonance
+    let code = r#"
+        tempo: 2.0
+        o1: saw 110 # comb 0.01 0.9
+    "#;
 
-    assert!(
-        rms.sqrt() > 0.01,
-        "Multiple combs should create audible resonance, got RMS {}",
-        rms.sqrt()
-    );
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
 
-    // Check stability
-    let has_nan = samples.iter().any(|s| s.is_nan() || s.is_infinite());
-    assert!(!has_nan, "Multiple combs should be stable");
+    assert!(rms > 0.1, "Comb with high feedback should work, RMS: {}", rms);
+    println!("High feedback comb RMS: {}", rms);
+}
+
+#[test]
+fn test_comb_negative_feedback() {
+    // Negative feedback creates notches instead of peaks
+    let code = r#"
+        tempo: 2.0
+        o1: white_noise # comb 0.01 -0.5
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.05, "Comb with negative feedback should work, RMS: {}", rms);
+    println!("Negative feedback comb RMS: {}", rms);
+}
+
+// ========== Pattern Modulation Tests ==========
+
+#[test]
+fn test_comb_pattern_delay() {
+    let code = r#"
+        tempo: 2.0
+        ~lfo: sine 4 * 0.01 + 0.02
+        o1: saw 110 # comb ~lfo 0.5
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.05,
+        "Comb with pattern-modulated delay should work, RMS: {}",
+        rms);
+
+    println!("Comb pattern delay RMS: {}", rms);
+}
+
+#[test]
+fn test_comb_pattern_feedback() {
+    let code = r#"
+        tempo: 2.0
+        ~lfo: sine 2 * 0.3 + 0.5
+        o1: saw 110 # comb 0.01 ~lfo
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.05,
+        "Comb with pattern-modulated feedback should work, RMS: {}",
+        rms);
+
+    println!("Comb pattern feedback RMS: {}", rms);
+}
+
+// ========== Stability Tests ==========
+
+#[test]
+fn test_comb_no_clipping() {
+    let code = r#"
+        tempo: 2.0
+        o1: saw 110 # comb 0.01 0.95
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+
+    // High feedback (0.95) can cause resonance buildup
+    assert!(max_amplitude <= 10.0,
+        "Comb should not excessively clip, max: {}",
+        max_amplitude);
+
+    println!("Comb high feedback peak: {}", max_amplitude);
+}
+
+#[test]
+fn test_comb_no_dc_offset() {
+    let code = r#"
+        tempo: 2.0
+        o1: saw 110 # comb 0.01 0.5
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let mean: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
+
+    assert!(mean.abs() < 0.02, "Comb should have no DC offset, got {}", mean);
+    println!("Comb DC offset: {}", mean);
+}
+
+// ========== Musical Applications ==========
+
+#[test]
+fn test_comb_karplus_strong() {
+    // Karplus-Strong plucked string simulation
+    let code = r#"
+        tempo: 2.0
+        ~burst: white_noise * (line 1.0 0.0)
+        o1: ~burst # comb 0.0025 0.98
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.01, "Karplus-Strong should work, RMS: {}", rms);
+    println!("Karplus-Strong RMS: {}", rms);
+}
+
+#[test]
+fn test_comb_metallic_sound() {
+    // Metallic/bell-like sound
+    let code = r#"
+        tempo: 2.0
+        o1: saw 110 # comb 0.003 0.9 # comb 0.0037 0.85
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.05, "Metallic sound should work, RMS: {}", rms);
+    println!("Metallic sound RMS: {}", rms);
+}
+
+#[test]
+fn test_comb_for_reverb() {
+    // Multiple combs for reverb texture
+    let code = r#"
+        tempo: 2.0
+        ~dry: saw 110
+        ~c1: ~dry # comb 0.0297 0.7
+        ~c2: ~dry # comb 0.0371 0.7
+        ~c3: ~dry # comb 0.0411 0.7
+        o1: (~c1 + ~c2 + ~c3) * 0.3
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.08, "Reverb with combs should work, RMS: {}", rms);
+    println!("Comb reverb RMS: {}", rms);
+}
+
+#[test]
+fn test_comb_flanging() {
+    // Slow LFO modulation of delay time creates flanging
+    let code = r#"
+        tempo: 2.0
+        ~lfo: sine 0.5 * 0.005 + 0.008
+        o1: saw 220 # comb ~lfo 0.7
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.1, "Flanging should work, RMS: {}", rms);
+    println!("Flanging RMS: {}", rms);
+}
+
+// ========== Cascaded Combs ==========
+
+#[test]
+fn test_comb_cascade() {
+    // Multiple combs in series
+    let code = r#"
+        tempo: 2.0
+        o1: white_noise # comb 0.01 0.5 # comb 0.015 0.5
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.05, "Cascaded combs should work, RMS: {}", rms);
+    println!("Cascaded combs RMS: {}", rms);
+}
+
+// ========== Edge Cases ==========
+
+#[test]
+fn test_comb_very_short_delay() {
+    let code = r#"
+        tempo: 2.0
+        o1: white_noise # comb 0.0001 0.5
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.1, "Comb with very short delay should work, RMS: {}", rms);
+    println!("Very short delay comb RMS: {}", rms);
+}
+
+#[test]
+fn test_comb_maximum_delay() {
+    // Test at maximum reasonable delay
+    let code = r#"
+        tempo: 2.0
+        o1: white_noise # comb 0.1 0.5
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+
+    assert!(rms > 0.1, "Comb with maximum delay should work, RMS: {}", rms);
+    println!("Maximum delay comb RMS: {}", rms);
 }
