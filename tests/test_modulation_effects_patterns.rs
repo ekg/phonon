@@ -77,7 +77,7 @@ fn test_chorus_both_patterns() {
 fn test_flanger_constant_parameters() {
     let code = r#"
         tempo: 2.0
-        o1: saw 110 # flanger 0.5 0.7
+        o1: saw 110 # flanger 0.7 0.5 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -87,23 +87,10 @@ fn test_flanger_constant_parameters() {
 
 #[test]
 fn test_flanger_pattern_rate() {
-    // Flanger with pattern-modulated rate
+    // Flanger with pattern-modulated depth (first param)
     let code = r#"
         tempo: 2.0
-        o1: saw 110 # flanger (sine 0.25 * 0.5 + 0.5) 0.7
-    "#;
-
-    let buffer = render_dsl(code, 2.0);
-    let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Flanger with pattern rate should produce audio, got RMS: {}", rms);
-}
-
-#[test]
-fn test_flanger_pattern_depth() {
-    // Flanger with pattern-modulated depth
-    let code = r#"
-        tempo: 2.0
-        o1: saw 110 # flanger 0.5 (sine 2.0 * 0.5 + 0.5)
+        o1: saw 110 # flanger (sine 0.25 * 0.5 + 0.5) 0.5 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -112,16 +99,29 @@ fn test_flanger_pattern_depth() {
 }
 
 #[test]
-fn test_flanger_both_patterns() {
-    // Flanger with both parameters as patterns
+fn test_flanger_pattern_depth() {
+    // Flanger with pattern-modulated rate (second param)
     let code = r#"
         tempo: 2.0
-        o1: saw 110 # flanger (sine 0.25 * 0.5 + 0.5) (sine 2.0 * 0.5 + 0.5)
+        o1: saw 110 # flanger 0.7 (sine 2.0 * 0.5 + 0.5) 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Flanger with both pattern params should produce audio, got RMS: {}", rms);
+    assert!(rms > 0.01, "Flanger with pattern rate should produce audio, got RMS: {}", rms);
+}
+
+#[test]
+fn test_flanger_both_patterns() {
+    // Flanger with all parameters as patterns
+    let code = r#"
+        tempo: 2.0
+        o1: saw 110 # flanger (sine 0.25 * 0.5 + 0.5) (sine 2.0 * 0.5 + 0.5) 0.5
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+    assert!(rms > 0.01, "Flanger with pattern params should produce audio, got RMS: {}", rms);
 }
 
 // ========== Phaser Tests ==========
@@ -130,7 +130,7 @@ fn test_flanger_both_patterns() {
 fn test_phaser_constant_parameters() {
     let code = r#"
         tempo: 2.0
-        o1: saw 110 # phaser 1.0 0.8
+        o1: saw 110 # phaser 1.0 0.8 0.5 4
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -143,7 +143,7 @@ fn test_phaser_pattern_rate() {
     // Phaser with pattern-modulated rate
     let code = r#"
         tempo: 2.0
-        o1: saw 110 # phaser (sine 0.5 * 1.0 + 1.0) 0.8
+        o1: saw 110 # phaser (sine 0.5 * 1.0 + 1.0) 0.8 0.5 4
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -153,28 +153,28 @@ fn test_phaser_pattern_rate() {
 
 #[test]
 fn test_phaser_pattern_feedback() {
-    // Phaser with pattern-modulated feedback
+    // Phaser with pattern-modulated depth
     let code = r#"
         tempo: 2.0
-        o1: saw 110 # phaser 1.0 (sine 1.0 * 0.5 + 0.5)
+        o1: saw 110 # phaser 1.0 (sine 1.0 * 0.5 + 0.5) 0.5 4
     "#;
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Phaser with pattern feedback should produce audio, got RMS: {}", rms);
+    assert!(rms > 0.01, "Phaser with pattern depth should produce audio, got RMS: {}", rms);
 }
 
 #[test]
 fn test_phaser_both_patterns() {
-    // Phaser with both parameters as patterns
+    // Phaser with all parameters as patterns
     let code = r#"
         tempo: 2.0
-        o1: saw 110 # phaser (sine 0.5 * 1.0 + 1.0) (sine 1.0 * 0.5 + 0.5)
+        o1: saw 110 # phaser (sine 0.5 * 1.0 + 1.0) (sine 1.0 * 0.5 + 0.5) 0.5 4
     "#;
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Phaser with both pattern params should produce audio, got RMS: {}", rms);
+    assert!(rms > 0.01, "Phaser with pattern params should produce audio, got RMS: {}", rms);
 }
 
 // ========== Tremolo Tests ==========
