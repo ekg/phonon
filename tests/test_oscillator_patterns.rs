@@ -138,6 +138,46 @@ fn test_square_pattern_frequency_stepped() {
     assert!(rms > 0.1, "Square with stepped frequency should produce audio, got RMS: {}", rms);
 }
 
+// ========== Triangle Oscillator Tests ==========
+
+#[test]
+fn test_triangle_constant_frequency() {
+    let code = r#"
+        tempo: 2.0
+        o1: triangle 330
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+    assert!(rms > 0.1, "Triangle with constant frequency should produce audio, got RMS: {}", rms);
+}
+
+#[test]
+fn test_triangle_pattern_frequency_lfo() {
+    // Triangle with LFO-modulated frequency
+    let code = r#"
+        tempo: 2.0
+        o1: triangle (sine 4 * 165 + 330)
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+    assert!(rms > 0.1, "Triangle with LFO frequency should produce audio, got RMS: {}", rms);
+}
+
+#[test]
+fn test_triangle_pattern_frequency_sweep() {
+    // Triangle with slow sweep
+    let code = r#"
+        tempo: 2.0
+        o1: triangle (sine 0.25 * 220 + 330)
+    "#;
+
+    let buffer = render_dsl(code, 2.0);
+    let rms = calculate_rms(&buffer);
+    assert!(rms > 0.1, "Triangle with sweep should produce audio, got RMS: {}", rms);
+}
+
 // ========== Complex Modulation Tests ==========
 
 #[test]

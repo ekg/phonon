@@ -958,7 +958,7 @@ fn compile_function_call(
         "sine" => compile_oscillator(ctx, Waveform::Sine, args),
         "saw" => compile_oscillator(ctx, Waveform::Saw, args),
         "square" => compile_oscillator(ctx, Waveform::Square, args),
-        "tri" => compile_oscillator(ctx, Waveform::Triangle, args),
+        "tri" | "triangle" => compile_oscillator(ctx, Waveform::Triangle, args),
         "fm" => compile_fm(ctx, args),
         "wavetable" => compile_wavetable(ctx, args),
         "granular" => compile_granular(ctx, args),
