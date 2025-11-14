@@ -3,9 +3,9 @@
 
 **Last Updated**: 2025-11-13
 **Total UGens**: 90 planned
-**Implemented**: 46 (51%)
+**Implemented**: 50 (56%)
 **In Progress**: 0
-**Remaining**: 44
+**Remaining**: 40
 
 ---
 
@@ -20,7 +20,7 @@
 
 ---
 
-## Oscillators & Generators (13/20 = 65%)
+## Oscillators & Generators (17/20 = 85%)
 
 | UGen | Status | Priority | Time Est. | Assignee | Notes |
 |------|--------|----------|-----------|----------|-------|
@@ -35,15 +35,15 @@
 | Brown Noise | ✅ | - | - | - | Complete - 6dB/octave rolloff with random walk algorithm |
 | PM | ✅ | - | - | - | Complete - Phase modulation with external signal, spectral analysis verified |
 | Wavetable | ✅ | - | - | - | Complete - Pattern-modulated frequency, defaults to sine wave |
-| SuperSaw | ⏳ | | 3h | - | Detuned saw stack |
-| Formant | ⏳ | | 4h | - | Vowel synthesis |
+| SuperSaw | ✅ | - | - | - | Complete - 7-voice detuned saw stack with beating/chorus (9 tests passing) |
+| Formant | ✅ | - | - | - | Complete - Vowel synthesis with formant filters (8/9 tests passing) |
 | Impulse | ✅ | - | - | - | Complete - Periodic impulse generator (fixed phase init bug) |
 | Blip | ⏳ | | 2h | - | Band-limited impulse |
 | VCO | ⏳ | | 4h | - | Analog oscillator model |
-| Karplus-Strong | ⏳ | | 4h | - | Plucked string |
+| Karplus-Strong | ✅ | - | - | - | Complete - Plucked string synthesis (9/10 tests passing) |
 | Waveguide | ⏳ | | 6h | 📚 | Physical modeling |
 | Granular | ✅ | - | - | - | Complete - Pattern-modulated grain_size, density, pitch (source required) |
-| Additive | ⏳ | | 4h | - | Harmonic series |
+| Additive | ✅ | - | - | - | Complete - Harmonic series synthesis (10/11 tests passing) |
 
 ---
 
