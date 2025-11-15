@@ -3671,6 +3671,20 @@ impl UnifiedSignalGraph {
         self.cps
     }
 
+    /// Take the VoiceManager out of this graph (for transfer to new graph)
+    /// Replaces with a fresh VoiceManager
+    pub fn take_voice_manager(&mut self) -> crate::voice_manager::VoiceManager {
+        use std::mem;
+        let fresh_vm = crate::voice_manager::VoiceManager::new();
+        mem::replace(self.voice_manager.get_mut(), fresh_vm)
+    }
+
+    /// Transfer a VoiceManager into this graph (from old graph)
+    /// This preserves active voices across graph swaps for click-free live coding
+    pub fn transfer_voice_manager(&mut self, voice_manager: crate::voice_manager::VoiceManager) {
+        *self.voice_manager.get_mut() = voice_manager;
+    }
+
     pub fn get_cycle_position(&self) -> f64 {
         self.cycle_position
     }

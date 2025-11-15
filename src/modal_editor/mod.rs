@@ -321,37 +321,41 @@ impl ModalEditor {
         let mut new_graph = compile_program(statements, self.sample_rate)
             .map_err(|e| format!("Compile error: {}", e))?;
 
-        // CRITICAL: Preserve cycle position from old graph to prevent timing shift on reload
-        // This ensures seamless hot-swapping - the new pattern picks up at the exact
-        // same point in the cycle where the old one left off
+        // CRITICAL: Transfer state from old graph to prevent clicks and timing shifts
+        // This ensures seamless hot-swapping:
+        // 1. Cycle position preserved → no timing discontinuity
+        // 2. VoiceManager transferred → active voices continue playing → no click!
         //
         // Use try_borrow() with fast spin-retries (no sleep) to avoid panic
-        // Audio processing is <1ms, so spin-trying is faster and more accurate than sleeping
         let current_graph = self.graph.load();
         if let Some(ref old_graph_cell) = **current_graph {
-            let mut cycle_position_obtained = false;
+            let mut state_transferred = false;
 
             // Fast spin-retry: Try many times WITHOUT sleeping
-            // This minimizes timing drift compared to sleeping between attempts
             for _attempt in 0..1000 {
-                match old_graph_cell.0.try_borrow() {
-                    Ok(graph) => {
-                        let current_cycle = graph.get_cycle_position();
+                match old_graph_cell.0.try_borrow_mut() {
+                    Ok(mut old_graph) => {
+                        // Transfer cycle position
+                        let current_cycle = old_graph.get_cycle_position();
                         new_graph.set_cycle_position(current_cycle);
-                        cycle_position_obtained = true;
+
+                        // CRITICAL: Transfer VoiceManager to preserve active voices!
+                        // This prevents the click from voices being cut off mid-sample
+                        new_graph.transfer_voice_manager(old_graph.take_voice_manager());
+
+                        state_transferred = true;
                         break;
                     }
                     Err(_) => {
                         // Audio thread busy - try again immediately (no sleep!)
-                        // Spin-waiting is acceptable here since we'll succeed within ~1ms
-                        std::hint::spin_loop(); // CPU hint for better spin performance
+                        std::hint::spin_loop();
                     }
                 }
             }
 
-            if !cycle_position_obtained {
+            if !state_transferred {
                 // Still couldn't get it - very rare
-                eprintln!("⚠️  Could not preserve cycle position after spin-retries, starting at cycle 0");
+                eprintln!("⚠️  Could not transfer state after spin-retries, using fresh state (may click)");
             }
         }
 
