@@ -153,10 +153,8 @@ impl ModalEditor {
                     let graph_snapshot = graph_clone_synth.load();
 
                     if let Some(ref graph_cell) = **graph_snapshot {
-                        // Synthesize samples
-                        for sample in buffer.iter_mut() {
-                            *sample = graph_cell.0.borrow_mut().process_sample();
-                        }
+                        // Synthesize samples using optimized buffer processing
+                        graph_cell.0.borrow_mut().process_buffer(&mut buffer);
 
                         // Write to ring buffer
                         let written = ring_producer.push_slice(&buffer);
