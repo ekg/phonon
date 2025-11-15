@@ -651,9 +651,8 @@ impl VoiceManager {
     fn grow_voice_pool(&mut self) -> bool {
         let current_count = self.voices.len();
 
-        // Hard cap at 128 voices to prevent excessive memory/CPU usage
-        // Even on 16-core systems, 128 voices is more than enough for most patterns
-        const ABSOLUTE_MAX_VOICES: usize = 128;
+        // NOTE: Use module-level ABSOLUTE_MAX_VOICES constant (4096)
+        // Do NOT shadow it with a local constant!
 
         // Check if we've hit the max limit
         if let Some(max) = self.max_voices {
@@ -666,7 +665,7 @@ impl VoiceManager {
             }
         }
 
-        // Check absolute maximum
+        // Check absolute maximum (uses module-level constant = 4096)
         if current_count >= ABSOLUTE_MAX_VOICES {
             eprintln!(
                 "⚠️  Absolute voice limit reached: {} voices (hard cap: {})",
