@@ -325,14 +325,15 @@ impl ModalEditor {
         // This ensures seamless hot-swapping - the new pattern picks up at the exact
         // same point in the cycle where the old one left off
         //
-        // Use try_borrow() with retries to avoid panic if background audio thread has mutable borrow
-        // Audio processing typically takes <1ms, so retry a few times before giving up
+        // Use try_borrow() with fast spin-retries (no sleep) to avoid panic
+        // Audio processing is <1ms, so spin-trying is faster and more accurate than sleeping
         let current_graph = self.graph.load();
         if let Some(ref old_graph_cell) = **current_graph {
             let mut cycle_position_obtained = false;
 
-            // Try up to 5 times with tiny delays to get cycle position
-            for attempt in 0..5 {
+            // Fast spin-retry: Try many times WITHOUT sleeping
+            // This minimizes timing drift compared to sleeping between attempts
+            for _attempt in 0..1000 {
                 match old_graph_cell.0.try_borrow() {
                     Ok(graph) => {
                         let current_cycle = graph.get_cycle_position();
@@ -341,18 +342,16 @@ impl ModalEditor {
                         break;
                     }
                     Err(_) => {
-                        // Audio thread busy - wait a bit and retry
-                        if attempt < 4 {
-                            std::thread::sleep(std::time::Duration::from_micros(200));
-                        }
+                        // Audio thread busy - try again immediately (no sleep!)
+                        // Spin-waiting is acceptable here since we'll succeed within ~1ms
+                        std::hint::spin_loop(); // CPU hint for better spin performance
                     }
                 }
             }
 
             if !cycle_position_obtained {
-                // Still couldn't get it after retries - rare but possible
-                // Start new graph at cycle 0 (minor timing discontinuity)
-                eprintln!("⚠️  Could not preserve cycle position after 5 attempts, starting at cycle 0");
+                // Still couldn't get it - very rare
+                eprintln!("⚠️  Could not preserve cycle position after spin-retries, starting at cycle 0");
             }
         }
 
