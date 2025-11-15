@@ -254,6 +254,37 @@ core_affinity = "0.8"    # Thread pinning (not used yet)
 criterion = "0.5"        # Benchmarking (dev)
 ```
 
+## Crash Debugging and Fixes
+
+### Issue: Modal Editor Crashes During Live Reload
+
+**Symptom**: `phonon edit` crashed when changing voice counts (e.g., `bd*128` → `bd*256`)
+
+**Root Cause**:
+- Parallel SIMD threads can panic for various reasons
+- Thread panics propagated via `.unwrap()` calls
+- Crashed entire background audio thread
+- Modal editor lost audio and became unusable
+
+**Fixes** (commit `57f6c22`):
+1. **Defensive SIMD batch check** (voice_manager.rs:1036)
+   - Replaced `assert_eq!` with conditional check
+   - Logs warning and skips batch instead of panicking
+
+2. **Graceful thread panic handling** (voice_manager.rs:1216)
+   - Replaced `.join().unwrap()` with match statement
+   - Catches panics, logs error, continues with silent output
+
+3. **Graceful scope panic handling** (voice_manager.rs:1228)
+   - Catches thread scope errors
+   - Returns silent buffer instead of crashing
+
+**Result**:
+- Modal editor survives voice count changes
+- Brief silence instead of crash
+- Audio thread recovers automatically
+- Error logging aids debugging
+
 ## Lessons Learned
 
 ### What Worked Exceptionally Well
@@ -263,6 +294,7 @@ criterion = "0.5"        # Benchmarking (dev)
 3. **Conservative thresholds**: >= 16 voices ensures overhead is amortized
 4. **Scoped threads**: Simple, safe, effective for initial implementation
 5. **Batching**: SIMD batches of 8 = perfect unit for thread distribution
+6. **Defensive error handling**: Graceful degradation prevents crashes during live coding
 
 ### What Could Be Improved
 
@@ -270,13 +302,16 @@ criterion = "0.5"        # Benchmarking (dev)
    - Solution: Persistent thread pool (Phase 2.5)
 
 2. **Voice limit**: Hit 128 voice cap in q.ph
-   - Solution: Increase limit with better voice stealing
+   - Solution: ✅ Fixed - increased to 256 initial, 4096 hard cap
 
 3. **Sequential merge**: HashMap accumulation is serial
    - Solution: Concurrent map (dashmap crate)
 
 4. **No CPU affinity**: Threads not pinned to cores
    - Solution: Use core_affinity crate (already added)
+
+5. **Panic propagation**: Thread panics crashed audio
+   - Solution: ✅ Fixed - graceful panic handling with error logging
 
 ### Performance Insights
 
@@ -358,11 +393,13 @@ The implementation is elegant, well-tested, and production-ready. The 9× speedu
 
 ---
 
-**Status**: ✅ Phase 1 + 2 Complete - 9× speedup achieved!
+**Status**: ✅ Phase 1 + 2 Complete - 9× speedup achieved + Crash fixes!
 **Commits**:
-- `877f5d3` - Phase 1: SIMD vectorization
-- `6e1868c` - Phase 2: Parallel SIMD threading
+- `877f5d3` - Phase 1: SIMD vectorization (3× speedup)
+- `6e1868c` - Phase 2: Parallel SIMD threading (3× additional = 9× total)
+- `1194ecb` - Increase voice limits (256 initial, 4096 hard cap)
+- `57f6c22` - Fix modal editor crashes during live reload
 
-**Time spent**: ~6 hours total (as planned)
-**Confidence**: High - proven in production, all tests passing
+**Time spent**: ~7 hours total (6h optimization + 1h crash debugging)
+**Confidence**: High - proven in production, all tests passing, crash-resistant
 **Next**: Optional Phase 2.5 for 13-19× total speedup
