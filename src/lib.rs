@@ -319,6 +319,7 @@ pub mod synth_defs;
 pub mod synth_voice;
 pub mod synth_voice_manager;
 mod test_methods;
+pub mod thread_pool;
 pub mod unified_graph;
 pub mod unified_graph_parser;
 pub mod voice_manager;
