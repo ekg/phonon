@@ -587,7 +587,7 @@ impl VoiceManager {
             shrink_counter: 0,
             peak_voice_count: initial_voices,
             total_samples_processed: 0,
-            parallel_threshold: 64, // Start with conservative threshold
+            parallel_threshold: 32, // Aggressive threshold - enable parallelism earlier on multi-core systems
             processing_times: Vec::with_capacity(1000), // Track last 1000 samples
             underrun_count: 0,
             samples_since_adjustment: 0,
@@ -641,6 +641,10 @@ impl VoiceManager {
     fn grow_voice_pool(&mut self) -> bool {
         let current_count = self.voices.len();
 
+        // Hard cap at 128 voices to prevent excessive memory/CPU usage
+        // Even on 16-core systems, 128 voices is more than enough for most patterns
+        const ABSOLUTE_MAX_VOICES: usize = 128;
+
         // Check if we've hit the max limit
         if let Some(max) = self.max_voices {
             if current_count >= max {
@@ -652,12 +656,22 @@ impl VoiceManager {
             }
         }
 
+        // Check absolute maximum
+        if current_count >= ABSOLUTE_MAX_VOICES {
+            eprintln!(
+                "⚠️  Absolute voice limit reached: {} voices (hard cap: {})",
+                current_count, ABSOLUTE_MAX_VOICES
+            );
+            eprintln!("    Consider using 'cut groups' or longer envelopes to reduce overlapping samples");
+            return false;
+        }
+
         // Grow by 50% or 16 voices, whichever is larger
         let growth = (current_count / 2).max(16);
         let new_count = if let Some(max) = self.max_voices {
-            (current_count + growth).min(max)
+            (current_count + growth).min(max).min(ABSOLUTE_MAX_VOICES)
         } else {
-            current_count + growth
+            (current_count + growth).min(ABSOLUTE_MAX_VOICES)
         };
 
         let voices_to_add = new_count - current_count;
@@ -956,13 +970,32 @@ impl VoiceManager {
     pub fn process_per_node(&mut self) -> std::collections::HashMap<usize, f32> {
         use std::collections::HashMap;
 
-        let mut node_sums: HashMap<usize, (f32, f32)> = HashMap::new();
+        // PERFORMANCE: Use parallel processing for high voice counts
+        let voice_outputs: Vec<((f32, f32), usize)> = if self.voices.len() >= self.parallel_threshold {
+            // Parallel voice processing (huge win for 243 voices on 16 cores!)
+            self.voices
+                .par_iter_mut()
+                .map(|voice| {
+                    let (l, r) = voice.process_stereo();
+                    ((l, r), voice.source_node)
+                })
+                .collect()
+        } else {
+            // Sequential for low voice counts (avoid Rayon overhead)
+            self.voices
+                .iter_mut()
+                .map(|voice| {
+                    let (l, r) = voice.process_stereo();
+                    ((l, r), voice.source_node)
+                })
+                .collect()
+        };
 
-        // Process each voice ONCE and accumulate by source_node
-        for voice in &mut self.voices {
-            let (l, r) = voice.process_stereo();
+        // Accumulate by source_node (sequential - fast HashMap ops)
+        let mut node_sums: HashMap<usize, (f32, f32)> = HashMap::new();
+        for ((l, r), source_node) in voice_outputs {
             node_sums
-                .entry(voice.source_node)
+                .entry(source_node)
                 .and_modify(|(left, right)| {
                     *left += l;
                     *right += r;
