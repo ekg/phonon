@@ -80,9 +80,13 @@ use std::sync::Arc;
 #[cfg(target_arch = "x86_64")]
 use crate::voice_simd::{interpolate_samples_simd_x8, apply_panning_simd_x8, is_avx2_supported};
 
-/// Maximum number of simultaneous voices
-/// Default number of voices if not specified
-const DEFAULT_MAX_VOICES: usize = 256;
+/// Default initial voice pool size (preallocated to avoid growth underruns)
+const DEFAULT_INITIAL_VOICES: usize = 256;
+
+/// Absolute maximum voices (hard cap)
+/// With parallel SIMD, we can handle 1000-2000 voices in real-time
+/// Memory: 4096 × 140 bytes = ~0.56 MB (negligible)
+const ABSOLUTE_MAX_VOICES: usize = 4096;
 
 /// Sample rate for envelope calculations (will be set per-voice)
 const SAMPLE_RATE: f32 = 44100.0;
@@ -541,9 +545,10 @@ impl Default for VoiceManager {
 }
 
 impl VoiceManager {
-    /// Create a new VoiceManager with unlimited voices (grows dynamically from 16)
+    /// Create a new VoiceManager with unlimited voices (grows dynamically from 256)
+    /// Preallocates 256 voices to avoid underruns during startup
     pub fn new() -> Self {
-        Self::with_config(16, None)
+        Self::with_config(DEFAULT_INITIAL_VOICES, Some(ABSOLUTE_MAX_VOICES))
     }
 
     /// Create a new VoiceManager with specified max voices (deprecated, use with_config)
@@ -574,7 +579,9 @@ impl VoiceManager {
     /// let vm = VoiceManager::with_config(16, None);
     /// ```
     pub fn with_config(initial_voices: usize, max_voices: Option<usize>) -> Self {
-        let initial_voices = initial_voices.max(1).min(4096);
+        let initial_voices = initial_voices.max(1).min(ABSOLUTE_MAX_VOICES);
+        let max_voices = max_voices.map(|m| m.min(ABSOLUTE_MAX_VOICES));
+
         let mut voices = Vec::with_capacity(initial_voices * 2); // Reserve 2x for growth
         for _ in 0..initial_voices {
             voices.push(Voice::new());
