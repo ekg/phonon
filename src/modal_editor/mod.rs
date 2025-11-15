@@ -323,19 +323,34 @@ impl ModalEditor {
         // This ensures seamless hot-swapping - the new pattern picks up at the exact
         // same point in the cycle where the old one left off
         //
-        // Use try_borrow() to avoid panic if background audio thread has mutable borrow
+        // Use try_borrow() with retries to avoid panic if background audio thread has mutable borrow
+        // Audio processing typically takes <1ms, so retry a few times before giving up
         let current_graph = self.graph.load();
         if let Some(ref old_graph_cell) = **current_graph {
-            match old_graph_cell.0.try_borrow() {
-                Ok(graph) => {
-                    let current_cycle = graph.get_cycle_position();
-                    new_graph.set_cycle_position(current_cycle);
+            let mut cycle_position_obtained = false;
+
+            // Try up to 5 times with tiny delays to get cycle position
+            for attempt in 0..5 {
+                match old_graph_cell.0.try_borrow() {
+                    Ok(graph) => {
+                        let current_cycle = graph.get_cycle_position();
+                        new_graph.set_cycle_position(current_cycle);
+                        cycle_position_obtained = true;
+                        break;
+                    }
+                    Err(_) => {
+                        // Audio thread busy - wait a bit and retry
+                        if attempt < 4 {
+                            std::thread::sleep(std::time::Duration::from_micros(200));
+                        }
+                    }
                 }
-                Err(_) => {
-                    // Background thread is currently processing - can't get cycle position
-                    // Start new graph at cycle 0 (minor timing discontinuity, but no crash)
-                    eprintln!("⚠️  Could not preserve cycle position (audio thread busy), starting at cycle 0");
-                }
+            }
+
+            if !cycle_position_obtained {
+                // Still couldn't get it after retries - rare but possible
+                // Start new graph at cycle 0 (minor timing discontinuity)
+                eprintln!("⚠️  Could not preserve cycle position after 5 attempts, starting at cycle 0");
             }
         }
 
