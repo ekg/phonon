@@ -162,7 +162,9 @@ impl ModalEditor {
                             eprintln!("⚠️  Ring buffer full, dropped {} samples", buffer.len() - written);
                         }
                     } else {
-                        // No graph yet, write silence
+                        // No graph (hushed/panic) - write silence
+                        // CRITICAL: Fill buffer with zeros, don't reuse old audio!
+                        buffer.fill(0.0);
                         ring_producer.push_slice(&buffer);
                     }
                 } else {
