@@ -323,5 +323,8 @@ pub mod unified_graph;
 pub mod unified_graph_parser;
 pub mod voice_manager;
 
+#[cfg(target_arch = "x86_64")]
+pub mod voice_simd;
+
 #[cfg(test)]
 pub mod test_utils;
