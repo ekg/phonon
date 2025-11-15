@@ -1033,7 +1033,11 @@ impl VoiceManager {
     ) {
         use std::collections::HashMap;
 
-        assert_eq!(voices.len(), 8, "SIMD batch must have exactly 8 voices");
+        // Defensive check instead of assertion to prevent crashes during live reload
+        if voices.len() != 8 {
+            eprintln!("⚠️  SIMD batch size mismatch: expected 8 voices, got {}. Skipping batch.", voices.len());
+            return;
+        }
 
         // Process each sample in the buffer
         for sample_idx in 0..buffer_size {
@@ -1195,7 +1199,7 @@ impl VoiceManager {
         let (batches, remainder) = self.voices.split_at_mut(remainder_start);
 
         // Process batches in parallel using scoped threads
-        thread::scope(|s| {
+        let scope_result = thread::scope(|s| {
             let handles: Vec<_> = batches
                 .chunks_exact_mut(8)
                 .map(|chunk| {
@@ -1207,11 +1211,24 @@ impl VoiceManager {
                 })
                 .collect();
 
-            // Collect results from all threads
+            // Collect results from all threads, handling panics gracefully
             for handle in handles {
-                batch_outputs.push(handle.join().unwrap());
+                match handle.join() {
+                    Ok(output) => batch_outputs.push(output),
+                    Err(e) => {
+                        eprintln!("⚠️  SIMD thread panicked: {:?}. Skipping batch to prevent audio dropout.", e);
+                        // Push empty output to maintain buffer structure
+                        batch_outputs.push(vec![HashMap::new(); buffer_size]);
+                    }
+                }
             }
-        }).unwrap();
+        });
+
+        // Handle scope panic gracefully
+        if let Err(e) = scope_result {
+            eprintln!("⚠️  Thread scope panicked: {:?}. Returning silent output.", e);
+            return vec![HashMap::new(); buffer_size];
+        }
 
         // Process remainder voices (non-multiple of 8) with scalar
         let mut remainder_output = vec![HashMap::new(); buffer_size];
