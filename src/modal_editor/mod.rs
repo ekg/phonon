@@ -322,10 +322,21 @@ impl ModalEditor {
         // CRITICAL: Preserve cycle position from old graph to prevent timing shift on reload
         // This ensures seamless hot-swapping - the new pattern picks up at the exact
         // same point in the cycle where the old one left off
+        //
+        // Use try_borrow() to avoid panic if background audio thread has mutable borrow
         let current_graph = self.graph.load();
         if let Some(ref old_graph_cell) = **current_graph {
-            let current_cycle = old_graph_cell.0.borrow().get_cycle_position();
-            new_graph.set_cycle_position(current_cycle);
+            match old_graph_cell.0.try_borrow() {
+                Ok(graph) => {
+                    let current_cycle = graph.get_cycle_position();
+                    new_graph.set_cycle_position(current_cycle);
+                }
+                Err(_) => {
+                    // Background thread is currently processing - can't get cycle position
+                    // Start new graph at cycle 0 (minor timing discontinuity, but no crash)
+                    eprintln!("⚠️  Could not preserve cycle position (audio thread busy), starting at cycle 0");
+                }
+            }
         }
 
         // Hot-swap the graph atomically using lock-free ArcSwap
