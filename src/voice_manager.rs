@@ -1013,6 +1013,64 @@ impl VoiceManager {
             .collect()
     }
 
+    /// OPTIMIZED: Process an entire buffer from all voices grouped by source node
+    /// This is MUCH faster than calling process_per_node() per sample because:
+    /// - Rayon threads spawned ONCE instead of N times
+    /// - HashMap created ONCE instead of N times
+    /// - Better cache locality (process same voice consecutively)
+    pub fn process_buffer_per_node(&mut self, buffer_size: usize) -> Vec<std::collections::HashMap<usize, f32>> {
+        use std::collections::HashMap;
+
+        // Pre-allocate output: one HashMap per sample in buffer
+        let mut output: Vec<HashMap<usize, f32>> = vec![HashMap::new(); buffer_size];
+
+        if self.voices.is_empty() {
+            return output;
+        }
+
+        // Process each voice for the ENTIRE buffer, then accumulate
+        // This gives much better cache locality than sample-by-sample processing
+        if self.voices.len() >= self.parallel_threshold {
+            // Parallel: process voices in parallel, each generating full buffer
+            let voice_buffers: Vec<(Vec<(f32, f32)>, usize)> = self.voices
+                .par_iter_mut()
+                .map(|voice| {
+                    let mut buffer = Vec::with_capacity(buffer_size);
+                    for _ in 0..buffer_size {
+                        buffer.push(voice.process_stereo());
+                    }
+                    (buffer, voice.source_node)
+                })
+                .collect();
+
+            // Accumulate all voice buffers into output HashMaps
+            for (voice_buffer, source_node) in voice_buffers {
+                for (i, (l, r)) in voice_buffer.into_iter().enumerate() {
+                    let mono = (l + r) / std::f32::consts::SQRT_2;
+                    output[i]
+                        .entry(source_node)
+                        .and_modify(|v| *v += mono)
+                        .or_insert(mono);
+                }
+            }
+        } else {
+            // Sequential: process voices sequentially for low voice counts
+            for voice in &mut self.voices {
+                let source_node = voice.source_node;
+                for i in 0..buffer_size {
+                    let (l, r) = voice.process_stereo();
+                    let mono = (l + r) / std::f32::consts::SQRT_2;
+                    output[i]
+                        .entry(source_node)
+                        .and_modify(|v| *v += mono)
+                        .or_insert(mono);
+                }
+            }
+        }
+
+        output
+    }
+
     /// Process one sample from all active voices (stereo)
     pub fn process_stereo(&mut self) -> (f32, f32) {
         let mut left = 0.0;

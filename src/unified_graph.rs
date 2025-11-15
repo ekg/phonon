@@ -4265,42 +4265,11 @@ impl UnifiedSignalGraph {
             return 0.0;
         };
 
-        // CONSERVATIVE APPROACH: Assume everything is stateful by default EXCEPT
-        // nodes that are obviously pure (no mutable state, deterministic output).
-        // This is safer than trying to enumerate all stateful nodes.
-        // Pure nodes include:
-        // - Constants, arithmetic ops, comparisons, math functions
-        // - Signal routing (Add, Mul, etc.) where inputs determine output
-        // Stateful nodes include:
-        // - Anything with phase/delay buffers/filter state (oscillators, filters, delays)
-        // - Anything that queries time/patterns (patterns change over time)
-        let is_cacheable = matches!(
-            node,
-            SignalNode::Constant { .. }
-                | SignalNode::Add { .. }
-                | SignalNode::Mul { .. }
-                | SignalNode::Sub { .. }
-                | SignalNode::Div { .. }
-                | SignalNode::Pow { .. }
-                | SignalNode::Mod { .. }
-                | SignalNode::Min { .. }
-                | SignalNode::Max { .. }
-                | SignalNode::Abs { .. }
-                | SignalNode::Sign { .. }
-                | SignalNode::Floor { .. }
-                | SignalNode::Ceil { .. }
-                | SignalNode::Round { .. }
-                | SignalNode::Sin { .. }
-                | SignalNode::Cos { .. }
-                | SignalNode::Tan { .. }
-                | SignalNode::Tanh { .. }
-                | SignalNode::Exp { .. }
-                | SignalNode::Log { .. }
-                | SignalNode::Sqrt { .. }
-                | SignalNode::Clamp { .. }
-                | SignalNode::Clip { .. }
-                | SignalNode::Distort { .. }
-        );
+        // ULTRA-CONSERVATIVE: Only cache Constant nodes
+        // Everything else is treated as stateful to be safe
+        // This still gives us significant speedup since the value_cache
+        // is only cleared once per buffer instead of per sample
+        let is_cacheable = matches!(node, SignalNode::Constant { .. });
         let is_stateful = !is_cacheable;
 
         let value = match node {
@@ -9112,6 +9081,15 @@ impl UnifiedSignalGraph {
         let mut eval_time_us = 0u128;
         let mut mix_time_us = 0u128;
 
+        // HUGE OPTIMIZATION: Process all voices for entire buffer ONCE
+        // Instead of calling process_per_node() 512 times, we call process_buffer_per_node() ONCE
+        // This eliminates 511 redundant Rayon thread spawns and HashMap allocations
+        let voice_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
+        let voice_buffers = self.voice_manager.borrow_mut().process_buffer_per_node(buffer.len());
+        if let Some(start) = voice_start {
+            voice_time_us = start.elapsed().as_micros();
+        }
+
         for i in 0..buffer.len() {
             // CRITICAL OPTIMIZATION: Only clear value_cache at buffer start!
             // Most signal graph nodes compute static values that don't change every sample.
@@ -9122,12 +9100,8 @@ impl UnifiedSignalGraph {
             }
             // DON'T clear cache per-sample - that's the bottleneck!
 
-            // Process voice manager ONCE per sample
-            let voice_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
-            self.voice_output_cache = self.voice_manager.borrow_mut().process_per_node();
-            if let Some(start) = voice_start {
-                voice_time_us += start.elapsed().as_micros();
-            }
+            // Use pre-computed voice outputs from buffer processing
+            self.voice_output_cache = voice_buffers[i].clone();
 
             // Count active channels for gain compensation
             let mut num_active_channels = 0;
