@@ -234,13 +234,23 @@ o3: s "808lt(4,17,2)"
 - Audio buffer: 2048 samples (~46ms)
 - Status: ⚠️ UNDERRUNS
 
-### After Ring Buffer Migration
+### After Ring Buffer Migration (Commit 1a44925)
 
-**Expected** (needs real-world testing):
-- CPU: Distributed across multiple cores
-- Dropouts: Eliminated or greatly reduced
-- Ring buffer: 1 second (48K samples)
-- Status: ✅ SMOOTH
+**Results**:
+- CPU: Still mostly single-threaded (synthesis bottleneck)
+- Dropouts: Still present
+- Ring buffer: 1 second (48K samples) ✅
+- Voice pool: Growing to 243 voices ⚠️
+- Status: ⚠️ UNDERRUNS CONTINUE
+
+### After Voice Manager Optimization (Commit 4930953)
+
+**Results**:
+- Voice pool: Capped at 128 voices ✅
+- Parallel voice rendering: Enabled at 32+ voices ✅
+- process_per_node(): Now uses parallel processing ✅
+- Dropouts: Still present (synthesis is still the bottleneck)
+- Status: ⚠️ IMPROVED BUT STILL UNDERRUNS
 
 ### Benchmark TODO
 
@@ -276,8 +286,46 @@ fn bench_fast_19_pattern(b: &mut Bencher) {
 - Rayon crate: https://docs.rs/rayon/
 - Example: https://github.com/rayon-rs/rayon#parallel-iterators
 
-## Commit
+## Remaining Bottleneck: Sample-by-Sample Synthesis
 
-- **Commit**: 1a44925
-- **Date**: 2025-11-15
-- **Summary**: Migrate live.rs and modal_editor to ring buffer architecture for parallel synthesis
+**Current Status**: Even with ring buffer + parallel voice rendering, we're still getting underruns.
+
+**Root Cause**: Background synthesis thread still calls `process_sample()` in a loop:
+```rust
+// In background thread (live.rs:89-91, modal_editor.rs:157-159)
+for sample in buffer.iter_mut() {
+    *sample = graph_cell.0.borrow_mut().process_sample();  // ← BOTTLENECK!
+}
+```
+
+**Why This Is Slow**:
+1. **Cache clearing overhead**: `value_cache.clear()` called 512 times per buffer
+2. **No SIMD**: Processing one sample at a time can't use vector instructions
+3. **Function call overhead**: 512 function calls instead of 1
+4. **No pipelining**: CPU can't optimize across sample boundaries
+
+**The Fix**: Implement `process_buffer()` in UnifiedSignalGraph:
+```rust
+impl UnifiedSignalGraph {
+    pub fn process_buffer(&mut self, buffer: &mut [f32]) {
+        self.value_cache.clear();  // ← Clear ONCE per buffer, not per sample!
+
+        for i in 0..buffer.len() {
+            buffer[i] = self.eval_node_cached(self.root_node, i);
+        }
+    }
+}
+```
+
+**Expected Speedup**: 2x-4x faster just from reduced cache clearing overhead.
+
+**Further Optimizations** (after basic buffer processing):
+1. **Vectorize oscillators**: Use SIMD to generate 8-16 samples at once
+2. **Vectorize filters**: Process 8-16 samples through biquads simultaneously
+3. **Parallel UGen evaluation**: Some UGens can compute independently
+
+## Commits
+
+- **Commit 1a44925** (2025-11-15): Ring buffer architecture for live.rs and modal_editor
+- **Commit b3fdb2d** (2025-11-15): Performance architecture documentation
+- **Commit 4930953** (2025-11-15): Optimize voice manager for parallel processing and cap voice pool
