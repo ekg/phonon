@@ -3,7 +3,7 @@
 //! Modal live coding editor with terminal UI
 //!
 //! Provides a full-screen text editor for writing Phonon DSL code with
-//! real-time audio generation triggered by Shift+Enter
+//! real-time audio generation using ring buffer architecture for parallel synthesis
 
 mod command_console;
 mod completion;
@@ -15,6 +15,7 @@ use highlighting::highlight_line;
 use crate::compositional_compiler::compile_program;
 use crate::compositional_parser::parse_program;
 use crate::unified_graph::UnifiedSignalGraph;
+use arc_swap::ArcSwap;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
@@ -29,10 +30,21 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame, Terminal,
 };
+use ringbuf::traits::{Consumer, Observer, Producer, Split};
+use ringbuf::HeapRb;
+use std::cell::RefCell;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration as StdDuration;
+
+// Newtype wrapper to impl Send+Sync for RefCell<UnifiedSignalGraph>
+// SAFETY: Each GraphCell instance is only accessed by one thread at a time.
+struct GraphCell(RefCell<UnifiedSignalGraph>);
+unsafe impl Send for GraphCell {}
+unsafe impl Sync for GraphCell {}
 
 /// Modal live coding editor state
 pub struct ModalEditor {
@@ -48,8 +60,8 @@ pub struct ModalEditor {
     is_playing: bool,
     /// Error message (if any)
     error_message: Option<String>,
-    /// Shared audio graph (callback-driven)
-    graph: Arc<Mutex<Option<UnifiedSignalGraph>>>,
+    /// Shared audio graph (lock-free with ring buffer)
+    graph: Arc<ArcSwap<Option<GraphCell>>>,
     /// Audio stream (kept alive)
     _stream: cpal::Stream,
     /// Sample rate
@@ -111,33 +123,143 @@ impl ModalEditor {
         let channels = default_config.channels() as usize;
         let sample_format = default_config.sample_format();
 
-        // Create config with larger buffer to prevent underruns
-        // Use 2048 samples (~46ms at 44.1kHz) for stable playback under load
-        let mut config: cpal::StreamConfig = default_config.into();
-        config.buffer_size = cpal::BufferSize::Fixed(2048);
+        // Use default buffer size (ring buffer handles buffering)
+        let config: cpal::StreamConfig = default_config.into();
 
-        eprintln!("🎵 Audio: {} Hz, {} channels, buffer: 2048 samples (~{:.1}ms)",
-                 sample_rate as u32, channels,
-                 (2048.0 / sample_rate) * 1000.0);
+        eprintln!("🎵 Audio: {} Hz, {} channels",
+                 sample_rate as u32, channels);
+        eprintln!("🔧 Using ring buffer architecture for parallel synthesis");
 
-        // Shared graph (starts as None, will be loaded)
-        let graph = Arc::new(Mutex::new(None));
-        let graph_clone = graph.clone();
+        // Graph for background synthesis thread (lock-free swap)
+        let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));
 
-        // Build audio stream with callback
+        // Ring buffer: background synth writes, audio callback reads
+        // Size: 1 second of audio = smooth playback even if synth lags briefly
+        let ring_buffer_size = sample_rate as usize;
+        let ring = HeapRb::<f32>::new(ring_buffer_size);
+        let (mut ring_producer, mut ring_consumer) = ring.split();
+
+        // Background synthesis thread: continuously renders samples into ring buffer
+        let graph_clone_synth = Arc::clone(&graph);
+        thread::spawn(move || {
+            let mut buffer = [0.0f32; 512]; // Render in chunks of 512 samples
+
+            loop {
+                // Check if we have space in ring buffer
+                let space = ring_producer.vacant_len();
+
+                if space >= buffer.len() {
+                    // Render a chunk of audio
+                    let graph_snapshot = graph_clone_synth.load();
+
+                    if let Some(ref graph_cell) = **graph_snapshot {
+                        // Synthesize samples
+                        for sample in buffer.iter_mut() {
+                            *sample = graph_cell.0.borrow_mut().process_sample();
+                        }
+
+                        // Write to ring buffer
+                        let written = ring_producer.push_slice(&buffer);
+                        if written < buffer.len() {
+                            eprintln!("⚠️  Ring buffer full, dropped {} samples", buffer.len() - written);
+                        }
+                    } else {
+                        // No graph yet, write silence
+                        ring_producer.push_slice(&buffer);
+                    }
+                } else {
+                    // Ring buffer is full, sleep briefly
+                    thread::sleep(StdDuration::from_micros(100));
+                }
+            }
+        });
+
+        // Audio callback: just reads from ring buffer (FAST!)
+        let err_fn = |err| {
+            use std::io::Write;
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/phonon_audio_errors.log")
+            {
+                let _ = writeln!(file, "[{}] Audio stream error: {}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs(),
+                    err);
+            }
+        };
+
         let stream = match sample_format {
-            cpal::SampleFormat::F32 => Self::build_stream::<f32>(
-                &device,
-                &config,
-                graph_clone,
-                channels,
-            ),
-            cpal::SampleFormat::I16 => Self::build_stream::<i16>(
-                &device,
-                &config,
-                graph_clone,
-                channels,
-            ),
+            cpal::SampleFormat::F32 => {
+                device.build_output_stream(
+                    &config,
+                    move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                        // Read from ring buffer - MUCH faster than synthesis!
+                        let available = ring_consumer.occupied_len();
+
+                        if available >= data.len() {
+                            // Ring buffer has enough samples, read them
+                            ring_consumer.pop_slice(data);
+                        } else {
+                            // Underrun: not enough samples in buffer
+                            let read = ring_consumer.pop_slice(data);
+                            for sample in data[read..].iter_mut() {
+                                *sample = 0.0;
+                            }
+
+                            static mut UNDERRUN_COUNT: usize = 0;
+                            unsafe {
+                                UNDERRUN_COUNT += 1;
+                                if UNDERRUN_COUNT % 100 == 0 {
+                                    eprintln!("⚠️  Audio underrun #{}", UNDERRUN_COUNT);
+                                }
+                            }
+                        }
+                    },
+                    err_fn,
+                    None,
+                )
+            }
+            cpal::SampleFormat::I16 => {
+                device.build_output_stream(
+                    &config,
+                    move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
+                        let available = ring_consumer.occupied_len();
+
+                        if available >= data.len() {
+                            // Read from ring buffer and convert to i16
+                            let mut temp = vec![0.0f32; data.len()];
+                            ring_consumer.pop_slice(&mut temp);
+                            for (dst, src) in data.iter_mut().zip(temp.iter()) {
+                                *dst = (*src * 32767.0) as i16;
+                            }
+                        } else {
+                            // Underrun
+                            let mut temp = vec![0.0f32; available];
+                            ring_consumer.pop_slice(&mut temp);
+                            for (i, dst) in data.iter_mut().enumerate() {
+                                if i < temp.len() {
+                                    *dst = (temp[i] * 32767.0) as i16;
+                                } else {
+                                    *dst = 0;
+                                }
+                            }
+
+                            static mut UNDERRUN_COUNT: usize = 0;
+                            unsafe {
+                                UNDERRUN_COUNT += 1;
+                                if UNDERRUN_COUNT % 100 == 0 {
+                                    eprintln!("⚠️  Audio underrun #{}", UNDERRUN_COUNT);
+                                }
+                            }
+                        }
+                    },
+                    err_fn,
+                    None,
+                )
+            }
             _ => return Err("Unsupported sample format".into()),
         }
         .map_err(|e| format!("Failed to build stream: {}", e))?;
@@ -183,58 +305,6 @@ impl ModalEditor {
         })
     }
 
-    fn build_stream<T>(
-        device: &cpal::Device,
-        config: &cpal::StreamConfig,
-        graph: Arc<Mutex<Option<UnifiedSignalGraph>>>,
-        channels: usize,
-    ) -> Result<cpal::Stream, cpal::BuildStreamError>
-    where
-        T: cpal::SizedSample + cpal::FromSample<f32>,
-    {
-        device.build_output_stream(
-            config,
-            move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-                // Audio callback - called by hardware when it needs samples
-                let mut graph_lock = graph.lock().unwrap();
-
-                if let Some(graph) = graph_lock.as_mut() {
-                    // Generate samples directly from graph
-                    for frame in data.chunks_mut(channels) {
-                        let sample = graph.process_sample();
-
-                        // Write to all channels (mono to stereo)
-                        for channel_sample in frame.iter_mut() {
-                            *channel_sample = T::from_sample(sample);
-                        }
-                    }
-                } else {
-                    // No graph loaded yet - output silence
-                    for sample in data.iter_mut() {
-                        *sample = T::from_sample(0.0);
-                    }
-                }
-            },
-            |err| {
-                // Log audio errors to file instead of stderr to avoid breaking TUI
-                use std::io::Write;
-                if let Ok(mut file) = std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open("/tmp/phonon_audio_errors.log")
-                {
-                    let _ = writeln!(file, "[{}] Audio stream error: {}",
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs(),
-                        err);
-                }
-            },
-            None,
-        )
-    }
-
     /// Load and compile DSL code into the audio graph
     fn load_code(&mut self, code: &str) -> Result<(), String> {
         // Parse the DSL code
@@ -254,16 +324,15 @@ impl ModalEditor {
         // CRITICAL: Preserve cycle position from old graph to prevent timing shift on reload
         // This ensures seamless hot-swapping - the new pattern picks up at the exact
         // same point in the cycle where the old one left off
-        {
-            let mut graph_lock = self.graph.lock().unwrap();
-            if let Some(old_graph) = graph_lock.as_ref() {
-                let current_cycle = old_graph.get_cycle_position();
-                new_graph.set_cycle_position(current_cycle);
-            }
+        let current_graph = self.graph.load();
+        if let Some(ref old_graph_cell) = **current_graph {
+            let current_cycle = old_graph_cell.0.borrow().get_cycle_position();
+            new_graph.set_cycle_position(current_cycle);
         }
 
-        // Hot-swap the graph atomically
-        *self.graph.lock().unwrap() = Some(new_graph);
+        // Hot-swap the graph atomically using lock-free ArcSwap
+        // Background synthesis thread will pick up new graph on next render
+        self.graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
 
         Ok(())
     }
@@ -1321,14 +1390,14 @@ impl ModalEditor {
     /// Hush - silence all sound
     fn hush(&mut self) {
         // Clear the graph to silence all sound
-        *self.graph.lock().unwrap() = None;
+        self.graph.store(Arc::new(None));
         self.status_message = "🔇 Hushed - C-r to reload".to_string();
     }
 
     /// Panic - stop everything
     fn panic(&mut self) {
         // Clear the graph to stop everything
-        *self.graph.lock().unwrap() = None;
+        self.graph.store(Arc::new(None));
         self.status_message = "🚨 PANIC! All stopped - C-r to restart".to_string();
     }
 
