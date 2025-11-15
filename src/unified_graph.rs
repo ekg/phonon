@@ -4265,6 +4265,44 @@ impl UnifiedSignalGraph {
             return 0.0;
         };
 
+        // CONSERVATIVE APPROACH: Assume everything is stateful by default EXCEPT
+        // nodes that are obviously pure (no mutable state, deterministic output).
+        // This is safer than trying to enumerate all stateful nodes.
+        // Pure nodes include:
+        // - Constants, arithmetic ops, comparisons, math functions
+        // - Signal routing (Add, Mul, etc.) where inputs determine output
+        // Stateful nodes include:
+        // - Anything with phase/delay buffers/filter state (oscillators, filters, delays)
+        // - Anything that queries time/patterns (patterns change over time)
+        let is_cacheable = matches!(
+            node,
+            SignalNode::Constant { .. }
+                | SignalNode::Add { .. }
+                | SignalNode::Mul { .. }
+                | SignalNode::Sub { .. }
+                | SignalNode::Div { .. }
+                | SignalNode::Pow { .. }
+                | SignalNode::Mod { .. }
+                | SignalNode::Min { .. }
+                | SignalNode::Max { .. }
+                | SignalNode::Abs { .. }
+                | SignalNode::Sign { .. }
+                | SignalNode::Floor { .. }
+                | SignalNode::Ceil { .. }
+                | SignalNode::Round { .. }
+                | SignalNode::Sin { .. }
+                | SignalNode::Cos { .. }
+                | SignalNode::Tan { .. }
+                | SignalNode::Tanh { .. }
+                | SignalNode::Exp { .. }
+                | SignalNode::Log { .. }
+                | SignalNode::Sqrt { .. }
+                | SignalNode::Clamp { .. }
+                | SignalNode::Clip { .. }
+                | SignalNode::Distort { .. }
+        );
+        let is_stateful = !is_cacheable;
+
         let value = match node {
             SignalNode::Oscillator {
                 freq,
@@ -8971,8 +9009,12 @@ impl UnifiedSignalGraph {
             }
         };
 
-        // Cache the value
-        self.value_cache.insert(*node_id, value);
+        // Cache the value (but ONLY for non-stateful nodes!)
+        // Stateful nodes (oscillators, filters) have internal state that changes
+        // every sample, so caching them across samples gives incorrect results.
+        if !is_stateful {
+            self.value_cache.insert(*node_id, value);
+        }
 
         value
     }
@@ -9064,25 +9106,34 @@ impl UnifiedSignalGraph {
     /// Process a buffer of audio samples (optimized - clears cache once per buffer)
     /// This is 2x-4x faster than calling process_sample() in a loop
     pub fn process_buffer(&mut self, buffer: &mut [f32]) {
+        // Optional profiling (enable with PROFILE_BUFFER=1)
+        let enable_profiling = std::env::var("PROFILE_BUFFER").is_ok();
+        let mut voice_time_us = 0u128;
+        let mut eval_time_us = 0u128;
+        let mut mix_time_us = 0u128;
+
         for i in 0..buffer.len() {
-            // Clear cache only on first sample of buffer (HUGE optimization!)
+            // CRITICAL OPTIMIZATION: Only clear value_cache at buffer start!
+            // Most signal graph nodes compute static values that don't change every sample.
+            // Pattern values only change at event boundaries (every N samples), not per-sample.
+            // voice_output_cache is updated every sample below, so voice changes are tracked.
             if i == 0 {
                 self.value_cache.clear();
-            } else {
-                // For subsequent samples, only clear voice output cache
-                // (voices need to be re-processed each sample)
-                // But keep signal graph cache to avoid re-computing static values
-                // Actually, we need to clear both for correctness - voices change per sample
-                self.value_cache.clear();
             }
+            // DON'T clear cache per-sample - that's the bottleneck!
 
             // Process voice manager ONCE per sample
+            let voice_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
             self.voice_output_cache = self.voice_manager.borrow_mut().process_per_node();
+            if let Some(start) = voice_start {
+                voice_time_us += start.elapsed().as_micros();
+            }
 
             // Count active channels for gain compensation
             let mut num_active_channels = 0;
 
             // Start with single output (for backwards compatibility)
+            let eval_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
             let mut mixed_output = if let Some(output_id) = self.output {
                 if self.hushed_channels.contains(&0) {
                     0.0 // Silenced
@@ -9105,8 +9156,12 @@ impl UnifiedSignalGraph {
                 num_active_channels += 1;
                 mixed_output += self.eval_node(&node_id);
             }
+            if let Some(start) = eval_start {
+                eval_time_us += start.elapsed().as_micros();
+            }
 
             // Apply output mixing strategy
+            let mix_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
             mixed_output = match self.output_mix_mode {
                 OutputMixMode::Gain => {
                     if num_active_channels > 1 {
@@ -9126,6 +9181,9 @@ impl UnifiedSignalGraph {
                 OutputMixMode::Hard => mixed_output.clamp(-1.0, 1.0),
                 OutputMixMode::None => mixed_output,
             };
+            if let Some(start) = mix_start {
+                mix_time_us += start.elapsed().as_micros();
+            }
 
             // Advance cycle position
             self.cycle_position += self.cps as f64 / self.sample_rate as f64;
@@ -9134,6 +9192,22 @@ impl UnifiedSignalGraph {
             self.sample_count += 1;
 
             buffer[i] = mixed_output;
+        }
+
+        // Print profiling breakdown if enabled
+        if enable_profiling {
+            let total_us = voice_time_us + eval_time_us + mix_time_us;
+            let total_ms = total_us as f64 / 1000.0;
+            let voice_ms = voice_time_us as f64 / 1000.0;
+            let eval_ms = eval_time_us as f64 / 1000.0;
+            let mix_ms = mix_time_us as f64 / 1000.0;
+
+            eprintln!("=== BUFFER PROFILING ({}samples) ===", buffer.len());
+            eprintln!("Voice processing: {:.2}ms ({:.1}%)", voice_ms, 100.0 * voice_ms / total_ms);
+            eprintln!("Graph evaluation: {:.2}ms ({:.1}%)", eval_ms, 100.0 * eval_ms / total_ms);
+            eprintln!("Output mixing:    {:.2}ms ({:.1}%)", mix_ms, 100.0 * mix_ms / total_ms);
+            eprintln!("TOTAL:            {:.2}ms", total_ms);
+            eprintln!();
         }
     }
 
