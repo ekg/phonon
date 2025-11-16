@@ -237,13 +237,16 @@ impl LiveSession {
         let mut new_graph = compile_program(statements, self.sample_rate)
             .map_err(|e| format!("Compile error: {}", e))?;
 
-        // CRITICAL: Preserve cycle position from old graph to prevent timing shift on reload
-        // This ensures seamless hot-swapping - the new pattern picks up at the exact
-        // same point in the cycle where the old one left off
+        // CRITICAL: Enable wall-clock timing for live mode
+        new_graph.enable_wall_clock_timing();
+
+        // CRITICAL: Transfer session timing to preserve global clock
+        // Wall-clock based timing ensures the beat NEVER drops during reload
         let current_graph = self.graph.load();
         if let Some(ref old_graph_cell) = **current_graph {
-            let current_cycle = old_graph_cell.0.borrow().get_cycle_position();
-            new_graph.set_cycle_position(current_cycle);
+            new_graph.transfer_session_timing(&old_graph_cell.0.borrow());
+            // Also transfer VoiceManager for click-free reloads
+            new_graph.transfer_voice_manager(old_graph_cell.0.borrow_mut().take_voice_manager());
         }
 
         // Hot-swap the graph atomically using lock-free ArcSwap

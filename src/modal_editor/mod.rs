@@ -321,9 +321,13 @@ impl ModalEditor {
         let mut new_graph = compile_program(statements, self.sample_rate)
             .map_err(|e| format!("Compile error: {}", e))?;
 
+        // CRITICAL: Enable wall-clock timing for live mode
+        // This ensures the beat NEVER drops during code reloads!
+        new_graph.enable_wall_clock_timing();
+
         // CRITICAL: Transfer state from old graph to prevent clicks and timing shifts
         // This ensures seamless hot-swapping:
-        // 1. Cycle position preserved → no timing discontinuity
+        // 1. Session timing transferred → global clock never drops the beat!
         // 2. VoiceManager transferred → active voices continue playing → no click!
         //
         // Use try_borrow() with brief sleeps to avoid spinning CPU
@@ -334,12 +338,12 @@ impl ModalEditor {
             // Retry with small sleeps - don't burn CPU with spin-loop!
             // Audio buffer at 512 samples @ 44.1kHz = ~11.6ms per buffer
             // We retry for ~10ms total, which covers most audio processing times
-            for attempt in 0..20 {
+            for _attempt in 0..20 {
                 match old_graph_cell.0.try_borrow_mut() {
                     Ok(mut old_graph) => {
-                        // Transfer cycle position
-                        let current_cycle = old_graph.get_cycle_position();
-                        new_graph.set_cycle_position(current_cycle);
+                        // CRITICAL: Transfer session timing (wall-clock based)
+                        // This preserves the global clock - beat NEVER drops!
+                        new_graph.transfer_session_timing(&old_graph);
 
                         // CRITICAL: Transfer VoiceManager to preserve active voices!
                         // This prevents the click from voices being cut off mid-sample

@@ -3601,11 +3601,24 @@ pub struct UnifiedSignalGraph {
     /// Sample rate
     sample_rate: f32,
 
-    /// Current cycle position for patterns
-    cycle_position: f64,
+    /// Session start time (wall-clock) - for drift-free timing in LIVE mode
+    /// In offline rendering, timing is sample-count based instead
+    session_start_time: std::time::Instant,
+
+    /// Cycle offset for resetCycles command
+    /// Formula: cycle_position = (now - session_start_time).as_secs_f64() * cps + cycle_offset
+    cycle_offset: f64,
+
+    /// Use wall-clock timing (true for live mode, false for offline rendering)
+    use_wall_clock: bool,
 
     /// Cycles per second (tempo)
     cps: f32,
+
+    /// Cached cycle position for current sample
+    /// Updated once at start of process_sample(), then stays constant during processing
+    /// This ensures all evaluations within a single sample see the same time
+    cached_cycle_position: f64,
 
     /// Node ID counter
     next_node_id: usize,
@@ -3651,8 +3664,11 @@ impl UnifiedSignalGraph {
             hushed_channels: std::collections::HashSet::new(),
             output_mix_mode: OutputMixMode::default(),
             sample_rate,
-            cycle_position: 0.0,
+            session_start_time: std::time::Instant::now(),
+            cycle_offset: 0.0,
+            use_wall_clock: false, // Default to sample-based for offline rendering
             cps: 0.5, // Default 0.5 cycles per second
+            cached_cycle_position: 0.0,
             next_node_id: 0,
             value_cache: HashMap::new(),
             sample_bank: RefCell::new(SampleBank::new()),
@@ -3685,12 +3701,64 @@ impl UnifiedSignalGraph {
         *self.voice_manager.get_mut() = voice_manager;
     }
 
-    pub fn get_cycle_position(&self) -> f64 {
-        self.cycle_position
+    /// Transfer session timing from old graph to maintain global clock continuity
+    /// This ensures the beat never drops during graph reload
+    pub fn transfer_session_timing(&mut self, old_graph: &UnifiedSignalGraph) {
+        self.session_start_time = old_graph.session_start_time;
+        self.cycle_offset = old_graph.cycle_offset;
+        self.cps = old_graph.cps;
+        // No need to call set_cycle_position - timing is already continuous!
     }
 
+    /// Reset cycles to 0 (like Tidal's resetCycles)
+    pub fn reset_cycles(&mut self) {
+        // Adjust offset so current wall-clock time maps to cycle 0
+        self.cycle_offset = 0.0;
+        self.session_start_time = std::time::Instant::now();
+    }
+
+    /// Jump to a specific cycle position
+    pub fn set_cycle(&mut self, cycle: f64) {
+        let elapsed = self.session_start_time.elapsed().as_secs_f64();
+        self.cycle_offset = cycle - (elapsed * self.cps as f64);
+    }
+
+    /// Get current cycle position from wall-clock time
+    /// IMPORTANT: During sample processing, returns cached value (constant per sample)
+    /// Only advances once per sample in process_sample()
+    pub fn get_cycle_position(&self) -> f64 {
+        self.cached_cycle_position
+    }
+
+    /// Enable wall-clock based timing (for live mode)
+    /// In live mode, timing is based on real wall-clock time
+    /// This prevents drift and ensures beat never drops during code reloads
+    pub fn enable_wall_clock_timing(&mut self) {
+        self.use_wall_clock = true;
+        self.session_start_time = std::time::Instant::now();
+    }
+
+    /// Update cached cycle position from clock or sample count
+    /// Called once at the start of each sample
+    fn update_cycle_position_from_clock(&mut self) {
+        if self.use_wall_clock {
+            // LIVE MODE: Wall-clock based - never drifts, survives underruns
+            let elapsed = self.session_start_time.elapsed().as_secs_f64();
+            self.cached_cycle_position = elapsed * self.cps as f64 + self.cycle_offset;
+        } else {
+            // OFFLINE RENDERING: Sample-count based - deterministic
+            self.cached_cycle_position += self.cps as f64 / self.sample_rate as f64;
+        }
+    }
+
+    /// Set cycle position by adjusting offset
+    /// Used during graph reload to maintain timing continuity
     pub fn set_cycle_position(&mut self, position: f64) {
-        self.cycle_position = position;
+        // Calculate what offset would give us this position at current wall-clock time
+        let elapsed = self.session_start_time.elapsed().as_secs_f64();
+        self.cycle_offset = position - (elapsed * self.cps as f64);
+        // Also update cache
+        self.cached_cycle_position = position;
 
         // CRITICAL: Update ALL timing state in pattern nodes to prevent re-triggering
         // When we reload at cycle 5.3, nodes must know:
@@ -3838,6 +3906,9 @@ impl UnifiedSignalGraph {
     /// Process one sample and return all output channels
     /// Returns a vector where outputs[0] = channel 1, outputs[1] = channel 2, etc.
     pub fn process_sample_multi(&mut self) -> Vec<f32> {
+        // CRITICAL: Update cycle position from wall-clock ONCE per sample
+        self.update_cycle_position_from_clock();
+
         // Clear cache for new sample
         self.value_cache.clear();
 
@@ -3890,10 +3961,10 @@ impl UnifiedSignalGraph {
             }
         }
 
-        // Advance cycle position
-        self.cycle_position += self.cps as f64 / self.sample_rate as f64;
+        // NO cycle_position increment needed!
+        // Clock is wall-clock based - it advances automatically via get_cycle_position()
 
-        // Increment sample counter
+        // Increment sample counter (for debugging only)
         self.sample_count += 1;
 
         outputs_vec
@@ -3901,7 +3972,8 @@ impl UnifiedSignalGraph {
 
     /// Evaluate a signal to get its current value
     fn eval_signal(&mut self, signal: &Signal) -> f32 {
-        self.eval_signal_at_time(signal, self.cycle_position)
+        let cycle_position = self.get_cycle_position();
+        self.eval_signal_at_time(signal, cycle_position)
     }
 
     /// Evaluate a signal for the note parameter (converts notes to semitone offsets)
@@ -4123,7 +4195,7 @@ impl UnifiedSignalGraph {
         match signal {
             Signal::Node(id) => {
                 // CRITICAL FIX: For Pattern nodes, query at the specified cycle_pos
-                // instead of self.cycle_position to ensure each event gets the correct
+                // instead of self.get_cycle_position() to ensure each event gets the correct
                 // parameter value from pattern-valued DSP parameters like gain "1.0 0.5"
                 if let Some(Some(SignalNode::Pattern {
                     pattern,
@@ -6481,8 +6553,8 @@ impl UnifiedSignalGraph {
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
                 let state = State {
                     span: TimeSpan::new(
-                        Fraction::from_float(self.cycle_position),
-                        Fraction::from_float(self.cycle_position + sample_width),
+                        Fraction::from_float(self.get_cycle_position()),
+                        Fraction::from_float(self.get_cycle_position() + sample_width),
                     ),
                     controls: HashMap::new(),
                 };
@@ -6498,7 +6570,7 @@ impl UnifiedSignalGraph {
                     eprintln!(
                         "Pattern '{}' at cycle {:.6}, sample {}: {} events",
                         pattern_str,
-                        self.cycle_position,
+                        self.get_cycle_position(),
                         self.sample_count,
                         events.len()
                     );
@@ -6532,7 +6604,7 @@ impl UnifiedSignalGraph {
                         if std::env::var("DEBUG_PATTERN").is_ok() && last_value != 0.0 {
                             eprintln!(
                                 "Pattern '{}' at cycle {:.4}: REST (was {})",
-                                pattern_str, self.cycle_position, last_value
+                                pattern_str, self.get_cycle_position(), last_value
                             );
                         }
                     } else if !s.is_empty() {
@@ -6556,7 +6628,7 @@ impl UnifiedSignalGraph {
                         if std::env::var("DEBUG_PATTERN").is_ok() && current_value != last_value {
                             eprintln!(
                                 "Pattern '{}' at cycle {:.4}: value changed {} -> {} (event: '{}')",
-                                pattern_str, self.cycle_position, last_value, current_value, s
+                                pattern_str, self.get_cycle_position(), last_value, current_value, s
                             );
                         }
 
@@ -6576,8 +6648,9 @@ impl UnifiedSignalGraph {
                 last_cycle,
                 pulse_width,
             } => {
-                let current_cycle = self.cycle_position.floor() as i32;
-                let cycle_fraction = self.cycle_position - self.cycle_position.floor();
+                let cycle_position = self.get_cycle_position();
+                let current_cycle = cycle_position.floor() as i32;
+                let cycle_fraction = cycle_position - cycle_position.floor();
                 let pulse_duration = pulse_width / self.cps as f32; // Convert pulse width to cycles
 
                 // Output 1.0 if we're within the pulse duration at the start of a new cycle
@@ -6622,7 +6695,7 @@ impl UnifiedSignalGraph {
                 // if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && self.sample_count < 100 {
                 //     eprintln!(
                 //         "Evaluating Sample node '{}' at sample {}, cycle_pos={:.6}",
-                //         pattern_str, self.sample_count, self.cycle_position
+                //         pattern_str, self.sample_count, self.get_cycle_position()
                 //     );
                 // }
 
@@ -6633,7 +6706,7 @@ impl UnifiedSignalGraph {
                 // Query pattern for events in the current cycle
                 // Use full-cycle window to ensure transforms like degrade see all events
                 // The event deduplication logic below prevents re-triggering
-                let current_cycle_start = self.cycle_position.floor();
+                let current_cycle_start = self.get_cycle_position().floor();
                 let state = State {
                     span: TimeSpan::new(
                         Fraction::from_float(current_cycle_start),
@@ -6644,7 +6717,7 @@ impl UnifiedSignalGraph {
                 let events = pattern.query(&state);
 
                 // Check if we've crossed into a new cycle
-                let current_cycle = self.cycle_position.floor() as i32;
+                let current_cycle = self.get_cycle_position().floor() as i32;
                 let cycle_changed = current_cycle != last_cycle;
 
                 // Get the last EVENT start time we triggered
@@ -6671,7 +6744,7 @@ impl UnifiedSignalGraph {
                 // if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && !events.is_empty() {
                 //     eprintln!(
                 //         "Sample node at cycle {:.3}: {} events",
-                //         self.cycle_position,
+                //         self.get_cycle_position(),
                 //         events.len()
                 //     );
                 // }
@@ -6707,7 +6780,7 @@ impl UnifiedSignalGraph {
                     // Use tiny epsilon for floating-point comparison (1 microsecond in cycle time)
                     let epsilon = 1e-6;
                     let event_is_new = event_start_abs > last_event_start + epsilon
-                        && event_start_abs < self.cycle_position + epsilon;
+                        && event_start_abs < self.get_cycle_position() + epsilon;
 
                     // DEBUG: Log event evaluation (disabled - too verbose)
                     if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && false {
@@ -6717,7 +6790,7 @@ impl UnifiedSignalGraph {
                             event_start_abs,
                             event_is_new,
                             last_event_start,
-                            self.cycle_position
+                            self.get_cycle_position()
                         );
                     }
 
@@ -6727,7 +6800,7 @@ impl UnifiedSignalGraph {
                             let audio_time = self.sample_count as f64 / self.sample_rate as f64;
                             eprintln!(
                                 "  Triggering: '{}' at cycle {:.6} (cycle_pos={:.6}, sample={}, audio_time={:.6}s)",
-                                sample_name, event_start_abs, self.cycle_position, self.sample_count, audio_time
+                                sample_name, event_start_abs, self.get_cycle_position(), self.sample_count, audio_time
                             );
                         }
 
@@ -7255,8 +7328,8 @@ impl UnifiedSignalGraph {
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
                 let state = State {
                     span: TimeSpan::new(
-                        Fraction::from_float(self.cycle_position),
-                        Fraction::from_float(self.cycle_position + sample_width),
+                        Fraction::from_float(self.get_cycle_position()),
+                        Fraction::from_float(self.get_cycle_position() + sample_width),
                     ),
                     controls: HashMap::new(),
                 };
@@ -7372,8 +7445,8 @@ impl UnifiedSignalGraph {
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
                 let state = State {
                     span: TimeSpan::new(
-                        Fraction::from_float(self.cycle_position),
-                        Fraction::from_float(self.cycle_position + sample_width),
+                        Fraction::from_float(self.get_cycle_position()),
+                        Fraction::from_float(self.get_cycle_position() + sample_width),
                     ),
                     controls: HashMap::new(),
                 };
@@ -7940,7 +8013,7 @@ impl UnifiedSignalGraph {
 
                 // Calculate position within current cycle (0.0 to 1.0)
                 let cycle_duration = 1.0 / self.cps;
-                let cycle_pos = (self.cycle_position % 1.0) as f32;
+                let cycle_pos = (self.get_cycle_position() % 1.0) as f32;
                 let time_in_cycle = cycle_pos * cycle_duration;
 
                 // Calculate phase boundaries (in seconds)
@@ -7994,7 +8067,7 @@ impl UnifiedSignalGraph {
 
                 // Calculate position within current cycle (0.0 to 1.0)
                 let cycle_duration = 1.0 / self.cps;
-                let cycle_pos = (self.cycle_position % 1.0) as f32;
+                let cycle_pos = (self.get_cycle_position() % 1.0) as f32;
                 let time_in_cycle = cycle_pos * cycle_duration;
 
                 // Calculate phase boundaries (in seconds)
@@ -8035,7 +8108,7 @@ impl UnifiedSignalGraph {
                 let end_val = self.eval_signal(&end);
 
                 // Calculate position within current cycle (0.0 to 1.0)
-                let cycle_pos = (self.cycle_position % 1.0) as f32;
+                let cycle_pos = (self.get_cycle_position() % 1.0) as f32;
 
                 // Linear interpolation from start to end
                 let value = start_val + (end_val - start_val) * cycle_pos;
@@ -8163,12 +8236,12 @@ impl UnifiedSignalGraph {
 
                 // Query pattern for trigger events
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-                let current_cycle = self.cycle_position.floor() as i32;
+                let current_cycle = self.get_cycle_position().floor() as i32;
 
                 let query_state = State {
                     span: TimeSpan::new(
-                        Fraction::from_float(self.cycle_position),
-                        Fraction::from_float(self.cycle_position + sample_width),
+                        Fraction::from_float(self.get_cycle_position()),
+                        Fraction::from_float(self.get_cycle_position() + sample_width),
                     ),
                     controls: HashMap::new(),
                 };
@@ -8330,12 +8403,12 @@ impl UnifiedSignalGraph {
 
                 // Query boolean pattern for trigger events
                 let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-                let current_cycle = self.cycle_position.floor() as i32;
+                let current_cycle = self.get_cycle_position().floor() as i32;
 
                 let query_state = State {
                     span: TimeSpan::new(
-                        Fraction::from_float(self.cycle_position),
-                        Fraction::from_float(self.cycle_position + sample_width),
+                        Fraction::from_float(self.get_cycle_position()),
+                        Fraction::from_float(self.get_cycle_position() + sample_width),
                     ),
                     controls: HashMap::new(),
                 };
@@ -9004,6 +9077,9 @@ impl UnifiedSignalGraph {
 
     /// Process one sample and advance time
     pub fn process_sample(&mut self) -> f32 {
+        // CRITICAL: Update cycle position from wall-clock ONCE per sample
+        self.update_cycle_position_from_clock();
+
         // Clear cache for new sample
         self.value_cache.clear();
 
@@ -9078,7 +9154,7 @@ impl UnifiedSignalGraph {
         };
 
         // Advance cycle position
-        self.cycle_position += self.cps as f64 / self.sample_rate as f64;
+        // REMOVED: Wall-clock based timing - no increment needed!
 
         // Increment sample counter
         self.sample_count += 1;
@@ -9174,7 +9250,7 @@ impl UnifiedSignalGraph {
             }
 
             // Advance cycle position
-            self.cycle_position += self.cps as f64 / self.sample_rate as f64;
+            // REMOVED: Wall-clock based timing - no increment needed!
 
             // Increment sample counter
             self.sample_count += 1;
