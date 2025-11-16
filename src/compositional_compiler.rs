@@ -773,6 +773,35 @@ fn compile_function_call(
                         // Simple case: just a pattern string
                         (s.clone(), parse_mini_notation(s))
                     }
+                    Expr::Call { name, args } if name == "choose" => {
+                        // Handle choose function: s (choose ["bd", "sn", "hh"])
+                        if args.len() != 1 {
+                            return Err("choose requires exactly one list argument".to_string());
+                        }
+
+                        match &args[0] {
+                            Expr::List(options) => {
+                                // Extract string options from list
+                                let string_options: Result<Vec<String>, String> = options
+                                    .iter()
+                                    .map(|expr| match expr {
+                                        Expr::String(s) => Ok(s.clone()),
+                                        _ => Err("choose requires a list of strings".to_string()),
+                                    })
+                                    .collect();
+
+                                let options_vec = string_options?;
+                                if options_vec.is_empty() {
+                                    return Err("choose requires at least one option".to_string());
+                                }
+
+                                // Create pattern using Pattern::choose()
+                                let pattern = Pattern::choose(options_vec.clone());
+                                (format!("choose {:?}", options_vec), pattern)
+                            }
+                            _ => return Err("choose requires a list argument: choose [\"bd\", \"sn\", \"hh\"]".to_string()),
+                        }
+                    }
                     Expr::Paren(inner) => {
                         // Unwrap parentheses and check for transform
                         match &**inner {
@@ -843,6 +872,33 @@ fn compile_function_call(
                             Expr::String(s) => {
                                 // Just a parenthesized string
                                 (s.clone(), parse_mini_notation(s))
+                            }
+                            Expr::Call { name, args } if name == "choose" => {
+                                // Handle choose: s (choose ["bd", "sn", "hh"])
+                                if args.len() != 1 {
+                                    return Err("choose requires exactly one list argument".to_string());
+                                }
+
+                                match &args[0] {
+                                    Expr::List(options) => {
+                                        let string_options: Result<Vec<String>, String> = options
+                                            .iter()
+                                            .map(|expr| match expr {
+                                                Expr::String(s) => Ok(s.clone()),
+                                                _ => Err("choose requires a list of strings".to_string()),
+                                            })
+                                            .collect();
+
+                                        let options_vec = string_options?;
+                                        if options_vec.is_empty() {
+                                            return Err("choose requires at least one option".to_string());
+                                        }
+
+                                        let pattern = Pattern::choose(options_vec.clone());
+                                        (format!("choose {:?}", options_vec), pattern)
+                                    }
+                                    _ => return Err("choose requires a list argument".to_string()),
+                                }
                             }
                             _ => {
                                 return Err(

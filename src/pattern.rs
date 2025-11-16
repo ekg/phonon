@@ -230,6 +230,46 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         Self::new(|_| vec![])
     }
 
+    /// Choose - randomly select from a list of options (one per cycle)
+    /// Example: Pattern::choose(vec!["bd", "sn", "hh"]) picks one sample per cycle
+    /// Uses deterministic randomness based on cycle number
+    pub fn choose(options: Vec<T>) -> Self {
+        use rand::{rngs::StdRng, Rng, SeedableRng};
+
+        if options.is_empty() {
+            return Self::silence();
+        }
+
+        Self::new(move |state| {
+            let mut haps = Vec::new();
+            let start_cycle = state.span.begin.to_float().floor() as i64;
+            let end_cycle = state.span.end.to_float().ceil() as i64;
+
+            for cycle in start_cycle..end_cycle {
+                let cycle_begin = Fraction::from_float(cycle as f64);
+                let cycle_end = Fraction::from_float((cycle + 1) as f64);
+
+                // Only include if it overlaps with the query span
+                if cycle_end > state.span.begin && cycle_begin < state.span.end {
+                    // Deterministic random selection based on cycle number
+                    let mut rng = StdRng::seed_from_u64(cycle as u64);
+                    let index = rng.gen_range(0..options.len());
+                    let value = options[index].clone();
+
+                    let part_begin = cycle_begin.max(state.span.begin);
+                    let part_end = cycle_end.min(state.span.end);
+
+                    haps.push(Hap::new(
+                        Some(TimeSpan::new(cycle_begin, cycle_end)),
+                        TimeSpan::new(part_begin, part_end),
+                        value,
+                    ));
+                }
+            }
+            haps
+        })
+    }
+
     // ============= Core Transformations =============
 
     /// Transform the values in a pattern
