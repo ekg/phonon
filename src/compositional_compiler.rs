@@ -442,6 +442,20 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
                 return compile_brown_noise(ctx, vec![]);
             }
 
+            // Zero-arg oscillators = LFOs at 1 Hz (for modulation)
+            if name == "sine" {
+                return compile_oscillator(ctx, Waveform::Sine, vec![Expr::Number(1.0)]);
+            }
+            if name == "saw" {
+                return compile_oscillator(ctx, Waveform::Saw, vec![Expr::Number(1.0)]);
+            }
+            if name == "square" {
+                return compile_oscillator(ctx, Waveform::Square, vec![Expr::Number(1.0)]);
+            }
+            if name == "tri" || name == "triangle" {
+                return compile_oscillator(ctx, Waveform::Triangle, vec![Expr::Number(1.0)]);
+            }
+
             // Otherwise, look up variable (function parameter)
             ctx.buses
                 .get(&name)
@@ -1243,6 +1257,25 @@ fn compile_function_call(
         "scan" => compile_scan(ctx, args),
         "irand" => compile_irand(ctx, args),
         "rand" => compile_rand(ctx, args),
+        "sine" => compile_sine_wave(ctx, args),
+        "cosine" => compile_cosine_wave(ctx, args),
+        "saw" => compile_saw_wave(ctx, args),
+        "tri" => compile_tri_wave(ctx, args),
+        "square" => compile_square_wave(ctx, args),
+
+        // ========== Conditional Value Generators ==========
+        "every_val" => compile_every_val(ctx, args),
+        "sometimes_val" => compile_sometimes_val(ctx, args),
+        "sometimes_by_val" => compile_sometimes_by_val(ctx, args),
+        "whenmod_val" => compile_whenmod_val(ctx, args),
+
+        // ========== Conditional Effects ==========
+        "every_effect" => compile_every_effect(ctx, args),
+        "sometimes_effect" => compile_sometimes_effect(ctx, args),
+        "whenmod_effect" => compile_whenmod_effect(ctx, args),
+
+        // ========== Signal Utilities ==========
+        "range" => compile_range(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -2807,6 +2840,59 @@ fn compile_distortion(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
     };
 
     Ok(ctx.graph.add_node(node))
+}
+
+/// Compile range function - maps signal from -1..1 to min..max
+/// Usage: range min max signal
+/// Formula: output = min + (signal + 1) * 0.5 * (max - min)
+fn compile_range(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 3 {
+        return Err(format!("range requires 3 arguments (min, max, signal), got {}", args.len()));
+    }
+
+    // Compile min, max, and signal
+    let min_node = compile_expr(ctx, args[0].clone())?;
+    let max_node = compile_expr(ctx, args[1].clone())?;
+    let signal_node = compile_expr(ctx, args[2].clone())?;
+
+    // Create the range scaling expression:
+    // output = min + (signal + 1) * 0.5 * (max - min)
+
+    // signal + 1
+    let signal_plus_1 = ctx.graph.add_node(SignalNode::Add {
+        a: Signal::Node(signal_node),
+        b: Signal::Value(1.0),
+    });
+
+    // (signal + 1) * 0.5
+    let normalized = ctx.graph.add_node(SignalNode::Multiply {
+        a: Signal::Node(signal_plus_1),
+        b: Signal::Value(0.5),
+    });
+
+    // max - min  (implemented as max + (-1 * min))
+    let neg_min = ctx.graph.add_node(SignalNode::Multiply {
+        a: Signal::Node(min_node),
+        b: Signal::Value(-1.0),
+    });
+    let range_width = ctx.graph.add_node(SignalNode::Add {
+        a: Signal::Node(max_node),
+        b: Signal::Node(neg_min),
+    });
+
+    // normalized * (max - min)
+    let scaled = ctx.graph.add_node(SignalNode::Multiply {
+        a: Signal::Node(normalized),
+        b: Signal::Node(range_width),
+    });
+
+    // min + scaled
+    let output = ctx.graph.add_node(SignalNode::Add {
+        a: Signal::Node(min_node),
+        b: Signal::Node(scaled),
+    });
+
+    Ok(output)
 }
 
 /// Compile pattern-triggered envelope (rhythmic gate)
@@ -4537,12 +4623,270 @@ fn modify_sample_param(
     }
 }
 
+/// Check if a transform contains Transform::Effect (recursively)
+fn transform_contains_effect(transform: &Transform) -> bool {
+    match transform {
+        Transform::Effect(_) => true,
+        Transform::Every { transform, .. } => transform_contains_effect(transform),
+        Transform::EveryPrime { transform, .. } => transform_contains_effect(transform),
+        Transform::Sometimes(transform) => transform_contains_effect(transform),
+        Transform::SometimesBy { transform, .. } => transform_contains_effect(transform),
+        Transform::Whenmod { transform, .. } => transform_contains_effect(transform),
+        Transform::Compose(transforms) => transforms.iter().any(|t| transform_contains_effect(t)),
+        _ => false,
+    }
+}
+
+/// Compile a transform that contains effect chains as conditional signal nodes
+fn compile_conditional_effect_transform(
+    ctx: &mut CompilerContext,
+    expr: Expr,
+    transform: Transform,
+) -> Result<NodeId, String> {
+    // Check if this is a Compose with mixed pattern and effect transforms
+    if let Transform::Compose(ref transforms) = transform {
+        let mut has_pattern = false;
+        let mut has_effect = false;
+
+        for t in transforms {
+            if transform_contains_effect(t) {
+                has_effect = true;
+            } else {
+                has_pattern = true;
+            }
+        }
+
+        // If we have BOTH pattern and effect transforms, we need special handling
+        if has_pattern && has_effect {
+            return compile_mixed_conditional_transform(ctx, expr, transform);
+        }
+    }
+
+    // Otherwise, compile the base expression (input signal) and apply effect transform
+    let input_node = compile_expr(ctx, expr)?;
+    compile_effect_transform(ctx, Signal::Node(input_node), transform)
+}
+
+/// Compile a conditional transform that mixes pattern and effect transforms
+/// Example: every 3 (fast 2 $ # lpf 300)
+/// This applies BOTH the pattern transform AND the effect transform conditionally
+fn compile_mixed_conditional_transform(
+    ctx: &mut CompilerContext,
+    expr: Expr,
+    transform: Transform,
+) -> Result<NodeId, String> {
+    // For now, we'll apply the whole composed transform at the pattern level,
+    // then handle effects at the signal level
+    // This is a simplified implementation - a full implementation would need
+    // to create conditional nodes at both pattern and signal levels
+
+    // Compile the base expression (which should create a signal)
+    let input_node = compile_expr(ctx, expr)?;
+
+    // Apply the transform (which will route through normal pattern transform path)
+    // Actually, this won't work because we're already in the effect transform path
+
+    // For now, return a helpful error
+    Err(
+        "Mixed pattern+effect transforms in same conditional not yet fully supported.\n\
+         Workaround: Chain separate conditionals:\n\
+         Instead of: every 3 (fast 2 $ # lpf 300)\n\
+         Use: every 3 (fast 2) $ every 3 (# lpf 300)".to_string()
+    )
+}
+
+/// Compile a transform with effects into conditional signal nodes
+fn compile_effect_transform(
+    ctx: &mut CompilerContext,
+    input: Signal,
+    transform: Transform,
+) -> Result<NodeId, String> {
+    match transform {
+        Transform::Every { n, transform } => {
+            let n_val = match *n {
+                Expr::Number(num) => num as i32,
+                _ => return Err("every requires a numeric argument".to_string()),
+            };
+
+            // Check if the inner transform is an effect
+            if let Transform::Effect(effect_expr) = *transform {
+                // Compile the effect expression with the input as ChainInput
+                let effect_node = compile_effect_chain(ctx, input.clone(), *effect_expr)?;
+
+                // Create EveryEffect node
+                let node = SignalNode::EveryEffect {
+                    input,
+                    effect: Signal::Node(effect_node),
+                    n: n_val,
+                };
+                Ok(ctx.graph.add_node(node))
+            } else if transform_contains_effect(&transform) {
+                // Recursive case: inner transform contains effects
+                compile_effect_transform(ctx, input, *transform)
+            } else {
+                Err("Expected effect transform inside every".to_string())
+            }
+        }
+
+        Transform::Sometimes(transform) => {
+            if let Transform::Effect(effect_expr) = *transform {
+                let effect_node = compile_effect_chain(ctx, input.clone(), *effect_expr)?;
+
+                let node = SignalNode::SometimesEffect {
+                    input,
+                    effect: Signal::Node(effect_node),
+                    prob: 0.5,
+                };
+                Ok(ctx.graph.add_node(node))
+            } else if transform_contains_effect(&transform) {
+                compile_effect_transform(ctx, input, *transform)
+            } else {
+                Err("Expected effect transform inside sometimes".to_string())
+            }
+        }
+
+        Transform::SometimesBy { prob, transform } => {
+            let prob_val = match *prob {
+                Expr::Number(num) => num,
+                _ => return Err("sometimesBy requires a numeric probability".to_string()),
+            };
+
+            if let Transform::Effect(effect_expr) = *transform {
+                let effect_node = compile_effect_chain(ctx, input.clone(), *effect_expr)?;
+
+                let node = SignalNode::SometimesEffect {
+                    input,
+                    effect: Signal::Node(effect_node),
+                    prob: prob_val,
+                };
+                Ok(ctx.graph.add_node(node))
+            } else if transform_contains_effect(&transform) {
+                compile_effect_transform(ctx, input, *transform)
+            } else {
+                Err("Expected effect transform inside sometimesBy".to_string())
+            }
+        }
+
+        Transform::Whenmod { modulo, offset, transform } => {
+            let modulo_val = match *modulo {
+                Expr::Number(num) => num as i32,
+                _ => return Err("whenmod requires numeric modulo".to_string()),
+            };
+            let offset_val = match *offset {
+                Expr::Number(num) => num as i32,
+                _ => return Err("whenmod requires numeric offset".to_string()),
+            };
+
+            if let Transform::Effect(effect_expr) = *transform {
+                let effect_node = compile_effect_chain(ctx, input.clone(), *effect_expr)?;
+
+                let node = SignalNode::WhenmodEffect {
+                    input,
+                    effect: Signal::Node(effect_node),
+                    modulo: modulo_val,
+                    offset: offset_val,
+                };
+                Ok(ctx.graph.add_node(node))
+            } else if transform_contains_effect(&transform) {
+                compile_effect_transform(ctx, input, *transform)
+            } else {
+                Err("Expected effect transform inside whenmod".to_string())
+            }
+        }
+
+        Transform::Effect(effect_expr) => {
+            // Directly compile the effect chain
+            compile_effect_chain(ctx, input, *effect_expr)
+        }
+
+        Transform::Compose(transforms) => {
+            // Handle composition of pattern transforms and effect transforms
+            // Separate pattern transforms from effect transforms
+            let mut pattern_transforms = Vec::new();
+            let mut effect_transforms = Vec::new();
+
+            for t in transforms {
+                if transform_contains_effect(&t) {
+                    effect_transforms.push(t);
+                } else {
+                    pattern_transforms.push(t);
+                }
+            }
+
+            // If we have ONLY effects, apply them sequentially
+            if pattern_transforms.is_empty() {
+                let mut current_signal = input;
+                for t in effect_transforms {
+                    let node_id = compile_effect_transform(ctx, current_signal, t)?;
+                    current_signal = Signal::Node(node_id);
+                }
+                match current_signal {
+                    Signal::Node(id) => Ok(id),
+                    _ => Err("Expected node after effect chain".to_string()),
+                }
+            } else {
+                // We have mixed pattern and effect transforms
+                // This is a more complex case - we need to handle this at the
+                // conditional level, not here. For now, return an error.
+                Err("Mixed pattern and effect transforms in Compose not yet supported in conditional context. Use separate conditionals or chain them: every 3 (fast 2) $ every 3 (# lpf 300)".to_string())
+            }
+        }
+
+        _ => Err(format!("Unsupported transform for effects: {:?}", transform)),
+    }
+}
+
+/// Compile an effect chain expression with a given input
+fn compile_effect_chain(
+    ctx: &mut CompilerContext,
+    input: Signal,
+    effect_expr: Expr,
+) -> Result<NodeId, String> {
+    // Replace ChainInput markers in the effect expression with the actual input
+    // and compile the chain
+    match effect_expr {
+        Expr::Chain(left, right) => {
+            // Chain: left # right
+            // Compile left with input, then pass result to right
+            let left_node = if matches!(*left, Expr::ChainInput(_)) {
+                // Left is the input
+                match input {
+                    Signal::Node(id) => id,
+                    _ => return Err("Expected node for chain input".to_string()),
+                }
+            } else {
+                compile_effect_chain(ctx, input.clone(), *left)?
+            };
+
+            // Compile right with left as input
+            compile_effect_chain(ctx, Signal::Node(left_node), *right)
+        }
+
+        Expr::Call { name, mut args } => {
+            // This is an effect function - inject the input as the first argument
+            args.insert(0, Expr::ChainInput(match input {
+                Signal::Node(id) => id,
+                _ => return Err("Expected node for effect input".to_string()),
+            }));
+            compile_function_call(ctx, &name, args)
+        }
+
+        _ => Err(format!("Unsupported effect expression: {:?}", effect_expr)),
+    }
+}
+
 /// Compile pattern transform
 fn compile_transform(
     ctx: &mut CompilerContext,
     expr: Expr,
     transform: Transform,
 ) -> Result<NodeId, String> {
+    // First, check if this transform contains effect chains (Transform::Effect)
+    // If so, compile as conditional signal nodes instead of pattern transforms
+    if transform_contains_effect(&transform) {
+        return compile_conditional_effect_transform(ctx, expr, transform);
+    }
+
     // Handle function calls like `s "bd sn" $ fast 2`
     if let Expr::Call { name, args } = &expr {
         // Check if this is the `s` function (sample pattern)
@@ -5058,6 +5402,124 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
                 }
             }))
         }
+        Transform::EveryPrime { n, offset, transform } => {
+            // every' n offset transform: apply transform when (cycle - offset) % n == 0
+            let n_val = extract_number(&n)? as i32;
+            let offset_val = extract_number(&offset)? as i32;
+
+            // Clone the pattern, transform, and templates for use in the closure
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
+
+            // Manually inline Pattern::every' logic
+            Ok(Pattern::new(move |state| {
+                let cycle = state.span.begin.to_float().floor() as i32;
+                if (cycle - offset_val) % n_val == 0 {
+                    // Apply the transform on matching cycles
+                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
+                    {
+                        Ok(transformed) => transformed.query(state),
+                        Err(_) => pattern_clone.query(state), // Fallback to original on error
+                    }
+                } else {
+                    // Use original pattern on other cycles
+                    pattern_clone.query(state)
+                }
+            }))
+        }
+        Transform::FoldEvery { transforms, n } => {
+            // foldEvery [t1, t2, t3] n: cycle through transforms every n cycles
+            let n_val = extract_number(&n)? as i32;
+
+            if transforms.is_empty() {
+                return Ok(pattern);
+            }
+
+            // Clone everything for use in the closure
+            let transforms_clone = transforms.clone();
+            let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
+
+            // Manually inline foldEvery logic
+            Ok(Pattern::new(move |state| {
+                let cycle = state.span.begin.to_float().floor() as i32;
+
+                // Determine which transform to apply based on cycle count
+                if cycle % n_val == 0 {
+                    let cycle_count = (cycle / n_val) as usize;
+                    let transform_index = cycle_count % transforms_clone.len();
+                    let selected_transform = transforms_clone[transform_index].clone();
+
+                    // Apply the selected transform
+                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), selected_transform)
+                    {
+                        Ok(transformed) => transformed.query(state),
+                        Err(_) => pattern_clone.query(state), // Fallback to original on error
+                    }
+                } else {
+                    // Use original pattern on non-matching cycles
+                    pattern_clone.query(state)
+                }
+            }))
+        }
+        Transform::Sometimes(transform) => {
+            // Apply transform 50% of the time (per cycle)
+            use rand::{rngs::StdRng, Rng, SeedableRng};
+
+            // Clone the pattern, transform, and templates for use in the closure
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
+
+            // Manually inline Pattern::sometimes logic to avoid closure issues
+            Ok(Pattern::new(move |state| {
+                let cycle = state.span.begin.to_float().floor() as u64;
+                let mut rng = StdRng::seed_from_u64(cycle);
+
+                if rng.gen::<f64>() < 0.5 {
+                    // Apply the transform with 50% probability
+                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
+                    {
+                        Ok(transformed) => transformed.query(state),
+                        Err(_) => pattern_clone.query(state), // Fallback to original on error
+                    }
+                } else {
+                    // Use original pattern otherwise
+                    pattern_clone.query(state)
+                }
+            }))
+        }
+        Transform::SometimesBy { prob, transform } => {
+            // Apply transform with specified probability (per cycle)
+            use rand::{rngs::StdRng, Rng, SeedableRng};
+
+            // Extract the probability
+            let prob_val = extract_number(&prob)?;
+
+            // Clone the pattern, transform, and templates for use in the closure
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
+
+            // Manually inline Pattern::sometimes_by logic to avoid closure issues
+            Ok(Pattern::new(move |state| {
+                let cycle = state.span.begin.to_float().floor() as u64;
+                let mut rng = StdRng::seed_from_u64(cycle);
+
+                if rng.gen::<f64>() < prob_val {
+                    // Apply the transform with specified probability
+                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
+                    {
+                        Ok(transformed) => transformed.query(state),
+                        Err(_) => pattern_clone.query(state), // Fallback to original on error
+                    }
+                } else {
+                    // Use original pattern otherwise
+                    pattern_clone.query(state)
+                }
+            }))
+        }
         Transform::RotL(n_expr) => {
             let n = extract_number(&n_expr)?;
             Ok(pattern.rotate_left(n))
@@ -5465,10 +5927,49 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             ))
         }
 
+        Transform::Whenmod {
+            modulo,
+            offset,
+            transform,
+        } => {
+            // Apply transform when (cycle - offset) % modulo == 0
+            let modulo_val = extract_number(&modulo)? as i32;
+            let offset_val = extract_number(&offset)? as i32;
+
+            // Clone the pattern, transform, and templates for use in the closure
+            let inner_transform = (*transform).clone();
+            let pattern_clone = pattern.clone();
+            let templates_clone = templates.clone();
+
+            // Manually inline Pattern::whenmod logic
+            Ok(Pattern::new(move |state| {
+                let cycle = state.span.begin.to_float().floor() as i32;
+                if (cycle - offset_val) % modulo_val == 0 {
+                    // Apply the transform on matching cycles
+                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
+                    {
+                        Ok(transformed) => transformed.query(state),
+                        Err(_) => pattern_clone.query(state), // Fallback to original on error
+                    }
+                } else {
+                    // Use original pattern on other cycles
+                    pattern_clone.query(state)
+                }
+            }))
+        }
+
         Transform::Euclid { pulses, steps } => {
             let pulses_val = extract_number(&pulses)? as usize;
             let steps_val = extract_number(&steps)? as usize;
             Ok(pattern.euclidean_legato(pulses_val, steps_val))
+        }
+
+        Transform::Effect(_effect_expr) => {
+            // Transform::Effect is not a pattern transform - it's a marker for effect chains
+            // that should be handled at the signal level by creating conditional signal nodes.
+            // This case should not be reached in normal operation as the compiler should
+            // detect effect transforms and handle them specially.
+            Err("Transform::Effect cannot be applied to patterns - it must be handled at the signal level".to_string())
         }
     }
 }
@@ -6009,6 +6510,189 @@ fn compile_rand(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
 
     // Wrap in PatternEvaluator node
     let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_sine_wave(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if !args.is_empty() {
+        return Err(format!("sine takes no arguments, got {}", args.len()));
+    }
+
+    let pattern = Pattern::<f64>::sine_wave();
+    let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_cosine_wave(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if !args.is_empty() {
+        return Err(format!("cosine takes no arguments, got {}", args.len()));
+    }
+
+    let pattern = Pattern::<f64>::cosine_wave();
+    let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_saw_wave(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if !args.is_empty() {
+        return Err(format!("saw takes no arguments, got {}", args.len()));
+    }
+
+    let pattern = Pattern::<f64>::saw_wave();
+    let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_tri_wave(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if !args.is_empty() {
+        return Err(format!("tri takes no arguments, got {}", args.len()));
+    }
+
+    let pattern = Pattern::<f64>::tri_wave();
+    let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_square_wave(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if !args.is_empty() {
+        return Err(format!("square takes no arguments, got {}", args.len()));
+    }
+
+    let pattern = Pattern::<f64>::square_wave();
+    let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Conditional value generators for audio effects
+fn compile_every_val(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 3 {
+        return Err(format!("every_val requires 3 arguments (n, on_val, off_val), got {}", args.len()));
+    }
+
+    let n = extract_number(&args[0])? as i32;
+    let on_val = extract_number(&args[1])?;
+    let off_val = extract_number(&args[2])?;
+
+    let pattern = Pattern::<f64>::every_val(n, on_val, off_val);
+    let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_sometimes_val(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!("sometimes_val requires 2 arguments (on_val, off_val), got {}", args.len()));
+    }
+
+    let on_val = extract_number(&args[0])?;
+    let off_val = extract_number(&args[1])?;
+
+    let pattern = Pattern::<f64>::sometimes_val(on_val, off_val);
+    let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_sometimes_by_val(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 3 {
+        return Err(format!("sometimes_by_val requires 3 arguments (prob, on_val, off_val), got {}", args.len()));
+    }
+
+    let prob = extract_number(&args[0])?;
+    let on_val = extract_number(&args[1])?;
+    let off_val = extract_number(&args[2])?;
+
+    let pattern = Pattern::<f64>::sometimes_by_val(prob, on_val, off_val);
+    let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_whenmod_val(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 4 {
+        return Err(format!("whenmod_val requires 4 arguments (modulo, offset, on_val, off_val), got {}", args.len()));
+    }
+
+    let modulo = extract_number(&args[0])? as i32;
+    let offset = extract_number(&args[1])? as i32;
+    let on_val = extract_number(&args[2])?;
+    let off_val = extract_number(&args[3])?;
+
+    let pattern = Pattern::<f64>::whenmod_val(modulo, offset, on_val, off_val);
+    let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Conditional effect compilers
+/// These create signal-level conditional routing for effects
+
+fn compile_every_effect(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // every_effect n (effect_chain)
+    // When used in chain: input # every_effect 2 (lpf 500 0.8)
+    // args[0] = ChainInput (the input signal)
+    // args[1] = n (cycle interval)
+    // args[2] = effect expr (the effect to apply conditionally)
+
+    if args.len() != 3 {
+        return Err(format!("every_effect requires 3 arguments (input, n, effect), got {}", args.len()));
+    }
+
+    // Extract the chained input
+    let input = compile_expr(ctx, args[0].clone())?;
+
+    // Extract n
+    let n = extract_number(&args[1])? as i32;
+
+    // Compile the effect expression (which should be an effect chain)
+    let effect = compile_expr(ctx, args[2].clone())?;
+
+    // Create the conditional effect node
+    let node = SignalNode::EveryEffect {
+        input: Signal::Node(input),
+        effect: Signal::Node(effect),
+        n,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_sometimes_effect(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // sometimes_effect (effect_chain)
+    // When used in chain: input # sometimes_effect (lpf 500 0.8)
+
+    if args.len() != 2 {
+        return Err(format!("sometimes_effect requires 2 arguments (input, effect), got {}", args.len()));
+    }
+
+    let input = compile_expr(ctx, args[0].clone())?;
+    let effect = compile_expr(ctx, args[1].clone())?;
+
+    let node = SignalNode::SometimesEffect {
+        input: Signal::Node(input),
+        effect: Signal::Node(effect),
+        prob: 0.5,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+fn compile_whenmod_effect(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // whenmod_effect modulo offset (effect_chain)
+    // When used in chain: input # whenmod_effect 3 1 (lpf 500 0.8)
+
+    if args.len() != 4 {
+        return Err(format!("whenmod_effect requires 4 arguments (input, modulo, offset, effect), got {}", args.len()));
+    }
+
+    let input = compile_expr(ctx, args[0].clone())?;
+    let modulo = extract_number(&args[1])? as i32;
+    let offset = extract_number(&args[2])? as i32;
+    let effect = compile_expr(ctx, args[3].clone())?;
+
+    let node = SignalNode::WhenmodEffect {
+        input: Signal::Node(input),
+        effect: Signal::Node(effect),
+        modulo,
+        offset,
+    };
+
     Ok(ctx.graph.add_node(node))
 }
 

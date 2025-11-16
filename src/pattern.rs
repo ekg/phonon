@@ -504,6 +504,150 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
+    /// Sine wave pattern - generates continuous sine wave values (Tidal's sine)
+    /// Returns values in range [-1.0, 1.0] based on cycle position
+    /// Completes one full cycle per pattern cycle
+    pub fn sine_wave() -> Pattern<f64> {
+        use std::f64::consts::PI;
+
+        Pattern::new(move |state| {
+            // For continuous patterns, create a single hap spanning the query
+            let phase = state.span.begin.to_float() % 1.0;
+            let value = (phase * 2.0 * PI).sin();
+
+            vec![Hap::new(
+                Some(state.span.clone()),
+                state.span.clone(),
+                value,
+            )]
+        })
+    }
+
+    /// Cosine wave pattern - generates continuous cosine wave values (Tidal's cosine)
+    /// Returns values in range [-1.0, 1.0] based on cycle position
+    /// Completes one full cycle per pattern cycle
+    pub fn cosine_wave() -> Pattern<f64> {
+        use std::f64::consts::PI;
+
+        Pattern::new(move |state| {
+            let phase = state.span.begin.to_float() % 1.0;
+            let value = (phase * 2.0 * PI).cos();
+
+            vec![Hap::new(
+                Some(state.span.clone()),
+                state.span.clone(),
+                value,
+            )]
+        })
+    }
+
+    /// Sawtooth wave pattern - generates linear ramp (Tidal's saw)
+    /// Returns values in range [0.0, 1.0] ramping up linearly over each cycle
+    pub fn saw_wave() -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let phase = state.span.begin.to_float() % 1.0;
+            let value = phase; // Linear ramp 0->1
+
+            vec![Hap::new(
+                Some(state.span.clone()),
+                state.span.clone(),
+                value,
+            )]
+        })
+    }
+
+    /// Triangle wave pattern - generates triangle wave (Tidal's tri)
+    /// Returns values in range [0.0, 1.0] ramping up then down over each cycle
+    pub fn tri_wave() -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let phase = state.span.begin.to_float() % 1.0;
+            // Triangle: ramp up 0->1 in first half, then 1->0 in second half
+            let value = if phase < 0.5 {
+                phase * 2.0  // 0->1 in first half
+            } else {
+                2.0 - (phase * 2.0)  // 1->0 in second half
+            };
+
+            vec![Hap::new(
+                Some(state.span.clone()),
+                state.span.clone(),
+                value,
+            )]
+        })
+    }
+
+    /// Square wave pattern - generates square wave (Tidal's square)
+    /// Returns values 0.0 (first half of cycle) or 1.0 (second half)
+    pub fn square_wave() -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let phase = state.span.begin.to_float() % 1.0;
+            let value = if phase < 0.5 { 0.0 } else { 1.0 };
+
+            vec![Hap::new(
+                Some(state.span.clone()),
+                state.span.clone(),
+                value,
+            )]
+        })
+    }
+
+    // ============= Conditional Value Generators =============
+    // These generate different values based on cycle conditions
+    // Useful for conditional audio effects: lpf (every_val 2 500 2000) 0.8
+
+    /// every_val - output different values based on cycle number
+    /// every_val(n, on_val, off_val) outputs on_val when cycle % n == 0, else off_val
+    pub fn every_val(n: i32, on_val: f64, off_val: f64) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let cycle = state.span.begin.to_float().floor() as i32;
+            let value = if cycle % n == 0 { on_val } else { off_val };
+
+            vec![Hap::new(
+                Some(state.span.clone()),
+                state.span.clone(),
+                value,
+            )]
+        })
+    }
+
+    /// sometimes_val - randomly choose between two values per cycle
+    /// sometimes_val(on_val, off_val) outputs on_val 50% of cycles, off_val otherwise
+    pub fn sometimes_val(on_val: f64, off_val: f64) -> Pattern<f64> {
+        Self::sometimes_by_val(0.5, on_val, off_val)
+    }
+
+    /// sometimes_by_val - randomly choose between two values with given probability
+    pub fn sometimes_by_val(prob: f64, on_val: f64, off_val: f64) -> Pattern<f64> {
+        use rand::{rngs::StdRng, Rng, SeedableRng};
+
+        Pattern::new(move |state| {
+            let cycle = state.span.begin.to_float().floor() as u64;
+            let mut rng = StdRng::seed_from_u64(cycle);
+            let value = if rng.gen::<f64>() < prob { on_val } else { off_val };
+
+            vec![Hap::new(
+                Some(state.span.clone()),
+                state.span.clone(),
+                value,
+            )]
+        })
+    }
+
+    /// whenmod_val - output different values based on cycle modulo with offset
+    /// whenmod_val(modulo, offset, on_val, off_val) outputs on_val when (cycle - offset) % modulo == 0
+    pub fn whenmod_val(modulo: i32, offset: i32, on_val: f64, off_val: f64) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let cycle = state.span.begin.to_float().floor() as i32;
+            let value = if (cycle - offset) % modulo == 0 { on_val } else { off_val };
+
+            vec![Hap::new(
+                Some(state.span.clone()),
+                state.span.clone(),
+                value,
+            )]
+        })
+    }
+
     // ============= Core Transformations =============
 
     /// Transform the values in a pattern

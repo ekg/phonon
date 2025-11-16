@@ -837,6 +837,32 @@ pub enum SignalNode {
     /// Used for functions like run, scan that generate numeric patterns
     PatternEvaluator { pattern: Pattern<f64> },
 
+    // === Conditional Effects ===
+    /// Apply effect every N cycles, bypass otherwise
+    /// Enables syntax like: s "bd" $ every 4 (# lpf 300)
+    EveryEffect {
+        input: Signal,
+        effect: Signal,
+        n: i32,
+    },
+
+    /// Apply effect with probability per cycle
+    /// Enables syntax like: s "bd" $ sometimes (# lpf 300)
+    SometimesEffect {
+        input: Signal,
+        effect: Signal,
+        prob: f64,
+    },
+
+    /// Apply effect when (cycle - offset) % modulo == 0
+    /// Enables syntax like: s "bd" $ whenmod 3 1 (# lpf 300)
+    WhenmodEffect {
+        input: Signal,
+        effect: Signal,
+        modulo: i32,
+        offset: i32,
+    },
+
     /// Noise generator
     Noise { seed: u32 },
 
@@ -5658,6 +5684,39 @@ impl UnifiedSignalGraph {
                     .first()
                     .map(|hap| hap.value as f32)
                     .unwrap_or(0.0)
+            }
+
+            SignalNode::EveryEffect { input, effect, n } => {
+                // Apply effect every N cycles, bypass otherwise
+                let current_cycle = self.get_cycle_position().floor() as i32;
+                if current_cycle % n == 0 {
+                    self.eval_signal_at_time(&effect, self.get_cycle_position())
+                } else {
+                    self.eval_signal_at_time(&input, self.get_cycle_position())
+                }
+            }
+
+            SignalNode::SometimesEffect { input, effect, prob } => {
+                // Apply effect with probability, based on cycle seed
+                use rand::{rngs::StdRng, Rng, SeedableRng};
+                let current_cycle = self.get_cycle_position().floor() as u64;
+                let mut rng = StdRng::seed_from_u64(current_cycle);
+
+                if rng.gen::<f64>() < prob {
+                    self.eval_signal_at_time(&effect, self.get_cycle_position())
+                } else {
+                    self.eval_signal_at_time(&input, self.get_cycle_position())
+                }
+            }
+
+            SignalNode::WhenmodEffect { input, effect, modulo, offset } => {
+                // Apply effect when (cycle - offset) % modulo == 0
+                let current_cycle = self.get_cycle_position().floor() as i32;
+                if (current_cycle - offset) % modulo == 0 {
+                    self.eval_signal_at_time(&effect, self.get_cycle_position())
+                } else {
+                    self.eval_signal_at_time(&input, self.get_cycle_position())
+                }
             }
 
             SignalNode::Add { a, b } => self.eval_signal(&a) + self.eval_signal(&b),

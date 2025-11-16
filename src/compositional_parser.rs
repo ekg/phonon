@@ -136,6 +136,24 @@ pub enum Transform {
         n: Box<Expr>,
         transform: Box<Transform>,
     },
+    /// every' n offset transform: apply transform every n cycles with offset
+    EveryPrime {
+        n: Box<Expr>,
+        offset: Box<Expr>,
+        transform: Box<Transform>,
+    },
+    /// foldEvery transforms n: cycle through list of transforms every n cycles
+    FoldEvery {
+        transforms: Vec<Transform>,
+        n: Box<Expr>,
+    },
+    /// sometimes f: apply transform f 50% of the time (per cycle)
+    Sometimes(Box<Transform>),
+    /// sometimesBy prob f: apply transform f with given probability
+    SometimesBy {
+        prob: Box<Expr>,
+        transform: Box<Transform>,
+    },
     /// degrade: randomly remove events
     Degrade,
     /// degradeBy p: remove events with probability p
@@ -270,17 +288,10 @@ pub enum Transform {
         n: Box<Expr>,
         transform: Box<Transform>,
     },
-    /// sometimes transform: apply transform with 50% probability
-    Sometimes(Box<Transform>),
     /// often transform: apply transform with 75% probability
     Often(Box<Transform>),
     /// rarely transform: apply transform with 25% probability
     Rarely(Box<Transform>),
-    /// sometimesBy prob transform: apply transform with specific probability
-    SometimesBy {
-        prob: Box<Expr>,
-        transform: Box<Transform>,
-    },
     /// almostAlways transform: apply transform with 90% probability
     AlmostAlways(Box<Transform>),
     /// almostNever transform: apply transform with 10% probability
@@ -325,6 +336,10 @@ pub enum Transform {
         amount: Box<Expr>,
         transform: Box<Transform>,
     },
+    /// effect chain: apply effect chain within transform
+    /// Example: every 4 (# lpf 300) becomes Every { n: 4, transform: Effect(lpf_expr) }
+    /// Enables conditional application of effects
+    Effect(Box<Expr>),
     /// compose transforms: apply transforms in sequence (left-to-right with $)
     /// Example: (fast 2 $ rev) becomes Compose(vec![Fast(2), Rev])
     /// Applies Rev first, then Fast(2) to the result
@@ -1156,6 +1171,16 @@ fn parse_transform(input: &str) -> IResult<&str, Transform> {
 /// Used inside parentheses to support: jux (fast 2 $ rev)
 /// Creates a Compose transform that applies transforms in sequence
 fn parse_transform_chain(input: &str) -> IResult<&str, Transform> {
+    // Check if this starts with # (effect chain)
+    let (after_space, _) = space0(input)?;
+    if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('#')(after_space) {
+        // This is an effect chain - parse the effect expression
+        let (input, _) = space0(input)?;
+        let (input, effect_expr) = parse_chain_expr(input)?;
+
+        return Ok((input, Transform::Effect(Box::new(effect_expr))));
+    }
+
     // Parse first transform
     let (input, first_transform) = alt((
         parse_transform_group_1,
@@ -1172,20 +1197,29 @@ fn parse_transform_chain(input: &str) -> IResult<&str, Transform> {
         // Try to parse $ and more transforms
         let (input, _) = space0(current_input)?;
 
-        // Check for $ operator
+        // Check for $ operator (pattern transforms)
         if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('$')(input) {
             let (input, _) = space0(input)?;
 
-            // Parse next transform
-            let (input, next_transform) = alt((
-                parse_transform_group_1,
-                parse_transform_group_2,
-                parse_transform_group_3,
-                parse_transform_group_4,
-            ))(input)?;
+            // Check if what follows is a # (effect chain)
+            if let Ok((input2, _)) = char::<_, nom::error::Error<&str>>('#')(input) {
+                // Parse effect chain and wrap in Transform::Effect
+                let (input, _) = space0(input2)?;
+                let (input, effect_expr) = parse_chain_expr(input)?;
+                transforms.push(Transform::Effect(Box::new(effect_expr)));
+                current_input = input;
+            } else {
+                // Parse next transform
+                let (input, next_transform) = alt((
+                    parse_transform_group_1,
+                    parse_transform_group_2,
+                    parse_transform_group_3,
+                    parse_transform_group_4,
+                ))(input)?;
 
-            transforms.push(next_transform);
-            current_input = input;
+                transforms.push(next_transform);
+                current_input = input;
+            }
         } else {
             // No more $ operators
             break;
@@ -1218,6 +1252,23 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
                 n: Box::new(n),
                 transform: Box::new(transform),
             },
+        ),
+        // sometimesBy prob transform (MUST come before sometimes!)
+        map(
+            tuple((
+                terminated(tag("sometimesBy"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_transform,
+            )),
+            |(_, prob, transform)| Transform::SometimesBy {
+                prob: Box::new(prob),
+                transform: Box::new(transform),
+            },
+        ),
+        // sometimes transform (50% probability)
+        map(
+            preceded(terminated(tag("sometimes"), space1), parse_transform),
+            |transform| Transform::Sometimes(Box::new(transform)),
         ),
         // juxBy amount transform (MUST come before jux!)
         map(
@@ -1310,9 +1361,69 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
     ))(input)
 }
 
+/// Parse conditional transforms (every', whenmod, foldEvery)
+fn parse_conditional_transforms(input: &str) -> IResult<&str, Transform> {
+    alt((
+        // foldEvery [t1, t2, t3] n (MUST come first to avoid conflicts)
+        map(
+            tuple((
+                terminated(tag("foldEvery"), space1),
+                parse_transform_list,
+                preceded(space1, parse_primary_expr),
+            )),
+            |(_, transforms, n)| Transform::FoldEvery {
+                transforms,
+                n: Box::new(n),
+            },
+        ),
+        // every' n offset transform
+        map(
+            tuple((
+                terminated(tag("every'"), space1),
+                terminated(parse_primary_expr, space1),
+                terminated(parse_primary_expr, space1),
+                parse_transform,
+            )),
+            |(_, n, offset, transform)| Transform::EveryPrime {
+                n: Box::new(n),
+                offset: Box::new(offset),
+                transform: Box::new(transform),
+            },
+        ),
+        // whenmod modulo offset transform
+        map(
+            tuple((
+                terminated(tag("whenmod"), space1),
+                terminated(parse_primary_expr, space1),
+                terminated(parse_primary_expr, space1),
+                parse_transform,
+            )),
+            |(_, modulo, offset, transform)| Transform::Whenmod {
+                modulo: Box::new(modulo),
+                offset: Box::new(offset),
+                transform: Box::new(transform),
+            },
+        ),
+    ))(input)
+}
+
+/// Parse a list of transforms: [transform1, transform2, ...]
+fn parse_transform_list(input: &str) -> IResult<&str, Vec<Transform>> {
+    delimited(
+        terminated(char('['), space0),
+        separated_list0(
+            delimited(space0, char(','), space0),
+            parse_transform,
+        ),
+        preceded(space0, char(']')),
+    )(input)
+}
+
 /// Parse transform group 2 (second half of transforms)
 fn parse_transform_group_2(input: &str) -> IResult<&str, Transform> {
     alt((
+        // Conditional transforms (every', whenmod)
+        parse_conditional_transforms,
         // echo times time feedback
         map(
             tuple((
