@@ -315,6 +315,58 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
+    /// Scan - cumulative pattern that grows each cycle (Tidal's scan function)
+    /// Example: Pattern::scan(4) creates:
+    ///   Cycle 0: 0
+    ///   Cycle 1: 0 1
+    ///   Cycle 2: 0 1 2
+    ///   Cycle 3: 0 1 2 3
+    ///   Then repeats with modulo
+    pub fn scan(n: usize) -> Pattern<f64> {
+        if n == 0 {
+            return Pattern::silence();
+        }
+
+        Pattern::new(move |state| {
+            let mut haps = Vec::new();
+            let start_cycle = state.span.begin.to_float().floor() as i64;
+            let end_cycle = state.span.end.to_float().ceil() as i64;
+
+            for cycle in start_cycle..end_cycle {
+                let cycle_begin = Fraction::from_float(cycle as f64);
+                let cycle_end = Fraction::from_float((cycle + 1) as f64);
+
+                // Only process if it overlaps with the query span
+                if cycle_end > state.span.begin && cycle_begin < state.span.end {
+                    // Number of events in this cycle grows: (cycle % n) + 1
+                    let num_events = ((cycle.abs() as usize) % n) + 1;
+
+                    // Create num_events evenly spaced events with values 0..(num_events-1)
+                    for i in 0..num_events {
+                        let event_fraction = i as f64 / num_events as f64;
+                        let next_fraction = (i + 1) as f64 / num_events as f64;
+
+                        let event_begin = Fraction::from_float(cycle as f64 + event_fraction);
+                        let event_end = Fraction::from_float(cycle as f64 + next_fraction);
+
+                        // Only include if it overlaps with the query span
+                        if event_end > state.span.begin && event_begin < state.span.end {
+                            let part_begin = event_begin.max(state.span.begin);
+                            let part_end = event_end.min(state.span.end);
+
+                            haps.push(Hap::new(
+                                Some(TimeSpan::new(event_begin, event_end)),
+                                TimeSpan::new(part_begin, part_end),
+                                i as f64, // Value is the index
+                            ));
+                        }
+                    }
+                }
+            }
+            haps
+        })
+    }
+
     // ============= Core Transformations =============
 
     /// Transform the values in a pattern
