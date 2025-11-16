@@ -1276,6 +1276,8 @@ fn compile_function_call(
 
         // ========== Signal Utilities ==========
         "range" => compile_range(ctx, args),
+        "gain" => compile_gain(ctx, args),
+        "pan" => compile_pan(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -2890,6 +2892,57 @@ fn compile_range(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
     let output = ctx.graph.add_node(SignalNode::Add {
         a: Signal::Node(min_node),
         b: Signal::Node(scaled),
+    });
+
+    Ok(output)
+}
+
+/// Compile gain function - multiplies signal by gain amount
+/// Usage: signal # gain amount
+/// Example: s "bd" # gain 0.5  (reduce volume by half)
+/// Example: s "bd" # gain "0.5 1.0 0.8"  (pattern-controlled gain)
+fn compile_gain(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input and gain parameter
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.is_empty() {
+        return Err("gain requires a gain amount".to_string());
+    }
+
+    // Compile the gain amount (can be a number, pattern, or LFO)
+    let gain_node = compile_expr(ctx, params[0].clone())?;
+
+    // Create multiply node: output = input * gain
+    let output = ctx.graph.add_node(SignalNode::Multiply {
+        a: input_signal,
+        b: Signal::Node(gain_node),
+    });
+
+    Ok(output)
+}
+
+/// Compile pan function - stereo panning
+/// Usage: signal # pan position
+/// Position: -1 = hard left, 0 = center, 1 = hard right
+/// Example: s "bd" # pan "-1"  (hard left)
+/// Example: s "bd" # pan "0.5 -0.5"  (pattern-controlled panning)
+/// Note: Returns left channel only. Use pan2_l and pan2_r for stereo output.
+fn compile_pan(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input and pan parameter
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.is_empty() {
+        return Err("pan requires a pan position (-1 to 1)".to_string());
+    }
+
+    // Compile the pan position
+    let pan_node = compile_expr(ctx, params[0].clone())?;
+
+    // Create pan2 left channel (for mono output, just return left)
+    // For full stereo, users should use pan2_l and pan2_r separately
+    let output = ctx.graph.add_node(SignalNode::Pan2Left {
+        input: input_signal,
+        position: Signal::Node(pan_node),
     });
 
     Ok(output)
