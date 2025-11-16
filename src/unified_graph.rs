@@ -833,6 +833,10 @@ pub enum SignalNode {
     /// Constant value
     Constant { value: f32 },
 
+    /// Pattern evaluator - evaluates a numeric pattern at current cycle position
+    /// Used for functions like run, scan that generate numeric patterns
+    PatternEvaluator { pattern: Pattern<f64> },
+
     /// Noise generator
     Noise { seed: u32 },
 
@@ -5633,6 +5637,28 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::Constant { value } => value,
+
+            SignalNode::PatternEvaluator { pattern } => {
+                // Evaluate the pattern at the current cycle position
+                use crate::pattern::{State, TimeSpan, Fraction};
+                use std::collections::HashMap;
+
+                let cycle_pos = self.get_cycle_position();
+                let state = State {
+                    span: TimeSpan::new(
+                        Fraction::from_float(cycle_pos),
+                        Fraction::from_float(cycle_pos + 0.001), // Small query window
+                    ),
+                    controls: HashMap::new(),
+                };
+
+                // Query the pattern and return the first event's value (or 0.0)
+                pattern
+                    .query(&state)
+                    .first()
+                    .map(|hap| hap.value as f32)
+                    .unwrap_or(0.0)
+            }
 
             SignalNode::Add { a, b } => self.eval_signal(&a) + self.eval_signal(&b),
 

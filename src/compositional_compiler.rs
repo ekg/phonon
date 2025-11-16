@@ -1169,6 +1169,10 @@ fn compile_function_call(
         // ========== Pattern Structure ==========
         "struct" => compile_struct(ctx, args),
 
+        // ========== Pattern Generators (Numeric) ==========
+        "run" => compile_run(ctx, args),
+        "scan" => compile_scan(ctx, args),
+
         _ => Err(format!("Unknown function: {}", name)),
     }
 }
@@ -5860,6 +5864,46 @@ fn compile_struct(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         state: EnvState::default(),
     };
 
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile run pattern generator: run 4 -> generates 0,1,2,3 per cycle
+fn compile_run(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 1 {
+        return Err(format!("run requires 1 argument (n), got {}", args.len()));
+    }
+
+    // Extract n value
+    let n = extract_number(&args[0])? as usize;
+    if n == 0 {
+        return Err("run requires n > 0".to_string());
+    }
+
+    // Create the run pattern
+    let pattern = Pattern::<f64>::run(n);
+
+    // Wrap in PatternEvaluator node
+    let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile scan pattern generator: scan 4 -> cumulative pattern (0), (0 1), (0 1 2), (0 1 2 3)
+fn compile_scan(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 1 {
+        return Err(format!("scan requires 1 argument (n), got {}", args.len()));
+    }
+
+    // Extract n value
+    let n = extract_number(&args[0])? as usize;
+    if n == 0 {
+        return Err("scan requires n > 0".to_string());
+    }
+
+    // Create the scan pattern
+    let pattern = Pattern::<f64>::scan(n);
+
+    // Wrap in PatternEvaluator node
+    let node = SignalNode::PatternEvaluator { pattern };
     Ok(ctx.graph.add_node(node))
 }
 
