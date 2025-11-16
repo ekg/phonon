@@ -378,6 +378,80 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
+    /// Irand - random integer generator (Tidal's irand function)
+    /// Example: Pattern::irand(4) generates random integers 0-3 (one per cycle)
+    /// Uses deterministic randomness based on cycle number
+    pub fn irand(n: usize) -> Pattern<f64> {
+        use rand::{rngs::StdRng, Rng, SeedableRng};
+
+        if n == 0 {
+            return Pattern::silence();
+        }
+
+        Pattern::new(move |state| {
+            let mut haps = Vec::new();
+            let start_cycle = state.span.begin.to_float().floor() as i64;
+            let end_cycle = state.span.end.to_float().ceil() as i64;
+
+            for cycle in start_cycle..end_cycle {
+                let cycle_begin = Fraction::from_float(cycle as f64);
+                let cycle_end = Fraction::from_float((cycle + 1) as f64);
+
+                // Only include if it overlaps with the query span
+                if cycle_end > state.span.begin && cycle_begin < state.span.end {
+                    // Deterministic random selection based on cycle number
+                    let mut rng = StdRng::seed_from_u64(cycle as u64);
+                    let value = rng.gen_range(0..n) as f64;
+
+                    let part_begin = cycle_begin.max(state.span.begin);
+                    let part_end = cycle_end.min(state.span.end);
+
+                    haps.push(Hap::new(
+                        Some(TimeSpan::new(cycle_begin, cycle_end)),
+                        TimeSpan::new(part_begin, part_end),
+                        value,
+                    ));
+                }
+            }
+            haps
+        })
+    }
+
+    /// Rand - random float generator (Tidal's rand function)
+    /// Generates random floats in range [0.0, 1.0) (one per cycle)
+    /// Uses deterministic randomness based on cycle number
+    pub fn rand() -> Pattern<f64> {
+        use rand::{rngs::StdRng, Rng, SeedableRng};
+
+        Pattern::new(move |state| {
+            let mut haps = Vec::new();
+            let start_cycle = state.span.begin.to_float().floor() as i64;
+            let end_cycle = state.span.end.to_float().ceil() as i64;
+
+            for cycle in start_cycle..end_cycle {
+                let cycle_begin = Fraction::from_float(cycle as f64);
+                let cycle_end = Fraction::from_float((cycle + 1) as f64);
+
+                // Only include if it overlaps with the query span
+                if cycle_end > state.span.begin && cycle_begin < state.span.end {
+                    // Deterministic random float based on cycle number
+                    let mut rng = StdRng::seed_from_u64(cycle as u64);
+                    let value = rng.gen::<f64>();
+
+                    let part_begin = cycle_begin.max(state.span.begin);
+                    let part_end = cycle_end.min(state.span.end);
+
+                    haps.push(Hap::new(
+                        Some(TimeSpan::new(cycle_begin, cycle_end)),
+                        TimeSpan::new(part_begin, part_end),
+                        value,
+                    ));
+                }
+            }
+            haps
+        })
+    }
+
     /// Scan - cumulative pattern that grows each cycle (Tidal's scan function)
     /// Example: Pattern::scan(4) creates:
     ///   Cycle 0: 0

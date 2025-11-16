@@ -1241,6 +1241,8 @@ fn compile_function_call(
         // ========== Pattern Generators (Numeric) ==========
         "run" => compile_run(ctx, args),
         "scan" => compile_scan(ctx, args),
+        "irand" => compile_irand(ctx, args),
+        "rand" => compile_rand(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -5970,6 +5972,40 @@ fn compile_scan(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
 
     // Create the scan pattern
     let pattern = Pattern::<f64>::scan(n);
+
+    // Wrap in PatternEvaluator node
+    let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile irand pattern generator: irand 4 -> random integers 0-3 per cycle
+fn compile_irand(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 1 {
+        return Err(format!("irand requires 1 argument (n), got {}", args.len()));
+    }
+
+    // Extract n value
+    let n = extract_number(&args[0])? as usize;
+    if n == 0 {
+        return Err("irand requires n > 0".to_string());
+    }
+
+    // Create the irand pattern
+    let pattern = Pattern::<f64>::irand(n);
+
+    // Wrap in PatternEvaluator node
+    let node = SignalNode::PatternEvaluator { pattern };
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile rand pattern generator: rand -> random floats 0.0-1.0 per cycle
+fn compile_rand(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if !args.is_empty() {
+        return Err(format!("rand takes no arguments, got {}", args.len()));
+    }
+
+    // Create the rand pattern
+    let pattern = Pattern::<f64>::rand();
 
     // Wrap in PatternEvaluator node
     let node = SignalNode::PatternEvaluator { pattern };
