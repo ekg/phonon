@@ -261,9 +261,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
     /// Stut - Tidal's classic stutter/echo with decay
     /// Creates n echoes of each event, delayed by time cycles, with volume decay
-    /// Example: stut 3 0.125 0.7 creates original + 2 echoes
-    ///
-    /// Note: Currently implements timing delays. Gain decay can be applied with # gain pattern
+    /// Example: stut 3 0.125 0.7 creates original + 2 echoes at 70%, 49% volume
     pub fn stut(
         self,
         n: Pattern<f64>,
@@ -273,11 +271,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     where
         T: Clone + 'static,
     {
-        // Get n value to know how many layers to stack
-        // For now, we use a simple approach: stack n delayed copies
-        // Each copy is delayed by time*i and ideally would have gain*decay^i
-
-        // Create a temporary state to query n
+        // Create a temporary state to query n and decay
         let default_state = State {
             span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),
             controls: HashMap::new(),
@@ -290,16 +284,22 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             .unwrap_or(1.0)
             .max(1.0) as usize;
 
+        let decay_val = decay
+            .query(&default_state)
+            .first()
+            .map(|h| h.value.clone())
+            .unwrap_or(0.7);
+
         if n_val == 1 {
             return self;
         }
 
-        // Stack n delayed versions
+        // Stack n delayed versions, each with gain decay
         let mut layers = Vec::new();
         for i in 0..n_val {
             let time_clone = time.clone();
-            let decay_clone = decay.clone();
             let self_clone = self.clone();
+            let gain_mult = decay_val.powi(i as i32);
 
             let delayed = Pattern::new(move |state| {
                 let time_val = time_clone
@@ -327,8 +327,9 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                             )
                         });
 
-                        // TODO: Apply gain decay here when we have proper gain pattern support
-                        // For now, users can apply gain manually: stut 3 0.125 0.7 $ # gain "1 0.7 0.49"
+                        // Add gain multiplier to context
+                        // The compiler/voice manager will read this and apply it
+                        hap.context.insert("stut_gain".to_string(), gain_mult.to_string());
 
                         hap
                     })

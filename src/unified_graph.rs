@@ -6837,10 +6837,17 @@ impl UnifiedSignalGraph {
 
                         // Evaluate DSP parameters at THIS EVENT'S start time
                         // This ensures each event gets its own parameter values from the pattern
-                        let gain_val = self
+                        let mut gain_val = self
                             .eval_signal_at_time(&gain, event_start_abs)
                             .max(0.0)
                             .min(10.0);
+
+                        // Check event context for stut_gain multiplier (set by stut transform)
+                        if let Some(stut_gain_str) = event.context.get("stut_gain") {
+                            if let Ok(stut_mult) = stut_gain_str.parse::<f32>() {
+                                gain_val *= stut_mult;
+                            }
+                        }
 
                         // Check event context for pan override (set by transforms like jux)
                         let pan_val = if let Some(pan_str) = event.context.get("pan") {
