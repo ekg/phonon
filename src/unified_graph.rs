@@ -6856,8 +6856,12 @@ impl UnifiedSignalGraph {
                             self.eval_signal_at_time(&pan, event_start_abs).clamp(-1.0, 1.0)
                         };
 
-                        // Check event context for speed override (set by transforms like loopAt)
-                        let speed_val = if let Some(speed_str) = event.context.get("speed") {
+                        // Check event context for speed override (set by transforms like loopAt, hurry)
+                        let speed_val = if let Some(hurry_str) = event.context.get("hurry_speed") {
+                            // hurry transform sets hurry_speed (combines fast + speed)
+                            hurry_str.parse::<f32>().unwrap_or(1.0).clamp(-10.0, 10.0)
+                        } else if let Some(speed_str) = event.context.get("speed") {
+                            // speed parameter from loopAt or explicit speed control
                             speed_str.parse::<f32>().unwrap_or(1.0).clamp(-10.0, 10.0)
                         } else {
                             self.eval_signal_at_time(&speed, event_start_abs).clamp(-10.0, 10.0)

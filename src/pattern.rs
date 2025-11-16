@@ -299,6 +299,42 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
+    /// Hurry - fast + speed combined (Tidal's hurry function)
+    /// Speeds up pattern AND adds speed multiplier to context
+    /// Example: hurry 2 doubles pattern speed and sets playback speed to 2x
+    pub fn hurry(self, factor: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        // Get factor value to use for both fast and speed
+        let default_state = State {
+            span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),
+            controls: HashMap::new(),
+        };
+
+        let factor_val = factor
+            .query(&default_state)
+            .first()
+            .map(|h| h.value)
+            .unwrap_or(1.0);
+
+        // Apply fast to speed up pattern
+        let fast_pattern = self.fast(factor.clone());
+
+        // Add speed multiplier to event context
+        Pattern::new(move |state| {
+            fast_pattern
+                .query(state)
+                .into_iter()
+                .map(|mut hap| {
+                    // Add hurry_speed to context for voice manager to read
+                    hap.context.insert("hurry_speed".to_string(), factor_val.to_string());
+                    hap
+                })
+                .collect()
+        })
+    }
+
     /// Slow down a pattern by a factor (pattern-controlled)
     /// Accepts a Pattern<f64> for the speed - use Pattern::pure(2.0) for constants
     pub fn slow(self, speed: Pattern<f64>) -> Self
@@ -965,27 +1001,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 }
 
 impl Pattern<String> {
-    /// Hurry - speed up the pattern and also speed up sample playback
-    /// hurry 2 - play twice as fast AND pitch up samples
-    pub fn hurry(self, factor: f64) -> Self {
-        // Fast speeds up the pattern timing
-        let fast_pattern = self.fast(Pattern::pure(factor));
-
-        // Add speed control to modify sample playback
-        Pattern::new(move |state| {
-            fast_pattern
-                .query(state)
-                .into_iter()
-                .map(|mut hap| {
-                    // Add speed control to each event
-                    let mut controls = hap.value.clone();
-                    // Note: This assumes the value can have speed appended
-                    // In real implementation, we'd want to add this to the controls HashMap
-                    hap
-                })
-                .collect()
-        })
-    }
+    // hurry() is now implemented in the general Pattern<T> impl block above
+    // (accepts Pattern<f64> parameter and uses context to pass speed)
 }
 
 // ============= Euclidean Rhythms =============

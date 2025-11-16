@@ -721,6 +721,9 @@ fn compile_function_call(
                                     "slow" if args.len() == 1 => {
                                         Transform::Slow(Box::new(args[0].clone()))
                                     }
+                                    "hurry" if args.len() == 1 => {
+                                        Transform::Hurry(Box::new(args[0].clone()))
+                                    }
                                     "squeeze" if args.len() == 1 => {
                                         Transform::Squeeze(Box::new(args[0].clone()))
                                     }
@@ -4635,6 +4638,22 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
                 }
             };
             Ok(pattern.slow(speed_pattern))
+        }
+        Transform::Hurry(factor_expr) => {
+            // Hurry = fast + speed combined (Tidal's hurry)
+            let factor_pattern = match factor_expr.as_ref() {
+                Expr::String(s) => {
+                    // Pattern-based hurry: hurry "2 3 4"
+                    let string_pattern = parse_mini_notation(s);
+                    string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(1.0))
+                }
+                _ => {
+                    // Constant hurry: hurry 2 -> Pattern::pure(2.0)
+                    let factor = extract_number(&factor_expr)?;
+                    Pattern::pure(factor)
+                }
+            };
+            Ok(pattern.hurry(factor_pattern))
         }
         Transform::Squeeze(factor_expr) => {
             // Support both pattern strings and constant numbers

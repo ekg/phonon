@@ -174,6 +174,8 @@ pub enum Transform {
         time: Box<Expr>,
         decay: Box<Expr>,
     },
+    /// hurry factor: fast + speed combined (speeds up pattern and pitch)
+    Hurry(Box<Expr>),
     /// segment n: divide pattern into n segments
     Segment(Box<Expr>),
     /// zoom begin end: focus on specific time range
@@ -739,6 +741,7 @@ fn try_extract_transform_from_call(expr: &Expr) -> Option<Transform> {
     match expr {
         Expr::Call { name, args } => match name.as_str() {
             "fast" if args.len() == 1 => Some(Transform::Fast(Box::new(args[0].clone()))),
+            "hurry" if args.len() == 1 => Some(Transform::Hurry(Box::new(args[0].clone()))),
             "slow" if args.len() == 1 => Some(Transform::Slow(Box::new(args[0].clone()))),
             "rev" if args.is_empty() => Some(Transform::Rev),
             "palindrome" if args.is_empty() => Some(Transform::Palindrome),
