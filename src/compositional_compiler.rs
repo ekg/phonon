@@ -1351,6 +1351,7 @@ fn compile_stack(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
 /// Compile cat combinator - concatenates patterns within each cycle
 /// Each pattern gets an equal division of the cycle time
 /// Usage: cat [s "bd", s "sn", s "hh"]  -> plays bd (0-0.33), sn (0.33-0.66), hh (0.66-1.0)
+/// Also supports: cat ["bd", "sn", "hh"] for convenience
 fn compile_cat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.is_empty() {
         return Err("cat requires a list argument".to_string());
@@ -1360,18 +1361,27 @@ fn compile_cat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     let pattern_strs = match &args[0] {
         Expr::List(exprs) => {
             // Extract pattern strings from each expression
+            // Supports both direct strings and s "pattern" calls
             exprs
                 .iter()
                 .map(|expr| match expr {
+                    // Direct string: "bd"
                     Expr::String(s) => Ok(s.clone()),
+                    // s "bd" call - extract the pattern string
+                    Expr::Call { name, args } if name == "s" && !args.is_empty() => {
+                        match &args[0] {
+                            Expr::String(s) => Ok(s.clone()),
+                            _ => Err("s() call in cat must have a string argument".to_string()),
+                        }
+                    }
                     _ => Err(
-                        "cat requires a list of pattern strings: cat [\"bd\", \"sn\", ...]"
+                        "cat requires strings or s calls: cat [\"bd\", \"sn\"] or cat [s \"bd\", s \"sn\"]"
                             .to_string(),
                     ),
                 })
                 .collect::<Result<Vec<String>, String>>()?
         }
-        _ => return Err("cat requires a list as argument: cat [\"bd\", \"sn\", ...]".to_string()),
+        _ => return Err("cat requires a list as argument".to_string()),
     };
 
     if pattern_strs.is_empty() {
@@ -1416,6 +1426,7 @@ fn compile_cat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
 /// Compile slowcat combinator - alternates between patterns on each cycle
 /// Cycle 0 plays pattern 0, cycle 1 plays pattern 1, etc.
 /// Usage: slowcat [s "bd*4", s "sn*4", s "hh*4"] -> cycle 0: bd*4, cycle 1: sn*4, cycle 2: hh*4, repeat
+/// Also supports: slowcat ["bd*4", "sn*4", "hh*4"] for convenience
 fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.is_empty() {
         return Err("slowcat requires a list argument".to_string());
@@ -1425,12 +1436,21 @@ fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
     let pattern_strs = match &args[0] {
         Expr::List(exprs) => {
             // Extract pattern strings from each expression
+            // Supports both direct strings and s "pattern" calls
             exprs
                 .iter()
                 .map(|expr| match expr {
+                    // Direct string: "bd*4"
                     Expr::String(s) => Ok(s.clone()),
+                    // s "bd*4" call - extract the pattern string
+                    Expr::Call { name, args } if name == "s" && !args.is_empty() => {
+                        match &args[0] {
+                            Expr::String(s) => Ok(s.clone()),
+                            _ => Err("s() call in slowcat must have a string argument".to_string()),
+                        }
+                    }
                     _ => Err(
-                        "slowcat requires a list of pattern strings: slowcat [\"bd\", \"sn\", ...]"
+                        "slowcat requires strings or s calls: slowcat [\"bd\", \"sn\"] or slowcat [s \"bd\", s \"sn\"]"
                             .to_string(),
                     ),
                 })
@@ -1438,7 +1458,7 @@ fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         }
         _ => {
             return Err(
-                "slowcat requires a list as argument: slowcat [\"bd\", \"sn\", ...]".to_string(),
+                "slowcat requires a list as argument".to_string(),
             )
         }
     };
