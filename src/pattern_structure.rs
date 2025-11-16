@@ -8,14 +8,84 @@ use crate::pattern::{Fraction, Hap, Pattern, State, TimeSpan};
 use std::sync::Arc;
 
 impl<T: Clone + Send + Sync + 'static> Pattern<T> {
-    /// Take "bites" out of a pattern
-    pub fn bite(self, n: usize, patterns: Vec<Pattern<T>>) -> Pattern<T> {
-        Pattern::new(move |state: &State| {
-            let cycle = state.span.begin.to_float().floor() as usize;
-            let index = cycle % patterns.len();
+    /// Slice pattern into N bits and select which bits to play using a selector pattern
+    /// bite n selector_pattern - slices into n equal segments, selector chooses which to play
+    /// Example: bite 4 (Pattern::from_string("0 1 2 3")) plays all 4 segments in order
+    ///          bite 4 (Pattern::from_string("2 0")) plays 2nd segment, then 0th segment
+    pub fn bite(self, n: usize, selector: Pattern<String>) -> Pattern<T> {
+        if n == 0 {
+            return Pattern::silence();
+        }
 
-            // Apply the selected pattern to this bite
-            patterns[index].query(state)
+        Pattern::new(move |state: &State| {
+            let mut result = Vec::new();
+
+            // Query the selector pattern to get which segment indices to play
+            let selector_events = selector.query(state);
+
+            for selector_hap in selector_events {
+                // Parse the selector value as an integer (which segment to play)
+                if let Ok(segment_idx) = selector_hap.value.parse::<i32>() {
+                    let segment_idx = segment_idx.rem_euclid(n as i32) as usize;
+
+                    // Calculate the time range for this segment in the original pattern
+                    let segment_size = 1.0 / n as f64;
+                    let segment_start = segment_idx as f64 * segment_size;
+                    let segment_end = segment_start + segment_size;
+
+                    // Calculate the cycle this event is in
+                    let cycle = selector_hap.part.begin.to_float().floor();
+
+                    // Map the selector event's time span to query the appropriate segment
+                    let query_begin = cycle + segment_start;
+                    let query_end = cycle + segment_end;
+
+                    let segment_state = State {
+                        span: TimeSpan::new(
+                            Fraction::from_float(query_begin),
+                            Fraction::from_float(query_end),
+                        ),
+                        controls: state.controls.clone(),
+                    };
+
+                    // Query the source pattern for this segment
+                    let segment_events = self.query(&segment_state);
+
+                    // Rescale the events from the segment to fit in the selector event's time span
+                    for mut event in segment_events {
+                        // Calculate relative position within the segment (0.0 to 1.0)
+                        let rel_begin = (event.part.begin.to_float() - query_begin) / segment_size;
+                        let rel_end = (event.part.end.to_float() - query_begin) / segment_size;
+
+                        // Map to the selector event's time span
+                        let event_duration = selector_hap.part.duration().to_float();
+                        let new_begin = selector_hap.part.begin.to_float() + rel_begin * event_duration;
+                        let new_end = selector_hap.part.begin.to_float() + rel_end * event_duration;
+
+                        event.part = TimeSpan::new(
+                            Fraction::from_float(new_begin),
+                            Fraction::from_float(new_end),
+                        );
+
+                        if let Some(whole) = event.whole {
+                            let rel_whole_begin = (whole.begin.to_float() - query_begin) / segment_size;
+                            let rel_whole_end = (whole.end.to_float() - query_begin) / segment_size;
+
+                            let new_whole_begin = selector_hap.part.begin.to_float() + rel_whole_begin * event_duration;
+                            let new_whole_end = selector_hap.part.begin.to_float() + rel_whole_end * event_duration;
+
+                            event.whole = Some(TimeSpan::new(
+                                Fraction::from_float(new_whole_begin),
+                                Fraction::from_float(new_whole_end),
+                            ));
+                        }
+
+                        result.push(event);
+                    }
+                }
+            }
+
+            result
         })
     }
 

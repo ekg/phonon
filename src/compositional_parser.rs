@@ -170,6 +170,8 @@ pub enum Transform {
     Striate(Box<Expr>),
     /// stripe n: repeat pattern n times over n cycles at random speeds
     Stripe(Box<Expr>),
+    /// bite n selector: slice into n bits, select which to play with selector pattern
+    Bite { n: Box<Expr>, selector: Box<Expr> },
     /// slice n indices: reorder n slices by indices pattern
     Slice { n: Box<Expr>, indices: Box<Expr> },
     /// struct pattern: apply structure/rhythm from pattern to values
@@ -1342,6 +1344,18 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
 /// Additional transform parsers (split due to nom's 21-alternative limit)
 fn parse_transform_group_1b(input: &str) -> IResult<&str, Transform> {
     alt((
+        // bite n selector - MUST come before other single-param transforms
+        map(
+            tuple((
+                terminated(tag("bite"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_primary_expr,
+            )),
+            |(_, n, selector)| Transform::Bite {
+                n: Box::new(n),
+                selector: Box::new(selector),
+            },
+        ),
         // stripe n
         map(
             preceded(terminated(tag("stripe"), space1), parse_primary_expr),

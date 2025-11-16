@@ -5338,6 +5338,26 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let n = extract_number(&n_expr)? as usize;
             Ok(Pattern::stripe(n, pattern))
         }
+        Transform::Bite { n, selector } => {
+            // bite n selector - slice into n bits, select which to play with selector pattern
+            let n_val = extract_number(&n)? as usize;
+
+            // Extract selector pattern from the expression
+            let selector_pattern = match selector.as_ref() {
+                Expr::String(s) => {
+                    // Parse mini-notation pattern
+                    use crate::mini_notation_v3::parse_mini_notation;
+                    parse_mini_notation(s)
+                }
+                Expr::Number(num) => {
+                    // Single number - create a pattern with just that index
+                    Pattern::from_string(&num.to_string())
+                }
+                _ => return Err("bite selector must be a string pattern or number".to_string()),
+            };
+
+            Ok(pattern.bite(n_val, selector_pattern))
+        }
         Transform::Slice { n, indices } => {
             // slice n indices_pattern - reorder n slices by indices
             let n_val = extract_number(&n)? as usize;
