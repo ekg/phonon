@@ -802,6 +802,40 @@ fn compile_function_call(
                             _ => return Err("choose requires a list argument: choose [\"bd\", \"sn\", \"hh\"]".to_string()),
                         }
                     }
+                    Expr::Call { name, args } if name == "wchoose" => {
+                        // Handle wchoose: s (wchoose [["bd", 3], ["sn", 1]])
+                        if args.len() != 1 {
+                            return Err("wchoose requires exactly one list argument".to_string());
+                        }
+
+                        match &args[0] {
+                            Expr::List(pairs) => {
+                                let weighted_options: Result<Vec<(String, f64)>, String> = pairs
+                                    .iter()
+                                    .map(|pair_expr| match pair_expr {
+                                        Expr::List(pair) if pair.len() == 2 => {
+                                            match (&pair[0], &pair[1]) {
+                                                (Expr::String(s), Expr::Number(w)) => {
+                                                    Ok((s.clone(), *w))
+                                                }
+                                                _ => Err("wchoose pairs must be [string, number]".to_string()),
+                                            }
+                                        }
+                                        _ => Err("wchoose requires list of [value, weight] pairs".to_string()),
+                                    })
+                                    .collect();
+
+                                let options_vec = weighted_options?;
+                                if options_vec.is_empty() {
+                                    return Err("wchoose requires at least one option".to_string());
+                                }
+
+                                let pattern = Pattern::wchoose(options_vec.clone());
+                                (format!("wchoose {:?}", options_vec), pattern)
+                            }
+                            _ => return Err("wchoose requires a list argument".to_string()),
+                        }
+                    }
                     Expr::Paren(inner) => {
                         // Unwrap parentheses and check for transform
                         match &**inner {
@@ -898,6 +932,41 @@ fn compile_function_call(
                                         (format!("choose {:?}", options_vec), pattern)
                                     }
                                     _ => return Err("choose requires a list argument".to_string()),
+                                }
+                            }
+                            Expr::Call { name, args } if name == "wchoose" => {
+                                // Handle wchoose: s (wchoose [["bd", 3], ["sn", 1]])
+                                if args.len() != 1 {
+                                    return Err("wchoose requires exactly one list argument".to_string());
+                                }
+
+                                match &args[0] {
+                                    Expr::List(pairs) => {
+                                        let weighted_options: Result<Vec<(String, f64)>, String> = pairs
+                                            .iter()
+                                            .map(|pair_expr| match pair_expr {
+                                                Expr::List(pair) if pair.len() == 2 => {
+                                                    // Extract value (must be string) and weight (must be number)
+                                                    match (&pair[0], &pair[1]) {
+                                                        (Expr::String(s), Expr::Number(w)) => {
+                                                            Ok((s.clone(), *w))
+                                                        }
+                                                        _ => Err("wchoose pairs must be [string, number]".to_string()),
+                                                    }
+                                                }
+                                                _ => Err("wchoose requires list of [value, weight] pairs".to_string()),
+                                            })
+                                            .collect();
+
+                                        let options_vec = weighted_options?;
+                                        if options_vec.is_empty() {
+                                            return Err("wchoose requires at least one option".to_string());
+                                        }
+
+                                        let pattern = Pattern::wchoose(options_vec.clone());
+                                        (format!("wchoose {:?}", options_vec), pattern)
+                                    }
+                                    _ => return Err("wchoose requires a list argument".to_string()),
                                 }
                             }
                             _ => {

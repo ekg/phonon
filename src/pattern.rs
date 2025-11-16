@@ -270,6 +270,69 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
+    /// Wchoose - weighted random choice (Tidal's wchoose function)
+    /// Example: Pattern::wchoose(vec![("bd", 3.0), ("sn", 1.0)]) picks "bd" 75% of the time
+    /// Uses deterministic randomness based on cycle number
+    pub fn wchoose(weighted_options: Vec<(T, f64)>) -> Self {
+        use rand::{rngs::StdRng, Rng, SeedableRng};
+
+        if weighted_options.is_empty() {
+            return Self::silence();
+        }
+
+        // Calculate total weight and cumulative weights
+        let total_weight: f64 = weighted_options.iter().map(|(_, w)| w).sum();
+        if total_weight <= 0.0 {
+            return Self::silence();
+        }
+
+        let mut cumulative_weights = Vec::new();
+        let mut cumsum = 0.0;
+        for (_, weight) in &weighted_options {
+            cumsum += weight;
+            cumulative_weights.push(cumsum);
+        }
+
+        Self::new(move |state| {
+            let mut haps = Vec::new();
+            let start_cycle = state.span.begin.to_float().floor() as i64;
+            let end_cycle = state.span.end.to_float().ceil() as i64;
+
+            for cycle in start_cycle..end_cycle {
+                let cycle_begin = Fraction::from_float(cycle as f64);
+                let cycle_end = Fraction::from_float((cycle + 1) as f64);
+
+                // Only include if it overlaps with the query span
+                if cycle_end > state.span.begin && cycle_begin < state.span.end {
+                    // Deterministic random selection based on cycle number
+                    let mut rng = StdRng::seed_from_u64(cycle as u64);
+                    let random_value = rng.gen::<f64>() * total_weight;
+
+                    // Find which option was selected based on cumulative weights
+                    let mut selected_index = 0;
+                    for (i, &cumulative) in cumulative_weights.iter().enumerate() {
+                        if random_value < cumulative {
+                            selected_index = i;
+                            break;
+                        }
+                    }
+
+                    let value = weighted_options[selected_index].0.clone();
+
+                    let part_begin = cycle_begin.max(state.span.begin);
+                    let part_end = cycle_end.min(state.span.end);
+
+                    haps.push(Hap::new(
+                        Some(TimeSpan::new(cycle_begin, cycle_end)),
+                        TimeSpan::new(part_begin, part_end),
+                        value,
+                    ));
+                }
+            }
+            haps
+        })
+    }
+
     /// Run - generate ascending sequence (Tidal's run function)
     /// Example: Pattern::run(4) creates pattern with values 0, 1, 2, 3 evenly spaced in cycle
     /// Used for sample selection or numeric sequences
