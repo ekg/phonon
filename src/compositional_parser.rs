@@ -168,6 +168,8 @@ pub enum Transform {
     Chop(Box<Expr>),
     /// striate n: alias for chop
     Striate(Box<Expr>),
+    /// stripe n: repeat pattern n times over n cycles at random speeds
+    Stripe(Box<Expr>),
     /// slice n indices: reorder n slices by indices pattern
     Slice { n: Box<Expr>, indices: Box<Expr> },
     /// struct pattern: apply structure/rhythm from pattern to values
@@ -1332,6 +1334,18 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
         map(
             preceded(terminated(tag("striate"), space1), parse_primary_expr),
             |expr| Transform::Striate(Box::new(expr)),
+        ),
+        parse_transform_group_1b,
+    ))(input)
+}
+
+/// Additional transform parsers (split due to nom's 21-alternative limit)
+fn parse_transform_group_1b(input: &str) -> IResult<&str, Transform> {
+    alt((
+        // stripe n
+        map(
+            preceded(terminated(tag("stripe"), space1), parse_primary_expr),
+            |expr| Transform::Stripe(Box::new(expr)),
         ),
         // scramble n
         map(

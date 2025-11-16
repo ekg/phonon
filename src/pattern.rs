@@ -1161,6 +1161,148 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
+    /// Stripe - repeat pattern N times over N cycles at random speeds
+    /// Creates rhythmic variation while maintaining sync
+    /// Example: stripe(3, pat) repeats pattern 3 times over 3 cycles at varying speeds
+    pub fn stripe(n: usize, pattern: Pattern<T>) -> Pattern<T> {
+        if n == 0 {
+            return Pattern::silence();
+        }
+
+        Pattern::new(move |state| {
+            // Determine which stripe we're in
+            let global_cycle = state.span.begin.to_float().floor() as i64;
+            let stripe_group = (global_cycle / n as i64) * n as i64;
+            let stripe_index = (global_cycle - stripe_group) as usize;
+
+            // Use a simple pseudo-random speed for each stripe
+            // Based on stripe group and index for determinism
+            let seed = (stripe_group * 1000 + stripe_index as i64) as u64;
+            let random_factor = (((seed * 48271) % 2147483647) as f64 / 2147483647.0) * 2.0 + 0.5; // Random between 0.5 and 2.5
+
+            // Play the pattern at the random speed
+            let sped_pattern = pattern.clone().fast(Pattern::pure(random_factor));
+            sped_pattern.query(state)
+        })
+    }
+
+    /// Combine two patterns by wedging them together with a ratio
+    /// The first pattern occupies `ratio` portion of each cycle, the second gets (1-ratio)
+    /// Example: wedge(0.25, pat1, pat2) gives 25% to pat1, 75% to pat2
+    pub fn wedge(ratio: f64, pat1: Pattern<T>, pat2: Pattern<T>) -> Pattern<T> {
+        let ratio = ratio.max(0.0).min(1.0); // Clamp to [0, 1]
+
+        Pattern::new(move |state| {
+            let mut all_haps = Vec::new();
+
+            // For each cycle that overlaps with our query span
+            let start_cycle = state.span.begin.to_float().floor() as i64;
+            let end_cycle = state.span.end.to_float().ceil() as i64;
+
+            for cycle in start_cycle..end_cycle {
+                let cycle_f = cycle as f64;
+
+                // Get the portion of this cycle that overlaps with our query
+                let cycle_start = cycle_f.max(state.span.begin.to_float());
+                let cycle_end = (cycle_f + 1.0).min(state.span.end.to_float());
+
+                if cycle_start >= cycle_end {
+                    continue;
+                }
+
+                // Within each cycle, patterns are divided by ratio
+                let local_start = cycle_start - cycle_f;
+                let local_end = cycle_end - cycle_f;
+
+                // Pattern 1 occupies [0, ratio]
+                if local_start < ratio {
+                    let query_start = local_start;
+                    let query_end = local_end.min(ratio);
+
+                    if query_start < query_end {
+                        // Scale query to pattern's internal time
+                        let scaled_start = query_start / ratio;
+                        let scaled_end = query_end / ratio;
+
+                        let scaled_state = State {
+                            span: TimeSpan::new(
+                                Fraction::from_float(scaled_start),
+                                Fraction::from_float(scaled_end),
+                            ),
+                            controls: state.controls.clone(),
+                        };
+
+                        // Query pattern 1 and rescale results
+                        for mut hap in pat1.query(&scaled_state) {
+                            let hap_start = hap.part.begin.to_float() * ratio + cycle_f;
+                            let hap_end = hap.part.end.to_float() * ratio + cycle_f;
+
+                            hap.part = TimeSpan::new(
+                                Fraction::from_float(hap_start),
+                                Fraction::from_float(hap_end),
+                            );
+
+                            if let Some(whole) = hap.whole {
+                                let whole_start = whole.begin.to_float() * ratio + cycle_f;
+                                let whole_end = whole.end.to_float() * ratio + cycle_f;
+                                hap.whole = Some(TimeSpan::new(
+                                    Fraction::from_float(whole_start),
+                                    Fraction::from_float(whole_end),
+                                ));
+                            }
+
+                            all_haps.push(hap);
+                        }
+                    }
+                }
+
+                // Pattern 2 occupies [ratio, 1.0]
+                if local_end > ratio {
+                    let query_start = local_start.max(ratio);
+                    let query_end = local_end;
+
+                    if query_start < query_end {
+                        // Scale query to pattern's internal time
+                        let scaled_start = (query_start - ratio) / (1.0 - ratio);
+                        let scaled_end = (query_end - ratio) / (1.0 - ratio);
+
+                        let scaled_state = State {
+                            span: TimeSpan::new(
+                                Fraction::from_float(scaled_start),
+                                Fraction::from_float(scaled_end),
+                            ),
+                            controls: state.controls.clone(),
+                        };
+
+                        // Query pattern 2 and rescale results
+                        for mut hap in pat2.query(&scaled_state) {
+                            let hap_start = hap.part.begin.to_float() * (1.0 - ratio) + ratio + cycle_f;
+                            let hap_end = hap.part.end.to_float() * (1.0 - ratio) + ratio + cycle_f;
+
+                            hap.part = TimeSpan::new(
+                                Fraction::from_float(hap_start),
+                                Fraction::from_float(hap_end),
+                            );
+
+                            if let Some(whole) = hap.whole {
+                                let whole_start = whole.begin.to_float() * (1.0 - ratio) + ratio + cycle_f;
+                                let whole_end = whole.end.to_float() * (1.0 - ratio) + ratio + cycle_f;
+                                hap.whole = Some(TimeSpan::new(
+                                    Fraction::from_float(whole_start),
+                                    Fraction::from_float(whole_end),
+                                ));
+                            }
+
+                            all_haps.push(hap);
+                        }
+                    }
+                }
+            }
+
+            all_haps
+        })
+    }
+
     /// Randomly choose a pattern each cycle (deterministic based on cycle number)
     pub fn randcat(patterns: Vec<Pattern<T>>) -> Pattern<T> {
         if patterns.is_empty() {

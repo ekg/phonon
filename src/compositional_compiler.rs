@@ -611,6 +611,7 @@ fn compile_function_call(
         "stack" => compile_stack(ctx, args),
         "cat" => compile_cat(ctx, args),
         "slowcat" => compile_slowcat(ctx, args),
+        "wedge" => compile_wedge(ctx, args),
 
         // ========== Sample playback ==========
         "s" => {
@@ -1497,6 +1498,75 @@ fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         loop_enabled: Signal::Value(0.0), // 0 = no loop (default)
         begin: Signal::Value(0.0),        // 0.0 = start of sample
         end: Signal::Value(1.0),          // 1.0 = end of sample
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile wedge combinator - combines two patterns with a ratio
+/// Pattern 1 gets ratio portion of each cycle, pattern 2 gets (1-ratio) portion
+/// Usage: wedge 0.25 (s "bd*4") (s "hh*8") -> first pattern gets 25%, second gets 75%
+/// Also supports: wedge 0.5 "bd*4" "hh*8" for convenience
+fn compile_wedge(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() < 3 {
+        return Err("wedge requires 3 arguments: ratio pat1 pat2".to_string());
+    }
+
+    // First argument is the ratio
+    let ratio = match &args[0] {
+        Expr::Number(n) => *n,
+        _ => return Err("wedge first argument must be a number (ratio between 0 and 1)".to_string()),
+    };
+
+    if ratio < 0.0 || ratio > 1.0 {
+        return Err("wedge ratio must be between 0 and 1".to_string());
+    }
+
+    // Extract pattern strings for both patterns
+    let extract_pattern_str = |expr: &Expr| -> Result<String, String> {
+        match expr {
+            Expr::String(s) => Ok(s.clone()),
+            Expr::Call { name, args } if name == "s" && !args.is_empty() => {
+                match &args[0] {
+                    Expr::String(s) => Ok(s.clone()),
+                    _ => Err("s() call in wedge must have a string argument".to_string()),
+                }
+            }
+            _ => Err("wedge patterns must be strings or s calls".to_string()),
+        }
+    };
+
+    let pat1_str = extract_pattern_str(&args[1])?;
+    let pat2_str = extract_pattern_str(&args[2])?;
+
+    // Parse patterns
+    let pat1 = parse_mini_notation(&pat1_str);
+    let pat2 = parse_mini_notation(&pat2_str);
+
+    // Combine using Pattern::wedge
+    let combined_pattern = Pattern::wedge(ratio, pat1, pat2);
+    let combined_str = format!("wedge {} \"{}\" \"{}\"", ratio, pat1_str, pat2_str);
+
+    // Create a Sample node with the combined pattern
+    let node = SignalNode::Sample {
+        pattern_str: combined_str,
+        pattern: combined_pattern,
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        playback_positions: HashMap::new(),
+        gain: Signal::Value(1.0),
+        pan: Signal::Value(0.0),
+        speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
+        attack: Signal::Value(0.0),
+        release: Signal::Value(0.0),
+        envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -5262,6 +5332,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             // chop and striate are aliases - both slice pattern into n parts
             let n = extract_number(&n_expr)? as usize;
             Ok(pattern.chop(n))
+        }
+        Transform::Stripe(n_expr) => {
+            // stripe n - repeat pattern n times over n cycles at random speeds
+            let n = extract_number(&n_expr)? as usize;
+            Ok(Pattern::stripe(n, pattern))
         }
         Transform::Slice { n, indices } => {
             // slice n indices_pattern - reorder n slices by indices
