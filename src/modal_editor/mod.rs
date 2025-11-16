@@ -326,13 +326,15 @@ impl ModalEditor {
         // 1. Cycle position preserved → no timing discontinuity
         // 2. VoiceManager transferred → active voices continue playing → no click!
         //
-        // Use try_borrow() with fast spin-retries (no sleep) to avoid panic
+        // Use try_borrow() with brief sleeps to avoid spinning CPU
         let current_graph = self.graph.load();
         if let Some(ref old_graph_cell) = **current_graph {
             let mut state_transferred = false;
 
-            // Fast spin-retry: Try many times WITHOUT sleeping
-            for _attempt in 0..1000 {
+            // Retry with small sleeps - don't burn CPU with spin-loop!
+            // Audio buffer at 512 samples @ 44.1kHz = ~11.6ms per buffer
+            // We retry for ~10ms total, which covers most audio processing times
+            for attempt in 0..20 {
                 match old_graph_cell.0.try_borrow_mut() {
                     Ok(mut old_graph) => {
                         // Transfer cycle position
@@ -347,15 +349,16 @@ impl ModalEditor {
                         break;
                     }
                     Err(_) => {
-                        // Audio thread busy - try again immediately (no sleep!)
-                        std::hint::spin_loop();
+                        // Audio thread busy processing - sleep briefly and retry
+                        // 500 microseconds = 0.5ms, small enough to feel instant but prevents CPU burn
+                        std::thread::sleep(std::time::Duration::from_micros(500));
                     }
                 }
             }
 
             if !state_transferred {
-                // Still couldn't get it - very rare
-                eprintln!("⚠️  Could not transfer state after spin-retries, using fresh state (may click)");
+                // Still couldn't get it after 10ms of retries - very rare, audio thread might be stuck
+                eprintln!("⚠️  Could not transfer state after retries, using fresh state (may click)");
             }
         }
 
