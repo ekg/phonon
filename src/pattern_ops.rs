@@ -4,6 +4,7 @@
 
 use crate::pattern::{Fraction, Hap, Pattern, State, TimeSpan};
 use rand::{rngs::StdRng, Rng, SeedableRng};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 impl<T: Clone + Send + Sync + 'static> Pattern<T> {
@@ -256,6 +257,88 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 })
                 .collect()
         })
+    }
+
+    /// Stut - Tidal's classic stutter/echo with decay
+    /// Creates n echoes of each event, delayed by time cycles, with volume decay
+    /// Example: stut 3 0.125 0.7 creates original + 2 echoes
+    ///
+    /// Note: Currently implements timing delays. Gain decay can be applied with # gain pattern
+    pub fn stut(
+        self,
+        n: Pattern<f64>,
+        time: Pattern<f64>,
+        decay: Pattern<f64>,
+    ) -> Self
+    where
+        T: Clone + 'static,
+    {
+        // Get n value to know how many layers to stack
+        // For now, we use a simple approach: stack n delayed copies
+        // Each copy is delayed by time*i and ideally would have gain*decay^i
+
+        // Create a temporary state to query n
+        let default_state = State {
+            span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),
+            controls: HashMap::new(),
+        };
+
+        let n_val = n
+            .query(&default_state)
+            .first()
+            .map(|h| h.value.clone())
+            .unwrap_or(1.0)
+            .max(1.0) as usize;
+
+        if n_val == 1 {
+            return self;
+        }
+
+        // Stack n delayed versions
+        let mut layers = Vec::new();
+        for i in 0..n_val {
+            let time_clone = time.clone();
+            let decay_clone = decay.clone();
+            let self_clone = self.clone();
+
+            let delayed = Pattern::new(move |state| {
+                let time_val = time_clone
+                    .query(state)
+                    .first()
+                    .map(|h| h.value.clone())
+                    .unwrap_or(0.125);
+
+                let delay = time_val * i as f64;
+
+                // Query the original pattern and delay all events
+                self_clone
+                    .query(state)
+                    .into_iter()
+                    .map(|mut hap| {
+                        // Delay the event
+                        hap.part = TimeSpan::new(
+                            Fraction::from_float(hap.part.begin.to_float() + delay),
+                            Fraction::from_float(hap.part.end.to_float() + delay),
+                        );
+                        hap.whole = hap.whole.map(|w| {
+                            TimeSpan::new(
+                                Fraction::from_float(w.begin.to_float() + delay),
+                                Fraction::from_float(w.end.to_float() + delay),
+                            )
+                        });
+
+                        // TODO: Apply gain decay here when we have proper gain pattern support
+                        // For now, users can apply gain manually: stut 3 0.125 0.7 $ # gain "1 0.7 0.49"
+
+                        hap
+                    })
+                    .collect()
+            });
+
+            layers.push(delayed);
+        }
+
+        Pattern::stack(layers)
     }
 
     /// Create a palindrome (pattern + reversed pattern)

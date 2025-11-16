@@ -168,6 +168,12 @@ pub enum Transform {
         time: Box<Expr>,
         feedback: Box<Expr>,
     },
+    /// stut n time decay: stutter/echo with volume decay (Tidal classic)
+    Stut {
+        n: Box<Expr>,
+        time: Box<Expr>,
+        decay: Box<Expr>,
+    },
     /// segment n: divide pattern into n segments
     Segment(Box<Expr>),
     /// zoom begin end: focus on specific time range
@@ -1316,6 +1322,20 @@ fn parse_transform_group_2(input: &str) -> IResult<&str, Transform> {
                 times: Box::new(times),
                 time: Box::new(time),
                 feedback: Box::new(feedback),
+            },
+        ),
+        // stut n time decay
+        map(
+            tuple((
+                terminated(tag("stut"), space1),
+                terminated(parse_primary_expr, space1),
+                terminated(parse_primary_expr, space1),
+                parse_primary_expr,
+            )),
+            |(_, n, time, decay)| Transform::Stut {
+                n: Box::new(n),
+                time: Box::new(time),
+                decay: Box::new(decay),
             },
         ),
         // segment n

@@ -4809,6 +4809,16 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
             let feedback_val = extract_number(&feedback)?;
             Ok(pattern.echo(times_val, Pattern::pure(time_val), Pattern::pure(feedback_val)))
         }
+        Transform::Stut { n, time, decay } => {
+            let n_val = extract_number(&n)?;
+            let time_val = extract_number(&time)?;
+            let decay_val = extract_number(&decay)?;
+            Ok(pattern.stut(
+                Pattern::pure(n_val),
+                Pattern::pure(time_val),
+                Pattern::pure(decay_val),
+            ))
+        }
         Transform::Segment(n_expr) => {
             let n = extract_number(&n_expr)? as usize;
             Ok(pattern.segment(n))
