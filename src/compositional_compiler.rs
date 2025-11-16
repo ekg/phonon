@@ -359,6 +359,21 @@ fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<
             ctx.graph.panic();
             Ok(())
         }
+        Statement::ResetCycles => {
+            // Reset cycle position to 0 (like Tidal's resetCycles)
+            ctx.graph.reset_cycles();
+            Ok(())
+        }
+        Statement::SetCycle(cycle) => {
+            // Jump to specific cycle position
+            ctx.graph.set_cycle(cycle);
+            Ok(())
+        }
+        Statement::Nudge(amount) => {
+            // Shift timing by amount (positive = delay, negative = advance)
+            ctx.graph.nudge(amount);
+            Ok(())
+        }
     }
 }
 

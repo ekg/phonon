@@ -52,6 +52,12 @@ pub enum Statement {
     Hush,
     /// Panic command: stop all audio immediately
     Panic,
+    /// Reset cycles to 0 (like Tidal's resetCycles)
+    ResetCycles,
+    /// Set cycle position to specific value
+    SetCycle(f64),
+    /// Nudge timing by small amount (positive = later, negative = earlier)
+    Nudge(f64),
 }
 
 /// Expression - the core of the language
@@ -475,16 +481,19 @@ pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
 fn parse_statement(input: &str) -> IResult<&str, Statement> {
     // Try to parse each statement type
     alt((
-        parse_function_def, // Try function definitions first
-        parse_hush,         // Try hush command
-        parse_panic,        // Try panic command
+        parse_function_def,    // Try function definitions first
+        parse_reset_cycles,    // Try resetCycles command
+        parse_set_cycle,       // Try setCycle command
+        parse_nudge,           // Try nudge command
+        parse_hush,            // Try hush command
+        parse_panic,           // Try panic command
         parse_bus_assignment,
         parse_template_assignment,
-        parse_output_channel, // Try multi-channel output first
-        parse_output,         // Then single output
-        parse_bpm,            // Try BPM before tempo (bpm: vs tempo:)
+        parse_output_channel,  // Try multi-channel output first
+        parse_output,          // Then single output
+        parse_bpm,             // Try BPM before tempo (bpm: vs tempo:)
         parse_tempo,
-        parse_outmix, // Output mixing mode
+        parse_outmix,          // Output mixing mode
     ))(input)
 }
 
@@ -654,6 +663,28 @@ fn parse_hush(input: &str) -> IResult<&str, Statement> {
 fn parse_panic(input: &str) -> IResult<&str, Statement> {
     let (input, _) = tag("panic")(input)?;
     Ok((input, Statement::Panic))
+}
+
+/// Parse resetCycles command: reset to cycle 0
+fn parse_reset_cycles(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = tag("resetCycles")(input)?;
+    Ok((input, Statement::ResetCycles))
+}
+
+/// Parse setCycle command: jump to specific cycle
+fn parse_set_cycle(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = tag("setCycle")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, cycle) = parse_number(input)?;
+    Ok((input, Statement::SetCycle(cycle)))
+}
+
+/// Parse nudge command: shift timing by amount
+fn parse_nudge(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = tag("nudge")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, amount) = parse_number(input)?;
+    Ok((input, Statement::Nudge(amount)))
 }
 
 // ============================================================================

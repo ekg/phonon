@@ -3712,15 +3712,42 @@ impl UnifiedSignalGraph {
 
     /// Reset cycles to 0 (like Tidal's resetCycles)
     pub fn reset_cycles(&mut self) {
-        // Adjust offset so current wall-clock time maps to cycle 0
-        self.cycle_offset = 0.0;
-        self.session_start_time = std::time::Instant::now();
+        if self.use_wall_clock {
+            // LIVE MODE: Reset wall-clock offset
+            self.cycle_offset = 0.0;
+            self.session_start_time = std::time::Instant::now();
+            self.cached_cycle_position = 0.0;
+        } else {
+            // OFFLINE MODE: Directly set position
+            self.cached_cycle_position = 0.0;
+        }
     }
 
     /// Jump to a specific cycle position
     pub fn set_cycle(&mut self, cycle: f64) {
-        let elapsed = self.session_start_time.elapsed().as_secs_f64();
-        self.cycle_offset = cycle - (elapsed * self.cps as f64);
+        if self.use_wall_clock {
+            // LIVE MODE: Adjust offset to reach target cycle
+            let elapsed = self.session_start_time.elapsed().as_secs_f64();
+            self.cycle_offset = cycle - (elapsed * self.cps as f64);
+            self.cached_cycle_position = cycle;
+        } else {
+            // OFFLINE MODE: Directly set position
+            self.cached_cycle_position = cycle;
+        }
+    }
+
+    /// Nudge timing by a small amount
+    /// Positive values shift later (delay), negative values shift earlier (advance)
+    /// Example: nudge(0.01) delays by 0.01 cycles, nudge(-0.01) advances by 0.01 cycles
+    pub fn nudge(&mut self, amount: f64) {
+        if self.use_wall_clock {
+            // LIVE MODE: Adjust offset
+            self.cycle_offset += amount;
+            self.cached_cycle_position += amount;
+        } else {
+            // OFFLINE MODE: Directly adjust position
+            self.cached_cycle_position += amount;
+        }
     }
 
     /// Get current cycle position from wall-clock time
@@ -3734,8 +3761,12 @@ impl UnifiedSignalGraph {
     /// In live mode, timing is based on real wall-clock time
     /// This prevents drift and ensures beat never drops during code reloads
     pub fn enable_wall_clock_timing(&mut self) {
+        // Preserve current cycle position when switching to wall-clock mode
+        let current_position = self.cached_cycle_position;
         self.use_wall_clock = true;
         self.session_start_time = std::time::Instant::now();
+        // Set offset so we start at the current position
+        self.cycle_offset = current_position;
     }
 
     /// Update cached cycle position from clock or sample count
@@ -9181,6 +9212,9 @@ impl UnifiedSignalGraph {
         }
 
         for i in 0..buffer.len() {
+            // CRITICAL: Update cycle position ONCE per sample (wall-clock or sample-count based)
+            self.update_cycle_position_from_clock();
+
             // CRITICAL OPTIMIZATION: Only clear value_cache at buffer start!
             // Most signal graph nodes compute static values that don't change every sample.
             // Pattern values only change at event boundaries (every N samples), not per-sample.
@@ -9248,9 +9282,6 @@ impl UnifiedSignalGraph {
             if let Some(start) = mix_start {
                 mix_time_us += start.elapsed().as_micros();
             }
-
-            // Advance cycle position
-            // REMOVED: Wall-clock based timing - no increment needed!
 
             // Increment sample counter
             self.sample_count += 1;
