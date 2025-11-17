@@ -103,10 +103,10 @@ impl IpcMessage {
 }
 
 /// Get the Unix socket path for IPC
-/// Uses /tmp/phonon-{pid}.sock for clean separation per instance
+/// Uses /tmp/phonon.sock
+/// Note: Only one instance can run at a time with this approach
 pub fn socket_path() -> PathBuf {
-    let pid = std::process::id();
-    PathBuf::from(format!("/tmp/phonon-{}.sock", pid))
+    PathBuf::from("/tmp/phonon.sock")
 }
 
 /// Audio engine socket server
