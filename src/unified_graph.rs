@@ -3841,6 +3841,25 @@ fn eval_signal_isolated(nodes: &mut Vec<Option<SignalNode>>, signal: &Signal, sa
     }
 }
 
+/// Cycle-level cache for parallel bus synthesis (Phase 2 optimization)
+/// Caches bus buffers for an entire cycle to avoid redundant preprocessing
+#[derive(Clone)]
+struct CycleBusCache {
+    /// Which cycle this cache is for
+    cycle_floor: i64,
+    /// Pre-synthesized bus buffers: (bus_name, duration_samples) -> buffer
+    buffers: HashMap<(String, usize), Arc<Vec<f32>>>,
+}
+
+impl Default for CycleBusCache {
+    fn default() -> Self {
+        Self {
+            cycle_floor: -1, // Invalid cycle - forces first synthesis
+            buffers: HashMap::new(),
+        }
+    }
+}
+
 /// The unified signal graph that processes everything
 pub struct UnifiedSignalGraph {
     /// All nodes in the graph
@@ -3903,6 +3922,10 @@ pub struct UnifiedSignalGraph {
     /// Synth voice manager for polyphonic synthesis
     synth_voice_manager: RefCell<SynthVoiceManager>,
 
+    /// Cycle-level cache for parallel bus synthesis (Phase 2 optimization)
+    /// Reduces preprocessing frequency from per-buffer to per-cycle
+    cycle_bus_cache: CycleBusCache,
+
     /// Sample counter for debugging
     sample_count: usize,
 }
@@ -3938,6 +3961,7 @@ impl UnifiedSignalGraph {
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(),
             synth_voice_manager: RefCell::new(SynthVoiceManager::new(sample_rate)),
+            cycle_bus_cache: CycleBusCache::default(),
             sample_count: 0,
         }
     }
@@ -4640,6 +4664,9 @@ impl UnifiedSignalGraph {
         last_event_start: f64,
     ) -> HashMap<(String, usize), Arc<Vec<f32>>> {
         use std::collections::HashSet;
+        use std::time::Instant;
+
+        let start_time = Instant::now();
 
         // Collect unique bus synthesis requests
         let epsilon = 1e-6;
@@ -4724,6 +4751,18 @@ impl UnifiedSignalGraph {
                 ((bus_name, duration_samples), Arc::new(buffer))
             })
             .collect();
+
+        let elapsed = start_time.elapsed();
+        let num_unique = synthesized.len();
+
+        if num_unique > 0 {
+            eprintln!(
+                "⚡ Parallel bus synthesis: {} unique buffers in {:.2}ms ({:.2}ms/buffer avg)",
+                num_unique,
+                elapsed.as_secs_f64() * 1000.0,
+                elapsed.as_secs_f64() * 1000.0 / num_unique as f64
+            );
+        }
 
         // Convert to HashMap for fast lookup
         synthesized.into_iter().collect()
@@ -7212,10 +7251,21 @@ impl UnifiedSignalGraph {
                 //     );
                 // }
 
-                // PHASE 1: Parallel bus synthesis preprocessing
-                // Collect all unique bus synthesis requests and synthesize them in parallel
-                // This provides significant speedup when multiple bus events need synthesis
-                let bus_buffer_cache = self.presynthesize_buses_parallel(&events, last_event_start);
+                // PHASE 2: Cycle-level caching for parallel bus synthesis
+                // Check if we need to resynthesize for this cycle
+                let current_cycle_floor = self.cached_cycle_position.floor() as i64;
+                if self.cycle_bus_cache.cycle_floor != current_cycle_floor {
+                    // Cache miss - new cycle, need to presynthesize
+                    let new_buffers = self.presynthesize_buses_parallel(&events, last_event_start);
+                    self.cycle_bus_cache.cycle_floor = current_cycle_floor;
+                    self.cycle_bus_cache.buffers = new_buffers;
+                }
+                // Clone the cache for use in this buffer (Arc makes this cheap)
+                let bus_buffer_cache = self.cycle_bus_cache.buffers.clone();
+
+                // Performance tracking
+                let mut cache_hits = 0;
+                let mut cache_misses = 0;
 
                 // Trigger voices for ALL new events
                 // An event should be triggered if its START is after the last event we triggered
@@ -7440,10 +7490,12 @@ impl UnifiedSignalGraph {
                                     let cache_key = (actual_name.to_string(), duration_samples);
                                     let synthetic_buffer = if let Some(cached_buffer) = bus_buffer_cache.get(&cache_key) {
                                         // Cache hit! Use pre-synthesized buffer from parallel phase
+                                        cache_hits += 1;
                                         cached_buffer.as_ref().clone()
                                     } else {
                                         // Cache miss - fallback to serial synthesis
                                         // This can happen for edge cases not caught in preprocessing
+                                        cache_misses += 1;
                                         let mut buffer = Vec::with_capacity(duration_samples);
                                         for _ in 0..duration_samples {
                                             let sample_value = self.eval_node(&bus_node_id);
@@ -7785,6 +7837,16 @@ impl UnifiedSignalGraph {
                         *lt = latest_triggered_start as f32;
                         *lc = current_cycle;
                     }
+                }
+
+                // Log cache performance statistics
+                let total_bus_events = cache_hits + cache_misses;
+                if total_bus_events > 0 {
+                    let hit_rate = (cache_hits as f64 / total_bus_events as f64) * 100.0;
+                    eprintln!(
+                        "📊 Cache stats: {} hits, {} misses ({:.1}% hit rate)",
+                        cache_hits, cache_misses, hit_rate
+                    );
                 }
 
                 // Sample nodes trigger voices AND return their cached voice output
