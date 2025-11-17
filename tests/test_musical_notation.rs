@@ -4,6 +4,7 @@
 /// parsed and converted to the proper frequencies in the audio output.
 /// We use FFT analysis to verify that the generated audio contains
 /// the expected frequency components.
+use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern_tonal::{midi_to_freq, note_to_midi};
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
@@ -76,9 +77,9 @@ fn render_note_pattern(pattern_str: &str) -> Vec<f32> {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(pattern_node),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Scale down amplitude
@@ -262,9 +263,9 @@ fn test_frequency_accuracy_tolerance() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let scaled = graph.add_node(SignalNode::Multiply {

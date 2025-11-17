@@ -8,13 +8,14 @@ use crate::glicol_dsp::{DspChain, DspEnvironment, DspNode};
 use crate::sample_loader::SampleBank;
 use crate::signal_executor::AudioBuffer;
 use crate::synth_voice::VoiceAllocator;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::sync::Arc;
 
 /// Simple oscillator state
 struct OscState {
-    phase: f32,
+    phase: RefCell<f32>,
     freq: f32,
 }
 
@@ -57,7 +58,7 @@ impl NodeProcessor {
             sample_rate,
             time: 0.0,
             osc_state: OscState {
-                phase: 0.0,
+                phase: RefCell::new(0.0),
                 freq: 0.0,
             },
             filter_state: FilterState {
@@ -82,48 +83,61 @@ impl NodeProcessor {
         match node {
             DspNode::Sin { freq } => {
                 self.osc_state.freq = *freq;
-                let sample = (2.0 * PI * self.osc_state.phase).sin();
-                self.osc_state.phase += *freq / self.sample_rate;
-                if self.osc_state.phase >= 1.0 {
-                    self.osc_state.phase -= 1.0;
+                let sample = (2.0 * PI * *self.osc_state.phase.borrow()).sin();
+                {
+                    let mut p = self.osc_state.phase.borrow_mut();
+                    *p += *freq / self.sample_rate;
+                    if *p >= 1.0 {
+                        *p -= 1.0;
+                    }
                 }
                 sample
             }
 
             DspNode::Saw { freq } => {
                 self.osc_state.freq = *freq;
-                let sample = 2.0 * self.osc_state.phase - 1.0;
-                self.osc_state.phase += *freq / self.sample_rate;
-                if self.osc_state.phase >= 1.0 {
-                    self.osc_state.phase -= 1.0;
+                let sample = 2.0 * *self.osc_state.phase.borrow() - 1.0;
+                {
+                    let mut p = self.osc_state.phase.borrow_mut();
+                    *p += *freq / self.sample_rate;
+                    if *p >= 1.0 {
+                        *p -= 1.0;
+                    }
                 }
                 sample
             }
 
             DspNode::Square { freq, duty: _ } => {
                 self.osc_state.freq = *freq;
-                let sample = if self.osc_state.phase < 0.5 {
+                let sample = if *self.osc_state.phase.borrow() < 0.5 {
                     1.0
                 } else {
                     -1.0
                 };
-                self.osc_state.phase += *freq / self.sample_rate;
-                if self.osc_state.phase >= 1.0 {
-                    self.osc_state.phase -= 1.0;
+                {
+                    let mut p = self.osc_state.phase.borrow_mut();
+                    *p += *freq / self.sample_rate;
+                    if *p >= 1.0 {
+                        *p -= 1.0;
+                    }
                 }
                 sample
             }
 
             DspNode::Triangle { freq } => {
                 self.osc_state.freq = *freq;
-                let sample = if self.osc_state.phase < 0.5 {
-                    4.0 * self.osc_state.phase - 1.0
+                let phase_val = *self.osc_state.phase.borrow();
+                let sample = if phase_val < 0.5 {
+                    4.0 * phase_val - 1.0
                 } else {
-                    3.0 - 4.0 * self.osc_state.phase
+                    3.0 - 4.0 * phase_val
                 };
-                self.osc_state.phase += *freq / self.sample_rate;
-                if self.osc_state.phase >= 1.0 {
-                    self.osc_state.phase -= 1.0;
+                {
+                    let mut p = self.osc_state.phase.borrow_mut();
+                    *p += *freq / self.sample_rate;
+                    if *p >= 1.0 {
+                        *p -= 1.0;
+                    }
                 }
                 sample
             }
@@ -153,14 +167,17 @@ impl NodeProcessor {
             }
 
             DspNode::Impulse { freq } => {
-                let sample = if self.osc_state.phase < 0.01 {
+                let sample = if *self.osc_state.phase.borrow() < 0.01 {
                     1.0
                 } else {
                     0.0
                 };
-                self.osc_state.phase += *freq / self.sample_rate;
-                if self.osc_state.phase >= 1.0 {
-                    self.osc_state.phase -= 1.0;
+                {
+                    let mut p = self.osc_state.phase.borrow_mut();
+                    *p += *freq / self.sample_rate;
+                    if *p >= 1.0 {
+                        *p -= 1.0;
+                    }
                 }
                 sample
             }

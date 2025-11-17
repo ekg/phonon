@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 /// Debug test to understand pattern timing issues
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
@@ -20,9 +21,9 @@ fn debug_pattern_value_changes() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(pattern_node),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     graph.set_output(osc);
@@ -67,9 +68,9 @@ fn debug_pattern_value_changes() {
     let osc2 = graph2.add_node(SignalNode::Oscillator {
         freq: Signal::Node(pattern_node2),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     graph2.set_output(osc2);
@@ -90,9 +91,9 @@ fn debug_pattern_value_changes() {
         let o = g.add_node(SignalNode::Oscillator {
             freq: Signal::Node(pn),
             waveform: Waveform::Sine,
-            phase: 0.0,
-            pending_freq: None,
-            last_sample: 0.0,
+            phase: RefCell::new(0.0),
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
         });
         g.set_output(o);
 

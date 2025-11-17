@@ -94,7 +94,7 @@
 //! let osc = graph.add_node(SignalNode::Oscillator {
 //!     freq: Signal::Value(110.0), // A2 note
 //!     waveform: Waveform::Saw,
-//!     phase: 0.0,
+//!     phase: RefCell::new(0.0),
 //! });
 //!
 //! // Add a lowpass filter
@@ -267,6 +267,7 @@
 //!
 //! Phonon is open source. Check the repository for licensing details.
 
+use std::cell::RefCell;
 pub mod audio;
 pub mod audio_analysis;
 pub mod compositional_compiler;

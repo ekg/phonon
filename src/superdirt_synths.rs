@@ -40,6 +40,7 @@
 use crate::unified_graph::{
     EnvState, FilterState, NodeId, Signal, SignalNode, UnifiedSignalGraph, Waveform,
 };
+use std::cell::RefCell;
 
 /// Library of predefined synthesizers
 pub struct SynthLibrary {
@@ -112,9 +113,9 @@ impl SynthLibrary {
         let osc = graph.add_node(SignalNode::Oscillator {
             freq: modulated_freq,
             waveform: Waveform::Sine,
-            phase: 0.0,
-            pending_freq: None,
-            last_sample: 0.0,
+            phase: RefCell::new(0.0),
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
         });
 
         // Amplitude envelope
@@ -200,9 +201,9 @@ impl SynthLibrary {
             let osc = graph.add_node(SignalNode::Oscillator {
                 freq: detuned_freq,
                 waveform: Waveform::Saw,
-                phase: (i as f32 * 0.13) % 1.0, // Slight phase offset
-                pending_freq: None,
-                last_sample: 0.0,
+                phase: RefCell::new((i as f32 * 0.13) % 1.0), // Slight phase offset
+                pending_freq: RefCell::new(None),
+                last_sample: RefCell::new(0.0),
             });
 
             oscillators.push(Signal::Node(osc));
@@ -235,26 +236,26 @@ impl SynthLibrary {
         let lfo = graph.add_node(SignalNode::Oscillator {
             freq: Signal::Value(pwm_rate),
             waveform: Waveform::Triangle,
-            phase: 0.0,
-            pending_freq: None,
-            last_sample: 0.0,
+            phase: RefCell::new(0.0),
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
         });
 
         // Create two square waves in opposite phase
         let square1 = graph.add_node(SignalNode::Oscillator {
             freq: freq.clone(),
             waveform: Waveform::Square,
-            phase: 0.0,
-            pending_freq: None,
-            last_sample: 0.0,
+            phase: RefCell::new(0.0),
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
         });
 
         let square2 = graph.add_node(SignalNode::Oscillator {
             freq,
             waveform: Waveform::Square,
-            phase: 0.5, // 180 degrees out of phase
-            pending_freq: None,
-            last_sample: 0.0,
+            phase: RefCell::new(0.5), // 180 degrees out of phase
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
         });
 
         // Mix with LFO to create PWM effect
@@ -294,9 +295,9 @@ impl SynthLibrary {
         let lfo = graph.add_node(SignalNode::Oscillator {
             freq: Signal::Value(vibrato_rate),
             waveform: Waveform::Sine,
-            phase: 0.0,
-            pending_freq: None,
-            last_sample: 0.0,
+            phase: RefCell::new(0.0),
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
         });
 
         // Modulate frequency with vibrato
@@ -314,9 +315,9 @@ impl SynthLibrary {
         let osc = graph.add_node(SignalNode::Oscillator {
             freq: modulated_freq,
             waveform: Waveform::Square,
-            phase: 0.0,
-            pending_freq: None,
-            last_sample: 0.0,
+            phase: RefCell::new(0.0),
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
         });
 
         osc
@@ -349,9 +350,9 @@ impl SynthLibrary {
         let modulator = graph.add_node(SignalNode::Oscillator {
             freq: mod_freq,
             waveform: Waveform::Sine,
-            phase: 0.0,
-            pending_freq: None,
-            last_sample: 0.0,
+            phase: RefCell::new(0.0),
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
         });
 
         // Modulate carrier frequency
@@ -369,9 +370,9 @@ impl SynthLibrary {
         let carrier = graph.add_node(SignalNode::Oscillator {
             freq: carrier_freq,
             waveform: Waveform::Sine,
-            phase: 0.0,
-            pending_freq: None,
-            last_sample: 0.0,
+            phase: RefCell::new(0.0),
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
         });
 
         carrier
@@ -399,9 +400,9 @@ impl SynthLibrary {
         let osc1 = graph.add_node(SignalNode::Oscillator {
             freq: freq.clone(),
             waveform: Waveform::Triangle,
-            phase: 0.0,
-            pending_freq: None,
-            last_sample: 0.0,
+            phase: RefCell::new(0.0),
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
         });
 
         let osc2_freq = Signal::Expression(Box::new(crate::unified_graph::SignalExpr::Multiply(
@@ -412,9 +413,9 @@ impl SynthLibrary {
         let osc2 = graph.add_node(SignalNode::Oscillator {
             freq: osc2_freq,
             waveform: Waveform::Triangle,
-            phase: 0.3,
-            pending_freq: None,
-            last_sample: 0.0,
+            phase: RefCell::new(0.3),
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
         });
 
         let body = graph.add_node(SignalNode::Add {

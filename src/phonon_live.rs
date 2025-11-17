@@ -1,6 +1,7 @@
 #![allow(unused_assignments, unused_mut)]
 //! Phonon live coding implementation for CLI
 
+use std::cell::RefCell;
 use crate::unified_graph::{UnifiedSignalGraph, SignalNode, Signal, Waveform};
 use crate::mini_notation_v3::parse_mini_notation;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -131,7 +132,7 @@ fn parse_phonon_file(content: &str, sample_rate: f32) -> Result<UnifiedSignalGra
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
+        phase: RefCell::new(0.0),
     });
 
     let scaled = graph.add_node(SignalNode::Multiply {

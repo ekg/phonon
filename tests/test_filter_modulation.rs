@@ -1,5 +1,6 @@
 //! Test that pattern-modulated filters actually affect the audio output
 
+use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 use std::collections::HashMap;
@@ -50,9 +51,9 @@ fn test_pattern_modulated_filter_changes_audio() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(110.0),
         waveform: Waveform::Saw,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Create a pattern for filter cutoff: low -> high -> low
@@ -157,9 +158,9 @@ fn test_static_filter_consistent_output() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(110.0),
         waveform: Waveform::Saw,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let filtered = graph.add_node(SignalNode::LowPass {

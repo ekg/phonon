@@ -6,12 +6,13 @@
 
 use crate::dsp_parameter::DspParameter;
 use crate::glicol_dsp_v2::{DspChain, DspEnvironment, DspNode};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
 /// Simple oscillator state
 struct OscState {
-    phase: f32,
+    phase: RefCell<f32>,
 }
 
 /// Simple filter state
@@ -71,11 +72,14 @@ impl NodeProcessor {
                 let osc = self
                     .osc_states
                     .entry(node_id)
-                    .or_insert(OscState { phase: 0.0 });
-                let sample = (2.0 * PI * osc.phase).sin();
-                osc.phase += f / self.sample_rate;
-                if osc.phase >= 1.0 {
-                    osc.phase -= 1.0;
+                    .or_insert(OscState { phase: RefCell::new(0.0) });
+                let sample = (2.0 * PI * *osc.phase.borrow()).sin();
+                {
+                    let mut p = osc.phase.borrow_mut();
+                    *p += f / self.sample_rate;
+                    if *p >= 1.0 {
+                        *p -= 1.0;
+                    }
                 }
                 sample
             }
@@ -85,11 +89,14 @@ impl NodeProcessor {
                 let osc = self
                     .osc_states
                     .entry(node_id)
-                    .or_insert(OscState { phase: 0.0 });
-                let sample = 2.0 * osc.phase - 1.0;
-                osc.phase += f / self.sample_rate;
-                if osc.phase >= 1.0 {
-                    osc.phase -= 1.0;
+                    .or_insert(OscState { phase: RefCell::new(0.0) });
+                let sample = 2.0 * *osc.phase.borrow() - 1.0;
+                {
+                    let mut p = osc.phase.borrow_mut();
+                    *p += f / self.sample_rate;
+                    if *p >= 1.0 {
+                        *p -= 1.0;
+                    }
                 }
                 sample
             }
@@ -100,11 +107,14 @@ impl NodeProcessor {
                 let osc = self
                     .osc_states
                     .entry(node_id)
-                    .or_insert(OscState { phase: 0.0 });
-                let sample = if osc.phase < d { 1.0 } else { -1.0 };
-                osc.phase += f / self.sample_rate;
-                if osc.phase >= 1.0 {
-                    osc.phase -= 1.0;
+                    .or_insert(OscState { phase: RefCell::new(0.0) });
+                let sample = if *osc.phase.borrow() < d { 1.0 } else { -1.0 };
+                {
+                    let mut p = osc.phase.borrow_mut();
+                    *p += f / self.sample_rate;
+                    if *p >= 1.0 {
+                        *p -= 1.0;
+                    }
                 }
                 sample
             }
@@ -114,15 +124,19 @@ impl NodeProcessor {
                 let osc = self
                     .osc_states
                     .entry(node_id)
-                    .or_insert(OscState { phase: 0.0 });
-                let sample = if osc.phase < 0.5 {
-                    4.0 * osc.phase - 1.0
+                    .or_insert(OscState { phase: RefCell::new(0.0) });
+                let phase_val = *osc.phase.borrow();
+                let sample = if phase_val < 0.5 {
+                    4.0 * phase_val - 1.0
                 } else {
-                    3.0 - 4.0 * osc.phase
+                    3.0 - 4.0 * phase_val
                 };
-                osc.phase += f / self.sample_rate;
-                if osc.phase >= 1.0 {
-                    osc.phase -= 1.0;
+                {
+                    let mut p = osc.phase.borrow_mut();
+                    *p += f / self.sample_rate;
+                    if *p >= 1.0 {
+                        *p -= 1.0;
+                    }
                 }
                 sample
             }

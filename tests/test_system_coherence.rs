@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 /// Comprehensive system coherence tests to verify end-to-end functionality
@@ -32,9 +33,9 @@ fn test_complete_signal_flow_patterns_to_audio() {
     let kick_osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(60.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let snare_noise = graph.add_node(SignalNode::Noise { seed: 12345 });
@@ -104,9 +105,9 @@ fn test_bidirectional_modulation() {
     let audio_osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(5.0), // 5Hz LFO
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let rms = graph.add_node(SignalNode::RMS {
@@ -134,9 +135,9 @@ fn test_bidirectional_modulation() {
     let synth = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(modulated_freq),
         waveform: Waveform::Saw,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let output = graph.add_node(SignalNode::Output {
@@ -165,9 +166,9 @@ fn test_feedback_loop_stability() {
     let source = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Delay prevents infinite feedback
@@ -223,17 +224,17 @@ fn test_complex_routing_topology() {
     let osc1 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(220.0),
         waveform: Waveform::Saw,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let osc2 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(330.0),
         waveform: Waveform::Square,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Filters with cross-modulated cutoffs
@@ -328,9 +329,9 @@ fn test_pattern_algebra_in_synthesis() {
     let melody = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(freq),
         waveform: Waveform::Triangle,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let output = graph.add_node(SignalNode::Output {
@@ -386,17 +387,17 @@ fn test_realtime_parameter_modulation() {
     let lfo_slow = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(0.5),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let lfo_fast = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(7.0),
         waveform: Waveform::Triangle,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Main oscillator with modulated frequency
@@ -411,9 +412,9 @@ fn test_realtime_parameter_modulation() {
     let carrier = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(carrier_freq),
         waveform: Waveform::Saw,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Filter with modulated cutoff - more dramatic sweep
@@ -477,9 +478,9 @@ fn test_bus_system_coherence() {
     let lfo = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(2.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
     graph.add_bus("lfo".to_string(), lfo);
 
@@ -492,9 +493,9 @@ fn test_bus_system_coherence() {
             ))),
         ))),
         waveform: Waveform::Saw,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
     graph.add_bus("carrier".to_string(), carrier);
 
@@ -544,17 +545,17 @@ fn test_analysis_driven_synthesis() {
     let env_lfo = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(3.0), // 3 Hz envelope
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(100.0),
         waveform: Waveform::Saw,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Apply envelope to create variation
@@ -592,9 +593,9 @@ fn test_analysis_driven_synthesis() {
     let synth = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(synth_freq),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Gate by transients
@@ -772,9 +773,9 @@ fn test_master_system_coherence() {
     let kick = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(60.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let kick_env = graph.add_node(SignalNode::Envelope {
@@ -800,9 +801,9 @@ fn test_master_system_coherence() {
     let bass = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(bass_freq),
         waveform: Waveform::Saw,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Sidechain compression from kick
@@ -823,9 +824,9 @@ fn test_master_system_coherence() {
     let lfo = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(0.25),
         waveform: Waveform::Triangle,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
     graph.add_bus("lfo".to_string(), lfo);
 

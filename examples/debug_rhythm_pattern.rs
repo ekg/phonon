@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 
@@ -20,9 +21,9 @@ fn main() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Gate the oscillator with the pattern

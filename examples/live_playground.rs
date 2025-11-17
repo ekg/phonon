@@ -3,6 +3,7 @@
 //! Run with: cargo run --example live_playground
 //! Then edit live.phonon in your editor and save to hear changes
 
+use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
@@ -195,9 +196,9 @@ fn build_simple_graph(content: &str, sample_rate: f32) -> Result<UnifiedSignalGr
             let osc = graph.add_node(SignalNode::Oscillator {
                 freq: Signal::Value(440.0),
                 waveform: Waveform::Sine,
-                phase: 0.0,
-                pending_freq: None,
-                last_sample: 0.0,
+                phase: RefCell::new(0.0),
+                pending_freq: RefCell::new(None),
+                last_sample: RefCell::new(0.0),
             });
 
             let output = graph.add_node(SignalNode::Output {
@@ -214,9 +215,9 @@ fn build_simple_graph(content: &str, sample_rate: f32) -> Result<UnifiedSignalGr
         let osc = graph.add_node(SignalNode::Oscillator {
             freq: Signal::Value(440.0),
             waveform: Waveform::Sine,
-            phase: 0.0,
-            pending_freq: None,
-            last_sample: 0.0,
+            phase: RefCell::new(0.0),
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
         });
 
         let scaled = graph.add_node(SignalNode::Multiply {

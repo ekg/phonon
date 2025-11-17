@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{NodeId, Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
 
@@ -11,9 +12,9 @@ fn test_basic_oscillator() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Create output node
@@ -58,9 +59,9 @@ fn test_pattern_as_signal() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(220.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let modulated = graph.add_node(SignalNode::Multiply {
@@ -97,9 +98,9 @@ fn test_bus_system() {
     let lfo = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(2.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
     graph.add_bus("lfo".to_string(), lfo);
 
@@ -117,9 +118,9 @@ fn test_bus_system() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(modulated_freq),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let output = graph.add_node(SignalNode::Output {
@@ -197,9 +198,9 @@ fn test_envelope_generator() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Apply envelope
@@ -251,17 +252,17 @@ fn test_signal_expressions() {
     let osc1 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let osc2 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(550.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Use expression for mixing
@@ -305,9 +306,9 @@ fn test_delay_effect() {
     let impulse_osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Gate it with a short pattern to create impulse
@@ -384,9 +385,9 @@ fn test_audio_analysis_nodes() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(100.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Add RMS analyzer
@@ -446,9 +447,9 @@ fn test_conditional_processing() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Conditional processing
@@ -506,9 +507,9 @@ fn test_pattern_driven_synthesis() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Saw,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Filter cutoff pattern

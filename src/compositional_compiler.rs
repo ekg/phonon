@@ -9,6 +9,7 @@ use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
 use crate::superdirt_synths::SynthLibrary;
 use crate::unified_graph::{DattorroState, NodeId, Signal, SignalExpr, SignalNode, TapeDelayState, UnifiedSignalGraph, Waveform};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
@@ -1656,9 +1657,9 @@ fn compile_oscillator(
     let node = SignalNode::Oscillator {
         freq: Signal::Node(freq_node),
         waveform,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     };
     Ok(ctx.graph.add_node(node))
 }
@@ -1682,8 +1683,8 @@ fn compile_fm(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Stri
         carrier_freq: Signal::Node(carrier_node),
         modulator_freq: Signal::Node(modulator_node),
         mod_index: Signal::Node(index_node),
-        carrier_phase: 0.0,
-        modulator_phase: 0.0,
+        carrier_phase: RefCell::new(0.0),
+        modulator_phase: RefCell::new(0.0),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -1709,7 +1710,7 @@ fn compile_pm(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Stri
         carrier_freq: Signal::Node(carrier_node),
         modulation: Signal::Node(modulation_node),
         mod_index: Signal::Node(index_node),
-        carrier_phase: 0.0,
+        carrier_phase: RefCell::new(0.0),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -1730,7 +1731,7 @@ fn compile_blip(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
 
     let node = SignalNode::Blip {
         frequency: Signal::Node(frequency_node),
-        phase: 0.0,
+        phase: RefCell::new(0.0),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -1763,7 +1764,7 @@ fn compile_vco(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
         frequency: Signal::Node(frequency_node),
         waveform: Signal::Node(waveform_node),
         pulse_width: Signal::Node(pulse_width_node),
-        phase: 0.0,
+        phase: RefCell::new(0.0),
     };
 
     Ok(ctx.graph.add_node(node))

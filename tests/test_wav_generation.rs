@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use hound::{SampleFormat, WavSpec, WavWriter};
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
@@ -34,9 +35,9 @@ fn render_simple_sine(output_path: &str) {
     let osc_node = graph.add_node(SignalNode::Oscillator {
         freq: freq_signal,
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let gain_node = graph.add_node(SignalNode::Multiply {
@@ -70,9 +71,9 @@ fn render_pattern_modulation(output_path: &str) {
     let osc_node = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(pattern_node),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let gain_node = graph.add_node(SignalNode::Multiply {
@@ -99,9 +100,9 @@ fn render_filter_modulation(output_path: &str) {
     let osc_node = graph.add_node(SignalNode::Oscillator {
         freq: freq_signal,
         waveform: Waveform::Saw,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let pattern = parse_mini_notation("500 2000");

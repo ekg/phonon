@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 
 #[test]
@@ -9,17 +10,17 @@ fn test_hush_command_silences_outputs() {
     let osc1 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let osc2 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(880.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     graph.set_output_channel(1, osc1);
@@ -109,17 +110,17 @@ fn test_hush_specific_channel() {
     let osc1 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let osc2 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(880.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     graph.set_output_channel(1, osc1);

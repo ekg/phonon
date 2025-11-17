@@ -1,6 +1,7 @@
 //! Tests that verify audio is actually modulating over time
 //! Writes audio to buffers and performs spectral/temporal analysis
 
+use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 use std::fs::File;
@@ -98,9 +99,9 @@ fn test_filter_pattern_actually_modulates() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(110.0),
         waveform: Waveform::Saw,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Pattern alternates between very low and very high cutoff
@@ -174,9 +175,9 @@ fn test_oscillator_frequency_pattern_modulates() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(pattern_node),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let scaled = graph.add_node(SignalNode::Multiply {

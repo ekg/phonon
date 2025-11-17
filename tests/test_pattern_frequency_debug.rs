@@ -6,6 +6,7 @@
 //! 2. Sine wave is pure (single FFT peak, no harmonics)
 //! 3. Pattern actually alternates between frequencies
 
+use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 
@@ -61,9 +62,9 @@ fn test_manual_sine_synthesis_reference() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(110.0),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // ADSR envelope to gate each note (attack + decay + release = 0.5s = one cycle)
@@ -136,9 +137,9 @@ fn test_pattern_controlled_frequency_with_alternation() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // ADSR to gate each note
@@ -234,9 +235,9 @@ fn test_pattern_frequency_both_notes_gated() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     // Trigger both notes: <1 1>
@@ -340,9 +341,9 @@ fn test_diagnose_4700hz_problem() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Sine,
-        phase: 0.0,
-        pending_freq: None,
-        last_sample: 0.0,
+        phase: RefCell::new(0.0),
+        pending_freq: RefCell::new(None),
+        last_sample: RefCell::new(0.0),
     });
 
     let scaled = graph.add_node(SignalNode::Multiply {

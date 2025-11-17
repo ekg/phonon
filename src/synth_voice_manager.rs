@@ -5,6 +5,7 @@
 //! Manages up to 64 simultaneous synthesizer voices with per-voice ADSR envelopes.
 //! Each voice can play a different frequency with independent envelope control.
 
+use std::cell::RefCell;
 use std::f32::consts::PI;
 
 const DEFAULT_MAX_VOICES: usize = 256;
@@ -51,7 +52,7 @@ enum EnvelopePhase {
 /// A single synthesizer voice
 struct SynthVoice {
     // Oscillator state
-    phase: f32,
+    phase: RefCell<f32>,
     frequency: f32,
     waveform: SynthWaveform,
 
@@ -76,7 +77,7 @@ struct SynthVoice {
 impl SynthVoice {
     fn new() -> Self {
         Self {
-            phase: 0.0,
+            phase: RefCell::new(0.0),
             frequency: 440.0,
             waveform: SynthWaveform::Sine,
             envelope_phase: EnvelopePhase::Idle,
@@ -113,7 +114,7 @@ impl SynthVoice {
         self.release_start_level = 0.0;
 
         // Reset oscillator phase for consistent sound
-        self.phase = 0.0;
+        *self.phase.borrow_mut() = 0.0;
 
         self.age = 0;
         self.is_active = true;
@@ -199,29 +200,33 @@ impl SynthVoice {
         }
 
         // Generate oscillator sample
+        let phase_val = *self.phase.borrow();
         let osc_sample = match self.waveform {
-            SynthWaveform::Sine => (2.0 * PI * self.phase).sin(),
-            SynthWaveform::Saw => 2.0 * self.phase - 1.0,
+            SynthWaveform::Sine => (2.0 * PI * phase_val).sin(),
+            SynthWaveform::Saw => 2.0 * phase_val - 1.0,
             SynthWaveform::Square => {
-                if self.phase < 0.5 {
+                if phase_val < 0.5 {
                     1.0
                 } else {
                     -1.0
                 }
             }
             SynthWaveform::Triangle => {
-                if self.phase < 0.5 {
-                    4.0 * self.phase - 1.0
+                if phase_val < 0.5 {
+                    4.0 * phase_val - 1.0
                 } else {
-                    3.0 - 4.0 * self.phase
+                    3.0 - 4.0 * phase_val
                 }
             }
         };
 
         // Update phase
-        self.phase += self.frequency / sample_rate;
-        if self.phase >= 1.0 {
-            self.phase -= 1.0;
+        {
+            let mut p = self.phase.borrow_mut();
+            *p += self.frequency / sample_rate;
+            if *p >= 1.0 {
+                *p -= 1.0;
+            }
         }
 
         // Increment age

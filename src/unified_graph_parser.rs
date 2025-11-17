@@ -140,6 +140,7 @@
 //! let graph = compiler.compile(statements);
 //! ```
 
+use std::cell::RefCell;
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
 use crate::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
@@ -1750,9 +1751,9 @@ impl DslCompiler {
                 self.graph.add_node(SignalNode::Oscillator {
                     freq: freq_signal,
                     waveform,
-                    phase: 0.0,
-                    pending_freq: None,
-                    last_sample: 0.0,
+                    phase: RefCell::new(0.0),
+                    pending_freq: RefCell::new(None),
+                    last_sample: RefCell::new(0.0),
                 })
             }
             DslExpression::Filter {

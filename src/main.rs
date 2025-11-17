@@ -4,6 +4,7 @@
 use clap::{Parser, Subcommand};
 use phonon::pattern::Pattern;
 use phonon::simple_dsp_executor;
+use std::cell::RefCell;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -501,9 +502,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             graph.add_node(SignalNode::Oscillator {
                                                 freq: freq_signal,
                                                 waveform: osc_type,
-                                                phase: 0.0,
-                                                pending_freq: None,
-                                                last_sample: 0.0,
+                                                phase: RefCell::new(0.0),
+                                                pending_freq: RefCell::new(None),
+                                                last_sample: RefCell::new(0.0),
                                             })
                                         } else {
                                             graph.add_node(SignalNode::Constant { value: 0.0 })
@@ -915,9 +916,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     Some(graph.add_node(SignalNode::Oscillator {
                                         freq: freq_signal,
                                         waveform: osc_type,
-                                        phase: 0.0,
-                                        pending_freq: None,
-                                        last_sample: 0.0,
+                                        phase: RefCell::new(0.0),
+                                        pending_freq: RefCell::new(None),
+                                        last_sample: RefCell::new(0.0),
                                     }))
                                 } else {
                                     None

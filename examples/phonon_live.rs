@@ -3,6 +3,7 @@
 //! Run with: cargo run --example phonon_live [filename.phonon]
 //! Defaults to live.phonon if no file specified
 
+use std::cell::RefCell;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, Sample, SizedSample};
 use notify::{Event, EventKind, RecursiveMode, Result as NotifyResult, Watcher};
@@ -218,9 +219,9 @@ fn parse_phonon_file(content: &str, sample_rate: f32) -> Result<UnifiedSignalGra
         let osc = graph.add_node(SignalNode::Oscillator {
             freq: Signal::Value(440.0),
             waveform: Waveform::Sine,
-            phase: 0.0,
-            pending_freq: None,
-            last_sample: 0.0,
+            phase: RefCell::new(0.0),
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
         });
 
         let scaled = graph.add_node(SignalNode::Multiply {
@@ -274,9 +275,9 @@ fn parse_expression(
             return Some(graph.add_node(SignalNode::Oscillator {
                 freq: Signal::Value(freq),
                 waveform: Waveform::Sine,
-                phase: 0.0,
-                pending_freq: None,
-                last_sample: 0.0,
+                phase: RefCell::new(0.0),
+                pending_freq: RefCell::new(None),
+                last_sample: RefCell::new(0.0),
             }));
         }
     }
@@ -287,9 +288,9 @@ fn parse_expression(
             return Some(graph.add_node(SignalNode::Oscillator {
                 freq: Signal::Value(freq),
                 waveform: Waveform::Saw,
-                phase: 0.0,
-                pending_freq: None,
-                last_sample: 0.0,
+                phase: RefCell::new(0.0),
+                pending_freq: RefCell::new(None),
+                last_sample: RefCell::new(0.0),
             }));
         }
     }
@@ -304,9 +305,9 @@ fn parse_expression(
             return Some(graph.add_node(SignalNode::Oscillator {
                 freq: Signal::Value(freq),
                 waveform: Waveform::Square,
-                phase: 0.0,
-                pending_freq: None,
-                last_sample: 0.0,
+                phase: RefCell::new(0.0),
+                pending_freq: RefCell::new(None),
+                last_sample: RefCell::new(0.0),
             }));
         }
     }
@@ -317,9 +318,9 @@ fn parse_expression(
             return Some(graph.add_node(SignalNode::Oscillator {
                 freq: Signal::Value(freq),
                 waveform: Waveform::Triangle,
-                phase: 0.0,
-                pending_freq: None,
-                last_sample: 0.0,
+                phase: RefCell::new(0.0),
+                pending_freq: RefCell::new(None),
+                last_sample: RefCell::new(0.0),
             }));
         }
     }
