@@ -396,6 +396,7 @@ use crate::pattern::{Fraction, Pattern, State, TimeSpan};
 use crate::sample_loader::SampleBank;
 use crate::synth_voice_manager::SynthVoiceManager;
 use crate::voice_manager::VoiceManager;
+use rayon::prelude::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::f32::consts::PI;
@@ -3606,6 +3607,237 @@ impl OutputMixMode {
             "none" => Some(OutputMixMode::None),
             _ => None,
         }
+    }
+}
+
+/// Request for parallel bus synthesis
+/// Collects all parameters needed to synthesize a bus buffer independently
+#[derive(Clone)]
+struct BusSynthesisRequest {
+    bus_node_id: NodeId,
+    duration_samples: usize,
+    event_index: usize, // To match back to original event after parallel synthesis
+}
+
+/// Synthesize a bus buffer in an isolated context (for parallel synthesis)
+/// Takes cloned nodes (independent RefCell state) and synthesizes buffer
+/// This is a simplified evaluator that only handles node types used in bus synthesis
+fn synthesize_bus_buffer_parallel(
+    mut nodes: Vec<Option<SignalNode>>,
+    bus_node_id: NodeId,
+    duration_samples: usize,
+    sample_rate: f32,
+) -> Vec<f32> {
+    let mut buffer = Vec::with_capacity(duration_samples);
+
+    // Synthesize each sample by evaluating the bus node
+    // Stateful oscillators (with RefCell) maintain phase across samples
+    for _ in 0..duration_samples {
+        let sample_value = eval_node_isolated(&mut nodes, &bus_node_id, sample_rate);
+        buffer.push(sample_value);
+    }
+
+    buffer
+}
+
+/// Simplified node evaluator for isolated bus synthesis
+/// No caching needed - stateful nodes use RefCell for state management
+fn eval_node_isolated(nodes: &mut Vec<Option<SignalNode>>, node_id: &NodeId, sample_rate: f32) -> f32 {
+    let node = if let Some(Some(node)) = nodes.get(node_id.0) {
+        node.clone()
+    } else {
+        return 0.0;
+    };
+
+    // Evaluate based on node type
+    match node {
+        SignalNode::Constant { value } => value,
+
+        SignalNode::Oscillator {
+            freq,
+            waveform,
+            phase,
+            pending_freq,
+            last_sample,
+        } => {
+            let freq_val = eval_signal_isolated(nodes, &freq, sample_rate);
+
+            // Generate sample based on waveform
+            let phase_val = *phase.borrow();
+            let sample = match waveform {
+                Waveform::Sine => (2.0 * PI * phase_val).sin(),
+                Waveform::Saw => 2.0 * phase_val - 1.0,
+                Waveform::Square => {
+                    if phase_val < 0.5 {
+                        1.0
+                    } else {
+                        -1.0
+                    }
+                }
+                Waveform::Triangle => {
+                    if phase_val < 0.5 {
+                        4.0 * phase_val - 1.0
+                    } else {
+                        -4.0 * phase_val + 3.0
+                    }
+                }
+            };
+
+            // Update phase for next sample
+            {
+                let mut p = phase.borrow_mut();
+                *p += freq_val / sample_rate;
+                if *p >= 1.0 {
+                    *p -= 1.0;
+                }
+            }
+
+            sample
+        }
+
+        SignalNode::Biquad {
+            input,
+            frequency,
+            q,
+            mode,
+            state,
+        } => {
+            // Biquad Filter (RBJ Audio EQ Cookbook)
+            let input_val = eval_signal_isolated(nodes, &input, sample_rate);
+            let freq = eval_signal_isolated(nodes, &frequency, sample_rate).clamp(10.0, sample_rate * 0.45);
+            let q_val = eval_signal_isolated(nodes, &q, sample_rate).clamp(0.1, 20.0);
+
+            // Calculate normalized frequency
+            let omega = 2.0 * std::f32::consts::PI * freq / sample_rate;
+            let sin_omega = omega.sin();
+            let cos_omega = omega.cos();
+            let alpha = sin_omega / (2.0 * q_val);
+
+            // Calculate coefficients based on mode (RBJ formulas)
+            let (b0, b1, b2, a0, a1, a2) = match mode {
+                0 => {
+                    // Lowpass
+                    let b1_temp = 1.0 - cos_omega;
+                    let b0_temp = b1_temp / 2.0;
+                    let b2_temp = b0_temp;
+                    let a0_temp = 1.0 + alpha;
+                    let a1_temp = -2.0 * cos_omega;
+                    let a2_temp = 1.0 - alpha;
+                    (b0_temp, b1_temp, b2_temp, a0_temp, a1_temp, a2_temp)
+                }
+                1 => {
+                    // Highpass
+                    let b1_temp = -(1.0 + cos_omega);
+                    let b0_temp = -b1_temp / 2.0;
+                    let b2_temp = b0_temp;
+                    let a0_temp = 1.0 + alpha;
+                    let a1_temp = -2.0 * cos_omega;
+                    let a2_temp = 1.0 - alpha;
+                    (b0_temp, b1_temp, b2_temp, a0_temp, a1_temp, a2_temp)
+                }
+                2 => {
+                    // Bandpass
+                    let b0_temp = alpha;
+                    let b1_temp = 0.0;
+                    let b2_temp = -alpha;
+                    let a0_temp = 1.0 + alpha;
+                    let a1_temp = -2.0 * cos_omega;
+                    let a2_temp = 1.0 - alpha;
+                    (b0_temp, b1_temp, b2_temp, a0_temp, a1_temp, a2_temp)
+                }
+                _ => (1.0, 0.0, 0.0, 1.0, 0.0, 0.0), // Passthrough
+            };
+
+            // Normalize coefficients
+            let b0_norm = b0 / a0;
+            let b1_norm = b1 / a0;
+            let b2_norm = b2 / a0;
+            let a1_norm = a1 / a0;
+            let a2_norm = a2 / a0;
+
+            // Get current state values
+            let x1 = state.x1;
+            let x2 = state.x2;
+            let y1 = state.y1;
+            let y2 = state.y2;
+
+            // Apply biquad difference equation
+            let output = b0_norm * input_val
+                + b1_norm * x1
+                + b2_norm * x2
+                - a1_norm * y1
+                - a2_norm * y2;
+
+            // Clamp and check for stability
+            let output_clamped = output.clamp(-10.0, 10.0);
+            let final_output = if output_clamped.is_finite() {
+                output_clamped
+            } else {
+                0.0
+            };
+
+            // Update state in nodes vec
+            if let Some(Some(node_mut)) = nodes.get_mut(node_id.0) {
+                if let SignalNode::Biquad { state: s, .. } = node_mut {
+                    s.x2 = x1;
+                    s.x1 = input_val;
+                    s.y2 = y1;
+                    s.y1 = final_output;
+                }
+            }
+
+            final_output
+        }
+
+        // Add more node types as needed for bus synthesis
+        // For now, return 0.0 for unsupported types
+        _ => {
+            // Most node types not needed for basic bus synthesis
+            // Main graph's eval_node handles the complex cases
+            0.0
+        }
+    }
+}
+
+/// Evaluate signal in isolated context
+fn eval_signal_isolated(nodes: &mut Vec<Option<SignalNode>>, signal: &Signal, sample_rate: f32) -> f32 {
+    match signal {
+        Signal::Value(v) => *v,
+        Signal::Node(id) => eval_node_isolated(nodes, id, sample_rate),
+        Signal::Expression(expr) => {
+            match &**expr {
+                SignalExpr::Add(left, right) => {
+                    eval_signal_isolated(nodes, left, sample_rate) + eval_signal_isolated(nodes, right, sample_rate)
+                }
+                SignalExpr::Subtract(left, right) => {
+                    eval_signal_isolated(nodes, left, sample_rate) - eval_signal_isolated(nodes, right, sample_rate)
+                }
+                SignalExpr::Multiply(left, right) => {
+                    eval_signal_isolated(nodes, left, sample_rate) * eval_signal_isolated(nodes, right, sample_rate)
+                }
+                SignalExpr::Divide(left, right) => {
+                    let r = eval_signal_isolated(nodes, right, sample_rate);
+                    if r != 0.0 {
+                        eval_signal_isolated(nodes, left, sample_rate) / r
+                    } else {
+                        0.0
+                    }
+                }
+                SignalExpr::Modulo(left, right) => {
+                    let r = eval_signal_isolated(nodes, right, sample_rate);
+                    if r != 0.0 {
+                        eval_signal_isolated(nodes, left, sample_rate) % r
+                    } else {
+                        0.0
+                    }
+                }
+                SignalExpr::Scale { input, min, max } => {
+                    let val = eval_signal_isolated(nodes, input, sample_rate);
+                    min + val * (max - min)
+                }
+            }
+        }
+        _ => 0.0, // Simplified - buses, patterns not needed for basic synthesis
     }
 }
 
