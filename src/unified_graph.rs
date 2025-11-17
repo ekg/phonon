@@ -7515,6 +7515,16 @@ impl UnifiedSignalGraph {
                                         buffer
                                     };
 
+                                    // CRITICAL FIX: For synthetic bus buffers, calculate appropriate release time
+                                    // The synthetic_buffer length determines how long the sample actually plays
+                                    // Don't use the default 10s release which causes voice accumulation!
+                                    let buffer_duration_seconds = synthetic_buffer.len() as f32 / self.sample_rate;
+
+                                    // For synthetic buffers, use a short release that matches the buffer
+                                    // This prevents voice accumulation while still avoiding clicks
+                                    let bus_attack = 0.001; // 1ms anti-click attack
+                                    let bus_release = (buffer_duration_seconds * 0.1).max(0.01).min(0.5); // 10% of buffer, capped at 0.5s
+
                                     // Trigger voice with synthetic buffer using appropriate envelope type
                                     // LEGATO OVERRIDE: When legato is present, use ADSR with sharp settings
                                     if let Some(legato_cycles) = legato_duration_opt {
@@ -7528,7 +7538,7 @@ impl UnifiedSignalGraph {
                                         self.voice_manager
                                             .borrow_mut()
                                             .trigger_sample_with_adsr(
-                                                std::sync::Arc::new(synthetic_buffer),
+                                                std::sync::Arc::new(synthetic_buffer.clone()),
                                                 gain_val,
                                                 pan_val,
                                                 final_speed,
@@ -7552,19 +7562,19 @@ impl UnifiedSignalGraph {
                                             .borrow_mut()
                                             .set_last_voice_auto_release(auto_release_samples);
                                     } else {
-                                        // No legato: use normal envelope behavior
+                                        // No legato: use bus-appropriate envelope (short release to prevent accumulation)
                                         match envelope_type {
                                             Some(RuntimeEnvelopeType::Percussion) | None => {
                                                 self.voice_manager
                                                     .borrow_mut()
                                                     .trigger_sample_with_envelope(
-                                                        std::sync::Arc::new(synthetic_buffer),
+                                                        std::sync::Arc::new(synthetic_buffer.clone()),
                                                         gain_val,
                                                         pan_val,
                                                         final_speed,
                                                         cut_group_opt,
-                                                        final_attack,
-                                                        final_release,
+                                                        bus_attack,
+                                                        bus_release,
                                                     );
                                             }
                                             Some(RuntimeEnvelopeType::ADSR {
@@ -7580,15 +7590,15 @@ impl UnifiedSignalGraph {
                                                 self.voice_manager
                                                     .borrow_mut()
                                                     .trigger_sample_with_adsr(
-                                                        std::sync::Arc::new(synthetic_buffer),
+                                                        std::sync::Arc::new(synthetic_buffer.clone()),
                                                         gain_val,
                                                         pan_val,
                                                         final_speed,
                                                         cut_group_opt,
-                                                        final_attack,
+                                                        bus_attack,
                                                         decay_val,
                                                         sustain_val,
-                                                        final_release,
+                                                        bus_release,
                                                     );
                                             }
                                             Some(RuntimeEnvelopeType::Segments {
@@ -7598,7 +7608,7 @@ impl UnifiedSignalGraph {
                                                 self.voice_manager
                                                     .borrow_mut()
                                                     .trigger_sample_with_segments(
-                                                        std::sync::Arc::new(synthetic_buffer),
+                                                        std::sync::Arc::new(synthetic_buffer.clone()),
                                                         gain_val,
                                                         pan_val,
                                                         final_speed,
@@ -7685,6 +7695,18 @@ impl UnifiedSignalGraph {
                                         sample_data
                                     };
 
+                                    // CRITICAL FIX: Calculate appropriate envelope times based on sample duration
+                                    // For short drum hits (< 1s), use proportional release to prevent voice accumulation
+                                    // For long samples/loops (> 1s), keep the 10s release to let them play through
+                                    let sample_duration_seconds = sliced_sample_data.len() as f32 / self.sample_rate / final_speed.abs().max(0.1);
+                                    let smart_release = if sample_duration_seconds < 1.0 {
+                                        // Short sample: use brief release (20% of sample duration, min 10ms, max 0.5s)
+                                        (sample_duration_seconds * 0.2).max(0.01).min(0.5)
+                                    } else {
+                                        // Long sample: keep original 10s release to let it play through
+                                        final_release
+                                    };
+
                                     // Trigger voice using appropriate envelope type
                                     // LEGATO OVERRIDE: When legato is present, use ADSR with sharp settings
                                     if let Some(legato_cycles) = legato_duration_opt {
@@ -7722,7 +7744,7 @@ impl UnifiedSignalGraph {
                                             .borrow_mut()
                                             .set_last_voice_auto_release(auto_release_samples);
                                     } else {
-                                        // No legato: use normal envelope behavior
+                                        // No legato: use smart envelope with sample-duration-based release
                                         match envelope_type {
                                             Some(RuntimeEnvelopeType::Percussion) | None => {
                                                 self.voice_manager
@@ -7734,7 +7756,7 @@ impl UnifiedSignalGraph {
                                                         final_speed,
                                                         cut_group_opt,
                                                         final_attack,
-                                                        final_release,
+                                                        smart_release,
                                                     );
                                             }
                                             Some(RuntimeEnvelopeType::ADSR {
@@ -7758,7 +7780,7 @@ impl UnifiedSignalGraph {
                                                         final_attack,
                                                         decay_val,
                                                         sustain_val,
-                                                        final_release,
+                                                        smart_release,
                                                     );
                                             }
                                             Some(RuntimeEnvelopeType::Segments {

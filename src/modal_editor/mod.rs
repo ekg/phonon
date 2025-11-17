@@ -134,8 +134,8 @@ impl ModalEditor {
         let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));
 
         // Ring buffer: background synth writes, audio callback reads
-        // Size: 1 second of audio = smooth playback even if synth lags briefly
-        let ring_buffer_size = sample_rate as usize;
+        // Size: 2 seconds of audio = smooth playback even with synthesis spikes
+        let ring_buffer_size = (sample_rate as usize) * 2;
         let ring = HeapRb::<f32>::new(ring_buffer_size);
         let (mut ring_producer, mut ring_consumer) = ring.split();
 
