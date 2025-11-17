@@ -246,7 +246,7 @@
 //!     input: Signal::Node(sample_node),
 //!     cutoff: Signal::Node(cutoff_node), // Cutoff controlled by pattern!
 //!     q: Signal::Value(2.0),
-//!     state: FilterState::default(),
+//!     state: RefCell::new(FilterState::default()),
 //! });
 //!
 //! graph.set_output(filtered);
@@ -800,7 +800,7 @@ pub enum SignalNode {
         decay: f32,
         sustain: f32,
         release: f32,
-        state: EnvState,
+        state: RefCell<EnvState>,
     },
 
     /// Structured signal: boolean pattern imposes rhythmic structure on signal
@@ -875,7 +875,7 @@ pub enum SignalNode {
         input: Signal,
         cutoff: Signal,
         q: Signal,
-        state: FilterState,
+        state: RefCell<FilterState>,
     },
 
     /// Highpass filter
@@ -883,7 +883,7 @@ pub enum SignalNode {
         input: Signal,
         cutoff: Signal,
         q: Signal,
-        state: FilterState,
+        state: RefCell<FilterState>,
     },
 
     /// Bandpass filter
@@ -891,7 +891,7 @@ pub enum SignalNode {
         input: Signal,
         center: Signal,
         q: Signal,
-        state: FilterState,
+        state: RefCell<FilterState>,
     },
 
     /// DJ Filter (sweep from lowpass to highpass)
@@ -900,7 +900,7 @@ pub enum SignalNode {
     DJFilter {
         input: Signal,
         value: Signal, // 0-1: 0=full lowpass, 0.5=neutral, 1=full highpass
-        state: FilterState,
+        state: RefCell<FilterState>,
     },
 
     /// Notch filter (band-reject)
@@ -910,7 +910,7 @@ pub enum SignalNode {
         input: Signal,
         center: Signal,
         q: Signal,
-        state: FilterState,
+        state: RefCell<FilterState>,
     },
 
     /// Comb filter (feedback delay line)
@@ -930,7 +930,7 @@ pub enum SignalNode {
         input: Signal,
         cutoff: Signal,    // Cutoff frequency in Hz
         resonance: Signal, // Resonance (0.0-1.0, self-oscillates near 1.0)
-        state: MoogLadderState,
+        state: RefCell<MoogLadderState>,
     },
 
     /// Parametric EQ (3-band peaking equalizer)
@@ -949,7 +949,7 @@ pub enum SignalNode {
         high_freq: Signal,
         high_gain: Signal,
         high_q: Signal,
-        state: ParametricEQState,
+        state: RefCell<ParametricEQState>,
     },
 
     /// Envelope generator (triggered)
@@ -961,7 +961,7 @@ pub enum SignalNode {
         decay: Signal,
         sustain: Signal,
         release: Signal,
-        state: EnvState,
+        state: RefCell<EnvState>,
     },
 
     /// ADSR envelope generator (continuous, one per cycle)
@@ -1033,7 +1033,7 @@ pub enum SignalNode {
         flutter_depth: Signal,  // Flutter modulation depth (0.0-1.0)
         saturation: Signal,     // Tape saturation (0.0-1.0)
         mix: Signal,            // Dry/wet mix (0.0-1.0)
-        state: TapeDelayState,
+        state: RefCell<TapeDelayState>,
     },
 
     /// Multi-Tap Delay (multiple equally-spaced echoes)
@@ -1160,7 +1160,7 @@ pub enum SignalNode {
     Allpass {
         input: Signal,
         coefficient: Signal, // Feedback coefficient (-1.0 to 1.0)
-        state: AllpassState,
+        state: RefCell<AllpassState>,
     },
 
     /// Conditional gate
@@ -1179,7 +1179,7 @@ pub enum SignalNode {
         room_size: Signal, // 0.0-1.0
         damping: Signal,   // 0.0-1.0
         mix: Signal,       // 0.0-1.0 (dry/wet)
-        state: ReverbState,
+        state: RefCell<ReverbState>,
     },
 
     /// Dattorro Plate Reverb (professional plate/hall reverb)
@@ -1194,7 +1194,7 @@ pub enum SignalNode {
         damping: Signal,    // High-frequency damping (0.0-1.0)
         mod_depth: Signal,  // Modulation depth (0.0-1.0) for lushness
         mix: Signal,        // Dry/wet mix (0.0-1.0)
-        state: DattorroState,
+        state: RefCell<DattorroState>,
     },
 
     /// Convolution Reverb
@@ -1222,7 +1222,7 @@ pub enum SignalNode {
         input: Signal,
         bits: Signal,        // 1.0-16.0
         sample_rate: Signal, // Sample rate reduction factor
-        state: BitCrushState,
+        state: RefCell<BitCrushState>,
     },
 
     /// Chorus effect
@@ -1231,7 +1231,7 @@ pub enum SignalNode {
         rate: Signal,  // LFO rate in Hz
         depth: Signal, // Delay modulation depth
         mix: Signal,   // 0.0-1.0
-        state: ChorusState,
+        state: RefCell<ChorusState>,
     },
 
     /// Flanger effect (sweeping comb filter via delay modulation)
@@ -1240,7 +1240,7 @@ pub enum SignalNode {
         depth: Signal,    // Modulation depth (0.0-1.0)
         rate: Signal,     // LFO rate in Hz
         feedback: Signal, // Feedback amount (0.0-0.95)
-        state: FlangerState,
+        state: RefCell<FlangerState>,
     },
 
     /// Compressor (dynamic range compression)
@@ -1260,7 +1260,7 @@ pub enum SignalNode {
         input: Signal, // Input signal
         rate: Signal,  // LFO rate in Hz (0.1 to 20.0)
         depth: Signal, // Modulation depth (0.0 to 1.0)
-        phase: f32,    // LFO phase accumulator
+        phase: RefCell<f32>,    // LFO phase accumulator
     },
 
     /// Vibrato (pitch modulation)
@@ -1269,7 +1269,7 @@ pub enum SignalNode {
         input: Signal,           // Input signal
         rate: Signal,            // LFO rate in Hz (0.1 to 20.0)
         depth: Signal,           // Modulation depth in semitones (0.0 to 2.0)
-        phase: f32,              // LFO phase accumulator
+        phase: RefCell<f32>,              // LFO phase accumulator
         delay_buffer: Vec<f32>,  // Circular delay buffer (50ms)
         buffer_pos: usize,       // Current write position in buffer
     },
@@ -1294,7 +1294,7 @@ pub enum SignalNode {
     RingMod {
         input: Signal, // Input signal
         freq: Signal,  // Carrier frequency in Hz (20.0 to 5000.0)
-        phase: f32,    // Carrier oscillator phase
+        phase: RefCell<f32>,    // Carrier oscillator phase
     },
 
     /// fundsp Unit Wrapper (wraps fundsp AudioUnit for pattern modulation)
@@ -6222,8 +6222,8 @@ impl UnifiedSignalGraph {
                 // Update state
                 if let Some(Some(SignalNode::Allpass { state, .. })) = self.nodes.get_mut(node_id.0)
                 {
-                    state.x1 = x;
-                    state.y1 = y;
+                    state.borrow_mut().x1 = x;
+                    state.borrow_mut().y1 = y;
                 }
 
                 y
@@ -6260,9 +6260,9 @@ impl UnifiedSignalGraph {
                 // Update state
                 if let Some(Some(SignalNode::LowPass { state, .. })) = self.nodes.get_mut(node_id.0)
                 {
-                    state.y1 = low;
-                    state.x1 = band;
-                    state.y2 = high;
+                    state.borrow_mut().y1 = low;
+                    state.borrow_mut().x1 = band;
+                    state.borrow_mut().y2 = high;
                 }
 
                 low
@@ -8160,9 +8160,9 @@ impl UnifiedSignalGraph {
                 if let Some(Some(SignalNode::HighPass { state, .. })) =
                     self.nodes.get_mut(node_id.0)
                 {
-                    state.y1 = low;
-                    state.x1 = band;
-                    state.y2 = high;
+                    state.borrow_mut().y1 = low;
+                    state.borrow_mut().x1 = band;
+                    state.borrow_mut().y2 = high;
                 }
 
                 high // Output high-pass signal
@@ -8198,9 +8198,9 @@ impl UnifiedSignalGraph {
                 if let Some(Some(SignalNode::BandPass { state, .. })) =
                     self.nodes.get_mut(node_id.0)
                 {
-                    state.y1 = low;
-                    state.x1 = band;
-                    state.y2 = high;
+                    state.borrow_mut().y1 = low;
+                    state.borrow_mut().x1 = band;
+                    state.borrow_mut().y2 = high;
                 }
 
                 band // Output band-pass signal
@@ -8262,9 +8262,9 @@ impl UnifiedSignalGraph {
                 if let Some(Some(SignalNode::DJFilter { state, .. })) =
                     self.nodes.get_mut(node_id.0)
                 {
-                    state.y1 = if low.is_finite() { low } else { 0.0 };
-                    state.x1 = if band.is_finite() { band } else { 0.0 };
-                    state.y2 = if high.is_finite() { high } else { 0.0 };
+                    state.borrow_mut().y1 = if low.is_finite() { low } else { 0.0 };
+                    state.borrow_mut().x1 = if band.is_finite() { band } else { 0.0 };
+                    state.borrow_mut().y2 = if high.is_finite() { high } else { 0.0 };
                 }
 
                 // Output selection: lowpass for < 0.5, highpass for > 0.5
@@ -8311,9 +8311,9 @@ impl UnifiedSignalGraph {
 
                 // Update state
                 if let Some(Some(SignalNode::Notch { state, .. })) = self.nodes.get_mut(node_id.0) {
-                    state.y1 = low;
-                    state.x1 = band;
-                    state.y2 = high;
+                    state.borrow_mut().y1 = low;
+                    state.borrow_mut().x1 = band;
+                    state.borrow_mut().y2 = high;
                 }
 
                 low + high // Output notch (low + high = everything except band)
@@ -8548,7 +8548,7 @@ impl UnifiedSignalGraph {
                     if trig > 0.5 && matches!(*phase, EnvPhase::Idle | EnvPhase::Release) {
                         drop(phase); // Release borrow before mutable borrow
                         *state.phase.borrow_mut() = EnvPhase::Attack;
-                        state.time_in_phase = 0.0;
+                        state.borrow_mut().time_in_phase = 0.0;
                     } else if trig <= 0.5
                         && matches!(
                             *phase,
@@ -8557,9 +8557,9 @@ impl UnifiedSignalGraph {
                     {
                         drop(phase); // Release borrow before mutable borrow
                         // Store current level before entering release phase
-                        state.release_start_level = state.level;
+                        state.borrow_mut().release_start_level = state.level;
                         *state.phase.borrow_mut() = EnvPhase::Release;
-                        state.time_in_phase = 0.0;
+                        state.borrow_mut().time_in_phase = 0.0;
                     }
                 }
 
@@ -8570,16 +8570,16 @@ impl UnifiedSignalGraph {
                 match *state.phase.borrow() {
                     EnvPhase::Attack => {
                         if attack_val > 0.0 {
-                            state.level = state.time_in_phase / attack_val;
+                            state.borrow_mut().level = state.time_in_phase / attack_val;
                             if state.level >= 1.0 {
-                                state.level = 1.0;
+                                state.borrow_mut().level = 1.0;
                                 *state.phase.borrow_mut() = EnvPhase::Decay;
-                                state.time_in_phase = 0.0;
+                                state.borrow_mut().time_in_phase = 0.0;
                             }
                         } else {
-                            state.level = 1.0;
+                            state.borrow_mut().level = 1.0;
                             *state.phase.borrow_mut() = EnvPhase::Decay;
-                            state.time_in_phase = 0.0;
+                            state.borrow_mut().time_in_phase = 0.0;
                         }
                     }
                     EnvPhase::Decay => {
@@ -8587,36 +8587,36 @@ impl UnifiedSignalGraph {
                             state.level =
                                 1.0 - (1.0 - sustain_val) * (state.time_in_phase / decay_val);
                             if state.level <= sustain_val {
-                                state.level = sustain_val;
+                                state.borrow_mut().level = sustain_val;
                                 *state.phase.borrow_mut() = EnvPhase::Sustain;
-                                state.time_in_phase = 0.0;
+                                state.borrow_mut().time_in_phase = 0.0;
                             }
                         } else {
-                            state.level = sustain_val;
+                            state.borrow_mut().level = sustain_val;
                             *state.phase.borrow_mut() = EnvPhase::Sustain;
-                            state.time_in_phase = 0.0;
+                            state.borrow_mut().time_in_phase = 0.0;
                         }
                     }
                     EnvPhase::Sustain => {
-                        state.level = sustain_val;
+                        state.borrow_mut().level = sustain_val;
                     }
                     EnvPhase::Release => {
                         if release_val > 0.0 {
                             // Linear decay from release_start_level to 0 over release time
                             let progress = (state.time_in_phase / release_val).min(1.0);
-                            state.level = state.release_start_level * (1.0 - progress);
+                            state.borrow_mut().level = state.release_start_level * (1.0 - progress);
 
                             if progress >= 1.0 {
-                                state.level = 0.0;
+                                state.borrow_mut().level = 0.0;
                                 *state.phase.borrow_mut() = EnvPhase::Idle;
                             }
                         } else {
-                            state.level = 0.0;
+                            state.borrow_mut().level = 0.0;
                             *state.phase.borrow_mut() = EnvPhase::Idle;
                         }
                     }
                     EnvPhase::Idle => {
-                        state.level = 0.0;
+                        state.borrow_mut().level = 0.0;
                     }
                 }
 
@@ -8933,7 +8933,7 @@ impl UnifiedSignalGraph {
                         drop(phase);
                         // Start attack phase
                         *state.phase.borrow_mut() = EnvPhase::Attack;
-                        state.time_in_phase = 0.0;
+                        state.borrow_mut().time_in_phase = 0.0;
                     } else if !trigger_active
                         && matches!(
                             *phase,
@@ -8942,9 +8942,9 @@ impl UnifiedSignalGraph {
                     {
                         drop(phase);
                         // Enter release phase
-                        state.release_start_level = state.level;
+                        state.borrow_mut().release_start_level = state.level;
                         *state.phase.borrow_mut() = EnvPhase::Release;
-                        state.time_in_phase = 0.0;
+                        state.borrow_mut().time_in_phase = 0.0;
                     }
                 }
 
@@ -8955,16 +8955,16 @@ impl UnifiedSignalGraph {
                 match *state.phase.borrow() {
                     EnvPhase::Attack => {
                         if attack > 0.0 {
-                            state.level = state.time_in_phase / attack;
+                            state.borrow_mut().level = state.time_in_phase / attack;
                             if state.level >= 1.0 {
-                                state.level = 1.0;
+                                state.borrow_mut().level = 1.0;
                                 *state.phase.borrow_mut() = EnvPhase::Decay;
-                                state.time_in_phase = 0.0;
+                                state.borrow_mut().time_in_phase = 0.0;
                             }
                         } else {
-                            state.level = 1.0;
+                            state.borrow_mut().level = 1.0;
                             *state.phase.borrow_mut() = EnvPhase::Decay;
-                            state.time_in_phase = 0.0;
+                            state.borrow_mut().time_in_phase = 0.0;
                         }
                     }
                     EnvPhase::Decay => {
@@ -8972,39 +8972,39 @@ impl UnifiedSignalGraph {
                             state.level =
                                 1.0 - (1.0 - sustain) * (state.time_in_phase / decay);
                             if state.level <= sustain {
-                                state.level = sustain;
+                                state.borrow_mut().level = sustain;
                                 *state.phase.borrow_mut() = EnvPhase::Sustain;
-                                state.time_in_phase = 0.0;
+                                state.borrow_mut().time_in_phase = 0.0;
                             }
                         } else {
-                            state.level = sustain;
+                            state.borrow_mut().level = sustain;
                             *state.phase.borrow_mut() = EnvPhase::Sustain;
-                            state.time_in_phase = 0.0;
+                            state.borrow_mut().time_in_phase = 0.0;
                         }
                     }
                     EnvPhase::Sustain => {
-                        state.level = sustain;
+                        state.borrow_mut().level = sustain;
                     }
                     EnvPhase::Release => {
                         if release > 0.0 {
                             let progress = (state.time_in_phase / release).min(1.0);
-                            state.level = state.release_start_level * (1.0 - progress);
+                            state.borrow_mut().level = state.release_start_level * (1.0 - progress);
 
                             if progress >= 1.0 {
-                                state.level = 0.0;
+                                state.borrow_mut().level = 0.0;
                                 *state.phase.borrow_mut() = EnvPhase::Idle;
                             }
                         } else {
-                            state.level = 0.0;
+                            state.borrow_mut().level = 0.0;
                             *state.phase.borrow_mut() = EnvPhase::Idle;
                         }
                     }
                     EnvPhase::Idle => {
-                        state.level = 0.0;
+                        state.borrow_mut().level = 0.0;
                     }
                 }
 
-                let output_level = state.level;
+                let output_level = state.borrow().level;
 
                 // Update state in node
                 if let Some(Some(SignalNode::EnvelopePattern {
@@ -9102,7 +9102,7 @@ impl UnifiedSignalGraph {
                         drop(phase);
                         // Start attack phase
                         *state.phase.borrow_mut() = EnvPhase::Attack;
-                        state.time_in_phase = 0.0;
+                        state.borrow_mut().time_in_phase = 0.0;
                     } else if !trigger_active
                         && matches!(
                             *phase,
@@ -9111,9 +9111,9 @@ impl UnifiedSignalGraph {
                     {
                         drop(phase);
                         // Enter release phase
-                        state.release_start_level = state.level;
+                        state.borrow_mut().release_start_level = state.level;
                         *state.phase.borrow_mut() = EnvPhase::Release;
-                        state.time_in_phase = 0.0;
+                        state.borrow_mut().time_in_phase = 0.0;
                     }
                 }
 
@@ -9124,16 +9124,16 @@ impl UnifiedSignalGraph {
                 match *state.phase.borrow() {
                     EnvPhase::Attack => {
                         if attack > 0.0 {
-                            state.level = state.time_in_phase / attack;
+                            state.borrow_mut().level = state.time_in_phase / attack;
                             if state.level >= 1.0 {
-                                state.level = 1.0;
+                                state.borrow_mut().level = 1.0;
                                 *state.phase.borrow_mut() = EnvPhase::Decay;
-                                state.time_in_phase = 0.0;
+                                state.borrow_mut().time_in_phase = 0.0;
                             }
                         } else {
-                            state.level = 1.0;
+                            state.borrow_mut().level = 1.0;
                             *state.phase.borrow_mut() = EnvPhase::Decay;
-                            state.time_in_phase = 0.0;
+                            state.borrow_mut().time_in_phase = 0.0;
                         }
                     }
                     EnvPhase::Decay => {
@@ -9141,39 +9141,39 @@ impl UnifiedSignalGraph {
                             state.level =
                                 1.0 - (1.0 - sustain) * (state.time_in_phase / decay);
                             if state.level <= sustain {
-                                state.level = sustain;
+                                state.borrow_mut().level = sustain;
                                 *state.phase.borrow_mut() = EnvPhase::Sustain;
-                                state.time_in_phase = 0.0;
+                                state.borrow_mut().time_in_phase = 0.0;
                             }
                         } else {
-                            state.level = sustain;
+                            state.borrow_mut().level = sustain;
                             *state.phase.borrow_mut() = EnvPhase::Sustain;
-                            state.time_in_phase = 0.0;
+                            state.borrow_mut().time_in_phase = 0.0;
                         }
                     }
                     EnvPhase::Sustain => {
-                        state.level = sustain;
+                        state.borrow_mut().level = sustain;
                     }
                     EnvPhase::Release => {
                         if release > 0.0 {
                             let progress = (state.time_in_phase / release).min(1.0);
-                            state.level = state.release_start_level * (1.0 - progress);
+                            state.borrow_mut().level = state.release_start_level * (1.0 - progress);
 
                             if progress >= 1.0 {
-                                state.level = 0.0;
+                                state.borrow_mut().level = 0.0;
                                 *state.phase.borrow_mut() = EnvPhase::Idle;
                             }
                         } else {
-                            state.level = 0.0;
+                            state.borrow_mut().level = 0.0;
                             *state.phase.borrow_mut() = EnvPhase::Idle;
                         }
                     }
                     EnvPhase::Idle => {
-                        state.level = 0.0;
+                        state.borrow_mut().level = 0.0;
                     }
                 }
 
-                let output_level = state.level;
+                let output_level = state.borrow().level;
 
                 // Update state in node
                 if let Some(Some(SignalNode::StructuredSignal {

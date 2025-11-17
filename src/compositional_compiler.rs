@@ -2767,25 +2767,25 @@ fn compile_filter(
             input: input_signal,
             cutoff: Signal::Node(cutoff_node),
             q: Signal::Node(q_node),
-            state: FilterState::default(),
+            state: RefCell::new(FilterState::default()),
         },
         "hpf" => SignalNode::HighPass {
             input: input_signal,
             cutoff: Signal::Node(cutoff_node),
             q: Signal::Node(q_node),
-            state: FilterState::default(),
+            state: RefCell::new(FilterState::default()),
         },
         "bpf" => SignalNode::BandPass {
             input: input_signal,
             center: Signal::Node(cutoff_node), // Note: center not cutoff for bandpass
             q: Signal::Node(q_node),
-            state: FilterState::default(),
+            state: RefCell::new(FilterState::default()),
         },
         "notch" => SignalNode::Notch {
             input: input_signal,
             center: Signal::Node(cutoff_node),
             q: Signal::Node(q_node),
-            state: FilterState::default(),
+            state: RefCell::new(FilterState::default()),
         },
         _ => return Err(format!("Unknown filter type: {}", filter_type)),
     };
@@ -2846,7 +2846,7 @@ fn compile_moog_ladder(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
         input: Signal::Node(input_node),
         cutoff: Signal::Node(cutoff_node),
         resonance: Signal::Node(resonance_node),
-        state: MoogLadderState::default(),
+        state: RefCell::new(MoogLadderState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -2886,7 +2886,7 @@ fn compile_parametric_eq(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
         high_freq: Signal::Node(high_freq_node),
         high_gain: Signal::Node(high_gain_node),
         high_q: Signal::Node(high_q_node),
-        state: ParametricEQState::default(),
+        state: RefCell::new(ParametricEQState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -2918,7 +2918,7 @@ fn compile_reverb(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         room_size: Signal::Node(room_node),
         damping: Signal::Node(damp_node),
         mix: Signal::Node(mix_node),
-        state: ReverbState::default(),
+        state: RefCell::new(ReverbState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3157,7 +3157,7 @@ fn compile_envelope_pattern(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resul
         decay,
         sustain,
         release,
-        state: EnvState::default(),
+        state: RefCell::new(EnvState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3260,7 +3260,7 @@ fn compile_tapedelay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
         flutter_depth: Signal::Node(flutter_depth_node),
         saturation: Signal::Node(saturation_node),
         mix: Signal::Node(mix_node),
-        state: TapeDelayState::new(ctx.sample_rate),
+        state: RefCell::new(TapeDelayState::new(ctx.sample_rate)),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3542,7 +3542,7 @@ fn compile_bitcrush(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
         input: input_signal,
         bits: Signal::Node(bits_node),
         sample_rate: Signal::Node(sr_node),
-        state: BitCrushState::default(),
+        state: RefCell::new(BitCrushState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3572,7 +3572,7 @@ fn compile_coarse(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         input: input_signal,
         bits: Signal::Value(16.0), // Full bit depth - no bit reduction
         sample_rate: Signal::Node(sr_node),
-        state: BitCrushState::default(),
+        state: RefCell::new(BitCrushState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3603,7 +3603,7 @@ fn compile_djf(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     let node = SignalNode::DJFilter {
         input: input_signal,
         value: Signal::Node(value_node),
-        state: FilterState::default(),
+        state: RefCell::new(FilterState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3812,7 +3812,7 @@ fn compile_allpass(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
     let node = SignalNode::Allpass {
         input: input_signal,
         coefficient: Signal::Node(coefficient_node),
-        state: AllpassState::default(),
+        state: RefCell::new(AllpassState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3864,7 +3864,7 @@ fn compile_svf_mode(ctx: &mut CompilerContext, args: Vec<Expr>, mode: usize) -> 
         frequency: Signal::Node(frequency_node),
         resonance: Signal::Node(resonance_node),
         mode,
-        state: SVFState::default(),
+        state: RefCell::new(SVFState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3916,7 +3916,7 @@ fn compile_biquad_mode(ctx: &mut CompilerContext, args: Vec<Expr>, mode: usize) 
         frequency: Signal::Node(frequency_node),
         q: Signal::Node(q_node),
         mode,
-        state: BiquadState::default(),
+        state: RefCell::new(BiquadState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3944,7 +3944,7 @@ fn compile_resonz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         input: input_signal,
         frequency: Signal::Node(frequency_node),
         q: Signal::Node(q_node),
-        state: BiquadState::default(),
+        state: RefCell::new(BiquadState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3972,7 +3972,7 @@ fn compile_rlpf(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
         input: input_signal,
         cutoff: Signal::Node(cutoff_node),
         resonance: Signal::Node(resonance_node),
-        state: BiquadState::default(),
+        state: RefCell::new(BiquadState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -4000,7 +4000,7 @@ fn compile_rhpf(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
         input: input_signal,
         cutoff: Signal::Node(cutoff_node),
         resonance: Signal::Node(resonance_node),
-        state: BiquadState::default(),
+        state: RefCell::new(BiquadState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -4254,7 +4254,7 @@ fn compile_envelope(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
         decay: Signal::Node(decay_node),
         sustain: Signal::Node(sustain_node),
         release: Signal::Node(release_node),
-        state: EnvState::default(),
+        state: RefCell::new(EnvState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -6682,7 +6682,7 @@ fn compile_struct(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         decay: 0.1,    // 100ms decay
         sustain: 0.0,  // No sustain (percussive)
         release: 0.05, // 50ms release
-        state: EnvState::default(),
+        state: RefCell::new(EnvState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
