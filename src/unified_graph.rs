@@ -3628,6 +3628,17 @@ fn synthesize_bus_buffer_parallel(
     duration_samples: usize,
     sample_rate: f32,
 ) -> Vec<f32> {
+    // CRITICAL: Reset all oscillator phases to 0 before synthesis
+    // Without this, cloned oscillators start at arbitrary phases, causing:
+    // - DC offset (buffer doesn't contain full periods)
+    // - Clicks (buffer doesn't start at zero crossing)
+    // - Rough sound (phase discontinuities on every trigger)
+    for node_opt in nodes.iter_mut() {
+        if let Some(SignalNode::Oscillator { phase, .. }) = node_opt {
+            *phase.borrow_mut() = 0.0;
+        }
+    }
+
     let mut buffer = Vec::with_capacity(duration_samples);
 
     // Synthesize each sample by evaluating the bus node
