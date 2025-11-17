@@ -56,6 +56,14 @@ enum Commands {
         /// Block size for processing (default: 512)
         #[arg(short, long, default_value = "512")]
         block_size: usize,
+
+        /// Use realtime rendering path (process_buffer) for profiling (default: false)
+        #[arg(long, default_value = "false")]
+        realtime: bool,
+
+        /// Enable parallel processing (uses all CPU cores, default: true)
+        #[arg(long, default_value = "true")]
+        parallel: bool,
     },
 
     /// Play DSL file or code (render and auto-play)
@@ -170,6 +178,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             fade_in,
             fade_out,
             block_size,
+            realtime,
+            parallel,
         } => {
             use hound::{SampleFormat, WavSpec, WavWriter};
             use phonon::mini_notation_v3::parse_mini_notation;
@@ -1291,24 +1301,152 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let total_samples = (final_duration * sample_rate as f32) as usize;
             let mut output_buffer = Vec::with_capacity(total_samples);
 
-            if let Some(out_node) = out_signal {
-                // Single output mode (backwards compatible with old parser)
-                graph.set_output(out_node);
-                for _ in 0..total_samples {
-                    let sample = graph.process_sample();
-                    output_buffer.push((sample * gain).clamp(-1.0, 1.0));
-                }
-            } else {
-                // DSL Compiler mode: output is already set in the graph
-                // Try single output first (DslCompiler sets this)
-                for _ in 0..total_samples {
-                    let sample = graph.process_sample();
-                    output_buffer.push((sample * gain).clamp(-1.0, 1.0));
+            if realtime {
+                // REALTIME MODE: Use process_buffer() like live mode for profiling
+                if parallel {
+                    println!("🔬 Profiling mode: Using realtime process_buffer() path WITH PARALLEL PROCESSING");
+                    println!("   Cores available: {}", rayon::current_num_threads());
+                } else {
+                    println!("🔬 Profiling mode: Using realtime process_buffer() path (single-threaded)");
                 }
 
-                // Warn if no audio was produced
-                if output_buffer.iter().all(|&s| s == 0.0) {
-                    println!("⚠️  No 'out' signal found or audio produced, check your DSL file");
+                const BLOCK_SIZE: usize = 512;
+                let num_blocks = (total_samples + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+                use std::time::Instant;
+                let mut total_process_time = std::time::Duration::ZERO;
+                let mut min_block_time = std::time::Duration::MAX;
+                let mut max_block_time = std::time::Duration::ZERO;
+
+                if parallel {
+                    // PARALLEL MODE: Process multiple blocks concurrently
+                    use rayon::prelude::*;
+
+                    let start = Instant::now();
+
+                    // Process blocks in parallel, collecting (block_idx, buffer, time) tuples
+                    let mut blocks: Vec<(usize, Vec<f32>, std::time::Duration)> = (0..num_blocks)
+                        .into_par_iter()
+                        .map(|block_idx| {
+                            // Each thread gets its own graph clone
+                            let mut my_graph = graph.clone();
+
+                            // Calculate block size (last block might be smaller)
+                            let block_start = block_idx * BLOCK_SIZE;
+                            let block_samples = (total_samples - block_start).min(BLOCK_SIZE);
+
+                            // Seek graph to correct time position for this block
+                            let block_start_sample = block_idx * BLOCK_SIZE;
+                            my_graph.seek_to_sample(block_start_sample);
+
+                            // Process this block
+                            let mut block_buffer = vec![0.0f32; block_samples];
+                            let block_start_time = Instant::now();
+                            my_graph.process_buffer(&mut block_buffer);
+                            let block_time = block_start_time.elapsed();
+
+                            // Apply gain and clamp
+                            for sample in &mut block_buffer {
+                                *sample = (*sample * gain).clamp(-1.0, 1.0);
+                            }
+
+                            (block_idx, block_buffer, block_time)
+                        })
+                        .collect();
+
+                    total_process_time = start.elapsed();
+
+                    // Sort blocks by index to maintain correct order
+                    blocks.sort_by_key(|(idx, _, _)| *idx);
+
+                    // Find min/max block times and concatenate buffers
+                    for (_, block_buffer, block_time) in blocks {
+                        min_block_time = min_block_time.min(block_time);
+                        max_block_time = max_block_time.max(block_time);
+                        output_buffer.extend_from_slice(&block_buffer);
+                    }
+
+                } else {
+                    // SEQUENTIAL MODE: Process blocks one at a time
+                    for block_idx in 0..num_blocks {
+                        let remaining = total_samples - output_buffer.len();
+                        let block_samples = remaining.min(BLOCK_SIZE);
+                        let mut block_buffer = vec![0.0f32; block_samples];
+
+                        let start = Instant::now();
+                        graph.process_buffer(&mut block_buffer);
+                        let elapsed = start.elapsed();
+
+                        total_process_time += elapsed;
+                        min_block_time = min_block_time.min(elapsed);
+                        max_block_time = max_block_time.max(elapsed);
+
+                        // Apply gain and clamp
+                        for sample in &mut block_buffer {
+                            *sample = (*sample * gain).clamp(-1.0, 1.0);
+                        }
+
+                        output_buffer.extend_from_slice(&block_buffer);
+
+                        // Progress reporting
+                        if block_idx % 100 == 0 {
+                            let progress = (output_buffer.len() as f32 / total_samples as f32) * 100.0;
+                            print!("\r🔄 Rendering: {:.1}% (block {}/{}, avg: {:?}, min: {:?}, max: {:?})",
+                                progress, block_idx + 1, num_blocks,
+                                total_process_time / (block_idx as u32 + 1),
+                                min_block_time,
+                                max_block_time);
+                            use std::io::Write;
+                            std::io::stdout().flush().ok();
+                        }
+                    }
+                }
+
+                println!(); // New line after progress
+                println!("⏱️  PROFILING RESULTS:");
+                println!("   Total blocks:     {}", num_blocks);
+                println!("   Total time:       {:?}", total_process_time);
+                println!("   Avg per block:    {:?}", total_process_time / num_blocks as u32);
+                println!("   Min block time:   {:?}", min_block_time);
+                println!("   Max block time:   {:?}", max_block_time);
+                println!("   Blocks/second:    {:.1}", num_blocks as f64 / total_process_time.as_secs_f64());
+
+                // Calculate if realtime is achievable
+                let block_duration_ms = (BLOCK_SIZE as f64 / sample_rate as f64) * 1000.0;
+                let avg_block_time_ms = total_process_time.as_secs_f64() * 1000.0 / num_blocks as f64;
+                let cpu_usage_percent = (avg_block_time_ms / block_duration_ms) * 100.0;
+
+                println!("   Block duration:   {:.2} ms", block_duration_ms);
+                println!("   Avg process time: {:.2} ms", avg_block_time_ms);
+                println!("   CPU usage:        {:.1}%", cpu_usage_percent);
+                if cpu_usage_percent > 100.0 {
+                    println!("   ⚠️  CANNOT RUN IN REALTIME ({}% CPU)", cpu_usage_percent as i32);
+                } else {
+                    println!("   ✅ Can run in realtime with {:.1}% headroom", 100.0 - cpu_usage_percent);
+                }
+                println!();
+
+            } else {
+                // OFFLINE MODE: Sample-by-sample using process_sample()
+                if let Some(out_node) = out_signal {
+                    // Single output mode (backwards compatible with old parser)
+                    graph.set_output(out_node);
+                    for _ in 0..total_samples {
+                        let sample = graph.process_sample();
+                        output_buffer.push((sample * gain).clamp(-1.0, 1.0));
+                    }
+                } else {
+                    // DSL Compiler mode: output is already set in the graph
+                    // Try single output first (DslCompiler sets this)
+                    for _ in 0..total_samples {
+                        let sample = graph.process_sample();
+                        output_buffer.push((sample * gain).clamp(-1.0, 1.0));
+                    }
+
+                    // Warn if no audio was produced
+                    if output_buffer.iter().all(|&s| s == 0.0) {
+                        println!("⚠️  No 'out' signal found or audio produced, check your DSL file");
+                    }
                 }
             }
 

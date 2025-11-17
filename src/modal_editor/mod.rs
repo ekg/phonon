@@ -36,6 +36,7 @@ use std::cell::RefCell;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration as StdDuration;
@@ -84,6 +85,12 @@ pub struct ModalEditor {
     bus_names: Vec<String>,
     /// Command console for help and discovery
     command_console: CommandConsole,
+    /// Underrun counter (shared with audio callback)
+    underrun_count: Arc<AtomicUsize>,
+    /// Synthesis performance stats (shared with synthesis thread)
+    synth_time_us: Arc<AtomicUsize>,
+    /// Ring buffer fill level (0-100%)
+    ring_fill_percent: Arc<AtomicUsize>,
 }
 
 impl ModalEditor {
@@ -133,6 +140,13 @@ impl ModalEditor {
         // Graph for background synthesis thread (lock-free swap)
         let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));
 
+        // Underrun counter (shared between audio callback and UI)
+        let underrun_count = Arc::new(AtomicUsize::new(0));
+
+        // Performance monitoring (shared with synthesis thread)
+        let synth_time_us = Arc::new(AtomicUsize::new(0));
+        let ring_fill_percent = Arc::new(AtomicUsize::new(100));
+
         // Ring buffer: background synth writes, audio callback reads
         // Size: 2 seconds of audio = smooth playback even with synthesis spikes
         let ring_buffer_size = (sample_rate as usize) * 2;
@@ -141,35 +155,84 @@ impl ModalEditor {
 
         // Background synthesis thread: continuously renders samples into ring buffer
         let graph_clone_synth = Arc::clone(&graph);
+        let synth_time_us_clone = Arc::clone(&synth_time_us);
+        let ring_fill_clone = Arc::clone(&ring_fill_percent);
         thread::spawn(move || {
             let mut buffer = [0.0f32; 512]; // Render in chunks of 512 samples
+            let mut iterations = 0u64;
+            let mut renders = 0u64;
+            let mut sleeps = 0u64;
+            let mut last_log = std::time::Instant::now();
 
             loop {
+                iterations += 1;
+
+                // Log stats every second to diagnose blocking
+                if last_log.elapsed().as_secs() >= 1 {
+                    eprintln!("🔧 Synth thread: {} iters/s, {} renders/s, {} sleeps/s",
+                        iterations, renders, sleeps);
+                    iterations = 0;
+                    renders = 0;
+                    sleeps = 0;
+                    last_log = std::time::Instant::now();
+                }
+
                 // Check if we have space in ring buffer
                 let space = ring_producer.vacant_len();
+                let total_size = ring_producer.capacity().get();
+                let fill_percent = ((total_size - space) * 100) / total_size;
+                ring_fill_clone.store(fill_percent, Ordering::Relaxed);
 
                 if space >= buffer.len() {
                     // Render a chunk of audio
                     let graph_snapshot = graph_clone_synth.load();
 
                     if let Some(ref graph_cell) = **graph_snapshot {
-                        // Synthesize samples using optimized buffer processing
-                        graph_cell.0.borrow_mut().process_buffer(&mut buffer);
+                        // Measure synthesis performance
+                        let start = std::time::Instant::now();
 
-                        // Write to ring buffer
-                        let written = ring_producer.push_slice(&buffer);
-                        if written < buffer.len() {
-                            eprintln!("⚠️  Ring buffer full, dropped {} samples", buffer.len() - written);
+                        // Try to borrow - use try_borrow_mut to avoid panic!
+                        match graph_cell.0.try_borrow_mut() {
+                            Ok(mut graph) => {
+                                // Synthesize samples using optimized buffer processing
+                                graph.process_buffer(&mut buffer);
+                                renders += 1;
+
+                                let elapsed_us = start.elapsed().as_micros() as usize;
+                                synth_time_us_clone.store(elapsed_us, Ordering::Relaxed);
+
+                                // Write to ring buffer
+                                let written = ring_producer.push_slice(&buffer);
+                                if written < buffer.len() {
+                                    eprintln!("⚠️  Ring buffer full, dropped {} samples", buffer.len() - written);
+                                }
+                            }
+                            Err(_) => {
+                                // RefCell is borrowed - main thread is swapping graphs
+                                // Write silence to prevent underrun
+                                buffer.fill(0.0);
+                                let written = ring_producer.push_slice(&buffer);
+                                eprintln!("⚠️  RefCell busy (wrote {} samples of silence)", written);
+                            }
                         }
                     } else {
                         // No graph (hushed/panic) - write silence
                         // CRITICAL: Fill buffer with zeros, don't reuse old audio!
                         buffer.fill(0.0);
-                        ring_producer.push_slice(&buffer);
+                        let written = ring_producer.push_slice(&buffer);
+                        synth_time_us_clone.store(0, Ordering::Relaxed);
+                        static mut NO_GRAPH_COUNT: usize = 0;
+                        unsafe {
+                            NO_GRAPH_COUNT += 1;
+                            if NO_GRAPH_COUNT % 100 == 0 {
+                                eprintln!("⚠️  No graph loaded! ({}x)", NO_GRAPH_COUNT);
+                            }
+                        }
                     }
                 } else {
                     // Ring buffer is full, sleep briefly
                     thread::sleep(StdDuration::from_micros(100));
+                    sleeps += 1;
                 }
             }
         });
@@ -191,6 +254,10 @@ impl ModalEditor {
             }
         };
 
+        // Clone underrun counter for audio callbacks
+        let underrun_count_f32 = Arc::clone(&underrun_count);
+        let underrun_count_i16 = Arc::clone(&underrun_count);
+
         let stream = match sample_format {
             cpal::SampleFormat::F32 => {
                 device.build_output_stream(
@@ -209,13 +276,8 @@ impl ModalEditor {
                                 *sample = 0.0;
                             }
 
-                            static mut UNDERRUN_COUNT: usize = 0;
-                            unsafe {
-                                UNDERRUN_COUNT += 1;
-                                if UNDERRUN_COUNT % 100 == 0 {
-                                    eprintln!("⚠️  Audio underrun #{}", UNDERRUN_COUNT);
-                                }
-                            }
+                            // Increment underrun counter (atomic, thread-safe)
+                            underrun_count_f32.fetch_add(1, Ordering::Relaxed);
                         }
                     },
                     err_fn,
@@ -247,13 +309,8 @@ impl ModalEditor {
                                 }
                             }
 
-                            static mut UNDERRUN_COUNT: usize = 0;
-                            unsafe {
-                                UNDERRUN_COUNT += 1;
-                                if UNDERRUN_COUNT % 100 == 0 {
-                                    eprintln!("⚠️  Audio underrun #{}", UNDERRUN_COUNT);
-                                }
-                            }
+                            // Increment underrun counter (atomic, thread-safe)
+                            underrun_count_i16.fetch_add(1, Ordering::Relaxed);
                         }
                     },
                     err_fn,
@@ -282,7 +339,8 @@ impl ModalEditor {
         let cursor_pos = 0;
         let bus_names = completion::extract_bus_names(&content);
 
-        Ok(Self {
+        // Create editor instance first
+        let mut editor = Self {
             cursor_pos,
             content,
             file_path,
@@ -302,28 +360,49 @@ impl ModalEditor {
             sample_names: completion::discover_samples(),
             bus_names,
             command_console: CommandConsole::new(),
-        })
+            underrun_count,
+            synth_time_us,
+            ring_fill_percent,
+        };
+
+        Ok(editor)
     }
 
     /// Load and compile DSL code into the audio graph
     fn load_code(&mut self, code: &str) -> Result<(), String> {
+        eprintln!("🔧 load_code() called with {} bytes", code.len());
+
         // Parse the DSL code
         let (rest, statements) = parse_program(code)
-            .map_err(|e| format!("Parse error: {}", e))?;
+            .map_err(|e| {
+                eprintln!("❌ Parse error: {}", e);
+                format!("Parse error: {}", e)
+            })?;
 
         if !rest.trim().is_empty() {
-            return Err(format!("Failed to parse entire code, remaining: {}", rest));
+            let err = format!("Failed to parse entire code, remaining: {}", rest);
+            eprintln!("❌ {}", err);
+            return Err(err);
         }
+
+        eprintln!("✅ Parsed {} statements", statements.len());
 
         // Compile into a graph
         // Note: compile_program sets CPS from tempo:/bpm: statements in the code
         // Default is 0.5 CPS if not specified
         let mut new_graph = compile_program(statements, self.sample_rate)
-            .map_err(|e| format!("Compile error: {}", e))?;
+            .map_err(|e| {
+                eprintln!("❌ Compile error: {}", e);
+                format!("Compile error: {}", e)
+            })?;
+
+        eprintln!("✅ Compiled graph successfully");
+        eprintln!("📊 New graph CPS from code: {}", new_graph.get_cps());
 
         // CRITICAL: Enable wall-clock timing for live mode
         // This ensures the beat NEVER drops during code reloads!
         new_graph.enable_wall_clock_timing();
+        eprintln!("📊 After enable_wall_clock_timing - cycle position: {}", new_graph.get_cycle_position());
 
         // CRITICAL: Transfer state from old graph to prevent clicks and timing shifts
         // This ensures seamless hot-swapping:
@@ -341,9 +420,15 @@ impl ModalEditor {
             for _attempt in 0..20 {
                 match old_graph_cell.0.try_borrow_mut() {
                     Ok(mut old_graph) => {
+                        eprintln!("📊 Before transfer - old graph cycle position: {}", old_graph.get_cycle_position());
+                        eprintln!("📊 Before transfer - old graph CPS: {}", old_graph.get_cps());
+
                         // CRITICAL: Transfer session timing (wall-clock based)
                         // This preserves the global clock - beat NEVER drops!
                         new_graph.transfer_session_timing(&old_graph);
+
+                        eprintln!("📊 After transfer - new graph cycle position: {}", new_graph.get_cycle_position());
+                        eprintln!("📊 After transfer - new graph CPS: {}", new_graph.get_cps());
 
                         // CRITICAL: Transfer VoiceManager to preserve active voices!
                         // This prevents the click from voices being cut off mid-sample
@@ -369,6 +454,8 @@ impl ModalEditor {
         // Hot-swap the graph atomically using lock-free ArcSwap
         // Background synthesis thread will pick up new graph on next render
         self.graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
+
+        eprintln!("✅ Graph stored! Audio should start now.");
 
         Ok(())
     }
@@ -755,8 +842,22 @@ impl ModalEditor {
             f.render_widget(popup_paragraph, popup_area);
         }
 
-        // Status area
-        let status_style = if self.error_message.is_some() {
+        // Status area with performance stats
+        let underrun_count = self.underrun_count.load(Ordering::Relaxed);
+        let synth_time_us = self.synth_time_us.load(Ordering::Relaxed);
+        let ring_fill = self.ring_fill_percent.load(Ordering::Relaxed);
+        let has_underruns = underrun_count > 0;
+
+        // Calculate synthesis performance
+        // 512 samples @ 44.1kHz = 11,610 microseconds per buffer (realtime budget)
+        let budget_us = 11_610;
+        let synth_percent = if synth_time_us > 0 {
+            (synth_time_us * 100) / budget_us
+        } else {
+            0
+        };
+
+        let status_style = if self.error_message.is_some() || has_underruns {
             Style::default().fg(Color::Red)
         } else if self.is_playing {
             Style::default().fg(Color::Green)
@@ -765,7 +866,18 @@ impl ModalEditor {
         };
 
         let status_text = if let Some(ref error) = self.error_message {
-            format!("❌ Error: {error}")
+            if has_underruns {
+                format!("❌ Error: {error} | ⚠️  Underruns: {} | Synth: {}% | Buf: {}%",
+                    underrun_count, synth_percent, ring_fill)
+            } else {
+                format!("❌ Error: {error}")
+            }
+        } else if has_underruns {
+            format!("⚠️  Underruns: {} | Synth: {}% ({}µs) | Buf: {}% | TOO SLOW!",
+                underrun_count, synth_percent, synth_time_us, ring_fill)
+        } else if synth_time_us > 0 {
+            format!("🔊 Synth: {}% ({}µs / {}µs) | Buf: {}%",
+                synth_percent, synth_time_us, budget_us, ring_fill)
         } else if self.is_playing {
             "🔊 Playing...".to_string()
         } else {

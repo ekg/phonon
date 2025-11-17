@@ -3951,6 +3951,33 @@ pub struct UnifiedSignalGraph {
 unsafe impl Send for UnifiedSignalGraph {}
 unsafe impl Sync for UnifiedSignalGraph {}
 
+impl Clone for UnifiedSignalGraph {
+    fn clone(&self) -> Self {
+        Self {
+            nodes: self.nodes.clone(),
+            buses: self.buses.clone(),
+            output: self.output,
+            outputs: self.outputs.clone(),
+            hushed_channels: self.hushed_channels.clone(),
+            output_mix_mode: self.output_mix_mode,
+            sample_rate: self.sample_rate,
+            session_start_time: std::time::Instant::now(), // New instance gets fresh start time
+            cycle_offset: self.cycle_offset,
+            use_wall_clock: self.use_wall_clock,
+            cps: self.cps,
+            cached_cycle_position: self.cached_cycle_position,
+            next_node_id: self.next_node_id,
+            value_cache: HashMap::new(), // Fresh cache for cloned instance
+            sample_bank: RefCell::new(SampleBank::new()),
+            voice_manager: RefCell::new(VoiceManager::new()),
+            voice_output_cache: HashMap::new(), // Fresh cache
+            synth_voice_manager: RefCell::new(SynthVoiceManager::new(self.sample_rate)),
+            cycle_bus_cache: self.cycle_bus_cache.clone(),
+            sample_count: self.sample_count,
+        }
+    }
+}
+
 impl UnifiedSignalGraph {
     pub fn new(sample_rate: f32) -> Self {
         Self {
@@ -3983,6 +4010,17 @@ impl UnifiedSignalGraph {
 
     pub fn get_cps(&self) -> f32 {
         self.cps
+    }
+
+    /// Seek to a specific sample position (for parallel offline rendering)
+    /// This advances the graph's internal time state without processing audio
+    pub fn seek_to_sample(&mut self, sample_index: usize) {
+        self.sample_count = sample_index;
+        // Update cycle position based on sample count (offline timing)
+        if !self.use_wall_clock {
+            let time_in_seconds = sample_index as f64 / self.sample_rate as f64;
+            self.cached_cycle_position = time_in_seconds * self.cps as f64 + self.cycle_offset;
+        }
     }
 
     /// Take the VoiceManager out of this graph (for transfer to new graph)
@@ -4306,6 +4344,7 @@ impl UnifiedSignalGraph {
     }
 
     /// Evaluate a signal to get its current value
+    #[inline(always)]
     fn eval_signal(&mut self, signal: &Signal) -> f32 {
         let cycle_position = self.get_cycle_position();
         self.eval_signal_at_time(signal, cycle_position)
@@ -4786,13 +4825,17 @@ impl UnifiedSignalGraph {
     }
 
     /// Evaluate a node to get its current output value
+    #[inline(always)]
     fn eval_node(&mut self, node_id: &NodeId) -> f32 {
         // Check cache first
         if let Some(&cached) = self.value_cache.get(node_id) {
             return cached;
         }
 
-        // Get node (have to clone due to borrow checker)
+        // TODO PERFORMANCE BOTTLENECK: This clone is the main performance issue!
+        // SignalNode is a massive enum (50+ variants, nested Signals, RefCells)
+        // Cloning it for every eval_node call is catastrophically expensive
+        // Solution: Restructure to use Rc<SignalNode> or refactor eval_node to avoid clone
         let mut node = if let Some(Some(node)) = self.nodes.get(node_id.0) {
             node.clone()
         } else {
@@ -9660,6 +9703,7 @@ impl UnifiedSignalGraph {
     }
 
     /// Process one sample and advance time
+    #[inline]
     pub fn process_sample(&mut self) -> f32 {
         // CRITICAL: Update cycle position from wall-clock ONCE per sample
         self.update_cycle_position_from_clock();
@@ -9748,6 +9792,7 @@ impl UnifiedSignalGraph {
 
     /// Process a buffer of audio samples (optimized - clears cache once per buffer)
     /// This is 2x-4x faster than calling process_sample() in a loop
+    #[inline]
     pub fn process_buffer(&mut self, buffer: &mut [f32]) {
         // Optional profiling (enable with PROFILE_BUFFER=1)
         let enable_profiling = std::env::var("PROFILE_BUFFER").is_ok();
@@ -9759,10 +9804,14 @@ impl UnifiedSignalGraph {
         // Instead of calling process_per_node() 512 times, we call process_buffer_per_node() ONCE
         // This eliminates 511 redundant Rayon thread spawns and HashMap allocations
         let voice_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
-        let voice_buffers = self.voice_manager.borrow_mut().process_buffer_per_node(buffer.len());
+        let mut voice_buffers = self.voice_manager.borrow_mut().process_buffer_per_node(buffer.len());
         if let Some(start) = voice_start {
             voice_time_us = start.elapsed().as_micros();
         }
+
+        // PERFORMANCE: Collect outputs ONCE per buffer instead of 512 times per buffer
+        let output_channels: Vec<(usize, crate::unified_graph::NodeId)> =
+            self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
 
         for i in 0..buffer.len() {
             // CRITICAL: Update cycle position ONCE per sample (wall-clock or sample-count based)
@@ -9778,7 +9827,8 @@ impl UnifiedSignalGraph {
             // DON'T clear cache per-sample - that's the bottleneck!
 
             // Use pre-computed voice outputs from buffer processing
-            self.voice_output_cache = voice_buffers[i].clone();
+            // PERFORMANCE: Use take instead of clone to avoid HashMap allocation (512x per buffer!)
+            self.voice_output_cache = std::mem::take(&mut voice_buffers[i]);
 
             // Count active channels for gain compensation
             let mut num_active_channels = 0;
@@ -9797,10 +9847,8 @@ impl UnifiedSignalGraph {
             };
 
             // Mix in all numbered output channels
-            let channels: Vec<(usize, crate::unified_graph::NodeId)> =
-                self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
-
-            for (ch, node_id) in channels {
+            // Use pre-collected output_channels to avoid borrow checker issues
+            for (ch, node_id) in &output_channels {
                 if self.hushed_channels.contains(&ch) {
                     continue;
                 }
