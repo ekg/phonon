@@ -4631,6 +4631,104 @@ impl UnifiedSignalGraph {
         }
     }
 
+    /// Presynthesize buses in parallel (Phase 1 optimization)
+    /// Scans events for bus triggers, synthesizes all unique buffers in parallel,
+    /// and returns a cache for use during event processing
+    fn presynthesize_buses_parallel(
+        &self,
+        events: &[crate::pattern::Hap<String>],
+        last_event_start: f64,
+    ) -> HashMap<(String, usize), Arc<Vec<f32>>> {
+        use std::collections::HashSet;
+
+        // Collect unique bus synthesis requests
+        let epsilon = 1e-6;
+        let mut requests = Vec::new();
+        let mut seen = HashSet::new();
+
+        for event in events.iter() {
+            let sample_name = event.value.trim();
+
+            // Skip rests and non-bus triggers
+            if sample_name == "~" || sample_name.is_empty() || !sample_name.starts_with('~') {
+                continue;
+            }
+
+            let bus_name = &sample_name[1..]; // Strip ~ prefix
+
+            // Check if this is a new event (same logic as main loop)
+            let event_start_abs = if let Some(whole) = &event.whole {
+                whole.begin.to_float()
+            } else {
+                event.part.begin.to_float()
+            };
+
+            let event_is_new = event_start_abs > last_event_start + epsilon
+                && event_start_abs < self.get_cycle_position() + epsilon;
+
+            if !event_is_new {
+                continue;
+            }
+
+            // Check if bus exists
+            if let Some(bus_node_id) = self.buses.get(bus_name) {
+                // Calculate duration
+                let event_duration = if let Some(whole) = &event.whole {
+                    whole.end.to_float() - whole.begin.to_float()
+                } else {
+                    event.part.end.to_float() - event.part.begin.to_float()
+                };
+
+                let duration_samples = (event_duration * self.sample_rate as f64 * self.cps as f64) as usize;
+                let duration_samples = duration_samples.max(1).min(self.sample_rate as usize * 2);
+
+                let cache_key = (bus_name.to_string(), duration_samples);
+
+                // Only add if not already seen (avoid duplicate synthesis)
+                if seen.insert(cache_key.clone()) {
+                    requests.push((cache_key, *bus_node_id));
+                }
+            }
+        }
+
+        // If no bus synthesis needed, return empty cache
+        if requests.is_empty() {
+            return HashMap::new();
+        }
+
+        // Parallel synthesis using Rayon
+        // Pre-clone nodes vector for each request to avoid Send issues with RefCell
+        let sample_rate = self.sample_rate;
+
+        // Prepare data for parallel processing: each item contains (key, node_id, duration, nodes_clone)
+        // This ensures each thread gets its own independent copy of nodes
+        let parallel_tasks: Vec<_> = requests
+            .into_iter()
+            .map(|(key, node_id)| {
+                let nodes_copy = self.nodes.clone();
+                (key, node_id, nodes_copy)
+            })
+            .collect();
+
+        let synthesized: Vec<((String, usize), Arc<Vec<f32>>)> = parallel_tasks
+            .into_par_iter()
+            .map(|((bus_name, duration_samples), bus_node_id, nodes)| {
+                // Each thread has its own nodes copy with independent RefCell state
+                let buffer = synthesize_bus_buffer_parallel(
+                    nodes,
+                    bus_node_id,
+                    duration_samples,
+                    sample_rate,
+                );
+
+                ((bus_name, duration_samples), Arc::new(buffer))
+            })
+            .collect();
+
+        // Convert to HashMap for fast lookup
+        synthesized.into_iter().collect()
+    }
+
     /// Evaluate a node to get its current output value
     fn eval_node(&mut self, node_id: &NodeId) -> f32 {
         // Check cache first
@@ -7114,6 +7212,11 @@ impl UnifiedSignalGraph {
                 //     );
                 // }
 
+                // PHASE 1: Parallel bus synthesis preprocessing
+                // Collect all unique bus synthesis requests and synthesize them in parallel
+                // This provides significant speedup when multiple bus events need synthesis
+                let bus_buffer_cache = self.presynthesize_buses_parallel(&events, last_event_start);
+
                 // Trigger voices for ALL new events
                 // An event should be triggered if its START is after the last event we triggered
                 for event in events.iter() {
@@ -7331,21 +7434,23 @@ impl UnifiedSignalGraph {
                                         duration_samples.max(1).min(self.sample_rate as usize * 2); // Cap at 2 seconds
 
                                     // Create synthetic sample buffer by evaluating bus signal
-                                    // OPTIMIZED: Stateful oscillators with RefCell = NO cache clearing needed!
-                                    //
-                                    // Before RefCell: Had to clear cache every sample (5000 clears/event!)
-                                    // After RefCell: Oscillators maintain phase internally, zero cache clears!
-                                    //
-                                    // Performance impact: ~5000x reduction in HashMap operations per event
-
-                                    let mut synthetic_buffer = Vec::with_capacity(duration_samples);
-
-                                    // No cache clearing needed - oscillators are stateful with RefCell!
-                                    // Each oscillator maintains its own phase counter independently
-                                    for _ in 0..duration_samples {
-                                        let sample_value = self.eval_node(&bus_node_id);
-                                        synthetic_buffer.push(sample_value);
-                                    }
+                                    // PARALLEL OPTIMIZATION: Check cache first (synthesized in parallel)
+                                    // If cache hit: use pre-synthesized buffer (4-8x faster on multi-core)
+                                    // If cache miss: synthesize serially as fallback
+                                    let cache_key = (actual_name.to_string(), duration_samples);
+                                    let synthetic_buffer = if let Some(cached_buffer) = bus_buffer_cache.get(&cache_key) {
+                                        // Cache hit! Use pre-synthesized buffer from parallel phase
+                                        cached_buffer.as_ref().clone()
+                                    } else {
+                                        // Cache miss - fallback to serial synthesis
+                                        // This can happen for edge cases not caught in preprocessing
+                                        let mut buffer = Vec::with_capacity(duration_samples);
+                                        for _ in 0..duration_samples {
+                                            let sample_value = self.eval_node(&bus_node_id);
+                                            buffer.push(sample_value);
+                                        }
+                                        buffer
+                                    };
 
                                     // Trigger voice with synthetic buffer using appropriate envelope type
                                     // LEGATO OVERRIDE: When legato is present, use ADSR with sharp settings

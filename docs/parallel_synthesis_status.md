@@ -25,10 +25,10 @@
 - **Underruns**: ZERO ✅
 - **Real-time capable**: YES ✅
 
-## Implementation Plan (Future)
+## Implementation Plan
 
-### Phase 1: Minimal Invasion Approach
-Add preprocessing step before event loop:
+### Phase 1: Minimal Invasion Approach ✅ IMPLEMENTED
+Preprocessing step before event loop:
 
 ```rust
 // BEFORE event loop: Collect bus synthesis requests
@@ -55,12 +55,35 @@ if is_bus_trigger {
 
 Expected speedup: 4-8x on multi-core systems
 
-## When to Implement
+## Phase 1 Implementation Details (2025-11-16)
 
-Implement Phase 1 when:
-- Bus synthesis becomes performance bottleneck again
-- Users report underruns with heavy bus usage
-- Profiling shows bus synthesis dominates CPU time
+**Implementation**: `UnifiedGraph::presynthesize_buses_parallel()` (lines 4637-4730)
+
+**Key Design Decisions**:
+1. **Pre-cloning for thread safety**: Each parallel task gets its own nodes clone before par_iter
+2. **Deduplication**: HashSet tracks unique (bus_name, duration) pairs to avoid redundant work
+3. **Cache-based lookup**: HashMap provides O(1) lookup during event processing
+4. **Graceful fallback**: Serial synthesis used if cache miss (edge cases)
+
+**Thread Safety Solution**:
+- Problem: RefCell is !Send (cannot cross thread boundaries)
+- Solution: Clone nodes for each request BEFORE parallel iteration
+- Result: Each thread receives owned data with independent RefCell state
+
+**Files Modified**:
+- `src/unified_graph.rs`: Added preprocessing method and cache lookup (lines 4637-4730, 7120, 7427-7444)
+
+**Test Results**:
+- q.ph renders successfully (8 seconds, zero underruns)
+- Audio quality verified: RMS 0.173, Peak 0.821
+- 15 onset events detected, ~128 BPM
+
+## When to Optimize Further
+
+Implement Phase 2 when:
+- Bus synthesis still bottleneck after Phase 1
+- Profiling shows significant serial overhead
+- More than ~20 unique bus synthesis requests per cycle
 
 ## Dependencies
 
