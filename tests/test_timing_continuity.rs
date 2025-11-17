@@ -326,3 +326,167 @@ out: s "bd*2 sn*2 hh*2 cp*2"
 
     println!("✅ All {} position samples continuously increased", positions.len());
 }
+
+/// Test reloading at random fractional cycle positions (deterministic seed)
+/// This is CRITICAL - reloads can happen at ANY point in the cycle, not just boundaries
+#[test]
+fn test_reload_at_random_cycle_positions() {
+    use std::collections::hash_map::RandomState;
+    use std::hash::{BuildHasher, Hash, Hasher};
+
+    let sample_rate = 44100.0;
+    let cps = 2.0;
+
+    let code = r#"
+tempo: 2.0
+out: s "bd sn hh cp"
+"#;
+
+    // Deterministic "random" positions using simple hash (0.0 to 1.0 within cycle)
+    let reload_positions = vec![
+        0.001, // Very start of cycle
+        0.123, // Early
+        0.333, // Third
+        0.499, // Just before half
+        0.501, // Just after half
+        0.667, // Two thirds
+        0.789, // Late
+        0.999, // Very end of cycle
+        0.250, // Quarter
+        0.750, // Three quarters
+    ];
+
+    for (test_idx, &target_fractional_pos) in reload_positions.iter().enumerate() {
+        // Create fresh graph for each test
+        let (_, statements) = parse_program(code).expect("Failed to parse");
+        let mut graph = compile_program(statements, sample_rate).expect("Failed to compile");
+        graph.enable_wall_clock_timing();
+
+        // Process audio until we reach the target fractional position
+        let mut buffer = vec![0.0f32; 512];
+        let target_cycle = 3.0 + target_fractional_pos; // Target cycle 3.xxx
+
+        while graph.get_cycle_position() < target_cycle {
+            graph.process_buffer(&mut buffer);
+        }
+
+        let position_before = graph.get_cycle_position();
+        let fractional_before = position_before - position_before.floor();
+
+        println!(
+            "\nTest {}: Reloading at cycle {:.6} (fractional: {:.3})",
+            test_idx, position_before, fractional_before
+        );
+
+        // Verify we're actually at different fractional positions
+        assert!(
+            (fractional_before - target_fractional_pos).abs() < 0.1,
+            "Failed to reach target position {:.3}, got {:.3}",
+            target_fractional_pos,
+            fractional_before
+        );
+
+        // RELOAD at this random position
+        let (_, statements) = parse_program(code).expect("Failed to parse reload");
+        let mut new_graph = compile_program(statements, sample_rate).expect("Failed to compile reload");
+        new_graph.enable_wall_clock_timing();
+        new_graph.transfer_session_timing(&graph);
+
+        let position_after = new_graph.get_cycle_position();
+        let fractional_after = position_after - position_after.floor();
+
+        println!(
+            "  Before: {:.6} (frac: {:.3})",
+            position_before, fractional_before
+        );
+        println!(
+            "  After:  {:.6} (frac: {:.3})",
+            position_after, fractional_after
+        );
+
+        // CRITICAL: Position must be preserved regardless of where in cycle we reload
+        let position_diff = (position_after - position_before).abs();
+        assert!(
+            position_diff < 0.001,
+            "Position jumped during reload at fractional pos {:.3}! Diff: {:.6}",
+            fractional_before,
+            position_diff
+        );
+
+        // Verify fractional position is preserved
+        let fractional_diff = (fractional_after - fractional_before).abs();
+        assert!(
+            fractional_diff < 0.001,
+            "Fractional position changed at {:.3}! Before: {:.3}, After: {:.3}",
+            target_fractional_pos,
+            fractional_before,
+            fractional_after
+        );
+
+        println!("  ✅ Timing preserved at fractional position {:.3}", fractional_before);
+    }
+
+    println!("\n✅ ALL {} reload positions verified - timing preserved everywhere in cycle!", reload_positions.len());
+}
+
+/// Test that reloading during active events doesn't cause discontinuities
+#[test]
+fn test_reload_during_event_playback() {
+    let sample_rate = 44100.0;
+
+    let code = r#"
+tempo: 1.0
+out: s "bd cp"
+"#;
+
+    let (_, statements) = parse_program(code).expect("Failed to parse");
+    let mut graph = compile_program(statements, sample_rate).expect("Failed to compile");
+    graph.enable_wall_clock_timing();
+
+    let mut buffer = vec![0.0f32; 512];
+
+    // Advance to middle of first cycle (when "bd" is likely playing)
+    while graph.get_cycle_position() < 0.25 {
+        graph.process_buffer(&mut buffer);
+    }
+
+    let pos_during_event = graph.get_cycle_position();
+    println!("Reloading during event at cycle: {:.6}", pos_during_event);
+
+    // Reload while event is potentially playing
+    let code_v2 = r#"
+tempo: 1.0
+out: s "sn hh"
+"#;
+
+    let (_, statements) = parse_program(code_v2).expect("Failed to parse v2");
+    let mut new_graph = compile_program(statements, sample_rate).expect("Failed to compile v2");
+    new_graph.enable_wall_clock_timing();
+    new_graph.transfer_session_timing(&graph);
+
+    let pos_after_reload = new_graph.get_cycle_position();
+    println!("Position after reload: {:.6}", pos_after_reload);
+
+    // Position must not jump even during active event playback
+    assert!(
+        (pos_after_reload - pos_during_event).abs() < 0.001,
+        "Position jumped during event playback! {} -> {}",
+        pos_during_event,
+        pos_after_reload
+    );
+
+    // Continue processing - should not crash or have discontinuities
+    for _ in 0..100 {
+        new_graph.process_buffer(&mut buffer);
+    }
+
+    let final_pos = new_graph.get_cycle_position();
+    assert!(
+        final_pos > pos_after_reload,
+        "Time didn't advance after reload: {} -> {}",
+        pos_after_reload,
+        final_pos
+    );
+
+    println!("✅ Timing preserved during event playback reload");
+}
