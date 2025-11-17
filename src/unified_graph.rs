@@ -3994,7 +3994,13 @@ impl UnifiedSignalGraph {
         self.session_start_time = old_graph.session_start_time;
         self.cycle_offset = old_graph.cycle_offset;
         self.cps = old_graph.cps;
-        // No need to call set_cycle_position - timing is already continuous!
+
+        // CRITICAL: Transfer cycle bus cache to prevent spurious resynthesis on reload
+        // Without this, new graph has cache_floor=-1, causing unnecessary cache invalidation
+        self.cycle_bus_cache = old_graph.cycle_bus_cache.clone();
+
+        // Also transfer the cached cycle position to ensure consistency
+        self.cached_cycle_position = old_graph.cached_cycle_position;
     }
 
     /// Reset cycles to 0 (like Tidal's resetCycles)
