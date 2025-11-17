@@ -394,8 +394,8 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
             let node = SignalNode::Pattern {
                 pattern_str: pattern_str.clone(),
                 pattern,
-                last_value: 0.0,
-                last_trigger_time: -1.0,
+                last_value: RefCell::new(0.0),
+                last_trigger_time: RefCell::new(-1.0),
             };
             Ok(ctx.graph.add_node(node))
         }
@@ -1095,9 +1095,9 @@ fn compile_function_call(
             let node = SignalNode::Sample {
                 pattern_str: pattern_str.clone(),
                 pattern,
-                last_trigger_time: -1.0,
-                last_cycle: -1,
-                playback_positions: HashMap::new(),
+                last_trigger_time: RefCell::new(-1.0),
+                last_cycle: RefCell::new(-1),
+                playback_positions: RefCell::new(HashMap::new()),
                 gain,
                 pan,
                 speed,
@@ -1406,9 +1406,9 @@ fn compile_cat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     let node = SignalNode::Sample {
         pattern_str: combined_str,
         pattern: combined_pattern,
-        last_trigger_time: -1.0,
-        last_cycle: -1,
-        playback_positions: HashMap::new(),
+        last_trigger_time: RefCell::new(-1.0),
+        last_cycle: RefCell::new(-1),
+        playback_positions: RefCell::new(HashMap::new()),
         gain: Signal::Value(1.0),
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
@@ -1485,9 +1485,9 @@ fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
     let node = SignalNode::Sample {
         pattern_str: combined_str,
         pattern: combined_pattern,
-        last_trigger_time: -1.0,
-        last_cycle: -1,
-        playback_positions: HashMap::new(),
+        last_trigger_time: RefCell::new(-1.0),
+        last_cycle: RefCell::new(-1),
+        playback_positions: RefCell::new(HashMap::new()),
         gain: Signal::Value(1.0),
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
@@ -1554,9 +1554,9 @@ fn compile_wedge(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
     let node = SignalNode::Sample {
         pattern_str: combined_str,
         pattern: combined_pattern,
-        last_trigger_time: -1.0,
-        last_cycle: -1,
-        playback_positions: HashMap::new(),
+        last_trigger_time: RefCell::new(-1.0),
+        last_cycle: RefCell::new(-1),
+        playback_positions: RefCell::new(HashMap::new()),
         gain: Signal::Value(1.0),
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
@@ -1614,9 +1614,9 @@ fn compile_sew(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     let node = SignalNode::Sample {
         pattern_str: combined_str,
         pattern: combined_pattern,
-        last_trigger_time: -1.0,
-        last_cycle: -1,
-        playback_positions: HashMap::new(),
+        last_trigger_time: RefCell::new(-1.0),
+        last_cycle: RefCell::new(-1),
+        playback_positions: RefCell::new(HashMap::new()),
         gain: Signal::Value(1.0),
         pan: Signal::Value(0.0),
         speed: Signal::Value(1.0),
@@ -1787,7 +1787,7 @@ fn compile_wavetable(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
 
     let node = SignalNode::Wavetable {
         freq: Signal::Node(freq_node),
-        state: WavetableState::new(), // Default: sine wave
+        state: RefCell::new(WavetableState::new()), // Default: sine wave
     };
 
     Ok(ctx.graph.add_node(node))
@@ -2159,7 +2159,7 @@ fn compile_pink_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
     }
 
     let node = SignalNode::PinkNoise {
-        state: PinkNoiseState::default(),
+        state: RefCell::new(PinkNoiseState::default()),
     };
     Ok(ctx.graph.add_node(node))
 }
@@ -2176,7 +2176,7 @@ fn compile_brown_noise(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
     }
 
     let node = SignalNode::BrownNoise {
-        state: BrownNoiseState::default(),
+        state: RefCell::new(BrownNoiseState::default()),
     };
     Ok(ctx.graph.add_node(node))
 }
@@ -2195,7 +2195,7 @@ fn compile_impulse(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
     let freq_node = compile_expr(ctx, args[0].clone())?;
     let node = SignalNode::Impulse {
         frequency: Signal::Node(freq_node),
-        state: ImpulseState::default(),
+        state: RefCell::new(ImpulseState::default()),
     };
     Ok(ctx.graph.add_node(node))
 }
@@ -2217,7 +2217,7 @@ fn compile_lag(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     let node = SignalNode::Lag {
         input: Signal::Node(input_node),
         lag_time: Signal::Node(lag_time_node),
-        state: LagState::default(),
+        state: RefCell::new(LagState::default()),
     };
     Ok(ctx.graph.add_node(node))
 }
@@ -2241,7 +2241,7 @@ fn compile_xline(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
         start: Signal::Node(start_node),
         end: Signal::Node(end_node),
         duration: Signal::Node(duration_node),
-        state: XLineState::default(),
+        state: RefCell::new(XLineState::default()),
     };
     Ok(ctx.graph.add_node(node))
 }
@@ -2267,7 +2267,7 @@ fn compile_asr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
         gate: Signal::Node(gate_node),
         attack: Signal::Node(attack_node),
         release: Signal::Node(release_node),
-        state: ASRState::default(),
+        state: RefCell::new(ASRState::default()),
     };
     Ok(ctx.graph.add_node(node))
 }
@@ -2726,7 +2726,7 @@ fn compile_synth_pattern(
     let node = SignalNode::SynthPattern {
         pattern_str: pattern_str.clone(),
         pattern,
-        last_trigger_time: -1.0,
+        last_trigger_time: RefCell::new(-1.0),
         waveform,
         attack,
         decay,
@@ -3151,8 +3151,8 @@ fn compile_envelope_pattern(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resul
         input: input_signal,
         pattern_str: pattern_str.clone(),
         pattern,
-        last_trigger_time: -1.0,
-        last_cycle: -1,
+        last_trigger_time: RefCell::new(-1.0),
+        last_cycle: RefCell::new(-1),
         attack,
         decay,
         sustain,
@@ -3628,7 +3628,7 @@ fn compile_ring(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
     let node = SignalNode::RingMod {
         input: input_signal,
         freq: Signal::Node(freq_node),
-        phase: 0.0,
+        phase: RefCell::new(0.0),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3733,7 +3733,7 @@ fn compile_phaser(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         depth: Signal::Node(depth_node),
         feedback: Signal::Node(feedback_node),
         stages,
-        phase: 0.0,
+        phase: RefCell::new(0.0),
         allpass_z1: Vec::new(), // Initialized on first use
         allpass_y1: Vec::new(), // Initialized on first use
         feedback_sample: 0.0,
@@ -4320,9 +4320,9 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
                 let new_sample = SignalNode::Sample {
                     pattern_str: pattern_str.clone(),
                     pattern: pattern.clone(),
-                    last_trigger_time: -1.0,
-                    last_cycle: -1,
-                    playback_positions: HashMap::new(),
+                    last_trigger_time: RefCell::new(-1.0),
+                    last_cycle: RefCell::new(-1),
+                    playback_positions: RefCell::new(HashMap::new()),
                     gain: gain.clone(),
                     pan: pan.clone(),
                     speed: speed.clone(),
@@ -4766,9 +4766,9 @@ fn modify_sample_param(
         let new_sample = SignalNode::Sample {
             pattern_str: pattern_str.clone(),
             pattern: pattern.clone(),
-            last_trigger_time: -1.0,
-            last_cycle: -1,
-            playback_positions: HashMap::new(),
+            last_trigger_time: RefCell::new(-1.0),
+            last_cycle: RefCell::new(-1),
+            playback_positions: RefCell::new(HashMap::new()),
             gain: if param_name == "gain" {
                 new_value.clone()
             } else {
@@ -5106,9 +5106,9 @@ fn compile_transform(
                 let node = SignalNode::Sample {
                     pattern_str: format!("{} (transformed)", pattern_str),
                     pattern,
-                    last_trigger_time: -1.0,
-                    last_cycle: -1,
-                    playback_positions: HashMap::new(),
+                    last_trigger_time: RefCell::new(-1.0),
+                    last_cycle: RefCell::new(-1),
+                    playback_positions: RefCell::new(HashMap::new()),
                     gain: Signal::Value(1.0),
                     pan: Signal::Value(0.0),
                     speed: Signal::Value(1.0),
@@ -5139,8 +5139,8 @@ fn compile_transform(
         let node = SignalNode::Pattern {
             pattern_str: format!("{} (transformed)", pattern_str),
             pattern,
-            last_value: 0.0,
-            last_trigger_time: -1.0,
+            last_value: RefCell::new(0.0),
+            last_trigger_time: RefCell::new(-1.0),
         };
         return Ok(ctx.graph.add_node(node));
     }
@@ -5190,9 +5190,9 @@ fn compile_transform(
                     let node = SignalNode::Sample {
                         pattern_str: format!("{} (transformed)", pattern_str),
                         pattern,
-                        last_trigger_time: -1.0,
-                        last_cycle: -1,
-                        playback_positions: HashMap::new(),
+                        last_trigger_time: RefCell::new(-1.0),
+                        last_cycle: RefCell::new(-1),
+                        playback_positions: RefCell::new(HashMap::new()),
                         gain: Signal::Value(1.0),
                         pan: Signal::Value(0.0),
                         speed: Signal::Value(1.0),
@@ -5221,8 +5221,8 @@ fn compile_transform(
                 let node = SignalNode::Pattern {
                     pattern_str: format!("{} (transformed)", pattern_str),
                     pattern,
-                    last_value: 0.0,
-                    last_trigger_time: -1.0,
+                    last_value: RefCell::new(0.0),
+                    last_trigger_time: RefCell::new(-1.0),
                 };
                 return Ok(ctx.graph.add_node(node));
             }
@@ -6676,8 +6676,8 @@ fn compile_struct(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         input: input_signal,
         bool_pattern_str: pattern_str.clone(),
         bool_pattern,
-        last_trigger_time: -1.0,
-        last_cycle: -1,
+        last_trigger_time: RefCell::new(-1.0),
+        last_cycle: RefCell::new(-1),
         attack: 0.001, // 1ms attack
         decay: 0.1,    // 100ms decay
         sustain: 0.0,  // No sustain (percussive)
