@@ -1321,46 +1321,69 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if parallel {
                     // PARALLEL MODE: Process multiple blocks concurrently
                     use rayon::prelude::*;
+                    use std::sync::Mutex;
 
                     let start = Instant::now();
 
-                    // Process blocks in parallel, collecting (block_idx, buffer, time) tuples
-                    let mut blocks: Vec<(usize, Vec<f32>, std::time::Duration)> = (0..num_blocks)
+                    // Create graph instances (one per thread) - no mutex needed with chunks
+                    let num_threads = rayon::current_num_threads();
+
+                    println!("   Parallel threads: {} (processing ~{} blocks each)",
+                        num_threads, (num_blocks + num_threads - 1) / num_threads);
+
+                    // Split blocks into chunks, one chunk per thread
+                    let blocks_per_thread = (num_blocks + num_threads - 1) / num_threads;
+                    let chunks: Vec<std::ops::Range<usize>> = (0..num_threads)
+                        .map(|thread_idx| {
+                            let start_block = thread_idx * blocks_per_thread;
+                            let end_block = ((thread_idx + 1) * blocks_per_thread).min(num_blocks);
+                            start_block..end_block
+                        })
+                        .filter(|chunk| !chunk.is_empty())
+                        .collect();
+
+                    // Process chunks in parallel - each thread gets its own graph and processes multiple blocks
+                    let mut all_blocks: Vec<(usize, Vec<f32>, std::time::Duration)> = chunks
                         .into_par_iter()
-                        .map(|block_idx| {
-                            // Each thread gets its own graph clone
+                        .flat_map(|block_range| {
+                            // Each thread gets ONE graph clone and processes ALL its blocks
                             let mut my_graph = graph.clone();
+                            let mut thread_blocks = Vec::new();
 
-                            // Calculate block size (last block might be smaller)
-                            let block_start = block_idx * BLOCK_SIZE;
-                            let block_samples = (total_samples - block_start).min(BLOCK_SIZE);
+                            for block_idx in block_range {
+                                // Calculate block size (last block might be smaller)
+                                let block_start = block_idx * BLOCK_SIZE;
+                                let block_samples = (total_samples - block_start).min(BLOCK_SIZE);
 
-                            // Seek graph to correct time position for this block
-                            let block_start_sample = block_idx * BLOCK_SIZE;
-                            my_graph.seek_to_sample(block_start_sample);
+                                // Seek graph to correct time position for this block
+                                let block_start_sample = block_idx * BLOCK_SIZE;
+                                my_graph.seek_to_sample(block_start_sample);
 
-                            // Process this block
-                            let mut block_buffer = vec![0.0f32; block_samples];
-                            let block_start_time = Instant::now();
-                            my_graph.process_buffer(&mut block_buffer);
-                            let block_time = block_start_time.elapsed();
+                                // Process this block
+                                let mut block_buffer = vec![0.0f32; block_samples];
+                                let block_start_time = Instant::now();
+                                my_graph.process_buffer(&mut block_buffer);
+                                let block_time = block_start_time.elapsed();
 
-                            // Apply gain and clamp
-                            for sample in &mut block_buffer {
-                                *sample = (*sample * gain).clamp(-1.0, 1.0);
+                                // Apply gain and clamp
+                                for sample in &mut block_buffer {
+                                    *sample = (*sample * gain).clamp(-1.0, 1.0);
+                                }
+
+                                thread_blocks.push((block_idx, block_buffer, block_time));
                             }
 
-                            (block_idx, block_buffer, block_time)
+                            thread_blocks
                         })
                         .collect();
 
                     total_process_time = start.elapsed();
 
                     // Sort blocks by index to maintain correct order
-                    blocks.sort_by_key(|(idx, _, _)| *idx);
+                    all_blocks.sort_by_key(|(idx, _, _)| *idx);
 
                     // Find min/max block times and concatenate buffers
-                    for (_, block_buffer, block_time) in blocks {
+                    for (_, block_buffer, block_time) in all_blocks {
                         min_block_time = min_block_time.min(block_time);
                         max_block_time = max_block_time.max(block_time);
                         output_buffer.extend_from_slice(&block_buffer);
