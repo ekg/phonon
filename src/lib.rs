@@ -270,6 +270,7 @@
 use std::cell::RefCell;
 pub mod audio;
 pub mod audio_analysis;
+pub mod ipc;
 pub mod compositional_compiler;
 pub mod compositional_parser;
 pub mod dsl_osc_handler;
