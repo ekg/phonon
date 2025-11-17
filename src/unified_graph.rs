@@ -7280,10 +7280,6 @@ impl UnifiedSignalGraph {
                 // Clone the cache for use in this buffer (Arc makes this cheap)
                 let bus_buffer_cache = self.cycle_bus_cache.buffers.clone();
 
-                // Performance tracking
-                let mut cache_hits = 0;
-                let mut cache_misses = 0;
-
                 // Trigger voices for ALL new events
                 // An event should be triggered if its START is after the last event we triggered
                 for event in events.iter() {
@@ -7507,12 +7503,10 @@ impl UnifiedSignalGraph {
                                     let cache_key = (actual_name.to_string(), duration_samples);
                                     let synthetic_buffer = if let Some(cached_buffer) = bus_buffer_cache.get(&cache_key) {
                                         // Cache hit! Use pre-synthesized buffer from parallel phase
-                                        cache_hits += 1;
                                         cached_buffer.as_ref().clone()
                                     } else {
                                         // Cache miss - fallback to serial synthesis
                                         // This can happen for edge cases not caught in preprocessing
-                                        cache_misses += 1;
                                         let mut buffer = Vec::with_capacity(duration_samples);
                                         for _ in 0..duration_samples {
                                             let sample_value = self.eval_node(&bus_node_id);
@@ -7854,16 +7848,6 @@ impl UnifiedSignalGraph {
                         *lt = latest_triggered_start as f32;
                         *lc = current_cycle;
                     }
-                }
-
-                // Log cache performance statistics
-                let total_bus_events = cache_hits + cache_misses;
-                if total_bus_events > 0 {
-                    let hit_rate = (cache_hits as f64 / total_bus_events as f64) * 100.0;
-                    eprintln!(
-                        "📊 Cache stats: {} hits, {} misses ({:.1}% hit rate)",
-                        cache_hits, cache_misses, hit_rate
-                    );
                 }
 
                 // Sample nodes trigger voices AND return their cached voice output
