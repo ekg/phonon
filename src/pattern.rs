@@ -1161,6 +1161,41 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
+    /// Sew - switch between two patterns based on boolean pattern
+    /// Structure comes from the source patterns, not the boolean control
+    /// Example: sew(bool_pat, pat1, pat2) plays pat1 when bool is true, pat2 when false
+    pub fn sew(bool_pattern: Pattern<String>, pat_true: Pattern<T>, pat_false: Pattern<T>) -> Pattern<T> {
+        Pattern::new(move |state| {
+            let mut result = Vec::new();
+
+            // Query the boolean pattern
+            let bool_events = bool_pattern.query(state);
+
+            for bool_hap in bool_events {
+                // Parse boolean value (accept "t", "true", "1" for true; "f", "false", "0" for false)
+                let is_true = match bool_hap.value.to_lowercase().as_str() {
+                    "t" | "true" | "1" => true,
+                    "f" | "false" | "0" => false,
+                    _ => false, // Default to false for unrecognized values
+                };
+
+                // Choose which pattern to query based on boolean
+                let source_pattern = if is_true { &pat_true } else { &pat_false };
+
+                // Query the chosen pattern for this time span
+                let source_state = State {
+                    span: bool_hap.part,
+                    controls: state.controls.clone(),
+                };
+
+                let events = source_pattern.query(&source_state);
+                result.extend(events);
+            }
+
+            result
+        })
+    }
+
     /// Stripe - repeat pattern N times over N cycles at random speeds
     /// Creates rhythmic variation while maintaining sync
     /// Example: stripe(3, pat) repeats pattern 3 times over 3 cycles at varying speeds

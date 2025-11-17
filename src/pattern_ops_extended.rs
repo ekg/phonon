@@ -1295,6 +1295,77 @@ impl<T: Clone + Send + Sync + Debug + 'static> Pattern<T> {
             result
         })
     }
+
+    /// Rotate pattern values while maintaining structure
+    /// rot shifts values by n positions: rot 1 "a ~ b c" becomes "b ~ c a"
+    /// The rotation pattern can vary per cycle
+    pub fn rot(self, rotation: Pattern<String>) -> Self
+    where
+        T: Clone + Send + Sync + Debug + 'static,
+    {
+        Pattern::new(move |state: &State| {
+            // Get the events from the source pattern
+            let events = self.query(state);
+
+            if events.is_empty() {
+                return Vec::new();
+            }
+
+            // Query the rotation pattern to get rotation amount
+            let cycle_start = state.span.begin.to_float().floor();
+            let rot_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(cycle_start),
+                    Fraction::from_float(cycle_start + 0.001),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            let rot_amount = rotation
+                .query(&rot_state)
+                .first()
+                .and_then(|h| h.value.parse::<i32>().ok())
+                .unwrap_or(0);
+
+            if rot_amount == 0 {
+                return events;
+            }
+
+            // Extract just the values (preserving timings)
+            let values: Vec<T> = events.iter().map(|h| h.value.clone()).collect();
+            let len = values.len() as i32;
+
+            // Rotate the values array
+            // Positive rotation means shift left, negative means shift right
+            let rotated_values: Vec<T> = (0..values.len())
+                .map(|i| {
+                    let src_idx = (i as i32 + rot_amount).rem_euclid(len) as usize;
+                    values[src_idx].clone()
+                })
+                .collect();
+
+            // Apply rotated values to original timings
+            events
+                .into_iter()
+                .enumerate()
+                .map(|(i, mut hap)| {
+                    hap.value = rotated_values[i].clone();
+                    hap
+                })
+                .collect()
+        })
+    }
+
+    /// Trunc - truncate pattern to play only a fraction of each cycle
+    /// trunc 0.75 plays the first 75% of each cycle
+    /// The fraction parameter can be patterned
+    pub fn trunc(self, fraction: Pattern<f64>) -> Self
+    where
+        T: Clone + Send + Sync + Debug + 'static,
+    {
+        // trunc is essentially zoom from 0 to fraction
+        self.zoom(Pattern::pure(0.0), fraction)
+    }
 }
 
 #[cfg(test)]

@@ -11,7 +11,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_until, take_while, take_while1},
     character::complete::{alpha1, alphanumeric1, char, digit1, space0},
-    combinator::{map, opt, peek, recognize, value},
+    combinator::{map, not, opt, peek, recognize, value},
     multi::{many0, separated_list0},
     sequence::{delimited, pair, preceded, terminated, tuple},
     IResult,
@@ -220,10 +220,14 @@ pub enum Transform {
     Fit(Box<Expr>),
     /// stretch: sustain notes to fill gaps (legato 1.0)
     Stretch,
+    /// rot n: rotate pattern values by n steps
+    Rot(Box<Expr>),
     /// rotL n: rotate pattern left by n steps
     RotL(Box<Expr>),
     /// rotR n: rotate pattern right by n steps
     RotR(Box<Expr>),
+    /// trunc fraction: truncate pattern to play only first fraction of each cycle
+    Trunc(Box<Expr>),
     /// iter n: iterate pattern shifting by 1/n each cycle
     Iter(Box<Expr>),
     /// iterBack n: iterate pattern backwards
@@ -1360,6 +1364,20 @@ fn parse_transform_group_1b(input: &str) -> IResult<&str, Transform> {
         map(
             preceded(terminated(tag("stripe"), space1), parse_primary_expr),
             |expr| Transform::Stripe(Box::new(expr)),
+        ),
+        // rot n (MUST come before rotL and rotR!)
+        map(
+            tuple((
+                terminated(tag("rot"), space1),
+                not(alt((tag("L"), tag("R")))),
+                parse_primary_expr,
+            )),
+            |(_, _, expr)| Transform::Rot(Box::new(expr)),
+        ),
+        // trunc fraction
+        map(
+            preceded(terminated(tag("trunc"), space1), parse_primary_expr),
+            |expr| Transform::Trunc(Box::new(expr)),
         ),
         // scramble n
         map(

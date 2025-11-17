@@ -10,6 +10,7 @@ use crate::pattern::Pattern;
 use crate::superdirt_synths::SynthLibrary;
 use crate::unified_graph::{DattorroState, NodeId, Signal, SignalExpr, SignalNode, TapeDelayState, UnifiedSignalGraph, Waveform};
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 /// Compilation context - tracks buses, functions, templates, and node IDs
 pub struct CompilerContext {
@@ -612,6 +613,7 @@ fn compile_function_call(
         "cat" => compile_cat(ctx, args),
         "slowcat" => compile_slowcat(ctx, args),
         "wedge" => compile_wedge(ctx, args),
+        "sew" => compile_sew(ctx, args),
 
         // ========== Sample playback ==========
         "s" => {
@@ -1546,6 +1548,66 @@ fn compile_wedge(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
     // Combine using Pattern::wedge
     let combined_pattern = Pattern::wedge(ratio, pat1, pat2);
     let combined_str = format!("wedge {} \"{}\" \"{}\"", ratio, pat1_str, pat2_str);
+
+    // Create a Sample node with the combined pattern
+    let node = SignalNode::Sample {
+        pattern_str: combined_str,
+        pattern: combined_pattern,
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        playback_positions: HashMap::new(),
+        gain: Signal::Value(1.0),
+        pan: Signal::Value(0.0),
+        speed: Signal::Value(1.0),
+        cut_group: Signal::Value(0.0),
+        n: Signal::Value(0.0),
+        note: Signal::Value(0.0),
+        attack: Signal::Value(0.0),
+        release: Signal::Value(0.0),
+        envelope_type: None,
+        unit_mode: Signal::Value(0.0),
+        loop_enabled: Signal::Value(0.0),
+        begin: Signal::Value(0.0),
+        end: Signal::Value(1.0),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile sew combinator - switch between two patterns based on boolean pattern
+/// Usage: sew "t f" (s "bd*4") (s "sn*4") - plays bd when true, sn when false
+/// Also supports: sew "t f" "bd*4" "sn*4" for convenience
+fn compile_sew(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() < 3 {
+        return Err("sew requires 3 arguments: bool_pattern pat_true pat_false".to_string());
+    }
+
+    // Extract pattern strings for all three patterns
+    let extract_pattern_str = |expr: &Expr| -> Result<String, String> {
+        match expr {
+            Expr::String(s) => Ok(s.clone()),
+            Expr::Call { name, args } if name == "s" && !args.is_empty() => {
+                match &args[0] {
+                    Expr::String(s) => Ok(s.clone()),
+                    _ => Err("s() call in sew must have a string argument".to_string()),
+                }
+            }
+            _ => Err("sew patterns must be strings or s calls".to_string()),
+        }
+    };
+
+    let bool_str = extract_pattern_str(&args[0])?;
+    let pat_true_str = extract_pattern_str(&args[1])?;
+    let pat_false_str = extract_pattern_str(&args[2])?;
+
+    // Parse patterns
+    let bool_pattern = parse_mini_notation(&bool_str);
+    let pat_true = parse_mini_notation(&pat_true_str);
+    let pat_false = parse_mini_notation(&pat_false_str);
+
+    // Combine using Pattern::sew
+    let combined_pattern = Pattern::sew(bool_pattern, pat_true, pat_false);
+    let combined_str = format!("sew \"{}\" \"{}\" \"{}\"", bool_str, pat_true_str, pat_false_str);
 
     // Create a Sample node with the combined pattern
     let node = SignalNode::Sample {
@@ -5175,7 +5237,7 @@ fn compile_transform(
 }
 
 /// Apply a transform to a pattern
-fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
+fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
     templates: &HashMap<String, Expr>,
     pattern: Pattern<T>,
     transform: Transform,
@@ -5687,6 +5749,24 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + 'static>(
                     pattern_clone.query(state)
                 }
             }))
+        }
+        Transform::Rot(n_expr) => {
+            // rot n - rotate values by n positions
+            let rot_pattern = match n_expr.as_ref() {
+                Expr::String(s) => Pattern::from_string(s),
+                _ => {
+                    // Try to extract as number (handles negative, parentheses, etc.)
+                    let n = extract_number(n_expr.as_ref())?;
+                    Pattern::pure(n.to_string())
+                }
+            };
+            Ok(pattern.rot(rot_pattern))
+        }
+        Transform::Trunc(fraction_expr) => {
+            // trunc fraction - truncate to play only first fraction of cycle
+            let frac = extract_number(fraction_expr.as_ref())?;
+            let fraction_pattern = Pattern::pure(frac);
+            Ok(pattern.trunc(fraction_pattern))
         }
         Transform::RotL(n_expr) => {
             let n = extract_number(&n_expr)?;
