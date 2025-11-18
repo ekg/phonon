@@ -9562,25 +9562,33 @@ impl UnifiedSignalGraph {
 
                 // Convert window size (seconds) to samples
                 let window_samples = (window_seconds * self.sample_rate) as usize;
-                let window_samples = window_samples.clamp(1, buffer.len());
+                let window_samples = window_samples.clamp(1, buffer.borrow().len());
+
+                // Get write index for RMS calculation
+                let current_write_idx = *write_idx.borrow();
 
                 // Update buffer
-                if let Some(Some(SignalNode::RMS {
-                    buffer: buf,
-                    write_idx: idx,
-                    ..
-                })) = self.nodes.get_mut(node_id.0)
-                {
-                    buf[*idx] = input_val * input_val;
-                    *idx = (*idx + 1) % buf.len();
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::RMS {
+                        buffer: buf,
+                        write_idx: idx,
+                        ..
+                    } = &**node_rc
+                    {
+                        let mut buf_ref = buf.borrow_mut();
+                        let mut idx_ref = idx.borrow_mut();
+                        buf_ref[*idx_ref] = input_val * input_val;
+                        *idx_ref = (*idx_ref + 1) % buf_ref.len();
+                    }
                 }
 
                 // Calculate RMS over the specified window
                 // Sum only the most recent window_samples
                 let mut sum: f32 = 0.0;
+                let buf_borrow = buffer.borrow();
                 for i in 0..window_samples {
-                    let idx = (write_idx + buffer.len() - i) % buffer.len();
-                    sum += buffer[idx];
+                    let idx = (current_write_idx + buf_borrow.len() - i) % buf_borrow.len();
+                    sum += buf_borrow[idx];
                 }
 
                 (sum / window_samples as f32).sqrt()
@@ -9597,25 +9605,28 @@ impl UnifiedSignalGraph {
                 let low = self.eval_signal(&low_threshold);
 
                 // Current state (captured from the pattern match)
-                let mut output_state = state;
+                let mut output_state = *state.borrow();
 
                 // Update state based on hysteresis logic
-                if let Some(Some(SignalNode::Schmidt {
-                    state: current_state,
-                    ..
-                })) = self.nodes.get_mut(node_id.0)
-                {
-                    // If currently low and input exceeds high threshold, turn on
-                    if !*current_state && input_val > high {
-                        *current_state = true;
-                        output_state = true;
-                    }
-                    // If currently high and input falls below low threshold, turn off
-                    else if *current_state && input_val < low {
-                        *current_state = false;
-                        output_state = false;
-                    } else {
-                        output_state = *current_state;
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Schmidt {
+                        state: current_state,
+                        ..
+                    } = &**node_rc
+                    {
+                        let mut state_ref = current_state.borrow_mut();
+                        // If currently low and input exceeds high threshold, turn on
+                        if !*state_ref && input_val > high {
+                            *state_ref = true;
+                            output_state = true;
+                        }
+                        // If currently high and input falls below low threshold, turn off
+                        else if *state_ref && input_val < low {
+                            *state_ref = false;
+                            output_state = false;
+                        } else {
+                            output_state = *state_ref;
+                        }
                     }
                 }
 
@@ -9637,26 +9648,28 @@ impl UnifiedSignalGraph {
                 let gate_val = self.eval_signal(&gate);
 
                 // Current held value and last gate (captured from pattern match)
-                let mut output_val = held_value;
+                let mut output_val = *held_value.borrow();
 
                 // Update state if gate has rising edge (0→1)
-                if let Some(Some(SignalNode::Latch {
-                    held_value: stored_val,
-                    last_gate: stored_gate,
-                    ..
-                })) = self.nodes.get_mut(node_id.0)
-                {
-                    // Detect rising edge: last_gate < 0.5 and gate_val >= 0.5
-                    if *stored_gate.borrow() < 0.5 && gate_val >= 0.5 {
-                        // Sample the input
-                        *stored_val = input_val;
-                        output_val = input_val;
-                    } else {
-                        output_val = *stored_val;
-                    }
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Latch {
+                        held_value: stored_val,
+                        last_gate: stored_gate,
+                        ..
+                    } = &**node_rc
+                    {
+                        // Detect rising edge: last_gate < 0.5 and gate_val >= 0.5
+                        if *stored_gate.borrow() < 0.5 && gate_val >= 0.5 {
+                            // Sample the input
+                            *stored_val.borrow_mut() = input_val;
+                            output_val = input_val;
+                        } else {
+                            output_val = *stored_val.borrow();
+                        }
 
-                    // Update last_gate for next sample
-                    *stored_gate = gate_val;
+                        // Update last_gate for next sample
+                        *stored_gate.borrow_mut() = gate_val;
+                    }
                 }
 
                 output_val
@@ -9670,28 +9683,30 @@ impl UnifiedSignalGraph {
                 let trigger_val = self.eval_signal(&trigger);
 
                 // Current elapsed time (captured from pattern match)
-                let mut output_val = elapsed_time;
+                let mut output_val = *elapsed_time.borrow();
 
                 // Update state if trigger has rising edge (0→1)
-                if let Some(Some(SignalNode::Timer {
-                    elapsed_time: stored_time,
-                    last_trigger: stored_trigger,
-                    ..
-                })) = self.nodes.get_mut(node_id.0)
-                {
-                    // Detect rising edge: last_trigger < 0.5 and trigger_val >= 0.5
-                    if *stored_trigger.borrow() < 0.5 && trigger_val >= 0.5 {
-                        // Reset timer to 0
-                        *stored_time = 0.0;
-                        output_val = 0.0;
-                    } else {
-                        // Increment elapsed time by one sample
-                        *stored_time += 1.0 / self.sample_rate;
-                        output_val = *stored_time;
-                    }
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Timer {
+                        elapsed_time: stored_time,
+                        last_trigger: stored_trigger,
+                        ..
+                    } = &**node_rc
+                    {
+                        // Detect rising edge: last_trigger < 0.5 and trigger_val >= 0.5
+                        if *stored_trigger.borrow() < 0.5 && trigger_val >= 0.5 {
+                            // Reset timer to 0
+                            *stored_time.borrow_mut() = 0.0;
+                            output_val = 0.0;
+                        } else {
+                            // Increment elapsed time by one sample
+                            *stored_time.borrow_mut() += 1.0 / self.sample_rate;
+                            output_val = *stored_time.borrow();
+                        }
 
-                    // Update last_trigger for next sample
-                    *stored_trigger = trigger_val;
+                        // Update last_trigger for next sample
+                        *stored_trigger.borrow_mut() = trigger_val;
+                    }
                 }
 
                 output_val
