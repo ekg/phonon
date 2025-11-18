@@ -6882,32 +6882,37 @@ impl UnifiedSignalGraph {
                 let mut output_val = input_val;
 
                 // Access and update vibrato state
-                if let Some(Some(SignalNode::Vibrato {
-                    phase,
-                    delay_buffer: buf,
-                    buffer_pos: pos,
-                    ..
-                })) = self.nodes.get_mut(node_id.0)
-                {
-                    // Initialize buffer if empty (first call)
-                    let buffer_size = (self.sample_rate * 0.05) as usize; // 50ms buffer
-                    if buf.is_empty() {
-                        buf.resize(buffer_size, 0.0);
-                    }
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Vibrato {
+                        phase,
+                        delay_buffer: buf,
+                        buffer_pos: pos,
+                        ..
+                    } = &**node_rc
+                    {
+                        // Initialize buffer if empty (first call)
+                        let buffer_size = (self.sample_rate * 0.05) as usize; // 50ms buffer
+                        let mut buf_ref = buf.borrow_mut();
+                        if buf_ref.is_empty() {
+                            buf_ref.resize(buffer_size, 0.0);
+                        }
 
-                    // Write input to delay buffer
-                    buf[*pos] = input_val;
+                        let mut pos_ref = pos.borrow_mut();
 
-                    // Advance phase
-                    *phase += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
+                        // Write input to delay buffer
+                        buf_ref[*pos_ref] = input_val;
 
-                    // Wrap phase to [0, 2π]
-                    if *phase >= 2.0 * std::f32::consts::PI {
-                        *phase -= 2.0 * std::f32::consts::PI;
-                    }
+                        // Advance phase
+                        let mut phase_ref = phase.borrow_mut();
+                        *phase_ref += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
 
-                    // Calculate LFO (sine wave, -1 to +1)
-                    let lfo = phase.sin();
+                        // Wrap phase to [0, 2π]
+                        if *phase_ref >= 2.0 * std::f32::consts::PI {
+                            *phase_ref -= 2.0 * std::f32::consts::PI;
+                        }
+
+                        // Calculate LFO (sine wave, -1 to +1)
+                        let lfo = phase_ref.sin();
 
                     // Convert depth from semitones to delay time
                     // depth in semitones -> frequency ratio -> time ratio
@@ -6917,22 +6922,23 @@ impl UnifiedSignalGraph {
                     let delay_samples = (delay_ms * self.sample_rate / 1000.0).max(0.0);
 
                     // Calculate read position (fractional)
-                    let read_pos_float = *pos as f32 - delay_samples;
-                    let read_pos_wrapped = if read_pos_float < 0.0 {
-                        read_pos_float + buf.len() as f32
-                    } else {
-                        read_pos_float
-                    };
+                        let read_pos_float = *pos_ref as f32 - delay_samples;
+                        let read_pos_wrapped = if read_pos_float < 0.0 {
+                            read_pos_float + buf_ref.len() as f32
+                        } else {
+                            read_pos_float
+                        };
 
-                    // Linear interpolation for fractional delay
-                    let read_pos_int = read_pos_wrapped as usize % buf.len();
-                    let read_pos_next = (read_pos_int + 1) % buf.len();
-                    let frac = read_pos_wrapped.fract();
+                        // Linear interpolation for fractional delay
+                        let read_pos_int = read_pos_wrapped as usize % buf_ref.len();
+                        let read_pos_next = (read_pos_int + 1) % buf_ref.len();
+                        let frac = read_pos_wrapped.fract();
 
-                    output_val = buf[read_pos_int] * (1.0 - frac) + buf[read_pos_next] * frac;
+                        output_val = buf_ref[read_pos_int] * (1.0 - frac) + buf_ref[read_pos_next] * frac;
 
-                    // Advance buffer position
-                    *pos = (*pos + 1) % buf.len();
+                        // Advance buffer position
+                        *pos_ref = (*pos_ref + 1) % buf_ref.len();
+                    }
                 }
 
                 output_val
