@@ -400,7 +400,6 @@ use rayon::prelude::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::f32::consts::PI;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 /// Unique identifier for nodes in the graph
@@ -1928,7 +1927,7 @@ impl Default for EnvState {
         Self {
             phase: RefCell::new(EnvPhase::Idle),
             level: 0.0,
-            time_in_phase: RefCell::new(0.0),
+            time_in_phase: 0.0,
             release_start_level: 0.0,
         }
     }
@@ -2084,7 +2083,7 @@ impl DattorroState {
             right_delay2_idx: 0,
             right_lpf_state: 0.0,
 
-            lfo_phase: RefCell::new(0.0),
+            lfo_phase: 0.0,
             sample_rate: sr,
         }
     }
@@ -2115,8 +2114,8 @@ impl TapeDelayState {
         Self {
             buffer: vec![0.0; buffer_size],
             write_idx: 0,
-            wow_phase: RefCell::new(0.0),
-            flutter_phase: RefCell::new(0.0),
+            wow_phase: 0.0,
+            flutter_phase: 0.0,
             lpf_state: 0.0,
             sample_rate,
         }
@@ -2160,7 +2159,7 @@ impl ChorusState {
         Self {
             delay_buffer: vec![0.0; buffer_size],
             write_idx: 0,
-            lfo_phase: RefCell::new(0.0),
+            lfo_phase: 0.0,
         }
     }
 }
@@ -2187,7 +2186,7 @@ impl FlangerState {
         Self {
             delay_buffer: vec![0.0; buffer_size],
             write_idx: 0,
-            lfo_phase: RefCell::new(0.0),
+            lfo_phase: 0.0,
             feedback_sample: 0.0,
         }
     }
@@ -2439,7 +2438,7 @@ impl GranularState {
             source_buffer: vec![0.0; buffer_size],
             buffer_write_pos: 0,
             active_grains: Vec::new(),
-            grain_spawn_phase: RefCell::new(0.0),
+            grain_spawn_phase: 0.0,
         }
     }
 
@@ -2884,7 +2883,7 @@ pub struct AdditiveState {
 impl AdditiveState {
     pub fn new(sample_rate: f32) -> Self {
         Self {
-            phase: RefCell::new(0.0),
+            phase: 0.0,
             sample_rate,
         }
     }
@@ -3071,7 +3070,7 @@ impl PitchShifterState {
             write_pos: 0,
             grain1_pos: 0.0,
             grain2_pos: (grain_size / 2) as f32, // Offset by half grain
-            grain1_phase: RefCell::new(0.0),
+            grain1_phase: 0.0,
             grain2_phase: 0.5, // 50% phase offset
             grain_size,
             sample_rate,
@@ -3624,7 +3623,7 @@ struct BusSynthesisRequest {
 /// Takes cloned nodes (independent RefCell state) and synthesizes buffer
 /// This is a simplified evaluator that only handles node types used in bus synthesis
 fn synthesize_bus_buffer_parallel(
-    mut nodes: Vec<Option<SignalNode>>,
+    nodes: Vec<Option<Arc<SignalNode>>>,
     bus_node_id: NodeId,
     duration_samples: usize,
     sample_rate: f32,
@@ -3634,9 +3633,11 @@ fn synthesize_bus_buffer_parallel(
     // - DC offset (buffer doesn't contain full periods)
     // - Clicks (buffer doesn't start at zero crossing)
     // - Rough sound (phase discontinuities on every trigger)
-    for node_opt in nodes.iter_mut() {
-        if let Some(SignalNode::Oscillator { phase, .. }) = node_opt {
-            *phase.borrow_mut() = 0.0;
+    for node_opt in nodes.iter() {
+        if let Some(node_arc) = node_opt {
+            if let SignalNode::Oscillator { phase, .. } = &**node_arc {
+                *phase.borrow_mut() = 0.0;
+            }
         }
     }
 
@@ -3875,7 +3876,7 @@ impl Default for CycleBusCache {
 /// The unified signal graph that processes everything
 pub struct UnifiedSignalGraph {
     /// All nodes in the graph (Rc for cheap cloning)
-    nodes: Vec<Option<Rc<SignalNode>>>,
+    nodes: Vec<Option<Arc<SignalNode>>>,
 
     /// Named buses for easy reference
     buses: HashMap<String, NodeId>,
@@ -4180,14 +4181,16 @@ impl UnifiedSignalGraph {
         let mut written_files = Vec::new();
 
         for node_option in &self.nodes {
-            if let Some(SignalNode::Tap { state, .. }) = node_option {
-                if let Ok(tap_state) = state.lock() {
-                    match tap_state.write_to_file() {
-                        Ok(()) => {
-                            written_files.push(tap_state.filename.clone());
-                        }
-                        Err(e) => {
-                            eprintln!("⚠️  Failed to write tap file {}: {}", tap_state.filename, e);
+            if let Some(node_rc) = node_option {
+                if let SignalNode::Tap { state, .. } = &**node_rc {
+                    if let Ok(tap_state) = state.lock() {
+                        match tap_state.write_to_file() {
+                            Ok(()) => {
+                                written_files.push(tap_state.filename.clone());
+                            }
+                            Err(e) => {
+                                eprintln!("⚠️  Failed to write tap file {}: {}", tap_state.filename, e);
+                            }
                         }
                     }
                 }
@@ -4198,7 +4201,7 @@ impl UnifiedSignalGraph {
     }
 
     /// Get a reference to a node by its ID
-    pub fn get_node(&self, node_id: NodeId) -> Option<&SignalNode> {
+    pub fn get_node(&self, node_id: NodeId) -> Option<&Arc<SignalNode>> {
         self.nodes.get(node_id.0).and_then(|opt| opt.as_ref())
     }
 
@@ -4212,7 +4215,7 @@ impl UnifiedSignalGraph {
             self.nodes.push(None);
         }
 
-        self.nodes[id.0] = Some(Rc::new(node));
+        self.nodes[id.0] = Some(Arc::new(node));
         id
     }
 
@@ -4356,8 +4359,9 @@ impl UnifiedSignalGraph {
     fn eval_note_signal_at_time(&mut self, signal: &Signal, cycle_pos: f64) -> f32 {
         match signal {
             Signal::Node(id) => {
-                if let Some(Some(SignalNode::Pattern { pattern, .. })) = self.nodes.get(id.0) {
-                    let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                if let Some(Some(node_rc)) = self.nodes.get(id.0) {
+                    if let SignalNode::Pattern { pattern, .. } = &**node_rc {
+                        let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
                     let state = State {
                         span: TimeSpan::new(
                             Fraction::from_float(cycle_pos),
@@ -4400,8 +4404,11 @@ impl UnifiedSignalGraph {
                     } else {
                         0.0
                     }
+                    } else {
+                        self.eval_node(id)
+                    }
                 } else {
-                    self.eval_node(id)
+                    0.0
                 }
             }
             Signal::Value(v) => *v,
@@ -4468,8 +4475,9 @@ impl UnifiedSignalGraph {
     fn eval_note_signal_as_chord(&mut self, signal: &Signal, cycle_pos: f64) -> Vec<f32> {
         match signal {
             Signal::Node(id) => {
-                if let Some(Some(SignalNode::Pattern { pattern, .. })) = self.nodes.get(id.0) {
-                    let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                if let Some(Some(node_rc)) = self.nodes.get(id.0) {
+                    if let SignalNode::Pattern { pattern, .. } = &**node_rc {
+                        let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
                     let state = State {
                         span: TimeSpan::new(
                             Fraction::from_float(cycle_pos),
@@ -4538,8 +4546,11 @@ impl UnifiedSignalGraph {
                     } else {
                         vec![0.0]
                     }
+                    } else {
+                        vec![self.eval_node(id)]
+                    }
                 } else {
-                    vec![self.eval_node(id)]
+                    vec![0.0]
                 }
             }
             Signal::Value(v) => vec![*v],
@@ -4784,22 +4795,27 @@ impl UnifiedSignalGraph {
         // Pre-clone nodes vector for each request to avoid Send issues with RefCell
         let sample_rate = self.sample_rate;
 
-        // Prepare data for parallel processing: each item contains (key, node_id, duration, nodes_clone)
-        // This ensures each thread gets its own independent copy of nodes
-        let parallel_tasks: Vec<_> = requests
-            .into_iter()
-            .map(|(key, node_id)| {
-                let nodes_copy = self.nodes.clone();
-                (key, node_id, nodes_copy)
-            })
-            .collect();
+        // For parallel processing, we need to deep clone the nodes for each thread
+        // because Arc<RefCell<...>> is not Send (RefCell is not thread-safe)
+        // This only happens in offline render mode, so the performance cost is acceptable
+        let nodes_for_clone = &self.nodes;
 
-        let synthesized: Vec<((String, usize), Arc<Vec<f32>>)> = parallel_tasks
+        let synthesized: Vec<((String, usize), Arc<Vec<f32>>)> = requests
             .into_par_iter()
-            .map(|((bus_name, duration_samples), bus_node_id, nodes)| {
-                // Each thread has its own nodes copy with independent RefCell state
+            .map(|((bus_name, duration_samples), bus_node_id)| {
+                // Deep clone nodes for this thread to get independent RefCell state
+                let nodes_copy: Vec<Option<Arc<SignalNode>>> = nodes_for_clone
+                    .iter()
+                    .map(|opt_arc| {
+                        opt_arc.as_ref().map(|arc_node| {
+                            // Deep clone the SignalNode and wrap in new Arc
+                            Arc::new((**arc_node).clone())
+                        })
+                    })
+                    .collect();
+
                 let buffer = synthesize_bus_buffer_parallel(
-                    nodes,
+                    nodes_copy,
                     bus_node_id,
                     duration_samples,
                     sample_rate,
@@ -4833,10 +4849,10 @@ impl UnifiedSignalGraph {
             return cached;
         }
 
-        // PERFORMANCE FIX: Use Rc::clone for cheap reference counting
-        // Rc::clone just increments a counter (~5ns vs ~500ns for deep clone)
+        // PERFORMANCE FIX: Use Arc::clone for cheap reference counting
+        // Arc::clone just increments a counter (~5ns vs ~500ns for deep clone)
         let node = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-            Rc::clone(node_rc)
+            Arc::clone(node_rc)
         } else {
             return 0.0;
         };
@@ -5049,7 +5065,7 @@ impl UnifiedSignalGraph {
                 // Update phase for next sample
                 let phase_inc = freq / self.sample_rate;
                 if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::Blip { phase, .. } = node {
+                    if let SignalNode::Blip { phase, .. } = &**node_rc {
                         let mut p = phase.borrow_mut();
                         *p += phase_inc;
                         if *p >= 1.0 {
@@ -5116,7 +5132,7 @@ impl UnifiedSignalGraph {
 
                 // Update phase for next sample
                 if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::VCO { phase, .. } = node {
+                    if let SignalNode::VCO { phase, .. } = &**node_rc {
                         let mut p = phase.borrow_mut();
                         *p += phase_inc;
                         if *p >= 1.0 {
@@ -5455,7 +5471,7 @@ impl UnifiedSignalGraph {
 
                 // Write source sample to buffer
                 if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::Granular { state: s, .. } = node {
+                    if let SignalNode::Granular { state: s, .. } = &**node_rc {
                         s.write_sample(source_sample);
 
                         // Spawn new grain based on density
@@ -5578,7 +5594,7 @@ impl UnifiedSignalGraph {
 
                 // Get mutable state and process
                 if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::Formant { state: s, .. } = node {
+                    if let SignalNode::Formant { state: s, .. } = &**node_rc {
                         return s.process(input, f1_val, f2_val, f3_val, bw1_val, bw2_val, bw3_val);
                     }
                 }
@@ -5615,7 +5631,7 @@ impl UnifiedSignalGraph {
 
                 // Get mutable state and process
                 if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::Vowel { state: s, .. } = node {
+                    if let SignalNode::Vowel { state: s, .. } = &**node_rc {
                         return s.process(input, f1, f2, f3, bw1, bw2, bw3);
                     }
                 }
@@ -5658,7 +5674,7 @@ impl UnifiedSignalGraph {
 
                 // Get mutable state and process
                 if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::Vocoder { state: s, .. } = node {
+                    if let SignalNode::Vocoder { state: s, .. } = &**node_rc {
                         return s.process(mod_sample, carr_sample);
                     }
                 }
@@ -5677,7 +5693,7 @@ impl UnifiedSignalGraph {
 
                 // Get mutable state and process
                 if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::PitchShift { state: s, .. } = node {
+                    if let SignalNode::PitchShift { state: s, .. } = &**node_rc {
                         return s.process(input_sample, semitones_val);
                     }
                 }
@@ -5736,7 +5752,7 @@ impl UnifiedSignalGraph {
 
                 // Update state
                 if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::SVF { state: s, .. } = node {
+                    if let SignalNode::SVF { state: s, .. } = &**node_rc {
                         s.low = low;
                         s.band = band;
                     }
@@ -5855,7 +5871,7 @@ impl UnifiedSignalGraph {
 
                 // Update state
                 if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::Biquad { state: s, .. } = node {
+                    if let SignalNode::Biquad { state: s, .. } = &**node_rc {
                         s.x2 = x1;
                         s.x1 = input_val;
                         s.y2 = y1;
@@ -5927,7 +5943,7 @@ impl UnifiedSignalGraph {
 
                 // Update state
                 if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::Resonz { state: s, .. } = node {
+                    if let SignalNode::Resonz { state: s, .. } = &**node_rc {
                         s.x2 = x1;
                         s.x1 = input_val;
                         s.y2 = y1;
@@ -6000,7 +6016,7 @@ impl UnifiedSignalGraph {
 
                 // Update state
                 if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::RLPF { state: s, .. } = node {
+                    if let SignalNode::RLPF { state: s, .. } = &**node_rc {
                         s.x2 = x1;
                         s.x1 = input_val;
                         s.y2 = y1;
@@ -6072,7 +6088,7 @@ impl UnifiedSignalGraph {
 
                 // Update state
                 if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::RHPF { state: s, .. } = node {
+                    if let SignalNode::RHPF { state: s, .. } = &**node_rc {
                         s.x2 = x1;
                         s.x1 = input_val;
                         s.y2 = y1;
@@ -6292,12 +6308,12 @@ impl UnifiedSignalGraph {
                 // Process comb filters (parallel)
                 let mut comb_out = 0.0;
                 for i in 0..8 {
-                    let buf_len = state.comb_buffers[i].len();
-                    let read_idx = state.comb_indices[i];
-                    let delayed = state.comb_buffers[i][read_idx];
+                    let buf_len = state.borrow().comb_buffers[i].len();
+                    let read_idx = state.borrow_mut().comb_indices[i];
+                    let delayed = state.borrow().comb_buffers[i][read_idx];
 
                     // Lowpass filter for damping
-                    let filtered = state.comb_filter_stores[i] * damp + delayed * (1.0 - damp);
+                    let filtered = state.borrow_mut().comb_filter_stores[i] * damp + delayed * (1.0 - damp);
 
                     // Feedback
                     let feedback = 0.84 * room;
@@ -6319,9 +6335,9 @@ impl UnifiedSignalGraph {
 
                 // Process allpass filters (series)
                 for i in 0..4 {
-                    let buf_len = state.allpass_buffers[i].len();
-                    let read_idx = state.allpass_indices[i];
-                    let delayed = state.allpass_buffers[i][read_idx];
+                    let buf_len = state.borrow().allpass_buffers[i].len();
+                    let read_idx = state.borrow_mut().allpass_indices[i];
+                    let delayed = state.borrow().allpass_buffers[i][read_idx];
 
                     let to_write = allpass_out + delayed * 0.5;
                     allpass_out = delayed - allpass_out * 0.5;
@@ -6581,8 +6597,8 @@ impl UnifiedSignalGraph {
                 let bit_depth = self.eval_signal(&bits).clamp(1.0, 16.0);
                 let rate_reduction = self.eval_signal(&sample_rate).clamp(1.0, 64.0);
 
-                let phase = *state.phase.borrow() + rate_reduction;
-                let mut output = *state.last_sample.borrow();
+                let phase = *state.borrow().phase.borrow() + rate_reduction;
+                let mut output = *state.borrow_mut().last_sample.borrow();
 
                 if phase >= 1.0 {
                     // Reduce bit depth
@@ -6618,7 +6634,7 @@ impl UnifiedSignalGraph {
                 let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
 
                 // LFO for delay modulation
-                let lfo_phase = state.lfo_phase;
+                let lfo_phase = state.borrow_mut().lfo_phase;
                 let lfo = (lfo_phase * 2.0 * std::f32::consts::PI).sin();
 
                 // Modulated delay time (5-25ms)
@@ -6627,14 +6643,14 @@ impl UnifiedSignalGraph {
                 let delay_samples = (delay_time * self.sample_rate) as f32;
 
                 // Read from delay buffer with linear interpolation
-                let buf_len = state.delay_buffer.len();
+                let buf_len = state.borrow_mut().delay_buffer.len();
                 let read_pos =
-                    (state.write_idx as f32 + buf_len as f32 - delay_samples) % buf_len as f32;
+                    (state.borrow_mut().write_idx as f32 + buf_len as f32 - delay_samples) % buf_len as f32;
                 let read_idx = read_pos.floor() as usize;
                 let frac = read_pos - read_pos.floor();
 
-                let sample1 = state.delay_buffer[read_idx % buf_len];
-                let sample2 = state.delay_buffer[(read_idx + 1) % buf_len];
+                let sample1 = state.borrow().delay_buffer[read_idx % buf_len];
+                let sample2 = state.borrow().delay_buffer[(read_idx + 1) % buf_len];
                 let delayed = sample1 + (sample2 - sample1) * frac;
 
                 // Update state
@@ -6668,13 +6684,13 @@ impl UnifiedSignalGraph {
                     if let Some(Some(SignalNode::Flanger { state: s, .. })) =
                         self.nodes.get_mut(node_id.0)
                     {
-                        s.lfo_phase = (state.lfo_phase + lfo_rate / self.sample_rate) % 1.0;
+                        s.lfo_phase = (state.borrow_mut().lfo_phase + lfo_rate / self.sample_rate) % 1.0;
                     }
                     return input_val;
                 }
 
                 // LFO for delay modulation (sine wave)
-                let lfo_phase = state.lfo_phase;
+                let lfo_phase = state.borrow_mut().lfo_phase;
                 let lfo = (lfo_phase * 2.0 * std::f32::consts::PI).sin();
 
                 // Modulated delay time (1-5ms for flanging)
@@ -6683,18 +6699,18 @@ impl UnifiedSignalGraph {
                 let delay_samples = (delay_time * self.sample_rate) as f32;
 
                 // Read from delay buffer with linear interpolation
-                let buf_len = state.delay_buffer.len();
+                let buf_len = state.borrow_mut().delay_buffer.len();
                 let read_pos =
-                    (state.write_idx as f32 + buf_len as f32 - delay_samples) % buf_len as f32;
+                    (state.borrow_mut().write_idx as f32 + buf_len as f32 - delay_samples) % buf_len as f32;
                 let read_idx = read_pos.floor() as usize;
                 let frac = read_pos - read_pos.floor();
 
-                let sample1 = state.delay_buffer[read_idx % buf_len];
-                let sample2 = state.delay_buffer[(read_idx + 1) % buf_len];
+                let sample1 = state.borrow().delay_buffer[read_idx % buf_len];
+                let sample2 = state.borrow().delay_buffer[(read_idx + 1) % buf_len];
                 let delayed = sample1 + (sample2 - sample1) * frac;
 
                 // Apply feedback (with feedback limiting to prevent explosion)
-                let wet = delayed + state.feedback_sample * feedback_amt;
+                let wet = delayed + state.borrow_mut().feedback_sample * feedback_amt;
 
                 // Update state
                 if let Some(Some(SignalNode::Flanger { state: s, .. })) =
@@ -8377,7 +8393,7 @@ impl UnifiedSignalGraph {
                 let (s1, s2, s3, s4) = if let Some(Some(SignalNode::MoogLadder { state, .. })) =
                     self.nodes.get(node_id.0)
                 {
-                    (state.stage1, state.stage2, state.stage3, state.stage4)
+                    (state.borrow_mut().stage1, state.borrow_mut().stage2, state.borrow_mut().stage3, state.borrow_mut().stage4)
                 } else {
                     (0.0, 0.0, 0.0, 0.0)
                 };
@@ -8395,10 +8411,10 @@ impl UnifiedSignalGraph {
                 if let Some(Some(SignalNode::MoogLadder { state, .. })) =
                     self.nodes.get_mut(node_id.0)
                 {
-                    state.stage1 = stage1_new;
-                    state.stage2 = stage2_new;
-                    state.stage3 = stage3_new;
-                    state.stage4 = stage4_new;
+                    state.borrow_mut().stage1 = stage1_new;
+                    state.borrow_mut().stage2 = stage2_new;
+                    state.borrow_mut().stage3 = stage3_new;
+                    state.borrow_mut().stage4 = stage4_new;
                 }
 
                 // Output from final stage
@@ -8476,9 +8492,9 @@ impl UnifiedSignalGraph {
                         self.nodes.get(node_id.0)
                     {
                         (
-                            state.low_band.clone(),
-                            state.mid_band.clone(),
-                            state.high_band.clone(),
+                            state.borrow_mut().low_band.clone(),
+                            state.borrow_mut().mid_band.clone(),
+                            state.borrow_mut().high_band.clone(),
                         )
                     } else {
                         (
@@ -8513,9 +8529,9 @@ impl UnifiedSignalGraph {
                 if let Some(Some(SignalNode::ParametricEQ { state, .. })) =
                     self.nodes.get_mut(node_id.0)
                 {
-                    state.low_band = new_low_state;
-                    state.mid_band = new_mid_state;
-                    state.high_band = new_high_state;
+                    state.borrow_mut().low_band = new_low_state;
+                    state.borrow_mut().mid_band = new_mid_state;
+                    state.borrow_mut().high_band = new_high_state;
                 }
 
                 output
@@ -8540,45 +8556,44 @@ impl UnifiedSignalGraph {
                 let release_val = self.eval_signal(&release);
 
                 // Work with state in place (no clone needed)
-                let mut output_level = state.level;
+                let mut output_level = state.borrow().level;
 
                 // Check for trigger
                 {
-                    let phase = state.phase.borrow();
-                    if trig > 0.5 && matches!(*phase, EnvPhase::Idle | EnvPhase::Release) {
-                        drop(phase); // Release borrow before mutable borrow
-                        *state.phase.borrow_mut() = EnvPhase::Attack;
+                    let phase = state.borrow().phase.borrow().clone();
+                    if trig > 0.5 && matches!(phase, EnvPhase::Idle | EnvPhase::Release) {
+                        *state.borrow().phase.borrow_mut() = EnvPhase::Attack;
                         state.borrow_mut().time_in_phase = 0.0;
                     } else if trig <= 0.5
                         && matches!(
-                            *phase,
+                            phase,
                             EnvPhase::Attack | EnvPhase::Decay | EnvPhase::Sustain
                         )
                     {
-                        drop(phase); // Release borrow before mutable borrow
                         // Store current level before entering release phase
-                        state.borrow_mut().release_start_level = state.level;
-                        *state.phase.borrow_mut() = EnvPhase::Release;
+                        let current_level = state.borrow().level;
+                        state.borrow_mut().release_start_level = current_level;
+                        *state.borrow().phase.borrow_mut() = EnvPhase::Release;
                         state.borrow_mut().time_in_phase = 0.0;
                     }
                 }
 
                 // Process envelope
                 let dt = 1.0 / self.sample_rate;
-                state.time_in_phase += dt;
+                state.borrow_mut().time_in_phase += dt;
 
-                match *state.phase.borrow() {
+                match *state.borrow().phase.borrow() {
                     EnvPhase::Attack => {
                         if attack_val > 0.0 {
                             state.borrow_mut().level = state.time_in_phase / attack_val;
                             if state.level >= 1.0 {
                                 state.borrow_mut().level = 1.0;
-                                *state.phase.borrow_mut() = EnvPhase::Decay;
+                                *state.borrow().phase.borrow_mut() = EnvPhase::Decay;
                                 state.borrow_mut().time_in_phase = 0.0;
                             }
                         } else {
                             state.borrow_mut().level = 1.0;
-                            *state.phase.borrow_mut() = EnvPhase::Decay;
+                            *state.borrow().phase.borrow_mut() = EnvPhase::Decay;
                             state.borrow_mut().time_in_phase = 0.0;
                         }
                     }
@@ -8588,12 +8603,12 @@ impl UnifiedSignalGraph {
                                 1.0 - (1.0 - sustain_val) * (state.time_in_phase / decay_val);
                             if state.level <= sustain_val {
                                 state.borrow_mut().level = sustain_val;
-                                *state.phase.borrow_mut() = EnvPhase::Sustain;
+                                *state.borrow().phase.borrow_mut() = EnvPhase::Sustain;
                                 state.borrow_mut().time_in_phase = 0.0;
                             }
                         } else {
                             state.borrow_mut().level = sustain_val;
-                            *state.phase.borrow_mut() = EnvPhase::Sustain;
+                            *state.borrow().phase.borrow_mut() = EnvPhase::Sustain;
                             state.borrow_mut().time_in_phase = 0.0;
                         }
                     }
@@ -8608,11 +8623,11 @@ impl UnifiedSignalGraph {
 
                             if progress >= 1.0 {
                                 state.borrow_mut().level = 0.0;
-                                *state.phase.borrow_mut() = EnvPhase::Idle;
+                                *state.borrow().phase.borrow_mut() = EnvPhase::Idle;
                             }
                         } else {
                             state.borrow_mut().level = 0.0;
-                            *state.phase.borrow_mut() = EnvPhase::Idle;
+                            *state.borrow().phase.borrow_mut() = EnvPhase::Idle;
                         }
                     }
                     EnvPhase::Idle => {
@@ -8928,11 +8943,11 @@ impl UnifiedSignalGraph {
 
                 // Process envelope based on trigger
                 {
-                    let phase = state.phase.borrow();
+                    let phase = state.borrow().phase.borrow();
                     if trigger_active && matches!(*phase, EnvPhase::Idle | EnvPhase::Release) {
                         drop(phase);
                         // Start attack phase
-                        *state.phase.borrow_mut() = EnvPhase::Attack;
+                        *state.borrow().phase.borrow_mut() = EnvPhase::Attack;
                         state.borrow_mut().time_in_phase = 0.0;
                     } else if !trigger_active
                         && matches!(
@@ -8943,7 +8958,7 @@ impl UnifiedSignalGraph {
                         drop(phase);
                         // Enter release phase
                         state.borrow_mut().release_start_level = state.level;
-                        *state.phase.borrow_mut() = EnvPhase::Release;
+                        *state.borrow().phase.borrow_mut() = EnvPhase::Release;
                         state.borrow_mut().time_in_phase = 0.0;
                     }
                 }
@@ -8952,18 +8967,18 @@ impl UnifiedSignalGraph {
                 let dt = 1.0 / self.sample_rate;
                 state.time_in_phase += dt;
 
-                match *state.phase.borrow() {
+                match *state.borrow().phase.borrow() {
                     EnvPhase::Attack => {
                         if attack > 0.0 {
                             state.borrow_mut().level = state.time_in_phase / attack;
                             if state.level >= 1.0 {
                                 state.borrow_mut().level = 1.0;
-                                *state.phase.borrow_mut() = EnvPhase::Decay;
+                                *state.borrow().phase.borrow_mut() = EnvPhase::Decay;
                                 state.borrow_mut().time_in_phase = 0.0;
                             }
                         } else {
                             state.borrow_mut().level = 1.0;
-                            *state.phase.borrow_mut() = EnvPhase::Decay;
+                            *state.borrow().phase.borrow_mut() = EnvPhase::Decay;
                             state.borrow_mut().time_in_phase = 0.0;
                         }
                     }
@@ -8973,12 +8988,12 @@ impl UnifiedSignalGraph {
                                 1.0 - (1.0 - sustain) * (state.time_in_phase / decay);
                             if state.level <= sustain {
                                 state.borrow_mut().level = sustain;
-                                *state.phase.borrow_mut() = EnvPhase::Sustain;
+                                *state.borrow().phase.borrow_mut() = EnvPhase::Sustain;
                                 state.borrow_mut().time_in_phase = 0.0;
                             }
                         } else {
                             state.borrow_mut().level = sustain;
-                            *state.phase.borrow_mut() = EnvPhase::Sustain;
+                            *state.borrow().phase.borrow_mut() = EnvPhase::Sustain;
                             state.borrow_mut().time_in_phase = 0.0;
                         }
                     }
@@ -8992,11 +9007,11 @@ impl UnifiedSignalGraph {
 
                             if progress >= 1.0 {
                                 state.borrow_mut().level = 0.0;
-                                *state.phase.borrow_mut() = EnvPhase::Idle;
+                                *state.borrow().phase.borrow_mut() = EnvPhase::Idle;
                             }
                         } else {
                             state.borrow_mut().level = 0.0;
-                            *state.phase.borrow_mut() = EnvPhase::Idle;
+                            *state.borrow().phase.borrow_mut() = EnvPhase::Idle;
                         }
                     }
                     EnvPhase::Idle => {
@@ -9097,11 +9112,11 @@ impl UnifiedSignalGraph {
 
                 // Process envelope based on trigger
                 {
-                    let phase = state.phase.borrow();
+                    let phase = state.borrow().phase.borrow();
                     if trigger_active && matches!(*phase, EnvPhase::Idle | EnvPhase::Release) {
                         drop(phase);
                         // Start attack phase
-                        *state.phase.borrow_mut() = EnvPhase::Attack;
+                        *state.borrow().phase.borrow_mut() = EnvPhase::Attack;
                         state.borrow_mut().time_in_phase = 0.0;
                     } else if !trigger_active
                         && matches!(
@@ -9112,7 +9127,7 @@ impl UnifiedSignalGraph {
                         drop(phase);
                         // Enter release phase
                         state.borrow_mut().release_start_level = state.level;
-                        *state.phase.borrow_mut() = EnvPhase::Release;
+                        *state.borrow().phase.borrow_mut() = EnvPhase::Release;
                         state.borrow_mut().time_in_phase = 0.0;
                     }
                 }
@@ -9121,18 +9136,18 @@ impl UnifiedSignalGraph {
                 let dt = 1.0 / self.sample_rate;
                 state.time_in_phase += dt;
 
-                match *state.phase.borrow() {
+                match *state.borrow().phase.borrow() {
                     EnvPhase::Attack => {
                         if attack > 0.0 {
                             state.borrow_mut().level = state.time_in_phase / attack;
                             if state.level >= 1.0 {
                                 state.borrow_mut().level = 1.0;
-                                *state.phase.borrow_mut() = EnvPhase::Decay;
+                                *state.borrow().phase.borrow_mut() = EnvPhase::Decay;
                                 state.borrow_mut().time_in_phase = 0.0;
                             }
                         } else {
                             state.borrow_mut().level = 1.0;
-                            *state.phase.borrow_mut() = EnvPhase::Decay;
+                            *state.borrow().phase.borrow_mut() = EnvPhase::Decay;
                             state.borrow_mut().time_in_phase = 0.0;
                         }
                     }
@@ -9142,12 +9157,12 @@ impl UnifiedSignalGraph {
                                 1.0 - (1.0 - sustain) * (state.time_in_phase / decay);
                             if state.level <= sustain {
                                 state.borrow_mut().level = sustain;
-                                *state.phase.borrow_mut() = EnvPhase::Sustain;
+                                *state.borrow().phase.borrow_mut() = EnvPhase::Sustain;
                                 state.borrow_mut().time_in_phase = 0.0;
                             }
                         } else {
                             state.borrow_mut().level = sustain;
-                            *state.phase.borrow_mut() = EnvPhase::Sustain;
+                            *state.borrow().phase.borrow_mut() = EnvPhase::Sustain;
                             state.borrow_mut().time_in_phase = 0.0;
                         }
                     }
@@ -9161,11 +9176,11 @@ impl UnifiedSignalGraph {
 
                             if progress >= 1.0 {
                                 state.borrow_mut().level = 0.0;
-                                *state.phase.borrow_mut() = EnvPhase::Idle;
+                                *state.borrow().phase.borrow_mut() = EnvPhase::Idle;
                             }
                         } else {
                             state.borrow_mut().level = 0.0;
-                            *state.phase.borrow_mut() = EnvPhase::Idle;
+                            *state.borrow().phase.borrow_mut() = EnvPhase::Idle;
                         }
                     }
                     EnvPhase::Idle => {
@@ -9251,22 +9266,22 @@ impl UnifiedSignalGraph {
                 let sat = self.eval_signal(&saturation).clamp(0.0, 1.0);
                 let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
 
-                let buffer_len = state.buffer.len();
-                let sample_rate = state.sample_rate;
+                let buffer_len = state.borrow_mut().buffer.len();
+                let sample_rate = state.borrow().sample_rate;
 
                 // Update wow and flutter LFOs
                 let wow_phase_inc = wow_r / sample_rate;
                 let flutter_phase_inc = flutter_r / sample_rate;
 
                 // Modulate delay time with wow (slow) and flutter (fast)
-                let wow = (state.wow_phase * std::f32::consts::TAU).sin() * wow_d * 0.001;
-                let flutter = (state.flutter_phase * std::f32::consts::TAU).sin() * flutter_d * 0.0001;
+                let wow = (state.borrow_mut().wow_phase * std::f32::consts::TAU).sin() * wow_d * 0.001;
+                let flutter = (state.borrow_mut().flutter_phase * std::f32::consts::TAU).sin() * flutter_d * 0.0001;
 
                 let modulated_time = delay_time + wow + flutter;
                 let delay_samples = (modulated_time * sample_rate).max(1.0).min(buffer_len as f32 - 1.0);
 
                 // Fractional delay using linear interpolation
-                let read_pos_f = (state.write_idx as f32) - delay_samples;
+                let read_pos_f = (state.borrow_mut().write_idx as f32) - delay_samples;
                 let read_pos = if read_pos_f < 0.0 {
                     read_pos_f + buffer_len as f32
                 } else {
@@ -9277,7 +9292,7 @@ impl UnifiedSignalGraph {
                 let next_idx = (read_idx + 1) % buffer_len;
                 let frac = read_pos.fract();
 
-                let delayed = state.buffer[read_idx] * (1.0 - frac) + state.buffer[next_idx] * frac;
+                let delayed = state.borrow().buffer[read_idx] * (1.0 - frac) + state.borrow().buffer[next_idx] * frac;
 
                 // Tape saturation (soft clipping)
                 let saturated = if sat > 0.01 {
@@ -9289,7 +9304,7 @@ impl UnifiedSignalGraph {
 
                 // Tape head filtering (one-pole lowpass)
                 let cutoff_coef = 0.7 + sat * 0.2;
-                let filtered = state.lpf_state * cutoff_coef + saturated * (1.0 - cutoff_coef);
+                let filtered = state.borrow_mut().lpf_state * cutoff_coef + saturated * (1.0 - cutoff_coef);
 
                 // Write to buffer
                 let to_write = input_val + filtered * fb;

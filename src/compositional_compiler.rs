@@ -3420,7 +3420,7 @@ fn compile_plate(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
         damping: Signal::Node(damping_node),
         mod_depth: Signal::Node(mod_depth_node),
         mix: Signal::Node(mix_node),
-        state: DattorroState::new(ctx.sample_rate),
+        state: RefCell::new(DattorroState::new(ctx.sample_rate)),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3452,7 +3452,7 @@ fn compile_chorus(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         rate: Signal::Node(rate_node),
         depth: Signal::Node(depth_node),
         mix: Signal::Node(mix_node),
-        state: ChorusState::default(),
+        state: RefCell::new(ChorusState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3482,7 +3482,7 @@ fn compile_flanger(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         depth: Signal::Node(depth_node),
         rate: Signal::Node(rate_node),
         feedback: Signal::Node(feedback_node),
-        state: FlangerState::default(),
+        state: RefCell::new(FlangerState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3655,7 +3655,7 @@ fn compile_tremolo(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         input: input_signal,
         rate: Signal::Node(rate_node),
         depth: Signal::Node(depth_node),
-        phase: 0.0, // Start at phase 0
+        phase: RefCell::new(0.0), // Start at phase 0
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3682,7 +3682,7 @@ fn compile_vibrato(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         input: input_signal,
         rate: Signal::Node(rate_node),
         depth: Signal::Node(depth_node),
-        phase: 0.0,              // Start at phase 0
+        phase: RefCell::new(0.0),              // Start at phase 0
         delay_buffer: Vec::new(), // Initialized on first use
         buffer_pos: 0,           // Start at buffer position 0
     };
@@ -3733,7 +3733,7 @@ fn compile_phaser(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         depth: Signal::Node(depth_node),
         feedback: Signal::Node(feedback_node),
         stages,
-        phase: RefCell::new(0.0),
+        phase: 0.0,
         allpass_z1: Vec::new(), // Initialized on first use
         allpass_y1: Vec::new(), // Initialized on first use
         feedback_sample: 0.0,
@@ -3864,7 +3864,7 @@ fn compile_svf_mode(ctx: &mut CompilerContext, args: Vec<Expr>, mode: usize) -> 
         frequency: Signal::Node(frequency_node),
         resonance: Signal::Node(resonance_node),
         mode,
-        state: RefCell::new(SVFState::default()),
+        state: SVFState::default(),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3916,7 +3916,7 @@ fn compile_biquad_mode(ctx: &mut CompilerContext, args: Vec<Expr>, mode: usize) 
         frequency: Signal::Node(frequency_node),
         q: Signal::Node(q_node),
         mode,
-        state: RefCell::new(BiquadState::default()),
+        state: BiquadState::default(),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3944,7 +3944,7 @@ fn compile_resonz(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         input: input_signal,
         frequency: Signal::Node(frequency_node),
         q: Signal::Node(q_node),
-        state: RefCell::new(BiquadState::default()),
+        state: BiquadState::default(),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3972,7 +3972,7 @@ fn compile_rlpf(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
         input: input_signal,
         cutoff: Signal::Node(cutoff_node),
         resonance: Signal::Node(resonance_node),
-        state: RefCell::new(BiquadState::default()),
+        state: BiquadState::default(),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -4000,7 +4000,7 @@ fn compile_rhpf(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
         input: input_signal,
         cutoff: Signal::Node(cutoff_node),
         resonance: Signal::Node(resonance_node),
-        state: RefCell::new(BiquadState::default()),
+        state: BiquadState::default(),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -4297,7 +4297,7 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
         use crate::unified_graph::RuntimeEnvelopeType;
 
         if let Signal::Node(sample_node_id) = input_signal {
-            let sample_node = ctx
+            let sample_node_rc = ctx
                 .graph
                 .get_node(sample_node_id)
                 .ok_or_else(|| "Invalid node reference".to_string())?;
@@ -4314,7 +4314,7 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
                 unit_mode,
                 loop_enabled,
                 ..
-            } = sample_node
+            } = &**sample_node_rc
             {
                 // Create new Sample with ADSR envelope
                 let new_sample = SignalNode::Sample {
@@ -4740,7 +4740,7 @@ fn modify_sample_param(
     new_value: Signal,
 ) -> Result<NodeId, String> {
     // Get the Sample node
-    let sample_node = ctx
+    let sample_node_rc = ctx
         .graph
         .get_node(sample_node_id)
         .ok_or_else(|| "Invalid node reference".to_string())?;
@@ -4760,7 +4760,7 @@ fn modify_sample_param(
         unit_mode,
         loop_enabled,
         ..
-    } = sample_node
+    } = &**sample_node_rc
     {
         // Create new Sample with updated parameter
         let new_sample = SignalNode::Sample {

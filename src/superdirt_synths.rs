@@ -91,7 +91,7 @@ impl SynthLibrary {
             decay: Signal::Value(0.05),
             sustain: Signal::Value(0.0),
             release: Signal::Value(0.001),
-            state: EnvState::default(),
+            state: RefCell::new(EnvState::default()),
         });
 
         // Modulate frequency: base_freq + (pitch_env * base_freq * 2)
@@ -126,7 +126,7 @@ impl SynthLibrary {
             decay: Signal::Value(sustain * 0.7),
             sustain: Signal::Value(0.3),
             release: Signal::Value(sustain * 0.3),
-            state: EnvState::default(),
+            state: RefCell::new(EnvState::default()),
         });
 
         // Optional noise layer for attack click
@@ -139,14 +139,14 @@ impl SynthLibrary {
             decay: Signal::Value(0.01),
             sustain: Signal::Value(0.0),
             release: Signal::Value(0.005),
-            state: EnvState::default(),
+            state: RefCell::new(EnvState::default()),
         });
 
         let noise_filtered = graph.add_node(SignalNode::LowPass {
             input: Signal::Node(noise_env),
             cutoff: Signal::Value(800.0),
             q: Signal::Value(0.5),
-            state: FilterState::default(),
+            state: RefCell::new(FilterState::default()),
         });
 
         // Mix sine and noise
@@ -430,7 +430,7 @@ impl SynthLibrary {
             decay: Signal::Value(sustain * 0.3),
             sustain: Signal::Value(0.0),
             release: Signal::Value(0.001),
-            state: EnvState::default(),
+            state: RefCell::new(EnvState::default()),
         });
 
         // Noise layer for snappiness
@@ -440,7 +440,7 @@ impl SynthLibrary {
             input: Signal::Node(noise),
             cutoff: Signal::Value(3000.0),
             q: Signal::Value(0.5),
-            state: FilterState::default(),
+            state: RefCell::new(FilterState::default()),
         });
 
         let noise_env = graph.add_node(SignalNode::Envelope {
@@ -450,7 +450,7 @@ impl SynthLibrary {
             decay: Signal::Value(sustain),
             sustain: Signal::Value(0.0),
             release: Signal::Value(0.001),
-            state: EnvState::default(),
+            state: RefCell::new(EnvState::default()),
         });
 
         // Mix body and noise
@@ -492,7 +492,7 @@ impl SynthLibrary {
             input: Signal::Node(noise),
             cutoff: Signal::Value(5000.0 + bright * 5000.0),
             q: Signal::Value(1.5),
-            state: FilterState::default(),
+            state: RefCell::new(FilterState::default()),
         });
 
         // Sharp envelope
@@ -503,7 +503,7 @@ impl SynthLibrary {
             decay: Signal::Value(sustain),
             sustain: Signal::Value(0.0),
             release: Signal::Value(sustain * 0.3),
-            state: EnvState::default(),
+            state: RefCell::new(EnvState::default()),
         });
 
         hat
@@ -523,7 +523,7 @@ impl SynthLibrary {
             room_size: Signal::Value(room_size),
             damping: Signal::Value(damping),
             mix: Signal::Value(mix),
-            state: crate::unified_graph::ReverbState::new(self.sample_rate),
+            state: RefCell::new(crate::unified_graph::ReverbState::new(self.sample_rate)),
         })
     }
 
@@ -554,7 +554,7 @@ impl SynthLibrary {
             input: Signal::Node(input),
             bits: Signal::Value(bits),
             sample_rate: Signal::Value(sample_rate_reduction),
-            state: crate::unified_graph::BitCrushState::default(),
+            state: RefCell::new(crate::unified_graph::BitCrushState::default()),
         })
     }
 
@@ -572,7 +572,7 @@ impl SynthLibrary {
             rate: Signal::Value(rate),
             depth: Signal::Value(depth),
             mix: Signal::Value(mix),
-            state: crate::unified_graph::ChorusState::new(self.sample_rate),
+            state: RefCell::new(crate::unified_graph::ChorusState::new(self.sample_rate)),
         })
     }
 
