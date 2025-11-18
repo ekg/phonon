@@ -57,8 +57,8 @@ enum Commands {
         #[arg(short, long, default_value = "512")]
         block_size: usize,
 
-        /// Use realtime rendering path (process_buffer) for profiling (default: false)
-        #[arg(long, default_value = "false")]
+        /// Use realtime rendering path (process_buffer) for profiling (default: true)
+        #[arg(long, default_value = "true")]
         realtime: bool,
 
         /// Enable parallel processing (uses all CPU cores, default: true)
