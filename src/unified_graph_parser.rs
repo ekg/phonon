@@ -2332,9 +2332,9 @@ impl DslCompiler {
                 self.graph.add_node(SignalNode::Sample {
                     pattern_str: pattern,
                     pattern: parsed_pattern,
-                    last_trigger_time: -1.0,
-                    last_cycle: -1, // Initialize to -1 to trigger on first cycle
-                    playback_positions: HashMap::new(),
+                    last_trigger_time: RefCell::new(-1.0),
+                    last_cycle: RefCell::new(-1), // Initialize to -1 to trigger on first cycle
+                    playback_positions: RefCell::new(HashMap::new()),
                     gain: gain_signal,
                     pan: pan_signal,
                     speed: speed_signal,
@@ -2410,7 +2410,7 @@ impl DslCompiler {
                 self.graph.add_node(SignalNode::SynthPattern {
                     pattern_str: notes,
                     pattern: parsed_pattern,
-                    last_trigger_time: -1.0,
+                    last_trigger_time: RefCell::new(-1.0),
                     waveform,
                     attack: attack_val,
                     decay: decay_val,
@@ -2440,8 +2440,8 @@ impl DslCompiler {
                     time: time_signal,
                     feedback: feedback_signal,
                     mix: mix_signal,
-                    buffer,
-                    write_idx: 0,
+                    buffer: RefCell::new(buffer),
+                    write_idx: RefCell::new(0),
                 })
             }
             DslExpression::PatternTransform { pattern, transform } => {
@@ -2648,9 +2648,9 @@ impl DslCompiler {
                         self.graph.add_node(SignalNode::Sample {
                             pattern_str,
                             pattern: transformed_pattern,
-                            last_trigger_time: -1.0,
-                            last_cycle: -1, // Initialize to -1 to trigger on first cycle
-                            playback_positions: HashMap::new(),
+                            last_trigger_time: RefCell::new(-1.0),
+                            last_cycle: RefCell::new(-1), // Initialize to -1 to trigger on first cycle
+                            playback_positions: RefCell::new(HashMap::new()),
                             gain: gain_signal,
                             pan: pan_signal,
                             speed: speed_signal,
