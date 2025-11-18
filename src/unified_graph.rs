@@ -7191,7 +7191,7 @@ impl UnifiedSignalGraph {
                 };
 
                 let events = pattern.query(&state);
-                let mut current_value = last_value; // Default to last value
+                let mut current_value = *last_value.borrow(); // Default to last value
 
                 // DEBUG: Log all pattern queries
                 if std::env::var("DEBUG_PATTERN").is_ok()
@@ -7232,10 +7232,10 @@ impl UnifiedSignalGraph {
                         }
 
                         // DEBUG: Log rests
-                        if std::env::var("DEBUG_PATTERN").is_ok() && last_value != 0.0 {
+                        if std::env::var("DEBUG_PATTERN").is_ok() && *last_value.borrow() != 0.0 {
                             eprintln!(
                                 "Pattern '{}' at cycle {:.4}: REST (was {})",
-                                pattern_str, self.get_cycle_position(), last_value
+                                pattern_str, self.get_cycle_position(), *last_value.borrow()
                             );
                         }
                     } else if !s.is_empty() {
@@ -7252,14 +7252,14 @@ impl UnifiedSignalGraph {
                             current_value = midi_to_freq(midi) as f32;
                         } else {
                             // If neither works, keep last value
-                            current_value = last_value;
+                            current_value = *last_value.borrow();
                         }
 
                         // DEBUG: Log pattern value changes
-                        if std::env::var("DEBUG_PATTERN").is_ok() && current_value != last_value {
+                        if std::env::var("DEBUG_PATTERN").is_ok() && current_value != *last_value.borrow() {
                             eprintln!(
                                 "Pattern '{}' at cycle {:.4}: value changed {} -> {} (event: '{}')",
-                                pattern_str, self.get_cycle_position(), last_value, current_value, s
+                                pattern_str, self.get_cycle_position(), *last_value.borrow(), current_value, s
                             );
                         }
 
@@ -8144,7 +8144,7 @@ impl UnifiedSignalGraph {
                 };
 
                 let events = pattern.query(&state);
-                let mut current_value = last_value; // Default to last value
+                let mut current_value = *last_value.borrow(); // Default to last value
 
                 // If there's an event at this cycle position, quantize it to the scale
                 if let Some(event) = events.first() {
