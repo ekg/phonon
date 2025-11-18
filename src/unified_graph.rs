@@ -8585,8 +8585,8 @@ impl UnifiedSignalGraph {
                 match *state.borrow().phase.borrow() {
                     EnvPhase::Attack => {
                         if attack_val > 0.0 {
-                            state.borrow_mut().level = state.time_in_phase / attack_val;
-                            if state.level >= 1.0 {
+                            state.borrow_mut().level = state.borrow().time_in_phase / attack_val;
+                            if state.borrow().level >= 1.0 {
                                 state.borrow_mut().level = 1.0;
                                 *state.borrow().phase.borrow_mut() = EnvPhase::Decay;
                                 state.borrow_mut().time_in_phase = 0.0;
@@ -8601,7 +8601,7 @@ impl UnifiedSignalGraph {
                         if decay_val > 0.0 {
                             state.level =
                                 1.0 - (1.0 - sustain_val) * (state.time_in_phase / decay_val);
-                            if state.level <= sustain_val {
+                            if state.borrow().level <= sustain_val {
                                 state.borrow_mut().level = sustain_val;
                                 *state.borrow().phase.borrow_mut() = EnvPhase::Sustain;
                                 state.borrow_mut().time_in_phase = 0.0;
@@ -8619,7 +8619,7 @@ impl UnifiedSignalGraph {
                         if release_val > 0.0 {
                             // Linear decay from release_start_level to 0 over release time
                             let progress = (state.time_in_phase / release_val).min(1.0);
-                            state.borrow_mut().level = state.release_start_level * (1.0 - progress);
+                            state.borrow_mut().level = state.borrow().release_start_level * (1.0 - progress);
 
                             if progress >= 1.0 {
                                 state.borrow_mut().level = 0.0;
@@ -8970,8 +8970,8 @@ impl UnifiedSignalGraph {
                 match *state.borrow().phase.borrow() {
                     EnvPhase::Attack => {
                         if attack > 0.0 {
-                            state.borrow_mut().level = state.time_in_phase / attack;
-                            if state.level >= 1.0 {
+                            state.borrow_mut().level = state.borrow().time_in_phase / attack;
+                            if state.borrow().level >= 1.0 {
                                 state.borrow_mut().level = 1.0;
                                 *state.borrow().phase.borrow_mut() = EnvPhase::Decay;
                                 state.borrow_mut().time_in_phase = 0.0;
@@ -8986,7 +8986,7 @@ impl UnifiedSignalGraph {
                         if decay > 0.0 {
                             state.level =
                                 1.0 - (1.0 - sustain) * (state.time_in_phase / decay);
-                            if state.level <= sustain {
+                            if state.borrow().level <= sustain {
                                 state.borrow_mut().level = sustain;
                                 *state.borrow().phase.borrow_mut() = EnvPhase::Sustain;
                                 state.borrow_mut().time_in_phase = 0.0;
@@ -9003,7 +9003,7 @@ impl UnifiedSignalGraph {
                     EnvPhase::Release => {
                         if release > 0.0 {
                             let progress = (state.time_in_phase / release).min(1.0);
-                            state.borrow_mut().level = state.release_start_level * (1.0 - progress);
+                            state.borrow_mut().level = state.borrow().release_start_level * (1.0 - progress);
 
                             if progress >= 1.0 {
                                 state.borrow_mut().level = 0.0;
@@ -9139,8 +9139,8 @@ impl UnifiedSignalGraph {
                 match *state.borrow().phase.borrow() {
                     EnvPhase::Attack => {
                         if attack > 0.0 {
-                            state.borrow_mut().level = state.time_in_phase / attack;
-                            if state.level >= 1.0 {
+                            state.borrow_mut().level = state.borrow().time_in_phase / attack;
+                            if state.borrow().level >= 1.0 {
                                 state.borrow_mut().level = 1.0;
                                 *state.borrow().phase.borrow_mut() = EnvPhase::Decay;
                                 state.borrow_mut().time_in_phase = 0.0;
@@ -9155,7 +9155,7 @@ impl UnifiedSignalGraph {
                         if decay > 0.0 {
                             state.level =
                                 1.0 - (1.0 - sustain) * (state.time_in_phase / decay);
-                            if state.level <= sustain {
+                            if state.borrow().level <= sustain {
                                 state.borrow_mut().level = sustain;
                                 *state.borrow().phase.borrow_mut() = EnvPhase::Sustain;
                                 state.borrow_mut().time_in_phase = 0.0;
@@ -9172,7 +9172,7 @@ impl UnifiedSignalGraph {
                     EnvPhase::Release => {
                         if release > 0.0 {
                             let progress = (state.time_in_phase / release).min(1.0);
-                            state.borrow_mut().level = state.release_start_level * (1.0 - progress);
+                            state.borrow_mut().level = state.borrow().release_start_level * (1.0 - progress);
 
                             if progress >= 1.0 {
                                 state.borrow_mut().level = 0.0;
