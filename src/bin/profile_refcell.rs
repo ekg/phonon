@@ -7,10 +7,9 @@
 //
 // Usage: cargo run --release --bin profile_refcell -- <file.ph> <cycles>
 
-use phonon::unified_graph::{SignalGraph, NodeId};
-use phonon::compositional_compiler::compile_dsl_to_graph;
-use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::Pattern;
+use phonon::unified_graph::{UnifiedSignalGraph, NodeId};
+use phonon::compositional_compiler::compile_program;
+use phonon::compositional_parser::parse_program;
 use std::fs;
 use std::time::Instant;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -38,15 +37,20 @@ fn main() {
     println!("Cycles: {}", cycles);
     println!();
 
-    // Compile graph
+    // Parse and compile graph
     let compile_start = Instant::now();
-    let (mut graph, output_nodes) = compile_dsl_to_graph(&dsl_code, 44100.0)
+    let statements = match parse_program(&dsl_code) {
+        Ok((_, stmts)) => stmts,
+        Err(e) => {
+            eprintln!("Parse error: {:?}", e);
+            std::process::exit(1);
+        }
+    };
+    let mut graph = compile_program(statements, 44100.0)
         .expect("Failed to compile DSL");
     let compile_time = compile_start.elapsed();
 
     println!("✅ Compilation: {:?}", compile_time);
-    println!("   Nodes in graph: {}", graph.nodes.len());
-    println!("   Output buses: {}", output_nodes.len());
     println!();
 
     // Render audio
@@ -59,18 +63,9 @@ fn main() {
     let render_start = Instant::now();
     let mut buffer = vec![0.0f32; total_samples];
 
-    // Use first output bus (or default)
-    let output_node = if let Some((_name, node_id)) = output_nodes.iter().next() {
-        *node_id
-    } else {
-        NodeId(0)
-    };
-
-    // Render sample by sample (like live mode)
+    // Render sample by sample (using process_sample API)
     for i in 0..total_samples {
-        let time = i as f32 / sample_rate;
-        graph.current_time = time;
-        buffer[i] = graph.eval_node(output_node);
+        buffer[i] = graph.process_sample();
     }
 
     let render_time = render_start.elapsed();
