@@ -1067,8 +1067,8 @@ pub enum SignalNode {
     RMS {
         input: Signal,
         window_size: Signal,
-        buffer: Vec<f32>,
-        write_idx: usize,
+        buffer: RefCell<Vec<f32>>,
+        write_idx: RefCell<usize>,
     },
 
     /// Schmidt trigger (gate with hysteresis)
@@ -1079,7 +1079,7 @@ pub enum SignalNode {
         input: Signal,
         high_threshold: Signal,
         low_threshold: Signal,
-        state: bool, // Current gate state (true = high, false = low)
+        state: RefCell<bool>, // Current gate state (true = high, false = low)
     },
 
     /// Latch (Sample & Hold)
@@ -1087,8 +1087,8 @@ pub enum SignalNode {
     Latch {
         input: Signal,
         gate: Signal,
-        held_value: f32, // The currently held sample
-        last_gate: f32,  // Previous gate value (for edge detection)
+        held_value: RefCell<f32>, // The currently held sample
+        last_gate: RefCell<f32>,  // Previous gate value (for edge detection)
     },
 
     /// Timer
@@ -1096,18 +1096,21 @@ pub enum SignalNode {
     /// Resets to 0 on rising edge, counts up in seconds
     Timer {
         trigger: Signal,
-        elapsed_time: f32, // Current elapsed time in seconds
-        last_trigger: f32, // Previous trigger value (for edge detection)
+        elapsed_time: RefCell<f32>, // Current elapsed time in seconds
+        last_trigger: RefCell<f32>, // Previous trigger value (for edge detection)
     },
 
     /// Pitch detector
-    Pitch { input: Signal, last_pitch: f32 },
+    Pitch {
+        input: Signal,
+        last_pitch: RefCell<f32>,
+    },
 
     /// Transient detector
     Transient {
         input: Signal,
         threshold: f32,
-        last_value: f32,
+        last_value: RefCell<f32>,
     },
 
     /// Peak Follower

@@ -4537,8 +4537,8 @@ fn compile_rms(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     let node = SignalNode::RMS {
         input: input_signal,
         window_size: Signal::Node(window_size_node),
-        buffer,
-        write_idx: 0,
+        buffer: RefCell::new(buffer),
+        write_idx: RefCell::new(0),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -4566,7 +4566,7 @@ fn compile_schmidt(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         input: input_signal,
         high_threshold: Signal::Node(high_threshold_node),
         low_threshold: Signal::Node(low_threshold_node),
-        state: false, // Start in low state
+        state: RefCell::new(false), // Start in low state
     };
 
     Ok(ctx.graph.add_node(node))
@@ -4592,8 +4592,8 @@ fn compile_latch(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
     let node = SignalNode::Latch {
         input: input_signal,
         gate: Signal::Node(gate_node),
-        held_value: 0.0, // Start with 0
-        last_gate: 0.0,  // Start with gate low
+        held_value: RefCell::new(0.0), // Start with 0
+        last_gate: RefCell::new(0.0),  // Start with gate low
     };
 
     Ok(ctx.graph.add_node(node))
@@ -4613,8 +4613,8 @@ fn compile_timer(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
 
     let node = SignalNode::Timer {
         trigger: input_signal,
-        elapsed_time: 0.0, // Start at 0
-        last_trigger: 0.0, // Start with trigger low
+        elapsed_time: RefCell::new(0.0), // Start at 0
+        last_trigger: RefCell::new(0.0), // Start with trigger low
     };
 
     Ok(ctx.graph.add_node(node))
