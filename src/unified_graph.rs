@@ -6968,29 +6968,36 @@ impl UnifiedSignalGraph {
                 let mut output_val = input_val;
 
                 // Access and update phaser state
-                if let Some(Some(SignalNode::Phaser {
-                    phase,
-                    allpass_z1: z1,
-                    allpass_y1: y1,
-                    feedback_sample: fb_sample,
-                    stages: num_stages,
-                    ..
-                })) = self.nodes.get_mut(node_id.0)
-                {
-                    // Initialize allpass filter states if needed
-                    if z1.is_empty() {
-                        z1.resize(*num_stages, 0.0);
-                        y1.resize(*num_stages, 0.0);
-                    }
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Phaser {
+                        phase,
+                        allpass_z1: z1,
+                        allpass_y1: y1,
+                        feedback_sample: fb_sample,
+                        stages: num_stages,
+                        ..
+                    } = &**node_rc
+                    {
+                        // Get mutable borrows
+                        let mut phase_ref = phase.borrow_mut();
+                        let mut z1_ref = z1.borrow_mut();
+                        let mut y1_ref = y1.borrow_mut();
+                        let stages = *num_stages.borrow();
 
-                    // Advance LFO phase
-                    *phase += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
-                    if *phase >= 2.0 * std::f32::consts::PI {
-                        *phase -= 2.0 * std::f32::consts::PI;
-                    }
+                        // Initialize allpass filter states if needed
+                        if z1_ref.is_empty() {
+                            z1_ref.resize(stages, 0.0);
+                            y1_ref.resize(stages, 0.0);
+                        }
 
-                    // Calculate LFO (sine wave, 0 to 1)
-                    let lfo = (phase.sin() + 1.0) * 0.5;
+                        // Advance LFO phase
+                        *phase_ref += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
+                        if *phase_ref >= 2.0 * std::f32::consts::PI {
+                            *phase_ref -= 2.0 * std::f32::consts::PI;
+                        }
+
+                        // Calculate LFO (sine wave, 0 to 1)
+                        let lfo = (phase_ref.sin() + 1.0) * 0.5;
 
                     // Map LFO to cutoff frequency (200 Hz to 2000 Hz sweep)
                     let min_freq = 200.0;
@@ -7002,26 +7009,28 @@ impl UnifiedSignalGraph {
                     let tan_val = (std::f32::consts::PI * cutoff / self.sample_rate).tan();
                     let a = (tan_val - 1.0) / (tan_val + 1.0);
 
-                    // Apply feedback
-                    let mut signal = input_val + *fb_sample * feedback_val;
+                        // Apply feedback
+                        let fb_val = *fb_sample.borrow();
+                        let mut signal = input_val + fb_val * feedback_val;
 
-                    // Apply allpass filter cascade
-                    for stage in 0..*num_stages {
-                        // First-order allpass: y[n] = a*x[n] + x[n-1] - a*y[n-1]
-                        let output = a * signal + z1[stage] - a * y1[stage];
+                        // Apply allpass filter cascade
+                        for stage in 0..stages {
+                            // First-order allpass: y[n] = a*x[n] + x[n-1] - a*y[n-1]
+                            let output = a * signal + z1_ref[stage] - a * y1_ref[stage];
 
-                        // Update state
-                        z1[stage] = signal;
-                        y1[stage] = output;
+                            // Update state
+                            z1_ref[stage] = signal;
+                            y1_ref[stage] = output;
 
-                        signal = output;
+                            signal = output;
+                        }
+
+                        // Store for feedback
+                        *fb_sample.borrow_mut() = signal;
+
+                        // Mix filtered signal with dry signal (creates notches)
+                        output_val = (input_val + signal) * 0.5;
                     }
-
-                    // Store for feedback
-                    *fb_sample = signal;
-
-                    // Mix filtered signal with dry signal (creates notches)
-                    output_val = (input_val + signal) * 0.5;
                 }
 
                 output_val
