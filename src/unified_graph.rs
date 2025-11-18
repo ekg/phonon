@@ -8171,12 +8171,14 @@ impl UnifiedSignalGraph {
                                 current_value = midi_to_freq(midi_note.clamp(0, 127) as u8) as f32;
 
                                 // Update last_value for next time
-                                if let Some(Some(SignalNode::ScaleQuantize {
-                                    last_value: lv,
-                                    ..
-                                })) = self.nodes.get_mut(node_id.0)
-                                {
-                                    *lv = current_value;
+                                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                                    if let SignalNode::ScaleQuantize {
+                                        last_value: lv,
+                                        ..
+                                    } = &**node_rc
+                                    {
+                                        *lv.borrow_mut() = current_value;
+                                    }
                                 }
                             }
                         }
@@ -8192,8 +8194,10 @@ impl UnifiedSignalGraph {
                 let next = (seed_val.wrapping_mul(1103515245).wrapping_add(12345)) % (1 << 31);
 
                 // Update seed for next sample
-                if let Some(Some(SignalNode::Noise { seed: s })) = self.nodes.get_mut(node_id.0) {
-                    *s = next;
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Noise { seed: s } = &**node_rc {
+                        *s = next;
+                    }
                 }
 
                 (next as f32 / (1 << 30) as f32) - 1.0
@@ -8310,10 +8314,13 @@ impl UnifiedSignalGraph {
 
                 // Get state
                 let (mut low, mut band, mut high) =
-                    if let Some(Some(SignalNode::DJFilter { state, .. })) =
-                        self.nodes.get(node_id.0)
-                    {
-                        (state.y1, state.x1, state.y2)
+                    if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                        if let SignalNode::DJFilter { state, .. } = &**node_rc {
+                            let s = state.borrow();
+                            (s.y1, s.x1, s.y2)
+                        } else {
+                            (0.0, 0.0, 0.0)
+                        }
                     } else {
                         (0.0, 0.0, 0.0)
                     };
@@ -8336,12 +8343,13 @@ impl UnifiedSignalGraph {
                 }
 
                 // Update state with sanitized values
-                if let Some(Some(SignalNode::DJFilter { state, .. })) =
-                    self.nodes.get_mut(node_id.0)
-                {
-                    state.borrow_mut().y1 = if low.is_finite() { low } else { 0.0 };
-                    state.borrow_mut().x1 = if band.is_finite() { band } else { 0.0 };
-                    state.borrow_mut().y2 = if high.is_finite() { high } else { 0.0 };
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::DJFilter { state, .. } = &**node_rc {
+                        let mut s = state.borrow_mut();
+                        s.y1 = if low.is_finite() { low } else { 0.0 };
+                        s.x1 = if band.is_finite() { band } else { 0.0 };
+                        s.y2 = if high.is_finite() { high } else { 0.0 };
+                    }
                 }
 
                 // Output selection: lowpass for < 0.5, highpass for > 0.5
@@ -8371,12 +8379,13 @@ impl UnifiedSignalGraph {
                 let damp = 1.0 / q_val;
 
                 // Get state
-                let (mut low, mut band, mut high) = if let Some(Some(SignalNode::Notch {
-                    state,
-                    ..
-                })) = self.nodes.get(node_id.0)
-                {
-                    (state.y1, state.x1, state.y2)
+                let (mut low, mut band, mut high) = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                    if let SignalNode::Notch { state, .. } = &**node_rc {
+                        let s = state.borrow();
+                        (s.y1, s.x1, s.y2)
+                    } else {
+                        (0.0, 0.0, 0.0)
+                    }
                 } else {
                     (0.0, 0.0, 0.0)
                 };
@@ -8387,10 +8396,13 @@ impl UnifiedSignalGraph {
                 low += f * band;
 
                 // Update state
-                if let Some(Some(SignalNode::Notch { state, .. })) = self.nodes.get_mut(node_id.0) {
-                    state.borrow_mut().y1 = low;
-                    state.borrow_mut().x1 = band;
-                    state.borrow_mut().y2 = high;
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Notch { state, .. } = &**node_rc {
+                        let mut s = state.borrow_mut();
+                        s.y1 = low;
+                        s.x1 = band;
+                        s.y2 = high;
+                    }
                 }
 
                 low + high // Output notch (low + high = everything except band)
@@ -8409,24 +8421,33 @@ impl UnifiedSignalGraph {
 
                 // Convert frequency to delay time in samples
                 let delay_samples = (self.sample_rate / freq).round() as usize;
-                let delay_samples = delay_samples.clamp(1, buffer.len() - 1);
+                let buf_borrow = buffer.borrow();
+                let delay_samples = delay_samples.clamp(1, buf_borrow.len() - 1);
 
                 // Calculate read position (write_pos - delay_samples, wrapped)
-                let read_pos = (write_pos + buffer.len() - delay_samples) % buffer.len();
-                let delayed = buffer[read_pos];
+                let pos_val = *write_pos.borrow();
+                let read_pos = (pos_val + buf_borrow.len() - delay_samples) % buf_borrow.len();
+                let delayed = buf_borrow[read_pos];
+
+                // Drop immutable borrow
+                drop(buf_borrow);
 
                 // Comb filter: output = input + feedback * delayed_output
                 let output = input_val + fb * delayed;
 
                 // Update buffer and write position
-                if let Some(Some(SignalNode::Comb {
-                    buffer: buf,
-                    write_pos: idx,
-                    ..
-                })) = self.nodes.get_mut(node_id.0)
-                {
-                    buf[*idx] = output;
-                    *idx = (*idx + 1) % buf.len();
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Comb {
+                        buffer: buf,
+                        write_pos: idx,
+                        ..
+                    } = &**node_rc
+                    {
+                        let mut buf_ref = buf.borrow_mut();
+                        let mut idx_ref = idx.borrow_mut();
+                        buf_ref[*idx_ref] = output;
+                        *idx_ref = (*idx_ref + 1) % buf_ref.len();
+                    }
                 }
 
                 output
@@ -8451,10 +8472,13 @@ impl UnifiedSignalGraph {
                 let resonance_amt = res * 4.0;
 
                 // Get current state
-                let (s1, s2, s3, s4) = if let Some(Some(SignalNode::MoogLadder { state, .. })) =
-                    self.nodes.get(node_id.0)
-                {
-                    (state.borrow_mut().stage1, state.borrow_mut().stage2, state.borrow_mut().stage3, state.borrow_mut().stage4)
+                let (s1, s2, s3, s4) = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                    if let SignalNode::MoogLadder { state, .. } = &**node_rc {
+                        let s = state.borrow();
+                        (s.stage1, s.stage2, s.stage3, s.stage4)
+                    } else {
+                        (0.0, 0.0, 0.0, 0.0)
+                    }
                 } else {
                     (0.0, 0.0, 0.0, 0.0)
                 };
@@ -8469,13 +8493,14 @@ impl UnifiedSignalGraph {
                 let stage4_new = s4 + g_normalized * (stage3_new - s4);
 
                 // Update state
-                if let Some(Some(SignalNode::MoogLadder { state, .. })) =
-                    self.nodes.get_mut(node_id.0)
-                {
-                    state.borrow_mut().stage1 = stage1_new;
-                    state.borrow_mut().stage2 = stage2_new;
-                    state.borrow_mut().stage3 = stage3_new;
-                    state.borrow_mut().stage4 = stage4_new;
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::MoogLadder { state, .. } = &**node_rc {
+                        let mut s = state.borrow_mut();
+                        s.stage1 = stage1_new;
+                        s.stage2 = stage2_new;
+                        s.stage3 = stage3_new;
+                        s.stage4 = stage4_new;
+                    }
                 }
 
                 // Output from final stage
@@ -8549,14 +8574,17 @@ impl UnifiedSignalGraph {
 
                 // Get state
                 let (low_state, mid_state, high_state) =
-                    if let Some(Some(SignalNode::ParametricEQ { state, .. })) =
-                        self.nodes.get(node_id.0)
-                    {
-                        (
-                            state.borrow_mut().low_band.clone(),
-                            state.borrow_mut().mid_band.clone(),
-                            state.borrow_mut().high_band.clone(),
-                        )
+                    if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                        if let SignalNode::ParametricEQ { state, .. } = &**node_rc {
+                            let s = state.borrow();
+                            (s.low_band.clone(), s.mid_band.clone(), s.high_band.clone())
+                        } else {
+                            (
+                                FilterState::default(),
+                                FilterState::default(),
+                                FilterState::default(),
+                            )
+                        }
                     } else {
                         (
                             FilterState::default(),
@@ -8587,12 +8615,13 @@ impl UnifiedSignalGraph {
                     apply_peaking_filter(after_mid, high_f, high_g, high_q_val, &high_state);
 
                 // Update state
-                if let Some(Some(SignalNode::ParametricEQ { state, .. })) =
-                    self.nodes.get_mut(node_id.0)
-                {
-                    state.borrow_mut().low_band = new_low_state;
-                    state.borrow_mut().mid_band = new_mid_state;
-                    state.borrow_mut().high_band = new_high_state;
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::ParametricEQ { state, .. } = &**node_rc {
+                        let mut s = state.borrow_mut();
+                        s.low_band = new_low_state;
+                        s.mid_band = new_mid_state;
+                        s.high_band = new_high_state;
+                    }
                 }
 
                 output
@@ -8696,7 +8725,7 @@ impl UnifiedSignalGraph {
                     }
                 }
 
-                output_level = state.level;
+                output_level = state.borrow().level;
 
                 input_val * output_level
             }
@@ -8751,9 +8780,10 @@ impl UnifiedSignalGraph {
                 adsr_state.cycle_pos = cycle_pos;
 
                 // Update state in graph
-                if let Some(Some(SignalNode::ADSR { state: s, .. })) = self.nodes.get_mut(node_id.0)
-                {
-                    *s = adsr_state.clone();
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::ADSR { state: s, .. } = &**node_rc {
+                        *s = adsr_state.clone();
+                    }
                 }
 
                 adsr_state.level
@@ -8800,8 +8830,10 @@ impl UnifiedSignalGraph {
                 ad_state.cycle_pos = cycle_pos;
 
                 // Update state in graph
-                if let Some(Some(SignalNode::AD { state: s, .. })) = self.nodes.get_mut(node_id.0) {
-                    *s = ad_state.clone();
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::AD { state: s, .. } = &**node_rc {
+                        *s = ad_state.clone();
+                    }
                 }
 
                 ad_state.level
