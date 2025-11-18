@@ -6141,7 +6141,7 @@ impl UnifiedSignalGraph {
                 input_val * right_gain
             }
 
-            SignalNode::Constant { value } => value,
+            SignalNode::Constant { value } => *value,
 
             SignalNode::PatternEvaluator { pattern } => {
                 // Evaluate the pattern at the current cycle position
