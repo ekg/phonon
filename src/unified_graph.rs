@@ -6230,7 +6230,7 @@ impl UnifiedSignalGraph {
                 let (x1, y1) = if let Some(Some(SignalNode::Allpass { state, .. })) =
                     self.nodes.get(node_id.0)
                 {
-                    (state.x1, state.y1)
+                    (state.borrow().x1, state.borrow().y1)
                 } else {
                     (0.0, 0.0)
                 };
