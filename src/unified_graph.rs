@@ -8871,31 +8871,33 @@ impl UnifiedSignalGraph {
                 let mut output_val = start_val;
 
                 // Update elapsed time
-                if let Some(Some(SignalNode::Curve {
-                    elapsed_time: elapsed,
-                    ..
-                })) = self.nodes.get_mut(node_id.0)
-                {
-                    // Increment elapsed time
-                    *elapsed += 1.0 / self.sample_rate;
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Curve {
+                        elapsed_time: elapsed,
+                        ..
+                    } = &**node_rc
+                    {
+                        // Increment elapsed time
+                        *elapsed.borrow_mut() += 1.0 / self.sample_rate;
 
-                    // Calculate normalized time (0 to 1)
-                    let t = (*elapsed / duration_val).min(1.0);
+                        // Calculate normalized time (0 to 1)
+                        let t = (*elapsed.borrow() / duration_val).min(1.0);
 
-                    // Apply curve formula
-                    let curved_t = if curve_val.abs() < 0.001 {
-                        // Linear (curve ≈ 0)
-                        t
-                    } else {
-                        // Exponential curve
-                        // Formula: (exp(curve * t) - 1) / (exp(curve) - 1)
-                        let exp_curve = curve_val.exp();
-                        let exp_curve_t = (curve_val * t).exp();
-                        (exp_curve_t - 1.0) / (exp_curve - 1.0)
-                    };
+                        // Apply curve formula
+                        let curved_t = if curve_val.abs() < 0.001 {
+                            // Linear (curve ≈ 0)
+                            t
+                        } else {
+                            // Exponential curve
+                            // Formula: (exp(curve * t) - 1) / (exp(curve) - 1)
+                            let exp_curve = curve_val.exp();
+                            let exp_curve_t = (curve_val * t).exp();
+                            (exp_curve_t - 1.0) / (exp_curve - 1.0)
+                        };
 
-                    // Interpolate between start and end
-                    output_val = start_val + (end_val - start_val) * curved_t;
+                        // Interpolate between start and end
+                        output_val = start_val + (end_val - start_val) * curved_t;
+                    }
                 }
 
                 output_val
