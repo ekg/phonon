@@ -6181,7 +6181,7 @@ impl UnifiedSignalGraph {
                 let current_cycle = self.get_cycle_position().floor() as u64;
                 let mut rng = StdRng::seed_from_u64(current_cycle);
 
-                if rng.gen::<f64>() < prob {
+                if rng.gen::<f64>() < *prob {
                     self.eval_signal_at_time(&effect, self.get_cycle_position())
                 } else {
                     self.eval_signal_at_time(&input, self.get_cycle_position())
