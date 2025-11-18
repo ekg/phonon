@@ -75,6 +75,13 @@ impl LiveSession {
         let graph_clone_synth = Arc::clone(&graph);
         thread::spawn(move || {
             let mut buffer = [0.0f32; 512]; // Render in chunks of 512 samples
+            let mut total_buffers = 0usize;
+            let mut total_time = std::time::Duration::ZERO;
+            let profile = std::env::var("PROFILE_LIVE").is_ok();
+
+            if profile {
+                eprintln!("🔧 Background synthesis thread started with profiling");
+            }
 
             loop {
                 // Check if we have space in ring buffer
@@ -86,7 +93,23 @@ impl LiveSession {
 
                     if let Some(ref graph_cell) = **graph_snapshot {
                         // Synthesize samples using optimized buffer processing
+                        let start = if profile { Some(std::time::Instant::now()) } else { None };
                         graph_cell.0.borrow_mut().process_buffer(&mut buffer);
+
+                        if let Some(start) = start {
+                            let elapsed = start.elapsed();
+                            total_time += elapsed;
+                            total_buffers += 1;
+
+                            if total_buffers % 10 == 0 || elapsed.as_millis() > 15 {
+                                let avg_ms = total_time.as_secs_f64() * 1000.0 / total_buffers as f64;
+                                let target_ms = 512.0 / 44.1; // 11.61ms
+                                let this_ms = elapsed.as_secs_f64() * 1000.0;
+                                eprintln!("🎵 Live #{}: {:.2}ms (avg: {:.2}ms, target: {:.2}ms, {:.0}% CPU) {}",
+                                    total_buffers, this_ms, avg_ms, target_ms, (avg_ms / target_ms) * 100.0,
+                                    if this_ms > target_ms { "⚠️ SLOW" } else { "✅" });
+                            }
+                        }
 
                         // Write to ring buffer
                         let written = ring_producer.push_slice(&buffer);
