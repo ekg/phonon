@@ -6227,10 +6227,12 @@ impl UnifiedSignalGraph {
                 let g = self.eval_signal(&coefficient).clamp(-1.0, 1.0);
 
                 // Get previous state
-                let (x1, y1) = if let Some(Some(SignalNode::Allpass { state, .. })) =
-                    self.nodes.get(node_id.0)
-                {
-                    (state.borrow().x1, state.borrow().y1)
+                let (x1, y1) = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                    if let SignalNode::Allpass { state, .. } = &**node_rc {
+                        (state.borrow().x1, state.borrow().y1)
+                    } else {
+                        (0.0, 0.0)
+                    }
                 } else {
                     (0.0, 0.0)
                 };
