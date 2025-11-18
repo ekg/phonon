@@ -8084,10 +8084,10 @@ impl UnifiedSignalGraph {
 
                         // ADSR parameters
                         let adsr = ADSRParams {
-                            attack,
-                            decay,
-                            sustain,
-                            release,
+                            attack: *attack,
+                            decay: *decay,
+                            sustain: *sustain,
+                            release: *release,
                         };
 
                         // TRIGGER SYNTH VOICE (NOTE ON!)
