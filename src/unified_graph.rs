@@ -828,8 +828,8 @@ pub enum SignalNode {
         pattern_str: String,
         pattern: Pattern<String>,
         scale_name: String,
-        root_note: u8, // MIDI note number
-        last_value: f32,
+        root_note: u8,           // MIDI note number
+        last_value: RefCell<f32>, // Last quantized value
     },
 
     /// Constant value
@@ -917,10 +917,10 @@ pub enum SignalNode {
     /// Useful for physical modeling, bells, metallic sounds, and adding character
     Comb {
         input: Signal,
-        frequency: Signal, // Resonant frequency in Hz (converted to delay time)
-        feedback: Signal,  // Feedback amount (0.0-0.99, higher = more resonance)
-        buffer: Vec<f32>,  // Circular buffer for delay line
-        write_pos: usize,  // Current write position in buffer
+        frequency: Signal,           // Resonant frequency in Hz (converted to delay time)
+        feedback: Signal,            // Feedback amount (0.0-0.99, higher = more resonance)
+        buffer: RefCell<Vec<f32>>,   // Circular buffer for delay line
+        write_pos: RefCell<usize>,   // Current write position in buffer
     },
 
     /// Moog Ladder Filter (4-pole 24dB/octave lowpass with resonance)
@@ -992,22 +992,22 @@ pub enum SignalNode {
     /// Curved ramp from start to end over duration
     /// Curve parameter controls shape: 0=linear, +ve=exponential, -ve=logarithmic
     Curve {
-        start: Signal,     // Start value
-        end: Signal,       // End value
-        duration: Signal,  // Duration in seconds
-        curve: Signal,     // Curve shape (-10 to +10, 0=linear)
-        elapsed_time: f32, // Time since start
+        start: Signal,              // Start value
+        end: Signal,                // End value
+        duration: Signal,           // Duration in seconds
+        curve: Signal,              // Curve shape (-10 to +10, 0=linear)
+        elapsed_time: RefCell<f32>, // Time since start
     },
 
     /// Segments envelope (arbitrary breakpoint)
     /// Multi-segment envelope with linear interpolation
     /// Takes two pattern strings: levels and times
     Segments {
-        levels: Vec<f32>,       // Target levels for each breakpoint
-        times: Vec<f32>,        // Duration for each segment
-        current_segment: usize, // Which segment we're in
-        segment_elapsed: f32,   // Time elapsed in current segment
-        current_value: f32,     // Current interpolated value
+        levels: Vec<f32>,                // Target levels for each breakpoint
+        times: Vec<f32>,                 // Duration for each segment
+        current_segment: RefCell<usize>, // Which segment we're in
+        segment_elapsed: RefCell<f32>,   // Time elapsed in current segment
+        current_value: RefCell<f32>,     // Current interpolated value
     },
 
     /// Delay line
@@ -1016,8 +1016,8 @@ pub enum SignalNode {
         time: Signal,
         feedback: Signal,
         mix: Signal,
-        buffer: Vec<f32>,
-        write_idx: usize,
+        buffer: RefCell<Vec<f32>>,
+        write_idx: RefCell<usize>,
     },
 
     /// Tape Delay (analog tape simulation with wow, flutter, saturation)
@@ -1199,14 +1199,14 @@ pub enum SignalNode {
     /// Convolution Reverb
     Convolution {
         input: Signal,
-        state: ConvolutionState,
+        state: RefCell<ConvolutionState>,
     },
 
     /// Spectral Freeze - FFT-based spectrum freezing
     SpectralFreeze {
         input: Signal,
         trigger: Signal, // Freeze on rising edge (0.0 to 1.0)
-        state: SpectralFreezeState,
+        state: RefCell<SpectralFreezeState>,
     },
 
     /// Distortion / Waveshaper
@@ -1250,7 +1250,7 @@ pub enum SignalNode {
         attack: Signal,      // Attack time in seconds (0.001 to 1.0)
         release: Signal,     // Release time in seconds (0.01 to 3.0)
         makeup_gain: Signal, // Makeup gain in dB (0.0 to 30.0)
-        state: CompressorState,
+        state: RefCell<CompressorState>,
     },
 
     /// Tremolo (amplitude modulation)
@@ -6780,7 +6780,7 @@ impl UnifiedSignalGraph {
 
                 // Envelope follower (peak detector with attack/release)
                 let input_level = input_val.abs();
-                let mut envelope = state.envelope;
+                let mut envelope = state.borrow().envelope;
 
                 // Envelope follower: attack when input > envelope, release when input < envelope
                 let coeff = if input_level > envelope {
@@ -8910,7 +8910,7 @@ impl UnifiedSignalGraph {
                 segment_elapsed,
                 current_value,
             } => {
-                let mut output_val = current_value.clone();
+                let mut output_val = *current_value.borrow();
 
                 // Update state in the graph
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
@@ -9332,25 +9332,32 @@ impl UnifiedSignalGraph {
                 let mix_val = self.eval_signal(&mix).max(0.0).min(1.0);
 
                 let delay_samples = (delay_time * self.sample_rate) as usize;
-                let delay_samples = delay_samples.min(buffer.len() - 1).max(1);
+                let buf_borrow = buffer.borrow();
+                let delay_samples = delay_samples.min(buf_borrow.len() - 1).max(1);
 
                 // Read from delay line
-                let read_idx = (write_idx + buffer.len() - delay_samples) % buffer.len();
-                let delayed = buffer[read_idx];
+                let idx_val = *write_idx.borrow();
+                let read_idx = (idx_val + buf_borrow.len() - delay_samples) % buf_borrow.len();
+                let delayed = buf_borrow[read_idx];
+                drop(buf_borrow);
 
                 // Write to delay line (input + feedback)
                 // Apply soft clipping to prevent feedback explosion
                 let to_write = (input_val + delayed * fb).tanh();
 
                 // Update buffer and write index
-                if let Some(Some(SignalNode::Delay {
-                    buffer: buf,
-                    write_idx: idx,
-                    ..
-                })) = self.nodes.get_mut(node_id.0)
-                {
-                    buf[*idx] = to_write;
-                    *idx = (*idx + 1) % buf.len();
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Delay {
+                        buffer: buf,
+                        write_idx: idx,
+                        ..
+                    } = &**node_rc
+                    {
+                        let mut buf_ref = buf.borrow_mut();
+                        let mut idx_ref = idx.borrow_mut();
+                        buf_ref[*idx_ref] = to_write;
+                        *idx_ref = (*idx_ref + 1) % buf_ref.len();
+                    }
                 }
 
                 // Mix dry and wet

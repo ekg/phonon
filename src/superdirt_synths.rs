@@ -594,7 +594,7 @@ impl SynthLibrary {
             attack: Signal::Value(attack),
             release: Signal::Value(release),
             makeup_gain: Signal::Value(makeup_gain_db),
-            state: crate::unified_graph::CompressorState::new(),
+            state: RefCell::new(crate::unified_graph::CompressorState::new()),
         })
     }
 

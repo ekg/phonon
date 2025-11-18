@@ -1742,8 +1742,8 @@ impl DslCompiler {
                 self.graph.add_node(SignalNode::Pattern {
                     pattern_str,
                     pattern,
-                    last_value: 0.0,
-                    last_trigger_time: -1.0,
+                    last_value: RefCell::new(0.0),
+                    last_trigger_time: RefCell::new(-1.0),
                 })
             }
             DslExpression::Oscillator { waveform, freq, .. } => {
@@ -2375,7 +2375,7 @@ impl DslCompiler {
                     pattern: parsed_pattern,
                     scale_name,
                     root_note: root_midi,
-                    last_value: 261.63, // Default to C4 frequency
+                    last_value: RefCell::new(261.63), // Default to C4 frequency
                 })
             }
             DslExpression::SynthPattern {
@@ -2465,8 +2465,8 @@ impl DslCompiler {
                         self.graph.add_node(SignalNode::Pattern {
                             pattern_str, // Keep original string for debugging
                             pattern: transformed_pattern,
-                            last_value: 0.0,
-                            last_trigger_time: -1.0,
+                            last_value: RefCell::new(0.0),
+                            last_trigger_time: RefCell::new(-1.0),
                         })
                     }
                     DslExpression::PatternTransform {
@@ -2511,8 +2511,8 @@ impl DslCompiler {
                             self.graph.add_node(SignalNode::Pattern {
                                 pattern_str,
                                 pattern: transformed_pattern,
-                                last_value: 0.0,
-                                last_trigger_time: -1.0,
+                                last_value: RefCell::new(0.0),
+                                last_trigger_time: RefCell::new(-1.0),
                             })
                         } else if let Some(SignalNode::Sample {
                             pattern: inner_pattern_obj,
@@ -2565,9 +2565,9 @@ impl DslCompiler {
                             self.graph.add_node(SignalNode::Sample {
                                 pattern_str,
                                 pattern: transformed_pattern,
-                                last_trigger_time: -1.0,
-                                last_cycle: -1,
-                                playback_positions: HashMap::new(),
+                                last_trigger_time: RefCell::new(-1.0),
+                                last_cycle: RefCell::new(-1),
+                                playback_positions: RefCell::new(HashMap::new()),
                                 gain,
                                 pan,
                                 speed,
@@ -2730,9 +2730,9 @@ impl DslCompiler {
                             self.graph.add_node(SignalNode::Sample {
                                 pattern_str,
                                 pattern: transformed_pattern,
-                                last_trigger_time: -1.0,
-                                last_cycle: -1,
-                                playback_positions: HashMap::new(),
+                                last_trigger_time: RefCell::new(-1.0),
+                                last_cycle: RefCell::new(-1),
+                                playback_positions: RefCell::new(HashMap::new()),
                                 gain,
                                 pan,
                                 speed,
@@ -2773,8 +2773,8 @@ impl DslCompiler {
                             self.graph.add_node(SignalNode::Pattern {
                                 pattern_str,
                                 pattern: transformed_pattern,
-                                last_value: 0.0,
-                                last_trigger_time: -1.0,
+                                last_value: RefCell::new(0.0),
+                                last_trigger_time: RefCell::new(-1.0),
                             })
                         } else {
                             eprintln!("Warning: Bus '{}' does not contain a pattern or sample node - cannot apply transform", bus_name);

@@ -2819,8 +2819,8 @@ fn compile_comb(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
         input: input_signal,
         frequency: Signal::Node(frequency_node),
         feedback: Signal::Node(feedback_node),
-        buffer,
-        write_pos: 0,
+        buffer: RefCell::new(buffer),
+        write_pos: RefCell::new(0),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -2940,7 +2940,7 @@ fn compile_convolve(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
 
     let node = SignalNode::Convolution {
         input: input_signal,
-        state: ConvolutionState::new(ctx.graph.sample_rate()),
+        state: RefCell::new(ConvolutionState::new(ctx.graph.sample_rate())),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -2966,7 +2966,7 @@ fn compile_freeze(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
     let node = SignalNode::SpectralFreeze {
         input: input_signal,
         trigger: Signal::Node(trigger_node),
-        state: SpectralFreezeState::new(),
+        state: RefCell::new(SpectralFreezeState::new()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3191,8 +3191,8 @@ fn compile_delay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
         time: Signal::Node(time_node),
         feedback: Signal::Node(feedback_node),
         mix: Signal::Node(mix_node),
-        buffer: vec![0.0; buffer_size],
-        write_idx: 0,
+        buffer: RefCell::new(vec![0.0; buffer_size]),
+        write_idx: RefCell::new(0),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3515,7 +3515,7 @@ fn compile_compressor(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
         attack: Signal::Node(attack_node),
         release: Signal::Node(release_node),
         makeup_gain: Signal::Node(makeup_node),
-        state: CompressorState::default(),
+        state: RefCell::new(CompressorState::default()),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -4442,7 +4442,7 @@ fn compile_curve(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
         end: Signal::Node(end_node),
         duration: Signal::Node(duration_node),
         curve: Signal::Node(curve_node),
-        elapsed_time: 0.0, // Start at beginning
+        elapsed_time: RefCell::new(0.0), // Start at beginning
     };
 
     Ok(ctx.graph.add_node(node))
@@ -4504,9 +4504,9 @@ fn compile_segments(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
     let node = SignalNode::Segments {
         levels,
         times,
-        current_segment: 0,
-        segment_elapsed: 0.0,
-        current_value: 0.0, // Will be set to first level on first sample
+        current_segment: RefCell::new(0),
+        segment_elapsed: RefCell::new(0.0),
+        current_value: RefCell::new(0.0), // Will be set to first level on first sample
     };
 
     Ok(ctx.graph.add_node(node))
