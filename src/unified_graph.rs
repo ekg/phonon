@@ -7349,16 +7349,20 @@ impl UnifiedSignalGraph {
 
                 // Check if we've crossed into a new cycle
                 let current_cycle = self.get_cycle_position().floor() as i32;
-                let cycle_changed = current_cycle != last_cycle;
+                let cycle_changed = current_cycle != *last_cycle.borrow();
 
                 // Get the last EVENT start time we triggered
                 // DON'T reset on cycle boundaries - events can span across cycles
-                let mut last_event_start = if let Some(Some(SignalNode::Sample {
-                    last_trigger_time: lt,
-                    ..
-                })) = self.nodes.get(node_id.0)
-                {
-                    *lt as f64
+                let mut last_event_start = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                    if let SignalNode::Sample {
+                        last_trigger_time: lt,
+                        ..
+                    } = &**node_rc
+                    {
+                        *lt.borrow() as f64
+                    } else {
+                        -1.0
+                    }
                 } else {
                     -1.0
                 };
