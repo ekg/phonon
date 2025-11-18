@@ -3683,8 +3683,8 @@ fn compile_vibrato(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         rate: Signal::Node(rate_node),
         depth: Signal::Node(depth_node),
         phase: RefCell::new(0.0),              // Start at phase 0
-        delay_buffer: Vec::new(), // Initialized on first use
-        buffer_pos: 0,           // Start at buffer position 0
+        delay_buffer: RefCell::new(Vec::new()), // Initialized on first use
+        buffer_pos: RefCell::new(0),           // Start at buffer position 0
     };
 
     Ok(ctx.graph.add_node(node))
@@ -3732,11 +3732,11 @@ fn compile_phaser(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         rate: Signal::Node(rate_node),
         depth: Signal::Node(depth_node),
         feedback: Signal::Node(feedback_node),
-        stages,
-        phase: 0.0,
-        allpass_z1: Vec::new(), // Initialized on first use
-        allpass_y1: Vec::new(), // Initialized on first use
-        feedback_sample: 0.0,
+        stages: RefCell::new(stages),
+        phase: RefCell::new(0.0),
+        allpass_z1: RefCell::new(Vec::new()), // Initialized on first use
+        allpass_y1: RefCell::new(Vec::new()), // Initialized on first use
+        feedback_sample: RefCell::new(0.0),
     };
 
     Ok(ctx.graph.add_node(node))

@@ -1269,8 +1269,8 @@ pub enum SignalNode {
         rate: Signal,            // LFO rate in Hz (0.1 to 20.0)
         depth: Signal,           // Modulation depth in semitones (0.0 to 2.0)
         phase: RefCell<f32>,              // LFO phase accumulator
-        delay_buffer: Vec<f32>,  // Circular delay buffer (50ms)
-        buffer_pos: usize,       // Current write position in buffer
+        delay_buffer: RefCell<Vec<f32>>,  // Circular delay buffer (50ms)
+        buffer_pos: RefCell<usize>,       // Current write position in buffer
     },
 
     /// Phaser (spectral sweeping via allpass filter cascade)
@@ -1280,11 +1280,11 @@ pub enum SignalNode {
         rate: Signal,     // LFO rate in Hz (0.05 to 5.0)
         depth: Signal,    // Modulation depth (0.0 to 1.0)
         feedback: Signal, // Feedback amount (0.0 to 0.95)
-        stages: usize,    // Number of allpass filter stages (2 to 12)
-        phase: f32,       // LFO phase accumulator
-        allpass_z1: Vec<f32>, // Previous input per stage
-        allpass_y1: Vec<f32>, // Previous output per stage
-        feedback_sample: f32, // Feedback buffer
+        stages: RefCell<usize>,    // Number of allpass filter stages (2 to 12)
+        phase: RefCell<f32>,       // LFO phase accumulator
+        allpass_z1: RefCell<Vec<f32>>, // Previous input per stage
+        allpass_y1: RefCell<Vec<f32>>, // Previous output per stage
+        feedback_sample: RefCell<f32>, // Feedback buffer
     },
 
     /// Ring Modulation
@@ -6415,13 +6415,13 @@ impl UnifiedSignalGraph {
                 };
 
                 // Get mutable state
-                let (left_out, right_out) = if let Some(Some(SignalNode::DattorroReverb {
-                    state: s, ..
-                })) = self.nodes.get_mut(node_id.0)
-                {
-                    // 1. PRE-DELAY
-                    let pre_delay_samples = ((pre_delay_ms / 1000.0) * s.sample_rate) as usize;
-                    let pre_delay_samples = pre_delay_samples.min(s.predelay_buffer.len() - 1);
+                let (left_out, right_out) = if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::DattorroReverb { state, .. } = &**node_rc {
+                        let mut s = state.borrow_mut();
+
+                        // 1. PRE-DELAY
+                        let pre_delay_samples = ((pre_delay_ms / 1000.0) * s.sample_rate) as usize;
+                        let pre_delay_samples = pre_delay_samples.min(s.predelay_buffer.len() - 1);
 
                     let predelay_out = if pre_delay_samples > 0 {
                         let read_idx = (s.predelay_idx + s.predelay_buffer.len() - pre_delay_samples)
@@ -6545,12 +6545,15 @@ impl UnifiedSignalGraph {
 
                     let right_delay2_out = delay(&mut s.right_delay2_buffer, &mut s.right_delay2_idx, right_damped * decay_gain);
 
-                    // 4. OUTPUT TAPS (sum multiple points for density)
-                    // Using multiple tap points as suggested by Dattorro
-                    let left_output = (left_delay1_out + left_apf2_out + left_delay2_out) * 0.33;
-                    let right_output = (right_delay1_out + right_apf2_out + right_delay2_out) * 0.33;
+                        // 4. OUTPUT TAPS (sum multiple points for density)
+                        // Using multiple tap points as suggested by Dattorro
+                        let left_output = (left_delay1_out + left_apf2_out + left_delay2_out) * 0.33;
+                        let right_output = (right_delay1_out + right_apf2_out + right_delay2_out) * 0.33;
 
-                    (left_output, right_output)
+                        (left_output, right_output)
+                    } else {
+                        (0.0, 0.0)
+                    }
                 } else {
                     (0.0, 0.0)
                 };
