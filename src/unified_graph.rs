@@ -6249,10 +6249,12 @@ impl UnifiedSignalGraph {
                 let y = g * (x - y1) + x1;
 
                 // Update state
-                if let Some(Some(SignalNode::Allpass { state, .. })) = self.nodes.get_mut(node_id.0)
-                {
-                    state.borrow_mut().x1 = x;
-                    state.borrow_mut().y1 = y;
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Allpass { state, .. } = &**node_rc {
+                        let mut s = state.borrow_mut();
+                        s.x1 = x;
+                        s.y1 = y;
+                    }
                 }
 
                 y
@@ -6271,12 +6273,13 @@ impl UnifiedSignalGraph {
                 let damp = 1.0 / q_val;
 
                 // Get state
-                let (mut low, mut band, mut high) = if let Some(Some(SignalNode::LowPass {
-                    state,
-                    ..
-                })) = self.nodes.get(node_id.0)
-                {
-                    (state.y1, state.x1, state.y2)
+                let (mut low, mut band, mut high) = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                    if let SignalNode::LowPass { state, .. } = &**node_rc {
+                        let s = state.borrow();
+                        (s.y1, s.x1, s.y2)
+                    } else {
+                        (0.0, 0.0, 0.0)
+                    }
                 } else {
                     (0.0, 0.0, 0.0)
                 };
@@ -6287,11 +6290,13 @@ impl UnifiedSignalGraph {
                 low += f * band;
 
                 // Update state
-                if let Some(Some(SignalNode::LowPass { state, .. })) = self.nodes.get_mut(node_id.0)
-                {
-                    state.borrow_mut().y1 = low;
-                    state.borrow_mut().x1 = band;
-                    state.borrow_mut().y2 = high;
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::LowPass { state, .. } = &**node_rc {
+                        let mut s = state.borrow_mut();
+                        s.y1 = low;
+                        s.x1 = band;
+                        s.y2 = high;
+                    }
                 }
 
                 low
