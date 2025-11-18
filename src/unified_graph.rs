@@ -9172,13 +9172,17 @@ impl UnifiedSignalGraph {
 
                 // Get last event start time and cycle
                 let (last_event_start, prev_cycle) =
-                    if let Some(Some(SignalNode::StructuredSignal {
-                        last_trigger_time: lt,
-                        last_cycle: lc,
-                        ..
-                    })) = self.nodes.get(node_id.0)
-                    {
-                        (*lt as f64, *lc)
+                    if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                        if let SignalNode::StructuredSignal {
+                            last_trigger_time: lt,
+                            last_cycle: lc,
+                            ..
+                        } = &**node_rc
+                        {
+                            (*lt.borrow() as f64, *lc.borrow())
+                        } else {
+                            (-1.0, -1)
+                        }
                     } else {
                         (-1.0, -1)
                     };
@@ -9298,14 +9302,16 @@ impl UnifiedSignalGraph {
                 let output_level = state.borrow().level;
 
                 // Update state in node
-                if let Some(Some(SignalNode::StructuredSignal {
-                    last_trigger_time: lt,
-                    last_cycle: lc,
-                    ..
-                })) = self.nodes.get_mut(node_id.0)
-                {
-                    *lt = latest_triggered_start as f32;
-                    *lc = current_cycle;
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::StructuredSignal {
+                        last_trigger_time: lt,
+                        last_cycle: lc,
+                        ..
+                    } = &**node_rc
+                    {
+                        *lt.borrow_mut() = latest_triggered_start as f32;
+                        *lc.borrow_mut() = current_cycle;
+                    }
                 }
 
                 // Output: input signal gated by envelope
