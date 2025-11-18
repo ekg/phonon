@@ -4977,7 +4977,7 @@ impl UnifiedSignalGraph {
                         carrier_phase,
                         modulator_phase,
                         ..
-                    } = &**node
+                    } = &**node_rc
                     {
                         {
                             let mut cp = carrier_phase.borrow_mut();
@@ -5022,7 +5022,7 @@ impl UnifiedSignalGraph {
                     if let SignalNode::PMOscillator {
                         carrier_phase,
                         ..
-                    } = &**node
+                    } = &**node_rc
                     {
                         let mut cp = carrier_phase.borrow_mut();
                         *cp += carrier_f / self.sample_rate;
@@ -5520,7 +5520,7 @@ impl UnifiedSignalGraph {
                         state: s,
                         last_freq: lf,
                         ..
-                    } = &**node
+                    } = &**node_rc
                     {
                         // Resize delay line if frequency changed
                         if freq_changed {
@@ -5559,7 +5559,7 @@ impl UnifiedSignalGraph {
                         state: s,
                         last_freq: lf,
                         ..
-                    } = &**node
+                    } = &**node_rc
                     {
                         // Resize delay lines if frequency changed
                         if freq_changed {
@@ -5657,7 +5657,7 @@ impl UnifiedSignalGraph {
                         state: s,
                         amplitudes: amps,
                         ..
-                    } = &**node
+                    } = &**node_rc
                     {
                         return s.process(f, amps);
                     }
@@ -6813,15 +6813,16 @@ impl UnifiedSignalGraph {
                     self.nodes.get_mut(node_id.0)
                 {
                     // Advance phase
-                    *p += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
+                    let mut phase_val = p.borrow_mut();
+                    *phase_val += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
 
                     // Wrap phase to [0, 2π]
-                    if *p >= 2.0 * std::f32::consts::PI {
-                        *p -= 2.0 * std::f32::consts::PI;
+                    if *phase_val >= 2.0 * std::f32::consts::PI {
+                        *phase_val -= 2.0 * std::f32::consts::PI;
                     }
 
                     // Calculate LFO (sine wave, -1 to +1)
-                    let lfo = p.sin();
+                    let lfo = phase_val.sin();
 
                     // Convert LFO to modulation amount
                     // depth=0: mod=1 (no effect)
