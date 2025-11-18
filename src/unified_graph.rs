@@ -7977,14 +7977,16 @@ impl UnifiedSignalGraph {
                             last_event_start, latest_triggered_start
                         );
                     }
-                    if let Some(Some(SignalNode::Sample {
-                        last_trigger_time: lt,
-                        last_cycle: lc,
-                        ..
-                    })) = self.nodes.get_mut(node_id.0)
-                    {
-                        *lt = latest_triggered_start as f32;
-                        *lc = current_cycle;
+                    if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                        if let SignalNode::Sample {
+                            last_trigger_time: lt,
+                            last_cycle: lc,
+                            ..
+                        } = &**node_rc
+                        {
+                            *lt.borrow_mut() = latest_triggered_start as f32;
+                            *lc.borrow_mut() = current_cycle;
+                        }
                     }
                 }
 
