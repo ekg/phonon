@@ -8913,48 +8913,51 @@ impl UnifiedSignalGraph {
                 let mut output_val = current_value.clone();
 
                 // Update state in the graph
-                if let Some(Some(SignalNode::Segments {
-                    levels: seg_levels,
-                    times: seg_times,
-                    current_segment: seg_idx,
-                    segment_elapsed: seg_elapsed,
-                    current_value: seg_value,
-                })) = self.nodes.get_mut(node_id.0)
-                {
-                    // Advance time
-                    *seg_elapsed += 1.0 / self.sample_rate;
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::Segments {
+                        levels: seg_levels,
+                        times: seg_times,
+                        current_segment: seg_idx,
+                        segment_elapsed: seg_elapsed,
+                        current_value: seg_value,
+                    } = &**node_rc
+                    {
+                        // Advance time
+                        *seg_elapsed.borrow_mut() += 1.0 / self.sample_rate;
 
-                    // Check if we're beyond the last segment
-                    if *seg_idx >= seg_times.len() {
-                        // Hold final level
-                        output_val = if !seg_levels.is_empty() {
-                            seg_levels[seg_levels.len() - 1]
+                        // Check if we're beyond the last segment
+                        if *seg_idx.borrow() >= seg_times.len() {
+                            // Hold final level
+                            output_val = if !seg_levels.is_empty() {
+                                seg_levels[seg_levels.len() - 1]
+                            } else {
+                                0.0
+                            };
+                            *seg_value.borrow_mut() = output_val;
                         } else {
-                            0.0
-                        };
-                        *seg_value = output_val;
-                    } else {
-                        // Get current segment info
-                        let segment_duration = seg_times[*seg_idx];
-                        let start_level = if *seg_idx.borrow() == 0 {
-                            seg_levels[0]
-                        } else {
-                            seg_levels[*seg_idx]
-                        };
-                        let end_level = seg_levels[*seg_idx + 1];
+                            // Get current segment info
+                            let idx_val = *seg_idx.borrow();
+                            let segment_duration = seg_times[idx_val];
+                            let start_level = if idx_val == 0 {
+                                seg_levels[0]
+                            } else {
+                                seg_levels[idx_val]
+                            };
+                            let end_level = seg_levels[idx_val + 1];
 
-                        // Calculate interpolation factor
-                        let t = (*seg_elapsed / segment_duration).min(1.0);
+                            // Calculate interpolation factor
+                            let t = (*seg_elapsed.borrow() / segment_duration).min(1.0);
 
-                        // Linear interpolation
-                        output_val = start_level + (end_level - start_level) * t;
-                        *seg_value = output_val;
+                            // Linear interpolation
+                            output_val = start_level + (end_level - start_level) * t;
+                            *seg_value.borrow_mut() = output_val;
 
-                        // Check if segment is complete
-                        if *seg_elapsed >= segment_duration {
-                            // Move to next segment
-                            *seg_idx += 1;
-                            *seg_elapsed = 0.0;
+                            // Check if segment is complete
+                            if *seg_elapsed.borrow() >= segment_duration {
+                                // Move to next segment
+                                *seg_idx.borrow_mut() += 1;
+                                *seg_elapsed.borrow_mut() = 0.0;
+                            }
                         }
                     }
                 }
@@ -8991,13 +8994,17 @@ impl UnifiedSignalGraph {
 
                 // Get last event start time and cycle
                 let (last_event_start, prev_cycle) =
-                    if let Some(Some(SignalNode::EnvelopePattern {
-                        last_trigger_time: lt,
-                        last_cycle: lc,
-                        ..
-                    })) = self.nodes.get(node_id.0)
-                    {
-                        (*lt as f64, *lc)
+                    if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                        if let SignalNode::EnvelopePattern {
+                            last_trigger_time: lt,
+                            last_cycle: lc,
+                            ..
+                        } = &**node_rc
+                        {
+                            (*lt.borrow() as f64, *lc.borrow())
+                        } else {
+                            (-1.0, -1)
+                        }
                     } else {
                         (-1.0, -1)
                     };
@@ -9055,7 +9062,7 @@ impl UnifiedSignalGraph {
                     {
                         drop(phase);
                         // Enter release phase
-                        state.borrow_mut().release_start_level = state.level;
+                        state.borrow_mut().release_start_level = state.borrow().level;
                         *state.borrow().phase.borrow_mut() = EnvPhase::Release;
                         state.borrow_mut().time_in_phase = 0.0;
                     }
@@ -9120,14 +9127,16 @@ impl UnifiedSignalGraph {
                 let output_level = state.borrow().level;
 
                 // Update state in node
-                if let Some(Some(SignalNode::EnvelopePattern {
-                    last_trigger_time: lt,
-                    last_cycle: lc,
-                    ..
-                })) = self.nodes.get_mut(node_id.0)
-                {
-                    *lt = latest_triggered_start as f32;
-                    *lc = current_cycle;
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    if let SignalNode::EnvelopePattern {
+                        last_trigger_time: lt,
+                        last_cycle: lc,
+                        ..
+                    } = &**node_rc
+                    {
+                        *lt.borrow_mut() = latest_triggered_start as f32;
+                        *lc.borrow_mut() = current_cycle;
+                    }
                 }
 
                 // Output: input signal gated by envelope
@@ -9224,7 +9233,7 @@ impl UnifiedSignalGraph {
                     {
                         drop(phase);
                         // Enter release phase
-                        state.borrow_mut().release_start_level = state.level;
+                        state.borrow_mut().release_start_level = state.borrow().level;
                         *state.borrow().phase.borrow_mut() = EnvPhase::Release;
                         state.borrow_mut().time_in_phase = 0.0;
                     }
