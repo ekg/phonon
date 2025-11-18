@@ -3655,9 +3655,9 @@ fn synthesize_bus_buffer_parallel(
 
 /// Simplified node evaluator for isolated bus synthesis
 /// No caching needed - stateful nodes use RefCell for state management
-fn eval_node_isolated(nodes: &mut Vec<Option<SignalNode>>, node_id: &NodeId, sample_rate: f32) -> f32 {
-    let node = if let Some(Some(node)) = nodes.get(node_id.0) {
-        node.clone()
+fn eval_node_isolated(nodes: &mut Vec<Option<Arc<SignalNode>>>, node_id: &NodeId, sample_rate: f32) -> f32 {
+    let node = if let Some(Some(node_arc)) = nodes.get(node_id.0) {
+        (**node_arc).clone()  // Deep clone the SignalNode for isolated evaluation
     } else {
         return 0.0;
     };
@@ -3813,7 +3813,7 @@ fn eval_node_isolated(nodes: &mut Vec<Option<SignalNode>>, node_id: &NodeId, sam
 }
 
 /// Evaluate signal in isolated context
-fn eval_signal_isolated(nodes: &mut Vec<Option<SignalNode>>, signal: &Signal, sample_rate: f32) -> f32 {
+fn eval_signal_isolated(nodes: &mut Vec<Option<Arc<SignalNode>>>, signal: &Signal, sample_rate: f32) -> f32 {
     match signal {
         Signal::Value(v) => *v,
         Signal::Node(id) => eval_node_isolated(nodes, id, sample_rate),
@@ -4795,16 +4795,14 @@ impl UnifiedSignalGraph {
         // Pre-clone nodes vector for each request to avoid Send issues with RefCell
         let sample_rate = self.sample_rate;
 
-        // For parallel processing, we need to deep clone the nodes for each thread
-        // because Arc<RefCell<...>> is not Send (RefCell is not thread-safe)
-        // This only happens in offline render mode, so the performance cost is acceptable
-        let nodes_for_clone = &self.nodes;
-
-        let synthesized: Vec<((String, usize), Arc<Vec<f32>>)> = requests
-            .into_par_iter()
+        // For parallel processing, deep clone nodes for each request BEFORE parallel iteration
+        // RefCell is not Sync, so we can't share Arc<SignalNode> across threads
+        // Instead, we deep clone and pass owned SignalNode data to each thread
+        let parallel_tasks: Vec<_> = requests
+            .into_iter()
             .map(|((bus_name, duration_samples), bus_node_id)| {
-                // Deep clone nodes for this thread to get independent RefCell state
-                let nodes_copy: Vec<Option<Arc<SignalNode>>> = nodes_for_clone
+                // Deep clone nodes for this task - each gets independent RefCell state
+                let nodes_copy: Vec<Option<Arc<SignalNode>>> = self.nodes
                     .iter()
                     .map(|opt_arc| {
                         opt_arc.as_ref().map(|arc_node| {
@@ -4813,7 +4811,13 @@ impl UnifiedSignalGraph {
                         })
                     })
                     .collect();
+                ((bus_name, duration_samples), bus_node_id, nodes_copy)
+            })
+            .collect();
 
+        let synthesized: Vec<((String, usize), Arc<Vec<f32>>)> = parallel_tasks
+            .into_par_iter()
+            .map(|((bus_name, duration_samples), bus_node_id, nodes_copy)| {
                 let buffer = synthesize_bus_buffer_parallel(
                     nodes_copy,
                     bus_node_id,
@@ -4973,7 +4977,7 @@ impl UnifiedSignalGraph {
                         carrier_phase,
                         modulator_phase,
                         ..
-                    } = node
+                    } = &**node
                     {
                         {
                             let mut cp = carrier_phase.borrow_mut();
@@ -5018,7 +5022,7 @@ impl UnifiedSignalGraph {
                     if let SignalNode::PMOscillator {
                         carrier_phase,
                         ..
-                    } = node
+                    } = &**node
                     {
                         let mut cp = carrier_phase.borrow_mut();
                         *cp += carrier_f / self.sample_rate;
@@ -5516,7 +5520,7 @@ impl UnifiedSignalGraph {
                         state: s,
                         last_freq: lf,
                         ..
-                    } = node
+                    } = &**node
                     {
                         // Resize delay line if frequency changed
                         if freq_changed {
@@ -5555,7 +5559,7 @@ impl UnifiedSignalGraph {
                         state: s,
                         last_freq: lf,
                         ..
-                    } = node
+                    } = &**node
                     {
                         // Resize delay lines if frequency changed
                         if freq_changed {
@@ -5653,7 +5657,7 @@ impl UnifiedSignalGraph {
                         state: s,
                         amplitudes: amps,
                         ..
-                    } = node
+                    } = &**node
                     {
                         return s.process(f, amps);
                     }
