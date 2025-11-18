@@ -9802,6 +9802,20 @@ impl UnifiedSignalGraph {
     /// This is 2x-4x faster than calling process_sample() in a loop
     #[inline]
     pub fn process_buffer(&mut self, buffer: &mut [f32]) {
+        // DEBUG: Write to file to confirm this is being called
+        static CALL_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let count = CALL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if count == 0 {
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open("/tmp/phonon_process_buffer_called.log")
+            {
+                use std::io::Write;
+                let _ = writeln!(file, "process_buffer() IS being called!");
+            }
+        }
+
         // Optional profiling (enable with PROFILE_BUFFER=1)
         let enable_profiling = std::env::var("PROFILE_BUFFER").is_ok();
         let mut voice_time_us = 0u128;
@@ -9901,6 +9915,19 @@ impl UnifiedSignalGraph {
         // Print profiling breakdown if enabled
         if enable_profiling {
             let total_us = voice_time_us + eval_time_us + mix_time_us;
+
+            // Also write to file for live mode debugging
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/phonon_buffer_profile.log")
+            {
+                use std::io::Write;
+                let _ = writeln!(file, "=== BUFFER PROFILING ({}samples) ===", buffer.len());
+                let _ = writeln!(file, "Voice processing: {:.2}ms ({:.1}%)", voice_time_us as f64 / 1000.0, (voice_time_us as f64 / total_us as f64) * 100.0);
+                let _ = writeln!(file, "Graph evaluation: {:.2}ms ({:.1}%)", eval_time_us as f64 / 1000.0, (eval_time_us as f64 / total_us as f64) * 100.0);
+                let _ = writeln!(file, "Output mixing:    {:.2}ms ({:.1}%)", mix_time_us as f64 / 1000.0, (mix_time_us as f64 / total_us as f64) * 100.0);
+            }
             let total_ms = total_us as f64 / 1000.0;
             let voice_ms = voice_time_us as f64 / 1000.0;
             let eval_ms = eval_time_us as f64 / 1000.0;
