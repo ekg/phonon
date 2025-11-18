@@ -8171,7 +8171,7 @@ impl UnifiedSignalGraph {
 
                                 // Get MIDI note
                                 let interval = scale_intervals[degree as usize];
-                                let midi_note = root_note as i32 + octave * 12 + interval;
+                                let midi_note = *root_note as i32 + octave * 12 + interval;
 
                                 // Convert to frequency
                                 current_value = midi_to_freq(midi_note.clamp(0, 127) as u8) as f32;
@@ -9459,6 +9459,7 @@ impl UnifiedSignalGraph {
             } => {
                 let input_val = self.eval_signal(&input);
                 let base_time = self.eval_signal(&time).max(0.001).min(1.0);
+                let taps_val = self.eval_signal(&taps) as usize;
                 let fb = self.eval_signal(&feedback).clamp(0.0, 0.95);
                 let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
 
@@ -9468,7 +9469,7 @@ impl UnifiedSignalGraph {
 
                 // Sum multiple tap outputs
                 let mut tap_sum = 0.0;
-                let tap_count = taps.min(8).max(2);
+                let tap_count = taps_val.min(8).max(2);
 
                 for i in 1..=tap_count {
                     let tap_delay = base_delay_samples * i;
