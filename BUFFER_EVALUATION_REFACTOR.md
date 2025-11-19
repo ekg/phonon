@@ -383,16 +383,29 @@ fn eval_lpf_buffer(&mut self, node_id: &NodeId, output: &mut [f32]) {
 ---
 
 #### 7. HighPass Filter (SVF)
-**Status:** 📚 Study
+**Status:** ✅ Completion
 
 **Tasks:**
-- [ ] 📚 **Study:** Review HPF implementation
-- [ ] 🔨 **Implementation:** Write `eval_hpf_buffer()`
-- [ ] 🔨 **Implementation:** Process input buffer
-- [ ] 🔨 **Implementation:** Handle parameter modulation
-- [ ] 🧪 **Testing:** Test with constant parameters
-- [ ] 🧪 **Testing:** Test with modulated cutoff
-- [ ] ✅ **Completion:** All tests pass
+- [x] 📚 **Study:** Review HPF implementation ✅
+- [x] 🔨 **Implementation:** Write `eval_hpf_buffer()` ✅
+- [x] 🔨 **Implementation:** Process input buffer ✅
+- [x] 🔨 **Implementation:** Handle parameter modulation ✅
+- [x] 🧪 **Testing:** Test with constant parameters ✅
+- [x] 🧪 **Testing:** Test with modulated cutoff ✅
+- [x] ✅ **Completion:** All tests pass ✅
+
+**Implementation Notes:** (Commit 5cfc122)
+- Added buffer-based evaluation for SignalNode::HighPass in eval_node_buffer()
+- Uses same SVF (Chamberlin) algorithm as LowPass, outputs 'high' instead of 'low'
+- Identical implementation to LowPass except for output selection
+- Includes stability clamp (f < 1.99) to prevent numerical instability
+- Added helper method add_highpass_node() for testing
+
+**Testing Notes:**
+- 12 comprehensive tests, all passing
+- Tests verify opposite behavior to LowPass (passes high, rejects low)
+- State continuity, modulation, edge cases, chained filters, performance
+- All verified working correctly
 
 ---
 
