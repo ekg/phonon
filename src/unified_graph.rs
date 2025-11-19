@@ -2468,6 +2468,11 @@ impl WavetableState {
 
     /// Get interpolated sample at given phase [0, 1)
     pub fn get_sample(&self, phase: f32) -> f32 {
+        // Handle empty table
+        if self.table.is_empty() {
+            return 0.0;
+        }
+        
         let table_size = self.table.len() as f32;
         let index = (phase * table_size) % table_size;
         let i0 = index.floor() as usize % self.table.len();
@@ -13292,6 +13297,54 @@ impl UnifiedSignalGraph {
                 }
             }
 
+            SignalNode::Wavetable { freq, state } => {
+                // Evaluate frequency signal once (if constant) or per-sample (if dynamic)
+                let freq_signal = freq.clone();
+
+                // Check if frequency is constant
+                let is_constant_freq = matches!(freq_signal, Signal::Value(_));
+                let constant_freq = if is_constant_freq {
+                    if let Signal::Value(f) = freq_signal {
+                        f
+                    } else {
+                        440.0
+                    }
+                } else {
+                    0.0 // Will be evaluated per-sample
+                };
+
+                // Get current phase
+                let mut current_phase = state.phase;
+
+                // Generate buffer
+                for i in 0..buffer_size {
+                    // Evaluate frequency for this sample
+                    let f = if is_constant_freq {
+                        constant_freq
+                    } else {
+                        self.eval_signal(&freq_signal)
+                    }.max(0.0);
+
+                    // Get interpolated sample at current phase
+                    let sample = state.get_sample(current_phase);
+                    output[i] = sample;
+
+                    // Update phase for next sample
+                    current_phase += f / self.sample_rate;
+                    if current_phase >= 1.0 {
+                        current_phase -= 1.0;
+                    }
+                }
+
+                // Update phase after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Wavetable { state: s, .. } = node {
+                        s.phase = current_phase;
+                    }
+                }
+            }
+
             // Fallback: Use old sample-by-sample evaluation for not-yet-migrated nodes
             _ => {
                 for i in 0..buffer_size {
@@ -13441,5 +13494,16 @@ impl UnifiedSignalGraph {
                 }
             }
         }
+    }
+
+    /// Add a Wavetable oscillator node (helper for testing)
+    pub fn add_wavetable_node(&mut self, freq: Signal, table: Vec<f32>) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Wavetable {
+            freq,
+            state: WavetableState::with_table(table),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
     }
 }
