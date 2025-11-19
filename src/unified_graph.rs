@@ -4446,6 +4446,48 @@ impl UnifiedSignalGraph {
         node_id
     }
 
+    /// Add a distortion node (waveshaper with drive and wet/dry mix)
+    pub fn add_distortion_node(&mut self, input: Signal, drive: Signal, mix: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Distortion { input, drive, mix };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a chorus node (modulated delay for thickening/doubling effect)
+    pub fn add_chorus_node(&mut self, input: Signal, rate: Signal, depth: Signal, mix: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Chorus {
+            input,
+            rate,
+            depth,
+            mix,
+            state: ChorusState::new(self.sample_rate),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a reverb node (Freeverb algorithm with room_size, damping, and wet/dry mix)
+    pub fn add_reverb_node(
+        &mut self,
+        input: Signal,
+        room_size: Signal,
+        damping: Signal,
+        mix: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Reverb {
+            input,
+            room_size,
+            damping,
+            mix,
+            state: ReverbState::new(self.sample_rate),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     /// Set the output node
     pub fn set_output(&mut self, node_id: NodeId) {
         self.output = Some(node_id);
@@ -11179,6 +11221,255 @@ impl UnifiedSignalGraph {
                         state.y1 = low;
                         state.x1 = band;
                         state.y2 = high;
+                    }
+                }
+            }
+
+            SignalNode::Distortion { input, drive, mix } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut drive_buffer = vec![0.0; buffer_size];
+                let mut mix_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(drive, &mut drive_buffer);
+                self.eval_signal_buffer(mix, &mut mix_buffer);
+
+                // Process entire buffer (stateless waveshaping)
+                for i in 0..buffer_size {
+                    // Clamp parameters to valid ranges
+                    let drive_val = drive_buffer[i].clamp(1.0, 100.0);
+                    let mix_val = mix_buffer[i].clamp(0.0, 1.0);
+
+                    // Soft clipping waveshaper (tanh)
+                    let driven = input_buffer[i] * drive_val;
+                    let distorted = driven.tanh();
+
+                    // Mix wet/dry
+                    output[i] = input_buffer[i] * (1.0 - mix_val) + distorted * mix_val;
+                }
+            }
+
+            SignalNode::Chorus {
+                input,
+                rate,
+                depth,
+                mix,
+                state,
+            } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut rate_buffer = vec![0.0; buffer_size];
+                let mut depth_buffer = vec![0.0; buffer_size];
+                let mut mix_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(rate, &mut rate_buffer);
+                self.eval_signal_buffer(depth, &mut depth_buffer);
+                self.eval_signal_buffer(mix, &mut mix_buffer);
+
+                // Get current chorus state
+                let buf_len = state.delay_buffer.len();
+                let current_write_idx = state.write_idx;
+                let current_lfo_phase = state.lfo_phase;
+
+                // Create a copy of the delay buffer to work with
+                let mut delay_buffer = state.delay_buffer.clone();
+                let mut write_idx = current_write_idx;
+                let mut lfo_phase = current_lfo_phase;
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Clamp parameters to valid ranges
+                    let lfo_rate = rate_buffer[i].clamp(0.1, 10.0);
+                    let mod_depth = depth_buffer[i].clamp(0.0, 1.0);
+                    let mix_val = mix_buffer[i].clamp(0.0, 1.0);
+
+                    // LFO for delay modulation (sine wave)
+                    let lfo = (lfo_phase * 2.0 * std::f32::consts::PI).sin();
+
+                    // Modulated delay time (5-25ms for chorus)
+                    let base_delay = 0.015; // 15ms
+                    let delay_time = base_delay + lfo * mod_depth * 0.010; // ±10ms
+                    let delay_samples = (delay_time * self.sample_rate) as f32;
+
+                    // Read from delay buffer with linear interpolation
+                    let read_pos =
+                        (write_idx as f32 + buf_len as f32 - delay_samples) % buf_len as f32;
+                    let read_idx = read_pos.floor() as usize;
+                    let frac = read_pos - read_pos.floor();
+
+                    let sample1 = delay_buffer[read_idx % buf_len];
+                    let sample2 = delay_buffer[(read_idx + 1) % buf_len];
+                    let delayed = sample1 + (sample2 - sample1) * frac;
+
+                    // Mix dry and wet
+                    output[i] = input_buffer[i] * (1.0 - mix_val) + delayed * mix_val;
+
+                    // Write input sample to delay buffer
+                    delay_buffer[write_idx] = input_buffer[i];
+
+                    // Update phase and write index for next sample
+                    lfo_phase = (lfo_phase + lfo_rate / self.sample_rate) % 1.0;
+                    write_idx = (write_idx + 1) % buf_len;
+                }
+
+                // Update chorus state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Chorus { state: s, .. } = node {
+                        s.delay_buffer = delay_buffer;
+                        s.write_idx = write_idx;
+                        s.lfo_phase = lfo_phase;
+                    }
+                }
+            }
+
+            SignalNode::Reverb {
+                input,
+                room_size,
+                damping,
+                mix,
+                state,
+            } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut room_buffer = vec![0.0; buffer_size];
+                let mut damping_buffer = vec![0.0; buffer_size];
+                let mut mix_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(room_size, &mut room_buffer);
+                self.eval_signal_buffer(damping, &mut damping_buffer);
+                self.eval_signal_buffer(mix, &mut mix_buffer);
+
+                // Process entire buffer through Freeverb algorithm
+                // Update state directly sample-by-sample to match the original eval_node behavior
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Reverb { state: s, .. } = node {
+                        for i in 0..buffer_size {
+                            let input_val = input_buffer[i];
+                            let room = room_buffer[i].clamp(0.0, 1.0);
+                            let damp = damping_buffer[i].clamp(0.0, 1.0);
+                            let mix_val = mix_buffer[i].clamp(0.0, 1.0);
+
+                            // Process comb filters (8 parallel)
+                            let mut comb_out = 0.0;
+                            for j in 0..8 {
+                                let buf_len = s.comb_buffers[j].len();
+                                let read_idx = s.comb_indices[j];
+                                let delayed = s.comb_buffers[j][read_idx];
+
+                                // Lowpass filter for damping
+                                let filtered = s.comb_filter_stores[j] * damp + delayed * (1.0 - damp);
+
+                                // Feedback with room-size dependent gain
+                                let feedback = 0.84 * room;
+                                let to_write = input_val + filtered * feedback;
+
+                                comb_out += delayed;
+
+                                // Update buffer and state
+                                s.comb_buffers[j][read_idx] = to_write;
+                                s.comb_indices[j] = (read_idx + 1) % buf_len;
+                                s.comb_filter_stores[j] = filtered;
+                            }
+
+                            let mut allpass_out = comb_out / 8.0;
+
+                            // Process allpass filters (4 in series)
+                            for j in 0..4 {
+                                let buf_len = s.allpass_buffers[j].len();
+                                let read_idx = s.allpass_indices[j];
+                                let delayed = s.allpass_buffers[j][read_idx];
+
+                                let to_write = allpass_out + delayed * 0.5;
+                                allpass_out = delayed - allpass_out * 0.5;
+
+                                // Update buffer and state
+                                s.allpass_buffers[j][read_idx] = to_write;
+                                s.allpass_indices[j] = (read_idx + 1) % buf_len;
+                            }
+
+                            // Mix dry and wet
+                            output[i] = input_val * (1.0 - mix_val) + allpass_out * mix_val;
+                        }
+                    }
+                } else {
+                    // Fallback: fill with zeros if node not found
+                    output.fill(0.0);
+                }
+            }
+
+            SignalNode::Delay {
+                input,
+                time,
+                feedback,
+                mix,
+                buffer,
+                write_idx,
+            } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut time_buffer = vec![0.0; buffer_size];
+                let mut feedback_buffer = vec![0.0; buffer_size];
+                let mut mix_buffer = vec![0.0; buffer_size];
+
+                // Evaluate signals
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(time, &mut time_buffer);
+                self.eval_signal_buffer(feedback, &mut feedback_buffer);
+                self.eval_signal_buffer(mix, &mut mix_buffer);
+
+                // Get current write index
+                let mut current_write_idx = *write_idx;
+                let buffer_len = buffer.len();
+
+                // Make a copy of the delay buffer to read from
+                // (we need this because we're updating it as we go)
+                let mut delay_buffer = buffer.clone();
+
+                // Process buffer: for each sample, read from delay line, write new sample
+                for i in 0..buffer_size {
+                    // Clamp parameters to reasonable ranges
+                    let delay_time = time_buffer[i].max(0.0).min(2.0);
+                    let fb = feedback_buffer[i].max(0.0).min(0.99);
+                    let mix_val = mix_buffer[i].max(0.0).min(1.0);
+
+                    // Convert delay time to samples
+                    let delay_samples = (delay_time * self.sample_rate) as usize;
+                    let delay_samples = delay_samples.min(buffer_len - 1).max(1);
+
+                    // Read from delay line
+                    let read_idx = (current_write_idx + buffer_len - delay_samples) % buffer_len;
+                    let delayed = delay_buffer[read_idx];
+
+                    // Write to delay line (input + feedback)
+                    // Apply soft clipping to prevent feedback explosion
+                    let to_write = (input_buffer[i] + delayed * fb).tanh();
+                    delay_buffer[current_write_idx] = to_write;
+
+                    // Mix dry and wet
+                    output[i] = input_buffer[i] * (1.0 - mix_val) + delayed * mix_val;
+
+                    // Advance write index
+                    current_write_idx = (current_write_idx + 1) % buffer_len;
+                }
+
+                // Update delay buffer and write index
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Delay {
+                        buffer: buf,
+                        write_idx: idx,
+                        ..
+                    } = node {
+                        *buf = delay_buffer;
+                        *idx = current_write_idx;
                     }
                 }
             }
