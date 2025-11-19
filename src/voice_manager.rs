@@ -608,7 +608,7 @@ impl VoiceManager {
             shrink_counter: 0,
             peak_voice_count: initial_voices,
             total_samples_processed: 0,
-            parallel_threshold: 32, // Aggressive threshold - enable parallelism earlier on multi-core systems
+            parallel_threshold: 8, // Very aggressive threshold - enable parallelism with just 8 voices (optimized for 16-core systems)
             processing_times: Vec::with_capacity(1000), // Track last 1000 samples
             underrun_count: 0,
             samples_since_adjustment: 0,

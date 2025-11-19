@@ -11,8 +11,8 @@ use std::path::PathBuf;
 #[command(name = "phonon")]
 #[command(about = "Phonon modular synthesis system", long_about = None)]
 struct Cli {
-    /// Number of threads for parallel processing (default: 4)
-    #[arg(short = 't', long, default_value = "4", global = true)]
+    /// Number of threads for parallel processing (default: all available cores)
+    #[arg(short = 't', long, default_value_t = num_cpus::get(), global = true)]
     threads: usize,
 
     #[command(subcommand)]
