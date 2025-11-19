@@ -300,20 +300,45 @@ fn test_sine_buffer_matches_sample() {
 ### Filters (Stateful Processors)
 
 #### 6. LowPass Filter (SVF)
-**Status:** 📚 Study
+**Status:** ✅ Completion
 
 **Tasks:**
-- [ ] 📚 **Study:** Review SVF implementation with coefficient caching
-- [ ] 📚 **Study:** Design buffer processing with state updates
-- [ ] 📚 **Study:** Handle modulated cutoff/Q (buffer-based)
-- [ ] 🔨 **Implementation:** Write `eval_lpf_buffer()`
-- [ ] 🔨 **Implementation:** Process input buffer → output buffer
-- [ ] 🔨 **Implementation:** Update filter state after buffer
-- [ ] 🔨 **Implementation:** Handle parameter modulation
-- [ ] 🧪 **Testing:** Test with constant cutoff/Q
-- [ ] 🧪 **Testing:** Test with modulated cutoff (LFO)
-- [ ] 🧪 **Testing:** Verify state continuity across buffers
-- [ ] ✅ **Completion:** All tests pass
+- [x] 📚 **Study:** Review SVF implementation with coefficient caching ✅
+- [x] 📚 **Study:** Design buffer processing with state updates ✅
+- [x] 📚 **Study:** Handle modulated cutoff/Q (buffer-based) ✅
+- [x] 🔨 **Implementation:** Write `eval_lpf_buffer()` ✅
+- [x] 🔨 **Implementation:** Process input buffer → output buffer ✅
+- [x] 🔨 **Implementation:** Update filter state after buffer ✅
+- [x] 🔨 **Implementation:** Handle parameter modulation ✅
+- [x] 🧪 **Testing:** Test with constant cutoff/Q ✅
+- [x] 🧪 **Testing:** Test with modulated cutoff (LFO) ✅
+- [x] 🧪 **Testing:** Verify state continuity across buffers ✅
+- [x] ✅ **Completion:** All tests pass ✅
+
+**Implementation Notes:** (Commit 1adaf64)
+- Added buffer-based evaluation for SignalNode::LowPass in eval_node_buffer()
+- Implements State Variable Filter (Chamberlin) algorithm
+- Evaluates input, cutoff, and Q signals to buffers
+- Processes entire buffer with SVF equations per-sample
+- Updates filter state (low, band, high) after processing entire buffer
+- Added stability clamp: `f = f.min(1.99)` to prevent numerical instability at high cutoffs
+- Supports modulated cutoff and Q parameters
+- Added helper method add_lowpass_node() for testing
+
+**Testing Notes:**
+- 13 comprehensive tests, all passing
+- Tests: basic filtering, cutoff effect, resonance effect
+- State continuity across buffers verified
+- Multiple buffer evaluation
+- Modulated cutoff (LFO-driven)
+- Edge cases: very low cutoff, very high cutoff, extreme Q values
+- Constant vs signal parameters
+- Chained filters
+- Performance sanity check (< 1s for 1000 iterations)
+
+**Key Challenge:** SVF filter becomes numerically unstable near Nyquist frequency.
+Added coefficient clamping (`f.min(1.99)`) to prevent instability. Tests use
+cutoffs up to 5kHz to stay well below Nyquist (22.05kHz at 44.1kHz sample rate).
 
 **Design Notes:**
 ```rust
