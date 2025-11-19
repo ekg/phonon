@@ -10438,6 +10438,11 @@ impl UnifiedSignalGraph {
     /// This is 2x-4x faster than calling process_sample() in a loop
     #[inline]
     pub fn process_buffer(&mut self, buffer: &mut [f32]) {
+        // Check if hybrid architecture is enabled
+        if std::env::var("USE_HYBRID_ARCH").is_ok() {
+            return self.process_buffer_hybrid(buffer);
+        }
+
         // DEBUG: Write to file to confirm this is being called
         static CALL_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let count = CALL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -10578,6 +10583,104 @@ impl UnifiedSignalGraph {
             eprintln!("Graph evaluation: {:.2}ms ({:.1}%)", eval_ms, 100.0 * eval_ms / total_ms);
             eprintln!("Output mixing:    {:.2}ms ({:.1}%)", mix_ms, 100.0 * mix_ms / total_ms);
             eprintln!("TOTAL:            {:.2}ms", total_ms);
+            eprintln!();
+        }
+    }
+
+    /// Hybrid architecture process_buffer (3-phase approach)
+    /// PHASE 1: Pattern evaluation + voice triggering (sample-accurate)
+    /// PHASE 2: Voice rendering (block-based)
+    /// PHASE 3: DSP evaluation from buffers
+    pub fn process_buffer_hybrid(&mut self, buffer: &mut [f32]) {
+        let buffer_size = buffer.len();
+        let enable_profiling = std::env::var("PROFILE_BUFFER").is_ok();
+
+        // Pre-compute pattern events once
+        self.precompute_pattern_events(buffer_size);
+
+        // PHASE 1: Pattern evaluation and voice triggering (sample-accurate)
+        let phase1_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
+
+        for i in 0..buffer_size {
+            // Update cycle position for this sample
+            self.update_cycle_position_from_clock();
+
+            // Evaluate all Sample nodes to trigger voices with correct offset
+            for node_id in 0..self.nodes.len() {
+                if let Some(Some(node_rc)) = self.nodes.get(node_id) {
+                    if let SignalNode::Sample { .. } = &**node_rc {
+                        // Set trigger offset for any voices triggered during this eval
+                        // Temporarily store current buffer position
+                        let current_buffer_pos = i;
+
+                        // Evaluate Sample node (triggers voices, but we'll discard audio output)
+                        let _ = self.eval_node(&NodeId(node_id));
+
+                        // Set trigger offset for the last triggered voice
+                        self.voice_manager.borrow_mut().set_last_voice_trigger_offset(current_buffer_pos);
+                    }
+                }
+            }
+
+            self.sample_count += 1;
+        }
+
+        let phase1_time_us = phase1_start.map(|t| t.elapsed().as_micros()).unwrap_or(0);
+
+        // PHASE 2: Voice rendering (block-based)
+        let phase2_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
+        let voice_buffers = self.voice_manager.borrow_mut().render_block(buffer_size);
+        let phase2_time_us = phase2_start.map(|t| t.elapsed().as_micros()).unwrap_or(0);
+
+        // PHASE 3: DSP evaluation from buffers
+        let phase3_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
+
+        // Pre-collect outputs to avoid borrow checker issues
+        let output_channels: Vec<(usize, NodeId)> =
+            self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
+
+        // For now, use the old approach (eval_node per sample) but read from voice_buffers
+        // TODO: Make this truly buffer-based
+        for i in 0..buffer_size {
+            // Set voice_output_cache from voice_buffers for this sample
+            let mut voice_output = std::collections::HashMap::new();
+            for (node_id, node_buffer) in &voice_buffers {
+                voice_output.insert(*node_id, node_buffer.get(i).copied().unwrap_or(0.0));
+            }
+            self.voice_output_cache = voice_output;
+
+            // Evaluate output nodes
+            let mut mixed_output = if let Some(output_id) = self.output {
+                if !self.hushed_channels.contains(&0) {
+                    self.eval_node(&output_id)
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
+
+            // Mix numbered outputs
+            for (ch, node_id) in &output_channels {
+                if !self.hushed_channels.contains(ch) {
+                    mixed_output += self.eval_node(node_id);
+                }
+            }
+
+            // Apply output mixing
+            buffer[i] = mixed_output;  // Simplified for now
+        }
+
+        let phase3_time_us = phase3_start.map(|t| t.elapsed().as_micros()).unwrap_or(0);
+
+        if enable_profiling {
+            let total_us = phase1_time_us + phase2_time_us + phase3_time_us;
+            let total_ms = total_us as f64 / 1000.0;
+            eprintln!("=== HYBRID BUFFER PROFILING ({}samples) ===", buffer_size);
+            eprintln!("Phase 1 (Pattern eval): {:.2}ms ({:.1}%)", phase1_time_us as f64 / 1000.0, 100.0 * phase1_time_us as f64 / total_us as f64);
+            eprintln!("Phase 2 (Voice render): {:.2}ms ({:.1}%)", phase2_time_us as f64 / 1000.0, 100.0 * phase2_time_us as f64 / total_us as f64);
+            eprintln!("Phase 3 (DSP eval):     {:.2}ms ({:.1}%)", phase3_time_us as f64 / 1000.0, 100.0 * phase3_time_us as f64 / total_us as f64);
+            eprintln!("TOTAL:                  {:.2}ms", total_ms);
             eprintln!();
         }
     }
