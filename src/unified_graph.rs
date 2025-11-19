@@ -4446,6 +4446,50 @@ impl UnifiedSignalGraph {
         node_id
     }
 
+    /// Add a Notch filter node (helper for testing)
+    pub fn add_notch_node(&mut self, input: Signal, center: Signal, q: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Notch {
+            input,
+            center,
+            q,
+            state: FilterState::default(),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a DJFilter node (helper for testing)
+    /// DJ-style filter that sweeps from lowpass (0.0) through neutral (0.5) to highpass (1.0)
+    pub fn add_djfilter_node(&mut self, input: Signal, value: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::DJFilter {
+            input,
+            value,
+            state: FilterState::default(),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a Moog Ladder filter node (helper for testing)
+    pub fn add_moogladder_node(
+        &mut self,
+        input: Signal,
+        cutoff: Signal,
+        resonance: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::MoogLadder {
+            input,
+            cutoff,
+            resonance,
+            state: MoogLadderState::new(),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     /// Add a distortion node (waveshaper with drive and wet/dry mix)
     pub fn add_distortion_node(&mut self, input: Signal, drive: Signal, mix: Signal) -> NodeId {
         let node_id = NodeId(self.nodes.len());
@@ -4468,6 +4512,37 @@ impl UnifiedSignalGraph {
         node_id
     }
 
+    /// Add a vibrato node (pitch modulation via LFO-controlled delay)
+    pub fn add_vibrato_node(&mut self, input: Signal, rate: Signal, depth: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Vibrato {
+            input,
+            rate,
+            depth,
+            phase: 0.0,
+            delay_buffer: Vec::new(),
+            buffer_pos: 0,
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a comb filter node (feedback delay line for resonant effects)
+    pub fn add_comb_node(&mut self, input: Signal, frequency: Signal, feedback: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        // Create delay buffer (max 2 seconds at sample rate)
+        let max_delay_samples = (self.sample_rate * 2.0) as usize;
+        let node = SignalNode::Comb {
+            input,
+            frequency,
+            feedback,
+            buffer: vec![0.0; max_delay_samples],
+            write_pos: 0,
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     /// Add a reverb node (Freeverb algorithm with room_size, damping, and wet/dry mix)
     pub fn add_reverb_node(
         &mut self,
@@ -4483,6 +4558,68 @@ impl UnifiedSignalGraph {
             damping,
             mix,
             state: ReverbState::new(self.sample_rate),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a parametric EQ node (3-band peaking equalizer for mixing/mastering)
+    pub fn add_parametriceq_node(
+        &mut self,
+        input: Signal,
+        low_freq: Signal,
+        low_gain: Signal,
+        low_q: Signal,
+        mid_freq: Signal,
+        mid_gain: Signal,
+        mid_q: Signal,
+        high_freq: Signal,
+        high_gain: Signal,
+        high_q: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::ParametricEQ {
+            input,
+            low_freq,
+            low_gain,
+            low_q,
+            mid_freq,
+            mid_gain,
+            mid_q,
+            high_freq,
+            high_gain,
+            high_q,
+            state: ParametricEQState::new(),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a tape delay node (vintage tape echo with wow, flutter, and saturation)
+    pub fn add_tapedelay_node(
+        &mut self,
+        input: Signal,
+        time: Signal,
+        feedback: Signal,
+        wow_rate: Signal,
+        wow_depth: Signal,
+        flutter_rate: Signal,
+        flutter_depth: Signal,
+        saturation: Signal,
+        mix: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::TapeDelay {
+            input,
+            time,
+            feedback,
+            wow_rate,
+            wow_depth,
+            flutter_rate,
+            flutter_depth,
+            saturation,
+            mix,
+            state: TapeDelayState::new(self.sample_rate),
         };
         self.nodes.push(Some(Rc::new(node)));
         node_id
@@ -4525,6 +4662,36 @@ impl UnifiedSignalGraph {
             bits,
             sample_rate,
             state: BitCrushState::default(),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a tremolo node (amplitude modulation effect)
+    pub fn add_tremolo_node(
+        &mut self,
+        input: Signal,
+        rate: Signal,
+        depth: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Tremolo {
+            input,
+            rate,
+            depth,
+            phase: 0.0, // Start at phase 0
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a RingMod node (helper for testing)
+    pub fn add_ringmod_node(&mut self, input: Signal, freq: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::RingMod {
+            input,
+            freq,
+            phase: 0.0,
         };
         self.nodes.push(Some(Rc::new(node)));
         node_id
@@ -8971,7 +9138,8 @@ impl UnifiedSignalGraph {
 
                 // Clamp cutoff to safe range to prevent filter instability
                 let cutoff = cutoff.max(20.0).min(self.sample_rate * 0.4);
-                let q_val = 0.707; // Standard Q for Butterworth response
+                // Use Q=1.0 for stability at high frequencies (Q=0.707 causes instability)
+                let q_val = 1.0;
 
                 // State variable filter (Chamberlin)
                 let f = (2.0 * (PI * cutoff / self.sample_rate).sin()).min(1.9);
@@ -11275,6 +11443,59 @@ impl UnifiedSignalGraph {
                 }
             }
 
+            SignalNode::Notch {
+                input,
+                center,
+                q,
+                state,
+            } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut center_buffer = vec![0.0; buffer_size];
+                let mut q_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(center, &mut center_buffer);
+                self.eval_signal_buffer(q, &mut q_buffer);
+
+                // Get current filter state
+                let mut low = state.y1;
+                let mut band = state.x1;
+                let mut high = state.y2;
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Clamp parameters to valid ranges
+                    let fc = center_buffer[i].max(20.0).min(20000.0);
+                    let q_val = q_buffer[i].max(0.5).min(20.0);
+
+                    // Compute SVF coefficients (Chamberlin)
+                    // f = 2 * sin(π * fc / fs)
+                    // Clamp f to prevent instability (must be < 2.0)
+                    let f = (2.0 * (std::f32::consts::PI * fc / self.sample_rate).sin()).min(1.99);
+                    let damp = 1.0 / q_val;
+
+                    // SVF tick (State Variable Filter)
+                    high = input_buffer[i] - low - damp * band;
+                    band += f * high;
+                    low += f * band;
+
+                    // Output is notch (low + high = everything except band)
+                    output[i] = low + high;
+                }
+
+                // Update filter state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Notch { state, .. } = node {
+                        state.y1 = low;
+                        state.x1 = band;
+                        state.y2 = high;
+                    }
+                }
+            }
+
             SignalNode::Distortion { input, drive, mix } => {
                 // Allocate buffers for input and parameters
                 let mut input_buffer = vec![0.0; buffer_size];
@@ -11525,6 +11746,69 @@ impl UnifiedSignalGraph {
                 }
             }
 
+            SignalNode::Comb {
+                input,
+                frequency,
+                feedback,
+                buffer,
+                write_pos,
+            } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut frequency_buffer = vec![0.0; buffer_size];
+                let mut feedback_buffer = vec![0.0; buffer_size];
+
+                // Evaluate signals
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(frequency, &mut frequency_buffer);
+                self.eval_signal_buffer(feedback, &mut feedback_buffer);
+
+                // Get current write position
+                let mut current_write_pos = *write_pos;
+                let buffer_len = buffer.len();
+
+                // Make a copy of the comb buffer to read from
+                let mut comb_buffer = buffer.clone();
+
+                // Process buffer: for each sample, read from delay line and apply comb filter
+                for i in 0..buffer_size {
+                    // Clamp parameters to reasonable ranges
+                    let freq = frequency_buffer[i].max(20.0).min(20000.0);
+                    let fb = feedback_buffer[i].clamp(0.0, 0.99);
+
+                    // Convert frequency to delay time in samples
+                    let delay_samples = (self.sample_rate / freq).round() as usize;
+                    let delay_samples = delay_samples.clamp(1, buffer_len - 1);
+
+                    // Calculate read position (write_pos - delay_samples, wrapped)
+                    let read_pos = (current_write_pos + buffer_len - delay_samples) % buffer_len;
+                    let delayed = comb_buffer[read_pos];
+
+                    // Comb filter: output = input + feedback * delayed_output
+                    let out_sample = input_buffer[i] + fb * delayed;
+                    output[i] = out_sample;
+
+                    // Write output to buffer (feedback loop)
+                    comb_buffer[current_write_pos] = out_sample;
+
+                    // Advance write position
+                    current_write_pos = (current_write_pos + 1) % buffer_len;
+                }
+
+                // Update comb buffer and write position
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Comb {
+                        buffer: buf,
+                        write_pos: pos,
+                        ..
+                    } = node {
+                        *buf = comb_buffer;
+                        *pos = current_write_pos;
+                    }
+                }
+            }
+
             SignalNode::Noise { seed } => {
                 // Seeded white noise using Linear Congruential Generator (LCG)
                 // This produces deterministic noise sequences for a given seed
@@ -11646,7 +11930,774 @@ impl UnifiedSignalGraph {
                 }
             }
 
+            SignalNode::RingMod { input, freq, phase } => {
+                // Allocate buffers for input and carrier frequency
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut freq_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and frequency signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(freq, &mut freq_buffer);
+
+                // Get current carrier phase
+                let mut current_phase = *phase;
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Clamp carrier frequency to valid range
+                    let carrier_freq = freq_buffer[i].clamp(20.0, 5000.0);
+
+                    // Generate carrier sine wave sample
+                    let carrier = current_phase.sin();
+
+                    // Ring modulation is simple multiplication
+                    output[i] = input_buffer[i] * carrier;
+
+                    // Update carrier phase for next sample
+                    current_phase += carrier_freq * 2.0 * std::f32::consts::PI / self.sample_rate;
+
+                    // Wrap phase to [0, 2π)
+                    if current_phase >= 2.0 * std::f32::consts::PI {
+                        current_phase -= 2.0 * std::f32::consts::PI;
+                    }
+                }
+
+                // Update carrier phase state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::RingMod { phase: p, .. } = node {
+                        *p = current_phase;
+                    }
+                }
+            }
+
+            SignalNode::Tremolo {
+                input,
+                rate,
+                depth,
+                phase,
+            } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut rate_buffer = vec![0.0; buffer_size];
+                let mut depth_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(rate, &mut rate_buffer);
+                self.eval_signal_buffer(depth, &mut depth_buffer);
+
+                // Get current LFO phase
+                let mut lfo_phase = *phase;
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Clamp parameters to valid ranges
+                    let lfo_rate = rate_buffer[i].clamp(0.1, 20.0);
+                    let mod_depth = depth_buffer[i].clamp(0.0, 1.0);
+
+                    // Generate LFO (sine wave)
+                    let lfo = lfo_phase.sin();
+
+                    // Convert LFO to modulation amount
+                    // depth=0: mod=1 (no effect, signal passes through)
+                    // depth=1: mod oscillates between 0 and 1 (full amplitude modulation)
+                    // Formula: 1 - depth/2 + depth/2 * lfo
+                    // When lfo = -1: mod = 1 - depth/2 - depth/2 = 1 - depth
+                    // When lfo = +1: mod = 1 - depth/2 + depth/2 = 1
+                    let modulation = 1.0 - mod_depth * 0.5 + mod_depth * 0.5 * lfo;
+
+                    // Apply amplitude modulation
+                    output[i] = input_buffer[i] * modulation;
+
+                    // Advance LFO phase
+                    lfo_phase += lfo_rate * 2.0 * std::f32::consts::PI / self.sample_rate;
+
+                    // Wrap phase to [0, 2π]
+                    if lfo_phase >= 2.0 * std::f32::consts::PI {
+                        lfo_phase -= 2.0 * std::f32::consts::PI;
+                    }
+                }
+
+                // Update phase state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Tremolo { phase: p, .. } = node {
+                        *p = lfo_phase;
+                    }
+                }
+            }
+
+            SignalNode::MoogLadder {
+                input,
+                cutoff,
+                resonance,
+                state,
+            } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut cutoff_buffer = vec![0.0; buffer_size];
+                let mut resonance_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(cutoff, &mut cutoff_buffer);
+                self.eval_signal_buffer(resonance, &mut resonance_buffer);
+
+                // Get current ladder state (4 stages)
+                let mut stage1 = state.stage1;
+                let mut stage2 = state.stage2;
+                let mut stage3 = state.stage3;
+                let mut stage4 = state.stage4;
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Clamp parameters to valid ranges
+                    let fc = cutoff_buffer[i].clamp(20.0, 20000.0);
+                    let res = resonance_buffer[i].clamp(0.0, 1.0);
+
+                    // Calculate cutoff coefficient (g) from frequency
+                    // g = tan(π * fc / sr) / (1 + tan(π * fc / sr))
+                    let g = (std::f32::consts::PI * fc / self.sample_rate).tan();
+                    let g_normalized = g / (1.0 + g);
+
+                    // Resonance scaling (0-4 is typical, higher = more resonance)
+                    let resonance_amt = res * 4.0;
+
+                    // Feedback from output to input (creates resonance)
+                    let input_with_fb = input_buffer[i] - resonance_amt * stage4;
+
+                    // Four cascaded 1-pole filters (linear stages)
+                    stage1 += g_normalized * (input_with_fb - stage1);
+                    stage2 += g_normalized * (stage1 - stage2);
+                    stage3 += g_normalized * (stage2 - stage3);
+                    stage4 += g_normalized * (stage3 - stage4);
+
+                    // Output from final stage
+                    output[i] = stage4;
+                }
+
+                // Update filter state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::MoogLadder { state: s, .. } = node {
+                        s.stage1 = stage1;
+                        s.stage2 = stage2;
+                        s.stage3 = stage3;
+                        s.stage4 = stage4;
+                    }
+                }
+            }
+
+            SignalNode::DJFilter { input, value, state } => {
+                // Allocate buffers for input and parameter
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut value_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(value, &mut value_buffer);
+
+                // Get current filter state (y1=low, x1=band, y2=high in SVF)
+                let mut low = state.y1;
+                let mut band = state.x1;
+                let mut high = state.y2;
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Clamp DJ filter value to 0-1 range
+                    let djf_value = value_buffer[i].clamp(0.0, 1.0);
+
+                    // Map djf value to filter cutoff frequency
+                    // 0.0 -> very low cutoff (80 Hz) for aggressive lowpass
+                    // 0.5 -> mid cutoff (800 Hz) - neutral point
+                    // 1.0 -> high cutoff (8000 Hz) for aggressive highpass
+                    let cutoff = if djf_value < 0.5 {
+                        // Lowpass mode: map 0-0.5 to 80-800 Hz
+                        80.0 + (djf_value * 2.0) * 720.0
+                    } else {
+                        // Highpass mode: map 0.5-1.0 to 800-8000 Hz
+                        800.0 + ((djf_value - 0.5) * 2.0) * 7200.0
+                    };
+
+                    // Clamp cutoff to safe range to prevent filter instability
+                    let cutoff = cutoff.max(20.0).min(self.sample_rate * 0.4);
+                    // Use Q=1.0 for stability at high frequencies (Q=0.707 causes instability)
+                    let q_val = 1.0;
+
+                    // Compute SVF coefficients (Chamberlin)
+                    // f = 2 * sin(π * fc / fs)
+                    // Clamp f to prevent instability (must be < 2.0)
+                    let f = (2.0 * (std::f32::consts::PI * cutoff / self.sample_rate).sin()).min(1.9);
+                    let damp = 1.0 / q_val;
+
+                    // SVF tick (State Variable Filter)
+                    high = input_buffer[i] - low - damp * band;
+                    band += f * high;
+                    low += f * band;
+
+                    // Flush denormals to zero to prevent numerical instability
+                    const DENORMAL_THRESHOLD: f32 = 1e-30;
+                    if high.abs() < DENORMAL_THRESHOLD {
+                        high = 0.0;
+                    }
+                    if band.abs() < DENORMAL_THRESHOLD {
+                        band = 0.0;
+                    }
+                    if low.abs() < DENORMAL_THRESHOLD {
+                        low = 0.0;
+                    }
+
+                    // Output selection: lowpass for < 0.5, highpass for > 0.5
+                    let sample_output = if djf_value < 0.5 {
+                        low // Lowpass output
+                    } else {
+                        high // Highpass output
+                    };
+
+                    // Ensure output is finite
+                    output[i] = if sample_output.is_finite() {
+                        sample_output
+                    } else {
+                        0.0
+                    };
+                }
+
+                // Update filter state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::DJFilter { state: s, .. } = node {
+                        s.y1 = if low.is_finite() { low } else { 0.0 };
+                        s.x1 = if band.is_finite() { band } else { 0.0 };
+                        s.y2 = if high.is_finite() { high } else { 0.0 };
+                    }
+                }
+            }
+
+            SignalNode::Vibrato {
+                input,
+                rate,
+                depth,
+                phase,
+                delay_buffer,
+                buffer_pos,
+            } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut rate_buffer = vec![0.0; buffer_size];
+                let mut depth_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(rate, &mut rate_buffer);
+                self.eval_signal_buffer(depth, &mut depth_buffer);
+
+                // Get current vibrato state
+                // Initialize buffer if empty (first call)
+                let buffer_size_samples = (self.sample_rate * 0.05) as usize; // 50ms buffer
+                let buf_len = if delay_buffer.is_empty() {
+                    buffer_size_samples
+                } else {
+                    delay_buffer.len()
+                };
+
+                // Create working copies of state
+                let mut delay_buf = if delay_buffer.is_empty() {
+                    vec![0.0; buffer_size_samples]
+                } else {
+                    delay_buffer.clone()
+                };
+                let mut write_idx = *buffer_pos;
+                let mut lfo_phase = *phase;
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Clamp parameters to valid ranges
+                    let lfo_rate = rate_buffer[i].clamp(0.1, 20.0);
+                    let depth_semitones = depth_buffer[i].clamp(0.0, 2.0);
+
+                    // Fast bypass for zero depth
+                    if depth_semitones < 0.001 {
+                        output[i] = input_buffer[i];
+                        // Still write to buffer and update indices for state continuity
+                        delay_buf[write_idx] = input_buffer[i];
+                        write_idx = (write_idx + 1) % buf_len;
+                        continue;
+                    }
+
+                    // Write input to delay buffer
+                    delay_buf[write_idx] = input_buffer[i];
+
+                    // Calculate LFO (sine wave, -1 to +1)
+                    let lfo = (lfo_phase * 2.0 * std::f32::consts::PI).sin();
+
+                    // Convert depth from semitones to delay time
+                    // Vibrato uses pitch modulation via time-varying delay
+                    // depth in semitones -> frequency ratio -> time ratio
+                    let max_delay_ms = 10.0; // Maximum 10ms delay for vibrato
+                    let delay_ms = max_delay_ms * (depth_semitones / 2.0) * (1.0 + lfo);
+                    let delay_samples = (delay_ms * self.sample_rate / 1000.0).max(0.0);
+
+                    // Calculate read position (fractional) with wrapping
+                    let read_pos_float = write_idx as f32 - delay_samples;
+                    let read_pos_wrapped = if read_pos_float < 0.0 {
+                        read_pos_float + buf_len as f32
+                    } else {
+                        read_pos_float
+                    };
+
+                    // Linear interpolation for fractional delay
+                    let read_pos_int = (read_pos_wrapped as usize) % buf_len;
+                    let read_pos_next = (read_pos_int + 1) % buf_len;
+                    let frac = read_pos_wrapped.fract();
+
+                    // Read delayed sample with interpolation
+                    output[i] = delay_buf[read_pos_int] * (1.0 - frac) + delay_buf[read_pos_next] * frac;
+
+                    // Update phase and write index for next sample
+                    lfo_phase += lfo_rate * 2.0 * std::f32::consts::PI / self.sample_rate;
+
+                    // Wrap phase to [0, 2π]
+                    if lfo_phase >= 2.0 * std::f32::consts::PI {
+                        lfo_phase -= 2.0 * std::f32::consts::PI;
+                    }
+
+                    // Advance buffer position
+                    write_idx = (write_idx + 1) % buf_len;
+                }
+
+                // Update vibrato state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Vibrato {
+                        phase: p,
+                        delay_buffer: buf,
+                        buffer_pos: pos,
+                        ..
+                    } = node {
+                        *p = lfo_phase;
+                        *buf = delay_buf;
+                        *pos = write_idx;
+                    }
+                }
+            }
+
+            SignalNode::Phaser {
+                input,
+                rate,
+                depth,
+                feedback,
+                stages,
+                phase,
+                allpass_z1,
+                allpass_y1,
+                feedback_sample,
+            } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut rate_buffer = vec![0.0; buffer_size];
+                let mut depth_buffer = vec![0.0; buffer_size];
+                let mut feedback_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(rate, &mut rate_buffer);
+                self.eval_signal_buffer(depth, &mut depth_buffer);
+                self.eval_signal_buffer(feedback, &mut feedback_buffer);
+
+                // Get current phaser state
+                let num_stages = *stages;
+                let mut lfo_phase = *phase;
+                let mut z1 = allpass_z1.clone();
+                let mut y1 = allpass_y1.clone();
+                let mut fb_sample = *feedback_sample;
+
+                // Initialize allpass filter states if needed
+                if z1.is_empty() {
+                    z1.resize(num_stages, 0.0);
+                    y1.resize(num_stages, 0.0);
+                }
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Clamp parameters to valid ranges
+                    let rate_hz = rate_buffer[i].clamp(0.05, 5.0);
+                    let depth_val = depth_buffer[i].clamp(0.0, 1.0);
+                    let feedback_val = feedback_buffer[i].clamp(0.0, 0.95);
+
+                    // Fast bypass for zero depth
+                    if depth_val < 0.001 {
+                        output[i] = input_buffer[i];
+                        continue;
+                    }
+
+                    // Advance LFO phase
+                    lfo_phase += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
+                    if lfo_phase >= 2.0 * std::f32::consts::PI {
+                        lfo_phase -= 2.0 * std::f32::consts::PI;
+                    }
+
+                    // Calculate LFO (sine wave, 0 to 1)
+                    let lfo = (lfo_phase.sin() + 1.0) * 0.5;
+
+                    // Map LFO to cutoff frequency (200 Hz to 2000 Hz sweep)
+                    let min_freq = 200.0;
+                    let max_freq = 2000.0;
+                    let cutoff = min_freq + (max_freq - min_freq) * lfo * depth_val;
+
+                    // Calculate allpass coefficient
+                    // a = (tan(π*fc/fs) - 1) / (tan(π*fc/fs) + 1)
+                    let tan_val = (std::f32::consts::PI * cutoff / self.sample_rate).tan();
+                    let a = (tan_val - 1.0) / (tan_val + 1.0);
+
+                    // Apply feedback
+                    let mut signal = input_buffer[i] + fb_sample * feedback_val;
+
+                    // Apply allpass filter cascade
+                    for stage in 0..num_stages {
+                        // First-order allpass: y[n] = a*x[n] + x[n-1] - a*y[n-1]
+                        let out = a * signal + z1[stage] - a * y1[stage];
+
+                        // Update state
+                        z1[stage] = signal;
+                        y1[stage] = out;
+
+                        signal = out;
+                    }
+
+                    // Store for feedback
+                    fb_sample = signal;
+
+                    // Mix filtered signal with dry signal (creates notches)
+                    output[i] = (input_buffer[i] + signal) * 0.5;
+                }
+
+                // Update phaser state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Phaser {
+                        phase: p,
+                        allpass_z1: z1_state,
+                        allpass_y1: y1_state,
+                        feedback_sample: fb_state,
+                        ..
+                    } = node
+                    {
+                        *p = lfo_phase;
+                        *z1_state = z1;
+                        *y1_state = y1;
+                        *fb_state = fb_sample;
+                    }
+                }
+            }
+
             // TODO: Add more nodes as they are migrated
+            SignalNode::TapeDelay {
+                input,
+                time,
+                feedback,
+                wow_rate,
+                wow_depth,
+                flutter_rate,
+                flutter_depth,
+                saturation,
+                mix,
+                state,
+            } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut time_buffer = vec![0.0; buffer_size];
+                let mut feedback_buffer = vec![0.0; buffer_size];
+                let mut wow_rate_buffer = vec![0.0; buffer_size];
+                let mut wow_depth_buffer = vec![0.0; buffer_size];
+                let mut flutter_rate_buffer = vec![0.0; buffer_size];
+                let mut flutter_depth_buffer = vec![0.0; buffer_size];
+                let mut saturation_buffer = vec![0.0; buffer_size];
+                let mut mix_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(time, &mut time_buffer);
+                self.eval_signal_buffer(feedback, &mut feedback_buffer);
+                self.eval_signal_buffer(wow_rate, &mut wow_rate_buffer);
+                self.eval_signal_buffer(wow_depth, &mut wow_depth_buffer);
+                self.eval_signal_buffer(flutter_rate, &mut flutter_rate_buffer);
+                self.eval_signal_buffer(flutter_depth, &mut flutter_depth_buffer);
+                self.eval_signal_buffer(saturation, &mut saturation_buffer);
+                self.eval_signal_buffer(mix, &mut mix_buffer);
+
+                // Get current state
+                let buffer_len = state.buffer.len();
+                let mut delay_buffer = state.buffer.clone();
+                let mut write_idx = state.write_idx;
+                let mut wow_phase = state.wow_phase;
+                let mut flutter_phase = state.flutter_phase;
+                let mut lpf_state = state.lpf_state;
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Clamp parameters to valid ranges
+                    let delay_time = time_buffer[i].max(0.001).min(1.0);
+                    let fb = feedback_buffer[i].clamp(0.0, 0.95);
+                    let wow_r = wow_rate_buffer[i].clamp(0.1, 2.0);
+                    let wow_d = wow_depth_buffer[i].clamp(0.0, 1.0);
+                    let flutter_r = flutter_rate_buffer[i].clamp(5.0, 10.0);
+                    let flutter_d = flutter_depth_buffer[i].clamp(0.0, 1.0);
+                    let sat = saturation_buffer[i].clamp(0.0, 1.0);
+                    let mix_val = mix_buffer[i].clamp(0.0, 1.0);
+
+                    // Update wow and flutter LFOs
+                    let wow_phase_inc = wow_r / self.sample_rate;
+                    let flutter_phase_inc = flutter_r / self.sample_rate;
+
+                    // Modulate delay time with wow (slow) and flutter (fast)
+                    let wow = (wow_phase * std::f32::consts::TAU).sin() * wow_d * 0.001;
+                    let flutter = (flutter_phase * std::f32::consts::TAU).sin() * flutter_d * 0.0001;
+
+                    let modulated_time = delay_time + wow + flutter;
+                    let delay_samples = (modulated_time * self.sample_rate).max(1.0).min(buffer_len as f32 - 1.0);
+
+                    // Fractional delay using linear interpolation
+                    let read_pos_f = (write_idx as f32) - delay_samples;
+                    let read_pos = if read_pos_f < 0.0 {
+                        read_pos_f + buffer_len as f32
+                    } else {
+                        read_pos_f
+                    };
+
+                    let read_idx = read_pos as usize % buffer_len;
+                    let next_idx = (read_idx + 1) % buffer_len;
+                    let frac = read_pos.fract();
+
+                    let delayed = delay_buffer[read_idx] * (1.0 - frac) + delay_buffer[next_idx] * frac;
+
+                    // Tape saturation (soft clipping)
+                    let saturated = if sat > 0.01 {
+                        let drive = 1.0 + sat * 3.0;
+                        (delayed * drive).tanh() / drive
+                    } else {
+                        delayed
+                    };
+
+                    // Tape head filtering (one-pole lowpass)
+                    let cutoff_coef = 0.7 + sat * 0.2;
+                    let filtered = lpf_state * cutoff_coef + saturated * (1.0 - cutoff_coef);
+
+                    // Write to buffer
+                    delay_buffer[write_idx] = input_buffer[i] + filtered * fb;
+
+                    // Mix dry and wet
+                    output[i] = input_buffer[i] * (1.0 - mix_val) + filtered * mix_val;
+
+                    // Update phases and write index
+                    wow_phase = (wow_phase + wow_phase_inc) % 1.0;
+                    flutter_phase = (flutter_phase + flutter_phase_inc) % 1.0;
+                    lpf_state = filtered;
+                    write_idx = (write_idx + 1) % buffer_len;
+                }
+
+                // Update tape delay state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::TapeDelay { state: s, .. } = node {
+                        s.buffer = delay_buffer;
+                        s.write_idx = write_idx;
+                        s.wow_phase = wow_phase;
+                        s.flutter_phase = flutter_phase;
+                        s.lpf_state = lpf_state;
+                    }
+                }
+            }
+
+
+
+            SignalNode::ParametricEQ {
+                input,
+                low_freq,
+                low_gain,
+                low_q,
+                mid_freq,
+                mid_gain,
+                mid_q,
+                high_freq,
+                high_gain,
+                high_q,
+                state,
+            } => {
+                use std::f32::consts::PI;
+
+                // Allocate buffers for input and all parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut low_freq_buffer = vec![0.0; buffer_size];
+                let mut low_gain_buffer = vec![0.0; buffer_size];
+                let mut low_q_buffer = vec![0.0; buffer_size];
+                let mut mid_freq_buffer = vec![0.0; buffer_size];
+                let mut mid_gain_buffer = vec![0.0; buffer_size];
+                let mut mid_q_buffer = vec![0.0; buffer_size];
+                let mut high_freq_buffer = vec![0.0; buffer_size];
+                let mut high_gain_buffer = vec![0.0; buffer_size];
+                let mut high_q_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(low_freq, &mut low_freq_buffer);
+                self.eval_signal_buffer(low_gain, &mut low_gain_buffer);
+                self.eval_signal_buffer(low_q, &mut low_q_buffer);
+                self.eval_signal_buffer(mid_freq, &mut mid_freq_buffer);
+                self.eval_signal_buffer(mid_gain, &mut mid_gain_buffer);
+                self.eval_signal_buffer(mid_q, &mut mid_q_buffer);
+                self.eval_signal_buffer(high_freq, &mut high_freq_buffer);
+                self.eval_signal_buffer(high_gain, &mut high_gain_buffer);
+                self.eval_signal_buffer(high_q, &mut high_q_buffer);
+
+                // Get current filter states
+                let mut low_x1 = state.low_band.x1;
+                let mut low_x2 = state.low_band.x2;
+                let mut mid_x1 = state.mid_band.x1;
+                let mut mid_x2 = state.mid_band.x2;
+                let mut high_x1 = state.high_band.x1;
+                let mut high_x2 = state.high_band.x2;
+
+                let sample_rate = self.sample_rate;
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    let mut signal = input_buffer[i];
+
+                    // Low band (process first)
+                    {
+                        let fc = low_freq_buffer[i].clamp(20.0, 20000.0);
+                        let gain_db = low_gain_buffer[i].clamp(-20.0, 20.0);
+                        let q = low_q_buffer[i].clamp(0.1, 10.0);
+
+                        // Only apply filter if gain is significant
+                        if gain_db.abs() >= 0.1 {
+                            // Calculate biquad coefficients for peaking filter
+                            let a = 10.0_f32.powf(gain_db / 40.0); // Amplitude
+                            let omega = 2.0 * PI * fc / sample_rate;
+                            let alpha = omega.sin() / (2.0 * q);
+                            let cos_omega = omega.cos();
+
+                            let b0 = 1.0 + alpha * a;
+                            let b1 = -2.0 * cos_omega;
+                            let b2 = 1.0 - alpha * a;
+                            let a0 = 1.0 + alpha / a;
+                            let a1 = -2.0 * cos_omega;
+                            let a2 = 1.0 - alpha / a;
+
+                            // Normalize coefficients
+                            let b0_norm = b0 / a0;
+                            let b1_norm = b1 / a0;
+                            let b2_norm = b2 / a0;
+                            let a1_norm = a1 / a0;
+                            let a2_norm = a2 / a0;
+
+                            // Apply biquad filter (Direct Form II)
+                            let output_val = b0_norm * signal + low_x1;
+                            let new_x1 = b1_norm * signal - a1_norm * output_val + low_x2;
+                            let new_x2 = b2_norm * signal - a2_norm * output_val;
+
+                            signal = output_val;
+                            low_x1 = new_x1;
+                            low_x2 = new_x2;
+                        }
+                    }
+
+                    // Mid band (process second)
+                    {
+                        let fc = mid_freq_buffer[i].clamp(20.0, 20000.0);
+                        let gain_db = mid_gain_buffer[i].clamp(-20.0, 20.0);
+                        let q = mid_q_buffer[i].clamp(0.1, 10.0);
+
+                        // Only apply filter if gain is significant
+                        if gain_db.abs() >= 0.1 {
+                            // Calculate biquad coefficients for peaking filter
+                            let a = 10.0_f32.powf(gain_db / 40.0); // Amplitude
+                            let omega = 2.0 * PI * fc / sample_rate;
+                            let alpha = omega.sin() / (2.0 * q);
+                            let cos_omega = omega.cos();
+
+                            let b0 = 1.0 + alpha * a;
+                            let b1 = -2.0 * cos_omega;
+                            let b2 = 1.0 - alpha * a;
+                            let a0 = 1.0 + alpha / a;
+                            let a1 = -2.0 * cos_omega;
+                            let a2 = 1.0 - alpha / a;
+
+                            // Normalize coefficients
+                            let b0_norm = b0 / a0;
+                            let b1_norm = b1 / a0;
+                            let b2_norm = b2 / a0;
+                            let a1_norm = a1 / a0;
+                            let a2_norm = a2 / a0;
+
+                            // Apply biquad filter (Direct Form II)
+                            let output_val = b0_norm * signal + mid_x1;
+                            let new_x1 = b1_norm * signal - a1_norm * output_val + mid_x2;
+                            let new_x2 = b2_norm * signal - a2_norm * output_val;
+
+                            signal = output_val;
+                            mid_x1 = new_x1;
+                            mid_x2 = new_x2;
+                        }
+                    }
+
+                    // High band (process third)
+                    {
+                        let fc = high_freq_buffer[i].clamp(20.0, 20000.0);
+                        let gain_db = high_gain_buffer[i].clamp(-20.0, 20.0);
+                        let q = high_q_buffer[i].clamp(0.1, 10.0);
+
+                        // Only apply filter if gain is significant
+                        if gain_db.abs() >= 0.1 {
+                            // Calculate biquad coefficients for peaking filter
+                            let a = 10.0_f32.powf(gain_db / 40.0); // Amplitude
+                            let omega = 2.0 * PI * fc / sample_rate;
+                            let alpha = omega.sin() / (2.0 * q);
+                            let cos_omega = omega.cos();
+
+                            let b0 = 1.0 + alpha * a;
+                            let b1 = -2.0 * cos_omega;
+                            let b2 = 1.0 - alpha * a;
+                            let a0 = 1.0 + alpha / a;
+                            let a1 = -2.0 * cos_omega;
+                            let a2 = 1.0 - alpha / a;
+
+                            // Normalize coefficients
+                            let b0_norm = b0 / a0;
+                            let b1_norm = b1 / a0;
+                            let b2_norm = b2 / a0;
+                            let a1_norm = a1 / a0;
+                            let a2_norm = a2 / a0;
+
+                            // Apply biquad filter (Direct Form II)
+                            let output_val = b0_norm * signal + high_x1;
+                            let new_x1 = b1_norm * signal - a1_norm * output_val + high_x2;
+                            let new_x2 = b2_norm * signal - a2_norm * output_val;
+
+                            signal = output_val;
+                            high_x1 = new_x1;
+                            high_x2 = new_x2;
+                        }
+                    }
+
+                    output[i] = signal;
+                }
+
+                // Update filter states after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::ParametricEQ { state: s, .. } = node {
+                        s.low_band.x1 = low_x1;
+                        s.low_band.x2 = low_x2;
+                        s.mid_band.x1 = mid_x1;
+                        s.mid_band.x2 = mid_x2;
+                        s.high_band.x1 = high_x1;
+                        s.high_band.x2 = high_x2;
+                    }
+                }
+            }
+
 
             // Fallback: Use old sample-by-sample evaluation for not-yet-migrated nodes
             _ => {
