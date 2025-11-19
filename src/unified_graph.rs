@@ -4793,6 +4793,10 @@ impl UnifiedSignalGraph {
     fn mix_output_buffers(&self, output: &mut [f32], buffer_size: usize) {
         output.fill(0.0);
 
+        eprintln!("DEBUG: mix_output_buffers called, buffer_size={}", buffer_size);
+        eprintln!("DEBUG: outputs.is_empty()={}, self.output={:?}", self.outputs.is_empty(), self.output);
+        eprintln!("DEBUG: node_buffers.len()={}", self.node_buffers.len());
+
         // If we have numbered outputs (channel 1, 2, 3, etc.), handle multi-channel
         if !self.outputs.is_empty() {
             // Determine number of output channels needed
@@ -4817,10 +4821,21 @@ impl UnifiedSignalGraph {
             }
         } else if let Some(output_node) = self.output {
             // Single output mode
+            eprintln!("DEBUG: Single output mode, output_node={:?}", output_node);
             if let Some(buf) = self.node_buffers.get(&output_node) {
+                eprintln!("DEBUG: Found buffer for output node, len={}", buf.len());
+                eprintln!("DEBUG: First 5 samples: {:?}", &buf[0..5.min(buf.len())]);
+                let mut max_val = 0.0f32;
+                for &v in buf.iter() {
+                    max_val = max_val.max(v.abs());
+                }
+                eprintln!("DEBUG: Max absolute value in buffer: {}", max_val);
+
                 for i in 0..buffer_size.min(output.len()) {
                     output[i] = buf.get(i).copied().unwrap_or(0.0);
                 }
+            } else {
+                eprintln!("DEBUG: No buffer found for output_node!");
             }
         }
     }
