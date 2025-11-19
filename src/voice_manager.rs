@@ -154,6 +154,12 @@ pub struct Voice {
     /// Used for legato to create sharp note durations
     /// None = no auto-release (envelope controls duration)
     auto_release_at_sample: Option<usize>,
+
+    /// Buffer trigger offset: which sample in the current buffer this voice was triggered
+    /// Used for hybrid architecture to produce zeros before trigger point
+    /// None = voice was triggered in previous buffer (render normally)
+    /// Some(n) = voice was triggered at sample n in current buffer (produce zeros before n)
+    buffer_trigger_offset: Option<usize>,
 }
 
 /// Unit mode for sample playback speed interpretation
@@ -184,6 +190,7 @@ impl Voice {
             cut_group: None,
             source_node: 0,            // Default source node (will be set on trigger)
             envelope: VoiceEnvelope::new_percussion(SAMPLE_RATE, 0.001, 0.1),
+            buffer_trigger_offset: None,  // No offset by default
             attack: 0.001,             // 1ms default attack
             release: 0.1,              // 100ms default release
             unit_mode: UnitMode::Rate, // Default to rate mode
@@ -244,6 +251,7 @@ impl Voice {
         self.attack = attack.max(0.0001); // Minimum 0.1ms
         self.release = release.max(0.001); // Minimum 1ms
         self.auto_release_at_sample = None; // No auto-release for percussion
+        self.buffer_trigger_offset = None; // Will be set by VoiceManager if needed
 
         // Configure and trigger envelope (recreate as percussion type)
         self.envelope = VoiceEnvelope::new_percussion(SAMPLE_RATE, self.attack, self.release);
@@ -281,6 +289,7 @@ impl Voice {
         self.attack = attack;
         self.release = release;
         self.auto_release_at_sample = None; // Will be set externally for legato
+        self.buffer_trigger_offset = None; // Will be set by VoiceManager if needed
 
         // Create and trigger ADSR envelope
         self.envelope = VoiceEnvelope::new_adsr(SAMPLE_RATE, attack, decay, sustain, release);
@@ -313,6 +322,7 @@ impl Voice {
         self.speed = speed; // Allow negative speed for reverse playback
         self.age = 0;
         self.cut_group = cut_group;
+        self.buffer_trigger_offset = None; // Will be set by VoiceManager if needed
 
         // Create and trigger segments envelope
         self.envelope = VoiceEnvelope::new_segments(SAMPLE_RATE, levels, times);
@@ -347,6 +357,7 @@ impl Voice {
         self.speed = speed; // Allow negative speed for reverse playback
         self.age = 0;
         self.cut_group = cut_group;
+        self.buffer_trigger_offset = None; // Will be set by VoiceManager if needed
 
         // Create and trigger curve envelope
         self.envelope = VoiceEnvelope::new_curve(SAMPLE_RATE, start, end, duration, curve);
@@ -1514,12 +1525,25 @@ impl VoiceManager {
                 .par_iter_mut()
                 .map(|voice| {
                     let source_node = voice.source_node;
+                    let trigger_offset = voice.buffer_trigger_offset.unwrap_or(0);
                     let mut buffer = Vec::with_capacity(block_size);
-                    for _ in 0..block_size {
+
+                    // Produce zeros before trigger offset
+                    for _ in 0..trigger_offset {
+                        buffer.push(0.0);
+                    }
+
+                    // Process audio from trigger offset onwards
+                    for _ in trigger_offset..block_size {
                         let (l, r) = voice.process_stereo();
                         let mono = (l + r) / std::f32::consts::SQRT_2;
                         buffer.push(mono);
                     }
+
+                    // Clear trigger offset (it's per-buffer)
+                    // Note: This is safe because we're in par_iter_mut
+                    // voice.buffer_trigger_offset = None;  // Can't do this in parallel
+
                     (buffer, source_node)
                 })
                 .collect();
@@ -1540,6 +1564,7 @@ impl VoiceManager {
             // SEQUENTIAL: For low voice counts, process sequentially
             for voice in &mut self.voices {
                 let source_node = voice.source_node;
+                let trigger_offset = voice.buffer_trigger_offset.unwrap_or(0);
 
                 // Ensure buffer exists for this node
                 let node_buffer = output
@@ -1548,11 +1573,25 @@ impl VoiceManager {
 
                 // Render voice and accumulate into node buffer
                 for i in 0..block_size {
-                    let (l, r) = voice.process_stereo();
-                    let mono = (l + r) / std::f32::consts::SQRT_2;
-                    node_buffer[i] += mono;
+                    if i < trigger_offset {
+                        // Before trigger offset: produce zero (don't call process_stereo())
+                        // node_buffer[i] += 0.0; // No-op
+                    } else {
+                        // After trigger offset: process normally
+                        let (l, r) = voice.process_stereo();
+                        let mono = (l + r) / std::f32::consts::SQRT_2;
+                        node_buffer[i] += mono;
+                    }
                 }
+
+                // Clear trigger offset after rendering this buffer
+                voice.buffer_trigger_offset = None;
             }
+        }
+
+        // Clear trigger offsets for parallel-rendered voices
+        for voice in &mut self.voices {
+            voice.buffer_trigger_offset = None;
         }
 
         output
@@ -1580,6 +1619,15 @@ impl VoiceManager {
     pub fn set_last_voice_auto_release(&mut self, sample_count: usize) {
         if let Some(idx) = self.last_triggered_voice_index {
             self.voices[idx].auto_release_at_sample = Some(sample_count);
+        }
+    }
+
+    /// Set buffer trigger offset for the last triggered voice (for hybrid architecture)
+    /// Must be called immediately after a trigger_sample_* method
+    /// The voice will produce zeros before this sample offset in the current buffer
+    pub fn set_last_voice_trigger_offset(&mut self, offset: usize) {
+        if let Some(idx) = self.last_triggered_voice_index {
+            self.voices[idx].buffer_trigger_offset = Some(offset);
         }
     }
 
