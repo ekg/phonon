@@ -1853,8 +1853,10 @@ fn compile_karplus_strong(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<
     let node = SignalNode::KarplusStrong {
         freq: Signal::Node(freq_node),
         damping: damping_signal,
+        trigger: Signal::Value(1.0), // Default: always triggered
         state: KarplusStrongState::new(initial_size),
         last_freq: 440.0, // Will be updated on first sample
+        last_trigger: 0.0, // For edge detection
     };
 
     Ok(ctx.graph.add_node(node))
