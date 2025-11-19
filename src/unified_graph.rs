@@ -4433,6 +4433,19 @@ impl UnifiedSignalGraph {
         node_id
     }
 
+    /// Add a BandPass filter node (helper for testing)
+    pub fn add_bandpass_node(&mut self, input: Signal, center: Signal, q: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::BandPass {
+            input,
+            center,
+            q,
+            state: FilterState::default(),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     /// Set the output node
     pub fn set_output(&mut self, node_id: NodeId) {
         self.output = Some(node_id);
@@ -11117,8 +11130,60 @@ impl UnifiedSignalGraph {
                 }
             }
 
+            SignalNode::BandPass {
+                input,
+                center,
+                q,
+                state,
+            } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut center_buffer = vec![0.0; buffer_size];
+                let mut q_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(center, &mut center_buffer);
+                self.eval_signal_buffer(q, &mut q_buffer);
+
+                // Get current filter state
+                let mut low = state.y1;
+                let mut band = state.x1;
+                let mut high = state.y2;
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Clamp parameters to valid ranges
+                    let fc = center_buffer[i].max(20.0).min(20000.0);
+                    let q_val = q_buffer[i].max(0.5).min(20.0);
+
+                    // Compute SVF coefficients (Chamberlin)
+                    // f = 2 * sin(π * fc / fs)
+                    // Clamp f to prevent instability (must be < 2.0)
+                    let f = (2.0 * (std::f32::consts::PI * fc / self.sample_rate).sin()).min(1.99);
+                    let damp = 1.0 / q_val;
+
+                    // SVF tick (State Variable Filter)
+                    high = input_buffer[i] - low - damp * band;
+                    band += f * high;
+                    low += f * band;
+
+                    // Output is bandpass (band)
+                    output[i] = band;
+                }
+
+                // Update filter state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::BandPass { state, .. } = node {
+                        state.y1 = low;
+                        state.x1 = band;
+                        state.y2 = high;
+                    }
+                }
+            }
+
             // TODO: Add more nodes as they are migrated
-            // SignalNode::BandPass { .. } => self.eval_bpf_buffer(...),
 
             // Fallback: Use old sample-by-sample evaluation for not-yet-migrated nodes
             _ => {
