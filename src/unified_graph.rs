@@ -4488,6 +4488,56 @@ impl UnifiedSignalGraph {
         node_id
     }
 
+    /// Add a compressor node (dynamic range compression with attack/release envelope)
+    pub fn add_compressor_node(
+        &mut self,
+        input: Signal,
+        threshold: Signal,
+        ratio: Signal,
+        attack: Signal,
+        release: Signal,
+        makeup_gain: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Compressor {
+            input,
+            threshold,
+            ratio,
+            attack,
+            release,
+            makeup_gain,
+            state: CompressorState::new(),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a bitcrush node (bit reduction + sample rate reduction for lo-fi effect)
+    pub fn add_bitcrush_node(
+        &mut self,
+        input: Signal,
+        bits: Signal,
+        sample_rate: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::BitCrush {
+            input,
+            bits,
+            sample_rate,
+            state: BitCrushState::default(),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a white noise generator node (helper for testing)
+    pub fn add_whitenoise_node(&mut self) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::WhiteNoise;
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     /// Set the output node
     pub fn set_output(&mut self, node_id: NodeId) {
         self.output = Some(node_id);
@@ -6243,7 +6293,7 @@ impl UnifiedSignalGraph {
                 0.0
             }
 
-            SignalNode::Limiter { input, threshold } => {
+            SignalNode::Limiter { input, threshold, .. } => {
                 // Evaluate input signal and threshold
                 let input_val = self.eval_signal(&input);
                 let thresh = self.eval_signal(&threshold).max(0.0);
@@ -11251,6 +11301,7 @@ impl UnifiedSignalGraph {
                 }
             }
 
+
             SignalNode::Chorus {
                 input,
                 rate,
@@ -11470,6 +11521,127 @@ impl UnifiedSignalGraph {
                     } = node {
                         *buf = delay_buffer;
                         *idx = current_write_idx;
+                    }
+                }
+            }
+
+            SignalNode::Noise { seed } => {
+                // Seeded white noise using Linear Congruential Generator (LCG)
+                // This produces deterministic noise sequences for a given seed
+                // Useful for reproducible sound design and testing
+                let mut rng = *seed;
+
+                for i in 0..buffer_size {
+                    // LCG algorithm: X_{n+1} = (a * X_n + c) mod m
+                    // Using standard glibc parameters
+                    rng = rng.wrapping_mul(1103515245).wrapping_add(12345);
+
+                    // Convert to [-1, 1] range
+                    // Extract bits 16-30 (15 bits) for better randomness
+                    let value = ((rng >> 16) & 0x7FFF) as f32 / 32768.0 * 2.0 - 1.0;
+                    output[i] = value;
+                }
+
+                // Update seed for next buffer (stateful noise)
+                // This ensures continuous noise across buffer boundaries
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = std::rc::Rc::make_mut(node_rc);
+                    if let SignalNode::Noise { seed: s } = node {
+                        *s = rng;
+                    }
+                }
+            }
+
+            SignalNode::PinkNoise { state } => {
+                // Voss-McCartney algorithm for pink noise (1/f spectrum)
+                // Maintains 16 octave bins updated at different rates
+                use rand::Rng;
+                let mut rng = rand::thread_rng();
+
+                // Get current state
+                let mut bins = state.bins;
+                let mut counter = state.counter;
+
+                // Generate buffer
+                for i in 0..buffer_size {
+                    // Update bins whose bit changed from 0 to 1
+                    // Each bin updates at 1/2^i rate (bin 0 every sample, bin 1 every 2, etc.)
+                    for j in 0..16 {
+                        let mask = 1u32 << j;
+                        if (counter & mask) == 0 {
+                            // This bin should update (its bit is 0, was 1)
+                            bins[j] = rng.gen_range(-1.0..1.0);
+                        }
+                    }
+
+                    // Sum all bins and normalize
+                    let sum: f32 = bins.iter().sum();
+                    output[i] = sum / 16.0; // Normalize by number of bins
+
+                    // Increment counter for next sample
+                    counter = counter.wrapping_add(1);
+                }
+
+                // Update state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::PinkNoise { state: s } = node {
+                        s.bins = bins;
+                        s.counter = counter;
+                    }
+                }
+            }
+
+            SignalNode::BitCrush {
+                input,
+                bits,
+                sample_rate,
+                state,
+            } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut bits_buffer = vec![0.0; buffer_size];
+                let mut rate_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(bits, &mut bits_buffer);
+                self.eval_signal_buffer(sample_rate, &mut rate_buffer);
+
+                // Get current state (phase is fractional sample counter, last_sample is held value)
+                let mut phase = *state.phase.borrow();
+                let mut held_sample = *state.last_sample.borrow();
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Clamp parameters to valid ranges
+                    let bit_depth = bits_buffer[i].clamp(1.0, 16.0);
+                    let rate_reduction = rate_buffer[i].clamp(1.0, 64.0);
+
+                    // Increment phase (fractional sample counter)
+                    phase += 1.0 / rate_reduction;
+
+                    // Sample-and-hold: update held sample when phase crosses 1.0
+                    if phase >= 1.0 {
+                        // Reduce bit depth (quantization)
+                        let levels = (2.0_f32).powf(bit_depth);
+                        let quantized = (input_buffer[i] * levels).round() / levels;
+                        held_sample = quantized;
+
+                        // Wrap phase
+                        phase = phase - phase.floor();
+                    }
+
+                    // Output the held sample
+                    output[i] = held_sample;
+                }
+
+                // Update state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::BitCrush { state: s, .. } = node {
+                        *s.phase.borrow_mut() = phase;
+                        *s.last_sample.borrow_mut() = held_sample;
                     }
                 }
             }

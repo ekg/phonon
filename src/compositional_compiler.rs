@@ -2336,6 +2336,12 @@ fn compile_limiter(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
     let input_node = compile_expr(ctx, args[0].clone())?;
     let threshold_node = compile_expr(ctx, args[1].clone())?;
 
+    let release = if args.len() >= 3 {
+        Signal::Node(compile_expr(ctx, args[2].clone())?)
+    } else {
+        Signal::Value(0.01)
+    };
+
     let node = SignalNode::Limiter {
         input: Signal::Node(input_node),
         threshold: Signal::Node(threshold_node),
