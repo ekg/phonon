@@ -232,3 +232,55 @@ struct FilterStateCache {
 **Low-hanging fruit:** Cache coefficients, direct state access, memoize constants → 20-30% speedup with 2-3 hours work.
 
 **Status:** Current performance is production-ready for most patterns. Optimizations would make extreme patterns comfortable.
+
+---
+
+## 🔬 Optimization Results (Session 2)
+
+### What We Tried
+
+1. **✅ Filter coefficient caching (LowPass, HighPass)** - Commit 9b8f6fa
+   - Caches sin() result when filter parameters don't change
+   - Avoids 512 expensive trig computations per buffer for constant parameters
+   - **Result**: Effective optimization, kept in codebase
+
+2. **✅ BandPass coefficient caching** - Commit f8318c9
+   - Applied same optimization to BandPass filter (which lacked it)
+   - Brings BandPass to parity with LowPass/HighPass
+   - **Result**: Clear win, committed
+
+3. **❌ Parameter memoization via match statements** - Discarded
+   - Attempted to avoid `eval_signal()` function calls for `Signal::Value`
+   - Added explicit `match signal { Signal::Value(v) => *v, _ => ... }`
+   - **Result**: Made performance WORSE due to branch overhead
+   - **Lesson**: Rust compiler inlines `eval_signal()` effectively; explicit matching adds overhead
+
+### Performance Observations
+
+**Baseline (after coefficient caching):**
+- Phase 3: 9.85-22.13ms (typical: ~10-17ms)
+- High variability due to CPU frequency scaling and OS scheduling
+- Phase 1 (Pattern eval) shows 6.54-39.37ms range, indicating system-wide variance
+
+**Key Insights:**
+- Coefficient caching is effective (avoids expensive sin() calls)
+- Parameter memoization via explicit matching is counter-productive
+- Micro-optimizations compete with compiler optimizations
+- High timing variability makes small improvements hard to measure
+
+### Recommendations Going Forward
+
+**Do:**
+- Apply coefficient caching to any filters that compute trig functions
+- Trust the compiler's ability to inline simple functions
+- Focus on algorithmic improvements (batch processing, SIMD)
+
+**Don't:**
+- Add explicit matching to "optimize" function calls the compiler can inline
+- Over-optimize hot paths without careful benchmarking
+- Assume intuitive optimizations will always help
+
+**Next High-Value Targets:**
+1. **DJFilter coefficient caching** - Still computes sin() every sample
+2. **Batch filter evaluation** - Process multiple samples before checking state
+3. **Parallelize Phase 3** - Requires architectural changes but 2-3x potential
