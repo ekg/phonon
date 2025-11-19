@@ -104,9 +104,9 @@ enum Signal {
 - [x] 📚 **Study:** Design `eval_node_buffer()` API signature ✅
 - [x] 📚 **Study:** Design `eval_signal_buffer()` for Signal evaluation ✅
 - [x] 📚 **Study:** Decide on buffer allocation strategy (stack? heap? reuse?) ✅
-- [ ] 🔨 **Implementation:** Add `eval_node_buffer()` to UnifiedSignalGraph
-- [ ] 🔨 **Implementation:** Add `eval_signal_buffer()` for each Signal variant
-- [ ] 🔨 **Implementation:** Add buffer workspace allocation
+- [x] 🔨 **Implementation:** Add `eval_node_buffer()` to UnifiedSignalGraph ✅
+- [x] 🔨 **Implementation:** Add `eval_signal_buffer()` for each Signal variant ✅
+- [x] 🔨 **Implementation:** Add `eval_expression_buffer()` for arithmetic ops ✅
 - [ ] 🧪 **Testing:** Write test comparing buffer vs sample outputs
 - [ ] 🧪 **Testing:** Test with constant signals (Value)
 - [ ] 🧪 **Testing:** Test with bus references
@@ -116,6 +116,12 @@ enum Signal {
 - API: `fn eval_node_buffer(&mut self, node_id: &NodeId, output: &mut [f32])`
 - Allocation: Vec per call initially (simple), optimize later if needed
 - Migration: Gradual, coexist with old API during transition
+
+**Implementation Notes:** (Commit cc34939)
+- Added ~200 lines of core buffer evaluation infrastructure
+- Supports: Constant nodes, all Signal types, all arithmetic operations
+- Includes fallback to sample-by-sample for not-yet-migrated nodes
+- Compiles successfully, ready for testing
 
 **Design Notes:**
 ```rust
