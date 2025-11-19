@@ -1486,6 +1486,78 @@ impl VoiceManager {
         output
     }
 
+    /// Render block of samples with output organized by source node
+    /// Returns one buffer per source node (for hybrid architecture)
+    ///
+    /// This is the new API for hybrid block processing where:
+    /// - Pattern evaluation triggers voices (sample-accurate)
+    /// - Voice rendering produces buffers (block-based, this method)
+    /// - DSP processing reads from buffers (block-based, no recursion)
+    ///
+    /// Returns HashMap where:
+    /// - Key: source_node_id (from set_default_source_node)
+    /// - Value: Vec<f32> buffer of block_size samples
+    pub fn render_block(&mut self, block_size: usize) -> std::collections::HashMap<usize, Vec<f32>> {
+        use std::collections::HashMap;
+
+        if self.voices.is_empty() {
+            return HashMap::new();
+        }
+
+        // Initialize output buffers for each unique source node
+        let mut output: HashMap<usize, Vec<f32>> = HashMap::new();
+
+        // PARALLEL: Process voices in parallel when count is high
+        if self.voices.len() >= self.parallel_threshold {
+            // Each voice renders its full buffer independently
+            let voice_buffers: Vec<(Vec<f32>, usize)> = self.voices
+                .par_iter_mut()
+                .map(|voice| {
+                    let source_node = voice.source_node;
+                    let mut buffer = Vec::with_capacity(block_size);
+                    for _ in 0..block_size {
+                        let (l, r) = voice.process_stereo();
+                        let mono = (l + r) / std::f32::consts::SQRT_2;
+                        buffer.push(mono);
+                    }
+                    (buffer, source_node)
+                })
+                .collect();
+
+            // Accumulate voice buffers by source node
+            for (voice_buffer, source_node) in voice_buffers {
+                output
+                    .entry(source_node)
+                    .and_modify(|node_buffer| {
+                        // Accumulate into existing buffer
+                        for (i, sample) in voice_buffer.iter().enumerate() {
+                            node_buffer[i] += sample;
+                        }
+                    })
+                    .or_insert(voice_buffer); // First voice for this node
+            }
+        } else {
+            // SEQUENTIAL: For low voice counts, process sequentially
+            for voice in &mut self.voices {
+                let source_node = voice.source_node;
+
+                // Ensure buffer exists for this node
+                let node_buffer = output
+                    .entry(source_node)
+                    .or_insert_with(|| vec![0.0; block_size]);
+
+                // Render voice and accumulate into node buffer
+                for i in 0..block_size {
+                    let (l, r) = voice.process_stereo();
+                    let mono = (l + r) / std::f32::consts::SQRT_2;
+                    node_buffer[i] += mono;
+                }
+            }
+        }
+
+        output
+    }
+
     /// Configure unit mode for the last triggered voice
     /// Must be called immediately after a trigger_sample_* method
     pub fn set_last_voice_unit_mode(&mut self, mode: UnitMode) {
