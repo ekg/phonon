@@ -4459,6 +4459,22 @@ impl UnifiedSignalGraph {
         node_id
     }
 
+    /// Add an SVF filter node (helper for testing)
+    /// SVF (State Variable Filter) produces LP, HP, BP, and Notch outputs
+    /// mode: 0=LP, 1=HP, 2=BP, 3=Notch
+    pub fn add_svf_node(&mut self, input: Signal, frequency: Signal, resonance: Signal, mode: usize) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::SVF {
+            input,
+            frequency,
+            resonance,
+            mode,
+            state: SVFState::default(),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     /// Add a DJFilter node (helper for testing)
     /// DJ-style filter that sweeps from lowpass (0.0) through neutral (0.5) to highpass (1.0)
     pub fn add_djfilter_node(&mut self, input: Signal, value: Signal) -> NodeId {
@@ -4526,6 +4542,7 @@ impl UnifiedSignalGraph {
         self.nodes.push(Some(Rc::new(node)));
         node_id
     }
+
 
     /// Add a comb filter node (feedback delay line for resonant effects)
     pub fn add_comb_node(&mut self, input: Signal, frequency: Signal, feedback: Signal) -> NodeId {
@@ -13202,6 +13219,78 @@ impl UnifiedSignalGraph {
                 }
             }
 
+
+            SignalNode::SVF {
+                input,
+                frequency,
+                resonance,
+                mode,
+                state,
+            } => {
+                // Chamberlin State Variable Filter - Buffer evaluation
+                // Produces LP, HP, BP, and Notch outputs based on mode parameter
+
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut frequency_buffer = vec![0.0; buffer_size];
+                let mut resonance_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(frequency, &mut frequency_buffer);
+                self.eval_signal_buffer(resonance, &mut resonance_buffer);
+
+                // Get current filter state
+                let mut low = state.low;
+                let mut band = state.band;
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Clamp parameters to valid ranges
+                    let freq = frequency_buffer[i].clamp(10.0, self.sample_rate * 0.45);
+                    let res = resonance_buffer[i].max(0.1); // Prevent division by zero
+
+                    // Calculate filter coefficients
+                    // f = 2 * sin(π * cutoff / sampleRate)
+                    // Prevent instability at high frequencies
+                    let f = (std::f32::consts::PI * freq / self.sample_rate).sin().min(0.95);
+                    let q = 1.0 / res.max(0.1); // Convert resonance to damping
+
+                    // Update filter (Chamberlin topology)
+                    low = low + f * band;
+                    let high = input_buffer[i] - low - q * band;
+                    band = f * high + band;
+                    let notch = high + low;
+
+                    // Clamp state to prevent runaway values and NaN
+                    low = low.clamp(-10.0, 10.0);
+                    band = band.clamp(-10.0, 10.0);
+
+                    // Check for NaN and reset if needed
+                    if !low.is_finite() || !band.is_finite() {
+                        low = 0.0;
+                        band = 0.0;
+                    }
+
+                    // Select output based on mode
+                    output[i] = match mode {
+                        0 => low,        // Lowpass
+                        1 => high,       // Highpass
+                        2 => band,       // Bandpass
+                        3 => notch,      // Notch
+                        _ => low,        // Default to lowpass
+                    };
+                }
+
+                // Update filter state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::SVF { state: s, .. } = node {
+                        s.low = low;
+                        s.band = band;
+                    }
+                }
+            }
 
             // Fallback: Use old sample-by-sample evaluation for not-yet-migrated nodes
             _ => {
