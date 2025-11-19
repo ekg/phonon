@@ -4391,6 +4391,22 @@ impl UnifiedSignalGraph {
         node_id
     }
 
+    /// Add an Add node (helper for testing)
+    pub fn add_add_node(&mut self, a: Signal, b: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Add { a, b };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a Multiply node (helper for testing)
+    pub fn add_multiply_node(&mut self, a: Signal, b: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Multiply { a, b };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     /// Set the output node
     pub fn set_output(&mut self, node_id: NodeId) {
         self.output = Some(node_id);
@@ -10936,9 +10952,38 @@ impl UnifiedSignalGraph {
                 *last_sample.borrow_mut() = current_last_sample;
             }
 
+            SignalNode::Add { a, b } => {
+                // Allocate buffers for both inputs
+                let mut a_buffer = vec![0.0; buffer_size];
+                let mut b_buffer = vec![0.0; buffer_size];
+
+                // Evaluate both signals
+                self.eval_signal_buffer(a, &mut a_buffer);
+                self.eval_signal_buffer(b, &mut b_buffer);
+
+                // Add element-wise
+                for i in 0..buffer_size {
+                    output[i] = a_buffer[i] + b_buffer[i];
+                }
+            }
+
+            SignalNode::Multiply { a, b } => {
+                // Allocate buffers for both inputs
+                let mut a_buffer = vec![0.0; buffer_size];
+                let mut b_buffer = vec![0.0; buffer_size];
+
+                // Evaluate both signals
+                self.eval_signal_buffer(a, &mut a_buffer);
+                self.eval_signal_buffer(b, &mut b_buffer);
+
+                // Multiply element-wise
+                for i in 0..buffer_size {
+                    output[i] = a_buffer[i] * b_buffer[i];
+                }
+            }
+
             // TODO: Add more nodes as they are migrated
             // SignalNode::LowPass { .. } => self.eval_lpf_buffer(...),
-            // SignalNode::Add { .. } => self.eval_add_buffer(...),
 
             // Fallback: Use old sample-by-sample evaluation for not-yet-migrated nodes
             _ => {
