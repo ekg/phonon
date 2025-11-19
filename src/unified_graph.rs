@@ -3924,6 +3924,11 @@ pub struct UnifiedSignalGraph {
     /// Computed values cache for current sample
     value_cache: HashMap<NodeId, f32>,
 
+    /// Pattern event cache for current buffer (Option B optimization)
+    /// Maps Pattern node ID -> (cycle_position, Vec of events in buffer span)
+    /// Pre-computed once per buffer to avoid 512 pattern.query() calls
+    pattern_event_cache: HashMap<NodeId, Vec<crate::pattern::Hap<String>>>,
+
     /// Sample bank for loading and playing samples (RefCell for interior mutability)
     sample_bank: RefCell<SampleBank>,
 
@@ -3973,6 +3978,7 @@ impl Clone for UnifiedSignalGraph {
             cached_cycle_position: self.cached_cycle_position,
             next_node_id: self.next_node_id,
             value_cache: HashMap::new(), // Fresh cache for cloned instance
+            pattern_event_cache: HashMap::new(), // Fresh cache for cloned instance
             sample_bank: RefCell::new(SampleBank::new()),
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(), // Fresh cache
@@ -4000,6 +4006,7 @@ impl UnifiedSignalGraph {
             cached_cycle_position: 0.0,
             next_node_id: 0,
             value_cache: HashMap::new(),
+            pattern_event_cache: HashMap::new(),
             sample_bank: RefCell::new(SampleBank::new()),
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(),
@@ -7190,17 +7197,32 @@ impl UnifiedSignalGraph {
                 last_value,
                 last_trigger_time: _,
             } => {
-                // Query pattern for events at current cycle position
-                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-                let state = State {
-                    span: TimeSpan::new(
-                        Fraction::from_float(self.get_cycle_position()),
-                        Fraction::from_float(self.get_cycle_position() + sample_width),
-                    ),
-                    controls: HashMap::new(),
+                // OPTION B OPTIMIZATION: Use pre-computed events if available
+                let current_cycle = self.get_cycle_position();
+                let events = if let Some(cached_events) = self.pattern_event_cache.get(node_id) {
+                    // Find events active at current cycle position from cached events
+                    cached_events
+                        .iter()
+                        .filter(|event| {
+                            let begin = event.part.begin.to_float();
+                            let end = event.part.end.to_float();
+                            current_cycle >= begin && current_cycle < end
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>()
+                } else {
+                    // Fallback: Query pattern directly (shouldn't happen in normal operation)
+                    let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                    let state = State {
+                        span: TimeSpan::new(
+                            Fraction::from_float(current_cycle),
+                            Fraction::from_float(current_cycle + sample_width),
+                        ),
+                        controls: HashMap::new(),
+                    };
+                    pattern.query(&state)
                 };
 
-                let events = pattern.query(&state);
                 let mut current_value = *last_value; // Default to last value
 
                 // DEBUG: Log all pattern queries
@@ -7347,18 +7369,33 @@ impl UnifiedSignalGraph {
                 // This separates outputs so each output only hears its own samples
                 self.voice_manager.borrow_mut().set_default_source_node(node_id.0);
 
-                // Query pattern for events in the current cycle
-                // Use full-cycle window to ensure transforms like degrade see all events
-                // The event deduplication logic below prevents re-triggering
-                let current_cycle_start = self.get_cycle_position().floor();
-                let state = State {
-                    span: TimeSpan::new(
-                        Fraction::from_float(current_cycle_start),
-                        Fraction::from_float(current_cycle_start + 1.0),
-                    ),
-                    controls: HashMap::new(),
+                // OPTION B OPTIMIZATION: Use pre-computed events if available
+                let events = if let Some(cached_events) = self.pattern_event_cache.get(node_id) {
+                    // Use cached events (computed once per buffer for entire buffer span)
+                    // Filter to current cycle
+                    let current_cycle_start = self.get_cycle_position().floor();
+                    cached_events
+                        .iter()
+                        .filter(|event| {
+                            let begin = event.part.begin.to_float();
+                            begin >= current_cycle_start && begin < current_cycle_start + 1.0
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>()
+                } else {
+                    // Fallback: Query pattern directly (shouldn't happen in normal operation)
+                    // Use full-cycle window to ensure transforms like degrade see all events
+                    // The event deduplication logic below prevents re-triggering
+                    let current_cycle_start = self.get_cycle_position().floor();
+                    let state = State {
+                        span: TimeSpan::new(
+                            Fraction::from_float(current_cycle_start),
+                            Fraction::from_float(current_cycle_start + 1.0),
+                        ),
+                        controls: HashMap::new(),
+                    };
+                    pattern.query(&state)
                 };
-                let events = pattern.query(&state);
 
                 // Check if we've crossed into a new cycle
                 let current_cycle = self.get_cycle_position().floor() as i32;
@@ -9966,6 +10003,47 @@ impl UnifiedSignalGraph {
         mixed_output
     }
 
+    /// Pre-compute pattern events for the entire buffer (Option B optimization)
+    /// This eliminates 512 pattern.query() calls per buffer by querying once
+    fn precompute_pattern_events(&mut self, buffer_len: usize) {
+        use crate::pattern::{Fraction, State, TimeSpan};
+        use std::collections::HashMap;
+
+        self.pattern_event_cache.clear();
+
+        // Calculate buffer time span
+        let start_cycle = self.get_cycle_position();
+        let buffer_duration_cycles = (buffer_len as f64 / self.sample_rate as f64) * self.cps as f64;
+        let end_cycle = start_cycle + buffer_duration_cycles;
+
+        // Query each Pattern node AND Sample node once for the entire buffer span
+        for (node_idx, node_opt) in self.nodes.iter().enumerate() {
+            if let Some(node_rc) = node_opt {
+                let pattern_opt = match &**node_rc {
+                    SignalNode::Pattern { pattern, .. } => Some(pattern),
+                    SignalNode::Sample { pattern, .. } => Some(pattern),
+                    _ => None,
+                };
+
+                if let Some(pattern) = pattern_opt {
+                    let state = State {
+                        span: TimeSpan::new(
+                            Fraction::from_float(start_cycle),
+                            Fraction::from_float(end_cycle),
+                        ),
+                        controls: HashMap::new(),
+                    };
+
+                    // Query pattern once for entire buffer
+                    let events = pattern.query(&state);
+
+                    // Cache events for this node
+                    self.pattern_event_cache.insert(NodeId(node_idx), events);
+                }
+            }
+        }
+    }
+
     /// Process a buffer of audio samples (optimized - clears cache once per buffer)
     /// This is 2x-4x faster than calling process_sample() in a loop
     #[inline]
@@ -9998,6 +10076,10 @@ impl UnifiedSignalGraph {
         if let Some(start) = voice_start {
             voice_time_us = start.elapsed().as_micros();
         }
+
+        // OPTION B OPTIMIZATION: Pre-compute pattern events once per buffer
+        // This eliminates 512 pattern.query() calls per Pattern node
+        self.precompute_pattern_events(buffer.len());
 
         // PERFORMANCE: Collect outputs ONCE per buffer instead of 512 times per buffer
         let output_channels: Vec<(usize, crate::unified_graph::NodeId)> =
