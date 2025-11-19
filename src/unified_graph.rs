@@ -10495,6 +10495,43 @@ impl UnifiedSignalGraph {
         // This eliminates 512 pattern.query() calls per Pattern node
         self.precompute_pattern_events(buffer.len());
 
+        // EXPERIMENTAL: Block processing (DAW-style)
+        // Enable with USE_BLOCK_PROCESSING=1 environment variable
+        let use_block_processing = std::env::var("USE_BLOCK_PROCESSING").is_ok();
+
+        if use_block_processing {
+            // DAW-style block processing: render nodes in stages
+            let block_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
+
+            match self.process_buffer_stages(buffer, buffer.len()) {
+                Ok(_) => {
+                    if let Some(start) = block_start {
+                        let block_time_us = start.elapsed().as_micros();
+                        if enable_profiling {
+                            if let Ok(mut file) = std::fs::OpenOptions::new()
+                                .create(true)
+                                .append(true)
+                                .open("/tmp/phonon_buffer_profile.log")
+                            {
+                                use std::io::Write;
+                                let _ = writeln!(file, "=== BLOCK PROCESSING ({}samples) ===", buffer.len());
+                                let _ = writeln!(file, "Voice processing: {:.2}ms", voice_time_us as f64 / 1000.0);
+                                let _ = writeln!(file, "Block rendering:  {:.2}ms", block_time_us as f64 / 1000.0);
+                                let _ = writeln!(file, "Total:            {:.2}ms", (voice_time_us + block_time_us) as f64 / 1000.0);
+                            }
+                        }
+                    }
+                    // Update sample counter
+                    self.sample_count += buffer.len();
+                    return; // Block processing complete, exit early
+                }
+                Err(e) => {
+                    eprintln!("Block processing failed: {}, falling back to sample-by-sample", e);
+                    // Fall through to sample-by-sample processing
+                }
+            }
+        }
+
         // PERFORMANCE: Collect outputs ONCE per buffer instead of 512 times per buffer
         let output_channels: Vec<(usize, crate::unified_graph::NodeId)> =
             self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
