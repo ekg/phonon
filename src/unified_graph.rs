@@ -407,6 +407,122 @@ use std::sync::{Arc, Mutex};
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct NodeId(pub usize);
 
+/// Dependency graph for block-based parallel processing
+///
+/// This structure represents the DAG (Directed Acyclic Graph) of node dependencies,
+/// allowing us to:
+/// 1. Determine evaluation order (topological sort)
+/// 2. Identify independent nodes that can run in parallel
+/// 3. Detect feedback loops that need buffering
+#[derive(Debug, Clone)]
+pub struct DependencyGraph {
+    /// Dependencies for each node: node_id -> Vec<dependency_node_ids>
+    pub dependencies: HashMap<NodeId, Vec<NodeId>>,
+    /// Reverse dependencies: node_id -> Vec<nodes_that_depend_on_it>
+    pub dependents: HashMap<NodeId, Vec<NodeId>>,
+}
+
+/// Parallel execution stages
+/// Each stage contains nodes that can be evaluated in parallel
+/// Stages must be executed sequentially (stage N before stage N+1)
+#[derive(Debug, Clone)]
+pub struct ExecutionStages {
+    /// Stages of node IDs, each stage can run in parallel
+    pub stages: Vec<Vec<NodeId>>,
+    /// Nodes involved in feedback loops (need special handling)
+    pub feedback_nodes: Vec<NodeId>,
+}
+
+impl DependencyGraph {
+    pub fn new() -> Self {
+        Self {
+            dependencies: HashMap::new(),
+            dependents: HashMap::new(),
+        }
+    }
+
+    /// Add a dependency: from_node depends on to_node
+    pub fn add_dependency(&mut self, from_node: NodeId, to_node: NodeId) {
+        self.dependencies
+            .entry(from_node)
+            .or_insert_with(Vec::new)
+            .push(to_node);
+        self.dependents
+            .entry(to_node)
+            .or_insert_with(Vec::new)
+            .push(from_node);
+    }
+
+    /// Get all dependencies of a node (nodes it depends on)
+    pub fn get_dependencies(&self, node_id: NodeId) -> &[NodeId] {
+        self.dependencies.get(&node_id).map(|v| v.as_slice()).unwrap_or(&[])
+    }
+
+    /// Perform topological sort using Kahn's algorithm
+    /// Returns stages of nodes that can run in parallel
+    pub fn topological_sort(&self) -> Result<ExecutionStages, String> {
+        use std::collections::VecDeque;
+
+        let mut in_degree: HashMap<NodeId, usize> = HashMap::new();
+        let all_nodes: std::collections::HashSet<NodeId> = self.dependencies.keys()
+            .chain(self.dependents.keys())
+            .copied()
+            .collect();
+
+        // Calculate in-degrees
+        for &node in &all_nodes {
+            in_degree.insert(node, self.get_dependencies(node).len());
+        }
+
+        let mut stages = Vec::new();
+        let mut queue: VecDeque<NodeId> = in_degree.iter()
+            .filter(|(_, &degree)| degree == 0)
+            .map(|(&node, _)| node)
+            .collect();
+
+        while !queue.is_empty() {
+            // All nodes in queue can run in parallel (same stage)
+            let current_stage: Vec<NodeId> = queue.drain(..).collect();
+
+            // Update in-degrees for dependent nodes
+            for &node in &current_stage {
+                if let Some(deps) = self.dependents.get(&node) {
+                    for &dependent in deps {
+                        if let Some(degree) = in_degree.get_mut(&dependent) {
+                            *degree -= 1;
+                            if *degree == 0 {
+                                queue.push_back(dependent);
+                            }
+                        }
+                    }
+                }
+            }
+
+            stages.push(current_stage);
+        }
+
+        // Check for cycles (feedback loops)
+        let total_processed: usize = stages.iter().map(|s| s.len()).sum();
+        if total_processed < all_nodes.len() {
+            let unprocessed: Vec<NodeId> = all_nodes.iter()
+                .filter(|n| !stages.iter().any(|stage| stage.contains(n)))
+                .copied()
+                .collect();
+
+            // Cycles detected - these are feedback loops
+            Ok(ExecutionStages {
+                stages,
+                feedback_nodes: unprocessed,
+            })
+        } else {
+            Ok(ExecutionStages {
+                stages,
+                feedback_nodes: Vec::new(),
+            })
+        }
+    }
+}
+
 /// A signal reference - can be a node, bus, constant, or expression
 #[derive(Debug, Clone)]
 pub enum Signal {
@@ -4289,6 +4405,127 @@ impl UnifiedSignalGraph {
     pub fn active_voice_count(&self) -> usize {
         self.voice_manager.borrow().active_voice_count()
     }
+
+    // ========================================================================
+    // DEPENDENCY ANALYSIS FOR BLOCK-BASED PARALLEL PROCESSING
+    // ========================================================================
+
+    /// Find all nodes that a given node depends on (recursive)
+    fn find_node_dependencies(&self, node_id: NodeId, visited: &mut std::collections::HashSet<NodeId>) {
+        if visited.contains(&node_id) {
+            return; // Already visited (handles potential cycles)
+        }
+        visited.insert(node_id);
+
+        if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+            let node = &**node_rc;
+
+            // Add dependencies based on node type (partial implementation - will expand)
+            match node {
+                SignalNode::Oscillator { freq, .. } => {
+                    self.find_signal_dependencies(freq, visited);
+                }
+                SignalNode::Add { a, b } => {
+                    self.find_signal_dependencies(a, visited);
+                    self.find_signal_dependencies(b, visited);
+                }
+                SignalNode::Multiply { a, b } => {
+                    self.find_signal_dependencies(a, visited);
+                    self.find_signal_dependencies(b, visited);
+                }
+                SignalNode::Output { input } => {
+                    self.find_signal_dependencies(input, visited);
+                }
+                _ => {
+                    // TODO: Handle all node types
+                }
+            }
+        }
+    }
+
+    /// Find dependencies within a Signal
+    fn find_signal_dependencies(&self, signal: &Signal, visited: &mut std::collections::HashSet<NodeId>) {
+        match signal {
+            Signal::Node(node_id) => {
+                self.find_node_dependencies(*node_id, visited);
+            }
+            Signal::Bus(bus_name) => {
+                if let Some(&bus_id) = self.buses.get(bus_name) {
+                    self.find_node_dependencies(bus_id, visited);
+                }
+            }
+            Signal::Expression(expr) => {
+                self.find_expr_dependencies(expr, visited);
+            }
+            Signal::Value(_) | Signal::Pattern(_) => {
+                // No dependencies
+            }
+        }
+    }
+
+    /// Find dependencies within a SignalExpr
+    fn find_expr_dependencies(&self, expr: &SignalExpr, visited: &mut std::collections::HashSet<NodeId>) {
+        match expr {
+            SignalExpr::Add(a, b) | SignalExpr::Multiply(a, b) |
+            SignalExpr::Subtract(a, b) | SignalExpr::Divide(a, b) |
+            SignalExpr::Modulo(a, b) => {
+                self.find_signal_dependencies(a, visited);
+                self.find_signal_dependencies(b, visited);
+            }
+            SignalExpr::Scale { input, .. } => {
+                self.find_signal_dependencies(input, visited);
+            }
+        }
+    }
+
+    /// Build a dependency graph for all outputs and buses
+    pub fn build_dependency_graph(&self) -> DependencyGraph {
+        let mut dep_graph = DependencyGraph::new();
+
+        // Collect all output nodes
+        let mut all_outputs: Vec<NodeId> = Vec::new();
+        if let Some(output) = self.output {
+            all_outputs.push(output);
+        }
+        all_outputs.extend(self.outputs.values().copied());
+
+        // For each output, find its dependencies
+        for &output_id in &all_outputs {
+            let mut deps = std::collections::HashSet::new();
+            self.find_node_dependencies(output_id, &mut deps);
+
+            // Add edges to dependency graph
+            for &dep_id in &deps {
+                if dep_id != output_id {
+                    dep_graph.add_dependency(output_id, dep_id);
+                }
+            }
+        }
+
+        // Also include bus dependencies
+        for &bus_id in self.buses.values() {
+            let mut deps = std::collections::HashSet::new();
+            self.find_node_dependencies(bus_id, &mut deps);
+
+            for &dep_id in &deps {
+                if dep_id != bus_id {
+                    dep_graph.add_dependency(bus_id, dep_id);
+                }
+            }
+        }
+
+        dep_graph
+    }
+
+    /// Analyze the graph and compute execution stages for parallel processing
+    pub fn compute_execution_stages(&self) -> Result<ExecutionStages, String> {
+        let dep_graph = self.build_dependency_graph();
+        dep_graph.topological_sort()
+    }
+
+    // ========================================================================
+    // END DEPENDENCY ANALYSIS
+    // ========================================================================
 
     /// Process one sample and return all output channels
     /// Returns a vector where outputs[0] = channel 1, outputs[1] = channel 2, etc.
