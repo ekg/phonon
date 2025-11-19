@@ -4825,6 +4825,71 @@ impl UnifiedSignalGraph {
         node_id
     }
 
+    /// Add a Formant filter node
+    /// Creates vocal tract resonances for vowel synthesis
+    pub fn add_formant_node(
+        &mut self,
+        source: Signal,
+        f1: Signal,
+        f2: Signal,
+        f3: Signal,
+        bw1: Signal,
+        bw2: Signal,
+        bw3: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Formant {
+            source,
+            f1,
+            f2,
+            f3,
+            bw1,
+            bw2,
+            bw3,
+            state: FormantState::new(self.sample_rate),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a Resonz (resonant bandpass) filter node
+    pub fn add_resonz_node(
+        &mut self,
+        input: Signal,
+        frequency: Signal,
+        q: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Resonz {
+            input,
+            frequency,
+            q,
+            state: BiquadState::default(),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a Waveguide (physical modeling) filter node
+    pub fn add_waveguide_node(
+        &mut self,
+        freq: Signal,
+        damping: Signal,
+        pickup_position: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let max_delay = (self.sample_rate / 20.0) as usize; // 20Hz = lowest freq
+        let node = SignalNode::Waveguide {
+            freq,
+            damping,
+            pickup_position,
+            state: WaveguideState::new(max_delay),
+            last_freq: 0.0,
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     /// Set the output node
     pub fn set_output(&mut self, node_id: NodeId) {
         self.output = Some(node_id);
