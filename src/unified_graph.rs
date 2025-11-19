@@ -10771,4 +10771,210 @@ impl UnifiedSignalGraph {
 
         (left, right)
     }
+
+    // ============================================================================
+    // BUFFER-BASED EVALUATION (NEW ARCHITECTURE)
+    // ============================================================================
+    // These methods evaluate entire buffers at once instead of sample-by-sample.
+    // This reduces function call overhead from 512 calls to 1 call per buffer,
+    // enables SIMD vectorization, and improves cache locality.
+    //
+    // Expected speedup: 3-5x for Phase 3 DSP evaluation
+    // ============================================================================
+
+    /// Evaluate a node for an entire buffer
+    ///
+    /// This is the core buffer evaluation method that processes an entire buffer
+    /// in one call instead of 512 sample-by-sample eval_node() calls.
+    ///
+    /// # Arguments
+    /// * `node_id` - The node to evaluate
+    /// * `output` - Pre-allocated output buffer to fill
+    ///
+    /// # Performance
+    /// - Reduces function call overhead: 512 calls → 1 call
+    /// - Enables SIMD vectorization by compiler
+    /// - Improves cache locality (sequential buffer access)
+    /// - Foundation for parallelization
+    ///
+    /// # Migration Status
+    /// During gradual migration, not all nodes support buffer evaluation yet.
+    /// Unsupported nodes fall back to sample-by-sample evaluation.
+    fn eval_node_buffer(&mut self, node_id: &NodeId, output: &mut [f32]) {
+        let buffer_size = output.len();
+
+        // Get node (cheap Rc::clone)
+        let node_rc = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+            std::rc::Rc::clone(node_rc)
+        } else {
+            // Node doesn't exist, fill with silence
+            output.fill(0.0);
+            return;
+        };
+
+        let node = &*node_rc;
+
+        // Dispatch to node-specific buffer evaluation
+        // TODO: Migrate nodes one-by-one from sample-by-sample to buffer-based
+        match node {
+            SignalNode::Constant { value } => {
+                // Simple case: fill buffer with constant value
+                output.fill(*value);
+            }
+
+            // TODO: Add more nodes as they are migrated
+            // SignalNode::Oscillator { .. } => self.eval_oscillator_buffer(...),
+            // SignalNode::LowPass { .. } => self.eval_lpf_buffer(...),
+            // SignalNode::Add { .. } => self.eval_add_buffer(...),
+
+            // Fallback: Use old sample-by-sample evaluation for not-yet-migrated nodes
+            _ => {
+                for i in 0..buffer_size {
+                    output[i] = self.eval_node(node_id);
+                }
+            }
+        }
+    }
+
+    /// Evaluate a signal for an entire buffer
+    ///
+    /// Fills output buffer with signal values. Handles all Signal variants:
+    /// - Value: Constant (fill buffer)
+    /// - Node: Node reference (evaluate node buffer)
+    /// - Bus: Bus reference (evaluate bus node buffer)
+    /// - Pattern: Pattern string (query pattern for each sample)
+    /// - Expression: Arithmetic expression (evaluate recursively)
+    ///
+    /// # Arguments
+    /// * `signal` - The signal to evaluate
+    /// * `output` - Pre-allocated output buffer to fill
+    fn eval_signal_buffer(&mut self, signal: &Signal, output: &mut [f32]) {
+        match signal {
+            Signal::Value(v) => {
+                // Constant: fill entire buffer with same value
+                output.fill(*v);
+            }
+
+            Signal::Node(id) => {
+                // Node reference: evaluate node for buffer
+                self.eval_node_buffer(id, output);
+            }
+
+            Signal::Bus(name) => {
+                // Bus reference: evaluate bus node for buffer
+                if let Some(&id) = self.buses.get(name) {
+                    self.eval_node_buffer(&id, output);
+                } else {
+                    // Bus doesn't exist, fill with silence
+                    output.fill(0.0);
+                }
+            }
+
+            Signal::Pattern(pattern_str) => {
+                // Pattern: query pattern for each sample in buffer
+                // TODO: This could be optimized further by batch querying
+                for i in 0..output.len() {
+                    output[i] = self.eval_signal(signal);  // Use old method for now
+                }
+            }
+
+            Signal::Expression(expr) => {
+                // Arithmetic expression: evaluate recursively
+                self.eval_expression_buffer(expr, output);
+            }
+        }
+    }
+
+    /// Evaluate an arithmetic expression for an entire buffer
+    ///
+    /// Handles: Add, Multiply, Subtract, Divide, Modulo, Scale
+    fn eval_expression_buffer(&mut self, expr: &SignalExpr, output: &mut [f32]) {
+        let buffer_size = output.len();
+
+        match expr {
+            SignalExpr::Add(a, b) => {
+                // Allocate temporary buffers for operands
+                let mut a_buffer = vec![0.0; buffer_size];
+                let mut b_buffer = vec![0.0; buffer_size];
+
+                // Evaluate operands
+                self.eval_signal_buffer(a, &mut a_buffer);
+                self.eval_signal_buffer(b, &mut b_buffer);
+
+                // Element-wise addition
+                for i in 0..buffer_size {
+                    output[i] = a_buffer[i] + b_buffer[i];
+                }
+            }
+
+            SignalExpr::Multiply(a, b) => {
+                let mut a_buffer = vec![0.0; buffer_size];
+                let mut b_buffer = vec![0.0; buffer_size];
+
+                self.eval_signal_buffer(a, &mut a_buffer);
+                self.eval_signal_buffer(b, &mut b_buffer);
+
+                for i in 0..buffer_size {
+                    output[i] = a_buffer[i] * b_buffer[i];
+                }
+            }
+
+            SignalExpr::Subtract(a, b) => {
+                let mut a_buffer = vec![0.0; buffer_size];
+                let mut b_buffer = vec![0.0; buffer_size];
+
+                self.eval_signal_buffer(a, &mut a_buffer);
+                self.eval_signal_buffer(b, &mut b_buffer);
+
+                for i in 0..buffer_size {
+                    output[i] = a_buffer[i] - b_buffer[i];
+                }
+            }
+
+            SignalExpr::Divide(a, b) => {
+                let mut a_buffer = vec![0.0; buffer_size];
+                let mut b_buffer = vec![0.0; buffer_size];
+
+                self.eval_signal_buffer(a, &mut a_buffer);
+                self.eval_signal_buffer(b, &mut b_buffer);
+
+                for i in 0..buffer_size {
+                    let b_val = b_buffer[i];
+                    output[i] = if b_val != 0.0 {
+                        a_buffer[i] / b_val
+                    } else {
+                        0.0
+                    };
+                }
+            }
+
+            SignalExpr::Modulo(a, b) => {
+                let mut a_buffer = vec![0.0; buffer_size];
+                let mut b_buffer = vec![0.0; buffer_size];
+
+                self.eval_signal_buffer(a, &mut a_buffer);
+                self.eval_signal_buffer(b, &mut b_buffer);
+
+                for i in 0..buffer_size {
+                    let b_val = b_buffer[i];
+                    output[i] = if b_val != 0.0 {
+                        a_buffer[i] % b_val
+                    } else {
+                        0.0
+                    };
+                }
+            }
+
+            SignalExpr::Scale { input, min, max } => {
+                let mut input_buffer = vec![0.0; buffer_size];
+                self.eval_signal_buffer(input, &mut input_buffer);
+
+                // Scale from [0,1] to [min,max]
+                let range = max - min;
+                for i in 0..buffer_size {
+                    output[i] = min + input_buffer[i] * range;
+                }
+            }
+        }
+    }
 }
