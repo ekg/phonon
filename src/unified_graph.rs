@@ -8737,34 +8737,53 @@ impl UnifiedSignalGraph {
                 let fc = self.eval_signal(&center).max(20.0).min(20000.0);
                 let q_val = self.eval_signal(&q).max(0.5).min(20.0);
 
-                // State variable filter (Chamberlin) - band pass output
-                let f = 2.0 * (PI * fc / self.sample_rate).sin();
-                let damp = 1.0 / q_val;
-
-                // Get state
-                let (mut low, mut band, mut high) =
+                // Get state and cached coefficients
+                let (mut low, mut band, mut high, mut f, mut damp) =
                     if let Some(Some(node)) = self.nodes.get(node_id.0) {
                         if let SignalNode::BandPass { state, .. } = &**node {
-                            (state.y1, state.x1, state.y2)
+                            (state.y1, state.x1, state.y2, state.cached_f, state.cached_damp)
                         } else {
-                            (0.0, 0.0, 0.0)
+                            (0.0, 0.0, 0.0, 0.0, 1.0)
                         }
                     } else {
-                        (0.0, 0.0, 0.0)
+                        (0.0, 0.0, 0.0, 0.0, 1.0)
                     };
 
-                // Process
+                // OPTIMIZATION: Only recompute coefficients if parameters changed
+                let params_changed = if let Some(Some(node)) = self.nodes.get(node_id.0) {
+                    if let SignalNode::BandPass { state, .. } = &**node {
+                        (fc - state.cached_fc).abs() > 0.1 || (q_val - state.cached_q).abs() > 0.001
+                    } else {
+                        true
+                    }
+                } else {
+                    true
+                };
+
+                if params_changed {
+                    // State variable filter (Chamberlin) - recompute coefficients
+                    f = 2.0 * (PI * fc / self.sample_rate).sin();
+                    damp = 1.0 / q_val;
+                }
+
+                // Process filter
                 high = input_val - low - damp * band;
                 band += f * high;
                 low += f * band;
 
-                // Update state
+                // Update state and cache coefficients
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
                     let node = Rc::make_mut(node_rc);
                     if let SignalNode::BandPass { state, .. } = node {
                         state.y1 = low;
                         state.x1 = band;
                         state.y2 = high;
+                        if params_changed {
+                            state.cached_fc = fc;
+                            state.cached_q = q_val;
+                            state.cached_f = f;
+                            state.cached_damp = damp;
+                        }
                     }
                 }
 
