@@ -98,12 +98,12 @@ enum Signal {
 ### Core Infrastructure
 
 #### 1. Buffer-Based Evaluation Framework
-**Status:** 📚 Study
+**Status:** 🔨 Implementation
 
 **Tasks:**
-- [ ] 📚 **Study:** Design `eval_node_buffer()` API signature
-- [ ] 📚 **Study:** Design `eval_signal_buffer()` for Signal evaluation
-- [ ] 📚 **Study:** Decide on buffer allocation strategy (stack? heap? reuse?)
+- [x] 📚 **Study:** Design `eval_node_buffer()` API signature ✅
+- [x] 📚 **Study:** Design `eval_signal_buffer()` for Signal evaluation ✅
+- [x] 📚 **Study:** Decide on buffer allocation strategy (stack? heap? reuse?) ✅
 - [ ] 🔨 **Implementation:** Add `eval_node_buffer()` to UnifiedSignalGraph
 - [ ] 🔨 **Implementation:** Add `eval_signal_buffer()` for each Signal variant
 - [ ] 🔨 **Implementation:** Add buffer workspace allocation
@@ -111,6 +111,11 @@ enum Signal {
 - [ ] 🧪 **Testing:** Test with constant signals (Value)
 - [ ] 🧪 **Testing:** Test with bus references
 - [ ] ✅ **Completion:** All tests pass, ready for node migration
+
+**Study Notes:** See `BUFFER_EVAL_STUDY.md` for complete analysis. Key decisions:
+- API: `fn eval_node_buffer(&mut self, node_id: &NodeId, output: &mut [f32])`
+- Allocation: Vec per call initially (simple), optimize later if needed
+- Migration: Gradual, coexist with old API during transition
 
 **Design Notes:**
 ```rust
