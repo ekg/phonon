@@ -4637,8 +4637,36 @@ impl UnifiedSignalGraph {
 
     /// Render a single node to its buffer (all samples in block)
     /// Reads from dependency buffers, writes to own buffer
+    /// Pre-compute all cycle positions for a buffer
+    /// This eliminates redundant calculations during rendering
+    fn precompute_cycle_positions(&self, buffer_size: usize) -> Vec<f64> {
+        let mut positions = Vec::with_capacity(buffer_size);
+
+        if self.use_wall_clock {
+            // LIVE MODE: Wall-clock based
+            let base_elapsed = self.session_start_time.elapsed().as_secs_f64();
+            let delta_per_sample = 1.0 / self.sample_rate as f64;
+
+            for i in 0..buffer_size {
+                let elapsed = base_elapsed + (i as f64 * delta_per_sample);
+                positions.push(elapsed * self.cps as f64 + self.cycle_offset);
+            }
+        } else {
+            // OFFLINE RENDERING: Sample-count based
+            let mut position = self.cached_cycle_position;
+            let delta = self.cps as f64 / self.sample_rate as f64;
+
+            for _ in 0..buffer_size {
+                positions.push(position);
+                position += delta;
+            }
+        }
+
+        positions
+    }
+
     /// This is called for each node in dependency order
-    fn render_node_to_buffer(&mut self, node_id: NodeId, buffer_size: usize) {
+    fn render_node_to_buffer(&mut self, node_id: NodeId, buffer_size: usize, cycle_positions: &[f64]) {
         let profile = std::env::var("PROFILE_DETAILED").is_ok();
 
         let cycle_start = if profile { Some(std::time::Instant::now()) } else { None };
@@ -4648,10 +4676,10 @@ impl UnifiedSignalGraph {
         let mut samples = Vec::with_capacity(buffer_size);
 
         // Render all samples for this node
-        for _ in 0..buffer_size {
-            // Time: cycle position update
+        for i in 0..buffer_size {
+            // OPTIMIZATION: Use pre-computed cycle position instead of calculating each time
             let t1 = if profile { Some(std::time::Instant::now()) } else { None };
-            self.update_cycle_position_from_clock();
+            self.cached_cycle_position = cycle_positions[i];
             if let Some(start) = t1 {
                 cycle_time_us += start.elapsed().as_nanos() as u128;
             }
@@ -4691,6 +4719,13 @@ impl UnifiedSignalGraph {
     pub fn process_buffer_stages(&mut self, output: &mut [f32], buffer_size: usize) -> Result<(), String> {
         let profile = std::env::var("PROFILE_DETAILED").is_ok();
 
+        // OPTIMIZATION: Pre-compute all cycle positions for this buffer
+        // This eliminates 8192 redundant calls to update_cycle_position_from_clock()
+        // (512 samples × 16 nodes → 512 samples computed once)
+        let t_cycle = if profile { Some(std::time::Instant::now()) } else { None };
+        let cycle_positions = self.precompute_cycle_positions(buffer_size);
+        let cycle_time_us = t_cycle.map(|t| t.elapsed().as_micros()).unwrap_or(0);
+
         // Time: Compute execution stages
         let t0 = if profile { Some(std::time::Instant::now()) } else { None };
         let stages = self.compute_execution_stages()?;
@@ -4705,6 +4740,7 @@ impl UnifiedSignalGraph {
             {
                 use std::io::Write;
                 let _ = writeln!(file, "=== DETAILED PROFILING ===");
+                let _ = writeln!(file, "Cycle pre-computation: {:.2}µs", cycle_time_us);
                 let _ = writeln!(file, "Stage computation: {:.2}µs", stages_time_us);
                 let _ = writeln!(file, "Num stages: {}", stages.stages.len());
                 let _ = writeln!(file, "");
@@ -4717,7 +4753,7 @@ impl UnifiedSignalGraph {
 
             // Render all nodes in this stage
             for &node_id in stage {
-                self.render_node_to_buffer(node_id, buffer_size);
+                self.render_node_to_buffer(node_id, buffer_size, &cycle_positions);
             }
 
             if let Some(start) = stage_start {
