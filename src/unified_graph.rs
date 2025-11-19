@@ -4639,43 +4639,116 @@ impl UnifiedSignalGraph {
     /// Reads from dependency buffers, writes to own buffer
     /// This is called for each node in dependency order
     fn render_node_to_buffer(&mut self, node_id: NodeId, buffer_size: usize) {
-        let mut samples = Vec::with_capacity(buffer_size);
+        let profile = std::env::var("PROFILE_DETAILED").is_ok();
 
-        // OPTIMIZATION: Don't call update_cycle_position_from_clock() in the loop
-        // It's already been called once at buffer start, and we can just increment
-        // This eliminates 512 * num_nodes expensive time calculations!
+        let cycle_start = if profile { Some(std::time::Instant::now()) } else { None };
+        let mut cycle_time_us = 0u128;
+        let mut eval_time_us = 0u128;
+
+        let mut samples = Vec::with_capacity(buffer_size);
 
         // Render all samples for this node
         for _ in 0..buffer_size {
-            // Update position (lightweight increment, not full clock read)
+            // Time: cycle position update
+            let t1 = if profile { Some(std::time::Instant::now()) } else { None };
             self.update_cycle_position_from_clock();
+            if let Some(start) = t1 {
+                cycle_time_us += start.elapsed().as_nanos() as u128;
+            }
 
-            // Evaluate the node
+            // Time: node evaluation
+            let t2 = if profile { Some(std::time::Instant::now()) } else { None };
             let sample = self.eval_node(&node_id);
+            if let Some(start) = t2 {
+                eval_time_us += start.elapsed().as_nanos() as u128;
+            }
+
             samples.push(sample);
         }
 
         self.node_buffers.insert(node_id, samples);
+
+        // Report timing breakdown if profiling
+        if profile && cycle_start.is_some() {
+            let total_us = (cycle_time_us + eval_time_us) / 1000;
+            let cycle_pct = (cycle_time_us as f64 / (cycle_time_us + eval_time_us) as f64) * 100.0;
+            let eval_pct = (eval_time_us as f64 / (cycle_time_us + eval_time_us) as f64) * 100.0;
+
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/phonon_node_profile.log")
+            {
+                use std::io::Write;
+                let _ = writeln!(file, "Node {:?}: {:.2}µs total (cycle: {:.1}%, eval: {:.1}%)",
+                    node_id, total_us, cycle_pct, eval_pct);
+            }
+        }
     }
 
     /// Process all execution stages in parallel (DAW-style block processing)
     /// This replaces the 512x graph traversal with block-based rendering
     pub fn process_buffer_stages(&mut self, output: &mut [f32], buffer_size: usize) -> Result<(), String> {
-        // Compute execution stages
-        let stages = self.compute_execution_stages()?;
+        let profile = std::env::var("PROFILE_DETAILED").is_ok();
 
-        // Execute each stage sequentially (stages have dependencies between them)
-        for stage in &stages.stages {
-            // OPTIMIZATION: Render all nodes in this stage
-            // Future: parallelize with rayon when we refactor to thread-safe buffers
-            // For now: sequential but block-based (already a huge win over sample-by-sample)
-            for &node_id in stage {
-                self.render_node_to_buffer(node_id, buffer_size);
+        // Time: Compute execution stages
+        let t0 = if profile { Some(std::time::Instant::now()) } else { None };
+        let stages = self.compute_execution_stages()?;
+        let stages_time_us = t0.map(|t| t.elapsed().as_micros()).unwrap_or(0);
+
+        if profile {
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open("/tmp/phonon_node_profile.log")
+            {
+                use std::io::Write;
+                let _ = writeln!(file, "=== DETAILED PROFILING ===");
+                let _ = writeln!(file, "Stage computation: {:.2}µs", stages_time_us);
+                let _ = writeln!(file, "Num stages: {}", stages.stages.len());
+                let _ = writeln!(file, "");
             }
         }
 
-        // Mix final outputs into output buffer
+        // Execute each stage sequentially (stages have dependencies between them)
+        for (stage_idx, stage) in stages.stages.iter().enumerate() {
+            let stage_start = if profile { Some(std::time::Instant::now()) } else { None };
+
+            // Render all nodes in this stage
+            for &node_id in stage {
+                self.render_node_to_buffer(node_id, buffer_size);
+            }
+
+            if let Some(start) = stage_start {
+                if let Ok(mut file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open("/tmp/phonon_node_profile.log")
+                {
+                    use std::io::Write;
+                    let _ = writeln!(file, "Stage {}: {:.2}ms ({} nodes)",
+                        stage_idx, start.elapsed().as_micros() as f64 / 1000.0, stage.len());
+                }
+            }
+        }
+
+        // Time: Mix outputs
+        let mix_start = if profile { Some(std::time::Instant::now()) } else { None };
         self.mix_output_buffers(output, buffer_size);
+        let mix_time_us = mix_start.map(|t| t.elapsed().as_micros()).unwrap_or(0);
+
+        if profile {
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/phonon_node_profile.log")
+            {
+                use std::io::Write;
+                let _ = writeln!(file, "");
+                let _ = writeln!(file, "Output mixing: {:.2}µs", mix_time_us);
+            }
+        }
 
         Ok(())
     }
@@ -5287,9 +5360,20 @@ impl UnifiedSignalGraph {
     /// Evaluate a node to get its current output value
     #[inline(always)]
     fn eval_node(&mut self, node_id: &NodeId) -> f32 {
+        // Track cache stats if profiling
+        static CACHE_HITS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        static CACHE_MISSES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
         // Check cache first
         if let Some(&cached) = self.value_cache.get(node_id) {
+            if std::env::var("PROFILE_CACHE").is_ok() {
+                CACHE_HITS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
             return cached;
+        }
+
+        if std::env::var("PROFILE_CACHE").is_ok() {
+            CACHE_MISSES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         }
 
         // PERFORMANCE: Use Rc::clone (cheap reference count increment)
