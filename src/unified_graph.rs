@@ -4376,6 +4376,21 @@ impl UnifiedSignalGraph {
         self.buses.keys().cloned().collect()
     }
 
+    /// Add an oscillator node (helper for testing)
+    pub fn add_oscillator(&mut self, freq: Signal, waveform: Waveform) -> NodeId {
+        use std::cell::RefCell;
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Oscillator {
+            freq,
+            waveform,
+            phase: RefCell::new(0.0),
+            pending_freq: RefCell::new(None),
+            last_sample: RefCell::new(0.0),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     /// Set the output node
     pub fn set_output(&mut self, node_id: NodeId) {
         self.output = Some(node_id);
@@ -10822,8 +10837,106 @@ impl UnifiedSignalGraph {
                 output.fill(*value);
             }
 
+            SignalNode::Oscillator {
+                freq,
+                waveform,
+                phase,
+                pending_freq,
+                last_sample,
+            } => {
+                // Evaluate frequency signal once (if constant) or per-sample (if dynamic)
+                let freq_signal = freq.clone();
+
+                // Check if frequency is constant
+                let is_constant_freq = matches!(freq_signal, Signal::Value(_));
+                let constant_freq = if is_constant_freq {
+                    if let Signal::Value(f) = freq_signal {
+                        f
+                    } else {
+                        440.0
+                    }
+                } else {
+                    0.0 // Will be evaluated per-sample
+                };
+
+                // Get current state
+                let mut current_phase = *phase.borrow();
+                let mut current_pending = *pending_freq.borrow();
+                let mut current_last_sample = *last_sample.borrow();
+
+                // Generate buffer
+                for i in 0..buffer_size {
+                    // Evaluate frequency for this sample
+                    let requested_freq = if is_constant_freq {
+                        constant_freq
+                    } else {
+                        self.eval_signal(&freq_signal)
+                    };
+
+                    let mut current_freq = requested_freq;
+
+                    // Zero-crossing detection for anti-click frequency changes
+                    if let Some(pending) = current_pending {
+                        current_freq = pending;
+                    }
+
+                    // Generate sample based on waveform
+                    let sample = match waveform {
+                        Waveform::Sine => (2.0 * std::f32::consts::PI * current_phase).sin(),
+                        Waveform::Saw => 2.0 * current_phase - 1.0,
+                        Waveform::Square => {
+                            if current_phase < 0.5 {
+                                1.0
+                            } else {
+                                -1.0
+                            }
+                        }
+                        Waveform::Triangle => {
+                            if current_phase < 0.5 {
+                                4.0 * current_phase - 1.0
+                            } else {
+                                3.0 - 4.0 * current_phase
+                            }
+                        }
+                    };
+
+                    output[i] = sample;
+
+                    // Check if frequency changed
+                    if (requested_freq - current_freq).abs() > 0.1 {
+                        current_pending = Some(current_freq);
+                    }
+
+                    // Check for zero-crossing (sign change from negative to positive)
+                    if let Some(_pending) = current_pending {
+                        if current_last_sample < 0.0 && sample >= 0.0 {
+                            // Zero-crossing detected! Apply the frequency change
+                            current_pending = None;
+                        }
+                    }
+
+                    // Update phase for next sample
+                    let freq_to_use = if current_pending.is_some() {
+                        current_freq
+                    } else {
+                        requested_freq
+                    };
+                    current_phase += freq_to_use / self.sample_rate;
+                    if current_phase >= 1.0 {
+                        current_phase -= 1.0;
+                    }
+
+                    // Store sample for next zero-crossing detection
+                    current_last_sample = sample;
+                }
+
+                // Update state after processing entire buffer
+                *phase.borrow_mut() = current_phase;
+                *pending_freq.borrow_mut() = current_pending;
+                *last_sample.borrow_mut() = current_last_sample;
+            }
+
             // TODO: Add more nodes as they are migrated
-            // SignalNode::Oscillator { .. } => self.eval_oscillator_buffer(...),
             // SignalNode::LowPass { .. } => self.eval_lpf_buffer(...),
             // SignalNode::Add { .. } => self.eval_add_buffer(...),
 
