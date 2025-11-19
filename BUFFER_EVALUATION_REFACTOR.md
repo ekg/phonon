@@ -470,14 +470,30 @@ fn eval_delay_buffer(&mut self, node_id: &NodeId, output: &mut [f32]) {
 ### Arithmetic Operations
 
 #### 13. Add
-**Status:** 📚 Study
+**Status:** ✅ Completion
 
 **Tasks:**
-- [ ] 📚 **Study:** Design buffer addition
-- [ ] 🔨 **Implementation:** Write `eval_add_buffer()`
-- [ ] 🔨 **Implementation:** Add two signal buffers element-wise
-- [ ] 🧪 **Testing:** Test a + b
-- [ ] ✅ **Completion:** All tests pass
+- [x] 📚 **Study:** Design buffer addition ✅
+- [x] 🔨 **Implementation:** Write `eval_add_buffer()` ✅
+- [x] 🔨 **Implementation:** Add two signal buffers element-wise ✅
+- [x] 🧪 **Testing:** Test a + b ✅
+- [x] ✅ **Completion:** All tests pass ✅
+
+**Implementation Notes:** (Commit 51433e6)
+- Added buffer-based evaluation for SignalNode::Add in eval_node_buffer()
+- Evaluates both input signals to buffers, then adds element-wise
+- Added helper method add_add_node() for testing
+- Stateless operation - straightforward implementation
+
+**Testing Notes:**
+- 21 comprehensive tests covering Add and Multiply (combined)
+- Tests: constants, signals, oscillators, scaling, ring modulation
+- Complex combinations (nested operations)
+- Multiple buffer evaluation (state persistence)
+- Edge cases (large/small values, zero)
+- Various buffer sizes (1 to 2048 samples)
+- Performance sanity check (< 1s for 1000 iterations)
+- **All tests passing** (test result: ok. 21 passed; 0 failed)
 
 **Design Notes:**
 ```rust
@@ -497,14 +513,23 @@ fn eval_add_buffer(&mut self, a: &Signal, b: &Signal, output: &mut [f32]) {
 ---
 
 #### 14. Multiply
-**Status:** 📚 Study
+**Status:** ✅ Completion
 
 **Tasks:**
-- [ ] 📚 **Study:** Design buffer multiplication
-- [ ] 🔨 **Implementation:** Write `eval_multiply_buffer()`
-- [ ] 🔨 **Implementation:** Multiply two signal buffers element-wise
-- [ ] 🧪 **Testing:** Test a * b
-- [ ] ✅ **Completion:** All tests pass
+- [x] 📚 **Study:** Design buffer multiplication ✅
+- [x] 🔨 **Implementation:** Write `eval_multiply_buffer()` ✅
+- [x] 🔨 **Implementation:** Multiply two signal buffers element-wise ✅
+- [x] 🧪 **Testing:** Test a * b ✅
+- [x] ✅ **Completion:** All tests pass ✅
+
+**Implementation Notes:** (Commit 51433e6)
+- Added buffer-based evaluation for SignalNode::Multiply in eval_node_buffer()
+- Evaluates both input signals to buffers, then multiplies element-wise
+- Added helper method add_multiply_node() for testing
+- Stateless operation - straightforward implementation
+- Supports ring modulation (oscillator * oscillator)
+
+**Testing Notes:** (See Component 13 - tests cover both Add and Multiply)
 
 ---
 
