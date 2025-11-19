@@ -410,16 +410,28 @@ fn eval_lpf_buffer(&mut self, node_id: &NodeId, output: &mut [f32]) {
 ---
 
 #### 8. BandPass Filter (SVF)
-**Status:** 📚 Study
+**Status:** ✅ Completion
 
 **Tasks:**
-- [ ] 📚 **Study:** Review BPF implementation
-- [ ] 🔨 **Implementation:** Write `eval_bpf_buffer()`
-- [ ] 🔨 **Implementation:** Process input buffer
-- [ ] 🔨 **Implementation:** Handle parameter modulation
-- [ ] 🧪 **Testing:** Test with constant parameters
-- [ ] 🧪 **Testing:** Test with modulated center freq
-- [ ] ✅ **Completion:** All tests pass
+- [x] 📚 **Study:** Review BPF implementation ✅
+- [x] 🔨 **Implementation:** Write `eval_bpf_buffer()` ✅
+- [x] 🔨 **Implementation:** Process input buffer ✅
+- [x] 🔨 **Implementation:** Handle parameter modulation ✅
+- [x] 🧪 **Testing:** Test with constant parameters ✅
+- [x] 🧪 **Testing:** Test with modulated center freq ✅
+- [x] ✅ **Completion:** All tests pass ✅
+
+**Implementation Notes:** (Commit 430aee2)
+- Added buffer-based evaluation for SignalNode::BandPass
+- Uses same SVF algorithm, outputs 'band' (vs 'low'/'high')
+- Passes frequencies near center, rejects both low and high
+- Higher Q = narrower passband + resonance boost
+- Implemented via subagent (successful parallel approach test)
+
+**Testing Notes:**
+- 18 comprehensive tests, all passing
+- Verified subagent can successfully implement buffer evaluation
+- Pattern established for parallel deployment
 
 ---
 
