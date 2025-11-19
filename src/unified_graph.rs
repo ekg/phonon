@@ -10800,7 +10800,7 @@ impl UnifiedSignalGraph {
     /// # Migration Status
     /// During gradual migration, not all nodes support buffer evaluation yet.
     /// Unsupported nodes fall back to sample-by-sample evaluation.
-    fn eval_node_buffer(&mut self, node_id: &NodeId, output: &mut [f32]) {
+    pub fn eval_node_buffer(&mut self, node_id: &NodeId, output: &mut [f32]) {
         let buffer_size = output.len();
 
         // Get node (cheap Rc::clone)
@@ -10848,7 +10848,7 @@ impl UnifiedSignalGraph {
     /// # Arguments
     /// * `signal` - The signal to evaluate
     /// * `output` - Pre-allocated output buffer to fill
-    fn eval_signal_buffer(&mut self, signal: &Signal, output: &mut [f32]) {
+    pub fn eval_signal_buffer(&mut self, signal: &Signal, output: &mut [f32]) {
         match signal {
             Signal::Value(v) => {
                 // Constant: fill entire buffer with same value
@@ -10888,7 +10888,7 @@ impl UnifiedSignalGraph {
     /// Evaluate an arithmetic expression for an entire buffer
     ///
     /// Handles: Add, Multiply, Subtract, Divide, Modulo, Scale
-    fn eval_expression_buffer(&mut self, expr: &SignalExpr, output: &mut [f32]) {
+    pub fn eval_expression_buffer(&mut self, expr: &SignalExpr, output: &mut [f32]) {
         let buffer_size = output.len();
 
         match expr {
