@@ -712,8 +712,10 @@ pub enum SignalNode {
     KarplusStrong {
         freq: Signal,              // Fundamental frequency in Hz
         damping: Signal,           // Damping factor (0.0 = fast decay, 1.0 = slow)
+        trigger: Signal,           // Trigger signal (rising edge re-plucks the string)
         state: KarplusStrongState, // Delay line state
         last_freq: f32,            // Previous frequency (for detecting changes)
+        last_trigger: f32,         // Previous trigger value (for edge detection)
     },
 
     /// Digital Waveguide Physical Modeling
@@ -4801,6 +4803,28 @@ impl UnifiedSignalGraph {
         node_id
     }
 
+    /// Add a Curve node (helper for testing)
+    /// Creates a curved ramp from start to end over duration
+    /// Curve parameter controls shape: < 0 = concave, 0 = linear, > 0 = convex
+    pub fn add_curve_node(
+        &mut self,
+        start: Signal,
+        end: Signal,
+        duration: Signal,
+        curve: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Curve {
+            start,
+            end,
+            duration,
+            curve,
+            elapsed_time: 0.0,
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     /// Set the output node
     pub fn set_output(&mut self, node_id: NodeId) {
         self.output = Some(node_id);
@@ -6343,43 +6367,58 @@ impl UnifiedSignalGraph {
                 0.0
             }
 
-            SignalNode::KarplusStrong {
-                freq,
-                damping,
-                state,
-                last_freq,
-            } => {
-                // Evaluate pattern-modulatable parameters
-                let f = self.eval_signal(&freq).max(20.0).min(10000.0);
-                let damp = self.eval_signal(&damping).clamp(0.0, 1.0);
-
-                // Calculate required delay line size for this frequency
-                let required_size = (self.sample_rate / f) as usize;
-
-                // Check if frequency changed significantly (need to resize delay line)
-                let freq_changed = (f - *last_freq).abs() > 1.0;
-
-                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
-                    let node = Rc::make_mut(node_rc);
-                    if let SignalNode::KarplusStrong {
-                        state: s,
-                        last_freq: lf,
-                        ..
-                    } = node
-                    {
-                        // Resize delay line if frequency changed
-                        if freq_changed {
-                            s.resize(required_size);
-                            *lf = f;
+                        SignalNode::KarplusStrong {
+                            freq,
+                            damping,
+                            trigger,
+                            state,
+                            last_freq,
+                            last_trigger,
+                        } => {
+                            // Evaluate pattern-modulatable parameters
+                            let f = self.eval_signal(&freq).max(20.0).min(10000.0);
+                            let damp = self.eval_signal(&damping).clamp(0.0, 1.0);
+                            let trig = self.eval_signal(&trigger);
+            
+                            // Calculate required delay line size for this frequency
+                            let required_size = (self.sample_rate / f) as usize;
+            
+                            // Check if frequency changed significantly (need to resize delay line)
+                            let freq_changed = (f - *last_freq).abs() > 1.0;
+            
+                            // Detect rising edge trigger (0 -> 1)
+                            let trigger_edge = trig > 0.5 && *last_trigger <= 0.5;
+            
+                            if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                                let node = Rc::make_mut(node_rc);
+                                if let SignalNode::KarplusStrong {
+                                    state: s,
+                                    last_freq: lf,
+                                    last_trigger: lt,
+                                    ..
+                                } = node
+                                {
+                                    // Resize delay line if frequency changed
+                                    if freq_changed {
+                                        s.resize(required_size);
+                                        *lf = f;
+                                    }
+            
+                                    // Re-initialize with noise on trigger
+                                    if trigger_edge {
+                                        s.initialize_with_noise();
+                                    }
+            
+                                    // Update last_trigger
+                                    *lt = trig;
+            
+                                    // Get sample from Karplus-Strong algorithm
+                                    return s.get_sample(damp);
+                                }
+                            }
+            
+                            0.0
                         }
-
-                        // Get sample from Karplus-Strong algorithm
-                        return s.get_sample(damp);
-                    }
-                }
-
-                0.0
-            }
 
             SignalNode::Waveguide {
                 freq,
@@ -9810,6 +9849,9 @@ impl UnifiedSignalGraph {
                     let t = (*elapsed / duration_val).min(1.0);
 
                     // Apply curve formula
+                    // Based on SuperCollider's Env.curve
+                    // Negative curve = convex (fast start, slow end)
+                    // Positive curve = concave (slow start, fast end)
                     let curved_t = if curve_val.abs() < 0.001 {
                         // Linear (curve ≈ 0)
                         t
@@ -13345,6 +13387,147 @@ impl UnifiedSignalGraph {
                 }
             }
 
+
+            SignalNode::Curve {
+                start,
+                end,
+                duration,
+                curve,
+                elapsed_time,
+            } => {
+                // Allocate buffers for parameters
+                let mut start_buffer = vec![0.0; buffer_size];
+                let mut end_buffer = vec![0.0; buffer_size];
+                let mut duration_buffer = vec![0.0; buffer_size];
+                let mut curve_buffer = vec![0.0; buffer_size];
+
+                // Evaluate parameter signals to buffers
+                self.eval_signal_buffer(start, &mut start_buffer);
+                self.eval_signal_buffer(end, &mut end_buffer);
+                self.eval_signal_buffer(duration, &mut duration_buffer);
+                self.eval_signal_buffer(curve, &mut curve_buffer);
+
+                // Get current elapsed time
+                let mut current_elapsed = *elapsed_time;
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Get parameter values for this sample
+                    let start_val = start_buffer[i];
+                    let end_val = end_buffer[i];
+                    let duration_val = duration_buffer[i].max(0.001); // Min 1ms
+                    let curve_val = curve_buffer[i];
+
+                    // Calculate normalized time (0 to 1)
+                    let t = (current_elapsed / duration_val).min(1.0);
+
+                    // Apply curve formula
+                    // Based on SuperCollider's Env.curve
+                    // Negative curve = convex (fast start, slow end)
+                    // Positive curve = concave (slow start, fast end)
+                    let curved_t = if curve_val.abs() < 0.001 {
+                        // Linear (curve ≈ 0)
+                        t
+                    } else {
+                        // Exponential curve
+                        // Formula: (exp(curve * t) - 1) / (exp(curve) - 1)
+                        let exp_curve = curve_val.exp();
+                        let exp_curve_t = (curve_val * t).exp();
+                        (exp_curve_t - 1.0) / (exp_curve - 1.0)
+                    };
+
+                    // Interpolate between start and end
+                    output[i] = start_val + (end_val - start_val) * curved_t;
+
+                    // Advance time
+                    current_elapsed += 1.0 / self.sample_rate;
+                }
+
+                // Update elapsed time state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Curve {
+                        elapsed_time: et,
+                        ..
+                    } = node
+                    {
+                        *et = current_elapsed;
+                    }
+                }
+            }
+
+            SignalNode::Granular {
+                grain_size_ms,
+                density,
+                pitch,
+                state,
+                ..
+            } => {
+                // Evaluate pattern-modulatable parameters
+                // Check if parameters are constant for optimization
+                let grain_ms_signal = grain_size_ms.clone();
+                let density_signal = density.clone();
+                let pitch_signal = pitch.clone();
+
+                let is_constant_params = matches!(grain_ms_signal, Signal::Value(_))
+                    && matches!(density_signal, Signal::Value(_))
+                    && matches!(pitch_signal, Signal::Value(_));
+
+                let (constant_grain_ms, constant_density, constant_pitch) = if is_constant_params {
+                    let gms = if let Signal::Value(v) = grain_ms_signal { v } else { 50.0 };
+                    let dens = if let Signal::Value(v) = density_signal { v } else { 0.5 };
+                    let ptch = if let Signal::Value(v) = pitch_signal { v } else { 1.0 };
+                    (gms, dens, ptch)
+                } else {
+                    (0.0, 0.0, 0.0) // Will be evaluated per-sample
+                };
+
+                // Process buffer
+                for i in 0..buffer_size {
+                    // Evaluate parameters for this sample
+                    let grain_ms = if is_constant_params {
+                        constant_grain_ms
+                    } else {
+                        self.eval_signal(&grain_ms_signal)
+                    }.max(5.0).min(500.0);
+
+                    let density_val = if is_constant_params {
+                        constant_density
+                    } else {
+                        self.eval_signal(&density_signal)
+                    }.clamp(0.0, 1.0);
+
+                    let pitch_val = if is_constant_params {
+                        constant_pitch
+                    } else {
+                        self.eval_signal(&pitch_signal)
+                    }.max(0.1).min(4.0);
+
+                    // Convert grain size from milliseconds to samples
+                    let grain_size_samples = (grain_ms * self.sample_rate / 1000.0) as usize;
+
+                    // Update granular state with mutable access
+                    if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                        let node = Rc::make_mut(node_rc);
+                        if let SignalNode::Granular { state: s, .. } = node {
+                            // Spawn new grain based on density
+                            // density controls spawn rate: 0.0 = never, 1.0 = every sample
+                            s.grain_spawn_phase += density_val;
+                            if s.grain_spawn_phase >= 1.0 {
+                                s.grain_spawn_phase -= 1.0;
+                                s.spawn_grain(grain_size_samples, pitch_val);
+                            }
+
+                            // Get mixed output from all active grains
+                            output[i] = s.get_sample();
+
+                            // Advance all grains
+                            s.advance();
+                        }
+                    }
+                }
+            }
+
             // Fallback: Use old sample-by-sample evaluation for not-yet-migrated nodes
             _ => {
                 for i in 0..buffer_size {
@@ -13506,4 +13689,52 @@ impl UnifiedSignalGraph {
         self.nodes.push(Some(Rc::new(node)));
         node_id
     }
+
+    /// Add a Granular synthesis node (helper for testing)
+    pub fn add_granular_node(
+        &mut self,
+        source_buffer: Vec<f32>,
+        grain_size_ms: Signal,
+        density: Signal,
+        pitch: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+
+        // Create granular state with pre-loaded source buffer
+        let buffer_size = source_buffer.len().max(44100); // At least 1 second
+        let mut state = GranularState::new(buffer_size);
+
+        // Copy source buffer into granular state
+        for &sample in &source_buffer {
+            state.write_sample(sample);
+        }
+
+        // Create a constant signal from the source buffer
+        // In the actual implementation, we'll use the pre-loaded buffer
+        let source_signal = Signal::Value(0.0); // Dummy - state already has buffer
+
+        let node = SignalNode::Granular {
+            source: source_signal,
+            grain_size_ms,
+            density,
+            pitch,
+            state,
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a pitch shift node (granular synthesis-based pitch shifting)
+    /// semitones: pitch shift in semitones (0 = no shift, +12 = octave up, -12 = octave down)
+    pub fn add_pitchshift_node(&mut self, input: Signal, semitones: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::PitchShift {
+            input,
+            semitones,
+            state: PitchShifterState::new(50.0, self.sample_rate), // 50ms grain size
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
 }
