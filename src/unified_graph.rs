@@ -1901,6 +1901,11 @@ pub struct FilterState {
     pub x2: f32,
     pub y1: f32,
     pub y2: f32,
+    // Cached coefficients for SVF (Chamberlin) - avoid sin() every sample
+    pub cached_fc: f32,     // Last cutoff frequency used
+    pub cached_q: f32,      // Last Q value used
+    pub cached_f: f32,      // Cached frequency coefficient
+    pub cached_damp: f32,   // Cached damping coefficient
 }
 
 impl Default for FilterState {
@@ -1910,6 +1915,10 @@ impl Default for FilterState {
             x2: 0.0,
             y1: 0.0,
             y2: 0.0,
+            cached_fc: -1.0,    // Invalid value to force initial computation
+            cached_q: -1.0,
+            cached_f: 0.0,
+            cached_damp: 1.0,
         }
     }
 }
@@ -6682,34 +6691,53 @@ impl UnifiedSignalGraph {
                 let fc = self.eval_signal(&cutoff).max(20.0).min(20000.0);
                 let q_val = self.eval_signal(&q).max(0.5).min(20.0);
 
-                // State variable filter (Chamberlin)
-                // Better frequency response and resonance
-                let f = 2.0 * (PI * fc / self.sample_rate).sin();
-                let damp = 1.0 / q_val;
-
-                // Get state
-                let (mut low, mut band, mut high) = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                // Get state and cached coefficients
+                let (mut low, mut band, mut high, mut f, mut damp) = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
                     if let SignalNode::LowPass { state, .. } = &**node_rc {
-                        (state.y1, state.x1, state.y2)
+                        (state.y1, state.x1, state.y2, state.cached_f, state.cached_damp)
                     } else {
-                        (0.0, 0.0, 0.0)
+                        (0.0, 0.0, 0.0, 0.0, 1.0)
                     }
                 } else {
-                    (0.0, 0.0, 0.0)
+                    (0.0, 0.0, 0.0, 0.0, 1.0)
                 };
 
-                // Process
+                // Only recompute coefficients if parameters changed (OPTIMIZATION!)
+                let params_changed = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                    if let SignalNode::LowPass { state, .. } = &**node_rc {
+                        (fc - state.cached_fc).abs() > 0.1 || (q_val - state.cached_q).abs() > 0.001
+                    } else {
+                        true
+                    }
+                } else {
+                    true
+                };
+
+                if params_changed {
+                    // State variable filter (Chamberlin)
+                    // Recompute coefficients only when needed
+                    f = 2.0 * (PI * fc / self.sample_rate).sin();
+                    damp = 1.0 / q_val;
+                }
+
+                // Process filter
                 high = input_val - low - damp * band;
                 band += f * high;
                 low += f * band;
 
-                // Update state
+                // Update state and cache coefficients
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
                     let node = Rc::make_mut(node_rc);
                     if let SignalNode::LowPass { state, .. } = node {
                         state.y1 = low;
                         state.x1 = band;
                         state.y2 = high;
+                        if params_changed {
+                            state.cached_fc = fc;
+                            state.cached_q = q_val;
+                            state.cached_f = f;
+                            state.cached_damp = damp;
+                        }
                     }
                 }
 
@@ -8649,34 +8677,53 @@ impl UnifiedSignalGraph {
                 let fc = self.eval_signal(&cutoff).max(20.0).min(20000.0);
                 let q_val = self.eval_signal(&q).max(0.5).min(20.0);
 
-                // State variable filter (Chamberlin) - high pass output
-                let f = 2.0 * (PI * fc / self.sample_rate).sin();
-                let damp = 1.0 / q_val;
-
-                // Get state
-                let (mut low, mut band, mut high) =
+                // Get state and cached coefficients
+                let (mut low, mut band, mut high, mut f, mut damp) =
                     if let Some(Some(node)) = self.nodes.get(node_id.0) {
                         if let SignalNode::HighPass { state, .. } = &**node {
-                            (state.y1, state.x1, state.y2)
+                            (state.y1, state.x1, state.y2, state.cached_f, state.cached_damp)
                         } else {
-                            (0.0, 0.0, 0.0)
+                            (0.0, 0.0, 0.0, 0.0, 1.0)
                         }
                     } else {
-                        (0.0, 0.0, 0.0)
+                        (0.0, 0.0, 0.0, 0.0, 1.0)
                     };
 
-                // Process
+                // Only recompute coefficients if parameters changed (OPTIMIZATION!)
+                let params_changed = if let Some(Some(node)) = self.nodes.get(node_id.0) {
+                    if let SignalNode::HighPass { state, .. } = &**node {
+                        (fc - state.cached_fc).abs() > 0.1 || (q_val - state.cached_q).abs() > 0.001
+                    } else {
+                        true
+                    }
+                } else {
+                    true
+                };
+
+                if params_changed {
+                    // State variable filter (Chamberlin) - recompute only when needed
+                    f = 2.0 * (PI * fc / self.sample_rate).sin();
+                    damp = 1.0 / q_val;
+                }
+
+                // Process filter
                 high = input_val - low - damp * band;
                 band += f * high;
                 low += f * band;
 
-                // Update state
+                // Update state and cache coefficients
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
                     let node = Rc::make_mut(node_rc);
                     if let SignalNode::HighPass { state, .. } = node {
                         state.y1 = low;
                         state.x1 = band;
                         state.y2 = high;
+                        if params_changed {
+                            state.cached_fc = fc;
+                            state.cached_q = q_val;
+                            state.cached_f = f;
+                            state.cached_damp = damp;
+                        }
                     }
                 }
 
@@ -10632,43 +10679,36 @@ impl UnifiedSignalGraph {
         let voice_buffers = self.voice_manager.borrow_mut().render_block(buffer_size);
         let phase2_time_us = phase2_start.map(|t| t.elapsed().as_micros()).unwrap_or(0);
 
-        // PHASE 3: DSP evaluation from buffers
+        // PHASE 3: DSP evaluation from voice buffers
         let phase3_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
 
         // Pre-collect outputs to avoid borrow checker issues
         let output_channels: Vec<(usize, NodeId)> =
             self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
 
-        // For now, use the old approach (eval_node per sample) but read from voice_buffers
-        // TODO: Make this truly buffer-based
         for i in 0..buffer_size {
-            // Set voice_output_cache from voice_buffers for this sample
-            let mut voice_output = std::collections::HashMap::new();
+            // Set voice_output_cache from pre-rendered voice buffers
+            let mut voice_output = HashMap::new();
             for (node_id, node_buffer) in &voice_buffers {
                 voice_output.insert(*node_id, node_buffer.get(i).copied().unwrap_or(0.0));
             }
             self.voice_output_cache = voice_output;
 
-            // Evaluate output nodes
+            // Evaluate DSP graph for this sample
             let mut mixed_output = if let Some(output_id) = self.output {
                 if !self.hushed_channels.contains(&0) {
                     self.eval_node(&output_id)
-                } else {
-                    0.0
-                }
-            } else {
-                0.0
-            };
+                } else { 0.0 }
+            } else { 0.0 };
 
-            // Mix numbered outputs
+            // Mix in numbered outputs
             for (ch, node_id) in &output_channels {
                 if !self.hushed_channels.contains(ch) {
                     mixed_output += self.eval_node(node_id);
                 }
             }
 
-            // Apply output mixing
-            buffer[i] = mixed_output;  // Simplified for now
+            buffer[i] = mixed_output;
         }
 
         let phase3_time_us = phase3_start.map(|t| t.elapsed().as_micros()).unwrap_or(0);
