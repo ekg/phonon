@@ -4563,7 +4563,43 @@ impl UnifiedSignalGraph {
         node_id
     }
 
+    /// Add a Dattorro reverb node (professional studio-quality reverb based on Dattorro's 1997 paper)
+    pub fn add_dattorroreverb_node(
+        &mut self,
+        input: Signal,
+        pre_delay: Signal,
+        decay: Signal,
+        damping: Signal,
+        diffusion: Signal,
+        mix: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::DattorroReverb {
+            input,
+            pre_delay,
+            decay,
+            diffusion,
+            damping,
+            mod_depth: Signal::Value(0.5), // Default moderate modulation
+            mix,
+            state: DattorroState::new(self.sample_rate),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     /// Add a parametric EQ node (3-band peaking equalizer for mixing/mastering)
+    /// Add a Convolution node (helper for testing)
+    pub fn add_convolution_node(&mut self, input: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Convolution {
+            input,
+            state: ConvolutionState::new(self.sample_rate),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     pub fn add_parametriceq_node(
         &mut self,
         input: Signal,
@@ -4697,10 +4733,48 @@ impl UnifiedSignalGraph {
         node_id
     }
 
+    /// Add a ping-pong delay node (helper for testing)
+    pub fn add_pingpongdelay_node(
+        &mut self,
+        input: Signal,
+        time: Signal,
+        feedback: Signal,
+        stereo_width: Signal,
+        mix: Signal,
+    ) -> NodeId {
+        let buffer_size = (self.sample_rate * 2.0) as usize; // 2 second max delay
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::PingPongDelay {
+            input,
+            time,
+            feedback,
+            stereo_width,
+            channel: false, // Start with left channel
+            mix,
+            buffer_l: vec![0.0; buffer_size],
+            buffer_r: vec![0.0; buffer_size],
+            write_idx: 0,
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     /// Add a white noise generator node (helper for testing)
     pub fn add_whitenoise_node(&mut self) -> NodeId {
         let node_id = NodeId(self.nodes.len());
         let node = SignalNode::WhiteNoise;
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a SpectralFreeze node (helper for testing)
+    pub fn add_spectralfreeze_node(&mut self, input: Signal, trigger: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::SpectralFreeze {
+            input,
+            trigger,
+            state: SpectralFreezeState::new(),
+        };
         self.nodes.push(Some(Rc::new(node)));
         node_id
     }
@@ -12694,6 +12768,436 @@ impl UnifiedSignalGraph {
                         s.mid_band.x2 = mid_x2;
                         s.high_band.x1 = high_x1;
                         s.high_band.x2 = high_x2;
+                    }
+                }
+            }
+
+
+            SignalNode::Convolution { input, state } => {
+                // Allocate buffer for input
+                let mut input_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input signal to buffer
+                self.eval_signal_buffer(input, &mut input_buffer);
+
+                // Get impulse response length
+                let ir_len = state.impulse_response.len();
+                let buf_len = state.input_buffer.len();
+
+                // Get current buffer index
+                let mut current_buffer_index = state.buffer_index;
+
+                // Process entire buffer
+                for i in 0..buffer_size {
+                    // Perform convolution for this sample
+                    let mut sum = 0.0;
+                    for j in 0..ir_len {
+                        // Read backwards through input buffer (circular)
+                        // We need to account for samples we've already stored in this buffer
+                        let sample = if j <= i {
+                            // Sample is in the current input_buffer
+                            input_buffer[i - j]
+                        } else {
+                            // Sample is in the state's input_buffer (from previous buffers)
+                            let lookback = j - i - 1;
+                            let pos = (current_buffer_index + buf_len - lookback) % buf_len;
+                            state.input_buffer[pos]
+                        };
+
+                        sum += sample * state.impulse_response[j];
+                    }
+
+                    output[i] = sum;
+                }
+
+                // Update state after processing entire buffer
+                // Copy the input samples into the state's circular buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Convolution { state: s, .. } = node {
+                        // Copy all samples from input_buffer into the circular buffer
+                        for i in 0..buffer_size {
+                            s.input_buffer[current_buffer_index] = input_buffer[i];
+                            current_buffer_index = (current_buffer_index + 1) % buf_len;
+                        }
+                        s.buffer_index = current_buffer_index;
+                    }
+                }
+            }
+
+
+            SignalNode::DattorroReverb {
+                input,
+                pre_delay,
+                decay,
+                diffusion,
+                damping,
+                mod_depth,
+                mix,
+                state,
+            } => {
+                // Allocate buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut pre_delay_buffer = vec![0.0; buffer_size];
+                let mut decay_buffer = vec![0.0; buffer_size];
+                let mut diffusion_buffer = vec![0.0; buffer_size];
+                let mut damping_buffer = vec![0.0; buffer_size];
+                let mut mod_depth_buffer = vec![0.0; buffer_size];
+                let mut mix_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and parameter signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(pre_delay, &mut pre_delay_buffer);
+                self.eval_signal_buffer(decay, &mut decay_buffer);
+                self.eval_signal_buffer(diffusion, &mut diffusion_buffer);
+                self.eval_signal_buffer(damping, &mut damping_buffer);
+                self.eval_signal_buffer(mod_depth, &mut mod_depth_buffer);
+                self.eval_signal_buffer(mix, &mut mix_buffer);
+
+                // Clone all state buffers and variables locally for processing
+                let mut predelay_buffer = state.predelay_buffer.clone();
+                let mut predelay_idx = state.predelay_idx;
+
+                let mut input_diffusion_buffers = state.input_diffusion_buffers.clone();
+                let mut input_diffusion_indices = state.input_diffusion_indices;
+
+                let mut left_apf1_buffer = state.left_apf1_buffer.clone();
+                let mut left_apf1_idx = state.left_apf1_idx;
+                let mut left_delay1_buffer = state.left_delay1_buffer.clone();
+                let mut left_delay1_idx = state.left_delay1_idx;
+                let mut left_apf2_buffer = state.left_apf2_buffer.clone();
+                let mut left_apf2_idx = state.left_apf2_idx;
+                let mut left_delay2_buffer = state.left_delay2_buffer.clone();
+                let mut left_delay2_idx = state.left_delay2_idx;
+                let mut left_lpf_state = state.left_lpf_state;
+
+                let mut right_apf1_buffer = state.right_apf1_buffer.clone();
+                let mut right_apf1_idx = state.right_apf1_idx;
+                let mut right_delay1_buffer = state.right_delay1_buffer.clone();
+                let mut right_delay1_idx = state.right_delay1_idx;
+                let mut right_apf2_buffer = state.right_apf2_buffer.clone();
+                let mut right_apf2_idx = state.right_apf2_idx;
+                let mut right_delay2_buffer = state.right_delay2_buffer.clone();
+                let mut right_delay2_idx = state.right_delay2_idx;
+                let mut right_lpf_state = state.right_lpf_state;
+
+                let mut lfo_phase = state.lfo_phase;
+                let sample_rate = state.sample_rate;
+
+                // Helper function for allpass filter
+                let allpass = |buffer: &mut Vec<f32>, idx: &mut usize, input: f32, gain: f32| -> f32 {
+                    let buffer_len = buffer.len();
+                    let delayed = buffer[*idx];
+                    let output = -input + delayed + gain * (input - delayed);
+                    buffer[*idx] = input + gain * delayed;
+                    *idx = (*idx + 1) % buffer_len;
+                    output
+                };
+
+                // Helper function for simple delay
+                let delay = |buffer: &mut Vec<f32>, idx: &mut usize, input: f32| -> f32 {
+                    let buffer_len = buffer.len();
+                    let output = buffer[*idx];
+                    buffer[*idx] = input;
+                    *idx = (*idx + 1) % buffer_len;
+                    output
+                };
+
+                // Process entire buffer sample-by-sample (complex algorithm requires this)
+                for i in 0..buffer_size {
+                    let input_val = input_buffer[i];
+                    let pre_delay_ms = pre_delay_buffer[i].clamp(0.0, 500.0);
+                    let decay_val = decay_buffer[i].clamp(0.1, 10.0);
+                    let diffusion_val = diffusion_buffer[i].clamp(0.0, 1.0);
+                    let damping_val = damping_buffer[i].clamp(0.0, 1.0);
+                    let mod_depth_val = mod_depth_buffer[i].clamp(0.0, 1.0);
+                    let mix_val = mix_buffer[i].clamp(0.0, 1.0);
+
+                    // 1. PRE-DELAY
+                    let pre_delay_samples = ((pre_delay_ms / 1000.0) * sample_rate) as usize;
+                    let pre_delay_samples = pre_delay_samples.min(predelay_buffer.len() - 1);
+
+                    let predelay_out = if pre_delay_samples > 0 {
+                        let read_idx = (predelay_idx + predelay_buffer.len() - pre_delay_samples)
+                            % predelay_buffer.len();
+                        let output = predelay_buffer[read_idx];
+                        predelay_buffer[predelay_idx] = input_val;
+                        predelay_idx = (predelay_idx + 1) % predelay_buffer.len();
+                        output
+                    } else {
+                        input_val
+                    };
+
+                    // 2. INPUT DIFFUSION (4 series allpass filters)
+                    let input_diffusion_gain = 0.75 * diffusion_val;
+                    let mut diffused = predelay_out;
+
+                    for j in 0..4 {
+                        diffused = allpass(
+                            &mut input_diffusion_buffers[j],
+                            &mut input_diffusion_indices[j],
+                            diffused,
+                            input_diffusion_gain,
+                        );
+                    }
+
+                    // Split into left and right for the figure-8 network
+                    let input_to_tanks = diffused;
+
+                    // 3. FIGURE-8 DECAY NETWORK
+                    // Coefficients from Dattorro paper
+                    let decay_diffusion1 = 0.7 * diffusion_val;
+                    let decay_diffusion2 = 0.5 * diffusion_val;
+                    let decay_gain = 0.4 + (decay_val - 0.1) / 9.9 * 0.55; // Map 0.1-10.0 to 0.4-0.95
+
+                    // Damping (one-pole lowpass coefficient)
+                    let damp_coef = 1.0 - damping_val * 0.7; // Higher damping = darker sound
+
+                    // Modulation (simple LFO for chorus effect)
+                    let lfo_rate = 0.8; // Hz
+                    let lfo = (lfo_phase * std::f32::consts::TAU).sin() * mod_depth_val * 8.0; // ±8 samples modulation
+                    lfo_phase = (lfo_phase + lfo_rate / sample_rate) % 1.0;
+
+                    // LEFT TANK
+                    // Read previous right tank output for cross-coupling
+                    let right_to_left = right_delay2_buffer[right_delay2_idx];
+
+                    // Input to left tank (with cross-coupling from right)
+                    let left_input = input_to_tanks + right_to_left * decay_gain;
+
+                    // Left APF1 (modulated)
+                    let left_apf1_out = {
+                        // Apply modulation by varying read position slightly
+                        let mod_offset = lfo as isize;
+                        let read_idx = ((left_apf1_idx as isize + left_apf1_buffer.len() as isize + mod_offset)
+                            % left_apf1_buffer.len() as isize) as usize;
+                        let delayed = left_apf1_buffer[read_idx];
+                        let output_apf = -left_input + delayed + decay_diffusion1 * (left_input - delayed);
+                        left_apf1_buffer[left_apf1_idx] = left_input + decay_diffusion1 * delayed;
+                        left_apf1_idx = (left_apf1_idx + 1) % left_apf1_buffer.len();
+                        output_apf
+                    };
+
+                    // Left Delay1
+                    let left_delay1_out = delay(&mut left_delay1_buffer, &mut left_delay1_idx, left_apf1_out);
+
+                    // Left APF2 (modulated differently)
+                    let left_apf2_out = {
+                        let mod_offset = -lfo as isize;
+                        let read_idx = ((left_apf2_idx as isize + left_apf2_buffer.len() as isize + mod_offset)
+                            % left_apf2_buffer.len() as isize) as usize;
+                        let delayed = left_apf2_buffer[read_idx];
+                        let output_apf = -left_delay1_out + delayed + decay_diffusion2 * (left_delay1_out - delayed);
+                        left_apf2_buffer[left_apf2_idx] = left_delay1_out + decay_diffusion2 * delayed;
+                        left_apf2_idx = (left_apf2_idx + 1) % left_apf2_buffer.len();
+                        output_apf
+                    };
+
+                    // Damping LPF and Delay2
+                    let left_damped = left_lpf_state * damp_coef + left_apf2_out * (1.0 - damp_coef);
+                    left_lpf_state = left_damped;
+
+                    let left_delay2_out = delay(&mut left_delay2_buffer, &mut left_delay2_idx, left_damped * decay_gain);
+
+                    // RIGHT TANK
+                    // Read previous left tank output for cross-coupling
+                    let left_to_right = left_delay2_out;
+
+                    // Input to right tank (with cross-coupling from left)
+                    let right_input = input_to_tanks + left_to_right;
+
+                    // Right APF1 (modulated)
+                    let right_apf1_out = {
+                        let mod_offset = -lfo as isize;
+                        let read_idx = ((right_apf1_idx as isize + right_apf1_buffer.len() as isize + mod_offset)
+                            % right_apf1_buffer.len() as isize) as usize;
+                        let delayed = right_apf1_buffer[read_idx];
+                        let output_apf = -right_input + delayed + decay_diffusion1 * (right_input - delayed);
+                        right_apf1_buffer[right_apf1_idx] = right_input + decay_diffusion1 * delayed;
+                        right_apf1_idx = (right_apf1_idx + 1) % right_apf1_buffer.len();
+                        output_apf
+                    };
+
+                    // Right Delay1
+                    let right_delay1_out = delay(&mut right_delay1_buffer, &mut right_delay1_idx, right_apf1_out);
+
+                    // Right APF2 (modulated differently)
+                    let right_apf2_out = {
+                        let mod_offset = lfo as isize;
+                        let read_idx = ((right_apf2_idx as isize + right_apf2_buffer.len() as isize + mod_offset)
+                            % right_apf2_buffer.len() as isize) as usize;
+                        let delayed = right_apf2_buffer[read_idx];
+                        let output_apf = -right_delay1_out + delayed + decay_diffusion2 * (right_delay1_out - delayed);
+                        right_apf2_buffer[right_apf2_idx] = right_delay1_out + decay_diffusion2 * delayed;
+                        right_apf2_idx = (right_apf2_idx + 1) % right_apf2_buffer.len();
+                        output_apf
+                    };
+
+                    // Damping LPF and Delay2
+                    let right_damped = right_lpf_state * damp_coef + right_apf2_out * (1.0 - damp_coef);
+                    right_lpf_state = right_damped;
+
+                    let right_delay2_out = delay(&mut right_delay2_buffer, &mut right_delay2_idx, right_damped * decay_gain);
+
+                    // 4. OUTPUT TAPS (sum multiple points for density)
+                    // Using multiple tap points as suggested by Dattorro
+                    let left_output = (left_delay1_out + left_apf2_out + left_delay2_out) * 0.33;
+                    let right_output = (right_delay1_out + right_apf2_out + right_delay2_out) * 0.33;
+
+                    // Mix stereo output (average L+R for mono)
+                    let wet = (left_output + right_output) * 0.5;
+                    output[i] = input_val * (1.0 - mix_val) + wet * mix_val;
+                }
+
+                // Update all state after processing entire buffer
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::DattorroReverb { state: s, .. } = node {
+                        s.predelay_buffer = predelay_buffer;
+                        s.predelay_idx = predelay_idx;
+
+                        s.input_diffusion_buffers = input_diffusion_buffers;
+                        s.input_diffusion_indices = input_diffusion_indices;
+
+                        s.left_apf1_buffer = left_apf1_buffer;
+                        s.left_apf1_idx = left_apf1_idx;
+                        s.left_delay1_buffer = left_delay1_buffer;
+                        s.left_delay1_idx = left_delay1_idx;
+                        s.left_apf2_buffer = left_apf2_buffer;
+                        s.left_apf2_idx = left_apf2_idx;
+                        s.left_delay2_buffer = left_delay2_buffer;
+                        s.left_delay2_idx = left_delay2_idx;
+                        s.left_lpf_state = left_lpf_state;
+
+                        s.right_apf1_buffer = right_apf1_buffer;
+                        s.right_apf1_idx = right_apf1_idx;
+                        s.right_delay1_buffer = right_delay1_buffer;
+                        s.right_delay1_idx = right_delay1_idx;
+                        s.right_apf2_buffer = right_apf2_buffer;
+                        s.right_apf2_idx = right_apf2_idx;
+                        s.right_delay2_buffer = right_delay2_buffer;
+                        s.right_delay2_idx = right_delay2_idx;
+                        s.right_lpf_state = right_lpf_state;
+
+                        s.lfo_phase = lfo_phase;
+                    }
+                }
+            }
+
+            SignalNode::SpectralFreeze {
+                input,
+                trigger,
+                state,
+            } => {
+                // Allocate buffers for input and trigger signal
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut trigger_buffer = vec![0.0; buffer_size];
+
+                // Evaluate input and trigger signals to buffers
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(trigger, &mut trigger_buffer);
+
+                // Process entire buffer through spectral freeze
+                // We need to call the state's process method for each sample
+                // The state itself handles FFT processing and spectrum freezing
+                for i in 0..buffer_size {
+                    let input_val = input_buffer[i];
+                    let trigger_val = trigger_buffer[i];
+
+                    // Process through spectral freeze
+                    if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                        let node = Rc::make_mut(node_rc);
+                        if let SignalNode::SpectralFreeze { state: s, .. } = node {
+                            output[i] = s.process(input_val, trigger_val);
+                        } else {
+                            output[i] = input_val; // Fallback
+                        }
+                    } else {
+                        output[i] = input_val; // Fallback
+                    }
+                }
+                // Note: State is updated internally by process() method
+            }
+
+            SignalNode::PingPongDelay {
+                input,
+                time,
+                feedback,
+                stereo_width,
+                channel,
+                mix,
+                buffer_l,
+                buffer_r,
+                write_idx,
+            } => {
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut time_buffer = vec![0.0; buffer_size];
+                let mut feedback_buffer = vec![0.0; buffer_size];
+                let mut stereo_width_buffer = vec![0.0; buffer_size];
+                let mut mix_buffer = vec![0.0; buffer_size];
+
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(time, &mut time_buffer);
+                self.eval_signal_buffer(feedback, &mut feedback_buffer);
+                self.eval_signal_buffer(stereo_width, &mut stereo_width_buffer);
+                self.eval_signal_buffer(mix, &mut mix_buffer);
+
+                let buf_len = buffer_l.len();
+                let mut left_buf = buffer_l.clone();
+                let mut right_buf = buffer_r.clone();
+                let mut current_write_idx = *write_idx;
+                let current_channel = *channel;
+
+                for i in 0..buffer_size {
+                    let delay_time = time_buffer[i].max(0.001).min(1.0);
+                    let fb = feedback_buffer[i].clamp(0.0, 0.95);
+                    let width = stereo_width_buffer[i].clamp(0.0, 1.0);
+                    let mix_val = mix_buffer[i].clamp(0.0, 1.0);
+
+                    let delay_samples = (delay_time * self.sample_rate) as usize;
+                    let delay_samples = delay_samples.min(buf_len - 1);
+
+                    let read_idx = (current_write_idx + buf_len - delay_samples) % buf_len;
+
+                    let (delayed, opposite) = if current_channel {
+                        (right_buf[read_idx], left_buf[read_idx])
+                    } else {
+                        (left_buf[read_idx], right_buf[read_idx])
+                    };
+
+                    let ping_ponged = delayed * (1.0 - width) + opposite * width;
+
+                    output[i] = input_buffer[i] * (1.0 - mix_val) + ping_ponged * mix_val;
+
+                    let to_write_l = if current_channel {
+                        ping_ponged * fb
+                    } else {
+                        input_buffer[i] + ping_ponged * fb
+                    };
+                    let to_write_r = if current_channel {
+                        input_buffer[i] + ping_ponged * fb
+                    } else {
+                        ping_ponged * fb
+                    };
+
+                    left_buf[current_write_idx] = to_write_l;
+                    right_buf[current_write_idx] = to_write_r;
+
+                    current_write_idx = (current_write_idx + 1) % buf_len;
+                }
+
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::PingPongDelay {
+                        buffer_l: buf_l,
+                        buffer_r: buf_r,
+                        write_idx: idx,
+                        ..
+                    } = node
+                    {
+                        *buf_l = left_buf;
+                        *buf_r = right_buf;
+                        *idx = current_write_idx;
                     }
                 }
             }
