@@ -4045,6 +4045,11 @@ pub struct UnifiedSignalGraph {
     /// Pre-computed once per buffer to avoid 512 pattern.query() calls
     pattern_event_cache: HashMap<NodeId, Vec<crate::pattern::Hap<String>>>,
 
+    /// Node buffers for block-based processing (DAW-style)
+    /// Each node renders to its own 512-sample buffer
+    /// This enables parallel stage execution and eliminates 512x graph traversal
+    node_buffers: HashMap<NodeId, Vec<f32>>,
+
     /// Sample bank for loading and playing samples (RefCell for interior mutability)
     sample_bank: RefCell<SampleBank>,
 
@@ -4095,6 +4100,7 @@ impl Clone for UnifiedSignalGraph {
             next_node_id: self.next_node_id,
             value_cache: HashMap::new(), // Fresh cache for cloned instance
             pattern_event_cache: HashMap::new(), // Fresh cache for cloned instance
+            node_buffers: HashMap::new(), // Fresh buffers for cloned instance
             sample_bank: RefCell::new(SampleBank::new()),
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(), // Fresh cache
@@ -4123,6 +4129,7 @@ impl UnifiedSignalGraph {
             next_node_id: 0,
             value_cache: HashMap::new(),
             pattern_event_cache: HashMap::new(),
+            node_buffers: HashMap::new(),
             sample_bank: RefCell::new(SampleBank::new()),
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(),
@@ -4500,6 +4507,10 @@ impl UnifiedSignalGraph {
                     dep_graph.add_dependency(output_id, dep_id);
                 }
             }
+
+            // IMPORTANT: Even if a node has no dependencies, we need it in the graph
+            // Ensure it's in the dependencies map (with empty vec if needed)
+            dep_graph.dependencies.entry(output_id).or_insert_with(Vec::new);
         }
 
         // Also include bus dependencies
@@ -4512,6 +4523,9 @@ impl UnifiedSignalGraph {
                     dep_graph.add_dependency(bus_id, dep_id);
                 }
             }
+
+            // Ensure bus nodes are in the graph even if they have no dependencies
+            dep_graph.dependencies.entry(bus_id).or_insert_with(Vec::new);
         }
 
         dep_graph
@@ -4525,6 +4539,169 @@ impl UnifiedSignalGraph {
 
     // ========================================================================
     // END DEPENDENCY ANALYSIS
+    // ========================================================================
+
+    // ========================================================================
+    // BLOCK-BASED RENDERING (DAW-style parallel processing)
+    // ========================================================================
+
+    /// Evaluate a Signal by reading from pre-rendered buffers instead of recursively evaluating
+    /// This is used in block-based rendering where dependencies are already in buffers
+    fn eval_signal_from_buffers(&self, signal: &Signal, sample_idx: usize) -> f32 {
+        match signal {
+            Signal::Value(v) => *v,
+            Signal::Node(node_id) => {
+                // Read from pre-rendered buffer
+                self.node_buffers
+                    .get(node_id)
+                    .and_then(|buf| buf.get(sample_idx))
+                    .copied()
+                    .unwrap_or(0.0)
+            }
+            Signal::Bus(bus_name) => {
+                // Read from bus buffer
+                self.buses
+                    .get(bus_name)
+                    .and_then(|bus_id| self.node_buffers.get(bus_id))
+                    .and_then(|buf| buf.get(sample_idx))
+                    .copied()
+                    .unwrap_or(0.0)
+            }
+            Signal::Pattern(_pattern_str) => {
+                // Pattern signals should be evaluated through their node
+                // For now, return 0.0 as they should be handled by Pattern nodes
+                0.0
+            }
+            Signal::Expression(expr) => self.eval_signal_expr_from_buffers(expr, sample_idx),
+        }
+    }
+
+    /// Evaluate a SignalExpr by reading from pre-rendered buffers
+    fn eval_signal_expr_from_buffers(&self, expr: &SignalExpr, sample_idx: usize) -> f32 {
+        match expr {
+            SignalExpr::Add(a, b) => {
+                self.eval_signal_from_buffers(a, sample_idx) + self.eval_signal_from_buffers(b, sample_idx)
+            }
+            SignalExpr::Subtract(a, b) => {
+                self.eval_signal_from_buffers(a, sample_idx) - self.eval_signal_from_buffers(b, sample_idx)
+            }
+            SignalExpr::Multiply(a, b) => {
+                self.eval_signal_from_buffers(a, sample_idx) * self.eval_signal_from_buffers(b, sample_idx)
+            }
+            SignalExpr::Divide(a, b) => {
+                let divisor = self.eval_signal_from_buffers(b, sample_idx);
+                if divisor.abs() < 1e-10 {
+                    0.0
+                } else {
+                    self.eval_signal_from_buffers(a, sample_idx) / divisor
+                }
+            }
+            SignalExpr::Modulo(a, b) => {
+                let divisor = self.eval_signal_from_buffers(b, sample_idx);
+                if divisor.abs() < 1e-10 {
+                    0.0
+                } else {
+                    self.eval_signal_from_buffers(a, sample_idx) % divisor
+                }
+            }
+            SignalExpr::Scale { input, min, max } => {
+                let val = self.eval_signal_from_buffers(input, sample_idx);
+                // Scale from -1..1 to min..max
+                let normalized = (val + 1.0) / 2.0; // -1..1 -> 0..1
+                min + normalized * (max - min)
+            }
+        }
+    }
+
+    /// Render a single node to its buffer (all samples in block)
+    /// Reads from dependency buffers, writes to own buffer
+    /// This is called for each node in dependency order
+    ///
+    /// NOTE: For now, we use eval_node() which may recursively evaluate dependencies.
+    /// In the future, we can optimize specific node types to read directly from buffers.
+    /// The key win is: instead of 512 full graph traversals, we do stage-based rendering
+    /// where each stage can be parallelized.
+    fn render_node_to_buffer(&mut self, node_id: NodeId, buffer_size: usize) {
+        // Collect samples into temp buffer first
+        let mut samples = Vec::with_capacity(buffer_size);
+
+        // Render each sample in the block
+        for _ in 0..buffer_size {
+            // Update cycle position for this sample
+            // TODO: Create update_cycle_position_from_sample_index or equivalent
+            // For now, use the existing timing mechanism
+            self.update_cycle_position_from_clock();
+
+            // Evaluate node using existing eval_node
+            // This handles all node types correctly (oscillators, filters, patterns, etc.)
+            let sample = self.eval_node(&node_id);
+            samples.push(sample);
+        }
+
+        // Write all samples to buffer at once
+        self.node_buffers.insert(node_id, samples);
+    }
+
+    /// Process all execution stages in parallel (DAW-style block processing)
+    /// This replaces the 512x graph traversal with block-based rendering
+    pub fn process_buffer_stages(&mut self, output: &mut [f32], buffer_size: usize) -> Result<(), String> {
+        // Compute execution stages
+        let stages = self.compute_execution_stages()?;
+
+        // Execute each stage sequentially (stages have dependencies)
+        for stage in &stages.stages {
+            // Within each stage, nodes can run in parallel (no inter-dependencies)
+            // TODO: Use rayon for parallel execution within stages
+            // For now, execute sequentially to get it working
+            for &node_id in stage {
+                self.render_node_to_buffer(node_id, buffer_size);
+            }
+        }
+
+        // Mix final outputs into output buffer
+        self.mix_output_buffers(output, buffer_size);
+
+        Ok(())
+    }
+
+    /// Mix output node buffers into final output buffer
+    fn mix_output_buffers(&self, output: &mut [f32], buffer_size: usize) {
+        output.fill(0.0);
+
+        // If we have numbered outputs (channel 1, 2, 3, etc.), handle multi-channel
+        if !self.outputs.is_empty() {
+            // Determine number of output channels needed
+            let max_channel = self.outputs.keys()
+                .copied()
+                .max()
+                .unwrap_or(1);
+
+            // Mix each output channel
+            for i in 0..buffer_size {
+                for chan in 1..=max_channel {
+                    if let Some(&node_id) = self.outputs.get(&chan) {
+                        if let Some(buf) = self.node_buffers.get(&node_id) {
+                            if let Some(&sample) = buf.get(i) {
+                                // For multi-output, we need to handle channel routing
+                                // For now, just mix all outputs together (mono)
+                                output[i] += sample;
+                            }
+                        }
+                    }
+                }
+            }
+        } else if let Some(output_node) = self.output {
+            // Single output mode
+            if let Some(buf) = self.node_buffers.get(&output_node) {
+                for i in 0..buffer_size.min(output.len()) {
+                    output[i] = buf.get(i).copied().unwrap_or(0.0);
+                }
+            }
+        }
+    }
+
+    // ========================================================================
+    // END BLOCK-BASED RENDERING
     // ========================================================================
 
     /// Process one sample and return all output channels
