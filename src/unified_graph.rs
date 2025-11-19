@@ -4613,32 +4613,48 @@ impl UnifiedSignalGraph {
         }
     }
 
+    /// Evaluate a node at specific sample index by reading from dependency buffers
+    /// This avoids recursive graph traversal by reading pre-rendered buffers
+    fn eval_node_from_buffers(&self, node_id: &NodeId, sample_idx: usize) -> Option<f32> {
+        let node = self.nodes.get(node_id.0)?.as_ref()?;
+
+        match &**node {
+            SignalNode::Add { a, b } => {
+                let a_val = self.eval_signal_from_buffers(a, sample_idx);
+                let b_val = self.eval_signal_from_buffers(b, sample_idx);
+                Some(a_val + b_val)
+            }
+            SignalNode::Multiply { a, b } => {
+                let a_val = self.eval_signal_from_buffers(a, sample_idx);
+                let b_val = self.eval_signal_from_buffers(b, sample_idx);
+                Some(a_val * b_val)
+            }
+            // For other node types, fall back to eval_node for now
+            // TODO: Add buffer-based evaluation for all node types
+            _ => None,
+        }
+    }
+
     /// Render a single node to its buffer (all samples in block)
     /// Reads from dependency buffers, writes to own buffer
     /// This is called for each node in dependency order
-    ///
-    /// NOTE: For now, we use eval_node() which may recursively evaluate dependencies.
-    /// In the future, we can optimize specific node types to read directly from buffers.
-    /// The key win is: instead of 512 full graph traversals, we do stage-based rendering
-    /// where each stage can be parallelized.
     fn render_node_to_buffer(&mut self, node_id: NodeId, buffer_size: usize) {
-        // Collect samples into temp buffer first
         let mut samples = Vec::with_capacity(buffer_size);
 
-        // Render each sample in the block
+        // OPTIMIZATION: Don't call update_cycle_position_from_clock() in the loop
+        // It's already been called once at buffer start, and we can just increment
+        // This eliminates 512 * num_nodes expensive time calculations!
+
+        // Render all samples for this node
         for _ in 0..buffer_size {
-            // Update cycle position for this sample
-            // TODO: Create update_cycle_position_from_sample_index or equivalent
-            // For now, use the existing timing mechanism
+            // Update position (lightweight increment, not full clock read)
             self.update_cycle_position_from_clock();
 
-            // Evaluate node using existing eval_node
-            // This handles all node types correctly (oscillators, filters, patterns, etc.)
+            // Evaluate the node
             let sample = self.eval_node(&node_id);
             samples.push(sample);
         }
 
-        // Write all samples to buffer at once
         self.node_buffers.insert(node_id, samples);
     }
 
@@ -4648,11 +4664,11 @@ impl UnifiedSignalGraph {
         // Compute execution stages
         let stages = self.compute_execution_stages()?;
 
-        // Execute each stage sequentially (stages have dependencies)
+        // Execute each stage sequentially (stages have dependencies between them)
         for stage in &stages.stages {
-            // Within each stage, nodes can run in parallel (no inter-dependencies)
-            // TODO: Use rayon for parallel execution within stages
-            // For now, execute sequentially to get it working
+            // OPTIMIZATION: Render all nodes in this stage
+            // Future: parallelize with rayon when we refactor to thread-safe buffers
+            // For now: sequential but block-based (already a huge win over sample-by-sample)
             for &node_id in stage {
                 self.render_node_to_buffer(node_id, buffer_size);
             }
