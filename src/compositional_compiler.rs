@@ -1283,6 +1283,7 @@ fn compile_function_call(
         "gain" => compile_gain(ctx, args),
         "pan" => compile_pan(ctx, args),
         "min" => compile_min(ctx, args),
+        "wrap" => compile_wrap(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -3127,6 +3128,30 @@ fn compile_min(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     let output = ctx.graph.add_node(SignalNode::Min {
         a: Signal::Node(a_node),
         b: Signal::Node(b_node),
+    });
+
+    Ok(output)
+}
+
+/// Compile wrap function - wrap signal into range using modulo
+/// Usage: wrap input min max
+/// Example: wrap (sine 5.0) 0.0 1.0  (wrap sine between 0 and 1)
+/// Example: wrap ~lfo -1.0 1.0  (wrap LFO into bipolar range)
+fn compile_wrap(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 3 {
+        return Err(format!("wrap requires exactly 3 arguments (input, min, max), got {}", args.len()));
+    }
+
+    // Compile all three input signals
+    let input_node = compile_expr(ctx, args[0].clone())?;
+    let min_node = compile_expr(ctx, args[1].clone())?;
+    let max_node = compile_expr(ctx, args[2].clone())?;
+
+    // Create Wrap node
+    let output = ctx.graph.add_node(SignalNode::Wrap {
+        input: Signal::Node(input_node),
+        min: Signal::Node(min_node),
+        max: Signal::Node(max_node),
     });
 
     Ok(output)
