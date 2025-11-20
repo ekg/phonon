@@ -1267,6 +1267,16 @@ pub enum SignalNode {
     /// Wraps values outside the range back into the range periodically
     Wrap { input: Signal, min: Signal, max: Signal },
 
+    /// Sample-and-hold - captures input when trigger crosses from negative to positive
+    /// Classic analog-style S&H: monitors trigger for zero crossings, samples input, holds value
+    /// Useful for stepped modulation, random voltage generation, rhythmic parameter automation
+    SampleAndHold {
+        input: Signal,
+        trigger: Signal,
+        held_value: std::cell::RefCell<f32>,     // Currently held value
+        last_trigger: std::cell::RefCell<f32>,   // Previous trigger value for crossing detection
+    },
+
     /// Crossfader between two signals
     /// position = 0.0 → 100% signal_a
     /// position = 0.5 → 50% signal_a + 50% signal_b
@@ -7232,6 +7242,29 @@ impl UnifiedSignalGraph {
                         normalized + min_val
                     }
                 }
+            }
+
+            SignalNode::SampleAndHold {
+                input,
+                trigger,
+                held_value,
+                last_trigger,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let trigger_val = self.eval_signal(&trigger);
+
+                // Check for zero crossing (negative or zero to positive)
+                let last = *last_trigger.borrow();
+                if last <= 0.0 && trigger_val > 0.0 {
+                    // Zero crossing detected - sample the input
+                    *held_value.borrow_mut() = input_val;
+                }
+
+                // Update last_trigger for next sample
+                *last_trigger.borrow_mut() = trigger_val;
+
+                // Return held value
+                *held_value.borrow()
             }
 
             SignalNode::XFade {

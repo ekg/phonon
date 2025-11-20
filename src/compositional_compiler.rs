@@ -1284,6 +1284,7 @@ fn compile_function_call(
         "pan" => compile_pan(ctx, args),
         "min" => compile_min(ctx, args),
         "wrap" => compile_wrap(ctx, args),
+        "sample_hold" => compile_sample_hold(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -3152,6 +3153,29 @@ fn compile_wrap(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
         input: Signal::Node(input_node),
         min: Signal::Node(min_node),
         max: Signal::Node(max_node),
+    });
+
+    Ok(output)
+}
+
+/// Compile sample-and-hold node
+/// Usage: sample_hold(input, trigger)
+/// Captures input when trigger crosses from negative/zero to positive
+fn compile_sample_hold(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!("sample_hold requires exactly 2 arguments (input, trigger), got {}", args.len()));
+    }
+
+    // Compile input and trigger signals
+    let input_node = compile_expr(ctx, args[0].clone())?;
+    let trigger_node = compile_expr(ctx, args[1].clone())?;
+
+    // Create SampleAndHold node
+    let output = ctx.graph.add_node(SignalNode::SampleAndHold {
+        input: Signal::Node(input_node),
+        trigger: Signal::Node(trigger_node),
+        held_value: std::cell::RefCell::new(0.0),
+        last_trigger: std::cell::RefCell::new(0.0),
     });
 
     Ok(output)
