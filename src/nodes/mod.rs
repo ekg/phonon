@@ -9,9 +9,14 @@
 ///
 /// ## Math Nodes (combine signals)
 /// - [`addition::AdditionNode`] - Add two signals
+/// - [`multiplication::MultiplicationNode`] - Multiply two signals
 ///
 /// ## Synthesis Nodes (generate audio)
 /// - [`oscillator::OscillatorNode`] - Waveform generation (sine, saw, square, triangle)
+///
+/// ## Filter Nodes (shape audio)
+/// - [`lowpass_filter::LowPassFilterNode`] - 2nd-order Butterworth low-pass filter
+/// - [`highpass_filter::HighPassFilterNode`] - 2nd-order Butterworth high-pass filter
 ///
 /// # Usage
 ///
@@ -28,8 +33,14 @@
 
 pub mod constant;
 pub mod addition;
+pub mod multiplication;
 pub mod oscillator;
+pub mod lowpass_filter;
+pub mod highpass_filter;
 
 pub use constant::ConstantNode;
 pub use addition::AdditionNode;
+pub use multiplication::MultiplicationNode;
 pub use oscillator::{OscillatorNode, Waveform};
+pub use lowpass_filter::LowPassFilterNode;
+pub use highpass_filter::HighPassFilterNode;
