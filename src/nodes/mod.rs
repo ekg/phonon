@@ -28,12 +28,16 @@
 /// - [`mix::MixNode`] - Weighted sum of N signals
 /// - [`lerp::LerpNode`] - Linear interpolation (crossfade) between two signals
 /// - [`less_than::LessThanNode`] - Comparison operator (a < b returns 1.0, else 0.0)
+/// - [`xfade::XFadeNode`] - Crossfader with linear or equal-power curves
 /// - [`less_than_or_equal::LessThanOrEqualNode`] - Comparison operator (a <= b returns 1.0, else 0.0, with tolerance)
 /// - [`greater_than::GreaterThanNode`] - Comparison operator (a > b returns 1.0, else 0.0)
+/// - [`greater_than_or_equal::GreaterThanOrEqualNode`] - Comparison operator (a >= b returns 1.0, else 0.0, with tolerance)
 /// - [`equal_to::EqualToNode`] - Comparison operator (a == b returns 1.0, else 0.0, with tolerance)
 /// - [`not_equal_to::NotEqualToNode`] - Comparison operator (a != b returns 1.0, else 0.0, with tolerance)
 /// - [`and::AndNode`] - Logical AND operator (both inputs > threshold returns 1.0, else 0.0)
 /// - [`or::OrNode`] - Logical OR operator (either input > threshold returns 1.0, else 0.0)
+/// - [`xor::XorNode`] - Logical XOR operator (exactly one input > threshold returns 1.0, else 0.0)
+/// - [`not::NotNode`] - Logical NOT operator (inverts boolean signal: input > threshold returns 0.0, else 1.0)
 ///
 /// ## Analysis Nodes (audio analysis)
 /// - [`rms::RMSNode`] - Root Mean Square calculation with windowing
@@ -54,7 +58,10 @@
 /// ## Filter Nodes (shape audio)
 /// - [`lowpass_filter::LowPassFilterNode`] - 2nd-order Butterworth low-pass filter
 /// - [`highpass_filter::HighPassFilterNode`] - 2nd-order Butterworth high-pass filter
+/// - [`rlpf::RLPFNode`] - Resonant low-pass filter with Q control (classic synth sound)
+/// - [`rhpf::RHPFNode`] - Resonant high-pass filter with Q control
 /// - [`bandpass_filter::BandPassFilterNode`] - 2nd-order Butterworth band-pass filter
+/// - [`resonz::ResonzNode`] - Resonant bandpass filter with rq (reciprocal Q) control
 /// - [`notch_filter::NotchFilterNode`] - 2nd-order notch (band-reject) filter
 /// - [`moog_ladder::MoogLadderNode`] - 4-pole Moog ladder filter (classic analog sound)
 /// - [`allpass_filter::AllPassFilterNode`] - 2nd-order all-pass filter (phase shifter)
@@ -78,13 +85,16 @@
 /// - [`vibrato::VibratoNode`] - Pitch modulation effect using delay line
 /// - [`flanger::FlangerNode`] - Flanging effect (short modulated delay)
 /// - [`ring_mod::RingModNode`] - Ring modulation (creates sum/difference frequencies)
+/// - [`karplus_strong::KarplusStrongNode`] - Karplus-Strong plucked string synthesis (physical modeling)
 ///
 /// ## Envelope Nodes (amplitude shaping)
 /// - [`adsr::ADSRNode`] - Attack-Decay-Sustain-Release envelope generator
 /// - [`ar_envelope::AREnvelopeNode`] - Attack-Release envelope generator (simpler than ADSR)
 /// - [`ad_envelope::ADEnvelopeNode`] - Attack-Decay envelope generator (one-shot, percussion)
 /// - [`line::LineNode`] - Linear ramp generator (start to end over duration)
+/// - [`curve::CurveNode`] - Curved ramp generator (exponential/logarithmic curves)
 /// - [`asr_envelope::ASREnvelopeNode`] - Attack-Sustain-Release envelope generator (organ-style)
+/// - [`segments::SegmentsNode`] - Multi-segment envelope generator with configurable breakpoints
 ///
 /// ## Smoothing Nodes (signal conditioning)
 /// - [`slew_limiter::SlewLimiterNode`] - Rate-of-change limiter for smooth transitions
@@ -137,6 +147,8 @@ pub mod fm_oscillator;
 pub mod pm_oscillator;
 pub mod lowpass_filter;
 pub mod highpass_filter;
+pub mod rlpf;
+pub mod rhpf;
 pub mod bandpass_filter;
 pub mod notch_filter;
 pub mod moog_ladder;
@@ -157,6 +169,7 @@ pub mod latch;
 pub mod less_than;
 pub mod less_than_or_equal;
 pub mod greater_than;
+pub mod greater_than_or_equal;
 pub mod equal_to;
 pub mod not_equal_to;
 pub mod quantizer;
@@ -181,9 +194,16 @@ pub mod line;
 pub mod lag;
 pub mod wavetable;
 pub mod xline;
+pub mod curve;
 pub mod and;
 pub mod or;
+pub mod xor;
+pub mod resonz;
 pub mod svf;
+pub mod segments;
+pub mod not;
+pub mod karplus_strong;
+pub mod xfade;
 
 pub use constant::ConstantNode;
 pub use addition::AdditionNode;
@@ -207,11 +227,13 @@ pub use brown_noise::BrownNoiseNode;
 pub use pink_noise::PinkNoiseNode;
 pub use pulse::PulseNode;
 pub use noise::NoiseNode;
+pub use rlpf::RLPFNode;
 pub use random::RandomNode;
 pub use fm_oscillator::FMOscillatorNode;
 pub use pm_oscillator::PMOscillatorNode;
 pub use lowpass_filter::LowPassFilterNode;
 pub use highpass_filter::HighPassFilterNode;
+pub use rhpf::RHPFNode;
 pub use pan::PanNode;
 pub use tremolo::TremoloNode;
 pub use bandpass_filter::BandPassFilterNode;
@@ -235,6 +257,7 @@ pub use ar_envelope::AREnvelopeNode;
 pub use ad_envelope::ADEnvelopeNode;
 pub use asr_envelope::ASREnvelopeNode;
 pub use greater_than::GreaterThanNode;
+pub use greater_than_or_equal::GreaterThanOrEqualNode;
 pub use equal_to::EqualToNode;
 pub use not_equal_to::NotEqualToNode;
 pub use quantizer::QuantizerNode;
@@ -259,5 +282,12 @@ pub use lag::LagNode;
 pub use wavetable::WavetableNode;
 pub use and::AndNode;
 pub use xline::XLineNode;
+pub use curve::CurveNode;
 pub use or::OrNode;
+pub use xor::XorNode;
+pub use not::NotNode;
+pub use karplus_strong::KarplusStrongNode;
 pub use svf::{SVFNode, SVFMode};
+pub use segments::{SegmentsNode, Segment, CurveType};
+pub use resonz::ResonzNode;
+pub use xfade::{XFadeNode, XFadeCurve};
