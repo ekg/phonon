@@ -60,6 +60,8 @@ pub mod highpass_filter;
 pub mod bandpass_filter;
 pub mod clip;
 pub mod max;
+pub mod pan;
+pub mod delay;
 pub mod min;
 
 pub use constant::ConstantNode;
@@ -72,7 +74,9 @@ pub use mix::MixNode;
 pub use oscillator::{OscillatorNode, Waveform};
 pub use lowpass_filter::LowPassFilterNode;
 pub use highpass_filter::HighPassFilterNode;
+pub use pan::PanNode;
 pub use bandpass_filter::BandPassFilterNode;
+pub use delay::DelayNode;
 pub use clip::ClipNode;
 pub use max::MaxNode;
 pub use min::MinNode;
