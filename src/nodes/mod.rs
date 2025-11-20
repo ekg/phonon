@@ -67,6 +67,7 @@
 /// - [`moog_ladder::MoogLadderNode`] - 4-pole Moog ladder filter (classic analog sound)
 /// - [`allpass_filter::AllPassFilterNode`] - 2nd-order all-pass filter (phase shifter)
 /// - [`formant::FormantNode`] - Formant filter for vowel synthesis (A, E, I, O, U)
+/// - [`dj_filter::DJFilterNode`] - DJ-style crossfader filter (lowpass/highpass with resonance)
 ///
 /// ## Distortion Nodes (shape audio)
 /// - [`clip::ClipNode`] - Soft clipping/distortion using tanh
@@ -74,6 +75,7 @@
 /// - [`wrap::WrapNode`] - Wrapping/folding into [min, max] range using modulo
 /// - [`fold::FoldNode`] - Wave folding distortion (reflects signal at boundaries)
 /// - [`quantizer::QuantizerNode`] - Snap values to grid/scale (quantization)
+/// - [`scale_quantize::ScaleQuantizeNode`] - Quantize frequencies to musical scales (major, minor, pentatonic, etc.)
 /// - [`rectifier::RectifierNode`] - Half-wave and full-wave rectification
 ///
 /// ## Dynamics Nodes (control amplitude)
@@ -85,6 +87,7 @@
 /// - [`delay::DelayNode`] - Simple delay line with circular buffer
 /// - [`comb_filter::CombFilterNode`] - Feedback comb filter for resonance and reverb
 /// - [`reverb::ReverbNode`] - Schroeder reverb with room size and damping control
+/// - [`dattorro_reverb::DattorroReverbNode`] - High-quality Dattorro plate reverb (superior to Schroeder)
 /// - [`tremolo::TremoloNode`] - Amplitude modulation effect
 /// - [`vibrato::VibratoNode`] - Pitch modulation effect using delay line
 /// - [`flanger::FlangerNode`] - Flanging effect (short modulated delay)
@@ -92,6 +95,9 @@
 /// - [`ring_mod::RingModNode`] - Ring modulation (creates sum/difference frequencies)
 /// - [`karplus_strong::KarplusStrongNode`] - Karplus-Strong plucked string synthesis (physical modeling)
 /// - [`waveguide::WaveguideNode`] - Digital waveguide synthesis for realistic physical modeling
+/// - [`granular::GranularNode`] - Granular synthesis for texture and drone generation
+/// - [`convolution::ConvolutionNode`] - FFT-based convolution reverb using impulse responses
+/// - [`pitch_shifter::PitchShifterNode`] - Pitch shifting without time stretching (delay-based)
 ///
 /// ## Envelope Nodes (amplitude shaping)
 /// - [`adsr::ADSRNode`] - Attack-Decay-Sustain-Release envelope generator
@@ -180,6 +186,7 @@ pub mod less_than_or_equal;
 pub mod greater_than;
 pub mod greater_than_or_equal;
 pub mod equal_to;
+pub mod scale_quantize;
 pub mod not_equal_to;
 pub mod quantizer;
 pub mod rms;
@@ -215,11 +222,17 @@ pub mod not;
 pub mod karplus_strong;
 pub mod waveguide;
 pub mod xfade;
+pub mod dattorro_reverb;
 pub mod tap;
 pub mod reverb;
 pub mod when;
+pub mod parametric_eq;
 pub mod pattern_evaluator;
 pub mod formant;
+pub mod dj_filter;
+pub mod pitch_shifter;
+pub mod convolution;
+pub mod spectral_freeze;
 
 pub use constant::ConstantNode;
 pub use addition::AdditionNode;
@@ -277,6 +290,7 @@ pub use greater_than_or_equal::GreaterThanOrEqualNode;
 pub use equal_to::EqualToNode;
 pub use not_equal_to::NotEqualToNode;
 pub use quantizer::QuantizerNode;
+pub use scale_quantize::ScaleQuantizeNode;
 pub use rms::RMSNode;
 pub use adsr::ADSRNode;
 pub mod limiter;
@@ -310,11 +324,19 @@ pub use waveguide::WaveguideNode;
 pub use svf::{SVFNode, SVFMode};
 pub use segments::{SegmentsNode, Segment, CurveType};
 pub use resonz::ResonzNode;
+pub use convolution::{ConvolutionNode, create_simple_ir};
 pub use xfade::{XFadeNode, XFadeCurve};
 pub use tap::TapNode;
 pub use reverb::ReverbNode;
+pub use dattorro_reverb::DattorroReverbNode;
+pub use dj_filter::DJFilterNode;
 pub use when::WhenNode;
 pub use formant::FormantNode;
+pub use parametric_eq::ParametricEQNode;
+pub use pitch_shifter::PitchShifterNode;
+pub use spectral_freeze::SpectralFreezeNode;
 pub mod sample_playback;
 pub use sample_playback::SamplePlaybackNode;
 pub use pattern_evaluator::PatternEvaluatorNode;
+pub mod granular;
+pub use granular::GranularNode;
