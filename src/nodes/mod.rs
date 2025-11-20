@@ -23,6 +23,8 @@
 /// - [`lerp::LerpNode`] - Linear interpolation (crossfade) between two signals
 /// - [`less_than::LessThanNode`] - Comparison operator (a < b returns 1.0, else 0.0)
 /// - [`greater_than::GreaterThanNode`] - Comparison operator (a > b returns 1.0, else 0.0)
+/// - [`equal_to::EqualToNode`] - Comparison operator (a == b returns 1.0, else 0.0, with tolerance)
+/// - [`not_equal_to::NotEqualToNode`] - Comparison operator (a != b returns 1.0, else 0.0, with tolerance)
 ///
 /// ## Analysis Nodes (audio analysis)
 /// - [`rms::RMSNode`] - Root Mean Square calculation with windowing
@@ -43,15 +45,26 @@
 /// - [`clip::ClipNode`] - Soft clipping/distortion using tanh
 /// - [`clamp::ClampNode`] - Hard limiting to [min, max] range
 /// - [`wrap::WrapNode`] - Wrapping/folding into [min, max] range using modulo
+/// - [`quantizer::QuantizerNode`] - Snap values to grid/scale (quantization)
+/// - [`rectifier::RectifierNode`] - Half-wave and full-wave rectification
 ///
 /// ## Dynamics Nodes (control amplitude)
 /// - [`limiter::LimiterNode`] - Hard limiting dynamics processor (prevents clipping)
+/// - [`gate::GateNode`] - Threshold gate (passes signal above threshold, silences below)
 ///
 /// ## Effect Nodes (time-based effects)
 /// - [`delay::DelayNode`] - Simple delay line with circular buffer
+/// - [`comb_filter::CombFilterNode`] - Feedback comb filter for resonance and reverb
+/// - [`tremolo::TremoloNode`] - Amplitude modulation effect
+/// - [`vibrato::VibratoNode`] - Pitch modulation effect using delay line
+/// - [`flanger::FlangerNode`] - Flanging effect (short modulated delay)
 ///
 /// ## Envelope Nodes (amplitude shaping)
 /// - [`adsr::ADSRNode`] - Attack-Decay-Sustain-Release envelope generator
+/// - [`ar_envelope::AREnvelopeNode`] - Attack-Release envelope generator (simpler than ADSR)
+///
+/// ## Smoothing Nodes (signal conditioning)
+/// - [`slew_limiter::SlewLimiterNode`] - Rate-of-change limiter for smooth transitions
 ///
 /// ## Analysis Nodes (signal analysis)
 /// - [`peak_detector::PeakDetectorNode`] - Peak tracking with configurable decay
@@ -98,6 +111,7 @@ pub mod clamp;
 pub mod max;
 pub mod pan;
 pub mod delay;
+pub mod comb_filter;
 pub mod min;
 pub mod peak_detector;
 pub mod tremolo;
@@ -105,8 +119,17 @@ pub mod wrap;
 pub mod sample_hold;
 pub mod less_than;
 pub mod greater_than;
+pub mod equal_to;
+pub mod not_equal_to;
+pub mod quantizer;
 pub mod rms;
+pub mod ar_envelope;
 pub mod adsr;
+pub mod gate;
+pub mod rectifier;
+pub mod flanger;
+pub mod vibrato;
+pub mod slew_limiter;
 
 pub use constant::ConstantNode;
 pub use addition::AdditionNode;
@@ -132,6 +155,7 @@ pub use bandpass_filter::BandPassFilterNode;
 pub use notch_filter::NotchFilterNode;
 pub use allpass_filter::AllPassFilterNode;
 pub use delay::DelayNode;
+pub use comb_filter::CombFilterNode;
 pub use clip::ClipNode;
 pub use peak_detector::PeakDetectorNode;
 pub use clamp::ClampNode;
@@ -140,8 +164,17 @@ pub use min::MinNode;
 pub use wrap::WrapNode;
 pub use sample_hold::SampleAndHoldNode;
 pub use less_than::LessThanNode;
+pub use ar_envelope::AREnvelopeNode;
 pub use greater_than::GreaterThanNode;
+pub use equal_to::EqualToNode;
+pub use not_equal_to::NotEqualToNode;
+pub use quantizer::QuantizerNode;
 pub use rms::RMSNode;
 pub use adsr::ADSRNode;
 pub mod limiter;
 pub use limiter::LimiterNode;
+pub use gate::GateNode;
+pub use flanger::FlangerNode;
+pub use slew_limiter::SlewLimiterNode;
+pub use rectifier::{RectifierNode, RectifierMode};
+pub use vibrato::VibratoNode;
