@@ -546,6 +546,7 @@ pub enum SignalExpr {
     Subtract(Signal, Signal),
     Divide(Signal, Signal),
     Modulo(Signal, Signal),
+    Min(Signal, Signal),
     Scale { input: Signal, min: f32, max: f32 },
 }
 
@@ -1258,6 +1259,9 @@ pub enum SignalNode {
 
     /// Multiplication
     Multiply { a: Signal, b: Signal },
+
+    /// Minimum of two signals (sample-by-sample)
+    Min { a: Signal, b: Signal },
 
     /// Crossfader between two signals
     /// position = 0.0 → 100% signal_a
@@ -3979,6 +3983,9 @@ fn eval_signal_isolated(nodes: &mut Vec<Option<Rc<SignalNode>>>, signal: &Signal
                         0.0
                     }
                 }
+                SignalExpr::Min(left, right) => {
+                    eval_signal_isolated(nodes, left, sample_rate).min(eval_signal_isolated(nodes, right, sample_rate))
+                }
                 SignalExpr::Scale { input, min, max } => {
                     let val = eval_signal_isolated(nodes, input, sample_rate);
                     min + val * (max - min)
@@ -4414,6 +4421,14 @@ impl UnifiedSignalGraph {
     pub fn add_multiply_node(&mut self, a: Signal, b: Signal) -> NodeId {
         let node_id = NodeId(self.nodes.len());
         let node = SignalNode::Multiply { a, b };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a Min node (helper for testing)
+    pub fn add_min_node(&mut self, a: Signal, b: Signal) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Min { a, b };
         self.nodes.push(Some(Rc::new(node)));
         node_id
     }
@@ -4967,6 +4982,10 @@ impl UnifiedSignalGraph {
                     self.find_signal_dependencies(a, visited);
                     self.find_signal_dependencies(b, visited);
                 }
+                SignalNode::Min { a, b } => {
+                    self.find_signal_dependencies(a, visited);
+                    self.find_signal_dependencies(b, visited);
+                }
                 SignalNode::Output { input } => {
                     self.find_signal_dependencies(input, visited);
                 }
@@ -5002,7 +5021,7 @@ impl UnifiedSignalGraph {
         match expr {
             SignalExpr::Add(a, b) | SignalExpr::Multiply(a, b) |
             SignalExpr::Subtract(a, b) | SignalExpr::Divide(a, b) |
-            SignalExpr::Modulo(a, b) => {
+            SignalExpr::Modulo(a, b) | SignalExpr::Min(a, b) => {
                 self.find_signal_dependencies(a, visited);
                 self.find_signal_dependencies(b, visited);
             }
@@ -5131,6 +5150,9 @@ impl UnifiedSignalGraph {
                     self.eval_signal_from_buffers(a, sample_idx) % divisor
                 }
             }
+            SignalExpr::Min(a, b) => {
+                self.eval_signal_from_buffers(a, sample_idx).min(self.eval_signal_from_buffers(b, sample_idx))
+            }
             SignalExpr::Scale { input, min, max } => {
                 let val = self.eval_signal_from_buffers(input, sample_idx);
                 // Scale from -1..1 to min..max
@@ -5155,6 +5177,11 @@ impl UnifiedSignalGraph {
                 let a_val = self.eval_signal_from_buffers(a, sample_idx);
                 let b_val = self.eval_signal_from_buffers(b, sample_idx);
                 Some(a_val * b_val)
+            }
+            SignalNode::Min { a, b } => {
+                let a_val = self.eval_signal_from_buffers(a, sample_idx);
+                let b_val = self.eval_signal_from_buffers(b, sample_idx);
+                Some(a_val.min(b_val))
             }
             // For other node types, fall back to eval_node for now
             // TODO: Add buffer-based evaluation for all node types
@@ -5640,6 +5667,7 @@ impl UnifiedSignalGraph {
                     0.0
                 }
             }
+            SignalExpr::Min(a, b) => self.eval_signal(a).min(self.eval_signal(b)),
             SignalExpr::Scale { input, min, max } => {
                 let v = self.eval_signal(input);
                 v * (max - min) + min
@@ -7158,6 +7186,8 @@ impl UnifiedSignalGraph {
             SignalNode::Add { a, b } => self.eval_signal(&a) + self.eval_signal(&b),
 
             SignalNode::Multiply { a, b } => self.eval_signal(&a) * self.eval_signal(&b),
+
+            SignalNode::Min { a, b } => self.eval_signal(&a).min(self.eval_signal(&b)),
 
             SignalNode::XFade {
                 signal_a,
@@ -11488,6 +11518,21 @@ impl UnifiedSignalGraph {
                 }
             }
 
+            SignalNode::Min { a, b } => {
+                // Allocate buffers for both inputs
+                let mut a_buffer = vec![0.0; buffer_size];
+                let mut b_buffer = vec![0.0; buffer_size];
+
+                // Evaluate both signals
+                self.eval_signal_buffer(a, &mut a_buffer);
+                self.eval_signal_buffer(b, &mut b_buffer);
+
+                // Min element-wise
+                for i in 0..buffer_size {
+                    output[i] = a_buffer[i].min(b_buffer[i]);
+                }
+            }
+
             SignalNode::LowPass {
                 input,
                 cutoff,
@@ -13732,6 +13777,18 @@ impl UnifiedSignalGraph {
                     } else {
                         0.0
                     };
+                }
+            }
+
+            SignalExpr::Min(a, b) => {
+                let mut a_buffer = vec![0.0; buffer_size];
+                let mut b_buffer = vec![0.0; buffer_size];
+
+                self.eval_signal_buffer(a, &mut a_buffer);
+                self.eval_signal_buffer(b, &mut b_buffer);
+
+                for i in 0..buffer_size {
+                    output[i] = a_buffer[i].min(b_buffer[i]);
                 }
             }
 

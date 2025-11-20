@@ -1282,6 +1282,7 @@ fn compile_function_call(
         "range" => compile_range(ctx, args),
         "gain" => compile_gain(ctx, args),
         "pan" => compile_pan(ctx, args),
+        "min" => compile_min(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -3104,6 +3105,28 @@ fn compile_pan(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     let output = ctx.graph.add_node(SignalNode::Pan2Left {
         input: input_signal,
         position: Signal::Node(pan_node),
+    });
+
+    Ok(output)
+}
+
+/// Compile min function - minimum of two signals
+/// Usage: min signal_a signal_b
+/// Example: min (sine 0.5) 0.0  (rectify sine wave)
+/// Example: min ~lfo ~env  (modulate with minimum of two signals)
+fn compile_min(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 2 {
+        return Err(format!("min requires exactly 2 arguments, got {}", args.len()));
+    }
+
+    // Compile both input signals
+    let a_node = compile_expr(ctx, args[0].clone())?;
+    let b_node = compile_expr(ctx, args[1].clone())?;
+
+    // Create Min node
+    let output = ctx.graph.add_node(SignalNode::Min {
+        a: Signal::Node(a_node),
+        b: Signal::Node(b_node),
     });
 
     Ok(output)
