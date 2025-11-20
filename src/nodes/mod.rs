@@ -47,6 +47,7 @@
 /// - [`oscillator::OscillatorNode`] - Waveform generation (sine, saw, square, triangle)
 /// - [`pulse::PulseNode`] - Pulse wave oscillator with pulse width modulation (PWM)
 /// - [`vco::VCONode`] - Voltage-controlled oscillator with polyBLEP anti-aliasing
+/// - [`polyblep_osc::PolyBLEPOscNode`] - Anti-aliased oscillator (saw, square, triangle) using PolyBLEP
 /// - [`noise::NoiseNode`] - White noise generator
 /// - [`brown_noise::BrownNoiseNode`] - Brown noise generator (Brownian/red noise with 6dB/octave rolloff)
 /// - [`pink_noise::PinkNoiseNode`] - Pink noise generator (1/f spectrum)
@@ -70,21 +71,26 @@
 /// - [`hilbert_transformer::HilbertTransformerNode`] - Hilbert transformer (90° phase shift for SSB modulation)
 /// - [`formant::FormantNode`] - Formant filter for vowel synthesis (A, E, I, O, U)
 /// - [`dj_filter::DJFilterNode`] - DJ-style crossfader filter (lowpass/highpass with resonance)
+/// - [`crossover::CrossoverLowNode`] - Low band of Linkwitz-Riley 24dB/oct 3-band crossover
+/// - [`crossover::CrossoverMidNode`] - Mid band of Linkwitz-Riley 24dB/oct 3-band crossover
+/// - [`crossover::CrossoverHighNode`] - High band of Linkwitz-Riley 24dB/oct 3-band crossover
 ///
 /// ## Distortion Nodes (shape audio)
 /// - [`clip::ClipNode`] - Soft clipping/distortion using tanh
 /// - [`clamp::ClampNode`] - Hard limiting to [min, max] range
 /// - [`wrap::WrapNode`] - Wrapping/folding into [min, max] range using modulo
-/// - [`fold::FoldNode`] - Wave folding distortion (reflects signal at boundaries)
+/// - [`fold::FoldNode`] - Threshold-based wavefolding distortion (classic synthesis technique)
 /// - [`quantizer::QuantizerNode`] - Snap values to grid/scale (quantization)
 /// - [`scale_quantize::ScaleQuantizeNode`] - Quantize frequencies to musical scales (major, minor, pentatonic, etc.)
 /// - [`rectifier::RectifierNode`] - Half-wave and full-wave rectification
 /// - [`decimator::DecimatorNode`] - Sample rate reduction for lo-fi/retro effects (bit-crush style)
+/// - [`quantize::QuantizeNode`] - Bit depth reduction for lo-fi/digital distortion effects
 ///
 /// ## Dynamics Nodes (control amplitude)
 /// - [`limiter::LimiterNode`] - Hard limiting dynamics processor (prevents clipping)
 /// - [`gate::GateNode`] - Threshold gate (passes signal above threshold, silences below)
 /// - [`compressor::CompressorNode`] - Smooth dynamics compression with attack/release
+/// - [`noise_gate::NoiseGateNode`] - Smooth noise gate with attack/release (production-ready gating)
 ///
 /// ## Effect Nodes (time-based effects)
 /// - [`delay::DelayNode`] - Simple delay line with circular buffer
@@ -103,6 +109,7 @@
 /// - [`convolution::ConvolutionNode`] - FFT-based convolution reverb using impulse responses
 /// - [`pitch_shifter::PitchShifterNode`] - Pitch shifting without time stretching (delay-based)
 /// - [`resample::ResampleNode`] - High-quality sample rate conversion with linear interpolation
+/// - [`slice::SliceNode`] - Sample slicing with trigger control (play portions of accumulated buffer)
 ///
 /// ## Envelope Nodes (amplitude shaping)
 /// - [`adsr::ADSRNode`] - Attack-Decay-Sustain-Release envelope generator
@@ -166,6 +173,7 @@ pub mod brown_noise;
 pub mod pink_noise;
 pub mod vco;
 pub mod pulse;
+pub mod polyblep_osc;
 pub mod noise;
 pub mod random;
 pub mod fm_oscillator;
@@ -203,6 +211,7 @@ pub mod scale_quantize;
 pub mod not_equal_to;
 pub mod quantizer;
 pub mod decimator;
+pub mod quantize;
 pub mod rms;
 pub mod ar_envelope;
 pub mod ad_envelope;
@@ -253,6 +262,8 @@ pub mod stereo_widener;
 pub mod stereo_splitter;
 pub mod auto_pan;
 pub mod stereo_merger;
+pub mod slice;
+pub mod crossover;
 
 pub use constant::ConstantNode;
 pub use addition::AdditionNode;
@@ -272,6 +283,7 @@ pub use gain::GainNode;
 pub use mix::MixNode;
 pub use oscillator::{OscillatorNode, Waveform};
 pub use vco::{VCONode, VCOWaveform};
+pub use polyblep_osc::{PolyBLEPOscNode, PolyBLEPWaveform};
 pub use brown_noise::BrownNoiseNode;
 pub use pink_noise::PinkNoiseNode;
 pub use pulse::PulseNode;
@@ -308,6 +320,7 @@ pub use less_than_or_equal::LessThanOrEqualNode;
 pub use ar_envelope::AREnvelopeNode;
 pub use ad_envelope::ADEnvelopeNode;
 pub use decimator::DecimatorNode;
+pub use quantize::QuantizeNode;
 pub use asr_envelope::ASREnvelopeNode;
 pub use greater_than::GreaterThanNode;
 pub use greater_than_or_equal::GreaterThanOrEqualNode;
@@ -319,9 +332,11 @@ pub use rms::RMSNode;
 pub use adsr::ADSRNode;
 pub mod limiter;
 pub mod compressor;
+pub mod noise_gate;
 pub use limiter::LimiterNode;
 pub use compressor::CompressorNode;
 pub use gate::GateNode;
+pub use noise_gate::NoiseGateNode;
 pub use chorus::ChorusNode;
 pub use flanger::FlangerNode;
 pub use phaser::PhaserNode;
@@ -374,3 +389,5 @@ pub use vocoder::VocoderNode;
 pub use auto_pan::{AutoPanNode, AutoPanWaveform};
 pub use stereo_splitter::StereoSplitterNode;
 pub use stereo_merger::StereoMergerNode;
+pub use crossover::{CrossoverLowNode, CrossoverMidNode, CrossoverHighNode};
+pub use slice::SliceNode;

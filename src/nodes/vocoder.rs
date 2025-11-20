@@ -1244,24 +1244,47 @@ mod tests {
             &context,
         );
 
-        let inputs = vec![
-            carrier_buf.as_slice(),
-            modulator_buf.as_slice(),
-            num_bands_buf.as_slice(),
-            bandwidth_buf.as_slice(),
-        ];
-
-        vocoder.process_block(&inputs, &mut output, sample_rate, &context);
+        vocoder.process_block(
+            &[
+                carrier_buf.as_slice(),
+                modulator_buf.as_slice(),
+                num_bands_buf.as_slice(),
+                bandwidth_buf.as_slice(),
+            ],
+            &mut output,
+            sample_rate,
+            &context,
+        );
         assert_eq!(vocoder.num_bands(), 16);
 
         // Change to 24 bands
         num_bands_buf.fill(24.0);
-        vocoder.process_block(&inputs, &mut output, sample_rate, &context);
+        vocoder.process_block(
+            &[
+                carrier_buf.as_slice(),
+                modulator_buf.as_slice(),
+                num_bands_buf.as_slice(),
+                bandwidth_buf.as_slice(),
+            ],
+            &mut output,
+            sample_rate,
+            &context,
+        );
         assert_eq!(vocoder.num_bands(), 24, "Should update to 24 bands");
 
         // Change to 12 bands
         num_bands_buf.fill(12.0);
-        vocoder.process_block(&inputs, &mut output, sample_rate, &context);
+        vocoder.process_block(
+            &[
+                carrier_buf.as_slice(),
+                modulator_buf.as_slice(),
+                num_bands_buf.as_slice(),
+                bandwidth_buf.as_slice(),
+            ],
+            &mut output,
+            sample_rate,
+            &context,
+        );
         assert_eq!(vocoder.num_bands(), 12, "Should update to 12 bands");
     }
 
