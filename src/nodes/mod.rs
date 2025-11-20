@@ -21,23 +21,40 @@
 /// - [`sign::SignNode`] - Sign function (returns -1, 0, or 1)
 /// - [`mix::MixNode`] - Weighted sum of N signals
 /// - [`lerp::LerpNode`] - Linear interpolation (crossfade) between two signals
+/// - [`less_than::LessThanNode`] - Comparison operator (a < b returns 1.0, else 0.0)
+/// - [`greater_than::GreaterThanNode`] - Comparison operator (a > b returns 1.0, else 0.0)
+///
+/// ## Analysis Nodes (audio analysis)
+/// - [`rms::RMSNode`] - Root Mean Square calculation with windowing
 ///
 /// ## Synthesis Nodes (generate audio)
 /// - [`oscillator::OscillatorNode`] - Waveform generation (sine, saw, square, triangle)
+/// - [`pulse::PulseNode`] - Pulse wave oscillator with pulse width modulation (PWM)
 /// - [`noise::NoiseNode`] - White noise generator
 ///
 /// ## Filter Nodes (shape audio)
 /// - [`lowpass_filter::LowPassFilterNode`] - 2nd-order Butterworth low-pass filter
 /// - [`highpass_filter::HighPassFilterNode`] - 2nd-order Butterworth high-pass filter
 /// - [`bandpass_filter::BandPassFilterNode`] - 2nd-order Butterworth band-pass filter
+/// - [`notch_filter::NotchFilterNode`] - 2nd-order notch (band-reject) filter
+/// - [`allpass_filter::AllPassFilterNode`] - 2nd-order all-pass filter (phase shifter)
 ///
 /// ## Distortion Nodes (shape audio)
 /// - [`clip::ClipNode`] - Soft clipping/distortion using tanh
 /// - [`clamp::ClampNode`] - Hard limiting to [min, max] range
 /// - [`wrap::WrapNode`] - Wrapping/folding into [min, max] range using modulo
 ///
+/// ## Dynamics Nodes (control amplitude)
+/// - [`limiter::LimiterNode`] - Hard limiting dynamics processor (prevents clipping)
+///
 /// ## Effect Nodes (time-based effects)
 /// - [`delay::DelayNode`] - Simple delay line with circular buffer
+///
+/// ## Envelope Nodes (amplitude shaping)
+/// - [`adsr::ADSRNode`] - Attack-Decay-Sustain-Release envelope generator
+///
+/// ## Analysis Nodes (signal analysis)
+/// - [`peak_detector::PeakDetectorNode`] - Peak tracking with configurable decay
 ///
 /// ## Spatial Nodes (stereo positioning)
 /// - [`pan::PanNode`] - Equal-power stereo panning
@@ -69,18 +86,27 @@ pub mod power;
 pub mod gain;
 pub mod mix;
 pub mod oscillator;
+pub mod pulse;
 pub mod noise;
 pub mod lowpass_filter;
 pub mod highpass_filter;
 pub mod bandpass_filter;
+pub mod notch_filter;
+pub mod allpass_filter;
 pub mod clip;
 pub mod clamp;
 pub mod max;
 pub mod pan;
 pub mod delay;
 pub mod min;
+pub mod peak_detector;
+pub mod tremolo;
 pub mod wrap;
 pub mod sample_hold;
+pub mod less_than;
+pub mod greater_than;
+pub mod rms;
+pub mod adsr;
 
 pub use constant::ConstantNode;
 pub use addition::AdditionNode;
@@ -96,15 +122,26 @@ pub use power::PowerNode;
 pub use gain::GainNode;
 pub use mix::MixNode;
 pub use oscillator::{OscillatorNode, Waveform};
+pub use pulse::PulseNode;
 pub use noise::NoiseNode;
 pub use lowpass_filter::LowPassFilterNode;
 pub use highpass_filter::HighPassFilterNode;
 pub use pan::PanNode;
+pub use tremolo::TremoloNode;
 pub use bandpass_filter::BandPassFilterNode;
+pub use notch_filter::NotchFilterNode;
+pub use allpass_filter::AllPassFilterNode;
 pub use delay::DelayNode;
 pub use clip::ClipNode;
+pub use peak_detector::PeakDetectorNode;
 pub use clamp::ClampNode;
 pub use max::MaxNode;
 pub use min::MinNode;
 pub use wrap::WrapNode;
 pub use sample_hold::SampleAndHoldNode;
+pub use less_than::LessThanNode;
+pub use greater_than::GreaterThanNode;
+pub use rms::RMSNode;
+pub use adsr::ADSRNode;
+pub mod limiter;
+pub use limiter::LimiterNode;
