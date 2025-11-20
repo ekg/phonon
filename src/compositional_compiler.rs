@@ -1287,6 +1287,7 @@ fn compile_function_call(
         "min" => compile_min(ctx, args),
         "wrap" => compile_wrap(ctx, args),
         "sample_hold" => compile_sample_hold(ctx, args),
+        "decimator" => compile_decimator(ctx, args),
 
         _ => Err(format!("Unknown function: {}", name)),
     }
@@ -3178,6 +3179,33 @@ fn compile_sample_hold(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
         trigger: Signal::Node(trigger_node),
         held_value: std::cell::RefCell::new(0.0),
         last_trigger: std::cell::RefCell::new(0.0),
+    });
+
+    Ok(output)
+}
+
+/// Compile decimator effect (sample rate reduction for lo-fi/retro effects)
+/// Usage: signal # decimator(factor, smooth)
+/// - factor: Decimation factor (1.0 = no effect, 2.0 = half rate, etc.)
+/// - smooth: Smoothing amount (0.0 = harsh/stepped, 1.0 = smooth)
+fn compile_decimator(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 3 {
+        return Err(format!("decimator requires exactly 3 arguments (input, factor, smooth), got {}", args.len()));
+    }
+
+    // Compile input, factor, and smooth signals
+    let input_node = compile_expr(ctx, args[0].clone())?;
+    let factor_node = compile_expr(ctx, args[1].clone())?;
+    let smooth_node = compile_expr(ctx, args[2].clone())?;
+
+    // Create Decimator node
+    let output = ctx.graph.add_node(SignalNode::Decimator {
+        input: Signal::Node(input_node),
+        factor: Signal::Node(factor_node),
+        smooth: Signal::Node(smooth_node),
+        sample_counter: std::cell::RefCell::new(0.0),
+        held_value: std::cell::RefCell::new(0.0),
+        smooth_state: std::cell::RefCell::new(0.0),
     });
 
     Ok(output)

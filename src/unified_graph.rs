@@ -1277,6 +1277,18 @@ pub enum SignalNode {
         last_trigger: std::cell::RefCell<f32>,   // Previous trigger value for crossing detection
     },
 
+    /// Decimator - sample rate reduction for lo-fi/retro effects
+    /// Reduces effective sample rate by holding values for N samples
+    /// Creates classic bit-crushed/aliased sounds with optional smoothing
+    Decimator {
+        input: Signal,
+        factor: Signal,           // Decimation factor (1.0 = no effect, higher = more decimation)
+        smooth: Signal,           // Smoothing amount (0.0 = harsh, 1.0 = smooth)
+        sample_counter: std::cell::RefCell<f32>,   // Counter for decimation timing
+        held_value: std::cell::RefCell<f32>,       // Currently held value
+        smooth_state: std::cell::RefCell<f32>,     // Previous smoothed output for one-pole filter
+    },
+
     /// Crossfader between two signals
     /// position = 0.0 → 100% signal_a
     /// position = 0.5 → 50% signal_a + 50% signal_b
@@ -7316,6 +7328,43 @@ impl UnifiedSignalGraph {
 
                 // Return held value
                 *held_value.borrow()
+            }
+
+            SignalNode::Decimator {
+                input,
+                factor,
+                smooth,
+                sample_counter,
+                held_value,
+                smooth_state,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let factor_val = self.eval_signal(&factor).max(1.0); // Clamp to minimum 1.0
+                let smooth_val = self.eval_signal(&smooth).clamp(0.0, 1.0); // Clamp to [0, 1]
+
+                // Increment sample counter
+                let mut counter = sample_counter.borrow_mut();
+                *counter += 1.0;
+
+                // Check if we should sample a new value
+                if *counter >= factor_val {
+                    *held_value.borrow_mut() = input_val;
+                    *counter = 0.0;
+                }
+
+                // Apply optional smoothing with one-pole filter
+                let output = if smooth_val > 0.0 {
+                    let held = *held_value.borrow();
+                    let last_smooth = *smooth_state.borrow();
+                    // One-pole lowpass: y[n] = x[n] * (1-a) + y[n-1] * a
+                    let smoothed = held * (1.0 - smooth_val) + last_smooth * smooth_val;
+                    *smooth_state.borrow_mut() = smoothed;
+                    smoothed
+                } else {
+                    *held_value.borrow()
+                };
+
+                output
             }
 
             SignalNode::XFade {

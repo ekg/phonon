@@ -57,6 +57,7 @@
 /// - [`pm_oscillator::PMOscillatorNode`] - Phase Modulation synthesis (equivalent to FM, easier to implement)
 ///
 /// ## Filter Nodes (shape audio)
+/// - [`one_pole_filter::OnePoleFilterNode`] - 1st-order filter (6 dB/octave, very efficient, analog character)
 /// - [`lowpass_filter::LowPassFilterNode`] - 2nd-order Butterworth low-pass filter
 /// - [`highpass_filter::HighPassFilterNode`] - 2nd-order Butterworth high-pass filter
 /// - [`rlpf::RLPFNode`] - Resonant low-pass filter with Q control (classic synth sound)
@@ -66,6 +67,7 @@
 /// - [`notch_filter::NotchFilterNode`] - 2nd-order notch (band-reject) filter
 /// - [`moog_ladder::MoogLadderNode`] - 4-pole Moog ladder filter (classic analog sound)
 /// - [`allpass_filter::AllPassFilterNode`] - 2nd-order all-pass filter (phase shifter)
+/// - [`hilbert_transformer::HilbertTransformerNode`] - Hilbert transformer (90° phase shift for SSB modulation)
 /// - [`formant::FormantNode`] - Formant filter for vowel synthesis (A, E, I, O, U)
 /// - [`dj_filter::DJFilterNode`] - DJ-style crossfader filter (lowpass/highpass with resonance)
 ///
@@ -77,6 +79,7 @@
 /// - [`quantizer::QuantizerNode`] - Snap values to grid/scale (quantization)
 /// - [`scale_quantize::ScaleQuantizeNode`] - Quantize frequencies to musical scales (major, minor, pentatonic, etc.)
 /// - [`rectifier::RectifierNode`] - Half-wave and full-wave rectification
+/// - [`decimator::DecimatorNode`] - Sample rate reduction for lo-fi/retro effects (bit-crush style)
 ///
 /// ## Dynamics Nodes (control amplitude)
 /// - [`limiter::LimiterNode`] - Hard limiting dynamics processor (prevents clipping)
@@ -93,11 +96,13 @@
 /// - [`flanger::FlangerNode`] - Flanging effect (short modulated delay)
 /// - [`chorus::ChorusNode`] - Chorus effect (pitch-shifting delay, no feedback)
 /// - [`ring_mod::RingModNode`] - Ring modulation (creates sum/difference frequencies)
+/// - [`frequency_shifter::FrequencyShifterNode`] - Frequency shifting (linear shift, creates inharmonic content)
 /// - [`karplus_strong::KarplusStrongNode`] - Karplus-Strong plucked string synthesis (physical modeling)
 /// - [`waveguide::WaveguideNode`] - Digital waveguide synthesis for realistic physical modeling
 /// - [`granular::GranularNode`] - Granular synthesis for texture and drone generation
 /// - [`convolution::ConvolutionNode`] - FFT-based convolution reverb using impulse responses
 /// - [`pitch_shifter::PitchShifterNode`] - Pitch shifting without time stretching (delay-based)
+/// - [`resample::ResampleNode`] - High-quality sample rate conversion with linear interpolation
 ///
 /// ## Envelope Nodes (amplitude shaping)
 /// - [`adsr::ADSRNode`] - Attack-Decay-Sustain-Release envelope generator
@@ -115,9 +120,14 @@
 ///
 /// ## Analysis Nodes (signal analysis)
 /// - [`peak_detector::PeakDetectorNode`] - Peak tracking with configurable decay
+/// - [`envelope_follower::EnvelopeFollowerNode`] - Amplitude envelope extraction with attack/release
 ///
 /// ## Spatial Nodes (stereo positioning)
 /// - [`pan::PanNode`] - Equal-power stereo panning
+/// - [`auto_pan::AutoPanNode`] - Automatic panning with LFO modulation
+/// - [`stereo_widener::StereoWidenerNode`] - Stereo width control using Mid/Side processing
+/// - [`stereo_splitter::StereoSplitterNode`] - Stereo signal splitter (identity passthrough, future L/R separation)
+/// - [`stereo_merger::StereoMergerNode`] - Merge two mono signals into stereo (currently mono mix)
 ///
 /// ## Utility Nodes (conversion and helper functions)
 /// - [`tap::TapNode`] - Tap tempo converter (beats to seconds for tempo-synced parameters)
@@ -160,6 +170,7 @@ pub mod noise;
 pub mod random;
 pub mod fm_oscillator;
 pub mod pm_oscillator;
+pub mod one_pole_filter;
 pub mod lowpass_filter;
 pub mod highpass_filter;
 pub mod rlpf;
@@ -168,6 +179,7 @@ pub mod bandpass_filter;
 pub mod notch_filter;
 pub mod moog_ladder;
 pub mod allpass_filter;
+pub mod hilbert_transformer;
 pub mod clip;
 pub mod clamp;
 pub mod max;
@@ -176,6 +188,7 @@ pub mod delay;
 pub mod comb_filter;
 pub mod min;
 pub mod peak_detector;
+pub mod envelope_follower;
 pub mod tremolo;
 pub mod wrap;
 pub mod fold;
@@ -189,6 +202,7 @@ pub mod equal_to;
 pub mod scale_quantize;
 pub mod not_equal_to;
 pub mod quantizer;
+pub mod decimator;
 pub mod rms;
 pub mod ar_envelope;
 pub mod ad_envelope;
@@ -205,6 +219,7 @@ pub mod sin;
 pub mod cos;
 pub mod tan;
 pub mod impulse;
+pub mod frequency_shifter;
 pub mod blip;
 pub mod ring_mod;
 pub mod line;
@@ -225,6 +240,7 @@ pub mod xfade;
 pub mod dattorro_reverb;
 pub mod tap;
 pub mod reverb;
+pub mod resample;
 pub mod when;
 pub mod parametric_eq;
 pub mod pattern_evaluator;
@@ -233,6 +249,10 @@ pub mod dj_filter;
 pub mod pitch_shifter;
 pub mod convolution;
 pub mod spectral_freeze;
+pub mod stereo_widener;
+pub mod stereo_splitter;
+pub mod auto_pan;
+pub mod stereo_merger;
 
 pub use constant::ConstantNode;
 pub use addition::AdditionNode;
@@ -260,6 +280,7 @@ pub use rlpf::RLPFNode;
 pub use random::RandomNode;
 pub use fm_oscillator::FMOscillatorNode;
 pub use pm_oscillator::PMOscillatorNode;
+pub use one_pole_filter::{OnePoleFilterNode, OnePoleMode};
 pub use lowpass_filter::LowPassFilterNode;
 pub use highpass_filter::HighPassFilterNode;
 pub use rhpf::RHPFNode;
@@ -268,11 +289,13 @@ pub use tremolo::TremoloNode;
 pub use bandpass_filter::BandPassFilterNode;
 pub use notch_filter::NotchFilterNode;
 pub use allpass_filter::AllPassFilterNode;
+pub use hilbert_transformer::HilbertTransformerNode;
 pub use moog_ladder::MoogLadderNode;
 pub use delay::DelayNode;
 pub use comb_filter::CombFilterNode;
 pub use clip::ClipNode;
 pub use peak_detector::PeakDetectorNode;
+pub use envelope_follower::EnvelopeFollowerNode;
 pub use clamp::ClampNode;
 pub use max::MaxNode;
 pub use min::MinNode;
@@ -284,6 +307,7 @@ pub use less_than::LessThanNode;
 pub use less_than_or_equal::LessThanOrEqualNode;
 pub use ar_envelope::AREnvelopeNode;
 pub use ad_envelope::ADEnvelopeNode;
+pub use decimator::DecimatorNode;
 pub use asr_envelope::ASREnvelopeNode;
 pub use greater_than::GreaterThanNode;
 pub use greater_than_or_equal::GreaterThanOrEqualNode;
@@ -311,6 +335,7 @@ pub use tan::TanNode;
 pub use impulse::ImpulseNode;
 pub use blip::BlipNode;
 pub use ring_mod::RingModNode;
+pub use frequency_shifter::FrequencyShifterNode;
 pub use lag::LagNode;
 pub use wavetable::WavetableNode;
 pub use and::AndNode;
@@ -324,6 +349,7 @@ pub use waveguide::WaveguideNode;
 pub use svf::{SVFNode, SVFMode};
 pub use segments::{SegmentsNode, Segment, CurveType};
 pub use resonz::ResonzNode;
+pub use resample::ResampleNode;
 pub use convolution::{ConvolutionNode, create_simple_ir};
 pub use xfade::{XFadeNode, XFadeCurve};
 pub use tap::TapNode;
@@ -339,4 +365,8 @@ pub mod sample_playback;
 pub use sample_playback::SamplePlaybackNode;
 pub use pattern_evaluator::PatternEvaluatorNode;
 pub mod granular;
+pub use stereo_widener::StereoWidenerNode;
 pub use granular::GranularNode;
+pub use auto_pan::{AutoPanNode, AutoPanWaveform};
+pub use stereo_splitter::StereoSplitterNode;
+pub use stereo_merger::StereoMergerNode;
