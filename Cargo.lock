@@ -1952,6 +1952,7 @@ dependencies = [
  "notify",
  "num-complex",
  "num_cpus",
+ "petgraph",
  "rand",
  "ratatui",
  "rayon",

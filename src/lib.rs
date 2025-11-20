@@ -268,6 +268,12 @@
 //! Phonon is open source. Check the repository for licensing details.
 
 use std::cell::RefCell;
+
+// DAW-style buffer passing architecture (Phase 1)
+pub mod audio_node;
+pub mod buffer_manager;
+pub mod dependency_graph;
+
 pub mod audio;
 pub mod audio_analysis;
 pub mod ipc;
