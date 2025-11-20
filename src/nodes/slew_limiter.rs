@@ -425,4 +425,190 @@ mod tests {
                 output2[0], end_of_block1);
         assert!(output2[4] > output2[0]);
     }
+
+    #[test]
+    fn test_slew_limiter_pattern_modulated_rise_time() {
+        let mut slew = SlewLimiterNode::new(0, 1, 2);
+
+        // Step input from 0 to 1
+        let input = vec![1.0; 10];
+
+        // Rise time increases over time (slower at end)
+        let rise_time = vec![
+            0.0001, 0.0002, 0.0004, 0.0008, 0.0016, 0.0032, 0.0064, 0.0128, 0.0256, 0.0512,
+        ];
+        let fall_time = vec![0.001; 10];
+        let inputs = vec![input.as_slice(), rise_time.as_slice(), fall_time.as_slice()];
+
+        let mut output = vec![0.0; 10];
+        let context = create_context(10);
+
+        slew.process_block(&inputs, &mut output, 44100.0, &context);
+
+        // Early samples should rise faster (smaller time = faster rate)
+        let early_delta = output[1] - output[0];
+        let late_delta = output[9] - output[8];
+
+        // Early rise should be much faster than late rise
+        assert!(
+            early_delta > late_delta * 2.0,
+            "early_delta = {}, late_delta = {}",
+            early_delta,
+            late_delta
+        );
+    }
+
+    #[test]
+    fn test_slew_limiter_pattern_modulated_fall_time() {
+        let mut slew = SlewLimiterNode::new(0, 1, 2);
+        slew.last_value = 1.0; // Start at 1.0
+
+        // Step input from 1 to 0
+        let input = vec![0.0; 10];
+        let rise_time = vec![0.001; 10];
+
+        // Fall time increases over time (slower at end)
+        let fall_time = vec![
+            0.0001, 0.0002, 0.0004, 0.0008, 0.0016, 0.0032, 0.0064, 0.0128, 0.0256, 0.0512,
+        ];
+        let inputs = vec![input.as_slice(), rise_time.as_slice(), fall_time.as_slice()];
+
+        let mut output = vec![0.0; 10];
+        let context = create_context(10);
+
+        slew.process_block(&inputs, &mut output, 44100.0, &context);
+
+        // Early samples should fall faster (smaller time = faster rate)
+        let early_delta = output[0] - output[1];
+        let late_delta = output[8] - output[9];
+
+        // Early fall should be much faster than late fall
+        assert!(
+            early_delta > late_delta * 2.0,
+            "early_delta = {}, late_delta = {}",
+            early_delta,
+            late_delta
+        );
+    }
+
+    #[test]
+    fn test_slew_limiter_zero_division_protection() {
+        let mut slew = SlewLimiterNode::new(0, 1, 2);
+
+        // Try to use zero or negative time values
+        let input = vec![1.0; 5];
+        let rise_time = vec![0.0, -0.001, 0.0, 0.0, 0.0]; // Invalid times
+        let fall_time = vec![0.0001; 5];
+        let inputs = vec![input.as_slice(), rise_time.as_slice(), fall_time.as_slice()];
+
+        let mut output = vec![0.0; 5];
+        let context = create_context(5);
+
+        slew.process_block(&inputs, &mut output, 44100.0, &context);
+
+        // Should not panic or produce NaN/Inf
+        assert!(output.iter().all(|&x| x.is_finite()));
+
+        // Should still be able to rise (clamped to minimum time)
+        assert!(output[4] > 0.0);
+    }
+
+    #[test]
+    fn test_slew_limiter_very_fast_transition() {
+        let mut slew = SlewLimiterNode::new(0, 1, 2);
+
+        // Very fast rise time (should nearly match input)
+        let input = vec![1.0; 100];
+        let rise_time = vec![0.00001; 100]; // 0.01ms = essentially instant
+        let fall_time = vec![0.00001; 100];
+        let inputs = vec![input.as_slice(), rise_time.as_slice(), fall_time.as_slice()];
+
+        let mut output = vec![0.0; 100];
+        let context = create_context(100);
+
+        slew.process_block(&inputs, &mut output, 44100.0, &context);
+
+        // With such fast slew, should reach target very quickly
+        // 1.0 / (0.00001 * 44100) ≈ 2.267 per sample
+        // Should reach 1.0 in less than 1 sample (but clamped)
+        assert!(output[5] > 0.99, "output[5] = {}", output[5]);
+        assert!((output[99] - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_slew_limiter_very_slow_transition() {
+        let mut slew = SlewLimiterNode::new(0, 1, 2);
+
+        // Very slow rise time
+        let input = vec![1.0; 20];
+        let rise_time = vec![1.0; 20]; // 1 second rise time!
+        let fall_time = vec![1.0; 20];
+        let inputs = vec![input.as_slice(), rise_time.as_slice(), fall_time.as_slice()];
+
+        let mut output = vec![0.0; 20];
+        let context = create_context(20);
+
+        slew.process_block(&inputs, &mut output, 44100.0, &context);
+
+        // With 1 second rise time: 1.0 / (1.0 * 44100) ≈ 0.0000227 per sample
+        // After 20 samples: 20 * 0.0000227 ≈ 0.000454
+        assert!(output[19] < 0.001, "output[19] = {}", output[19]);
+
+        // Should be slowly increasing
+        for i in 1..20 {
+            assert!(output[i] >= output[i - 1]);
+        }
+    }
+
+    #[test]
+    fn test_slew_limiter_portamento_effect() {
+        let mut slew = SlewLimiterNode::new(0, 1, 2);
+        slew.last_value = 440.0; // Start at first note
+
+        // Simulate portamento between two notes: 440Hz -> 880Hz
+        let mut input = vec![440.0; 20];
+        input[10..20].fill(880.0);
+
+        let rise_time = vec![0.01; 20]; // 10ms glide
+        let fall_time = vec![0.01; 20];
+        let inputs = vec![input.as_slice(), rise_time.as_slice(), fall_time.as_slice()];
+
+        let mut output = vec![0.0; 20];
+        let context = create_context(20);
+
+        slew.process_block(&inputs, &mut output, 44100.0, &context);
+
+        // Should stay at 440 initially (first 10 samples)
+        assert!((output[0] - 440.0).abs() < 1.0);
+        assert!((output[9] - 440.0).abs() < 1.0);
+
+        // Then start rising toward 880 after input changes
+        assert!(output[19] > output[10]); // Rising toward 880
+        assert!(output[19] > 440.0 && output[19] < 880.0); // Somewhere between
+    }
+
+    #[test]
+    fn test_slew_limiter_removes_zipper_noise() {
+        let mut slew = SlewLimiterNode::new(0, 1, 2);
+
+        // Simulate rapid jumpy control signal (zipper noise source)
+        let input = vec![0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
+        let rise_time = vec![0.001; 8];
+        let fall_time = vec![0.001; 8];
+        let inputs = vec![input.as_slice(), rise_time.as_slice(), fall_time.as_slice()];
+
+        let mut output = vec![0.0; 8];
+        let context = create_context(8);
+
+        slew.process_block(&inputs, &mut output, 44100.0, &context);
+
+        // Output should be smooth, not jumping 0->1->0->1
+        let max_jump = output
+            .windows(2)
+            .map(|w| (w[1] - w[0]).abs())
+            .fold(0.0f32, f32::max);
+
+        // Max jump should be much less than the input jumps (which are 1.0)
+        assert!(max_jump < 0.1, "max_jump = {}", max_jump);
+    }
 }
