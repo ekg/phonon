@@ -28,9 +28,12 @@
 /// - [`mix::MixNode`] - Weighted sum of N signals
 /// - [`lerp::LerpNode`] - Linear interpolation (crossfade) between two signals
 /// - [`less_than::LessThanNode`] - Comparison operator (a < b returns 1.0, else 0.0)
+/// - [`less_than_or_equal::LessThanOrEqualNode`] - Comparison operator (a <= b returns 1.0, else 0.0, with tolerance)
 /// - [`greater_than::GreaterThanNode`] - Comparison operator (a > b returns 1.0, else 0.0)
 /// - [`equal_to::EqualToNode`] - Comparison operator (a == b returns 1.0, else 0.0, with tolerance)
 /// - [`not_equal_to::NotEqualToNode`] - Comparison operator (a != b returns 1.0, else 0.0, with tolerance)
+/// - [`and::AndNode`] - Logical AND operator (both inputs > threshold returns 1.0, else 0.0)
+/// - [`or::OrNode`] - Logical OR operator (either input > threshold returns 1.0, else 0.0)
 ///
 /// ## Analysis Nodes (audio analysis)
 /// - [`rms::RMSNode`] - Root Mean Square calculation with windowing
@@ -38,18 +41,22 @@
 /// ## Synthesis Nodes (generate audio)
 /// - [`oscillator::OscillatorNode`] - Waveform generation (sine, saw, square, triangle)
 /// - [`pulse::PulseNode`] - Pulse wave oscillator with pulse width modulation (PWM)
+/// - [`vco::VCONode`] - Voltage-controlled oscillator with polyBLEP anti-aliasing
 /// - [`noise::NoiseNode`] - White noise generator
 /// - [`brown_noise::BrownNoiseNode`] - Brown noise generator (Brownian/red noise with 6dB/octave rolloff)
 /// - [`pink_noise::PinkNoiseNode`] - Pink noise generator (1/f spectrum)
 /// - [`random::RandomNode`] - Random value generator (white noise with amplitude control)
 /// - [`impulse::ImpulseNode`] - Periodic impulse/spike generator (single-sample spikes)
+/// - [`blip::BlipNode`] - Band-limited impulse train (anti-aliased impulses)
 /// - [`fm_oscillator::FMOscillatorNode`] - Frequency Modulation synthesis (classic FM)
+/// - [`pm_oscillator::PMOscillatorNode`] - Phase Modulation synthesis (equivalent to FM, easier to implement)
 ///
 /// ## Filter Nodes (shape audio)
 /// - [`lowpass_filter::LowPassFilterNode`] - 2nd-order Butterworth low-pass filter
 /// - [`highpass_filter::HighPassFilterNode`] - 2nd-order Butterworth high-pass filter
 /// - [`bandpass_filter::BandPassFilterNode`] - 2nd-order Butterworth band-pass filter
 /// - [`notch_filter::NotchFilterNode`] - 2nd-order notch (band-reject) filter
+/// - [`moog_ladder::MoogLadderNode`] - 4-pole Moog ladder filter (classic analog sound)
 /// - [`allpass_filter::AllPassFilterNode`] - 2nd-order all-pass filter (phase shifter)
 ///
 /// ## Distortion Nodes (shape audio)
@@ -75,6 +82,7 @@
 /// ## Envelope Nodes (amplitude shaping)
 /// - [`adsr::ADSRNode`] - Attack-Decay-Sustain-Release envelope generator
 /// - [`ar_envelope::AREnvelopeNode`] - Attack-Release envelope generator (simpler than ADSR)
+/// - [`ad_envelope::ADEnvelopeNode`] - Attack-Decay envelope generator (one-shot, percussion)
 /// - [`line::LineNode`] - Linear ramp generator (start to end over duration)
 /// - [`asr_envelope::ASREnvelopeNode`] - Attack-Sustain-Release envelope generator (organ-style)
 ///
@@ -121,14 +129,17 @@ pub mod mix;
 pub mod oscillator;
 pub mod brown_noise;
 pub mod pink_noise;
+pub mod vco;
 pub mod pulse;
 pub mod noise;
 pub mod random;
 pub mod fm_oscillator;
+pub mod pm_oscillator;
 pub mod lowpass_filter;
 pub mod highpass_filter;
 pub mod bandpass_filter;
 pub mod notch_filter;
+pub mod moog_ladder;
 pub mod allpass_filter;
 pub mod clip;
 pub mod clamp;
@@ -144,12 +155,14 @@ pub mod fold;
 pub mod sample_hold;
 pub mod latch;
 pub mod less_than;
+pub mod less_than_or_equal;
 pub mod greater_than;
 pub mod equal_to;
 pub mod not_equal_to;
 pub mod quantizer;
 pub mod rms;
 pub mod ar_envelope;
+pub mod ad_envelope;
 pub mod adsr;
 pub mod asr_envelope;
 pub mod gate;
@@ -162,10 +175,15 @@ pub mod sin;
 pub mod cos;
 pub mod tan;
 pub mod impulse;
+pub mod blip;
 pub mod ring_mod;
 pub mod line;
 pub mod lag;
+pub mod wavetable;
 pub mod xline;
+pub mod and;
+pub mod or;
+pub mod svf;
 
 pub use constant::ConstantNode;
 pub use addition::AdditionNode;
@@ -184,12 +202,14 @@ pub use power::PowerNode;
 pub use gain::GainNode;
 pub use mix::MixNode;
 pub use oscillator::{OscillatorNode, Waveform};
+pub use vco::{VCONode, VCOWaveform};
 pub use brown_noise::BrownNoiseNode;
 pub use pink_noise::PinkNoiseNode;
 pub use pulse::PulseNode;
 pub use noise::NoiseNode;
 pub use random::RandomNode;
 pub use fm_oscillator::FMOscillatorNode;
+pub use pm_oscillator::PMOscillatorNode;
 pub use lowpass_filter::LowPassFilterNode;
 pub use highpass_filter::HighPassFilterNode;
 pub use pan::PanNode;
@@ -197,6 +217,7 @@ pub use tremolo::TremoloNode;
 pub use bandpass_filter::BandPassFilterNode;
 pub use notch_filter::NotchFilterNode;
 pub use allpass_filter::AllPassFilterNode;
+pub use moog_ladder::MoogLadderNode;
 pub use delay::DelayNode;
 pub use comb_filter::CombFilterNode;
 pub use clip::ClipNode;
@@ -209,7 +230,9 @@ pub use fold::FoldNode;
 pub use sample_hold::SampleAndHoldNode;
 pub use latch::LatchNode;
 pub use less_than::LessThanNode;
+pub use less_than_or_equal::LessThanOrEqualNode;
 pub use ar_envelope::AREnvelopeNode;
+pub use ad_envelope::ADEnvelopeNode;
 pub use asr_envelope::ASREnvelopeNode;
 pub use greater_than::GreaterThanNode;
 pub use equal_to::EqualToNode;
@@ -230,6 +253,11 @@ pub use sin::SinNode;
 pub use line::LineNode;
 pub use tan::TanNode;
 pub use impulse::ImpulseNode;
+pub use blip::BlipNode;
 pub use ring_mod::RingModNode;
 pub use lag::LagNode;
+pub use wavetable::WavetableNode;
+pub use and::AndNode;
 pub use xline::XLineNode;
+pub use or::OrNode;
+pub use svf::{SVFNode, SVFMode};
