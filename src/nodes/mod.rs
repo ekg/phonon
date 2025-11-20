@@ -96,6 +96,7 @@
 /// - [`delay::DelayNode`] - Simple delay line with circular buffer
 /// - [`multitap_delay::MultiTapDelayNode`] - Multiple delay taps for rhythmic echo patterns
 /// - [`pingpong_delay::PingPongDelayNode`] - Stereo ping-pong bouncing delay
+/// - [`tape_delay::TapeDelayNode`] - Vintage tape delay with wow, flutter, and saturation
 /// - [`comb_filter::CombFilterNode`] - Feedback comb filter for resonance and reverb
 /// - [`reverb::ReverbNode`] - Schroeder reverb with room size and damping control
 /// - [`dattorro_reverb::DattorroReverbNode`] - High-quality Dattorro plate reverb (superior to Schroeder)
@@ -343,6 +344,7 @@ pub mod bitcrush;
 pub mod biquad;
 pub mod multitap_delay;
 pub mod pingpong_delay;
+pub mod tape_delay;
 pub mod noise_gate;
 pub use limiter::LimiterNode;
 pub use compressor::CompressorNode;
@@ -355,6 +357,7 @@ pub use bitcrush::BitCrushNode;
 pub use biquad::{BiquadNode, FilterMode};
 pub use multitap_delay::MultiTapDelayNode;
 pub use pingpong_delay::PingPongDelayNode;
+pub use tape_delay::TapeDelayNode;
 pub use gate::GateNode;
 pub use noise_gate::NoiseGateNode;
 pub use chorus::ChorusNode;
