@@ -89,6 +89,7 @@ pub use multiplication::MultiplicationNode;
 pub use division::DivisionNode;
 pub use lerp::LerpNode;
 pub use invert::InvertNode;
+pub use sign::SignNode;
 pub use absolute::AbsoluteNode;
 pub use sqrt::SquareRootNode;
 pub use power::PowerNode;
