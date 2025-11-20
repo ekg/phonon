@@ -154,6 +154,7 @@ impl CompilerContext {
             "delay" | "tapedelay" | "tape" | "multitap" | "pingpong" | "plate" |
             "chorus" | "flanger" |
             "compressor" | "comp" |
+            "expander" | "expand" |
             "bitcrush" | "coarse" |
             "djf" | "ring" |
             "tremolo" | "trem" |
@@ -1195,6 +1196,7 @@ fn compile_function_call(
         "chorus" => compile_chorus(ctx, args),
         "flanger" => compile_flanger(ctx, args),
         "compressor" | "comp" => compile_compressor(ctx, args),
+        "expander" | "expand" => compile_expander(ctx, args),
         "bitcrush" => compile_bitcrush(ctx, args),
         "coarse" => compile_coarse(ctx, args),
         "djf" => compile_djf(ctx, args),
@@ -3596,6 +3598,37 @@ fn compile_compressor(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
         release: Signal::Node(release_node),
         makeup_gain: Signal::Node(makeup_node),
         state: CompressorState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile expander effect (upward expansion - boosts signals above threshold)
+fn compile_expander(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract input (handles both standalone and chained forms)
+    let (input_signal, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 4 {
+        return Err(format!(
+            "expander requires 4 parameters (threshold, ratio, attack, release), got {}",
+            params.len()
+        ));
+    }
+
+    let threshold_node = compile_expr(ctx, params[0].clone())?;
+    let ratio_node = compile_expr(ctx, params[1].clone())?;
+    let attack_node = compile_expr(ctx, params[2].clone())?;
+    let release_node = compile_expr(ctx, params[3].clone())?;
+
+    use crate::unified_graph::ExpanderState;
+
+    let node = SignalNode::Expander {
+        input: input_signal,
+        threshold: Signal::Node(threshold_node),
+        ratio: Signal::Node(ratio_node),
+        attack: Signal::Node(attack_node),
+        release: Signal::Node(release_node),
+        state: ExpanderState::default(),
     };
 
     Ok(ctx.graph.add_node(node))

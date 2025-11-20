@@ -1390,6 +1390,17 @@ pub enum SignalNode {
         state: CompressorState,
     },
 
+    /// Expander (upward expansion - boosts signals above threshold)
+    /// Opposite of compressor: increases dynamic range by boosting loud signals
+    Expander {
+        input: Signal,
+        threshold: Signal, // Threshold in dB (-60.0 to 0.0)
+        ratio: Signal,     // Expansion ratio (1.0 to 10.0)
+        attack: Signal,    // Attack time in seconds (0.001 to 1.0)
+        release: Signal,   // Release time in seconds (0.01 to 3.0)
+        state: ExpanderState,
+    },
+
     /// Tremolo (amplitude modulation)
     /// Classic effect that modulates amplitude with an LFO
     Tremolo {
@@ -3445,6 +3456,24 @@ impl Default for CompressorState {
     }
 }
 
+/// Expander state (upward expander - opposite of compressor)
+#[derive(Debug, Clone)]
+pub struct ExpanderState {
+    envelope: f32, // Current envelope follower value
+}
+
+impl ExpanderState {
+    pub fn new() -> Self {
+        Self { envelope: 0.0 }
+    }
+}
+
+impl Default for ExpanderState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Convolution reverb state
 #[derive(Debug, Clone)]
 pub struct ConvolutionState {
@@ -4737,6 +4766,28 @@ impl UnifiedSignalGraph {
             release,
             makeup_gain,
             state: CompressorState::new(),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add an expander node (upward expansion - boosts signals above threshold)
+    pub fn add_expander_node(
+        &mut self,
+        input: Signal,
+        threshold: Signal,
+        ratio: Signal,
+        attack: Signal,
+        release: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::Expander {
+            input,
+            threshold,
+            ratio,
+            attack,
+            release,
+            state: ExpanderState::new(),
         };
         self.nodes.push(Some(Rc::new(node)));
         node_id
@@ -7902,6 +7953,62 @@ impl UnifiedSignalGraph {
 
                 // Apply compression and makeup gain
                 input_val * gain_reduction * makeup_gain_lin
+            }
+
+            SignalNode::Expander {
+                input,
+                threshold,
+                ratio,
+                attack,
+                release,
+                state,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let threshold_db = self.eval_signal(&threshold).clamp(-60.0, 0.0);
+                let ratio_val = self.eval_signal(&ratio).clamp(1.0, 10.0);
+                let attack_time = self.eval_signal(&attack).clamp(0.001, 1.0);
+                let release_time = self.eval_signal(&release).clamp(0.01, 3.0);
+
+                // Convert threshold from dB to linear
+                let threshold_lin = 10.0_f32.powf(threshold_db / 20.0);
+
+                // Envelope follower (peak detector with attack/release)
+                let input_level = input_val.abs();
+                let mut envelope = state.envelope;
+
+                // Envelope follower: attack when input > envelope, release when input < envelope
+                let coeff = if input_level > envelope {
+                    // Attack: faster response to increasing levels
+                    (-(1.0 / (attack_time * self.sample_rate))).exp()
+                } else {
+                    // Release: slower response to decreasing levels
+                    (-(1.0 / (release_time * self.sample_rate))).exp()
+                };
+
+                envelope = coeff * envelope + (1.0 - coeff) * input_level;
+
+                // Update envelope state
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Expander { state: s, .. } = node {
+                        s.envelope = envelope;
+                    }
+                }
+
+                // Calculate gain boost (inverse of compressor)
+                let gain_boost = if envelope > threshold_lin {
+                    // Above threshold: apply expansion (BOOST instead of reduction)
+                    // For expander: boost = (envelope - threshold) * (ratio - 1)
+                    let envelope_db = 20.0 * envelope.log10();
+                    let over_db = envelope_db - threshold_db;
+                    let boost_db = over_db * (ratio_val - 1.0); // Note: (ratio - 1), not (1 - 1/ratio)
+                    10.0_f32.powf(boost_db / 20.0) // Convert to linear gain boost
+                } else {
+                    1.0 // No boost below threshold
+                };
+
+                // Apply expansion
+                input_val * gain_boost
             }
 
             SignalNode::Tremolo {

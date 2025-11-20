@@ -38,6 +38,7 @@
 /// - [`or::OrNode`] - Logical OR operator (either input > threshold returns 1.0, else 0.0)
 /// - [`xor::XorNode`] - Logical XOR operator (exactly one input > threshold returns 1.0, else 0.0)
 /// - [`not::NotNode`] - Logical NOT operator (inverts boolean signal: input > threshold returns 0.0, else 1.0)
+/// - [`when::WhenNode`] - Conditional signal router (audio if-statement: routes one of two inputs based on condition)
 ///
 /// ## Analysis Nodes (audio analysis)
 /// - [`rms::RMSNode`] - Root Mean Square calculation with windowing
@@ -65,6 +66,7 @@
 /// - [`notch_filter::NotchFilterNode`] - 2nd-order notch (band-reject) filter
 /// - [`moog_ladder::MoogLadderNode`] - 4-pole Moog ladder filter (classic analog sound)
 /// - [`allpass_filter::AllPassFilterNode`] - 2nd-order all-pass filter (phase shifter)
+/// - [`formant::FormantNode`] - Formant filter for vowel synthesis (A, E, I, O, U)
 ///
 /// ## Distortion Nodes (shape audio)
 /// - [`clip::ClipNode`] - Soft clipping/distortion using tanh
@@ -77,15 +79,19 @@
 /// ## Dynamics Nodes (control amplitude)
 /// - [`limiter::LimiterNode`] - Hard limiting dynamics processor (prevents clipping)
 /// - [`gate::GateNode`] - Threshold gate (passes signal above threshold, silences below)
+/// - [`compressor::CompressorNode`] - Smooth dynamics compression with attack/release
 ///
 /// ## Effect Nodes (time-based effects)
 /// - [`delay::DelayNode`] - Simple delay line with circular buffer
 /// - [`comb_filter::CombFilterNode`] - Feedback comb filter for resonance and reverb
+/// - [`reverb::ReverbNode`] - Schroeder reverb with room size and damping control
 /// - [`tremolo::TremoloNode`] - Amplitude modulation effect
 /// - [`vibrato::VibratoNode`] - Pitch modulation effect using delay line
 /// - [`flanger::FlangerNode`] - Flanging effect (short modulated delay)
+/// - [`chorus::ChorusNode`] - Chorus effect (pitch-shifting delay, no feedback)
 /// - [`ring_mod::RingModNode`] - Ring modulation (creates sum/difference frequencies)
 /// - [`karplus_strong::KarplusStrongNode`] - Karplus-Strong plucked string synthesis (physical modeling)
+/// - [`waveguide::WaveguideNode`] - Digital waveguide synthesis for realistic physical modeling
 ///
 /// ## Envelope Nodes (amplitude shaping)
 /// - [`adsr::ADSRNode`] - Attack-Decay-Sustain-Release envelope generator
@@ -106,6 +112,9 @@
 ///
 /// ## Spatial Nodes (stereo positioning)
 /// - [`pan::PanNode`] - Equal-power stereo panning
+///
+/// ## Utility Nodes (conversion and helper functions)
+/// - [`tap::TapNode`] - Tap tempo converter (beats to seconds for tempo-synced parameters)
 ///
 /// # Usage
 ///
@@ -181,6 +190,7 @@ pub mod asr_envelope;
 pub mod gate;
 pub mod rectifier;
 pub mod flanger;
+pub mod chorus;
 pub mod phaser;
 pub mod vibrato;
 pub mod slew_limiter;
@@ -203,7 +213,13 @@ pub mod svf;
 pub mod segments;
 pub mod not;
 pub mod karplus_strong;
+pub mod waveguide;
 pub mod xfade;
+pub mod tap;
+pub mod reverb;
+pub mod when;
+pub mod pattern_evaluator;
+pub mod formant;
 
 pub use constant::ConstantNode;
 pub use addition::AdditionNode;
@@ -264,8 +280,11 @@ pub use quantizer::QuantizerNode;
 pub use rms::RMSNode;
 pub use adsr::ADSRNode;
 pub mod limiter;
+pub mod compressor;
 pub use limiter::LimiterNode;
+pub use compressor::CompressorNode;
 pub use gate::GateNode;
+pub use chorus::ChorusNode;
 pub use flanger::FlangerNode;
 pub use phaser::PhaserNode;
 pub use slew_limiter::SlewLimiterNode;
@@ -287,7 +306,15 @@ pub use or::OrNode;
 pub use xor::XorNode;
 pub use not::NotNode;
 pub use karplus_strong::KarplusStrongNode;
+pub use waveguide::WaveguideNode;
 pub use svf::{SVFNode, SVFMode};
 pub use segments::{SegmentsNode, Segment, CurveType};
 pub use resonz::ResonzNode;
 pub use xfade::{XFadeNode, XFadeCurve};
+pub use tap::TapNode;
+pub use reverb::ReverbNode;
+pub use when::WhenNode;
+pub use formant::FormantNode;
+pub mod sample_playback;
+pub use sample_playback::SamplePlaybackNode;
+pub use pattern_evaluator::PatternEvaluatorNode;

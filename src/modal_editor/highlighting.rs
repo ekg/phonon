@@ -16,7 +16,7 @@ pub const FUNCTIONS: &[&str] = &[
     // Effects
     "reverb", "plate", "delay", "tapedelay", "tape", "multitap", "pingpong",
     "chorus", "bitcrush", "dist", "distort", "distortion",
-    "comp", "compressor", "coarse", "djf", "vowel",
+    "comp", "compressor", "expand", "expander", "coarse", "djf", "vowel",
     // Envelopes
     "adsr", "ad", "ar",
     // DSP modifiers
