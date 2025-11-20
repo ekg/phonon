@@ -4101,7 +4101,11 @@ unsafe impl Sync for UnifiedSignalGraph {}
 impl Clone for UnifiedSignalGraph {
     fn clone(&self) -> Self {
         Self {
-            nodes: self.nodes.clone(),
+            // CRITICAL: Deep clone nodes, not just Rc wrappers
+            // Each thread needs independent SignalNode instances with their own RefCells
+            nodes: self.nodes.iter().map(|opt| {
+                opt.as_ref().map(|rc| std::rc::Rc::new((**rc).clone()))
+            }).collect(),
             buses: self.buses.clone(),
             output: self.output,
             outputs: self.outputs.clone(),

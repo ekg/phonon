@@ -1343,8 +1343,8 @@ impl VoiceManager {
         // Fallback: Original parallel/sequential processing
         // Process each voice for the ENTIRE buffer, then accumulate
         // This gives much better cache locality than sample-by-sample processing
-        // DISABLED: Rayon parallel processing causes crashes - force sequential for now
-        if false && self.voices.len() >= self.parallel_threshold {
+        // RE-ENABLED: Now safe with deep node cloning!
+        if self.voices.len() >= self.parallel_threshold {
             // Parallel: process voices in parallel, each generating full buffer
             let voice_buffers: Vec<(Vec<(f32, f32)>, usize)> = self.voices
                 .par_iter_mut()
