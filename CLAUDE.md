@@ -31,19 +31,35 @@ where T: Clone + Send + Sync + 'static
 
 ---
 
-## CURRENT SESSION CONTEXT (2025-10-25)
+## CURRENT SESSION CONTEXT (2025-11-19)
 
-**CURRENT PHASE: PATTERN PARAMETERS ARCHITECTURE (P0.0)**
+**CURRENT PHASE: DAW-STYLE BUFFER PASSING ARCHITECTURE (CRITICAL)**
 
-We are in a critical testing and verification phase. Recent discoveries revealed:
-- ✅ **Two critical bugs fixed**: Transforms not applying, duplicate event triggers
-- ⚠️ **Test suite inadequate**: Tests only verify compilation, not correctness
-- ✅ **40+ transforms verified**: Systematic audio analysis confirms they work
-- 🎯 **Next focus**: Design and implement adequate audio-based tests
+**🚨 MAJOR ARCHITECTURAL REFACTOR IN PROGRESS 🚨**
 
-**The Challenge**: Testing audio systems requires computational audio analysis, not just checking if code compiles.
+We are rewriting the core audio engine from sample-by-sample graph traversal to
+DAW-style block-based buffer passing. This is **CRITICAL** and **BLOCKS ALL OTHER WORK**.
 
-**The Opportunity**: We have the tools and knowledge to do proper audio verification.
+**Why This is Critical:**
+- Current architecture: Graph traversed 512 times per block (fundamentally broken)
+- Complex FX pipelines impossible with current approach
+- Multi-core parallelism underutilized (only 14 of 16 cores)
+- No parallel execution of independent nodes
+
+**The Goal**: Block-based buffer passing where:
+1. Each node processes entire 512-sample buffer at once
+2. Buffers passed between nodes (zero-copy with Arc)
+3. Independent nodes execute in parallel (FX chains, multi-band, etc.)
+4. Graph traversed ONCE per block
+
+**Current State:**
+- ✅ Multi-threading works (deep cloning fixed)
+- ✅ 70% real-time headroom (proof of concept)
+- ❌ Inefficient sample-by-sample traversal
+- ❌ Ready for architectural transformation
+
+**Priority**: ALL other work (pattern testing, UGens, features) is PAUSED until
+this architectural foundation is complete. This is the bedrock everything else builds on.
 
 **NEVER ASK "Should we continue?" - The answer is ALWAYS YES**
 
