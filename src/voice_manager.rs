@@ -1303,15 +1303,16 @@ impl VoiceManager {
             return output;
         }
 
-        // PARALLEL SIMD fast path: Process batches in parallel when ≥16 voices and AVX2 available
-        #[cfg(target_arch = "x86_64")]
-        if is_avx2_supported() && self.voices.len() >= 16 {
-            return self.process_buffer_parallel_simd(buffer_size);
-        }
+        // PARALLEL SIMD fast path: DISABLED - causes crashes with multiple buses
+        // TODO: Fix thread-safety issues before re-enabling
+        // #[cfg(target_arch = "x86_64")]
+        // if is_avx2_supported() && self.voices.len() >= 16 {
+        //     return self.process_buffer_parallel_simd(buffer_size);
+        // }
 
         // SIMD fast path: Process voices in batches of 8 when AVX2 is available
         #[cfg(target_arch = "x86_64")]
-        if is_avx2_supported() && self.voices.len() >= 8 {
+        if false && is_avx2_supported() && self.voices.len() >= 8 {
             let num_full_batches = self.voices.len() / 8;
 
             // Process full batches of 8 voices with SIMD
@@ -1342,7 +1343,8 @@ impl VoiceManager {
         // Fallback: Original parallel/sequential processing
         // Process each voice for the ENTIRE buffer, then accumulate
         // This gives much better cache locality than sample-by-sample processing
-        if self.voices.len() >= self.parallel_threshold {
+        // DISABLED: Rayon parallel processing causes crashes - force sequential for now
+        if false && self.voices.len() >= self.parallel_threshold {
             // Parallel: process voices in parallel, each generating full buffer
             let voice_buffers: Vec<(Vec<(f32, f32)>, usize)> = self.voices
                 .par_iter_mut()
@@ -1366,7 +1368,7 @@ impl VoiceManager {
                 }
             }
         } else {
-            // Sequential: process voices sequentially for low voice counts
+            // Sequential: process voices sequentially (FORCED - parallel is broken)
             for voice in &mut self.voices {
                 let source_node = voice.source_node;
                 for i in 0..buffer_size {

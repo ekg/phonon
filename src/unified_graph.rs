@@ -4117,7 +4117,7 @@ impl Clone for UnifiedSignalGraph {
             value_cache: HashMap::new(), // Fresh cache for cloned instance
             pattern_event_cache: HashMap::new(), // Fresh cache for cloned instance
             node_buffers: HashMap::new(), // Fresh buffers for cloned instance
-            sample_bank: RefCell::new(SampleBank::new()),
+            sample_bank: RefCell::new(self.sample_bank.borrow().clone()), // Clone loaded samples (cheap Arc increment)
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(), // Fresh cache
             synth_voice_manager: RefCell::new(SynthVoiceManager::new(self.sample_rate)),

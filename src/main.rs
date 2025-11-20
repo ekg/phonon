@@ -1342,12 +1342,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .filter(|chunk| !chunk.is_empty())
                         .collect();
 
-                    // Process chunks in parallel - each thread gets its own graph and processes multiple blocks
+                    // CRITICAL FIX: Pre-clone graphs BEFORE parallel processing
+                    // Multiple threads calling graph.clone() simultaneously causes RefCell issues
+                    let graph_clones: Vec<_> = chunks.iter()
+                        .map(|_| graph.clone())
+                        .collect();
+
+                    // Process chunks in parallel - each thread gets its own pre-cloned graph
                     let mut all_blocks: Vec<(usize, Vec<f32>, std::time::Duration)> = chunks
                         .into_par_iter()
-                        .flat_map(|block_range| {
-                            // Each thread gets ONE graph clone and processes ALL its blocks
-                            let mut my_graph = graph.clone();
+                        .zip(graph_clones.into_par_iter())
+                        .flat_map(|(block_range, mut my_graph)| {
+                            // Each thread uses its pre-cloned graph
                             let mut thread_blocks = Vec::new();
 
                             for block_idx in block_range {

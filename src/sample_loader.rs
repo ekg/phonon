@@ -106,6 +106,15 @@ pub struct SampleBank {
     dirt_samples_dir: PathBuf,
 }
 
+impl Clone for SampleBank {
+    fn clone(&self) -> Self {
+        Self {
+            samples: self.samples.clone(), // Arc makes this cheap - just increments ref count
+            dirt_samples_dir: self.dirt_samples_dir.clone(),
+        }
+    }
+}
+
 impl Default for SampleBank {
     fn default() -> Self {
         Self::new()
