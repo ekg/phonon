@@ -1263,6 +1263,10 @@ pub enum SignalNode {
     /// Minimum of two signals (sample-by-sample)
     Min { a: Signal, b: Signal },
 
+    /// Wrap signal into [min, max] range using modulo
+    /// Wraps values outside the range back into the range periodically
+    Wrap { input: Signal, min: Signal, max: Signal },
+
     /// Crossfader between two signals
     /// position = 0.0 → 100% signal_a
     /// position = 0.5 → 50% signal_a + 50% signal_b
@@ -4986,6 +4990,11 @@ impl UnifiedSignalGraph {
                     self.find_signal_dependencies(a, visited);
                     self.find_signal_dependencies(b, visited);
                 }
+                SignalNode::Wrap { input, min, max } => {
+                    self.find_signal_dependencies(input, visited);
+                    self.find_signal_dependencies(min, visited);
+                    self.find_signal_dependencies(max, visited);
+                }
                 SignalNode::Output { input } => {
                     self.find_signal_dependencies(input, visited);
                 }
@@ -5182,6 +5191,24 @@ impl UnifiedSignalGraph {
                 let a_val = self.eval_signal_from_buffers(a, sample_idx);
                 let b_val = self.eval_signal_from_buffers(b, sample_idx);
                 Some(a_val.min(b_val))
+            }
+            SignalNode::Wrap { input, min, max } => {
+                let input_val = self.eval_signal_from_buffers(input, sample_idx);
+                let min_val = self.eval_signal_from_buffers(min, sample_idx);
+                let max_val = self.eval_signal_from_buffers(max, sample_idx);
+
+                let range = max_val - min_val;
+                if range.abs() < 1e-10 {
+                    return Some(min_val);
+                }
+
+                let normalized = (input_val - min_val) % range;
+                let result = if normalized < 0.0 {
+                    normalized + range + min_val
+                } else {
+                    normalized + min_val
+                };
+                Some(result)
             }
             // For other node types, fall back to eval_node for now
             // TODO: Add buffer-based evaluation for all node types
@@ -7188,6 +7215,24 @@ impl UnifiedSignalGraph {
             SignalNode::Multiply { a, b } => self.eval_signal(&a) * self.eval_signal(&b),
 
             SignalNode::Min { a, b } => self.eval_signal(&a).min(self.eval_signal(&b)),
+
+            SignalNode::Wrap { input, min, max } => {
+                let input_val = self.eval_signal(&input);
+                let min_val = self.eval_signal(&min);
+                let max_val = self.eval_signal(&max);
+
+                let range = max_val - min_val;
+                if range.abs() < 1e-10 {
+                    min_val
+                } else {
+                    let normalized = (input_val - min_val) % range;
+                    if normalized < 0.0 {
+                        normalized + range + min_val
+                    } else {
+                        normalized + min_val
+                    }
+                }
+            }
 
             SignalNode::XFade {
                 signal_a,
@@ -10915,6 +10960,21 @@ impl UnifiedSignalGraph {
                 output_val
             }
 
+            SignalNode::Wrap { input, min, max } => {
+                let value = self.eval_signal(&input);
+                let min_val = self.eval_signal(&min);
+                let max_val = self.eval_signal(&max);
+
+                let range = max_val - min_val;
+                if range <= 0.0 {
+                    min_val // Degenerate case
+                } else {
+                    let shifted = value - min_val;
+                    let wrapped = shifted - (shifted / range).floor() * range;
+                    wrapped + min_val
+                }
+            }
+
             SignalNode::Router {
                 input,
                 destinations: _,
@@ -11530,6 +11590,37 @@ impl UnifiedSignalGraph {
                 // Min element-wise
                 for i in 0..buffer_size {
                     output[i] = a_buffer[i].min(b_buffer[i]);
+                }
+            }
+
+            SignalNode::Wrap { input, min, max } => {
+                // Allocate buffers for all three inputs
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut min_buffer = vec![0.0; buffer_size];
+                let mut max_buffer = vec![0.0; buffer_size];
+
+                // Evaluate all signals
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(min, &mut min_buffer);
+                self.eval_signal_buffer(max, &mut max_buffer);
+
+                // Wrap element-wise
+                for i in 0..buffer_size {
+                    let input_val = input_buffer[i];
+                    let min_val = min_buffer[i];
+                    let max_val = max_buffer[i];
+
+                    let range = max_val - min_val;
+                    if range.abs() < 1e-10 {
+                        output[i] = min_val;
+                    } else {
+                        let normalized = (input_val - min_val) % range;
+                        output[i] = if normalized < 0.0 {
+                            normalized + range + min_val
+                        } else {
+                            normalized + min_val
+                        };
+                    }
                 }
             }
 
