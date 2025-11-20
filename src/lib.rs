@@ -269,11 +269,12 @@
 
 use std::cell::RefCell;
 
-// DAW-style buffer passing architecture (Phase 1 + 2)
+// DAW-style buffer passing architecture (Phase 1 + 2 + 3)
 pub mod audio_node;
 pub mod buffer_manager;
 pub mod dependency_graph;
 pub mod nodes;  // Concrete AudioNode implementations
+pub mod block_processor;  // Core execution loop
 
 pub mod audio;
 pub mod audio_analysis;
