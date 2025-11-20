@@ -177,8 +177,8 @@ impl VocoderNode {
     /// Human hearing is logarithmic, so bands are spaced exponentially
     /// from min_freq to max_freq.
     fn calculate_band_frequencies(num_bands: usize) -> Vec<f32> {
-        let min_freq = 100.0; // Hz
-        let max_freq = 8000.0; // Hz (upper limit of speech)
+        let min_freq = 100.0_f32; // Hz
+        let max_freq = 8000.0_f32; // Hz (upper limit of speech)
 
         (0..num_bands)
             .map(|i| {
