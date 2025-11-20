@@ -12,12 +12,18 @@
 /// - [`subtraction::SubtractionNode`] - Subtract signal B from signal A
 /// - [`multiplication::MultiplicationNode`] - Multiply two signals
 /// - [`division::DivisionNode`] - Divide signal A by signal B (with zero protection)
+/// - [`modulo::ModNode`] - Modulo operation (remainder) with positive results
 /// - [`min::MinNode`] - Minimum of two signals
 /// - [`max::MaxNode`] - Maximum of two signals
 /// - [`invert::InvertNode`] - Phase inversion (multiply by -1)
 /// - [`gain::GainNode`] - Apply gain/volume control to a signal
 /// - [`absolute::AbsoluteNode`] - Absolute value (full-wave rectification)
 /// - [`sqrt::SquareRootNode`] - Square root with absolute value protection
+/// - [`log::LogNode`] - Natural logarithm (ln) with safety protections
+/// - [`exp::ExpNode`] - Exponential function (e^x) with overflow protection
+/// - [`cos::CosNode`] - Cosine function (waveshaper, not oscillator)
+/// - [`sin::SinNode`] - Sine function (waveshaper, not oscillator)
+/// - [`tan::TanNode`] - Tangent function (waveshaping/soft saturation)
 /// - [`sign::SignNode`] - Sign function (returns -1, 0, or 1)
 /// - [`mix::MixNode`] - Weighted sum of N signals
 /// - [`lerp::LerpNode`] - Linear interpolation (crossfade) between two signals
@@ -33,6 +39,7 @@
 /// - [`oscillator::OscillatorNode`] - Waveform generation (sine, saw, square, triangle)
 /// - [`pulse::PulseNode`] - Pulse wave oscillator with pulse width modulation (PWM)
 /// - [`noise::NoiseNode`] - White noise generator
+/// - [`random::RandomNode`] - Random value generator (white noise with amplitude control)
 ///
 /// ## Filter Nodes (shape audio)
 /// - [`lowpass_filter::LowPassFilterNode`] - 2nd-order Butterworth low-pass filter
@@ -45,6 +52,7 @@
 /// - [`clip::ClipNode`] - Soft clipping/distortion using tanh
 /// - [`clamp::ClampNode`] - Hard limiting to [min, max] range
 /// - [`wrap::WrapNode`] - Wrapping/folding into [min, max] range using modulo
+/// - [`fold::FoldNode`] - Wave folding distortion (reflects signal at boundaries)
 /// - [`quantizer::QuantizerNode`] - Snap values to grid/scale (quantization)
 /// - [`rectifier::RectifierNode`] - Half-wave and full-wave rectification
 ///
@@ -89,18 +97,22 @@ pub mod constant;
 pub mod addition;
 pub mod subtraction;
 pub mod multiplication;
+pub mod modulo;
 pub mod division;
 pub mod invert;
 pub mod absolute;
 pub mod lerp;
 pub mod sign;
 pub mod sqrt;
+pub mod log;
+pub mod exp;
 pub mod power;
 pub mod gain;
 pub mod mix;
 pub mod oscillator;
 pub mod pulse;
 pub mod noise;
+pub mod random;
 pub mod lowpass_filter;
 pub mod highpass_filter;
 pub mod bandpass_filter;
@@ -116,7 +128,9 @@ pub mod min;
 pub mod peak_detector;
 pub mod tremolo;
 pub mod wrap;
+pub mod fold;
 pub mod sample_hold;
+pub mod latch;
 pub mod less_than;
 pub mod greater_than;
 pub mod equal_to;
@@ -130,23 +144,30 @@ pub mod rectifier;
 pub mod flanger;
 pub mod vibrato;
 pub mod slew_limiter;
+pub mod sin;
+pub mod cos;
+pub mod tan;
 
 pub use constant::ConstantNode;
 pub use addition::AdditionNode;
 pub use subtraction::SubtractionNode;
 pub use multiplication::MultiplicationNode;
+pub use modulo::ModNode;
 pub use division::DivisionNode;
 pub use lerp::LerpNode;
 pub use invert::InvertNode;
 pub use sign::SignNode;
+pub use exp::ExpNode;
 pub use absolute::AbsoluteNode;
 pub use sqrt::SquareRootNode;
+pub use log::LogNode;
 pub use power::PowerNode;
 pub use gain::GainNode;
 pub use mix::MixNode;
 pub use oscillator::{OscillatorNode, Waveform};
 pub use pulse::PulseNode;
 pub use noise::NoiseNode;
+pub use random::RandomNode;
 pub use lowpass_filter::LowPassFilterNode;
 pub use highpass_filter::HighPassFilterNode;
 pub use pan::PanNode;
@@ -162,7 +183,9 @@ pub use clamp::ClampNode;
 pub use max::MaxNode;
 pub use min::MinNode;
 pub use wrap::WrapNode;
+pub use fold::FoldNode;
 pub use sample_hold::SampleAndHoldNode;
+pub use latch::LatchNode;
 pub use less_than::LessThanNode;
 pub use ar_envelope::AREnvelopeNode;
 pub use greater_than::GreaterThanNode;
@@ -178,3 +201,6 @@ pub use flanger::FlangerNode;
 pub use slew_limiter::SlewLimiterNode;
 pub use rectifier::{RectifierNode, RectifierMode};
 pub use vibrato::VibratoNode;
+pub use cos::CosNode;
+pub use sin::SinNode;
+pub use tan::TanNode;
