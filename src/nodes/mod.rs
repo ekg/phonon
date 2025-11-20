@@ -39,7 +39,11 @@
 /// - [`oscillator::OscillatorNode`] - Waveform generation (sine, saw, square, triangle)
 /// - [`pulse::PulseNode`] - Pulse wave oscillator with pulse width modulation (PWM)
 /// - [`noise::NoiseNode`] - White noise generator
+/// - [`brown_noise::BrownNoiseNode`] - Brown noise generator (Brownian/red noise with 6dB/octave rolloff)
+/// - [`pink_noise::PinkNoiseNode`] - Pink noise generator (1/f spectrum)
 /// - [`random::RandomNode`] - Random value generator (white noise with amplitude control)
+/// - [`impulse::ImpulseNode`] - Periodic impulse/spike generator (single-sample spikes)
+/// - [`fm_oscillator::FMOscillatorNode`] - Frequency Modulation synthesis (classic FM)
 ///
 /// ## Filter Nodes (shape audio)
 /// - [`lowpass_filter::LowPassFilterNode`] - 2nd-order Butterworth low-pass filter
@@ -66,13 +70,18 @@
 /// - [`tremolo::TremoloNode`] - Amplitude modulation effect
 /// - [`vibrato::VibratoNode`] - Pitch modulation effect using delay line
 /// - [`flanger::FlangerNode`] - Flanging effect (short modulated delay)
+/// - [`ring_mod::RingModNode`] - Ring modulation (creates sum/difference frequencies)
 ///
 /// ## Envelope Nodes (amplitude shaping)
 /// - [`adsr::ADSRNode`] - Attack-Decay-Sustain-Release envelope generator
 /// - [`ar_envelope::AREnvelopeNode`] - Attack-Release envelope generator (simpler than ADSR)
+/// - [`line::LineNode`] - Linear ramp generator (start to end over duration)
+/// - [`asr_envelope::ASREnvelopeNode`] - Attack-Sustain-Release envelope generator (organ-style)
 ///
 /// ## Smoothing Nodes (signal conditioning)
 /// - [`slew_limiter::SlewLimiterNode`] - Rate-of-change limiter for smooth transitions
+/// - [`lag::LagNode`] - Exponential slew limiter for portamento/glide effects
+/// - [`xline::XLineNode`] - Exponential line generator (natural ramps for pitch/amplitude)
 ///
 /// ## Analysis Nodes (signal analysis)
 /// - [`peak_detector::PeakDetectorNode`] - Peak tracking with configurable decay
@@ -110,9 +119,12 @@ pub mod power;
 pub mod gain;
 pub mod mix;
 pub mod oscillator;
+pub mod brown_noise;
+pub mod pink_noise;
 pub mod pulse;
 pub mod noise;
 pub mod random;
+pub mod fm_oscillator;
 pub mod lowpass_filter;
 pub mod highpass_filter;
 pub mod bandpass_filter;
@@ -139,14 +151,21 @@ pub mod quantizer;
 pub mod rms;
 pub mod ar_envelope;
 pub mod adsr;
+pub mod asr_envelope;
 pub mod gate;
 pub mod rectifier;
 pub mod flanger;
+pub mod phaser;
 pub mod vibrato;
 pub mod slew_limiter;
 pub mod sin;
 pub mod cos;
 pub mod tan;
+pub mod impulse;
+pub mod ring_mod;
+pub mod line;
+pub mod lag;
+pub mod xline;
 
 pub use constant::ConstantNode;
 pub use addition::AdditionNode;
@@ -165,9 +184,12 @@ pub use power::PowerNode;
 pub use gain::GainNode;
 pub use mix::MixNode;
 pub use oscillator::{OscillatorNode, Waveform};
+pub use brown_noise::BrownNoiseNode;
+pub use pink_noise::PinkNoiseNode;
 pub use pulse::PulseNode;
 pub use noise::NoiseNode;
 pub use random::RandomNode;
+pub use fm_oscillator::FMOscillatorNode;
 pub use lowpass_filter::LowPassFilterNode;
 pub use highpass_filter::HighPassFilterNode;
 pub use pan::PanNode;
@@ -188,6 +210,7 @@ pub use sample_hold::SampleAndHoldNode;
 pub use latch::LatchNode;
 pub use less_than::LessThanNode;
 pub use ar_envelope::AREnvelopeNode;
+pub use asr_envelope::ASREnvelopeNode;
 pub use greater_than::GreaterThanNode;
 pub use equal_to::EqualToNode;
 pub use not_equal_to::NotEqualToNode;
@@ -198,9 +221,15 @@ pub mod limiter;
 pub use limiter::LimiterNode;
 pub use gate::GateNode;
 pub use flanger::FlangerNode;
+pub use phaser::PhaserNode;
 pub use slew_limiter::SlewLimiterNode;
 pub use rectifier::{RectifierNode, RectifierMode};
 pub use vibrato::VibratoNode;
 pub use cos::CosNode;
 pub use sin::SinNode;
+pub use line::LineNode;
 pub use tan::TanNode;
+pub use impulse::ImpulseNode;
+pub use ring_mod::RingModNode;
+pub use lag::LagNode;
+pub use xline::XLineNode;
