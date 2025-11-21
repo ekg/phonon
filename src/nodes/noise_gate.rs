@@ -61,13 +61,23 @@ pub struct NoiseGateNode {
 }
 
 impl NoiseGateNode {
-    /// Create a new noise gate node
+    /// NoiseGateNode - Smooth noise suppression gate with envelope shaping
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to gate
-    /// * `threshold_input` - NodeId of threshold in dB (e.g., -30.0)
-    /// * `attack_input` - NodeId of attack time in seconds (how fast gate opens)
-    /// * `release_input` - NodeId of release time in seconds (how fast gate closes)
+    /// Silences signals below a threshold using an envelope follower with independent
+    /// attack and release times. Provides click-free gating for noise suppression and
+    /// dynamic control without artifacts.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId of signal to gate
+    /// - `threshold_input`: NodeId of threshold in dB (e.g., -30.0)
+    /// - `attack_input`: NodeId of attack time in seconds (0.001-0.1 typical)
+    /// - `release_input`: NodeId of release time in seconds (0.01-1.0 typical)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~gated: ~signal # noise_gate -30 0.001 0.1
+    /// ```
     pub fn new(
         input: NodeId,
         threshold_input: NodeId,

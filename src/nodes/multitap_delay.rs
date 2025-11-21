@@ -75,32 +75,25 @@ pub struct MultiTapDelayNode {
 }
 
 impl MultiTapDelayNode {
-    /// Create a new multi-tap delay node
+    /// MultiTapDelayNode - Creates rhythmic multi-tap delay effects
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to delay
-    /// * `time_input` - NodeId of base delay time in seconds (typical range: 0.01 to 0.5)
-    ///   - 0.05 = 50ms (fast rhythmic patterns)
-    ///   - 0.125 = 125ms (eighth note at 120 BPM)
-    ///   - 0.25 = 250ms (quarter note at 120 BPM)
-    /// * `taps_input` - NodeId of number of taps (2-8)
-    ///   - 2 = simple doubling
-    ///   - 3 = triplet feel
-    ///   - 4 = quadruple echo
-    ///   - 8 = dense rhythmic texture
-    /// * `feedback_input` - NodeId of feedback amount (0.0 to 0.95)
-    ///   - 0.0 = no feedback (single echoes only)
-    ///   - 0.5 = moderate feedback (medium decay)
-    ///   - 0.8 = high feedback (long decay)
-    /// * `mix_input` - NodeId of wet/dry mix (0.0 to 1.0)
-    ///   - 0.0 = completely dry (bypass)
-    ///   - 0.5 = 50/50 blend
-    ///   - 1.0 = completely wet (only delays)
-    /// * `max_delay` - Maximum delay time in seconds (determines buffer size)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Generates multiple equally-spaced echoes from a single input, with tap amplitudes
+    /// decaying naturally (1.0, 0.5, 0.33...). Perfect for creating dense, rhythmic delay patterns.
     ///
-    /// # Panics
-    /// Panics if max_delay <= 0.0
+    /// # Parameters
+    /// - `input`: NodeId of signal to delay
+    /// - `time_input`: NodeId of base delay time in seconds (0.01-0.5 typical)
+    /// - `taps_input`: NodeId of number of taps (2-8, default: 3)
+    /// - `feedback_input`: NodeId of feedback amount (0.0-0.95, default: 0.5)
+    /// - `mix_input`: NodeId of wet/dry mix (0.0-1.0, default: 0.5)
+    /// - `max_delay`: Maximum delay time in seconds (determines buffer size, > 0.0)
+    /// - `sample_rate`: Sample rate in Hz (usually 44100.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~delay: ~signal # multitap_delay 0.125 3 0.5 0.6
+    /// ```
     pub fn new(
         input: NodeId,
         time_input: NodeId,

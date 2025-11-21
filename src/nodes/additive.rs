@@ -62,24 +62,23 @@ pub struct AdditiveNode {
 }
 
 impl AdditiveNode {
-    /// Create a new additive synthesis node
+    /// Additive - Sum of harmonics based on Fourier synthesis
     ///
-    /// # Arguments
-    /// * `frequency_input` - NodeId providing fundamental frequency
-    /// * `num_harmonics_input` - NodeId providing number of harmonics (1-32)
-    /// * `harmonic_weights` - Amplitude of each harmonic (0.0-1.0)
-    /// * `harmonic_detune` - Detune each harmonic in cents (typically -100 to +100)
+    /// Generates complex timbres by summing sine waves at harmonic frequencies with
+    /// individually controlled amplitude and detuning. Classic approach used in pipe organs,
+    /// Hammond organs, and digital synthesizers.
     ///
-    /// # Harmonic Weights
-    /// - Index 0 = fundamental (first harmonic)
-    /// - Index 1 = second harmonic (2× frequency)
-    /// - Index n = (n+1)th harmonic ((n+1)× frequency)
+    /// # Parameters
+    /// - `frequency_input`: Fundamental frequency in Hz
+    /// - `num_harmonics_input`: Number of harmonics to use (1-32)
+    /// - `harmonic_weights`: Amplitude of each harmonic (0.0-1.0)
+    /// - `harmonic_detune`: Detune each harmonic in cents (default: 0.0)
     ///
-    /// # Detuning
-    /// Detuning is specified in cents (1/100th of a semitone).
-    /// - +100 cents = +1 semitone = ×1.059 frequency ratio
-    /// - -100 cents = -1 semitone = ×0.944 frequency ratio
-    /// - Small detuning (±5 cents) creates subtle beating/richness
+    /// # Example
+    /// ```phonon
+    /// ~freq: sine 0.25 * 1000 + 110
+    /// ~additive: ~freq # additive 8 [1.0, 0.5, 0.33, 0.25, 0.2, 0.17, 0.14, 0.125]
+    /// ```
     pub fn new(
         frequency_input: NodeId,
         num_harmonics_input: NodeId,

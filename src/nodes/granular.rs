@@ -133,19 +133,24 @@ pub struct GranularNode {
 }
 
 impl GranularNode {
-    /// Create a new granular synthesis node
+    /// Granular - Asynchronous granular synthesis for textures and drones
     ///
-    /// # Arguments
-    /// * `source` - Source audio buffer to granulate
-    /// * `position_input` - NodeId providing position (0.0-1.0)
-    /// * `grain_size_input` - NodeId providing grain size in ms (5-500)
-    /// * `density_input` - NodeId providing grains per second (1-100)
-    /// * `pitch_input` - NodeId providing pitch shift in semitones (-12 to +12)
-    /// * `spray_input` - NodeId providing random position offset (0.0-1.0)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Spawns grains at controllable density with pitch, position, and randomization,
+    /// creating evolving textures from source material.
     ///
-    /// # Note
-    /// If the source buffer is empty, the node will output silence.
+    /// # Parameters
+    /// - `source`: Audio buffer to granulate (Arc<Vec<f32>>)
+    /// - `position_input`: NodeId providing playback position 0.0-1.0
+    /// - `grain_size_input`: NodeId providing grain size 5-500 ms (default: 100)
+    /// - `density_input`: NodeId providing density 1-100 grains/sec (default: 10)
+    /// - `pitch_input`: NodeId providing pitch shift -12 to +12 semitones (default: 0)
+    /// - `spray_input`: NodeId providing random position offset 0.0-1.0 (default: 0.1)
+    /// - `sample_rate`: Sample rate in Hz (usually 44100.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~granular: granular source_buffer 0.5 100 10 0 0.1 44100
+    /// ```
     pub fn new(
         source: Arc<Vec<f32>>,
         position_input: NodeId,

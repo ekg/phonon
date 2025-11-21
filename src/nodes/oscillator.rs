@@ -30,11 +30,20 @@ pub struct OscillatorNode {
 }
 
 impl OscillatorNode {
-    /// Create a new oscillator node
+    /// OscillatorNode - Multi-waveform synthesizer oscillator with phase tracking
     ///
-    /// # Arguments
-    /// * `freq_input` - NodeId that provides frequency (can be constant or pattern)
-    /// * `waveform` - Waveform type (Sine, Saw, Square, Triangle)
+    /// Generates periodic waveforms (sine, sawtooth, square, triangle) at variable
+    /// frequency. The phase continuously accumulates across blocks for smooth,
+    /// aliasing-prone synthesis suitable for DSP experimentation.
+    ///
+    /// # Parameters
+    /// - `freq_input`: NodeId providing frequency in Hz
+    /// - `waveform`: Waveform type (Sine, Saw, Square, Triangle)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~osc: oscillator 440 sine
+    /// ```
     pub fn new(freq_input: NodeId, waveform: Waveform) -> Self {
         Self {
             freq_input,

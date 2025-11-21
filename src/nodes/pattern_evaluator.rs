@@ -52,15 +52,19 @@ pub struct PatternEvaluatorNode {
 }
 
 impl PatternEvaluatorNode {
-    /// Create a new pattern evaluator node
+    /// PatternEvaluatorNode - Evaluates numeric patterns at control rate
     ///
-    /// # Arguments
-    /// * `pattern` - Pattern to evaluate (shared, immutable)
+    /// Samples pattern values at regular intervals to generate control signals.
+    /// Used for functions like `run`, `scan`, `count` that generate numeric sequences
+    /// for modulating synthesis parameters.
+    ///
+    /// # Parameters
+    /// - `pattern`: Pattern to evaluate (numeric values)
     ///
     /// # Example
-    /// ```ignore
-    /// let pattern = parse_mini_notation("110 220 440");
-    /// let node = PatternEvaluatorNode::new(Arc::new(pattern));
+    /// ```phonon
+    /// ~freq: run 8
+    /// ~osc: sine ~freq
     /// ```
     pub fn new(pattern: Arc<Pattern<String>>) -> Self {
         Self {

@@ -29,11 +29,21 @@ pub struct DivisionNode {
 }
 
 impl DivisionNode {
-    /// Create a new division node
+    /// Division - Divides signal A by signal B with zero protection
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of numerator (dividend)
-    /// * `input_b` - NodeId of denominator (divisor)
+    /// Performs element-wise division with safeguards against division by zero,
+    /// outputting 0.0 when denominator is near zero.
+    ///
+    /// # Parameters
+    /// - `input_a`: NodeId providing numerator (dividend)
+    /// - `input_b`: NodeId providing denominator (divisor)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal_a: sine 110
+    /// ~signal_b: sine 55 * 0.5 + 0.5
+    /// ~result: ~signal_a # division ~signal_b
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId) -> Self {
         Self { input_a, input_b }
     }

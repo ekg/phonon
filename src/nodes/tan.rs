@@ -23,10 +23,19 @@ pub struct TanNode {
 }
 
 impl TanNode {
-    /// Create a new tangent node
+    /// Tan - Tangent waveshaper for soft saturation
     ///
-    /// # Arguments
-    /// * `input` - NodeId of input signal
+    /// Applies tan(x) with clamping to avoid asymptotes, creating smooth
+    /// non-linear saturation/waveshaping effects.
+    ///
+    /// # Parameters
+    /// - `input`: Signal to transform (clamped to ±1.5 to avoid asymptotes)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~osc: sine 440
+    /// out: ~osc # tan
+    /// ```
     pub fn new(input: NodeId) -> Self {
         Self { input }
     }

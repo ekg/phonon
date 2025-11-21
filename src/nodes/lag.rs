@@ -59,14 +59,21 @@ pub struct LagNode {
 }
 
 impl LagNode {
-    /// Create a new lag node
+    /// Lag - Exponential smoothing with time constant control
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to smooth
-    /// * `lag_time_input` - NodeId of lag time signal (in seconds)
+    /// Applies exponential smoothing to create portamento/glide effects and smooth
+    /// parameter transitions. Output exponentially approaches input with configurable time constant.
     ///
-    /// # Initial State
-    /// - `current_value` starts at 0.0
+    /// # Parameters
+    /// - `input`: Signal to smooth
+    /// - `lag_time_input`: Time constant in seconds (0.001-10.0 recommended)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~pitch: "220 330 440 330"
+    /// ~smooth: ~pitch # lag 0.1
+    /// out: sine ~smooth * 0.5
+    /// ```
     pub fn new(input: NodeId, lag_time_input: NodeId) -> Self {
         Self {
             input,

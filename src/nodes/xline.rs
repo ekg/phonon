@@ -93,13 +93,23 @@ pub struct XLineNode {
 }
 
 impl XLineNode {
-    /// Create a new exponential line generator
+    /// XLine - Exponential ramp generator for natural-sounding transitions
     ///
-    /// # Arguments
-    /// * `start_input` - NodeId providing start value (> 0)
-    /// * `end_input` - NodeId providing end value (> 0)
-    /// * `duration_input` - NodeId providing duration in seconds
-    /// * `trigger_input` - NodeId providing trigger signal (> 0.5 = trigger)
+    /// Generates exponential curve from start to end value over duration.
+    /// More natural than linear for pitch/frequency/amplitude transitions.
+    ///
+    /// # Parameters
+    /// - `start_input`: Starting value (must be > 0)
+    /// - `end_input`: Ending value (must be > 0)
+    /// - `duration_input`: Duration in seconds
+    /// - `trigger_input`: Trigger signal (rising edge restarts)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~trigger: lfo 1.0 0 1
+    /// ~freq: xline 440 880 1.0 ~trigger
+    /// out: sine ~freq
+    /// ```
     pub fn new(
         start_input: NodeId,
         end_input: NodeId,

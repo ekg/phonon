@@ -29,11 +29,20 @@ pub struct PanNode {
 }
 
 impl PanNode {
-    /// Create a new pan node
+    /// PanNode - Equal-power stereo panning for mono signals
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the audio signal to pan
-    /// * `pan_input` - NodeId providing pan position (-1.0 to 1.0)
+    /// Converts mono input to stereo with equal-power panning law. Controls left/right
+    /// positioning while maintaining consistent perceived loudness across the stereo field.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId of mono signal to pan
+    /// - `pan_input`: NodeId of pan position (-1.0 = left, 0.0 = center, 1.0 = right)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~panned: ~signal # pan -0.5
+    /// ```
     pub fn new(input: NodeId, pan_input: NodeId) -> Self {
         Self { input, pan_input }
     }

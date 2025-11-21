@@ -25,10 +25,19 @@ pub struct SinNode {
 }
 
 impl SinNode {
-    /// Create a new sine function node
+    /// SinNode - Apply sine function waveshaper to input
     ///
-    /// # Arguments
-    /// * `input` - NodeId of input signal
+    /// Applies the mathematical sine function to input signal for waveshaping,
+    /// nonlinear distortion, and FM synthesis. This is NOT an oscillator.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId of input signal
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: ramp
+    /// ~shaped: ~signal # sin
+    /// ```
     pub fn new(input: NodeId) -> Self {
         Self { input }
     }

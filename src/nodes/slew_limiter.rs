@@ -62,15 +62,21 @@ pub struct SlewLimiterNode {
 }
 
 impl SlewLimiterNode {
-    /// Create a new slew limiter node
+    /// SlewLimiterNode - Rate-of-change limiter for smooth transitions
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to smooth
-    /// * `rise_time_input` - NodeId of rise time signal (in seconds)
-    /// * `fall_time_input` - NodeId of fall time signal (in seconds)
+    /// Limits how fast the output can change, smoothing rapid signal changes.
+    /// Separate rise and fall times allow asymmetric smoothing curves.
     ///
-    /// # Initial State
-    /// - `last_value` starts at 0.0
+    /// # Parameters
+    /// - `input`: NodeId of signal to smooth
+    /// - `rise_time_input`: NodeId of rise time signal (in seconds)
+    /// - `fall_time_input`: NodeId of fall time signal (in seconds)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: square 2.0
+    /// ~smooth: ~signal # slew_limiter 0.1 0.1
+    /// ```
     pub fn new(input: NodeId, rise_time_input: NodeId, fall_time_input: NodeId) -> Self {
         Self {
             input,

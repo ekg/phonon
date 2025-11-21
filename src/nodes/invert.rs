@@ -19,10 +19,20 @@ pub struct InvertNode {
 }
 
 impl InvertNode {
-    /// Create a new invert node
+    /// Invert - Phase inversion (multiply by -1)
     ///
-    /// # Arguments
-    /// * `input` - NodeId of the input signal to invert
+    /// Inverts the phase of an audio signal by multiplying all samples by -1.
+    /// Useful for phase cancellation effects and signal processing.
+    ///
+    /// # Parameters
+    /// - `input`: Audio signal to invert
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 220
+    /// ~inverted: ~signal # invert
+    /// out: (~signal + ~inverted) * 0.5
+    /// ```
     pub fn new(input: NodeId) -> Self {
         Self { input }
     }

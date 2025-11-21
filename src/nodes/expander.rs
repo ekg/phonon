@@ -62,14 +62,23 @@ pub struct ExpanderNode {
 }
 
 impl ExpanderNode {
-    /// Create a new expander node
+    /// Expander - Upward dynamics expansion with attack/release envelope
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to expand
-    /// * `threshold_input` - NodeId of threshold in dB (e.g., -10.0)
-    /// * `ratio_input` - NodeId of expansion ratio (1.0 = no expansion, 10.0 = aggressive)
-    /// * `attack_input` - NodeId of attack time in seconds (how fast expansion kicks in)
-    /// * `release_input` - NodeId of release time in seconds (how fast expansion releases)
+    /// Boosts signals above threshold by specified ratio with smooth attack/release,
+    /// increasing dynamic range (opposite of compression).
+    ///
+    /// # Parameters
+    /// - `input`: NodeId providing signal to expand
+    /// - `threshold_input`: NodeId providing threshold in dB (default: -10.0)
+    /// - `ratio_input`: NodeId providing expansion ratio 1.0-10.0 (default: 2.0)
+    /// - `attack_input`: NodeId providing attack time in seconds (default: 0.005)
+    /// - `release_input`: NodeId providing release time in seconds (default: 0.1)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 110
+    /// ~expanded: ~signal # expander -10 2 0.01 0.1
+    /// ```
     pub fn new(
         input: NodeId,
         threshold_input: NodeId,

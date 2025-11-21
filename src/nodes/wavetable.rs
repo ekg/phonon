@@ -40,11 +40,20 @@ pub struct WavetableNode {
 }
 
 impl WavetableNode {
-    /// Create a new wavetable oscillator
+    /// Wavetable - Efficient arbitrary waveform synthesis with linear interpolation
     ///
-    /// # Arguments
-    /// * `freq_input` - NodeId that provides frequency (can be constant or pattern)
-    /// * `wavetable` - Arc-wrapped waveform data (enables sharing between instances)
+    /// Plays back pre-computed waveforms much faster than computing per-sample.
+    /// Enables arbitrary waveforms and Arc-based table sharing.
+    ///
+    /// # Parameters
+    /// - `freq_input`: Frequency in Hz (can be modulated)
+    /// - `wavetable`: Pre-computed waveform data (Arc-wrapped for sharing)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~freq: lfo 0.5 110 220
+    /// out: wavetable ~freq sine 256
+    /// ```
     pub fn new(freq_input: NodeId, wavetable: Arc<Vec<f32>>) -> Self {
         Self {
             freq_input,

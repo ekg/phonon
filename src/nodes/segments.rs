@@ -112,11 +112,20 @@ pub struct SegmentsNode {
 }
 
 impl SegmentsNode {
-    /// Create a new segments envelope node
+    /// SegmentsNode - Multi-segment envelope generator with linear and exponential curves
     ///
-    /// # Arguments
-    /// * `trigger_input` - NodeId providing trigger signal (> 0.5 = trigger)
-    /// * `segments` - Vector of segments defining the envelope shape
+    /// Creates complex envelopes from multiple segments with independent curve types.
+    /// Each segment defines a target value and duration with optional exponential shaping.
+    ///
+    /// # Parameters
+    /// - `trigger_input`: NodeId providing trigger signal (>0.5 = trigger, rising edge)
+    /// - `segments`: Vector of segments defining the envelope shape
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~trigger: square 4.0
+    /// ~env: trigger # segments [(1.0, 0.01), (0.7, 0.1), (0.0, 0.2)]
+    /// ```
     pub fn new(trigger_input: NodeId, segments: Vec<Segment>) -> Self {
         Self {
             trigger_input,

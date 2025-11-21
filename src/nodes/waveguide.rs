@@ -57,19 +57,24 @@ struct WaveguideState {
 }
 
 impl WaveguideNode {
-    /// Create a new waveguide node
+    /// Waveguide - Physical modeling of resonant structures (strings, pipes)
     ///
-    /// # Arguments
-    /// * `excitation_input` - NodeId providing excitation signal (impulse, noise, bow, etc.)
-    /// * `frequency_input` - NodeId providing fundamental frequency in Hz
-    /// * `decay_input` - NodeId providing decay factor (0.0 = fast decay, 1.0 = infinite sustain)
-    /// * `brightness_input` - NodeId providing tone brightness (0.0 = dark/damped, 1.0 = bright)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Digital waveguide synthesis for realistic string/wind/percussion tones.
+    /// Uses two delay lines with damping for natural harmonic decay.
     ///
-    /// # Notes
-    /// - Delay lines are allocated for the lowest reasonable frequency (~27.5 Hz, A0)
-    /// - Brightness controls the lowpass filter cutoff: higher = brighter tone
-    /// - Decay controls the feedback gain: higher = longer sustain
+    /// # Parameters
+    /// - `excitation_input`: Trigger/excitation signal
+    /// - `frequency_input`: Fundamental frequency in Hz
+    /// - `decay_input`: Decay factor (0.0=fast, 1.0=infinite sustain)
+    /// - `brightness_input`: Tone brightness (0.0=dark, 1.0=bright)
+    /// - `sample_rate`: Sample rate (Hz)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~strike: transient (s "kick") 0.1
+    /// ~freq: 110
+    /// out: ~strike # waveguide ~freq 0.95 0.5
+    /// ```
     pub fn new(
         excitation_input: NodeId,
         frequency_input: NodeId,

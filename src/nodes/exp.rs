@@ -21,10 +21,19 @@ pub struct ExpNode {
 }
 
 impl ExpNode {
-    /// Create a new exponential node
+    /// Exp - Computes e^x with overflow protection
     ///
-    /// # Arguments
-    /// * `input` - NodeId of input signal
+    /// Applies exponential function to input signal, useful for
+    /// waveshaping and exponential modulation.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId providing input signal
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~lfo: sine 0.25
+    /// ~exp: ~lfo # exp
+    /// ```
     pub fn new(input: NodeId) -> Self {
         Self { input }
     }

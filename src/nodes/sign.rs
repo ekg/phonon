@@ -29,10 +29,19 @@ pub struct SignNode {
 }
 
 impl SignNode {
-    /// Create a new sign node
+    /// SignNode - Extract sign of input signal
     ///
-    /// # Arguments
-    /// * `input` - NodeId of input signal
+    /// Returns the sign of each input sample: 1.0 for positive,
+    /// -1.0 for negative, 0.0 for zero. Useful for square wave conversion.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId of input signal
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~sine: sine 440
+    /// ~square: ~sine # sign
+    /// ```
     pub fn new(input: NodeId) -> Self {
         Self { input }
     }

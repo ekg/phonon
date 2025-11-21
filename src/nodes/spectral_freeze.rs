@@ -71,18 +71,22 @@ pub struct SpectralFreezeNode {
 }
 
 impl SpectralFreezeNode {
-    /// Create a new spectral freeze node
+    /// SpectralFreezeNode - FFT-based spectral freezing with blur effect
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the signal to freeze
-    /// * `freeze_input` - NodeId providing freeze trigger (>0.5 = frozen, ≤0.5 = passthrough)
-    /// * `blur_input` - NodeId providing spectral blur amount (0.0 = no blur, 1.0 = max blur)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Freezes the frequency content of audio using FFT, optionally blurring
+    /// the spectrum for dreamlike, granular, or glitchy effects.
     ///
-    /// # FFT Configuration
-    /// - FFT size: 1024 samples (~23ms at 44.1kHz)
-    /// - Hop size: 256 samples (75% overlap for smooth reconstruction)
-    /// - Window: Hann window for good time-frequency resolution
+    /// # Parameters
+    /// - `input`: NodeId providing the signal to freeze
+    /// - `freeze_input`: NodeId providing freeze trigger (>0.5 = frozen, ≤0.5 = passthrough)
+    /// - `blur_input`: NodeId providing spectral blur amount (0.0 = no blur, 1.0 = max blur)
+    /// - `sample_rate`: Sample rate in Hz (usually 44100.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~frozen: ~signal # spectral_freeze 1.0 0.5
+    /// ```
     pub fn new(
         input: NodeId,
         freeze_input: NodeId,

@@ -40,16 +40,22 @@ pub struct VCONode {
 }
 
 impl VCONode {
-    /// Create a new VCO node
+    /// VCO - Voltage-Controlled Oscillator with polyBLEP anti-aliasing
     ///
-    /// # Arguments
-    /// * `freq_input` - NodeId that provides frequency (can be constant or pattern)
-    /// * `waveform` - Waveform type (Saw, Pulse, Triangle, Sine)
-    /// * `pulse_width` - NodeId that provides pulse width (0.0 to 1.0)
-    ///   - Only used for Pulse waveform
-    ///   - 0.5 = square wave
-    ///   - < 0.5 = narrow pulse
-    ///   - > 0.5 = wide pulse
+    /// Analog-style oscillator with multiple waveforms and PWM support.
+    /// Uses polyBLEP for band-limited discontinuous waveforms.
+    ///
+    /// # Parameters
+    /// - `freq_input`: Frequency in Hz (can be modulated)
+    /// - `waveform`: Waveform type (Saw, Pulse, Triangle, Sine)
+    /// - `pulse_width`: Pulse width (0.0-1.0, used for Pulse only)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~freq: lfo 0.5 110 220
+    /// ~pw: 0.5
+    /// out: vco ~freq pulse ~pw
+    /// ```
     pub fn new(freq_input: NodeId, waveform: VCOWaveform, pulse_width: NodeId) -> Self {
         Self {
             freq_input,

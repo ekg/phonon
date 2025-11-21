@@ -29,11 +29,22 @@ pub struct TapNode {
 }
 
 impl TapNode {
-    /// Create a new tap tempo node
+    /// Tap - Converts musical beats to real time (seconds)
     ///
-    /// # Arguments
-    /// * `beats` - NodeId of the beat count (1.0 = quarter note, 2.0 = half note, etc.)
-    /// * `bpm` - NodeId of the tempo in beats per minute (typically 60-240 BPM)
+    /// Converts beat count to seconds based on BPM tempo.
+    /// Essential for tempo-sync'd delays, modulation, and timing.
+    ///
+    /// # Parameters
+    /// - `beats`: Beat count (1.0=quarter note, 2.0=half note, etc.)
+    /// - `bpm`: Tempo in beats per minute (20-300)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~beats: 1.0
+    /// ~bpm: 120
+    /// ~delay_time: tap ~beats ~bpm
+    /// out: sine 440 # delay ~delay_time 0.5
+    /// ```
     pub fn new(beats: NodeId, bpm: NodeId) -> Self {
         Self { beats, bpm }
     }

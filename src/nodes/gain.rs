@@ -22,11 +22,20 @@ pub struct GainNode {
 }
 
 impl GainNode {
-    /// Create a new gain node
+    /// Gain - Multiplies signal by gain amount for volume control
     ///
-    /// # Arguments
-    /// * `input` - NodeId of the audio signal to apply gain to
-    /// * `gain_input` - NodeId of the gain amount (typically a constant or LFO)
+    /// Simple multiplication node optimized for amplitude control,
+    /// with pattern-controllable gain modulation.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId providing signal to amplify
+    /// - `gain_input`: NodeId providing gain amount (default: 1.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~quiet: ~signal # gain 0.5
+    /// ```
     pub fn new(input: NodeId, gain_input: NodeId) -> Self {
         Self { input, gain_input }
     }

@@ -26,12 +26,21 @@ pub struct WrapNode {
 }
 
 impl WrapNode {
-    /// Create a new wrap node
+    /// Wrap - Wraps signal into [min, max] range using modulo
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to wrap
-    /// * `min_input` - NodeId of minimum value
-    /// * `max_input` - NodeId of maximum value
+    /// Folds values outside range back into range periodically
+    /// using modulo arithmetic. Useful for wavetable indexing.
+    ///
+    /// # Parameters
+    /// - `input`: Signal to wrap
+    /// - `min_input`: Minimum of range
+    /// - `max_input`: Maximum of range
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~phase: lfo 1.0 -2 2
+    /// out: wrap ~phase 0 1
+    /// ```
     pub fn new(input: NodeId, min_input: NodeId, max_input: NodeId) -> Self {
         Self {
             input,

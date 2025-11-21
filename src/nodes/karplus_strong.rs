@@ -54,17 +54,25 @@ struct KSState {
 }
 
 impl KarplusStrongNode {
-    /// Create a new Karplus-Strong node
+    /// Karplus-Strong - Physical modeling synthesis of plucked strings
     ///
-    /// # Arguments
-    /// * `trigger_input` - NodeId providing trigger signal (trigger on rising edge > 0.5)
-    /// * `freq_input` - NodeId providing fundamental frequency in Hz
-    /// * `decay_input` - NodeId providing decay factor (0.0 = fast decay, 1.0 = infinite sustain)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Implements classic Karplus-Strong algorithm with noise-excited delay line and
+    /// lowpass filtering in feedback path, creating natural string decay.
     ///
-    /// # Notes
-    /// - Delay line is allocated for the lowest reasonable frequency (~27.5 Hz, A0)
-    /// - Trigger detection uses threshold crossing: off (< 0.5) -> on (>= 0.5)
+    /// # Parameters
+    /// - `trigger_input`: Rising edge (>= 0.5) triggers new note
+    /// - `freq_input`: Fundamental frequency in Hz (27.5-20000)
+    /// - `decay_input`: Sustain duration (0-1, default: 0.95)
+    /// - `sample_rate`: Sample rate in Hz (usually 44100.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~trig: "x ~ x ~" # bpm_to_impulse 120
+    /// ~freq: "220 330 440 330"
+    /// ~decay: 0.92
+    /// ~pluck: ~trig # karplus ~freq ~decay
+    /// out: ~pluck * 0.5
+    /// ```
     pub fn new(
         trigger_input: NodeId,
         freq_input: NodeId,

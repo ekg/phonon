@@ -48,18 +48,21 @@ pub struct AllPassFilterNode {
 }
 
 impl AllPassFilterNode {
-    /// Create a new all-pass filter node
+    /// AllpassFilter - Phase-shifting filter with flat amplitude response
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to phase-shift
-    /// * `freq_input` - NodeId providing center frequency in Hz
-    /// * `q_input` - NodeId providing Q (resonance) factor
+    /// All frequencies pass through at equal amplitude while their phase relationships shift.
+    /// Useful for stereo width, flanging, and frequency-dependent delay effects.
     ///
-    /// # Notes
-    /// - All frequencies pass through with equal amplitude
-    /// - Phase shift is most pronounced at the center frequency
-    /// - Higher Q values create sharper phase transitions
-    /// - Frequency should be below Nyquist (sample_rate / 2)
+    /// # Parameters
+    /// - `input`: Signal to process
+    /// - `freq_input`: Center frequency in Hz
+    /// - `q_input`: Q/resonance factor (default: 0.707)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 220
+    /// ~filtered: ~signal # allpass_filter 1000 0.707
+    /// ```
     pub fn new(input: NodeId, freq_input: NodeId, q_input: NodeId) -> Self {
         // Initialize with 1000 Hz center frequency, Q=0.707
         let coeffs = Coefficients::<f32>::from_params(

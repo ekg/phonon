@@ -59,13 +59,22 @@ struct AllpassFilter {
 }
 
 impl ReverbNode {
-    /// Create a new reverb node
+    /// ReverbNode - Schroeder reverb with room size and damping control
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the signal to process
-    /// * `room_size` - NodeId providing room size 0.0-1.0
-    /// * `damping` - NodeId providing damping amount 0.0-1.0
-    /// * `wet` - NodeId providing wet/dry mix 0.0-1.0
+    /// Implements a classic Schroeder reverb algorithm using 4 parallel comb filters
+    /// with damping and 2 series allpass filters for natural-sounding reverberation.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId providing the signal to process
+    /// - `room_size`: NodeId providing room size (0.0-1.0)
+    /// - `damping`: NodeId providing damping amount (0.0-1.0)
+    /// - `wet`: NodeId providing wet/dry mix (0.0-1.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~reverbed: ~signal # reverb 0.7 0.5 0.3
+    /// ```
     pub fn new(input: NodeId, room_size: NodeId, damping: NodeId, wet: NodeId) -> Self {
         // Base delay lengths (in samples at 44.1kHz)
         // These are scaled by room_size during processing

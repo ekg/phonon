@@ -20,10 +20,18 @@ pub struct AbsoluteNode {
 }
 
 impl AbsoluteNode {
-    /// Create a new absolute value node
+    /// Absolute - Full-wave rectification of input signal
     ///
-    /// # Arguments
-    /// * `input` - NodeId of input signal
+    /// Takes the absolute value of each sample, converting all negative values to positive.
+    ///
+    /// # Parameters
+    /// - `input`: Input signal to rectify
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~rectified: ~signal # absolute
+    /// ```
     pub fn new(input: NodeId) -> Self {
         Self { input }
     }

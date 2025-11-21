@@ -55,13 +55,21 @@ pub struct OrNode {
 }
 
 impl OrNode {
-    /// Create a new logical OR node with default threshold 0.5
+    /// OrNode - Logical OR operation combining two signals
     ///
-    /// Values greater than 0.5 are considered "true".
+    /// Outputs 1.0 when either input is above threshold (0.5), 0.0 otherwise.
+    /// Used for combining gate signals and pattern logic in synthesis.
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input
-    /// * `input_b` - NodeId of second input
+    /// # Parameters
+    /// - `input_a`: NodeId of first signal (threshold: 0.5)
+    /// - `input_b`: NodeId of second signal (threshold: 0.5)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~gate1: 0.7
+    /// ~gate2: 0.2
+    /// ~combined: or ~gate1 ~gate2
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId) -> Self {
         Self {
             input_a,

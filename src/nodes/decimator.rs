@@ -71,17 +71,21 @@ pub struct DecimatorNode {
 }
 
 impl DecimatorNode {
-    /// Create a new decimator node
+    /// Decimator - Sample rate reduction for lo-fi and retro effects
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to decimate
-    /// * `factor_input` - NodeId of decimation factor (1.0 to 64.0 typical range)
-    /// * `smooth_input` - NodeId of smoothing amount (0.0 to 1.0)
+    /// Reduces effective sample rate through sample-and-hold decimation,
+    /// creating 8-bit/lo-fi sounds with adjustable smoothing.
     ///
-    /// # Initial State
-    /// - `sample_counter` starts at 0.0 (will trigger immediately)
-    /// - `held_value` starts at 0.0
-    /// - `smooth_state` starts at 0.0
+    /// # Parameters
+    /// - `input`: NodeId providing signal to decimate
+    /// - `factor_input`: NodeId providing decimation factor 1.0-64.0 (default: 4)
+    /// - `smooth_input`: NodeId providing smoothing amount 0.0-1.0 (default: 0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~lofi: ~signal # decimator 8 0.2
+    /// ```
     pub fn new(input: NodeId, factor_input: NodeId, smooth_input: NodeId) -> Self {
         Self {
             input,

@@ -21,11 +21,22 @@ pub struct MultiplicationNode {
 }
 
 impl MultiplicationNode {
-    /// Create a new multiplication node
+    /// Multiplication - Sample-by-sample product of two signals
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input
-    /// * `input_b` - NodeId of second input
+    /// Multiplies two signals together sample-by-sample. Fundamental operation for
+    /// amplitude modulation, gating, and mixing control signals with audio.
+    ///
+    /// # Parameters
+    /// - `input_a`: First signal (multiplicand)
+    /// - `input_b`: Second signal (multiplier)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~osc: sine 220
+    /// ~env: impulse 2 # adsr 0.01 0.1 0.5 0.2
+    /// ~gated: ~osc # * ~env
+    /// out: ~gated * 0.5
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId) -> Self {
         Self { input_a, input_b }
     }

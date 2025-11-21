@@ -46,16 +46,21 @@ pub struct SampleAndHoldNode {
 }
 
 impl SampleAndHoldNode {
-    /// Create a new sample-and-hold node
+    /// SampleAndHoldNode - Analog-style sample-and-hold circuit
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to sample
-    /// * `trigger_input` - NodeId of trigger signal (zero crossing triggers sampling)
+    /// Captures input signal's value when trigger crosses from negative to positive,
+    /// holding that value until the next crossing. Classic for random stepped sequences.
     ///
-    /// # Initial State
-    /// - `held_value` starts at 0.0
-    /// - `last_trigger` starts at 0.0
-    /// - First sample will trigger if trigger_input[0] > 0.0
+    /// # Parameters
+    /// - `input`: NodeId of signal to sample
+    /// - `trigger_input`: NodeId of trigger signal (zero crossing triggers sampling)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~noise: random 1.0
+    /// ~clock: square 4.0
+    /// ~stepped: ~noise # sample_hold ~clock
+    /// ```
     pub fn new(input: NodeId, trigger_input: NodeId) -> Self {
         Self {
             input,

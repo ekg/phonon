@@ -23,10 +23,19 @@ pub struct NoiseNode {
 }
 
 impl NoiseNode {
-    /// Create a new noise node with a random seed
+    /// NoiseNode - White noise generator with amplitude control
     ///
-    /// # Arguments
-    /// * `amplitude_input` - NodeId of the amplitude control signal
+    /// Generates uniform random values in [-1, 1] scaled by input amplitude.
+    /// Equal energy across all frequencies for ambient textures, noise beds, and
+    /// synthesis source material.
+    ///
+    /// # Parameters
+    /// - `amplitude_input`: NodeId of the amplitude control signal (0.0-1.0 typical)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~noise: noise 0.5
+    /// ```
     pub fn new(amplitude_input: NodeId) -> Self {
         Self {
             amplitude_input,

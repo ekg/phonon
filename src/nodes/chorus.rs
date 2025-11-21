@@ -30,17 +30,24 @@ pub struct ChorusNode {
 }
 
 impl ChorusNode {
-    /// Create a new chorus node
+    /// Chorus - Pitch-shifting delay effect creating multiple voices illusion
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the signal to chorus
-    /// * `rate_input` - NodeId providing LFO rate in Hz
-    /// * `depth_input` - NodeId providing delay modulation depth in seconds
-    /// * `mix_input` - NodeId providing wet/dry mix (0.0 = dry, 1.0 = wet)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Creates the illusion of multiple voices by using a modulated delay line.
+    /// Unlike flanger, chorus uses longer delays (5-50ms) with no feedback.
+    /// Classic effect for pads, vocals, and thickening thin sounds.
     ///
-    /// # Buffer Size
-    /// Uses a fixed 50ms buffer (max delay time for chorus)
+    /// # Parameters
+    /// - `input`: Signal to process
+    /// - `rate_input`: LFO rate in Hz (0.5-2.0 typical)
+    /// - `depth_input`: Delay modulation depth in seconds (0.005-0.030 typical)
+    /// - `mix_input`: Wet/dry mix (0.0=dry, 1.0=wet)
+    /// - `sample_rate`: Sample rate in Hz (usually 44100.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 440
+    /// ~chorused: ~signal # chorus 1.5 0.01 0.5
+    /// ```
     pub fn new(
         input: NodeId,
         rate_input: NodeId,

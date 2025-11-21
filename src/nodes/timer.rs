@@ -57,14 +57,20 @@ pub struct TimerNode {
 }
 
 impl TimerNode {
-    /// Create a new timer node
+    /// Timer - Measures elapsed time since last trigger reset
     ///
-    /// # Arguments
-    /// * `trigger_input` - NodeId of trigger signal (rising edge resets timer)
+    /// Counts up continuously in seconds. Resets to 0 on rising edge
+    /// of trigger (0.5 threshold). Useful for time-based modulation.
     ///
-    /// # Trigger Behavior
-    /// A rising edge is detected when the trigger transitions from below 0.5 to above 0.5.
-    /// This provides noise immunity for gate signals.
+    /// # Parameters
+    /// - `trigger_input`: Trigger signal (rising edge resets timer)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~beat: lfo 1.0 0 1
+    /// ~time: timer ~beat
+    /// out: sine 440 * (cos (time * tau))
+    /// ```
     pub fn new(trigger_input: NodeId) -> Self {
         Self {
             trigger_input,

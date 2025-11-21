@@ -44,17 +44,24 @@ pub struct LerpNode {
 }
 
 impl LerpNode {
-    /// Create a new lerp node
+    /// Lerp - Linear interpolation between two signals
     ///
-    /// # Arguments
-    /// * `input_a` - First input signal (NodeId)
-    /// * `input_b` - Second input signal (NodeId)
-    /// * `mix_input` - Mix amount signal (NodeId)
+    /// Blends between two signals based on pattern-controlled mix amount.
+    /// Useful for crossfading, waveform morphing, and smooth transitions.
+    ///
+    /// # Parameters
+    /// - `input_a`: Signal 1 (0% when mix = 0.0)
+    /// - `input_b`: Signal 2 (100% when mix = 1.0)
+    /// - `mix_input`: Blend amount (0.0-1.0, extrapolates outside range)
     ///
     /// # Example
-    /// ```ignore
-    /// let lerp = LerpNode::new(1, 2, 3);
-    /// // Blends node 1 and node 2 based on node 3's output
+    /// ```phonon
+    /// ~lfo: sine 0.25
+    /// ~mix: (~lfo + 1) * 0.5
+    /// ~sine: sine 220
+    /// ~saw: saw 220
+    /// ~blend: ~sine # lerp ~saw ~mix
+    /// out: ~blend * 0.5
     /// ```
     pub fn new(input_a: NodeId, input_b: NodeId, mix_input: NodeId) -> Self {
         Self {

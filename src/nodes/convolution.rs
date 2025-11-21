@@ -65,18 +65,23 @@ pub struct ConvolutionNode {
 }
 
 impl ConvolutionNode {
-    /// Create a new convolution node
+    /// Convolution - FFT-based convolution reverb using impulse responses
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the signal to convolve
-    /// * `impulse_response` - Shared impulse response (can be up to 10 seconds)
-    /// * `mix` - NodeId providing wet/dry mix 0.0-1.0
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Applies realistic room/space simulation using measured or created impulse responses.
+    /// Uses overlap-add FFT for efficient processing. Can simulate cathedrals, plates, springs,
+    /// or create creative effects with processed IRs.
     ///
-    /// # Performance Notes
-    /// - Uses 512-sample blocks for FFT (good balance of latency/efficiency)
-    /// - Long IRs are partitioned (uniform partitioned convolution)
-    /// - Overlap-add for seamless reconstruction
+    /// # Parameters
+    /// - `input`: Signal to convolve
+    /// - `impulse_response`: Impulse response (up to 10 seconds at 44.1kHz)
+    /// - `mix`: Wet/dry mix (0.0=dry, 1.0=wet)
+    /// - `sample_rate`: Sample rate in Hz (usually 44100.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 220
+    /// ~reverb: ~signal # convolution cathedral_ir 0.5
+    /// ```
     pub fn new(
         input: NodeId,
         impulse_response: Arc<Vec<f32>>,

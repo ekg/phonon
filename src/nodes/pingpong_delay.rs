@@ -81,35 +81,23 @@ pub struct PingPongDelayNode {
 }
 
 impl PingPongDelayNode {
-    /// Create a new ping-pong delay node
+    /// PingPongDelayNode - Stereo bouncing delay with rhythmic left/right alternation
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to delay
-    /// * `time_input` - NodeId of delay time in seconds (typical range: 0.05 to 1.0)
-    ///   - 0.05 = 50ms (tight bounce)
-    ///   - 0.125 = 125ms (eighth note at 120 BPM)
-    ///   - 0.25 = 250ms (quarter note at 120 BPM)
-    ///   - 0.5 = 500ms (half note at 120 BPM)
-    /// * `feedback_input` - NodeId of feedback amount (0.0 to 0.95)
-    ///   - 0.0 = single echo
-    ///   - 0.5 = moderate decay
-    ///   - 0.8 = long decay
-    /// * `stereo_width_input` - NodeId of stereo width (0.0 to 1.0)
-    ///   - 0.0 = mono (no ping-pong)
-    ///   - 0.5 = partial ping-pong
-    ///   - 1.0 = full stereo separation
-    /// * `mix_input` - NodeId of wet/dry mix (0.0 to 1.0)
-    ///   - 0.0 = completely dry (bypass)
-    ///   - 0.5 = 50/50 blend
-    ///   - 1.0 = completely wet (only delays)
-    /// * `channel` - Which channel this node represents
-    ///   - false = left channel
-    ///   - true = right channel
-    /// * `max_delay` - Maximum delay time in seconds (determines buffer size)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Delays signal with echoes bouncing between left and right stereo channels.
+    /// Classic effect for widening, creating spatial interest, and rhythmic depth
+    /// in production.
     ///
-    /// # Panics
-    /// Panics if max_delay <= 0.0
+    /// # Parameters
+    /// - `input`: NodeId of signal to delay
+    /// - `time_input`: NodeId of delay time in seconds (0.05-1.0 typical)
+    /// - `feedback_input`: NodeId of feedback amount (0.0-0.95)
+    /// - `stereo_width_input`: NodeId of stereo width for ping-pong effect (0.0-1.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~delayed: ~signal # pingpong_delay 0.125 0.5 0.8
+    /// ```
     pub fn new(
         input: NodeId,
         time_input: NodeId,

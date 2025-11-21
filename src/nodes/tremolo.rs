@@ -30,12 +30,21 @@ pub struct TremoloNode {
 }
 
 impl TremoloNode {
-    /// Create a new tremolo node
+    /// Tremolo - Amplitude modulation effect with LFO control
     ///
-    /// # Arguments
-    /// * `input` - NodeId of audio input signal
-    /// * `rate_input` - NodeId providing LFO rate in Hz (can be constant or pattern)
-    /// * `depth_input` - NodeId providing modulation depth 0.0-1.0 (can be constant or pattern)
+    /// Modulates signal amplitude using internal sine-wave LFO.
+    /// Creates pulsing, breathing effects at any rate.
+    ///
+    /// # Parameters
+    /// - `input`: Audio signal to modulate
+    /// - `rate_input`: LFO rate in Hz (0.5-20 typical)
+    /// - `depth_input`: Modulation depth (0.0-1.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~synth: sine 440
+    /// out: ~synth # tremolo 4.0 0.7
+    /// ```
     pub fn new(input: NodeId, rate_input: NodeId, depth_input: NodeId) -> Self {
         Self {
             input,

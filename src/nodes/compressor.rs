@@ -65,14 +65,23 @@ pub struct CompressorNode {
 }
 
 impl CompressorNode {
-    /// Create a new compressor node
+    /// Compressor - Dynamic range compression with attack and release
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to compress
-    /// * `threshold_input` - NodeId of threshold in dB (e.g., -10.0)
-    /// * `ratio_input` - NodeId of compression ratio (1.0 = no compression, 20.0 = heavy)
-    /// * `attack_input` - NodeId of attack time in seconds (how fast compression kicks in)
-    /// * `release_input` - NodeId of release time in seconds (how fast compression releases)
+    /// Reduces level of loud signals above threshold. Smooth compression with
+    /// no clicks. Essential for controlling peaks, evening out mixes, and creative dynamics control.
+    ///
+    /// # Parameters
+    /// - `input`: Signal to compress
+    /// - `threshold_input`: Threshold in dB (e.g., -10.0)
+    /// - `ratio_input`: Compression ratio (1=none, 4=typical, 20=heavy)
+    /// - `attack_input`: Attack time in seconds
+    /// - `release_input`: Release time in seconds
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 220
+    /// ~compressed: ~signal # compressor -10 4 0.01 0.1
+    /// ```
     pub fn new(
         input: NodeId,
         threshold_input: NodeId,

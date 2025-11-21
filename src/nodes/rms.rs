@@ -38,12 +38,21 @@ pub struct RMSNode {
 }
 
 impl RMSNode {
-    /// Create a new RMS node
+    /// RMSNode - Root mean square level meter with sliding window
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the signal to analyze
-    /// * `window_time_input` - NodeId providing window time in seconds
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Computes RMS (Root Mean Square) value of input signal over a sliding window,
+    /// used for level metering, envelope following, and RMS-based dynamics control.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId providing the signal to analyze
+    /// - `window_time_input`: NodeId providing window time in seconds
+    /// - `sample_rate`: Sample rate in Hz (usually 44100.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~level: ~signal # rms 0.1
+    /// ```
     pub fn new(input: NodeId, window_time_input: NodeId, sample_rate: f32) -> Self {
         // Start with a small default buffer (10ms @ 44.1kHz)
         let initial_buffer_size = (0.01 * sample_rate).ceil() as usize;

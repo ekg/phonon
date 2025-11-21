@@ -21,11 +21,20 @@ pub struct SubtractionNode {
 }
 
 impl SubtractionNode {
-    /// Create a new subtraction node
+    /// Subtraction - Subtracts signal B from signal A (A - B)
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input (minuend)
-    /// * `input_b` - NodeId of second input (subtrahend)
+    /// Performs sample-by-sample subtraction: output[i] = a[i] - b[i].
+    ///
+    /// # Parameters
+    /// - `input_a`: Minuend (signal to subtract from)
+    /// - `input_b`: Subtrahend (signal to subtract)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~sig_a: sine 440
+    /// ~sig_b: sine 330
+    /// out: ~sig_a # sub ~sig_b
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId) -> Self {
         Self { input_a, input_b }
     }

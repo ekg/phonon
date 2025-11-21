@@ -74,18 +74,22 @@ pub struct OnePoleFilterNode {
 }
 
 impl OnePoleFilterNode {
-    /// Create a new one-pole filter node
+    /// OnePoleFilterNode - Simple first-order lowpass or highpass filter
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to filter
-    /// * `cutoff_input` - NodeId providing cutoff frequency in Hz
-    /// * `mode` - OnePoleMode::LowPass or OnePoleMode::HighPass
+    /// A fast, smooth one-pole filter with 6 dB/octave rolloff. Useful for gentle
+    /// filtering, smoothing control signals, and classic analog-style filtering without
+    /// the computational cost of higher-order filters.
     ///
-    /// # Notes
-    /// - Cutoff frequency should be below Nyquist (sample_rate / 2)
-    /// - For lowpass: frequencies above cutoff are attenuated
-    /// - For highpass: frequencies below cutoff are attenuated
-    /// - 6 dB/octave rolloff (gentler than biquad filters)
+    /// # Parameters
+    /// - `input`: NodeId of signal to filter
+    /// - `cutoff_input`: NodeId of cutoff frequency in Hz
+    /// - `mode`: LowPass or HighPass filtering
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~filtered: ~signal # one_pole_filter 1000
+    /// ```
     pub fn new(input: NodeId, cutoff_input: NodeId, mode: OnePoleMode) -> Self {
         Self {
             input,

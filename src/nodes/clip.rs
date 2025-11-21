@@ -31,11 +31,21 @@ pub struct ClipNode {
 }
 
 impl ClipNode {
-    /// Create a new clip node
+    /// Clip - Soft clipping/distortion using hyperbolic tangent
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to clip
-    /// * `threshold_input` - NodeId of threshold (typically 0.0 to 1.0)
+    /// Provides smooth, musical distortion for signals above threshold.
+    /// Symmetrical clipping for both positive and negative signals.
+    /// Essential for overdrive, saturation, and aggressive sound design.
+    ///
+    /// # Parameters
+    /// - `input`: Signal to clip
+    /// - `threshold_input`: Clipping threshold (0.0-1.0 typical)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~clipped: ~signal # clip 0.5
+    /// ```
     pub fn new(input: NodeId, threshold_input: NodeId) -> Self {
         Self {
             input,

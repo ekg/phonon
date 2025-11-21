@@ -77,17 +77,23 @@ pub struct BiquadNode {
 }
 
 impl BiquadNode {
-    /// Create a new biquad filter node
+    /// Biquad - Second-order IIR filter with multiple modes (LP/HP/BP/Notch)
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to filter
-    /// * `frequency_input` - NodeId of cutoff/center frequency in Hz (10 Hz to Nyquist)
-    /// * `q_input` - NodeId of quality factor (0.1 to 20.0)
-    ///   - 0.5 = wide, gentle slope
-    ///   - 0.707 = Butterworth (maximally flat)
-    ///   - 1.0 = moderate resonance
-    ///   - 10.0+ = very sharp, resonant peak
-    /// * `mode` - Filter mode (Lowpass, Highpass, Bandpass, Notch)
+    /// RBJ Audio EQ Cookbook implementation. Foundation of digital audio filtering.
+    /// Provides excellent frequency response with minimal CPU usage. Four modes for
+    /// different filtering needs: lowpass, highpass, bandpass, and notch rejection.
+    ///
+    /// # Parameters
+    /// - `input`: Signal to filter
+    /// - `frequency_input`: Cutoff/center frequency in Hz
+    /// - `q_input`: Quality factor (0.1 wide to 20.0 sharp)
+    /// - `mode`: Filter mode (Lowpass, Highpass, Bandpass, Notch)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 220
+    /// ~filtered: ~signal # biquad 1000 0.707 lowpass
+    /// ```
     pub fn new(
         input: NodeId,
         frequency_input: NodeId,

@@ -31,12 +31,23 @@ pub struct HighPassFilterNode {
 }
 
 impl HighPassFilterNode {
-    /// Create a new highpass filter node
+    /// HighPass Filter - Resonant highpass filter with pattern control
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing audio signal to filter
-    /// * `cutoff_input` - NodeId providing cutoff frequency (Hz)
-    /// * `q_input` - NodeId providing resonance (Q factor)
+    /// Attenuates frequencies below the cutoff while passing higher frequencies.
+    /// The Q parameter controls resonance peak at the cutoff frequency.
+    ///
+    /// # Parameters
+    /// - `input`: Audio signal to filter
+    /// - `cutoff_input`: Cutoff frequency in Hz (20-20000)
+    /// - `q_input`: Resonance factor (0.1-20.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 110
+    /// ~cutoff: sine 0.5 * 2000 + 1000
+    /// ~filtered: ~signal # hpf ~cutoff 1.0
+    /// out: ~filtered
+    /// ```
     pub fn new(input: NodeId, cutoff_input: NodeId, q_input: NodeId) -> Self {
         // Initialize with default coefficients (will be updated on first process)
         let coeffs = Coefficients::<f32>::from_params(

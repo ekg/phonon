@@ -47,16 +47,22 @@ pub struct LatchNode {
 }
 
 impl LatchNode {
-    /// Create a new latch node
+    /// Latch - Rising-edge triggered sample-and-hold
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to sample
-    /// * `trigger_input` - NodeId of trigger signal (rising edge triggers latching)
+    /// Captures input value when trigger signal crosses 0.5 threshold and holds it
+    /// until next rising edge. Useful for stepped modulation and rhythmic automation.
     ///
-    /// # Initial State
-    /// - `held_value` starts at 0.0
-    /// - `trigger_was_high` starts at false
-    /// - First sample will trigger if trigger_input[0] > 0.5
+    /// # Parameters
+    /// - `input`: Signal value to sample
+    /// - `trigger_input`: Trigger signal (rising edge > 0.5 latches)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~random: noise 1
+    /// ~clock: "x ~ x ~" # bpm_to_impulse 120
+    /// ~stepped: ~random # latch ~clock
+    /// out: sine ~stepped * 440 * 0.5
+    /// ```
     pub fn new(input: NodeId, trigger_input: NodeId) -> Self {
         Self {
             input,

@@ -53,12 +53,21 @@ pub struct SamplePlaybackNode {
 }
 
 impl SamplePlaybackNode {
-    /// Create a new sample playback node
+    /// SamplePlaybackNode - Trigger-based sample playback with variable speed
     ///
-    /// # Arguments
-    /// * `trigger_input` - NodeId providing trigger signal (> 0.5 = start)
-    /// * `speed_input` - NodeId providing playback speed (1.0 = normal)
-    /// * `sample_data` - Arc-wrapped sample data to play back
+    /// Plays back sample data with rising edge trigger detection and speed control.
+    /// Uses linear interpolation for smooth fractional playback positions.
+    ///
+    /// # Parameters
+    /// - `trigger_input`: NodeId providing trigger signal (>0.5 = start playback, rising edge)
+    /// - `speed_input`: NodeId providing playback speed (1.0 = normal, 2.0 = double speed)
+    /// - `sample_data`: Arc-wrapped sample data to play back
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~trigger: square 4.0
+    /// ~playback: sample_playback ~trigger 1.0
+    /// ```
     pub fn new(
         trigger_input: NodeId,
         speed_input: NodeId,

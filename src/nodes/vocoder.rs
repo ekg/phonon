@@ -140,14 +140,25 @@ pub struct VocoderNode {
 }
 
 impl VocoderNode {
-    /// Create a new vocoder node
+    /// Vocoder - Channel vocoder for talking instrument effects
     ///
-    /// # Arguments
-    /// * `carrier` - NodeId providing carrier signal (usually synth/oscillator)
-    /// * `modulator` - NodeId providing modulator signal (usually voice/audio)
-    /// * `num_bands_input` - NodeId providing number of bands (8-32, typically 16)
-    /// * `bandwidth_input` - NodeId providing bandwidth multiplier (0.5-2.0)
-    /// * `sample_rate` - Sample rate in Hz
+    /// Classic channel vocoder using parallel bandpass filters to extract
+    /// spectral envelope from modulator and apply to carrier. Creates
+    /// robotic voice and talking instrument effects.
+    ///
+    /// # Parameters
+    /// - `carrier`: Signal to be vocoded (usually synth)
+    /// - `modulator`: Signal providing spectral envelope (usually voice/speech)
+    /// - `num_bands_input`: Number of parallel filters (16-32 typical)
+    /// - `bandwidth_input`: Filter bandwidth (0.5-2.0 typical)
+    /// - `sample_rate`: Sample rate (Hz)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~carrier: saw 110
+    /// ~modulator: s "speech.wav"
+    /// out: ~carrier # vocoder ~modulator 16 100
+    /// ```
     pub fn new(
         carrier: NodeId,
         modulator: NodeId,

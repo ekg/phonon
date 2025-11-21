@@ -21,10 +21,19 @@ pub struct SquareRootNode {
 }
 
 impl SquareRootNode {
-    /// Create a new square root node
+    /// SquareRootNode - Square root with absolute value protection
     ///
-    /// # Arguments
-    /// * `input` - NodeId of input signal
+    /// Computes the square root of the input signal's absolute value,
+    /// preventing NaN values from negative inputs.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId of input signal
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440 * sine 440
+    /// ~rooted: ~signal # sqrt
+    /// ```
     pub fn new(input: NodeId) -> Self {
         Self { input }
     }

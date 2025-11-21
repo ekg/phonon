@@ -29,17 +29,23 @@ pub struct FlangerNode {
 }
 
 impl FlangerNode {
-    /// Create a new flanger node
+    /// Flanger - Swept comb filter with modulated delay and feedback
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the signal to flange
-    /// * `rate_input` - NodeId providing LFO rate in Hz
-    /// * `depth_input` - NodeId providing delay modulation depth in seconds
-    /// * `feedback_input` - NodeId providing feedback amount (0.0 to 0.95)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Creates characteristic "swooshing" effect using LFO-modulated delay line,
+    /// perfect for classic chorus/flanger sounds and creative effects.
     ///
-    /// # Buffer Size
-    /// Uses a fixed 20ms buffer (max delay time for flanger)
+    /// # Parameters
+    /// - `input`: NodeId providing signal to flange
+    /// - `rate_input`: NodeId providing LFO rate in Hz (default: 0.5)
+    /// - `depth_input`: NodeId providing delay depth in seconds (default: 0.005)
+    /// - `feedback_input`: NodeId providing feedback 0.0-0.95 (default: 0.7)
+    /// - `sample_rate`: Sample rate in Hz (usually 44100.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 110
+    /// ~flanged: ~signal # flanger 0.5 0.005 0.7 44100
+    /// ```
     pub fn new(
         input: NodeId,
         rate_input: NodeId,

@@ -65,20 +65,21 @@ pub struct DJFilterNode {
 }
 
 impl DJFilterNode {
-    /// Create a new DJ filter node
+    /// DJFilter - Resonant DJ-style crossfader filter
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to filter
-    /// * `position` - NodeId providing filter position (-1.0 to +1.0)
-    /// * `resonance` - NodeId providing resonance amount (0.0 to 1.0)
+    /// Crossfades between lowpass and highpass filtering with resonance control,
+    /// perfect for DJ mixer transitions and creative filter sweeps.
     ///
-    /// # Notes
-    /// - Position = -1.0: full lowpass at 500 Hz
-    /// - Position = 0.0: neutral (both filters at extremes, minimal effect)
-    /// - Position = +1.0: full highpass at 2000 Hz
-    /// - Resonance = 0.0: Butterworth response (no peak)
-    /// - Resonance = 0.5: moderate peak
-    /// - Resonance = 0.9+: strong resonance (classic DJ sweep)
+    /// # Parameters
+    /// - `input`: NodeId providing signal to filter
+    /// - `position`: NodeId providing filter position -1.0 to +1.0 (default: 0.0)
+    /// - `resonance`: NodeId providing resonance amount 0.0-1.0 (default: 0.7)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 110
+    /// ~filtered: ~signal # dj_filter 0.5 0.8
+    /// ```
     pub fn new(input: NodeId, position: NodeId, resonance: NodeId) -> Self {
         // Initialize with neutral position (no filtering effect)
         let lp_coeffs = Coefficients::<f32>::from_params(

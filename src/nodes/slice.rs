@@ -59,13 +59,23 @@ pub struct SliceNode {
 }
 
 impl SliceNode {
-    /// Create a new slice node
+    /// SliceNode - Record and playback audio slices with dynamic boundaries
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing audio to accumulate
-    /// * `trigger_input` - NodeId providing trigger signal (> 0.5 = start)
-    /// * `slice_start_input` - NodeId providing slice start position (0.0-1.0)
-    /// * `slice_end_input` - NodeId providing slice end position (0.0-1.0)
+    /// Records incoming audio and plays back a configurable slice on trigger,
+    /// with dynamic start/end position control for sample manipulation.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId providing audio to accumulate
+    /// - `trigger_input`: NodeId providing trigger signal (>0.5 = start playback)
+    /// - `slice_start_input`: NodeId providing slice start position (0.0-1.0)
+    /// - `slice_end_input`: NodeId providing slice end position (0.0-1.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~input: sine 440
+    /// ~trigger: square 2.0
+    /// ~sliced: ~input # slice ~trigger 0.25 0.75
+    /// ```
     pub fn new(
         input: NodeId,
         trigger_input: NodeId,

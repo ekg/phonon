@@ -22,11 +22,20 @@ pub struct GateNode {
 }
 
 impl GateNode {
-    /// Create a new gate node
+    /// Gate - Threshold gate that passes signal above threshold
     ///
-    /// # Arguments
-    /// * `input` - NodeId of the audio signal to gate
-    /// * `threshold_input` - NodeId of the threshold value (linear amplitude)
+    /// Dynamics processor that passes signal when exceeding threshold, mutes below,
+    /// useful for noise gates and trigger detection.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId providing signal to gate
+    /// - `threshold_input`: NodeId providing threshold in linear amplitude (default: 0.1)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~noisy: sine 440 + white_noise 0.1
+    /// ~clean: ~noisy # gate 0.5
+    /// ```
     pub fn new(input: NodeId, threshold_input: NodeId) -> Self {
         Self { input, threshold_input }
     }

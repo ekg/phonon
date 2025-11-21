@@ -94,20 +94,22 @@ pub struct WhenNode {
 }
 
 impl WhenNode {
-    /// Create a new when node with default threshold (0.5)
+    /// When - Conditional signal router (audio if-statement)
     ///
-    /// # Arguments
-    /// * `condition` - Condition signal (NodeId), compared against 0.5
-    /// * `true_input` - Signal to route when condition > 0.5 (NodeId)
-    /// * `false_input` - Signal to route when condition <= 0.5 (NodeId)
+    /// Routes true_input or false_input to output based on condition > 0.5.
+    /// Enables conditional audio flow and pattern-based signal switching.
+    ///
+    /// # Parameters
+    /// - `condition`: Condition signal (compared against 0.5 threshold)
+    /// - `true_input`: Signal when condition > 0.5
+    /// - `false_input`: Signal when condition <= 0.5
     ///
     /// # Example
-    /// ```ignore
-    /// // Route signal when gate is high, silence when gate is low
-    /// let gate = GreaterThanNode::new(lfo, ConstantNode::new(0.0));
-    /// let signal = OscillatorNode::new(440.0, Waveform::Sine);
-    /// let silence = ConstantNode::new(0.0);
-    /// let when = WhenNode::new(gate, signal, silence);
+    /// ```phonon
+    /// ~gate: lfo 1.0 0 1
+    /// ~on_signal: sine 440
+    /// ~off_signal: 0
+    /// out: when ~gate ~on_signal ~off_signal
     /// ```
     pub fn new(condition: NodeId, true_input: NodeId, false_input: NodeId) -> Self {
         Self {

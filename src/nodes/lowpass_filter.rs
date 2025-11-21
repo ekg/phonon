@@ -41,17 +41,23 @@ pub struct LowPassFilterNode {
 }
 
 impl LowPassFilterNode {
-    /// Create a new low-pass filter node
+    /// LowPass Filter - Resonant lowpass filter with pattern control
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to filter
-    /// * `cutoff_input` - NodeId providing cutoff frequency in Hz
-    /// * `q_input` - NodeId providing Q (resonance) factor
+    /// Attenuates frequencies above cutoff while passing lower frequencies.
+    /// The Q parameter controls resonance peak at cutoff frequency.
     ///
-    /// # Notes
-    /// - Q = 0.707 (Q_BUTTERWORTH_F32) gives flat passband (Butterworth response)
-    /// - Higher Q values create resonance peak at cutoff frequency
-    /// - Cutoff frequency should be below Nyquist (sample_rate / 2)
+    /// # Parameters
+    /// - `input`: Audio signal to filter
+    /// - `cutoff_input`: Cutoff frequency in Hz (20-20000)
+    /// - `q_input`: Resonance factor (0.1-20.0, 0.707 for Butterworth)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 110
+    /// ~cutoff: sine 0.5 * 4000 + 2000
+    /// ~filtered: ~signal # lpf ~cutoff 0.8
+    /// out: ~filtered
+    /// ```
     pub fn new(input: NodeId, cutoff_input: NodeId, q_input: NodeId) -> Self {
         // Initialize with 1000 Hz cutoff, Butterworth Q
         let coeffs = Coefficients::<f32>::from_params(

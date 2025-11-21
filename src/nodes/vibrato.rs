@@ -41,17 +41,23 @@ pub struct VibratoNode {
 }
 
 impl VibratoNode {
-    /// Create a new vibrato node
+    /// Vibrato - Pitch modulation using variable delay line
     ///
-    /// # Arguments
-    /// * `input` - NodeId of audio input signal
-    /// * `rate_input` - NodeId providing LFO rate in Hz (can be constant or pattern)
-    /// * `depth_input` - NodeId providing modulation depth in seconds (can be constant or pattern)
-    /// * `max_depth` - Maximum depth in seconds (determines buffer size)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Modulates pitch using delay-line LFO. Creates classic wobbling
+    /// pitch effect used in vocals and instruments.
     ///
-    /// # Panics
-    /// Panics if max_depth <= 0.0
+    /// # Parameters
+    /// - `input`: Audio signal to modulate
+    /// - `rate_input`: LFO rate in Hz (3-10 typical)
+    /// - `depth_input`: Modulation depth in seconds (0.002-0.01 typical)
+    /// - `max_depth`: Maximum depth (buffer size)
+    /// - `sample_rate`: Sample rate (Hz)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~synth: sine 440
+    /// out: ~synth # vibrato 5.0 0.005
+    /// ```
     pub fn new(
         input: NodeId,
         rate_input: NodeId,

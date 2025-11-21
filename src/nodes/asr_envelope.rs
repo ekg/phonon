@@ -64,13 +64,23 @@ pub struct ASREnvelopeNode {
 }
 
 impl ASREnvelopeNode {
-    /// Create a new ASR envelope node
+    /// ASREnvelope - Gate-triggered Attack-Sustain-Release envelope
     ///
-    /// # Arguments
-    /// * `gate_input` - NodeId providing gate signal (> 0.5 = on, <= 0.5 = off)
-    /// * `attack_input` - NodeId providing attack time in seconds
-    /// * `sustain_input` - NodeId providing sustain level (0.0 to 1.0)
-    /// * `release_input` - NodeId providing release time in seconds
+    /// Three-phase envelope: attack (0 to 1), sustain (held at configurable level), release (to 0).
+    /// Ideal for organ-style instruments where sustain is below peak. Simpler than ADSR.
+    ///
+    /// # Parameters
+    /// - `gate_input`: Gate signal (rising/falling edge controls envelope)
+    /// - `attack_input`: Attack time in seconds
+    /// - `sustain_input`: Sustain level (0.0 to 1.0)
+    /// - `release_input`: Release time in seconds
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~gate: "x ~ x ~"
+    /// ~envelope: ~gate # asr_envelope 0.01 0.6 0.2
+    /// ~synth: sine 440 * ~envelope
+    /// ```
     pub fn new(
         gate_input: NodeId,
         attack_input: NodeId,

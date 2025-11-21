@@ -36,17 +36,23 @@ pub struct CombFilterNode {
 }
 
 impl CombFilterNode {
-    /// Create a new comb filter node
+    /// CombFilter - Feedback delay-based filter for resonance and reverb
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the signal to filter
-    /// * `delay_time_input` - NodeId providing delay time in seconds
-    /// * `feedback_input` - NodeId providing feedback amount (-0.99 to 0.99)
-    /// * `max_delay` - Maximum delay time in seconds (determines buffer size)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Creates harmonic resonance at frequencies determined by delay time.
+    /// Essential for reverb, Karplus-Strong synthesis, and metallic/resonant effects.
     ///
-    /// # Panics
-    /// Panics if max_delay <= 0.0
+    /// # Parameters
+    /// - `input`: Signal to filter
+    /// - `delay_time_input`: Delay time in seconds
+    /// - `feedback_input`: Feedback amount (-0.99 to 0.99)
+    /// - `max_delay`: Maximum delay time in seconds (buffer size)
+    /// - `sample_rate`: Sample rate in Hz (usually 44100.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: brown_noise 0.3
+    /// ~resonant: ~signal # comb_filter 0.009 0.7
+    /// ```
     pub fn new(
         input: NodeId,
         delay_time_input: NodeId,

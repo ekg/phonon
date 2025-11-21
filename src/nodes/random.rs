@@ -23,10 +23,19 @@ pub struct RandomNode {
 }
 
 impl RandomNode {
-    /// Create a new random node with a random seed
+    /// RandomNode - Generate random values with controllable amplitude
     ///
-    /// # Arguments
-    /// * `amplitude_input` - NodeId of the amplitude control signal
+    /// Generates random values in the range [-amplitude, amplitude] using a
+    /// deterministic random number generator for white noise synthesis.
+    ///
+    /// # Parameters
+    /// - `amplitude_input`: NodeId of the amplitude control signal
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~noise: random 0.5
+    /// ~filtered: ~noise # lpf 5000 0.8
+    /// ```
     pub fn new(amplitude_input: NodeId) -> Self {
         Self {
             amplitude_input,

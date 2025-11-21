@@ -22,10 +22,20 @@ pub struct LogNode {
 }
 
 impl LogNode {
-    /// Create a new natural logarithm node
+    /// Log - Natural logarithm (ln)
     ///
-    /// # Arguments
-    /// * `input` - NodeId of input signal
+    /// Computes natural logarithm of input values. Useful for exponential decay,
+    /// frequency-amplitude relationships, and logarithmic scaling of control signals.
+    ///
+    /// # Parameters
+    /// - `input`: Signal values (negative inputs produce NaN)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~freq: sine 0.5 * 2000 + 2200
+    /// ~scaled: ~freq # log
+    /// out: sine 220 * (~scaled * 0.1) * 0.5
+    /// ```
     pub fn new(input: NodeId) -> Self {
         Self { input }
     }

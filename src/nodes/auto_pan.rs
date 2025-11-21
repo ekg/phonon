@@ -65,13 +65,23 @@ pub struct AutoPanNode {
 }
 
 impl AutoPanNode {
-    /// Create a new auto-pan node
+    /// AutoPan - Automatic stereo panning with LFO modulation
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the mono audio signal
-    /// * `rate_input` - NodeId providing LFO rate in Hz (typically 0.01-20 Hz)
-    /// * `depth_input` - NodeId providing modulation depth 0.0-1.0 (0=center, 1=full L-R)
-    /// * `waveform` - LFO waveform shape (Sine, Triangle, or Square)
+    /// Sweeps signal across stereo field using configurable waveform and rate.
+    /// Creates movement and spaciousness. Different waveforms offer smooth (sine),
+    /// linear (triangle), or abrupt (square) panning motion.
+    ///
+    /// # Parameters
+    /// - `input`: Signal to pan
+    /// - `rate_input`: LFO rate in Hz (0.01-20 typical)
+    /// - `depth_input`: Modulation depth 0.0-1.0 (0=center, 1=full L-R)
+    /// - `waveform`: LFO shape (Sine, Triangle, Square)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 220
+    /// ~panned: ~signal # auto_pan 0.5 1.0 sine
+    /// ```
     pub fn new(
         input: NodeId,
         rate_input: NodeId,

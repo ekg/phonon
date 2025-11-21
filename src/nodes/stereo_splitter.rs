@@ -80,14 +80,19 @@ pub struct StereoSplitterNode {
 }
 
 impl StereoSplitterNode {
-    /// Create a new stereo splitter node
+    /// StereoSplitter - Identity passthrough for stereo signal semantics
     ///
-    /// # Arguments
-    /// * `stereo_input` - NodeId providing interleaved stereo signal
+    /// Marks that signal should be treated as interleaved stereo (L,R,L,R,...).
+    /// Currently just passes signal through; true splitting awaits multi-output support.
+    ///
+    /// # Parameters
+    /// - `stereo_input`: Interleaved stereo input signal
     ///
     /// # Example
-    /// ```ignore
-    /// let splitter = StereoSplitterNode::new(reverb_node_id);
+    /// ```phonon
+    /// ~reverb: sine 440 # reverb 0.5
+    /// ~stereo: ~reverb # splitter
+    /// out: ~stereo
     /// ```
     pub fn new(stereo_input: NodeId) -> Self {
         Self { stereo_input }

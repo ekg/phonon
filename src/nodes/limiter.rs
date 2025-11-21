@@ -40,12 +40,22 @@ pub struct LimiterNode {
 }
 
 impl LimiterNode {
-    /// Create a new limiter node
+    /// Limiter - Dynamic amplitude ceiling with soft knee
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to limit
-    /// * `threshold_input` - NodeId of threshold in dB (e.g., -3.0)
-    /// * `ceiling_input` - NodeId of output ceiling in dB (e.g., 0.0)
+    /// Compresses audio above threshold, hard-limiting at ceiling. Provides transparent
+    /// limiting below threshold and enforces hard ceiling to prevent clipping.
+    ///
+    /// # Parameters
+    /// - `input`: Audio signal to limit
+    /// - `threshold_input`: Threshold in dB (default: -3.0)
+    /// - `ceiling_input`: Output ceiling in dB (default: 0.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 110 + saw 165
+    /// ~limited: ~signal # limiter -3 -0.1
+    /// out: ~limited * 0.5
+    /// ```
     pub fn new(input: NodeId, threshold_input: NodeId, ceiling_input: NodeId) -> Self {
         Self {
             input,

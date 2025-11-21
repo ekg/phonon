@@ -102,47 +102,29 @@ pub struct TapeDelayNode {
 }
 
 impl TapeDelayNode {
-    /// Create a new tape delay node
+    /// TapeDelay - Vintage tape echo with wow, flutter, and saturation
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to delay
-    /// * `time_input` - NodeId of delay time in seconds (0.001 to max_delay)
-    ///   - 0.125 = 125ms (slapback)
-    ///   - 0.375 = 375ms (classic tape echo)
-    ///   - 0.75 = 750ms (long echo)
-    /// * `feedback_input` - NodeId of feedback amount (0.0 to 0.95)
-    ///   - 0.0 = single echo
-    ///   - 0.6 = classic tape echo
-    ///   - 0.85 = long decaying echoes
-    /// * `wow_rate_input` - NodeId of wow rate in Hz (0.1 to 2.0)
-    ///   - 0.5 Hz = slow, gentle pitch drift
-    ///   - 1.0 Hz = medium warble
-    ///   - 2.0 Hz = fast pitch wobble
-    /// * `wow_depth_input` - NodeId of wow depth (0.0 to 1.0)
-    ///   - 0.0 = no wow
-    ///   - 0.5 = subtle vintage character
-    ///   - 1.0 = obvious pitch modulation
-    /// * `flutter_rate_input` - NodeId of flutter rate in Hz (5.0 to 10.0)
-    ///   - 5.0 Hz = slow flutter
-    ///   - 7.0 Hz = classic tape flutter
-    ///   - 10.0 Hz = fast flutter
-    /// * `flutter_depth_input` - NodeId of flutter depth (0.0 to 1.0)
-    ///   - 0.0 = no flutter
-    ///   - 0.3 = subtle texture
-    ///   - 0.7 = obvious flutter
-    /// * `saturation_input` - NodeId of tape saturation (0.0 to 1.0)
-    ///   - 0.0 = clean
-    ///   - 0.4 = warm tape compression
-    ///   - 0.8 = heavy tape saturation
-    /// * `mix_input` - NodeId of wet/dry mix (0.0 to 1.0)
-    ///   - 0.0 = completely dry (bypass)
-    ///   - 0.5 = 50/50 blend
-    ///   - 1.0 = completely wet (only delays)
-    /// * `max_delay` - Maximum delay time in seconds (determines buffer size)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Emulates analog tape delay machines with realistic pitch modulation,
+    /// saturation, and frequency response. Perfect for warm, vintage delays.
     ///
-    /// # Panics
-    /// Panics if max_delay <= 0.0
+    /// # Parameters
+    /// - `input`: Signal to delay
+    /// - `time_input`: Delay time in seconds (0.001-max_delay)
+    /// - `feedback_input`: Feedback amount (0.0-0.95)
+    /// - `wow_rate_input`: Wow rate in Hz (0.1-2.0)
+    /// - `wow_depth_input`: Wow depth (0.0-1.0)
+    /// - `flutter_rate_input`: Flutter rate in Hz (5.0-10.0)
+    /// - `flutter_depth_input`: Flutter depth (0.0-1.0)
+    /// - `saturation_input`: Tape saturation (0.0-1.0)
+    /// - `mix_input`: Wet/dry mix (0.0-1.0)
+    /// - `max_delay`: Maximum delay time (buffer size)
+    /// - `sample_rate`: Sample rate (Hz)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~synth: saw 110
+    /// out: ~synth # tape_delay 0.375 0.6 0.5 0.5 7.0 0.3 0.4 0.5
+    /// ```
     pub fn new(
         input: NodeId,
         time_input: NodeId,

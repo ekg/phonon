@@ -38,11 +38,21 @@ pub struct RingModNode {
 }
 
 impl RingModNode {
-    /// Create a new ring modulation node
+    /// RingModNode - Ring modulation for metallic and inharmonic sounds
     ///
-    /// # Arguments
-    /// * `carrier_input` - NodeId of carrier signal (typically audio)
-    /// * `modulator_input` - NodeId of modulator signal (LFO or audio)
+    /// Multiplies two signals to create sum and difference frequencies (f1±f2),
+    /// producing metallic, bell-like, and sci-fi timbres from inharmonic partials.
+    ///
+    /// # Parameters
+    /// - `carrier_input`: NodeId of carrier signal (typically audio)
+    /// - `modulator_input`: NodeId of modulator signal (LFO or audio)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~carrier: sine 440
+    /// ~mod: sine 220
+    /// ~bell: ~carrier * ~mod
+    /// ```
     pub fn new(carrier_input: NodeId, modulator_input: NodeId) -> Self {
         Self {
             carrier_input,

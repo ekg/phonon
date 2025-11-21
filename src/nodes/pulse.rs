@@ -26,14 +26,21 @@ pub struct PulseNode {
 }
 
 impl PulseNode {
-    /// Create a new pulse wave oscillator node
+    /// PulseNode - Pulse wave oscillator with variable duty cycle modulation
     ///
-    /// # Arguments
-    /// * `freq_input` - NodeId that provides frequency (can be constant or pattern)
-    /// * `width_input` - NodeId that provides pulse width (0.0 to 1.0)
-    ///   - 0.5 = square wave
-    ///   - < 0.5 = narrow pulse
-    ///   - > 0.5 = wide pulse
+    /// Generates pulse waves with continuously variable width from narrow to wide.
+    /// Width modulation creates rich, evolving timbres from subtle to aggressive
+    /// synthesis textures. Width of 0.5 produces classic square wave.
+    ///
+    /// # Parameters
+    /// - `freq_input`: NodeId providing frequency in Hz
+    /// - `width_input`: NodeId providing pulse width (0.0-1.0, 0.5 = square)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~lfo: sine 2
+    /// ~pulse: pulse 220 ~lfo
+    /// ```
     pub fn new(freq_input: NodeId, width_input: NodeId) -> Self {
         Self {
             freq_input,

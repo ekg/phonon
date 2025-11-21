@@ -59,12 +59,22 @@ pub struct ADEnvelopeNode {
 }
 
 impl ADEnvelopeNode {
-    /// Create a new AD envelope node
+    /// ADEnvelope - Trigger-based Attack-Decay envelope generator
     ///
-    /// # Arguments
-    /// * `trigger_input` - NodeId providing trigger signal (> 0.5 = trigger on rising edge)
-    /// * `attack_input` - NodeId providing attack time in seconds
-    /// * `decay_input` - NodeId providing decay time in seconds
+    /// One-shot envelope with two phases: attack (0 to 1) then decay (1 to 0).
+    /// Retriggered on each rising edge of trigger signal. Ideal for percussion and short transients.
+    ///
+    /// # Parameters
+    /// - `trigger_input`: Trigger signal (rising edge triggers envelope)
+    /// - `attack_input`: Attack time in seconds
+    /// - `decay_input`: Decay time in seconds
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~trigger: "x ~ x ~"
+    /// ~envelope: ~trigger # ad_envelope 0.001 0.2
+    /// ~sound: sine 440 * ~envelope
+    /// ```
     pub fn new(
         trigger_input: NodeId,
         attack_input: NodeId,

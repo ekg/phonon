@@ -85,19 +85,21 @@ pub struct RLPFNode {
 }
 
 impl RLPFNode {
-    /// Create a new resonant low-pass filter node
+    /// RLPFNode - Resonant lowpass filter with q-factor resonance control
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to filter
-    /// * `freq` - NodeId providing cutoff frequency in Hz (20 to 20000)
-    /// * `res` - NodeId providing resonance amount (0.0 to 1.0)
+    /// Implements a 2nd-order resonant lowpass filter using biquad topology,
+    /// allowing resonance peaks at the cutoff frequency for classic analog synth sounds.
     ///
-    /// # Notes
-    /// - Resonance = 0.0 gives Butterworth response (no resonance peak)
-    /// - Resonance = 0.5 gives moderate resonance boost
-    /// - Resonance = 0.9+ causes strong resonance and self-oscillation
-    /// - Resonance near 1.0 is clamped to prevent instability
-    /// - Cutoff frequency is clamped to 20 Hz - Nyquist
+    /// # Parameters
+    /// - `input`: NodeId providing signal to filter
+    /// - `freq`: NodeId providing cutoff frequency in Hz (20 to 20000)
+    /// - `res`: NodeId providing resonance amount (0.0 to 1.0, where 1.0 = self-oscillation)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~synth: saw 55
+    /// ~filtered: ~synth # rlpf 500 0.8
+    /// ```
     pub fn new(input: NodeId, freq: NodeId, res: NodeId) -> Self {
         // Initialize with 1000 Hz cutoff, no resonance (Butterworth)
         let q = 0.707; // Butterworth Q

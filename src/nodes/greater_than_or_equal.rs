@@ -25,12 +25,21 @@ pub struct GreaterThanOrEqualNode {
 }
 
 impl GreaterThanOrEqualNode {
-    /// Create a new greater-than-or-equal comparison node with custom tolerance
+    /// GreaterThanOrEqual - Compares two signals with >= operator and tolerance
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input (left side of comparison)
-    /// * `input_b` - NodeId of second input (right side of comparison)
-    /// * `tolerance` - Epsilon for floating-point comparison (default 1e-6)
+    /// Outputs 1.0 when first signal >= second signal within floating-point epsilon,
+    /// useful for gates and conditional logic.
+    ///
+    /// # Parameters
+    /// - `input_a`: NodeId providing first signal (left side)
+    /// - `input_b`: NodeId providing second signal (right side)
+    /// - `tolerance`: Epsilon for floating-point comparison (default: 1e-6)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~sig_a: sine 110
+    /// ~trigger: ~sig_a # greater_than_or_equal 0.5 0.001
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId, tolerance: f32) -> Self {
         Self { input_a, input_b, tolerance }
     }

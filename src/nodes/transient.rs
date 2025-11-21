@@ -55,16 +55,21 @@ pub struct TransientNode {
 }
 
 impl TransientNode {
-    /// Create a new transient detector node
+    /// Transient - Detects rapid amplitude changes and outputs trigger pulses
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to analyze
-    /// * `threshold_input` - NodeId of threshold (typical range: 0.01 to 0.5)
+    /// Identifies sudden changes (drums, percussive hits, discontinuities)
+    /// and outputs 1.0 when amplitude difference exceeds threshold.
     ///
-    /// # Threshold Guidelines
-    /// - 0.01-0.05: Very sensitive (detects subtle changes)
-    /// - 0.1-0.2: Medium sensitivity (typical drum hits)
-    /// - 0.3-0.5: Low sensitivity (only very loud transients)
+    /// # Parameters
+    /// - `input`: Signal to analyze
+    /// - `threshold_input`: Threshold for detection (0.01-0.5 typical)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~drums: s "bd sn"
+    /// ~trigger: ~drums # transient 0.1
+    /// out: sine (tap 1 120) * ~trigger
+    /// ```
     pub fn new(input: NodeId, threshold_input: NodeId) -> Self {
         Self {
             input,

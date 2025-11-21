@@ -69,13 +69,19 @@ pub struct NotNode {
 }
 
 impl NotNode {
-    /// Create a new logical NOT node with default threshold (0.5)
+    /// NotNode - Logical NOT operation with configurable threshold
     ///
-    /// # Arguments
-    /// * `input` - NodeId of the input signal
+    /// Inverts boolean logic: outputs 1.0 for values below threshold, 0.0 for values
+    /// above. Used in pattern logic and conditional signal routing.
     ///
-    /// # Default Threshold
-    /// 0.5 - Values > 0.5 are considered "true" (inverted to 0.0)
+    /// # Parameters
+    /// - `input`: NodeId of the input signal (threshold: 0.5, >0.5 = true)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~gate: 0.7
+    /// ~inverted: not ~gate
+    /// ```
     pub fn new(input: NodeId) -> Self {
         Self {
             input,

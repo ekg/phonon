@@ -44,10 +44,20 @@ pub struct BlipNode {
 }
 
 impl BlipNode {
-    /// Create a new band-limited impulse generator node
+    /// Blip - Band-limited impulse train generator (anti-aliased clicks)
     ///
-    /// # Arguments
-    /// * `freq_input` - NodeId that provides frequency (can be constant or pattern)
+    /// Generates clean impulses at specified frequency using PolyBLEP anti-aliasing.
+    /// Ideal for triggering envelopes, percussion synthesis, and physical modeling.
+    ///
+    /// # Parameters
+    /// - `freq_input`: Impulse frequency in Hz
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~impulses: blip 2
+    /// ~envelope: ~impulses # adsr 0.001 0.2 0 0.1
+    /// ~synth: sine 440 * ~envelope
+    /// ```
     pub fn new(freq_input: NodeId) -> Self {
         Self {
             freq_input,

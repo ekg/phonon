@@ -31,16 +31,23 @@ pub struct PitchShifterNode {
 }
 
 impl PitchShifterNode {
-    /// Create a new pitch shifter node
+    /// PitchShifterNode - Real-time pitch shifting with variable window size
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the signal to pitch shift
-    /// * `shift_semitones_input` - NodeId providing pitch shift in semitones
-    /// * `window_size_input` - NodeId providing window size in seconds
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Shifts pitch of audio using phase vocoder technique with configurable window
+    /// sizes. Enables creative retuning, harmonies, and pitch-time decoupling for
+    /// experimental sound design.
     ///
-    /// # Buffer Size
-    /// Uses a fixed 100ms buffer to accommodate various window sizes
+    /// # Parameters
+    /// - `input`: NodeId of signal to pitch shift
+    /// - `shift_semitones_input`: NodeId of pitch shift amount in semitones
+    /// - `window_size_input`: NodeId of window size in seconds (0.01-0.1 typical)
+    /// - `sample_rate`: Sample rate in Hz (usually 44100.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~shifted: ~signal # pitch_shifter 12 0.02
+    /// ```
     pub fn new(
         input: NodeId,
         shift_semitones_input: NodeId,

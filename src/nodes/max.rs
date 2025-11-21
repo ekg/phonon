@@ -21,11 +21,22 @@ pub struct MaxNode {
 }
 
 impl MaxNode {
-    /// Create a new max node
+    /// Max - Output maximum of two signals
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input
-    /// * `input_b` - NodeId of second input
+    /// Outputs the larger of the two input values sample-by-sample.
+    /// Useful for envelope mixing and dynamic control signal selection.
+    ///
+    /// # Parameters
+    /// - `input_a`: First signal
+    /// - `input_b`: Second signal
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~env1: impulse 2 # adsr 0.01 0.1 0.5 0.2
+    /// ~env2: impulse 3 # adsr 0.02 0.05 0.7 0.1
+    /// ~combined: ~env1 # max ~env2
+    /// out: sine 220 * ~combined * 0.5
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId) -> Self {
         Self { input_a, input_b }
     }

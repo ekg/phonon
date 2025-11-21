@@ -40,13 +40,23 @@ pub struct LineNode {
 }
 
 impl LineNode {
-    /// Create a new line generator node
+    /// Line - Linear ramp generator with trigger-based control
     ///
-    /// # Arguments
-    /// * `start_input` - NodeId providing start value
-    /// * `end_input` - NodeId providing end value
-    /// * `duration_input` - NodeId providing duration in seconds
-    /// * `trigger_input` - NodeId providing trigger signal (> 0.5 = trigger)
+    /// Generates a linear ramp from start to end value over specified duration
+    /// when triggered. Useful for envelopes, sweeps, and time-based modulation.
+    ///
+    /// # Parameters
+    /// - `start_input`: Starting value
+    /// - `end_input`: Ending value
+    /// - `duration_input`: Ramp duration in seconds
+    /// - `trigger_input`: Trigger signal (rising edge > 0.5 starts ramp)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~trig: "x ~ x ~" # bpm_to_impulse 120
+    /// ~freq_ramp: ~trig # line 220 440 0.5
+    /// out: sine ~freq_ramp * 0.5
+    /// ```
     pub fn new(
         start_input: NodeId,
         end_input: NodeId,

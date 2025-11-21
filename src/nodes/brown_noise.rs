@@ -27,10 +27,19 @@ pub struct BrownNoiseNode {
 }
 
 impl BrownNoiseNode {
-    /// Create a new brown noise node with a random seed
+    /// BrownNoise - Brownian/red noise with 6dB/octave rolloff
     ///
-    /// # Arguments
-    /// * `amplitude_input` - NodeId of the amplitude control signal
+    /// Generates random walk values with warmer, smoother tone than white noise.
+    /// Useful for ambience, wind effects, and noise-based textures.
+    ///
+    /// # Parameters
+    /// - `amplitude_input`: Noise amplitude (0.0 to 1.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~noise: brown_noise 0.5
+    /// ~filtered: ~noise # lpf 1000 0.8
+    /// ```
     pub fn new(amplitude_input: NodeId) -> Self {
         Self {
             amplitude_input,

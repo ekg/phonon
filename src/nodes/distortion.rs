@@ -41,19 +41,21 @@ pub struct DistortionNode {
 }
 
 impl DistortionNode {
-    /// Create a new distortion node
+    /// Distortion - Soft clipping waveshaper with tanh saturation
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to distort
-    /// * `drive_input` - NodeId of drive amount (typical range: 1.0 to 100.0)
-    ///   - 1.0 = no drive (clean)
-    ///   - 5.0 = mild overdrive
-    ///   - 20.0 = heavy distortion
-    ///   - 100.0 = extreme saturation
-    /// * `mix_input` - NodeId of wet/dry mix (0.0 to 1.0)
-    ///   - 0.0 = completely dry (bypass)
-    ///   - 0.5 = 50/50 blend
-    ///   - 1.0 = completely wet (full effect)
+    /// Applies smooth, musical distortion using hyperbolic tangent waveshaping,
+    /// producing warm analog-style saturation ideal for overdrive/distortion.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId providing signal to distort
+    /// - `drive_input`: NodeId providing drive amount 1.0-100.0 (default: 5)
+    /// - `mix_input`: NodeId providing wet/dry mix 0.0-1.0 (default: 1.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 110
+    /// ~distorted: ~signal # distortion 5 0.8
+    /// ```
     pub fn new(input: NodeId, drive_input: NodeId, mix_input: NodeId) -> Self {
         Self {
             input,

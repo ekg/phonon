@@ -32,10 +32,19 @@ pub struct PinkNoiseNode {
 }
 
 impl PinkNoiseNode {
-    /// Create a new pink noise node with a random seed
+    /// PinkNoiseNode - 1/f noise generator with equal energy per octave
     ///
-    /// # Arguments
-    /// * `amplitude_input` - NodeId of the amplitude control signal
+    /// Generates pink noise (1/f spectrum) using Voss-McCartney algorithm with seven
+    /// octave bins. Warmer than white noise for natural-sounding textures, rain sounds,
+    /// and ambient backgrounds.
+    ///
+    /// # Parameters
+    /// - `amplitude_input`: NodeId of amplitude control signal (0.0-1.0 typical)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~pink: pink_noise 0.5
+    /// ```
     pub fn new(amplitude_input: NodeId) -> Self {
         let mut rng = StdRng::from_entropy();
         // Initialize octaves with random values

@@ -65,19 +65,22 @@ pub struct StereoWidenerNode {
 }
 
 impl StereoWidenerNode {
-    /// Create a new stereo widener node
+    /// StereoWidener - Controls stereo width using phase shift (mono) or M/S (stereo)
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to widen
-    /// * `width_input` - NodeId providing width amount (0.0-2.0)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Adjusts stereo width using Haas effect (current mono mode) or
+    /// Mid/Side processing (when stereo support added).
     ///
-    /// # Notes
-    /// - Width 0.0 produces mono output (no width)
-    /// - Width 1.0 passes signal unchanged
-    /// - Width 2.0 produces maximum stereo width
-    /// - Current implementation uses all-pass phase shift for mono compatibility
-    /// - When stereo support is added, will use full M/S processing
+    /// # Parameters
+    /// - `input`: Audio signal to widen
+    /// - `width_input`: Width amount (0.0=mono, 1.0=normal, 2.0=ultra-wide)
+    /// - `sample_rate`: Sample rate for filter calculations
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~synth: saw 110
+    /// ~width: lfo 0.5 0.5 2.0
+    /// out: ~synth # widener ~width
+    /// ```
     pub fn new(input: NodeId, width_input: NodeId, sample_rate: f32) -> Self {
         // Initialize all-pass filter at ~800 Hz with Q=0.707 for smooth phase shift
         // This frequency is chosen to create perceptible width without harshness

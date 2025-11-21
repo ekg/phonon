@@ -102,18 +102,20 @@ pub struct ScaleQuantizeNode {
 }
 
 impl ScaleQuantizeNode {
-    /// Create a new scale quantize node with custom scale
+    /// ScaleQuantizeNode - Quantize frequencies to musical scales
     ///
-    /// # Arguments
-    /// * `input` - NodeId of frequency to quantize
-    /// * `scale` - Arc-wrapped vector of semitone offsets
-    /// * `root` - NodeId of root frequency
+    /// Maps input frequencies to the nearest pitch in a musical scale,
+    /// handling octaves correctly while preserving register.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId of frequency to quantize (in Hz)
+    /// - `scale`: Arc-wrapped vector of semitone offsets (e.g., [0, 2, 4, 5, 7, 9, 11] for major)
+    /// - `root`: NodeId of root frequency in Hz
     ///
     /// # Example
-    /// ```ignore
-    /// // Custom whole-tone scale (C D E F# G# A#)
-    /// let whole_tone = Arc::new(vec![0.0, 2.0, 4.0, 6.0, 8.0, 10.0]);
-    /// let quantizer = ScaleQuantizeNode::new(1, whole_tone, 2);
+    /// ```phonon
+    /// ~lfo: sine 0.25
+    /// ~quantized: ~lfo # scale_quantize 440 major
     /// ```
     pub fn new(input: NodeId, scale: Arc<Vec<f32>>, root: NodeId) -> Self {
         // Validate scale is not empty and is sorted

@@ -53,17 +53,21 @@ pub struct RHPFNode {
 }
 
 impl RHPFNode {
-    /// Create a new resonant highpass filter node
+    /// RHPFNode - Resonant highpass filter with q-factor control
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing audio signal to filter
-    /// * `cutoff_input` - NodeId providing cutoff frequency (Hz)
-    /// * `res_input` - NodeId providing resonance (Q factor)
+    /// Implements a resonant highpass filter using biquad design, attenuating
+    /// frequencies below the cutoff with adjustable resonance peaks.
     ///
-    /// # Notes
-    /// - Higher resonance values create sharper peaks at the cutoff frequency
-    /// - Very high resonance (>10) can cause self-oscillation
-    /// - Modulating cutoff/resonance creates classic filter sweep effects
+    /// # Parameters
+    /// - `input`: NodeId providing audio signal to filter
+    /// - `cutoff_input`: NodeId providing cutoff frequency (Hz, 20-20000)
+    /// - `res_input`: NodeId providing resonance/Q factor (0.1-20.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 55
+    /// ~filtered: ~signal # rhpf 500 5.0
+    /// ```
     pub fn new(input: NodeId, cutoff_input: NodeId, res_input: NodeId) -> Self {
         // Initialize with default coefficients (will be updated on first process)
         let coeffs = Coefficients::<f32>::from_params(

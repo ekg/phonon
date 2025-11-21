@@ -21,11 +21,23 @@ pub struct MinNode {
 }
 
 impl MinNode {
-    /// Create a new minimum node
+    /// Min - Output minimum of two signals
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input
-    /// * `input_b` - NodeId of second input
+    /// Outputs the smaller of the two input values sample-by-sample.
+    /// Useful for envelope mixing and dynamic control signal selection.
+    ///
+    /// # Parameters
+    /// - `input_a`: First signal
+    /// - `input_b`: Second signal
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~lfo1: sine 0.25
+    /// ~lfo2: sine 0.33
+    /// ~combined: ~lfo1 # min ~lfo2
+    /// ~freq: ~combined * 2000 + 1000
+    /// out: sine ~freq * 0.5
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId) -> Self {
         Self { input_a, input_b }
     }

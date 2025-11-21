@@ -21,11 +21,22 @@ pub struct LessThanNode {
 }
 
 impl LessThanNode {
-    /// Create a new less-than comparison node
+    /// Less-Than - Comparison gate (a < b)
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input
-    /// * `input_b` - NodeId of second input
+    /// Outputs 1.0 when input_a < input_b, else 0.0.
+    /// Useful for threshold detection, conditional logic, and signal routing.
+    ///
+    /// # Parameters
+    /// - `input_a`: First signal (left side of comparison)
+    /// - `input_b`: Second signal (right side of comparison)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~lfo: sine 0.5
+    /// ~threshold: 0.0
+    /// ~gate: ~lfo # lt ~threshold
+    /// out: sine 220 * ~gate
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId) -> Self {
         Self { input_a, input_b }
     }

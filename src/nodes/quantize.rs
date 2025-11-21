@@ -56,13 +56,20 @@ pub struct QuantizeNode {
 }
 
 impl QuantizeNode {
-    /// Create a new quantize node
+    /// QuantizeNode - Reduce bit depth for lo-fi digital effects
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to quantize
-    /// * `bits_input` - NodeId of bit depth (1.0 to 16.0)
+    /// Reduces bit depth by quantizing audio to N discrete amplitude levels,
+    /// creating the characteristic stepped/digital sound of early samplers and lo-fi gear.
     ///
-    /// Values outside [1.0, 16.0] are clamped to that range.
+    /// # Parameters
+    /// - `input`: NodeId of signal to quantize
+    /// - `bits_input`: NodeId of bit depth (1.0 to 16.0, clamped to this range)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~8bit: ~signal # quantize 8.0
+    /// ```
     pub fn new(input: NodeId, bits_input: NodeId) -> Self {
         Self {
             input,

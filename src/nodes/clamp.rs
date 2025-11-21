@@ -23,12 +23,21 @@ pub struct ClampNode {
 }
 
 impl ClampNode {
-    /// Create a new clamp node
+    /// Clamp - Constrains signal to [min, max] range
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to clamp
-    /// * `min_input` - NodeId of minimum value
-    /// * `max_input` - NodeId of maximum value
+    /// Limits signal amplitude without clipping distortion, preserving signal shape.
+    /// Useful for gate control, safety limiting, and range mapping.
+    ///
+    /// # Parameters
+    /// - `input`: Signal to constrain
+    /// - `min_input`: Minimum value (lower bound)
+    /// - `max_input`: Maximum value (upper bound)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 220
+    /// ~clamped: ~signal # clamp -0.5 0.5
+    /// ```
     pub fn new(input: NodeId, min_input: NodeId, max_input: NodeId) -> Self {
         Self {
             input,

@@ -63,18 +63,23 @@ pub struct PMOscillatorNode {
 }
 
 impl PMOscillatorNode {
-    /// Create a new PM oscillator node
+    /// PMOscillatorNode - Phase modulation synthesis with external modulation signal
     ///
-    /// # Arguments
-    /// * `carrier_freq_input` - NodeId providing carrier frequency
-    /// * `modulator_freq_input` - NodeId providing modulator frequency
-    /// * `mod_index_input` - NodeId providing modulation index
+    /// Phase modulates a carrier oscillator with an arbitrary external signal.
+    /// Enables complex timbral modulation from any audio source (noise, LFO, samples)
+    /// for rich, evolving synthesis and creative sound design.
     ///
-    /// # Modulation Index Guidelines
-    /// - 0.0 = Pure sine wave (no modulation)
-    /// - 1.0 = Mild harmonics
-    /// - 2.0-5.0 = Rich harmonic content
-    /// - >10.0 = Very bright/noisy
+    /// # Parameters
+    /// - `carrier_freq_input`: NodeId of carrier frequency in Hz
+    /// - `modulator_freq_input`: NodeId of modulator frequency in Hz (usually LFO)
+    /// - `mod_index_input`: NodeId of modulation index depth (0.0-20.0 typical)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~carrier: 440
+    /// ~lfo: sine 5
+    /// ~pm: pm_oscillator ~carrier ~lfo 5
+    /// ```
     pub fn new(
         carrier_freq_input: NodeId,
         modulator_freq_input: NodeId,

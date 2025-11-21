@@ -42,11 +42,21 @@ pub struct StereoMergerNode {
 }
 
 impl StereoMergerNode {
-    /// Create a new stereo merger node
+    /// StereoMerger - Combines two mono signals into stereo output
     ///
-    /// # Arguments
-    /// * `left` - NodeId providing the left channel signal
-    /// * `right` - NodeId providing the right channel signal
+    /// Merges left and right channels using equal-power mixing.
+    /// Currently outputs mono (L+R)/2 due to single-channel trait constraint.
+    ///
+    /// # Parameters
+    /// - `left`: Left channel input signal
+    /// - `right`: Right channel input signal
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~left: sine 440
+    /// ~right: saw 220
+    /// out: ~left # merger ~right
+    /// ```
     pub fn new(left: NodeId, right: NodeId) -> Self {
         Self { left, right }
     }

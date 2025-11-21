@@ -27,12 +27,21 @@ pub struct FoldNode {
 }
 
 impl FoldNode {
-    /// Create a new fold node
+    /// Fold - Wave folding distortion that reflects signal at boundaries
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to fold
-    /// * `min_input` - NodeId of minimum value
-    /// * `max_input` - NodeId of maximum value
+    /// Reflects signal when exceeding min/max bounds, creating harmonic distortion
+    /// with characteristic folding effects, different from hard clipping.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId providing signal to fold
+    /// - `min_input`: NodeId providing minimum boundary (default: -1.0)
+    /// - `max_input`: NodeId providing maximum boundary (default: 1.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 110 * 2
+    /// ~folded: ~signal # fold -1 1
+    /// ```
     pub fn new(input: NodeId, min_input: NodeId, max_input: NodeId) -> Self {
         Self {
             input,

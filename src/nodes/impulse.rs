@@ -24,10 +24,20 @@ pub struct ImpulseNode {
 }
 
 impl ImpulseNode {
-    /// Create a new impulse generator node
+    /// Impulse Generator - Periodic single-sample spikes
     ///
-    /// # Arguments
-    /// * `frequency_input` - NodeId that provides frequency (can be constant or pattern)
+    /// Generates a 1.0 spike for one sample at each phase wrap, with 0.0 between spikes.
+    /// Ideal for triggering envelopes, sequencing, or creating rhythmic gates.
+    ///
+    /// # Parameters
+    /// - `frequency_input`: Spike frequency in Hz
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~trig: sine 0.5 # impulse
+    /// ~note: ~trig # adsr 0.01 0.1 0.5 0.2
+    /// out: sine 220 * ~note
+    /// ```
     pub fn new(frequency_input: NodeId) -> Self {
         Self {
             frequency_input,

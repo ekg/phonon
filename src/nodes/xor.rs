@@ -63,14 +63,22 @@ pub struct XorNode {
 }
 
 impl XorNode {
-    /// Create a new logical XOR node with default threshold (0.5)
+    /// XOR - Logical exclusive OR for boolean control signals
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input
-    /// * `input_b` - NodeId of second input
+    /// Returns 1.0 when exactly ONE input is true (>0.5), otherwise 0.0.
+    /// Useful for toggle logic and signal routing decisions.
     ///
-    /// # Default Threshold
-    /// 0.5 - Values > 0.5 are considered "true"
+    /// # Parameters
+    /// - `input_a`: First signal
+    /// - `input_b`: Second signal
+    /// Default threshold: 0.5 (values > 0.5 = true)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~a: lfo 0.5 0 1
+    /// ~b: lfo 0.3 0 1
+    /// out: sine 440 * (a # xor b)
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId) -> Self {
         Self {
             input_a,

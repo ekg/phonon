@@ -33,14 +33,23 @@ pub struct MixNode {
 }
 
 impl MixNode {
-    /// Create a new mix node
+    /// Mix - Weighted sum of N signals
     ///
-    /// # Arguments
-    /// * `inputs` - NodeIds to mix
-    /// * `weights` - Weight for each input (must be same length as inputs)
+    /// Combines multiple input signals using static weights.
+    /// Each input is multiplied by its weight and summed together.
     ///
-    /// # Panics
-    /// Panics if inputs.len() != weights.len()
+    /// # Parameters
+    /// - `inputs`: Vector of signal NodeIds to mix
+    /// - `weights`: Vector of weights (must match inputs length)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~sig1: sine 220
+    /// ~sig2: sine 330
+    /// ~sig3: sine 440
+    /// ~mixed: mix [~sig1, ~sig2, ~sig3] [0.5, 0.3, 0.2]
+    /// out: ~mixed
+    /// ```
     pub fn new(inputs: Vec<NodeId>, weights: Vec<f32>) -> Self {
         assert_eq!(
             inputs.len(),

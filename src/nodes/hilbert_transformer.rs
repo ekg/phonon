@@ -121,15 +121,21 @@ pub struct HilbertTransformerNode {
 }
 
 impl HilbertTransformerNode {
-    /// Create a new Hilbert transformer node outputting I (in-phase)
+    /// Hilbert Transformer - 90° phase shift for SSB modulation
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing audio signal to transform
+    /// Produces I (in-phase) and Q (quadrature) outputs for single-sideband modulation,
+    /// frequency shifting, and complex signal analysis. I and Q are approximately 90° apart.
     ///
-    /// # Notes
-    /// - Produces ~90° phase shift from 20 Hz to 20 kHz
-    /// - Group delay: ~0.5ms (typical for 6-stage design)
-    /// - For SSB modulation, create two instances (I and Q)
+    /// # Parameters
+    /// - `input`: Audio signal to transform
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 440
+    /// ~i: ~signal # hilbert
+    /// ~q: ~signal # hilbert_q
+    /// out: ~i
+    /// ```
     pub fn new(input: NodeId) -> Self {
         Self::with_output_mode(input, false)
     }

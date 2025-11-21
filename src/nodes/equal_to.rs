@@ -25,12 +25,21 @@ pub struct EqualToNode {
 }
 
 impl EqualToNode {
-    /// Create a new equal to comparison node
+    /// EqualTo - Compares two signals for equality with tolerance
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input (left side of comparison)
-    /// * `input_b` - NodeId of second input (right side of comparison)
-    /// * `tolerance` - Epsilon for floating-point comparison (default 1e-6)
+    /// Outputs 1.0 when inputs are equal within floating-point epsilon,
+    /// useful for creating triggers and conditional logic.
+    ///
+    /// # Parameters
+    /// - `input_a`: NodeId providing first signal
+    /// - `input_b`: NodeId providing second signal
+    /// - `tolerance`: Epsilon for floating-point comparison (default: 1e-6)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~sig_a: sine 110
+    /// ~trigger: ~sig_a # equal_to 0.5 0.001
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId, tolerance: f32) -> Self {
         Self { input_a, input_b, tolerance }
     }

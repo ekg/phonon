@@ -24,16 +24,22 @@ pub struct DelayNode {
 }
 
 impl DelayNode {
-    /// Create a new delay node
+    /// Delay - Simple delay line with pattern-controlled timing
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the signal to delay
-    /// * `delay_time_input` - NodeId providing delay time in seconds
-    /// * `max_delay` - Maximum delay time in seconds (determines buffer size)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Implements a basic delay effect using a circular buffer,
+    /// with delay time controllable at sample rate.
     ///
-    /// # Panics
-    /// Panics if max_delay <= 0.0
+    /// # Parameters
+    /// - `input`: NodeId providing signal to delay
+    /// - `delay_time_input`: NodeId providing delay time in seconds
+    /// - `max_delay`: Maximum delay time in seconds (determines buffer size)
+    /// - `sample_rate`: Sample rate in Hz (usually 44100.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~delayed: ~signal # delay 0.2 1.0 44100
+    /// ```
     pub fn new(input: NodeId, delay_time_input: NodeId, max_delay: f32, sample_rate: f32) -> Self {
         assert!(max_delay > 0.0, "max_delay must be greater than 0");
 

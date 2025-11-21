@@ -98,20 +98,21 @@ pub struct ResonzNode {
 }
 
 impl ResonzNode {
-    /// Create a new Resonz filter node
+    /// ResonzNode - Classic resonant bandpass filter with rq control
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to filter
-    /// * `freq` - NodeId providing center frequency in Hz (20 to 20000)
-    /// * `rq` - NodeId providing bandwidth ratio (0.001 to 1.0)
+    /// Implements a resonant bandpass filter using rq (reciprocal of Q) for intuitive
+    /// bandwidth control. Small rq = narrow bandwidth = high resonance.
     ///
-    /// # Notes on rq parameter
-    /// - rq = bandwidth / center_frequency
-    /// - rq = 0.01 gives very narrow, resonant filter (Q = 100)
-    /// - rq = 0.1 gives moderate bandwidth (Q = 10)
-    /// - rq = 1.0 gives very wide bandwidth (Q = 1)
-    /// - Small rq = narrow bandwidth = high resonance
-    /// - Large rq = wide bandwidth = low resonance
+    /// # Parameters
+    /// - `input`: NodeId providing signal to filter
+    /// - `freq`: NodeId providing center frequency in Hz (20 to 20000)
+    /// - `rq`: NodeId providing bandwidth ratio (0.001 to 1.0, where smaller = narrower)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~noise: random 0.5
+    /// ~filtered: ~noise # resonz 440 0.01
+    /// ```
     pub fn new(input: NodeId, freq: NodeId, rq: NodeId) -> Self {
         Self {
             input,

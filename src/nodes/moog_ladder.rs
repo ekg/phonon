@@ -79,19 +79,23 @@ pub struct MoogLadderNode {
 }
 
 impl MoogLadderNode {
-    /// Create a new Moog ladder filter node
+    /// Moog Ladder Filter - Classic analog-modeled lowpass with resonance
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to filter
-    /// * `cutoff` - NodeId providing cutoff frequency in Hz (20 to 20000)
-    /// * `resonance` - NodeId providing resonance amount (0.0 to 4.0)
+    /// 4-pole ladder filter based on Moog design with voltage-controlled resonance.
+    /// Features self-oscillation at high resonance for subtractive synthesis.
     ///
-    /// # Notes
-    /// - Resonance = 0.0 gives no resonance (pure lowpass)
-    /// - Resonance = 2.0-3.0 gives classic Moog character
-    /// - Resonance > 3.5 causes self-oscillation (sine wave at cutoff frequency)
-    /// - Cutoff frequency is clamped to 20 Hz - 20 kHz
-    /// - Very high resonance is clamped to 4.0 to prevent instability
+    /// # Parameters
+    /// - `input`: Audio signal to filter
+    /// - `cutoff`: Cutoff frequency in Hz (20-20000)
+    /// - `resonance`: Resonance amount (0.0-4.0, >3.5 = self-oscillating)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~saw: saw 110
+    /// ~cutoff: sine 0.5 * 4000 + 2000
+    /// ~filtered: ~saw # moog ~cutoff 2.5
+    /// out: ~filtered * 0.5
+    /// ```
     pub fn new(input: NodeId, cutoff: NodeId, resonance: NodeId) -> Self {
         Self {
             input,

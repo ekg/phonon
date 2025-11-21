@@ -67,19 +67,23 @@ pub struct SVFNode {
 }
 
 impl SVFNode {
-    /// Create a new State Variable Filter node
+    /// SVF - State Variable Filter with four modes (LP, HP, BP, Notch)
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to filter
-    /// * `cutoff` - NodeId providing cutoff frequency in Hz
-    /// * `q` - NodeId providing Q (resonance) factor
-    /// * `mode` - Filter mode (LowPass, HighPass, BandPass, Notch)
+    /// Multimode resonant filter with topology-preserving design for smooth
+    /// parameter modulation. Excellent for subtractive synthesis.
     ///
-    /// # Notes
-    /// - Q range: 0.1 to 20.0 (higher = sharper resonance)
-    /// - Cutoff range: 20 Hz to 20 kHz
-    /// - Mode is set at construction and cannot be modulated
-    /// - For smooth modulation, use separate SVF instances per mode
+    /// # Parameters
+    /// - `input`: Signal to filter
+    /// - `cutoff`: Cutoff frequency in Hz (20-20000)
+    /// - `q`: Resonance factor (0.1-20.0, higher = sharper)
+    /// - `mode`: Filter type (LowPass, HighPass, BandPass, Notch)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~osc: saw 110
+    /// ~cutoff: lfo 0.5 500 2000
+    /// out: ~osc # svf ~cutoff 2.0 lpf
+    /// ```
     pub fn new(input: NodeId, cutoff: NodeId, q: NodeId, mode: SVFMode) -> Self {
         Self {
             input,

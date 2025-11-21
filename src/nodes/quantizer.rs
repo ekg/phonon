@@ -31,16 +31,19 @@ pub struct QuantizerNode {
 }
 
 impl QuantizerNode {
-    /// Create a new quantizer node
+    /// QuantizerNode - Snap values to discrete quantization grid
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to quantize
-    /// * `step_size_input` - NodeId of step size (quantization grid)
+    /// Quantizes input signal to discrete steps based on step size.
+    /// Step size is evaluated per-sample, allowing for dynamic quantization effects.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId of signal to quantize
+    /// - `step_size_input`: NodeId of step size (quantization grid, prevents division by zero with min 0.0001)
     ///
     /// # Example
-    /// ```ignore
-    /// let quantizer = QuantizerNode::new(1, 2);
-    /// // Quantizes node 1's output to steps defined by node 2
+    /// ```phonon
+    /// ~lfo: sine 0.25
+    /// ~quantized: ~lfo # quantizer 1.0
     /// ```
     pub fn new(input: NodeId, step_size_input: NodeId) -> Self {
         Self {

@@ -63,20 +63,21 @@ pub struct BitCrushNode {
 }
 
 impl BitCrushNode {
-    /// Create a new bitcrusher node
+    /// BitCrush - Reduces bit depth and sample rate for lo-fi digital effects
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to process
-    /// * `bits_input` - NodeId of bit depth (1.0 to 16.0)
-    ///   - 16.0 = no reduction (CD quality)
-    ///   - 8.0 = lo-fi (classic sampler)
-    ///   - 4.0 = very lo-fi (game boy)
-    ///   - 1.0 = extreme (1-bit, just sign)
-    /// * `sample_rate_input` - NodeId of sample rate reduction factor (1.0 to 64.0)
-    ///   - 1.0 = no reduction (full sample rate)
-    ///   - 4.0 = 1/4 sample rate (mild aliasing)
-    ///   - 16.0 = 1/16 sample rate (strong aliasing)
-    ///   - 64.0 = 1/64 sample rate (extreme stepping)
+    /// Creates retro digital artifacts through bit depth quantization and sample rate stepping.
+    /// Ideal for lo-fi, 8-bit game sounds, telephone/radio effects, and electronic textures.
+    ///
+    /// # Parameters
+    /// - `input`: Signal to process
+    /// - `bits_input`: Bit depth (1-16, 16=CD quality, 4=lo-fi, 1=extreme)
+    /// - `sample_rate_input`: Sample rate reduction factor (1-64, 1=full, 64=extreme)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 220
+    /// ~crushed: ~signal # bitcrush 4 4
+    /// ```
     pub fn new(input: NodeId, bits_input: NodeId, sample_rate_input: NodeId) -> Self {
         Self {
             input,

@@ -65,17 +65,21 @@ pub struct CrossoverLowNode {
 }
 
 impl CrossoverLowNode {
-    /// Create a new low band crossover node
+    /// CrossoverLow - Extracts low frequencies from 3-band Linkwitz-Riley crossover
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to split
-    /// * `low_freq_input` - NodeId providing low/mid crossover frequency in Hz (default 250)
-    /// * `high_freq_input` - NodeId providing mid/high crossover frequency in Hz (not used but needed for consistency)
+    /// Passes frequencies below the low crossover point using cascaded
+    /// 24 dB/octave Butterworth lowpass filters.
     ///
-    /// # Notes
-    /// - Default low_freq: 250 Hz (typical bass/mid split)
-    /// - Uses two cascaded Butterworth lowpass filters
-    /// - 24 dB/octave rolloff above low_freq
+    /// # Parameters
+    /// - `input`: NodeId providing signal to split
+    /// - `low_freq_input`: NodeId providing low/mid crossover frequency in Hz (default: 250)
+    /// - `high_freq_input`: NodeId providing mid/high crossover frequency in Hz (not used for low band)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 110
+    /// ~low_band: ~signal # crossover_low 250 2000
+    /// ```
     pub fn new(input: NodeId, low_freq_input: NodeId, high_freq_input: NodeId) -> Self {
         // Initialize with 250 Hz cutoff, Butterworth Q
         let coeffs = Coefficients::<f32>::from_params(
@@ -194,17 +198,21 @@ pub struct CrossoverMidNode {
 }
 
 impl CrossoverMidNode {
-    /// Create a new mid band crossover node
+    /// CrossoverMid - Extracts mid frequencies from 3-band Linkwitz-Riley crossover
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to split
-    /// * `low_freq_input` - NodeId providing low/mid crossover frequency in Hz (default 250)
-    /// * `high_freq_input` - NodeId providing mid/high crossover frequency in Hz (default 2000)
+    /// Passes frequencies between the low and high crossover points using
+    /// Butterworth highpass and lowpass filters in series.
     ///
-    /// # Notes
-    /// - Default range: 250 Hz to 2000 Hz
-    /// - Uses Butterworth highpass + lowpass
-    /// - 12 dB/octave rolloff on each side
+    /// # Parameters
+    /// - `input`: NodeId providing signal to split
+    /// - `low_freq_input`: NodeId providing low/mid crossover frequency in Hz (default: 250)
+    /// - `high_freq_input`: NodeId providing mid/high crossover frequency in Hz (default: 2000)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 110
+    /// ~mid_band: ~signal # crossover_mid 250 2000
+    /// ```
     pub fn new(input: NodeId, low_freq_input: NodeId, high_freq_input: NodeId) -> Self {
         // Initialize highpass at 250 Hz
         let hp_coeffs = Coefficients::<f32>::from_params(
@@ -353,17 +361,21 @@ pub struct CrossoverHighNode {
 }
 
 impl CrossoverHighNode {
-    /// Create a new high band crossover node
+    /// CrossoverHigh - Extracts high frequencies from 3-band Linkwitz-Riley crossover
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to split
-    /// * `low_freq_input` - NodeId providing low/mid crossover frequency in Hz (not used but needed for consistency)
-    /// * `high_freq_input` - NodeId providing mid/high crossover frequency in Hz (default 2000)
+    /// Passes frequencies above the high crossover point using cascaded
+    /// 24 dB/octave Butterworth highpass filters.
     ///
-    /// # Notes
-    /// - Default high_freq: 2000 Hz (typical mid/treble split)
-    /// - Uses two cascaded Butterworth highpass filters
-    /// - 24 dB/octave rolloff below high_freq
+    /// # Parameters
+    /// - `input`: NodeId providing signal to split
+    /// - `low_freq_input`: NodeId providing low/mid crossover frequency in Hz (not used for high band)
+    /// - `high_freq_input`: NodeId providing mid/high crossover frequency in Hz (default: 2000)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 110
+    /// ~high_band: ~signal # crossover_high 250 2000
+    /// ```
     pub fn new(input: NodeId, low_freq_input: NodeId, high_freq_input: NodeId) -> Self {
         // Initialize with 2000 Hz cutoff, Butterworth Q
         let coeffs = Coefficients::<f32>::from_params(

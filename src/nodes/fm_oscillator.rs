@@ -51,18 +51,22 @@ pub struct FMOscillatorNode {
 }
 
 impl FMOscillatorNode {
-    /// Create a new FM oscillator node
+    /// FMOscillator - Frequency modulation synthesis with rich harmonics
     ///
-    /// # Arguments
-    /// * `carrier_freq_input` - NodeId providing carrier frequency
-    /// * `modulator_freq_input` - NodeId providing modulator frequency
-    /// * `mod_index_input` - NodeId providing modulation index
+    /// Implements John Chowning's FM synthesis with modulator frequency modulating
+    /// carrier phase, creating complex timbres from simple controls.
     ///
-    /// # Modulation Index Guidelines
-    /// - 0.0 = Pure sine wave (no modulation)
-    /// - 1.0 = Mild harmonics
-    /// - 2.0-5.0 = Rich harmonic content
-    /// - >10.0 = Very bright/noisy
+    /// # Parameters
+    /// - `carrier_freq_input`: NodeId providing carrier frequency (Hz)
+    /// - `modulator_freq_input`: NodeId providing modulator frequency (Hz)
+    /// - `mod_index_input`: NodeId providing modulation index depth (0.0-10.0+)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~carrier: "440 880 1760"
+    /// ~modulator: "440 440 440"
+    /// ~fm: ~carrier # fm_oscillator ~modulator 2.0
+    /// ```
     pub fn new(
         carrier_freq_input: NodeId,
         modulator_freq_input: NodeId,

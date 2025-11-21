@@ -90,23 +90,27 @@ pub struct ParametricEQNode {
 }
 
 impl ParametricEQNode {
-    /// Create a new 3-band parametric EQ node
+    /// ParametricEQNode - 3-band parametric EQ for precise frequency shaping
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to equalize
-    /// * `low_freq` - NodeId for low shelf frequency (20-500 Hz typical)
-    /// * `low_gain` - NodeId for low shelf gain (-24 to +24 dB)
-    /// * `mid_freq` - NodeId for mid peak frequency (200-8000 Hz typical)
-    /// * `mid_gain` - NodeId for mid peak gain (-24 to +24 dB)
-    /// * `mid_q` - NodeId for mid peak Q factor (0.1-10.0)
-    /// * `high_freq` - NodeId for high shelf frequency (2000-20000 Hz typical)
-    /// * `high_gain` - NodeId for high shelf gain (-24 to +24 dB)
+    /// A production-grade equalizer with three independently controllable bands: low shelf,
+    /// mid peak (peaking), and high shelf. Each band can be boosted/cut and has adjustable
+    /// frequency and Q for surgical frequency control.
     ///
-    /// # Notes
-    /// - Gain in dB: positive = boost, negative = cut, 0 = neutral
-    /// - Q factor: lower = wider bandwidth, higher = narrower (surgical)
-    /// - Frequencies are clamped to valid range (20 Hz to Nyquist)
-    /// - Gains are clamped to ±24 dB to prevent extreme boosts
+    /// # Parameters
+    /// - `input`: NodeId of signal to equalize
+    /// - `low_freq`: NodeId for low shelf frequency (20-500 Hz)
+    /// - `low_gain`: NodeId for low shelf gain in dB (-24 to +24)
+    /// - `mid_freq`: NodeId for mid band frequency (200-8000 Hz)
+    /// - `mid_gain`: NodeId for mid band gain in dB (-24 to +24)
+    /// - `mid_q`: NodeId for mid band Q factor (0.1-10.0)
+    /// - `high_freq`: NodeId for high shelf frequency (2000-20000 Hz)
+    /// - `high_gain`: NodeId for high shelf gain in dB (-24 to +24)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~eq: ~signal # parametric_eq 100 3 1000 0 1 8000 2
+    /// ```
     pub fn new(
         input: NodeId,
         low_freq: NodeId,

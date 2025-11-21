@@ -69,14 +69,24 @@ pub struct ADSRNode {
 }
 
 impl ADSRNode {
-    /// Create a new ADSR envelope node
+    /// ADSR - Gate-triggered Attack-Decay-Sustain-Release envelope
     ///
-    /// # Arguments
-    /// * `gate_input` - NodeId providing gate signal (> 0.5 = on, <= 0.5 = off)
-    /// * `attack_input` - NodeId providing attack time in seconds
-    /// * `decay_input` - NodeId providing decay time in seconds
-    /// * `sustain_input` - NodeId providing sustain level (0.0 to 1.0)
-    /// * `release_input` - NodeId providing release time in seconds
+    /// Four-phase envelope controlled by gate signal. Ideal for sustained instruments,
+    /// pads, and any sound that needs to respond to note on/off events.
+    ///
+    /// # Parameters
+    /// - `gate_input`: Gate signal (rising edge = note on, falling edge = note off)
+    /// - `attack_input`: Attack time in seconds
+    /// - `decay_input`: Decay time in seconds
+    /// - `sustain_input`: Sustain level (0.0 to 1.0)
+    /// - `release_input`: Release time in seconds
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~gate: "x ~ x ~"
+    /// ~env: ~gate # adsr 0.01 0.1 0.7 0.2
+    /// ~synth: sine 440 * ~env
+    /// ```
     pub fn new(
         gate_input: NodeId,
         attack_input: NodeId,

@@ -36,11 +36,20 @@ pub struct RectifierNode {
 }
 
 impl RectifierNode {
-    /// Create a new rectifier node
+    /// RectifierNode - Apply full-wave or half-wave rectification
     ///
-    /// # Arguments
-    /// * `input` - NodeId of input signal
-    /// * `mode` - Rectification mode (FullWave or HalfWave)
+    /// Performs rectification on the input signal, useful for envelope following,
+    /// distortion effects, and signal conditioning.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId of input signal
+    /// - `mode`: Rectification mode (FullWave uses absolute value, HalfWave clips negatives to zero)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~rectified: ~signal # rectifier
+    /// ```
     pub fn new(input: NodeId, mode: RectifierMode) -> Self {
         Self { input, mode }
     }

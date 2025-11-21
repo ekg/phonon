@@ -28,11 +28,20 @@ pub struct PowerNode {
 }
 
 impl PowerNode {
-    /// Create a new power node
+    /// PowerNode - Raises signal to variable exponent power
     ///
-    /// # Arguments
-    /// * `input` - NodeId of base signal
-    /// * `exponent_input` - NodeId of exponent signal
+    /// Implements element-wise power operation for dynamic waveform shaping,
+    /// waveshaping distortion, and nonlinear transfer functions.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId of base signal
+    /// - `exponent_input`: NodeId of exponent value (0.0-3.0 typical)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~warped: power ~signal 2
+    /// ```
     pub fn new(input: NodeId, exponent_input: NodeId) -> Self {
         Self {
             input,

@@ -82,15 +82,21 @@ pub struct EnvelopeFollowerNode {
 }
 
 impl EnvelopeFollowerNode {
-    /// Create a new envelope follower node
+    /// EnvelopeFollower - Extracts amplitude envelope from audio signal
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to extract envelope from
-    /// * `attack_input` - NodeId of attack time signal (in seconds)
-    /// * `release_input` - NodeId of release time signal (in seconds)
+    /// Analyzes input amplitude and outputs smooth envelope following,
+    /// useful for sidechain, auto-wah, and dynamics visualization.
     ///
-    /// # Initial State
-    /// - `envelope_state` starts at 0.0
+    /// # Parameters
+    /// - `input`: NodeId providing signal to analyze
+    /// - `attack_input`: NodeId providing attack time in seconds (default: 0.005)
+    /// - `release_input`: NodeId providing release time in seconds (default: 0.1)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 110
+    /// ~envelope: ~signal # envelope_follower 0.01 0.2
+    /// ```
     pub fn new(input: NodeId, attack_input: NodeId, release_input: NodeId) -> Self {
         Self {
             input,

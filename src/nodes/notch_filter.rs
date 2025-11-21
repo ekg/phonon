@@ -32,16 +32,22 @@ pub struct NotchFilterNode {
 }
 
 impl NotchFilterNode {
-    /// Create a new notch filter node
+    /// NotchFilterNode - Removes specific frequency with variable rejection width
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing audio signal to filter
-    /// * `center_freq_input` - NodeId providing center frequency to reject (Hz)
-    /// * `q_input` - NodeId providing resonance (Q factor, controls bandwidth)
+    /// A resonant notch filter that creates a narrow dip at the center frequency.
+    /// Used to remove hum, feedback, or specific tonal elements while preserving
+    /// surrounding frequencies.
     ///
-    /// # Notes
-    /// - Higher Q = narrower notch (more selective rejection)
-    /// - Lower Q = wider notch (broader rejection band)
+    /// # Parameters
+    /// - `input`: NodeId of signal to filter
+    /// - `center_freq_input`: NodeId of center frequency to reject (Hz)
+    /// - `q_input`: NodeId of resonance/Q factor (1.0-100.0 typical)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~filtered: ~signal # notch_filter 1000 10
+    /// ```
     pub fn new(input: NodeId, center_freq_input: NodeId, q_input: NodeId) -> Self {
         // Initialize with default coefficients (will be updated on first process)
         let coeffs = Coefficients::<f32>::from_params(

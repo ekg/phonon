@@ -50,14 +50,20 @@ pub struct PeakDetectorNode {
 }
 
 impl PeakDetectorNode {
-    /// Create a new peak detector node
+    /// PeakDetectorNode - Tracks and outputs peak amplitude with exponential decay
     ///
-    /// # Arguments
-    /// * `input` - NodeId of signal to track peaks from
-    /// * `decay_time_input` - NodeId of decay time signal (in seconds)
+    /// Monitors input signal and outputs the maximum peak held, decaying exponentially.
+    /// Used for metering, dynamics control, and visual feedback in audio synthesis.
     ///
-    /// # Initial State
-    /// - `current_peak` starts at 0.0
+    /// # Parameters
+    /// - `input`: NodeId of signal to detect peaks from
+    /// - `decay_time_input`: NodeId of decay time in seconds (0.01-1.0 typical)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~peak: peak_detector ~signal 0.1
+    /// ```
     pub fn new(input: NodeId, decay_time_input: NodeId) -> Self {
         Self {
             input,

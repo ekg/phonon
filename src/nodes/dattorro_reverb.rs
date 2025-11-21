@@ -118,25 +118,23 @@ impl AllpassFilter {
 }
 
 impl DattorroReverbNode {
-    /// Create a new Dattorro reverb node
+    /// DattorroReverb - High-quality plate reverb using Dattorro algorithm
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the signal to process
-    /// * `size` - NodeId providing room size 0.0-1.0 (scales delay times)
-    /// * `decay` - NodeId providing decay time 0.0-1.0 (feedback amount)
-    /// * `damping` - NodeId providing high frequency damping 0.0-1.0
-    /// * `mix` - NodeId providing wet/dry mix 0.0-1.0
+    /// Implements Jon Dattorro's 1997 effect design with dense, smooth reverb tails,
+    /// featuring modulated delay networks and dual tanks for lush spaciousness.
     ///
-    /// # Delay Line Lengths
+    /// # Parameters
+    /// - `input`: NodeId providing signal to process
+    /// - `size`: NodeId providing room size 0.0-1.0 (scales delay times)
+    /// - `decay`: NodeId providing decay time 0.0-1.0 (feedback amount)
+    /// - `damping`: NodeId providing high-frequency damping 0.0-1.0
+    /// - `mix`: NodeId providing wet/dry mix 0.0-1.0
     ///
-    /// All delay times are from Dattorro's original design at 29.7kHz,
-    /// scaled to 44.1kHz:
-    ///
-    /// - **Input diffusion**: [142, 107, 379, 277] samples
-    /// - **Left tank**: APF1=672, Delay1=4453, APF2=1800, Delay2=3720
-    /// - **Right tank**: APF1=908, Delay1=4217, APF2=2656, Delay2=3163
-    ///
-    /// The right tank is slightly detuned from left for stereo spread.
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 110
+    /// ~reverb: ~signal # dattorro_reverb 0.8 0.7 0.5 0.3
+    /// ```
     pub fn new(
         input: NodeId,
         size: NodeId,

@@ -156,17 +156,20 @@ impl HilbertState {
 }
 
 impl FrequencyShifterNode {
-    /// Create a new frequency shifter node
+    /// FrequencyShifter - Shifts all frequencies linearly by constant Hz
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing audio signal
-    /// * `shift_hz_input` - NodeId providing frequency shift in Hz
+    /// Uses single-sideband modulation to shift spectral content linearly,
+    /// creating metallic inharmonic effects and special sound design.
     ///
-    /// # Notes
-    /// - Shift range typically -1000 to +1000 Hz
-    /// - Positive shift moves frequencies up (higher pitch)
-    /// - Negative shift moves frequencies down (lower pitch)
-    /// - Creates inharmonic content (not like pitch shifting)
+    /// # Parameters
+    /// - `input`: NodeId providing signal to shift
+    /// - `shift_hz_input`: NodeId providing shift amount in Hz (default: 0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 110
+    /// ~shifted: ~signal # frequency_shifter 50
+    /// ```
     pub fn new(input: NodeId, shift_hz_input: NodeId) -> Self {
         Self {
             input,

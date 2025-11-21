@@ -22,11 +22,22 @@ pub struct GreaterThanNode {
 }
 
 impl GreaterThanNode {
-    /// Create a new greater than comparison node
+    /// Greater Than - Compares two signals and outputs a gate signal
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input (left side of comparison)
-    /// * `input_b` - NodeId of second input (right side of comparison)
+    /// Outputs 1.0 when input_a > input_b, otherwise 0.0. Useful for creating
+    /// gates, triggers, and conditional logic in audio processing.
+    ///
+    /// # Parameters
+    /// - `input_a`: First input signal (left side of comparison)
+    /// - `input_b`: Second input signal (right side of comparison)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 0.5
+    /// ~threshold: 0.5
+    /// ~gate: ~signal > ~threshold
+    /// out: sine 220 * ~gate
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId) -> Self {
         Self { input_a, input_b }
     }

@@ -83,21 +83,23 @@ pub struct XFadeNode {
 }
 
 impl XFadeNode {
-    /// Create a new crossfade node
+    /// XFade - Crossfader between two signals (linear or equal-power)
     ///
-    /// # Arguments
-    /// * `input_a` - First input signal (NodeId)
-    /// * `input_b` - Second input signal (NodeId)
-    /// * `position` - Position/crossfade amount signal (NodeId), clamped to [0, 1]
-    /// * `curve` - Crossfade curve type (Linear or EqualPower)
+    /// Blends between two signals using either linear or equal-power curves.
+    /// Equal-power recommended for smooth DJ-style mixes.
+    ///
+    /// # Parameters
+    /// - `input_a`: First signal (position=0.0)
+    /// - `input_b`: Second signal (position=1.0)
+    /// - `position`: Crossfade amount (0.0-1.0, auto-clamped)
+    /// - `curve`: Crossfade curve (Linear or EqualPower)
     ///
     /// # Example
-    /// ```ignore
-    /// // Equal-power crossfade (recommended for music)
-    /// let xfade = XFadeNode::new(1, 2, 3, XFadeCurve::EqualPower);
-    ///
-    /// // Linear crossfade (simpler, faster)
-    /// let xfade = XFadeNode::new(1, 2, 3, XFadeCurve::Linear);
+    /// ```phonon
+    /// ~sig_a: sine 440
+    /// ~sig_b: saw 110
+    /// ~pos: lfo 0.5 0 1
+    /// out: xfade ~sig_a ~sig_b ~pos equal_power
     /// ```
     pub fn new(input_a: NodeId, input_b: NodeId, position: NodeId, curve: XFadeCurve) -> Self {
         Self {

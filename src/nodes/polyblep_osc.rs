@@ -34,11 +34,20 @@ pub struct PolyBLEPOscNode {
 }
 
 impl PolyBLEPOscNode {
-    /// Create a new PolyBLEP oscillator node
+    /// PolyBLEPOscNode - Band-limited oscillator with anti-aliasing via PolyBLEP algorithm
     ///
-    /// # Arguments
-    /// * `frequency` - NodeId that provides frequency (can be constant or pattern)
-    /// * `waveform` - Waveform type (Saw, Square, Triangle)
+    /// High-quality oscillator using PolyBLEP algorithm for alias-free synthesis of
+    /// sawtooth, square, and triangle waves. Essential for clean, professional-quality
+    /// synthesis at any frequency.
+    ///
+    /// # Parameters
+    /// - `frequency`: NodeId providing frequency in Hz
+    /// - `waveform`: Waveform type (Saw, Square, Triangle)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~osc: polyblep_osc 440 saw
+    /// ```
     pub fn new(frequency: NodeId, waveform: PolyBLEPWaveform) -> Self {
         Self {
             frequency,

@@ -32,12 +32,21 @@ pub struct BandPassFilterNode {
 }
 
 impl BandPassFilterNode {
-    /// Create a new bandpass filter node
+    /// BandPassFilter - Resonant filter passing frequencies near center frequency
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing audio signal to filter
-    /// * `center_input` - NodeId providing center frequency (Hz)
-    /// * `q_input` - NodeId providing resonance (Q factor)
+    /// Attenuates frequencies both below and above the center. Q controls bandwidth width.
+    /// Higher Q = narrower passband. Useful for isolated frequency extraction and tonal synthesis.
+    ///
+    /// # Parameters
+    /// - `input`: Signal to filter
+    /// - `center_input`: Center frequency in Hz
+    /// - `q_input`: Resonance/bandwidth factor (default: 1.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 220
+    /// ~filtered: ~signal # bandpass_filter 1000 1.0
+    /// ```
     pub fn new(input: NodeId, center_input: NodeId, q_input: NodeId) -> Self {
         // Initialize with default coefficients (will be updated on first process)
         let coeffs = Coefficients::<f32>::from_params(

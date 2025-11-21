@@ -43,11 +43,21 @@ pub struct ModNode {
 }
 
 impl ModNode {
-    /// Create a new modulo node
+    /// Modulo - Wrapping remainder operation
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of dividend (value to be divided)
-    /// * `input_b` - NodeId of divisor (modulo value)
+    /// Computes fmod(a, b) - the floating-point remainder of a/b.
+    /// Useful for phase wrapping, periodic modulation, and signal shaping.
+    ///
+    /// # Parameters
+    /// - `input_a`: Dividend (value to be wrapped)
+    /// - `input_b`: Divisor (wrapping period)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~phase: line 0 10 2 # trigger
+    /// ~wrapped: ~phase # modulo 2
+    /// out: sine (~wrapped * 3.14159) * 0.5
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId) -> Self {
         Self { input_a, input_b }
     }

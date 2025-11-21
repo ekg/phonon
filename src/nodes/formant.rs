@@ -204,20 +204,21 @@ pub struct FormantNode {
 }
 
 impl FormantNode {
-    /// Create a new formant filter node
+    /// Formant - Vowel synthesis using parallel formant filters
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing signal to filter
-    /// * `formant` - NodeId providing vowel selection (0.0 to 4.0)
-    ///   - 0.0 = A (as in "father")
-    ///   - 1.0 = E (as in "bet")
-    ///   - 2.0 = I (as in "bit")
-    ///   - 3.0 = O (as in "bought")
-    ///   - 4.0 = U (as in "book")
-    ///   - Intermediate values interpolate between vowels
-    /// * `intensity` - NodeId providing effect intensity (0.0 to 1.0)
-    ///   - 0.0 = dry signal (no formant filtering)
-    ///   - 1.0 = fully filtered signal
+    /// Creates vocal-like timbres through 3 parallel bandpass filters tuned to vowel formants,
+    /// enabling vowel morphing and vocal synthesis effects.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId providing signal to filter (saw/pulse waves work best)
+    /// - `formant`: NodeId providing vowel selection 0.0-4.0 (default: 0 = A)
+    /// - `intensity`: NodeId providing effect intensity 0.0-1.0 (default: 0.8)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~saw: saw 110
+    /// ~vocal: ~saw # formant 1.5 0.8
+    /// ```
     pub fn new(input: NodeId, formant: NodeId, intensity: NodeId) -> Self {
         Self {
             input,

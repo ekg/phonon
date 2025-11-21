@@ -21,11 +21,20 @@ pub struct AdditionNode {
 }
 
 impl AdditionNode {
-    /// Create a new addition node
+    /// Addition - Sums two input signals
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input
-    /// * `input_b` - NodeId of second input
+    /// Adds input_a and input_b sample-by-sample to produce the output.
+    ///
+    /// # Parameters
+    /// - `input_a`: First input signal
+    /// - `input_b`: Second input signal
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~sine: sine 440
+    /// ~saw: saw 220
+    /// ~combined: ~sine # addition ~saw
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId) -> Self {
         Self { input_a, input_b }
     }

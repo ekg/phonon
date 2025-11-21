@@ -26,10 +26,18 @@ pub struct CosNode {
 }
 
 impl CosNode {
-    /// Create a new cosine function node
+    /// Cosine - Applies cosine function to input signal
     ///
-    /// # Arguments
-    /// * `input` - NodeId of input signal
+    /// Transforms each sample through the mathematical cosine function,
+    /// useful for waveshaping and phase manipulation.
+    ///
+    /// # Parameters
+    /// - `input`: NodeId providing input signal
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~lfo: sine 0.25 # cos
+    /// ```
     pub fn new(input: NodeId) -> Self {
         Self { input }
     }

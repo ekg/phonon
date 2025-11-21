@@ -25,12 +25,23 @@ pub struct LessThanOrEqualNode {
 }
 
 impl LessThanOrEqualNode {
-    /// Create a new less-than-or-equal comparison node with custom tolerance
+    /// Less-Than-or-Equal - Comparison gate with tolerance
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input (left side of comparison)
-    /// * `input_b` - NodeId of second input (right side of comparison)
-    /// * `tolerance` - Epsilon for floating-point comparison (default 1e-6)
+    /// Outputs 1.0 when input_a <= input_b (within tolerance), else 0.0.
+    /// Useful for threshold detection and conditional signal routing.
+    ///
+    /// # Parameters
+    /// - `input_a`: First signal (left side of comparison)
+    /// - `input_b`: Second signal (right side of comparison)
+    /// - `tolerance`: Floating-point epsilon (default: 1e-6)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 220
+    /// ~threshold: 0.5
+    /// ~gate: ~signal # lte ~threshold 1e-6
+    /// out: sine 440 * ~gate
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId, tolerance: f32) -> Self {
         Self { input_a, input_b, tolerance }
     }

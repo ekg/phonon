@@ -54,14 +54,22 @@ pub struct AndNode {
 }
 
 impl AndNode {
-    /// Create a new logical AND node with default threshold (0.5)
+    /// And - Logical AND of two signals (default threshold: 0.5)
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input
-    /// * `input_b` - NodeId of second input
+    /// Returns 1.0 when both inputs are above threshold, 0.0 otherwise.
+    /// Useful for conditional processing, range detection, and event gating.
     ///
-    /// # Default Threshold
-    /// 0.5 - Values > 0.5 are considered "true"
+    /// # Parameters
+    /// - `input_a`: First input signal
+    /// - `input_b`: Second input signal (default threshold: 0.5)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: saw 220
+    /// ~check_low: ~signal # gt 0.3
+    /// ~check_high: ~signal # lt 0.7
+    /// ~in_range: ~check_low # and ~check_high
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId) -> Self {
         Self {
             input_a,

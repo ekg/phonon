@@ -26,16 +26,23 @@ pub struct NotEqualToNode {
 }
 
 impl NotEqualToNode {
-    /// Create a new not-equal-to comparison node
+    /// NotEqualToNode - Floating-point inequality comparison with tolerance
     ///
-    /// # Arguments
-    /// * `input_a` - NodeId of first input (left side of comparison)
-    /// * `input_b` - NodeId of second input (right side of comparison)
-    /// * `tolerance` - Epsilon for floating-point comparison (default: 1e-6)
+    /// Compares two input signals and outputs 1.0 when they differ beyond tolerance,
+    /// 0.0 when they're approximately equal. Used for conditional logic and pattern
+    /// generation based on signal differences.
     ///
-    /// # Comparison Logic
-    /// Returns 1.0 when |a - b| >= tolerance, else 0.0
-    /// This is the inverse of EqualToNode.
+    /// # Parameters
+    /// - `input_a`: NodeId of first value to compare
+    /// - `input_b`: NodeId of second value to compare
+    /// - `tolerance`: Epsilon for floating-point comparison (default: 1e-6)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~val1: 5.0
+    /// ~val2: 5.1
+    /// ~result: not_equal_to ~val1 ~val2 0.01
+    /// ```
     pub fn new(input_a: NodeId, input_b: NodeId, tolerance: f32) -> Self {
         Self { input_a, input_b, tolerance }
     }

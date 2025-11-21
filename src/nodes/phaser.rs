@@ -47,18 +47,25 @@ pub struct PhaserNode {
 }
 
 impl PhaserNode {
-    /// Create a new phaser node
+    /// PhaserNode - Classic all-pass cascaded phaser effect with LFO modulation
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the signal to phase
-    /// * `rate_input` - NodeId providing LFO rate in Hz
-    /// * `depth_input` - NodeId providing modulation depth (0.0 to 1.0)
-    /// * `feedback_input` - NodeId providing feedback amount (0.0 to 0.95)
-    /// * `stages` - Number of all-pass filter stages (typically 4-8, more = more notches)
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Creates sweeping frequency notches via cascaded all-pass filters modulated by
+    /// an LFO. Classic effect for chorus-like textures, stereo widening, and creative
+    /// sound design. Multiple stages create richer modulation patterns.
     ///
-    /// # All-Pass Frequency Range
-    /// The all-pass filters sweep from 200 Hz to 2000 Hz based on LFO and depth
+    /// # Parameters
+    /// - `input`: NodeId of signal to phase
+    /// - `rate_input`: NodeId of LFO rate in Hz (0.1-10 typical)
+    /// - `depth_input`: NodeId of modulation depth (0.0-1.0)
+    /// - `feedback_input`: NodeId of feedback amount (0.0-0.95)
+    /// - `stages`: Number of all-pass stages (4-8 typical, more = richer)
+    /// - `sample_rate`: Sample rate in Hz (usually 44100.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~signal: sine 440
+    /// ~phased: ~signal # phaser 0.5 0.8 0.5 4
+    /// ```
     pub fn new(
         input: NodeId,
         rate_input: NodeId,

@@ -74,14 +74,23 @@ pub struct CurveNode {
 }
 
 impl CurveNode {
-    /// Create a new curve generator node
+    /// Curve - Curved ramp with exponential/logarithmic interpolation
     ///
-    /// # Arguments
-    /// * `trigger_input` - NodeId providing trigger signal (> 0.5 = trigger)
-    /// * `start_input` - NodeId providing start value
-    /// * `end_input` - NodeId providing end value
-    /// * `duration_input` - NodeId providing duration in seconds
-    /// * `curve_input` - NodeId providing curve amount (-10 to +10, 0 = linear)
+    /// Generates smooth ramps from start to end values over specified duration,
+    /// with curve control for non-linear transitions (exponential/logarithmic).
+    ///
+    /// # Parameters
+    /// - `trigger_input`: NodeId providing trigger signal (> 0.5 triggers ramp restart)
+    /// - `start_input`: NodeId providing start value
+    /// - `end_input`: NodeId providing end value
+    /// - `duration_input`: NodeId providing duration in seconds
+    /// - `curve_input`: NodeId providing curve amount (-10 to +10, 0 = linear)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~trigger: "x ~ x ~"
+    /// ~ramp: ~trigger # curve 0 1 0.5 3
+    /// ```
     pub fn new(
         trigger_input: NodeId,
         start_input: NodeId,

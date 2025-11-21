@@ -63,15 +63,21 @@ pub struct ResampleNode {
 }
 
 impl ResampleNode {
-    /// Create a new resample node
+    /// ResampleNode - High-quality sample rate conversion with pitch shifting
     ///
-    /// # Arguments
-    /// * `input` - NodeId providing the signal to resample
-    /// * `ratio_input` - NodeId providing resampling ratio
-    /// * `sample_rate` - Sample rate in Hz (usually 44100.0)
+    /// Implements linear interpolation-based resampling for pitch shifting,
+    /// time stretching preparation, and sample rate matching using fractional delay.
     ///
-    /// # Buffer Size
-    /// Uses a fixed 100ms buffer to accommodate various playback speeds
+    /// # Parameters
+    /// - `input`: NodeId providing the signal to resample
+    /// - `ratio_input`: NodeId providing resampling ratio (0.5 = half speed, 2.0 = double speed)
+    /// - `sample_rate`: Sample rate in Hz (usually 44100.0)
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~sample: sample 0.5
+    /// ~pitched: ~sample # resample 1.5
+    /// ```
     pub fn new(input: NodeId, ratio_input: NodeId, sample_rate: f32) -> Self {
         // Maximum delay: 100ms for safe buffering
         let max_delay_seconds = 0.1;

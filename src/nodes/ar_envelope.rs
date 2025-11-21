@@ -58,12 +58,22 @@ pub struct AREnvelopeNode {
 }
 
 impl AREnvelopeNode {
-    /// Create a new AR envelope node
+    /// AREnvelope - Gate-triggered Attack-Release envelope
     ///
-    /// # Arguments
-    /// * `gate_input` - NodeId providing gate signal (> 0.5 = on, <= 0.5 = off)
-    /// * `attack_input` - NodeId providing attack time in seconds
-    /// * `release_input` - NodeId providing release time in seconds
+    /// Two-phase envelope: attack (0 to 1) then release (current to 0).
+    /// Simpler than ADSR - no decay or sustain. Ideal for pad instruments and gates.
+    ///
+    /// # Parameters
+    /// - `gate_input`: Gate signal (rising/falling edge controls envelope)
+    /// - `attack_input`: Attack time in seconds
+    /// - `release_input`: Release time in seconds
+    ///
+    /// # Example
+    /// ```phonon
+    /// ~gate: "x ~ x ~"
+    /// ~envelope: ~gate # ar_envelope 0.01 0.2
+    /// ~synth: sine 440 * ~envelope
+    /// ```
     pub fn new(
         gate_input: NodeId,
         attack_input: NodeId,
