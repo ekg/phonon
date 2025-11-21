@@ -1468,6 +1468,16 @@ pub enum SignalNode {
         phase: f32,    // Carrier oscillator phase
     },
 
+    /// FM Cross-Modulation
+    /// Phase modulation using any audio signal as modulator
+    /// Formula: carrier * cos(2π * mod_depth * modulator)
+    /// Use cases: drums modulating bass, LFO modulating pad, etc.
+    FMCrossMod {
+        carrier: Signal,    // Carrier signal to be modulated
+        modulator: Signal,  // Modulator signal (any audio)
+        mod_depth: Signal,  // Modulation depth/intensity
+    },
+
     /// fundsp Unit Wrapper (wraps fundsp AudioUnit for pattern modulation)
     /// Allows using fundsp's 60+ battle-tested UGens with Phonon's pattern system
     /// Pattern signals can modulate fundsp parameters at audio rate
@@ -8360,6 +8370,17 @@ impl UnifiedSignalGraph {
                 output_val
             }
 
+            SignalNode::FMCrossMod { carrier, modulator, mod_depth } => {
+                let carrier_val = self.eval_signal(&carrier);
+                let modulator_val = self.eval_signal(&modulator);
+                let depth_val = self.eval_signal(&mod_depth);
+
+                // FM cross-modulation: carrier * cos(2π * depth * modulator)
+                use std::f32::consts::PI;
+                let phase_offset = 2.0 * PI * depth_val * modulator_val;
+                carrier_val * phase_offset.cos()
+            }
+
             SignalNode::FundspUnit {
                 unit_type,
                 inputs,
@@ -12571,6 +12592,25 @@ impl UnifiedSignalGraph {
                     if let SignalNode::RingMod { phase: p, .. } = node {
                         *p = current_phase;
                     }
+                }
+            }
+
+            SignalNode::FMCrossMod { carrier, modulator, mod_depth } => {
+                // Allocate buffers for carrier, modulator, and mod_depth
+                let mut carrier_buffer = vec![0.0; buffer_size];
+                let mut modulator_buffer = vec![0.0; buffer_size];
+                let mut depth_buffer = vec![0.0; buffer_size];
+
+                // Evaluate all signals to buffers
+                self.eval_signal_buffer(carrier, &mut carrier_buffer);
+                self.eval_signal_buffer(modulator, &mut modulator_buffer);
+                self.eval_signal_buffer(mod_depth, &mut depth_buffer);
+
+                // Process entire buffer: carrier * cos(2π * depth * modulator)
+                use std::f32::consts::PI;
+                for i in 0..buffer_size {
+                    let phase_offset = 2.0 * PI * depth_buffer[i] * modulator_buffer[i];
+                    output[i] = carrier_buffer[i] * phase_offset.cos();
                 }
             }
 

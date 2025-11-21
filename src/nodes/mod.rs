@@ -234,6 +234,7 @@ pub mod impulse;
 pub mod frequency_shifter;
 pub mod blip;
 pub mod ring_mod;
+pub mod fm_crossmod;
 pub mod line;
 pub mod lag;
 pub mod wavetable;

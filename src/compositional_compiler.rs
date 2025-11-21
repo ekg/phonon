@@ -1144,6 +1144,7 @@ fn compile_function_call(
         "asr" => compile_asr(ctx, args),
         "pulse" => compile_pulse(ctx, args),
         "ring_mod" => compile_ring_mod(ctx, args),
+        "fmcrossmod" | "fm_crossmod" => compile_fm_crossmod(ctx, args),
         "limiter" => compile_limiter(ctx, args),
         "pan2_l" => compile_pan2_l(ctx, args),
         "pan2_r" => compile_pan2_r(ctx, args),
@@ -2328,6 +2329,31 @@ fn compile_ring_mod(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
     let node = SignalNode::Multiply {
         a: Signal::Node(signal1),
         b: Signal::Node(signal2),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile FM cross-modulation effect
+/// Formula: carrier * cos(2π * mod_depth * modulator)
+fn compile_fm_crossmod(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 3 {
+        return Err(format!(
+            "fmcrossmod requires 3 parameters (carrier, modulator, mod_depth), got {}",
+            args.len()
+        ));
+    }
+
+    // Compile carrier, modulator, and mod_depth
+    let carrier_node = compile_expr(ctx, args[0].clone())?;
+    let modulator_node = compile_expr(ctx, args[1].clone())?;
+    let mod_depth_node = compile_expr(ctx, args[2].clone())?;
+
+    // Create FMCrossMod node
+    let node = SignalNode::FMCrossMod {
+        carrier: Signal::Node(carrier_node),
+        modulator: Signal::Node(modulator_node),
+        mod_depth: Signal::Node(mod_depth_node),
     };
 
     Ok(ctx.graph.add_node(node))

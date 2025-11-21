@@ -186,6 +186,38 @@ pub fn get_all_nodes() -> HashMap<String, GeneratedNodeMetadata> {
         ],
     });
 
+    // sidechaincompressor
+    map.insert("sidechaincompressor".to_string(), GeneratedNodeMetadata {
+        name: "sidechaincompressor".to_string(),
+        description: "Sidechain compressor node: compression controlled by external signal".to_string(),
+        params: vec![
+            GeneratedParamMetadata {
+                name: "main_input".to_string(),
+                param_type: "NodeId".to_string(),
+            },
+            GeneratedParamMetadata {
+                name: "sidechain_input".to_string(),
+                param_type: "NodeId".to_string(),
+            },
+            GeneratedParamMetadata {
+                name: "threshold_input".to_string(),
+                param_type: "NodeId".to_string(),
+            },
+            GeneratedParamMetadata {
+                name: "ratio_input".to_string(),
+                param_type: "NodeId".to_string(),
+            },
+            GeneratedParamMetadata {
+                name: "attack_input".to_string(),
+                param_type: "NodeId".to_string(),
+            },
+            GeneratedParamMetadata {
+                name: "release_input".to_string(),
+                param_type: "NodeId".to_string(),
+            },
+        ],
+    });
+
     // polybleposc
     map.insert("polybleposc".to_string(), GeneratedNodeMetadata {
         name: "polybleposc".to_string(),
@@ -2453,6 +2485,26 @@ pub fn get_all_nodes() -> HashMap<String, GeneratedNodeMetadata> {
             },
             GeneratedParamMetadata {
                 name: "pan_input".to_string(),
+                param_type: "NodeId".to_string(),
+            },
+        ],
+    });
+
+    // fmcrossmod
+    map.insert("fmcrossmod".to_string(), GeneratedNodeMetadata {
+        name: "fmcrossmod".to_string(),
+        description: "FM Cross-Modulation node: carrier modulated by any audio signal".to_string(),
+        params: vec![
+            GeneratedParamMetadata {
+                name: "carrier_input".to_string(),
+                param_type: "NodeId".to_string(),
+            },
+            GeneratedParamMetadata {
+                name: "modulator_input".to_string(),
+                param_type: "NodeId".to_string(),
+            },
+            GeneratedParamMetadata {
+                name: "mod_depth_input".to_string(),
                 param_type: "NodeId".to_string(),
             },
         ],
