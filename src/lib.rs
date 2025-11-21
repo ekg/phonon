@@ -274,6 +274,7 @@ pub mod buffer_manager;
 pub mod dependency_graph;
 pub mod nodes;  // Concrete AudioNode implementations
 pub mod block_processor;  // Core execution loop
+pub mod audio_node_graph;  // High-level graph wrapper (Phase 3)
 
 pub mod audio;
 pub mod audio_analysis;

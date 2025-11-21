@@ -25,12 +25,16 @@ pub struct CompilerContext {
     effect_buses: HashMap<String, (String, Vec<Expr>)>,
     /// Effect bus sends (bus_name -> vec of input node IDs)
     effect_bus_sends: HashMap<String, Vec<NodeId>>,
-    /// The signal graph we're building
+    /// The signal graph we're building (OLD architecture)
     graph: UnifiedSignalGraph,
     /// Sample rate for creating buffers
     sample_rate: f32,
     /// Synth library for pre-built synthesizers
     synth_lib: SynthLibrary,
+    /// NEW: AudioNode-based graph (DAW architecture)
+    audio_node_graph: crate::audio_node_graph::AudioNodeGraph,
+    /// NEW: Flag to use AudioNode architecture instead of SignalNode
+    use_audio_nodes: bool,
 }
 
 /// Function definition storage
@@ -122,6 +126,9 @@ impl ParamExtractor {
 
 impl CompilerContext {
     pub fn new(sample_rate: f32) -> Self {
+        // Check environment variable to enable AudioNode architecture
+        let use_audio_nodes = std::env::var("PHONON_USE_AUDIO_NODES").is_ok();
+
         Self {
             buses: HashMap::new(),
             templates: HashMap::new(),
@@ -131,17 +138,30 @@ impl CompilerContext {
             graph: UnifiedSignalGraph::new(sample_rate),
             sample_rate,
             synth_lib: SynthLibrary::with_sample_rate(sample_rate),
+            audio_node_graph: crate::audio_node_graph::AudioNodeGraph::new(sample_rate),
+            use_audio_nodes,
         }
     }
 
-    /// Get the compiled graph
+    /// Get the compiled graph (OLD architecture)
     pub fn into_graph(self) -> UnifiedSignalGraph {
         self.graph
+    }
+
+    /// Get the compiled AudioNode graph (NEW architecture)
+    pub fn into_audio_node_graph(self) -> crate::audio_node_graph::AudioNodeGraph {
+        self.audio_node_graph
+    }
+
+    /// Check if using AudioNode architecture
+    pub fn is_using_audio_nodes(&self) -> bool {
+        self.use_audio_nodes
     }
 
     /// Set CPS (cycles per second)
     pub fn set_cps(&mut self, cps: f64) {
         self.graph.set_cps(cps as f32);
+        self.audio_node_graph.set_tempo(cps);
     }
 
     /// Check if a function name is an effect
@@ -270,7 +290,7 @@ pub fn compile_program(
 }
 
 /// Compile a single statement
-fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<(), String> {
+pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<(), String> {
     match statement {
         Statement::BusAssignment { name, expr } => {
             // All bus assignments are compiled immediately as normal signal chains
@@ -508,6 +528,74 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
                     .to_string(),
             )
         }
+    }
+}
+
+/// Compile constant value to AudioNode (NEW architecture)
+///
+/// Creates a ConstantNode that outputs a fixed value. Returns the node ID
+/// wrapped in the unified_graph::NodeId type.
+fn compile_constant_audio_node(ctx: &mut CompilerContext, value: f32) -> usize {
+    use crate::nodes::constant::ConstantNode;
+
+    let node = Box::new(ConstantNode::new(value));
+    ctx.audio_node_graph.add_audio_node(node)
+}
+
+/// Compile sine oscillator to AudioNode (NEW architecture)
+///
+/// Creates an OscillatorNode configured for sine wave generation.
+/// The frequency is provided by another node (audio_node::NodeId).
+fn compile_sine_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    use crate::nodes::oscillator::{OscillatorNode, Waveform};
+
+    if args.is_empty() {
+        return Err("sine requires frequency argument".to_string());
+    }
+
+    // Compile frequency argument to get an audio_node::NodeId (usize)
+    let freq_node_id = compile_expr_audio_node(ctx, args[0].clone())?;
+
+    // Create oscillator node
+    let node = Box::new(OscillatorNode::new(freq_node_id, Waveform::Sine));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile addition to AudioNode (NEW architecture)
+///
+/// Creates an AdditionNode that sums two input signals sample-by-sample.
+fn compile_add_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<usize, String> {
+    use crate::nodes::addition::AdditionNode;
+
+    // Compile both operands to get audio_node::NodeIds (usize)
+    let left_id = compile_expr_audio_node(ctx, left)?;
+    let right_id = compile_expr_audio_node(ctx, right)?;
+
+    // Create addition node
+    let node = Box::new(AdditionNode::new(left_id, right_id));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile expression to AudioNode (NEW architecture)
+///
+/// Main dispatcher for compiling expressions using the AudioNode architecture.
+/// Handles constants, sine oscillators, and addition operations.
+/// Returns an audio_node::NodeId (usize) that can be used as input to other nodes.
+fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usize, String> {
+    match expr {
+        Expr::Number(n) => {
+            Ok(compile_constant_audio_node(ctx, n as f32))
+        }
+
+        Expr::Call { name, args } if name == "sine" => {
+            compile_sine_audio_node(ctx, args)
+        }
+
+        Expr::BinOp { op: BinOp::Add, left, right } => {
+            compile_add_audio_node(ctx, *left, *right)
+        }
+
+        _ => Err(format!("AudioNode compilation not yet implemented for: {:?}", expr)),
     }
 }
 
