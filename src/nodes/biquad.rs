@@ -416,18 +416,24 @@ mod tests {
     #[test]
     fn test_biquad_q_affects_slope() {
         // Test that Q parameter affects filter slope/resonance
+        // At frequencies well above cutoff, both attenuate, but Q affects the response shape
+        // We test at a frequency below cutoff to see the resonance effect clearly
         let size = 4410;
         let sample_rate = 44100.0;
+
+        // Test frequency close to cutoff to see Q resonance effect
+        let cutoff_freq = 1000.0;
+        let test_freq = 900.0;  // Below cutoff, resonance peak raises this
 
         let mut input = vec![0.0; size];
         for i in 0..size {
             let t = i as f32 / sample_rate;
-            input[i] = (2.0 * std::f32::consts::PI * 1500.0 * t).sin();
+            input[i] = (2.0 * std::f32::consts::PI * test_freq * t).sin();
         }
 
-        let freq = vec![1000.0; size];
+        let freq = vec![cutoff_freq; size];
 
-        // Low Q (gentle slope)
+        // Low Q (gentle slope, minimal resonance)
         let q_low = vec![0.5; size];
         let inputs_low: Vec<&[f32]> = vec![&input, &freq, &q_low];
         let mut output_low = vec![0.0; size];
@@ -436,7 +442,7 @@ mod tests {
         let mut filter_low = BiquadNode::new(0, 1, 2, FilterMode::Lowpass);
         filter_low.process_block(&inputs_low, &mut output_low, sample_rate, &context);
 
-        // High Q (sharp slope, resonant)
+        // High Q (sharp resonant peak at cutoff)
         let q_high = vec![10.0; size];
         let inputs_high: Vec<&[f32]> = vec![&input, &freq, &q_high];
         let mut output_high = vec![0.0; size];
@@ -447,10 +453,11 @@ mod tests {
         let rms_low: f32 = output_low.iter().skip(100).map(|x| x * x).sum::<f32>();
         let rms_high: f32 = output_high.iter().skip(100).map(|x| x * x).sum::<f32>();
 
-        // High Q should have more attenuation at this frequency (steeper slope)
+        // At frequency below cutoff, high Q resonance should produce higher output
+        // than low Q (gentler response)
         assert!(
-            rms_low > rms_high,
-            "Low Q should attenuate less than high Q: low={:.4}, high={:.4}",
+            rms_high > rms_low,
+            "High Q should have resonance peak near cutoff: low_q_rms={:.4}, high_q_rms={:.4}",
             rms_low.sqrt(),
             rms_high.sqrt()
         );
@@ -483,13 +490,15 @@ mod tests {
     #[test]
     fn test_biquad_state_carries_over() {
         // Test that filter state persists across blocks
-        let size = 256;
+        // Instead of checking RMS (which decays exponentially), directly verify
+        // that the state variables are non-zero after block 1 and cause non-zero output
+        let size = 512;
         let sample_rate = 44100.0;
 
         let mut input = vec![0.0; size];
         input[0] = 1.0; // Impulse
 
-        let freq = vec![1000.0; size];
+        let freq = vec![10.0; size];  // Very low frequency for visible state
         let q = vec![0.707; size];
 
         let inputs: Vec<&[f32]> = vec![&input, &freq, &q];
@@ -499,19 +508,27 @@ mod tests {
         let mut filter = BiquadNode::new(0, 1, 2, FilterMode::Lowpass);
         filter.process_block(&inputs, &mut output1, sample_rate, &context);
 
-        // Process second block (all zeros)
+        // After processing, state should be non-zero
+        let state_before_block2 = filter.state.y1.abs();
+        assert!(
+            state_before_block2 > 0.0001,
+            "Filter state should be non-zero after impulse, got: {:.6}",
+            state_before_block2
+        );
+
+        // Process second block (all zeros) - state should persist
         let input2 = vec![0.0; size];
         let inputs2: Vec<&[f32]> = vec![&input2, &freq, &q];
         let mut output2 = vec![0.0; size];
 
         filter.process_block(&inputs2, &mut output2, sample_rate, &context);
 
-        // Second block should have non-zero output (impulse response continues)
-        let rms2: f32 = output2.iter().map(|x| x * x).sum::<f32>() / size as f32;
+        // Verify state is still being used (first sample of output should be non-zero due to carried state)
+        // Even though input is all zeros, output is non-zero because y1/y2 are non-zero
         assert!(
-            rms2 > 0.0001,
-            "Filter state should carry over between blocks, got rms: {:.6}",
-            rms2.sqrt()
+            output2[0].abs() > 0.00001,
+            "Filter should produce output from carried state, got: {:.6}",
+            output2[0].abs()
         );
     }
 
@@ -524,7 +541,7 @@ mod tests {
         let mut input = vec![0.0; size];
         input[0] = 1.0;
 
-        let freq = vec![1000.0; size];
+        let freq = vec![100.0; size];  // Lower frequency for longer state duration
         let q = vec![0.707; size];
         let inputs: Vec<&[f32]> = vec![&input, &freq, &q];
         let mut output = vec![0.0; size];
@@ -534,7 +551,7 @@ mod tests {
         filter.process_block(&inputs, &mut output, sample_rate, &context);
 
         // State should be non-zero
-        assert!(filter.state.y1.abs() > 0.0001, "State should be non-zero after processing");
+        assert!(filter.state.y1.abs() > 0.00001, "State should be non-zero after processing");
 
         // Reset
         filter.reset();

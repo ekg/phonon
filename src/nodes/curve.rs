@@ -332,11 +332,20 @@ mod tests {
         }
 
         // Progress should accelerate (second half should gain more than first half)
-        let first_half = output[samples / 4];
-        let second_half = output[samples * 3 / 4];
+        // For exponential: delta in first quarter + delta in second quarter < delta in third quarter + delta in fourth quarter
+        let q1 = output[samples / 4];
+        let q2 = output[samples / 2];
+        let q3 = output[samples * 3 / 4];
+        let q4 = output[samples - 1];
+
+        let delta_first_half = q2 - q1;  // Change in first half
+        let delta_second_half = q4 - q3; // Change in second half
+
         assert!(
-            (1.0 - second_half) < first_half,
-            "Second half should progress faster than first half"
+            delta_second_half > delta_first_half,
+            "Second half should progress faster than first half: first_half_delta={:.4}, second_half_delta={:.4}",
+            delta_first_half,
+            delta_second_half
         );
     }
 

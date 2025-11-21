@@ -7,7 +7,6 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use crate::buffer_manager::{BufferManager, NodeOutput};
 use crate::dependency_graph::DependencyGraph;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 /// Block-based audio graph processor
 ///

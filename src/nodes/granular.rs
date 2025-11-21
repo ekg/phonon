@@ -31,7 +31,6 @@
 
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use rand::{Rng, SeedableRng};
-use rand::rngs::StdRng;
 use std::sync::Arc;
 
 /// Single grain state

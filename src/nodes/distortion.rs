@@ -179,7 +179,7 @@ mod tests {
         dist.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Calculate expected distorted value
-        let driven = 0.5 * 5.0; // 2.5
+        let driven = 0.5_f32 * 5.0; // 2.5
         let expected = driven.tanh(); // tanh(2.5) ≈ 0.986
 
         for i in 0..size {
@@ -279,7 +279,7 @@ mod tests {
         dist.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Should produce negative distorted output
-        let driven = -0.5 * 5.0; // -2.5
+        let driven = -0.5_f32 * 5.0; // -2.5
         let expected = driven.tanh(); // tanh(-2.5) ≈ -0.986
 
         for i in 0..size {
@@ -311,7 +311,7 @@ mod tests {
             dist.process_block(&inputs, &mut output, 44100.0, &context);
 
             // Calculate expected blend
-            let driven = 0.4 * 10.0;
+            let driven = 0.4_f32 * 10.0;
             let distorted = driven.tanh();
             let expected = 0.4 * (1.0 - mix_val) + distorted * mix_val;
 
@@ -385,7 +385,7 @@ mod tests {
         dist.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Should use clamped values: drive=100, mix=1.0
-        let driven = 0.5 * 100.0;
+        let driven = 0.5_f32 * 100.0;
         let expected = driven.tanh();
 
         assert!(

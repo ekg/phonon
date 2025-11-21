@@ -32,7 +32,7 @@
 /// ```
 
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
-use crate::pattern::{Fraction, Hap, Pattern, State, TimeSpan};
+use crate::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 use std::sync::Arc;
 

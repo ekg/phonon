@@ -149,7 +149,7 @@ use nom::{
     bytes::complete::{tag, take_until, take_while},
     character::complete::{alpha1, alphanumeric1, char, digit1, multispace0, multispace1},
     combinator::{map, map_res, recognize, value},
-    multi::{many0, separated_list0},
+    multi::many0,
     number::complete::float,
     sequence::{delimited, pair, preceded, tuple},
     IResult,

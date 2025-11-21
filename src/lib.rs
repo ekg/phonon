@@ -1,4 +1,4 @@
-#![allow(unused_assignments, unused_mut)]
+#![allow(unused_assignments, unused_mut, dead_code, unused_variables, unused_imports)]
 //! # Phonon - Live Coding Audio System
 //!
 //! Phonon is a powerful live coding audio synthesis and pattern sequencing system,
@@ -267,7 +267,6 @@
 //!
 //! Phonon is open source. Check the repository for licensing details.
 
-use std::cell::RefCell;
 
 // DAW-style buffer passing architecture (Phase 1 + 2 + 3)
 pub mod audio_node;

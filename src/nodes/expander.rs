@@ -305,7 +305,7 @@ mod tests {
         let ratio1 = vec![1.0; size];
         let inputs1: Vec<&[f32]> = vec![&input, &threshold, &ratio1, &attack, &release];
         let mut output1 = vec![0.0; size];
-        let mut exp1 = ExpanderNode::new(NodeId(0), NodeId(1), NodeId(2), NodeId(3), NodeId(4));
+        let mut exp1 = ExpanderNode::new(0, 1, 2, 3, 4);
         for _ in 0..20 {
             exp1.process_block(&inputs1, &mut output1, sample_rate, &context);
         }
@@ -314,7 +314,7 @@ mod tests {
         let ratio3 = vec![3.0; size];
         let inputs3: Vec<&[f32]> = vec![&input, &threshold, &ratio3, &attack, &release];
         let mut output3 = vec![0.0; size];
-        let mut exp3 = ExpanderNode::new(NodeId(0), NodeId(1), NodeId(2), NodeId(3), NodeId(4));
+        let mut exp3 = ExpanderNode::new(0, 1, 2, 3, 4);
         for _ in 0..20 {
             exp3.process_block(&inputs3, &mut output3, sample_rate, &context);
         }
@@ -350,7 +350,7 @@ mod tests {
         let slow_release = vec![0.5; size];
         let inputs_fast: Vec<&[f32]> = vec![&input, &threshold, &ratio, &fast_attack, &slow_release];
         let mut output_fast = vec![0.0; size];
-        let mut exp_fast = ExpanderNode::new(NodeId(0), NodeId(1), NodeId(2), NodeId(3), NodeId(4));
+        let mut exp_fast = ExpanderNode::new(0, 1, 2, 3, 4);
         let context = create_context(size);
 
         exp_fast.process_block(&inputs_fast, &mut output_fast, sample_rate, &context);
@@ -396,7 +396,7 @@ mod tests {
         let mut output = vec![0.0; size];
         let context = create_context(size);
 
-        let mut exp = ExpanderNode::new(NodeId(0), NodeId(1), NodeId(2), NodeId(3), NodeId(4));
+        let mut exp = ExpanderNode::new(0, 1, 2, 3, 4);
 
         // Build up envelope
         for _ in 0..10 {

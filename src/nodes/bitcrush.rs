@@ -148,7 +148,9 @@ impl AudioNode for BitCrushNode {
             let rate_reduction = rate_buf[i].clamp(1.0, 64.0);
 
             // Accumulate phase for sample rate reduction
-            self.state.phase += rate_reduction;
+            // rate_reduction is the reduction factor (e.g., 4.0 = 1/4 sample rate)
+            // So we increment phase by 1/rate_reduction to cross 1.0 every rate_reduction samples
+            self.state.phase += 1.0 / rate_reduction;
 
             // Sample rate reduction: only update sample when phase crosses 1.0
             if self.state.phase >= 1.0 {
@@ -236,7 +238,7 @@ mod tests {
         // Count unique output values (should be ~4 for 2-bit)
         let mut unique_values: Vec<f32> = output.clone();
         unique_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        unique_values.dedup_by(|a, b| (a - b).abs() < 0.01);
+        unique_values.dedup_by(|a, b| (*a - *b).abs() < 0.01);
 
         assert!(
             unique_values.len() <= 6,
@@ -306,7 +308,7 @@ mod tests {
         // Check for quantization (limited unique values)
         let mut unique_values: Vec<f32> = output.clone();
         unique_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        unique_values.dedup_by(|a, b| (a - b).abs() < 0.001);
+        unique_values.dedup_by(|a, b| (*a - *b).abs() < 0.001);
 
         assert!(
             unique_values.len() < 30,
@@ -346,9 +348,14 @@ mod tests {
         // Test that phase accumulates correctly over time
         let size = 128;
 
-        let input = vec![1.0; size];
+        // Create varying input so we can see phase accumulation effects
+        let mut input = vec![0.0; size];
+        for i in 0..size {
+            input[i] = (i as f32 / size as f32) * 2.0 - 1.0; // Ramp -1 to 1
+        }
+
         let bits = vec![16.0; size];
-        let rate = vec![2.0; size];  // Phase should increment by 2 each sample
+        let rate = vec![2.0; size];  // Phase increments by 1/2.0 = 0.5 per sample
 
         let inputs: Vec<&[f32]> = vec![&input, &bits, &rate];
         let mut output = vec![0.0; size];
@@ -357,8 +364,8 @@ mod tests {
         let mut crush = BitCrushNode::new(0, 1, 2);
         crush.process_block(&inputs, &mut output, 44100.0, &context);
 
-        // Phase should wrap around multiple times
-        // With rate=2.0, phase crosses 1.0 every sample, so we should get updates
+        // With rate=2.0, phase accumulates by 0.5 per sample
+        // So phase crosses 1.0 every 2 samples, causing ~64 updates in 128 samples
         let mut changes = 0;
         for i in 1..size {
             if (output[i] - output[i - 1]).abs() > 0.0001 {
@@ -366,7 +373,8 @@ mod tests {
             }
         }
 
-        // With rate=2.0, most samples should be new (phase crosses 1.0 quickly)
+        // With rate=2.0, we expect phase to wrap frequently (every 2 samples)
+        // With a ramp input, this creates noticeable changes
         assert!(
             changes > size / 4,
             "Phase should accumulate and cross 1.0 frequently, got {} changes",
@@ -379,7 +387,11 @@ mod tests {
         // Test that parameters can vary over time
         let size = 512;
 
-        let input = vec![0.5; size];
+        // Create a ramp input so we can see quantization effects
+        let mut input = vec![0.0; size];
+        for i in 0..size {
+            input[i] = (i as f32 / size as f32) * 2.0 - 1.0; // Ramp from -1 to 1
+        }
 
         // Vary bit depth over time
         let mut bits = vec![0.0; size];
@@ -409,15 +421,16 @@ mod tests {
 
         let mut early_unique = early_vals.clone();
         early_unique.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        early_unique.dedup_by(|a, b| (a - b).abs() < 0.01);
+        early_unique.dedup_by(|a, b| (*a - *b).abs() < 0.001);
 
         let mut late_unique = late_vals.clone();
         late_unique.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        late_unique.dedup_by(|a, b| (a - b).abs() < 0.01);
+        late_unique.dedup_by(|a, b| (*a - *b).abs() < 0.001);
 
-        // Early samples (lower bits) should have fewer unique values
+        // Early samples (lower bits) should have fewer unique values than late (higher bits)
+        // 2-bit can have max ~4 unique values, 16-bit can have ~65536
         assert!(
-            early_unique.len() < late_unique.len() + 2,
+            early_unique.len() < late_unique.len(),
             "Lower bit depth should create fewer unique values: early={}, late={}",
             early_unique.len(),
             late_unique.len()
@@ -445,7 +458,9 @@ mod tests {
     #[test]
     fn test_bitcrush_reset() {
         // Test that reset clears state
-        let size = 512;
+        // With rate=4.0: phase += 1/4.0 = 0.25 per sample
+        // After 99 samples: phase = 99 * 0.25 = 24.75, which wraps to 0.75 (24.75 - 24 = 0.75)
+        let size = 99;
 
         let input = vec![0.8; size];
         let bits = vec![8.0; size];
@@ -461,7 +476,7 @@ mod tests {
 
         let phase_before = crush.phase();
         let sample_before = crush.last_sample();
-        assert!(phase_before > 0.0, "Phase should be non-zero");
+        assert!(phase_before > 0.0, "Phase should be non-zero after processing");
         assert!(sample_before.abs() > 0.0, "Last sample should be non-zero");
 
         // Reset

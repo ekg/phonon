@@ -8,7 +8,7 @@ use crate::compositional_parser::{BinOp, Expr, Statement, Transform, UnOp};
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
 use crate::superdirt_synths::SynthLibrary;
-use crate::unified_graph::{DattorroState, NodeId, Signal, SignalExpr, SignalNode, TapeDelayState, UnifiedSignalGraph, Waveform, XLineState};
+use crate::unified_graph::{DattorroState, NodeId, Signal, SignalExpr, SignalNode, TapeDelayState, UnifiedSignalGraph, Waveform};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;

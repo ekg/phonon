@@ -9,7 +9,7 @@ use crate::audio_node::{AudioNode, NodeId};
 use petgraph::algo::toposort;
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::Direction;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 /// Represents the audio processing dependency graph
 ///
