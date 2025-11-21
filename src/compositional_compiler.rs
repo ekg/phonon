@@ -154,6 +154,7 @@ impl CompilerContext {
             "delay" | "tapedelay" | "tape" | "multitap" | "pingpong" | "plate" |
             "chorus" | "flanger" |
             "compressor" | "comp" |
+            "sidechain_compressor" | "sidechain_comp" | "sc_comp" |
             "expander" | "expand" |
             "bitcrush" | "coarse" |
             "djf" | "ring" |
@@ -1196,6 +1197,7 @@ fn compile_function_call(
         "chorus" => compile_chorus(ctx, args),
         "flanger" => compile_flanger(ctx, args),
         "compressor" | "comp" => compile_compressor(ctx, args),
+        "sidechain_compressor" | "sidechain_comp" | "sc_comp" => compile_sidechain_compressor(ctx, args),
         "expander" | "expand" => compile_expander(ctx, args),
         "bitcrush" => compile_bitcrush(ctx, args),
         "coarse" => compile_coarse(ctx, args),
@@ -3625,6 +3627,39 @@ fn compile_compressor(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
         attack: Signal::Node(attack_node),
         release: Signal::Node(release_node),
         makeup_gain: Signal::Node(makeup_node),
+        state: CompressorState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile sidechain compressor effect
+fn compile_sidechain_compressor(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Extract main input (handles both standalone and chained forms)
+    let (main_input, params) = extract_chain_input(ctx, &args)?;
+
+    if params.len() != 5 {
+        return Err(format!(
+            "sidechain_compressor requires 5 parameters (sidechain_input, threshold, ratio, attack, release), got {}",
+            params.len()
+        ));
+    }
+
+    let sidechain_node = compile_expr(ctx, params[0].clone())?;
+    let threshold_node = compile_expr(ctx, params[1].clone())?;
+    let ratio_node = compile_expr(ctx, params[2].clone())?;
+    let attack_node = compile_expr(ctx, params[3].clone())?;
+    let release_node = compile_expr(ctx, params[4].clone())?;
+
+    use crate::unified_graph::CompressorState;
+
+    let node = SignalNode::SidechainCompressor {
+        main_input: main_input,
+        sidechain_input: Signal::Node(sidechain_node),
+        threshold: Signal::Node(threshold_node),
+        ratio: Signal::Node(ratio_node),
+        attack: Signal::Node(attack_node),
+        release: Signal::Node(release_node),
         state: CompressorState::default(),
     };
 

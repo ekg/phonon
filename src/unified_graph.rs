@@ -1402,6 +1402,18 @@ pub enum SignalNode {
         state: CompressorState,
     },
 
+    /// Sidechain Compressor - compression controlled by external signal
+    /// Analyzes sidechain signal but applies gain reduction to main input
+    SidechainCompressor {
+        main_input: Signal,      // Signal to compress
+        sidechain_input: Signal, // Signal controlling compression
+        threshold: Signal,       // Threshold in dB (-60.0 to 0.0)
+        ratio: Signal,           // Compression ratio (1.0 to 20.0)
+        attack: Signal,          // Attack time in seconds (0.001 to 1.0)
+        release: Signal,         // Release time in seconds (0.01 to 3.0)
+        state: CompressorState,
+    },
+
     /// Expander (upward expansion - boosts signals above threshold)
     /// Opposite of compressor: increases dynamic range by boosting loud signals
     Expander {
@@ -8002,6 +8014,65 @@ impl UnifiedSignalGraph {
 
                 // Apply compression and makeup gain
                 input_val * gain_reduction * makeup_gain_lin
+            }
+
+            SignalNode::SidechainCompressor {
+                main_input,
+                sidechain_input,
+                threshold,
+                ratio,
+                attack,
+                release,
+                state,
+            } => {
+                // Evaluate both inputs
+                let main_val = self.eval_signal(&main_input);
+                let sidechain_val = self.eval_signal(&sidechain_input);
+
+                let threshold_db = self.eval_signal(&threshold).clamp(-60.0, 0.0);
+                let ratio_val = self.eval_signal(&ratio).clamp(1.0, 20.0);
+                let attack_time = self.eval_signal(&attack).clamp(0.001, 1.0);
+                let release_time = self.eval_signal(&release).clamp(0.01, 3.0);
+
+                // Convert threshold from dB to linear
+                let threshold_lin = 10.0_f32.powf(threshold_db / 20.0);
+
+                // Envelope follower tracks SIDECHAIN signal (not main)
+                let sidechain_level = sidechain_val.abs();
+                let mut envelope = state.envelope;
+
+                // Envelope follower: attack when sidechain > envelope, release when sidechain < envelope
+                let coeff = if sidechain_level > envelope {
+                    // Attack: faster response to increasing levels
+                    (-(1.0 / (attack_time * self.sample_rate))).exp()
+                } else {
+                    // Release: slower response to decreasing levels
+                    (-(1.0 / (release_time * self.sample_rate))).exp()
+                };
+
+                envelope = coeff * envelope + (1.0 - coeff) * sidechain_level;
+
+                // Update envelope state
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::SidechainCompressor { state: s, .. } = node {
+                        s.envelope = envelope;
+                    }
+                }
+
+                // Calculate gain reduction based on SIDECHAIN level
+                let gain_reduction = if envelope > threshold_lin {
+                    // Above threshold: apply compression
+                    let envelope_db = 20.0 * envelope.log10();
+                    let over_db = envelope_db - threshold_db;
+                    let reduction_db = over_db * (1.0 - 1.0 / ratio_val);
+                    10.0_f32.powf(-reduction_db / 20.0) // Convert to linear gain reduction
+                } else {
+                    1.0 // No reduction below threshold
+                };
+
+                // Apply compression to MAIN input
+                main_val * gain_reduction
             }
 
             SignalNode::Expander {
