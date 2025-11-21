@@ -296,9 +296,16 @@ pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Res
             // All bus assignments are compiled immediately as normal signal chains
             // This allows effects to be chained and used inline: ~feel: delay ... # reverb ...
             // Previous "effect bus" system was for send/return routing, which is not the current design
-            let node_id = compile_expr(ctx, expr)?;
-            ctx.buses.insert(name.clone(), node_id);
-            ctx.graph.add_bus(name, node_id); // Register bus in graph for auto-routing
+            if ctx.use_audio_nodes {
+                // NEW: AudioNode path
+                let node_id = compile_expr_audio_node(ctx, expr)?;
+                ctx.buses.insert(name.clone(), NodeId(node_id));
+            } else {
+                // OLD: SignalNode path
+                let node_id = compile_expr(ctx, expr)?;
+                ctx.buses.insert(name.clone(), node_id);
+                ctx.graph.add_bus(name, node_id); // Register bus in graph for auto-routing
+            }
             Ok(())
         }
         Statement::TemplateAssignment { name, expr } => {
@@ -307,13 +314,27 @@ pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Res
             Ok(())
         }
         Statement::Output(expr) => {
-            let node_id = compile_expr(ctx, expr)?;
-            ctx.graph.set_output(node_id);
+            if ctx.use_audio_nodes {
+                // NEW: AudioNode path
+                let node_id = compile_expr_audio_node(ctx, expr)?;
+                ctx.audio_node_graph.set_output(node_id);
+            } else {
+                // OLD: SignalNode path
+                let node_id = compile_expr(ctx, expr)?;
+                ctx.graph.set_output(node_id);
+            }
             Ok(())
         }
         Statement::OutputChannel { channel, expr } => {
-            let node_id = compile_expr(ctx, expr)?;
-            ctx.graph.set_output_channel(channel, node_id);
+            if ctx.use_audio_nodes {
+                // NEW: AudioNode path
+                let node_id = compile_expr_audio_node(ctx, expr)?;
+                ctx.audio_node_graph.set_numbered_output(channel, node_id);
+            } else {
+                // OLD: SignalNode path
+                let node_id = compile_expr(ctx, expr)?;
+                ctx.graph.set_output_channel(channel, node_id);
+            }
             Ok(())
         }
         Statement::Tempo(cps) => {
@@ -585,6 +606,14 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
     match expr {
         Expr::Number(n) => {
             Ok(compile_constant_audio_node(ctx, n as f32))
+        }
+
+        Expr::BusRef(name) => {
+            // Look up bus in the buses HashMap
+            ctx.buses
+                .get(&name)
+                .map(|node_id| node_id.0) // Extract usize from NodeId wrapper
+                .ok_or_else(|| format!("Bus '{}' not found", name))
         }
 
         Expr::Call { name, args } if name == "sine" => {

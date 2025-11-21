@@ -244,10 +244,23 @@ impl AudioNodeGraph {
     /// Vector containing rendered audio
     pub fn render(&mut self, num_samples: usize) -> Result<Vec<f32>, String> {
         let mut buffer = vec![0.0; num_samples];
+        let mut offset = 0;
 
-        // Process in blocks
-        for chunk in buffer.chunks_mut(self.buffer_size) {
-            self.process_buffer(chunk)?;
+        // Process in fixed-size blocks
+        while offset < num_samples {
+            let chunk_size = (num_samples - offset).min(self.buffer_size);
+
+            if chunk_size == self.buffer_size {
+                // Full block - process directly
+                self.process_buffer(&mut buffer[offset..offset + chunk_size])?;
+            } else {
+                // Partial block - process into temp buffer and copy
+                let mut temp_buffer = vec![0.0; self.buffer_size];
+                self.process_buffer(&mut temp_buffer)?;
+                buffer[offset..offset + chunk_size].copy_from_slice(&temp_buffer[..chunk_size]);
+            }
+
+            offset += chunk_size;
         }
 
         Ok(buffer)
