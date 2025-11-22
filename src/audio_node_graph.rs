@@ -8,13 +8,16 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use crate::block_processor::BlockProcessor;
 use crate::dataflow_graph::DataflowGraph;
 use crate::pattern::Fraction;
+use crate::sample_loader::SampleBank;
+use crate::voice_manager::VoiceManager;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 /// Feature flag: Enable dataflow architecture
 ///
 /// When true, uses continuous message-passing DataflowGraph.
 /// When false, uses batch-synchronous BlockProcessor.
-const USE_DATAFLOW: bool = false;
+const USE_DATAFLOW: bool = true;
 
 /// DAW-style audio graph using AudioNode trait
 ///
@@ -76,6 +79,12 @@ pub struct AudioNodeGraph {
 
     /// Buffer size for block processing
     buffer_size: usize,
+
+    /// Voice manager for polyphonic sample playback
+    voice_manager: Arc<Mutex<VoiceManager>>,
+
+    /// Sample bank for loading and caching samples
+    sample_bank: Arc<Mutex<SampleBank>>,
 }
 
 impl AudioNodeGraph {
@@ -84,6 +93,14 @@ impl AudioNodeGraph {
     /// # Arguments
     /// * `sample_rate` - Sample rate in Hz (e.g., 44100.0)
     pub fn new(sample_rate: f32) -> Self {
+        // Create voice manager
+        let voice_manager = Arc::new(Mutex::new(VoiceManager::new()));
+
+        // Create sample bank and load default samples
+        let sample_bank_instance = SampleBank::new();
+        // Default samples are loaded in SampleBank::new()
+        let sample_bank = Arc::new(Mutex::new(sample_bank_instance));
+
         Self {
             audio_nodes: Vec::new(),
             sample_rate,
@@ -96,6 +113,8 @@ impl AudioNodeGraph {
             block_processor: None,
             dataflow_graph: None,
             buffer_size: 512, // Standard block size
+            voice_manager,
+            sample_bank,
         }
     }
 
@@ -131,6 +150,16 @@ impl AudioNodeGraph {
     /// Get the current tempo
     pub fn tempo(&self) -> f64 {
         self.tempo
+    }
+
+    /// Get the voice manager
+    pub fn voice_manager(&self) -> Arc<Mutex<VoiceManager>> {
+        Arc::clone(&self.voice_manager)
+    }
+
+    /// Get the sample bank
+    pub fn sample_bank(&self) -> Arc<Mutex<SampleBank>> {
+        Arc::clone(&self.sample_bank)
     }
 
     /// Hush a channel (silence it)
@@ -225,8 +254,17 @@ impl AudioNodeGraph {
             let dataflow_graph = self.dataflow_graph.as_mut()
                 .ok_or("build_processor() must be called before process_buffer()")?;
 
-            // Process block through dataflow graph
-            dataflow_graph.process_block(buffer)?;
+            // Create processing context with updated cycle position
+            let context = ProcessContext::new(
+                self.cycle_position.clone(),
+                0,
+                buffer.len(),
+                self.tempo,
+                self.sample_rate,
+            );
+
+            // Process block through dataflow graph with updated context
+            dataflow_graph.process_block(buffer, &context)?;
         } else {
             // Block processor architecture - batch synchronous
             let block_processor = self.block_processor.as_mut()

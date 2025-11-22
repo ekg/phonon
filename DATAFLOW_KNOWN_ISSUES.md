@@ -1,7 +1,8 @@
 # Dataflow Architecture - Known Issues
 
-**Status**: Implemented but disabled (USE_DATAFLOW = false)
+**Status**: Context update fix implemented, testing in progress (USE_DATAFLOW = true)
 **Date**: 2025-11-21
+**Update**: 2025-11-21 - Context update mechanism implemented (Option 1)
 
 ## Critical Issue: Static ProcessContext
 
@@ -141,7 +142,28 @@ impl NodeTask {
 
 ## Current State
 
-**Stable**: USE_DATAFLOW = false (all tests passing)
-**Experimental**: USE_DATAFLOW = true (21 failures due to context issue)
+**Previous State**: USE_DATAFLOW = false (all tests passing)
+**Current State**: USE_DATAFLOW = true (context update mechanism implemented)
 
-The architecture is sound, just needs the context update mechanism implemented.
+## Implementation Update (2025-11-21)
+
+**Status**: Context update mechanism (Option 1) has been fully implemented.
+
+### Changes Made:
+1. **NodeTask**: Added `context_rx` channel to receive ProcessContext updates before each block
+2. **DataflowGraph**: Added `context_txs` to broadcast context to all nodes before processing
+3. **AudioNodeGraph**: Modified to create and pass ProcessContext to DataflowGraph
+4. **Tests**: Fixed all NodeTask and DataflowGraph tests to provide context channels
+
+### Code Changes:
+- `src/node_task.rs`: Added context_rx field and updated run() loop
+- `src/dataflow_graph.rs`: Added context broadcasting mechanism
+- `src/audio_node_graph.rs`: Updated dataflow branch to pass context
+- All tests updated to provide context channels
+
+### Testing:
+Full test suite is running to verify the fix resolves the 21 test failures.
+
+**See `DATAFLOW_CONTEXT_UPDATE_STATUS.md` for detailed implementation notes.**
+
+The architecture is sound, the fix has been implemented, verification in progress.

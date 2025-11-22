@@ -1346,6 +1346,26 @@ pub fn get_all_nodes() -> HashMap<String, GeneratedNodeMetadata> {
         ],
     });
 
+    // samplepattern
+    map.insert("samplepattern".to_string(), GeneratedNodeMetadata {
+        name: "samplepattern".to_string(),
+        description: "Sample Pattern Node".to_string(),
+        params: vec![
+            GeneratedParamMetadata {
+                name: "pattern".to_string(),
+                param_type: "Arc".to_string(),
+            },
+            GeneratedParamMetadata {
+                name: "voice_manager".to_string(),
+                param_type: "Arc".to_string(),
+            },
+            GeneratedParamMetadata {
+                name: "sample_bank".to_string(),
+                param_type: "Arc".to_string(),
+            },
+        ],
+    });
+
     // patternevaluator
     map.insert("patternevaluator".to_string(), GeneratedNodeMetadata {
         name: "patternevaluator".to_string(),

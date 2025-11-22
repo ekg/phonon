@@ -12,6 +12,7 @@ use crate::unified_graph::{DattorroState, NodeId, Signal, SignalExpr, SignalNode
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 /// Use AudioNode architecture (DAW-style block processing)
 /// Set to false to use legacy SignalNode architecture (sample-by-sample)
@@ -915,6 +916,16 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
             compile_distortion_audio_node(ctx, args)
         }
 
+        Expr::Call { name, args } if name == "s" => {
+            // Sample playback function: s "bd sn hh cp"
+            if args.len() != 1 {
+                return Err(format!("s function expects 1 argument (pattern string), got {}", args.len()));
+            }
+
+            // Extract the string argument and compile it as Expr::String
+            compile_expr_audio_node(ctx, args[0].clone())
+        }
+
         Expr::BinOp { op: BinOp::Add, left, right } => {
             compile_add_audio_node(ctx, *left, *right)
         }
@@ -944,6 +955,68 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
         Expr::Paren(inner) => {
             // Parenthesized expression - just compile the inner expression
             compile_expr_audio_node(ctx, *inner)
+        }
+
+        Expr::String(pattern_str) => {
+            // Pattern string - create a SamplePatternNode
+            // Example: "bd sn hh cp" or s "bd sn hh cp"
+
+            // Parse mini-notation to create Pattern<String>
+            let pattern = parse_mini_notation(&pattern_str);
+            let pattern = Arc::new(pattern);
+
+            // Get voice_manager and sample_bank from audio_node_graph
+            let voice_manager = ctx.audio_node_graph.voice_manager();
+            let sample_bank = ctx.audio_node_graph.sample_bank();
+
+            // Create SamplePatternNode
+            let node = Box::new(crate::nodes::SamplePatternNode::new(
+                pattern,
+                voice_manager,
+                sample_bank,
+            ));
+
+            // Add to graph and return NodeId
+            Ok(ctx.audio_node_graph.add_audio_node(node))
+        }
+
+        Expr::Transform { expr, transform } => {
+            // Pattern transform - apply transform to pattern, then compile
+            // Example: "bd sn" $ fast 2
+
+            // Check if inner expr is a String (pattern)
+            match expr.as_ref() {
+                Expr::String(pattern_str) => {
+                    // Parse mini-notation to create Pattern<String>
+                    let mut pattern = parse_mini_notation(&pattern_str);
+
+                    // Apply transform using the helper function
+                    pattern = apply_transform_to_pattern(&ctx.templates, pattern, transform.clone())?;
+
+                    // Wrap in Arc
+                    let pattern = Arc::new(pattern);
+
+                    // Get voice_manager and sample_bank from audio_node_graph
+                    let voice_manager = ctx.audio_node_graph.voice_manager();
+                    let sample_bank = ctx.audio_node_graph.sample_bank();
+
+                    // Create SamplePatternNode
+                    let node = Box::new(crate::nodes::SamplePatternNode::new(
+                        pattern,
+                        voice_manager,
+                        sample_bank,
+                    ));
+
+                    // Add to graph and return NodeId
+                    Ok(ctx.audio_node_graph.add_audio_node(node))
+                }
+                _ => {
+                    // For non-pattern expressions, compile without transform
+                    // (transforms only apply to patterns)
+                    eprintln!("⚠️  Transform on non-pattern expression not yet supported: {:?}", transform);
+                    compile_expr_audio_node(ctx, *expr)
+                }
+            }
         }
 
         _ => Err(format!("AudioNode compilation not yet implemented for: {:?}", expr)),
@@ -7645,7 +7718,10 @@ mod tests {
         let code = r#"out: "bd sn" $ fast 2"#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
-        assert!(result.is_ok(), "Failed to compile fast transform");
+        match result {
+            Ok(_) => {},
+            Err(e) => panic!("Failed to compile fast transform: {}", e),
+        }
     }
 
     #[test]
@@ -7872,7 +7948,10 @@ mod tests {
         let code = r#"out: s "bd:0 bd:1 bd:2""#;
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0);
-        assert!(result.is_ok(), "Failed to compile sample bank selection");
+        match result {
+            Ok(_) => {},
+            Err(e) => panic!("Failed to compile sample bank selection: {}", e),
+        }
     }
 
     #[test]

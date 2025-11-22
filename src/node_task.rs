@@ -35,10 +35,15 @@ pub struct NodeTask {
     /// Vec to support multiple consumers (fan-out)
     output_tx: Vec<Sender<Arc<Vec<f32>>>>,
 
+    /// Context update channel
+    /// Receives updated ProcessContext before each block
+    context_rx: Receiver<ProcessContext>,
+
     /// Shared buffer pool for recycling allocations
     buffer_pool: Arc<BufferPool>,
 
     /// Current processing context (cycle position, tempo, etc.)
+    /// Updated from context_rx each block
     context: ProcessContext,
 
     /// Shutdown signal
@@ -53,14 +58,16 @@ impl NodeTask {
     /// * `node` - AudioNode to wrap
     /// * `input_rx` - Input channels (one per dependency)
     /// * `output_tx` - Output channels (one per dependent)
+    /// * `context_rx` - Context update channel
     /// * `buffer_pool` - Shared buffer pool
-    /// * `context` - Processing context
+    /// * `context` - Initial processing context
     /// * `shutdown` - Shutdown signal
     pub fn new(
         id: NodeId,
         node: Box<dyn AudioNode>,
         input_rx: Vec<Receiver<Arc<Vec<f32>>>>,
         output_tx: Vec<Sender<Arc<Vec<f32>>>>,
+        context_rx: Receiver<ProcessContext>,
         buffer_pool: Arc<BufferPool>,
         context: ProcessContext,
         shutdown: Arc<std::sync::atomic::AtomicBool>,
@@ -70,6 +77,7 @@ impl NodeTask {
             node,
             input_rx,
             output_tx,
+            context_rx,
             buffer_pool,
             context,
             shutdown,
@@ -81,6 +89,7 @@ impl NodeTask {
     /// This is the main processing loop. It runs until shutdown signal.
     ///
     /// # Processing Steps
+    /// 0. Receive updated ProcessContext for this block
     /// 1. Wait for all input buffers to arrive (non-blocking)
     /// 2. Acquire output buffer from pool
     /// 3. Process block (call AudioNode::process_block)
@@ -95,6 +104,15 @@ impl NodeTask {
             if self.shutdown.load(std::sync::atomic::Ordering::Relaxed) {
                 return Ok(());
             }
+
+            // 0. Receive updated context (blocking until coordinator sends update)
+            self.context = match self.context_rx.recv() {
+                Ok(ctx) => ctx,
+                Err(_) => {
+                    // Context channel closed - graceful shutdown
+                    return Ok(());
+                }
+            };
 
             // 1. Receive all input buffers (blocking until ready)
             let inputs = match self.receive_inputs() {
@@ -196,6 +214,7 @@ impl SourceNodeTask {
         node: Box<dyn AudioNode>,
         trigger_rx: Receiver<Arc<Vec<f32>>>,
         output_tx: Vec<Sender<Arc<Vec<f32>>>>,
+        context_rx: Receiver<ProcessContext>,
         buffer_pool: Arc<BufferPool>,
         context: ProcessContext,
         shutdown: Arc<std::sync::atomic::AtomicBool>,
@@ -206,6 +225,7 @@ impl SourceNodeTask {
                 node,
                 vec![trigger_rx],  // Trigger as input
                 output_tx,
+                context_rx,
                 buffer_pool,
                 context,
                 shutdown,
@@ -242,12 +262,14 @@ mod tests {
 
         let node = Box::new(ConstantNode::new(0.5));
         let (tx, _rx) = bounded(4);
+        let (ctx_tx, ctx_rx) = bounded(4);
 
         let task = NodeTask::new(
             0,
             node,
             vec![],  // No inputs (source node)
             vec![tx],
+            ctx_rx,
             pool,
             context,
             shutdown,
@@ -278,14 +300,16 @@ mod tests {
         // Setup channels
         let (trigger_tx, trigger_rx) = bounded(4);
         let (output_tx, output_rx) = bounded(4);
+        let (ctx_tx, ctx_rx) = bounded(4);
 
         let task = NodeTask::new(
             0,
             node,
             vec![trigger_rx],
             vec![output_tx],
+            ctx_rx,
             pool.clone(),
-            context,
+            context.clone(),
             shutdown.clone(),
         );
 
@@ -293,6 +317,9 @@ mod tests {
         std::thread::spawn(move || {
             task.run()
         });
+
+        // Send context update first (NodeTask expects this before processing)
+        ctx_tx.send(context).unwrap();
 
         // Send trigger
         let trigger = Arc::new(vec![0.0; 512]);
@@ -328,12 +355,14 @@ mod tests {
         let const_node = Box::new(ConstantNode::new(440.0));
         let (trigger_tx, trigger_rx) = bounded(4);
         let (const_out_tx, const_out_rx) = bounded(4);
+        let (const_ctx_tx, const_ctx_rx) = bounded(4);
 
         let const_task = NodeTask::new(
             0,
             const_node,
             vec![trigger_rx],
             vec![const_out_tx],
+            const_ctx_rx,
             pool.clone(),
             context.clone(),
             shutdown.clone(),
@@ -342,20 +371,26 @@ mod tests {
         // Node 1: Oscillator (uses constant as frequency)
         let osc_node = Box::new(OscillatorNode::new(0, Waveform::Sine));
         let (osc_out_tx, osc_out_rx) = bounded(4);
+        let (osc_ctx_tx, osc_ctx_rx) = bounded(4);
 
         let osc_task = NodeTask::new(
             1,
             osc_node,
             vec![const_out_rx],
             vec![osc_out_tx],
+            osc_ctx_rx,
             pool.clone(),
-            context,
+            context.clone(),
             shutdown.clone(),
         );
 
         // Run tasks
         std::thread::spawn(move || const_task.run());
         std::thread::spawn(move || osc_task.run());
+
+        // Send context updates to both nodes first
+        const_ctx_tx.send(context.clone()).unwrap();
+        osc_ctx_tx.send(context).unwrap();
 
         // Trigger processing
         let trigger = Arc::new(vec![0.0; 512]);
