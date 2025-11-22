@@ -14,7 +14,7 @@ use std::collections::HashMap;
 ///
 /// When true, uses continuous message-passing DataflowGraph.
 /// When false, uses batch-synchronous BlockProcessor.
-const USE_DATAFLOW: bool = true;
+const USE_DATAFLOW: bool = false;
 
 /// DAW-style audio graph using AudioNode trait
 ///
