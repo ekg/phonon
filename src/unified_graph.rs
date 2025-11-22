@@ -1262,6 +1262,18 @@ pub enum SignalNode {
         current_envelope: f32, // Smoothed RMS value
     },
 
+    /// Zero Crossing Detector
+    /// Detects when signal crosses zero and outputs crossing frequency
+    /// Useful for pitch tracking and triggering on transients
+    ZeroCrossing {
+        input: Signal,
+        last_sample: f32,        // Previous sample for detecting zero crossings
+        crossing_count: u32,     // Number of crossings in current window
+        sample_count: u32,       // Samples since last frequency update
+        window_samples: u32,     // Window size in samples for frequency calculation
+        last_frequency: f32,     // Last calculated frequency
+    },
+
     // === Math & Control ===
     /// Addition
     Add { a: Signal, b: Signal },
@@ -1327,6 +1339,25 @@ pub enum SignalNode {
     Router {
         input: Signal,
         destinations: Vec<(NodeId, f32)>, // (target, amount)
+    },
+
+    /// Conditional signal routing (if-then-else)
+    /// Routes signal based on condition: condition > 0.5 ? then_signal : else_signal
+    /// Enables dynamic signal routing and conditional effects
+    /// Example: if ~envelope > 0.5 then ~wet else ~dry
+    Conditional {
+        condition: Signal,    // Condition signal (> 0.5 = true)
+        then_signal: Signal,  // Signal when condition is true
+        else_signal: Signal,  // Signal when condition is false
+    },
+
+    /// Select/Multiplex between multiple signals
+    /// Routes one of N signals based on index (pattern-modulatable!)
+    /// Index is rounded and wrapped to valid range [0, N-1]
+    /// Example: select "0 1 2 3" [~bus0, ~bus1, ~bus2, ~bus3]
+    Select {
+        index: Signal,         // Which input to select (0, 1, 2, ...)
+        inputs: Vec<Signal>,   // Available signals to select from
     },
 
     // === Effects ===
@@ -1432,6 +1463,20 @@ pub enum SignalNode {
         attack: Signal,    // Attack time in seconds (0.001 to 1.0)
         release: Signal,   // Release time in seconds (0.01 to 3.0)
         state: ExpanderState,
+    },
+
+    /// Adaptive Compressor - compression that adapts to signal analysis
+    /// Uses sidechain RMS/peak analysis to modulate threshold and ratio
+    /// Enables complex feedback networks where compression responds to signal characteristics
+    AdaptiveCompressor {
+        main_input: Signal,      // Signal to compress
+        sidechain_input: Signal, // Signal to analyze for adaptation
+        threshold: Signal,       // Base threshold in dB (-60.0 to 0.0)
+        ratio: Signal,           // Base compression ratio (1.0 to 20.0)
+        attack: Signal,          // Attack time in seconds (0.001 to 1.0)
+        release: Signal,         // Release time in seconds (0.01 to 3.0)
+        adaptive_factor: Signal, // How much analysis affects compression (0.0-1.0)
+        state: AdaptiveCompressorState,
     },
 
     /// Tremolo (amplitude modulation)
@@ -3517,6 +3562,33 @@ impl Default for ExpanderState {
     }
 }
 
+/// Adaptive Compressor state
+/// Tracks both envelope follower and RMS analysis for adaptive behavior
+#[derive(Debug, Clone)]
+pub struct AdaptiveCompressorState {
+    envelope: f32,      // Current envelope follower value
+    rms_buffer: Vec<f32>, // Circular buffer for RMS calculation
+    rms_write_idx: usize, // Write position in RMS buffer
+    current_rms: f32,   // Current RMS level for adaptive modulation
+}
+
+impl AdaptiveCompressorState {
+    pub fn new() -> Self {
+        Self {
+            envelope: 0.0,
+            rms_buffer: vec![0.0; 4410], // 100ms at 44.1kHz
+            rms_write_idx: 0,
+            current_rms: 0.0,
+        }
+    }
+}
+
+impl Default for AdaptiveCompressorState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Convolution reverb state
 #[derive(Debug, Clone)]
 pub struct ConvolutionState {
@@ -5313,6 +5385,30 @@ impl UnifiedSignalGraph {
                     normalized + min_val
                 };
                 Some(result)
+            }
+            SignalNode::Conditional {
+                condition,
+                then_signal,
+                else_signal,
+            } => {
+                let cond_val = self.eval_signal_from_buffers(condition, sample_idx);
+                if cond_val > 0.5 {
+                    Some(self.eval_signal_from_buffers(then_signal, sample_idx))
+                } else {
+                    Some(self.eval_signal_from_buffers(else_signal, sample_idx))
+                }
+            }
+            SignalNode::Select { index, inputs } => {
+                if inputs.is_empty() {
+                    return Some(0.0);
+                }
+
+                let index_val = self.eval_signal_from_buffers(index, sample_idx);
+                let num_inputs = inputs.len();
+                let selected_idx =
+                    ((index_val.round() as i32).rem_euclid(num_inputs as i32)) as usize;
+
+                Some(self.eval_signal_from_buffers(&inputs[selected_idx], sample_idx))
             }
             // For other node types, fall back to eval_node for now
             // TODO: Add buffer-based evaluation for all node types
@@ -8148,6 +8244,94 @@ impl UnifiedSignalGraph {
 
                 // Apply expansion
                 input_val * gain_boost
+            }
+
+            SignalNode::AdaptiveCompressor {
+                main_input,
+                sidechain_input,
+                threshold,
+                ratio,
+                attack,
+                release,
+                adaptive_factor,
+                state,
+            } => {
+                // Evaluate both inputs
+                let main_val = self.eval_signal(&main_input);
+                let sidechain_val = self.eval_signal(&sidechain_input);
+
+                let threshold_db = self.eval_signal(&threshold).clamp(-60.0, 0.0);
+                let ratio_val = self.eval_signal(&ratio).clamp(1.0, 20.0);
+                let attack_time = self.eval_signal(&attack).clamp(0.001, 1.0);
+                let release_time = self.eval_signal(&release).clamp(0.01, 3.0);
+                let adapt_factor = self.eval_signal(&adaptive_factor).clamp(0.0, 1.0);
+
+                // Convert threshold from dB to linear
+                let threshold_lin = 10.0_f32.powf(threshold_db / 20.0);
+
+                // Envelope follower tracks SIDECHAIN signal (like sidechain compressor)
+                let sidechain_level = sidechain_val.abs();
+                let mut envelope = state.envelope;
+                let mut rms = state.current_rms;
+                let mut rms_idx = state.rms_write_idx;
+
+                // Envelope follower: attack when sidechain > envelope, release when sidechain < envelope
+                let coeff = if sidechain_level > envelope {
+                    // Attack: faster response to increasing levels
+                    (-(1.0 / (attack_time * self.sample_rate))).exp()
+                } else {
+                    // Release: slower response to decreasing levels
+                    (-(1.0 / (release_time * self.sample_rate))).exp()
+                };
+
+                envelope = coeff * envelope + (1.0 - coeff) * sidechain_level;
+
+                // Calculate RMS of sidechain for adaptive behavior
+                // Update RMS buffer
+                let mut rms_buffer_copy = state.rms_buffer.clone();
+                rms_buffer_copy[rms_idx] = sidechain_val * sidechain_val;
+                rms_idx = (rms_idx + 1) % rms_buffer_copy.len();
+
+                // Calculate RMS (average of squared values, then square root)
+                let sum: f32 = rms_buffer_copy.iter().sum();
+                rms = (sum / rms_buffer_copy.len() as f32).sqrt();
+
+                // Update state
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::AdaptiveCompressor { state: s, .. } = node {
+                        s.envelope = envelope;
+                        s.current_rms = rms;
+                        s.rms_buffer = rms_buffer_copy;
+                        s.rms_write_idx = rms_idx;
+                    }
+                }
+
+                // Adaptive threshold: modulate based on RMS level
+                // When RMS is high, increase threshold (less compression)
+                // When RMS is low, decrease threshold (more compression)
+                let adaptive_threshold_db = threshold_db + (rms * 20.0 * adapt_factor);
+                let adaptive_threshold_lin = 10.0_f32.powf(adaptive_threshold_db / 20.0);
+
+                // Adaptive ratio: modulate based on RMS level
+                // When RMS is high, reduce ratio (gentler compression)
+                // When RMS is low, increase ratio (harder compression)
+                let adaptive_ratio = ratio_val * (1.0 - (rms * adapt_factor * 0.5));
+                let adaptive_ratio = adaptive_ratio.clamp(1.0, 20.0);
+
+                // Calculate gain reduction based on SIDECHAIN level with adaptive parameters
+                let gain_reduction = if envelope > adaptive_threshold_lin {
+                    // Above threshold: apply compression
+                    let envelope_db = 20.0 * envelope.log10();
+                    let over_db = envelope_db - adaptive_threshold_db;
+                    let reduction_db = over_db * (1.0 - 1.0 / adaptive_ratio);
+                    10.0_f32.powf(-reduction_db / 20.0) // Convert to linear gain reduction
+                } else {
+                    1.0 // No reduction below threshold
+                };
+
+                // Apply compression to MAIN input
+                main_val * gain_reduction
             }
 
             SignalNode::Tremolo {
@@ -11169,6 +11353,64 @@ impl UnifiedSignalGraph {
                 transient
             }
 
+            SignalNode::ZeroCrossing {
+                input,
+                last_sample,
+                crossing_count,
+                sample_count,
+                window_samples,
+                last_frequency,
+            } => {
+                let input_val = self.eval_signal(&input);
+                let last = *last_sample;
+
+                let mut output_freq = *last_frequency;
+                let mut crossings = *crossing_count;
+                let mut samples = *sample_count;
+
+                // Detect zero crossing (sign change)
+                if (last < 0.0 && input_val >= 0.0) || (last >= 0.0 && input_val < 0.0) {
+                    crossings += 1;
+                }
+
+                samples += 1;
+
+                // Update frequency estimate every window
+                if samples >= *window_samples {
+                    // Frequency = (crossings / 2) / (samples / sample_rate)
+                    // Divide by 2 because each cycle has 2 crossings (positive and negative)
+                    let time_seconds = samples as f32 / self.sample_rate;
+                    output_freq = if crossings > 0 {
+                        (crossings as f32 / 2.0) / time_seconds
+                    } else {
+                        0.0
+                    };
+
+                    // Reset counters for next window
+                    crossings = 0;
+                    samples = 0;
+                }
+
+                // Update state
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::ZeroCrossing {
+                        last_sample: ls,
+                        crossing_count: cc,
+                        sample_count: sc,
+                        last_frequency: lf,
+                        ..
+                    } = node {
+                        *ls = input_val;
+                        *cc = crossings;
+                        *sc = samples;
+                        *lf = output_freq;
+                    }
+                }
+
+                output_freq
+            }
+
             SignalNode::PeakFollower {
                 input,
                 attack_time,
@@ -11291,6 +11533,39 @@ impl UnifiedSignalGraph {
             } => {
                 // Router just passes through input, destinations are handled separately
                 self.eval_signal(&input)
+            }
+
+            SignalNode::Conditional {
+                condition,
+                then_signal,
+                else_signal,
+            } => {
+                // Evaluate condition
+                let cond_value = self.eval_signal(&condition);
+
+                // Route based on condition (> 0.5 = true)
+                if cond_value > 0.5 {
+                    self.eval_signal(&then_signal)
+                } else {
+                    self.eval_signal(&else_signal)
+                }
+            }
+
+            SignalNode::Select { index, inputs } => {
+                // Evaluate index signal
+                let index_value = self.eval_signal(&index);
+
+                // Handle empty inputs
+                if inputs.is_empty() {
+                    return 0.0;
+                }
+
+                // Round index and wrap to valid range [0, N-1]
+                let num_inputs = inputs.len();
+                let selected_idx = ((index_value.round() as i32).rem_euclid(num_inputs as i32)) as usize;
+
+                // Evaluate and return selected signal
+                self.eval_signal(&inputs[selected_idx])
             }
         };
 

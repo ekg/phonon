@@ -28,6 +28,8 @@ pub enum Statement {
     BusAssignment { name: String, expr: Expr },
     /// Template assignment: @name: expr
     TemplateAssignment { name: String, expr: Expr },
+    /// Pattern assignment: %name: expr (for pattern-to-pattern modulation)
+    PatternAssignment { name: String, expr: Expr },
     /// Output: out: expr
     Output(Expr),
     /// Multi-channel output: out1: expr, out2: expr, etc.
@@ -77,6 +79,9 @@ pub enum Expr {
 
     /// Template reference: @swing, @heavy
     TemplateRef(String),
+
+    /// Pattern reference: %speed, %density (for pattern-to-pattern modulation)
+    PatternRef(String),
 
     /// Variable reference (function parameters): freq, detune
     Var(String),
@@ -520,6 +525,7 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
         parse_panic,           // Try panic command
         parse_bus_assignment,
         parse_template_assignment,
+        parse_pattern_assignment,
         parse_output_channel,  // Try multi-channel output first
         parse_output,          // Then single output
         parse_bpm,             // Try BPM before tempo (bpm: vs tempo:)
@@ -589,6 +595,25 @@ fn parse_template_assignment(input: &str) -> IResult<&str, Statement> {
     Ok((
         input,
         Statement::TemplateAssignment {
+            name: name.to_string(),
+            expr,
+        },
+    ))
+}
+
+/// Parse pattern assignment: %name: expr
+/// Used for pattern-to-pattern modulation (e.g., fast %speed)
+fn parse_pattern_assignment(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = char('%')(input)?;
+    let (input, name) = parse_identifier(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(':')(input)?;
+    let (input, _) = space0(input)?;
+    let (input, expr) = parse_expr(input)?;
+
+    Ok((
+        input,
+        Statement::PatternAssignment {
             name: name.to_string(),
             expr,
         },
@@ -1037,6 +1062,7 @@ fn parse_primary_expr(input: &str) -> IResult<&str, Expr> {
         parse_string_literal,
         parse_bus_ref_expr,
         parse_template_ref_expr,
+        parse_pattern_ref_expr,
         parse_function_call, // Try function call first (requires space + args)
         parse_var,           // Then try bare variable (no args)
         parse_list_expr,
@@ -1081,6 +1107,14 @@ fn parse_template_ref_expr(input: &str) -> IResult<&str, Expr> {
     let (input, _) = char('@')(input)?;
     let (input, name) = parse_identifier(input)?;
     Ok((input, Expr::TemplateRef(name.to_string())))
+}
+
+/// Parse pattern reference: %speed, %density
+/// Used for pattern-to-pattern modulation (e.g., fast %speed)
+fn parse_pattern_ref_expr(input: &str) -> IResult<&str, Expr> {
+    let (input, _) = char('%')(input)?;
+    let (input, name) = parse_identifier(input)?;
+    Ok((input, Expr::PatternRef(name.to_string())))
 }
 
 /// Parse variable reference (bare identifier)

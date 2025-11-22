@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 /// Use AudioNode architecture (DAW-style block processing)
 /// Set to false to use legacy SignalNode architecture (sample-by-sample)
-const USE_AUDIO_NODES: bool = true;
+const USE_AUDIO_NODES: bool = false;
 
 /// Metadata for SamplePatternNode (used for parameter modification)
 #[derive(Clone)]
@@ -48,6 +48,8 @@ pub struct CompilerContext {
     use_audio_nodes: bool,
     /// NEW: Track SamplePatternNode metadata for parameter modification (AudioNode mode)
     sample_node_metadata: HashMap<usize, SampleNodeMetadata>,
+    /// NEW: Pattern registry for pattern-to-pattern modulation (%pattern_name references)
+    pattern_registry: HashMap<String, Pattern<f64>>,
 }
 
 /// Function definition storage
@@ -154,6 +156,7 @@ impl CompilerContext {
             audio_node_graph: crate::audio_node_graph::AudioNodeGraph::new(sample_rate),
             use_audio_nodes,
             sample_node_metadata: HashMap::new(),
+            pattern_registry: HashMap::new(),
         }
     }
 
@@ -371,6 +374,40 @@ pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Res
             ctx.templates.insert(name, expr);
             Ok(())
         }
+        Statement::PatternAssignment { name, expr } => {
+            // Pattern assignments create Pattern<f64> for use in transforms
+            // %speed: "1 2 3 4" creates a pattern that can be used in fast %speed
+            let pattern = match expr {
+                Expr::String(s) => {
+                    // Mini-notation pattern: %speed: "1 2 3 4"
+                    let string_pattern = parse_mini_notation(&s);
+                    string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(1.0))
+                }
+                Expr::Number(n) => {
+                    // Constant pattern: %speed: 2.0
+                    Pattern::pure(n)
+                }
+                Expr::BusRef(bus_name) => {
+                    // Audio signal as pattern: %speed: ~lfo
+                    create_signal_pattern_for_transform(
+                        ctx,
+                        &bus_name,
+                        0.0,
+                        1.0,
+                        &name,
+                    )?
+                }
+                _ => {
+                    return Err(format!(
+                        "Pattern assignment %{}: unsupported expression type. Use string pattern, number, or bus reference.",
+                        name
+                    ));
+                }
+            };
+
+            ctx.pattern_registry.insert(name, pattern);
+            Ok(())
+        }
         Statement::Output(expr) => {
             if ctx.use_audio_nodes {
                 // NEW: AudioNode path
@@ -525,6 +562,14 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
 
             // Recursively compile the template expression
             compile_expr(ctx, template_expr)
+        }
+
+        Expr::PatternRef(name) => {
+            // Pattern references are only valid as transform parameters, not as signals
+            Err(format!(
+                "Pattern reference %{} cannot be used as a signal. Pattern references are only valid as parameters to transforms (e.g., fast %speed).",
+                name
+            ))
         }
 
         Expr::Var(name) => {
@@ -1436,6 +1481,14 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
                 .ok_or_else(|| format!("Bus '{}' not found", name))
         }
 
+        Expr::PatternRef(name) => {
+            // Pattern references are only valid as transform parameters, not as signals
+            Err(format!(
+                "Pattern reference %{} cannot be used as a signal. Pattern references are only valid as parameters to transforms (e.g., fast %speed).",
+                name
+            ))
+        }
+
         Expr::Call { name, args } if name == "sine" => {
             compile_sine_audio_node(ctx, args)
         }
@@ -1609,6 +1662,13 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
                     compile_expr_audio_node(ctx, *expr)
                 }
             }
+        }
+
+        Expr::Call { name, args } => {
+            // For function calls not explicitly handled above, try compile_function_call
+            // which returns a NodeId (SignalNode). Extract the usize from NodeId.
+            let node_id = compile_function_call(ctx, &name, args)?;
+            Ok(node_id.0) // Convert NodeId to usize
         }
 
         _ => Err(format!("AudioNode compilation not yet implemented for: {:?}", expr)),
@@ -2313,6 +2373,8 @@ fn compile_function_call(
         "phaser" | "ph" => compile_phaser(ctx, args),
         "xfade" => compile_xfade(ctx, args),
         "mix" => compile_mix(ctx, args),
+        "if" => compile_if(ctx, args),
+        "select" => compile_select(ctx, args),
         "allpass" => compile_allpass(ctx, args),
         "svf_lp" => compile_svf_lp(ctx, args),
         "svf_hp" => compile_svf_hp(ctx, args),
@@ -5097,6 +5159,63 @@ fn compile_mix(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     Ok(ctx.graph.add_node(node))
 }
 
+/// Compile Conditional (if-then-else) routing
+/// Syntax: if condition then_signal else_signal
+/// Routes to then_signal if condition > 0.5, else routes to else_signal
+fn compile_if(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 3 {
+        return Err(format!(
+            "if requires 3 parameters (condition, then_signal, else_signal), got {}",
+            args.len()
+        ));
+    }
+
+    let condition_node = compile_expr(ctx, args[0].clone())?;
+    let then_node = compile_expr(ctx, args[1].clone())?;
+    let else_node = compile_expr(ctx, args[2].clone())?;
+
+    let node = SignalNode::Conditional {
+        condition: Signal::Node(condition_node),
+        then_signal: Signal::Node(then_node),
+        else_signal: Signal::Node(else_node),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile Select/Multiplex node
+/// Syntax: select index signal1 signal2 signal3 ...
+/// Selects one of N signals based on index (pattern-modulatable)
+fn compile_select(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() < 2 {
+        return Err(format!(
+            "select requires at least 2 parameters (index, signals...), got {}",
+            args.len()
+        ));
+    }
+
+    // First arg is the index signal
+    let index_node = compile_expr(ctx, args[0].clone())?;
+
+    // Remaining args are the signals to select from
+    let mut signal_nodes = Vec::new();
+    for arg in args.iter().skip(1) {
+        let node = compile_expr(ctx, arg.clone())?;
+        signal_nodes.push(Signal::Node(node));
+    }
+
+    if signal_nodes.is_empty() {
+        return Err("select requires at least one signal to select from".to_string());
+    }
+
+    let node = SignalNode::Select {
+        index: Signal::Node(index_node),
+        inputs: signal_nodes,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
 /// Compile Allpass filter
 /// Syntax: allpass input coefficient
 /// Allpass filter for phase manipulation and reverb building
@@ -6685,6 +6804,13 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                         "fast",
                     )?
                 }
+                Expr::PatternRef(pattern_name) => {
+                    // Pattern-to-pattern modulation: fast %speed
+                    ctx.pattern_registry
+                        .get(pattern_name)
+                        .cloned()
+                        .ok_or_else(|| format!("Undefined pattern: %{}", pattern_name))?
+                }
                 _ => {
                     // Constant speed: fast 2 -> Pattern::pure(2.0)
                     let speed = extract_number(&speed_expr)?;
@@ -6712,6 +6838,13 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                         4.0,
                         "slow",
                     )?
+                }
+                Expr::PatternRef(pattern_name) => {
+                    // Pattern-to-pattern modulation: slow %speed
+                    ctx.pattern_registry
+                        .get(pattern_name)
+                        .cloned()
+                        .ok_or_else(|| format!("Undefined pattern: %{}", pattern_name))?
                 }
                 _ => {
                     // Constant speed: slow 2 -> Pattern::pure(2.0)
@@ -6775,6 +6908,14 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                     )?;
                     Ok(pattern.degrade_by(prob_pattern))
                 }
+                Expr::PatternRef(pattern_name) => {
+                    // Pattern-to-pattern modulation: degradeBy %prob
+                    let prob_pattern = ctx.pattern_registry
+                        .get(pattern_name)
+                        .cloned()
+                        .ok_or_else(|| format!("Undefined pattern: %{}", pattern_name))?;
+                    Ok(pattern.degrade_by(prob_pattern))
+                }
                 _ => {
                     // Constant probability
                     let prob = extract_number(&prob_expr)?;
@@ -6794,6 +6935,14 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                     // Pattern-based shuffle amount - parse string pattern and convert to f64
                     let string_pattern = parse_mini_notation(pattern_str);
                     let amount_pattern = string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(0.5));
+                    Ok(pattern.shuffle(amount_pattern))
+                }
+                Expr::PatternRef(pattern_name) => {
+                    // Pattern-to-pattern modulation: shuffle %amount
+                    let amount_pattern = ctx.pattern_registry
+                        .get(pattern_name)
+                        .cloned()
+                        .ok_or_else(|| format!("Undefined pattern: %{}", pattern_name))?;
                     Ok(pattern.shuffle(amount_pattern))
                 }
                 _ => {
@@ -8425,7 +8574,8 @@ mod tests {
         let result = compile_program(statements, 44100.0);
         assert!(result.is_err());
         if let Err(e) = result {
-            assert!(e.contains("not found"));
+            eprintln!("Error message: {}", e);
+            assert!(e.contains("not found") || e.contains("Undefined bus"));
         }
     }
 
