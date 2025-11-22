@@ -79,6 +79,7 @@ dirs = "5.0"
 # Parallel processing
 rayon = "1.10"
 crossbeam = "0.8"  # Lock-free channels for thread pool
+crossbeam-queue = "0.3"  # Lock-free queue for buffer pool
 num_cpus = "1.16"  # CPU count detection
 core_affinity = "0.8"  # Thread pinning for performance
 

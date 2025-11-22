@@ -6,8 +6,15 @@
 
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use crate::block_processor::BlockProcessor;
+use crate::dataflow_graph::DataflowGraph;
 use crate::pattern::Fraction;
 use std::collections::HashMap;
+
+/// Feature flag: Enable dataflow architecture
+///
+/// When true, uses continuous message-passing DataflowGraph.
+/// When false, uses batch-synchronous BlockProcessor.
+const USE_DATAFLOW: bool = true;
 
 /// DAW-style audio graph using AudioNode trait
 ///
@@ -60,7 +67,12 @@ pub struct AudioNodeGraph {
     hushed_channels: Vec<usize>,
 
     /// Block processor (created after all nodes added)
+    /// Used when USE_DATAFLOW = false
     block_processor: Option<BlockProcessor>,
+
+    /// Dataflow graph processor (alternative to BlockProcessor)
+    /// Used when USE_DATAFLOW = true
+    dataflow_graph: Option<DataflowGraph>,
 
     /// Buffer size for block processing
     buffer_size: usize,
@@ -82,6 +94,7 @@ impl AudioNodeGraph {
             outputs: HashMap::new(),
             hushed_channels: Vec::new(),
             block_processor: None,
+            dataflow_graph: None,
             buffer_size: 512, // Standard block size
         }
     }
@@ -142,6 +155,8 @@ impl AudioNodeGraph {
     /// This must be called after all nodes are added and before processing.
     /// It performs topological sort and creates the execution plan.
     ///
+    /// Depending on USE_DATAFLOW flag, builds either DataflowGraph or BlockProcessor.
+    ///
     /// # Errors
     /// - If no output node is set
     /// - If dependency graph has cycles
@@ -160,16 +175,33 @@ impl AudioNodeGraph {
         // For multi-output support, we'll need to handle mixing later
         // For now, just use the main output or first numbered output
 
-        // Move nodes into BlockProcessor (we no longer need them in audio_nodes)
+        // Move nodes into processor (we no longer need them in audio_nodes)
         // This avoids the need for cloning which isn't possible with trait objects
         let nodes = std::mem::take(&mut self.audio_nodes);
 
-        // Create BlockProcessor - this validates the graph and builds execution plan
-        self.block_processor = Some(BlockProcessor::new(
-            nodes,
-            output_node,
-            self.buffer_size,
-        )?);
+        if USE_DATAFLOW {
+            // Create DataflowGraph - continuous message-passing architecture
+            let context = ProcessContext::new(
+                self.cycle_position.clone(),
+                0,
+                self.buffer_size,
+                self.tempo,
+                self.sample_rate,
+            );
+
+            self.dataflow_graph = Some(DataflowGraph::new(
+                nodes,
+                output_node,
+                context,
+            )?);
+        } else {
+            // Create BlockProcessor - batch-synchronous architecture
+            self.block_processor = Some(BlockProcessor::new(
+                nodes,
+                output_node,
+                self.buffer_size,
+            )?);
+        }
 
         Ok(())
     }
@@ -179,6 +211,8 @@ impl AudioNodeGraph {
     /// This is the main entry point for block-based processing.
     /// The graph is traversed ONCE per buffer (not 512 times).
     ///
+    /// Uses either DataflowGraph or BlockProcessor depending on USE_DATAFLOW flag.
+    ///
     /// # Arguments
     /// * `buffer` - Output buffer to fill (typically 512 samples)
     ///
@@ -186,20 +220,30 @@ impl AudioNodeGraph {
     /// - If build_processor() hasn't been called
     /// - If block processing fails
     pub fn process_buffer(&mut self, buffer: &mut [f32]) -> Result<(), String> {
-        let block_processor = self.block_processor.as_mut()
-            .ok_or("build_processor() must be called before process_buffer()")?;
+        if USE_DATAFLOW {
+            // Dataflow architecture - continuous message passing
+            let dataflow_graph = self.dataflow_graph.as_mut()
+                .ok_or("build_processor() must be called before process_buffer()")?;
 
-        // Create processing context
-        let context = ProcessContext::new(
-            self.cycle_position.clone(),
-            0,
-            buffer.len(),
-            self.tempo,
-            self.sample_rate,
-        );
+            // Process block through dataflow graph
+            dataflow_graph.process_block(buffer)?;
+        } else {
+            // Block processor architecture - batch synchronous
+            let block_processor = self.block_processor.as_mut()
+                .ok_or("build_processor() must be called before process_buffer()")?;
 
-        // Process entire block at once - graph traversed ONCE!
-        block_processor.process_block(buffer, &context)?;
+            // Create processing context
+            let context = ProcessContext::new(
+                self.cycle_position.clone(),
+                0,
+                buffer.len(),
+                self.tempo,
+                self.sample_rate,
+            );
+
+            // Process entire block at once - graph traversed ONCE!
+            block_processor.process_block(buffer, &context)?;
+        }
 
         // Update cycle position
         self.update_cycle_position(buffer.len());
@@ -211,7 +255,10 @@ impl AudioNodeGraph {
     ///
     /// Returns a HashMap of channel → buffer for mixing
     pub fn process_buffer_multi_output(&mut self, buffer_size: usize) -> Result<HashMap<usize, Vec<f32>>, String> {
-        if self.block_processor.is_none() {
+        // Check that processor has been built
+        if USE_DATAFLOW && self.dataflow_graph.is_none() {
+            return Err("build_processor() must be called before processing".to_string());
+        } else if !USE_DATAFLOW && self.block_processor.is_none() {
             return Err("build_processor() must be called before processing".to_string());
         }
 
@@ -292,7 +339,11 @@ impl AudioNodeGraph {
 
     /// Check if the processor has been built
     pub fn is_ready(&self) -> bool {
-        self.block_processor.is_some()
+        if USE_DATAFLOW {
+            self.dataflow_graph.is_some()
+        } else {
+            self.block_processor.is_some()
+        }
     }
 }
 

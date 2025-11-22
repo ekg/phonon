@@ -268,9 +268,12 @@
 //! Phonon is open source. Check the repository for licensing details.
 
 
-// DAW-style buffer passing architecture (Phase 1 + 2 + 3)
+// DAW-style buffer passing architecture (Phase 1 + 2 + 3 + 4 + 5)
 pub mod audio_node;
 pub mod buffer_manager;
+pub mod buffer_pool;  // Lock-free buffer pool for dataflow (Phase 5)
+pub mod node_task;    // Continuous async task wrapper for AudioNode (Phase 5)
+pub mod dataflow_graph;  // Dataflow graph coordinator (Phase 5)
 pub mod dependency_graph;
 pub mod nodes;  // Concrete AudioNode implementations
 pub mod block_processor;  // Core execution loop

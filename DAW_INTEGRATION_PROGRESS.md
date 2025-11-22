@@ -293,12 +293,74 @@ Result: Graph traversed ONCE
 
 ## Next Steps (Phase 5+)
 
-### Phase 5: Parallel Execution (Future)
+### Phase 5: Dataflow Architecture (Next Priority)
 
-Enable parallel processing of independent nodes:
-- Batch independent nodes together
-- Use rayon for parallel processing
-- Benchmark multi-core utilization
+**Vision**: Continuous message-passing dataflow model
+
+Instead of batch-synchronous processing, implement **streaming dataflow**:
+
+#### Architecture
+- Each AudioNode runs as an independent task (async or thread)
+- Nodes communicate via **lock-free message channels** (crossbeam)
+- Buffers flow as messages: `Arc<Vec<f32>>` (zero-copy)
+- **Multiple blocks in flight** simultaneously (pipelining)
+- Natural parallelism (all nodes run continuously)
+
+#### Benefits
+- **Continuous data flow** (no batch synchronization overhead)
+- **Pipelining across blocks** (process block N+1 while N outputs)
+- **Automatic parallelism** (each node is independent task)
+- **Better CPU utilization** (no idle cores waiting at barriers)
+- **Scalable** (naturally uses all available cores)
+
+#### Implementation Approach
+```rust
+// Each node is a continuous task
+async fn node_task(
+    inputs: Vec<Receiver<Arc<Vec<f32>>>>,
+    output: Sender<Arc<Vec<f32>>>,
+) {
+    loop {
+        // Wait for input buffers (non-blocking when ready)
+        let input_buffers = receive_inputs(inputs).await;
+
+        // Process block (512 samples)
+        let output_buffer = process_block(input_buffers);
+
+        // Send to downstream nodes (flows immediately)
+        output.send(output_buffer).await;
+    }
+}
+```
+
+#### Key Components
+1. **Message Channels**: crossbeam bounded channels for backpressure
+2. **Buffer Pools**: Reuse Arc<Vec<f32>> to avoid allocation
+3. **Task Scheduler**: tokio or custom thread pool
+4. **Backpressure**: Bounded channels prevent unbounded memory growth
+5. **Audio Callback Integration**: Feed final output to audio device
+
+#### Timing Model
+```
+Traditional (batch-sync):
+  Block 0: [0-4ms] → output → idle until next callback
+  Block 1: [11.6-15.6ms] → output → idle
+
+Dataflow (pipelined):
+  Time 0-2ms:   ~bass/~pad/~lead process block 0
+  Time 2-3ms:   ~filtered block 0, ~bass/~pad/~lead start block 1
+  Time 3-4ms:   ~mixed block 0, ~filtered block 1, ~bass block 2
+  Time 4-5ms:   Output block 0, ~mixed block 1, ~filtered block 2, ~bass block 3
+
+  Result: Continuous processing, 3 blocks in flight, all cores busy
+```
+
+#### Performance Target
+- **3-5x speedup** on 8+ core systems
+- **Sub-millisecond latency** (same as current)
+- **Efficient CPU usage** (no idle time)
+
+**Est. Duration**: 4-6 hours for full implementation
 
 ### Phase 6: Sample Triggering Integration (Critical)
 

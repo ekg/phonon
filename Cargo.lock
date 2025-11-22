@@ -1946,6 +1946,7 @@ dependencies = [
  "cpal",
  "criterion",
  "crossbeam",
+ "crossbeam-queue",
  "crossterm",
  "dirs",
  "fastrand",

@@ -217,6 +217,26 @@ impl DependencyGraph {
     pub fn edge_count(&self) -> usize {
         self.graph.edge_count()
     }
+
+    /// Get all source nodes (nodes with no dependencies)
+    ///
+    /// Source nodes are the starting points in the graph - they have no inputs
+    /// and can begin processing immediately.
+    ///
+    /// # Returns
+    /// Vec of NodeIds for all source nodes
+    pub fn source_nodes(&self) -> Vec<NodeId> {
+        self.graph
+            .node_indices()
+            .filter(|&idx| {
+                self.graph
+                    .neighbors_directed(idx, Direction::Incoming)
+                    .count()
+                    == 0
+            })
+            .map(|idx| self.graph[idx])
+            .collect()
+    }
 }
 
 #[cfg(test)]
