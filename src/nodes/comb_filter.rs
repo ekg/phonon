@@ -163,6 +163,10 @@ impl AudioNode for CombFilterNode {
     fn name(&self) -> &str {
         "CombFilterNode"
     }
+
+    fn provides_delay(&self) -> bool {
+        true  // CombFilterNode has internal delay buffer, can safely break feedback cycles
+    }
 }
 
 #[cfg(test)]

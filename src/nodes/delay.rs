@@ -131,6 +131,10 @@ impl AudioNode for DelayNode {
     fn name(&self) -> &str {
         "DelayNode"
     }
+
+    fn provides_delay(&self) -> bool {
+        true  // DelayNode has internal buffer, can safely break feedback cycles
+    }
 }
 
 #[cfg(test)]

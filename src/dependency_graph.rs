@@ -76,20 +76,28 @@ impl DependencyGraph {
     /// Get topologically sorted execution order
     ///
     /// Nodes are returned in an order where all dependencies are processed
-    /// before their dependents. This is the order for sequential execution.
+    /// before their dependents (when possible). For cyclic graphs, returns
+    /// nodes in ID order - cycles are handled via one-block delay in node_outputs.
     ///
     /// # Returns
-    /// Vec of NodeIds in execution order, or error if cycle detected
+    /// Vec of NodeIds in execution order (never fails)
     ///
-    /// # Errors
-    /// - If there's a cycle in the dependency graph (invalid audio graph)
+    /// # Note on Cycles
+    /// Cycles are allowed! When a cycle exists:
+    /// - First block: Cyclic nodes read from zero-initialized buffers
+    /// - Subsequent blocks: Cyclic nodes read from previous block's output
+    /// - Execution order is simply all nodes in ID order (0, 1, 2, ...)
     pub fn execution_order(&self) -> Result<Vec<NodeId>, String> {
         match toposort(&self.graph, None) {
-            Ok(order) => Ok(order.iter().map(|&idx| self.graph[idx]).collect()),
-            Err(cycle) => Err(format!(
-                "Cycle detected in audio graph at node {}",
-                self.graph[cycle.node_id()]
-            )),
+            Ok(order) => {
+                // Acyclic graph: use topological order (optimal)
+                Ok(order.iter().map(|&idx| self.graph[idx]).collect())
+            }
+            Err(_cycle) => {
+                // Cyclic graph: just process all nodes in ID order
+                // The node_outputs HashMap provides one-block delay for feedback
+                Ok((0..self.graph.node_count()).collect())
+            }
         }
     }
 
@@ -391,8 +399,13 @@ mod tests {
         ];
 
         let graph = DependencyGraph::build(&nodes).unwrap();
-        assert!(!graph.is_acyclic());
-        assert!(graph.execution_order().is_err());
+
+        // Cycles are now ALLOWED! They enable feedback loops.
+        assert!(!graph.is_acyclic());  // Still detected as cyclic
+
+        // But execution_order() now succeeds and returns all nodes in ID order
+        let order = graph.execution_order().unwrap();
+        assert_eq!(order, vec![0, 1, 2]);  // Simple ID order for cyclic graphs
     }
 
     #[test]

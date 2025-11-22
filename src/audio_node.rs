@@ -119,6 +119,20 @@ pub trait AudioNode: Send {
     fn name(&self) -> &str {
         "AudioNode"
     }
+
+    /// Returns true if this node provides delay (can break feedback cycles)
+    ///
+    /// Nodes that maintain internal delay buffers (DelayNode, CombFilterNode,
+    /// FlangerNode, ReverbNode, etc.) should return true. This allows them
+    /// to safely participate in feedback loops.
+    ///
+    /// The delay provides the "previous block" values needed for feedback,
+    /// preventing instant (zero-delay) loops that would be undefined.
+    ///
+    /// Default implementation returns false (most nodes don't provide delay).
+    fn provides_delay(&self) -> bool {
+        false
+    }
 }
 
 /// Helper trait for nodes that can be cloned (for multi-threading)

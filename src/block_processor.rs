@@ -33,6 +33,7 @@ pub struct BlockProcessor {
     buffer_manager: BufferManager,
     output_node: NodeId,
     buffer_size: usize,
+    zero_buffer: Vec<f32>,  // Used for cyclic dependencies (first block)
 }
 
 impl BlockProcessor {
@@ -44,8 +45,12 @@ impl BlockProcessor {
     /// * `buffer_size` - Size of audio buffers (usually 512)
     ///
     /// # Errors
-    /// - If dependency graph has cycles
     /// - If output_node is invalid
+    /// - If dependency graph cannot be built
+    ///
+    /// # Note on Cycles
+    /// Cycles are allowed! On first block, cyclic dependencies read from zero-initialized buffers.
+    /// On subsequent blocks, they read from previous block's output. This enables feedback loops.
     pub fn new(
         nodes: Vec<Box<dyn AudioNode>>,
         output_node: NodeId,
@@ -61,13 +66,13 @@ impl BlockProcessor {
 
         let dependency_graph = DependencyGraph::build(&nodes)?;
 
-        // Verify graph is acyclic
-        if !dependency_graph.is_acyclic() {
-            return Err("Dependency graph has cycles".to_string());
-        }
+        // Cycles are OK! node_outputs HashMap provides one-block delay for feedback
+        // First block: reads from zero_buffer (silence)
+        // Subsequent blocks: reads from previous block's output
 
         let node_outputs = HashMap::new();
         let buffer_manager = BufferManager::new(nodes.len() * 2, buffer_size);
+        let zero_buffer = vec![0.0; buffer_size];  // Silence for cyclic dependencies
 
         Ok(Self {
             nodes,
@@ -76,6 +81,7 @@ impl BlockProcessor {
             buffer_manager,
             output_node,
             buffer_size,
+            zero_buffer,
         })
     }
 
@@ -109,7 +115,7 @@ impl BlockProcessor {
         // Phase 2: Get execution order (topological sort)
         let exec_order = self.dependency_graph.execution_order()?;
 
-        // Phase 3: Process nodes in topological order
+        // Phase 3: Process nodes in execution order
         for &node_id in &exec_order {
             // Gather input buffers from dependencies
             let input_ids = self.nodes[node_id].input_nodes();
@@ -119,7 +125,7 @@ impl BlockProcessor {
                     self.node_outputs
                         .get(&id)
                         .map(|output| output.as_slice())
-                        .unwrap_or(&[])
+                        .unwrap_or(&self.zero_buffer)  // Cyclic dependency: use silence
                 })
                 .collect();
 

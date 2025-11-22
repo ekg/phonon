@@ -176,6 +176,10 @@ impl AudioNode for FlangerNode {
     fn name(&self) -> &str {
         "FlangerNode"
     }
+
+    fn provides_delay(&self) -> bool {
+        true  // FlangerNode has modulated delay buffer, can safely break feedback cycles
+    }
 }
 
 #[cfg(test)]

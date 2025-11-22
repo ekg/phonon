@@ -344,6 +344,10 @@ impl AudioNode for TapeDelayNode {
     fn name(&self) -> &str {
         "TapeDelayNode"
     }
+
+    fn provides_delay(&self) -> bool {
+        true  // TapeDelayNode has internal delay buffer, can safely break feedback cycles
+    }
 }
 
 #[cfg(test)]

@@ -179,6 +179,10 @@ impl AudioNode for ChorusNode {
     fn name(&self) -> &str {
         "ChorusNode"
     }
+
+    fn provides_delay(&self) -> bool {
+        true  // ChorusNode has multiple delays, can safely break feedback cycles
+    }
 }
 
 #[cfg(test)]

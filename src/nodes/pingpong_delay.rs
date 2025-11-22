@@ -267,6 +267,10 @@ impl AudioNode for PingPongDelayNode {
     fn name(&self) -> &str {
         "PingPongDelayNode"
     }
+
+    fn provides_delay(&self) -> bool {
+        true  // PingPongDelayNode has internal delay buffers, can safely break feedback cycles
+    }
 }
 
 #[cfg(test)]

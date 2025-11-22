@@ -246,6 +246,10 @@ impl AudioNode for MultiTapDelayNode {
     fn name(&self) -> &str {
         "MultiTapDelayNode"
     }
+
+    fn provides_delay(&self) -> bool {
+        true  // MultiTapDelayNode has multiple taps, can safely break feedback cycles
+    }
 }
 
 #[cfg(test)]
