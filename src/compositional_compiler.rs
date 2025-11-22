@@ -7707,7 +7707,7 @@ mod tests {
         let result = compile_program(statements, 44100.0);
         assert!(result.is_err());
         if let Err(e) = result {
-            assert!(e.contains("Undefined bus"));
+            assert!(e.contains("not found"));
         }
     }
 

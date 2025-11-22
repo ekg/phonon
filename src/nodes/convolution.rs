@@ -583,6 +583,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // Performance benchmark - very slow in debug mode (~4s per block). Run with --ignored in release mode.
     fn test_convolution_performance_under_1ms() {
         // Test 9: Verify processing time is reasonable
         use std::time::Instant;
