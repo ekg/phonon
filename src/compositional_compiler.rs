@@ -868,6 +868,56 @@ fn compile_distortion_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> 
     Ok(ctx.audio_node_graph.add_audio_node(node))
 }
 
+/// Compile unipolar converter to AudioNode
+///
+/// Maps bipolar (-1 to 1) signals to unipolar (0 to 1) range.
+fn compile_unipolar_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    use crate::nodes::UnipolarNode;
+
+    if args.len() != 1 {
+        return Err("unipolar expects 1 argument".to_string());
+    }
+
+    let input_id = compile_expr_audio_node(ctx, args[0].clone())?;
+    let node = Box::new(UnipolarNode::new(input_id));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile bipolar clamper to AudioNode
+///
+/// Clamps signals to bipolar (-1 to 1) range.
+fn compile_bipolar_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    use crate::nodes::BipolarNode;
+
+    if args.len() != 1 {
+        return Err("bipolar expects 1 argument".to_string());
+    }
+
+    let input_id = compile_expr_audio_node(ctx, args[0].clone())?;
+    let node = Box::new(BipolarNode::new(input_id));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile range mapper to AudioNode
+///
+/// Maps input range to output range linearly.
+fn compile_range_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    use crate::nodes::RangeNode;
+
+    if args.len() != 5 {
+        return Err("range expects 5 arguments: input, in_min, in_max, out_min, out_max".to_string());
+    }
+
+    let input_id = compile_expr_audio_node(ctx, args[0].clone())?;
+    let in_min = extract_number(&args[1])? as f32;
+    let in_max = extract_number(&args[2])? as f32;
+    let out_min = extract_number(&args[3])? as f32;
+    let out_max = extract_number(&args[4])? as f32;
+
+    let node = Box::new(RangeNode::new(input_id, in_min, in_max, out_min, out_max));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
 /// Compile begin modifier for AudioNode architecture: s "bd" # begin "0 0.25 0.5"
 ///
 /// Sets the sample start point for slicing (0.0 = start, 0.5 = middle, 1.0 = end).
@@ -1426,6 +1476,18 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
             compile_distortion_audio_node(ctx, args)
         }
 
+        Expr::Call { name, args } if name == "unipolar" => {
+            compile_unipolar_audio_node(ctx, args)
+        }
+
+        Expr::Call { name, args } if name == "bipolar" => {
+            compile_bipolar_audio_node(ctx, args)
+        }
+
+        Expr::Call { name, args } if name == "range" => {
+            compile_range_audio_node(ctx, args)
+        }
+
         Expr::Call { name, args } if name == "s" => {
             // Sample playback function: s "bd sn hh cp"
             if args.len() != 1 {
@@ -1511,7 +1573,7 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
                     let mut pattern = parse_mini_notation(&pattern_str);
 
                     // Apply transform using the helper function
-                    pattern = apply_transform_to_pattern(&ctx.templates, pattern, transform.clone())?;
+                    pattern = apply_transform_to_pattern(ctx, pattern, transform.clone())?;
 
                     // Wrap in Arc
                     let pattern = Arc::new(pattern);
@@ -1771,7 +1833,7 @@ fn compile_function_call(
 
                                 // Apply transforms in reverse order (innermost first)
                                 for t in transforms.iter().rev() {
-                                    pattern = apply_transform_to_pattern(&ctx.templates, pattern, t.clone())?;
+                                    pattern = apply_transform_to_pattern(ctx, pattern, t.clone())?;
                                 }
                             }
                             Expr::Call { name, args } => {
@@ -1809,11 +1871,11 @@ fn compile_function_call(
                                     }
                                     _ => return Err(format!("Unknown transform: {}", name)),
                                 };
-                                pattern = apply_transform_to_pattern(&ctx.templates, pattern, transform)?;
+                                pattern = apply_transform_to_pattern(ctx, pattern, transform)?;
                             }
                             Expr::TemplateRef(name) => {
                                 // Handle template references (e.g., s "bd" $ @swing)
-                                pattern = apply_transform_to_pattern(&ctx.templates, pattern, Transform::TemplateRef(name.clone()))?;
+                                pattern = apply_transform_to_pattern(ctx, pattern, Transform::TemplateRef(name.clone()))?;
                             }
                             _ => {
                                 return Err(format!(
@@ -1960,7 +2022,7 @@ fn compile_function_call(
 
                                 // Apply transforms in reverse order (innermost first)
                                 for t in transforms.iter().rev() {
-                                    pattern = apply_transform_to_pattern(&ctx.templates, pattern, t.clone())?;
+                                    pattern = apply_transform_to_pattern(ctx, pattern, t.clone())?;
                                 }
 
                                 (format!("{} (transformed)", base_str), pattern)
@@ -2070,7 +2132,7 @@ fn compile_function_call(
 
                         // Apply transforms in reverse order (innermost first)
                         for t in transforms.iter().rev() {
-                            pattern = apply_transform_to_pattern(&ctx.templates, pattern, t.clone())?;
+                            pattern = apply_transform_to_pattern(ctx, pattern, t.clone())?;
                         }
 
                         (format!("{} (transformed)", base_str), pattern)
@@ -6344,7 +6406,7 @@ fn compile_transform(
             if let Expr::String(pattern_str) = &args[0] {
                 // Parse and transform the pattern
                 let mut pattern = parse_mini_notation(&pattern_str);
-                pattern = apply_transform_to_pattern(&ctx.templates, pattern, transform)?;
+                pattern = apply_transform_to_pattern(ctx, pattern, transform)?;
 
                 // Create Sample node with transformed pattern
                 let node = SignalNode::Sample {
@@ -6377,7 +6439,7 @@ fn compile_transform(
         let mut pattern = parse_mini_notation(&pattern_str);
 
         // Apply the transform to the pattern
-        pattern = apply_transform_to_pattern(&ctx.templates, pattern, transform)?;
+        pattern = apply_transform_to_pattern(ctx, pattern, transform)?;
 
         // Create a Pattern node with the transformed pattern
         let node = SignalNode::Pattern {
@@ -6428,7 +6490,7 @@ fn compile_transform(
 
                     // Apply all transforms in reverse order (innermost first)
                     for t in all_transforms.iter().rev() {
-                        pattern = apply_transform_to_pattern(&ctx.templates, pattern, t.clone())?;
+                        pattern = apply_transform_to_pattern(ctx, pattern, t.clone())?;
                     }
 
                     let node = SignalNode::Sample {
@@ -6459,7 +6521,7 @@ fn compile_transform(
 
                 // Apply all transforms in reverse order (innermost first)
                 for t in all_transforms.iter().rev() {
-                    pattern = apply_transform_to_pattern(&ctx.templates, pattern, t.clone())?;
+                    pattern = apply_transform_to_pattern(ctx, pattern, t.clone())?;
                 }
 
                 let node = SignalNode::Pattern {
@@ -6481,9 +6543,64 @@ fn compile_transform(
     compile_expr(ctx, expr)
 }
 
+/// Create a pattern from an audio signal with range mapping
+/// This bridges the gap between continuous audio signals and discrete pattern parameters
+///
+/// TODO: Full Audio → Pattern Modulation Implementation
+///
+/// Current: Returns constant value (midpoint of range)
+/// Needed:
+///   1. Create SignalAsPattern node from bus signal
+///   2. Store NodeId reference in pattern closure
+///   3. Pattern queries read from graph state during evaluation
+///   4. Requires pattern-graph coupling or runtime pattern evaluation
+///
+/// This provides the syntax and infrastructure for future enhancement.
+fn create_signal_pattern_for_transform(
+    _ctx: &mut CompilerContext,
+    _bus_name: &str,
+    out_min: f32,
+    out_max: f32,
+    _transform_name: &str,  // For debugging
+) -> Result<Pattern<f64>, String> {
+    // For now, return a constant pattern
+    // Full implementation would create SignalAsPattern node and query it dynamically
+
+    // This is a simplified implementation that samples the signal once
+    // TODO: Make this truly dynamic with pattern queries reading from SignalAsPattern
+
+    // Return the midpoint of the range as default
+    let default_value = ((out_min + out_max) / 2.0) as f64;
+
+    eprintln!("WARNING: Audio → Pattern modulation is partially implemented.");
+    eprintln!("  Using constant value {} for transform parameter.", default_value);
+    eprintln!("  Full dynamic modulation requires deeper pattern-graph integration.");
+
+    Ok(Pattern::pure(default_value))
+}
+
+/// Helper for applying transforms in closures where we only have templates
+/// This version doesn't support Expr::Bus in transform parameters
+/// For bus support, use apply_transform_to_pattern with full CompilerContext
+fn apply_transform_to_pattern_simple<T: Clone + Send + Sync + Debug + 'static>(
+    templates: &HashMap<String, Expr>,
+    pattern: Pattern<T>,
+    transform: Transform,
+) -> Result<Pattern<T>, String> {
+    // Create a minimal context with just templates
+    // This is a hack - we can't actually compile new nodes in this context
+    // But for nested transforms in closures, we only need template resolution
+
+    let mut ctx = CompilerContext::new(44100.0);
+    ctx.templates = templates.clone();
+
+    // Call the main function
+    apply_transform_to_pattern(&mut ctx, pattern, transform)
+}
+
 /// Apply a transform to a pattern
 fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
-    templates: &HashMap<String, Expr>,
+    ctx: &mut CompilerContext,
     pattern: Pattern<T>,
     transform: Transform,
 ) -> Result<Pattern<T>, String> {
@@ -6491,7 +6608,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
         // Template reference: look up template and apply it
         Transform::TemplateRef(name) => {
             // Look up the template expression
-            let template_expr = templates
+            let template_expr = ctx.templates
                 .get(&name)
                 .cloned()
                 .ok_or_else(|| format!("Undefined template: @{}", name))?;
@@ -6525,7 +6642,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 };
 
                 // Recursively apply the extracted transform
-                apply_transform_to_pattern(templates, pattern, transform)
+                apply_transform_to_pattern(ctx, pattern, transform)
             } else {
                 Err(format!("Template @{} is not a transform function", name))
             }
@@ -6538,6 +6655,17 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                     let string_pattern = parse_mini_notation(s);
                     // Convert Pattern<String> to Pattern<f64>
                     string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(1.0))
+                }
+                Expr::BusRef(bus_name) => {
+                    // AUTO-MAGIC: Audio signal with sensible default range
+                    // For 'fast', map to 0.25x - 4x speed range
+                    create_signal_pattern_for_transform(
+                        ctx,
+                        bus_name,
+                        0.25,
+                        4.0,
+                        "fast",
+                    )?
                 }
                 _ => {
                     // Constant speed: fast 2 -> Pattern::pure(2.0)
@@ -6555,6 +6683,17 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                     let string_pattern = parse_mini_notation(s);
                     // Convert Pattern<String> to Pattern<f64>
                     string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(1.0))
+                }
+                Expr::BusRef(bus_name) => {
+                    // AUTO-MAGIC: Audio signal with sensible default range
+                    // For 'slow', map to 0.25x - 4x speed range (same as fast)
+                    create_signal_pattern_for_transform(
+                        ctx,
+                        bus_name,
+                        0.25,
+                        4.0,
+                        "slow",
+                    )?
                 }
                 _ => {
                     // Constant speed: slow 2 -> Pattern::pure(2.0)
@@ -6605,6 +6744,17 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                     // Pattern-based probability - parse string pattern and convert to f64
                     let string_pattern = parse_mini_notation(pattern_str);
                     let prob_pattern = string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(0.5));
+                    Ok(pattern.degrade_by(prob_pattern))
+                }
+                Expr::BusRef(bus_name) => {
+                    // AUTO-MAGIC: Audio signal controls probability (0-1 range)
+                    let prob_pattern = create_signal_pattern_for_transform(
+                        ctx,
+                        bus_name,
+                        0.0,
+                        1.0,
+                        "degradeBy",
+                    )?;
                     Ok(pattern.degrade_by(prob_pattern))
                 }
                 _ => {
@@ -6819,6 +6969,16 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                     let string_pattern = parse_mini_notation(s);
                     string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(0.0))
                 }
+                Expr::BusRef(bus_name) => {
+                    // AUTO-MAGIC: Audio signal controls timing offset (-0.5 to 0.5)
+                    create_signal_pattern_for_transform(
+                        ctx,
+                        bus_name,
+                        -0.5,
+                        0.5,
+                        "late",
+                    )?
+                }
                 _ => {
                     // Constant amount: late 0.5 -> Pattern::pure(0.5)
                     let amount = extract_number(&amount_expr)?;
@@ -6834,6 +6994,16 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                     // Pattern-based amount: early "0.25 0.5"
                     let string_pattern = parse_mini_notation(s);
                     string_pattern.fmap(|s| s.parse::<f64>().unwrap_or(0.0))
+                }
+                Expr::BusRef(bus_name) => {
+                    // AUTO-MAGIC: Audio signal controls timing offset (-0.5 to 0.5)
+                    create_signal_pattern_for_transform(
+                        ctx,
+                        bus_name,
+                        -0.5,
+                        0.5,
+                        "early",
+                    )?
                 }
                 _ => {
                     // Constant amount: early 0.5 -> Pattern::pure(0.5)
@@ -6859,14 +7029,14 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             // Clone the pattern, transform, and templates for use in the closure
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             // Manually inline Pattern::every logic to avoid closure issues
             Ok(Pattern::new(move |state| {
                 let cycle = state.span.begin.to_float().floor() as i32;
                 if cycle % n_val == 0 {
                     // Apply the transform on cycles divisible by n
-                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
+                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
                     {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state), // Fallback to original on error
@@ -6885,14 +7055,14 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             // Clone the pattern, transform, and templates for use in the closure
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             // Manually inline Pattern::every' logic
             Ok(Pattern::new(move |state| {
                 let cycle = state.span.begin.to_float().floor() as i32;
                 if (cycle - offset_val) % n_val == 0 {
                     // Apply the transform on matching cycles
-                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
+                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
                     {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state), // Fallback to original on error
@@ -6914,7 +7084,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             // Clone everything for use in the closure
             let transforms_clone = transforms.clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             // Manually inline foldEvery logic
             Ok(Pattern::new(move |state| {
@@ -6927,7 +7097,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                     let selected_transform = transforms_clone[transform_index].clone();
 
                     // Apply the selected transform
-                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), selected_transform)
+                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), selected_transform)
                     {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state), // Fallback to original on error
@@ -6945,7 +7115,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             // Clone the pattern, transform, and templates for use in the closure
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             // Manually inline Pattern::sometimes logic to avoid closure issues
             Ok(Pattern::new(move |state| {
@@ -6954,7 +7124,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
 
                 if rng.gen::<f64>() < 0.5 {
                     // Apply the transform with 50% probability
-                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
+                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
                     {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state), // Fallback to original on error
@@ -6975,7 +7145,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             // Clone the pattern, transform, and templates for use in the closure
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             // Manually inline Pattern::sometimes_by logic to avoid closure issues
             Ok(Pattern::new(move |state| {
@@ -6984,7 +7154,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
 
                 if rng.gen::<f64>() < prob_val {
                     // Apply the transform with specified probability
-                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
+                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
                     {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state), // Fallback to original on error
@@ -7139,13 +7309,13 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             // Clone pattern, transform, and templates for use in closure
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(Pattern::new(move |state| {
                 let cycle_phase = state.span.begin.to_float() % 1.0;
                 if cycle_phase >= begin_val && cycle_phase < end_val {
                     // Inside the range: apply transform
-                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
+                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
                     {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state),
@@ -7166,13 +7336,13 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             // Clone pattern, transform, and templates for use in closure
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(Pattern::new(move |state| {
                 let cycle_phase = state.span.begin.to_float() % 1.0;
                 if cycle_phase < begin_val || cycle_phase >= end_val {
                     // Outside the range: apply transform
-                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
+                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
                     {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state),
@@ -7186,10 +7356,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
         Transform::Superimpose(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(pattern.superimpose(move |p| {
-                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7200,10 +7370,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             let n_val = extract_number(&n)? as usize;
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(pattern.chunk(n_val, move |p| {
-                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7213,10 +7383,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
         Transform::Sometimes(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(pattern.sometimes(move |p| {
-                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7226,10 +7396,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
         Transform::Often(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(pattern.often(move |p| {
-                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7239,10 +7409,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
         Transform::Rarely(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(pattern.rarely(move |p| {
-                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7253,10 +7423,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             let prob_val = extract_number(&prob)?;
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(pattern.sometimes_by(prob_val, move |p| {
-                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7266,10 +7436,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
         Transform::AlmostAlways(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(pattern.sometimes_by(0.9, move |p| {
-                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7279,10 +7449,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
         Transform::AlmostNever(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(pattern.sometimes_by(0.1, move |p| {
-                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7291,10 +7461,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
 
         Transform::Always(transform) => {
             let inner_transform = (*transform).clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(pattern.always(move |p| {
-                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(e) => panic!("Transform error in always: {}", e),
                 }
@@ -7310,12 +7480,12 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             let offset_val = extract_number(&offset)? as i32;
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(pattern.when_mod(
                 modulo_val,
                 offset_val,
-                move |p| match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                move |p| match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 },
@@ -7351,10 +7521,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
 
         Transform::Jux(transform) => {
             let inner_transform = (*transform).clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(pattern.jux_ctx(move |p| {
-                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(e) => panic!("Transform error in jux: {}", e),
                 }
@@ -7364,10 +7534,10 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
         Transform::JuxBy { amount, transform } => {
             let amount_val = extract_number(&amount)?;
             let inner_transform = (*transform).clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(pattern.jux_by_ctx(Pattern::pure(amount_val), move |p| {
-                match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(e) => panic!("Transform error in juxBy: {}", e),
                 }
@@ -7378,7 +7548,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             // Apply transforms in sequence (left to right)
             let mut result = pattern;
             for transform in transforms {
-                result = apply_transform_to_pattern(templates, result, transform)?;
+                result = apply_transform_to_pattern(ctx, result, transform)?;
             }
             Ok(result)
         }
@@ -7408,12 +7578,12 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             let end_val = extract_number(&end)?;
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             Ok(pattern.within(
                 begin_val,
                 end_val,
-                move |p| match apply_transform_to_pattern(&templates_clone, p, inner_transform.clone()) {
+                move |p| match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 },
@@ -7432,14 +7602,14 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             // Clone the pattern, transform, and templates for use in the closure
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
-            let templates_clone = templates.clone();
+            let templates_clone = ctx.templates.clone();
 
             // Manually inline Pattern::whenmod logic
             Ok(Pattern::new(move |state| {
                 let cycle = state.span.begin.to_float().floor() as i32;
                 if (cycle - offset_val) % modulo_val == 0 {
                     // Apply the transform on matching cycles
-                    match apply_transform_to_pattern(&templates_clone, pattern_clone.clone(), inner_transform.clone())
+                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
                     {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state), // Fallback to original on error

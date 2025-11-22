@@ -141,6 +141,9 @@
 ///
 /// ## Utility Nodes (conversion and helper functions)
 /// - [`tap::TapNode`] - Tap tempo converter (beats to seconds for tempo-synced parameters)
+/// - [`unipolar::UnipolarNode`] - Convert bipolar (-1 to 1) signals to unipolar (0 to 1)
+/// - [`bipolar::BipolarNode`] - Clamp signals to bipolar (-1 to 1) range
+/// - [`range::RangeNode`] - Map input range to output range linearly
 ///
 /// # Usage
 ///
@@ -270,6 +273,9 @@ pub mod auto_pan;
 pub mod stereo_merger;
 pub mod slice;
 pub mod crossover;
+pub mod unipolar;
+pub mod bipolar;
+pub mod range;
 
 pub use constant::ConstantNode;
 pub use addition::AdditionNode;
@@ -421,3 +427,6 @@ pub use stereo_splitter::StereoSplitterNode;
 pub use stereo_merger::StereoMergerNode;
 pub use crossover::{CrossoverLowNode, CrossoverMidNode, CrossoverHighNode};
 pub use slice::SliceNode;
+pub use unipolar::UnipolarNode;
+pub use bipolar::BipolarNode;
+pub use range::RangeNode;
