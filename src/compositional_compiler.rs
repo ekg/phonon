@@ -18,6 +18,12 @@ use std::sync::Arc;
 /// Set to false to use legacy SignalNode architecture (sample-by-sample)
 const USE_AUDIO_NODES: bool = true;
 
+/// Metadata for SamplePatternNode (used for parameter modification)
+#[derive(Clone)]
+struct SampleNodeMetadata {
+    pattern: Arc<Pattern<String>>,
+}
+
 /// Compilation context - tracks buses, functions, templates, and node IDs
 pub struct CompilerContext {
     /// Map of bus names to node IDs
@@ -40,6 +46,8 @@ pub struct CompilerContext {
     audio_node_graph: crate::audio_node_graph::AudioNodeGraph,
     /// NEW: Flag to use AudioNode architecture instead of SignalNode
     use_audio_nodes: bool,
+    /// NEW: Track SamplePatternNode metadata for parameter modification (AudioNode mode)
+    sample_node_metadata: HashMap<usize, SampleNodeMetadata>,
 }
 
 /// Function definition storage
@@ -145,6 +153,7 @@ impl CompilerContext {
             synth_lib: SynthLibrary::with_sample_rate(sample_rate),
             audio_node_graph: crate::audio_node_graph::AudioNodeGraph::new(sample_rate),
             use_audio_nodes,
+            sample_node_metadata: HashMap::new(),
         }
     }
 
@@ -815,6 +824,451 @@ fn compile_distortion_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> 
     Ok(ctx.audio_node_graph.add_audio_node(node))
 }
 
+/// Compile begin modifier for AudioNode architecture: s "bd" # begin "0 0.25 0.5"
+///
+/// Sets the sample start point for slicing (0.0 = start, 0.5 = middle, 1.0 = end).
+/// Currently not supported in AudioNode mode as sample playback uses SignalNode architecture.
+fn compile_begin_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    let _ = (ctx, args); // Suppress unused warnings
+    Err("Sample modifier 'begin' is not yet supported in AudioNode mode. Sample playback currently uses the SignalNode architecture. Use without AudioNode mode for now.".to_string())
+}
+
+/// Compile end modifier for AudioNode architecture: s "bd" # end "0.5 0.75 1"
+///
+/// Sets the sample end point for slicing (0.0 = start, 0.5 = middle, 1.0 = end).
+/// Currently not supported in AudioNode mode as sample playback uses SignalNode architecture.
+fn compile_end_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    let _ = (ctx, args); // Suppress unused warnings
+    Err("Sample modifier 'end' is not yet supported in AudioNode mode. Sample playback currently uses the SignalNode architecture. Use without AudioNode mode for now.".to_string())
+}
+
+/// Compile loop modifier for AudioNode architecture: s "bd" # loop "1"
+///
+/// Sets whether the sample should loop (0 = play once, 1 = loop continuously).
+/// Currently not supported in AudioNode mode as sample playback uses SignalNode architecture.
+fn compile_loop_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    let _ = (ctx, args); // Suppress unused warnings
+    Err("Sample modifier 'loop' is not yet supported in AudioNode mode. Sample playback currently uses the SignalNode architecture. Use without AudioNode mode for now.".to_string())
+}
+
+/// Compile cut modifier for AudioNode architecture: s "bd" # cut "1 2 1"
+///
+/// Sets the cut group for voice stealing (samples in same group stop each other).
+/// Currently not supported in AudioNode mode as sample playback uses SignalNode architecture.
+fn compile_cut_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    let _ = (ctx, args); // Suppress unused warnings
+    Err("Sample modifier 'cut' is not yet supported in AudioNode mode. Sample playback currently uses the SignalNode architecture. Use without AudioNode mode for now.".to_string())
+}
+
+/// Compile unit modifier for AudioNode architecture: s "bd" # unit "c"
+///
+/// Sets the playback unit mode ("r" = rate mode, "c" = cycle mode).
+/// Currently not supported in AudioNode mode as sample playback uses SignalNode architecture.
+fn compile_unit_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    let _ = (ctx, args); // Suppress unused warnings
+    Err("Sample modifier 'unit' is not yet supported in AudioNode mode. Sample playback currently uses the SignalNode architecture. Use without AudioNode mode for now.".to_string())
+}
+
+/// Compile n/note modifier for AudioNode architecture: s "bd" # n "0 1 2"
+///
+/// Sets the pitch offset in semitones for sample playback.
+/// Creates a new SamplePatternNode with the n parameter set.
+fn compile_n_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "n requires 2 arguments (sample_input, n_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    // First arg should be ChainInput pointing to a SamplePatternNode
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => node_id.0,
+        _ => {
+            return Err(
+                "n must be used with the chain operator: s \"bd\" # n \"0 1 2\"".to_string(),
+            )
+        }
+    };
+
+    // Get the sample node metadata and clone the pattern
+    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+        .ok_or_else(|| {
+            "n can only be used with sample (s) patterns, not other signals".to_string()
+        })?
+        .pattern.clone();
+
+    // Compile the n parameter expression to get its node ID
+    let n_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
+
+    // Get voice_manager and sample_bank from audio_node_graph
+    let voice_manager = ctx.audio_node_graph.voice_manager();
+    let sample_bank = ctx.audio_node_graph.sample_bank();
+
+    // Create a new SamplePatternNode with the n parameter using builder pattern
+    let node = Box::new(crate::nodes::SamplePatternNode::new(
+        pattern.clone(),
+        voice_manager,
+        sample_bank,
+    ).with_n(n_node_id));
+
+    // Add to graph and get node ID
+    let new_node_id = ctx.audio_node_graph.add_audio_node(node);
+
+    // Store metadata for the new node (for potential chaining of modifiers)
+    ctx.sample_node_metadata.insert(
+        new_node_id,
+        SampleNodeMetadata {
+            pattern: pattern.clone(),
+        },
+    );
+
+    Ok(new_node_id)
+}
+
+/// Compile gain modifier for AudioNode architecture: s "bd" # gain "0.8 0.5 1.0"
+///
+/// Sets the volume for each sample trigger.
+/// Creates a new SamplePatternNode with the gain parameter set.
+fn compile_gain_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "gain requires 2 arguments (sample_input, gain_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    // First arg should be ChainInput pointing to a SamplePatternNode
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => node_id.0,
+        _ => {
+            return Err(
+                "gain must be used with the chain operator: s \"bd\" # gain \"0.8\"".to_string(),
+            )
+        }
+    };
+
+    // Get the sample node metadata and clone the pattern
+    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+        .ok_or_else(|| {
+            "gain can only be used with sample (s) patterns, not other signals".to_string()
+        })?
+        .pattern.clone();
+
+    // Compile the gain parameter expression to get its node ID
+    let gain_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
+
+    // Get voice_manager and sample_bank from audio_node_graph
+    let voice_manager = ctx.audio_node_graph.voice_manager();
+    let sample_bank = ctx.audio_node_graph.sample_bank();
+
+    // Create a new SamplePatternNode with the gain parameter using builder pattern
+    let node = Box::new(crate::nodes::SamplePatternNode::new(
+        pattern.clone(),
+        voice_manager,
+        sample_bank,
+    ).with_gain(gain_node_id));
+
+    // Add to graph and get node ID
+    let new_node_id = ctx.audio_node_graph.add_audio_node(node);
+
+    // Store metadata for the new node (for potential chaining of modifiers)
+    ctx.sample_node_metadata.insert(
+        new_node_id,
+        SampleNodeMetadata {
+            pattern: pattern.clone(),
+        },
+    );
+
+    Ok(new_node_id)
+}
+
+/// Compile pan modifier for AudioNode architecture: s "bd" # pan "-1 1 0"
+///
+/// Sets the stereo pan position (-1 = left, 0 = center, 1 = right).
+/// Creates a new SamplePatternNode with the pan parameter set.
+fn compile_pan_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "pan requires 2 arguments (sample_input, pan_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    // First arg should be ChainInput pointing to a SamplePatternNode
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => node_id.0,
+        _ => {
+            return Err(
+                "pan must be used with the chain operator: s \"bd\" # pan \"-1 1\"".to_string(),
+            )
+        }
+    };
+
+    // Get the sample node metadata and clone the pattern
+    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+        .ok_or_else(|| {
+            "pan can only be used with sample (s) patterns, not other signals".to_string()
+        })?
+        .pattern.clone();
+
+    // Compile the pan parameter expression to get its node ID
+    let pan_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
+
+    // Get voice_manager and sample_bank from audio_node_graph
+    let voice_manager = ctx.audio_node_graph.voice_manager();
+    let sample_bank = ctx.audio_node_graph.sample_bank();
+
+    // Create a new SamplePatternNode with the pan parameter using builder pattern
+    let node = Box::new(crate::nodes::SamplePatternNode::new(
+        pattern.clone(),
+        voice_manager,
+        sample_bank,
+    ).with_pan(pan_node_id));
+
+    // Add to graph and get node ID
+    let new_node_id = ctx.audio_node_graph.add_audio_node(node);
+
+    // Store metadata for the new node (for potential chaining of modifiers)
+    ctx.sample_node_metadata.insert(
+        new_node_id,
+        SampleNodeMetadata {
+            pattern: pattern.clone(),
+        },
+    );
+
+    Ok(new_node_id)
+}
+
+/// Compile speed modifier for AudioNode architecture: s "bd" # speed "1 0.5 2"
+///
+/// Sets the playback speed (1.0 = normal, 0.5 = half speed, 2.0 = double speed).
+/// Creates a new SamplePatternNode with the speed parameter set.
+fn compile_speed_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "speed requires 2 arguments (sample_input, speed_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    // First arg should be ChainInput pointing to a SamplePatternNode
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => node_id.0,
+        _ => {
+            return Err(
+                "speed must be used with the chain operator: s \"bd\" # speed \"1 2\"".to_string(),
+            )
+        }
+    };
+
+    // Get the sample node metadata and clone the pattern
+    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+        .ok_or_else(|| {
+            "speed can only be used with sample (s) patterns, not other signals".to_string()
+        })?
+        .pattern.clone();
+
+    // Compile the speed parameter expression to get its node ID
+    let speed_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
+
+    // Get voice_manager and sample_bank from audio_node_graph
+    let voice_manager = ctx.audio_node_graph.voice_manager();
+    let sample_bank = ctx.audio_node_graph.sample_bank();
+
+    // Create a new SamplePatternNode with the speed parameter using builder pattern
+    let node = Box::new(crate::nodes::SamplePatternNode::new(
+        pattern.clone(),
+        voice_manager,
+        sample_bank,
+    ).with_speed(speed_node_id));
+
+    // Add to graph and get node ID
+    let new_node_id = ctx.audio_node_graph.add_audio_node(node);
+
+    // Store metadata for the new node (for potential chaining of modifiers)
+    ctx.sample_node_metadata.insert(
+        new_node_id,
+        SampleNodeMetadata {
+            pattern: pattern.clone(),
+        },
+    );
+
+    Ok(new_node_id)
+}
+
+/// Compile attack modifier for AudioNode architecture: s "bd" # attack "0.01 0.1"
+///
+/// Sets the envelope attack time in seconds for sample playback.
+/// Creates a new SamplePatternNode with the attack parameter set.
+fn compile_attack_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "attack requires 2 arguments (sample_input, attack_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    // First arg should be ChainInput pointing to a SamplePatternNode
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => node_id.0,
+        _ => {
+            return Err(
+                "attack must be used with the chain operator: s \"bd\" # attack \"0.01\"".to_string(),
+            )
+        }
+    };
+
+    // Get the sample node metadata and clone the pattern
+    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+        .ok_or_else(|| {
+            "attack can only be used with sample (s) patterns, not other signals".to_string()
+        })?
+        .pattern.clone();
+
+    // Compile the attack parameter expression to get its node ID
+    let attack_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
+
+    // Get voice_manager and sample_bank from audio_node_graph
+    let voice_manager = ctx.audio_node_graph.voice_manager();
+    let sample_bank = ctx.audio_node_graph.sample_bank();
+
+    // Create a new SamplePatternNode with the attack parameter using builder pattern
+    let node = Box::new(crate::nodes::SamplePatternNode::new(
+        pattern.clone(),
+        voice_manager,
+        sample_bank,
+    ).with_attack(attack_node_id));
+
+    // Add to graph and get node ID
+    let new_node_id = ctx.audio_node_graph.add_audio_node(node);
+
+    // Store metadata for the new node (for potential chaining of modifiers)
+    ctx.sample_node_metadata.insert(
+        new_node_id,
+        SampleNodeMetadata {
+            pattern: pattern.clone(),
+        },
+    );
+
+    Ok(new_node_id)
+}
+
+/// Compile release modifier for AudioNode architecture: s "bd" # release "0.1 0.5"
+///
+/// Sets the envelope release time in seconds for sample playback.
+/// Creates a new SamplePatternNode with the release parameter set.
+fn compile_release_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "release requires 2 arguments (sample_input, release_pattern), got {}",
+            args.len()
+        ));
+    }
+
+    // First arg should be ChainInput pointing to a SamplePatternNode
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => node_id.0,
+        _ => {
+            return Err(
+                "release must be used with the chain operator: s \"bd\" # release \"0.1\"".to_string(),
+            )
+        }
+    };
+
+    // Get the sample node metadata and clone the pattern
+    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+        .ok_or_else(|| {
+            "release can only be used with sample (s) patterns, not other signals".to_string()
+        })?
+        .pattern.clone();
+
+    // Compile the release parameter expression to get its node ID
+    let release_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
+
+    // Get voice_manager and sample_bank from audio_node_graph
+    let voice_manager = ctx.audio_node_graph.voice_manager();
+    let sample_bank = ctx.audio_node_graph.sample_bank();
+
+    // Create a new SamplePatternNode with the release parameter using builder pattern
+    let node = Box::new(crate::nodes::SamplePatternNode::new(
+        pattern.clone(),
+        voice_manager,
+        sample_bank,
+    ).with_release(release_node_id));
+
+    // Add to graph and get node ID
+    let new_node_id = ctx.audio_node_graph.add_audio_node(node);
+
+    // Store metadata for the new node (for potential chaining of modifiers)
+    ctx.sample_node_metadata.insert(
+        new_node_id,
+        SampleNodeMetadata {
+            pattern: pattern.clone(),
+        },
+    );
+
+    Ok(new_node_id)
+}
+
+/// Compile ar modifier for AudioNode architecture: s "bd" # ar 0.01 0.5
+///
+/// Shorthand for setting both attack and release times.
+/// Creates a new SamplePatternNode with both attack and release parameters set.
+fn compile_ar_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    if args.len() != 3 {
+        return Err(format!(
+            "ar requires 3 arguments (sample_input, attack_time, release_time), got {}",
+            args.len()
+        ));
+    }
+
+    // First arg should be ChainInput pointing to a SamplePatternNode
+    let sample_node_id = match &args[0] {
+        Expr::ChainInput(node_id) => node_id.0,
+        _ => {
+            return Err(
+                "ar must be used with the chain operator: s \"bd\" # ar 0.01 0.5".to_string(),
+            )
+        }
+    };
+
+    // Get the sample node metadata and clone the pattern
+    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+        .ok_or_else(|| {
+            "ar can only be used with sample (s) patterns, not other signals".to_string()
+        })?
+        .pattern.clone();
+
+    // Compile both parameter expressions to get their node IDs
+    let attack_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
+    let release_node_id = compile_expr_audio_node(ctx, args[2].clone())?;
+
+    // Get voice_manager and sample_bank from audio_node_graph
+    let voice_manager = ctx.audio_node_graph.voice_manager();
+    let sample_bank = ctx.audio_node_graph.sample_bank();
+
+    // Create a new SamplePatternNode with both attack and release parameters using builder pattern
+    let node = Box::new(crate::nodes::SamplePatternNode::new(
+        pattern.clone(),
+        voice_manager,
+        sample_bank,
+    ).with_attack(attack_node_id).with_release(release_node_id));
+
+    // Add to graph and get node ID
+    let new_node_id = ctx.audio_node_graph.add_audio_node(node);
+
+    // Store metadata for the new node (for potential chaining of modifiers)
+    ctx.sample_node_metadata.insert(
+        new_node_id,
+        SampleNodeMetadata {
+            pattern: pattern.clone(),
+        },
+    );
+
+    Ok(new_node_id)
+}
+
 /// Compile signal chain operator (#) for AudioNode architecture
 ///
 /// The chain operator passes the left expression as the first argument to the right expression.
@@ -838,6 +1292,18 @@ fn compile_chain_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) 
                 "delay" => compile_delay_audio_node(ctx, args),
                 "reverb" => compile_reverb_audio_node(ctx, args),
                 "distortion" | "dist" => compile_distortion_audio_node(ctx, args),
+                "n" | "note" => compile_n_modifier_audio_node(ctx, args),
+                "gain" => compile_gain_modifier_audio_node(ctx, args),
+                "pan" => compile_pan_modifier_audio_node(ctx, args),
+                "speed" => compile_speed_modifier_audio_node(ctx, args),
+                "begin" => compile_begin_modifier_audio_node(ctx, args),
+                "end" => compile_end_modifier_audio_node(ctx, args),
+                "loop" => compile_loop_modifier_audio_node(ctx, args),
+                "cut" => compile_cut_modifier_audio_node(ctx, args),
+                "unit" => compile_unit_modifier_audio_node(ctx, args),
+                "attack" => compile_attack_modifier_audio_node(ctx, args),
+                "release" => compile_release_modifier_audio_node(ctx, args),
+                "ar" => compile_ar_modifier_audio_node(ctx, args),
                 _ => Err(format!("Chain operator: function '{}' not yet supported in AudioNode mode", name)),
             }
         }
@@ -971,13 +1437,23 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
 
             // Create SamplePatternNode
             let node = Box::new(crate::nodes::SamplePatternNode::new(
-                pattern,
+                pattern.clone(),
                 voice_manager,
                 sample_bank,
             ));
 
-            // Add to graph and return NodeId
-            Ok(ctx.audio_node_graph.add_audio_node(node))
+            // Add to graph and get node ID
+            let node_id = ctx.audio_node_graph.add_audio_node(node);
+
+            // Store metadata for potential parameter modification
+            ctx.sample_node_metadata.insert(
+                node_id,
+                SampleNodeMetadata {
+                    pattern: pattern.clone(),
+                },
+            );
+
+            Ok(node_id)
         }
 
         Expr::Transform { expr, transform } => {
@@ -1002,13 +1478,23 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
 
                     // Create SamplePatternNode
                     let node = Box::new(crate::nodes::SamplePatternNode::new(
-                        pattern,
+                        pattern.clone(),
                         voice_manager,
                         sample_bank,
                     ));
 
-                    // Add to graph and return NodeId
-                    Ok(ctx.audio_node_graph.add_audio_node(node))
+                    // Add to graph and get node ID
+                    let node_id = ctx.audio_node_graph.add_audio_node(node);
+
+                    // Store metadata for potential parameter modification
+                    ctx.sample_node_metadata.insert(
+                        node_id,
+                        SampleNodeMetadata {
+                            pattern: pattern.clone(),
+                        },
+                    );
+
+                    Ok(node_id)
                 }
                 _ => {
                     // For non-pattern expressions, compile without transform
