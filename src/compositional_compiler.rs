@@ -1,8 +1,8 @@
 #![allow(unused_variables)]
 //! Compositional Compiler
 //!
-//! Compiles the clean compositional AST into the existing UnifiedSignalGraph.
-//! This bridges the new parser with the existing audio engine.
+//! Compiles the clean compositional AST into the AudioNode architecture.
+//! Uses block-based buffer passing for efficient DAW-style processing.
 
 use crate::compositional_parser::{BinOp, Expr, Statement, Transform, UnOp};
 use crate::mini_notation_v3::parse_mini_notation;
@@ -12,6 +12,10 @@ use crate::unified_graph::{DattorroState, NodeId, Signal, SignalExpr, SignalNode
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
+
+/// Use AudioNode architecture (DAW-style block processing)
+/// Set to false to use legacy SignalNode architecture (sample-by-sample)
+const USE_AUDIO_NODES: bool = true;
 
 /// Compilation context - tracks buses, functions, templates, and node IDs
 pub struct CompilerContext {
@@ -126,8 +130,8 @@ impl ParamExtractor {
 
 impl CompilerContext {
     pub fn new(sample_rate: f32) -> Self {
-        // Check environment variable to enable AudioNode architecture
-        let use_audio_nodes = std::env::var("PHONON_USE_AUDIO_NODES").is_ok();
+        // Use const flag to determine architecture
+        let use_audio_nodes = USE_AUDIO_NODES;
 
         Self {
             buses: HashMap::new(),

@@ -8,9 +8,7 @@ use phonon::compositional_parser::parse_program;
 
 /// Helper: Compile DSL code and get AudioNodeGraph
 fn compile_to_audio_nodes(code: &str, sample_rate: f32) -> Result<phonon::audio_node_graph::AudioNodeGraph, String> {
-    // Enable AudioNode mode
-    std::env::set_var("PHONON_USE_AUDIO_NODES", "1");
-
+    // AudioNode mode is now the default (USE_AUDIO_NODES = true)
     let mut ctx = CompilerContext::new(sample_rate);
 
     // Parse the code
@@ -164,14 +162,8 @@ fn test_audio_node_graph_traversed_once() {
 }
 
 #[test]
-fn test_audio_node_environment_variable() {
-    // Test that PHONON_USE_AUDIO_NODES controls compilation mode
-
-    std::env::remove_var("PHONON_USE_AUDIO_NODES");
-    let ctx_without = CompilerContext::new(44100.0);
-    assert!(!ctx_without.is_using_audio_nodes(), "Should use SignalNode without env var");
-
-    std::env::set_var("PHONON_USE_AUDIO_NODES", "1");
-    let ctx_with = CompilerContext::new(44100.0);
-    assert!(ctx_with.is_using_audio_nodes(), "Should use AudioNode with env var");
+fn test_audio_node_is_default() {
+    // Test that AudioNode architecture is the default (USE_AUDIO_NODES = true)
+    let ctx = CompilerContext::new(44100.0);
+    assert!(ctx.is_using_audio_nodes(), "AudioNode should be the default architecture");
 }
