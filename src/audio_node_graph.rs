@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 ///
 /// When true, uses continuous message-passing DataflowGraph.
 /// When false, uses batch-synchronous BlockProcessor.
-const USE_DATAFLOW: bool = true;
+const USE_DATAFLOW: bool = false;
 
 /// DAW-style audio graph using AudioNode trait
 ///
@@ -382,6 +382,23 @@ impl AudioNodeGraph {
         } else {
             self.block_processor.is_some()
         }
+    }
+
+    /// Check if a main output has been set
+    pub fn has_output(&self) -> bool {
+        self.output_node.is_some()
+    }
+
+    /// Get all numbered outputs sorted by channel number
+    ///
+    /// Returns a vector of (channel, node_id) pairs sorted by channel.
+    /// Used for mixing multiple outputs together.
+    pub fn get_numbered_outputs(&self) -> Vec<(usize, NodeId)> {
+        let mut outputs: Vec<_> = self.outputs.iter()
+            .map(|(&channel, &node_id)| (channel, node_id))
+            .collect();
+        outputs.sort_by_key(|(channel, _)| *channel);
+        outputs
     }
 }
 

@@ -163,8 +163,52 @@ impl CompilerContext {
     }
 
     /// Get the compiled AudioNode graph (NEW architecture)
-    pub fn into_audio_node_graph(self) -> crate::audio_node_graph::AudioNodeGraph {
+    pub fn into_audio_node_graph(mut self) -> crate::audio_node_graph::AudioNodeGraph {
+        // If using AudioNodes, perform multi-output mixing before returning
+        if self.use_audio_nodes {
+            self.finalize_audio_node_outputs();
+        }
         self.audio_node_graph
+    }
+
+    /// Finalize AudioNode outputs by mixing numbered outputs if needed
+    ///
+    /// This is called before returning the AudioNodeGraph to ensure that
+    /// if o1:, o2:, etc. are used without an explicit out:, they get mixed together.
+    fn finalize_audio_node_outputs(&mut self) {
+        // Check if there's already a main output
+        if self.audio_node_graph.has_output() {
+            // Main output exists, nothing to do
+            return;
+        }
+
+        // Get all numbered outputs from the graph
+        let numbered_outputs = self.audio_node_graph.get_numbered_outputs();
+
+        if numbered_outputs.is_empty() {
+            // No outputs at all, nothing to do
+            return;
+        }
+
+        // Mix all numbered outputs together
+        let mixed_output = if numbered_outputs.len() == 1 {
+            // Only one output, use it directly
+            numbered_outputs[0].1
+        } else {
+            // Multiple outputs - create AdditionNodes to mix them
+            use crate::nodes::addition::AdditionNode;
+
+            let mut result = numbered_outputs[0].1;
+            for &(_channel, node_id) in &numbered_outputs[1..] {
+                // Create addition node to mix this output with the accumulated result
+                let add_node = Box::new(AdditionNode::new(result, node_id));
+                result = self.audio_node_graph.add_audio_node(add_node);
+            }
+            result
+        };
+
+        // Set the mixed result as the main output
+        self.audio_node_graph.set_output(mixed_output);
     }
 
     /// Check if using AudioNode architecture

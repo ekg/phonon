@@ -37,9 +37,10 @@ pub struct DataflowGraph {
     /// All node tasks (running in background threads)
     tasks: Vec<JoinHandle<Result<(), String>>>,
 
-    /// Trigger channel to source nodes (from audio callback)
+    /// Trigger channels to ALL source nodes (from audio callback)
     /// Source nodes have no real inputs, so we send empty buffers as triggers
-    trigger_tx: Sender<Arc<Vec<f32>>>,
+    /// Multiple source nodes (like multiple constants) all need triggers
+    trigger_txs: Vec<Sender<Arc<Vec<f32>>>>,
 
     /// Output channel from final node (to audio callback)
     output_rx: Receiver<Arc<Vec<f32>>>,
@@ -166,20 +167,24 @@ impl DataflowGraph {
             tasks.push(handle);
         }
 
-        // Extract trigger channel (to first source node)
+        // Extract trigger channels for ALL source nodes
         let source_nodes = dep_graph.source_nodes();
         if source_nodes.is_empty() {
             return Err("No source nodes found in graph".to_string());
         }
 
-        let trigger_tx = channels[&source_nodes[0]].0.clone();
+        // Collect trigger channels for ALL source nodes
+        let trigger_txs: Vec<Sender<Arc<Vec<f32>>>> = source_nodes
+            .iter()
+            .map(|&node_id| channels[&node_id].0.clone())
+            .collect();
 
         // Use the explicit final output channel
         let output_rx = final_output_rx;
 
         Ok(Self {
             tasks,
-            trigger_tx,
+            trigger_txs,
             output_rx,
             context_txs,
             context,
@@ -218,11 +223,13 @@ impl DataflowGraph {
                 .map_err(|_| "Failed to send context update")?;
         }
 
-        // Send trigger to source nodes (empty buffer as trigger signal)
+        // Send trigger to ALL source nodes (empty buffer as trigger signal)
         let trigger = Arc::new(vec![0.0; 512]);
-        self.trigger_tx
-            .send(trigger)
-            .map_err(|_| "Failed to send trigger to source nodes")?;
+        for trigger_tx in &self.trigger_txs {
+            trigger_tx
+                .send(trigger.clone())
+                .map_err(|_| "Failed to send trigger to a source node")?;
+        }
 
         // Receive processed output from final node
         let result = self
