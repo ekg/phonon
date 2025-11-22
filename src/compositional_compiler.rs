@@ -586,6 +586,112 @@ fn compile_sine_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result
     Ok(ctx.audio_node_graph.add_audio_node(node))
 }
 
+/// Compile saw oscillator to AudioNode (NEW architecture)
+///
+/// Creates an OscillatorNode configured for sawtooth wave generation.
+/// The frequency is provided by another node (audio_node::NodeId).
+fn compile_saw_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    use crate::nodes::oscillator::{OscillatorNode, Waveform};
+
+    if args.is_empty() {
+        return Err("saw requires frequency argument".to_string());
+    }
+
+    let freq_node_id = compile_expr_audio_node(ctx, args[0].clone())?;
+    let node = Box::new(OscillatorNode::new(freq_node_id, Waveform::Saw));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile square oscillator to AudioNode (NEW architecture)
+///
+/// Creates an OscillatorNode configured for square wave generation.
+/// The frequency is provided by another node (audio_node::NodeId).
+fn compile_square_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    use crate::nodes::oscillator::{OscillatorNode, Waveform};
+
+    if args.is_empty() {
+        return Err("square requires frequency argument".to_string());
+    }
+
+    let freq_node_id = compile_expr_audio_node(ctx, args[0].clone())?;
+    let node = Box::new(OscillatorNode::new(freq_node_id, Waveform::Square));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile triangle oscillator to AudioNode (NEW architecture)
+///
+/// Creates an OscillatorNode configured for triangle wave generation.
+/// The frequency is provided by another node (audio_node::NodeId).
+fn compile_triangle_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    use crate::nodes::oscillator::{OscillatorNode, Waveform};
+
+    if args.is_empty() {
+        return Err("triangle requires frequency argument".to_string());
+    }
+
+    let freq_node_id = compile_expr_audio_node(ctx, args[0].clone())?;
+    let node = Box::new(OscillatorNode::new(freq_node_id, Waveform::Triangle));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile lowpass filter to AudioNode (NEW architecture)
+///
+/// Creates a LowPassFilterNode that attenuates frequencies above the cutoff.
+/// The resonance parameter controls the Q peak at the cutoff frequency.
+fn compile_lpf_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    use crate::nodes::LowPassFilterNode;
+
+    if args.len() < 3 {
+        return Err("lpf requires 3 arguments: input, cutoff, resonance".to_string());
+    }
+
+    let input_id = compile_expr_audio_node(ctx, args[0].clone())?;
+    let cutoff_id = compile_expr_audio_node(ctx, args[1].clone())?;
+    let resonance_id = compile_expr_audio_node(ctx, args[2].clone())?;
+
+    let node = Box::new(LowPassFilterNode::new(input_id, cutoff_id, resonance_id));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile highpass filter to AudioNode (NEW architecture)
+///
+/// Creates a HighPassFilterNode that attenuates frequencies below the cutoff.
+/// The resonance parameter controls the Q peak at the cutoff frequency.
+fn compile_hpf_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    use crate::nodes::HighPassFilterNode;
+
+    if args.len() < 3 {
+        return Err("hpf requires 3 arguments: input, cutoff, resonance".to_string());
+    }
+
+    let input_id = compile_expr_audio_node(ctx, args[0].clone())?;
+    let cutoff_id = compile_expr_audio_node(ctx, args[1].clone())?;
+    let resonance_id = compile_expr_audio_node(ctx, args[2].clone())?;
+
+    let node = Box::new(HighPassFilterNode::new(input_id, cutoff_id, resonance_id));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile bandpass filter to AudioNode (NEW architecture)
+///
+/// Creates a BandPassFilterNode that passes frequencies near the center frequency
+/// while attenuating frequencies above and below. The resonance parameter controls
+/// the Q (selectivity) of the filter.
+fn compile_bpf_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    use crate::nodes::BandPassFilterNode;
+
+    if args.len() < 3 {
+        return Err("bpf requires 3 arguments: input, center, resonance".to_string());
+    }
+
+    let input_id = compile_expr_audio_node(ctx, args[0].clone())?;
+    let center_id = compile_expr_audio_node(ctx, args[1].clone())?;
+    let resonance_id = compile_expr_audio_node(ctx, args[2].clone())?;
+
+    let node = Box::new(BandPassFilterNode::new(input_id, center_id, resonance_id));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
 /// Compile addition to AudioNode (NEW architecture)
 ///
 /// Creates an AdditionNode that sums two input signals sample-by-sample.
@@ -601,10 +707,159 @@ fn compile_add_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) ->
     Ok(ctx.audio_node_graph.add_audio_node(node))
 }
 
+/// Compile multiplication to AudioNode (NEW architecture)
+///
+/// Creates a MultiplicationNode that multiplies two input signals sample-by-sample.
+fn compile_multiply_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<usize, String> {
+    use crate::nodes::multiplication::MultiplicationNode;
+
+    // Compile both operands to get audio_node::NodeIds (usize)
+    let left_id = compile_expr_audio_node(ctx, left)?;
+    let right_id = compile_expr_audio_node(ctx, right)?;
+
+    // Create multiplication node
+    let node = Box::new(MultiplicationNode::new(left_id, right_id));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile subtraction to AudioNode (NEW architecture)
+///
+/// Creates a SubtractionNode that subtracts the right signal from the left signal sample-by-sample.
+fn compile_subtract_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<usize, String> {
+    use crate::nodes::subtraction::SubtractionNode;
+
+    // Compile both operands to get audio_node::NodeIds (usize)
+    let left_id = compile_expr_audio_node(ctx, left)?;
+    let right_id = compile_expr_audio_node(ctx, right)?;
+
+    // Create subtraction node
+    let node = Box::new(SubtractionNode::new(left_id, right_id));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile division to AudioNode (NEW architecture)
+///
+/// Creates a DivisionNode that divides the left signal by the right signal sample-by-sample.
+/// Includes protection against division by zero.
+fn compile_divide_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<usize, String> {
+    use crate::nodes::division::DivisionNode;
+
+    // Compile both operands to get audio_node::NodeIds (usize)
+    let left_id = compile_expr_audio_node(ctx, left)?;
+    let right_id = compile_expr_audio_node(ctx, right)?;
+
+    // Create division node
+    let node = Box::new(DivisionNode::new(left_id, right_id));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile delay effect to AudioNode (NEW architecture)
+///
+/// Creates a DelayNode that delays the input signal.
+/// The delay time is provided by another node (pattern-controllable).
+fn compile_delay_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    use crate::nodes::DelayNode;
+
+    if args.len() < 2 {
+        return Err("delay requires 2 arguments: input, delay_time".to_string());
+    }
+
+    let input_id = compile_expr_audio_node(ctx, args[0].clone())?;
+    let delay_time_id = compile_expr_audio_node(ctx, args[1].clone())?;
+
+    // Use reasonable defaults: max_delay = 2.0 seconds, sample_rate from context
+    let max_delay = 2.0;
+    let sample_rate = ctx.sample_rate;
+
+    let node = Box::new(DelayNode::new(input_id, delay_time_id, max_delay, sample_rate));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile reverb effect to AudioNode (NEW architecture)
+///
+/// Creates a ReverbNode using Schroeder reverb algorithm.
+/// Parameters: room_size, damping, wet (all pattern-controllable).
+fn compile_reverb_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    use crate::nodes::ReverbNode;
+
+    if args.len() < 4 {
+        return Err("reverb requires 4 arguments: input, room_size, damping, wet".to_string());
+    }
+
+    let input_id = compile_expr_audio_node(ctx, args[0].clone())?;
+    let room_size_id = compile_expr_audio_node(ctx, args[1].clone())?;
+    let damping_id = compile_expr_audio_node(ctx, args[2].clone())?;
+    let wet_id = compile_expr_audio_node(ctx, args[3].clone())?;
+
+    let node = Box::new(ReverbNode::new(input_id, room_size_id, damping_id, wet_id));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile distortion effect to AudioNode (NEW architecture)
+///
+/// Creates a DistortionNode that applies tanh waveshaping saturation.
+/// Parameters: drive (1.0 to 100.0), mix (0.0 = dry, 1.0 = wet).
+fn compile_distortion_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+    use crate::nodes::DistortionNode;
+
+    if args.len() < 3 {
+        return Err("distortion requires 3 arguments: input, drive, mix".to_string());
+    }
+
+    let input_id = compile_expr_audio_node(ctx, args[0].clone())?;
+    let drive_id = compile_expr_audio_node(ctx, args[1].clone())?;
+    let mix_id = compile_expr_audio_node(ctx, args[2].clone())?;
+
+    let node = Box::new(DistortionNode::new(input_id, drive_id, mix_id));
+    Ok(ctx.audio_node_graph.add_audio_node(node))
+}
+
+/// Compile signal chain operator (#) for AudioNode architecture
+///
+/// The chain operator passes the left expression as the first argument to the right expression.
+/// Example: `saw 110 # lpf 1000 0.8` becomes `lpf (saw 110) 1000 0.8`
+fn compile_chain_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<usize, String> {
+    match right {
+        Expr::Call { name, mut args } => {
+            // Compile left expression to get input signal
+            let left_node = compile_expr_audio_node(ctx, left)?;
+
+            // Prepend left as first argument using ChainInput marker
+            args.insert(0, Expr::ChainInput(NodeId(left_node)));
+
+            // Compile the function call with modified args
+            // For now, dispatch to known functions
+            // TODO: This should eventually call a generic compile_function_call_audio_node
+            match name.as_str() {
+                "lpf" => compile_lpf_audio_node(ctx, args),
+                "hpf" => compile_hpf_audio_node(ctx, args),
+                "bpf" => compile_bpf_audio_node(ctx, args),
+                "delay" => compile_delay_audio_node(ctx, args),
+                "reverb" => compile_reverb_audio_node(ctx, args),
+                "distortion" | "dist" => compile_distortion_audio_node(ctx, args),
+                _ => Err(format!("Chain operator: function '{}' not yet supported in AudioNode mode", name)),
+            }
+        }
+
+        Expr::BusRef(bus_name) => {
+            // Bus references in chains are problematic (same as old architecture)
+            // For now, just return the left signal (pass-through)
+            eprintln!("⚠️  Warning: Bus '~{}' used in chain - effect will be ignored", bus_name);
+            eprintln!("   Workaround: Use the effect directly instead of through a bus");
+            compile_expr_audio_node(ctx, left)
+        }
+
+        _ => {
+            Err(format!("Chain operator: right side must be a function call or bus reference, got: {:?}", right))
+        }
+    }
+}
+
 /// Compile expression to AudioNode (NEW architecture)
 ///
 /// Main dispatcher for compiling expressions using the AudioNode architecture.
-/// Handles constants, sine oscillators, and addition operations.
+/// Handles constants, oscillators (sine, saw, square, triangle), and binary operations
+/// (addition, multiplication, subtraction, division).
 /// Returns an audio_node::NodeId (usize) that can be used as input to other nodes.
 fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usize, String> {
     match expr {
@@ -624,8 +879,71 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
             compile_sine_audio_node(ctx, args)
         }
 
+        Expr::Call { name, args } if name == "saw" => {
+            compile_saw_audio_node(ctx, args)
+        }
+
+        Expr::Call { name, args } if name == "square" => {
+            compile_square_audio_node(ctx, args)
+        }
+
+        Expr::Call { name, args } if name == "triangle" || name == "tri" => {
+            compile_triangle_audio_node(ctx, args)
+        }
+
+        Expr::Call { name, args } if name == "lpf" => {
+            compile_lpf_audio_node(ctx, args)
+        }
+
+        Expr::Call { name, args } if name == "hpf" => {
+            compile_hpf_audio_node(ctx, args)
+        }
+
+        Expr::Call { name, args } if name == "bpf" => {
+            compile_bpf_audio_node(ctx, args)
+        }
+
+        Expr::Call { name, args } if name == "delay" => {
+            compile_delay_audio_node(ctx, args)
+        }
+
+        Expr::Call { name, args } if name == "reverb" => {
+            compile_reverb_audio_node(ctx, args)
+        }
+
+        Expr::Call { name, args } if name == "distortion" || name == "dist" => {
+            compile_distortion_audio_node(ctx, args)
+        }
+
         Expr::BinOp { op: BinOp::Add, left, right } => {
             compile_add_audio_node(ctx, *left, *right)
+        }
+
+        Expr::BinOp { op: BinOp::Mul, left, right } => {
+            compile_multiply_audio_node(ctx, *left, *right)
+        }
+
+        Expr::BinOp { op: BinOp::Sub, left, right } => {
+            compile_subtract_audio_node(ctx, *left, *right)
+        }
+
+        Expr::BinOp { op: BinOp::Div, left, right } => {
+            compile_divide_audio_node(ctx, *left, *right)
+        }
+
+        Expr::Chain(left, right) => {
+            compile_chain_audio_node(ctx, *left, *right)
+        }
+
+        Expr::ChainInput(node_id) => {
+            // ChainInput is used internally by chain operator
+            // Extract usize from NodeId wrapper
+            Ok(node_id.0)
+        }
+
+        Expr::Paren(inner) => {
+            // Parenthesized expression - just compile the inner expression
+            compile_expr_audio_node(ctx, *inner)
         }
 
         _ => Err(format!("AudioNode compilation not yet implemented for: {:?}", expr)),

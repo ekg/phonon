@@ -167,3 +167,241 @@ fn test_audio_node_is_default() {
     let ctx = CompilerContext::new(44100.0);
     assert!(ctx.is_using_audio_nodes(), "AudioNode should be the default architecture");
 }
+
+#[test]
+fn test_audio_node_signal_chain() {
+    // Test signal chain operator (#)
+    // Example: saw 110 # lpf 1000 0.8
+    let code = r#"
+        tempo: 2.0
+        out: saw 110 # lpf 1000 0.8
+    "#;
+
+    let mut graph = compile_to_audio_nodes(code, 44100.0)
+        .expect("Should compile signal chain");
+
+    // Render 1 second
+    let audio = graph.render(44100).expect("Should render");
+
+    // Should be a filtered saw wave
+    // RMS should be similar to unfiltered saw (filter doesn't reduce overall energy much at 1kHz)
+    let rms = calculate_rms(&audio);
+    assert!(
+        rms > 0.3 && rms < 0.6,
+        "Filtered saw wave RMS should be moderate, got {}",
+        rms
+    );
+
+    // Check it's not silence
+    let max = audio.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
+    assert!(max > 0.5, "Filtered saw wave should have reasonable amplitude, got {}", max);
+}
+
+#[test]
+fn test_audio_node_chain_with_bus() {
+    // Test chaining with bus reference
+    let code = r#"
+        tempo: 2.0
+        ~osc: saw 220
+        out: ~osc # lpf 500 0.9
+    "#;
+
+    let mut graph = compile_to_audio_nodes(code, 44100.0)
+        .expect("Should compile chain with bus");
+
+    // Render audio
+    let audio = graph.render(44100).expect("Should render");
+
+    // Should produce filtered saw wave
+    let rms = calculate_rms(&audio);
+    assert!(rms > 0.1, "Should have audio output, got RMS {}", rms);
+}
+
+#[test]
+fn test_audio_node_delay_effect() {
+    // Test delay effect
+    let code = r#"
+        tempo: 2.0
+        out: sine 440 # delay 0.1
+    "#;
+
+    let mut graph = compile_to_audio_nodes(code, 44100.0)
+        .expect("Should compile delay effect");
+
+    // Render audio
+    let audio = graph.render(44100).expect("Should render");
+
+    // Should have delayed sine wave
+    let rms = calculate_rms(&audio);
+    assert!(rms > 0.1, "Delayed signal should have audio, got RMS {}", rms);
+}
+
+#[test]
+fn test_audio_node_reverb_effect() {
+    // Test reverb effect
+    let code = r#"
+        tempo: 2.0
+        out: sine 440 # reverb 0.7 0.5 0.3
+    "#;
+
+    let mut graph = compile_to_audio_nodes(code, 44100.0)
+        .expect("Should compile reverb effect");
+
+    // Render audio
+    let audio = graph.render(44100).expect("Should render");
+
+    // Should have reverb'd sine wave
+    let rms = calculate_rms(&audio);
+    assert!(rms > 0.1, "Reverb'd signal should have audio, got RMS {}", rms);
+}
+
+#[test]
+fn test_audio_node_distortion_effect() {
+    // Test distortion effect
+    let code = r#"
+        tempo: 2.0
+        out: sine 440 # distortion 5.0 0.8
+    "#;
+
+    let mut graph = compile_to_audio_nodes(code, 44100.0)
+        .expect("Should compile distortion effect");
+
+    // Render audio
+    let audio = graph.render(44100).expect("Should render");
+
+    // Should have distorted sine wave
+    let rms = calculate_rms(&audio);
+    assert!(rms > 0.1, "Distorted signal should have audio, got RMS {}", rms);
+
+    // Distortion should clip the signal, so max should be near 1.0
+    let max = audio.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
+    assert!(max > 0.8, "Distorted signal should clip near 1.0, got max {}", max);
+}
+
+#[test]
+fn test_audio_node_effect_chain() {
+    // Test chaining multiple effects
+    let code = r#"
+        tempo: 2.0
+        ~osc: saw 110
+        ~filtered: ~osc # lpf 800 0.7
+        ~delayed: ~filtered # delay 0.05
+        out: ~delayed # distortion 3.0 0.5
+    "#;
+
+    let mut graph = compile_to_audio_nodes(code, 44100.0)
+        .expect("Should compile effect chain");
+
+    // Render audio
+    let audio = graph.render(44100).expect("Should render");
+
+    // Should have processed audio through full chain
+    let rms = calculate_rms(&audio);
+    assert!(rms > 0.1, "Effect chain should produce audio, got RMS {}", rms);
+}
+
+#[test]
+fn test_audio_node_complex_synthesis() {
+    // Complex test: FM synthesis with filter and effects
+    let code = r#"
+        tempo: 2.0
+
+        -- FM synthesis
+        ~modulator_freq: 110 * 3
+        ~modulator: sine ~modulator_freq
+        ~mod_amount: 200
+        ~carrier_freq: 110 + (~modulator * ~mod_amount)
+        ~carrier: sine ~carrier_freq
+
+        -- Filter and effects chain
+        ~filtered: ~carrier # lpf 2000 0.6
+        ~effected: ~filtered # distortion 2.0 0.3
+
+        out: ~effected
+    "#;
+
+    let mut graph = compile_to_audio_nodes(code, 44100.0)
+        .expect("Should compile complex synthesis");
+
+    // Render 1 second
+    let audio = graph.render(44100).expect("Should render");
+
+    // Should produce FM-synthesized audio
+    let rms = calculate_rms(&audio);
+    assert!(
+        rms > 0.1,
+        "FM synthesis should produce audio, got RMS {}",
+        rms
+    );
+
+    // Check it's not silence
+    let max = audio.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
+    assert!(max > 0.3, "FM synthesis should have decent amplitude, got {}", max);
+}
+
+#[test]
+fn test_audio_node_multi_voice_mix() {
+    // Test mixing multiple voices with different processing
+    let code = r#"
+        tempo: 2.0
+
+        -- Voice 1: Bass
+        ~bass: saw 55 # lpf 300 0.8
+
+        -- Voice 2: Pad
+        ~pad_freq: 110 + 0.5
+        ~pad: saw ~pad_freq # lpf 800 0.5
+
+        -- Voice 3: Lead
+        ~lead: square 440 # hpf 500 0.4
+
+        -- Mix
+        ~mix: (~bass * 0.5) + (~pad * 0.3) + (~lead * 0.4)
+
+        out: ~mix # reverb 0.5 0.6 0.2
+    "#;
+
+    let mut graph = compile_to_audio_nodes(code, 44100.0)
+        .expect("Should compile multi-voice mix");
+
+    // Render audio
+    let audio = graph.render(44100).expect("Should render");
+
+    // Should produce mixed audio
+    let rms = calculate_rms(&audio);
+    assert!(
+        rms > 0.2,
+        "Multi-voice mix should produce audio, got RMS {}",
+        rms
+    );
+}
+
+#[test]
+fn test_audio_node_modulated_parameters() {
+    // Test pattern-controlled filter cutoff
+    let code = r#"
+        tempo: 2.0
+
+        -- LFO for filter cutoff
+        ~lfo: sine 0.5
+        ~cutoff: (~lfo * 1000) + 1500
+
+        -- Filtered saw
+        ~osc: saw 110
+        out: ~osc # lpf ~cutoff 0.7
+    "#;
+
+    let mut graph = compile_to_audio_nodes(code, 44100.0)
+        .expect("Should compile modulated parameters");
+
+    // Render audio
+    let audio = graph.render(44100).expect("Should render");
+
+    // Should produce filtered audio with modulated cutoff
+    let rms = calculate_rms(&audio);
+    assert!(
+        rms > 0.1,
+        "Modulated filter should produce audio, got RMS {}",
+        rms
+    );
+}
