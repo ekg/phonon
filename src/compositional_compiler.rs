@@ -6546,37 +6546,55 @@ fn compile_transform(
 /// Create a pattern from an audio signal with range mapping
 /// This bridges the gap between continuous audio signals and discrete pattern parameters
 ///
-/// TODO: Full Audio → Pattern Modulation Implementation
-///
-/// Current: Returns constant value (midpoint of range)
-/// Needed:
-///   1. Create SignalAsPattern node from bus signal
-///   2. Store NodeId reference in pattern closure
-///   3. Pattern queries read from graph state during evaluation
-///   4. Requires pattern-graph coupling or runtime pattern evaluation
-///
-/// This provides the syntax and infrastructure for future enhancement.
+/// Implementation:
+///   1. Creates SignalAsPattern node from bus signal
+///   2. Node samples signal once per cycle (thread-safe with Arc<Mutex>)
+///   3. Pattern closure reads cached value from shared state
+///   4. Provides dynamic audio→pattern coupling
 fn create_signal_pattern_for_transform(
-    _ctx: &mut CompilerContext,
-    _bus_name: &str,
+    ctx: &mut CompilerContext,
+    bus_name: &str,
     out_min: f32,
     out_max: f32,
-    _transform_name: &str,  // For debugging
+    _transform_name: &str,
 ) -> Result<Pattern<f64>, String> {
-    // For now, return a constant pattern
-    // Full implementation would create SignalAsPattern node and query it dynamically
+    use std::sync::Arc;
+    use std::sync::Mutex;
+    use crate::unified_graph::{SignalNode, Signal};
+    use crate::pattern::Hap;
+    use std::collections::HashMap;
 
-    // This is a simplified implementation that samples the signal once
-    // TODO: Make this truly dynamic with pattern queries reading from SignalAsPattern
+    // Create shared state cells for thread-safe communication
+    let midpoint = (out_min + out_max) / 2.0;
+    let sampled_value = Arc::new(Mutex::new(midpoint));
+    let sample_cycle = Arc::new(Mutex::new(-1.0f32));
 
-    // Return the midpoint of the range as default
-    let default_value = ((out_min + out_max) / 2.0) as f64;
+    // Create SignalAsPattern node that will sample the bus signal
+    let sap_node = SignalNode::SignalAsPattern {
+        signal: Signal::Bus(bus_name.to_string()),
+        last_sampled_value: sampled_value.clone(),
+        last_sample_cycle: sample_cycle.clone(),
+    };
 
-    eprintln!("WARNING: Audio → Pattern modulation is partially implemented.");
-    eprintln!("  Using constant value {} for transform parameter.", default_value);
-    eprintln!("  Full dynamic modulation requires deeper pattern-graph integration.");
+    // Add node to graph (this will be evaluated during audio processing)
+    ctx.graph.add_node(sap_node);
 
-    Ok(Pattern::pure(default_value))
+    // Create pattern that reads from shared state
+    let value_ref = sampled_value.clone();
+    let pattern = Pattern::new(move |state| {
+        // Read the current sampled value (set by SignalAsPattern during audio eval)
+        let value = *value_ref.lock().unwrap() as f64;
+
+        // Return a single event spanning the query span with the sampled value
+        vec![Hap {
+            whole: Some(state.span.clone()),
+            part: state.span.clone(),
+            value,
+            context: HashMap::new(),
+        }]
+    });
+
+    Ok(pattern)
 }
 
 /// Helper for applying transforms in closures where we only have templates

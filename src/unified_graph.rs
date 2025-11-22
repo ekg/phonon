@@ -863,6 +863,15 @@ pub enum SignalNode {
         last_trigger_time: f32, // Cycle position of last trigger
     },
 
+    /// Signal as a pattern source (audio→pattern modulation)
+    /// Samples a signal once per cycle and exposes it as a pattern value
+    /// Thread-safe with Arc<Mutex> for pattern closures
+    SignalAsPattern {
+        signal: Signal,
+        last_sampled_value: std::sync::Arc<std::sync::Mutex<f32>>,
+        last_sample_cycle: std::sync::Arc<std::sync::Mutex<f32>>,
+    },
+
     /// Cycle trigger: generates a short pulse at the start of each cycle
     /// Useful for triggering envelopes rhythmically
     CycleTrigger {
@@ -8614,6 +8623,26 @@ impl UnifiedSignalGraph {
                 }
 
                 current_value
+            }
+
+            SignalNode::SignalAsPattern {
+                signal,
+                last_sampled_value,
+                last_sample_cycle,
+            } => {
+                // Sample the signal once per cycle and cache the value
+                let current_cycle = self.get_cycle_position().floor();
+                let last_cycle = *last_sample_cycle.lock().unwrap() as f64;
+
+                // If we've moved to a new cycle, sample the signal
+                if (current_cycle - last_cycle).abs() > 0.01 {
+                    let sampled = self.eval_signal(signal);
+                    *last_sampled_value.lock().unwrap() = sampled;
+                    *last_sample_cycle.lock().unwrap() = current_cycle as f32;
+                }
+
+                // Return the cached value
+                *last_sampled_value.lock().unwrap()
             }
 
             SignalNode::CycleTrigger {
