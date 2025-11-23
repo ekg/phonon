@@ -34,20 +34,94 @@ pub struct Completion {
     pub text: String,
     /// The type of completion
     pub completion_type: CompletionType,
+    /// Optional description for the completion
+    pub description: Option<String>,
 }
 
 impl Completion {
     /// Create a new completion
-    pub fn new(text: String, completion_type: CompletionType) -> Self {
+    pub fn new(text: String, completion_type: CompletionType, description: Option<String>) -> Self {
         Self {
             text,
             completion_type,
+            description,
         }
     }
 
     /// Get the display label
     pub fn label(&self) -> &str {
         self.completion_type.label()
+    }
+}
+
+/// Score for fuzzy matching
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct FuzzyScore(usize);
+
+/// Calculate fuzzy match score between input and candidate
+///
+/// Returns None if no match, or Some(score) where higher is better:
+/// - Exact match: 1000
+/// - Prefix match: 500 + (1000 - input_len)
+/// - Substring match: 100 + position bonus
+/// - Character-by-character fuzzy: sum of position bonuses
+///
+/// # Arguments
+/// * `input` - The partial text being completed
+/// * `candidate` - The candidate text to match against
+fn fuzzy_score(input: &str, candidate: &str) -> Option<FuzzyScore> {
+    if input.is_empty() {
+        // Empty input matches everything with base score
+        return Some(FuzzyScore(50));
+    }
+
+    let input_lower = input.to_lowercase();
+    let candidate_lower = candidate.to_lowercase();
+
+    // Exact match: highest score
+    if candidate_lower == input_lower {
+        return Some(FuzzyScore(1000));
+    }
+
+    // Prefix match: high score
+    // Bonus for shorter candidates (closer to exact match)
+    if candidate_lower.starts_with(&input_lower) {
+        let length_penalty = (candidate_lower.len() - input_lower.len()).min(400);
+        return Some(FuzzyScore(900 - length_penalty));
+    }
+
+    // Substring match: medium score (bonus for position)
+    if let Some(pos) = candidate_lower.find(&input_lower) {
+        // Earlier position gets higher score
+        let position_bonus = 100 - pos.min(100);
+        return Some(FuzzyScore(100 + position_bonus));
+    }
+
+    // Character-by-character fuzzy matching
+    let mut input_chars = input_lower.chars().peekable();
+    let mut score = 0;
+    let mut last_match_pos = 0;
+
+    for (i, ch) in candidate_lower.chars().enumerate() {
+        if let Some(&input_ch) = input_chars.peek() {
+            if ch == input_ch {
+                input_chars.next();
+                // Bonus for consecutive matches
+                let consecutive_bonus = if i == last_match_pos + 1 { 5 } else { 0 };
+                score += 10 + consecutive_bonus;
+                last_match_pos = i;
+            }
+        } else {
+            // All input chars matched
+            break;
+        }
+    }
+
+    // Only count as match if all input characters were found
+    if input_chars.peek().is_none() {
+        Some(FuzzyScore(score))
+    } else {
+        None
     }
 }
 
@@ -67,17 +141,40 @@ pub fn filter_completions(
     sample_names: &[String],
     bus_names: &[String],
 ) -> Vec<Completion> {
-    let mut completions = Vec::new();
+    let mut completions: Vec<(Completion, FuzzyScore)> = Vec::new();
 
     match context {
         CompletionContext::Function => {
-            // Only show functions
+            // Show functions with fuzzy matching on name and description
             for func in FUNCTIONS.iter() {
-                if func.starts_with(partial) {
-                    completions.push(Completion::new(
-                        func.to_string(),
-                        CompletionType::Function,
+                // Try matching on function name
+                if let Some(name_score) = fuzzy_score(partial, func) {
+                    let description = FUNCTION_METADATA
+                        .get(func)
+                        .map(|meta| meta.description.to_string());
+
+                    completions.push((
+                        Completion::new(
+                            func.to_string(),
+                            CompletionType::Function,
+                            description,
+                        ),
+                        name_score,
                     ));
+                } else if let Some(metadata) = FUNCTION_METADATA.get(func) {
+                    // Try matching on description
+                    if let Some(desc_score) = fuzzy_score(partial, metadata.description) {
+                        // Description matches get lower score than name matches
+                        let adjusted_score = FuzzyScore(desc_score.0 / 2);
+                        completions.push((
+                            Completion::new(
+                                func.to_string(),
+                                CompletionType::Function,
+                                Some(metadata.description.to_string()),
+                            ),
+                            adjusted_score,
+                        ));
+                    }
                 }
             }
         }
@@ -88,29 +185,41 @@ pub fn filter_completions(
                 // User typed ~, show only buses
                 let partial_no_tilde = partial.trim_start_matches('~');
                 for bus in bus_names {
-                    if bus.starts_with(partial_no_tilde) {
-                        completions.push(Completion::new(
-                            format!("~{}", bus),
-                            CompletionType::Bus,
+                    if let Some(score) = fuzzy_score(partial_no_tilde, bus) {
+                        completions.push((
+                            Completion::new(
+                                format!("~{}", bus),
+                                CompletionType::Bus,
+                                Some(format!("Bus reference: ~{}", bus)),
+                            ),
+                            score,
                         ));
                     }
                 }
             } else {
                 // Show both samples and buses
                 for sample in sample_names {
-                    if sample.starts_with(partial) {
-                        completions.push(Completion::new(
-                            sample.clone(),
-                            CompletionType::Sample,
+                    if let Some(score) = fuzzy_score(partial, sample) {
+                        completions.push((
+                            Completion::new(
+                                sample.clone(),
+                                CompletionType::Sample,
+                                Some(format!("Sample: {}", sample)),
+                            ),
+                            score,
                         ));
                     }
                 }
 
                 for bus in bus_names {
-                    if bus.starts_with(partial) {
-                        completions.push(Completion::new(
-                            format!("~{}", bus),
-                            CompletionType::Bus,
+                    if let Some(score) = fuzzy_score(partial, bus) {
+                        completions.push((
+                            Completion::new(
+                                format!("~{}", bus),
+                                CompletionType::Bus,
+                                Some(format!("Bus reference: ~{}", bus)),
+                            ),
+                            score,
                         ));
                     }
                 }
@@ -121,10 +230,14 @@ pub fn filter_completions(
             // User explicitly typed ~, only show buses
             let partial_no_tilde = partial.trim_start_matches('~');
             for bus in bus_names {
-                if bus.starts_with(partial_no_tilde) {
-                    completions.push(Completion::new(
-                        format!("~{}", bus),
-                        CompletionType::Bus,
+                if let Some(score) = fuzzy_score(partial_no_tilde, bus) {
+                    completions.push((
+                        Completion::new(
+                            format!("~{}", bus),
+                            CompletionType::Bus,
+                            Some(format!("Bus reference: ~{}", bus)),
+                        ),
+                        score,
                     ));
                 }
             }
@@ -135,10 +248,16 @@ pub fn filter_completions(
             if let Some(metadata) = FUNCTION_METADATA.get(func_name) {
                 for param in &metadata.params {
                     let param_with_colon = format!(":{}", param.name);
-                    if param_with_colon.starts_with(partial) || param.name.starts_with(partial.trim_start_matches(':')) {
-                        completions.push(Completion::new(
-                            param_with_colon,
-                            CompletionType::Keyword,
+                    let search_term = partial.trim_start_matches(':');
+
+                    if let Some(score) = fuzzy_score(search_term, param.name) {
+                        completions.push((
+                            Completion::new(
+                                param_with_colon,
+                                CompletionType::Keyword,
+                                Some(param.description.to_string()),
+                            ),
+                            score,
                         ));
                     }
                 }
@@ -150,21 +269,37 @@ pub fn filter_completions(
         }
     }
 
-    // Sort: samples first, then buses, then keywords, alphabetically within each group
-    completions.sort_by(|a, b| {
+    // Sort by fuzzy score (descending), then by type priority, then alphabetically
+    completions.sort_by(|(a_completion, a_score), (b_completion, b_score)| {
         use std::cmp::Ordering;
-        match (a.completion_type, b.completion_type) {
-            (CompletionType::Sample, CompletionType::Bus) => Ordering::Less,
-            (CompletionType::Sample, CompletionType::Keyword) => Ordering::Less,
-            (CompletionType::Bus, CompletionType::Sample) => Ordering::Greater,
-            (CompletionType::Bus, CompletionType::Keyword) => Ordering::Less,
-            (CompletionType::Keyword, CompletionType::Sample) => Ordering::Greater,
-            (CompletionType::Keyword, CompletionType::Bus) => Ordering::Greater,
-            _ => a.text.cmp(&b.text),
+
+        // First: sort by score (higher is better)
+        match b_score.cmp(a_score) {
+            Ordering::Equal => {
+                // Then: sort by type priority (Function > Sample > Bus > Keyword)
+                let type_order = |t: CompletionType| match t {
+                    CompletionType::Function => 0,
+                    CompletionType::Sample => 1,
+                    CompletionType::Bus => 2,
+                    CompletionType::Keyword => 3,
+                };
+
+                match type_order(a_completion.completion_type)
+                    .cmp(&type_order(b_completion.completion_type))
+                {
+                    Ordering::Equal => {
+                        // Finally: sort alphabetically
+                        a_completion.text.cmp(&b_completion.text)
+                    }
+                    other => other,
+                }
+            }
+            other => other,
         }
     });
 
-    completions
+    // Extract just the completions (drop scores)
+    completions.into_iter().map(|(c, _)| c).collect()
 }
 
 #[cfg(test)]
@@ -319,10 +454,18 @@ mod tests {
             .filter(|c| c.completion_type == CompletionType::Sample)
             .collect();
 
-        // Should be alphabetically sorted
-        assert_eq!(sample_completions[0].text, "bass");
-        assert_eq!(sample_completions[1].text, "bd");
-        assert_eq!(sample_completions[2].text, "bend");
+        // With fuzzy matching, shorter prefix matches score higher
+        // "bd" (2 chars) should come before "bass" and "bend" (4 chars)
+        assert_eq!(sample_completions[0].text, "bd");
+
+        // "bass" and "bend" have same length, so they're alphabetically sorted
+        assert!(sample_completions.iter().any(|c| c.text == "bass"));
+        assert!(sample_completions.iter().any(|c| c.text == "bend"));
+
+        // Check that they appear in alphabetical order when scores are equal
+        let bass_idx = sample_completions.iter().position(|c| c.text == "bass").unwrap();
+        let bend_idx = sample_completions.iter().position(|c| c.text == "bend").unwrap();
+        assert!(bass_idx < bend_idx);
     }
 
     #[test]
@@ -331,6 +474,47 @@ mod tests {
         assert_eq!(CompletionType::Sample.label(), "[sample]");
         assert_eq!(CompletionType::Bus.label(), "[bus]");
         assert_eq!(CompletionType::Keyword.label(), "[param]");
+    }
+
+    #[test]
+    fn test_fuzzy_score_exact_match() {
+        let score = fuzzy_score("test", "test");
+        assert_eq!(score, Some(FuzzyScore(1000)));
+    }
+
+    #[test]
+    fn test_fuzzy_score_prefix_match() {
+        let score = fuzzy_score("rev", "reverb");
+        assert!(score.is_some());
+        // Prefix matches score high (900 minus length penalty)
+        assert!(score.unwrap().0 >= 800);
+        assert!(score.unwrap().0 < 1000); // But less than exact match
+    }
+
+    #[test]
+    fn test_fuzzy_score_substring_match() {
+        let score = fuzzy_score("verb", "reverb");
+        assert!(score.is_some());
+        assert!(score.unwrap().0 >= 100);
+        assert!(score.unwrap().0 < 500);
+    }
+
+    #[test]
+    fn test_fuzzy_score_character_match() {
+        let score = fuzzy_score("lpf", "lowpass_filter");
+        assert!(score.is_some());
+    }
+
+    #[test]
+    fn test_fuzzy_score_no_match() {
+        let score = fuzzy_score("xyz", "reverb");
+        assert_eq!(score, None);
+    }
+
+    #[test]
+    fn test_fuzzy_score_empty_input() {
+        let score = fuzzy_score("", "test");
+        assert_eq!(score, Some(FuzzyScore(50)));
     }
 
     #[test]
@@ -373,9 +557,14 @@ mod tests {
         // Filter by partial match
         let completions = filter_completions(":m", &context, &samples, &buses);
 
-        // Should only show :mix (starts with :m)
-        assert_eq!(completions.len(), 1);
+        // With fuzzy matching, should match all parameters containing 'm'
+        // But :mix should be first (prefix match has highest score)
+        assert!(!completions.is_empty());
         assert_eq!(completions[0].text, ":mix");
+
+        // Also verify fuzzy matching works - should find room_size and damping
+        assert!(completions.iter().any(|c| c.text == ":room_size"));
+        assert!(completions.iter().any(|c| c.text == ":damping"));
     }
 
     #[test]
@@ -387,5 +576,112 @@ mod tests {
         // Unknown function should return no completions
         let completions = filter_completions("", &context, &samples, &buses);
         assert!(completions.is_empty());
+    }
+
+    #[test]
+    fn test_fuzzy_matching_functions() {
+        let samples = make_samples();
+        let buses = make_buses();
+        let context = CompletionContext::Function;
+
+        // Test fuzzy matching: "rev" should match "reverb" and "rev"
+        let completions = filter_completions("rev", &context, &samples, &buses);
+
+        // Should find both rev and reverb
+        assert!(completions.iter().any(|c| c.text == "rev"));
+        assert!(completions.iter().any(|c| c.text == "reverb"));
+
+        // "rev" exact match should come before "reverb" prefix match
+        let rev_pos = completions.iter().position(|c| c.text == "rev").unwrap();
+        let reverb_pos = completions.iter().position(|c| c.text == "reverb").unwrap();
+        assert!(rev_pos < reverb_pos);
+    }
+
+    #[test]
+    fn test_fuzzy_matching_description_search() {
+        let samples = make_samples();
+        let buses = make_buses();
+        let context = CompletionContext::Function;
+
+        // Test description search: "echo" should match "delay" (description mentions echo)
+        let completions = filter_completions("echo", &context, &samples, &buses);
+
+        // Should find delay via description match
+        assert!(completions.iter().any(|c| c.text == "delay"));
+    }
+
+    #[test]
+    fn test_fuzzy_matching_samples() {
+        let samples = vec![
+            "bass".to_string(),
+            "bass3".to_string(),
+            "casio".to_string(),
+        ];
+        let buses = make_buses();
+        let context = CompletionContext::Sample;
+
+        // Test fuzzy: "as" should match samples containing "as"
+        let completions = filter_completions("as", &context, &samples, &buses);
+
+        // Should find bass, bass3, casio (all contain "as")
+        assert!(completions.iter().any(|c| c.text == "bass"));
+        assert!(completions.iter().any(|c| c.text == "bass3"));
+        assert!(completions.iter().any(|c| c.text == "casio"));
+
+        // Verify prefix matches come first (bass, bass3 start with "bas")
+        let first_completion = &completions[0];
+        assert!(first_completion.text == "bass" || first_completion.text == "bass3");
+    }
+
+    #[test]
+    fn test_completion_descriptions() {
+        let samples = make_samples();
+        let buses = make_buses();
+        let context = CompletionContext::Function;
+
+        let completions = filter_completions("lpf", &context, &samples, &buses);
+
+        // Find lpf completion
+        let lpf = completions.iter().find(|c| c.text == "lpf").unwrap();
+
+        // Should have a description
+        assert!(lpf.description.is_some());
+        assert!(lpf.description.as_ref().unwrap().contains("Low-pass"));
+    }
+
+    #[test]
+    fn test_keyword_descriptions() {
+        let samples = make_samples();
+        let buses = make_buses();
+        let context = CompletionContext::Keyword("lpf");
+
+        let completions = filter_completions("", &context, &samples, &buses);
+
+        // Find cutoff parameter
+        let cutoff = completions.iter().find(|c| c.text == ":cutoff").unwrap();
+
+        // Should have a description
+        assert!(cutoff.description.is_some());
+        assert!(cutoff.description.as_ref().unwrap().contains("cutoff frequency"));
+    }
+
+    #[test]
+    fn test_sample_and_bus_descriptions() {
+        let samples = vec!["bd".to_string()];
+        let buses = vec!["drums".to_string()];
+        let context = CompletionContext::Sample;
+
+        let completions = filter_completions("", &context, &samples, &buses);
+
+        // Find sample and bus
+        let bd = completions.iter().find(|c| c.text == "bd").unwrap();
+        let drums = completions.iter().find(|c| c.text == "~drums").unwrap();
+
+        // Should have descriptions
+        assert!(bd.description.is_some());
+        assert!(bd.description.as_ref().unwrap().contains("Sample:"));
+
+        assert!(drums.description.is_some());
+        assert!(drums.description.as_ref().unwrap().contains("Bus reference:"));
     }
 }

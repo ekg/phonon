@@ -135,9 +135,9 @@ mod tests {
 
     fn make_completions() -> Vec<Completion> {
         vec![
-            Completion::new("fast".to_string(), CompletionType::Function),
-            Completion::new("fade".to_string(), CompletionType::Function),
-            Completion::new("fadeIn".to_string(), CompletionType::Function),
+            Completion::new("fast".to_string(), CompletionType::Function, None),
+            Completion::new("fade".to_string(), CompletionType::Function, None),
+            Completion::new("fadeIn".to_string(), CompletionType::Function, None),
         ]
     }
 

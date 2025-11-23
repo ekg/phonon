@@ -131,6 +131,8 @@ pub fn get_completion_context(line: &str, cursor_pos: usize) -> CompletionContex
 ///
 /// Returns Some(function_name) if cursor is after `:` following a known function
 fn detect_keyword_context(line: &str, cursor_pos: usize) -> Option<&'static str> {
+    use super::function_metadata::FUNCTION_METADATA;
+
     if cursor_pos == 0 {
         return None;
     }
@@ -165,37 +167,11 @@ fn detect_keyword_context(line: &str, cursor_pos: usize) -> Option<&'static str>
             continue;
         }
 
-        // Check if this is a known function
-        // We need to import FUNCTION_METADATA, but to avoid circular deps,
-        // we'll use a hardcoded list for now
-        let known_functions = [
-            "lpf", "hpf", "bpf", "notch",
-            "adsr", "ad", "asr",
-            "reverb", "chorus", "delay", "distort",
-            "s", "fast", "slow", "every", "rev",
-        ];
-
-        if known_functions.contains(token) {
-            // Convert to static str by matching
-            return match *token {
-                "lpf" => Some("lpf"),
-                "hpf" => Some("hpf"),
-                "bpf" => Some("bpf"),
-                "notch" => Some("notch"),
-                "adsr" => Some("adsr"),
-                "ad" => Some("ad"),
-                "asr" => Some("asr"),
-                "reverb" => Some("reverb"),
-                "chorus" => Some("chorus"),
-                "delay" => Some("delay"),
-                "distort" => Some("distort"),
-                "s" => Some("s"),
-                "fast" => Some("fast"),
-                "slow" => Some("slow"),
-                "every" => Some("every"),
-                "rev" => Some("rev"),
-                _ => None,
-            };
+        // Check if this is a known function in FUNCTION_METADATA
+        if FUNCTION_METADATA.contains_key(token) {
+            // Need to return a static string, so we look it up in the metadata
+            // This works because FUNCTION_METADATA keys are 'static str
+            return FUNCTION_METADATA.get(token).map(|meta| meta.name);
         }
     }
 
