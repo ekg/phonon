@@ -142,6 +142,60 @@ lazy_static::lazy_static! {
             category: "Filters",
         });
 
+        m.insert("bq_hp", FunctionMetadata {
+            name: "bq_hp",
+            description: "Biquad highpass filter - efficient CPU-friendly filter",
+            params: vec![
+                ParamMetadata {
+                    name: "frequency",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Filter cutoff frequency in Hz",
+                },
+                ParamMetadata {
+                    name: "q",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Filter Q/resonance factor",
+                },
+            ],
+            example: "~filtered: ~signal # bq_hp 200 0.7",
+            category: "Filters",
+        });
+
+        m.insert("bq_lp", FunctionMetadata {
+            name: "bq_lp",
+            description: "Biquad lowpass filter - efficient CPU-friendly filter",
+            params: vec![
+                ParamMetadata {
+                    name: "frequency",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Filter cutoff frequency in Hz",
+                },
+                ParamMetadata {
+                    name: "q",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Filter Q/resonance factor",
+                },
+            ],
+            example: "~filtered: ~signal # bq_lp 1000 0.7",
+            category: "Filters",
+        });
+
+        m.insert("brown_noise", FunctionMetadata {
+            name: "brown_noise",
+            description: "Brown noise generator - 6dB/octave rolloff, warm rumble",
+            params: vec![],
+            example: "~rumble: brown_noise * 0.3",
+            category: "Generators",
+        });
+
         m.insert("notch", FunctionMetadata {
             name: "notch",
             description: "Notch filter - removes frequencies near cutoff",
@@ -1842,6 +1896,707 @@ lazy_static::lazy_static! {
             ],
             example: "~euclid: s \"bd\" $ euclid 3 8",
             category: "Transforms",
+        });
+
+        m.insert("flanger", FunctionMetadata {
+            name: "flanger",
+            description: "Flanger effect - sweeping comb filter modulation",
+            params: vec![
+                ParamMetadata {
+                    name: "depth",
+                    param_type: "milliseconds",
+                    optional: false,
+                    default: None,
+                    description: "Modulation depth in milliseconds (0-10ms typical)",
+                },
+                ParamMetadata {
+                    name: "rate",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "LFO modulation rate in Hz (0.1-5 Hz typical)",
+                },
+                ParamMetadata {
+                    name: "feedback",
+                    param_type: "0-1",
+                    optional: false,
+                    default: None,
+                    description: "Feedback amount (0-0.9, higher = more metallic)",
+                },
+            ],
+            example: "~flanged: ~synth # flanger 2.0 0.5 0.7",
+            category: "Effects",
+        });
+
+        m.insert("granular", FunctionMetadata {
+            name: "granular",
+            description: "Granular synthesis - slice audio into grains for texture",
+            params: vec![
+                ParamMetadata {
+                    name: "source",
+                    param_type: "signal",
+                    optional: false,
+                    default: None,
+                    description: "Source signal to granulate",
+                },
+                ParamMetadata {
+                    name: "grain_size_ms",
+                    param_type: "milliseconds",
+                    optional: false,
+                    default: None,
+                    description: "Grain size in milliseconds (10-200ms typical)",
+                },
+                ParamMetadata {
+                    name: "density",
+                    param_type: "grains/sec",
+                    optional: false,
+                    default: None,
+                    description: "Grain density (grains per second, 10-100 typical)",
+                },
+                ParamMetadata {
+                    name: "pitch",
+                    param_type: "ratio",
+                    optional: false,
+                    default: None,
+                    description: "Pitch ratio (1.0 = normal, 0.5 = octave down, 2.0 = octave up)",
+                },
+            ],
+            example: "~grains: granular ~input 50 20 1.0",
+            category: "Effects",
+        });
+
+        m.insert("limiter", FunctionMetadata {
+            name: "limiter",
+            description: "Limiter - prevents clipping by hard limiting peaks",
+            params: vec![
+                ParamMetadata {
+                    name: "input",
+                    param_type: "signal",
+                    optional: false,
+                    default: None,
+                    description: "Input signal to limit",
+                },
+                ParamMetadata {
+                    name: "threshold",
+                    param_type: "0-1",
+                    optional: false,
+                    default: None,
+                    description: "Threshold level (0-1, typically 0.9-0.99)",
+                },
+            ],
+            example: "~safe: limiter ~master 0.95",
+            category: "Effects",
+        });
+
+        m.insert("moog", FunctionMetadata {
+            name: "moog",
+            description: "Moog ladder filter - classic analog lowpass with resonance",
+            params: vec![
+                ParamMetadata {
+                    name: "input",
+                    param_type: "signal",
+                    optional: false,
+                    default: None,
+                    description: "Input signal to filter",
+                },
+                ParamMetadata {
+                    name: "cutoff",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Filter cutoff frequency in Hz",
+                },
+                ParamMetadata {
+                    name: "resonance",
+                    param_type: "0-1",
+                    optional: false,
+                    default: None,
+                    description: "Filter resonance (0-1, can self-oscillate at high values)",
+                },
+            ],
+            example: "~bass: saw 55 # moog ~bass 800 0.7",
+            category: "Filters",
+        });
+
+        m.insert("moog_hz", FunctionMetadata {
+            name: "moog_hz",
+            description: "Moog filter with Hz cutoff - fundsp-based implementation",
+            params: vec![
+                ParamMetadata {
+                    name: "cutoff",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Filter cutoff frequency in Hz",
+                },
+                ParamMetadata {
+                    name: "resonance",
+                    param_type: "0-1",
+                    optional: false,
+                    default: None,
+                    description: "Filter resonance (0-1)",
+                },
+            ],
+            example: "~filtered: ~synth # moog_hz 1000 0.5",
+            category: "Filters",
+        });
+
+        m.insert("pink_noise", FunctionMetadata {
+            name: "pink_noise",
+            description: "Pink noise generator - 3dB/octave rolloff, natural spectrum",
+            params: vec![],
+            example: "~wind: pink_noise * 0.2",
+            category: "Generators",
+        });
+
+        m.insert("pitch_shift", FunctionMetadata {
+            name: "pitch_shift",
+            description: "Pitch shifter - change pitch without changing duration",
+            params: vec![
+                ParamMetadata {
+                    name: "input",
+                    param_type: "signal",
+                    optional: false,
+                    default: None,
+                    description: "Input signal to pitch shift",
+                },
+                ParamMetadata {
+                    name: "semitones",
+                    param_type: "semitones",
+                    optional: false,
+                    default: None,
+                    description: "Pitch shift in semitones (12 = octave up, -12 = octave down)",
+                },
+            ],
+            example: "~shifted: pitch_shift ~vocal 7",
+            category: "Effects",
+        });
+
+        m.insert("plate", FunctionMetadata {
+            name: "plate",
+            description: "Dattorro plate reverb - lush, dense reverb with natural decay",
+            params: vec![
+                ParamMetadata {
+                    name: "pre_delay",
+                    param_type: "seconds",
+                    optional: false,
+                    default: None,
+                    description: "Pre-delay time before reverb (0-0.1 seconds typical)",
+                },
+                ParamMetadata {
+                    name: "decay",
+                    param_type: "seconds",
+                    optional: false,
+                    default: None,
+                    description: "Reverb decay time (0.1-20 seconds)",
+                },
+                ParamMetadata {
+                    name: "diffusion",
+                    param_type: "0-1",
+                    optional: true,
+                    default: Some("0.7"),
+                    description: "Diffusion density (0-1, higher = denser)",
+                },
+                ParamMetadata {
+                    name: "damping",
+                    param_type: "0-1",
+                    optional: true,
+                    default: Some("0.3"),
+                    description: "High frequency damping (0-1, higher = darker)",
+                },
+                ParamMetadata {
+                    name: "mod_depth",
+                    param_type: "0-1",
+                    optional: true,
+                    default: Some("0.3"),
+                    description: "Modulation depth for shimmer (0-1)",
+                },
+                ParamMetadata {
+                    name: "mix",
+                    param_type: "0-1",
+                    optional: true,
+                    default: Some("0.5"),
+                    description: "Wet/dry mix (0 = dry, 1 = wet)",
+                },
+            ],
+            example: "~verb: ~dry # plate 0.02 2.5 :diffusion 0.8",
+            category: "Effects",
+        });
+
+        m.insert("pulse", FunctionMetadata {
+            name: "pulse",
+            description: "Pulse wave oscillator - bandlimited PWM oscillator",
+            params: vec![
+                ParamMetadata {
+                    name: "frequency",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Oscillator frequency in Hz",
+                },
+                ParamMetadata {
+                    name: "pulse_width",
+                    param_type: "0-1",
+                    optional: false,
+                    default: None,
+                    description: "Pulse width (0.5 = square, 0.1 = thin, 0.9 = wide)",
+                },
+            ],
+            example: "~pwm: pulse 110 0.2",
+            category: "Oscillators",
+        });
+
+        m.insert("reverb_stereo", FunctionMetadata {
+            name: "reverb_stereo",
+            description: "Stereo reverb - fundsp-based stereo reverb effect",
+            params: vec![
+                ParamMetadata {
+                    name: "wet",
+                    param_type: "0-1",
+                    optional: false,
+                    default: None,
+                    description: "Wet/dry mix (0 = dry, 1 = wet)",
+                },
+                ParamMetadata {
+                    name: "time",
+                    param_type: "seconds",
+                    optional: false,
+                    default: None,
+                    description: "Reverb time/size (0.1-10 seconds)",
+                },
+            ],
+            example: "~verb: ~synth # reverb_stereo 0.3 2.0",
+            category: "Effects",
+        });
+
+        m.insert("ring_mod", FunctionMetadata {
+            name: "ring_mod",
+            description: "Ring modulation - multiply two signals for metallic tones",
+            params: vec![
+                ParamMetadata {
+                    name: "signal1",
+                    param_type: "signal",
+                    optional: false,
+                    default: None,
+                    description: "First signal (carrier)",
+                },
+                ParamMetadata {
+                    name: "signal2",
+                    param_type: "signal",
+                    optional: false,
+                    default: None,
+                    description: "Second signal (modulator)",
+                },
+            ],
+            example: "~metal: ring_mod (saw 110) (sine 440)",
+            category: "Effects",
+        });
+
+        m.insert("sample_hold", FunctionMetadata {
+            name: "sample_hold",
+            description: "Sample and hold - captures input on trigger, holds until next trigger",
+            params: vec![
+                ParamMetadata {
+                    name: "input",
+                    param_type: "signal",
+                    optional: false,
+                    default: None,
+                    description: "Input signal to sample",
+                },
+                ParamMetadata {
+                    name: "trigger",
+                    param_type: "signal",
+                    optional: false,
+                    default: None,
+                    description: "Trigger signal (samples on rising edge)",
+                },
+            ],
+            example: "~stepped: sample_hold (sine 2) (sine 8)",
+            category: "Utilities",
+        });
+
+        m.insert("superchip", FunctionMetadata {
+            name: "superchip",
+            description: "Chiptune synth - retro 8-bit game sounds with vibrato",
+            params: vec![
+                ParamMetadata {
+                    name: "freq",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Base frequency in Hz",
+                },
+                ParamMetadata {
+                    name: "vibrato_rate",
+                    param_type: "Hz",
+                    optional: true,
+                    default: Some("5.0"),
+                    description: "Vibrato rate in Hz",
+                },
+                ParamMetadata {
+                    name: "vibrato_depth",
+                    param_type: "0-1",
+                    optional: true,
+                    default: Some("0.1"),
+                    description: "Vibrato depth (0-1)",
+                },
+            ],
+            example: "~chip: superchip 440 :vibrato_rate 6 :vibrato_depth 0.2",
+            category: "Synths",
+        });
+
+        m.insert("superfm", FunctionMetadata {
+            name: "superfm",
+            description: "FM synth - frequency modulation for complex timbres",
+            params: vec![
+                ParamMetadata {
+                    name: "freq",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Carrier frequency in Hz",
+                },
+                ParamMetadata {
+                    name: "mod_ratio",
+                    param_type: "ratio",
+                    optional: true,
+                    default: Some("2.0"),
+                    description: "Modulator frequency ratio (1.0-10.0)",
+                },
+                ParamMetadata {
+                    name: "mod_index",
+                    param_type: "float",
+                    optional: true,
+                    default: Some("1.0"),
+                    description: "Modulation index/depth (0-10)",
+                },
+            ],
+            example: "~fm: superfm 220 :mod_ratio 3.5 :mod_index 2.0",
+            category: "Synths",
+        });
+
+        m.insert("superhat", FunctionMetadata {
+            name: "superhat",
+            description: "Hi-hat synth - metallic percussion sounds",
+            params: vec![
+                ParamMetadata {
+                    name: "bright",
+                    param_type: "0-1",
+                    optional: true,
+                    default: Some("0.5"),
+                    description: "Brightness/tone (0 = dark, 1 = bright)",
+                },
+                ParamMetadata {
+                    name: "sustain",
+                    param_type: "seconds",
+                    optional: true,
+                    default: Some("0.1"),
+                    description: "Decay time in seconds",
+                },
+            ],
+            example: "~hat: superhat :bright 0.8 :sustain 0.05",
+            category: "Synths",
+        });
+
+        m.insert("superkick", FunctionMetadata {
+            name: "superkick",
+            description: "Kick drum synth - punchy 808-style kick drums",
+            params: vec![
+                ParamMetadata {
+                    name: "freq",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Base frequency in Hz (40-80 Hz typical)",
+                },
+                ParamMetadata {
+                    name: "pitch_env",
+                    param_type: "signal",
+                    optional: true,
+                    default: Some("auto"),
+                    description: "Pitch envelope depth",
+                },
+                ParamMetadata {
+                    name: "sustain",
+                    param_type: "seconds",
+                    optional: true,
+                    default: Some("0.3"),
+                    description: "Decay time in seconds",
+                },
+                ParamMetadata {
+                    name: "noise_amt",
+                    param_type: "0-1",
+                    optional: true,
+                    default: Some("0.1"),
+                    description: "Click/noise amount (0-1)",
+                },
+            ],
+            example: "~kick: superkick 55 :sustain 0.4",
+            category: "Synths",
+        });
+
+        m.insert("superpwm", FunctionMetadata {
+            name: "superpwm",
+            description: "PWM synth - pulse width modulation for analog synth sounds",
+            params: vec![
+                ParamMetadata {
+                    name: "freq",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Base frequency in Hz",
+                },
+                ParamMetadata {
+                    name: "pwm_rate",
+                    param_type: "Hz",
+                    optional: true,
+                    default: Some("0.5"),
+                    description: "PWM LFO rate in Hz",
+                },
+                ParamMetadata {
+                    name: "pwm_depth",
+                    param_type: "0-1",
+                    optional: true,
+                    default: Some("0.3"),
+                    description: "PWM depth (0-1)",
+                },
+            ],
+            example: "~pwm: superpwm 110 :pwm_rate 0.3 :pwm_depth 0.5",
+            category: "Synths",
+        });
+
+        m.insert("supersaw", FunctionMetadata {
+            name: "supersaw",
+            description: "Supersaw synth - detuned saw oscillators for thick sound",
+            params: vec![
+                ParamMetadata {
+                    name: "freq",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Base frequency in Hz",
+                },
+                ParamMetadata {
+                    name: "detune",
+                    param_type: "cents",
+                    optional: true,
+                    default: Some("10.0"),
+                    description: "Detune amount in cents",
+                },
+                ParamMetadata {
+                    name: "voices",
+                    param_type: "int",
+                    optional: true,
+                    default: Some("7"),
+                    description: "Number of voices (3-9)",
+                },
+            ],
+            example: "~saw: supersaw 110 :detune 15 :voices 7",
+            category: "Synths",
+        });
+
+        m.insert("supersnare", FunctionMetadata {
+            name: "supersnare",
+            description: "Snare drum synth - snappy snare with noise and tone",
+            params: vec![
+                ParamMetadata {
+                    name: "freq",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Tone frequency in Hz (150-250 Hz typical)",
+                },
+                ParamMetadata {
+                    name: "snappy",
+                    param_type: "0-1",
+                    optional: true,
+                    default: Some("0.5"),
+                    description: "Snappiness/noise amount (0-1)",
+                },
+                ParamMetadata {
+                    name: "sustain",
+                    param_type: "seconds",
+                    optional: true,
+                    default: Some("0.15"),
+                    description: "Decay time in seconds",
+                },
+            ],
+            example: "~snare: supersnare 200 :snappy 0.7 :sustain 0.12",
+            category: "Synths",
+        });
+
+        m.insert("svf_hp", FunctionMetadata {
+            name: "svf_hp",
+            description: "State variable highpass filter - smooth analog-style filter",
+            params: vec![
+                ParamMetadata {
+                    name: "frequency",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Filter cutoff frequency in Hz",
+                },
+                ParamMetadata {
+                    name: "resonance",
+                    param_type: "0-1",
+                    optional: false,
+                    default: None,
+                    description: "Filter resonance (0-1)",
+                },
+            ],
+            example: "~filtered: ~signal # svf_hp 500 0.5",
+            category: "Filters",
+        });
+
+        m.insert("svf_lp", FunctionMetadata {
+            name: "svf_lp",
+            description: "State variable lowpass filter - smooth analog-style filter",
+            params: vec![
+                ParamMetadata {
+                    name: "frequency",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Filter cutoff frequency in Hz",
+                },
+                ParamMetadata {
+                    name: "resonance",
+                    param_type: "0-1",
+                    optional: false,
+                    default: None,
+                    description: "Filter resonance (0-1)",
+                },
+            ],
+            example: "~filtered: ~signal # svf_lp 1000 0.7",
+            category: "Filters",
+        });
+
+        m.insert("vco", FunctionMetadata {
+            name: "vco",
+            description: "Voltage-controlled oscillator - multi-waveform oscillator",
+            params: vec![
+                ParamMetadata {
+                    name: "frequency",
+                    param_type: "Hz",
+                    optional: false,
+                    default: None,
+                    description: "Oscillator frequency in Hz",
+                },
+                ParamMetadata {
+                    name: "waveform",
+                    param_type: "0-3",
+                    optional: false,
+                    default: None,
+                    description: "Waveform (0=sine, 1=saw, 2=square, 3=triangle)",
+                },
+                ParamMetadata {
+                    name: "pulse_width",
+                    param_type: "0-1",
+                    optional: true,
+                    default: Some("0.5"),
+                    description: "Pulse width for square wave (0-1)",
+                },
+            ],
+            example: "~vco: vco 220 2 :pulse_width 0.3",
+            category: "Oscillators",
+        });
+
+        m.insert("vocoder", FunctionMetadata {
+            name: "vocoder",
+            description: "Vocoder - voice/carrier modulation for robotic vocals",
+            params: vec![
+                ParamMetadata {
+                    name: "modulator",
+                    param_type: "signal",
+                    optional: false,
+                    default: None,
+                    description: "Modulator signal (usually voice or rhythmic source)",
+                },
+                ParamMetadata {
+                    name: "carrier",
+                    param_type: "signal",
+                    optional: false,
+                    default: None,
+                    description: "Carrier signal (usually synth with rich harmonics)",
+                },
+                ParamMetadata {
+                    name: "num_bands",
+                    param_type: "int",
+                    optional: false,
+                    default: None,
+                    description: "Number of frequency bands (2-32, 8-16 typical)",
+                },
+            ],
+            example: "~robot: vocoder ~voice (saw 110) 16",
+            category: "Effects",
+        });
+
+        m.insert("white_noise", FunctionMetadata {
+            name: "white_noise",
+            description: "White noise generator - full spectrum noise",
+            params: vec![],
+            example: "~noise: white_noise * 0.1",
+            category: "Generators",
+        });
+
+        m.insert("xfade", FunctionMetadata {
+            name: "xfade",
+            description: "Crossfade between two signals - smooth transition",
+            params: vec![
+                ParamMetadata {
+                    name: "signal_a",
+                    param_type: "signal",
+                    optional: false,
+                    default: None,
+                    description: "First signal (position = 0)",
+                },
+                ParamMetadata {
+                    name: "signal_b",
+                    param_type: "signal",
+                    optional: false,
+                    default: None,
+                    description: "Second signal (position = 1)",
+                },
+                ParamMetadata {
+                    name: "position",
+                    param_type: "0-1",
+                    optional: false,
+                    default: None,
+                    description: "Crossfade position (0 = all A, 1 = all B)",
+                },
+            ],
+            example: "~mix: xfade ~dry ~wet 0.5",
+            category: "Utilities",
+        });
+
+        m.insert("xline", FunctionMetadata {
+            name: "xline",
+            description: "Exponential line generator - smooth exponential ramp",
+            params: vec![
+                ParamMetadata {
+                    name: "start",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "Start value",
+                },
+                ParamMetadata {
+                    name: "end",
+                    param_type: "float",
+                    optional: false,
+                    default: None,
+                    description: "End value",
+                },
+                ParamMetadata {
+                    name: "duration",
+                    param_type: "seconds",
+                    optional: false,
+                    default: None,
+                    description: "Ramp duration in seconds",
+                },
+            ],
+            example: "~sweep: xline 100 10000 2.0",
+            category: "Utilities",
         });
 
         m

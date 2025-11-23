@@ -4437,6 +4437,16 @@ impl UnifiedSignalGraph {
         self.cached_cycle_position
     }
 
+    /// Get cycle position for a sample at a given offset from current position
+    /// Used in buffer-based evaluation to calculate correct cycle position for each sample
+    fn get_cycle_position_for_sample_offset(&self, sample_offset: usize) -> f64 {
+        // Calculate how many cycles advance per sample
+        let cycles_per_sample = self.cps as f64 / self.sample_rate as f64;
+
+        // Add offset to current cached position
+        self.cached_cycle_position + (sample_offset as f64 * cycles_per_sample)
+    }
+
     /// Enable wall-clock based timing (for live mode)
     /// In live mode, timing is based on real wall-clock time
     /// This prevents drift and ensures beat never drops during code reloads
@@ -14566,6 +14576,139 @@ impl UnifiedSignalGraph {
                 }
             }
 
+            SignalNode::Sample { .. } => {
+                // CRITICAL: Sample nodes are STATEFUL (patterns advance with time)
+                // They must NEVER be cached, and must be evaluated sample-by-sample
+                // to advance cycle position and trigger events at correct times
+
+                // Use sample-by-sample evaluation to properly advance time state
+                for i in 0..buffer_size {
+                    output[i] = self.eval_node(node_id);
+                }
+            }
+
+            SignalNode::ADSR {
+                attack,
+                decay,
+                sustain,
+                release,
+                state,
+            } => {
+                // ADSR envelope generator - buffer-based evaluation
+                // Evaluates envelope over entire buffer based on cycle position
+
+                // Evaluate modulatable parameters (constant for this buffer)
+                let attack_time = self.eval_signal(&attack).max(0.001); // Min 1ms
+                let decay_time = self.eval_signal(&decay).max(0.001);
+                let sustain_level = self.eval_signal(&sustain).clamp(0.0, 1.0);
+                let release_time = self.eval_signal(&release).max(0.001);
+
+                let mut adsr_state = state.clone();
+                let cycle_duration = 1.0 / self.cps;
+
+                // Calculate envelope for each sample in buffer
+                for i in 0..buffer_size {
+                    // Calculate cycle position for this sample
+                    let sample_cycle_pos = self.get_cycle_position_for_sample_offset(i);
+                    let cycle_pos = (sample_cycle_pos % 1.0) as f32;
+                    let time_in_cycle = cycle_pos * cycle_duration;
+
+                    // Calculate phase boundaries (in seconds)
+                    let attack_end = attack_time;
+                    let decay_end = attack_end + decay_time;
+                    let release_start = cycle_duration - release_time;
+
+                    // Determine phase and calculate envelope value
+                    let level = if time_in_cycle < attack_end {
+                        // Attack phase: rise from 0 to 1
+                        if attack_time > 0.0 {
+                            time_in_cycle / attack_time
+                        } else {
+                            1.0
+                        }
+                    } else if time_in_cycle < decay_end {
+                        // Decay phase: fall from 1 to sustain level
+                        let decay_progress = (time_in_cycle - attack_end) / decay_time;
+                        1.0 - (1.0 - sustain_level) * decay_progress
+                    } else if time_in_cycle < release_start {
+                        // Sustain phase: hold at sustain level
+                        sustain_level
+                    } else {
+                        // Release phase: fall from sustain level to 0
+                        let release_progress = (time_in_cycle - release_start) / release_time;
+                        sustain_level * (1.0 - release_progress)
+                    };
+
+                    output[i] = level.clamp(0.0, 1.0);
+                    adsr_state.level = output[i];
+                    adsr_state.cycle_pos = cycle_pos;
+                }
+
+                // Update state in graph with final values
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::ADSR { state: s, .. } = node {
+                        *s = adsr_state;
+                    }
+                }
+            }
+
+            SignalNode::AD {
+                attack,
+                decay,
+                state,
+            } => {
+                // AD envelope generator - buffer-based evaluation
+
+                // Evaluate modulatable parameters (constant for this buffer)
+                let attack_time = self.eval_signal(&attack).max(0.001); // Min 1ms
+                let decay_time = self.eval_signal(&decay).max(0.001);
+
+                let mut ad_state = state.clone();
+                let cycle_duration = 1.0 / self.cps;
+
+                // Calculate envelope for each sample in buffer
+                for i in 0..buffer_size {
+                    // Calculate cycle position for this sample
+                    let sample_cycle_pos = self.get_cycle_position_for_sample_offset(i);
+                    let cycle_pos = (sample_cycle_pos % 1.0) as f32;
+                    let time_in_cycle = cycle_pos * cycle_duration;
+
+                    // Calculate phase boundaries (in seconds)
+                    let attack_end = attack_time;
+                    let decay_end = attack_end + decay_time;
+
+                    // Determine phase and calculate envelope value
+                    let level = if time_in_cycle < attack_end {
+                        // Attack phase: rise from 0 to 1
+                        if attack_time > 0.0 {
+                            time_in_cycle / attack_time
+                        } else {
+                            1.0
+                        }
+                    } else if time_in_cycle < decay_end {
+                        // Decay phase: fall from 1 to 0
+                        let decay_progress = (time_in_cycle - attack_end) / decay_time;
+                        1.0 - decay_progress
+                    } else {
+                        // After decay: silent
+                        0.0
+                    };
+
+                    output[i] = level.clamp(0.0, 1.0);
+                    ad_state.level = output[i];
+                    ad_state.cycle_pos = cycle_pos;
+                }
+
+                // Update state in graph with final values
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::AD { state: s, .. } = node {
+                        *s = ad_state;
+                    }
+                }
+            }
+
             // Fallback: Use old sample-by-sample evaluation for not-yet-migrated nodes
             _ => {
                 for i in 0..buffer_size {
@@ -14577,11 +14720,23 @@ impl UnifiedSignalGraph {
         // Cache result to prevent re-evaluation in this buffer render
         // Only cache the result if caching is enabled (during process_buffer)
         // In tests/standalone calls, we only use None markers for cycle detection
-        if self.buffer_cache_enabled.get() {
+        //
+        // CRITICAL: NEVER cache Sample nodes - they are STATEFUL (pattern advances with time)
+        // Caching would freeze patterns and cause timing issues
+        let should_cache = self.buffer_cache_enabled.get() && {
+            // Check if this node is a Sample node
+            if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                !matches!(&**node_rc, SignalNode::Sample { .. })
+            } else {
+                true // If node doesn't exist, safe to cache (will be silence anyway)
+            }
+        };
+
+        if should_cache {
             let mut cache = self.buffer_cache.borrow_mut();
             cache.insert(*node_id, Some(output.to_vec()));
         } else {
-            // Not caching mode - just remove the "being evaluated" marker
+            // Not caching mode or Sample node - just remove the "being evaluated" marker
             let mut cache = self.buffer_cache.borrow_mut();
             cache.remove(node_id);
         }
