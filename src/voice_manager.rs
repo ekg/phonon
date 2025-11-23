@@ -1657,6 +1657,31 @@ impl VoiceManager {
             .count()
     }
 
+    /// Process the last triggered voice for one sample (stereo output)
+    /// Used for immediate playback of newly triggered voices within a buffer
+    pub fn process_last_voice_stereo(&mut self) -> (f32, f32) {
+        // Find the last active voice (most recently triggered)
+        if let Some(last_voice) = self.voices.iter_mut().rev().find(|v| v.state != VoiceState::Free) {
+            last_voice.process_stereo()
+        } else {
+            (0.0, 0.0)
+        }
+    }
+
+    /// Process a specific voice by index and return (stereo output, source_node)
+    /// Returns None if voice index is invalid or voice is free
+    pub fn process_voice_by_index(&mut self, index: usize) -> Option<((f32, f32), usize)> {
+        if index < self.voices.len() {
+            let voice = &mut self.voices[index];
+            if voice.state != VoiceState::Free {
+                let output = voice.process_stereo();
+                let source_node = voice.source_node;
+                return Some((output, source_node));
+            }
+        }
+        None
+    }
+
     /// Reset all voices
     pub fn reset(&mut self) {
         for voice in &mut self.voices {

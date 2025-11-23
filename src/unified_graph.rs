@@ -11866,6 +11866,10 @@ impl UnifiedSignalGraph {
         let output_channels: Vec<(usize, crate::unified_graph::NodeId)> =
             self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
 
+        // Track voices triggered during this buffer so we can process them live
+        let initial_voice_count = self.voice_manager.borrow().active_voice_count();
+        let mut newly_triggered_voices: Vec<usize> = Vec::new(); // Indices of newly triggered voices
+
         for i in 0..buffer.len() {
             // CRITICAL: Update cycle position ONCE per sample (wall-clock or sample-count based)
             self.update_cycle_position_from_clock();
@@ -11882,6 +11886,33 @@ impl UnifiedSignalGraph {
             // Use pre-computed voice outputs from buffer processing
             // PERFORMANCE: Use take instead of clone to avoid HashMap allocation (512x per buffer!)
             self.voice_output_cache = std::mem::take(&mut voice_buffers[i]);
+
+            // CRITICAL FIX: Check if new voices were triggered in previous samples
+            // Process them live for this sample
+            let current_voice_count = self.voice_manager.borrow().active_voice_count();
+            if current_voice_count > initial_voice_count + newly_triggered_voices.len() {
+                // New voice(s) were just triggered!
+                // Add them to our tracking list and process them for this sample
+                while newly_triggered_voices.len() < (current_voice_count - initial_voice_count) {
+                    newly_triggered_voices.push(initial_voice_count + newly_triggered_voices.len());
+                }
+            }
+
+            // Process newly triggered voices for this sample
+            if !newly_triggered_voices.is_empty() {
+                for &voice_idx in &newly_triggered_voices {
+                    if let Some(((left, right), source_node)) =
+                        self.voice_manager.borrow_mut().process_voice_by_index(voice_idx) {
+                        let mono = (left + right) / std::f32::consts::SQRT_2;
+
+                        // Add to voice_output_cache
+                        self.voice_output_cache
+                            .entry(source_node)
+                            .and_modify(|v| *v += mono)
+                            .or_insert(mono);
+                    }
+                }
+            }
 
             // Count active channels for gain compensation
             let mut num_active_channels = 0;
