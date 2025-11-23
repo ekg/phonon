@@ -4251,6 +4251,15 @@ pub struct UnifiedSignalGraph {
 
     /// Sample counter for debugging
     sample_count: usize,
+
+    /// Buffer cache: prevents re-evaluation within a single buffer render
+    /// Maps NodeId -> Option<Vec<f32>> (None = being evaluated, Some = cached result)
+    /// CRITICAL: This must be cleared at the start of each buffer render
+    buffer_cache: std::cell::RefCell<HashMap<NodeId, Option<Vec<f32>>>>,
+
+    /// Buffer cache enabled flag: Only enabled during process_buffer() to avoid
+    /// caching stateful nodes (oscillators) across multiple independent evaluations
+    buffer_cache_enabled: std::cell::Cell<bool>,
 }
 
 // SAFETY: UnifiedSignalGraph contains RefCell which is !Send and !Sync, but we ensure
@@ -4292,6 +4301,8 @@ impl Clone for UnifiedSignalGraph {
             synth_voice_manager: RefCell::new(SynthVoiceManager::new(self.sample_rate)),
             cycle_bus_cache: self.cycle_bus_cache.clone(),
             sample_count: self.sample_count,
+            buffer_cache: RefCell::new(HashMap::new()), // Fresh cache for cloned instance
+            buffer_cache_enabled: std::cell::Cell::new(false),
         }
     }
 }
@@ -4321,6 +4332,8 @@ impl UnifiedSignalGraph {
             synth_voice_manager: RefCell::new(SynthVoiceManager::new(sample_rate)),
             cycle_bus_cache: CycleBusCache::default(),
             sample_count: 0,
+            buffer_cache: RefCell::new(HashMap::new()),
+            buffer_cache_enabled: std::cell::Cell::new(false),
         }
     }
 
@@ -4330,6 +4343,11 @@ impl UnifiedSignalGraph {
 
     pub fn get_cps(&self) -> f32 {
         self.cps
+    }
+
+    /// Get reference to buffer cache enabled flag (for testing)
+    pub fn buffer_cache_enabled(&self) -> &std::cell::Cell<bool> {
+        &self.buffer_cache_enabled
     }
 
     /// Seek to a specific sample position (for parallel offline rendering)
@@ -4555,7 +4573,6 @@ impl UnifiedSignalGraph {
     /// Add an oscillator node (helper for testing)
     pub fn add_oscillator(&mut self, freq: Signal, waveform: Waveform) -> NodeId {
         use std::cell::RefCell;
-        let node_id = NodeId(self.nodes.len());
         let node = SignalNode::Oscillator {
             freq,
             waveform,
@@ -4563,8 +4580,7 @@ impl UnifiedSignalGraph {
             pending_freq: RefCell::new(None),
             last_sample: RefCell::new(0.0),
         };
-        self.nodes.push(Some(Rc::new(node)));
-        node_id
+        self.add_node(node)
     }
 
     /// Add an Add node (helper for testing)
@@ -4577,10 +4593,8 @@ impl UnifiedSignalGraph {
 
     /// Add a Multiply node (helper for testing)
     pub fn add_multiply_node(&mut self, a: Signal, b: Signal) -> NodeId {
-        let node_id = NodeId(self.nodes.len());
         let node = SignalNode::Multiply { a, b };
-        self.nodes.push(Some(Rc::new(node)));
-        node_id
+        self.add_node(node)
     }
 
     /// Add a Min node (helper for testing)
@@ -11770,6 +11784,13 @@ impl UnifiedSignalGraph {
     /// This is 2x-4x faster than calling process_sample() in a loop
     #[inline]
     pub fn process_buffer(&mut self, buffer: &mut [f32]) {
+        // CRITICAL: Clear buffer cache at start of each buffer render
+        // This prevents stale cached values from previous buffer
+        self.buffer_cache.borrow_mut().clear();
+
+        // Enable buffer caching for this render pass
+        self.buffer_cache_enabled.set(true);
+
         // Check if hybrid architecture is enabled
         if std::env::var("USE_HYBRID_ARCH").is_ok() {
             return self.process_buffer_hybrid(buffer);
@@ -11927,6 +11948,13 @@ impl UnifiedSignalGraph {
         let buffer_size = buffer.len();
         let enable_profiling = std::env::var("PROFILE_BUFFER").is_ok();
 
+        // CRITICAL: Clear buffer cache at start of each buffer render
+        // This prevents stale cached values from previous buffer
+        self.buffer_cache.borrow_mut().clear();
+
+        // Enable buffer caching for this render pass
+        self.buffer_cache_enabled.set(true);
+
         // Pre-compute pattern events once
         self.precompute_pattern_events(buffer_size);
 
@@ -12068,6 +12096,46 @@ impl UnifiedSignalGraph {
     /// Unsupported nodes fall back to sample-by-sample evaluation.
     pub fn eval_node_buffer(&mut self, node_id: &NodeId, output: &mut [f32]) {
         let buffer_size = output.len();
+
+        // If caching is not enabled (e.g., in tests), clear cache to avoid stale data
+        // BUT only if we're not in the middle of an evaluation (no None entries)
+        if !self.buffer_cache_enabled.get() {
+            let can_clear = {
+                let cache = self.buffer_cache.borrow();
+                // Safe to clear if empty or all entries are Some (no active evaluations)
+                cache.is_empty() || cache.values().all(|v| v.is_some())
+            };
+            if can_clear {
+                self.buffer_cache.borrow_mut().clear();
+            }
+        }
+
+        // Check cache first - prevents re-evaluation and stack overflow
+        // This includes cycle detection (None = currently being evaluated)
+        {
+            let cache = self.buffer_cache.borrow();
+            if let Some(cached_opt) = cache.get(node_id) {
+                if let Some(cached) = cached_opt {
+                    // Cached result available - only use if buffer size matches
+                    if cached.len() == buffer_size {
+                        output.copy_from_slice(cached);
+                        return;
+                    }
+                    // Buffer size mismatch - fall through to re-evaluate
+                } else {
+                    // None = circular dependency detected (this node is currently being evaluated)
+                    // Fill with silence to break the cycle
+                    output.fill(0.0);
+                    return;
+                }
+            }
+        }
+
+        // Mark node as being evaluated (insert None to detect circular dependencies)
+        {
+            let mut cache = self.buffer_cache.borrow_mut();
+            cache.insert(*node_id, None);
+        }
 
         // Get node (cheap Rc::clone)
         let node_rc = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
@@ -14413,12 +14481,109 @@ impl UnifiedSignalGraph {
                 }
             }
 
+            SignalNode::Compressor {
+                input,
+                threshold,
+                ratio,
+                attack,
+                release,
+                makeup_gain,
+                state,
+            } => {
+                // Allocate temporary buffers for input and parameters
+                let mut input_buffer = vec![0.0; buffer_size];
+                let mut threshold_buffer = vec![0.0; buffer_size];
+                let mut ratio_buffer = vec![0.0; buffer_size];
+                let mut attack_buffer = vec![0.0; buffer_size];
+                let mut release_buffer = vec![0.0; buffer_size];
+                let mut makeup_buffer = vec![0.0; buffer_size];
+
+                // Evaluate all parameter signals
+                self.eval_signal_buffer(input, &mut input_buffer);
+                self.eval_signal_buffer(threshold, &mut threshold_buffer);
+                self.eval_signal_buffer(ratio, &mut ratio_buffer);
+                self.eval_signal_buffer(attack, &mut attack_buffer);
+                self.eval_signal_buffer(release, &mut release_buffer);
+                self.eval_signal_buffer(makeup_gain, &mut makeup_buffer);
+
+                // Process buffer with stateful compression
+                // We need mutable access to update the envelope state
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::Compressor { state: s, .. } = node {
+                        let mut envelope = s.envelope;
+
+                        for i in 0..buffer_size {
+                            // Clamp parameters to reasonable ranges
+                            let threshold_db = threshold_buffer[i].clamp(-60.0, 0.0);
+                            let ratio_val = ratio_buffer[i].clamp(1.0, 20.0);
+                            let attack_time = attack_buffer[i].clamp(0.001, 1.0);
+                            let release_time = release_buffer[i].clamp(0.01, 3.0);
+                            let makeup_db = makeup_buffer[i].clamp(0.0, 30.0);
+
+                            // Convert threshold from dB to linear
+                            let threshold_lin = 10.0_f32.powf(threshold_db / 20.0);
+
+                            // Envelope follower (peak detector with attack/release)
+                            let input_level = input_buffer[i].abs();
+
+                            // Envelope follower: attack when input > envelope, release when input < envelope
+                            let coeff = if input_level > envelope {
+                                // Attack: faster response to increasing levels
+                                (-(1.0 / (attack_time * self.sample_rate))).exp()
+                            } else {
+                                // Release: slower response to decreasing levels
+                                (-(1.0 / (release_time * self.sample_rate))).exp()
+                            };
+
+                            envelope = coeff * envelope + (1.0 - coeff) * input_level;
+
+                            // Calculate gain reduction
+                            let gain_reduction = if envelope > threshold_lin {
+                                // Above threshold: apply compression
+                                // Gain reduction (dB) = (threshold - envelope) * (1 - 1/ratio)
+                                let envelope_db = 20.0 * envelope.log10();
+                                let over_db = envelope_db - threshold_db;
+                                let reduction_db = over_db * (1.0 - 1.0 / ratio_val);
+                                10.0_f32.powf(-reduction_db / 20.0) // Convert to linear gain reduction
+                            } else {
+                                1.0 // No reduction below threshold
+                            };
+
+                            // Apply makeup gain
+                            let makeup_gain_lin = 10.0_f32.powf(makeup_db / 20.0);
+
+                            // Apply compression and makeup gain
+                            output[i] = input_buffer[i] * gain_reduction * makeup_gain_lin;
+                        }
+
+                        // Update state with final envelope value
+                        s.envelope = envelope;
+                    }
+                } else {
+                    // Fallback: fill with zeros if node not found
+                    output.fill(0.0);
+                }
+            }
+
             // Fallback: Use old sample-by-sample evaluation for not-yet-migrated nodes
             _ => {
                 for i in 0..buffer_size {
                     output[i] = self.eval_node(node_id);
                 }
             }
+        }
+
+        // Cache result to prevent re-evaluation in this buffer render
+        // Only cache the result if caching is enabled (during process_buffer)
+        // In tests/standalone calls, we only use None markers for cycle detection
+        if self.buffer_cache_enabled.get() {
+            let mut cache = self.buffer_cache.borrow_mut();
+            cache.insert(*node_id, Some(output.to_vec()));
+        } else {
+            // Not caching mode - just remove the "being evaluated" marker
+            let mut cache = self.buffer_cache.borrow_mut();
+            cache.remove(node_id);
         }
     }
 
