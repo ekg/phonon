@@ -3,7 +3,7 @@
 /// These tests verify that HighPass filter buffer evaluation produces correct
 /// filtering behavior (opposite of LowPass - passes high, rejects low).
 
-use phonon::unified_graph::{Signal, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform, FilterState};
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -37,11 +37,12 @@ fn test_hpf_passes_high_frequencies() {
     let osc_id = graph.add_oscillator(Signal::Value(5000.0), Waveform::Sine);
 
     // Filter with low cutoff (500 Hz) should pass high frequencies
-    let hpf_id = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(500.0),
-        Signal::Value(1.0),
-    );
+    let hpf_id = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(500.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut filtered = vec![0.0; buffer_size];
@@ -62,11 +63,12 @@ fn test_hpf_reduces_low_frequencies() {
     let osc_id = graph.add_oscillator(Signal::Value(100.0), Waveform::Sine);
 
     // Filter with high cutoff (2000 Hz) should reject low frequencies
-    let hpf_id = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(2000.0),
-        Signal::Value(1.0),
-    );
+    let hpf_id = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(2000.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut filtered = vec![0.0; buffer_size];
@@ -91,18 +93,20 @@ fn test_hpf_cutoff_effect() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
 
     // Low cutoff (200 Hz) - passes most frequencies
-    let hpf_low = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(200.0),
-        Signal::Value(1.0),
-    );
+    let hpf_low = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(200.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     // High cutoff (2000 Hz) - filters more aggressively
-    let hpf_high = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(2000.0),
-        Signal::Value(1.0),
-    );
+    let hpf_high = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(2000.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut low_cutoff = vec![0.0; buffer_size];
@@ -133,18 +137,20 @@ fn test_hpf_resonance_effect() {
     let osc_id = graph.add_oscillator(Signal::Value(1000.0), Waveform::Sine);
 
     // Low Q (no resonance)
-    let hpf_low_q = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(0.5),
-    );
+    let hpf_low_q = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(0.5),
+        state: FilterState::default(),
+    });
 
     // High Q (high resonance)
-    let hpf_high_q = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(10.0),
-    );
+    let hpf_high_q = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(10.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut low_q_output = vec![0.0; buffer_size];
@@ -171,11 +177,12 @@ fn test_hpf_state_continuity() {
     let mut graph = create_test_graph();
 
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
-    let hpf_id = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(1.0),
-    );
+    let hpf_id = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     // Generate two consecutive buffers
     let buffer_size = 512;
@@ -203,11 +210,12 @@ fn test_hpf_multiple_buffers() {
     let mut graph = create_test_graph();
 
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
-    let hpf_id = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(2.0),
-    );
+    let hpf_id = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     // Generate 10 consecutive buffers
     let buffer_size = 512;
@@ -236,11 +244,12 @@ fn test_hpf_modulated_cutoff() {
     let lfo_scaled = graph.add_multiply_node(Signal::Node(lfo_id), Signal::Value(500.0));
     let cutoff_signal = graph.add_add_node(Signal::Node(lfo_scaled), Signal::Value(1000.0));
 
-    let hpf_id = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Node(cutoff_signal),
-        Signal::Value(1.0),
-    );
+    let hpf_id = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Node(cutoff_signal),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -263,11 +272,12 @@ fn test_hpf_very_low_cutoff() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Very low cutoff (50 Hz) - should pass 440 Hz almost unchanged
-    let hpf_id = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(50.0),
-        Signal::Value(1.0),
-    );
+    let hpf_id = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(50.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -286,11 +296,12 @@ fn test_hpf_very_high_cutoff() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Very high cutoff (5000 Hz) - should reject 440 Hz
-    let hpf_id = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(5000.0),
-        Signal::Value(1.0),
-    );
+    let hpf_id = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(5000.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -309,18 +320,20 @@ fn test_hpf_extreme_q_values() {
     let osc_id = graph.add_oscillator(Signal::Value(1000.0), Waveform::Sine);
 
     // Very low Q
-    let hpf_low = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(0.5),
-    );
+    let hpf_low = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(0.5),
+        state: FilterState::default(),
+    });
 
     // Very high Q
-    let hpf_high = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(20.0),
-    );
+    let hpf_high = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(20.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut low_output = vec![0.0; buffer_size];
@@ -347,11 +360,12 @@ fn test_hpf_buffer_performance() {
     let mut graph = create_test_graph();
 
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
-    let hpf_id = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(2.0),
-    );
+    let hpf_id = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let iterations = 1000;
@@ -381,18 +395,20 @@ fn test_hpf_chained() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
 
     // First filter (500 Hz)
-    let hpf1_id = graph.add_highpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(500.0),
-        Signal::Value(1.0),
-    );
+    let hpf1_id = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(500.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     // Second filter (1000 Hz) - should filter even more lows
-    let hpf2_id = graph.add_highpass_node(
-        Signal::Node(hpf1_id),
-        Signal::Value(1000.0),
-        Signal::Value(1.0),
-    );
+    let hpf2_id = graph.add_node(SignalNode::HighPass {
+        input: Signal::Node(hpf1_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut once_filtered = vec![0.0; buffer_size];

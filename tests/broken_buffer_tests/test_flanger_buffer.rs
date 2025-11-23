@@ -8,7 +8,7 @@
 /// - Feedback creates resonant peaks
 /// - Mix is controlled by depth parameter (0.5 * depth)
 
-use phonon::unified_graph::{Signal, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform, FlangerState};
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -30,12 +30,13 @@ fn test_flanger_basic_functionality() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Add flanger with moderate settings
-    let flanger = graph.add_flanger_node(
-        Signal::Node(osc),
-        Signal::Value(1.0),   // rate
-        Signal::Value(0.5),   // depth
-        Signal::Value(0.3),   // feedback
-    );
+    let flanger = graph.add_node(SignalNode::Flanger {
+            input: Signal::Node(osc),
+            rate: Signal::Value(1.0),
+            depth: Signal::Value(0.5),
+            mix: Signal::Value(0.3),
+            state: FlangerState::default(),
+        });
 
     // Render buffer
     let buffer_size = 4410; // 0.1 seconds
@@ -56,12 +57,13 @@ fn test_flanger_zero_depth() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Add flanger with zero depth (no modulation)
-    let flanger = graph.add_flanger_node(
-        Signal::Node(osc),
-        Signal::Value(1.0),   // rate
-        Signal::Value(0.0),   // zero depth
-        Signal::Value(0.3),   // feedback
-    );
+    let flanger = graph.add_node(SignalNode::Flanger {
+            input: Signal::Node(osc),
+            rate: Signal::Value(1.0),
+            depth: Signal::Value(0.0),
+            mix: Signal::Value(0.3),
+            state: FlangerState::default(),
+        });
 
     // Render buffers
     let buffer_size = 4410; // 0.1 seconds
@@ -91,12 +93,13 @@ fn test_flanger_full_depth() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Add flanger with full depth
-    let flanger = graph.add_flanger_node(
-        Signal::Node(osc),
-        Signal::Value(2.0),   // rate
-        Signal::Value(1.0),   // full depth
-        Signal::Value(0.5),   // feedback
-    );
+    let flanger = graph.add_node(SignalNode::Flanger {
+            input: Signal::Node(osc),
+            rate: Signal::Value(2.0),
+            depth: Signal::Value(1.0),
+            mix: Signal::Value(0.5),
+            state: FlangerState::default(),
+        });
 
     // Render buffers
     let buffer_size = 4410; // 0.1 seconds
@@ -272,12 +275,13 @@ fn test_flanger_state_continuity() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Add flanger
-    let flanger = graph.add_flanger_node(
-        Signal::Node(osc),
-        Signal::Value(2.0),   // rate
-        Signal::Value(0.5),   // depth
-        Signal::Value(0.5),   // feedback
-    );
+    let flanger = graph.add_node(SignalNode::Flanger {
+            input: Signal::Node(osc),
+            rate: Signal::Value(2.0),
+            depth: Signal::Value(0.5),
+            mix: Signal::Value(0.5),
+            state: FlangerState::default(),
+        });
 
     // Render multiple small buffers
     let buffer_size = 1024;
@@ -311,12 +315,13 @@ fn test_flanger_multiple_buffers() {
     let mut graph = create_test_graph();
 
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
-    let flanger = graph.add_flanger_node(
-        Signal::Node(osc),
-        Signal::Value(2.0),   // rate
-        Signal::Value(0.5),   // depth
-        Signal::Value(0.5),   // feedback
-    );
+    let flanger = graph.add_node(SignalNode::Flanger {
+            input: Signal::Node(osc),
+            rate: Signal::Value(2.0),
+            depth: Signal::Value(0.5),
+            mix: Signal::Value(0.5),
+            state: FlangerState::default(),
+        });
 
     // Render 5 buffers and verify they all have energy
     let buffer_size = 4410; // 0.1 seconds
@@ -347,12 +352,13 @@ fn test_flanger_modulated_parameters() {
     let depth_final = graph.add_add_node(Signal::Node(depth_scaled), Signal::Value(0.5));
 
     // Add flanger with modulated parameters
-    let flanger = graph.add_flanger_node(
-        Signal::Node(osc),
-        Signal::Node(rate_mod),
-        Signal::Node(depth_final),
-        Signal::Value(0.5),  // fixed feedback
-    );
+    let flanger = graph.add_node(SignalNode::Flanger {
+            input: Signal::Node(osc),
+            rate: Signal::Node(rate_mod),
+            depth: Signal::Node(depth_final),
+            mix: Signal::Value(0.5),
+            state: FlangerState::default(),
+        });
 
     // Render a buffer
     let buffer_size = 44100; // 1 second
@@ -517,12 +523,13 @@ fn test_flanger_performance() {
     let mut graph = create_test_graph();
 
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
-    let flanger = graph.add_flanger_node(
-        Signal::Node(osc),
-        Signal::Value(2.0),
-        Signal::Value(0.5),
-        Signal::Value(0.5),
-    );
+    let flanger = graph.add_node(SignalNode::Flanger {
+            input: Signal::Node(osc),
+            rate: Signal::Value(2.0),
+            depth: Signal::Value(0.5),
+            mix: Signal::Value(0.5),
+            state: FlangerState::default(),
+        });
 
     // Render a large buffer (10 seconds)
     let buffer_size = 441000;
@@ -549,12 +556,13 @@ fn test_flanger_creates_modulation() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Create flanger with moderate settings
-    let flanger = graph.add_flanger_node(
-        Signal::Node(osc),
-        Signal::Value(2.0),   // 2 Hz LFO
-        Signal::Value(0.8),   // significant depth
-        Signal::Value(0.6),   // moderate feedback
-    );
+    let flanger = graph.add_node(SignalNode::Flanger {
+            input: Signal::Node(osc),
+            rate: Signal::Value(2.0),
+            depth: Signal::Value(0.8),
+            mix: Signal::Value(0.6),
+            state: FlangerState::default(),
+        });
 
     // Render a buffer
     let buffer_size = 44100; // 1 second

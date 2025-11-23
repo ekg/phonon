@@ -6,7 +6,7 @@
 /// Notch is the opposite of BandPass - it removes the band at the center frequency
 /// while passing everything else (low + high).
 
-use phonon::unified_graph::{Signal, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform, FilterState};
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -40,11 +40,12 @@ fn test_notch_rejects_center_frequency() {
     let osc_id = graph.add_oscillator(Signal::Value(1000.0), Waveform::Sine);
 
     // Notch at 1000 Hz (should reject this frequency)
-    let notch_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(5.0), // Narrow notch
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(5.0), // Narrow notch
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut notched = vec![0.0; buffer_size];
@@ -75,11 +76,12 @@ fn test_notch_passes_off_center_frequencies() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Notch at 2000 Hz (far from 440 Hz, should pass through)
-    let notch_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(2000.0),
-        Signal::Value(1.0),
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(2000.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -100,11 +102,12 @@ fn test_notch_passes_low_frequencies() {
     let osc_id = graph.add_oscillator(Signal::Value(100.0), Waveform::Sine);
 
     // Notch at 2000 Hz should pass 100 Hz
-    let notch_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(2000.0),
-        Signal::Value(2.0),
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(2000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut filtered = vec![0.0; buffer_size];
@@ -130,11 +133,12 @@ fn test_notch_passes_high_frequencies() {
     let osc_id = graph.add_oscillator(Signal::Value(8000.0), Waveform::Sine);
 
     // Notch at 1000 Hz should pass 8000 Hz
-    let notch_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(2.0),
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut filtered = vec![0.0; buffer_size];
@@ -164,18 +168,20 @@ fn test_notch_q_factor_affects_width() {
     let osc_id = graph.add_oscillator(Signal::Value(450.0), Waveform::Sine);
 
     // Narrow notch (high Q) - should miss 450 Hz, passing it through
-    let notch_narrow = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(440.0),
-        Signal::Value(10.0), // High Q = narrow notch
-    );
+    let notch_narrow = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(440.0),
+        q: Signal::Value(10.0), // High Q = narrow notch
+        state: FilterState::default(),
+    });
 
     // Wide notch (low Q) - should catch 450 Hz, attenuating it
-    let notch_wide = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(440.0),
-        Signal::Value(0.5), // Low Q = wide notch
-    );
+    let notch_wide = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(440.0),
+        q: Signal::Value(0.5), // Low Q = wide notch
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut narrow_output = vec![0.0; buffer_size];
@@ -205,18 +211,20 @@ fn test_notch_high_q_narrower_rejection() {
     let osc_id = graph.add_oscillator(Signal::Value(1000.0), Waveform::Sine);
 
     // Low Q (wide rejection band)
-    let notch_low_q = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(0.5),
-    );
+    let notch_low_q = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(0.5),
+        state: FilterState::default(),
+    });
 
     // High Q (narrow rejection band)
-    let notch_high_q = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(10.0),
-    );
+    let notch_high_q = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(10.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut low_q_output = vec![0.0; buffer_size];
@@ -246,11 +254,12 @@ fn test_notch_state_continuity() {
     let mut graph = create_test_graph();
 
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
-    let notch_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(2.0),
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     // Generate two consecutive buffers
     let buffer_size = 512;
@@ -274,11 +283,12 @@ fn test_notch_multiple_buffers() {
     let mut graph = create_test_graph();
 
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
-    let notch_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(2.0),
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     // Generate 10 consecutive buffers
     let buffer_size = 512;
@@ -304,18 +314,20 @@ fn test_notch_opposite_of_bandpass() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
 
     // BandPass at 1000 Hz (passes 1000 Hz, rejects others)
-    let bpf_id = graph.add_bandpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(2.0),
-    );
+    let bpf_id = graph.add_node(SignalNode::BandPass {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     // Notch at 1000 Hz (rejects 1000 Hz, passes others)
-    let notch_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(2.0),
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut bpf_output = vec![0.0; buffer_size];
@@ -355,11 +367,12 @@ fn test_notch_creates_spectral_hole() {
     let osc_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Saw);
 
     // Notch at 2000 Hz - should create hole in spectrum
-    let notch_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(2000.0),
-        Signal::Value(5.0),
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(2000.0),
+        q: Signal::Value(5.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut notched = vec![0.0; buffer_size];
@@ -395,14 +408,21 @@ fn test_notch_modulated_center() {
     let lfo_id = graph.add_oscillator(Signal::Value(0.5), Waveform::Sine);
 
     // Modulated center: 1000 + (lfo * 1000) = [0, 2000] Hz range
-    let lfo_scaled = graph.add_multiply_node(Signal::Node(lfo_id), Signal::Value(1000.0));
-    let center_signal = graph.add_add_node(Signal::Node(lfo_scaled), Signal::Value(1000.0));
+    let lfo_scaled = graph.add_node(SignalNode::Multiply {
+        a: Signal::Node(lfo_id),
+        b: Signal::Value(1000.0),
+    });
+    let center_signal = graph.add_node(SignalNode::Add {
+        a: Signal::Node(lfo_scaled),
+        b: Signal::Value(1000.0),
+    });
 
-    let notch_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Node(center_signal),
-        Signal::Value(2.0),
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Node(center_signal),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -425,11 +445,12 @@ fn test_notch_very_low_center() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Very low center frequency (100 Hz) - should pass 440 Hz
-    let notch_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(100.0),
-        Signal::Value(2.0),
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(100.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -448,11 +469,12 @@ fn test_notch_very_high_center() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Very high center frequency (8000 Hz) - should pass 440 Hz
-    let notch_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(8000.0),
-        Signal::Value(2.0),
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(8000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -471,18 +493,20 @@ fn test_notch_extreme_q_values() {
     let osc_id = graph.add_oscillator(Signal::Value(1000.0), Waveform::Sine);
 
     // Very low Q (wide notch)
-    let notch_low = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(0.5),
-    );
+    let notch_low = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(0.5),
+        state: FilterState::default(),
+    });
 
     // Very high Q (narrow notch)
-    let notch_high = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(20.0),
-    );
+    let notch_high = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(20.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut low_output = vec![0.0; buffer_size];
@@ -508,14 +532,15 @@ fn test_notch_stability_with_noise() {
     let mut graph = create_test_graph();
 
     // White noise contains all frequencies
-    let noise_id = graph.add_whitenoise_node();
+    let noise_id = graph.add_node(SignalNode::WhiteNoise);
 
     // Notch at 1000 Hz
-    let notch_id = graph.add_notch_node(
-        Signal::Node(noise_id),
-        Signal::Value(1000.0),
-        Signal::Value(5.0),
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(noise_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(5.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -547,18 +572,20 @@ fn test_notch_chained_same_frequency() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
 
     // First notch (1000 Hz)
-    let notch1_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(2.0),
-    );
+    let notch1_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     // Second notch (1000 Hz) - should deepen the notch
-    let notch2_id = graph.add_notch_node(
-        Signal::Node(notch1_id),
-        Signal::Value(1000.0),
-        Signal::Value(2.0),
-    );
+    let notch2_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(notch1_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut once_notched = vec![0.0; buffer_size];
@@ -583,25 +610,28 @@ fn test_notch_multiple_frequencies() {
     let osc_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Saw);
 
     // Notch at 440 Hz
-    let notch1_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(440.0),
-        Signal::Value(3.0),
-    );
+    let notch1_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(440.0),
+        q: Signal::Value(3.0),
+        state: FilterState::default(),
+    });
 
     // Notch at 880 Hz
-    let notch2_id = graph.add_notch_node(
-        Signal::Node(notch1_id),
-        Signal::Value(880.0),
-        Signal::Value(3.0),
-    );
+    let notch2_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(notch1_id),
+        center: Signal::Value(880.0),
+        q: Signal::Value(3.0),
+        state: FilterState::default(),
+    });
 
     // Notch at 1320 Hz
-    let notch3_id = graph.add_notch_node(
-        Signal::Node(notch2_id),
-        Signal::Value(1320.0),
-        Signal::Value(3.0),
-    );
+    let notch3_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(notch2_id),
+        center: Signal::Value(1320.0),
+        q: Signal::Value(3.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -636,11 +666,12 @@ fn test_notch_buffer_performance() {
     let mut graph = create_test_graph();
 
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
-    let notch_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(2.0),
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let iterations = 1000;
@@ -671,11 +702,12 @@ fn test_notch_constant_center() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
 
     // Constant center frequency
-    let notch_id = graph.add_notch_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(2.0),
-    );
+    let notch_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(osc_id),
+        center: Signal::Value(1000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -701,14 +733,18 @@ fn test_notch_remove_60hz_hum() {
     let signal_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Mix them
-    let mixed_id = graph.add_add_node(Signal::Node(hum_id), Signal::Node(signal_id));
+    let mixed_id = graph.add_node(SignalNode::Add {
+        a: Signal::Node(hum_id),
+        b: Signal::Node(signal_id),
+    });
 
     // Notch out the hum
-    let dehum_id = graph.add_notch_node(
-        Signal::Node(mixed_id),
-        Signal::Value(60.0),
-        Signal::Value(5.0), // Narrow notch just for 60 Hz
-    );
+    let dehum_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(mixed_id),
+        center: Signal::Value(60.0),
+        q: Signal::Value(5.0), // Narrow notch just for 60 Hz
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut dehummed = vec![0.0; buffer_size];
@@ -731,14 +767,18 @@ fn test_notch_remove_feedback_frequency() {
     // Simulate feedback at 1200 Hz mixed with music at 440 Hz
     let music_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
     let feedback_id = graph.add_oscillator(Signal::Value(1200.0), Waveform::Sine);
-    let mixed_id = graph.add_add_node(Signal::Node(music_id), Signal::Node(feedback_id));
+    let mixed_id = graph.add_node(SignalNode::Add {
+        a: Signal::Node(music_id),
+        b: Signal::Node(feedback_id),
+    });
 
     // Notch to remove feedback
-    let cleaned_id = graph.add_notch_node(
-        Signal::Node(mixed_id),
-        Signal::Value(1200.0),
-        Signal::Value(8.0), // Very narrow to preserve music
-    );
+    let cleaned_id = graph.add_node(SignalNode::Notch {
+        input: Signal::Node(mixed_id),
+        center: Signal::Value(1200.0),
+        q: Signal::Value(8.0), // Very narrow to preserve music
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];

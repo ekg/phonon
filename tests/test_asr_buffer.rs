@@ -9,7 +9,7 @@
 /// - Release: falls to 0.0 when gate goes low
 /// - Idle: stays at 0.0 when gate is low
 
-use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, ASRState};
+use phonon::unified_graph::{ASRState, Signal, SignalNode, UnifiedSignalGraph};
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -41,13 +41,12 @@ fn test_asr_gate_on_response() {
     let mut graph = create_test_graph();
 
     // Gate starts high (1.0)
-    let gate_id = graph.add_constant_node(1.0);
-    let asr_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(0.01),  // 10ms attack
-        release: Signal::Value(0.05),  // 50ms release
-        state: ASRState::default(),
-    });
+    let gate_id = graph.add_node(SignalNode::Constant { value: 1.0);
+    let asr_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(0.01),  // 10ms attack
+        Signal::Value(0.05),  // 50ms release
+        Signal::Node(gate_id),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -74,13 +73,12 @@ fn test_asr_gate_off_response() {
     let mut graph = create_test_graph();
 
     // First, trigger gate-on to reach sustain
-    let gate_id = graph.add_constant_node(1.0);
-    let asr_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(0.001),  // 1ms attack (very fast)
-        release: Signal::Value(0.02),   // 20ms release
-        state: ASRState::default(),
-    });
+    let gate_id = graph.add_node(SignalNode::Constant { value: 1.0);
+    let asr_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(0.001),  // 1ms attack (very fast)
+        Signal::Value(0.02),   // 20ms release
+        Signal::Node(gate_id),
+    );
 
     let buffer_size = 512;
     let mut output1 = vec![0.0; buffer_size];
@@ -107,23 +105,21 @@ fn test_asr_gate_off_response() {
 fn test_asr_different_attack_times() {
     let mut graph = create_test_graph();
 
-    let gate_id = graph.add_constant_node(1.0);
+    let gate_id = graph.add_node(SignalNode::Constant { value: 1.0);
 
     // Fast attack
-    let fast_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(0.001),  // 1ms
-        release: Signal::Value(0.05),
-        state: ASRState::default(),
-    });
+    let fast_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(0.001),  // 1ms
+        Signal::Value(0.05),
+        Signal::Node(gate_id),
+    );
 
     // Slow attack
-    let slow_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(0.01),   // 10ms
-        release: Signal::Value(0.05),
-        state: ASRState::default(),
-    });
+    let slow_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(0.01),   // 10ms
+        Signal::Value(0.05),
+        Signal::Node(gate_id),
+    );
 
     let buffer_size = 256;
     let mut fast_out = vec![0.0; buffer_size];
@@ -134,12 +130,11 @@ fn test_asr_different_attack_times() {
     // Reset graph for second envelope
     let mut graph2 = create_test_graph();
     let gate_id2 = graph2.add_constant_node(1.0);
-    let slow_id2 = graph2.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id2),
-        attack: Signal::Value(0.01),
-        release: Signal::Value(0.05),
-        state: ASRState::default(),
-    });
+    let slow_id2 = graph2.add_asr_node(
+        Signal::Value(0.01),
+        Signal::Value(0.05),
+        Signal::Node(gate_id2),
+    );
     graph2.eval_node_buffer(&slow_id2, &mut slow_out);
 
     // Fast attack should reach higher level earlier
@@ -163,21 +158,19 @@ fn test_asr_different_release_times() {
 
     // Fast release envelope
     let gate1_id = graph1.add_constant_node(1.0);
-    let fast_rel_id = graph1.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate1_id),
-        attack: Signal::Value(0.001),  // 1ms attack
-        release: Signal::Value(0.01),   // 10ms release (fast)
-        state: ASRState::default(),
-    });
+    let fast_rel_id = graph1.add_asr_node(
+        Signal::Value(0.001),  // 1ms attack
+        Signal::Value(0.01),   // 10ms release (fast)
+        Signal::Node(gate1_id),
+    );
 
     // Slow release envelope
     let gate2_id = graph2.add_constant_node(1.0);
-    let slow_rel_id = graph2.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate2_id),
-        attack: Signal::Value(0.001),  // 1ms attack
-        release: Signal::Value(0.05),   // 50ms release (slow)
-        state: ASRState::default(),
-    });
+    let slow_rel_id = graph2.add_asr_node(
+        Signal::Value(0.001),  // 1ms attack
+        Signal::Value(0.05),   // 50ms release (slow)
+        Signal::Node(gate2_id),
+    );
 
     let buffer_size = 512;
 
@@ -214,13 +207,12 @@ fn test_asr_different_release_times() {
 fn test_asr_rapid_gate_changes() {
     let mut graph = create_test_graph();
 
-    let gate_id = graph.add_constant_node(1.0);
-    let asr_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(0.005),  // 5ms attack
-        release: Signal::Value(0.005),  // 5ms release
-        state: ASRState::default(),
-    });
+    let gate_id = graph.add_node(SignalNode::Constant { value: 1.0);
+    let asr_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(0.005),  // 5ms attack
+        Signal::Value(0.005),  // 5ms release
+        Signal::Node(gate_id),
+    );
 
     let buffer_size = 256;
     let mut output = vec![0.0; buffer_size];
@@ -259,13 +251,12 @@ fn test_asr_rapid_gate_changes() {
 fn test_asr_continuity_across_buffers() {
     let mut graph = create_test_graph();
 
-    let gate_id = graph.add_constant_node(1.0);
-    let asr_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(0.02),  // 20ms attack
-        release: Signal::Value(0.02),  // 20ms release
-        state: ASRState::default(),
-    });
+    let gate_id = graph.add_node(SignalNode::Constant { value: 1.0);
+    let asr_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(0.02),  // 20ms attack
+        Signal::Value(0.02),  // 20ms release
+        Signal::Node(gate_id),
+    );
 
     // Generate two consecutive buffers
     let buffer_size = 256;
@@ -298,15 +289,14 @@ fn test_asr_continuity_across_buffers() {
 fn test_asr_zero_attack() {
     let mut graph = create_test_graph();
 
-    let gate_id = graph.add_constant_node(1.0);
+    let gate_id = graph.add_node(SignalNode::Constant { value: 1.0);
 
     // Zero attack (should be clamped to minimum 0.1ms)
-    let asr_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(0.0),
-        release: Signal::Value(0.05),
-        state: ASRState::default(),
-    });
+    let asr_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(0.0),
+        Signal::Value(0.05),
+        Signal::Node(gate_id),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -325,15 +315,14 @@ fn test_asr_zero_attack() {
 fn test_asr_negative_times() {
     let mut graph = create_test_graph();
 
-    let gate_id = graph.add_constant_node(1.0);
+    let gate_id = graph.add_node(SignalNode::Constant { value: 1.0);
 
     // Negative times (should be clamped to minimum)
-    let asr_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(-0.5),
-        release: Signal::Value(-0.5),
-        state: ASRState::default(),
-    });
+    let asr_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(-0.5),
+        Signal::Value(-0.5),
+        Signal::Node(gate_id),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -352,13 +341,12 @@ fn test_asr_negative_times() {
 fn test_asr_amplitude_range() {
     let mut graph = create_test_graph();
 
-    let gate_id = graph.add_constant_node(1.0);
-    let asr_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(0.01),
-        release: Signal::Value(0.05),
-        state: ASRState::default(),
-    });
+    let gate_id = graph.add_node(SignalNode::Constant { value: 1.0);
+    let asr_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(0.01),
+        Signal::Value(0.05),
+        Signal::Node(gate_id),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -379,15 +367,14 @@ fn test_asr_amplitude_range() {
 fn test_asr_sustain_level() {
     let mut graph = create_test_graph();
 
-    let gate_id = graph.add_constant_node(1.0);
+    let gate_id = graph.add_node(SignalNode::Constant { value: 1.0);
 
     // Very fast attack to quickly reach sustain
-    let asr_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(0.001),  // 1ms attack
-        release: Signal::Value(0.05),
-        state: ASRState::default(),
-    });
+    let asr_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(0.001),  // 1ms attack
+        Signal::Value(0.05),
+        Signal::Node(gate_id),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -409,13 +396,12 @@ fn test_asr_sustain_level() {
 fn test_asr_multiple_buffers() {
     let mut graph = create_test_graph();
 
-    let gate_id = graph.add_constant_node(1.0);
-    let asr_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(0.01),
-        release: Signal::Value(0.05),
-        state: ASRState::default(),
-    });
+    let gate_id = graph.add_node(SignalNode::Constant { value: 1.0);
+    let asr_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(0.01),
+        Signal::Value(0.05),
+        Signal::Node(gate_id),
+    );
 
     // Generate multiple consecutive buffers
     let buffer_size = 256;
@@ -441,13 +427,12 @@ fn test_asr_idle_state() {
     let mut graph = create_test_graph();
 
     // Gate starts low (0.0)
-    let gate_id = graph.add_constant_node(0.0);
-    let asr_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(0.01),
-        release: Signal::Value(0.05),
-        state: ASRState::default(),
-    });
+    let gate_id = graph.add_node(SignalNode::Constant { value: 0.0);
+    let asr_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(0.01),
+        Signal::Value(0.05),
+        Signal::Node(gate_id),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -469,21 +454,19 @@ fn test_asr_gate_threshold() {
 
     // Gate just below threshold (0.4)
     let low_gate = graph1.add_constant_node(0.4);
-    let low_id = graph1.add_node(SignalNode::ASR {
-        gate: Signal::Node(low_gate),
-        attack: Signal::Value(0.01),
-        release: Signal::Value(0.05),
-        state: ASRState::default(),
-    });
+    let low_id = graph1.add_asr_node(
+        Signal::Value(0.01),
+        Signal::Value(0.05),
+        Signal::Node(low_gate),
+    );
 
     // Gate just above threshold (0.6)
     let high_gate = graph2.add_constant_node(0.6);
-    let high_id = graph2.add_node(SignalNode::ASR {
-        gate: Signal::Node(high_gate),
-        attack: Signal::Value(0.01),
-        release: Signal::Value(0.05),
-        state: ASRState::default(),
-    });
+    let high_id = graph2.add_asr_node(
+        Signal::Value(0.01),
+        Signal::Value(0.05),
+        Signal::Node(high_gate),
+    );
 
     let buffer_size = 512;
     let mut low_out = vec![0.0; buffer_size];
@@ -509,13 +492,12 @@ fn test_asr_gate_threshold() {
 fn test_asr_buffer_performance() {
     let mut graph = create_test_graph();
 
-    let gate_id = graph.add_constant_node(1.0);
-    let asr_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(0.01),
-        release: Signal::Value(0.05),
-        state: ASRState::default(),
-    });
+    let gate_id = graph.add_node(SignalNode::Constant { value: 1.0);
+    let asr_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(0.01),
+        Signal::Value(0.05),
+        Signal::Node(gate_id),
+    );
 
     let buffer_size = 512;
     let iterations = 1000;
@@ -543,13 +525,12 @@ fn test_asr_buffer_performance() {
 fn test_asr_full_cycle() {
     let mut graph = create_test_graph();
 
-    let gate_id = graph.add_constant_node(1.0);
-    let asr_id = graph.add_node(SignalNode::ASR {
-        gate: Signal::Node(gate_id),
-        attack: Signal::Value(0.005),  // 5ms attack
-        release: Signal::Value(0.005),  // 5ms release
-        state: ASRState::default(),
-    });
+    let gate_id = graph.add_node(SignalNode::Constant { value: 1.0);
+    let asr_id = graph.add_node(SignalNode::ASR { attack: 
+        Signal::Value(0.005),  // 5ms attack
+        Signal::Value(0.005),  // 5ms release
+        Signal::Node(gate_id),
+    );
 
     let buffer_size = 512;
 

@@ -3,8 +3,7 @@
 /// Tests that the buffer-based evaluation produces identical results
 /// to sample-by-sample evaluation and provides performance benefits.
 
-use phonon::unified_graph::{UnifiedSignalGraph, Signal, SignalNode, Waveform, AllpassState};
-use std::cell::RefCell;
+use phonon::unified_graph::{AllpassState, Signal, SignalNode, UnifiedSignalGraph, Waveform};
 
 /// Helper to calculate RMS of audio buffer
 fn calculate_rms(buffer: &[f32]) -> f32 {
@@ -19,18 +18,13 @@ fn test_allpass_buffer_vs_sample() {
     let mut graph = UnifiedSignalGraph::new(sample_rate);
 
     // Create a 440Hz sine input
-    let sine_id = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
+    let sine_id = graph.add_oscillator_new(440.0, phonon::unified_graph::Waveform::Sine);
 
     // Create allpass with coefficient 0.7
-    let allpass_id = graph.add_node(SignalNode::Allpass {
-        input: Signal::Node(sine_id),
-        coefficient: Signal::Value(0.7),
-        state: AllpassState::default(),
-    });
+    let allpass_id = graph.add_node(SignalNode::Allpass { input: 
+        Signal::Node(sine_id),
+        Signal::Value(0.7)
+    );
 
     // Render 1 second using buffer evaluation
     let buffer_size = 44100;
@@ -52,23 +46,14 @@ fn test_allpass_buffer_flat_magnitude() {
     let mut graph_wet = UnifiedSignalGraph::new(sample_rate);
 
     // Dry: just sine
-    let sine_dry = graph_dry.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
+    let sine_dry = graph_dry.add_oscillator(440.0, phonon::unified_graph::Waveform::Sine);
 
     // Wet: sine through allpass
-    let sine_wet = graph_wet.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
-    let allpass_wet = graph_wet.add_node(SignalNode::Allpass {
-        input: Signal::Node(sine_wet),
-        coefficient: Signal::Value(0.5),
-        state: AllpassState::default(),
-    });
+    let sine_wet = graph_wet.add_oscillator(440.0, phonon::unified_graph::Waveform::Sine);
+    let allpass_wet = graph_wet.add_allpass_node(
+        Signal::Node(sine_wet),
+        Signal::Value(0.5)
+    );
 
     // Render both
     let buffer_size = 44100;
@@ -96,23 +81,14 @@ fn test_allpass_buffer_changes_phase() {
     let mut graph_wet = UnifiedSignalGraph::new(sample_rate);
 
     // Dry: just sine
-    let sine_dry = graph_dry.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
+    let sine_dry = graph_dry.add_oscillator(440.0, phonon::unified_graph::Waveform::Sine);
 
     // Wet: sine through allpass
-    let sine_wet = graph_wet.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
-    let allpass_wet = graph_wet.add_node(SignalNode::Allpass {
-        input: Signal::Node(sine_wet),
-        coefficient: Signal::Value(0.7),
-        state: AllpassState::default(),
-    });
+    let sine_wet = graph_wet.add_oscillator(440.0, phonon::unified_graph::Waveform::Sine);
+    let allpass_wet = graph_wet.add_allpass_node(
+        Signal::Node(sine_wet),
+        Signal::Value(0.7)
+    );
 
     // Render both
     let buffer_size = 8820; // 0.2 seconds
@@ -142,28 +118,12 @@ fn test_allpass_buffer_cascade() {
     let mut graph = UnifiedSignalGraph::new(sample_rate);
 
     // Input sine
-    let sine_id = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
+    let sine_id = graph.add_oscillator_new(440.0, phonon::unified_graph::Waveform::Sine);
 
     // Chain 3 allpass filters
-    let ap1 = graph.add_node(SignalNode::Allpass {
-        input: Signal::Node(sine_id),
-        coefficient: Signal::Value(0.3),
-        state: AllpassState::default(),
-    });
-    let ap2 = graph.add_node(SignalNode::Allpass {
-        input: Signal::Node(ap1),
-        coefficient: Signal::Value(0.5),
-        state: AllpassState::default(),
-    });
-    let ap3 = graph.add_node(SignalNode::Allpass {
-        input: Signal::Node(ap2),
-        coefficient: Signal::Value(0.7),
-        state: AllpassState::default(),
-    });
+    let ap1 = graph.add_node(SignalNode::Allpass { input: Signal::Node(sine_id), Signal::Value(0.3));
+    let ap2 = graph.add_node(SignalNode::Allpass { input: Signal::Node(ap1), Signal::Value(0.5));
+    let ap3 = graph.add_node(SignalNode::Allpass { input: Signal::Node(ap2), Signal::Value(0.7));
 
     // Render
     let buffer_size = 44100;
@@ -183,16 +143,11 @@ fn test_allpass_buffer_state_continuity() {
     let sample_rate = 44100.0;
     let mut graph = UnifiedSignalGraph::new(sample_rate);
 
-    let sine_id = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
-    let allpass_id = graph.add_node(SignalNode::Allpass {
-        input: Signal::Node(sine_id),
-        coefficient: Signal::Value(0.7),
-        state: AllpassState::default(),
-    });
+    let sine_id = graph.add_oscillator_new(440.0, phonon::unified_graph::Waveform::Sine);
+    let allpass_id = graph.add_node(SignalNode::Allpass { input: 
+        Signal::Node(sine_id),
+        Signal::Value(0.7)
+    );
 
     // Render in 3 chunks
     let chunk_size = 4410; // 0.1 second chunks
@@ -225,29 +180,20 @@ fn test_allpass_buffer_modulated_coefficient() {
     let mut graph = UnifiedSignalGraph::new(sample_rate);
 
     // Input sine at 440Hz
-    let sine_id = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
+    let sine_id = graph.add_oscillator_new(440.0, phonon::unified_graph::Waveform::Sine);
 
     // Modulating LFO at 2Hz (oscillates coefficient)
-    let lfo_id = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(2.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
+    let lfo_id = graph.add_oscillator_new(2.0, phonon::unified_graph::Waveform::Sine);
 
     // Scale LFO from -1..1 to 0..0.8
     let scaled_lfo = graph.add_multiply_node(Signal::Node(lfo_id), Signal::Value(0.4));
     let offset_lfo = graph.add_add_node(Signal::Node(scaled_lfo), Signal::Value(0.4));
 
     // Allpass with modulated coefficient
-    let allpass_id = graph.add_node(SignalNode::Allpass {
-        input: Signal::Node(sine_id),
-        coefficient: Signal::Node(offset_lfo),
-        state: AllpassState::default(),
-    });
+    let allpass_id = graph.add_node(SignalNode::Allpass { input: 
+        Signal::Node(sine_id),
+        Signal::Node(offset_lfo)
+    );
 
     // Render
     let buffer_size = 44100;
@@ -268,23 +214,14 @@ fn test_allpass_buffer_zero_coefficient() {
     let mut graph_wet = UnifiedSignalGraph::new(sample_rate);
 
     // Dry
-    let sine_dry = graph_dry.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
+    let sine_dry = graph_dry.add_oscillator(440.0, phonon::unified_graph::Waveform::Sine);
 
     // Wet with coefficient = 0
-    let sine_wet = graph_wet.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
-    let allpass_wet = graph_wet.add_node(SignalNode::Allpass {
-        input: Signal::Node(sine_wet),
-        coefficient: Signal::Value(0.0),
-        state: AllpassState::default(),
-    });
+    let sine_wet = graph_wet.add_oscillator(440.0, phonon::unified_graph::Waveform::Sine);
+    let allpass_wet = graph_wet.add_allpass_node(
+        Signal::Node(sine_wet),
+        Signal::Value(0.0)
+    );
 
     // Render
     let buffer_size = 44100;
@@ -309,18 +246,13 @@ fn test_allpass_buffer_stability() {
     let sample_rate = 44100.0;
     let mut graph = UnifiedSignalGraph::new(sample_rate);
 
-    let sine_id = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
+    let sine_id = graph.add_oscillator_new(440.0, phonon::unified_graph::Waveform::Sine);
 
     // Extreme coefficient values
-    let allpass_id = graph.add_node(SignalNode::Allpass {
-        input: Signal::Node(sine_id),
-        coefficient: Signal::Value(0.99), // Near unity
-        state: AllpassState::default(),
-    });
+    let allpass_id = graph.add_node(SignalNode::Allpass { input: 
+        Signal::Node(sine_id),
+        Signal::Value(0.99) // Near unity
+    );
 
     // Render for a while
     let buffer_size = 44100 * 2; // 2 seconds
@@ -344,16 +276,11 @@ fn test_allpass_buffer_negative_coefficient() {
     let sample_rate = 44100.0;
     let mut graph = UnifiedSignalGraph::new(sample_rate);
 
-    let sine_id = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
-    let allpass_id = graph.add_node(SignalNode::Allpass {
-        input: Signal::Node(sine_id),
-        coefficient: Signal::Value(-0.5),
-        state: AllpassState::default(),
-    });
+    let sine_id = graph.add_oscillator_new(440.0, phonon::unified_graph::Waveform::Sine);
+    let allpass_id = graph.add_node(SignalNode::Allpass { input: 
+        Signal::Node(sine_id),
+        Signal::Value(-0.5)
+    );
 
     // Render
     let buffer_size = 44100;
@@ -373,16 +300,11 @@ fn test_allpass_buffer_different_sample_rates() {
     for &sample_rate in &[22050.0, 44100.0, 48000.0, 96000.0] {
         let mut graph = UnifiedSignalGraph::new(sample_rate);
 
-        let sine_id = graph.add_node(SignalNode::Oscillator {
-            freq: Signal::Value(440.0),
-            waveform: Waveform::Sine,
-            phase: RefCell::new(0.0),
-        });
-        let allpass_id = graph.add_node(SignalNode::Allpass {
-            input: Signal::Node(sine_id),
-            coefficient: Signal::Value(0.7),
-            state: AllpassState::default(),
-        });
+        let sine_id = graph.add_oscillator_new(440.0, phonon::unified_graph::Waveform::Sine);
+        let allpass_id = graph.add_node(SignalNode::Allpass { input: 
+            Signal::Node(sine_id),
+            Signal::Value(0.7)
+        );
 
         let buffer_size = (sample_rate * 0.1) as usize; // 0.1 second
         let mut output = vec![0.0; buffer_size];
@@ -400,33 +322,13 @@ fn test_allpass_buffer_for_reverb() {
     let sample_rate = 44100.0;
     let mut graph = UnifiedSignalGraph::new(sample_rate);
 
-    let sine_id = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(220.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
+    let sine_id = graph.add_oscillator_new(220.0, phonon::unified_graph::Waveform::Sine);
 
     // Classic Schroeder allpass cascade (simplified)
-    let ap1 = graph.add_node(SignalNode::Allpass {
-        input: Signal::Node(sine_id),
-        coefficient: Signal::Value(0.131),
-        state: AllpassState::default(),
-    });
-    let ap2 = graph.add_node(SignalNode::Allpass {
-        input: Signal::Node(ap1),
-        coefficient: Signal::Value(0.359),
-        state: AllpassState::default(),
-    });
-    let ap3 = graph.add_node(SignalNode::Allpass {
-        input: Signal::Node(ap2),
-        coefficient: Signal::Value(0.677),
-        state: AllpassState::default(),
-    });
-    let ap4 = graph.add_node(SignalNode::Allpass {
-        input: Signal::Node(ap3),
-        coefficient: Signal::Value(0.773),
-        state: AllpassState::default(),
-    });
+    let ap1 = graph.add_node(SignalNode::Allpass { input: Signal::Node(sine_id), Signal::Value(0.131));
+    let ap2 = graph.add_node(SignalNode::Allpass { input: Signal::Node(ap1), Signal::Value(0.359));
+    let ap3 = graph.add_node(SignalNode::Allpass { input: Signal::Node(ap2), Signal::Value(0.677));
+    let ap4 = graph.add_node(SignalNode::Allpass { input: Signal::Node(ap3), Signal::Value(0.773));
 
     let buffer_size = 44100;
     let mut output = vec![0.0; buffer_size];
@@ -444,16 +346,11 @@ fn test_allpass_buffer_efficiency() {
     let sample_rate = 44100.0;
     let mut graph = UnifiedSignalGraph::new(sample_rate);
 
-    let sine_id = graph.add_node(SignalNode::Oscillator {
-        freq: Signal::Value(440.0),
-        waveform: Waveform::Sine,
-        phase: RefCell::new(0.0),
-    });
-    let allpass_id = graph.add_node(SignalNode::Allpass {
-        input: Signal::Node(sine_id),
-        coefficient: Signal::Value(0.7),
-        state: AllpassState::default(),
-    });
+    let sine_id = graph.add_oscillator_new(440.0, phonon::unified_graph::Waveform::Sine);
+    let allpass_id = graph.add_node(SignalNode::Allpass { input: 
+        Signal::Node(sine_id),
+        Signal::Value(0.7)
+    );
 
     let buffer_size = 44100 * 10; // 10 seconds
     let mut output = vec![0.0; buffer_size];

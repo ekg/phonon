@@ -5,7 +5,7 @@
 ///
 /// AD envelope is simpler than ADSR: Attack → Decay → Silent (no sustain or release)
 
-use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, ADState, ADSRState};
+use phonon::unified_graph::{ADState, ADSRState, Signal, SignalNode, UnifiedSignalGraph};
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -39,9 +39,9 @@ fn test_ad_basic_envelope_shape() {
     // Create AD with known parameters
     // Attack: 0.01s, Decay: 0.1s
     let ad_id = graph.add_node(SignalNode::AD {
-        attack: Signal::Value(0.01),  // 10ms attack
-        decay: Signal::Value(0.1),   // 100ms decay
         state: ADState::default(),
+        attack: Signal::Value(0.01),  // 10ms attack
+        decay: Signal::Value(0.1),    // 100ms decay
     });
 
     let buffer_size = 512;
@@ -65,9 +65,9 @@ fn test_ad_attack_phase() {
 
     // Fast attack (10ms), longer decay to isolate attack
     let ad_id = graph.add_node(SignalNode::AD {
-        attack: Signal::Value(0.01),   // 10ms attack
-        decay: Signal::Value(0.5),    // 500ms decay
         state: ADState::default(),
+        attack: Signal::Value(0.01),   // 10ms attack
+        decay: Signal::Value(0.5),     // 500ms decay
     });
 
     let buffer_size = 512;
@@ -91,9 +91,9 @@ fn test_ad_decay_phase() {
 
     // Very fast attack, moderate decay
     let ad_id = graph.add_node(SignalNode::AD {
-        attack: Signal::Value(0.001),  // 1ms attack (very fast)
-        decay: Signal::Value(0.05),   // 50ms decay
         state: ADState::default(),
+        attack: Signal::Value(0.001),  // 1ms attack (very fast)
+        decay: Signal::Value(0.05),    // 50ms decay
     });
 
     let buffer_size = 512;
@@ -118,7 +118,7 @@ fn test_ad_reaches_zero() {
     // Short attack and decay, buffer should reach zero
     let ad_id = graph.add_node(SignalNode::AD {
         attack: Signal::Value(0.001),  // 1ms attack
-        decay: Signal::Value(0.005),  // 5ms decay
+        decay: Signal::Value(0.005),   // 5ms decay
         state: ADState::default(),
     });
 
@@ -181,14 +181,14 @@ fn test_ad_different_decay_times() {
     // Fast decay
     let fast_id = graph.add_node(SignalNode::AD {
         attack: Signal::Value(0.001),  // 1ms attack
-        decay: Signal::Value(0.01),   // 10ms decay
+        decay: Signal::Value(0.01),    // 10ms decay
         state: ADState::default(),
     });
 
     // Slow decay
     let slow_id = graph.add_node(SignalNode::AD {
         attack: Signal::Value(0.001),  // 1ms attack
-        decay: Signal::Value(0.1),    // 100ms decay
+        decay: Signal::Value(0.1),     // 100ms decay
         state: ADState::default(),
     });
 
@@ -219,9 +219,9 @@ fn test_ad_zero_attack() {
 
     // Zero attack (should be clamped to minimum)
     let ad_id = graph.add_node(SignalNode::AD {
+        state: ADState::default(),
         attack: Signal::Value(0.0),
         decay: Signal::Value(0.05),
-        state: ADState::default(),
     });
 
     let buffer_size = 512;
@@ -241,9 +241,9 @@ fn test_ad_zero_decay() {
 
     // Zero decay (should be clamped to minimum)
     let ad_id = graph.add_node(SignalNode::AD {
+        state: ADState::default(),
         attack: Signal::Value(0.01),
         decay: Signal::Value(0.0),
-        state: ADState::default(),
     });
 
     let buffer_size = 512;
@@ -262,9 +262,9 @@ fn test_ad_amplitude_range() {
     let mut graph = create_test_graph();
 
     let ad_id = graph.add_node(SignalNode::AD {
+        state: ADState::default(),
         attack: Signal::Value(0.01),
         decay: Signal::Value(0.05),
-        state: ADState::default(),
     });
 
     let buffer_size = 512;
@@ -286,9 +286,9 @@ fn test_ad_reaches_peak() {
 
     // Very fast attack to ensure we reach peak
     let ad_id = graph.add_node(SignalNode::AD {
+        state: ADState::default(),
         attack: Signal::Value(0.001),  // 1ms attack
         decay: Signal::Value(0.1),
-        state: ADState::default(),
     });
 
     let buffer_size = 512;
@@ -311,9 +311,9 @@ fn test_ad_multiple_buffers() {
     let mut graph = create_test_graph();
 
     let ad_id = graph.add_node(SignalNode::AD {
+        state: ADState::default(),
         attack: Signal::Value(0.01),
         decay: Signal::Value(0.05),
-        state: ADState::default(),
     });
 
     // Generate multiple consecutive buffers
@@ -338,9 +338,9 @@ fn test_ad_continuity_across_buffers() {
     let mut graph = create_test_graph();
 
     let ad_id = graph.add_node(SignalNode::AD {
+        state: ADState::default(),
         attack: Signal::Value(0.01),
         decay: Signal::Value(0.05),
-        state: ADState::default(),
     });
 
     // Generate two consecutive buffers
@@ -377,9 +377,9 @@ fn test_ad_buffer_performance() {
     let mut graph = create_test_graph();
 
     let ad_id = graph.add_node(SignalNode::AD {
+        state: ADState::default(),
         attack: Signal::Value(0.01),
         decay: Signal::Value(0.05),
-        state: ADState::default(),
     });
 
     let buffer_size = 512;
@@ -410,17 +410,17 @@ fn test_ad_simpler_than_adsr() {
 
     // AD envelope
     let ad_id = graph.add_node(SignalNode::AD {
+        state: ADState::default(),
         attack: Signal::Value(0.01),
         decay: Signal::Value(0.05),
-        state: ADState::default(),
     });
 
     // Equivalent ADSR (sustain=0, release=0.001 minimal)
     let adsr_id = graph.add_node(SignalNode::ADSR {
         attack: Signal::Value(0.01),   // attack
-        decay: Signal::Value(0.05),   // decay
-        sustain: Signal::Value(0.0),    // sustain = 0
-        release: Signal::Value(0.001),  // release (minimal)
+        decay: Signal::Value(0.05),    // decay
+        sustain: Signal::Value(0.0),   // sustain = 0
+        release: Signal::Value(0.001), // release (minimal)
         state: ADSRState::default(),
     });
 
@@ -449,7 +449,7 @@ fn test_ad_typical_percussive() {
     // Typical percussive envelope: fast attack, medium decay
     let ad_id = graph.add_node(SignalNode::AD {
         attack: Signal::Value(0.001),  // 1ms attack (instant)
-        decay: Signal::Value(0.15),   // 150ms decay (natural decay)
+        decay: Signal::Value(0.15),    // 150ms decay (natural decay)
         state: ADState::default(),
     });
 

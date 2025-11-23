@@ -8,7 +8,7 @@
 /// - Musical warmth and character
 /// - Proper state continuity
 
-use phonon::unified_graph::{Signal, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform, MoogLadderState, FilterState};
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -59,18 +59,20 @@ fn test_moog_steep_rolloff_vs_svf() {
     let osc = graph.add_oscillator(Signal::Value(5000.0), Waveform::Saw);
 
     // Moog ladder at 500Hz (no resonance for fair comparison)
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(500.0),
-        Signal::Value(0.0),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(500.0),
+        resonance: Signal::Value(0.0),
+        state: MoogLadderState::new(),
+    });
 
     // Standard SVF LPF at same cutoff
-    let lpf_id = graph.add_lowpass_node(
-        Signal::Node(osc),
-        Signal::Value(500.0),
-        Signal::Value(0.7),
-    );
+    let lpf_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(500.0),
+        q: Signal::Value(0.7),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut moog_out = vec![0.0; buffer_size];
@@ -98,11 +100,12 @@ fn test_moog_passes_low_frequencies() {
     // Low frequency (100 Hz) well below cutoff (2000 Hz)
     let osc = graph.add_oscillator(Signal::Value(100.0), Waveform::Sine);
 
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(2000.0),
-        Signal::Value(0.0),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(2000.0),
+        resonance: Signal::Value(0.0),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 512;
     let mut unfiltered = vec![0.0; buffer_size];
@@ -130,11 +133,12 @@ fn test_moog_attenuates_high_frequencies() {
     // High frequency (8000 Hz) well above cutoff (1000 Hz)
     let osc = graph.add_oscillator(Signal::Value(8000.0), Waveform::Sine);
 
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(1000.0),
-        Signal::Value(0.0),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Value(0.0),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 512;
     let mut unfiltered = vec![0.0; buffer_size];
@@ -167,18 +171,20 @@ fn test_moog_resonance_boost() {
     let osc = graph.add_oscillator(Signal::Value(220.0), Waveform::Saw);
 
     // No resonance
-    let moog_no_res = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(1000.0),
-        Signal::Value(0.0),
-    );
+    let moog_no_res = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Value(0.0),
+        state: MoogLadderState::new(),
+    });
 
     // High resonance (very high to ensure measurable effect)
-    let moog_hi_res = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(1000.0),
-        Signal::Value(0.95),
-    );
+    let moog_hi_res = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Value(0.95),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 2048; // Longer buffer for resonance to build up
     let mut no_res_out = vec![0.0; buffer_size];
@@ -208,25 +214,28 @@ fn test_moog_resonance_increases_with_parameter() {
     let osc = graph.add_oscillator(Signal::Value(220.0), Waveform::Saw);
 
     // Low resonance
-    let moog_low = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(1000.0),
-        Signal::Value(0.3),
-    );
+    let moog_low = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Value(0.3),
+        state: MoogLadderState::new(),
+    });
 
     // Medium resonance
-    let moog_med = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(1000.0),
-        Signal::Value(0.7),
-    );
+    let moog_med = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Value(0.7),
+        state: MoogLadderState::new(),
+    });
 
     // High resonance
-    let moog_high = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(1000.0),
-        Signal::Value(0.95),
-    );
+    let moog_high = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Value(0.95),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 2048; // Longer for resonance
     let mut low_out = vec![0.0; buffer_size];
@@ -273,11 +282,12 @@ fn test_moog_self_oscillation() {
     let osc = graph.add_oscillator(Signal::Value(100.0), Waveform::Sine);
 
     // Very high resonance (near 1.0) should ring/resonate strongly
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(1000.0),
-        Signal::Value(0.98),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Value(0.98),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 4410; // 100ms at 44.1kHz
     let mut output = vec![0.0; buffer_size];
@@ -317,18 +327,20 @@ fn test_moog_cutoff_frequency_effect() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
 
     // Low cutoff (500 Hz)
-    let moog_low = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(500.0),
-        Signal::Value(0.0),
-    );
+    let moog_low = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(500.0),
+        resonance: Signal::Value(0.0),
+        state: MoogLadderState::new(),
+    });
 
     // High cutoff (3000 Hz)
-    let moog_high = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(3000.0),
-        Signal::Value(0.0),
-    );
+    let moog_high = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(3000.0),
+        resonance: Signal::Value(0.0),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 512;
     let mut low_out = vec![0.0; buffer_size];
@@ -358,11 +370,12 @@ fn test_moog_state_continuity() {
     let mut graph = create_test_graph();
 
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(1000.0),
-        Signal::Value(0.5),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Value(0.5),
+        state: MoogLadderState::new(),
+    });
 
     // Generate two consecutive buffers
     let buffer_size = 512;
@@ -390,11 +403,12 @@ fn test_moog_state_persistence() {
     let mut graph = create_test_graph();
 
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(1000.0),
-        Signal::Value(0.7),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Value(0.7),
+        state: MoogLadderState::new(),
+    });
 
     // Generate multiple buffers and check they're all valid
     let buffer_size = 512;
@@ -438,11 +452,12 @@ fn test_moog_modulated_cutoff() {
     let lfo_scaled = graph.add_multiply_node(Signal::Node(lfo), Signal::Value(1000.0));
     let cutoff_mod = graph.add_add_node(Signal::Node(lfo_scaled), Signal::Value(1500.0));
 
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Node(cutoff_mod),
-        Signal::Value(0.3),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Node(cutoff_mod),
+        resonance: Signal::Value(0.3),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -469,11 +484,12 @@ fn test_moog_modulated_resonance() {
     let lfo_scaled = graph.add_multiply_node(Signal::Node(lfo), Signal::Value(0.35));
     let res_mod = graph.add_add_node(Signal::Node(lfo_scaled), Signal::Value(0.55));
 
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(1000.0),
-        Signal::Node(res_mod),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Node(res_mod),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 2048; // Longer for modulation effect
     let mut output = vec![0.0; buffer_size];
@@ -507,11 +523,12 @@ fn test_moog_very_low_cutoff() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Very low cutoff (20 Hz - at clamping limit)
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(20.0),
-        Signal::Value(0.0),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(20.0),
+        resonance: Signal::Value(0.0),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -534,11 +551,12 @@ fn test_moog_very_high_cutoff() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Very high cutoff (20000 Hz - at clamping limit)
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(20000.0),
-        Signal::Value(0.0),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(20000.0),
+        resonance: Signal::Value(0.0),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -566,11 +584,12 @@ fn test_moog_maximum_resonance() {
     let osc = graph.add_oscillator(Signal::Value(220.0), Waveform::Saw);
 
     // Maximum resonance (1.0 - at clamping limit)
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(1000.0),
-        Signal::Value(1.0),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Value(1.0),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 2048; // Longer buffer for resonance buildup
     let mut output = vec![0.0; buffer_size];
@@ -602,11 +621,12 @@ fn test_moog_silence_input() {
     // Silent input (constant zero)
     let silence = graph.add_node(phonon::unified_graph::SignalNode::Constant { value: 0.0 });
 
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(silence),
-        Signal::Value(1000.0),
-        Signal::Value(0.5),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(silence),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Value(0.5),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -628,18 +648,20 @@ fn test_moog_chained() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
 
     // First Moog (2000 Hz)
-    let moog1 = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(2000.0),
-        Signal::Value(0.0),
-    );
+    let moog1 = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(2000.0),
+        resonance: Signal::Value(0.0),
+        state: MoogLadderState::new(),
+    });
 
     // Second Moog (1000 Hz) - should filter even more
-    let moog2 = graph.add_moogladder_node(
-        Signal::Node(moog1),
-        Signal::Value(1000.0),
-        Signal::Value(0.0),
-    );
+    let moog2 = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(moog1),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Value(0.0),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 512;
     let mut once = vec![0.0; buffer_size];
@@ -672,11 +694,12 @@ fn test_moog_musical_warmth() {
     let osc = graph.add_oscillator(Signal::Value(110.0), Waveform::Saw);
 
     // Classic Moog bass sound: low cutoff, medium resonance
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(800.0),
-        Signal::Value(0.6),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(800.0),
+        resonance: Signal::Value(0.6),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 4410; // 100ms
     let mut output = vec![0.0; buffer_size];
@@ -708,11 +731,12 @@ fn test_moog_buffer_performance() {
     let mut graph = create_test_graph();
 
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
-    let moog_id = graph.add_moogladder_node(
-        Signal::Node(osc),
-        Signal::Value(1000.0),
-        Signal::Value(0.5),
-    );
+    let moog_id = graph.add_node(SignalNode::MoogLadder {
+        input: Signal::Node(osc),
+        cutoff: Signal::Value(1000.0),
+        resonance: Signal::Value(0.5),
+        state: MoogLadderState::new(),
+    });
 
     let buffer_size = 512;
     let iterations = 1000;

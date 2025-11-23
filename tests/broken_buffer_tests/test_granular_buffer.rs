@@ -3,8 +3,9 @@
 /// These tests verify that granular buffer evaluation produces correct
 /// grain-based textures with controllable parameters.
 
-use phonon::unified_graph::{Signal, UnifiedSignalGraph};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, GranularState};
 use std::f32::consts::PI;
+use std::sync::Mutex;
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -69,12 +70,19 @@ fn test_granular_basic_playback() {
     // Create 1 second sine wave source at 440 Hz
     let source = create_sine_source(1.0, 440.0, 44100.0);
 
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),  // 50ms grains
-        Signal::Value(0.5),   // Medium density
-        Signal::Value(1.0),   // Normal pitch
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.5),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 4410]; // 100ms
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -89,12 +97,19 @@ fn test_granular_produces_sound() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(30.0),
-        Signal::Value(0.6),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(30.0),
+        density: Signal::Value(0.6),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 8820]; // 200ms
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -118,12 +133,19 @@ fn test_granular_grain_size_small() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(10.0),  // Very small grains (10ms)
-        Signal::Value(0.7),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(10.0),
+        density: Signal::Value(0.7),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 4410];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -137,12 +159,19 @@ fn test_granular_grain_size_medium() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),  // Medium grains (50ms)
-        Signal::Value(0.7),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.7),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 4410];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -156,12 +185,19 @@ fn test_granular_grain_size_large() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(100.0),  // Large grains (100ms)
-        Signal::Value(0.7),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(100.0),
+        density: Signal::Value(0.7),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 4410];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -177,20 +213,34 @@ fn test_granular_grain_size_affects_texture() {
     let source = create_sine_source(1.0, 440.0, 44100.0);
 
     // Small grains (10ms) - more granular texture
-    let small_id = graph.add_granular_node(
-        source.clone(),
-        Signal::Value(10.0),
-        Signal::Value(0.6),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.clone().len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source.clone() {
+        gran_state.write_sample(sample);
+    }
+    let small_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(10.0),
+        density: Signal::Value(0.6),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     // Large grains (80ms) - smoother texture
-    let large_id = graph.add_granular_node(
-        source,
-        Signal::Value(80.0),
-        Signal::Value(0.6),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let large_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(80.0),
+        density: Signal::Value(0.6),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut small_output = vec![0.0; 8820];
     let mut large_output = vec![0.0; 8820];
@@ -215,12 +265,19 @@ fn test_granular_density_low() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),
-        Signal::Value(0.2),  // Low density (sparse grains)
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.2),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 8820];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -235,12 +292,19 @@ fn test_granular_density_medium() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),
-        Signal::Value(0.5),  // Medium density
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.5),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 8820];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -254,12 +318,19 @@ fn test_granular_density_high() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),
-        Signal::Value(0.9),  // High density (very dense)
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.9),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 8820];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -275,20 +346,34 @@ fn test_granular_density_affects_loudness() {
     let source = create_sine_source(1.0, 440.0, 44100.0);
 
     // Low density
-    let low_id = graph.add_granular_node(
-        source.clone(),
-        Signal::Value(50.0),
-        Signal::Value(0.2),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.clone().len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source.clone() {
+        gran_state.write_sample(sample);
+    }
+    let low_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.2),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     // High density
-    let high_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),
-        Signal::Value(0.8),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let high_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.8),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut low_output = vec![0.0; 8820];
     let mut high_output = vec![0.0; 8820];
@@ -314,12 +399,19 @@ fn test_granular_pitch_normal() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),
-        Signal::Value(0.6),
-        Signal::Value(1.0),  // Normal pitch
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.6),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 8820];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -333,12 +425,19 @@ fn test_granular_pitch_up() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),
-        Signal::Value(0.6),
-        Signal::Value(2.0),  // Double speed (octave up)
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.6),
+        pitch: Signal::Value(2.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 8820];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -356,12 +455,19 @@ fn test_granular_pitch_down() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),
-        Signal::Value(0.6),
-        Signal::Value(0.5),  // Half speed (octave down)
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.6),
+        pitch: Signal::Value(0.5),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 8820];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -377,20 +483,34 @@ fn test_granular_pitch_affects_frequency() {
     let source = create_sine_source(1.0, 440.0, 44100.0);
 
     // Normal pitch
-    let normal_id = graph.add_granular_node(
-        source.clone(),
-        Signal::Value(40.0),
-        Signal::Value(0.7),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.clone().len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source.clone() {
+        gran_state.write_sample(sample);
+    }
+    let normal_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(40.0),
+        density: Signal::Value(0.7),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     // Double pitch
-    let double_id = graph.add_granular_node(
-        source,
-        Signal::Value(40.0),
-        Signal::Value(0.7),
-        Signal::Value(2.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let double_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(40.0),
+        density: Signal::Value(0.7),
+        pitch: Signal::Value(2.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut normal_output = vec![0.0; 8820];
     let mut double_output = vec![0.0; 8820];
@@ -416,12 +536,19 @@ fn test_granular_with_sine_source() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(40.0),
-        Signal::Value(0.6),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(40.0),
+        density: Signal::Value(0.6),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 4410];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -435,12 +562,19 @@ fn test_granular_with_saw_source() {
     let mut graph = create_test_graph();
 
     let source = create_saw_source(1.0, 220.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(40.0),
-        Signal::Value(0.6),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(40.0),
+        density: Signal::Value(0.6),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 4410];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -461,12 +595,19 @@ fn test_granular_with_noise_source() {
         })
         .collect();
 
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(30.0),
-        Signal::Value(0.5),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(30.0),
+        density: Signal::Value(0.5),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 4410];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -487,12 +628,19 @@ fn test_granular_time_stretch() {
     let source = create_sine_source(0.5, 440.0, 44100.0);
 
     // Low density + normal pitch = time stretching
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),
-        Signal::Value(0.3),  // Low density stretches time
-        Signal::Value(1.0),  // Normal pitch
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.3),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 44100]; // 1 second output
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -509,12 +657,19 @@ fn test_granular_texture_creation() {
     let source = create_sine_source(1.0, 440.0, 44100.0);
 
     // Small grains + high density = grainy texture
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(15.0),  // Small grains
-        Signal::Value(0.8),   // High density
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(15.0),
+        density: Signal::Value(0.8),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 8820];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -536,12 +691,19 @@ fn test_granular_empty_source() {
     let mut graph = create_test_graph();
 
     let source: Vec<f32> = vec![];
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),
-        Signal::Value(0.5),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.5),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 4410];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -556,12 +718,19 @@ fn test_granular_zero_density() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),
-        Signal::Value(0.0),  // Zero density (no grains spawned)
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.0),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 4410];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -576,12 +745,19 @@ fn test_granular_maximum_density() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),
-        Signal::Value(1.0),  // Maximum density
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(1.0),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let mut output = vec![0.0; 4410];
     graph.eval_node_buffer(&gran_id, &mut output);
@@ -600,12 +776,19 @@ fn test_granular_multiple_buffers() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),
-        Signal::Value(0.6),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.6),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     // Generate multiple consecutive buffers
     for i in 0..5 {
@@ -627,12 +810,19 @@ fn test_granular_performance() {
     let mut graph = create_test_graph();
 
     let source = create_sine_source(1.0, 440.0, 44100.0);
-    let gran_id = graph.add_granular_node(
-        source,
-        Signal::Value(50.0),
-        Signal::Value(0.6),
-        Signal::Value(1.0),
-    );
+    // Create granular state with pre-loaded source buffer
+    let buffer_size = source.len().max(44100);
+    let mut gran_state = GranularState::new(buffer_size);
+    for &sample in &source {
+        gran_state.write_sample(sample);
+    }
+    let gran_id = graph.add_node(SignalNode::Granular {
+        source: Signal::Value(0.0),
+        grain_size_ms: Signal::Value(50.0),
+        density: Signal::Value(0.6),
+        pitch: Signal::Value(1.0),
+        state: Box::new(Mutex::new(gran_state)),
+    });
 
     let buffer_size = 512;
     let iterations = 100;

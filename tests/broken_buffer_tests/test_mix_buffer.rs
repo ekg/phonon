@@ -1,4 +1,4 @@
-use phonon::unified_graph::{Signal, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 
 fn create_test_graph() -> UnifiedSignalGraph {
     UnifiedSignalGraph::new(44100.0)
@@ -22,10 +22,12 @@ fn test_mix_two_constants() {
     let mut graph = create_test_graph();
 
     // Create mix of two constants: 0.5 + 0.3 = 0.8, normalized to 0.8/2 = 0.4
-    let mix_id = graph.add_mix_node(vec![
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals: vec![
         Signal::Value(0.5),
         Signal::Value(0.3),
-    ]);
+    ],
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -43,11 +45,13 @@ fn test_mix_three_constants() {
     let mut graph = create_test_graph();
 
     // Mix three constants: (0.6 + 0.3 + 0.9) / 3 = 0.6
-    let mix_id = graph.add_mix_node(vec![
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals: vec![
         Signal::Value(0.6),
         Signal::Value(0.3),
         Signal::Value(0.9),
-    ]);
+    ],
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -65,7 +69,9 @@ fn test_mix_empty_signals() {
     let mut graph = create_test_graph();
 
     // Mix with no signals should produce silence
-    let mix_id = graph.add_mix_node(vec![]);
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals: vec![],
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -82,9 +88,11 @@ fn test_mix_single_signal() {
     let mut graph = create_test_graph();
 
     // Mix with single signal should equal that signal / 1 (unchanged)
-    let mix_id = graph.add_mix_node(vec![
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals: vec![
         Signal::Value(0.75),
-    ]);
+    ],
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -105,10 +113,12 @@ fn test_mix_two_oscillators() {
     let osc2 = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Mix them
-    let mix_id = graph.add_mix_node(vec![
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals: vec![
         Signal::Node(osc1),
         Signal::Node(osc2),
-    ]);
+    ],
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -135,11 +145,13 @@ fn test_mix_three_oscillators() {
     let osc3 = graph.add_oscillator(Signal::Value(880.0), Waveform::Sine);
 
     // Mix them
-    let mix_id = graph.add_mix_node(vec![
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals: vec![
         Signal::Node(osc1),
         Signal::Node(osc2),
         Signal::Node(osc3),
-    ]);
+    ],
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -168,7 +180,9 @@ fn test_mix_many_oscillators() {
     }
 
     // Mix them
-    let mix_id = graph.add_mix_node(signals);
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals,
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -193,11 +207,13 @@ fn test_mix_different_waveforms() {
     let saw = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
     let square = graph.add_oscillator(Signal::Value(440.0), Waveform::Square);
 
-    let mix_id = graph.add_mix_node(vec![
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals: vec![
         Signal::Node(sine),
         Signal::Node(saw),
         Signal::Node(square),
-    ]);
+    ],
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -220,10 +236,12 @@ fn test_mix_constant_and_oscillator() {
     // Mix a DC offset with an oscillator
     let osc = graph.add_oscillator(Signal::Value(220.0), Waveform::Sine);
 
-    let mix_id = graph.add_mix_node(vec![
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals: vec![
         Signal::Value(0.5),
         Signal::Node(osc),
-    ]);
+    ],
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -249,15 +267,19 @@ fn test_mix_nested() {
     let osc2 = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
     let osc3 = graph.add_oscillator(Signal::Value(880.0), Waveform::Sine);
 
-    let inner_mix = graph.add_mix_node(vec![
+    let inner_mix = graph.add_node(SignalNode::Mix {
+        signals: vec![
         Signal::Node(osc1),
         Signal::Node(osc2),
-    ]);
+    ],
+    });
 
-    let outer_mix = graph.add_mix_node(vec![
+    let outer_mix = graph.add_node(SignalNode::Mix {
+        signals: vec![
         Signal::Node(inner_mix),
         Signal::Node(osc3),
-    ]);
+    ],
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -282,10 +304,12 @@ fn test_mix_with_gain() {
     let gain1 = graph.add_gain_node(Signal::Node(osc), Signal::Value(0.5));
     let gain2 = graph.add_gain_node(Signal::Node(osc), Signal::Value(1.0));
 
-    let mix_id = graph.add_mix_node(vec![
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals: vec![
         Signal::Node(gain1),
         Signal::Node(gain2),
-    ]);
+    ],
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -313,7 +337,9 @@ fn test_mix_no_clipping() {
         signals.push(Signal::Node(osc));
     }
 
-    let mix_id = graph.add_mix_node(signals);
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals,
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -336,10 +362,12 @@ fn test_mix_zero_and_nonzero() {
     // Mix silence with oscillator
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
-    let mix_id = graph.add_mix_node(vec![
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals: vec![
         Signal::Value(0.0),
         Signal::Node(osc),
-    ]);
+    ],
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -363,10 +391,12 @@ fn test_mix_multiple_buffers() {
     let osc1 = graph.add_oscillator(Signal::Value(220.0), Waveform::Sine);
     let osc2 = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
-    let mix_id = graph.add_mix_node(vec![
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals: vec![
         Signal::Node(osc1),
         Signal::Node(osc2),
-    ]);
+    ],
+    });
 
     let buffer_size = 512;
 
@@ -391,10 +421,12 @@ fn test_mix_buffer_size_independence() {
     // Create mix
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
-    let mix_id = graph.add_mix_node(vec![
+    let mix_id = graph.add_node(SignalNode::Mix {
+        signals: vec![
         Signal::Value(0.5),
         Signal::Node(osc),
-    ]);
+    ],
+    });
 
     // Test different buffer sizes
     for size in [64, 128, 256, 512, 1024, 2048] {

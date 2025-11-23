@@ -1,4 +1,4 @@
-use phonon::unified_graph::{UnifiedSignalGraph, Signal, Waveform};
+use phonon::unified_graph::{UnifiedSignalGraph, Signal, SignalNode, Waveform};
 
 /// Calculate RMS (Root Mean Square) energy of a buffer
 fn calculate_rms(buffer: &[f32]) -> f32 {
@@ -45,13 +45,15 @@ fn test_multitap_basic_delay() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Add multi-tap delay with 4 taps
-    let mtd_id = graph.add_multitapdelay_node(
-        Signal::Node(osc),
-        Signal::Value(0.2),       // 200ms base delay
-        4,                        // 4 taps
-        Signal::Value(0.3),       // 30% feedback
-        Signal::Value(0.5),       // 50% mix
-    );
+    let mtd_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc),
+        time: Signal::Value(0.2),
+        taps: 4,
+        feedback: Signal::Value(0.3),
+        mix: Signal::Value(0.5),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -73,31 +75,37 @@ fn test_multitap_different_tap_counts() {
     let osc3 = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // 2 taps
-    let mtd_2 = graph.add_multitapdelay_node(
-        Signal::Node(osc1),
-        Signal::Value(0.2),
-        2,
-        Signal::Value(0.3),
-        Signal::Value(0.6),
-    );
+    let mtd_2 = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc1),
+        time: Signal::Value(0.2),
+        taps: 2,
+        feedback: Signal::Value(0.3),
+        mix: Signal::Value(0.6),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     // 4 taps
-    let mtd_4 = graph.add_multitapdelay_node(
-        Signal::Node(osc2),
-        Signal::Value(0.2),
-        4,
-        Signal::Value(0.3),
-        Signal::Value(0.6),
-    );
+    let mtd_4 = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc2),
+        time: Signal::Value(0.2),
+        taps: 4,
+        feedback: Signal::Value(0.3),
+        mix: Signal::Value(0.6),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     // 8 taps
-    let mtd_8 = graph.add_multitapdelay_node(
-        Signal::Node(osc3),
-        Signal::Value(0.2),
-        8,
-        Signal::Value(0.3),
-        Signal::Value(0.6),
-    );
+    let mtd_8 = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc3),
+        time: Signal::Value(0.2),
+        taps: 8,
+        feedback: Signal::Value(0.3),
+        mix: Signal::Value(0.6),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     let buffer_size = 1024;
     let mut output_2 = vec![0.0; buffer_size];
@@ -132,13 +140,15 @@ fn test_multitap_creates_multiple_echoes() {
     // Use a low frequency oscillator (simulates impulse-like attack)
     let osc = graph.add_oscillator(Signal::Value(20.0), Waveform::Sine);
 
-    let mtd_id = graph.add_multitapdelay_node(
-        Signal::Node(osc),
-        Signal::Value(0.1),       // 100ms base delay
-        4,                        // 4 taps
-        Signal::Value(0.2),       // Low feedback to see individual taps
-        Signal::Value(1.0),       // 100% wet to hear taps clearly
-    );
+    let mtd_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc),
+        time: Signal::Value(0.1),
+        taps: 4,
+        feedback: Signal::Value(0.2),
+        mix: Signal::Value(1.0),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     // Generate enough audio to capture all taps
     let buffer_size = 4410; // 0.1 seconds at 44.1kHz
@@ -169,13 +179,15 @@ fn test_multitap_feedback() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // High feedback
-    let mtd_fb = graph.add_multitapdelay_node(
-        Signal::Node(osc),
-        Signal::Value(0.15),
-        4,
-        Signal::Value(0.7),       // 70% feedback
-        Signal::Value(0.6),
-    );
+    let mtd_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc),
+        time: Signal::Value(0.15),
+        taps: 4,
+        feedback: Signal::Value(0.7),
+        mix: Signal::Value(0.6),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     let buffer_size = 1024;
     let mut output = vec![0.0; buffer_size];
@@ -197,13 +209,15 @@ fn test_multitap_state_continuity() {
 
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
-    let mtd_id = graph.add_multitapdelay_node(
-        Signal::Node(osc),
-        Signal::Value(0.1),
-        4,
-        Signal::Value(0.6),
-        Signal::Value(0.5),
-    );
+    let mtd_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc),
+        time: Signal::Value(0.1),
+        taps: 4,
+        feedback: Signal::Value(0.6),
+        mix: Signal::Value(0.5),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     let buffer_size = 512;
     let mut output1 = vec![0.0; buffer_size];
@@ -237,13 +251,15 @@ fn test_multitap_parameter_clamping() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Extreme parameter values (should be clamped internally)
-    let mtd_id = graph.add_multitapdelay_node(
-        Signal::Node(osc),
-        Signal::Value(0.1),       // Short delay
-        4,
-        Signal::Value(1.5),       // Too much feedback (should clamp to 0.95)
-        Signal::Value(0.5),
-    );
+    let mtd_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc),
+        time: Signal::Value(0.1),
+        taps: 4,
+        feedback: Signal::Value(1.5),
+        mix: Signal::Value(0.5),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -272,13 +288,15 @@ fn test_multitap_feedback_stability() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // High feedback
-    let mtd_id = graph.add_multitapdelay_node(
-        Signal::Node(osc),
-        Signal::Value(0.15),
-        4,
-        Signal::Value(0.9),       // 90% feedback
-        Signal::Value(0.8),
-    );
+    let mtd_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc),
+        time: Signal::Value(0.15),
+        taps: 4,
+        feedback: Signal::Value(0.9),
+        mix: Signal::Value(0.8),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     let buffer_size = 1024;
 
@@ -307,22 +325,26 @@ fn test_multitap_dry_wet_mix() {
     let osc2 = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // 100% dry (mix = 0.0)
-    let dry_id = graph.add_multitapdelay_node(
-        Signal::Node(osc1),
-        Signal::Value(0.2),
-        4,
-        Signal::Value(0.5),
-        Signal::Value(0.0),       // 100% dry
-    );
+    let mtd_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc1),
+        time: Signal::Value(0.2),
+        taps: 4,
+        feedback: Signal::Value(0.5),
+        mix: Signal::Value(0.0),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     // 100% wet (mix = 1.0)
-    let wet_id = graph.add_multitapdelay_node(
-        Signal::Node(osc2),
-        Signal::Value(0.2),
-        4,
-        Signal::Value(0.5),
-        Signal::Value(1.0),       // 100% wet
-    );
+    let mtd_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc2),
+        time: Signal::Value(0.2),
+        taps: 4,
+        feedback: Signal::Value(0.5),
+        mix: Signal::Value(1.0),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     let buffer_size = 512;
     let mut dry_output = vec![0.0; buffer_size];
@@ -354,22 +376,26 @@ fn test_multitap_short_vs_long_delay() {
     let osc2 = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Short delay (50ms)
-    let short_id = graph.add_multitapdelay_node(
-        Signal::Node(osc1),
-        Signal::Value(0.05),      // 50ms
-        4,
-        Signal::Value(0.5),
-        Signal::Value(0.5),
-    );
+    let mtd_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc1),
+        time: Signal::Value(0.05),
+        taps: 4,
+        feedback: Signal::Value(0.5),
+        mix: Signal::Value(0.5),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     // Long delay (400ms)
-    let long_id = graph.add_multitapdelay_node(
-        Signal::Node(osc2),
-        Signal::Value(0.4),       // 400ms
-        4,
-        Signal::Value(0.5),
-        Signal::Value(0.5),
-    );
+    let mtd_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc2),
+        time: Signal::Value(0.4),
+        taps: 4,
+        feedback: Signal::Value(0.5),
+        mix: Signal::Value(0.5),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     let buffer_size = 512;
     let mut short_output = vec![0.0; buffer_size];
@@ -397,13 +423,15 @@ fn test_multitap_rhythmic_pattern() {
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Create a rhythmic delay with clear taps
-    let mtd_id = graph.add_multitapdelay_node(
-        Signal::Node(osc),
-        Signal::Value(0.2),       // 200ms between taps
-        4,                        // 4 distinct taps
-        Signal::Value(0.4),       // Moderate feedback
-        Signal::Value(0.7),       // More wet to hear taps
-    );
+    let mtd_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc),
+        time: Signal::Value(0.2),
+        taps: 4,
+        feedback: Signal::Value(0.4),
+        mix: Signal::Value(0.7),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     let buffer_size = 2048;
     let mut output = vec![0.0; buffer_size];
@@ -430,22 +458,26 @@ fn test_multitap_vs_single_delay() {
     let osc2 = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Multi-tap with 2 taps (minimal multi-tap)
-    let multi_id = graph.add_multitapdelay_node(
-        Signal::Node(osc1),
-        Signal::Value(0.2),
-        2,
-        Signal::Value(0.5),
-        Signal::Value(0.5),
-    );
+    let multi_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc1),
+        time: Signal::Value(0.2),
+        taps: 2,
+        feedback: Signal::Value(0.5),
+        mix: Signal::Value(0.5),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     // Multi-tap with 6 taps (complex pattern)
-    let complex_id = graph.add_multitapdelay_node(
-        Signal::Node(osc2),
-        Signal::Value(0.2),
-        6,
-        Signal::Value(0.5),
-        Signal::Value(0.5),
-    );
+    let complex_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc2),
+        time: Signal::Value(0.2),
+        taps: 6,
+        feedback: Signal::Value(0.5),
+        mix: Signal::Value(0.5),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     let buffer_size = 1024;
     let mut multi_output = vec![0.0; buffer_size];
@@ -477,22 +509,26 @@ fn test_multitap_edge_cases() {
     let osc2 = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Minimum taps (will be clamped to 2)
-    let min_id = graph.add_multitapdelay_node(
-        Signal::Node(osc1),
-        Signal::Value(0.15),
-        1,                        // Will be clamped to 2
-        Signal::Value(0.5),
-        Signal::Value(0.5),
-    );
+    let mtd_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc1),
+        time: Signal::Value(0.15),
+        taps: 1,
+        feedback: Signal::Value(0.5),
+        mix: Signal::Value(0.5),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     // Maximum taps (will be clamped to 8)
-    let max_id = graph.add_multitapdelay_node(
-        Signal::Node(osc2),
-        Signal::Value(0.15),
-        10,                       // Will be clamped to 8
-        Signal::Value(0.5),
-        Signal::Value(0.5),
-    );
+    let mtd_id = graph.add_node(SignalNode::MultiTapDelay {
+        input: Signal::Node(osc2),
+        time: Signal::Value(0.15),
+        taps: 10,
+        feedback: Signal::Value(0.5),
+        mix: Signal::Value(0.5),
+        buffer: vec![0.0; 88200],
+        write_idx: 0,
+    });
 
     let buffer_size = 512;
     let mut min_output = vec![0.0; buffer_size];

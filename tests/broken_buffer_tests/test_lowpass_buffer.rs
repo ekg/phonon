@@ -3,7 +3,7 @@
 /// These tests verify that LowPass filter buffer evaluation produces correct
 /// filtering behavior and maintains proper state continuity.
 
-use phonon::unified_graph::{Signal, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform, FilterState};
 use std::f32::consts::PI;
 
 /// Helper: Create a test graph
@@ -51,11 +51,12 @@ fn test_lpf_reduces_high_frequencies() {
     let osc_id = graph.add_oscillator(Signal::Value(10000.0), Waveform::Sine);
 
     // Filter with low cutoff (500 Hz) should significantly reduce amplitude
-    let lpf_id = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(500.0),
-        Signal::Value(1.0),
-    );
+    let lpf_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(500.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut filtered = vec![0.0; buffer_size];
@@ -84,11 +85,12 @@ fn test_lpf_passes_low_frequencies() {
     let osc_id = graph.add_oscillator(Signal::Value(100.0), Waveform::Sine);
 
     // Filter with high cutoff (5000 Hz) should pass signal mostly unchanged
-    let lpf_id = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(5000.0),
-        Signal::Value(1.0),
-    );
+    let lpf_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(5000.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut filtered = vec![0.0; buffer_size];
@@ -121,18 +123,20 @@ fn test_lpf_cutoff_effect() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
 
     // Low cutoff (500 Hz) should filter heavily
-    let lpf_low_id = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(500.0),
-        Signal::Value(1.0),
-    );
+    let lpf_low_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(500.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     // High cutoff (5000 Hz) should filter less
-    let lpf_high_id = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(5000.0),
-        Signal::Value(1.0),
-    );
+    let lpf_high_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(5000.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut low_cutoff = vec![0.0; buffer_size];
@@ -162,18 +166,20 @@ fn test_lpf_resonance_effect() {
     let osc_id = graph.add_oscillator(Signal::Value(1000.0), Waveform::Sine);
 
     // Low Q (no resonance)
-    let lpf_low_q = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(0.5),
-    );
+    let lpf_low_q = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(0.5),
+        state: FilterState::default(),
+    });
 
     // High Q (high resonance)
-    let lpf_high_q = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(10.0),
-    );
+    let lpf_high_q = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(10.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut low_q_output = vec![0.0; buffer_size];
@@ -203,11 +209,12 @@ fn test_lpf_state_continuity() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Filter
-    let lpf_id = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(1.0),
-    );
+    let lpf_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     // Generate two consecutive buffers
     let buffer_size = 512;
@@ -237,11 +244,12 @@ fn test_lpf_multiple_buffers() {
     let mut graph = create_test_graph();
 
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
-    let lpf_id = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(2.0),
-    );
+    let lpf_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     // Generate 10 consecutive buffers
     let buffer_size = 512;
@@ -276,11 +284,12 @@ fn test_lpf_modulated_cutoff() {
     let lfo_scaled = graph.add_multiply_node(Signal::Node(lfo_id), Signal::Value(1000.0));
     let cutoff_signal = graph.add_add_node(Signal::Node(lfo_scaled), Signal::Value(1500.0));
 
-    let lpf_id = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Node(cutoff_signal),
-        Signal::Value(1.0),
-    );
+    let lpf_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Node(cutoff_signal),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -303,11 +312,12 @@ fn test_lpf_very_low_cutoff() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // Very low cutoff (50 Hz) - should heavily attenuate 440 Hz
-    let lpf_id = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(50.0),
-        Signal::Value(1.0),
-    );
+    let lpf_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(50.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -326,11 +336,12 @@ fn test_lpf_very_high_cutoff() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
     // High cutoff (5000 Hz) - should pass 440 Hz with minimal attenuation
-    let lpf_id = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(5000.0),
-        Signal::Value(1.0),
-    );
+    let lpf_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(5000.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut filtered = vec![0.0; buffer_size];
@@ -357,18 +368,20 @@ fn test_lpf_extreme_q_values() {
     let osc_id = graph.add_oscillator(Signal::Value(1000.0), Waveform::Sine);
 
     // Very low Q (0.5 - minimum)
-    let lpf_low = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(0.5),
-    );
+    let lpf_low = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(0.5),
+        state: FilterState::default(),
+    });
 
     // Very high Q (20.0 - maximum)
-    let lpf_high = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(20.0),
-    );
+    let lpf_high = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(20.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut low_output = vec![0.0; buffer_size];
@@ -398,11 +411,12 @@ fn test_lpf_constant_cutoff() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
 
     // Constant cutoff
-    let lpf_id = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(1.0),
-    );
+    let lpf_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -422,11 +436,12 @@ fn test_lpf_buffer_performance() {
     let mut graph = create_test_graph();
 
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
-    let lpf_id = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(1000.0),
-        Signal::Value(2.0),
-    );
+    let lpf_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(2.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let iterations = 1000;
@@ -458,18 +473,20 @@ fn test_lpf_chained() {
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
 
     // First filter (2000 Hz)
-    let lpf1_id = graph.add_lowpass_node(
-        Signal::Node(osc_id),
-        Signal::Value(2000.0),
-        Signal::Value(1.0),
-    );
+    let lpf1_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(osc_id),
+        cutoff: Signal::Value(2000.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     // Second filter (1000 Hz) - should filter even more
-    let lpf2_id = graph.add_lowpass_node(
-        Signal::Node(lpf1_id),
-        Signal::Value(1000.0),
-        Signal::Value(1.0),
-    );
+    let lpf2_id = graph.add_node(SignalNode::LowPass {
+        input: Signal::Node(lpf1_id),
+        cutoff: Signal::Value(1000.0),
+        q: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut once_filtered = vec![0.0; buffer_size];

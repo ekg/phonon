@@ -4,7 +4,7 @@
 /// DJ-style filter behavior: sweeping from lowpass (value=0.0) through
 /// neutral (value=0.5) to highpass (value=1.0).
 
-use phonon::unified_graph::{Signal, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform, FilterState};
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -45,7 +45,11 @@ fn test_djfilter_full_lowpass_cuts_highs() {
     let osc_id = graph.add_oscillator(Signal::Value(8000.0), Waveform::Sine);
 
     // Full lowpass position (value = 0.0)
-    let djf_id = graph.add_djfilter_node(Signal::Node(osc_id), Signal::Value(0.0));
+    let djf_id = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(osc_id),
+        value: Signal::Value(0.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 1024;
     let mut filtered = vec![0.0; buffer_size];
@@ -75,7 +79,11 @@ fn test_djfilter_full_lowpass_passes_lows() {
     let osc_id = graph.add_oscillator(Signal::Value(100.0), Waveform::Sine);
 
     // Full lowpass position (value = 0.0, cutoff = 80 Hz)
-    let djf_id = graph.add_djfilter_node(Signal::Node(osc_id), Signal::Value(0.0));
+    let djf_id = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(osc_id),
+        value: Signal::Value(0.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 1024;
     let mut filtered = vec![0.0; buffer_size];
@@ -109,7 +117,11 @@ fn test_djfilter_neutral_position_passes_signal() {
     let osc_id = graph.add_oscillator(Signal::Value(800.0), Waveform::Sine);
 
     // Neutral position (value = 0.5)
-    let djf_id = graph.add_djfilter_node(Signal::Node(osc_id), Signal::Value(0.5));
+    let djf_id = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(osc_id),
+        value: Signal::Value(0.5),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 1024;
     let mut filtered = vec![0.0; buffer_size];
@@ -143,7 +155,11 @@ fn test_djfilter_full_highpass_cuts_lows() {
     let osc_id = graph.add_oscillator(Signal::Value(100.0), Waveform::Sine);
 
     // Full highpass position (value = 1.0)
-    let djf_id = graph.add_djfilter_node(Signal::Node(osc_id), Signal::Value(1.0));
+    let djf_id = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(osc_id),
+        value: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 1024;
     let mut filtered = vec![0.0; buffer_size];
@@ -173,7 +189,11 @@ fn test_djfilter_full_highpass_passes_highs() {
     let osc_id = graph.add_oscillator(Signal::Value(5000.0), Waveform::Sine);
 
     // Full highpass position (value = 1.0)
-    let djf_id = graph.add_djfilter_node(Signal::Node(osc_id), Signal::Value(1.0));
+    let djf_id = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(osc_id),
+        value: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 1024;
     let mut filtered = vec![0.0; buffer_size];
@@ -215,7 +235,11 @@ fn test_djfilter_smooth_transition_from_lpf_to_hpf() {
     let mut rms_values = Vec::new();
 
     for &pos in &positions {
-        let djf_id = graph.add_djfilter_node(Signal::Node(osc_id), Signal::Value(pos));
+        let djf_id = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(osc_id),
+        value: Signal::Value(pos),
+        state: FilterState::default(),
+    });
         let mut filtered = vec![0.0; buffer_size];
         graph.eval_node_buffer(&djf_id, &mut filtered);
         rms_values.push(calculate_rms(&filtered));
@@ -252,7 +276,11 @@ fn test_djfilter_frequency_response_sweep() {
         let positions = [0.0, 0.5, 1.0]; // LPF, Neutral, HPF
 
         for &pos in &positions {
-            let djf_id = graph.add_djfilter_node(Signal::Node(osc_id), Signal::Value(pos));
+            let djf_id = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(osc_id),
+        value: Signal::Value(pos),
+        state: FilterState::default(),
+    });
 
             let buffer_size = 1024;
             let mut filtered = vec![0.0; buffer_size];
@@ -296,7 +324,11 @@ fn test_djfilter_sweeping_positions() {
     let mut all_outputs_valid = true;
 
     for &pos in &positions {
-        let djf_id = graph.add_djfilter_node(Signal::Node(osc_id), Signal::Value(pos));
+        let djf_id = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(osc_id),
+        value: Signal::Value(pos),
+        state: FilterState::default(),
+    });
         let mut filtered = vec![0.0; buffer_size];
         graph.eval_node_buffer(&djf_id, &mut filtered);
 
@@ -332,7 +364,11 @@ fn test_djfilter_clamping_values() {
     let test_values = [-0.5, -0.1, 1.1, 1.5, 2.0];
 
     for &val in &test_values {
-        let djf_id = graph.add_djfilter_node(Signal::Node(osc_id), Signal::Value(val));
+        let djf_id = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(osc_id),
+        value: Signal::Value(val),
+        state: FilterState::default(),
+    });
 
         let buffer_size = 512;
         let mut filtered = vec![0.0; buffer_size];
@@ -365,7 +401,11 @@ fn test_djfilter_state_continuity() {
 
     // Create a filter and render multiple buffers to ensure state is maintained
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
-    let djf_id = graph.add_djfilter_node(Signal::Node(osc_id), Signal::Value(0.3));
+    let djf_id = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(osc_id),
+        value: Signal::Value(0.3),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
 
@@ -396,8 +436,16 @@ fn test_djfilter_multiple_instances() {
     // Create two separate filter instances
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
 
-    let djf1_id = graph.add_djfilter_node(Signal::Node(osc_id), Signal::Value(0.2));
-    let djf2_id = graph.add_djfilter_node(Signal::Node(osc_id), Signal::Value(0.8));
+    let djf1_id = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(osc_id),
+        value: Signal::Value(0.2),
+        state: FilterState::default(),
+    });
+    let djf2_id = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(osc_id),
+        value: Signal::Value(0.8),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 512;
     let mut buffer1 = vec![0.0; buffer_size];
@@ -427,7 +475,11 @@ fn test_djfilter_large_buffer() {
     let mut graph = create_test_graph();
 
     let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
-    let djf_id = graph.add_djfilter_node(Signal::Node(osc_id), Signal::Value(0.5));
+    let djf_id = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(osc_id),
+        value: Signal::Value(0.5),
+        state: FilterState::default(),
+    });
 
     // Large buffer (typical audio processing chunk)
     let buffer_size = 8192;
@@ -467,8 +519,16 @@ fn test_djfilter_lowpass_frequency_characteristic() {
     let high_osc = graph.add_oscillator(Signal::Value(high_freq), Waveform::Sine);
 
     // Apply full lowpass to both
-    let low_filtered = graph.add_djfilter_node(Signal::Node(low_osc), Signal::Value(0.0));
-    let high_filtered = graph.add_djfilter_node(Signal::Node(high_osc), Signal::Value(0.0));
+    let low_filtered = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(low_osc),
+        value: Signal::Value(0.0),
+        state: FilterState::default(),
+    });
+    let high_filtered = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(high_osc),
+        value: Signal::Value(0.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 1024;
     let mut low_buf = vec![0.0; buffer_size];
@@ -503,8 +563,16 @@ fn test_djfilter_highpass_frequency_characteristic() {
     let high_osc = graph.add_oscillator(Signal::Value(high_freq), Waveform::Sine);
 
     // Apply full highpass to both
-    let low_filtered = graph.add_djfilter_node(Signal::Node(low_osc), Signal::Value(1.0));
-    let high_filtered = graph.add_djfilter_node(Signal::Node(high_osc), Signal::Value(1.0));
+    let low_filtered = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(low_osc),
+        value: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
+    let high_filtered = graph.add_node(SignalNode::DJFilter {
+        input: Signal::Node(high_osc),
+        value: Signal::Value(1.0),
+        state: FilterState::default(),
+    });
 
     let buffer_size = 1024;
     let mut low_buf = vec![0.0; buffer_size];

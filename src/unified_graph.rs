@@ -5089,6 +5089,60 @@ impl UnifiedSignalGraph {
         node_id
     }
 
+    /// Add an XFade (crossfade) node (helper for testing)
+    pub fn add_xfade_node(
+        &mut self,
+        signal_a: Signal,
+        signal_b: Signal,
+        position: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::XFade {
+            signal_a,
+            signal_b,
+            position,
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add an XLine (exponential envelope) node (helper for testing)
+    pub fn add_xline_node(
+        &mut self,
+        start: Signal,
+        end: Signal,
+        duration: Signal,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::XLine {
+            start,
+            end,
+            duration,
+            state: XLineState::default(),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
+    /// Add a VCO (Voltage-Controlled Oscillator) node (helper for testing)
+    pub fn add_vco_node(
+        &mut self,
+        frequency: Signal,
+        waveform: Signal,
+        pulse_width: Signal,
+    ) -> NodeId {
+        use std::cell::RefCell;
+        let node_id = NodeId(self.nodes.len());
+        let node = SignalNode::VCO {
+            frequency,
+            waveform,
+            pulse_width,
+            phase: RefCell::new(0.0),
+        };
+        self.nodes.push(Some(Rc::new(node)));
+        node_id
+    }
+
     /// Set the output node
     pub fn set_output(&mut self, node_id: NodeId) {
         self.output = Some(node_id);
@@ -14334,6 +14388,28 @@ impl UnifiedSignalGraph {
                             s.advance();
                         }
                     }
+                }
+            }
+
+            SignalNode::XFade {
+                signal_a,
+                signal_b,
+                position,
+            } => {
+                // Allocate temporary buffers for child signals
+                let mut buffer_a = vec![0.0; buffer_size];
+                let mut buffer_b = vec![0.0; buffer_size];
+                let mut buffer_pos = vec![0.0; buffer_size];
+
+                // Evaluate child signals
+                self.eval_signal_buffer(signal_a, &mut buffer_a);
+                self.eval_signal_buffer(signal_b, &mut buffer_b);
+                self.eval_signal_buffer(position, &mut buffer_pos);
+
+                // Crossfade: (1-pos)*a + pos*b
+                for i in 0..buffer_size {
+                    let pos = buffer_pos[i].clamp(0.0, 1.0);
+                    output[i] = (1.0 - pos) * buffer_a[i] + pos * buffer_b[i];
                 }
             }
 

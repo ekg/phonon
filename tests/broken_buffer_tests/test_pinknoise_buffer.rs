@@ -5,7 +5,7 @@
 ///
 /// Pink noise has equal energy per octave (-3dB/octave rolloff, 1/f spectrum).
 
-use phonon::unified_graph::UnifiedSignalGraph;
+use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, PinkNoiseState};
 use std::f32::consts::PI;
 
 /// Helper: Create a test graph
@@ -68,7 +68,9 @@ fn measure_band_energy(buffer: &[f32], sample_rate: f32, low_freq: f32, high_fre
 fn test_pinknoise_generates_audio() {
     let mut graph = create_test_graph();
 
-    let pink_id = graph.add_pinknoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     // Generate buffer
     let buffer_size = 4096;
@@ -88,7 +90,9 @@ fn test_pinknoise_generates_audio() {
 #[test]
 fn test_pinknoise_mean_near_zero() {
     let mut graph = create_test_graph();
-    let pink_id = graph.add_pinknoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     // Generate large buffer for better statistics
     let buffer_size = 44100; // 1 second
@@ -105,7 +109,9 @@ fn test_pinknoise_mean_near_zero() {
 #[test]
 fn test_pinknoise_has_variance() {
     let mut graph = create_test_graph();
-    let pink_id = graph.add_pinknoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     let buffer_size = 4096;
     let mut output = vec![0.0; buffer_size];
@@ -124,7 +130,9 @@ fn test_pinknoise_has_variance() {
 #[test]
 fn test_pinknoise_reasonable_range() {
     let mut graph = create_test_graph();
-    let pink_id = graph.add_pinknoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     let buffer_size = 4096;
     let mut output = vec![0.0; buffer_size];
@@ -145,8 +153,10 @@ fn test_pinknoise_reasonable_range() {
 fn test_pinknoise_vs_whitenoise_spectrum() {
     // Pink noise should have more low-frequency energy than white noise
     let mut graph = create_test_graph();
-    let pink_id = graph.add_pinknoise_node();
-    let white_id = graph.add_whitenoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
+    let white_id = graph.add_node(SignalNode::WhiteNoise);
 
     let buffer_size = 8192;
     let mut pink_out = vec![0.0; buffer_size];
@@ -176,8 +186,10 @@ fn test_pinknoise_vs_whitenoise_spectrum() {
 fn test_pinknoise_high_freq_content_less_than_white() {
     // Pink noise should have less high-frequency content than white noise
     let mut graph = create_test_graph();
-    let pink_id = graph.add_pinknoise_node();
-    let white_id = graph.add_whitenoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
+    let white_id = graph.add_node(SignalNode::WhiteNoise);
 
     let buffer_size = 4096;
     let mut pink_out = vec![0.0; buffer_size];
@@ -202,7 +214,9 @@ fn test_pinknoise_high_freq_content_less_than_white() {
 #[test]
 fn test_pinknoise_state_persists_across_buffers() {
     let mut graph = create_test_graph();
-    let pink_id = graph.add_pinknoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     let buffer_size = 512;
     let mut buffer1 = vec![0.0; buffer_size];
@@ -229,7 +243,9 @@ fn test_pinknoise_state_persists_across_buffers() {
 #[test]
 fn test_pinknoise_multiple_buffer_generation() {
     let mut graph = create_test_graph();
-    let pink_id = graph.add_pinknoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     // Generate multiple buffers to ensure state updates correctly
     let buffer_size = 512;
@@ -256,8 +272,12 @@ fn test_pinknoise_buffer_vs_sample_by_sample() {
     let mut graph1 = create_test_graph();
     let mut graph2 = create_test_graph();
 
-    let pink_id1 = graph1.add_pinknoise_node();
-    let pink_id2 = graph2.add_pinknoise_node();
+    let pink_id1 = graph1.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
+    let pink_id2 = graph2.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     let buffer_size = 4096;
     let mut buffer_output = vec![0.0; buffer_size];
@@ -292,7 +312,9 @@ fn test_pinknoise_various_buffer_sizes() {
 
     for &size in &buffer_sizes {
         let mut graph = create_test_graph();
-        let pink_id = graph.add_pinknoise_node();
+        let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
         let mut output = vec![0.0; size];
         graph.eval_node_buffer(&pink_id, &mut output);
@@ -310,7 +332,9 @@ fn test_pinknoise_various_buffer_sizes() {
 #[test]
 fn test_pinknoise_small_buffer() {
     let mut graph = create_test_graph();
-    let pink_id = graph.add_pinknoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     // Very small buffer
     let buffer_size = 16;
@@ -326,7 +350,9 @@ fn test_pinknoise_small_buffer() {
 #[test]
 fn test_pinknoise_large_buffer() {
     let mut graph = create_test_graph();
-    let pink_id = graph.add_pinknoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     // Large buffer
     let buffer_size = 88200; // 2 seconds
@@ -345,7 +371,9 @@ fn test_pinknoise_large_buffer() {
 #[test]
 fn test_pinknoise_buffer_performance() {
     let mut graph = create_test_graph();
-    let pink_id = graph.add_pinknoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     let buffer_size = 512;
     let iterations = 1000;
@@ -373,7 +401,9 @@ fn test_pinknoise_buffer_performance() {
 fn test_pinknoise_octave_band_energy() {
     // Pink noise should have approximately equal energy per octave
     let mut graph = create_test_graph();
-    let pink_id = graph.add_pinknoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     let buffer_size = 16384; // Larger buffer for better frequency resolution
     let mut output = vec![0.0; buffer_size];
@@ -400,8 +430,12 @@ fn test_pinknoise_different_instances_produce_different_output() {
     let mut graph = create_test_graph();
 
     // Create two independent pink noise generators
-    let pink_id1 = graph.add_pinknoise_node();
-    let pink_id2 = graph.add_pinknoise_node();
+    let pink_id1 = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
+    let pink_id2 = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     let buffer_size = 1024;
     let mut output1 = vec![0.0; buffer_size];
@@ -432,7 +466,9 @@ fn test_pinknoise_different_instances_produce_different_output() {
 fn test_pinknoise_counter_wrapping() {
     // Test that counter wrapping doesn't cause issues
     let mut graph = create_test_graph();
-    let pink_id = graph.add_pinknoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     // Generate many buffers to potentially wrap the counter
     let buffer_size = 1024;
@@ -458,7 +494,9 @@ fn test_pinknoise_bin_updates() {
     // Verify that bins are updating at expected rates
     // This is a basic sanity check
     let mut graph = create_test_graph();
-    let pink_id = graph.add_pinknoise_node();
+    let pink_id = graph.add_node(SignalNode::PinkNoise {
+        state: PinkNoiseState::default(),
+    });
 
     // Generate several buffers
     let buffer_size = 512;

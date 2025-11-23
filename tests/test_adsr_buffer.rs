@@ -3,7 +3,7 @@
 /// These tests verify that ADSR envelope buffer evaluation produces correct
 /// envelope shapes and responds properly to triggers and parameter changes.
 
-use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, ADSRState};
+use phonon::unified_graph::{ADSRState, Signal, SignalNode, UnifiedSignalGraph};
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -37,12 +37,12 @@ fn test_adsr_basic_envelope_shape() {
     // Create ADSR with known parameters
     // Attack: 0.01s, Decay: 0.05s, Sustain: 0.7, Release: 0.1s
     let adsr_id = graph.add_node(SignalNode::ADSR {
+
         attack: Signal::Value(0.01),  // 10ms attack
-        decay: Signal::Value(0.05),  // 50ms decay
-        sustain: Signal::Value(0.7),   // 70% sustain level
-        release: Signal::Value(0.1),   // 100ms release
-        state: ADSRState::default(),
-    });
+        Signal::Value(0.05),  // 50ms decay
+        Signal::Value(0.7),   // 70% sustain level
+        Signal::Value(0.1),   // 100ms release
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -64,11 +64,10 @@ fn test_adsr_attack_phase() {
     // Fast attack (10ms), long decay/release to isolate attack
     let adsr_id = graph.add_node(SignalNode::ADSR {
         attack: Signal::Value(0.01),   // 10ms attack
-        decay: Signal::Value(0.5),    // 500ms decay
-        sustain: Signal::Value(0.7),    // 70% sustain
-        release: Signal::Value(0.5),    // 500ms release
-        state: ADSRState::default(),
-    });
+        Signal::Value(0.5),    // 500ms decay
+        Signal::Value(0.7),    // 70% sustain
+        Signal::Value(0.5),    // 500ms release
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -88,13 +87,12 @@ fn test_adsr_sustain_level() {
     let mut graph = create_test_graph();
 
     // Quick attack/decay, then sustain
-    let adsr_id = graph.add_node(SignalNode::ADSR {
-        attack: Signal::Value(0.001),  // 1ms attack (very fast)
-        decay: Signal::Value(0.002),  // 2ms decay (very fast)
-        sustain: Signal::Value(0.5),    // 50% sustain level
-        release: Signal::Value(0.5),    // 500ms release (won't reach in this buffer)
-        state: ADSRState::default(),
-    });
+    let adsr_id = graph.add_node(SignalNode::ADSR { attack: 
+        Signal::Value(0.001),  // 1ms attack (very fast)
+        Signal::Value(0.002),  // 2ms decay (very fast)
+        Signal::Value(0.5),    // 50% sustain level
+        Signal::Value(0.5),    // 500ms release (won't reach in this buffer)
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -118,21 +116,25 @@ fn test_adsr_different_attack_times() {
     let mut graph = create_test_graph();
 
     // Fast attack
-    let fast_id = graph.add_node(SignalNode::ADSR {
-        attack: Signal::Value(0.001),  // 1ms
-        decay: Signal::Value(0.05),
-        sustain: Signal::Value(0.7),
-        release: Signal::Value(0.1),
-        state: ADSRState::default(),
-    });
+    let fast_id = graph.add_node(SignalNode::ADSR { attack: 
+        Signal::Value(0.001),  // 1ms
+        Signal::Value(0.05),
+
+        decay: Signal::Value(0.7),
+
+        sustain: Signal::Value(0.1),
+    );
 
     // Slow attack
-    let slow_id = graph.add_node(SignalNode::ADSR {
-        attack: Signal::Value(0.05),   // 50ms
-        decay: Signal::Value(0.05),
-        sustain: Signal::Value(0.7),
-        release: Signal::Value(0.1),
+    let slow_id = graph.add_node(SignalNode::ADSR { attack: 
+        Signal::Value(0.05),   // 50ms
+        Signal::Value(0.05),
+
+        release: Signal::Value(0.7),
+        decay: Signal::Value(0.1),
+
         state: ADSRState::default(),
+
     });
 
     let buffer_size = 512;
@@ -156,20 +158,25 @@ fn test_adsr_different_sustain_levels() {
 
     // High sustain
     let high_id = graph.add_node(SignalNode::ADSR {
+
         attack: Signal::Value(0.001),
+
         decay: Signal::Value(0.002),
+
         sustain: Signal::Value(0.9),   // 90%
-        release: Signal::Value(0.1),
-        state: ADSRState::default(),
-    });
+        Signal::Value(0.1),
+    );
 
     // Low sustain
-    let low_id = graph.add_node(SignalNode::ADSR {
-        attack: Signal::Value(0.001),
-        decay: Signal::Value(0.002),
+    let low_id = graph.add_node(SignalNode::ADSR { attack: 
+        Signal::Value(0.001),
+
+        release: Signal::Value(0.002),
         sustain: Signal::Value(0.3),   // 30%
-        release: Signal::Value(0.1),
+        Signal::Value(0.1),
+
         state: ADSRState::default(),
+
     });
 
     let buffer_size = 512;
@@ -198,11 +205,17 @@ fn test_adsr_zero_attack() {
 
     // Zero attack (should be clamped to minimum)
     let adsr_id = graph.add_node(SignalNode::ADSR {
+
         attack: Signal::Value(0.0),
+
         decay: Signal::Value(0.05),
+
         sustain: Signal::Value(0.7),
+
         release: Signal::Value(0.1),
+
         state: ADSRState::default(),
+
     });
 
     let buffer_size = 512;
@@ -220,20 +233,25 @@ fn test_adsr_sustain_clamping() {
 
     // Sustain > 1.0 (should be clamped)
     let high_id = graph.add_node(SignalNode::ADSR {
+
         attack: Signal::Value(0.001),
+
         decay: Signal::Value(0.002),
+
         sustain: Signal::Value(2.0),   // Should clamp to 1.0
-        release: Signal::Value(0.1),
-        state: ADSRState::default(),
-    });
+        Signal::Value(0.1),
+    );
 
     // Sustain < 0.0 (should be clamped)
-    let low_id = graph.add_node(SignalNode::ADSR {
-        attack: Signal::Value(0.001),
-        decay: Signal::Value(0.002),
-        sustain: Signal::Value(-0.5),  // Should clamp to 0.0
-        release: Signal::Value(0.1),
+    let low_id = graph.add_node(SignalNode::ADSR { attack: 
+        Signal::Value(0.001),
+
+        release: Signal::Value(0.002),
+        release: Signal::Value(-0.5),  // Should clamp to 0.0
+        Signal::Value(0.1),
+
         state: ADSRState::default(),
+
     });
 
     let buffer_size = 512;
@@ -258,12 +276,12 @@ fn test_adsr_all_phases() {
 
     // Balanced ADSR that shows all phases
     let adsr_id = graph.add_node(SignalNode::ADSR {
+
         attack: Signal::Value(0.002),  // 2ms attack
-        decay: Signal::Value(0.003),  // 3ms decay
-        sustain: Signal::Value(0.6),    // 60% sustain
-        release: Signal::Value(0.003),  // 3ms release
-        state: ADSRState::default(),
-    });
+        Signal::Value(0.003),  // 3ms decay
+        Signal::Value(0.6),    // 60% sustain
+        Signal::Value(0.003),  // 3ms release
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -285,12 +303,17 @@ fn test_adsr_all_phases() {
 fn test_adsr_multiple_buffers() {
     let mut graph = create_test_graph();
 
-    let adsr_id = graph.add_node(SignalNode::ADSR {
-        attack: Signal::Value(0.01),
+    let adsr_id = graph.add_node(SignalNode::ADSR { attack: 
+        Signal::Value(0.01),
+
         decay: Signal::Value(0.05),
+
         sustain: Signal::Value(0.7),
+
         release: Signal::Value(0.1),
+
         state: ADSRState::default(),
+
     });
 
     // Generate multiple consecutive buffers
@@ -313,11 +336,23 @@ fn test_adsr_continuity_across_buffers() {
     let mut graph = create_test_graph();
 
     let adsr_id = graph.add_node(SignalNode::ADSR {
+
+
         attack: Signal::Value(0.01),
+
+
         decay: Signal::Value(0.05),
+
+
         sustain: Signal::Value(0.7),
+
+
         release: Signal::Value(0.1),
+
+
         state: ADSRState::default(),
+
+
     });
 
     // Generate two consecutive buffers
@@ -352,11 +387,23 @@ fn test_adsr_buffer_performance() {
     let mut graph = create_test_graph();
 
     let adsr_id = graph.add_node(SignalNode::ADSR {
+
+
         attack: Signal::Value(0.01),
+
+
         decay: Signal::Value(0.05),
+
+
         sustain: Signal::Value(0.7),
+
+
         release: Signal::Value(0.1),
+
+
         state: ADSRState::default(),
+
+
     });
 
     let buffer_size = 512;
@@ -386,11 +433,23 @@ fn test_adsr_amplitude_range() {
     let mut graph = create_test_graph();
 
     let adsr_id = graph.add_node(SignalNode::ADSR {
+
+
         attack: Signal::Value(0.01),
+
+
         decay: Signal::Value(0.05),
+
+
         sustain: Signal::Value(0.7),
+
+
         release: Signal::Value(0.1),
+
+
         state: ADSRState::default(),
+
+
     });
 
     let buffer_size = 512;
@@ -409,13 +468,13 @@ fn test_adsr_reaches_peak() {
     let mut graph = create_test_graph();
 
     // Very fast attack to ensure we reach peak
-    let adsr_id = graph.add_node(SignalNode::ADSR {
-        attack: Signal::Value(0.001),  // 1ms attack
-        decay: Signal::Value(0.1),
-        sustain: Signal::Value(0.7),
-        release: Signal::Value(0.1),
+    let adsr_id = graph.add_node(SignalNode::ADSR { attack: 
+        Signal::Value(0.001),  // 1ms attack
+        Signal::Value(0.1),
+        Signal::Value(0.7),
+        Signal::Value(0.1),
         state: ADSRState::default(),
-    });
+    })
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];

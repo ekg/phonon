@@ -6,7 +6,7 @@
 /// The Noise node uses a Linear Congruential Generator (LCG) for deterministic
 /// noise generation. This is different from WhiteNoise which uses rand::thread_rng().
 
-use phonon::unified_graph::UnifiedSignalGraph;
+use phonon::unified_graph::{UnifiedSignalGraph, SignalNode};
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -39,8 +39,12 @@ fn test_noise_deterministic() {
     let mut graph = create_test_graph();
 
     // Two noise nodes with same seed
-    let noise1_id = graph.add_noise_node(12345);
-    let noise2_id = graph.add_noise_node(12345);
+    let noise1_id = graph.add_node(SignalNode::Noise {
+        seed: 12345,
+    });
+    let noise2_id = graph.add_node(SignalNode::Noise {
+        seed: 12345,
+    });
 
     let buffer_size = 512;
     let mut output1 = vec![0.0; buffer_size];
@@ -60,7 +64,9 @@ fn test_noise_deterministic() {
 fn test_noise_deterministic_multiple_buffers() {
     let mut graph = create_test_graph();
 
-    let noise_id = graph.add_noise_node(42);
+    let noise_id = graph.add_node(SignalNode::Noise {
+        seed: 42,
+    });
 
     // Generate first buffer
     let buffer_size = 512;
@@ -68,7 +74,9 @@ fn test_noise_deterministic_multiple_buffers() {
     graph.eval_node_buffer(&noise_id, &mut buffer1);
 
     // Reset by creating a new node with same seed
-    let noise_id2 = graph.add_noise_node(42);
+    let noise_id2 = graph.add_node(SignalNode::Noise {
+        seed: 42,
+    });
     let mut buffer2 = vec![0.0; buffer_size];
     graph.eval_node_buffer(&noise_id2, &mut buffer2);
 
@@ -87,8 +95,12 @@ fn test_noise_deterministic_multiple_buffers() {
 fn test_noise_different_seeds() {
     let mut graph = create_test_graph();
 
-    let noise1_id = graph.add_noise_node(12345);
-    let noise2_id = graph.add_noise_node(67890);
+    let noise1_id = graph.add_node(SignalNode::Noise {
+        seed: 12345,
+    });
+    let noise2_id = graph.add_node(SignalNode::Noise {
+        seed: 67890,
+    });
 
     let buffer_size = 512;
     let mut output1 = vec![0.0; buffer_size];
@@ -115,8 +127,12 @@ fn test_noise_different_seeds() {
 fn test_noise_zero_vs_nonzero_seed() {
     let mut graph = create_test_graph();
 
-    let noise1_id = graph.add_noise_node(0);
-    let noise2_id = graph.add_noise_node(1);
+    let noise1_id = graph.add_node(SignalNode::Noise {
+        seed: 0,
+    });
+    let noise2_id = graph.add_node(SignalNode::Noise {
+        seed: 1,
+    });
 
     let buffer_size = 512;
     let mut output1 = vec![0.0; buffer_size];
@@ -166,7 +182,9 @@ fn test_noise_output_range() {
 fn test_noise_uses_full_range() {
     let mut graph = create_test_graph();
 
-    let noise_id = graph.add_noise_node(12345);
+    let noise_id = graph.add_node(SignalNode::Noise {
+        seed: 12345,
+    });
 
     // Generate multiple buffers to get good coverage
     let buffer_size = 512;
@@ -196,7 +214,9 @@ fn test_noise_uses_full_range() {
 fn test_noise_mean_near_zero() {
     let mut graph = create_test_graph();
 
-    let noise_id = graph.add_noise_node(42);
+    let noise_id = graph.add_node(SignalNode::Noise {
+        seed: 42,
+    });
 
     // Generate large sample to get accurate mean
     let buffer_size = 4096;
@@ -215,7 +235,9 @@ fn test_noise_mean_near_zero() {
 fn test_noise_rms_appropriate() {
     let mut graph = create_test_graph();
 
-    let noise_id = graph.add_noise_node(54321);
+    let noise_id = graph.add_node(SignalNode::Noise {
+        seed: 54321,
+    });
 
     let buffer_size = 4096;
     let mut output = vec![0.0; buffer_size];
@@ -233,7 +255,9 @@ fn test_noise_rms_appropriate() {
 fn test_noise_distribution_uniformity() {
     let mut graph = create_test_graph();
 
-    let noise_id = graph.add_noise_node(99999);
+    let noise_id = graph.add_node(SignalNode::Noise {
+        seed: 99999,
+    });
 
     // Generate large sample
     let buffer_size = 4096;
@@ -268,7 +292,9 @@ fn test_noise_distribution_uniformity() {
 fn test_noise_state_continues_across_buffers() {
     let mut graph = create_test_graph();
 
-    let noise_id = graph.add_noise_node(777);
+    let noise_id = graph.add_node(SignalNode::Noise {
+        seed: 777,
+    });
 
     // Generate three consecutive buffers
     let buffer_size = 512;
@@ -305,7 +331,9 @@ fn test_noise_state_continues_across_buffers() {
 fn test_noise_no_repetition_within_buffer() {
     let mut graph = create_test_graph();
 
-    let noise_id = graph.add_noise_node(555);
+    let noise_id = graph.add_node(SignalNode::Noise {
+        seed: 555,
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -335,9 +363,15 @@ fn test_noise_multiple_nodes_independent() {
     let mut graph = create_test_graph();
 
     // Create multiple noise nodes with different seeds
-    let noise1_id = graph.add_noise_node(111);
-    let noise2_id = graph.add_noise_node(222);
-    let noise3_id = graph.add_noise_node(333);
+    let noise1_id = graph.add_node(SignalNode::Noise {
+        seed: 111,
+    });
+    let noise2_id = graph.add_node(SignalNode::Noise {
+        seed: 222,
+    });
+    let noise3_id = graph.add_node(SignalNode::Noise {
+        seed: 333,
+    });
 
     let buffer_size = 512;
     let mut output1 = vec![0.0; buffer_size];
@@ -376,7 +410,9 @@ fn test_noise_multiple_nodes_independent() {
 fn test_noise_buffer_performance() {
     let mut graph = create_test_graph();
 
-    let noise_id = graph.add_noise_node(42);
+    let noise_id = graph.add_node(SignalNode::Noise {
+        seed: 42,
+    });
 
     let buffer_size = 512;
     let iterations = 1000;
@@ -428,7 +464,9 @@ fn test_noise_max_seed() {
 fn test_noise_small_buffer() {
     let mut graph = create_test_graph();
 
-    let noise_id = graph.add_noise_node(888);
+    let noise_id = graph.add_node(SignalNode::Noise {
+        seed: 888,
+    });
 
     // Test with very small buffer
     let buffer_size = 4;
@@ -451,7 +489,9 @@ fn test_noise_small_buffer() {
 fn test_noise_large_buffer() {
     let mut graph = create_test_graph();
 
-    let noise_id = graph.add_noise_node(999);
+    let noise_id = graph.add_node(SignalNode::Noise {
+        seed: 999,
+    });
 
     // Test with large buffer (1 second at 44.1kHz)
     let buffer_size = 44100;

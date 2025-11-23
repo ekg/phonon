@@ -5,7 +5,7 @@
 ///
 /// Complements test_fm_oscillator.rs which tests at the DSL/compiler level.
 
-use phonon::unified_graph::{Signal, UnifiedSignalGraph};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 use std::f32::consts::PI;
 
 /// Helper: Create a test graph
@@ -38,11 +38,13 @@ fn count_zero_crossings(buffer: &[f32]) -> usize {
 fn test_fm_buffer_basic_tone() {
     let mut graph = create_test_graph();
 
-    let fm_id = graph.add_fmoscillator_node(
-        Signal::Value(440.0),  // Carrier: A4
-        Signal::Value(220.0),  // Modulator: A3
-        Signal::Value(2.0),    // Mod index
-    );
+    let fm_id = graph.add_node(SignalNode::FMOscillator {
+            carrier_freq: Signal::Value(440.0),
+            modulator_freq: Signal::Value(220.0),
+            mod_index: Signal::Value(2.0),
+            carrier_phase: std::cell::RefCell::new(0.0),
+            modulator_phase: std::cell::RefCell::new(0.0),
+        });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -63,11 +65,13 @@ fn test_fm_buffer_zero_index_equals_sine() {
     let mut graph = create_test_graph();
 
     // With mod_index=0, FM should behave like a pure sine wave
-    let fm_id = graph.add_fmoscillator_node(
-        Signal::Value(440.0),
-        Signal::Value(220.0),  // Irrelevant when index=0
-        Signal::Value(0.0),
-    );
+    let fm_id = graph.add_node(SignalNode::FMOscillator {
+            carrier_freq: Signal::Value(440.0),
+            modulator_freq: Signal::Value(220.0),
+            mod_index: Signal::Value(0.0),
+            carrier_phase: std::cell::RefCell::new(0.0),
+            modulator_phase: std::cell::RefCell::new(0.0),
+        });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -87,11 +91,13 @@ fn test_fm_buffer_zero_index_equals_sine() {
 fn test_fm_buffer_phase_continuity() {
     let mut graph = create_test_graph();
 
-    let fm_id = graph.add_fmoscillator_node(
-        Signal::Value(440.0),
-        Signal::Value(220.0),
-        Signal::Value(2.0),
-    );
+    let fm_id = graph.add_node(SignalNode::FMOscillator {
+            carrier_freq: Signal::Value(440.0),
+            modulator_freq: Signal::Value(220.0),
+            mod_index: Signal::Value(2.0),
+            carrier_phase: std::cell::RefCell::new(0.0),
+            modulator_phase: std::cell::RefCell::new(0.0),
+        });
 
     let buffer_size = 512;
     let mut buffer1 = vec![0.0; buffer_size];
@@ -115,11 +121,13 @@ fn test_fm_buffer_phase_continuity() {
 fn test_fm_buffer_multiple_buffers_consistent() {
     let mut graph = create_test_graph();
 
-    let fm_id = graph.add_fmoscillator_node(
-        Signal::Value(440.0),
-        Signal::Value(220.0),
-        Signal::Value(3.0),
-    );
+    let fm_id = graph.add_node(SignalNode::FMOscillator {
+            carrier_freq: Signal::Value(440.0),
+            modulator_freq: Signal::Value(220.0),
+            mod_index: Signal::Value(3.0),
+            carrier_phase: std::cell::RefCell::new(0.0),
+            modulator_phase: std::cell::RefCell::new(0.0),
+        });
 
     let buffer_size = 512;
     let num_buffers = 10;
@@ -147,11 +155,13 @@ fn test_fm_buffer_varying_mod_index() {
     let indices = vec![0.0, 1.0, 2.0, 5.0, 10.0];
 
     for &index in &indices {
-        let fm_id = graph.add_fmoscillator_node(
-            Signal::Value(440.0),
-            Signal::Value(110.0),
-            Signal::Value(index),
-        );
+        let fm_id = graph.add_node(SignalNode::FMOscillator {
+            carrier_freq: Signal::Value(440.0),
+            modulator_freq: Signal::Value(110.0),
+            mod_index: Signal::Value(index),
+            carrier_phase: std::cell::RefCell::new(0.0),
+            modulator_phase: std::cell::RefCell::new(0.0),
+        });
 
         let mut output = vec![0.0; buffer_size];
         graph.eval_node_buffer(&fm_id, &mut output);
@@ -175,17 +185,21 @@ fn test_fm_buffer_different_carriers() {
     let buffer_size = 512;
 
     // Two different carrier frequencies
-    let fm_a3 = graph.add_fmoscillator_node(
-        Signal::Value(220.0),  // A3
-        Signal::Value(110.0),
-        Signal::Value(2.0),
-    );
+    let fm_a3 = graph.add_node(SignalNode::FMOscillator {
+            carrier_freq: Signal::Value(220.0),
+            modulator_freq: Signal::Value(110.0),
+            mod_index: Signal::Value(2.0),
+            carrier_phase: std::cell::RefCell::new(0.0),
+            modulator_phase: std::cell::RefCell::new(0.0),
+        });
 
-    let fm_a4 = graph.add_fmoscillator_node(
-        Signal::Value(440.0),  // A4
-        Signal::Value(110.0),
-        Signal::Value(2.0),
-    );
+    let fm_a4 = graph.add_node(SignalNode::FMOscillator {
+            carrier_freq: Signal::Value(440.0),
+            modulator_freq: Signal::Value(110.0),
+            mod_index: Signal::Value(2.0),
+            carrier_phase: std::cell::RefCell::new(0.0),
+            modulator_phase: std::cell::RefCell::new(0.0),
+        });
 
     let mut output_a3 = vec![0.0; buffer_size];
     let mut output_a4 = vec![0.0; buffer_size];
@@ -210,11 +224,13 @@ fn test_fm_buffer_different_carriers() {
 fn test_fm_buffer_zero_carrier() {
     let mut graph = create_test_graph();
 
-    let fm_id = graph.add_fmoscillator_node(
-        Signal::Value(0.0),
-        Signal::Value(220.0),
-        Signal::Value(2.0),
-    );
+    let fm_id = graph.add_node(SignalNode::FMOscillator {
+            carrier_freq: Signal::Value(0.0),
+            modulator_freq: Signal::Value(220.0),
+            mod_index: Signal::Value(2.0),
+            carrier_phase: std::cell::RefCell::new(0.0),
+            modulator_phase: std::cell::RefCell::new(0.0),
+        });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -231,11 +247,13 @@ fn test_fm_buffer_zero_carrier() {
 fn test_fm_buffer_negative_frequencies_clamped() {
     let mut graph = create_test_graph();
 
-    let fm_id = graph.add_fmoscillator_node(
-        Signal::Value(-100.0),  // Negative
-        Signal::Value(-50.0),   // Negative
-        Signal::Value(2.0),
-    );
+    let fm_id = graph.add_node(SignalNode::FMOscillator {
+            carrier_freq: Signal::Value(-100.0),
+            modulator_freq: Signal::Value(-50.0),
+            mod_index: Signal::Value(2.0),
+            carrier_phase: std::cell::RefCell::new(0.0),
+            modulator_phase: std::cell::RefCell::new(0.0),
+        });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -250,11 +268,13 @@ fn test_fm_buffer_negative_frequencies_clamped() {
 fn test_fm_buffer_high_mod_index() {
     let mut graph = create_test_graph();
 
-    let fm_id = graph.add_fmoscillator_node(
-        Signal::Value(440.0),
-        Signal::Value(220.0),
-        Signal::Value(20.0),   // Very high index
-    );
+    let fm_id = graph.add_node(SignalNode::FMOscillator {
+            carrier_freq: Signal::Value(440.0),
+            modulator_freq: Signal::Value(220.0),
+            mod_index: Signal::Value(20.0),
+            carrier_phase: std::cell::RefCell::new(0.0),
+            modulator_phase: std::cell::RefCell::new(0.0),
+        });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -277,11 +297,13 @@ fn test_fm_buffer_high_mod_index() {
 fn test_fm_buffer_performance() {
     let mut graph = create_test_graph();
 
-    let fm_id = graph.add_fmoscillator_node(
-        Signal::Value(440.0),
-        Signal::Value(220.0),
-        Signal::Value(3.0),
-    );
+    let fm_id = graph.add_node(SignalNode::FMOscillator {
+            carrier_freq: Signal::Value(440.0),
+            modulator_freq: Signal::Value(220.0),
+            mod_index: Signal::Value(3.0),
+            carrier_phase: std::cell::RefCell::new(0.0),
+            modulator_phase: std::cell::RefCell::new(0.0),
+        });
 
     let buffer_size = 512;
     let iterations = 1000;

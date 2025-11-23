@@ -3,7 +3,7 @@
 /// These tests verify that Expander buffer evaluation produces correct
 /// dynamics processing behavior (upward expansion) and maintains proper state continuity.
 
-use phonon::unified_graph::{Signal, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform, ExpanderState};
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -47,13 +47,14 @@ fn test_expander_boosts_loud_signals() {
     let loud_signal = generate_loud_signal(&mut graph, 0.8);
 
     // Expander: threshold = -20 dB, ratio = 2:1
-    let exp_id = graph.add_expander_node(
-        loud_signal.clone(),
-        Signal::Value(-20.0),  // threshold (dB)
-        Signal::Value(2.0),     // ratio (expansion)
-        Signal::Value(0.001),   // attack
-        Signal::Value(0.1),     // release
-    );
+    let exp_id = graph.add_node(SignalNode::Expander {
+            input: loud_signal.clone(),
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     let buffer_size = 4410; // 100ms at 44.1kHz
     let mut expanded = vec![0.0; buffer_size];
@@ -88,13 +89,14 @@ fn test_expander_passes_quiet_signals() {
     let quiet_signal = generate_quiet_signal(&mut graph, 0.05);
 
     // Expander: threshold = -20 dB
-    let exp_id = graph.add_expander_node(
-        quiet_signal.clone(),
-        Signal::Value(-20.0),
-        Signal::Value(2.0),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_id = graph.add_node(SignalNode::Expander {
+            input: quiet_signal.clone(),
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     let buffer_size = 4410;
     let mut expanded = vec![0.0; buffer_size];
@@ -130,22 +132,24 @@ fn test_expander_threshold_effect() {
     let signal = generate_loud_signal(&mut graph, 0.4);
 
     // High threshold (-10 dB) - should expand less
-    let exp_high_thresh = graph.add_expander_node(
-        signal.clone(),
-        Signal::Value(-10.0),
-        Signal::Value(2.0),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_high_thresh = graph.add_node(SignalNode::Expander {
+            input: signal.clone(),
+            threshold: Signal::Value(-10.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     // Low threshold (-30 dB) - should expand more
-    let exp_low_thresh = graph.add_expander_node(
-        signal,
-        Signal::Value(-30.0),
-        Signal::Value(2.0),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_low_thresh = graph.add_node(SignalNode::Expander {
+            input: signal,
+            threshold: Signal::Value(-30.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     let buffer_size = 4410;
     let mut high_thresh_output = vec![0.0; buffer_size];
@@ -174,22 +178,24 @@ fn test_expander_ratio_effect() {
     let loud_signal = generate_loud_signal(&mut graph, 0.8);
 
     // Low ratio (2:1) - gentle expansion
-    let exp_low_ratio = graph.add_expander_node(
-        loud_signal.clone(),
-        Signal::Value(-20.0),
-        Signal::Value(2.0),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_low_ratio = graph.add_node(SignalNode::Expander {
+            input: loud_signal.clone(),
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     // High ratio (5:1) - aggressive expansion
-    let exp_high_ratio = graph.add_expander_node(
-        loud_signal,
-        Signal::Value(-20.0),
-        Signal::Value(5.0),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_high_ratio = graph.add_node(SignalNode::Expander {
+            input: loud_signal,
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(5.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     let buffer_size = 4410;
     let mut low_ratio_output = vec![0.0; buffer_size];
@@ -218,22 +224,24 @@ fn test_expander_attack_time() {
     let loud_signal = generate_loud_signal(&mut graph, 0.8);
 
     // Fast attack (0.001s) - quick response
-    let exp_fast = graph.add_expander_node(
-        loud_signal.clone(),
-        Signal::Value(-20.0),
-        Signal::Value(2.0),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_fast = graph.add_node(SignalNode::Expander {
+            input: loud_signal.clone(),
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     // Slow attack (0.1s) - slower response
-    let exp_slow = graph.add_expander_node(
-        loud_signal,
-        Signal::Value(-20.0),
-        Signal::Value(2.0),
-        Signal::Value(0.1),
-        Signal::Value(0.1),
-    );
+    let exp_slow = graph.add_node(SignalNode::Expander {
+            input: loud_signal,
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.1),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     let buffer_size = 4410; // 100ms
     let mut fast_output = vec![0.0; buffer_size];
@@ -264,22 +272,24 @@ fn test_expander_release_time() {
     let loud_signal = generate_loud_signal(&mut graph, 0.8);
 
     // Fast release
-    let exp_fast_rel = graph.add_expander_node(
-        loud_signal.clone(),
-        Signal::Value(-20.0),
-        Signal::Value(2.0),
-        Signal::Value(0.001),
-        Signal::Value(0.01),
-    );
+    let exp_fast_rel = graph.add_node(SignalNode::Expander {
+            input: loud_signal.clone(),
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.01),
+            state: ExpanderState::new(),
+        });
 
     // Slow release
-    let exp_slow_rel = graph.add_expander_node(
-        loud_signal,
-        Signal::Value(-20.0),
-        Signal::Value(2.0),
-        Signal::Value(0.001),
-        Signal::Value(0.5),
-    );
+    let exp_slow_rel = graph.add_node(SignalNode::Expander {
+            input: loud_signal,
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.5),
+            state: ExpanderState::new(),
+        });
 
     let buffer_size = 4410;
     let mut fast_output = vec![0.0; buffer_size];
@@ -307,13 +317,14 @@ fn test_expander_state_continuity() {
 
     let loud_signal = generate_loud_signal(&mut graph, 0.8);
 
-    let exp_id = graph.add_expander_node(
-        loud_signal,
-        Signal::Value(-20.0),
-        Signal::Value(2.0),
-        Signal::Value(0.01),
-        Signal::Value(0.1),
-    );
+    let exp_id = graph.add_node(SignalNode::Expander {
+            input: loud_signal,
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.01),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     // Generate two consecutive buffers
     let buffer_size = 512;
@@ -343,13 +354,14 @@ fn test_expander_multiple_buffers() {
     let mut graph = create_test_graph();
 
     let loud_signal = generate_loud_signal(&mut graph, 0.8);
-    let exp_id = graph.add_expander_node(
-        loud_signal,
-        Signal::Value(-20.0),
-        Signal::Value(2.0),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_id = graph.add_node(SignalNode::Expander {
+            input: loud_signal,
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     // Generate 10 consecutive buffers
     let buffer_size = 512;
@@ -387,13 +399,14 @@ fn test_expander_modulated_threshold() {
     let lfo_scaled = graph.add_multiply_node(Signal::Node(lfo_id), Signal::Value(10.0));
     let threshold_signal = graph.add_add_node(Signal::Node(lfo_scaled), Signal::Value(-20.0));
 
-    let exp_id = graph.add_expander_node(
-        loud_signal,
-        Signal::Node(threshold_signal),
-        Signal::Value(2.0),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_id = graph.add_node(SignalNode::Expander {
+            input: loud_signal,
+            threshold: Signal::Node(threshold_signal),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     let buffer_size = 4410;
     let mut output = vec![0.0; buffer_size];
@@ -416,22 +429,24 @@ fn test_expander_extreme_ratios() {
     let loud_signal = generate_loud_signal(&mut graph, 0.8);
 
     // Minimum ratio (1:1 - no expansion)
-    let exp_min = graph.add_expander_node(
-        loud_signal.clone(),
-        Signal::Value(-20.0),
-        Signal::Value(1.0),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_min = graph.add_node(SignalNode::Expander {
+            input: loud_signal.clone(),
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(1.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     // Maximum ratio (10:1 - aggressive expansion)
-    let exp_max = graph.add_expander_node(
-        loud_signal,
-        Signal::Value(-20.0),
-        Signal::Value(10.0),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_max = graph.add_node(SignalNode::Expander {
+            input: loud_signal,
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(10.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     let buffer_size = 4410;
     let mut min_output = vec![0.0; buffer_size];
@@ -466,13 +481,14 @@ fn test_expander_no_input() {
     let mut graph = create_test_graph();
 
     // Silent input
-    let exp_id = graph.add_expander_node(
-        Signal::Value(0.0),
-        Signal::Value(-20.0),
-        Signal::Value(2.0),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_id = graph.add_node(SignalNode::Expander {
+            input: Signal::Value(0.0),
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -494,13 +510,14 @@ fn test_expander_buffer_performance() {
     let mut graph = create_test_graph();
 
     let loud_signal = generate_loud_signal(&mut graph, 0.8);
-    let exp_id = graph.add_expander_node(
-        loud_signal,
-        Signal::Value(-20.0),
-        Signal::Value(2.0),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_id = graph.add_node(SignalNode::Expander {
+            input: loud_signal,
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     let buffer_size = 512;
     let iterations = 1000;
@@ -531,13 +548,14 @@ fn test_expander_constant_parameters() {
     let loud_signal = generate_loud_signal(&mut graph, 0.8);
 
     // All constant parameters
-    let exp_id = graph.add_expander_node(
-        loud_signal,
-        Signal::Value(-20.0),
-        Signal::Value(2.0),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_id = graph.add_node(SignalNode::Expander {
+            input: loud_signal,
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Value(2.0),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -563,13 +581,14 @@ fn test_expander_modulated_ratio() {
     let lfo_scaled = graph.add_multiply_node(Signal::Node(lfo_id), Signal::Value(1.0));
     let ratio_signal = graph.add_add_node(Signal::Node(lfo_scaled), Signal::Value(3.0));
 
-    let exp_id = graph.add_expander_node(
-        loud_signal,
-        Signal::Value(-20.0),
-        Signal::Node(ratio_signal),
-        Signal::Value(0.001),
-        Signal::Value(0.1),
-    );
+    let exp_id = graph.add_node(SignalNode::Expander {
+            input: loud_signal,
+            threshold: Signal::Value(-20.0),
+            ratio: Signal::Node(ratio_signal),
+            attack: Signal::Value(0.001),
+            release: Signal::Value(0.1),
+            state: ExpanderState::new(),
+        });
 
     let buffer_size = 4410;
     let mut output = vec![0.0; buffer_size];

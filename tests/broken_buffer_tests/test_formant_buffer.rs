@@ -3,7 +3,7 @@
 /// These tests verify that Formant filter buffer evaluation produces correct
 /// vocal tract resonances and formant filtering behavior.
 
-use phonon::unified_graph::{Signal, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform, FormantState};
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -54,15 +54,16 @@ fn test_formant_creates_resonances() {
 
     // Create formant filter for vowel /a/ (male voice)
     // F1=730, F2=1090, F3=2440 Hz
-    let formant_id = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(730.0),  // F1
-        Signal::Value(1090.0), // F2
-        Signal::Value(2440.0), // F3
-        Signal::Value(80.0),   // BW1
-        Signal::Value(90.0),   // BW2
-        Signal::Value(120.0),  // BW3
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(80.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(120.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 4410; // 100ms at 44.1kHz
     let mut filtered = vec![0.0; buffer_size];
@@ -103,15 +104,16 @@ fn test_formant_vowel_a_characteristics() {
     let pulse_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Square);
 
     // Vowel /a/ formants (father): F1=730, F2=1090, F3=2440
-    let formant_id = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(80.0),
-        Signal::Value(90.0),
-        Signal::Value(120.0),
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(80.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(120.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 4410;
     let mut output = vec![0.0; buffer_size];
@@ -144,15 +146,16 @@ fn test_formant_vowel_i_characteristics() {
     let pulse_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Square);
 
     // Vowel /i/ formants (beet): F1=270, F2=2290, F3=3010
-    let formant_id = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(270.0),
-        Signal::Value(2290.0),
-        Signal::Value(3010.0),
-        Signal::Value(60.0),
-        Signal::Value(90.0),
-        Signal::Value(150.0),
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(270.0),
+            f2: Signal::Value(2290.0),
+            f3: Signal::Value(3010.0),
+            bw1: Signal::Value(60.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(150.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 4410;
     let mut output = vec![0.0; buffer_size];
@@ -183,15 +186,16 @@ fn test_formant_vowel_u_characteristics() {
     let pulse_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Square);
 
     // Vowel /u/ formants (boot): F1=300, F2=870, F3=2240
-    let formant_id = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(300.0),
-        Signal::Value(870.0),
-        Signal::Value(2240.0),
-        Signal::Value(60.0),
-        Signal::Value(80.0),
-        Signal::Value(100.0),
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(300.0),
+            f2: Signal::Value(870.0),
+            f3: Signal::Value(2240.0),
+            bw1: Signal::Value(60.0),
+            bw2: Signal::Value(80.0),
+            bw3: Signal::Value(100.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 4410;
     let mut output = vec![0.0; buffer_size];
@@ -225,26 +229,28 @@ fn test_formant_f1_variation() {
     let pulse_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Square);
 
     // Low F1 (270 Hz - /i/ like)
-    let formant_low_f1 = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(270.0),
-        Signal::Value(2290.0),
-        Signal::Value(3010.0),
-        Signal::Value(60.0),
-        Signal::Value(90.0),
-        Signal::Value(150.0),
-    );
+    let formant_low_f1 = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(270.0),
+            f2: Signal::Value(2290.0),
+            f3: Signal::Value(3010.0),
+            bw1: Signal::Value(60.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(150.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     // High F1 (730 Hz - /a/ like)
-    let formant_high_f1 = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(80.0),
-        Signal::Value(90.0),
-        Signal::Value(120.0),
-    );
+    let formant_high_f1 = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(80.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(120.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 4410;
     let mut low_f1_output = vec![0.0; buffer_size];
@@ -271,26 +277,28 @@ fn test_formant_bandwidth_variation() {
     let pulse_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Square);
 
     // Narrow bandwidth (sharp resonances)
-    let formant_narrow = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(40.0),  // Narrow
-        Signal::Value(45.0),  // Narrow
-        Signal::Value(60.0),  // Narrow
-    );
+    let formant_narrow = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(40.0),
+            bw2: Signal::Value(45.0),
+            bw3: Signal::Value(60.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     // Wide bandwidth (broader resonances)
-    let formant_wide = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(160.0), // Wide
-        Signal::Value(180.0), // Wide
-        Signal::Value(240.0), // Wide
-    );
+    let formant_wide = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(160.0),
+            bw2: Signal::Value(180.0),
+            bw3: Signal::Value(240.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 4410;
     let mut narrow_output = vec![0.0; buffer_size];
@@ -330,15 +338,16 @@ fn test_formant_with_sawtooth_excitation() {
     // Sawtooth excitation (rich harmonics like vocal cords)
     let saw_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Saw);
 
-    let formant_id = graph.add_formant_node(
-        Signal::Node(saw_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(80.0),
-        Signal::Value(90.0),
-        Signal::Value(120.0),
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(saw_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(80.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(120.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 4410;
     let mut output = vec![0.0; buffer_size];
@@ -359,15 +368,16 @@ fn test_formant_with_sine_excitation() {
     // Sine excitation (pure tone)
     let sine_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Sine);
 
-    let formant_id = graph.add_formant_node(
-        Signal::Node(sine_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(80.0),
-        Signal::Value(90.0),
-        Signal::Value(120.0),
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(sine_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(80.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(120.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 4410;
     let mut output = vec![0.0; buffer_size];
@@ -388,15 +398,16 @@ fn test_formant_with_noise_excitation() {
     // White noise excitation (for whispered/breathy sounds)
     let noise_id = graph.add_whitenoise_node();
 
-    let formant_id = graph.add_formant_node(
-        Signal::Node(noise_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(80.0),
-        Signal::Value(90.0),
-        Signal::Value(120.0),
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(noise_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(80.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(120.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 4410;
     let mut output = vec![0.0; buffer_size];
@@ -423,15 +434,16 @@ fn test_formant_state_continuity() {
 
     let pulse_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Square);
 
-    let formant_id = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(80.0),
-        Signal::Value(90.0),
-        Signal::Value(120.0),
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(80.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(120.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     // Generate two consecutive buffers
     let buffer_size = 512;
@@ -459,15 +471,16 @@ fn test_formant_multiple_buffers() {
 
     let pulse_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Square);
 
-    let formant_id = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(80.0),
-        Signal::Value(90.0),
-        Signal::Value(120.0),
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(80.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(120.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     // Generate 10 consecutive buffers
     let buffer_size = 512;
@@ -507,15 +520,16 @@ fn test_formant_modulated_f1() {
     let lfo_scaled = graph.add_multiply_node(Signal::Node(lfo_id), Signal::Value(300.0));
     let f1_signal = graph.add_add_node(Signal::Node(lfo_scaled), Signal::Value(500.0));
 
-    let formant_id = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Node(f1_signal),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(80.0),
-        Signal::Value(90.0),
-        Signal::Value(120.0),
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Node(f1_signal),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(80.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(120.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 4410;
     let mut output = vec![0.0; buffer_size];
@@ -543,15 +557,16 @@ fn test_formant_modulated_bandwidth() {
     let lfo_scaled = graph.add_multiply_node(Signal::Node(lfo_id), Signal::Value(40.0));
     let bw1_signal = graph.add_add_node(Signal::Node(lfo_scaled), Signal::Value(80.0));
 
-    let formant_id = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Node(bw1_signal),
-        Signal::Value(90.0),
-        Signal::Value(120.0),
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Node(bw1_signal),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(120.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 4410;
     let mut output = vec![0.0; buffer_size];
@@ -577,26 +592,28 @@ fn test_formant_extreme_formant_frequencies() {
     let pulse_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Square);
 
     // Very low formants
-    let formant_low = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(100.0),
-        Signal::Value(200.0),
-        Signal::Value(300.0),
-        Signal::Value(50.0),
-        Signal::Value(60.0),
-        Signal::Value(70.0),
-    );
+    let formant_low = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(100.0),
+            f2: Signal::Value(200.0),
+            f3: Signal::Value(300.0),
+            bw1: Signal::Value(50.0),
+            bw2: Signal::Value(60.0),
+            bw3: Signal::Value(70.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     // Very high formants
-    let formant_high = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(3000.0),
-        Signal::Value(4000.0),
-        Signal::Value(8000.0),
-        Signal::Value(200.0),
-        Signal::Value(250.0),
-        Signal::Value(300.0),
-    );
+    let formant_high = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(3000.0),
+            f2: Signal::Value(4000.0),
+            f3: Signal::Value(8000.0),
+            bw1: Signal::Value(200.0),
+            bw2: Signal::Value(250.0),
+            bw3: Signal::Value(300.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 512;
     let mut low_output = vec![0.0; buffer_size];
@@ -625,26 +642,28 @@ fn test_formant_extreme_bandwidths() {
     let pulse_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Square);
 
     // Very narrow bandwidth
-    let formant_narrow = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(20.0),
-        Signal::Value(25.0),
-        Signal::Value(30.0),
-    );
+    let formant_narrow = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(20.0),
+            bw2: Signal::Value(25.0),
+            bw3: Signal::Value(30.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     // Very wide bandwidth
-    let formant_wide = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(500.0),
-        Signal::Value(600.0),
-        Signal::Value(800.0),
-    );
+    let formant_wide = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(500.0),
+            bw2: Signal::Value(600.0),
+            bw3: Signal::Value(800.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 512;
     let mut narrow_output = vec![0.0; buffer_size];
@@ -671,15 +690,16 @@ fn test_formant_silent_input() {
     let mut graph = create_test_graph();
 
     // Silent input (constant 0)
-    let formant_id = graph.add_formant_node(
-        Signal::Value(0.0),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(80.0),
-        Signal::Value(90.0),
-        Signal::Value(120.0),
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Value(0.0),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(80.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(120.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -705,15 +725,16 @@ fn test_formant_buffer_performance() {
 
     let pulse_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Square);
 
-    let formant_id = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(80.0),
-        Signal::Value(90.0),
-        Signal::Value(120.0),
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(80.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(120.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 512;
     let iterations = 1000;
@@ -751,15 +772,16 @@ fn test_formant_coefficient_caching() {
     let pulse_id = graph.add_oscillator(Signal::Value(110.0), Waveform::Square);
 
     // Constant formant frequencies (should use cached coefficients)
-    let formant_id = graph.add_formant_node(
-        Signal::Node(pulse_id),
-        Signal::Value(730.0),
-        Signal::Value(1090.0),
-        Signal::Value(2440.0),
-        Signal::Value(80.0),
-        Signal::Value(90.0),
-        Signal::Value(120.0),
-    );
+    let formant_id = graph.add_node(SignalNode::Formant {
+            source: Signal::Node(pulse_id),
+            f1: Signal::Value(730.0),
+            f2: Signal::Value(1090.0),
+            f3: Signal::Value(2440.0),
+            bw1: Signal::Value(80.0),
+            bw2: Signal::Value(90.0),
+            bw3: Signal::Value(120.0),
+            state: FormantState::new(graph.sample_rate()),
+        });
 
     let buffer_size = 4410;
 

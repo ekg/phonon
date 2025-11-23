@@ -25,10 +25,10 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 fn test_add_two_constants() {
     let mut graph = create_test_graph();
 
-    let add_id = graph.add_node(SignalNode::Add {
-        a: Signal::Value(0.3),
-        b: Signal::Value(0.4),
-    });
+    let add_id = graph.add_node(SignalNode::Add { a: 
+        Signal::Value(0.3),
+        Signal::Value(0.4),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -45,10 +45,10 @@ fn test_add_two_constants() {
 fn test_add_positive_and_negative() {
     let mut graph = create_test_graph();
 
-    let add_id = graph.add_node(SignalNode::Add {
-        a: Signal::Value(1.0),
-        b: Signal::Value(-0.4),
-    });
+    let add_id = graph.add_node(SignalNode::Add { a: 
+        Signal::Value(1.0),
+        Signal::Value(-0.4),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -70,13 +70,13 @@ fn test_add_oscillator_and_constant() {
     let mut graph = create_test_graph();
 
     // Create sine oscillator at 440 Hz
-    let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
+    let osc_id = graph.add_oscillator_new(Signal::Value(440.0), Waveform::Sine);
 
     // Add 0.5 to oscillator (DC offset)
-    let add_id = graph.add_node(SignalNode::Add {
-        a: Signal::Node(osc_id),
-        b: Signal::Value(0.5),
-    });
+    let add_id = graph.add_node(SignalNode::Add { a: 
+        Signal::Node(osc_id),
+        Signal::Value(0.5),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -101,14 +101,14 @@ fn test_add_two_oscillators() {
     let mut graph = create_test_graph();
 
     // Create two sine oscillators at different frequencies
-    let osc1_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
-    let osc2_id = graph.add_oscillator(Signal::Value(880.0), Waveform::Sine);
+    let osc1_id = graph.add_oscillator_new(Signal::Value(440.0), Waveform::Sine);
+    let osc2_id = graph.add_oscillator_new(Signal::Value(880.0), Waveform::Sine);
 
     // Add them together
-    let add_id = graph.add_node(SignalNode::Add {
-        a: Signal::Node(osc1_id),
-        b: Signal::Node(osc2_id),
-    });
+    let add_id = graph.add_node(SignalNode::Add { a: 
+        Signal::Node(osc1_id),
+        Signal::Node(osc2_id),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -133,10 +133,10 @@ fn test_add_two_oscillators() {
 fn test_multiply_two_constants() {
     let mut graph = create_test_graph();
 
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Value(0.5),
-        b: Signal::Value(0.8),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Value(0.5),
+        Signal::Value(0.8),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -153,10 +153,10 @@ fn test_multiply_two_constants() {
 fn test_multiply_by_negative() {
     let mut graph = create_test_graph();
 
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Value(0.5),
-        b: Signal::Value(-2.0),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Value(0.5),
+        Signal::Value(-2.0),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -173,10 +173,10 @@ fn test_multiply_by_negative() {
 fn test_multiply_by_zero() {
     let mut graph = create_test_graph();
 
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Value(0.5),
-        b: Signal::Value(0.0),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Value(0.5),
+        Signal::Value(0.0),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -198,13 +198,13 @@ fn test_multiply_oscillator_scale_down() {
     let mut graph = create_test_graph();
 
     // Create sine oscillator at 440 Hz
-    let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
+    let osc_id = graph.add_oscillator_new(Signal::Value(440.0), Waveform::Sine);
 
     // Scale by 0.5 (amplitude reduction)
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Node(osc_id),
-        b: Signal::Value(0.5),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Node(osc_id),
+        Signal::Value(0.5),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -226,13 +226,13 @@ fn test_multiply_oscillator_scale_up() {
     let mut graph = create_test_graph();
 
     // Create sine oscillator at 440 Hz
-    let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
+    let osc_id = graph.add_oscillator_new(Signal::Value(440.0), Waveform::Sine);
 
     // Scale by 2.0 (amplitude increase)
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Node(osc_id),
-        b: Signal::Value(2.0),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Node(osc_id),
+        Signal::Value(2.0),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -258,14 +258,14 @@ fn test_multiply_two_oscillators_ring_mod() {
     let mut graph = create_test_graph();
 
     // Create two sine oscillators
-    let osc1_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
-    let osc2_id = graph.add_oscillator(Signal::Value(100.0), Waveform::Sine);
+    let osc1_id = graph.add_oscillator_new(Signal::Value(440.0), Waveform::Sine);
+    let osc2_id = graph.add_oscillator_new(Signal::Value(100.0), Waveform::Sine);
 
     // Multiply them (ring modulation)
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Node(osc1_id),
-        b: Signal::Node(osc2_id),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Node(osc1_id),
+        Signal::Node(osc2_id),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -292,15 +292,15 @@ fn test_add_then_multiply() {
     let mut graph = create_test_graph();
 
     // (0.5 + 0.3) * 2.0 = 0.8 * 2.0 = 1.6
-    let add_id = graph.add_node(SignalNode::Add {
-        a: Signal::Value(0.5),
-        b: Signal::Value(0.3),
-    });
+    let add_id = graph.add_node(SignalNode::Add { a: 
+        Signal::Value(0.5),
+        Signal::Value(0.3),
+    );
 
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Node(add_id),
-        b: Signal::Value(2.0),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Node(add_id),
+        Signal::Value(2.0),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -317,15 +317,15 @@ fn test_multiply_then_add() {
     let mut graph = create_test_graph();
 
     // (0.5 * 0.4) + 0.1 = 0.2 + 0.1 = 0.3
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Value(0.5),
-        b: Signal::Value(0.4),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Value(0.5),
+        Signal::Value(0.4),
+    );
 
-    let add_id = graph.add_node(SignalNode::Add {
-        a: Signal::Node(mul_id),
-        b: Signal::Value(0.1),
-    });
+    let add_id = graph.add_node(SignalNode::Add { a: 
+        Signal::Node(mul_id),
+        Signal::Value(0.1),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -342,19 +342,19 @@ fn test_oscillator_with_add_and_multiply() {
     let mut graph = create_test_graph();
 
     // Create oscillator
-    let osc_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
+    let osc_id = graph.add_oscillator_new(Signal::Value(440.0), Waveform::Sine);
 
     // Scale by 0.5
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Node(osc_id),
-        b: Signal::Value(0.5),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Node(osc_id),
+        Signal::Value(0.5),
+    );
 
     // Add DC offset of 0.5 (should range [0, 1])
-    let add_id = graph.add_node(SignalNode::Add {
-        a: Signal::Node(mul_id),
-        b: Signal::Value(0.5),
-    });
+    let add_id = graph.add_node(SignalNode::Add { a: 
+        Signal::Node(mul_id),
+        Signal::Value(0.5),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -378,13 +378,13 @@ fn test_oscillator_with_add_and_multiply() {
 fn test_add_oscillators_multiple_buffers() {
     let mut graph = create_test_graph();
 
-    let osc1_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
-    let osc2_id = graph.add_oscillator(Signal::Value(880.0), Waveform::Sine);
+    let osc1_id = graph.add_oscillator_new(Signal::Value(440.0), Waveform::Sine);
+    let osc2_id = graph.add_oscillator_new(Signal::Value(880.0), Waveform::Sine);
 
-    let add_id = graph.add_node(SignalNode::Add {
-        a: Signal::Node(osc1_id),
-        b: Signal::Node(osc2_id),
-    });
+    let add_id = graph.add_node(SignalNode::Add { a: 
+        Signal::Node(osc1_id),
+        Signal::Node(osc2_id),
+    );
 
     // Generate 5 consecutive buffers
     let buffer_size = 512;
@@ -403,13 +403,13 @@ fn test_add_oscillators_multiple_buffers() {
 fn test_multiply_oscillators_multiple_buffers() {
     let mut graph = create_test_graph();
 
-    let osc1_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
-    let osc2_id = graph.add_oscillator(Signal::Value(100.0), Waveform::Sine);
+    let osc1_id = graph.add_oscillator_new(Signal::Value(440.0), Waveform::Sine);
+    let osc2_id = graph.add_oscillator_new(Signal::Value(100.0), Waveform::Sine);
 
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Node(osc1_id),
-        b: Signal::Node(osc2_id),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Node(osc1_id),
+        Signal::Node(osc2_id),
+    );
 
     // Generate 5 consecutive buffers
     let buffer_size = 512;
@@ -432,10 +432,10 @@ fn test_multiply_oscillators_multiple_buffers() {
 fn test_add_large_values() {
     let mut graph = create_test_graph();
 
-    let add_id = graph.add_node(SignalNode::Add {
-        a: Signal::Value(1000.0),
-        b: Signal::Value(2000.0),
-    });
+    let add_id = graph.add_node(SignalNode::Add { a: 
+        Signal::Value(1000.0),
+        Signal::Value(2000.0),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -451,10 +451,10 @@ fn test_add_large_values() {
 fn test_multiply_large_values() {
     let mut graph = create_test_graph();
 
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Value(100.0),
-        b: Signal::Value(50.0),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Value(100.0),
+        Signal::Value(50.0),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -470,10 +470,10 @@ fn test_multiply_large_values() {
 fn test_add_very_small_values() {
     let mut graph = create_test_graph();
 
-    let add_id = graph.add_node(SignalNode::Add {
-        a: Signal::Value(0.0001),
-        b: Signal::Value(0.0002),
-    });
+    let add_id = graph.add_node(SignalNode::Add { a: 
+        Signal::Value(0.0001),
+        Signal::Value(0.0002),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -489,10 +489,10 @@ fn test_add_very_small_values() {
 fn test_multiply_very_small_values() {
     let mut graph = create_test_graph();
 
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Value(0.0001),
-        b: Signal::Value(0.0002),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Value(0.0001),
+        Signal::Value(0.0002),
+    );
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -512,15 +512,15 @@ fn test_multiply_very_small_values() {
 fn test_arithmetic_various_buffer_sizes() {
     let mut graph = create_test_graph();
 
-    let add_id = graph.add_node(SignalNode::Add {
-        a: Signal::Value(0.3),
-        b: Signal::Value(0.4),
-    });
+    let add_id = graph.add_node(SignalNode::Add { a: 
+        Signal::Value(0.3),
+        Signal::Value(0.4),
+    );
 
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Value(0.5),
-        b: Signal::Value(0.8),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Value(0.5),
+        Signal::Value(0.8),
+    );
 
     // Test different buffer sizes
     for size in [1, 16, 64, 128, 256, 512, 1024, 2048] {
@@ -551,18 +551,18 @@ fn test_arithmetic_buffer_performance() {
     let mut graph = create_test_graph();
 
     // Create complex chain: osc1 + osc2, then multiply by constant
-    let osc1_id = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
-    let osc2_id = graph.add_oscillator(Signal::Value(880.0), Waveform::Sine);
+    let osc1_id = graph.add_oscillator_new(Signal::Value(440.0), Waveform::Sine);
+    let osc2_id = graph.add_oscillator_new(Signal::Value(880.0), Waveform::Sine);
 
-    let add_id = graph.add_node(SignalNode::Add {
-        a: Signal::Node(osc1_id),
-        b: Signal::Node(osc2_id),
-    });
+    let add_id = graph.add_node(SignalNode::Add { a: 
+        Signal::Node(osc1_id),
+        Signal::Node(osc2_id),
+    );
 
-    let mul_id = graph.add_node(SignalNode::Multiply {
-        a: Signal::Node(add_id),
-        b: Signal::Value(0.5),
-    });
+    let mul_id = graph.add_node(SignalNode::Multiply { a: 
+        Signal::Node(add_id),
+        Signal::Value(0.5),
+    );
 
     let buffer_size = 512;
     let iterations = 1000;

@@ -23,40 +23,7 @@ fn calculate_spectral_variance(samples: &[f32]) -> f32 {
     variance
 }
 
-/// Helper method to add a Phaser node
-trait PhaserHelper {
-    fn add_phaser_node(
-        &mut self,
-        input: Signal,
-        rate: Signal,
-        depth: Signal,
-        feedback: Signal,
-        stages: usize,
-    ) -> NodeId;
-}
-
-impl PhaserHelper for UnifiedSignalGraph {
-    fn add_phaser_node(
-        &mut self,
-        input: Signal,
-        rate: Signal,
-        depth: Signal,
-        feedback: Signal,
-        stages: usize,
-    ) -> NodeId {
-        self.add_node(SignalNode::Phaser {
-            input,
-            rate,
-            depth,
-            feedback,
-            stages,
-            phase: 0.0,
-            allpass_z1: Vec::new(),
-            allpass_y1: Vec::new(),
-            feedback_sample: 0.0,
-        })
-    }
-}
+// Helper function removed - using add_node directly
 
 /// LEVEL 1: Basic Phaser Creates Modulation
 #[test]
@@ -73,13 +40,17 @@ fn test_phaser_creates_modulation() {
     });
 
     // Add phaser with moderate settings
-    let phaser_id = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(0.5),   // Slow sweep
-        Signal::Value(0.8),   // Deep modulation
-        Signal::Value(0.5),   // Moderate feedback
-        6,                    // 6 stages
-    );
+    let phaser_id = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(0.5),   // Slow sweep
+        depth: Signal::Value(0.8),   // Deep modulation
+        feedback: Signal::Value(0.5),   // Moderate feedback
+        stages: 6,                    // 6 stages
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -113,22 +84,30 @@ fn test_phaser_rate_affects_sweep() {
     });
 
     // Slow phaser
-    let slow_phaser = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(0.2),
-        Signal::Value(0.7),
-        Signal::Value(0.3),
-        4,
-    );
+    let slow_phaser = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(0.2),
+        depth: Signal::Value(0.7),
+        feedback: Signal::Value(0.3),
+        stages: 4,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     // Fast phaser
-    let fast_phaser = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(3.0),
-        Signal::Value(0.7),
-        Signal::Value(0.3),
-        4,
-    );
+    let fast_phaser = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(3.0),
+        depth: Signal::Value(0.7),
+        feedback: Signal::Value(0.3),
+        stages: 4,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     let buffer_size = 2048; // Longer buffer to capture sweep differences
     let mut slow_output = vec![0.0; buffer_size];
@@ -169,22 +148,30 @@ fn test_phaser_depth_affects_amount() {
     });
 
     // Shallow phaser (minimal depth)
-    let shallow_phaser = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(0.5),
-        Signal::Value(0.1), // Low depth
-        Signal::Value(0.3),
-        4,
-    );
+    let shallow_phaser = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(0.5),
+        depth: Signal::Value(0.1), // Low depth
+        feedback: Signal::Value(0.3),
+        stages: 4,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     // Deep phaser (maximum depth)
-    let deep_phaser = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(0.5),
-        Signal::Value(1.0), // High depth
-        Signal::Value(0.3),
-        4,
-    );
+    let deep_phaser = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(0.5),
+        depth: Signal::Value(1.0), // High depth
+        feedback: Signal::Value(0.3),
+        stages: 4,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     let buffer_size = 1024;
     let mut shallow_output = vec![0.0; buffer_size];
@@ -227,13 +214,17 @@ fn test_phaser_zero_depth_bypass() {
     });
 
     // Phaser with zero depth
-    let phaser_id = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(0.5),
-        Signal::Value(0.0), // Zero depth
-        Signal::Value(0.0),
-        4,
-    );
+    let phaser_id = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(0.5),
+        depth: Signal::Value(0.0), // Zero depth
+        feedback: Signal::Value(0.0),
+        stages: 4,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -263,22 +254,30 @@ fn test_phaser_feedback_affects_resonance() {
     });
 
     // No feedback
-    let no_fb_phaser = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(0.5),
-        Signal::Value(0.7),
-        Signal::Value(0.0), // No feedback
-        4,
-    );
+    let no_fb_phaser = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(0.5),
+        depth: Signal::Value(0.7),
+        feedback: Signal::Value(0.0), // No feedback
+        stages: 4,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     // High feedback
-    let high_fb_phaser = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(0.5),
-        Signal::Value(0.7),
-        Signal::Value(0.8), // High feedback
-        4,
-    );
+    let high_fb_phaser = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(0.5),
+        depth: Signal::Value(0.7),
+        feedback: Signal::Value(0.8), // High feedback
+        stages: 4,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     let buffer_size = 1024;
     let mut no_fb_output = vec![0.0; buffer_size];
@@ -321,13 +320,17 @@ fn test_phaser_state_continuity() {
         last_sample: std::cell::RefCell::new(0.0),
     });
 
-    let phaser_id = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(0.5),
-        Signal::Value(0.7),
-        Signal::Value(0.5),
-        6,
-    );
+    let phaser_id = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(0.5),
+        depth: Signal::Value(0.7),
+        feedback: Signal::Value(0.5),
+        stages: 6,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     let buffer_size = 256;
     let mut buffer1 = vec![0.0; buffer_size];
@@ -380,22 +383,30 @@ fn test_phaser_stage_counts() {
     });
 
     // 2-stage phaser (subtle)
-    let phaser_2stage = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(0.5),
-        Signal::Value(0.7),
-        Signal::Value(0.3),
-        2,
-    );
+    let phaser_2stage = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(0.5),
+        depth: Signal::Value(0.7),
+        feedback: Signal::Value(0.3),
+        stages: 2,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     // 12-stage phaser (dramatic)
-    let phaser_12stage = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(0.5),
-        Signal::Value(0.7),
-        Signal::Value(0.3),
-        12,
-    );
+    let phaser_12stage = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(0.5),
+        depth: Signal::Value(0.7),
+        feedback: Signal::Value(0.3),
+        stages: 12,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     let buffer_size = 1024;
     let mut output_2stage = vec![0.0; buffer_size];
@@ -432,13 +443,17 @@ fn test_phaser_stability_extended() {
         last_sample: std::cell::RefCell::new(0.0),
     });
 
-    let phaser_id = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(1.5),
-        Signal::Value(0.8),
-        Signal::Value(0.6),
-        6,
-    );
+    let phaser_id = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(1.5),
+        depth: Signal::Value(0.8),
+        feedback: Signal::Value(0.6),
+        stages: 6,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     // Render multiple buffers (simulate ~2 seconds)
     let buffer_size = 1024;
@@ -489,13 +504,17 @@ fn test_phaser_pattern_modulation() {
         b: Signal::Value(1.5), // Offset to 0.5-2.5
     });
 
-    let phaser_id = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Node(rate_scaled),
-        Signal::Value(0.7),
-        Signal::Value(0.5),
-        6,
-    );
+    let phaser_id = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Node(rate_scaled),
+        depth: Signal::Value(0.7),
+        feedback: Signal::Value(0.5),
+        stages: 6,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     let buffer_size = 2048;
     let mut output = vec![0.0; buffer_size];
@@ -532,13 +551,17 @@ fn test_phaser_extreme_parameters() {
     });
 
     // Extreme settings: max rate, max depth, max feedback
-    let extreme_phaser = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(5.0),  // Max rate
-        Signal::Value(1.0),  // Max depth
-        Signal::Value(0.95), // Max feedback (just below instability)
-        12,                  // Max stages
-    );
+    let extreme_phaser = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(5.0),  // Max rate
+        depth: Signal::Value(1.0),  // Max depth
+        feedback: Signal::Value(0.95), // Max feedback (just below instability)
+        stages: 12,                  // Max stages
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     let buffer_size = 1024;
     let mut output = vec![0.0; buffer_size];
@@ -577,22 +600,30 @@ fn test_phaser_series_cascade() {
     });
 
     // First phaser
-    let phaser1 = graph.add_phaser_node(
-        Signal::Node(osc),
-        Signal::Value(0.3),
-        Signal::Value(0.6),
-        Signal::Value(0.4),
-        4,
-    );
+    let phaser1 = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(osc),
+        rate: Signal::Value(0.3),
+        depth: Signal::Value(0.6),
+        feedback: Signal::Value(0.4),
+        stages: 4,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     // Second phaser cascaded
-    let phaser2 = graph.add_phaser_node(
-        Signal::Node(phaser1),
-        Signal::Value(0.7),
-        Signal::Value(0.6),
-        Signal::Value(0.4),
-        4,
-    );
+    let phaser2 = graph.add_node(SignalNode::Phaser {
+        input: Signal::Node(phaser1),
+        rate: Signal::Value(0.7),
+        depth: Signal::Value(0.6),
+        feedback: Signal::Value(0.4),
+        stages: 4,
+        phase: 0.0,
+        allpass_z1: Vec::new(),
+        allpass_y1: Vec::new(),
+        feedback_sample: 0.0,
+    });
 
     let buffer_size = 1024;
     let mut output = vec![0.0; buffer_size];
