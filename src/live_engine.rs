@@ -135,6 +135,7 @@ fn run_audio_loop(
 
     // Main loop - process commands and regenerate audio
     let mut current_code = String::new();
+    let mut current_graph: Option<crate::unified_graph::UnifiedSignalGraph> = None;
 
     loop {
         // Check for commands (non-blocking)
@@ -150,6 +151,17 @@ fn run_audio_loop(
                                 // Compile to graph
                                 match compile_program(statements, sample_rate) {
                                     Ok(mut graph) => {
+                                        // CRITICAL FIX: Preserve time continuity between reloads!
+                                        // Time should be independent of patterns - synthesis depends on time.
+                                        if let Some(old_graph) = &current_graph {
+                                            // Transfer session timing to maintain global clock continuity
+                                            // This ensures the beat never drops during graph reload
+                                            graph.transfer_session_timing(old_graph);
+                                        } else {
+                                            // First load: enable wall-clock timing for live mode
+                                            graph.enable_wall_clock_timing();
+                                        }
+
                                         // Render one cycle
                                         let samples_per_cycle =
                                             (cycle_duration * sample_rate) as usize;
@@ -162,6 +174,9 @@ fn run_audio_loop(
                                         // Reset hush state but DON'T reset position - keep cycle continuous
                                         *is_hushed.lock().unwrap() = false;
                                         // Don't reset position - let it keep cycling smoothly
+
+                                        // Store graph for next reload to preserve timing
+                                        current_graph = Some(graph);
 
                                         // Silent - don't interfere with UI
                                     }
@@ -184,6 +199,8 @@ fn run_audio_loop(
                     *is_hushed.lock().unwrap() = true;
                     current_buffer.lock().unwrap().clear();
                     *position.lock().unwrap() = 0;
+                    // Clear current graph so time resets on next load
+                    current_graph = None;
                     // Silent - don't interfere with UI
                 }
                 EngineCommand::Quit => {
