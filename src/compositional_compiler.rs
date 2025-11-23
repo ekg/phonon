@@ -311,6 +311,19 @@ pub fn compile_program(
 ) -> Result<UnifiedSignalGraph, String> {
     let mut ctx = CompilerContext::new(sample_rate);
 
+    // PASS 1: Pre-register all bus names with placeholder nodes
+    // This allows circular dependencies (a -> b -> a)
+    for statement in &statements {
+        if let Statement::BusAssignment { name, .. } = statement {
+            // Create a placeholder node (Constant 0.0) for this bus
+            // This will be overwritten in Pass 2, but allows forward references
+            let placeholder_node = ctx.graph.add_node(SignalNode::Constant { value: 0.0 });
+            ctx.buses.insert(name.clone(), placeholder_node);
+            ctx.graph.add_bus(name.clone(), placeholder_node);
+        }
+    }
+
+    // PASS 2: Compile all statements (can now reference any bus, including forward refs)
     for statement in statements {
         compile_statement(&mut ctx, statement)?;
     }
