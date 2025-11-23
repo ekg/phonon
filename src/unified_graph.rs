@@ -9291,10 +9291,10 @@ impl UnifiedSignalGraph {
                                     // Don't use the default 10s release which causes voice accumulation!
                                     let buffer_duration_seconds = synthetic_buffer.len() as f32 / self.sample_rate;
 
-                                    // For synthetic buffers, use a short release that matches the buffer
-                                    // This prevents voice accumulation while still avoiding clicks
-                                    let bus_attack = 0.001; // 1ms anti-click attack
-                                    let bus_release = (buffer_duration_seconds * 0.1).max(0.01).min(0.5); // 10% of buffer, capped at 0.5s
+                                    // For synthetic buffers, use reasonable envelope times
+                                    // Longer attack prevents clicks, especially for synth tones
+                                    let bus_attack = 0.01; // 10ms attack (smooth onset, no clicks)
+                                    let bus_release = (buffer_duration_seconds * 0.2).max(0.05).min(0.5); // 20% of buffer (min 50ms), capped at 0.5s
 
                                     // DEBUG: Check voice manager state before triggering
                                     if std::env::var("DEBUG_VOICE_TRIGGER").is_ok() {
