@@ -3946,6 +3946,14 @@ fn synthesize_bus_buffer_parallel(
         buffer.push(sample_value);
     }
 
+    // DEBUG: Check if buffer contains audio
+    if std::env::var("DEBUG_BUS_SYNTHESIS").is_ok() {
+        let rms: f32 = buffer.iter().map(|&s| s * s).sum::<f32>() / buffer.len() as f32;
+        let rms = rms.sqrt();
+        eprintln!("  Synthesized buffer: {} samples, RMS={:.6}, first_10={:?}",
+            buffer.len(), rms, &buffer[..buffer.len().min(10)]);
+    }
+
     buffer
 }
 
@@ -9288,6 +9296,12 @@ impl UnifiedSignalGraph {
                                     let bus_attack = 0.001; // 1ms anti-click attack
                                     let bus_release = (buffer_duration_seconds * 0.1).max(0.01).min(0.5); // 10% of buffer, capped at 0.5s
 
+                                    // DEBUG: Check voice manager state before triggering
+                                    if std::env::var("DEBUG_VOICE_TRIGGER").is_ok() {
+                                        eprintln!("    About to trigger voice: buffer_len={}, gain={}, pan={}, speed={}, source_node={}",
+                                            synthetic_buffer.len(), gain_val, pan_val, final_speed, node_id.0);
+                                    }
+
                                     // Trigger voice with synthetic buffer using appropriate envelope type
                                     // LEGATO OVERRIDE: When legato is present, use ADSR with sharp settings
                                     if let Some(legato_cycles) = legato_duration_opt {
@@ -11830,6 +11844,15 @@ impl UnifiedSignalGraph {
         // Instead of calling process_per_node() 512 times, we call process_buffer_per_node() ONCE
         // This eliminates 511 redundant Rayon thread spawns and HashMap allocations
         let voice_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
+
+        // DEBUG: Check voice count before processing
+        if std::env::var("DEBUG_VOICE_COUNT").is_ok() {
+            let voice_count = self.voice_manager.borrow().active_voice_count();
+            if voice_count > 0 {
+                eprintln!("  Processing {} active voices in buffer", voice_count);
+            }
+        }
+
         let mut voice_buffers = self.voice_manager.borrow_mut().process_buffer_per_node(buffer.len());
         if let Some(start) = voice_start {
             voice_time_us = start.elapsed().as_micros();
