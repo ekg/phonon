@@ -44,3 +44,6 @@ boson/
 fermion/
 rust-examples/
 *.bak
+test_circular
+test_*_buffer
+libtest_*.rlib
