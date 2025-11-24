@@ -60,11 +60,11 @@ fn test_gain_kwarg_completion_results() {
         completions
     );
 
-    // Check that ":amount" is in the results
-    let amount_found = completions.iter().any(|c| c.text == ":amount");
+    // Check that "amount" is in the results (no colon prefix)
+    let amount_found = completions.iter().any(|c| c.text == "amount");
     assert!(
         amount_found,
-        "Should have ':amount' in completions. Got: {:?}",
+        "Should have 'amount' in completions. Got: {:?}",
         completions.iter().map(|c| &c.text).collect::<Vec<_>>()
     );
 }
@@ -87,7 +87,7 @@ fn test_reverb_kwarg_completion() {
     let completions = filter_completions("", &context, &[], &[]);
 
     // Should have ":mix" (the optional param for reverb)
-    let mix_found = completions.iter().any(|c| c.text == ":mix");
+    let mix_found = completions.iter().any(|c| c.text == "mix");
     assert!(
         mix_found,
         "Should have ':mix' for reverb. Got: {:?}",
@@ -188,7 +188,7 @@ fn test_kwarg_partial_completion() {
         completions
     );
 
-    let amount_found = completions.iter().any(|c| c.text == ":amount");
+    let amount_found = completions.iter().any(|c| c.text == "amount");
     assert!(
         amount_found,
         "Should fuzzy match ':amount' from ':am'. Got: {:?}",

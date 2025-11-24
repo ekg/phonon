@@ -247,18 +247,77 @@ pub fn filter_completions(
             // Show parameter names for this function
             if let Some(metadata) = FUNCTION_METADATA.get(func_name) {
                 for param in &metadata.params {
-                    let param_with_colon = format!(":{}", param.name);
+                    // Don't include the : prefix - it's already typed by the user
+                    // If user types "gain :a", token is "a", so we complete to "amount" (not ":amount")
                     let search_term = partial.trim_start_matches(':');
 
                     if let Some(score) = fuzzy_score(search_term, param.name) {
                         completions.push((
                             Completion::new(
-                                param_with_colon,
+                                param.name.to_string(),  // Just "amount", not ":amount"
                                 CompletionType::Keyword,
                                 Some(param.description.to_string()),
                             ),
                             score,
                         ));
+                    }
+                }
+            }
+        }
+
+        CompletionContext::AfterChain => {
+            // Filter to Effects + Filters only
+            for func in FUNCTIONS.iter() {
+                if let Some(metadata) = FUNCTION_METADATA.get(func) {
+                    if metadata.category == "Effects" || metadata.category == "Filters" {
+                        if let Some(name_score) = fuzzy_score(partial, func) {
+                            let completion = Completion::new(
+                                func.to_string(),
+                                CompletionType::Function,
+                                Some(metadata.description.to_string()),
+                            );
+                            completions.push((completion, name_score));
+                        }
+                    }
+                }
+            }
+        }
+
+        CompletionContext::AfterTransform => {
+            // Filter to Transforms only
+            for func in FUNCTIONS.iter() {
+                if let Some(metadata) = FUNCTION_METADATA.get(func) {
+                    if metadata.category == "Transforms" {
+                        if let Some(name_score) = fuzzy_score(partial, func) {
+                            let completion = Completion::new(
+                                func.to_string(),
+                                CompletionType::Function,
+                                Some(metadata.description.to_string()),
+                            );
+                            completions.push((completion, name_score));
+                        }
+                    }
+                }
+            }
+        }
+
+        CompletionContext::AfterBusAssignment => {
+            // Filter to Generators + Oscillators + Synths + Patterns
+            for func in FUNCTIONS.iter() {
+                if let Some(metadata) = FUNCTION_METADATA.get(func) {
+                    let valid = matches!(
+                        metadata.category,
+                        "Generators" | "Oscillators" | "Synths" | "Patterns"
+                    );
+                    if valid {
+                        if let Some(name_score) = fuzzy_score(partial, func) {
+                            let completion = Completion::new(
+                                func.to_string(),
+                                CompletionType::Function,
+                                Some(metadata.description.to_string()),
+                            );
+                            completions.push((completion, name_score));
+                        }
                     }
                 }
             }
