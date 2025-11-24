@@ -802,6 +802,9 @@ fn try_extract_transform_from_call(expr: &Expr) -> Option<Transform> {
             "loopAt" if args.len() == 1 => Some(Transform::LoopAt(Box::new(args[0].clone()))),
             "early" if args.len() == 1 => Some(Transform::Early(Box::new(args[0].clone()))),
             "late" if args.len() == 1 => Some(Transform::Late(Box::new(args[0].clone()))),
+            "legato" if args.len() == 1 => Some(Transform::Legato(Box::new(args[0].clone()))),
+            "staccato" if args.len() == 1 => Some(Transform::Staccato(Box::new(args[0].clone()))),
+            "stretch" if args.is_empty() => Some(Transform::Stretch),
             _ => None,
         },
         _ => None,
@@ -1375,6 +1378,18 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
             preceded(terminated(tag("striate"), space1), parse_primary_expr),
             |expr| Transform::Striate(Box::new(expr)),
         ),
+        // legato factor
+        map(
+            preceded(terminated(tag("legato"), space1), parse_primary_expr),
+            |expr| Transform::Legato(Box::new(expr)),
+        ),
+        // staccato factor
+        map(
+            preceded(terminated(tag("staccato"), space1), parse_primary_expr),
+            |expr| Transform::Staccato(Box::new(expr)),
+        ),
+        // stretch (legato 1.0)
+        value(Transform::Stretch, tag("stretch")),
         parse_transform_group_1b,
     ))(input)
 }

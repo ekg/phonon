@@ -2471,7 +2471,26 @@ fn compile_function_call(
         "sample_hold" => compile_sample_hold(ctx, args),
         "decimator" => compile_decimator(ctx, args),
 
-        _ => Err(format!("Unknown function: {}", name)),
+        _ => {
+            // Check if this is a common parameter modifier being used with $ instead of #
+            let parameter_modifiers = [
+                "speed", "gain", "pan", "note", "ar", "attack", "release",
+                "begin", "end", "loop", "crush", "coarse", "cutoff", "resonance",
+                "room", "size", "dry"
+            ];
+
+            if parameter_modifiers.contains(&name) {
+                Err(format!(
+                    "Unknown function: '{}'. Did you mean to use '#' instead of '$'?\n\
+                     '{}' is a parameter modifier and must be used with the chain operator:\n\
+                     Example: s \"bd\" # {} <value>\n\
+                     Use '$' for pattern transforms (fast, slow, rev, etc.)",
+                    name, name, name
+                ))
+            } else {
+                Err(format!("Unknown function: {}", name))
+            }
+        }
     }
 }
 
@@ -7949,24 +7968,41 @@ fn compile_note_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
 /// Compile gain modifier: s "bd" # gain "0.8 0.5 1.0"
 /// Sets the volume for each sample trigger
 fn compile_gain_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    // Try to modify sample parameter if it's a Sample node
+    // Otherwise, fall back to general signal multiplication
     if args.len() != 2 {
         return Err(format!(
-            "gain requires 2 arguments (sample_input, gain_pattern), got {}",
+            "gain requires 2 arguments (input, gain_amount), got {}",
             args.len()
         ));
     }
 
-    let sample_node_id = match &args[0] {
+    let input_node_id = match &args[0] {
         Expr::ChainInput(node_id) => *node_id,
         _ => {
             return Err(
-                "gain must be used with the chain operator: s \"bd\" # gain \"0.8\"".to_string(),
+                "gain must be used with the chain operator: s \"bd\" # gain 0.8".to_string(),
             )
         }
     };
 
-    let gain_value = compile_expr(ctx, args[1].clone())?;
-    modify_sample_param(ctx, sample_node_id, "gain", Signal::Node(gain_value))
+    // Check if input is a Sample node - if so, modify its gain parameter
+    // Otherwise, create a Multiply node (works for any signal)
+    if let Some(node) = ctx.graph.get_node(input_node_id) {
+        if matches!(node, SignalNode::Sample { .. }) {
+            // It's a sample - modify its gain parameter
+            let gain_value = compile_expr(ctx, args[1].clone())?;
+            return modify_sample_param(ctx, input_node_id, "gain", Signal::Node(gain_value));
+        }
+    }
+
+    // Not a sample (e.g., after # lpf) - use general signal multiplication
+    let gain_node = compile_expr(ctx, args[1].clone())?;
+    let output = ctx.graph.add_node(SignalNode::Multiply {
+        a: Signal::Node(input_node_id),
+        b: Signal::Node(gain_node),
+    });
+    Ok(output)
 }
 
 /// Compile pan modifier: s "bd" # pan "-1 1 0"
