@@ -34,6 +34,7 @@ fn test_phaser_creates_modulation() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -78,6 +79,7 @@ fn test_phaser_rate_affects_sweep() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(220.0),
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -142,6 +144,7 @@ fn test_phaser_depth_affects_amount() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -208,6 +211,7 @@ fn test_phaser_zero_depth_bypass() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -248,6 +252,7 @@ fn test_phaser_feedback_affects_resonance() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(220.0),
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -315,6 +320,7 @@ fn test_phaser_state_continuity() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -377,6 +383,7 @@ fn test_phaser_stage_counts() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -438,6 +445,7 @@ fn test_phaser_stability_extended() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(220.0),
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -484,6 +492,7 @@ fn test_phaser_pattern_modulation() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -493,6 +502,7 @@ fn test_phaser_pattern_modulation() {
     let rate_lfo = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(0.2),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -545,6 +555,7 @@ fn test_phaser_extreme_parameters() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -594,6 +605,7 @@ fn test_phaser_series_cascade() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(220.0),
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),

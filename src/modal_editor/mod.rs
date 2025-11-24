@@ -6,7 +6,7 @@
 //! real-time audio generation using ring buffer architecture for parallel synthesis
 
 mod command_console;
-mod completion;
+pub mod completion;
 mod highlighting;
 
 use command_console::CommandConsole;
@@ -619,8 +619,12 @@ impl ModalEditor {
             }
 
             // Tab: trigger completion or accept current selection
+            // Shift+Tab: expand function with all kwargs and defaults
             KeyCode::Tab => {
-                if self.completion_state.is_visible() {
+                if key.modifiers.contains(KeyModifiers::SHIFT) {
+                    // Shift+Tab: expand kwargs template
+                    self.expand_kwargs_template();
+                } else if self.completion_state.is_visible() {
                     // Second Tab: accept current selection
                     self.accept_completion();
                 } else {
@@ -1792,6 +1796,75 @@ impl ModalEditor {
     /// Cancel completion (Esc or movement)
     fn cancel_completion(&mut self) {
         self.completion_state.hide();
+    }
+
+    /// Expand function with all kwargs and default values (Shift+Tab)
+    ///
+    /// Takes a function name like "gain" and expands it to "gain :amount 1.0"
+    /// or "plate" to "plate :pre_delay 0.02 :decay 0.7 :diffusion 0.7 :damping 0.3 :mod_depth 0.3 :mix 0.5"
+    fn expand_kwargs_template(&mut self) {
+        // Get current line and cursor position
+        let (line_idx, col) = self.pos_to_line_col(self.cursor_pos);
+        let lines: Vec<&str> = self.content.split('\n').collect();
+
+        if line_idx >= lines.len() {
+            return;
+        }
+
+        let line = lines[line_idx];
+
+        // Find the function name at cursor
+        if let Some(func_name) = self.find_function_at_cursor(line, col) {
+            // Get parameter metadata for this function
+            if let Some(metadata) = completion::FUNCTION_METADATA.get(func_name) {
+                // Generate kwargs template
+                let template = completion::generate_kwargs_template(metadata);
+
+                if !template.is_empty() {
+                    // Insert template at cursor
+                    self.push_undo();
+                    self.content.insert_str(self.cursor_pos, &template);
+                    self.cursor_pos += template.len();
+                    self.status_message = format!("✓ Expanded {} with kwargs", func_name);
+                }
+            } else {
+                self.status_message = format!("No metadata for function: {}", func_name);
+            }
+        } else {
+            self.status_message = "No function found at cursor".to_string();
+        }
+    }
+
+    /// Find function name at cursor position
+    ///
+    /// Looks backwards from cursor to find the last valid function name.
+    /// Similar to detect_keyword_context but simpler - just finds the function.
+    fn find_function_at_cursor(&self, line: &str, cursor_pos: usize) -> Option<&'static str> {
+        if cursor_pos > line.len() {
+            return None;
+        }
+
+        // Get text before cursor
+        let before_cursor = &line[..cursor_pos];
+
+        // Split by delimiters and find last valid token
+        let tokens: Vec<&str> = before_cursor
+            .split(|c: char| c.is_whitespace() || "(){}[]#$:\"".contains(c))
+            .collect();
+
+        // Get last non-empty token that's in FUNCTION_METADATA
+        for token in tokens.iter().rev() {
+            if token.is_empty() {
+                continue;
+            }
+
+            // Check if this is a known function
+            if completion::FUNCTION_METADATA.contains_key(token) {
+                return completion::FUNCTION_METADATA.get(token).map(|meta| meta.name);
+            }
+        }
+
+        None
     }
 
     /// Update completion filter based on current cursor position

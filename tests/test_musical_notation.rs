@@ -77,6 +77,8 @@ fn render_note_pattern(pattern_str: &str) -> Vec<f32> {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(pattern_node),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -263,6 +265,8 @@ fn test_frequency_accuracy_tolerance() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),

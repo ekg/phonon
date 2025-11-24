@@ -92,6 +92,8 @@ fn test_unipolar_signal_node() {
     let sine = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(1.0), // 1 Hz for easy testing
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -155,6 +157,8 @@ fn test_bipolar_signal_node() {
     let sine = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(1.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -224,6 +228,8 @@ fn test_signal_as_pattern_node() {
     let ramp = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(1.0), // 1 Hz = 0.5 cycle per second of sweep
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -270,6 +276,8 @@ fn test_helper_functions_compile() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -327,6 +335,8 @@ fn test_auto_magic_fast() {
     let lfo = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(0.25),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -399,6 +409,8 @@ fn test_explicit_range_fast() {
     let lfo = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(0.25),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -462,6 +474,8 @@ fn test_arithmetic_scaling() {
     let sine = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(1.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -530,6 +544,8 @@ fn test_chained_signal_modulation() {
     let lfo1 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(0.25),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -539,6 +555,8 @@ fn test_chained_signal_modulation() {
     let lfo2 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(0.5),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -657,6 +675,8 @@ fn test_full_audio_to_pattern_pipeline() {
     let lfo = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(0.25),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -685,6 +705,8 @@ fn test_full_audio_to_pattern_pipeline() {
     let carrier = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0), // A4
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),

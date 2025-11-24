@@ -3,8 +3,7 @@
 /// Verifies that the completion system can correctly detect and suggest
 /// parameter names for function kwargs.
 
-use phonon::modal_editor::completion::context::{get_completion_context, CompletionContext};
-use phonon::modal_editor::completion::matching::filter_completions;
+use phonon::modal_editor::completion::{get_completion_context, CompletionContext, filter_completions};
 
 #[test]
 fn test_gain_kwarg_completion_detection() {
@@ -23,6 +22,41 @@ fn test_gain_kwarg_completion_detection() {
             context
         );
     }
+}
+
+#[test]
+fn test_gain_kwarg_completion_with_space_only() {
+    // User types: "gain " (space but no colon)
+    let line = "gain ";
+    let cursor_pos = line.len();
+
+    let context = get_completion_context(line, cursor_pos);
+
+    // Should still detect Keyword context with "gain"
+    if let CompletionContext::Keyword(func_name) = context {
+        assert_eq!(func_name, "gain", "Should detect gain even without colon");
+    } else {
+        panic!(
+            "Expected Keyword(\"gain\") context for 'gain ', got {:?}",
+            context
+        );
+    }
+
+    // Get completions - should have ":amount" WITH the colon
+    let completions = filter_completions("", &context, &[], &[]);
+
+    assert!(
+        !completions.is_empty(),
+        "Should have completions. Got: {:?}",
+        completions
+    );
+
+    let amount_found = completions.iter().any(|c| c.text == ":amount");
+    assert!(
+        amount_found,
+        "Should have ':amount' (with colon) in completions. Got: {:?}",
+        completions.iter().map(|c| &c.text).collect::<Vec<_>>()
+    );
 }
 
 #[test]
@@ -60,11 +94,11 @@ fn test_gain_kwarg_completion_results() {
         completions
     );
 
-    // Check that "amount" is in the results (no colon prefix)
-    let amount_found = completions.iter().any(|c| c.text == "amount");
+    // Check that ":amount" is in the results (with colon prefix since we haven't typed beyond :)
+    let amount_found = completions.iter().any(|c| c.text == ":amount");
     assert!(
         amount_found,
-        "Should have 'amount' in completions. Got: {:?}",
+        "Should have ':amount' in completions. Got: {:?}",
         completions.iter().map(|c| &c.text).collect::<Vec<_>>()
     );
 }
@@ -87,7 +121,7 @@ fn test_reverb_kwarg_completion() {
     let completions = filter_completions("", &context, &[], &[]);
 
     // Should have ":mix" (the optional param for reverb)
-    let mix_found = completions.iter().any(|c| c.text == "mix");
+    let mix_found = completions.iter().any(|c| c.text == ":mix");
     assert!(
         mix_found,
         "Should have ':mix' for reverb. Got: {:?}",

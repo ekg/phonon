@@ -63,6 +63,8 @@ fn test_decimator_factor_1_no_effect() {
     let sine = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -102,6 +104,8 @@ fn test_decimator_factor_2_half_rate() {
     let sine = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -138,6 +142,8 @@ fn test_decimator_factor_4_quarter_rate() {
     let sine = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -173,6 +179,8 @@ fn test_decimator_factor_8_severe() {
     let sine = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -210,6 +218,8 @@ fn test_decimator_smooth_reduces_steps() {
     let sine_harsh = graph_harsh.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -230,6 +240,8 @@ fn test_decimator_smooth_reduces_steps() {
     let sine_smooth = graph_smooth.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -275,6 +287,8 @@ fn test_decimator_creates_aliasing() {
     let sine = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(5000.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -311,6 +325,8 @@ fn test_decimator_factor_below_1_clamped() {
     let sine = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -343,6 +359,8 @@ fn test_decimator_smooth_clamp() {
     let sine = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -405,6 +423,8 @@ fn test_decimator_square_wave() {
     let square = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(100.0),
         waveform: Waveform::Square,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -471,6 +491,8 @@ fn test_decimator_preserves_amplitude() {
     let sine_orig = graph_original.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -481,6 +503,8 @@ fn test_decimator_preserves_amplitude() {
     let sine_dec = graph_decimated.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -520,6 +544,8 @@ fn test_decimator_increasing_factors() {
     let sine2 = graph2.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -538,6 +564,8 @@ fn test_decimator_increasing_factors() {
     let sine4 = graph4.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -556,6 +584,8 @@ fn test_decimator_increasing_factors() {
     let sine8 = graph8.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -597,6 +627,8 @@ fn test_decimator_chained_with_filter() {
     let saw = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(110.0),
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),

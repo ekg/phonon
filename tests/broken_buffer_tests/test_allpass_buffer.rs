@@ -22,6 +22,7 @@ fn test_allpass_buffer_vs_sample() {
     let sine_id = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
 
@@ -55,6 +56,7 @@ fn test_allpass_buffer_flat_magnitude() {
     let sine_dry = graph_dry.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
 
@@ -62,6 +64,7 @@ fn test_allpass_buffer_flat_magnitude() {
     let sine_wet = graph_wet.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
     let allpass_wet = graph_wet.add_node(SignalNode::Allpass {
@@ -99,6 +102,7 @@ fn test_allpass_buffer_changes_phase() {
     let sine_dry = graph_dry.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
 
@@ -106,6 +110,7 @@ fn test_allpass_buffer_changes_phase() {
     let sine_wet = graph_wet.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
     let allpass_wet = graph_wet.add_node(SignalNode::Allpass {
@@ -145,6 +150,7 @@ fn test_allpass_buffer_cascade() {
     let sine_id = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
 
@@ -186,6 +192,7 @@ fn test_allpass_buffer_state_continuity() {
     let sine_id = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
     let allpass_id = graph.add_node(SignalNode::Allpass {
@@ -228,6 +235,7 @@ fn test_allpass_buffer_modulated_coefficient() {
     let sine_id = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
 
@@ -235,6 +243,7 @@ fn test_allpass_buffer_modulated_coefficient() {
     let lfo_id = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(2.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
 
@@ -271,6 +280,7 @@ fn test_allpass_buffer_zero_coefficient() {
     let sine_dry = graph_dry.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
 
@@ -278,6 +288,7 @@ fn test_allpass_buffer_zero_coefficient() {
     let sine_wet = graph_wet.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
     let allpass_wet = graph_wet.add_node(SignalNode::Allpass {
@@ -312,6 +323,7 @@ fn test_allpass_buffer_stability() {
     let sine_id = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
 
@@ -347,6 +359,7 @@ fn test_allpass_buffer_negative_coefficient() {
     let sine_id = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
     let allpass_id = graph.add_node(SignalNode::Allpass {
@@ -376,6 +389,7 @@ fn test_allpass_buffer_different_sample_rates() {
         let sine_id = graph.add_node(SignalNode::Oscillator {
             freq: Signal::Value(440.0),
             waveform: Waveform::Sine,
+        semitone_offset: 0.0,
             phase: RefCell::new(0.0),
         });
         let allpass_id = graph.add_node(SignalNode::Allpass {
@@ -403,6 +417,7 @@ fn test_allpass_buffer_for_reverb() {
     let sine_id = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(220.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
 
@@ -447,6 +462,7 @@ fn test_allpass_buffer_efficiency() {
     let sine_id = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
     });
     let allpass_id = graph.add_node(SignalNode::Allpass {

@@ -35,6 +35,8 @@ fn render_simple_sine(output_path: &str) {
     let osc_node = graph.add_node(SignalNode::Oscillator {
         freq: freq_signal,
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -71,6 +73,8 @@ fn render_pattern_modulation(output_path: &str) {
     let osc_node = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(pattern_node),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -100,6 +104,8 @@ fn render_filter_modulation(output_path: &str) {
     let osc_node = graph.add_node(SignalNode::Oscillator {
         freq: freq_signal,
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),

@@ -10,6 +10,8 @@ fn test_hush_command_silences_outputs() {
     let osc1 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -18,6 +20,8 @@ fn test_hush_command_silences_outputs() {
     let osc2 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(880.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -110,6 +114,8 @@ fn test_hush_specific_channel() {
     let osc1 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -118,6 +124,8 @@ fn test_hush_specific_channel() {
     let osc2 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(880.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
+        
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),

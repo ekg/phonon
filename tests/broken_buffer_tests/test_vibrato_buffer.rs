@@ -52,6 +52,7 @@ fn test_vibrato_creates_pitch_modulation() {
     let osc_id = graph.add_node(phonon::unified_graph::SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -123,6 +124,7 @@ fn test_vibrato_zero_depth_bypass() {
     let osc_id = graph.add_node(phonon::unified_graph::SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -185,6 +187,7 @@ fn test_vibrato_rate_effect() {
     let osc_id = graph.add_node(phonon::unified_graph::SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -209,6 +212,7 @@ fn test_vibrato_rate_effect() {
     let osc_id2 = graph2.add_node(phonon::unified_graph::SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -257,6 +261,7 @@ fn test_vibrato_depth_effect() {
     let osc_id = graph.add_node(phonon::unified_graph::SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -281,6 +286,7 @@ fn test_vibrato_depth_effect() {
     let osc_id2 = graph2.add_node(phonon::unified_graph::SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -349,6 +355,7 @@ fn test_vibrato_produces_audio() {
     let osc_id = graph.add_node(phonon::unified_graph::SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -386,6 +393,7 @@ fn test_vibrato_state_continuity() {
     let osc_id = graph.add_node(phonon::unified_graph::SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -429,6 +437,7 @@ fn test_vibrato_multiple_buffer_sizes() {
         let osc_id = graph.add_node(phonon::unified_graph::SignalNode::Oscillator {
             freq: Signal::Value(440.0),
             waveform: Waveform::Sine,
+        semitone_offset: 0.0,
             phase: std::cell::RefCell::new(0.0),
             pending_freq: std::cell::RefCell::new(None),
             last_sample: std::cell::RefCell::new(0.0),
@@ -463,6 +472,7 @@ fn test_vibrato_parameter_clamping() {
     let osc_id = graph.add_node(phonon::unified_graph::SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -509,6 +519,7 @@ fn test_vibrato_compared_to_straight_delay() {
     let osc_id = graph.add_node(phonon::unified_graph::SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -561,6 +572,7 @@ fn test_vibrato_with_dynamic_parameters() {
     let osc_id = graph.add_node(phonon::unified_graph::SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -570,6 +582,7 @@ fn test_vibrato_with_dynamic_parameters() {
     let rate_lfo_id = graph.add_node(phonon::unified_graph::SignalNode::Oscillator {
         freq: Signal::Value(0.5), // 0.5 Hz LFO
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),

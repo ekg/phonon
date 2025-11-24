@@ -2599,8 +2599,21 @@ lazy_static::lazy_static! {
             category: "Utilities",
         });
 
+        // Merge in auto-generated stubs for functions without hand-written metadata
+        use crate::modal_editor::completion::generated_metadata_stubs::GENERATED_STUBS;
+        for (name, stub) in GENERATED_STUBS.iter() {
+            if !m.contains_key(name) {
+                m.insert(*name, stub.clone());
+            }
+        }
+
         m
     };
+}
+
+/// Get all function metadata including both hand-written and auto-generated stubs
+pub fn get_all_function_metadata() -> &'static HashMap<&'static str, FunctionMetadata> {
+    &FUNCTION_METADATA
 }
 
 /// Search functions by name or description

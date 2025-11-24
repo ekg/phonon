@@ -131,6 +131,7 @@ fn parse_phonon_file(content: &str, sample_rate: f32) -> Result<UnifiedSignalGra
     // For now, just create a simple test signal
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
+        semitone_offset: 0.0,
         waveform: Waveform::Sine,
         phase: RefCell::new(0.0),
     });

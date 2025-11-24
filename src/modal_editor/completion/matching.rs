@@ -247,14 +247,21 @@ pub fn filter_completions(
             // Show parameter names for this function
             if let Some(metadata) = FUNCTION_METADATA.get(func_name) {
                 for param in &metadata.params {
-                    // Don't include the : prefix - it's already typed by the user
-                    // If user types "gain :a", token is "a", so we complete to "amount" (not ":amount")
                     let search_term = partial.trim_start_matches(':');
 
                     if let Some(score) = fuzzy_score(search_term, param.name) {
+                        // Include ':' prefix if user hasn't typed it yet
+                        // "gain <tab>" → show ":amount"
+                        // "gain :a<tab>" → show "amount" (: already typed)
+                        let completion_text = if partial.starts_with(':') {
+                            param.name.to_string()  // Just "amount"
+                        } else {
+                            format!(":{}", param.name)  // ":amount"
+                        };
+
                         completions.push((
                             Completion::new(
-                                param.name.to_string(),  // Just "amount", not ":amount"
+                                completion_text,
                                 CompletionType::Keyword,
                                 Some(param.description.to_string()),
                             ),

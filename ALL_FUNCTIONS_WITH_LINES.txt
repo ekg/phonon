@@ -1,0 +1,173 @@
+ALL 153 FUNCTIONS FROM compositional_compiler.rs
+=================================================
+
+This list shows every function name found in the compiler dispatch table,
+along with the line number where it appears.
+
+Note: Some functions appear multiple times at different lines (different contexts).
+The extraction process found 153 unique function names.
+
+ad                        line  2409
+additive                  line  2312
+adsr                      line  2408
+allpass                   line  2391
+amp                       line  2438
+amp_follower              line  2420
+ar                        line  1458, 2431
+asr                       line  2321
+attack                    line  1456, 2263, 2429
+begin                     line  1451, 2265, 2432
+bipolar                   line  1549
+bitcrush                  line  2380
+blip                      line  2304
+bpf                       line  1443, 1529, 2359, 4036
+bq_bp                     line  2398
+bq_hp                     line  2397
+bq_lp                     line  2396
+bq_notch                  line  2399
+brown_noise               line  2317
+cat                       line  1793
+choose                    line  1973, 2107
+chorus                    line  2375
+coarse                    line  2381
+comb                      line  2361
+comp                      line  2377
+convolution               line  2367
+cosine                    line  2449
+curve                     line  2411
+cut                       line  1454, 2428
+cut_group                 line  2260
+decimator                 line  2472
+delay                     line  1444, 1533, 2370
+dist                      line  1446, 1541, 2369
+djf                       line  2382
+end                       line  1452, 2266, 2433
+envelope                  line  2406
+env_trig                  line  2407
+eq                        line  2363
+every_effect              line  2461
+every_val                 line  2455
+expand                    line  2379
+fchorus                   line  2333
+flanger                   line  2376
+fm                        line  2302
+fm_crossmod               line  2324
+formant                   line  2310
+freeze                    line  2368
+gain                      line  1448, 2257, 2425, 2467
+granular                  line  2307
+hpf                       line  1442, 1525, 2358, 4030
+if                        line  2389
+impulse                   line  2318
+irand                     line  2446
+lag                       line  2319
+latch                     line  2417
+limiter                   line  2325
+line                      line  2410
+loop                      line  1453, 2246, 2435
+lpf                       line  1441, 1521, 2357, 4024
+min                       line  2469
+mix                       line  2388
+moog                      line  2362
+moog_hz                   line  2331
+multitap                  line  2372
+n                         line  2261, 2423
+noise                     line  2338
+notch                     line  2360, 4042
+note                      line  1447, 2262, 2424
+organ                     line  2330
+pan                       line  1449, 2258, 2426, 2468
+pan2_l                    line  2326
+pan2_r                    line  2327
+peak_follower             line  2419
+ph                        line  2386
+pingpong                  line  2373
+pink                      line  2339
+pink_noise                line  2316
+pitch_shift               line  2314
+plate                     line  2374
+pluck                     line  2308
+pm                        line  2303
+probe                     line  2403
+pulse                     line  2322
+rand                      line  2447
+range                     line  1553, 2466
+release                   line  1457, 2264, 2430
+resonz                    line  2400
+reverb                    line  1445, 1537, 2366
+reverb_stereo             line  2332
+rhpf                      line  2402
+ring                      line  2383
+ring_mod                  line  2323
+rlpf                      line  2401
+rms                       line  2415
+run                       line  2444
+s                         line  1557, 1799
+sample_hold               line  2471
+saw                       line  1509, 2299, 2450
+saw_hz                    line  2334
+saw_trig                  line  2343
+scan                      line  2445
+sc_comp                   line  2378
+schmidt                   line  2416
+segments                  line  2412
+select                    line  2390
+sew                       line  1796
+sine                      line  1505, 2298, 2448
+sine_trig                 line  2342
+slowcat                   line  1794
+soft_saw                  line  2335
+sometimes_by_val          line  2457
+sometimes_effect          line  2462
+sometimes_val             line  2456
+speed                     line  1450, 2259, 2427
+square                    line  1513, 2300, 2452
+square_hz                 line  2336
+square_trig               line  2344
+stack                     line  1792
+struct                    line  2441
+superchip                 line  2351
+superfm                   line  2352
+superhat                  line  2354
+superkick                 line  2348
+superpwm                  line  2350
+supersaw                  line  2349
+supersnare                line  2353
+svf_bp                    line  2394
+svf_hp                    line  2393
+svf_lp                    line  2392
+svf_notch                 line  2395
+tape                      line  2371
+timer                     line  2418
+trem                      line  2384
+tri                       line  1517, 2451
+triangle                  line  2301
+triangle_hz               line  2337
+tri_trig                  line  2345
+unipolar                  line  1545
+unit                      line  1455, 2235, 2434
+vco                       line  2305
+vib                       line  2385
+vocoder                   line  2313
+vowel                     line  2311
+waveguide                 line  2309
+wavetable                 line  2306
+wchoose                   line  2002, 2134
+wedge                     line  1795
+whenmod_effect            line  2463
+whenmod_val               line  2458
+white_noise               line  2315
+wrap                      line  2470
+xfade                     line  2387
+xline                     line  2320
+
+=================================================
+STATISTICS:
+- Total unique functions: 153
+- Functions with hand-written metadata: 125
+- Functions with auto-generated stubs: 102
+- Total functions with metadata: 227
+
+Note: The sum (125 + 102 = 227) is greater than 153 because
+some hand-written metadata entries don't exactly match compiler
+function names (aliases, variations, etc.).

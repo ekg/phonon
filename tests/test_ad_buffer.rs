@@ -335,21 +335,20 @@ fn test_ad_multiple_buffers() {
 
 #[test]
 fn test_ad_continuity_across_buffers() {
-    let mut graph = create_test_graph();
+    use phonon::compositional_compiler::compile_program;
+    use phonon::compositional_parser::parse_program;
 
-    let ad_id = graph.add_node(SignalNode::AD {
-        state: ADState::default(),
-        attack: Signal::Value(0.01),
-        decay: Signal::Value(0.05),
-    });
+    // Use proper render() flow to advance time between buffers
+    let sample_rate = 44100.0;
+    let code = "out: ad 0.01 0.05"; // AD envelope with 10ms attack, 50ms decay
 
-    // Generate two consecutive buffers
+    let (_, statements) = parse_program(code).expect("Parse failed");
+    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+
+    // Generate two consecutive buffers using render() which properly advances time
     let buffer_size = 512;
-    let mut buffer1 = vec![0.0; buffer_size];
-    let mut buffer2 = vec![0.0; buffer_size];
-
-    graph.eval_node_buffer(&ad_id, &mut buffer1);
-    graph.eval_node_buffer(&ad_id, &mut buffer2);
+    let buffer1 = graph.render(buffer_size);
+    let buffer2 = graph.render(buffer_size);
 
     // Check continuity at boundary
     let last_sample = buffer1[buffer_size - 1];

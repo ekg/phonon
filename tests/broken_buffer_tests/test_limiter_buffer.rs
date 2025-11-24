@@ -26,6 +26,7 @@ fn test_limiter_prevents_clipping() {
     let osc_node = SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -72,6 +73,7 @@ fn test_limiter_passthrough_quiet_signal() {
     let osc_node = SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -119,6 +121,7 @@ fn test_limiter_release_time() {
     let osc_node = SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -179,6 +182,7 @@ fn test_limiter_state_persistence() {
     let osc_node = SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -230,6 +234,7 @@ fn test_limiter_instant_attack() {
     let osc_node = SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -274,6 +279,7 @@ fn test_limiter_threshold_variation() {
     let osc_node = SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -371,6 +377,7 @@ fn test_limiter_symmetric_limiting() {
     let osc_node = SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),

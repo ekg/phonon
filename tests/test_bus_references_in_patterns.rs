@@ -13,7 +13,17 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
     let mut graph = compile_program(statements, sample_rate).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
-    graph.render(num_samples)
+
+    // CRITICAL: Render in small chunks (128 samples) like continuous synthesis tests
+    // This is necessary for synthesis voices to work properly!
+    let buffer_size = 128;
+    let num_buffers = num_samples / buffer_size;
+    let mut full_audio = Vec::with_capacity(num_samples);
+    for _ in 0..num_buffers {
+        let buffer = graph.render(buffer_size);
+        full_audio.extend_from_slice(&buffer);
+    }
+    full_audio
 }
 
 fn calculate_rms(samples: &[f32]) -> f32 {

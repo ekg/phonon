@@ -102,11 +102,20 @@ pub enum VoiceState {
     Releasing,
 }
 
-/// A single voice that plays a sample
+/// A single voice that plays a sample OR generates continuous synthesis
 #[derive(Clone)]
 pub struct Voice {
-    /// The sample data to play
+    /// The sample data to play (for sample playback mode)
     sample_data: Option<Arc<Vec<f32>>>,
+
+    /// Synthesis node ID (for continuous synthesis mode)
+    /// When Some, voice evaluates this node continuously instead of playing sample_data
+    /// This enables bus-triggered synthesis without pre-rendering to fixed buffers
+    synthesis_node_id: Option<usize>,
+
+    /// Cached synthesis sample (updated each sample by caller before process_stereo)
+    /// This is filled by VoiceManager before calling process_stereo()
+    synthesis_sample_cache: f32,
 
     /// Current playback position in the sample (fractional for speed control)
     position: f32,
@@ -181,6 +190,8 @@ impl Voice {
     pub fn new() -> Self {
         Self {
             sample_data: None,
+            synthesis_node_id: None,   // No synthesis node by default
+            synthesis_sample_cache: 0.0, // No cached sample yet
             position: 0.0,
             state: VoiceState::Free,
             gain: 1.0,
@@ -421,16 +432,38 @@ impl Voice {
             }
         }
 
-        // Check if envelope finished
-        if !self.envelope.is_active() {
-            if std::env::var("DEBUG_VOICE_PROCESS").is_ok() {
-                eprintln!("[VOICE] envelope not active, setting state to Free");
+        // Handle continuous synthesis mode
+        if let Some(_synthesis_node_id) = self.synthesis_node_id {
+            // Check if envelope finished for synthesis voice
+            if !self.envelope.is_active() {
+                if std::env::var("DEBUG_VOICE_PROCESS").is_ok() {
+                    eprintln!("[VOICE] synthesis envelope finished, freeing voice");
+                }
+                self.state = VoiceState::Free;
+                self.synthesis_node_id = None;
+                return (0.0, 0.0);
             }
-            self.state = VoiceState::Free;
-            self.sample_data = None;
-            return (0.0, 0.0);
+            // Use cached synthesis sample (populated by VoiceManager before calling process_stereo)
+            let sample_value = self.synthesis_sample_cache;
+
+            // Apply gain and envelope
+            let output_value = sample_value * self.gain * env_value;
+
+            // Increment age (synthesis continues indefinitely until envelope finishes)
+            self.age += 1;
+
+            // Equal-power panning
+            let pan_radians = (self.pan + 1.0) * std::f32::consts::FRAC_PI_4;
+            let left_gain = pan_radians.cos();
+            let right_gain = pan_radians.sin();
+
+            let left = output_value * left_gain;
+            let right = output_value * right_gain;
+
+            return (left, right);
         }
 
+        // Handle sample playback mode
         if let Some(ref samples) = self.sample_data {
             let sample_len = samples.len() as f32;
 
@@ -488,13 +521,24 @@ impl Voice {
                 let left = output_value * left_gain;
                 let right = output_value * right_gain;
 
+                // Check if envelope finished for sample voice
+                if !self.envelope.is_active() {
+                    self.state = VoiceState::Free;
+                    self.sample_data = None;
+                }
+
                 (left, right)
             } else {
                 // Sample finished, but envelope might still be ringing
-                // Continue processing envelope until it finishes
+                // Check if envelope also finished
+                if !self.envelope.is_active() {
+                    self.state = VoiceState::Free;
+                    self.sample_data = None;
+                }
                 (0.0, 0.0)
             }
         } else {
+            // No sample data and no synthesis node - free the voice
             self.state = VoiceState::Free;
             (0.0, 0.0)
         }
@@ -975,6 +1019,176 @@ impl VoiceManager {
         self.next_voice_index = (oldest_idx + 1) % max_voices;
     }
 
+    /// Trigger a continuous synthesis voice (no pre-rendered buffer)
+    /// The synthesis_node_id will be evaluated continuously for each sample
+    /// This enables bus-triggered synthesis without pre-rendering to fixed buffers
+    pub fn trigger_synthesis_voice(
+        &mut self,
+        synthesis_node_id: usize,
+        gain: f32,
+        pan: f32,
+        cut_group: Option<u32>,
+        attack: f32,
+        release: f32,
+    ) {
+        // DEBUG: Log synthesis voice triggers
+        if std::env::var("DEBUG_VOICE_TRIGGERS").is_ok() {
+            eprintln!("[VOICE_MGR] trigger_synthesis_voice called: node_id={}, gain={:.3}, pan={:.3}",
+                synthesis_node_id, gain, pan);
+        }
+
+        // If this has a cut group, fade out all other voices in the same cut group
+        if let Some(group) = cut_group {
+            for voice in &mut self.voices {
+                if voice.cut_group == Some(group) && voice.state != VoiceState::Free {
+                    voice.envelope.trigger_quick_release(0.01); // 10ms fade-out
+                }
+            }
+        }
+
+        // Try to find an inactive voice
+        let max_voices = self.voices.len();
+        for i in 0..max_voices {
+            let idx = (self.next_voice_index + i) % max_voices;
+            if self.voices[idx].is_available() {
+                // Configure voice for continuous synthesis
+                self.voices[idx].synthesis_node_id = Some(synthesis_node_id);
+                self.voices[idx].sample_data = None; // Clear any sample data
+                self.voices[idx].synthesis_sample_cache = 0.0; // Will be filled during processing
+                self.voices[idx].state = VoiceState::Playing;
+                self.voices[idx].gain = gain;
+                self.voices[idx].pan = pan;
+                self.voices[idx].speed = 1.0; // Speed doesn't apply to synthesis
+                self.voices[idx].position = 0.0;
+                self.voices[idx].age = 0;
+                self.voices[idx].cut_group = cut_group;
+                self.voices[idx].source_node = self.default_source_node;
+                self.voices[idx].envelope = VoiceEnvelope::new_percussion(SAMPLE_RATE, attack, release);
+                self.voices[idx].envelope.trigger();  // CRITICAL: Start the envelope!
+                self.voices[idx].attack = attack;
+                self.voices[idx].release = release;
+
+                self.next_voice_index = (idx + 1) % max_voices;
+                self.last_triggered_voice_index = Some(idx);
+
+                // DEBUG: Verify voice state
+                if std::env::var("DEBUG_VOICE_TRIGGERS").is_ok() {
+                    eprintln!("[VOICE_MGR] Synthesis voice {} triggered, state={:?}",
+                        idx, self.voices[idx].state);
+                }
+                return;
+            }
+        }
+
+        // All voices active - try to grow the pool
+        if self.grow_voice_pool() {
+            let idx = self.voices.len() - 1;
+            self.voices[idx].synthesis_node_id = Some(synthesis_node_id);
+            self.voices[idx].sample_data = None;
+            self.voices[idx].synthesis_sample_cache = 0.0;
+            self.voices[idx].state = VoiceState::Playing;
+            self.voices[idx].gain = gain;
+            self.voices[idx].pan = pan;
+            self.voices[idx].speed = 1.0;
+            self.voices[idx].position = 0.0;
+            self.voices[idx].age = 0;
+            self.voices[idx].cut_group = cut_group;
+            self.voices[idx].source_node = self.default_source_node;
+            self.voices[idx].envelope = VoiceEnvelope::new_percussion(SAMPLE_RATE, attack, release);
+            self.voices[idx].envelope.trigger();  // CRITICAL: Start the envelope!
+            self.voices[idx].attack = attack;
+            self.voices[idx].release = release;
+
+            self.next_voice_index = 0;
+            self.last_triggered_voice_index = Some(idx);
+            return;
+        }
+
+        // Growth failed - steal oldest voice
+        let mut oldest_idx = 0;
+        let mut oldest_age = 0;
+
+        for (idx, voice) in self.voices.iter().enumerate() {
+            if voice.age > oldest_age {
+                oldest_age = voice.age;
+                oldest_idx = idx;
+            }
+        }
+
+        self.voices[oldest_idx].synthesis_node_id = Some(synthesis_node_id);
+        self.voices[oldest_idx].sample_data = None;
+        self.voices[oldest_idx].synthesis_sample_cache = 0.0;
+        self.voices[oldest_idx].state = VoiceState::Playing;
+        self.voices[oldest_idx].gain = gain;
+        self.voices[oldest_idx].pan = pan;
+        self.voices[oldest_idx].speed = 1.0;
+        self.voices[oldest_idx].position = 0.0;
+        self.voices[oldest_idx].age = 0;
+        self.voices[oldest_idx].cut_group = cut_group;
+        self.voices[oldest_idx].source_node = self.default_source_node;
+        self.voices[oldest_idx].envelope = VoiceEnvelope::new_percussion(SAMPLE_RATE, attack, release);
+        self.voices[oldest_idx].envelope.trigger();  // CRITICAL: Start the envelope!
+        self.voices[oldest_idx].attack = attack;
+        self.voices[oldest_idx].release = release;
+
+        self.next_voice_index = (oldest_idx + 1) % max_voices;
+        self.last_triggered_voice_index = Some(oldest_idx);
+    }
+
+    /// Get synthesis node IDs for all active synthesis voices
+    /// Used to pre-query which nodes need evaluation
+    pub fn get_active_synthesis_node_ids(&self) -> Vec<usize> {
+        self.voices
+            .iter()
+            .filter_map(|v| {
+                if v.synthesis_node_id.is_some() && v.state != VoiceState::Free {
+                    v.synthesis_node_id
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// Update synthesis sample cache with pre-computed samples
+    /// Takes a HashMap of node_id -> sample_value
+    pub fn update_synthesis_cache_with_samples(&mut self, samples: &std::collections::HashMap<usize, f32>) {
+        for voice in &mut self.voices {
+            if let Some(node_id) = voice.synthesis_node_id {
+                if voice.state != VoiceState::Free {
+                    if let Some(&sample) = samples.get(&node_id) {
+                        voice.synthesis_sample_cache = sample;
+                        if std::env::var("DEBUG_SYNTHESIS_CACHE").is_ok() && sample.abs() > 0.001 {
+                            eprintln!("[CACHE] Updated voice with node_id={} to cache={:.6}", node_id, sample);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Process all synthesis voices for one sample
+    /// Returns Vec of ((left, right), source_node) for each active synthesis voice
+    pub fn process_synthesis_voices(&mut self) -> Vec<((f32, f32), usize)> {
+        let outputs: Vec<((f32, f32), usize)> = self.voices.iter_mut()
+            .filter(|v| v.synthesis_node_id.is_some() && v.state != VoiceState::Free)
+            .map(|v| {
+                let output = v.process_stereo();
+                if std::env::var("DEBUG_SYNTHESIS_VOICE").is_ok() && output.0.abs() + output.1.abs() > 0.001 {
+                    eprintln!("[SYNTHESIS] Voice node_id={:?} produced output: ({:.6}, {:.6}), envelope_active={}, cache={:.6}",
+                        v.synthesis_node_id, output.0, output.1, v.envelope.is_active(), v.synthesis_sample_cache);
+                }
+                (output, v.source_node)
+            })
+            .collect();
+
+        if std::env::var("DEBUG_SYNTHESIS_VOICE").is_ok() && !outputs.is_empty() {
+            eprintln!("[SYNTHESIS] Processed {} synthesis voices", outputs.len());
+        }
+
+        outputs
+    }
+
     /// Process one sample from all active voices (mono)
     pub fn process(&mut self) -> f32 {
         let (left, right) = self.process_stereo();
@@ -1344,10 +1558,14 @@ impl VoiceManager {
         // Process each voice for the ENTIRE buffer, then accumulate
         // This gives much better cache locality than sample-by-sample processing
         // RE-ENABLED: Now safe with deep node cloning!
+        //
+        // IMPORTANT: Skip synthesis voices - they need sample-by-sample processing
+        // because synthesis_sample_cache is updated per-sample in the main loop
         if self.voices.len() >= self.parallel_threshold {
             // Parallel: process voices in parallel, each generating full buffer
             let voice_buffers: Vec<(Vec<(f32, f32)>, usize)> = self.voices
                 .par_iter_mut()
+                .filter(|v| v.synthesis_node_id.is_none()) // Skip synthesis voices
                 .map(|voice| {
                     let mut buffer = Vec::with_capacity(buffer_size);
                     for _ in 0..buffer_size {
@@ -1370,6 +1588,11 @@ impl VoiceManager {
         } else {
             // Sequential: process voices sequentially (FORCED - parallel is broken)
             for voice in &mut self.voices {
+                // Skip synthesis voices - they're processed sample-by-sample in main loop
+                if voice.synthesis_node_id.is_some() {
+                    continue;
+                }
+
                 let source_node = voice.source_node;
                 for i in 0..buffer_size {
                     let (l, r) = voice.process_stereo();
@@ -1378,6 +1601,84 @@ impl VoiceManager {
                         .entry(source_node)
                         .and_modify(|v| *v += mono)
                         .or_insert(mono);
+                }
+            }
+        }
+
+        output
+    }
+
+    /// Process synthesis voices with pre-generated buffers
+    ///
+    /// This mirrors process_buffer_per_node() but for synthesis voices with
+    /// pre-generated audio buffers. Applies envelope per-sample and returns
+    /// mixed output in the same format as process_buffer_per_node().
+    ///
+    /// This enables SIMD auto-vectorization by processing entire buffers at once.
+    pub fn process_synthesis_buffers(
+        &mut self,
+        synthesis_buffers: &std::collections::HashMap<usize, Vec<f32>>,
+        buffer_size: usize,
+    ) -> Vec<std::collections::HashMap<usize, f32>> {
+        use std::collections::HashMap;
+
+        // Pre-allocate output: one HashMap per sample in buffer
+        let mut output: Vec<HashMap<usize, f32>> = vec![HashMap::new(); buffer_size];
+
+        // Process each synthesis voice
+        for voice in &mut self.voices {
+            // Only process synthesis voices
+            if let Some(synthesis_node_id) = voice.synthesis_node_id {
+                // Find the pre-generated buffer for this synthesis node
+                if let Some(synth_buffer) = synthesis_buffers.get(&synthesis_node_id) {
+                    let source_node = voice.source_node;
+
+                    // Process each sample in the buffer
+                    for i in 0..buffer_size.min(synth_buffer.len()) {
+                        // Get raw synthesis sample
+                        let sample_value = synth_buffer[i];
+
+                        // Process envelope
+                        let env_value = voice.envelope.process();
+
+                        // Auto-release for legato
+                        if let Some(release_at) = voice.auto_release_at_sample {
+                            if voice.age >= release_at {
+                                voice.envelope.release();
+                                voice.auto_release_at_sample = None;
+                            }
+                        }
+
+                        // Apply gain and envelope
+                        let output_value = sample_value * voice.gain * env_value;
+
+                        // Increment age
+                        voice.age += 1;
+
+                        // Equal-power panning
+                        let pan_radians = (voice.pan + 1.0) * std::f32::consts::FRAC_PI_4;
+                        let left_gain = pan_radians.cos();
+                        let right_gain = pan_radians.sin();
+
+                        let left = output_value * left_gain;
+                        let right = output_value * right_gain;
+
+                        // Convert stereo to mono for voice_buffers
+                        let mono = (left + right) / std::f32::consts::SQRT_2;
+
+                        // Accumulate into output
+                        output[i]
+                            .entry(source_node)
+                            .and_modify(|v| *v += mono)
+                            .or_insert(mono);
+
+                        // Check if envelope finished
+                        if !voice.envelope.is_active() {
+                            voice.state = VoiceState::Free;
+                            voice.synthesis_node_id = None;
+                            break; // Stop processing this voice
+                        }
+                    }
                 }
             }
         }

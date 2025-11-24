@@ -2,6 +2,8 @@
 //!
 //! Determines what type of completion to show based on cursor position
 
+use super::function_metadata::FUNCTION_METADATA;
+
 /// Token at cursor position
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
@@ -26,6 +28,12 @@ pub enum CompletionContext {
     Keyword(&'static str),
     /// No completion available
     None,
+    /// After # operator - show Effects/Filters only
+    AfterChain,
+    /// After $ operator - show Transforms only
+    AfterTransform,
+    /// After : on bus assignment (~name: or out:) - show Generators/Oscillators/Synths
+    AfterBusAssignment,
 }
 
 /// Extract the token at the cursor position
@@ -106,9 +114,71 @@ pub fn get_completion_context(line: &str, cursor_pos: usize) -> CompletionContex
         return CompletionContext::Sample;
     }
 
+    // Check for operator context (before checking Function context)
+    // Only trigger if cursor is AFTER the operator with whitespace
+    if !in_string && cursor_pos > 0 {
+        let trimmed_before = line_before_cursor.trim_end();
+
+        // Only detect operator context if we're at a word boundary after the operator
+        // i.e., "# " (with space) or "#<cursor>" where cursor isn't in the middle of the operator itself
+        if let Some(last_char) = trimmed_before.chars().last() {
+            // Check if cursor position is past the operator (whitespace after it)
+            let at_word_boundary = line_before_cursor.ends_with(' ')
+                || (cursor_pos < line.len() && line.chars().nth(cursor_pos).map_or(false, |c| c.is_whitespace()));
+
+            if at_word_boundary {
+                match last_char {
+                    '#' => return CompletionContext::AfterChain,
+                    '$' => return CompletionContext::AfterTransform,
+                    _ => {}
+                }
+            }
+
+            // Handle colon for bus assignment separately
+            // This requires checking the start of the line
+            if last_char == ':' {
+                // Check if this is a bus assignment (~name: or out:)
+                let trimmed_start = trimmed_before.trim_start();
+                // Only trigger AfterBusAssignment if:
+                // 1. Line starts with ~ or "out"
+                // 2. The colon is immediately after the bus name (no other content after it)
+                // 3. We're at a word boundary (space or cursor at end)
+                let is_bus_assignment = (trimmed_start.starts_with('~') || trimmed_start.starts_with("out"))
+                    && !trimmed_before.contains('#')  // Not in a chain after #
+                    && !trimmed_before.contains('$'); // Not after a transform
+
+                if is_bus_assignment && at_word_boundary {
+                    return CompletionContext::AfterBusAssignment;
+                }
+                // Otherwise fall through to keyword detection
+            }
+        }
+    }
+
     // Check if we're typing a keyword argument (after : following a function name)
     if let Some(func_name) = detect_keyword_context(line, cursor_pos) {
         return CompletionContext::Keyword(func_name);
+    }
+
+    // Check if we're right after a function name with just whitespace
+    // Example: "gain " or "lpf 800 " should show kwargs
+    if !in_string && cursor_pos > 0 {
+        // Look back for the last non-whitespace token
+        let trimmed_before = line_before_cursor.trim_end();
+        if trimmed_before != line_before_cursor {
+            // We have trailing whitespace
+            let tokens: Vec<&str> = trimmed_before
+                .split(|c: char| c.is_whitespace() || "(){}[]#$".contains(c))
+                .filter(|t| !t.is_empty())
+                .collect();
+
+            if let Some(last_token) = tokens.last() {
+                // Check if last token is a known function
+                if let Some(metadata) = FUNCTION_METADATA.get(last_token) {
+                    return CompletionContext::Keyword(metadata.name);
+                }
+            }
+        }
     }
 
     // Outside strings - could be function or nothing
@@ -144,11 +214,12 @@ fn detect_keyword_context(line: &str, cursor_pos: usize) -> Option<&'static str>
 
     // Check if we're right after a colon or typing a parameter name
     let after_colon = &line[last_colon + 1..cursor_pos];
+    let after_colon_trimmed = after_colon.trim_start(); // Allow leading whitespace
 
     // Only consider this a keyword context if:
-    // 1. We're right after `:` (nothing after it)
+    // 1. We're right after `:` (nothing after it, possibly with whitespace)
     // 2. Or we're typing something that looks like a parameter name (alphanumeric + _)
-    if !after_colon.is_empty() && !after_colon.chars().all(|c| c.is_alphanumeric() || c == '_') {
+    if !after_colon_trimmed.is_empty() && !after_colon_trimmed.chars().all(|c| c.is_alphanumeric() || c == '_') {
         return None;
     }
 
@@ -330,5 +401,26 @@ mod tests {
         // Colon inside string should not trigger keyword context
         let context = get_completion_context("s \"bd:", 6);
         assert_eq!(context, CompletionContext::Sample);
+    }
+
+    #[test]
+    fn test_keyword_context_with_space_after_colon() {
+        // Should work with space after colon: "gain : <TAB>"
+        let context = get_completion_context("gain : ", 7);
+        assert_eq!(context, CompletionContext::Keyword("gain"));
+    }
+
+    #[test]
+    fn test_keyword_context_with_multiple_spaces_after_colon() {
+        // Should work with multiple spaces after colon
+        let context = get_completion_context("lpf 1000 :   ", 13);
+        assert_eq!(context, CompletionContext::Keyword("lpf"));
+    }
+
+    #[test]
+    fn test_keyword_context_space_then_typing() {
+        // Should work when typing after space: "gain : a<TAB>"
+        let context = get_completion_context("gain : am", 9);
+        assert_eq!(context, CompletionContext::Keyword("gain"));
     }
 }

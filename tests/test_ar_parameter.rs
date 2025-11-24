@@ -15,7 +15,14 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
     let mut graph = compile_program(statements, sample_rate).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
-    graph.render(num_samples)
+
+    // Render in chunks to avoid buffer size issues
+    let chunk_size = 128;
+    let mut result = Vec::with_capacity(num_samples);
+    for _ in 0..(num_samples / chunk_size) {
+        result.extend_from_slice(&graph.render(chunk_size));
+    }
+    result
 }
 
 #[test]

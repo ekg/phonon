@@ -17,6 +17,7 @@ pub use context::{CompletionContext, get_completion_context, get_token_at_cursor
 pub use discovery::{discover_samples, extract_bus_names};
 pub use function_metadata::{FunctionMetadata, FUNCTION_METADATA, search_functions, functions_by_category};
 pub use matching::filter_completions;
+pub use parameter::generate_kwargs_template;
 pub use state::CompletionState;
 
 #[cfg(test)]
@@ -38,3 +39,4 @@ mod tests {
         assert!(!completions.is_empty());
     }
 }
+pub mod generated_metadata_stubs;

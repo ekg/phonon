@@ -3974,12 +3974,17 @@ fn eval_node_isolated(nodes: &mut Vec<Option<Rc<SignalNode>>>, node_id: &NodeId,
         SignalNode::Oscillator {
             freq,
             waveform,
-            semitone_offset: _,
+            semitone_offset,
             phase,
             pending_freq,
             last_sample,
         } => {
-            let freq_val = eval_signal_isolated(nodes, &freq, sample_rate);
+            let mut freq_val = eval_signal_isolated(nodes, &freq, sample_rate);
+
+            // Apply semitone offset: freq * 2^(semitones/12)
+            if *semitone_offset != 0.0 {
+                freq_val *= 2.0_f32.powf(*semitone_offset / 12.0);
+            }
 
             // Generate sample based on waveform
             let phase_val = *phase.borrow();
@@ -6047,7 +6052,7 @@ impl UnifiedSignalGraph {
             SignalNode::Oscillator {
                 freq,
                 waveform,
-                semitone_offset: _,
+                semitone_offset,
                 phase,
                 pending_freq,
                 last_sample,
@@ -6059,6 +6064,11 @@ impl UnifiedSignalGraph {
                 // If there's a pending frequency change, use it until zero-crossing
                 if let Some(pending) = *pending_freq.borrow() {
                     current_freq = pending; // Use pending freq until zero-crossing
+                }
+
+                // Apply semitone offset: freq * 2^(semitones/12)
+                if *semitone_offset != 0.0 {
+                    current_freq *= 2.0_f32.powf(*semitone_offset / 12.0);
                 }
 
                 // Generate sample based on waveform
@@ -12034,7 +12044,7 @@ impl UnifiedSignalGraph {
             SignalNode::Oscillator {
                 freq,
                 waveform,
-                semitone_offset: _,
+                semitone_offset,
                 phase,
                 pending_freq,
                 last_sample,
@@ -12073,6 +12083,11 @@ impl UnifiedSignalGraph {
                     // Zero-crossing detection for anti-click frequency changes
                     if let Some(pending) = current_pending {
                         current_freq = pending;
+                    }
+
+                    // Apply semitone offset: freq * 2^(semitones/12)
+                    if *semitone_offset != 0.0 {
+                        current_freq *= 2.0_f32.powf(*semitone_offset / 12.0);
                     }
 
                     // Generate sample based on waveform

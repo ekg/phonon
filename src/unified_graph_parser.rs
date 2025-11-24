@@ -1750,6 +1750,7 @@ impl DslCompiler {
                 let freq_signal = self.compile_expression_to_signal(*freq);
                 self.graph.add_node(SignalNode::Oscillator {
                     freq: freq_signal,
+        semitone_offset: 0.0,
                     waveform,
                     phase: RefCell::new(0.0),
                     pending_freq: RefCell::new(None),
