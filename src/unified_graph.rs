@@ -5989,116 +5989,16 @@ impl UnifiedSignalGraph {
     }
 
     /// Presynthesize buses in parallel (Phase 1 optimization)
-    /// Scans events for bus triggers, synthesizes all unique buffers in parallel,
-    /// and returns a cache for use during event processing
+    /// DISABLED: Now using continuous synthesis voices instead of pre-rendered buffers
+    /// Returns empty HashMap to maintain API compatibility
     fn presynthesize_buses_parallel(
         &self,
-        events: &[crate::pattern::Hap<String>],
-        last_event_start: f64,
+        _events: &[crate::pattern::Hap<String>],
+        _last_event_start: f64,
     ) -> HashMap<(String, usize), Arc<Vec<f32>>> {
-        use std::collections::HashSet;
-        use std::time::Instant;
-
-        let start_time = Instant::now();
-
-        // Collect unique bus synthesis requests
-        let epsilon = 1e-6;
-        let mut requests = Vec::new();
-        let mut seen = HashSet::new();
-
-        for event in events.iter() {
-            let sample_name = event.value.trim();
-
-            // Skip rests and non-bus triggers
-            if sample_name == "~" || sample_name.is_empty() || !sample_name.starts_with('~') {
-                continue;
-            }
-
-            let bus_name = &sample_name[1..]; // Strip ~ prefix
-
-            // Check if this is a new event (same logic as main loop)
-            let event_start_abs = if let Some(whole) = &event.whole {
-                whole.begin.to_float()
-            } else {
-                event.part.begin.to_float()
-            };
-
-            let event_is_new = event_start_abs > last_event_start + epsilon
-                && event_start_abs < self.get_cycle_position() + epsilon;
-
-            if !event_is_new {
-                continue;
-            }
-
-            // Check if bus exists
-            if let Some(bus_node_id) = self.buses.get(bus_name) {
-                // Calculate duration
-                let event_duration = if let Some(whole) = &event.whole {
-                    whole.end.to_float() - whole.begin.to_float()
-                } else {
-                    event.part.end.to_float() - event.part.begin.to_float()
-                };
-
-                let duration_samples = (event_duration * self.sample_rate as f64 * self.cps as f64) as usize;
-                let duration_samples = duration_samples.max(1).min(self.sample_rate as usize * 2);
-
-                let cache_key = (bus_name.to_string(), duration_samples);
-
-                // Only add if not already seen (avoid duplicate synthesis)
-                if seen.insert(cache_key.clone()) {
-                    requests.push((cache_key, *bus_node_id));
-                }
-            }
-        }
-
-        // If no bus synthesis needed, return empty cache
-        if requests.is_empty() {
-            return HashMap::new();
-        }
-
-        // Parallel synthesis using Rayon
-        // Pre-clone nodes vector for each request to avoid Send issues with RefCell
-        let sample_rate = self.sample_rate;
-
-        // Prepare data for parallel processing: each item contains (key, node_id, duration, nodes_clone)
-        // This ensures each thread gets its own independent copy of nodes
-        let parallel_tasks: Vec<_> = requests
-            .into_iter()
-            .map(|(key, node_id)| {
-                let nodes_copy = self.nodes.clone();
-                (key, node_id, nodes_copy)
-            })
-            .collect();
-
-        let synthesized: Vec<((String, usize), Arc<Vec<f32>>)> = parallel_tasks
-            .into_iter()
-            .map(|((bus_name, duration_samples), bus_node_id, nodes)| {
-                // Each thread has its own nodes copy with independent RefCell state
-                let buffer = synthesize_bus_buffer_parallel(
-                    nodes,
-                    bus_node_id,
-                    duration_samples,
-                    sample_rate,
-                );
-
-                ((bus_name, duration_samples), Arc::new(buffer))
-            })
-            .collect();
-
-        let elapsed = start_time.elapsed();
-        let num_unique = synthesized.len();
-
-        if num_unique > 0 {
-            eprintln!(
-                "⚡ Parallel bus synthesis: {} unique buffers in {:.2}ms ({:.2}ms/buffer avg)",
-                num_unique,
-                elapsed.as_secs_f64() * 1000.0,
-                elapsed.as_secs_f64() * 1000.0 / num_unique as f64
-            );
-        }
-
-        // Convert to HashMap for fast lookup
-        synthesized.into_iter().collect()
+        // OLD APPROACH (disabled): Pre-render buses to fixed-length buffers
+        // NEW APPROACH: Trigger continuous synthesis voices that evaluate sample-by-sample
+        return HashMap::new();
     }
 
     /// Evaluate a node to get its current output value
@@ -8974,6 +8874,9 @@ impl UnifiedSignalGraph {
                 // Set the default source node for all voice triggers in this Sample node
                 // This separates outputs so each output only hears its own samples
                 self.voice_manager.borrow_mut().set_default_source_node(node_id.0);
+                if std::env::var("DEBUG_SOURCE_NODE").is_ok() {
+                    eprintln!("[SOURCE_NODE] Sample node {} set as default source", node_id.0);
+                }
 
                 // OPTION B OPTIMIZATION: Use pre-computed events if available
                 let events = if let Some(cached_events) = self.pattern_event_cache.get(node_id) {
@@ -9053,12 +8956,20 @@ impl UnifiedSignalGraph {
 
                 // Trigger voices for ALL new events
                 // An event should be triggered if its START is after the last event we triggered
+                if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && !events.is_empty() {
+                    eprintln!("[SAMPLE_EVENTS] Node {} processing {} events", node_id.0, events.len());
+                }
                 for event in events.iter() {
                     let sample_name = event.value.trim();
 
                     // Skip rests
                     if sample_name == "~" || sample_name.is_empty() {
                         continue;
+                    }
+
+                    if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
+                        eprintln!("[SAMPLE_EVENTS] Processing event: sample_name='{}', is_bus_trigger={}",
+                            sample_name, sample_name.starts_with('~'));
                     }
 
                     // Check for bus trigger prefix (~busname)
@@ -9085,7 +8996,7 @@ impl UnifiedSignalGraph {
                         && event_start_abs < self.get_cycle_position() + epsilon;
 
                     // DEBUG: Log event evaluation (disabled - too verbose)
-                    if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && false {
+                    if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
                         eprintln!(
                             "  Event '{}' at {:.6}: event_is_new={} (last={:.6}, current={:.6})",
                             sample_name,
@@ -9250,189 +9161,53 @@ impl UnifiedSignalGraph {
 
                             // Handle bus triggering vs regular sample loading
                             if is_bus_trigger {
+                                if std::env::var("DEBUG_BUS_LOOKUP").is_ok() {
+                                    eprintln!("[BUS] Looking up bus '{}', is_bus_trigger={}", actual_name, is_bus_trigger);
+                                }
                                 // Look up the bus
                                 if let Some(bus_node_id) = self.buses.get(actual_name).copied() {
-                                    // Calculate event duration from pattern
-                                    let event_duration = if let Some(whole) = &event.whole {
-                                        whole.end.to_float() - whole.begin.to_float()
+                                    if std::env::var("DEBUG_BUS_LOOKUP").is_ok() {
+                                        eprintln!("[BUS] Found bus '{}' -> node_id={}", actual_name, bus_node_id.0);
+                                    }
+                                    // CONTINUOUS SYNTHESIS ARCHITECTURE:
+                                    // Instead of pre-rendering bus to a fixed-length buffer,
+                                    // trigger a synthesis voice that evaluates the bus node continuously.
+                                    // This ensures synthesis state persists across buffer boundaries.
+
+                                    // Use envelope parameters - respect user settings or use defaults
+                                    // If user set AR parameter explicitly, use those values
+                                    // Otherwise use sensible defaults for synthesis (smooth onset + moderate release)
+                                    let (bus_attack, bus_release) = if attack_val > 0.0 || release_val > 0.0 {
+                                        // User explicitly set envelope: use their values
+                                        (final_attack, final_release)
                                     } else {
-                                        event.part.end.to_float() - event.part.begin.to_float()
+                                        // No explicit envelope: use defaults (10ms attack, 0.3s release)
+                                        // 0.3s allows natural decay without turning melodies into drones
+                                        (0.01, 0.3) // 10ms attack (anti-click), 300ms release (melodic)
                                     };
 
-                                    // Convert duration to samples (duration is in cycles)
-                                    let duration_samples = (event_duration
-                                        * self.sample_rate as f64
-                                        * self.cps as f64)
-                                        as usize;
-                                    let duration_samples =
-                                        duration_samples.max(1).min(self.sample_rate as usize * 2); // Cap at 2 seconds
-
-                                    // Create synthetic sample buffer by evaluating bus signal
-                                    // PARALLEL OPTIMIZATION: Check cache first (synthesized in parallel)
-                                    // If cache hit: use pre-synthesized buffer (4-8x faster on multi-core)
-                                    // If cache miss: synthesize serially as fallback
-                                    let cache_key = (actual_name.to_string(), duration_samples);
-                                    let synthetic_buffer = if let Some(cached_buffer) = bus_buffer_cache.get(&cache_key) {
-                                        // Cache hit! Use pre-synthesized buffer from parallel phase
-                                        cached_buffer.as_ref().clone()
-                                    } else {
-                                        // Cache miss - fallback to serial synthesis
-                                        // This can happen for edge cases not caught in preprocessing
-                                        let mut buffer = Vec::with_capacity(duration_samples);
-                                        for _ in 0..duration_samples {
-                                            let sample_value = self.eval_node(&bus_node_id);
-                                            buffer.push(sample_value);
-                                        }
-                                        buffer
-                                    };
-
-                                    // CRITICAL FIX: For synthetic bus buffers, calculate appropriate release time
-                                    // The synthetic_buffer length determines how long the sample actually plays
-                                    // Don't use the default 10s release which causes voice accumulation!
-                                    let buffer_duration_seconds = synthetic_buffer.len() as f32 / self.sample_rate;
-
-                                    // For synthetic buffers, use reasonable envelope times
-                                    // Longer attack prevents clicks, especially for synth tones
-                                    let bus_attack = 0.01; // 10ms attack (smooth onset, no clicks)
-                                    let bus_release = (buffer_duration_seconds * 0.2).max(0.05).min(0.5); // 20% of buffer (min 50ms), capped at 0.5s
-
-                                    // DEBUG: Check voice manager state before triggering
+                                    // DEBUG: Log synthesis voice triggering
                                     if std::env::var("DEBUG_VOICE_TRIGGER").is_ok() {
-                                        eprintln!("    About to trigger voice: buffer_len={}, gain={}, pan={}, speed={}, source_node={}",
-                                            synthetic_buffer.len(), gain_val, pan_val, final_speed, node_id.0);
+                                        eprintln!("    Triggering continuous synthesis voice: bus_node_id={}, gain={}, pan={}, source_node={}",
+                                            bus_node_id.0, gain_val, pan_val, node_id.0);
                                     }
 
-                                    // Trigger voice with synthetic buffer using appropriate envelope type
-                                    // LEGATO OVERRIDE: When legato is present, use ADSR with sharp settings
-                                    if let Some(legato_cycles) = legato_duration_opt {
-                                        // Use ADSR with brick-wall envelope for legato
-                                        // Attack: 1ms (instant), Decay: 1ms, Sustain: 100%, Release: 3ms (instant)
-                                        let sharp_attack = 0.001;
-                                        let sharp_decay = 0.001;
-                                        let sharp_sustain = 1.0;
-                                        let sharp_release = 0.003;
-
-                                        self.voice_manager
-                                            .borrow_mut()
-                                            .trigger_sample_with_adsr(
-                                                std::sync::Arc::new(synthetic_buffer.clone()),
-                                                gain_val,
-                                                pan_val,
-                                                final_speed,
-                                                cut_group_opt,
-                                                sharp_attack,
-                                                sharp_decay,
-                                                sharp_sustain,
-                                                sharp_release,
-                                            );
-
-                                        // Calculate auto-release time
-                                        // Convert legato duration from cycles to seconds
-                                        let duration_seconds = legato_cycles / self.cps;
-                                        // Subtract attack and release times to get sustain duration
-                                        let sustain_seconds = (duration_seconds - sharp_attack - sharp_release).max(0.0);
-                                        // Convert to samples
-                                        let auto_release_samples = (sustain_seconds * self.sample_rate as f32) as usize;
-
-                                        // Set auto-release on the last triggered voice
-                                        self.voice_manager
-                                            .borrow_mut()
-                                            .set_last_voice_auto_release(auto_release_samples);
-                                    } else {
-                                        // No legato: use bus-appropriate envelope (short release to prevent accumulation)
-                                        match envelope_type {
-                                            Some(RuntimeEnvelopeType::Percussion) | None => {
-                                                self.voice_manager
-                                                    .borrow_mut()
-                                                    .trigger_sample_with_envelope(
-                                                        std::sync::Arc::new(synthetic_buffer.clone()),
-                                                        gain_val,
-                                                        pan_val,
-                                                        final_speed,
-                                                        cut_group_opt,
-                                                        bus_attack,
-                                                        bus_release,
-                                                    );
-                                            }
-                                            Some(RuntimeEnvelopeType::ADSR {
-                                                ref decay,
-                                                ref sustain,
-                                            }) => {
-                                                let decay_val = self
-                                                    .eval_signal_at_time(decay, event_start_abs)
-                                                    .max(0.001);
-                                                let sustain_val = self
-                                                    .eval_signal_at_time(sustain, event_start_abs)
-                                                    .clamp(0.0, 1.0);
-                                                self.voice_manager
-                                                    .borrow_mut()
-                                                    .trigger_sample_with_adsr(
-                                                        std::sync::Arc::new(synthetic_buffer.clone()),
-                                                        gain_val,
-                                                        pan_val,
-                                                        final_speed,
-                                                        cut_group_opt,
-                                                        bus_attack,
-                                                        decay_val,
-                                                        sustain_val,
-                                                        bus_release,
-                                                    );
-                                            }
-                                            Some(RuntimeEnvelopeType::Segments {
-                                                ref levels,
-                                                ref times,
-                                            }) => {
-                                                self.voice_manager
-                                                    .borrow_mut()
-                                                    .trigger_sample_with_segments(
-                                                        std::sync::Arc::new(synthetic_buffer.clone()),
-                                                        gain_val,
-                                                        pan_val,
-                                                        final_speed,
-                                                        cut_group_opt,
-                                                        levels.clone(),
-                                                        times.clone(),
-                                                    );
-                                            }
-                                            Some(RuntimeEnvelopeType::Curve {
-                                                ref start,
-                                                ref end,
-                                                ref duration,
-                                                ref curve,
-                                            }) => {
-                                                let start_val =
-                                                    self.eval_signal_at_time(start, event_start_abs);
-                                                let end_val =
-                                                    self.eval_signal_at_time(end, event_start_abs);
-                                                let duration_val = self
-                                                    .eval_signal_at_time(duration, event_start_abs)
-                                                    .max(0.001);
-                                                let curve_val =
-                                                    self.eval_signal_at_time(curve, event_start_abs);
-                                                self.voice_manager
-                                                    .borrow_mut()
-                                                    .trigger_sample_with_curve(
-                                                        std::sync::Arc::new(synthetic_buffer),
-                                                        gain_val,
-                                                        pan_val,
-                                                        final_speed,
-                                                        cut_group_opt,
-                                                        start_val,
-                                                        end_val,
-                                                        duration_val,
-                                                        curve_val,
-                                                    );
-                                            }
-                                        }
-                                    }
-
-                                    // Configure unit mode and loop for this voice
+                                    // Trigger continuous synthesis voice
+                                    // TODO: Support other envelope types (ADSR, Segments, Curve) for synthesis voices
+                                    // For now, use simple percussion envelope
                                     self.voice_manager
                                         .borrow_mut()
-                                        .set_last_voice_unit_mode(unit_mode_enum);
-                                    self.voice_manager
-                                        .borrow_mut()
-                                        .set_last_voice_loop_enabled(loop_enabled_bool);
+                                        .trigger_synthesis_voice(
+                                            bus_node_id.0, // Pass raw NodeId (usize)
+                                            gain_val,
+                                            pan_val,
+                                            cut_group_opt,
+                                            bus_attack,
+                                            bus_release,
+                                        );
+
+                                    // Note: unit mode and loop don't apply to synthesis voices
+                                    // Synthesis continues until envelope finishes
                                 } else {
                                     eprintln!(
                                         "Warning: Bus '{}' not found for trigger",
@@ -9472,17 +9247,12 @@ impl UnifiedSignalGraph {
                                         sample_data
                                     };
 
-                                    // CRITICAL FIX: Calculate appropriate envelope times based on sample duration
-                                    // For short drum hits (< 1s), use proportional release to prevent voice accumulation
-                                    // For long samples/loops (> 1s), keep the 10s release to let them play through
-                                    let sample_duration_seconds = sliced_sample_data.len() as f32 / self.sample_rate / final_speed.abs().max(0.1);
-                                    let smart_release = if sample_duration_seconds < 1.0 {
-                                        // Short sample: use brief release (20% of sample duration, min 10ms, max 0.5s)
-                                        (sample_duration_seconds * 0.2).max(0.01).min(0.5)
-                                    } else {
-                                        // Long sample: keep original 10s release to let it play through
-                                        final_release
-                                    };
+                                    // ENVELOPE STRATEGY:
+                                    // - If user set AR explicitly: use their values (full control)
+                                    // - Otherwise: use final_release which is 10s (let samples play through completely)
+                                    // NO SMART RELEASE: Don't override defaults to prevent voice accumulation.
+                                    // Samples should play naturally unless user specifies otherwise.
+                                    let smart_release = final_release;
 
                                     // Trigger voice using appropriate envelope type
                                     // LEGATO OVERRIDE: When legato is present, use ADSR with sharp settings
@@ -9655,7 +9425,11 @@ impl UnifiedSignalGraph {
                 // The voice manager was processed ONCE at the start of process_sample()
                 // Each Sample node returns only its own voice mix (by node ID)
                 // This allows multiple outputs to have independent sample streams
-                self.voice_output_cache.get(&node_id.0).copied().unwrap_or(0.0)
+                let output = self.voice_output_cache.get(&node_id.0).copied().unwrap_or(0.0);
+                if std::env::var("DEBUG_SOURCE_NODE").is_ok() && self.sample_count < 5 && output.abs() > 0.001 {
+                    eprintln!("[SOURCE_NODE] Sample node {} reading from cache: {:.6}", node_id.0, output);
+                }
+                output
             }
 
             SignalNode::SynthPattern {
@@ -9725,16 +9499,11 @@ impl UnifiedSignalGraph {
                     let event_is_new = event_start_abs > last_event_start + tolerance;
 
                     if event_is_new {
-                        // Parse note name to frequency
-                        let frequency = if let Ok(numeric) = note_name.parse::<f32>() {
-                            numeric
-                        } else if let Some(midi) = note_to_midi(note_name) {
-                            midi_to_freq(midi) as f32
-                        } else {
-                            440.0 // Default to A4
-                        };
+                        // Expand chord notation to multiple MIDI notes
+                        use crate::pattern_tonal::note_to_midi_chord;
+                        let midi_notes = note_to_midi_chord(note_name);
 
-                        // Convert Waveform to SynthWaveform
+                        // Convert Waveform to SynthWaveform (once for all chord notes)
                         let synth_waveform = match waveform {
                             Waveform::Sine => SynthWaveform::Sine,
                             Waveform::Saw => SynthWaveform::Saw,
@@ -9742,7 +9511,7 @@ impl UnifiedSignalGraph {
                             Waveform::Triangle => SynthWaveform::Triangle,
                         };
 
-                        // ADSR parameters
+                        // ADSR parameters (same for all chord notes)
                         let adsr = ADSRParams {
                             attack: *attack,
                             decay: *decay,
@@ -9750,14 +9519,20 @@ impl UnifiedSignalGraph {
                             release: *release,
                         };
 
-                        // TRIGGER SYNTH VOICE (NOTE ON!)
-                        self.synth_voice_manager.borrow_mut().trigger_note(
-                            frequency,
-                            synth_waveform,
-                            adsr,
-                            gain_val,
-                            pan_val,
-                        );
+                        // TRIGGER VOICES FOR EACH NOTE IN CHORD
+                        // For chords like "c4'maj", this triggers C, E, G simultaneously
+                        // Just like stacking samples!
+                        for midi_note in midi_notes {
+                            let frequency = midi_to_freq(midi_note) as f32;
+
+                            self.synth_voice_manager.borrow_mut().trigger_note(
+                                frequency,
+                                synth_waveform,
+                                adsr,
+                                gain_val,
+                                pan_val,
+                            );
+                        }
 
                         // Track latest event
                         if event_start_abs > latest_triggered_start {
@@ -11862,6 +11637,35 @@ impl UnifiedSignalGraph {
         // This eliminates 512 pattern.query() calls per Pattern node
         self.precompute_pattern_events(buffer.len());
 
+        // BUFFER-BASED SYNTHESIS: Generate synthesis buffers ONCE per buffer (not per sample!)
+        // This matches the voice buffer architecture and enables SIMD auto-vectorization
+        {
+            let node_ids: Vec<usize> = self.voice_manager.borrow().get_active_synthesis_node_ids();
+            if !node_ids.is_empty() {
+                // Generate buffers for each synthesis node
+                let mut synthesis_buffers = std::collections::HashMap::new();
+                for &node_id in &node_ids {
+                    let mut synth_buffer = vec![0.0; buffer.len()];
+                    self.eval_node_buffer(&NodeId(node_id), &mut synth_buffer);
+                    synthesis_buffers.insert(node_id, synth_buffer);
+                }
+
+                // Process synthesis voices with envelopes and mix into voice_buffers
+                let synthesis_voice_buffers = self.voice_manager.borrow_mut()
+                    .process_synthesis_buffers(&synthesis_buffers, buffer.len());
+
+                // Mix synthesis outputs into voice_buffers
+                for (i, synth_outputs) in synthesis_voice_buffers.iter().enumerate() {
+                    for (&source_node, &value) in synth_outputs {
+                        voice_buffers[i]
+                            .entry(source_node)
+                            .and_modify(|v| *v += value)
+                            .or_insert(value);
+                    }
+                }
+            }
+        }
+
         // PERFORMANCE: Collect outputs ONCE per buffer instead of 512 times per buffer
         let output_channels: Vec<(usize, crate::unified_graph::NodeId)> =
             self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
@@ -11882,6 +11686,9 @@ impl UnifiedSignalGraph {
                 self.value_cache.clear();
             }
             // DON'T clear cache per-sample - that's the bottleneck!
+
+            // NOTE: Synthesis buffer generation moved BEFORE the sample loop (buffer-based!)
+            // No more per-sample synthesis evaluation - all done in buffers now
 
             // Use pre-computed voice outputs from buffer processing
             // PERFORMANCE: Use take instead of clone to avoid HashMap allocation (512x per buffer!)

@@ -137,7 +137,7 @@ lazy_static::lazy_static! {
     };
 }
 
-/// Convert note name to MIDI note number
+/// Convert note name to MIDI note number (single note or root of chord)
 pub fn note_to_midi(note: &str) -> Option<MidiNote> {
     // Handle numeric input
     if let Ok(n) = note.parse::<MidiNote>() {
@@ -162,8 +162,6 @@ pub fn note_to_midi(note: &str) -> Option<MidiNote> {
         };
 
         // Return root note MIDI value
-        // NOTE: For full chord support, oscillators need to be polyphonic
-        // For now, we just play the root note
         if let Some(&midi) = NOTE_TO_MIDI.get(&root_with_octave) {
             return Some(midi);
         }
@@ -185,6 +183,58 @@ pub fn note_to_midi(note: &str) -> Option<MidiNote> {
     }
 
     None
+}
+
+/// Expand chord notation to all MIDI notes in the chord
+/// Returns Vec of MIDI notes for polyphonic voice triggering
+/// Example: "c4'maj" -> [60, 64, 67] (C E G)
+pub fn note_to_midi_chord(note: &str) -> Vec<MidiNote> {
+    // Handle numeric input - single note
+    if let Ok(n) = note.parse::<MidiNote>() {
+        return vec![n];
+    }
+
+    // Normalize note name and convert # to s
+    let note_lower = note.to_lowercase().replace('#', "s");
+
+    // Check for chord notation (contains ')
+    if let Some(quote_pos) = note_lower.find('\'') {
+        // Extract root note and chord type
+        let root = &note_lower[..quote_pos];
+        let chord_type = &note_lower[quote_pos + 1..];
+
+        // Parse root note with default octave if needed
+        let root_with_octave = if root.len() == 1
+            || (root.len() == 2 && (root.ends_with('s') || root.ends_with('f')))
+        {
+            format!("{root}4") // Default to octave 4
+        } else {
+            root.to_string()
+        };
+
+        // Get root MIDI note
+        if let Some(&root_midi) = NOTE_TO_MIDI.get(&root_with_octave) {
+            // Look up chord intervals
+            if let Some(intervals) = CHORD_INTERVALS.get(chord_type) {
+                // Expand to all notes in chord
+                return intervals
+                    .iter()
+                    .map(|&interval| (root_midi as i32 + interval) as MidiNote)
+                    .collect();
+            } else {
+                eprintln!("⚠️  Unknown chord type '{}' in '{}', using root note only", chord_type, note);
+                return vec![root_midi];
+            }
+        }
+    }
+
+    // No chord notation - return single note
+    if let Some(midi) = note_to_midi(note) {
+        return vec![midi];
+    }
+
+    // Failed to parse - return empty vec
+    vec![]
 }
 
 /// Convert frequency to MIDI note number
