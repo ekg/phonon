@@ -112,6 +112,7 @@ impl SynthLibrary {
         // Sine oscillator for kick body
         let osc = graph.add_node(SignalNode::Oscillator {
             freq: modulated_freq,
+        semitone_offset: 0.0,
             waveform: Waveform::Sine,
             phase: RefCell::new(0.0),
             pending_freq: RefCell::new(None),
@@ -200,6 +201,7 @@ impl SynthLibrary {
 
             let osc = graph.add_node(SignalNode::Oscillator {
                 freq: detuned_freq,
+        semitone_offset: 0.0,
                 waveform: Waveform::Saw,
                 phase: RefCell::new((i as f32 * 0.13) % 1.0), // Slight phase offset
                 pending_freq: RefCell::new(None),
@@ -235,6 +237,7 @@ impl SynthLibrary {
         // LFO for pulse width modulation
         let lfo = graph.add_node(SignalNode::Oscillator {
             freq: Signal::Value(pwm_rate),
+        semitone_offset: 0.0,
             waveform: Waveform::Triangle,
             phase: RefCell::new(0.0),
             pending_freq: RefCell::new(None),
@@ -244,6 +247,7 @@ impl SynthLibrary {
         // Create two square waves in opposite phase
         let square1 = graph.add_node(SignalNode::Oscillator {
             freq: freq.clone(),
+        semitone_offset: 0.0,
             waveform: Waveform::Square,
             phase: RefCell::new(0.0),
             pending_freq: RefCell::new(None),
@@ -253,6 +257,7 @@ impl SynthLibrary {
         let square2 = graph.add_node(SignalNode::Oscillator {
             freq,
             waveform: Waveform::Square,
+            semitone_offset: 0.0,
             phase: RefCell::new(0.5), // 180 degrees out of phase
             pending_freq: RefCell::new(None),
             last_sample: RefCell::new(0.0),
@@ -294,6 +299,7 @@ impl SynthLibrary {
         // Vibrato LFO
         let lfo = graph.add_node(SignalNode::Oscillator {
             freq: Signal::Value(vibrato_rate),
+        semitone_offset: 0.0,
             waveform: Waveform::Sine,
             phase: RefCell::new(0.0),
             pending_freq: RefCell::new(None),
@@ -314,6 +320,7 @@ impl SynthLibrary {
 
         let osc = graph.add_node(SignalNode::Oscillator {
             freq: modulated_freq,
+        semitone_offset: 0.0,
             waveform: Waveform::Square,
             phase: RefCell::new(0.0),
             pending_freq: RefCell::new(None),
@@ -349,6 +356,7 @@ impl SynthLibrary {
 
         let modulator = graph.add_node(SignalNode::Oscillator {
             freq: mod_freq,
+        semitone_offset: 0.0,
             waveform: Waveform::Sine,
             phase: RefCell::new(0.0),
             pending_freq: RefCell::new(None),
@@ -369,6 +377,7 @@ impl SynthLibrary {
 
         let carrier = graph.add_node(SignalNode::Oscillator {
             freq: carrier_freq,
+        semitone_offset: 0.0,
             waveform: Waveform::Sine,
             phase: RefCell::new(0.0),
             pending_freq: RefCell::new(None),
@@ -399,6 +408,7 @@ impl SynthLibrary {
         // Tonal body (two slightly detuned oscillators)
         let osc1 = graph.add_node(SignalNode::Oscillator {
             freq: freq.clone(),
+        semitone_offset: 0.0,
             waveform: Waveform::Triangle,
             phase: RefCell::new(0.0),
             pending_freq: RefCell::new(None),
@@ -412,6 +422,7 @@ impl SynthLibrary {
 
         let osc2 = graph.add_node(SignalNode::Oscillator {
             freq: osc2_freq,
+        semitone_offset: 0.0,
             waveform: Waveform::Triangle,
             phase: RefCell::new(0.3),
             pending_freq: RefCell::new(None),

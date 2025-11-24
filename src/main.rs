@@ -511,6 +511,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 parse_parameter(graph, param, buses, 440.0);
                                             graph.add_node(SignalNode::Oscillator {
                                                 freq: freq_signal,
+        semitone_offset: 0.0,
                                                 waveform: osc_type,
                                                 phase: RefCell::new(0.0),
                                                 pending_freq: RefCell::new(None),
@@ -925,6 +926,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                     Some(graph.add_node(SignalNode::Oscillator {
                                         freq: freq_signal,
+        semitone_offset: 0.0,
                                         waveform: osc_type,
                                         phase: RefCell::new(0.0),
                                         pending_freq: RefCell::new(None),

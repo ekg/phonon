@@ -2846,6 +2846,7 @@ fn compile_sew(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
 /// Supports both positional and keyword arguments:
 ///   sine 440           - positional
 ///   sine :freq 440     - keyword
+///   sine 440 +0.5      - with semitone offset
 fn compile_oscillator(
     ctx: &mut CompilerContext,
     waveform: Waveform,
@@ -2858,12 +2859,29 @@ fn compile_oscillator(
     let freq_expr = extractor.get_required(0, "freq")?;
     let freq_node = compile_expr(ctx, freq_expr)?;
 
-    // Future: Optional parameters can be added here
-    // let phase_expr = extractor.get_optional(1, "phase", 0.0);
+    // Optional parameter: semitone offset (default 0.0)
+    // Parse from second argument if provided
+    let offset_expr = extractor.get_optional(1, "offset", 0.0);
+    let semitone_offset = match offset_expr {
+        Expr::Number(n) => n as f32,
+        Expr::String(s) => {
+            // Parse strings like "+0.5" or "-2.3"
+            s.parse::<f32>().map_err(|_| {
+                format!("Invalid semitone offset '{}', expected number like +0.5 or -2.3", s)
+            })?
+        }
+        _ => {
+            return Err(format!(
+                "Semitone offset must be a number or string, got {:?}",
+                offset_expr
+            ));
+        }
+    };
 
     let node = SignalNode::Oscillator {
         freq: Signal::Node(freq_node),
         waveform,
+        semitone_offset,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),

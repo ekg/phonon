@@ -579,6 +579,7 @@ pub enum SignalNode {
     Oscillator {
         freq: Signal,
         waveform: Waveform,
+        semitone_offset: f32,                 // Semitone offset for note triggering (+0.5, -2.3, etc.)
         phase: std::cell::RefCell<f32>,       // Interior mutability for parallel synthesis
         pending_freq: std::cell::RefCell<Option<f32>>, // Frequency change waiting for zero-crossing
         last_sample: std::cell::RefCell<f32>, // For zero-crossing detection
@@ -3973,6 +3974,7 @@ fn eval_node_isolated(nodes: &mut Vec<Option<Rc<SignalNode>>>, node_id: &NodeId,
         SignalNode::Oscillator {
             freq,
             waveform,
+            semitone_offset: _,
             phase,
             pending_freq,
             last_sample,
@@ -4594,6 +4596,7 @@ impl UnifiedSignalGraph {
         let node = SignalNode::Oscillator {
             freq,
             waveform,
+            semitone_offset: 0.0,
             phase: RefCell::new(0.0),
             pending_freq: RefCell::new(None),
             last_sample: RefCell::new(0.0),
@@ -6044,6 +6047,7 @@ impl UnifiedSignalGraph {
             SignalNode::Oscillator {
                 freq,
                 waveform,
+                semitone_offset: _,
                 phase,
                 pending_freq,
                 last_sample,
@@ -12030,6 +12034,7 @@ impl UnifiedSignalGraph {
             SignalNode::Oscillator {
                 freq,
                 waveform,
+                semitone_offset: _,
                 phase,
                 pending_freq,
                 last_sample,
