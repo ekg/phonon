@@ -12,6 +12,7 @@ fn test_basic_oscillator() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -59,6 +60,7 @@ fn test_pattern_as_signal() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(220.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -98,6 +100,7 @@ fn test_bus_system() {
     let lfo = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(2.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -118,6 +121,7 @@ fn test_bus_system() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(modulated_freq),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -198,6 +202,7 @@ fn test_envelope_generator() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -252,6 +257,7 @@ fn test_signal_expressions() {
     let osc1 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -260,6 +266,7 @@ fn test_signal_expressions() {
     let osc2 = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(550.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -306,6 +313,7 @@ fn test_delay_effect() {
     let impulse_osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -385,6 +393,7 @@ fn test_audio_analysis_nodes() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(100.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -447,6 +456,7 @@ fn test_conditional_processing() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -507,6 +517,7 @@ fn test_pattern_driven_synthesis() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Saw,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),

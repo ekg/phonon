@@ -62,6 +62,7 @@ fn test_manual_sine_synthesis_reference() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(110.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -137,6 +138,7 @@ fn test_pattern_controlled_frequency_with_alternation() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -235,6 +237,7 @@ fn test_pattern_frequency_both_notes_gated() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -341,6 +344,7 @@ fn test_diagnose_4700hz_problem() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
