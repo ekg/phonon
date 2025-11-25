@@ -10,10 +10,13 @@
 //!
 //! ## Basic Syntax
 //!
-//! - **Bus assignment**: `~name: expression` - Define a named signal bus
-//! - **Output**: `out: expression` - Set the output signal
+//! - **Bus assignment**: `~name $ expression` or `~name # expression` - Define a named signal bus
+//! - **Output**: `out $ expression` or `out # expression` - Set the output signal
 //! - **Tempo**: `cps: 2.0` - Set cycles per second (tempo)
-//! - **Signal chain**: `a # b` - Chain signals (output of `a` feeds input of `b`)
+//! - **Pattern transform**: `a $ transform` - Apply pattern transform (e.g., `fast 2`, `rev`)
+//! - **Signal chain**: `a # b` - Chain signals/effects (output of `a` feeds input of `b`)
+//!
+//! Note: Legacy colon syntax (`~name: expression`, `out: expression`) is still supported.
 //!
 //! ## Expressions
 //!
@@ -1319,10 +1322,16 @@ fn expression(input: &str) -> IResult<&str, DslExpression> {
     arithmetic(input) // Start with lowest precedence (arithmetic calls chain calls term)
 }
 
-/// Parse a bus definition: ~name: expression
+/// Parse a bus definition: ~name $ expression or ~name # expression (new syntax)
+/// Also supports legacy ~name: expression for backward compatibility
 fn bus_definition(input: &str) -> IResult<&str, DslStatement> {
     map(
-        tuple((preceded(char('~'), identifier), ws(char(':')), expression)),
+        tuple((
+            preceded(char('~'), identifier),
+            // Accept $, #, or : (for backward compatibility)
+            alt((ws(char('$')), ws(char('#')), ws(char(':')))),
+            expression,
+        )),
         |(name, _, expr)| DslStatement::BusDefinition {
             name: name.to_string(),
             expr,
@@ -1330,8 +1339,9 @@ fn bus_definition(input: &str) -> IResult<&str, DslStatement> {
     )(input)
 }
 
-/// Parse output definition: out: expression, out1: expression, out2: expression, etc.
-/// Also supports Tidal-style o1, o2, o3 and d1, d2, d3 syntax
+/// Parse output definition: out $ expression, out # expression (new syntax)
+/// Also supports: out1: expression, out2: expression, etc.
+/// And Tidal-style: o1, o2, o3 and d1, d2, d3 syntax
 fn output_definition(input: &str) -> IResult<&str, DslStatement> {
     map(
         tuple((
@@ -1346,7 +1356,8 @@ fn output_definition(input: &str) -> IResult<&str, DslStatement> {
                 map_res(digit1, |s: &str| s.parse::<usize>()),
                 value(0, tag("")), // Default to channel 0 for plain "out"
             )),
-            ws(char(':')),
+            // Accept $, #, or : (for backward compatibility)
+            alt((ws(char('$')), ws(char('#')), ws(char(':')))),
             expression,
         )),
         |(prefix, channel, _, expr)| {

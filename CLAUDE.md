@@ -174,23 +174,38 @@ assert!(rms_fast > rms_normal); // More events = more energy
 
 Parentheses and commas are NOT supported for function calls.
 
+### Bus Syntax
+
+**New Syntax (recommended)**: Uses `$` for source assignment, `#` for effect chaining:
+- `$` - assigns source OR applies pattern transform
+- `#` - chains effects/modifiers onto existing signal
+
 ```phonon
 -- Comments use double-dash
-tempo: 2.0
+cps: 2.0
 
--- Bus assignment
-~lfo: sine 0.25
-~bass: saw "55 82.5" # lpf (~lfo * 2000 + 500) 0.8
+-- Bus assignment with $ (source) and # (effects)
+~lfo $ sine 0.25
+~bass $ saw "55 82.5" # lpf (~lfo * 2000 + 500) 0.8
 
 -- Sample playback
-~drums: s "bd sn hh*4 cp"
+~drums $ s "bd sn hh*4 cp"
 
--- Pattern transformations
-~fast_drums: ~drums $ fast 2
-~reversed: s "bd sn" $ rev
+-- Sample bank selection with :N syntax
+~kicks $ s "bd:0 bd:1 bd:2"
 
--- Output (required)
-out: ~bass * 0.4 + ~drums * 0.6
+-- Pattern transformations ($ chains transforms)
+~fast_drums $ s "bd sn" $ fast 2
+~reversed $ s "bd sn" $ rev
+
+-- Output ($ assigns)
+out $ ~bass * 0.4 + ~drums * 0.6
+```
+
+**Legacy syntax**: Colon `:` still works for backward compatibility:
+```phonon
+~bass: saw 55          -- Still valid
+out: ~bass * 0.3       -- Still valid
 ```
 
 ---
@@ -281,8 +296,8 @@ out: ~bass * 0.4 + ~drums * 0.6
 
 ```phonon
 -- This is IMPOSSIBLE in Tidal/Strudel:
-~lfo: sine 0.25                          -- Pattern as LFO
-out: saw "55 82.5" # lpf (~lfo * 2000 + 500) 0.8
+~lfo $ sine 0.25                          -- Pattern as LFO
+out $ saw "55 82.5" # lpf (~lfo * 2000 + 500) 0.8
 -- Pattern modulates filter cutoff continuously!
 ```
 
