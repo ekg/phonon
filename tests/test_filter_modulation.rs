@@ -3,7 +3,6 @@
 use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
-use std::collections::HashMap;
 
 /// Compute the spectral centroid of a signal to detect filter changes
 fn compute_spectral_centroid(samples: &[f32], _sample_rate: f32) -> f32 {

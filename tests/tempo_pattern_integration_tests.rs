@@ -1,5 +1,5 @@
 use phonon::pattern_lang_parser::{PatternExpr, PatternParser, TransformOp};
-use phonon::phonon_lang::{PhononEnv, PhononParser};
+use phonon::phonon_lang::PhononEnv;
 
 #[test]
 fn test_bpm_setting() {

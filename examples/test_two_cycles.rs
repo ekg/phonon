@@ -78,7 +78,7 @@ fn main() {
     println!("Interval | Samples | Duration | Expected | Deviation");
     println!("---------|---------|----------|----------|----------");
 
-    let expected_spacing = (0.25 * sample_rate) as usize;
+    let _expected_spacing = (0.25 * sample_rate) as usize;
 
     for i in 1..peaks.len() {
         let spacing = peaks[i] - peaks[i - 1];

@@ -7,12 +7,11 @@
 //
 // Usage: cargo run --release --bin profile_refcell -- <file.ph> <cycles>
 
-use phonon::unified_graph::{UnifiedSignalGraph, NodeId};
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::fs;
 use std::time::Instant;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
 
 static BORROW_COUNT: AtomicUsize = AtomicUsize::new(0);
 static BORROW_MUT_COUNT: AtomicUsize = AtomicUsize::new(0);

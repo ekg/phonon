@@ -3,7 +3,6 @@
 use phonon::simple_dsp_executor::render_dsp_to_audio_simple;
 use std::env;
 use std::fs;
-use std::path::Path;
 use std::process::Command;
 use std::thread;
 use std::time::{Duration, SystemTime};

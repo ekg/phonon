@@ -222,12 +222,11 @@ impl ModalEditor {
                                 // with our 100ms buffer, but writing silence causes harsh
                                 // cutoffs during live code hot-swapping (C-x).
                                 // The next iteration will use the new graph seamlessly.
-                                static mut SWAP_SKIP_COUNT: usize = 0;
-                                unsafe {
-                                    SWAP_SKIP_COUNT += 1;
-                                    if SWAP_SKIP_COUNT % 10 == 1 {
-                                        eprintln!("⚡ Skipped render during graph swap ({}x)", SWAP_SKIP_COUNT);
-                                    }
+                                use std::sync::atomic::{AtomicUsize, Ordering};
+                                static SWAP_SKIP_COUNT: AtomicUsize = AtomicUsize::new(0);
+                                let count = SWAP_SKIP_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
+                                if count % 10 == 1 {
+                                    eprintln!("⚡ Skipped render during graph swap ({}x)", count);
                                 }
                                 // Don't increment renders counter, don't write to ring buffer
                                 // Just continue to next iteration
@@ -239,12 +238,11 @@ impl ModalEditor {
                         buffer.fill(0.0);
                         let written = ring_producer.push_slice(&buffer);
                         synth_time_us_clone.store(0, Ordering::Relaxed);
-                        static mut NO_GRAPH_COUNT: usize = 0;
-                        unsafe {
-                            NO_GRAPH_COUNT += 1;
-                            if NO_GRAPH_COUNT % 100 == 0 {
-                                eprintln!("⚠️  No graph loaded! ({}x)", NO_GRAPH_COUNT);
-                            }
+                        use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
+                        static NO_GRAPH_COUNT: AtomicUsize = AtomicUsize::new(0);
+                        let count = NO_GRAPH_COUNT.fetch_add(1, AtomicOrdering::Relaxed) + 1;
+                        if count % 100 == 0 {
+                            eprintln!("⚠️  No graph loaded! ({}x)", count);
                         }
                     }
                 } else {
@@ -1012,7 +1010,7 @@ impl ModalEditor {
     }
 
     /// Get content with cursor indicator and syntax highlighting
-    fn content_with_cursor(&self) -> Vec<Line> {
+    fn content_with_cursor(&self) -> Vec<Line<'_>> {
         let mut lines = Vec::new();
         let text_lines: Vec<&str> = self.content.split('\n').collect();
 

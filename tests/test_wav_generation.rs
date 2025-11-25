@@ -2,8 +2,6 @@ use std::cell::RefCell;
 use hound::{SampleFormat, WavSpec, WavWriter};
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
-use std::collections::HashMap;
-use std::path::Path;
 use std::process::Command;
 
 #[test]

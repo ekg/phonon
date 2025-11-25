@@ -8,7 +8,6 @@ use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern_tonal::{midi_to_freq, note_to_midi};
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
-use std::collections::HashMap;
 use std::f32::consts::PI;
 
 /// FFT-based frequency detector
@@ -228,7 +227,7 @@ fn test_cli_note_parsing() {
     // Test that the CLI parser can handle note names in oscillator contexts
     // This will require updating the CLI parser to recognize note names
 
-    let mut graph = UnifiedSignalGraph::new(44100.0);
+    let _graph = UnifiedSignalGraph::new(44100.0);
 
     // Simulate parsing: sine "c4 e4 g4"
     // For now, we just verify the conversion function works

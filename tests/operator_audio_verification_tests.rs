@@ -12,17 +12,17 @@ where
     F: Fn(&[f32]) -> bool,
 {
     // Parse the DSP code
-    let env = parse_glicol(code).expect("Failed to parse DSP code");
+    let _env = parse_glicol(code).expect("Failed to parse DSP code");
 
     // Build signal graph
-    let mut graph = SignalGraph::new(44100.0);
+    let _graph = SignalGraph::new(44100.0);
 
     // Convert DSP environment to signal graph
     // This would need proper implementation to actually generate audio
     // For now, we'll create a simplified test
 
     let num_samples = (sample_rate * duration_secs) as usize;
-    let mut output = vec![0.0; num_samples];
+    let output = vec![0.0; num_samples];
 
     // TODO: Actually render the audio from the parsed DSP graph
     // This requires implementing the signal graph execution
@@ -142,11 +142,11 @@ fn test_mixing_math() {
     // Directly test that Mix node adds signals correctly
     // Create two simple signals and verify their sum
 
-    let signal1 = vec![1.0, 2.0, 3.0, 4.0];
-    let signal2 = vec![0.5, 1.0, 1.5, 2.0];
+    let _signal1 = vec![1.0, 2.0, 3.0, 4.0];
+    let _signal2 = vec![0.5, 1.0, 1.5, 2.0];
 
     // Expected: element-wise addition
-    let expected = vec![1.5, 3.0, 4.5, 6.0];
+    let _expected = vec![1.5, 3.0, 4.5, 6.0];
 
     // TODO: Implement actual Mix node processing and verify
     // For now, this is a placeholder showing what we need to test
@@ -156,11 +156,11 @@ fn test_mixing_math() {
 #[test]
 fn test_multiplication_math() {
     // Test that signal * scalar multiplies each sample
-    let signal = vec![1.0, -1.0, 0.5, -0.5];
-    let scalar = 2.0;
+    let _signal = vec![1.0, -1.0, 0.5, -0.5];
+    let _scalar = 2.0;
 
     // Expected: each sample multiplied by scalar
-    let expected = vec![2.0, -2.0, 1.0, -1.0];
+    let _expected = vec![2.0, -2.0, 1.0, -1.0];
 
     // TODO: Implement actual Mul node processing and verify
 }
@@ -169,11 +169,11 @@ fn test_multiplication_math() {
 #[test]
 fn test_ring_mod_math() {
     // Test that signal * signal multiplies sample-by-sample
-    let carrier = vec![1.0, 0.5, -0.5, -1.0];
-    let modulator = vec![0.5, 1.0, 1.0, 0.5];
+    let _carrier = vec![1.0, 0.5, -0.5, -1.0];
+    let _modulator = vec![0.5, 1.0, 1.0, 0.5];
 
     // Expected: element-wise multiplication
-    let expected = vec![0.5, 0.5, -0.5, -0.5];
+    let _expected = vec![0.5, 0.5, -0.5, -0.5];
 
     // TODO: Implement actual signal multiplication and verify
 }

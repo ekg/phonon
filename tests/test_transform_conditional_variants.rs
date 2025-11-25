@@ -359,7 +359,7 @@ fn test_sometimes_by_nested() {
 
     // Nested: sometimes_by(0.5, sometimes_by(0.5, fast))
     // Effective probability = 0.5 * 0.5 = 0.25
-    let nested = pattern
+    let _nested = pattern
         .clone()
         .sometimes_by(0.5, |p| p.sometimes_by(0.5, |p2| p2.fast(Pattern::pure(2.0))))
         .query(&state);

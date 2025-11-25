@@ -9,7 +9,7 @@
 /// - Edge cases (zero input, boundary conditions)
 
 use phonon::audio_node::{AudioNode, ProcessContext};
-use phonon::nodes::{NoiseGateNode, ConstantNode};
+use phonon::nodes::NoiseGateNode;
 use phonon::pattern::Fraction;
 
 fn create_context(size: usize) -> ProcessContext {

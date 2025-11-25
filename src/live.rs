@@ -165,12 +165,11 @@ impl LiveSession {
                             }
 
                             // Warn about underrun
-                            static mut UNDERRUN_COUNT: usize = 0;
-                            unsafe {
-                                UNDERRUN_COUNT += 1;
-                                if UNDERRUN_COUNT % 100 == 0 {
-                                    eprintln!("⚠️  Audio underrun #{} (synth can't keep up)", UNDERRUN_COUNT);
-                                }
+                            use std::sync::atomic::{AtomicUsize, Ordering};
+                            static UNDERRUN_COUNT: AtomicUsize = AtomicUsize::new(0);
+                            let count = UNDERRUN_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
+                            if count % 100 == 0 {
+                                eprintln!("⚠️  Audio underrun #{} (synth can't keep up)", count);
                             }
                         }
                     },
@@ -203,12 +202,11 @@ impl LiveSession {
                                 }
                             }
 
-                            static mut UNDERRUN_COUNT: usize = 0;
-                            unsafe {
-                                UNDERRUN_COUNT += 1;
-                                if UNDERRUN_COUNT % 100 == 0 {
-                                    eprintln!("⚠️  Audio underrun #{}", UNDERRUN_COUNT);
-                                }
+                            use std::sync::atomic::{AtomicUsize, Ordering};
+                            static UNDERRUN_COUNT: AtomicUsize = AtomicUsize::new(0);
+                            let count = UNDERRUN_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
+                            if count % 100 == 0 {
+                                eprintln!("⚠️  Audio underrun #{}", count);
                             }
                         }
                     },

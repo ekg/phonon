@@ -1,4 +1,4 @@
-use phonon::unified_graph_parser::{parse_dsl, DslCompiler, DslExpression, DslStatement};
+use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]
 #[ignore = "Space-separated syntax for s function not yet implemented - parser needs update"]

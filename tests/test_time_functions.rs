@@ -351,7 +351,7 @@ fn test_press_by_custom_amount() {
     let pattern: Pattern<String> = parse_mini_notation("a b c d");
     let pressed = pattern.clone().press_by(0.25);
 
-    let original = query_cycle(&pattern, 0);
+    let _original = query_cycle(&pattern, 0);
     let pressed_events = query_cycle(&pressed, 0);
 
     // First event should move by 0.0625

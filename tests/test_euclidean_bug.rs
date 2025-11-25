@@ -9,7 +9,7 @@
 /// 3. Expected timing - verify onsets occur at correct times (from first principles)
 
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Pattern, State, TimeSpan, Fraction};
+use phonon::pattern::{State, TimeSpan, Fraction};
 use std::collections::HashMap;
 
 /// Generate expected onset times for cp(2,4) from Euclidean algorithm

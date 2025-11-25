@@ -1,10 +1,8 @@
 use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 /// Comprehensive system coherence tests to verify end-to-end functionality
 /// across all major subsystems and their interactions
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
-use std::collections::HashMap;
 
 /// Test Matrix:
 /// 1. Pattern System ✓
@@ -628,7 +626,7 @@ fn test_analysis_driven_synthesis() {
     });
 
     // Gate by transients
-    let gated = graph.add_node(SignalNode::When {
+    let _gated = graph.add_node(SignalNode::When {
         input: Signal::Node(synth),
         condition: Signal::Node(transient),
     });
@@ -791,7 +789,7 @@ fn test_master_system_coherence() {
     graph.add_bus("kick_trig".to_string(), kick_trig);
 
     let hat_pattern = parse_mini_notation("0 1 0 1");
-    let hat_trig = graph.add_node(SignalNode::Pattern {
+    let _hat_trig = graph.add_node(SignalNode::Pattern {
         pattern_str: "0 1 0 1".to_string(),
         pattern: hat_pattern,
         last_value: 0.0,
@@ -902,7 +900,7 @@ fn test_master_system_coherence() {
     });
 
     // Layer 6: Analysis and soft limiting
-    let rms = graph.add_node(SignalNode::RMS {
+    let _rms = graph.add_node(SignalNode::RMS {
         input: Signal::Node(delay),
         window_size: Signal::Value(0.05),
         buffer: vec![0.0; 2205],

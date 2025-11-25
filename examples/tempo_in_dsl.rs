@@ -1,4 +1,4 @@
-use phonon::phonon_lang::{PhononEnv, PhononParser};
+use phonon::phonon_lang::PhononEnv;
 use phonon::simple_dsp_executor::SimpleDspExecutor;
 
 fn main() {

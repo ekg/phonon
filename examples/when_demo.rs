@@ -10,7 +10,7 @@
 use phonon::{
     audio_node::{AudioNode, ProcessContext},
     nodes::{
-        constant::ConstantNode, greater_than::GreaterThanNode, oscillator::OscillatorNode,
+        constant::ConstantNode, oscillator::OscillatorNode,
         when::WhenNode, Waveform,
     },
     pattern::Fraction,
@@ -85,7 +85,7 @@ fn example_2_lfo_gating() {
     println!("Using an LFO to gate/mute a signal rhythmically.\n");
 
     // Setup nodes
-    let mut lfo = OscillatorNode::new(0, Waveform::Square); // Square wave LFO
+    let _lfo = OscillatorNode::new(0, Waveform::Square); // Square wave LFO
     let mut signal = ConstantNode::new(1.0); // Audio signal
     let mut silence = ConstantNode::new(0.0); // Silence
     let mut when = WhenNode::new(0, 1, 2); // When LFO>0.5: signal, else silence
@@ -93,7 +93,7 @@ fn example_2_lfo_gating() {
     let context = ProcessContext::new(Fraction::from_float(0.0), 0, 8, 2.0, 44100.0);
 
     // Simulate LFO output (alternating high/low)
-    let mut buf_lfo = vec![1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0];
+    let buf_lfo = vec![1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0];
     let mut buf_signal = vec![1.0; 8];
     let mut buf_silence = vec![0.0; 8];
     let mut output = vec![0.0; 8];

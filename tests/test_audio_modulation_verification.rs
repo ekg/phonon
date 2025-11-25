@@ -202,7 +202,7 @@ fn test_oscillator_frequency_pattern_modulates() {
     let window_size = (sample_rate / 8.0) as usize; // 1/8 second windows
     let mut current_window = Vec::new();
 
-    for i in 0..num_samples {
+    for _i in 0..num_samples {
         let sample = graph.process_sample();
         samples.push(sample);
         current_window.push(sample);

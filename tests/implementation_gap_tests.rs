@@ -189,7 +189,7 @@ fn test_degrade_pattern() {
 fn test_pattern_interpolation() {
     // Smooth interpolation between two patterns
     let p1 = parse_mini_notation("bd ~ ~ ~");
-    let p2 = parse_mini_notation("~ ~ ~ sn");
+    let _p2 = parse_mini_notation("~ ~ ~ sn");
 
     // At 0.5, should have both bd and sn at half velocity
     // Would be: let interpolated = p1.interpolate(&p2, 0.5);
@@ -270,7 +270,7 @@ fn test_pattern_algebra() {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
         controls: HashMap::new(),
     };
-    let events = sum.query(&state);
+    let _events = sum.query(&state);
     // assert_eq!(events[0].value, 0.8);
 
     // Multiplication

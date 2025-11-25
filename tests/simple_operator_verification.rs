@@ -1,7 +1,7 @@
 //! Simple verification that operators produce correct output
 //! Tests the actual signal processing, not just parsing
 
-use phonon::glicol_dsp::{DspChain, DspEnvironment, DspNode};
+use phonon::glicol_dsp::{DspChain, DspNode};
 use phonon::glicol_parser::parse_glicol;
 
 /// Test that we can create and execute basic arithmetic operations

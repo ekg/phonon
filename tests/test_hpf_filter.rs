@@ -163,7 +163,7 @@ fn test_hpf_frequency_response_curve() {
     let buffer_unfiltered = render_dsl(code_unfiltered, 2.0);
 
     let (frequencies, magnitudes_filtered) = analyze_spectrum(&buffer_filtered, 44100.0);
-    let (_, magnitudes_unfiltered) = analyze_spectrum(&buffer_unfiltered, 44100.0);
+    let (_, _magnitudes_unfiltered) = analyze_spectrum(&buffer_unfiltered, 44100.0);
 
     // Calculate energy in frequency bands
     let below_cutoff: f32 = frequencies.iter()

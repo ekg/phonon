@@ -116,7 +116,7 @@ fn test_discretise_over_cycles() {
 #[test]
 fn test_range_level1_scales_values() {
     // Create numeric pattern
-    let pattern = parse_mini_notation("0.0 0.5 1.0");
+    let _pattern = parse_mini_notation("0.0 0.5 1.0");
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
@@ -337,7 +337,7 @@ fn test_smooth_amount_one_full_smoothing() {
 
     let smoothed = saw().smooth(Pattern::pure(1.0));
 
-    let smooth_haps = smoothed.query(&state);
+    let _smooth_haps = smoothed.query(&state);
 
     // With amount=1.0, each value becomes fully the current value
     // Formula: prev * (1 - 1.0) + current * 1.0 = current

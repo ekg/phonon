@@ -6,7 +6,7 @@
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 mod pattern_verification_utils;
-use pattern_verification_utils::{detect_audio_events, Event};
+use pattern_verification_utils::detect_audio_events;
 
 /// Helper to compile and render DSL
 fn compile_and_render(input: &str, duration_samples: usize) -> Vec<f32> {

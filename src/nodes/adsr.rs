@@ -109,8 +109,9 @@ impl ADSRNode {
         self.state.value
     }
 
-    /// Get current phase
-    pub fn phase(&self) -> ADSRPhase {
+    /// Get current phase (for debugging)
+    #[allow(dead_code)]
+    fn phase(&self) -> ADSRPhase {
         self.state.phase
     }
 

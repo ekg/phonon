@@ -2,7 +2,7 @@
 
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
-use phonon::pattern_debug::{describe_pattern, verify_polyphony};
+use phonon::pattern_debug::verify_polyphony;
 use std::collections::HashMap;
 
 fn query_pattern(pattern: &Pattern<String>, cycle: usize) -> Vec<String> {

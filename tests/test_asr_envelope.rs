@@ -70,7 +70,7 @@ fn test_asr_attack_on_gate_rise() {
         o1: ~env
     "#;
 
-    let sample_rate = 44100.0;
+    let _sample_rate = 44100.0;
     let buffer = render_dsl(code, 1.0);
 
     // Start should be low (gate not yet high)

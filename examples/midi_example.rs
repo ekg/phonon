@@ -1,10 +1,7 @@
 //! Example of MIDI output with Phonon patterns
 
-use phonon::midi_output::{note_to_midi_message, MidiOutputHandler, MidiScheduler};
+use phonon::midi_output::MidiOutputHandler;
 use phonon::mini_notation::parse_mini_notation;
-use phonon::pattern::Pattern;
-use std::thread;
-use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Phonon MIDI Output Example");
@@ -30,23 +27,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\nExample patterns that could be sent to MIDI:");
 
     // Pattern 1: Simple melody
-    let melody = parse_mini_notation("c4 e4 g4 c5");
+    let _melody = parse_mini_notation("c4 e4 g4 c5");
     println!("\n1. Simple melody: c4 e4 g4 c5");
 
     // Pattern 2: Chord progression
-    let chords = parse_mini_notation("<c4'maj e4'min g4'maj>");
+    let _chords = parse_mini_notation("<c4'maj e4'min g4'maj>");
     println!("2. Chord progression: <c4'maj e4'min g4'maj>");
 
     // Pattern 3: Drum pattern
-    let drums = parse_mini_notation("bd*4 [~ cp] hh*8");
+    let _drums = parse_mini_notation("bd*4 [~ cp] hh*8");
     println!("3. Drum pattern: bd*4 [~ cp] hh*8");
 
     // Pattern 4: Euclidean rhythm
-    let euclidean = parse_mini_notation("bd(3,8) cp(5,8)");
+    let _euclidean = parse_mini_notation("bd(3,8) cp(5,8)");
     println!("4. Euclidean rhythm: bd(3,8) cp(5,8)");
 
     // Pattern 5: Complex pattern with effects
-    let complex = parse_mini_notation("<[c4 e4] [g4 b4]> . fast(2) . sometimes(degrade)");
+    let _complex = parse_mini_notation("<[c4 e4] [g4 b4]> . fast(2) . sometimes(degrade)");
     println!("5. Complex pattern: <[c4 e4] [g4 b4]> . fast(2) . sometimes(degrade)");
 
     // To actually play to MIDI (commented out to avoid requiring device):

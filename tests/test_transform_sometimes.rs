@@ -37,14 +37,14 @@ fn render_dsl(code: &str, cycles: usize) -> Vec<f32> {
 fn test_sometimes_level1_probabilistic_application() {
     // sometimes should apply transform on ~50% of cycles (deterministic RNG)
     let base_pattern = "a b c d"; // 4 events per cycle
-    let pattern = parse_mini_notation(base_pattern);
+    let _pattern = parse_mini_notation(base_pattern);
 
     let mut normal_cycles = 0;
     let mut fast_cycles = 0;
 
     // Test over 20 cycles to observe probability
     for cycle in 0..20 {
-        let state = State {
+        let _state = State {
             span: TimeSpan::new(
                 Fraction::from_float(cycle as f64),
                 Fraction::from_float((cycle + 1) as f64),
@@ -88,10 +88,10 @@ fn test_sometimes_level1_probabilistic_application() {
 #[test]
 fn test_sometimes_level1_deterministic_behavior() {
     // Verify deterministic behavior (same cycles always get transform)
-    let pattern = Pattern::from_string("a b c d");
+    let _pattern = Pattern::from_string("a b c d");
 
     // Query same cycle twice - should get same result
-    let state = State {
+    let _state = State {
         span: TimeSpan::new(Fraction::new(5, 1), Fraction::new(6, 1)),
         controls: HashMap::new(),
     };
@@ -337,7 +337,7 @@ fn test_sometimes_preserves_base_cycles() {
 #[test]
 fn test_sometimes_long_term_probability() {
     // Verify long-term probability approaches 50%
-    let pattern = Pattern::from_string("a b");
+    let _pattern = Pattern::from_string("a b");
 
     let mut transform_count = 0;
     let total_cycles = 100;

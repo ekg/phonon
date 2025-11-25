@@ -110,7 +110,7 @@ fn test_alternation_generates_different_cycles() {
 #[ignore] // TODO: Fix for new implementation
 fn test_alternation_with_simple_tones() {
     let sample_rate = 44100.0;
-    let mut executor = SimpleDspExecutor::new(sample_rate);
+    let _executor = SimpleDspExecutor::new(sample_rate);
 
     // Use simple sine waves with different frequencies
     // 440Hz should alternate with 880Hz each cycle

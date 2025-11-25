@@ -1,5 +1,5 @@
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
+use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 fn main() {

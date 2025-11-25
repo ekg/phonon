@@ -148,7 +148,7 @@ fn test_effects_cross_mode() {
 ~d1: saw 110 # lpf 1000 0.8
 "#;
 
-    let sample_rate = 44100.0;
+    let _sample_rate = 44100.0;
 
     // Render mode
     fs::write("/tmp/test_effects_cross.ph", code).unwrap();
@@ -226,7 +226,7 @@ fn test_pattern_params_cross_mode() {
 ~d1: saw "110 220 440"
 "#;
 
-    let sample_rate = 44100.0;
+    let _sample_rate = 44100.0;
 
     // Render mode
     fs::write("/tmp/test_pattern_cross.ph", code).unwrap();

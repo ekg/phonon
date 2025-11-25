@@ -12,7 +12,7 @@ fn main() {
         o: s "~kick ~kick ~kick ~kick"
     "#;
 
-    let env = parse_glicol(code).expect("Failed to parse");
+    let _env = parse_glicol(code).expect("Failed to parse");
 
     println!("UNDERSTANDING CPS vs BPM:");
     println!("{}", "-".repeat(40));

@@ -11,7 +11,7 @@ use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
 mod audio_test_utils;
-use audio_test_utils::{calculate_rms, find_peak};
+use audio_test_utils::calculate_rms;
 
 /// Helper function to render DSL code to audio buffer
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {

@@ -14,7 +14,7 @@ mod audio_test_utils;
 use audio_test_utils::{find_dominant_frequency, find_frequency_peaks};
 
 /// Helper to check if a sine wave is pure (only fundamental, no harmonics)
-fn measure_sine_purity(buffer: &[f32], sample_rate: f32, expected_freq: f32) -> (f32, bool) {
+fn measure_sine_purity(buffer: &[f32], sample_rate: f32, _expected_freq: f32) -> (f32, bool) {
     // Find top 10 peaks
     let peaks = find_frequency_peaks(buffer, sample_rate, 10);
 

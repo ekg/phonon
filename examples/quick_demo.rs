@@ -3,7 +3,6 @@
 use phonon::mini_notation::parse_mini_notation;
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use phonon::pattern_signal::*;
-use phonon::pattern_tonal::*;
 use std::collections::HashMap;
 
 fn main() {

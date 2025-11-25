@@ -8,8 +8,7 @@
 //! 3. Pattern-modulated parameters work correctly
 //! 4. Physical behavior (resonance, damping, decay) is correct
 
-use phonon::unified_graph::{NodeId, UnifiedSignalGraph, Signal};
-use std::f32::consts::PI;
+use phonon::unified_graph::{UnifiedSignalGraph, Signal};
 
 // Helper to create test graph
 fn create_test_graph() -> UnifiedSignalGraph {

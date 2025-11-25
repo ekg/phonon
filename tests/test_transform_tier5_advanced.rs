@@ -182,7 +182,7 @@ fn test_choose_with_level1_weighted_selection() {
     // 75% p1, 25% p2
     let chosen = choose_with(vec![(p1.clone(), 0.75), (p2.clone(), 0.25)]);
 
-    let mut p1_count = 0;
+    let _p1_count = 0;
     let mut total = 0;
 
     for cycle in 0..100 {

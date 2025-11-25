@@ -49,7 +49,7 @@ fn main() {
             let actual_sample = beat_starts[beat];
             let actual_time = actual_sample as f32 / sample_rate;
             let error_samples = (actual_sample as i32 - expected_sample as i32).abs();
-            let error_ms = ((actual_time - expected_time) * 1000.0).abs();
+            let _error_ms = ((actual_time - expected_time) * 1000.0).abs();
 
             let status = if error_samples <= 2 { "✓" } else { "✗" };
             println!(

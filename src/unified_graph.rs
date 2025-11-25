@@ -11856,20 +11856,7 @@ impl UnifiedSignalGraph {
                 output_val
             }
 
-            SignalNode::Wrap { input, min, max } => {
-                let value = self.eval_signal(&input);
-                let min_val = self.eval_signal(&min);
-                let max_val = self.eval_signal(&max);
-
-                let range = max_val - min_val;
-                if range <= 0.0 {
-                    min_val // Degenerate case
-                } else {
-                    let shifted = value - min_val;
-                    let wrapped = shifted - (shifted / range).floor() * range;
-                    wrapped + min_val
-                }
-            }
+            // NOTE: SignalNode::Wrap is already handled above (line 7879)
 
             SignalNode::Router {
                 input,

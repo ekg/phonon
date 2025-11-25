@@ -161,7 +161,7 @@ out: s "~bass bd ~bass sn" * 0.8
         analyze_wav_enhanced("/tmp/test_bus_mixed.wav").expect("Failed to analyze output");
 
     println!("Mixed bus/sample analysis:");
-    #[ignore] // TODO: Implement bus triggering feature (reference buses in mini-notation)
+     // TODO: Implement bus triggering feature (reference buses in mini-notation)
     println!("  RMS: {:.6}", analysis.rms);
     println!("  Peak: {:.6}", analysis.peak);
     println!("  Onsets: {}", analysis.onset_count);

@@ -71,10 +71,10 @@ struct NodeMetadata {
 struct ParamInfo {
     name: String,
     param_type: String,      // "NodeId", "Signal", "Pattern", etc.
-    description: String,
+    _description: String,    // Reserved for future use
 }
 
-fn parse_node_file(content: &str, file_name: &str) -> Option<NodeMetadata> {
+fn parse_node_file(content: &str, _file_name: &str) -> Option<NodeMetadata> {
     // Look for the struct definition
     // Pattern: "pub struct XxxNode {"
     let struct_pattern = format!("pub struct ");
@@ -208,7 +208,7 @@ fn extract_parameters(content: &str) -> Option<Vec<ParamInfo>> {
         params.push(ParamInfo {
             name: param_name,
             param_type: clean_type,
-            description: String::new(), // TODO: Extract from doc comments if needed
+            _description: String::new(), // TODO: Extract from doc comments if needed
         });
     }
 

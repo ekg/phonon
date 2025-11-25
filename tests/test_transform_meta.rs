@@ -141,7 +141,7 @@ fn test_inside_level1_fast_then_transform() {
         controls: HashMap::new(),
     };
 
-    let base_haps = pattern.query(&state);
+    let _base_haps = pattern.query(&state);
     // inside(2, rev) = fast(2) then rev
     // Should be same as pattern.fast(Pattern::pure(2)).rev()
     let inside_pattern = pattern.clone().inside(2.0, |p| p.rev()).query(&state);
@@ -165,7 +165,7 @@ fn test_outside_level1_slow_then_transform() {
         controls: HashMap::new(),
     };
 
-    let base_haps = pattern.query(&state);
+    let _base_haps = pattern.query(&state);
     // outside(2, rev) = slow(2) then rev
     // Should be same as pattern.slow(Pattern::pure(2)).rev()
     let outside_pattern = pattern.clone().outside(2.0, |p| p.rev()).query(&state);

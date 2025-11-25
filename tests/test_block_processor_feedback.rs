@@ -5,7 +5,7 @@
 /// - First block reads from zero-initialized buffers
 /// - Subsequent blocks read from previous block's output
 
-use phonon::audio_node::{AudioNode, NodeId, ProcessContext};
+use phonon::audio_node::{AudioNode, ProcessContext};
 use phonon::block_processor::BlockProcessor;
 use phonon::nodes::constant::ConstantNode;
 use phonon::nodes::addition::AdditionNode;

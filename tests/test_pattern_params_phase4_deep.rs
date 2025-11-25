@@ -13,8 +13,7 @@ use phonon::compositional_parser::parse_program;
 
 mod pattern_verification_utils;
 use pattern_verification_utils::{
-    calculate_rms, calculate_spectral_centroid, assert_spectral_difference,
-    detect_audio_events, calculate_peak,
+    calculate_rms, calculate_spectral_centroid, assert_spectral_difference, calculate_peak,
 };
 
 // Test duration in seconds

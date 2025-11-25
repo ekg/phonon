@@ -204,7 +204,7 @@ fn test_randcat_distribution() {
     let concatenated = Pattern::randcat(vec![p1.clone(), p2.clone()]);
 
     let mut p1_count = 0;
-    let mut p2_count = 0;
+    let _p2_count = 0;
 
     for cycle in 0..100 {
         let state = State {

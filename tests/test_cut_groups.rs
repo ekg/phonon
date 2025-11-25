@@ -2,7 +2,6 @@ use phonon::sample_loader::SampleBank;
 /// Tests for cut group voice stealing functionality
 /// Cut groups allow samples to stop each other when triggered (like open/closed hi-hats)
 use phonon::voice_manager::VoiceManager;
-use std::sync::Arc;
 
 #[test]
 fn test_cut_group_stops_previous_voice() {

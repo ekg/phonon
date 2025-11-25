@@ -7,7 +7,6 @@
 
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
-use phonon::unified_graph::UnifiedSignalGraph;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -15,7 +14,7 @@ use std::time::{Duration, Instant};
 #[test]
 fn test_cycle_position_continuity_on_graph_swap() {
     let sample_rate = 44100.0;
-    let cps = 2.0; // 2 cycles per second
+    let _cps = 2.0; // 2 cycles per second
 
     // Parse and compile initial code
     let code_v1 = r#"
@@ -331,11 +330,11 @@ out: s "bd*2 sn*2 hh*2 cp*2"
 /// This is CRITICAL - reloads can happen at ANY point in the cycle, not just boundaries
 #[test]
 fn test_reload_at_random_cycle_positions() {
-    use std::collections::hash_map::RandomState;
-    use std::hash::{BuildHasher, Hash, Hasher};
+    
+    
 
     let sample_rate = 44100.0;
-    let cps = 2.0;
+    let _cps = 2.0;
 
     let code = r#"
 tempo: 2.0

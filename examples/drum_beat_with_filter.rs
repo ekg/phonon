@@ -3,7 +3,7 @@
 //! Demonstrates creating a "bd*4 cp" type beat and applying DSP effects
 
 use phonon::mini_notation::parse_mini_notation;
-use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
+use phonon::pattern::{Fraction, State, TimeSpan};
 use phonon::simple_dsp_executor::render_dsp_to_audio_simple;
 use std::collections::HashMap;
 use std::error::Error;

@@ -94,8 +94,8 @@ fn main() {
                 println!("  Has output: {}", env.output_chain.is_some());
 
                 // Analyze pattern operations in the AST
-                let mut pattern_op_count = 0;
-                let mut transform_types: Vec<String> = Vec::new();
+                let _pattern_op_count = 0;
+                let _transform_types: Vec<String> = Vec::new();
 
                 // This would need a visitor pattern in real implementation
                 // For demo, just show that it parsed

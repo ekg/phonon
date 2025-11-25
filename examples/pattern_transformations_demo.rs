@@ -102,7 +102,7 @@ fn main() {
     println!("CHAINING TRANSFORMATIONS");
     println!("{}", "-".repeat(40));
 
-    let chained = base.clone().fast(Pattern::pure(2.0)).rev().every(3, |p| p.slow(Pattern::pure(1.5)));
+    let _chained = base.clone().fast(Pattern::pure(2.0)).rev().every(3, |p| p.slow(Pattern::pure(1.5)));
 
     println!("Pattern: base.fast(Pattern::pure(2)).rev().every(3, slow(1.5))");
     println!("This chains multiple transformations together\n");

@@ -126,7 +126,6 @@ use rustfft::{FftPlanner, num_complex::Complex};
 mod audio_test_utils;
 mod pattern_verification_utils;
 use audio_test_utils::calculate_rms;
-use pattern_verification_utils::detect_audio_events;
 
 fn render_dsl(code: &str, cycles: usize) -> Vec<f32> {
     let (_, statements) = parse_program(code).expect("Parse failed");

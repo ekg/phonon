@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use hound::{SampleFormat, WavSpec, WavWriter};
-use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 use std::collections::HashMap;
 use std::process::Command;
@@ -285,7 +284,7 @@ fn test_parser_bus_and_mixing() {
     println!("Testing parser handles buses and mixing...");
 
     // This simulates what the phonon render command does
-    use std::path::PathBuf;
+    
     use std::process::Command;
 
     let phonon_code = r#"

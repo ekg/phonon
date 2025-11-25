@@ -1,15 +1,3 @@
-use phonon::mini_notation_v3::parse_mini_notation;
-/// Test to verify that voices don't accumulate across cycles
-///
-/// BUG REPORT: User observes that samples appear to accumulate across cycles,
-/// with each cycle adding MORE voices on top of previous cycles, leading to
-/// exponentially increasing density and volume.
-///
-/// EXPECTED: Voice count should stabilize after first cycle. New events in
-/// cycle N should not re-trigger if they're the "same" events from the pattern.
-///
-/// ACTUAL: Voice count may be growing unboundedly as cycles repeat.
-use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]

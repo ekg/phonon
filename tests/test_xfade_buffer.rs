@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 
 fn create_test_graph() -> UnifiedSignalGraph {

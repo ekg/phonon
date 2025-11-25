@@ -17,7 +17,6 @@ fn calculate_rms(samples: &[f32]) -> f32 {
 /// Test 3-level nested transforms: fast -> rev -> slow
 #[test]
 #[ignore = "Uses old pipe syntax - needs update"]
-#[ignore = "Uses old pipe syntax - needs update"]
 fn test_triple_nested_transforms() {
     let input = r#"
         cps: 2.0

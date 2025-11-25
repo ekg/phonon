@@ -18,7 +18,7 @@ fn debug_degrade_dsl_compilation() {
 
     // Compile to graph
     let compiler = DslCompiler::new(44100.0);
-    let graph = compiler.compile(statements);
+    let _graph = compiler.compile(statements);
 
     println!("Graph compiled successfully");
 

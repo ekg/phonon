@@ -443,8 +443,8 @@ impl MiniNotationParser {
         self.tokens.get(self.position + 1)
     }
 
-    /// Parse the entire pattern
-    pub fn parse(&mut self) -> AstNode {
+    /// Parse the entire pattern (internal use only)
+    fn parse(&mut self) -> AstNode {
         // Parse first part
         let first = self.parse_sequence();
 
@@ -849,7 +849,7 @@ impl MiniNotationParser {
 }
 
 /// Convert AST to Pattern of PatternValue (for argument evaluation)
-pub fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
+fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
     match ast {
         AstNode::Atom(val) => Pattern::pure(val),
 
@@ -932,7 +932,7 @@ pub fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
 
 /// Convert AST to Pattern
 /// This is where the magic happens - everything becomes a pattern that can be evaluated
-pub fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
+fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
     match ast {
         AstNode::Atom(val) => Pattern::pure(val.as_string()),
 

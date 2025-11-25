@@ -84,7 +84,7 @@ fn main() {
         println!("Interval | Samples | Duration | Expected | Deviation");
         println!("---------|---------|----------|----------|----------");
 
-        let expected_spacing = (0.25 * sample_rate) as usize;
+        let _expected_spacing = (0.25 * sample_rate) as usize;
 
         for i in 1..beat_onsets.len() {
             let spacing = beat_onsets[i] - beat_onsets[i - 1];

@@ -334,7 +334,7 @@ fn test_nested_almost() {
 
     // Nested: almostAlways(almostNever(fast))
     // Effective probability ≈ 0.9 * 0.1 = 0.09 (9%)
-    let nested = pattern
+    let _nested = pattern
         .clone()
         .almost_always(|p| p.almost_never(|p2| p2.fast(Pattern::pure(2.0))))
         .query(&state);

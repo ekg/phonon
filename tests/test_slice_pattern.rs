@@ -12,7 +12,7 @@
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
+use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 mod audio_test_utils;
@@ -48,7 +48,7 @@ fn test_slice_level1_reorders_chunks() {
     let pattern = parse_mini_notation("bd sn hh cp");
 
     // Create index pattern: 0 2 1 3
-    let indices = parse_mini_notation("0 2 1 3");
+    let _indices = parse_mini_notation("0 2 1 3");
 
     // This would be: pattern.slice_pattern(4, indices)
     // For now, just verify the base pattern structure

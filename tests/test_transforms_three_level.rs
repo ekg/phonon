@@ -16,7 +16,7 @@ mod audio_test_utils;
 use audio_test_utils::calculate_rms;
 
 mod pattern_verification_utils;
-use pattern_verification_utils::{detect_audio_events, get_expected_events};
+use pattern_verification_utils::detect_audio_events;
 
 // ============================================================================
 // HELPERS

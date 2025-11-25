@@ -8,7 +8,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, Sample, SizedSample};
 use notify::{Event, EventKind, RecursiveMode, Result as NotifyResult, Watcher};
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::unified_graph::{Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -144,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn load_file(state: &Arc<Mutex<LiveState>>, sample_rate: f32) {
-    let mut state_lock = state.lock().unwrap();
+    let state_lock = state.lock().unwrap();
     let filepath = state_lock.current_file.clone();
     drop(state_lock);
 

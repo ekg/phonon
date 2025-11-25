@@ -2445,11 +2445,9 @@ fn compile_function_call(
         "scan" => compile_scan(ctx, args),
         "irand" => compile_irand(ctx, args),
         "rand" => compile_rand(ctx, args),
-        "sine" => compile_sine_wave(ctx, args),
+        // NOTE: sine/saw/tri/square are already defined as oscillators above
+        // Pattern generators would need different names like "sine_wave", "saw_wave" etc.
         "cosine" => compile_cosine_wave(ctx, args),
-        "saw" => compile_saw_wave(ctx, args),
-        "tri" => compile_tri_wave(ctx, args),
-        "square" => compile_square_wave(ctx, args),
 
         // ========== Conditional Value Generators ==========
         "every_val" => compile_every_val(ctx, args),
@@ -2464,8 +2462,7 @@ fn compile_function_call(
 
         // ========== Signal Utilities ==========
         "range" => compile_range(ctx, args),
-        "gain" => compile_gain(ctx, args),
-        "pan" => compile_pan(ctx, args),
+        // NOTE: gain and pan are already defined as sample parameter modifiers above
         "min" => compile_min(ctx, args),
         "wrap" => compile_wrap(ctx, args),
         "sample_hold" => compile_sample_hold(ctx, args),
@@ -7597,18 +7594,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             }))
         }
 
-        Transform::Sometimes(transform) => {
-            let inner_transform = (*transform).clone();
-            let pattern_clone = pattern.clone();
-            let templates_clone = ctx.templates.clone();
-
-            Ok(pattern.sometimes(move |p| {
-                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
-                    Ok(transformed) => transformed,
-                    Err(_) => pattern_clone.clone(),
-                }
-            }))
-        }
+        // NOTE: Transform::Sometimes is already handled above (line 7325)
 
         Transform::Often(transform) => {
             let inner_transform = (*transform).clone();
@@ -7636,19 +7622,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             }))
         }
 
-        Transform::SometimesBy { prob, transform } => {
-            let prob_val = extract_number(&prob)?;
-            let inner_transform = (*transform).clone();
-            let pattern_clone = pattern.clone();
-            let templates_clone = ctx.templates.clone();
-
-            Ok(pattern.sometimes_by(prob_val, move |p| {
-                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
-                    Ok(transformed) => transformed,
-                    Err(_) => pattern_clone.clone(),
-                }
-            }))
-        }
+        // NOTE: Transform::SometimesBy is already handled above (line 7352)
 
         Transform::AlmostAlways(transform) => {
             let inner_transform = (*transform).clone();
@@ -7807,36 +7781,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             ))
         }
 
-        Transform::Whenmod {
-            modulo,
-            offset,
-            transform,
-        } => {
-            // Apply transform when (cycle - offset) % modulo == 0
-            let modulo_val = extract_number(&modulo)? as i32;
-            let offset_val = extract_number(&offset)? as i32;
-
-            // Clone the pattern, transform, and templates for use in the closure
-            let inner_transform = (*transform).clone();
-            let pattern_clone = pattern.clone();
-            let templates_clone = ctx.templates.clone();
-
-            // Manually inline Pattern::whenmod logic
-            Ok(Pattern::new(move |state| {
-                let cycle = state.span.begin.to_float().floor() as i32;
-                if (cycle - offset_val) % modulo_val == 0 {
-                    // Apply the transform on matching cycles
-                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
-                    {
-                        Ok(transformed) => transformed.query(state),
-                        Err(_) => pattern_clone.query(state), // Fallback to original on error
-                    }
-                } else {
-                    // Use original pattern on other cycles
-                    pattern_clone.query(state)
-                }
-            }))
-        }
+        // NOTE: Transform::Whenmod is already handled above (line 7665)
 
         Transform::Euclid { pulses, steps } => {
             let pulses_val = extract_number(&pulses)? as usize;

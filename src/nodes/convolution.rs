@@ -562,7 +562,7 @@ mod tests {
         // Mix varies over time (pattern modulation)
         let mut mix_buffer = vec![0.0; BLOCK_SIZE];
         for i in 0..BLOCK_SIZE {
-            mix_buffer[i] = (i as f32 / BLOCK_SIZE as f32); // Ramp 0 to 1
+            mix_buffer[i] = i as f32 / BLOCK_SIZE as f32; // Ramp 0 to 1
         }
 
         let inputs = vec![input.as_slice(), mix_buffer.as_slice()];

@@ -4,13 +4,10 @@
 //! according to pattern specifications, and that pattern parameters
 //! (gain, pan, speed) are applied correctly.
 
-use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Fraction, State, TimeSpan};
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
-use std::collections::HashMap;
 
 mod pattern_verification_utils;
-use pattern_verification_utils::{compare_events, detect_audio_events, get_expected_events};
+use pattern_verification_utils::detect_audio_events;
 
 mod audio_test_utils;
 use audio_test_utils::calculate_rms;

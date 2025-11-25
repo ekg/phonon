@@ -20,7 +20,7 @@ fn test_bjorklund_algorithm() {
     // Test (3,8) - should give X..X..X.
     let pattern = simple_euclid(3, 8);
     println!("\nEuclidean (3,8) pattern:");
-    for (i, &val) in pattern.iter().enumerate() {
+    for (_i, &val) in pattern.iter().enumerate() {
         print!("{}", if val { "X" } else { "." });
     }
     println!();
@@ -78,7 +78,7 @@ fn test_pattern_euclid_consistency() {
     println!("Simple euclid positions: {:?}", simple_positions);
 
     // The Pattern::euclid should have events at roughly the same fractional positions
-    for (i, hap) in haps.iter().enumerate() {
+    for (_i, hap) in haps.iter().enumerate() {
         if hap.value {
             let pos = (hap.part.begin.to_float() * 8.0).round() as usize;
             println!("Pattern::euclid hit at position {}/8", pos);

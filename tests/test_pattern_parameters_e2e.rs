@@ -6,8 +6,6 @@
 
 use phonon::dsp_parameter::DspParameter;
 use phonon::glicol_parser_v2::parse_glicol_v2;
-use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 
 /// Analyze frequency content of audio using zero-crossing detection

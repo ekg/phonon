@@ -2,8 +2,6 @@
 /// Both use `sometimes_by` with different probabilities
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
-use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
-use std::collections::HashMap;
 
 mod audio_test_utils;
 use audio_test_utils::calculate_rms;

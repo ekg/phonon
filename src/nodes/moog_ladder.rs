@@ -106,7 +106,8 @@ impl MoogLadderNode {
     }
 
     /// Get current filter state (for debugging)
-    pub fn state(&self) -> &MoogLadderState {
+    #[allow(dead_code)]
+    fn state(&self) -> &MoogLadderState {
         &self.state
     }
 

@@ -93,7 +93,7 @@ fn test_two_bus_cycle_basic() {
     "#;
 
     let buffer = render_dsl(code, 2.0);
-    let rms = calculate_rms(&buffer);
+    let _rms = calculate_rms(&buffer);
 
     // This creates a feedback loop with no external input, so it will
     // eventually decay to silence, but should still compile and run

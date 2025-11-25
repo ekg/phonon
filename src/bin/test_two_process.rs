@@ -3,7 +3,7 @@
 //! Spawns phonon-audio, connects to it, sends a test pattern, waits, then shuts down.
 
 use phonon::ipc::{IpcMessage, PatternClient};
-use std::process::{Child, Command};
+use std::process::Command;
 use std::thread;
 use std::time::Duration;
 

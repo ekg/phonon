@@ -1,7 +1,6 @@
 /// Simple tests verifying pattern operations work with sample playback
 /// These tests don't try to detect exact onset timing, just verify audio is present
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::sample_loader::SampleBank;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 use std::collections::HashMap;
 

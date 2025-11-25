@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::unified_graph::{NodeId, Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph::{Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
 
 #[test]
 fn test_basic_oscillator() {
@@ -417,7 +417,7 @@ fn test_audio_analysis_nodes() {
     });
 
     // Add transient detector
-    let transient = graph.add_node(SignalNode::Transient {
+    let _transient = graph.add_node(SignalNode::Transient {
         input: Signal::Node(osc),
         threshold: 0.5,
         last_value: 0.0,

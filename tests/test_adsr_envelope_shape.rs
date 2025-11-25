@@ -4,7 +4,7 @@
 //! by analyzing the amplitude envelope over time.
 
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::unified_graph::{EnvState, Signal, SignalNode, UnifiedSignalGraph, Waveform};
+use phonon::unified_graph::{EnvState, Signal, SignalNode, UnifiedSignalGraph};
 
 /// Find the peak amplitude in a buffer segment
 fn find_peak(buffer: &[f32]) -> f32 {

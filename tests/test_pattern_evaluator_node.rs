@@ -96,7 +96,7 @@ fn test_pattern_evaluator_cycle_progression() {
     let sample_rate = 44100.0_f32;
     let cps = 2.0_f64;
     let samples_per_cycle = (sample_rate as f64 / cps) as usize;  // 22050 samples
-    let samples_per_event = samples_per_cycle / 3;  // 7350 samples
+    let _samples_per_event = samples_per_cycle / 3;  // 7350 samples
 
     // Process first cycle worth of samples
     let mut values_seen = Vec::new();
@@ -393,8 +393,8 @@ fn test_pattern_evaluator_oscillator_integration() {
     // This test verifies that PatternEvaluatorNode can drive an oscillator
     // We'll create a pattern and use it to modulate oscillator frequency
 
-    use phonon::nodes::{ConstantNode, OscillatorNode, Waveform};
-    use std::collections::HashMap;
+    use phonon::nodes::{OscillatorNode, Waveform};
+    
 
     let pattern = parse_mini_notation("110 220 440");
     let mut pattern_node = PatternEvaluatorNode::new(Arc::new(pattern));

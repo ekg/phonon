@@ -121,7 +121,7 @@ fn test_oscillator_frequency_pattern_modulation() {
             // We should see frequencies cycling through the pattern
             // Allow some tolerance due to FFT resolution
             let expected_freqs = [220.0, 440.0, 330.0, 550.0];
-            let chunk_in_pattern = i % 4;
+            let _chunk_in_pattern = i % 4;
 
             // Check if we're close to one of the expected frequencies
             let mut found_match = false;

@@ -56,7 +56,7 @@ fn main() {
     // Example 2: Asymmetric clamping
     println!("Example 2: Asymmetric clamp [0.0, 1.0] (positive only)");
     {
-        let mut osc = OscillatorNode::new(0, Waveform::Sine);
+        let _osc = OscillatorNode::new(0, Waveform::Sine);
         let mut min = ConstantNode::new(0.0);
         let mut max = ConstantNode::new(1.0);
         let mut clamp = ClampNode::new(0, 1, 2);

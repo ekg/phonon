@@ -9,7 +9,7 @@ use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 mod audio_test_utils;
-use audio_test_utils::{calculate_rms, find_peak};
+use audio_test_utils::calculate_rms;
 
 // ============================================================================
 // Test Utilities

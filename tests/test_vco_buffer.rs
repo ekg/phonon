@@ -9,7 +9,6 @@
 
 use std::cell::RefCell;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
-use std::f32::consts::PI;
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {

@@ -142,7 +142,7 @@ fn test_compress_level1_preserves_structure() {
         controls: HashMap::new(),
     };
 
-    let base_haps = pattern.query(&state);
+    let _base_haps = pattern.query(&state);
     let compress_haps = compress_pattern.query(&state);
 
     // Should have events (exact count depends on filtering)

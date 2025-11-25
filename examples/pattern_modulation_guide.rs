@@ -26,9 +26,9 @@ fn main() {
 
     // Demonstrate the effect
     let basic = parse_mini_notation("100 200 300 400");
-    let fast = basic.clone().fast(Pattern::pure(2.0));
-    let slow = basic.clone().slow(Pattern::pure(2.0));
-    let reversed = basic.clone().rev();
+    let _fast = basic.clone().fast(Pattern::pure(2.0));
+    let _slow = basic.clone().slow(Pattern::pure(2.0));
+    let _reversed = basic.clone().rev();
 
     println!("Original: \"100 200 300 400\"");
     println!("  → Events in first cycle: [100, 200, 300, 400]");

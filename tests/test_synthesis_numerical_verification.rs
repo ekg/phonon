@@ -209,7 +209,7 @@ out: ~trig
 #[test]
 fn test_static_vs_live_synthesis() {
     let sample_rate = 44100.0;
-    let frequency = 440.0;
+    let _frequency = 440.0;
 
     // STATIC: Direct sine oscillator (no pattern triggering)
     let code_static = "out: sine 440";

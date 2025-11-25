@@ -113,7 +113,7 @@ fn main() {
     println!("Glicol with pattern:\n{}", code4);
 
     match parse_glicol(code4) {
-        Ok(env) => {
+        Ok(_env) => {
             println!("✓ Parsed successfully!");
             println!("  Created rhythm and bass chains");
         }

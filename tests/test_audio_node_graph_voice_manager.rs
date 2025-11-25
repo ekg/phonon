@@ -28,7 +28,7 @@ fn test_voice_manager_can_be_used() {
 
     // Get voice manager
     let voice_manager = graph.voice_manager();
-    let mut vm = voice_manager.lock().unwrap();
+    let vm = voice_manager.lock().unwrap();
 
     // Verify initial state
     assert_eq!(vm.active_voice_count(), 0, "No voices should be active initially");
@@ -37,7 +37,7 @@ fn test_voice_manager_can_be_used() {
 
 #[test]
 fn test_sample_bank_can_load_samples() {
-    use std::sync::Arc;
+    
 
     let graph = AudioNodeGraph::new(44100.0);
 
@@ -71,7 +71,7 @@ fn test_voice_manager_sample_bank_integration() {
 
     // Get sample bank
     let sample_bank = graph.sample_bank();
-    let mut bank = sample_bank.lock().unwrap();
+    let _bank = sample_bank.lock().unwrap();
 
     // For now, we verify that the components exist
     let initial_active = vm.active_voice_count();
@@ -116,7 +116,7 @@ fn test_multiple_sample_triggers() {
 
     // Process audio
     for _ in 0..100 {
-        let output = vm.process();
+        let _output = vm.process();
         // Just verify we get some output (sum of voices)
         // Don't assert specific values as they depend on envelope/timing
     }

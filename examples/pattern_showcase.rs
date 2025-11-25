@@ -2,10 +2,8 @@
 //!
 //! Run with: cargo run --example pattern_showcase
 
-use phonon::mini_notation::{parse_extended_notation, parse_mini_notation};
+use phonon::mini_notation::parse_mini_notation;
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
-use phonon::pattern_ops::*;
-use phonon::pattern_ops_extended::*;
 use std::collections::HashMap;
 
 fn main() {
@@ -58,7 +56,7 @@ fn showcase_time_operators() {
     println!("⏰ Time Manipulation Operators");
     println!("------------------------------");
 
-    let base = Pattern::from_string("a b c d");
+    let _base = Pattern::from_string("a b c d");
 
     let operators = vec![
         ("fast(2)", "Double speed"),

@@ -181,7 +181,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             gain,
             fade_in,
             fade_out,
-            block_size,
+            block_size: _,
             realtime,
             parallel,
             stereo,
@@ -282,7 +282,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("🔀 Auto-routing: Mixing {} buses to output", bus_count);
             }
 
-            let mut buses: HashMap<String, phonon::unified_graph::NodeId> = HashMap::new();
+            let _buses: HashMap<String, phonon::unified_graph::NodeId> = HashMap::new();
             let mut out_signal = None;
 
             // Parse DSL helper function
@@ -761,7 +761,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     // Check for |> or <| pattern transformations
                     if expr.contains(" |> ") || expr.contains(" <| ") {
-                        let (base_expr, transform_expr, reversed) = if expr.contains(" |> ") {
+                        let (base_expr, transform_expr, _reversed) = if expr.contains(" |> ") {
                             let parts: Vec<&str> = expr.splitn(2, " |> ").collect();
                             if parts.len() == 2 {
                                 (parts[0].trim(), parts[1].trim(), false)
@@ -1356,7 +1356,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if parallel {
                     // PARALLEL MODE: Process multiple blocks concurrently
                     use rayon::prelude::*;
-                    use std::sync::Mutex;
+                    
 
                     let start = Instant::now();
 

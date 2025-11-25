@@ -9,8 +9,6 @@
 
 use phonon::glicol_parser::parse_glicol;
 use phonon::simple_dsp_executor::SimpleDspExecutor;
-use std::fs::File;
-use std::io::Write;
 
 fn save_wav(
     filename: &str,

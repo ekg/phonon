@@ -1,8 +1,6 @@
 //! Example demonstrating advanced Pattern-DSP integration
 
-use phonon::glicol_dsp::dsp::*;
 use phonon::glicol_pattern_bridge::{parse_enhanced, PatternDspEngine};
-use phonon::pattern::Pattern;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🎹 Phonon Pattern-DSP Integration Demo");

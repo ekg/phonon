@@ -1,8 +1,3 @@
-/// Debug test to trace event triggering across cycle boundaries
-///
-/// This test renders a pattern with alternation and logs detailed information
-/// about event triggering to help diagnose if events are being re-triggered.
-use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]

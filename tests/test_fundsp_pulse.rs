@@ -11,7 +11,6 @@ mod audio_test_utils;
 use audio_test_utils::calculate_rms;
 
 mod pattern_verification_utils;
-use pattern_verification_utils::detect_audio_events;
 
 /// Helper function to render DSL code to audio buffer
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {

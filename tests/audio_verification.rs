@@ -86,8 +86,8 @@ pub fn verify_amplitude_range(wav_path: &str, min_rms: f32, max_peak: f32) -> Re
 /// Verify filter is working by checking spectral content
 pub fn verify_filter_effect(
     wav_path: &str,
-    expected_cutoff: f32,
-    tolerance_hz: f32,
+    _expected_cutoff: f32,
+    _tolerance_hz: f32,
 ) -> Result<(), String> {
     let analysis = analyze_wav(wav_path)?;
 
@@ -263,7 +263,7 @@ pub fn verify_envelope_shape(
 pub fn verify_pattern_modulation(
     wav_path: &str,
     parameter: &str, // "frequency", "amplitude", "spectral"
-    expected_changes: usize,
+    _expected_changes: usize,
 ) -> Result<(), String> {
     let mut reader =
         hound::WavReader::open(wav_path).map_err(|e| format!("Failed to open WAV: {}", e))?;

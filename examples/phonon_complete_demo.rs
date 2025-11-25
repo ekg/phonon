@@ -3,10 +3,8 @@
 //! This demonstrates the full power of Phonon:
 //! Strudel-style patterns combined with modular synthesis!
 
-use phonon::enhanced_parser::EnhancedParser;
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use phonon::render::{RenderConfig, Renderer};
-use phonon::signal_executor::SignalExecutor;
 use std::collections::HashMap;
 use std::path::Path;
 

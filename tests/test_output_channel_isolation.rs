@@ -22,7 +22,7 @@ fn buffers_match(a: &[f32], b: &[f32], tolerance: f32) -> (bool, f32, usize) {
     let mut max_diff = 0.0f32;
     let mut mismatch_count = 0;
 
-    for (i, (&sample_a, &sample_b)) in a.iter().zip(b.iter()).enumerate() {
+    for (_i, (&sample_a, &sample_b)) in a.iter().zip(b.iter()).enumerate() {
         let diff = (sample_a - sample_b).abs();
         if diff > tolerance {
             mismatch_count += 1;

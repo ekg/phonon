@@ -173,7 +173,7 @@ fn demonstrate_pattern_evolution() {
             let val = cutoff_pattern.evaluate(pos, &refs);
 
             // Simple visualization
-            let bar_len = ((val / 100.0) as usize).min(30);
+            let _bar_len = ((val / 100.0) as usize).min(30);
             if i % 4 == 0 {
                 print!("│");
             } else {
