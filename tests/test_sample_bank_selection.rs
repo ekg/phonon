@@ -1,7 +1,6 @@
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::{Fraction, State, TimeSpan};
 use phonon::sample_loader::SampleBank;
-use phonon::unified_graph::{SignalNode, UnifiedSignalGraph};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -88,50 +87,31 @@ fn test_mini_notation_with_sample_index() {
 }
 
 #[test]
-#[ignore] // Requires dirt-samples to be present
-fn test_sample_playback_with_index() {
-    // Integration test: render audio with indexed samples
-    let sample_rate = 44100.0;
-    let mut graph = UnifiedSignalGraph::new(sample_rate);
-    graph.set_cps(1.0); // 1 cycle per second
+fn test_sample_playback_with_index_e2e() {
+    // Integration test: render audio with indexed samples using DSL
+    use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
-    // Create a pattern with sample indices
-    let pattern = parse_mini_notation("bd:0 bd:1 bd:2");
-    let sample_node = graph.add_node(SignalNode::Sample {
-        pattern_str: "bd:0 bd:1 bd:2".to_string(),
-        pattern,
-        last_trigger_time: -1.0,
-        last_cycle: -1,
-        playback_positions: HashMap::new(),
-        gain: phonon::unified_graph::Signal::Value(1.0),
-        pan: phonon::unified_graph::Signal::Value(0.0),
-        speed: phonon::unified_graph::Signal::Value(1.0),
-        cut_group: phonon::unified_graph::Signal::Value(0.0),
-        n: phonon::unified_graph::Signal::Value(0.0),
-        note: phonon::unified_graph::Signal::Value(0.0),
-        attack: phonon::unified_graph::Signal::Value(0.001),
-        release: phonon::unified_graph::Signal::Value(0.1),
-        envelope_type: None,
-        begin: phonon::unified_graph::Signal::Value(0.0),
-        end: phonon::unified_graph::Signal::Value(1.0),
-        unit_mode: phonon::unified_graph::Signal::Value(0.0), // 0 = rate mode (default)
-        loop_enabled: phonon::unified_graph::Signal::Value(0.0), // 0 = no loop (default)
-    });
+    let input = r#"
+        cps: 2.0
+        out: s "bd:0 bd:1 bd:2"
+    "#;
 
-    graph.set_output(sample_node);
+    let (_, statements) = parse_dsl(input).expect("Should parse DSL");
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
 
-    // Process one cycle
-    let samples_per_cycle = sample_rate as usize;
-    let mut has_audio = false;
+    // Render 1 cycle (0.5 seconds at 2 CPS)
+    let buffer = graph.render(22050);
 
-    for _ in 0..samples_per_cycle {
-        let sample = graph.process_sample();
-        if sample.abs() > 0.001 {
-            has_audio = true;
-        }
-    }
+    // Calculate RMS
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
 
-    assert!(has_audio, "Should produce audio with indexed samples");
+    println!("RMS with bank selection: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Sample pattern with bank indices should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
