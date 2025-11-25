@@ -1017,12 +1017,29 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
-    /// Rotate pattern left by n steps
+    /// Rotate pattern left by n cycles (Tidal-style rotL)
+    ///
+    /// rotL shifts the pattern backward in time, so events occur earlier.
+    /// `rotL 0.25` on "a b c d" gives "b c d a" - 'b' now starts at cycle 0.
+    ///
+    /// Implementation: shift query forward by n, shift results back by n
+    /// This is equivalent to Tidal's: withResultTime (subtract n) $ withQueryTime (+ n)
     pub fn rotate_left(self, n: f64) -> Self {
         Pattern::new(move |state| {
-            self.query(state)
+            // Step 1: Shift query time FORWARD by n (look into the future)
+            let shifted_state = State {
+                span: TimeSpan::new(
+                    Fraction::from_float(state.span.begin.to_float() + n),
+                    Fraction::from_float(state.span.end.to_float() + n),
+                ),
+                controls: state.controls.clone(),
+            };
+
+            // Step 2: Query at the shifted time
+            self.query(&shifted_state)
                 .into_iter()
                 .map(|mut hap| {
+                    // Step 3: Shift result times BACK by n (report at original time)
                     hap.part = TimeSpan::new(
                         Fraction::from_float(hap.part.begin.to_float() - n),
                         Fraction::from_float(hap.part.end.to_float() - n),

@@ -37,7 +37,7 @@ use std::cell::RefCell;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration as StdDuration;
@@ -92,6 +92,8 @@ pub struct ModalEditor {
     synth_time_us: Arc<AtomicUsize>,
     /// Ring buffer fill level (0-100%)
     ring_fill_percent: Arc<AtomicUsize>,
+    /// Signal to clear ring buffer on next audio callback (instant transitions)
+    should_clear_ring: Arc<AtomicBool>,
 }
 
 impl ModalEditor {
@@ -147,6 +149,10 @@ impl ModalEditor {
         // Performance monitoring (shared with synthesis thread)
         let synth_time_us = Arc::new(AtomicUsize::new(0));
         let ring_fill_percent = Arc::new(AtomicUsize::new(100));
+
+        // Flag to signal audio callback to drain ring buffer on graph swap
+        // This enables instant transitions without hearing stale audio
+        let should_clear_ring = Arc::new(AtomicBool::new(false));
 
         // Ring buffer: background synth writes, audio callback reads
         // Size: ~100ms = responsive live coding (Tidal-like instant transitions)
@@ -270,11 +276,23 @@ impl ModalEditor {
         let underrun_count_f32 = Arc::clone(&underrun_count);
         let underrun_count_i16 = Arc::clone(&underrun_count);
 
+        // Clone clear flag for audio callbacks
+        let should_clear_f32 = Arc::clone(&should_clear_ring);
+        let should_clear_i16 = Arc::clone(&should_clear_ring);
+
         let stream = match sample_format {
             cpal::SampleFormat::F32 => {
                 device.build_output_stream(
                     &config,
                     move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                        // Check if we should clear the ring buffer (graph was swapped)
+                        // This enables instant transitions without hearing stale audio
+                        if should_clear_f32.swap(false, Ordering::Relaxed) {
+                            // Drain all existing samples from the ring buffer
+                            let to_drain = ring_consumer.occupied_len();
+                            ring_consumer.skip(to_drain);
+                        }
+
                         // Read from ring buffer - MUCH faster than synthesis!
                         let available = ring_consumer.occupied_len();
 
@@ -300,6 +318,14 @@ impl ModalEditor {
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
+                        // Check if we should clear the ring buffer (graph was swapped)
+                        // This enables instant transitions without hearing stale audio
+                        if should_clear_i16.swap(false, Ordering::Relaxed) {
+                            // Drain all existing samples from the ring buffer
+                            let to_drain = ring_consumer.occupied_len();
+                            ring_consumer.skip(to_drain);
+                        }
+
                         let available = ring_consumer.occupied_len();
 
                         if available >= data.len() {
@@ -375,6 +401,7 @@ impl ModalEditor {
             underrun_count,
             synth_time_us,
             ring_fill_percent,
+            should_clear_ring,
         };
 
         Ok(editor)
@@ -470,6 +497,10 @@ impl ModalEditor {
         // Hot-swap the graph atomically using lock-free ArcSwap
         // Background synthesis thread will pick up new graph on next render
         self.graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
+
+        // Signal audio callback to drain the ring buffer for instant transition
+        // This prevents hearing stale audio from the old graph
+        self.should_clear_ring.store(true, Ordering::Relaxed);
 
         eprintln!("✅ Graph stored! Audio should start now.");
 
@@ -1565,6 +1596,8 @@ impl ModalEditor {
     fn hush(&mut self) {
         // Clear the graph to silence all sound
         self.graph.store(Arc::new(None));
+        // Clear ring buffer for instant silence
+        self.should_clear_ring.store(true, Ordering::Relaxed);
         self.status_message = "🔇 Hushed - C-r to reload".to_string();
     }
 
@@ -1572,6 +1605,8 @@ impl ModalEditor {
     fn panic(&mut self) {
         // Clear the graph to stop everything
         self.graph.store(Arc::new(None));
+        // Clear ring buffer for instant silence
+        self.should_clear_ring.store(true, Ordering::Relaxed);
         self.status_message = "🚨 PANIC! All stopped - C-r to restart".to_string();
     }
 

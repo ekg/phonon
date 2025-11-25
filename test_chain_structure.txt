@@ -1,0 +1,23 @@
+Looking at the code:
+
+1. In compositional_parser.rs line 95:
+   Chain(Box<Expr>, Box<Expr>),
+   - This is defined as: a # b (pipe a into b)
+
+2. In compositional_compiler.rs lines 629-632:
+   Expr::Chain(left, right) => {
+       compile_chain(ctx, *left, *right)
+   }
+
+3. In compositional_compiler.rs lines 6156-6207 (compile_chain function):
+   - Left is compiled first
+   - Left's result is passed as FIRST ARGUMENT to right
+   - This is done via ChainInput marker
+
+4. The actual implementation at line 6162-6164:
+   let left_node = compile_expr(ctx, left)?;
+   args.insert(0, Expr::ChainInput(left_node));
+   compile_function_call(ctx, &name, args)
+
+Key insight: The LEFT side determines the AUDIO that flows into the RIGHT side effect.
+The RIGHT side is the EFFECT function.
