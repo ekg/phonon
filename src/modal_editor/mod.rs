@@ -544,7 +544,8 @@ impl ModalEditor {
             terminal.draw(|f| self.ui(f))?;
 
             // Use poll with timeout to enable flash animation
-            if event::poll(std::time::Duration::from_millis(50))? {
+            // 100ms = reduced refresh rate (was 50ms) for less CPU usage
+            if event::poll(std::time::Duration::from_millis(100))? {
                 if let Event::Key(key) = event::read()? {
                     match self.handle_key_event(key) {
                         KeyResult::Continue => continue,
@@ -903,7 +904,6 @@ impl ModalEditor {
         let underrun_count = self.underrun_count.load(Ordering::Relaxed);
         let synth_time_us = self.synth_time_us.load(Ordering::Relaxed);
         let ring_fill = self.ring_fill_percent.load(Ordering::Relaxed);
-        let has_underruns = underrun_count > 0;
 
         // Calculate synthesis performance
         // 512 samples @ 44.1kHz = 11,610 microseconds per buffer (realtime budget)
@@ -914,7 +914,13 @@ impl ModalEditor {
             0
         };
 
-        let status_style = if self.error_message.is_some() || has_underruns {
+        // Determine if synthesis is currently too slow (not historical underruns)
+        let is_too_slow = synth_percent > 100;
+
+        let status_style = if self.error_message.is_some() {
+            Style::default().fg(Color::Red)
+        } else if is_too_slow {
+            // Only red if CURRENTLY slow, not for historical underruns
             Style::default().fg(Color::Red)
         } else if self.is_playing {
             Style::default().fg(Color::Green)
@@ -923,22 +929,21 @@ impl ModalEditor {
         };
 
         let status_text = if let Some(ref error) = self.error_message {
-            if has_underruns {
-                format!("❌ Error: {error} | ⚠️  Underruns: {} | Synth: {}% | Buf: {}%",
+            if underrun_count > 0 {
+                format!("❌ Error: {error} | Underruns: {} (total) | Synth: {}% | Buf: {}%",
                     underrun_count, synth_percent, ring_fill)
             } else {
                 format!("❌ Error: {error}")
             }
-        } else if has_underruns {
-            format!("⚠️  Underruns: {} | Synth: {}% ({}µs) | Buf: {}% | TOO SLOW!",
-                underrun_count, synth_percent, synth_time_us, ring_fill)
         } else if synth_time_us > 0 {
-            format!("🔊 Synth: {}% ({}µs / {}µs) | Buf: {}%",
-                synth_percent, synth_time_us, budget_us, ring_fill)
+            // Show detailed performance info with underrun history (not alarming)
+            let perf_status = if is_too_slow { "⚠️ TOO SLOW!" } else { "✓" };
+            format!("🔊 {} Synth: {}% ({}/{}µs) | Buf: {}% | Underruns: {} (total)",
+                perf_status, synth_percent, synth_time_us, budget_us, ring_fill, underrun_count)
         } else if self.is_playing {
-            "🔊 Playing...".to_string()
+            format!("🔊 Playing... | Underruns: {} (total)", underrun_count)
         } else {
-            self.status_message.clone()
+            format!("{} | Underruns: {} (total)", self.status_message, underrun_count)
         };
 
         let help_text = "C-x: Eval | C-u: Undo | C-r: Redo | C-k: Kill | C-y: Yank | C-h: Hush | C-s: Save | Alt-q: Quit";
