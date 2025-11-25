@@ -8,6 +8,7 @@
 mod command_console;
 pub mod completion;
 mod highlighting;
+pub mod test_harness;
 
 use command_console::CommandConsole;
 use highlighting::highlight_line;
@@ -440,6 +441,10 @@ impl ModalEditor {
                         eprintln!("📊 After transfer - new graph cycle position: {}", new_graph.get_cycle_position());
                         eprintln!("📊 After transfer - new graph CPS: {}", new_graph.get_cps());
 
+                        // CRITICAL: Transfer FX state (delay buffers, reverb tails, etc.)
+                        // This preserves audio continuity - FX tails don't cut off!
+                        new_graph.transfer_fx_states(&old_graph);
+
                         // CRITICAL: Transfer VoiceManager to preserve active voices!
                         // This prevents the click from voices being cut off mid-sample
                         new_graph.transfer_voice_manager(old_graph.take_voice_manager());
@@ -615,6 +620,12 @@ impl ModalEditor {
             }
             KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.yank(); // Yank (paste) from kill buffer
+                KeyResult::Continue
+            }
+
+            // Ctrl+Space: Expand kwargs template
+            KeyCode::Char(' ') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.expand_kwargs_template();
                 KeyResult::Continue
             }
 
@@ -1721,8 +1732,13 @@ impl ModalEditor {
             None => {
                 // No token found - check if we're in a context that allows empty completion
                 match context {
-                    completion::CompletionContext::Sample | completion::CompletionContext::Bus => {
-                        // Inside string - show all completions
+                    completion::CompletionContext::Sample
+                    | completion::CompletionContext::Bus
+                    | completion::CompletionContext::Keyword(_)
+                    | completion::CompletionContext::AfterChain
+                    | completion::CompletionContext::AfterTransform
+                    | completion::CompletionContext::AfterBusAssignment => {
+                        // Show all completions for this context
                         ("".to_string(), col)
                     }
                     _ => {

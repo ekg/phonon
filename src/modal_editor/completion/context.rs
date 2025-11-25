@@ -162,19 +162,28 @@ pub fn get_completion_context(line: &str, cursor_pos: usize) -> CompletionContex
 
     // Check if we're right after a function name with just whitespace
     // Example: "gain " or "lpf 800 " should show kwargs
+    // We search backwards through tokens to find the function name
+    // BUT we only search within the current "segment" - we stop at # or $ operators
     if !in_string && cursor_pos > 0 {
         // Look back for the last non-whitespace token
         let trimmed_before = line_before_cursor.trim_end();
         if trimmed_before != line_before_cursor {
-            // We have trailing whitespace
-            let tokens: Vec<&str> = trimmed_before
-                .split(|c: char| c.is_whitespace() || "(){}[]#$".contains(c))
+            // Find the last # or $ to determine the current segment
+            // We only search for functions within the current segment
+            let last_hash = trimmed_before.rfind('#').map(|i| i + 1).unwrap_or(0);
+            let last_dollar = trimmed_before.rfind('$').map(|i| i + 1).unwrap_or(0);
+            let segment_start = last_hash.max(last_dollar);
+            let current_segment = &trimmed_before[segment_start..];
+
+            // We have trailing whitespace - search backwards for a function in current segment
+            let tokens: Vec<&str> = current_segment
+                .split(|c: char| c.is_whitespace() || "(){}[]".contains(c))
                 .filter(|t| !t.is_empty())
                 .collect();
 
-            if let Some(last_token) = tokens.last() {
-                // Check if last token is a known function
-                if let Some(metadata) = FUNCTION_METADATA.get(last_token) {
+            // Search backwards through tokens to find a known function
+            for token in tokens.iter().rev() {
+                if let Some(metadata) = FUNCTION_METADATA.get(*token) {
                     return CompletionContext::Keyword(metadata.name);
                 }
             }
@@ -341,8 +350,10 @@ mod tests {
 
     #[test]
     fn test_context_after_closing_quote() {
+        // After "s \"bd\" " we should show kwargs for "s" since the user
+        // might want to type :gain, :pan, etc.
         let context = get_completion_context("s \"bd\" ", 7);
-        assert_eq!(context, CompletionContext::None);
+        assert_eq!(context, CompletionContext::Keyword("s"));
     }
 
     #[test]
@@ -422,5 +433,54 @@ mod tests {
         // Should work when typing after space: "gain : a<TAB>"
         let context = get_completion_context("gain : am", 9);
         assert_eq!(context, CompletionContext::Keyword("gain"));
+    }
+
+    #[test]
+    fn test_keyword_context_function_with_args_space() {
+        // "lpf 800 " should show kwargs for lpf
+        let context = get_completion_context("lpf 800 ", 8);
+        assert_eq!(context, CompletionContext::Keyword("lpf"));
+    }
+
+    #[test]
+    fn test_keyword_context_function_with_multiple_args_space() {
+        // "reverb 0.5 0.8 " should show kwargs for reverb
+        let context = get_completion_context("reverb 0.5 0.8 ", 15);
+        assert_eq!(context, CompletionContext::Keyword("reverb"));
+    }
+
+    #[test]
+    fn test_keyword_context_gain_space() {
+        // "gain " should show kwargs for gain
+        let context = get_completion_context("gain ", 5);
+        assert_eq!(context, CompletionContext::Keyword("gain"));
+    }
+
+    #[test]
+    fn test_after_chain_shows_effects_not_kwargs() {
+        // "s \"bd\" # " should show AfterChain (effects), not kwargs for "s"
+        let context = get_completion_context("s \"bd\" # ", 9);
+        assert_eq!(context, CompletionContext::AfterChain);
+    }
+
+    #[test]
+    fn test_after_transform_shows_transforms_not_kwargs() {
+        // "s \"bd\" $ " should show AfterTransform, not kwargs for "s"
+        let context = get_completion_context("s \"bd\" $ ", 9);
+        assert_eq!(context, CompletionContext::AfterTransform);
+    }
+
+    #[test]
+    fn test_kwargs_after_chain_function() {
+        // "s \"bd\" # lpf 800 " should show kwargs for lpf, not s
+        let context = get_completion_context("s \"bd\" # lpf 800 ", 17);
+        assert_eq!(context, CompletionContext::Keyword("lpf"));
+    }
+
+    #[test]
+    fn test_kwargs_after_transform_function() {
+        // "s \"bd\" $ fast 2 " should show kwargs for fast, not s
+        let context = get_completion_context("s \"bd\" $ fast 2 ", 16);
+        assert_eq!(context, CompletionContext::Keyword("fast"));
     }
 }
