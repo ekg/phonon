@@ -187,17 +187,57 @@ fn test_outside_applies_function_across_cycles() {
 // ============================================================================
 
 #[test]
-fn test_fast_gap_speeds_up_with_silence() {
-    // fastGap 2 on "a b c d" plays the pattern twice as fast
-    // but only in the first half of the cycle, leaving silence in the second half
+fn test_fast_gap_compresses_pattern() {
+    // fastGap 2 compresses pattern into first half of cycle, leaving gap
     //
-    // fastGap 2 "a b c d":
-    //   - First 0.5 cycle: a@0.0, b@0.125, c@0.25, d@0.375
-    //   - Second 0.5 cycle: silence (gap)
+    // "a b c d" normally: a@0.0, b@0.25, c@0.5, d@0.75
+    // fastGap 2 "a b c d": a@0.0, b@0.125, c@0.25, d@0.375 (gap 0.5-1.0)
+    //
+    // Key difference from fast 2:
+    // - fast 2 plays pattern TWICE (8 events per cycle)
+    // - fastGap 2 plays pattern ONCE compressed (4 events, gap after)
 
-    // This is different from fast 2 which would play the full pattern twice
+    let pattern: Pattern<String> = parse_mini_notation("a b c d");
+    let fast_gap = pattern.clone().fast_gap(2.0);
 
-    // TODO: Implement fastGap
+    let events = query_cycle(&fast_gap, 0);
+
+    // Should have exactly 4 events (not 8 like fast 2)
+    assert_eq!(events.len(), 4, "fastGap 2 should have 4 events, not 8");
+
+    // All events should be in first half of cycle (0.0 to 0.5)
+    for (i, event) in events.iter().enumerate() {
+        let start = event.part.begin.to_float();
+        assert!(start < 0.5,
+            "Event {} should be in first half (start={})", i, start);
+    }
+
+    // First event at 0.0
+    assert!((events[0].part.begin.to_float() - 0.0).abs() < 0.01,
+        "First event should be at 0.0");
+
+    // Last event should end at 0.5
+    let last_end = events[3].part.end.to_float();
+    assert!((last_end - 0.5).abs() < 0.01,
+        "Last event should end at 0.5, got {}", last_end);
+}
+
+#[test]
+fn test_fast_gap_vs_fast() {
+    // Verify fastGap differs from fast
+    let pattern: Pattern<String> = parse_mini_notation("a b");
+
+    let fast_2 = pattern.clone().fast(Pattern::pure(2.0));
+    let fast_gap_2 = pattern.clone().fast_gap(2.0);
+
+    let fast_events = query_cycle(&fast_2, 0);
+    let gap_events = query_cycle(&fast_gap_2, 0);
+
+    // fast 2 should have 4 events (pattern played twice)
+    assert_eq!(fast_events.len(), 4, "fast 2 should have 4 events");
+
+    // fastGap 2 should have 2 events (pattern played once, compressed)
+    assert_eq!(gap_events.len(), 2, "fastGap 2 should have 2 events");
 }
 
 // ============================================================================
@@ -205,15 +245,50 @@ fn test_fast_gap_speeds_up_with_silence() {
 // ============================================================================
 
 #[test]
-fn test_zoom_plays_portion_of_pattern() {
-    // zoom (0.25, 0.75) "a b c d" plays only the middle half
-    // stretched to fill the whole cycle
+fn test_zoom_plays_portion_stretched() {
+    // zoom (0.25, 0.75) extracts middle half and stretches to full cycle
     //
-    // Original: a@0-0.25, b@0.25-0.5, c@0.5-0.75, d@0.75-1.0
-    // zoom (0.25, 0.75) extracts b and c, stretches to full cycle:
-    //   - b@0-0.5, c@0.5-1.0
+    // Original "a b c d": a@0-0.25, b@0.25-0.5, c@0.5-0.75, d@0.75-1.0
+    // zoom (0.25, 0.75) extracts span 0.25-0.75 (containing b and c)
+    // Then stretches that 0.5-cycle span to fill the full cycle:
+    //   - b now spans 0.0-0.5
+    //   - c now spans 0.5-1.0
 
-    // TODO: Implement zoom
+    let pattern: Pattern<String> = parse_mini_notation("a b c d");
+    let zoomed = pattern.clone().zoom(Pattern::pure(0.25), Pattern::pure(0.75));
+
+    let events = query_cycle(&zoomed, 0);
+
+    // Should have 2 events (b and c)
+    assert_eq!(events.len(), 2, "zoom (0.25, 0.75) should extract 2 events");
+
+    // First event should be "b"
+    assert_eq!(events[0].value, "b", "First event should be 'b'");
+
+    // Second event should be "c"
+    assert_eq!(events[1].value, "c", "Second event should be 'c'");
+
+    // Events should be stretched to fill full cycle
+    let b_start = events[0].part.begin.to_float();
+    let c_end = events[1].part.end.to_float();
+
+    assert!((b_start - 0.0).abs() < 0.01, "b should start at 0.0");
+    assert!((c_end - 1.0).abs() < 0.01, "c should end at 1.0");
+}
+
+#[test]
+fn test_zoom_first_half() {
+    // zoom (0, 0.5) on "a b c d" extracts first half and stretches
+    // a and b become full cycle: a@0-0.5, b@0.5-1.0
+
+    let pattern: Pattern<String> = parse_mini_notation("a b c d");
+    let zoomed = pattern.clone().zoom(Pattern::pure(0.0), Pattern::pure(0.5));
+
+    let events = query_cycle(&zoomed, 0);
+
+    assert_eq!(events.len(), 2, "zoom (0, 0.5) should have 2 events");
+    assert_eq!(events[0].value, "a");
+    assert_eq!(events[1].value, "b");
 }
 
 // ============================================================================
@@ -239,25 +314,57 @@ fn test_within_applies_to_portion() {
 fn test_press_delays_by_half_slot() {
     // press delays each event by half its slot duration
     // "a b c d" has 4 events, each with duration 0.25
-    // press delays each by 0.125:
+    // press delays each by 0.125 (half of 0.25):
     //   - a: 0.0 -> 0.125
     //   - b: 0.25 -> 0.375
     //   - c: 0.5 -> 0.625
     //   - d: 0.75 -> 0.875
 
-    // TODO: Implement press
+    let pattern: Pattern<String> = parse_mini_notation("a b c d");
+    let pressed = pattern.clone().press();
+
+    let original = query_cycle(&pattern, 0);
+    let pressed_events = query_cycle(&pressed, 0);
+
+    assert_eq!(pressed_events.len(), 4, "press should keep 4 events");
+
+    // Each event should be delayed by half its duration
+    for i in 0..4 {
+        let orig_start = original[i].part.begin.to_float();
+        let pressed_start = pressed_events[i].part.begin.to_float();
+        let expected = orig_start + 0.125; // half of 0.25 duration
+
+        assert!((pressed_start - expected).abs() < 0.01,
+            "Event {} should move from {} to {}, got {}",
+            i, orig_start, expected, pressed_start);
+    }
 }
 
 #[test]
 fn test_press_by_custom_amount() {
     // pressBy 0.25 delays each event by 1/4 of its slot
     // "a b c d" each has duration 0.25
-    // pressBy 0.25 delays each by 0.0625:
+    // pressBy 0.25 delays each by 0.0625 (0.25 * 0.25):
     //   - a: 0.0 -> 0.0625
     //   - b: 0.25 -> 0.3125
-    //   - etc.
 
-    // TODO: Implement pressBy
+    let pattern: Pattern<String> = parse_mini_notation("a b c d");
+    let pressed = pattern.clone().press_by(0.25);
+
+    let original = query_cycle(&pattern, 0);
+    let pressed_events = query_cycle(&pressed, 0);
+
+    // First event should move by 0.0625
+    let expected_a = 0.0 + 0.0625;
+    let actual_a = pressed_events[0].part.begin.to_float();
+    assert!((actual_a - expected_a).abs() < 0.01,
+        "pressBy 0.25: 'a' should be at {}, got {}", expected_a, actual_a);
+
+    // Second event should move by 0.0625
+    let expected_b = 0.25 + 0.0625;
+    let actual_b = pressed_events[1].part.begin.to_float();
+    assert!((actual_b - expected_b).abs() < 0.01,
+        "pressBy 0.25: 'b' should be at {}, got {}", expected_b, actual_b);
 }
 
 // ============================================================================

@@ -1056,9 +1056,55 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
-    /// Rotate pattern right by n steps  
+    /// Rotate pattern right by n steps
     pub fn rotate_right(self, n: f64) -> Self {
         self.rotate_left(-n)
+    }
+
+    /// Press - delay each event by half its slot duration (Tidal-style)
+    ///
+    /// This creates syncopation by shifting events later within their slots.
+    /// Equivalent to Tidal's `press` function.
+    ///
+    /// Example: "a b c d" (events at 0, 0.25, 0.5, 0.75) becomes
+    ///          events at 0.125, 0.375, 0.625, 0.875
+    pub fn press(self) -> Self {
+        self.press_by(0.5)
+    }
+
+    /// PressBy - delay each event by a fraction of its slot duration
+    ///
+    /// `press_by(0.5)` is equivalent to `press`
+    /// `press_by(0.25)` delays by 1/4 of each slot
+    ///
+    /// The delay amount is: slot_duration * amount
+    pub fn press_by(self, amount: f64) -> Self {
+        Pattern::new(move |state| {
+            self.query(state)
+                .into_iter()
+                .map(|mut hap| {
+                    // Calculate slot duration from whole span (or part if no whole)
+                    let slot_duration = hap.whole.as_ref()
+                        .map(|w| w.duration().to_float())
+                        .unwrap_or_else(|| hap.part.duration().to_float());
+
+                    let delay = Fraction::from_float(slot_duration * amount);
+
+                    // Shift both part and whole forward by the delay
+                    hap.part = TimeSpan::new(
+                        hap.part.begin + delay,
+                        hap.part.end + delay,
+                    );
+                    if let Some(whole) = hap.whole {
+                        hap.whole = Some(TimeSpan::new(
+                            whole.begin + delay,
+                            whole.end + delay,
+                        ));
+                    }
+                    hap
+                })
+                .collect()
+        })
     }
 }
 

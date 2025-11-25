@@ -251,27 +251,66 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         })
     }
 
-    /// Fast with gaps
+    /// Fast with gaps (Tidal-style fastGap / densityGap)
+    ///
+    /// Compresses the entire pattern into 1/factor of each cycle, leaving a gap.
+    /// Unlike `fast`, which repeats the pattern, `fast_gap` plays it once compressed.
+    ///
+    /// Example: fastGap 2 "a b c d" compresses into first half:
+    ///   - a@0.0, b@0.125, c@0.25, d@0.375 (gap from 0.5-1.0)
     pub fn fast_gap(self, factor: f64) -> Self {
+        let compress_ratio = 1.0 / factor;
+
         Pattern::new(move |state: &State| {
             let cycle = state.span.begin.to_float().floor();
-
-            // Only show pattern in first 1/factor of each cycle
             let cycle_pos = state.span.begin.to_float() - cycle;
-            if cycle_pos >= 1.0 / factor {
+
+            // Only return events in first 1/factor of each cycle (the rest is gap)
+            if cycle_pos >= compress_ratio {
                 return Vec::new();
             }
 
-            // Fast the pattern
-            let fast_state = State {
+            // Map query from compressed space (0 to 1/factor) to full cycle (0 to 1)
+            // If we're at position 0.25 in a factor=2 (compress_ratio=0.5),
+            // we want to query position 0.5 in the original pattern
+            let mapped_begin = cycle + (cycle_pos / compress_ratio);
+            let mapped_end = cycle + ((state.span.end.to_float() - cycle) / compress_ratio).min(1.0);
+
+            let mapped_state = State {
                 span: TimeSpan::new(
-                    state.span.begin * Fraction::from_float(factor),
-                    state.span.end * Fraction::from_float(factor),
+                    Fraction::from_float(mapped_begin),
+                    Fraction::from_float(mapped_end),
                 ),
                 controls: state.controls.clone(),
             };
 
-            self.query(&fast_state)
+            // Query original pattern and compress result times
+            self.query(&mapped_state)
+                .into_iter()
+                .map(|mut hap| {
+                    // Compress event times back into the first 1/factor of the cycle
+                    let orig_begin = hap.part.begin.to_float();
+                    let orig_end = hap.part.end.to_float();
+                    let hap_cycle = orig_begin.floor();
+
+                    hap.part = TimeSpan::new(
+                        Fraction::from_float(hap_cycle + (orig_begin - hap_cycle) * compress_ratio),
+                        Fraction::from_float(hap_cycle + (orig_end - hap_cycle) * compress_ratio),
+                    );
+
+                    if let Some(whole) = hap.whole {
+                        let w_begin = whole.begin.to_float();
+                        let w_end = whole.end.to_float();
+                        let w_cycle = w_begin.floor();
+                        hap.whole = Some(TimeSpan::new(
+                            Fraction::from_float(w_cycle + (w_begin - w_cycle) * compress_ratio),
+                            Fraction::from_float(w_cycle + (w_end - w_cycle) * compress_ratio),
+                        ));
+                    }
+
+                    hap
+                })
+                .collect()
         })
     }
 

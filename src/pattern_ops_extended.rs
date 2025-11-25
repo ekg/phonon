@@ -12,7 +12,12 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 impl<T: Clone + Send + Sync + 'static> Pattern<T> {
-    /// Zoom in on a portion of the pattern
+    /// Zoom in on a portion of the pattern (Tidal-style zoom)
+    ///
+    /// Extracts a time span from the pattern and stretches it to fill the full cycle.
+    /// zoom(0.25, 0.75) on "a b c d" extracts b and c, stretches to full cycle.
+    ///
+    /// Result: b@0.0-0.5, c@0.5-1.0
     pub fn zoom(self, begin: Pattern<f64>, end: Pattern<f64>) -> Self
     where
         T: Clone + Send + Sync + 'static,
@@ -30,17 +35,59 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
             let begin_val = begin.query(&param_state).first().map(|h| h.value).unwrap_or(0.0);
             let end_val = end.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+            let duration = end_val - begin_val;
 
-            let b = Fraction::from_float(begin_val);
-            let e = Fraction::from_float(end_val);
-            let duration = e - b;
-            let scaled_begin = state.span.begin * duration + b;
-            let scaled_end = state.span.end * duration + b;
+            if duration <= 0.0 {
+                return Vec::new();
+            }
+
+            // Map query span from output (0-1) to source (begin-end)
+            let query_begin = state.span.begin.to_float();
+            let query_end = state.span.end.to_float();
+            let query_cycle = query_begin.floor();
+
+            let source_begin = query_cycle + begin_val + (query_begin - query_cycle) * duration;
+            let source_end = query_cycle + begin_val + (query_end - query_cycle) * duration;
+
             let scaled_state = State {
-                span: TimeSpan::new(scaled_begin, scaled_end),
+                span: TimeSpan::new(
+                    Fraction::from_float(source_begin),
+                    Fraction::from_float(source_end),
+                ),
                 controls: state.controls.clone(),
             };
+
+            // Query and map result times back to output space
             self.query(&scaled_state)
+                .into_iter()
+                .map(|mut hap| {
+                    // Map event times from source (begin-end) back to output (0-1)
+                    let part_begin = hap.part.begin.to_float();
+                    let part_end = hap.part.end.to_float();
+                    let hap_cycle = part_begin.floor();
+
+                    let mapped_begin = hap_cycle + (part_begin - hap_cycle - begin_val) / duration;
+                    let mapped_end = hap_cycle + (part_end - hap_cycle - begin_val) / duration;
+
+                    hap.part = TimeSpan::new(
+                        Fraction::from_float(mapped_begin),
+                        Fraction::from_float(mapped_end),
+                    );
+
+                    if let Some(whole) = hap.whole {
+                        let w_begin = whole.begin.to_float();
+                        let w_end = whole.end.to_float();
+                        let w_cycle = w_begin.floor();
+
+                        hap.whole = Some(TimeSpan::new(
+                            Fraction::from_float(w_cycle + (w_begin - w_cycle - begin_val) / duration),
+                            Fraction::from_float(w_cycle + (w_end - w_cycle - begin_val) / duration),
+                        ));
+                    }
+
+                    hap
+                })
+                .collect()
         })
     }
 
