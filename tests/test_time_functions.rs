@@ -422,6 +422,21 @@ fn test_ghost_with_custom_offsets() {
 }
 
 // ============================================================================
+// Patterned CPS - FUTURE ENHANCEMENT
+// ============================================================================
+//
+// Tidal allows: # cps (slow 8 $ 0.5 + saw)
+// This makes tempo vary over time according to a pattern.
+//
+// Implementation complexity:
+// - Creates circular dependency: time depends on cps, but pattern queries depend on time
+// - Tidal solves this by sampling cps at cycle boundaries
+// - Would require architectural changes to unified_graph.rs
+//
+// For now, use static tempo: or bpm: statements, which work correctly.
+// Patterned cps is tracked as a future enhancement.
+
+// ============================================================================
 // Integration tests with DSL
 // ============================================================================
 
