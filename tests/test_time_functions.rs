@@ -372,16 +372,53 @@ fn test_press_by_custom_amount() {
 // ============================================================================
 
 #[test]
-fn test_ghost_adds_quieter_copies() {
-    // ghost adds quieter copies of notes at offsets
-    // Typically adds notes before the original at reduced volume
+fn test_ghost_adds_copies_after() {
+    // ghost adds copies of events at fixed offsets after each event
+    // Default offsets: 0.125 (1/8) and 0.0625 (1/16) cycles after
     //
-    // "bd" with ghost might produce:
-    //   - ghost note at -0.125 with gain 0.3
-    //   - ghost note at -0.0625 with gain 0.5
-    //   - original note at 0.0 with gain 1.0
+    // "a" at 0.0 with ghost produces:
+    //   - original "a" at 0.0
+    //   - ghost "a" at 0.125
+    //   - ghost "a" at 0.0625
 
-    // TODO: Implement ghost
+    let pattern: Pattern<String> = parse_mini_notation("a");
+    let ghosted = pattern.clone().ghost();
+
+    let events = query_cycle(&ghosted, 0);
+
+    // Should have 3 events: 1 original + 2 ghosts
+    assert_eq!(events.len(), 3, "ghost should produce 3 events (1 + 2 ghosts)");
+
+    // All events should have value "a"
+    for event in &events {
+        assert_eq!(event.value, "a");
+    }
+
+    // One event at 0.0 (original)
+    let at_zero = events.iter().filter(|e| e.part.begin.to_float().abs() < 0.01).count();
+    assert_eq!(at_zero, 1, "Should have 1 event at 0.0");
+
+    // Events at 0.125 and 0.0625
+    let at_0125 = events.iter().filter(|e| (e.part.begin.to_float() - 0.125).abs() < 0.01).count();
+    let at_00625 = events.iter().filter(|e| (e.part.begin.to_float() - 0.0625).abs() < 0.01).count();
+    assert_eq!(at_0125, 1, "Should have 1 event at 0.125");
+    assert_eq!(at_00625, 1, "Should have 1 event at 0.0625");
+}
+
+#[test]
+fn test_ghost_with_custom_offsets() {
+    // ghost_with allows custom timing
+    let pattern: Pattern<String> = parse_mini_notation("a");
+    let ghosted = pattern.clone().ghost_with(0.25, 0.1);
+
+    let events = query_cycle(&ghosted, 0);
+
+    assert_eq!(events.len(), 3, "ghost_with should produce 3 events");
+
+    let at_025 = events.iter().filter(|e| (e.part.begin.to_float() - 0.25).abs() < 0.01).count();
+    let at_01 = events.iter().filter(|e| (e.part.begin.to_float() - 0.1).abs() < 0.01).count();
+    assert_eq!(at_025, 1, "Should have 1 event at 0.25");
+    assert_eq!(at_01, 1, "Should have 1 event at 0.1");
 }
 
 // ============================================================================

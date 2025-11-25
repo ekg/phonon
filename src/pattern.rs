@@ -1106,6 +1106,63 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 .collect()
         })
     }
+
+    /// Ghost - add ghost notes (quieter copies after each event)
+    ///
+    /// Emulates drumming ghost notes. Adds copies at:
+    /// - 1/8 cycle after at lower intensity
+    /// - 1/16 cycle after at medium intensity
+    ///
+    /// Note: This returns the original + ghost copies. For full Tidal-style
+    /// ghost with gain control, use with ValueMap patterns.
+    pub fn ghost(self) -> Self {
+        self.ghost_with(0.125, 0.0625)
+    }
+
+    /// Ghost with custom timing offsets
+    ///
+    /// Adds two ghost copies after each event at the specified offsets.
+    pub fn ghost_with(self, offset1: f64, offset2: f64) -> Self {
+        Pattern::new(move |state| {
+            let original_events = self.query(state);
+            let mut all_events = original_events.clone();
+
+            // Add ghost copies
+            for hap in original_events {
+                // Ghost 1 (further offset)
+                let mut ghost1 = hap.clone();
+                let delay1 = Fraction::from_float(offset1);
+                ghost1.part = TimeSpan::new(
+                    ghost1.part.begin + delay1,
+                    ghost1.part.end + delay1,
+                );
+                if let Some(whole) = ghost1.whole {
+                    ghost1.whole = Some(TimeSpan::new(
+                        whole.begin + delay1,
+                        whole.end + delay1,
+                    ));
+                }
+                all_events.push(ghost1);
+
+                // Ghost 2 (closer offset)
+                let mut ghost2 = hap.clone();
+                let delay2 = Fraction::from_float(offset2);
+                ghost2.part = TimeSpan::new(
+                    ghost2.part.begin + delay2,
+                    ghost2.part.end + delay2,
+                );
+                if let Some(whole) = ghost2.whole {
+                    ghost2.whole = Some(TimeSpan::new(
+                        whole.begin + delay2,
+                        whole.end + delay2,
+                    ));
+                }
+                all_events.push(ghost2);
+            }
+
+            all_events
+        })
+    }
 }
 
 // ============= Pattern Combinators =============
