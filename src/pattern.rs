@@ -1661,6 +1661,226 @@ impl Pattern<bool> {
     }
 }
 
+// ============= Tidal-Style Structure Operators for Pattern<f64> =============
+// These operators combine two patterns where one provides STRUCTURE (timing)
+// and the other provides VALUES (sampled at structure event times).
+//
+// |+ : add with left structure  (left determines timing)
+// +| : add with right structure (right determines timing)
+// |- : subtract with left structure
+// -| : subtract with right structure
+// |* : multiply with left structure
+// *| : multiply with right structure
+// |/ : divide with left structure
+// /| : divide with right structure
+// |> : union left structure (take right values at left timings) - like #
+// <| : union right structure (take left values at right timings)
+
+impl Pattern<f64> {
+    /// Helper: Create a query state at the event's onset time (start of whole)
+    /// This ensures values are sampled at event onset, not at the current query point
+    fn onset_query_state(hap: &Hap<f64>, controls: HashMap<String, f64>) -> State {
+        // Use the event's whole timespan if available, otherwise use part
+        // Create a tiny span at the onset (start) of the event
+        let onset = hap.whole.as_ref().map(|w| w.begin).unwrap_or(hap.part.begin);
+        let epsilon = Fraction::new(1, 1000000); // Tiny span
+        State {
+            span: TimeSpan::new(onset, onset + epsilon),
+            controls,
+        }
+    }
+
+    /// Add with left structure: structure from self, values from self + other
+    /// "1 2 3" |+ "10 20" = 3 events with values [11, 12, 13]
+    /// Values are sampled at each structure event's onset time
+    pub fn add_left(self, other: Pattern<f64>) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            // Query self to get structure (events)
+            let structure_events = self.query(state);
+
+            structure_events.into_iter().map(|mut hap| {
+                // Query 'other' at this event's ONSET to get the value
+                // This ensures consistent values regardless of query time
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let other_haps = other.query(&query_state);
+
+                // Get the value from other at this point (use first match, or 0.0)
+                let other_value = other_haps.first().map(|h| h.value).unwrap_or(0.0);
+
+                // Combine: self's value + other's value
+                hap.value = hap.value + other_value;
+                hap
+            }).collect()
+        })
+    }
+
+    /// Add with right structure: structure from other, values from self + other
+    /// "1 2 3" +| "10 20" = 2 events with values [11, 23]
+    pub fn add_right(self, other: Pattern<f64>) -> Pattern<f64> {
+        // Structure from other, sample self at other's event onsets
+        Pattern::new(move |state| {
+            let structure_events = other.query(state);
+
+            structure_events.into_iter().map(|mut hap| {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let self_haps = self.query(&query_state);
+                let self_value = self_haps.first().map(|h| h.value).unwrap_or(0.0);
+
+                // Combine: self's value + other's (structure) value
+                hap.value = self_value + hap.value;
+                hap
+            }).collect()
+        })
+    }
+
+    /// Subtract with left structure: structure from self, values from self - other
+    pub fn sub_left(self, other: Pattern<f64>) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let structure_events = self.query(state);
+
+            structure_events.into_iter().map(|mut hap| {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let other_haps = other.query(&query_state);
+                let other_value = other_haps.first().map(|h| h.value).unwrap_or(0.0);
+
+                hap.value = hap.value - other_value;
+                hap
+            }).collect()
+        })
+    }
+
+    /// Subtract with right structure: structure from other, values from self - other
+    /// Note: returns self - other (not other - self) to match Tidal semantics
+    pub fn sub_right(self, other: Pattern<f64>) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let structure_events = other.query(state);
+
+            structure_events.into_iter().map(|mut hap| {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let self_haps = self.query(&query_state);
+                let self_value = self_haps.first().map(|h| h.value).unwrap_or(0.0);
+
+                // self - other (structure value)
+                hap.value = self_value - hap.value;
+                hap
+            }).collect()
+        })
+    }
+
+    /// Multiply with left structure: structure from self, values from self * other
+    pub fn mul_left(self, other: Pattern<f64>) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let structure_events = self.query(state);
+
+            structure_events.into_iter().map(|mut hap| {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let other_haps = other.query(&query_state);
+                let other_value = other_haps.first().map(|h| h.value).unwrap_or(1.0);
+
+                hap.value = hap.value * other_value;
+                hap
+            }).collect()
+        })
+    }
+
+    /// Multiply with right structure: structure from other, values from self * other
+    pub fn mul_right(self, other: Pattern<f64>) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let structure_events = other.query(state);
+
+            structure_events.into_iter().map(|mut hap| {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let self_haps = self.query(&query_state);
+                let self_value = self_haps.first().map(|h| h.value).unwrap_or(1.0);
+
+                hap.value = self_value * hap.value;
+                hap
+            }).collect()
+        })
+    }
+
+    /// Divide with left structure: structure from self, values from self / other
+    pub fn div_left(self, other: Pattern<f64>) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let structure_events = self.query(state);
+
+            structure_events.into_iter().map(|mut hap| {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let other_haps = other.query(&query_state);
+                let other_value = other_haps.first().map(|h| h.value).unwrap_or(1.0);
+
+                // Avoid division by zero
+                hap.value = if other_value.abs() > f64::EPSILON {
+                    hap.value / other_value
+                } else {
+                    hap.value
+                };
+                hap
+            }).collect()
+        })
+    }
+
+    /// Divide with right structure: structure from other, values from self / other
+    pub fn div_right(self, other: Pattern<f64>) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let structure_events = other.query(state);
+
+            structure_events.into_iter().map(|mut hap| {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let self_haps = self.query(&query_state);
+                let self_value = self_haps.first().map(|h| h.value).unwrap_or(1.0);
+
+                // self / other (structure value)
+                hap.value = if hap.value.abs() > f64::EPSILON {
+                    self_value / hap.value
+                } else {
+                    self_value
+                };
+                hap
+            }).collect()
+        })
+    }
+
+    /// Union left structure (|>): structure from self, take values from other
+    /// This is like Tidal's # operator - left determines when, right provides values
+    /// "x x x" |> "100 200" = 3 events with values [100, 200, 100]
+    pub fn union_left(self, other: Pattern<f64>) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let structure_events = self.query(state);
+
+            structure_events.into_iter().map(|mut hap| {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let other_haps = other.query(&query_state);
+
+                // Take value from other, keep self's timing
+                if let Some(other_hap) = other_haps.first() {
+                    hap.value = other_hap.value;
+                }
+                hap
+            }).collect()
+        })
+    }
+
+    /// Union right structure (<|): structure from other, take values from self
+    /// "100 200" <| "x x x" = 3 events with values [100, 100, 200]
+    pub fn union_right(self, other: Pattern<f64>) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let structure_events = other.query(state);
+
+            structure_events.into_iter().map(|mut hap| {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let self_haps = self.query(&query_state);
+
+                // Take value from self, keep other's timing
+                if let Some(self_hap) = self_haps.first() {
+                    hap.value = self_hap.value;
+                }
+                hap
+            }).collect()
+        })
+    }
+}
+
 // Make Pattern cloneable
 impl<T: Clone + Send + Sync> Clone for Pattern<T> {
     fn clone(&self) -> Self {
@@ -1710,5 +1930,245 @@ mod tests {
 
         let haps = p.query(&state);
         assert_eq!(haps.len(), 3); // Should have 3 hits in the pattern
+    }
+
+    // ============= Structure Operator Tests =============
+
+    /// Helper to create a pattern with specific values at specific times
+    fn make_numeric_pattern(values: Vec<f64>) -> Pattern<f64> {
+        let len = values.len();
+        Pattern::new(move |state| {
+            let mut haps = Vec::new();
+            // Handle multiple cycles by iterating from start to end cycle
+            let start_cycle = state.span.begin.to_float().floor() as i64;
+            let end_cycle = state.span.end.to_float().ceil() as i64;
+
+            for cycle in start_cycle..end_cycle {
+                let cycle_f = cycle as f64;
+                for (i, &val) in values.iter().enumerate() {
+                    let begin = cycle_f + (i as f64 / len as f64);
+                    let end = cycle_f + ((i + 1) as f64 / len as f64);
+
+                    if begin < state.span.end.to_float() && end > state.span.begin.to_float() {
+                        haps.push(Hap::new(
+                            Some(TimeSpan::new(
+                                Fraction::from_float(begin),
+                                Fraction::from_float(end),
+                            )),
+                            TimeSpan::new(
+                                Fraction::from_float(begin.max(state.span.begin.to_float())),
+                                Fraction::from_float(end.min(state.span.end.to_float())),
+                            ),
+                            val,
+                        ));
+                    }
+                }
+            }
+            haps
+        })
+    }
+
+    #[test]
+    fn test_add_left_structure() {
+        // "1 2 3" |+ "10 20" = 3 events with left structure
+        // Values at times 0, 0.33, 0.66 query into "10 20" pattern
+        // Position 0.0 -> 10 (first half), 0.33 -> 10, 0.66 -> 20
+        // Results: 1+10=11, 2+10=12, 3+20=23
+        let left = make_numeric_pattern(vec![1.0, 2.0, 3.0]);
+        let right = make_numeric_pattern(vec![10.0, 20.0]);
+
+        let result = left.add_left(right);
+
+        let state = State {
+            span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
+            controls: HashMap::new(),
+        };
+
+        let haps = result.query(&state);
+
+        // Should have 3 events (left structure)
+        assert_eq!(haps.len(), 3, "add_left should produce 3 events from left structure");
+
+        // First event: 1 + 10 = 11 (at time 0-0.33, which samples from "10")
+        assert!((haps[0].value - 11.0).abs() < 0.01, "First event: 1 + 10 = 11, got {}", haps[0].value);
+
+        // Second event: 2 + 10 = 12 (at time 0.33-0.66, which samples from "10")
+        assert!((haps[1].value - 12.0).abs() < 0.01, "Second event: 2 + 10 = 12, got {}", haps[1].value);
+
+        // Third event: 3 + 20 = 23 (at time 0.66-1.0, which samples from "20")
+        assert!((haps[2].value - 23.0).abs() < 0.01, "Third event: 3 + 20 = 23, got {}", haps[2].value);
+    }
+
+    #[test]
+    fn test_add_right_structure() {
+        // "1 2 3" +| "10 20" = 2 events with right structure
+        // Position 0.0-0.5 -> queries "1 2 3" at 0.0 -> 1
+        // Position 0.5-1.0 -> queries "1 2 3" at 0.5 -> 2
+        // Results: 10+1=11, 20+2=22
+        let left = make_numeric_pattern(vec![1.0, 2.0, 3.0]);
+        let right = make_numeric_pattern(vec![10.0, 20.0]);
+
+        let result = left.add_right(right);
+
+        let state = State {
+            span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
+            controls: HashMap::new(),
+        };
+
+        let haps = result.query(&state);
+
+        // Should have 2 events (right structure)
+        assert_eq!(haps.len(), 2, "add_right should produce 2 events from right structure");
+
+        // First event: 10 + 1 = 11
+        assert!((haps[0].value - 11.0).abs() < 0.01, "First event: 10 + 1 = 11, got {}", haps[0].value);
+
+        // Second event: 20 + 2 = 22
+        assert!((haps[1].value - 22.0).abs() < 0.01, "Second event: 20 + 2 = 22, got {}", haps[1].value);
+    }
+
+    #[test]
+    fn test_mul_left_structure() {
+        // "2 3 4" |* "10 100" = 3 events
+        // 2*10=20, 3*10=30, 4*100=400
+        let left = make_numeric_pattern(vec![2.0, 3.0, 4.0]);
+        let right = make_numeric_pattern(vec![10.0, 100.0]);
+
+        let result = left.mul_left(right);
+
+        let state = State {
+            span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
+            controls: HashMap::new(),
+        };
+
+        let haps = result.query(&state);
+
+        assert_eq!(haps.len(), 3, "mul_left should produce 3 events");
+        assert!((haps[0].value - 20.0).abs() < 0.01, "2 * 10 = 20, got {}", haps[0].value);
+        assert!((haps[1].value - 30.0).abs() < 0.01, "3 * 10 = 30, got {}", haps[1].value);
+        assert!((haps[2].value - 400.0).abs() < 0.01, "4 * 100 = 400, got {}", haps[2].value);
+    }
+
+    #[test]
+    fn test_sub_left_structure() {
+        // "100 200 300" |- "10 20" = 3 events
+        // 100-10=90, 200-10=190, 300-20=280
+        let left = make_numeric_pattern(vec![100.0, 200.0, 300.0]);
+        let right = make_numeric_pattern(vec![10.0, 20.0]);
+
+        let result = left.sub_left(right);
+
+        let state = State {
+            span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
+            controls: HashMap::new(),
+        };
+
+        let haps = result.query(&state);
+
+        assert_eq!(haps.len(), 3, "sub_left should produce 3 events");
+        assert!((haps[0].value - 90.0).abs() < 0.01, "100 - 10 = 90, got {}", haps[0].value);
+        assert!((haps[1].value - 190.0).abs() < 0.01, "200 - 10 = 190, got {}", haps[1].value);
+        assert!((haps[2].value - 280.0).abs() < 0.01, "300 - 20 = 280, got {}", haps[2].value);
+    }
+
+    #[test]
+    fn test_div_left_structure() {
+        // "100 200 300" |/ "10 20" = 3 events
+        // 100/10=10, 200/10=20, 300/20=15
+        let left = make_numeric_pattern(vec![100.0, 200.0, 300.0]);
+        let right = make_numeric_pattern(vec![10.0, 20.0]);
+
+        let result = left.div_left(right);
+
+        let state = State {
+            span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
+            controls: HashMap::new(),
+        };
+
+        let haps = result.query(&state);
+
+        assert_eq!(haps.len(), 3, "div_left should produce 3 events");
+        assert!((haps[0].value - 10.0).abs() < 0.01, "100 / 10 = 10, got {}", haps[0].value);
+        assert!((haps[1].value - 20.0).abs() < 0.01, "200 / 10 = 20, got {}", haps[1].value);
+        assert!((haps[2].value - 15.0).abs() < 0.01, "300 / 20 = 15, got {}", haps[2].value);
+    }
+
+    #[test]
+    fn test_union_left_structure() {
+        // "1 2 3" |> "10 20" = 3 events, taking values from right
+        // Positions 0.0, 0.33, 0.66 -> 10, 10, 20
+        let left = make_numeric_pattern(vec![1.0, 2.0, 3.0]);
+        let right = make_numeric_pattern(vec![10.0, 20.0]);
+
+        let result = left.union_left(right);
+
+        let state = State {
+            span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
+            controls: HashMap::new(),
+        };
+
+        let haps = result.query(&state);
+
+        assert_eq!(haps.len(), 3, "union_left should produce 3 events");
+        // First two events sample from "10" (0-0.5), third from "20" (0.5-1.0)
+        assert!((haps[0].value - 10.0).abs() < 0.01, "First event should be 10, got {}", haps[0].value);
+        assert!((haps[1].value - 10.0).abs() < 0.01, "Second event should be 10, got {}", haps[1].value);
+        assert!((haps[2].value - 20.0).abs() < 0.01, "Third event should be 20, got {}", haps[2].value);
+    }
+
+    #[test]
+    fn test_union_right_structure() {
+        // "10 20" <| "1 2 3" = 3 events, values from left sampled at right's times
+        let left = make_numeric_pattern(vec![10.0, 20.0]);
+        let right = make_numeric_pattern(vec![1.0, 2.0, 3.0]);
+
+        let result = left.union_right(right);
+
+        let state = State {
+            span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),
+            controls: HashMap::new(),
+        };
+
+        let haps = result.query(&state);
+
+        // Right has 3 events, so result has 3 events
+        assert_eq!(haps.len(), 3, "union_right should produce 3 events from right structure");
+        // Values come from left pattern sampled at right's event times
+        assert!((haps[0].value - 10.0).abs() < 0.01, "First event samples 10, got {}", haps[0].value);
+        assert!((haps[1].value - 10.0).abs() < 0.01, "Second event samples 10, got {}", haps[1].value);
+        assert!((haps[2].value - 20.0).abs() < 0.01, "Third event samples 20, got {}", haps[2].value);
+    }
+
+    #[test]
+    fn test_structure_preserved_over_multiple_cycles() {
+        // Test that structure is preserved across multiple cycles
+        let left = make_numeric_pattern(vec![1.0, 2.0, 3.0, 4.0]);
+        let right = make_numeric_pattern(vec![100.0]);
+
+        let result = left.add_left(right);
+
+        // Query 4 cycles
+        let state = State {
+            span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(4, 1)),
+            controls: HashMap::new(),
+        };
+
+        let haps = result.query(&state);
+
+        // 4 events per cycle * 4 cycles = 16 events
+        assert_eq!(haps.len(), 16, "Should have 16 events over 4 cycles, got {}", haps.len());
+
+        // Each cycle should have 4 events with values 101, 102, 103, 104
+        for cycle in 0..4 {
+            for i in 0..4 {
+                let idx = cycle * 4 + i;
+                let expected = (i + 1) as f64 + 100.0;
+                assert!(
+                    (haps[idx].value - expected).abs() < 0.01,
+                    "Cycle {} event {}: expected {}, got {}",
+                    cycle, i, expected, haps[idx].value
+                );
+            }
+        }
     }
 }

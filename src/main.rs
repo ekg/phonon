@@ -64,6 +64,10 @@ enum Commands {
         /// Enable parallel processing (uses all CPU cores, default: true)
         #[arg(long, default_value = "true")]
         parallel: bool,
+
+        /// Output stereo WAV (for pan/jux effects, default: false)
+        #[arg(long, default_value = "false")]
+        stereo: bool,
     },
 
     /// Play DSL file or code (render and auto-play)
@@ -180,6 +184,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             block_size,
             realtime,
             parallel,
+            stereo,
         } => {
             use hound::{SampleFormat, WavSpec, WavWriter};
             use phonon::mini_notation_v3::parse_mini_notation;
@@ -1302,8 +1307,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Generate audio
             let total_samples = (final_duration * sample_rate as f32) as usize;
             let mut output_buffer = Vec::with_capacity(total_samples);
+            let mut left_buffer: Vec<f32> = Vec::new();
+            let mut right_buffer: Vec<f32> = Vec::new();
 
-            if realtime {
+            if stereo {
+                // STEREO MODE: Sample-by-sample for proper pan/jux stereo output
+                println!("🔊 Stereo mode: Using process_sample_stereo() for pan/jux separation");
+
+                if let Some(out_node) = out_signal {
+                    graph.set_output(out_node);
+                }
+
+                left_buffer = Vec::with_capacity(total_samples);
+                right_buffer = Vec::with_capacity(total_samples);
+
+                for i in 0..total_samples {
+                    let (l, r) = graph.process_sample_stereo();
+                    left_buffer.push((l * gain).clamp(-1.0, 1.0));
+                    right_buffer.push((r * gain).clamp(-1.0, 1.0));
+
+                    // Progress every ~1 second
+                    if i % sample_rate as usize == 0 && i > 0 {
+                        let progress = (i as f32 / total_samples as f32) * 100.0;
+                        print!("\r🔄 Rendering stereo: {:.1}%", progress);
+                        use std::io::Write;
+                        std::io::stdout().flush().ok();
+                    }
+                }
+                println!();
+
+            } else if realtime {
                 // REALTIME MODE: Use process_buffer() like live mode for profiling
                 if parallel {
                     println!("🔬 Profiling mode: Using realtime process_buffer() path WITH PARALLEL PROCESSING");
@@ -1462,22 +1495,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if let Some(out_node) = out_signal {
                     // Single output mode (backwards compatible with old parser)
                     graph.set_output(out_node);
-                    for _ in 0..total_samples {
-                        let sample = graph.process_sample();
-                        output_buffer.push((sample * gain).clamp(-1.0, 1.0));
-                    }
-                } else {
-                    // DSL Compiler mode: output is already set in the graph
-                    // Try single output first (DslCompiler sets this)
-                    for _ in 0..total_samples {
-                        let sample = graph.process_sample();
-                        output_buffer.push((sample * gain).clamp(-1.0, 1.0));
-                    }
+                }
+                // DSL Compiler mode: output is already set in the graph
+                for _ in 0..total_samples {
+                    let sample = graph.process_sample();
+                    output_buffer.push((sample * gain).clamp(-1.0, 1.0));
+                }
 
-                    // Warn if no audio was produced
-                    if output_buffer.iter().all(|&s| s == 0.0) {
-                        println!("⚠️  No 'out' signal found or audio produced, check your DSL file");
-                    }
+                // Warn if no audio was produced
+                if output_buffer.iter().all(|&s| s == 0.0) {
+                    println!("⚠️  No 'out' signal found or audio produced, check your DSL file");
                 }
             }
 
@@ -1485,27 +1512,56 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let fade_in_samples = (fade_in * sample_rate as f32) as usize;
             let fade_out_samples = (fade_out * sample_rate as f32) as usize;
 
-            for i in 0..fade_in_samples.min(output_buffer.len()) {
-                let fade = i as f32 / fade_in_samples as f32;
-                output_buffer[i] *= fade;
-            }
+            if stereo {
+                // Apply fades to stereo buffers
+                for i in 0..fade_in_samples.min(left_buffer.len()) {
+                    let fade = i as f32 / fade_in_samples as f32;
+                    left_buffer[i] *= fade;
+                    right_buffer[i] *= fade;
+                }
 
-            let start = output_buffer.len().saturating_sub(fade_out_samples);
-            for i in start..output_buffer.len() {
-                let fade = (output_buffer.len() - i) as f32 / fade_out_samples as f32;
-                output_buffer[i] *= fade;
+                let start = left_buffer.len().saturating_sub(fade_out_samples);
+                for i in start..left_buffer.len() {
+                    let fade = (left_buffer.len() - i) as f32 / fade_out_samples as f32;
+                    left_buffer[i] *= fade;
+                    right_buffer[i] *= fade;
+                }
+            } else {
+                // Apply fades to mono buffer
+                for i in 0..fade_in_samples.min(output_buffer.len()) {
+                    let fade = i as f32 / fade_in_samples as f32;
+                    output_buffer[i] *= fade;
+                }
+
+                let start = output_buffer.len().saturating_sub(fade_out_samples);
+                for i in start..output_buffer.len() {
+                    let fade = (output_buffer.len() - i) as f32 / fade_out_samples as f32;
+                    output_buffer[i] *= fade;
+                }
             }
 
             // Calculate statistics
-            let rms = (output_buffer.iter().map(|&x| x * x).sum::<f32>()
-                / output_buffer.len() as f32)
-                .sqrt();
-            let peak = output_buffer.iter().map(|x| x.abs()).fold(0.0, f32::max);
-            let dc_offset = output_buffer.iter().sum::<f32>() / output_buffer.len() as f32;
+            let (rms, peak, dc_offset) = if stereo {
+                let rms_left = (left_buffer.iter().map(|&x| x * x).sum::<f32>() / left_buffer.len() as f32).sqrt();
+                let rms_right = (right_buffer.iter().map(|&x| x * x).sum::<f32>() / right_buffer.len() as f32).sqrt();
+                let rms = (rms_left + rms_right) / 2.0;
+                let peak_left = left_buffer.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+                let peak_right = right_buffer.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+                let peak = peak_left.max(peak_right);
+                let dc_left = left_buffer.iter().sum::<f32>() / left_buffer.len() as f32;
+                let dc_right = right_buffer.iter().sum::<f32>() / right_buffer.len() as f32;
+                let dc_offset = (dc_left + dc_right) / 2.0;
+                (rms, peak, dc_offset)
+            } else {
+                let rms = (output_buffer.iter().map(|&x| x * x).sum::<f32>() / output_buffer.len() as f32).sqrt();
+                let peak = output_buffer.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+                let dc_offset = output_buffer.iter().sum::<f32>() / output_buffer.len() as f32;
+                (rms, peak, dc_offset)
+            };
 
             // Write WAV file
             let spec = WavSpec {
-                channels: 1,
+                channels: if stereo { 2 } else { 1 },
                 sample_rate,
                 bits_per_sample: 16,
                 sample_format: SampleFormat::Int,
@@ -1514,11 +1570,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut writer = WavWriter::create(&output, spec)
                 .map_err(|e| format!("Failed to create WAV file: {e}"))?;
 
-            for &sample in &output_buffer {
-                let sample_i16 = (sample * 32767.0) as i16;
-                writer
-                    .write_sample(sample_i16)
-                    .map_err(|e| format!("Failed to write sample: {e}"))?;
+            if stereo {
+                // Write interleaved stereo samples
+                for i in 0..left_buffer.len() {
+                    let left_i16 = (left_buffer[i] * 32767.0) as i16;
+                    let right_i16 = (right_buffer[i] * 32767.0) as i16;
+                    writer.write_sample(left_i16).map_err(|e| format!("Failed to write sample: {e}"))?;
+                    writer.write_sample(right_i16).map_err(|e| format!("Failed to write sample: {e}"))?;
+                }
+            } else {
+                // Write mono samples
+                for &sample in &output_buffer {
+                    let sample_i16 = (sample * 32767.0) as i16;
+                    writer.write_sample(sample_i16).map_err(|e| format!("Failed to write sample: {e}"))?;
+                }
             }
 
             writer

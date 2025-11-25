@@ -19,6 +19,7 @@ fn test_zero_crossing_detector_basic() {
     let sine_node = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: phonon::unified_graph::Waveform::Sine,
+        semitone_offset: 0.0,
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),

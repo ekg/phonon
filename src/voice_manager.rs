@@ -74,6 +74,7 @@
 //! ```
 
 use crate::envelope::VoiceEnvelope;
+use crate::sample_loader::StereoSample;
 use rayon::prelude::*;
 use std::sync::Arc;
 
@@ -106,7 +107,8 @@ pub enum VoiceState {
 #[derive(Clone)]
 pub struct Voice {
     /// The sample data to play (for sample playback mode)
-    sample_data: Option<Arc<Vec<f32>>>,
+    /// Now supports native stereo samples
+    sample_data: Option<Arc<StereoSample>>,
 
     /// Synthesis node ID (for continuous synthesis mode)
     /// When Some, voice evaluates this node continuously instead of playing sample_data
@@ -216,19 +218,19 @@ impl Voice {
     }
 
     /// Start playing a sample with pan (backward compatibility, speed=1.0, no cut group)
-    pub fn trigger(&mut self, sample: Arc<Vec<f32>>, gain: f32, pan: f32) {
+    pub fn trigger(&mut self, sample: Arc<StereoSample>, gain: f32, pan: f32) {
         self.trigger_with_speed(sample, gain, pan, 1.0);
     }
 
     /// Start playing a sample with gain, pan, and speed control (no cut group)
-    pub fn trigger_with_speed(&mut self, sample: Arc<Vec<f32>>, gain: f32, pan: f32, speed: f32) {
+    pub fn trigger_with_speed(&mut self, sample: Arc<StereoSample>, gain: f32, pan: f32, speed: f32) {
         self.trigger_with_cut_group(sample, gain, pan, speed, None);
     }
 
     /// Start playing a sample with full control including cut group
     pub fn trigger_with_cut_group(
         &mut self,
-        sample: Arc<Vec<f32>>,
+        sample: Arc<StereoSample>,
         gain: f32,
         pan: f32,
         speed: f32,
@@ -240,7 +242,7 @@ impl Voice {
     /// Start playing a sample with full control including envelope parameters
     pub fn trigger_with_envelope(
         &mut self,
-        sample: Arc<Vec<f32>>,
+        sample: Arc<StereoSample>,
         gain: f32,
         pan: f32,
         speed: f32,
@@ -277,7 +279,7 @@ impl Voice {
     /// Start playing a sample with ADSR envelope
     pub fn trigger_with_adsr(
         &mut self,
-        sample: Arc<Vec<f32>>,
+        sample: Arc<StereoSample>,
         gain: f32,
         pan: f32,
         speed: f32,
@@ -315,7 +317,7 @@ impl Voice {
     /// Start playing a sample with segments envelope
     pub fn trigger_with_segments(
         &mut self,
-        sample: Arc<Vec<f32>>,
+        sample: Arc<StereoSample>,
         gain: f32,
         pan: f32,
         speed: f32,
@@ -348,7 +350,7 @@ impl Voice {
     /// Start playing a sample with curve envelope
     pub fn trigger_with_curve(
         &mut self,
-        sample: Arc<Vec<f32>>,
+        sample: Arc<StereoSample>,
         gain: f32,
         pan: f32,
         speed: f32,
@@ -469,8 +471,8 @@ impl Voice {
         }
 
         // Handle sample playback mode
-        if let Some(ref samples) = self.sample_data {
-            let sample_len = samples.len() as f32;
+        if let Some(ref sample) = self.sample_data {
+            let sample_len = sample.len() as f32;
 
             // Handle looping: wrap position if it exceeds boundaries
             if self.loop_enabled {
@@ -486,45 +488,45 @@ impl Voice {
             let is_in_bounds = self.position >= 0.0 && self.position < sample_len;
 
             if is_in_bounds {
-                // Linear interpolation for fractional positions
-                let pos_floor = self.position.floor() as usize;
-                let pos_frac = self.position - pos_floor as f32;
-
-                let sample_value = if self.speed >= 0.0 {
-                    // Forward playback: interpolate forward
-                    if pos_floor + 1 < samples.len() {
-                        let current = samples[pos_floor];
-                        let next = samples[pos_floor + 1];
-                        current * (1.0 - pos_frac) + next * pos_frac
-                    } else {
-                        samples[pos_floor]
-                    }
-                } else {
-                    // Reverse playback: interpolate backward
-                    if pos_floor > 0 {
-                        let current = samples[pos_floor];
-                        let prev = samples[pos_floor - 1];
-                        current * (1.0 - pos_frac) + prev * pos_frac
-                    } else {
-                        samples[pos_floor]
-                    }
-                };
+                // Get interpolated stereo sample (handles both mono and stereo)
+                let (sample_left, sample_right) = sample.get_interpolated(self.position);
 
                 // Apply gain and envelope
-                let output_value = sample_value * self.gain * env_value;
+                let gained_left = sample_left * self.gain * env_value;
+                let gained_right = sample_right * self.gain * env_value;
 
                 // Advance position by speed (negative speed moves backward)
                 self.position += self.speed;
                 self.age += 1;
 
-                // Equal-power panning
-                // pan: -1.0 = hard left, 0.0 = center, 1.0 = hard right
-                let pan_radians = (self.pan + 1.0) * std::f32::consts::FRAC_PI_4; // Map -1..1 to 0..PI/2
-                let left_gain = pan_radians.cos();
-                let right_gain = pan_radians.sin();
+                // Apply panning
+                // For stereo samples: pan adjusts stereo width (0 = full stereo, -1/+1 = collapse to mono on that side)
+                // For mono samples: traditional equal-power panning
+                let (left, right) = if sample.is_stereo() {
+                    // For stereo samples, pan controls balance/position
+                    // pan = 0: full stereo (left output = sample left, right output = sample right)
+                    // pan = -1: left only (mono collapse to left)
+                    // pan = +1: right only (mono collapse to right)
+                    let pan_radians = (self.pan + 1.0) * std::f32::consts::FRAC_PI_4;
+                    let pan_left = pan_radians.cos();
+                    let pan_right = pan_radians.sin();
 
-                let left = output_value * left_gain;
-                let right = output_value * right_gain;
+                    // Blend: at center (pan=0), output stereo directly
+                    // At extremes, collapse to mono on that side
+                    let center_factor = 1.0 - self.pan.abs();
+                    let mono_sum = (gained_left + gained_right) * 0.5;
+
+                    let left_out = gained_left * center_factor * pan_left + mono_sum * (1.0 - center_factor) * pan_left;
+                    let right_out = gained_right * center_factor * pan_right + mono_sum * (1.0 - center_factor) * pan_right;
+
+                    (left_out, right_out)
+                } else {
+                    // Mono sample: traditional equal-power panning
+                    let pan_radians = (self.pan + 1.0) * std::f32::consts::FRAC_PI_4;
+                    let left_gain = pan_radians.cos();
+                    let right_gain = pan_radians.sin();
+                    (gained_left * left_gain, gained_right * right_gain)
+                };
 
                 // Check if envelope finished for sample voice
                 if !self.envelope.is_active() {
@@ -759,19 +761,19 @@ impl VoiceManager {
     }
 
     /// Trigger a sample with automatic voice allocation (center pan)
-    pub fn trigger_sample(&mut self, sample: Arc<Vec<f32>>, gain: f32) {
+    pub fn trigger_sample(&mut self, sample: Arc<StereoSample>, gain: f32) {
         self.trigger_sample_with_pan(sample, gain, 0.0);
     }
 
     /// Trigger a sample with automatic voice allocation and pan control
-    pub fn trigger_sample_with_pan(&mut self, sample: Arc<Vec<f32>>, gain: f32, pan: f32) {
+    pub fn trigger_sample_with_pan(&mut self, sample: Arc<StereoSample>, gain: f32, pan: f32) {
         self.trigger_sample_with_params(sample, gain, pan, 1.0);
     }
 
     /// Trigger a sample with full DSP parameter control (gain, pan, speed, no cut group)
     pub fn trigger_sample_with_params(
         &mut self,
-        sample: Arc<Vec<f32>>,
+        sample: Arc<StereoSample>,
         gain: f32,
         pan: f32,
         speed: f32,
@@ -783,7 +785,7 @@ impl VoiceManager {
     /// If cut_group is Some(n), all other voices in cut group n will be stopped
     pub fn trigger_sample_with_cut_group(
         &mut self,
-        sample: Arc<Vec<f32>>,
+        sample: Arc<StereoSample>,
         gain: f32,
         pan: f32,
         speed: f32,
@@ -796,7 +798,7 @@ impl VoiceManager {
     /// This is the most complete trigger method with all DSP parameters
     pub fn trigger_sample_with_envelope(
         &mut self,
-        sample: Arc<Vec<f32>>,
+        sample: Arc<StereoSample>,
         gain: f32,
         pan: f32,
         speed: f32,
@@ -876,7 +878,7 @@ impl VoiceManager {
     /// Trigger a sample with ADSR envelope
     pub fn trigger_sample_with_adsr(
         &mut self,
-        sample: Arc<Vec<f32>>,
+        sample: Arc<StereoSample>,
         gain: f32,
         pan: f32,
         speed: f32,
@@ -929,7 +931,7 @@ impl VoiceManager {
     /// Trigger a sample with segments envelope
     pub fn trigger_sample_with_segments(
         &mut self,
-        sample: Arc<Vec<f32>>,
+        sample: Arc<StereoSample>,
         gain: f32,
         pan: f32,
         speed: f32,
@@ -976,7 +978,7 @@ impl VoiceManager {
     /// Trigger a sample with curve envelope
     pub fn trigger_sample_with_curve(
         &mut self,
-        sample: Arc<Vec<f32>>,
+        sample: Arc<StereoSample>,
         gain: f32,
         pan: f32,
         speed: f32,
@@ -1208,10 +1210,9 @@ impl VoiceManager {
         (left + right) / std::f32::consts::SQRT_2
     }
 
-    /// Process all voices and return per-node mixes (HashMap: source_node -> mono_output)
-    /// This allows multiple outputs to have independent sample streams
-    /// Each voice is processed ONCE, then outputs are grouped by source_node
-    pub fn process_per_node(&mut self) -> std::collections::HashMap<usize, f32> {
+    /// Process all voices and return per-node stereo mixes (HashMap: source_node -> (left, right))
+    /// This is the stereo version - returns full stereo output without mixing down
+    pub fn process_per_node_stereo(&mut self) -> std::collections::HashMap<usize, (f32, f32)> {
         use std::collections::HashMap;
 
         // PERFORMANCE: Use parallel processing for high voice counts
@@ -1247,8 +1248,15 @@ impl VoiceManager {
                 .or_insert((l, r));
         }
 
-        // Convert stereo sums to mono with proper equal-power conversion
         node_sums
+    }
+
+    /// Process all voices and return per-node mixes (HashMap: source_node -> mono_output)
+    /// This allows multiple outputs to have independent sample streams
+    /// Each voice is processed ONCE, then outputs are grouped by source_node
+    pub fn process_per_node(&mut self) -> std::collections::HashMap<usize, f32> {
+        // Use stereo version and convert to mono
+        self.process_per_node_stereo()
             .into_iter()
             .map(|(node, (left, right))| {
                 let mono = (left + right) / std::f32::consts::SQRT_2;
@@ -1313,8 +1321,8 @@ impl VoiceManager {
                 }
 
                 // Extract sample data for SIMD processing
-                if let Some(ref samples) = voice.sample_data {
-                    let sample_len = samples.len() as f32;
+                if let Some(ref sample) = voice.sample_data {
+                    let sample_len = sample.len() as f32;
 
                     // Handle looping
                     if voice.loop_enabled {
@@ -1332,31 +1340,19 @@ impl VoiceManager {
                         let pos_floor = voice.position.floor() as usize;
 
                         // Extract data for SIMD (only for forward playback with next sample available)
-                        if voice.speed >= 0.0 && pos_floor + 1 < samples.len() {
+                        // Use left channel for SIMD batch processing (mono-ized path for performance)
+                        if voice.speed >= 0.0 && pos_floor + 1 < sample.left.len() {
                             positions[i] = voice.position;
-                            samples_curr[i] = samples[pos_floor];
-                            samples_next[i] = samples[pos_floor + 1];
+                            samples_curr[i] = sample.left[pos_floor];
+                            samples_next[i] = sample.left[pos_floor + 1];
                             pans[i] = voice.pan;
                             gains_envs[i] = voice.gain * env_value;
                             source_nodes[i] = voice.source_node;
                             active_mask[i] = true;
                         } else {
                             // Fallback to scalar for reverse/edge cases
-                            let sample_value = if voice.speed >= 0.0 {
-                                if pos_floor + 1 < samples.len() {
-                                    let pos_frac = voice.position - pos_floor as f32;
-                                    samples[pos_floor] * (1.0 - pos_frac) + samples[pos_floor + 1] * pos_frac
-                                } else {
-                                    samples[pos_floor]
-                                }
-                            } else {
-                                if pos_floor > 0 {
-                                    let pos_frac = voice.position - pos_floor as f32;
-                                    samples[pos_floor] * (1.0 - pos_frac) + samples[pos_floor - 1] * pos_frac
-                                } else {
-                                    samples[pos_floor]
-                                }
-                            };
+                            // Use mono interpolation for this code path
+                            let sample_value = sample.get_mono_interpolated(voice.position);
 
                             // Apply panning and gain (scalar)
                             let output_value = sample_value * voice.gain * env_value;

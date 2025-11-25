@@ -55,7 +55,7 @@ fn test_sample_node_reproduces_original_sample() {
     println!("  Buffer length: {}", buffer.len());
 
     // The beginning of the buffer should match the original sample
-    let original_rms = calculate_rms(&original_bd[..]);
+    let original_rms = calculate_rms(original_bd.as_slice());
     let original_peak = original_bd.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
 
     println!("Original sample:");

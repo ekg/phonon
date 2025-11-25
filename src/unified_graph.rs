@@ -4197,6 +4197,58 @@ impl Default for CycleBusCache {
     }
 }
 
+// === FX State Persistence for Live Code Reloading ===
+// This system preserves delay/reverb/chorus buffers across hot-swaps
+// so that FX tails continue smoothly during live coding
+
+/// Key for identifying FX nodes across graph reloads
+/// Format: (bus_name, fx_type, index_in_chain)
+/// - bus_name: "out" for main output, or the bus name like "drums"
+/// - fx_type: "delay", "reverb", "chorus", etc.
+/// - index_in_chain: 0 for first occurrence, 1 for second, etc.
+pub type FxStateKey = (String, String, usize);
+
+/// Extracted FX state that can be transferred between graphs
+/// Contains the internal buffers/state that we want to preserve
+#[derive(Debug, Clone)]
+pub enum ExtractedFxState {
+    // Time-domain effects (most important - audible discontinuity if reset)
+    Delay {
+        buffer: Vec<f32>,
+        write_idx: usize,
+    },
+    TapeDelay(TapeDelayState),
+    MultiTapDelay {
+        buffer: Vec<f32>,
+        write_idx: usize,
+    },
+    PingPongDelay {
+        buffer_l: Vec<f32>,
+        buffer_r: Vec<f32>,
+        write_idx: usize,
+    },
+
+    // Reverbs (preserves reverb tails)
+    Reverb(ReverbState),
+    DattorroReverb(DattorroState),
+    Convolution(ConvolutionState),
+
+    // Modulation effects (preserves LFO phase and buffers)
+    Chorus(ChorusState),
+    Flanger(FlangerState),
+
+    // Dynamics (preserves envelope state)
+    Compressor(CompressorState),
+    Expander(ExpanderState),
+
+    // Filters (preserves filter state - prevents clicks)
+    Filter(FilterState),
+    MoogLadder(MoogLadderState),
+}
+
+/// Map of FX state keyed by (bus_name, fx_type, index)
+pub type FxStateMap = HashMap<FxStateKey, ExtractedFxState>;
+
 /// The unified signal graph that processes everything
 pub struct UnifiedSignalGraph {
     /// All nodes in the graph (Rc for cheap cloning - eliminates deep clone overhead)
@@ -4266,6 +4318,9 @@ pub struct UnifiedSignalGraph {
     /// This allows multiple outputs to have independent sample streams
     voice_output_cache: HashMap<usize, f32>,
 
+    /// Stereo version of voice output cache: Maps source node ID -> (left, right)
+    voice_output_cache_stereo: HashMap<usize, (f32, f32)>,
+
     /// Synth voice manager for polyphonic synthesis
     synth_voice_manager: RefCell<SynthVoiceManager>,
 
@@ -4328,6 +4383,7 @@ impl Clone for UnifiedSignalGraph {
             sample_bank: RefCell::new(self.sample_bank.borrow().clone()), // Clone loaded samples (cheap Arc increment)
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(), // Fresh cache
+            voice_output_cache_stereo: HashMap::new(), // Fresh stereo cache
             synth_voice_manager: RefCell::new(SynthVoiceManager::new(self.sample_rate)),
             cycle_bus_cache: self.cycle_bus_cache.clone(),
             sample_count: self.sample_count,
@@ -4360,6 +4416,7 @@ impl UnifiedSignalGraph {
             sample_bank: RefCell::new(SampleBank::new()),
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(),
+            voice_output_cache_stereo: HashMap::new(),
             synth_voice_manager: RefCell::new(SynthVoiceManager::new(sample_rate)),
             cycle_bus_cache: CycleBusCache::default(),
             sample_count: 0,
@@ -4409,17 +4466,377 @@ impl UnifiedSignalGraph {
 
     /// Transfer session timing from old graph to maintain global clock continuity
     /// This ensures the beat never drops during graph reload
+    ///
+    /// IMPORTANT: We DO NOT transfer cps - the new graph's tempo from code should be respected!
+    /// Only the clock (session_start_time, cycle_offset) is transferred for continuity.
     pub fn transfer_session_timing(&mut self, old_graph: &UnifiedSignalGraph) {
+        // CRITICAL: Transfer the wall-clock reference point
         self.session_start_time = old_graph.session_start_time;
-        self.cycle_offset = old_graph.cycle_offset;
-        self.cps = old_graph.cps;
+
+        // Adjust cycle_offset to account for any CPS difference
+        // If old graph had different CPS, we need to compute what cycle position the
+        // old graph was at, then set our offset so we continue from that position
+        let old_elapsed = old_graph.session_start_time.elapsed().as_secs_f64();
+        let old_cycle_pos = old_elapsed * old_graph.cps as f64 + old_graph.cycle_offset;
+
+        // Set our offset so that: old_elapsed * new_cps + new_offset = old_cycle_pos
+        // => new_offset = old_cycle_pos - old_elapsed * new_cps
+        self.cycle_offset = old_cycle_pos - old_elapsed * self.cps as f64;
+
+        // NOTE: We keep self.cps as-is (from compile_program's tempo: statement)
+        // This allows tempo changes to take effect immediately!
 
         // CRITICAL: Transfer cycle bus cache to prevent spurious resynthesis on reload
         // Without this, new graph has cache_floor=-1, causing unnecessary cache invalidation
         self.cycle_bus_cache = old_graph.cycle_bus_cache.clone();
 
         // Also transfer the cached cycle position to ensure consistency
-        self.cached_cycle_position = old_graph.cached_cycle_position;
+        self.cached_cycle_position = old_cycle_pos;
+    }
+
+    /// Extract all FX state from this graph for preservation across hot-swaps
+    /// Returns a map keyed by (bus_name, fx_type, index) for matching during injection
+    pub fn extract_fx_states(&self) -> FxStateMap {
+        let mut state_map = FxStateMap::new();
+
+        // Track FX counts per (bus, fx_type) for indexing
+        let mut fx_counters: HashMap<(String, String), usize> = HashMap::new();
+
+        // First, build a reverse map: node_id -> bus_name
+        let mut node_to_bus: HashMap<usize, String> = HashMap::new();
+        for (bus_name, &node_id) in &self.buses {
+            // Walk the chain from this bus node, marking all nodes as belonging to this bus
+            self.mark_nodes_for_bus(&mut node_to_bus, node_id.0, bus_name.clone());
+        }
+        // Also mark output chain nodes
+        if let Some(output_id) = self.output {
+            self.mark_nodes_for_bus(&mut node_to_bus, output_id.0, "out".to_string());
+        }
+        for (&_ch, &node_id) in &self.outputs {
+            self.mark_nodes_for_bus(&mut node_to_bus, node_id.0, "out".to_string());
+        }
+
+        // Now extract state from all FX nodes
+        for (idx, node_opt) in self.nodes.iter().enumerate() {
+            if let Some(node_rc) = node_opt {
+                let bus_name = node_to_bus.get(&idx).cloned().unwrap_or_else(|| "unknown".to_string());
+
+                match &**node_rc {
+                    SignalNode::Delay { buffer, write_idx, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "delay");
+                        state_map.insert(key, ExtractedFxState::Delay {
+                            buffer: buffer.clone(),
+                            write_idx: *write_idx,
+                        });
+                    }
+                    SignalNode::TapeDelay { state, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "tapedelay");
+                        state_map.insert(key, ExtractedFxState::TapeDelay(state.clone()));
+                    }
+                    SignalNode::MultiTapDelay { buffer, write_idx, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "multitapdelay");
+                        state_map.insert(key, ExtractedFxState::MultiTapDelay {
+                            buffer: buffer.clone(),
+                            write_idx: *write_idx,
+                        });
+                    }
+                    SignalNode::PingPongDelay { buffer_l, buffer_r, write_idx, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "pingpongdelay");
+                        state_map.insert(key, ExtractedFxState::PingPongDelay {
+                            buffer_l: buffer_l.clone(),
+                            buffer_r: buffer_r.clone(),
+                            write_idx: *write_idx,
+                        });
+                    }
+                    SignalNode::Reverb { state, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "reverb");
+                        state_map.insert(key, ExtractedFxState::Reverb(state.clone()));
+                    }
+                    SignalNode::DattorroReverb { state, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "dattorroreverb");
+                        state_map.insert(key, ExtractedFxState::DattorroReverb(state.clone()));
+                    }
+                    SignalNode::Convolution { state, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "convolution");
+                        state_map.insert(key, ExtractedFxState::Convolution(state.clone()));
+                    }
+                    SignalNode::Chorus { state, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "chorus");
+                        state_map.insert(key, ExtractedFxState::Chorus(state.clone()));
+                    }
+                    SignalNode::Flanger { state, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "flanger");
+                        state_map.insert(key, ExtractedFxState::Flanger(state.clone()));
+                    }
+                    SignalNode::Compressor { state, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "compressor");
+                        state_map.insert(key, ExtractedFxState::Compressor(state.clone()));
+                    }
+                    SignalNode::SidechainCompressor { state, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "sidechaincompressor");
+                        state_map.insert(key, ExtractedFxState::Compressor(state.clone()));
+                    }
+                    SignalNode::Expander { state, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "expander");
+                        state_map.insert(key, ExtractedFxState::Expander(state.clone()));
+                    }
+                    SignalNode::LowPass { state, .. } | SignalNode::HighPass { state, .. } |
+                    SignalNode::BandPass { state, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "filter");
+                        state_map.insert(key, ExtractedFxState::Filter(state.clone()));
+                    }
+                    SignalNode::MoogLadder { state, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "moogladder");
+                        state_map.insert(key, ExtractedFxState::MoogLadder(state.clone()));
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        if std::env::var("DEBUG_FX_STATE").is_ok() {
+            eprintln!("[FX_STATE] Extracted {} FX states", state_map.len());
+            for (key, _state) in &state_map {
+                eprintln!("  - {:?}", key);
+            }
+        }
+
+        state_map
+    }
+
+    /// Helper: Create FX key and increment counter
+    fn make_fx_key(&self, counters: &mut HashMap<(String, String), usize>, bus: &str, fx_type: &str) -> FxStateKey {
+        let counter_key = (bus.to_string(), fx_type.to_string());
+        let idx = *counters.get(&counter_key).unwrap_or(&0);
+        counters.insert(counter_key, idx + 1);
+        (bus.to_string(), fx_type.to_string(), idx)
+    }
+
+    /// Helper: Mark nodes as belonging to a bus (iterative to avoid stack overflow on deep chains)
+    fn mark_nodes_for_bus(&self, node_to_bus: &mut HashMap<usize, String>, start_node_id: usize, bus_name: String) {
+        let mut stack = vec![start_node_id];
+
+        while let Some(node_id) = stack.pop() {
+            // Don't overwrite if already marked (first assignment wins - closest to output)
+            // Also prevents infinite loops on feedback graphs
+            if node_to_bus.contains_key(&node_id) {
+                continue;
+            }
+            node_to_bus.insert(node_id, bus_name.clone());
+
+            // Add input nodes to stack
+            if let Some(Some(node_rc)) = self.nodes.get(node_id) {
+                let inputs = self.get_node_input_ids(&**node_rc);
+                for input_id in inputs {
+                    stack.push(input_id);
+                }
+            }
+        }
+    }
+
+    /// Helper: Get input node IDs from a SignalNode
+    fn get_node_input_ids(&self, node: &SignalNode) -> Vec<usize> {
+        let mut inputs = Vec::new();
+        match node {
+            SignalNode::Delay { input, .. } |
+            SignalNode::TapeDelay { input, .. } |
+            SignalNode::MultiTapDelay { input, .. } |
+            SignalNode::Reverb { input, .. } |
+            SignalNode::DattorroReverb { input, .. } |
+            SignalNode::Convolution { input, .. } |
+            SignalNode::Chorus { input, .. } |
+            SignalNode::Flanger { input, .. } |
+            SignalNode::Compressor { input, .. } |
+            SignalNode::Expander { input, .. } |
+            SignalNode::LowPass { input, .. } |
+            SignalNode::HighPass { input, .. } |
+            SignalNode::BandPass { input, .. } |
+            SignalNode::MoogLadder { input, .. } |
+            SignalNode::Distortion { input, .. } |
+            SignalNode::BitCrush { input, .. } => {
+                if let Signal::Node(id) = input {
+                    inputs.push(id.0);
+                }
+            }
+            SignalNode::PingPongDelay { input, .. } => {
+                if let Signal::Node(id) = input {
+                    inputs.push(id.0);
+                }
+            }
+            SignalNode::SidechainCompressor { main_input, sidechain_input, .. } => {
+                if let Signal::Node(id) = main_input {
+                    inputs.push(id.0);
+                }
+                if let Signal::Node(id) = sidechain_input {
+                    inputs.push(id.0);
+                }
+            }
+            _ => {}
+        }
+        inputs
+    }
+
+    /// Transfer FX state from old graph to this graph
+    /// Matches by (bus_name, fx_type, index) and replaces nodes with state-injected versions
+    pub fn transfer_fx_states(&mut self, old_graph: &UnifiedSignalGraph) {
+        let state_map = old_graph.extract_fx_states();
+        if state_map.is_empty() {
+            return;
+        }
+
+        // Build node_to_bus map for this graph
+        let mut node_to_bus: HashMap<usize, String> = HashMap::new();
+        for (bus_name, &node_id) in &self.buses {
+            self.mark_nodes_for_bus(&mut node_to_bus, node_id.0, bus_name.clone());
+        }
+        if let Some(output_id) = self.output {
+            self.mark_nodes_for_bus(&mut node_to_bus, output_id.0, "out".to_string());
+        }
+        for (&_ch, &node_id) in &self.outputs {
+            self.mark_nodes_for_bus(&mut node_to_bus, node_id.0, "out".to_string());
+        }
+
+        // Track FX counts for matching
+        let mut fx_counters: HashMap<(String, String), usize> = HashMap::new();
+        let mut transferred = 0;
+
+        // Iterate through nodes and inject matching state
+        for idx in 0..self.nodes.len() {
+            let node_opt = self.nodes[idx].clone();
+            if let Some(node_rc) = node_opt {
+                let bus_name = node_to_bus.get(&idx).cloned().unwrap_or_else(|| "unknown".to_string());
+
+                let new_node: Option<SignalNode> = match &*node_rc {
+                    SignalNode::Delay { input, time, feedback, mix, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "delay");
+                        if let Some(ExtractedFxState::Delay { buffer, write_idx }) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::Delay {
+                                input: input.clone(),
+                                time: time.clone(),
+                                feedback: feedback.clone(),
+                                mix: mix.clone(),
+                                buffer: buffer.clone(),
+                                write_idx: *write_idx,
+                            })
+                        } else { None }
+                    }
+                    SignalNode::Reverb { input, room_size, damping, mix, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "reverb");
+                        if let Some(ExtractedFxState::Reverb(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::Reverb {
+                                input: input.clone(),
+                                room_size: room_size.clone(),
+                                damping: damping.clone(),
+                                mix: mix.clone(),
+                                state: state.clone(),
+                            })
+                        } else { None }
+                    }
+                    SignalNode::Chorus { input, rate, depth, mix, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "chorus");
+                        if let Some(ExtractedFxState::Chorus(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::Chorus {
+                                input: input.clone(),
+                                rate: rate.clone(),
+                                depth: depth.clone(),
+                                mix: mix.clone(),
+                                state: state.clone(),
+                            })
+                        } else { None }
+                    }
+                    SignalNode::Flanger { input, depth, rate, feedback, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "flanger");
+                        if let Some(ExtractedFxState::Flanger(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::Flanger {
+                                input: input.clone(),
+                                depth: depth.clone(),
+                                rate: rate.clone(),
+                                feedback: feedback.clone(),
+                                state: state.clone(),
+                            })
+                        } else { None }
+                    }
+                    SignalNode::Compressor { input, threshold, ratio, attack, release, makeup_gain, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "compressor");
+                        if let Some(ExtractedFxState::Compressor(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::Compressor {
+                                input: input.clone(),
+                                threshold: threshold.clone(),
+                                ratio: ratio.clone(),
+                                attack: attack.clone(),
+                                release: release.clone(),
+                                makeup_gain: makeup_gain.clone(),
+                                state: state.clone(),
+                            })
+                        } else { None }
+                    }
+                    SignalNode::LowPass { input, cutoff, q, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "filter");
+                        if let Some(ExtractedFxState::Filter(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::LowPass {
+                                input: input.clone(),
+                                cutoff: cutoff.clone(),
+                                q: q.clone(),
+                                state: state.clone(),
+                            })
+                        } else { None }
+                    }
+                    SignalNode::HighPass { input, cutoff, q, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "filter");
+                        if let Some(ExtractedFxState::Filter(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::HighPass {
+                                input: input.clone(),
+                                cutoff: cutoff.clone(),
+                                q: q.clone(),
+                                state: state.clone(),
+                            })
+                        } else { None }
+                    }
+                    SignalNode::BandPass { input, center, q, .. } => {
+                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "filter");
+                        if let Some(ExtractedFxState::Filter(state)) = state_map.get(&key) {
+                            transferred += 1;
+                            Some(SignalNode::BandPass {
+                                input: input.clone(),
+                                center: center.clone(),
+                                q: q.clone(),
+                                state: state.clone(),
+                            })
+                        } else { None }
+                    }
+                    _ => {
+                        // For other FX types, just count them
+                        match &*node_rc {
+                            SignalNode::TapeDelay { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "tapedelay"); }
+                            SignalNode::MultiTapDelay { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "multitapdelay"); }
+                            SignalNode::PingPongDelay { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "pingpongdelay"); }
+                            SignalNode::DattorroReverb { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "dattorroreverb"); }
+                            SignalNode::Convolution { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "convolution"); }
+                            SignalNode::SidechainCompressor { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "sidechaincompressor"); }
+                            SignalNode::Expander { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "expander"); }
+                            SignalNode::MoogLadder { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "moogladder"); }
+                            _ => {}
+                        }
+                        None
+                    }
+                };
+
+                if let Some(new) = new_node {
+                    self.nodes[idx] = Some(std::rc::Rc::new(new));
+                }
+            }
+        }
+
+        if std::env::var("DEBUG_FX_STATE").is_ok() || transferred > 0 {
+            eprintln!("[FX_STATE] Transferred {} FX states", transferred);
+        }
     }
 
     /// Reset cycles to 0 (like Tidal's resetCycles)
@@ -9297,9 +9714,9 @@ impl UnifiedSignalGraph {
                                         let begin_sample = begin_sample.min(sample_len.saturating_sub(1));
                                         let end_sample = end_sample.clamp(begin_sample + 1, sample_len);
 
-                                        // Create sliced copy of the sample
-                                        let sliced_vec = sample_data[begin_sample..end_sample].to_vec();
-                                        std::sync::Arc::new(sliced_vec)
+                                        // Create sliced copy of the sample (preserves stereo)
+                                        let sliced_sample = sample_data.slice(begin_sample, end_sample);
+                                        std::sync::Arc::new(sliced_sample)
                                     } else {
                                         // No slicing needed, use original sample
                                         sample_data
@@ -11596,6 +12013,73 @@ impl UnifiedSignalGraph {
         self.sample_count += 1;
 
         mixed_output
+    }
+
+    /// Process one sample and return stereo output (left, right)
+    /// This uses the VoiceManager's stereo processing for proper panning
+    /// NOTE: Currently only sample playback is stereo. DSP chain (oscillators, filters)
+    /// processes mono. Stereo separation comes from sample panning (jux, pan).
+    #[inline]
+    pub fn process_sample_stereo(&mut self) -> (f32, f32) {
+        // CRITICAL: Update cycle position from wall-clock ONCE per sample
+        self.update_cycle_position_from_clock();
+
+        // Process voice manager in STEREO mode - this gives us panned sample output
+        // We use process_per_node_stereo to get stereo per source node
+        self.voice_output_cache_stereo = self.voice_manager.borrow_mut().process_per_node_stereo();
+
+        // Also populate mono cache (from stereo by mixing down)
+        // DSP nodes that process sample output need mono values
+        self.voice_output_cache = self.voice_output_cache_stereo.iter()
+            .map(|(&node, &(l, r))| (node, (l + r) / std::f32::consts::SQRT_2))
+            .collect();
+
+        // CRITICAL: Call eval_node() on the output to trigger pattern evaluation!
+        // This is what schedules new voices when patterns fire events.
+        // Without this call, patterns never trigger and we get silence.
+        if let Some(output_id) = self.output {
+            // Evaluate the graph - this triggers pattern evaluation
+            // We discard the mono result since we want stereo voice output
+            let _mono_result = self.eval_node(&output_id);
+        }
+
+        // Also evaluate numbered outputs (out1, out2, etc.)
+        let channels: Vec<(usize, NodeId)> =
+            self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
+        for (_ch, node_id) in channels {
+            let _result = self.eval_node(&node_id);
+        }
+
+        // Sum all stereo voice outputs
+        let (mut total_left, mut total_right) = (0.0f32, 0.0f32);
+        for &(l, r) in self.voice_output_cache_stereo.values() {
+            total_left += l;
+            total_right += r;
+        }
+
+        self.sample_count += 1;
+
+        // Return stereo sample output
+        // Note: In the future, we could add stereo DSP chain support here
+        (total_left, total_right)
+    }
+
+    /// Process a buffer of stereo samples
+    /// Returns interleaved stereo: [L0, R0, L1, R1, ...]
+    pub fn process_buffer_stereo(&mut self, left: &mut [f32], right: &mut [f32]) {
+        debug_assert_eq!(left.len(), right.len(), "Stereo buffers must be same length");
+
+        // CRITICAL: Clear buffer cache at start of each buffer render
+        self.buffer_cache.borrow_mut().clear();
+        self.buffer_cache_enabled.set(true);
+
+        for i in 0..left.len() {
+            let (l, r) = self.process_sample_stereo();
+            left[i] = l;
+            right[i] = r;
+        }
+
+        self.buffer_cache_enabled.set(false);
     }
 
     /// Pre-compute pattern events for the entire buffer (Option B optimization)

@@ -7873,6 +7873,42 @@ fn extract_number(expr: &Expr) -> Result<f64, String> {
     }
 }
 
+/// Check if an operator is a structure-aware pattern operator
+fn is_structure_operator(op: &BinOp) -> bool {
+    matches!(
+        op,
+        BinOp::AddLeft
+            | BinOp::AddRight
+            | BinOp::SubLeft
+            | BinOp::SubRight
+            | BinOp::MulLeft
+            | BinOp::MulRight
+            | BinOp::DivLeft
+            | BinOp::DivRight
+            | BinOp::UnionLeft
+            | BinOp::UnionRight
+    )
+}
+
+/// Try to extract a Pattern<f64> from an expression
+/// Returns Some(pattern, pattern_str) if the expression is a pattern, None otherwise
+fn try_extract_numeric_pattern(expr: &Expr) -> Option<(Pattern<f64>, String)> {
+    match expr {
+        Expr::String(s) => {
+            // Parse mini-notation and convert String pattern to f64 pattern
+            let string_pattern = parse_mini_notation(s);
+            let f64_pattern = string_pattern.fmap(|v| v.parse::<f64>().unwrap_or(0.0));
+            Some((f64_pattern, s.clone()))
+        }
+        Expr::Number(n) => {
+            // Constant value as a pure pattern
+            Some((Pattern::pure(*n), n.to_string()))
+        }
+        Expr::Paren(inner) => try_extract_numeric_pattern(inner),
+        _ => None,
+    }
+}
+
 /// Compile binary operator
 /// Returns a node ID that outputs the result of the arithmetic operation
 fn compile_binop(
@@ -7881,12 +7917,80 @@ fn compile_binop(
     left: Expr,
     right: Expr,
 ) -> Result<NodeId, String> {
+    // For structure operators, try to combine patterns at the pattern level
+    // This preserves Tidal-style structure semantics where one pattern determines event timing
+    if is_structure_operator(&op) {
+        if let (Some((left_pattern, left_str)), Some((right_pattern, right_str))) =
+            (try_extract_numeric_pattern(&left), try_extract_numeric_pattern(&right))
+        {
+            // Combine patterns using structure-aware methods
+            let (combined_pattern, combined_str) = match op {
+                BinOp::AddLeft => (
+                    left_pattern.add_left(right_pattern),
+                    format!("{} |+ {}", left_str, right_str),
+                ),
+                BinOp::AddRight => (
+                    left_pattern.add_right(right_pattern),
+                    format!("{} +| {}", left_str, right_str),
+                ),
+                BinOp::SubLeft => (
+                    left_pattern.sub_left(right_pattern),
+                    format!("{} |- {}", left_str, right_str),
+                ),
+                BinOp::SubRight => (
+                    left_pattern.sub_right(right_pattern),
+                    format!("{} -| {}", left_str, right_str),
+                ),
+                BinOp::MulLeft => (
+                    left_pattern.mul_left(right_pattern),
+                    format!("{} |* {}", left_str, right_str),
+                ),
+                BinOp::MulRight => (
+                    left_pattern.mul_right(right_pattern),
+                    format!("{} *| {}", left_str, right_str),
+                ),
+                BinOp::DivLeft => (
+                    left_pattern.div_left(right_pattern),
+                    format!("{} |/ {}", left_str, right_str),
+                ),
+                BinOp::DivRight => (
+                    left_pattern.div_right(right_pattern),
+                    format!("{} /| {}", left_str, right_str),
+                ),
+                BinOp::UnionLeft => (
+                    left_pattern.union_left(right_pattern),
+                    format!("{} |> {}", left_str, right_str),
+                ),
+                BinOp::UnionRight => (
+                    left_pattern.union_right(right_pattern),
+                    format!("{} <| {}", left_str, right_str),
+                ),
+                _ => unreachable!("is_structure_operator already checked"),
+            };
+
+            // Convert Pattern<f64> to Pattern<String> for SignalNode::Pattern
+            // The unified graph expects Pattern<String> which gets parsed back to f64
+            let string_pattern = combined_pattern.fmap(|v| v.to_string());
+
+            // Create a Pattern node with the combined pattern
+            let node = SignalNode::Pattern {
+                pattern_str: combined_str,
+                pattern: string_pattern,
+                last_value: 0.0,
+                last_trigger_time: -1.0,
+            };
+
+            return Ok(ctx.graph.add_node(node));
+        }
+        // Fall through to signal-level combination if pattern extraction fails
+    }
+
+    // Standard signal-level combination for non-structure operators
+    // or when pattern extraction fails
     let left_node = compile_expr(ctx, left)?;
     let right_node = compile_expr(ctx, right)?;
 
     // Arithmetic operations are done via Signal::Expression
-    // Pattern structure operators (|+, +|, etc.) currently behave the same as basic arithmetic
-    // In the future, they will implement proper Tidal-style structure semantics
     let expr = match op {
         BinOp::Add | BinOp::AddLeft | BinOp::AddRight => {
             SignalExpr::Add(Signal::Node(left_node), Signal::Node(right_node))
@@ -7900,10 +8004,12 @@ fn compile_binop(
         BinOp::Div | BinOp::DivLeft | BinOp::DivRight => {
             SignalExpr::Divide(Signal::Node(left_node), Signal::Node(right_node))
         }
-        BinOp::UnionLeft | BinOp::UnionRight => {
-            // Union operators: for now, just pass through the right value
-            // This is similar to # operator behavior
-            // TODO: Implement proper structure-aware union
+        BinOp::UnionLeft => {
+            // Union left: pass through left value (structure from left)
+            SignalExpr::Add(Signal::Node(left_node), Signal::Value(0.0))
+        }
+        BinOp::UnionRight => {
+            // Union right: pass through right value (structure from right)
             SignalExpr::Add(Signal::Node(right_node), Signal::Value(0.0))
         }
     };

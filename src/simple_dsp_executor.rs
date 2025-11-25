@@ -440,12 +440,13 @@ impl SimpleDspExecutor {
                 // Store this trigger for later processing
                 synth_triggers.push((sample_name.clone(), start_sample, end_sample));
             } else {
-                // Regular sample playback
+                // Regular sample playback (mono output for this simple executor)
                 if let Some(sample_data) = self.sample_bank.get_sample(sample_name) {
                     for i in start_sample..end_sample.min(num_samples) {
                         let sample_offset = i - start_sample;
                         if sample_offset < sample_data.len() {
-                            output[i] += sample_data[sample_offset];
+                            // Use mono interpolation (average of L/R for stereo, left for mono)
+                            output[i] += sample_data.get_mono_interpolated(sample_offset as f32);
                         }
                     }
                 }
@@ -512,11 +513,12 @@ impl SimpleDspExecutor {
         if chain.nodes.len() == 1 {
             // Handle sample playback
             if let DspNode::Sp { sample } = &chain.nodes[0] {
-                // Load and play the sample
+                // Load and play the sample (mono output)
                 if let Some(sample_data) = self.sample_bank.get_sample(sample) {
                     let sample_len = sample_data.len();
                     for i in 0..num_samples.min(sample_len) {
-                        output[i] = sample_data[i];
+                        // Use mono interpolation for this simple executor
+                        output[i] = sample_data.get_mono_interpolated(i as f32);
                     }
                 }
                 return Ok(output);

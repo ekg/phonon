@@ -52,7 +52,7 @@ fn test_sample_playback_signal_correlation() {
     save_wav("test_bd_correlation.wav", &buffer, 44100);
 
     // CRITICAL TEST: Use signal correlation to verify the sample is present
-    let correlation = correlate(&buffer, &original_bd);
+    let correlation = correlate(&buffer, original_bd.as_slice());
 
     println!("Signal correlation peak: {:.4}", correlation);
 
@@ -160,9 +160,9 @@ fn test_multiple_samples_in_pattern() {
 
     // Check that the overall output contains all three samples
     // We correlate against the entire buffer to find each sample
-    let bd_correlation = correlate(&buffer, &bd_original);
-    let cp_correlation = correlate(&buffer, &cp_original);
-    let hh_correlation = correlate(&buffer, &hh_original);
+    let bd_correlation = correlate(&buffer, bd_original.as_slice());
+    let cp_correlation = correlate(&buffer, cp_original.as_slice());
+    let hh_correlation = correlate(&buffer, hh_original.as_slice());
 
     println!("BD correlation in buffer: {:.4}", bd_correlation);
     println!("CP correlation in buffer: {:.4}", cp_correlation);
@@ -233,7 +233,7 @@ fn test_sample_through_phonon_file() {
     // Verify it correlates with original BD sample
     let mut bank = SampleBank::new();
     let bd_original = bank.get_sample("bd").unwrap();
-    let correlation = correlate(&samples, &bd_original);
+    let correlation = correlate(&samples, bd_original.as_slice());
 
     println!("Phonon file correlation with BD: {:.4}", correlation);
     assert!(
@@ -394,7 +394,7 @@ fn test_bd_sample_one_cycle() {
 
     save_wav("test_bd_one_cycle.wav", &buffer, 44100);
 
-    let correlation = correlate(&buffer, &bd_original);
+    let correlation = correlate(&buffer, bd_original.as_slice());
     let rms = calculate_rms(&buffer);
     let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
 
@@ -447,7 +447,7 @@ fn test_cp_sample_one_cycle() {
 
     save_wav("test_cp_one_cycle.wav", &buffer, 44100);
 
-    let correlation = correlate(&buffer, &cp_original);
+    let correlation = correlate(&buffer, cp_original.as_slice());
     let rms = calculate_rms(&buffer);
     let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
 
@@ -500,7 +500,7 @@ fn test_hh_sample_one_cycle() {
 
     save_wav("test_hh_one_cycle.wav", &buffer, 44100);
 
-    let correlation = correlate(&buffer, &hh_original);
+    let correlation = correlate(&buffer, hh_original.as_slice());
     let rms = calculate_rms(&buffer);
     let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
 
@@ -553,7 +553,7 @@ fn test_sn_sample_one_cycle() {
 
     save_wav("test_sn_one_cycle.wav", &buffer, 44100);
 
-    let correlation = correlate(&buffer, &sn_original);
+    let correlation = correlate(&buffer, sn_original.as_slice());
     let rms = calculate_rms(&buffer);
     let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
 
@@ -797,7 +797,7 @@ fn test_euclidean_pattern_with_samples() {
     // Verify it contains BD sample
     let mut bank = SampleBank::new();
     let bd_original = bank.get_sample("bd").unwrap();
-    let correlation = correlate(&buffer, &bd_original);
+    let correlation = correlate(&buffer, bd_original.as_slice());
 
     println!("BD correlation in euclidean pattern: {:.4}", correlation);
     assert!(
@@ -853,7 +853,7 @@ fn test_simple_euclidean_sequence() {
     // Verify it contains BD sample
     let mut bank = SampleBank::new();
     let bd_original = bank.get_sample("bd").unwrap();
-    let correlation = correlate(&buffer, &bd_original);
+    let correlation = correlate(&buffer, bd_original.as_slice());
 
     println!("BD correlation in simple euclidean: {:.4}", correlation);
     assert!(
@@ -906,7 +906,7 @@ fn test_euclidean_with_offset() {
 
     let mut bank = SampleBank::new();
     let bd_original = bank.get_sample("bd").unwrap();
-    let correlation = correlate(&buffer, &bd_original);
+    let correlation = correlate(&buffer, bd_original.as_slice());
 
     println!("BD correlation in offset euclidean: {:.4}", correlation);
     assert!(

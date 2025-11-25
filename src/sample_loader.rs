@@ -10,7 +10,7 @@
 //! - **Automatic sample discovery**: Searches `dirt-samples/` directory structure
 //! - **Sample indexing**: Support for `bd:0`, `bd:1`, etc. to select specific samples
 //! - **Caching**: Loaded samples are cached for fast access
-//! - **Mono conversion**: Stereo samples are automatically converted to mono
+//! - **Stereo support**: Stereo samples are preserved with left/right channels
 //! - **WAV support**: Loads WAV files in various formats (int16, int24, float32)
 //!
 //! # Directory Structure
@@ -97,12 +97,139 @@
 //! ```
 
 use std::collections::HashMap;
+use std::ops::Index;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+/// Stereo sample data - supports both mono and stereo samples
+///
+/// For mono samples, `right` is None and `left` contains all data.
+/// For stereo samples, `left` and `right` contain the respective channels.
+#[derive(Clone, Debug)]
+pub struct StereoSample {
+    /// Left channel (or mono data if mono sample)
+    pub left: Vec<f32>,
+    /// Right channel (None for mono samples)
+    pub right: Option<Vec<f32>>,
+}
+
+impl StereoSample {
+    /// Create a mono sample
+    pub fn mono(data: Vec<f32>) -> Self {
+        Self { left: data, right: None }
+    }
+
+    /// Create a stereo sample from left and right channels
+    pub fn stereo(left: Vec<f32>, right: Vec<f32>) -> Self {
+        Self { left, right: Some(right) }
+    }
+
+    /// Check if this sample is stereo
+    pub fn is_stereo(&self) -> bool {
+        self.right.is_some()
+    }
+
+    /// Get the number of frames (samples per channel)
+    pub fn len(&self) -> usize {
+        self.left.len()
+    }
+
+    /// Check if the sample is empty
+    pub fn is_empty(&self) -> bool {
+        self.left.is_empty()
+    }
+
+    /// Get a sample at a given position with linear interpolation
+    /// Returns (left, right) - for mono samples, left == right
+    pub fn get_interpolated(&self, position: f32) -> (f32, f32) {
+        if self.left.is_empty() {
+            return (0.0, 0.0);
+        }
+
+        let idx = position as usize;
+        let frac = position - idx as f32;
+
+        // Bounds check
+        if idx >= self.left.len() {
+            return (0.0, 0.0);
+        }
+
+        let left_val = if idx + 1 < self.left.len() {
+            self.left[idx] * (1.0 - frac) + self.left[idx + 1] * frac
+        } else {
+            self.left[idx] * (1.0 - frac)
+        };
+
+        let right_val = if let Some(ref right) = self.right {
+            // True stereo sample
+            if idx + 1 < right.len() {
+                right[idx] * (1.0 - frac) + right[idx + 1] * frac
+            } else {
+                right[idx] * (1.0 - frac)
+            }
+        } else {
+            // Mono sample - same on both channels
+            left_val
+        };
+
+        (left_val, right_val)
+    }
+
+    /// Get mono (center) value at position with linear interpolation
+    pub fn get_mono_interpolated(&self, position: f32) -> f32 {
+        let (l, r) = self.get_interpolated(position);
+        (l + r) * 0.5
+    }
+
+    /// Create a sliced version of this sample (preserves stereo if present)
+    pub fn slice(&self, begin: usize, end: usize) -> Self {
+        let begin = begin.min(self.left.len());
+        let end = end.clamp(begin, self.left.len());
+
+        let sliced_left = self.left[begin..end].to_vec();
+        let sliced_right = self.right.as_ref().map(|r| {
+            let begin = begin.min(r.len());
+            let end = end.clamp(begin, r.len());
+            r[begin..end].to_vec()
+        });
+
+        Self {
+            left: sliced_left,
+            right: sliced_right,
+        }
+    }
+
+    /// Iterate over the left channel (or mono data)
+    /// For backward compatibility with code that expects Vec<f32>
+    pub fn iter(&self) -> impl Iterator<Item = &f32> {
+        self.left.iter()
+    }
+
+    /// Get direct access to the left channel data
+    pub fn as_slice(&self) -> &[f32] {
+        &self.left
+    }
+}
+
+// Index implementation for backward compatibility with sample[i] syntax
+impl Index<usize> for StereoSample {
+    type Output = f32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.left[index]
+    }
+}
+
+// Allow creating StereoSample from Vec<f32> for backward compatibility
+impl From<Vec<f32>> for StereoSample {
+    fn from(data: Vec<f32>) -> Self {
+        Self::mono(data)
+    }
+}
+
 /// Sample bank that loads and caches WAV files
 pub struct SampleBank {
-    samples: HashMap<String, Arc<Vec<f32>>>,
+    samples: HashMap<String, Arc<StereoSample>>,
     dirt_samples_dir: PathBuf,
 }
 
@@ -177,8 +304,8 @@ impl SampleBank {
         let mut reader = hound::WavReader::open(path)?;
         let spec = reader.spec();
 
-        // Convert to mono f32
-        let samples: Vec<f32> = match spec.sample_format {
+        // Read raw samples as f32
+        let raw_samples: Vec<f32> = match spec.sample_format {
             hound::SampleFormat::Float => {
                 reader.samples::<f32>().map(|s| s.unwrap_or(0.0)).collect()
             }
@@ -191,23 +318,28 @@ impl SampleBank {
             }
         };
 
-        // Convert to mono if stereo
-        let mono_samples = if spec.channels == 2 {
-            samples
-                .chunks(2)
-                .map(|chunk| (chunk[0] + chunk.get(1).copied().unwrap_or(0.0)) * 0.5)
-                .collect()
+        // Create StereoSample, preserving stereo if present
+        let stereo_sample = if spec.channels == 2 {
+            // Deinterleave stereo: L R L R L R -> (L L L, R R R)
+            let num_frames = raw_samples.len() / 2;
+            let mut left = Vec::with_capacity(num_frames);
+            let mut right = Vec::with_capacity(num_frames);
+            for chunk in raw_samples.chunks(2) {
+                left.push(chunk[0]);
+                right.push(chunk.get(1).copied().unwrap_or(0.0));
+            }
+            StereoSample::stereo(left, right)
         } else {
-            samples
+            StereoSample::mono(raw_samples)
         };
 
         self.samples
-            .insert(name.to_string(), Arc::new(mono_samples));
+            .insert(name.to_string(), Arc::new(stereo_sample));
         Ok(())
     }
 
     /// Get a sample by name, attempting to load from dirt-samples if not cached
-    pub fn get_sample(&mut self, name: &str) -> Option<Arc<Vec<f32>>> {
+    pub fn get_sample(&mut self, name: &str) -> Option<Arc<StereoSample>> {
         // Parse sample name and index (e.g., "bd:3" -> "bd", 3)
         let (base_name, sample_index) = if let Some(colon_pos) = name.find(':') {
             let base = &name[..colon_pos];

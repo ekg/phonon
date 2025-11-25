@@ -149,8 +149,9 @@ impl ModalEditor {
         let ring_fill_percent = Arc::new(AtomicUsize::new(100));
 
         // Ring buffer: background synth writes, audio callback reads
-        // Size: 2 seconds of audio = smooth playback even with synthesis spikes
-        let ring_buffer_size = (sample_rate as usize) * 2;
+        // Size: ~100ms = responsive live coding (Tidal-like instant transitions)
+        // Smaller buffer = faster response to C-x evaluations
+        let ring_buffer_size = ((sample_rate as usize) / 10).max(4096);
         let ring = HeapRb::<f32>::new(ring_buffer_size);
         let (mut ring_producer, mut ring_consumer) = ring.split();
 
@@ -211,9 +212,9 @@ impl ModalEditor {
                             Err(_) => {
                                 // RefCell is borrowed - main thread is swapping graphs
                                 // CRITICAL FIX: Don't write silence! Just skip this iteration.
-                                // The ring buffer has 2 seconds of audio, missing one 512-sample
-                                // chunk (11.6ms) won't cause underruns, but writing silence
-                                // causes harsh cutoffs during live code hot-swapping (C-x).
+                                // Missing one 512-sample chunk (11.6ms) won't cause underruns
+                                // with our 100ms buffer, but writing silence causes harsh
+                                // cutoffs during live code hot-swapping (C-x).
                                 // The next iteration will use the new graph seamlessly.
                                 static mut SWAP_SKIP_COUNT: usize = 0;
                                 unsafe {

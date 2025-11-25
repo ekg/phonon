@@ -125,10 +125,15 @@ out: ~carrier * 0.3
 
 #[test]
 fn test_feedback_loop_simulation() {
-    // Test 4: Signal feeding back into itself (via separate channels)
-    // This demonstrates the compositional nature where signals can
-    // reference each other in complex ways
-    let code = r#"
+    // This test needs a larger stack due to deep recursion in signal graph evaluation
+    // Run in a thread with 8MB stack (default test stack is ~2MB which overflows)
+    let result = std::thread::Builder::new()
+        .stack_size(8 * 1024 * 1024) // 8MB stack
+        .spawn(|| {
+            // Test 4: Signal feeding back into itself (via separate channels)
+            // This demonstrates the compositional nature where signals can
+            // reference each other in complex ways
+            let code = r#"
 tempo: 2.0
 
 -- LFO modulating its own frequency (via separate stages)
@@ -143,24 +148,29 @@ tempo: 2.0
 out: ~filtered * 0.3
 "#;
 
-    let (rest, statements) = parse_program(code).expect("Failed to parse");
-    assert_eq!(rest.trim(), "", "Parser should consume all input");
+            let (rest, statements) = parse_program(code).expect("Failed to parse");
+            assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
-    graph.set_cps(2.0);
+            let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+            graph.set_cps(2.0);
 
-    // Render 2 seconds
-    let buffer = graph.render(88200);
+            // Render 2 seconds
+            let buffer = graph.render(88200);
 
-    // Verify audio was generated
-    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(
-        rms > 0.01,
-        "Complex modulation network should produce signal, got RMS {}",
-        rms
-    );
+            // Verify audio was generated
+            let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+            assert!(
+                rms > 0.01,
+                "Complex modulation network should produce signal, got RMS {}",
+                rms
+            );
 
-    println!("✅ Complex modulation network: RMS = {:.4}", rms);
+            println!("✅ Complex modulation network: RMS = {:.4}", rms);
+        })
+        .expect("Failed to spawn thread")
+        .join();
+
+    result.expect("Test thread panicked");
 }
 
 #[test]

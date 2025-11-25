@@ -242,8 +242,8 @@ fn test_layering_simultaneous_samples() {
     );
 
     // RMS should be higher than a single sample due to mixing
-    let bd_rms = calculate_rms(&bd_sample[0..1000.min(bd_sample.len())]);
-    let sn_rms = calculate_rms(&sn_sample[0..1000.min(sn_sample.len())]);
+    let bd_rms = calculate_rms(bd_sample.slice(0, 1000.min(bd_sample.len())).as_slice());
+    let sn_rms = calculate_rms(sn_sample.slice(0, 1000.min(sn_sample.len())).as_slice());
 
     println!("BD alone RMS: {:.4}", bd_rms);
     println!("SN alone RMS: {:.4}", sn_rms);

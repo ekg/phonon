@@ -4,6 +4,7 @@
 //! access to VoiceManager and SampleBank for pattern playback.
 
 use phonon::audio_node_graph::AudioNodeGraph;
+use phonon::sample_loader::StereoSample;
 use std::sync::Arc;
 
 #[test]
@@ -77,7 +78,7 @@ fn test_voice_manager_sample_bank_integration() {
     assert_eq!(initial_active, 0, "Should start with no active voices");
 
     // Create a simple test sample
-    let test_sample = Arc::new(vec![0.5f32; 1000]);
+    let test_sample = Arc::new(StereoSample::mono(vec![0.5f32; 1000]));
 
     // Trigger the sample
     vm.trigger_sample(test_sample, 1.0);
@@ -101,9 +102,9 @@ fn test_multiple_sample_triggers() {
     let mut vm = voice_manager.lock().unwrap();
 
     // Create test samples
-    let sample1 = Arc::new(vec![0.5f32; 500]);
-    let sample2 = Arc::new(vec![0.7f32; 800]);
-    let sample3 = Arc::new(vec![0.3f32; 1200]);
+    let sample1 = Arc::new(StereoSample::mono(vec![0.5f32; 500]));
+    let sample2 = Arc::new(StereoSample::mono(vec![0.7f32; 800]));
+    let sample3 = Arc::new(StereoSample::mono(vec![0.3f32; 1200]));
 
     // Trigger multiple samples
     vm.trigger_sample(sample1, 1.0);
@@ -131,7 +132,7 @@ fn test_voice_manager_reset() {
     let mut vm = voice_manager.lock().unwrap();
 
     // Trigger some samples
-    let sample = Arc::new(vec![0.5f32; 1000]);
+    let sample = Arc::new(StereoSample::mono(vec![0.5f32; 1000]));
     vm.trigger_sample(sample.clone(), 1.0);
     vm.trigger_sample(sample.clone(), 0.8);
     vm.trigger_sample(sample, 0.6);
@@ -152,7 +153,7 @@ fn test_voice_manager_stereo_output() {
     let mut vm = voice_manager.lock().unwrap();
 
     // Create test sample
-    let sample = Arc::new(vec![1.0f32; 500]);
+    let sample = Arc::new(StereoSample::mono(vec![1.0f32; 500]));
 
     // Trigger with different pan positions
     vm.trigger_sample_with_pan(sample.clone(), 1.0, -1.0); // Hard left

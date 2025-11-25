@@ -268,6 +268,8 @@ impl LiveSession {
         let current_graph = self.graph.load();
         if let Some(ref old_graph_cell) = **current_graph {
             new_graph.transfer_session_timing(&old_graph_cell.0.borrow());
+            // Transfer FX state (delay buffers, reverb tails, etc.)
+            new_graph.transfer_fx_states(&old_graph_cell.0.borrow());
             // Also transfer VoiceManager for click-free reloads
             new_graph.transfer_voice_manager(old_graph_cell.0.borrow_mut().take_voice_manager());
         }

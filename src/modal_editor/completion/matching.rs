@@ -624,13 +624,14 @@ mod tests {
         let completions = filter_completions(":m", &context, &samples, &buses);
 
         // With fuzzy matching, should match all parameters containing 'm'
-        // But :mix should be first (prefix match has highest score)
+        // When user types ":m", the colon is already present, so completions
+        // return just the param name (to avoid ":m" + ":mix" = ":m:mix")
         assert!(!completions.is_empty());
-        assert_eq!(completions[0].text, ":mix");
+        assert_eq!(completions[0].text, "mix");
 
         // Also verify fuzzy matching works - should find room_size and damping
-        assert!(completions.iter().any(|c| c.text == ":room_size"));
-        assert!(completions.iter().any(|c| c.text == ":damping"));
+        assert!(completions.iter().any(|c| c.text == "room_size"));
+        assert!(completions.iter().any(|c| c.text == "damping"));
     }
 
     #[test]
