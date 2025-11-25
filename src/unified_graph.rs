@@ -3979,12 +3979,21 @@ fn eval_node_isolated(nodes: &mut Vec<Option<Rc<SignalNode>>>, node_id: &NodeId,
             pending_freq,
             last_sample,
         } => {
-            let mut freq_val = eval_signal_isolated(nodes, &freq, sample_rate);
+            let base_freq = eval_signal_isolated(nodes, &freq, sample_rate);
 
-            // Apply semitone offset: freq * 2^(semitones/12)
-            if *semitone_offset != 0.0 {
-                freq_val *= 2.0_f32.powf(*semitone_offset / 12.0);
-            }
+            // Decode pitch value:
+            // >= 1000: Absolute MIDI note (subtract 1000, convert to Hz)
+            // < 1000: Relative semitone offset from base frequency
+            let freq_val = if *semitone_offset >= 1000.0 {
+                // Absolute MIDI: convert to Hz using A4=440Hz as reference
+                let midi = *semitone_offset - 1000.0;
+                440.0 * 2.0_f32.powf((midi - 69.0) / 12.0)
+            } else if *semitone_offset != 0.0 {
+                // Relative: apply semitone offset to base frequency
+                base_freq * 2.0_f32.powf(*semitone_offset / 12.0)
+            } else {
+                base_freq
+            };
 
             // Generate sample based on waveform
             let phase_val = *phase.borrow();
@@ -4275,6 +4284,12 @@ pub struct UnifiedSignalGraph {
     /// Buffer cache enabled flag: Only enabled during process_buffer() to avoid
     /// caching stateful nodes (oscillators) across multiple independent evaluations
     buffer_cache_enabled: std::cell::Cell<bool>,
+
+    /// Per-pitch phase tracking for synthesis voices
+    /// Key: (oscillator_node_id, semitone_key) where semitone_key = (semitone_offset * 100).round() as i32
+    /// Value: phase value in [0, 1)
+    /// This allows each pitch variant (chord note) to maintain its own phase continuity
+    synthesis_phase_cache: std::cell::RefCell<HashMap<(usize, i32), f32>>,
 }
 
 // SAFETY: UnifiedSignalGraph contains RefCell which is !Send and !Sync, but we ensure
@@ -4318,6 +4333,7 @@ impl Clone for UnifiedSignalGraph {
             sample_count: self.sample_count,
             buffer_cache: RefCell::new(HashMap::new()), // Fresh cache for cloned instance
             buffer_cache_enabled: std::cell::Cell::new(false),
+            synthesis_phase_cache: RefCell::new(HashMap::new()), // Fresh phase cache
         }
     }
 }
@@ -4349,6 +4365,7 @@ impl UnifiedSignalGraph {
             sample_count: 0,
             buffer_cache: RefCell::new(HashMap::new()),
             buffer_cache_enabled: std::cell::Cell::new(false),
+            synthesis_phase_cache: RefCell::new(HashMap::new()),
         }
     }
 
@@ -5737,9 +5754,15 @@ impl UnifiedSignalGraph {
         }
     }
 
-    /// Evaluate a signal as a chord, returning all semitone offsets
-    /// For single notes returns vec with one element
-    /// For chords like "c4'maj" returns vec![0.0, 4.0, 7.0] (C, E, G)
+    /// Evaluate a signal as a chord, returning pitch values
+    ///
+    /// Return value encoding:
+    /// - Values >= 1000: Absolute MIDI note (subtract 1000 to get MIDI number)
+    ///   e.g., 1060.0 = MIDI 60 = C4 = 261.63 Hz
+    /// - Values < 1000: Relative semitone offset from base frequency
+    ///   e.g., 12.0 = +12 semitones = 1 octave up
+    ///
+    /// For chords like "c4'maj" returns vec![1060.0, 1064.0, 1067.0] (C4, E4, G4 as MIDI)
     fn eval_note_signal_as_chord(&mut self, signal: &Signal, cycle_pos: f64) -> Vec<f32> {
         match signal {
             Signal::Node(id) => {
@@ -5756,47 +5779,55 @@ impl UnifiedSignalGraph {
 
                     let events = pattern.query(&state);
 
-                    if let Some(event) = events.first() {
-                        let s = event.value.as_str();
-                        if s == "~" || s.is_empty() {
-                            vec![0.0]
-                        } else {
-                            use crate::pattern_tonal::{note_to_midi, CHORD_INTERVALS};
+                    if events.is_empty() {
+                        vec![0.0]
+                    } else {
+                        use crate::pattern_tonal::{note_to_midi, CHORD_INTERVALS};
+
+                        // Process ALL events (for chord notation like [a3, g3] with comma for simultaneous)
+                        let mut all_notes = Vec::new();
+
+                        for event in &events {
+                            let s = event.value.as_str();
+
+                            if s == "~" || s.is_empty() {
+                                // Skip rests, don't add 0.0 (that would affect other notes)
+                                continue;
+                            }
 
                             // Check if this is chord notation (contains apostrophe)
                             if s.contains('\'') {
                                 // Parse chord: "c4'maj" -> root note + chord intervals
+                                // Return ABSOLUTE MIDI values (+ 1000 offset to distinguish from relative)
                                 if let Some(midi_root) = note_to_midi(s) {
-                                    let root_semitones = (midi_root as i32 - 60) as f32;
-
                                     // Extract chord type from notation (everything after ')
                                     if let Some(apostrophe_pos) = s.find('\'') {
                                         let chord_type = &s[apostrophe_pos + 1..];
 
                                         // Look up chord intervals
                                         if let Some(intervals) = CHORD_INTERVALS.get(chord_type) {
-                                            // Return root + all intervals as semitone offsets
-                                            intervals
-                                                .iter()
-                                                .map(|&interval| root_semitones + interval as f32)
-                                                .collect()
+                                            // Add root + all intervals as ABSOLUTE MIDI (+ 1000)
+                                            for &interval in intervals.iter() {
+                                                all_notes.push(1000.0 + midi_root as f32 + interval as f32);
+                                            }
                                         } else {
                                             // Unknown chord type, just play root
-                                            vec![root_semitones]
+                                            all_notes.push(1000.0 + midi_root as f32);
                                         }
                                     } else {
-                                        vec![root_semitones]
+                                        all_notes.push(1000.0 + midi_root as f32);
                                     }
-                                } else {
-                                    vec![0.0]
                                 }
                             } else {
-                                // Single note - use existing logic
-                                let single_note = if let Ok(numeric_value) = s.parse::<f32>() {
+                                // Single note or numeric offset
+                                let note_value = if let Ok(numeric_value) = s.parse::<f32>() {
+                                    // Numeric: direct semitone offset (RELATIVE)
                                     numeric_value
                                 } else if let Some(midi) = note_to_midi(s) {
-                                    (midi as i32 - 60) as f32
+                                    // Named note: ABSOLUTE MIDI (+ 1000)
+                                    1000.0 + midi as f32
                                 } else {
+                                    // Solfège: treat as relative semitones in current octave
                                     match s.to_lowercase().as_str() {
                                         "do" => 0.0,
                                         "re" => 2.0,
@@ -5808,11 +5839,16 @@ impl UnifiedSignalGraph {
                                         _ => 0.0,
                                     }
                                 };
-                                vec![single_note]
+                                all_notes.push(note_value);
                             }
                         }
-                    } else {
-                        vec![0.0]
+
+                        // If no valid notes were found, return 0 (no pitch change)
+                        if all_notes.is_empty() {
+                            vec![0.0]
+                        } else {
+                            all_notes
+                        }
                     }
                     } else {
                         vec![self.eval_node(id)]
@@ -6066,10 +6102,19 @@ impl UnifiedSignalGraph {
                     current_freq = pending; // Use pending freq until zero-crossing
                 }
 
-                // Apply semitone offset: freq * 2^(semitones/12)
-                if *semitone_offset != 0.0 {
-                    current_freq *= 2.0_f32.powf(*semitone_offset / 12.0);
-                }
+                // Decode pitch value:
+                // >= 1000: Absolute MIDI note (subtract 1000, convert to Hz)
+                // < 1000: Relative semitone offset from base frequency
+                current_freq = if *semitone_offset >= 1000.0 {
+                    // Absolute MIDI: convert to Hz using A4=440Hz as reference
+                    let midi = *semitone_offset - 1000.0;
+                    440.0 * 2.0_f32.powf((midi - 69.0) / 12.0)
+                } else if *semitone_offset != 0.0 {
+                    // Relative: apply semitone offset to base frequency
+                    current_freq * 2.0_f32.powf(*semitone_offset / 12.0)
+                } else {
+                    current_freq
+                };
 
                 // Generate sample based on waveform
                 // Extract phase value to drop borrow immediately
@@ -6120,14 +6165,12 @@ impl UnifiedSignalGraph {
                         }
 
                         // Update phase for next sample
-                        let freq_to_use = if pending_freq.borrow().is_some() {
-                            current_freq
-                        } else {
-                            requested_freq
-                        };
+                        // CRITICAL FIX: Always use current_freq (which includes pitch shift)
+                        // for phase increment. pending_freq is only for anti-click smoothing
+                        // during frequency changes, not for pitch shifting.
                         {
                             let mut p = phase.borrow_mut();
-                            *p += freq_to_use / self.sample_rate;
+                            *p += current_freq / self.sample_rate;
                             if *p >= 1.0 {
                                 *p -= 1.0;
                             }
@@ -9218,6 +9261,7 @@ impl UnifiedSignalGraph {
                                             cut_group_opt,
                                             bus_attack,
                                             bus_release,
+                                            note_semitones, // Pitch offset for note parameter
                                         );
 
                                     // Note: unit mode and loop don't apply to synthesis voices
@@ -9440,8 +9484,10 @@ impl UnifiedSignalGraph {
                 // Each Sample node returns only its own voice mix (by node ID)
                 // This allows multiple outputs to have independent sample streams
                 let output = self.voice_output_cache.get(&node_id.0).copied().unwrap_or(0.0);
-                if std::env::var("DEBUG_SOURCE_NODE").is_ok() && self.sample_count < 5 && output.abs() > 0.001 {
-                    eprintln!("[SOURCE_NODE] Sample node {} reading from cache: {:.6}", node_id.0, output);
+                // Debug for samples 520-530 (second buffer, after synthesis should be mixed)
+                if std::env::var("DEBUG_VOICE_CACHE").is_ok() && self.sample_count >= 520 && self.sample_count < 530 {
+                    eprintln!("[VOICE_CACHE] sample_count={}, Sample node {} reading: {:.6}",
+                        self.sample_count, node_id.0, output);
                 }
                 output
             }
@@ -11654,14 +11700,103 @@ impl UnifiedSignalGraph {
         // BUFFER-BASED SYNTHESIS: Generate synthesis buffers ONCE per buffer (not per sample!)
         // This matches the voice buffer architecture and enables SIMD auto-vectorization
         {
-            let node_ids: Vec<usize> = self.voice_manager.borrow().get_active_synthesis_node_ids();
-            if !node_ids.is_empty() {
-                // Generate buffers for each synthesis node
-                let mut synthesis_buffers = std::collections::HashMap::new();
-                for &node_id in &node_ids {
+            let node_pitch_pairs: Vec<(usize, f32)> = self.voice_manager.borrow().get_active_synthesis_node_ids_with_pitch();
+            if !node_pitch_pairs.is_empty() {
+                // Generate buffers for each unique (node_id, semitone_offset) combination
+                // Use a HashMap with (node_id, rounded semitone) as key to deduplicate
+                let mut synthesis_buffers: std::collections::HashMap<(usize, i32), Vec<f32>> = std::collections::HashMap::new();
+
+                for &(node_id, semitone_offset) in &node_pitch_pairs {
+                    // Round semitone offset to avoid floating point precision issues
+                    let semitone_key = (semitone_offset * 100.0).round() as i32;
+                    let buffer_key = (node_id, semitone_key);
+
+                    // Skip if we already generated this combination
+                    if synthesis_buffers.contains_key(&buffer_key) {
+                        continue;
+                    }
+
+                    // Find ALL oscillator nodes in the signal chain (bus may have multiple oscillators
+                    // or be wrapped in effects like gain, filter, etc.)
+                    let oscillator_ids = self.find_oscillator_nodes_in_chain(node_id);
+
+                    // DEBUG: Log oscillator discovery
+                    if std::env::var("DEBUG_SYNTH_BUFFERS").is_ok() {
+                        eprintln!("[SYNTH_BUF] node_id={}, found oscillators: {:?}", node_id, oscillator_ids);
+                    }
+
+                    // Store original offsets AND phases for all oscillators
+                    let mut original_state: Vec<(usize, f32, f32)> = Vec::new(); // (osc_id, offset, phase)
+                    for &osc_id in &oscillator_ids {
+                        if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
+                            if let SignalNode::Oscillator { semitone_offset: node_offset, phase, .. } = &**node_rc {
+                                original_state.push((osc_id, *node_offset, *phase.borrow()));
+                            }
+                        }
+                    }
+
+                    // Apply pitch offset to ALL oscillators in the chain AND set per-pitch phase
+                    // Each pitch variant maintains its own phase for continuity across buffers
+                    for &osc_id in &oscillator_ids {
+                        if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
+                            let node = std::rc::Rc::make_mut(node_rc);
+                            if let SignalNode::Oscillator { semitone_offset: node_offset, phase, .. } = node {
+                                // Get cached phase for this (osc, pitch) combination, or start from 0
+                                let phase_key = (osc_id, semitone_key);
+                                let cached_phase = self.synthesis_phase_cache.borrow()
+                                    .get(&phase_key).copied().unwrap_or(0.0);
+
+                                // DEBUG: Log the offset and phase being applied
+                                if std::env::var("DEBUG_SYNTH_BUFFERS").is_ok() {
+                                    eprintln!("[SYNTH_BUF] Setting osc_id={} semitone_offset from {} to {}, phase from {:.4} to {:.4}",
+                                        osc_id, *node_offset, semitone_offset, *phase.borrow(), cached_phase);
+                                }
+                                *node_offset = semitone_offset;
+                                *phase.borrow_mut() = cached_phase;
+                            }
+                        }
+                    }
+
+                    // CRITICAL: Clear buffer cache before generating buffer with new semitone_offset
+                    // Otherwise the cache returns stale results from previous pitch variants
+                    self.buffer_cache.borrow_mut().clear();
+
+                    // Generate buffer with the temporary semitone_offset(s)
                     let mut synth_buffer = vec![0.0; buffer.len()];
                     self.eval_node_buffer(&NodeId(node_id), &mut synth_buffer);
-                    synthesis_buffers.insert(node_id, synth_buffer);
+
+                    // DEBUG: Log buffer generation
+                    if std::env::var("DEBUG_SYNTH_BUFFERS").is_ok() {
+                        let first_samples: Vec<f32> = synth_buffer.iter().take(10).cloned().collect();
+                        eprintln!("[SYNTH_BUF] Generated buffer key=({}, {}), first_10={:?}",
+                            node_id, semitone_key, first_samples);
+                    }
+
+                    synthesis_buffers.insert(buffer_key, synth_buffer);
+
+                    // Save phase to per-pitch cache BEFORE restoring original state
+                    // This maintains phase continuity for this pitch variant across buffers
+                    for &osc_id in &oscillator_ids {
+                        if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
+                            if let SignalNode::Oscillator { phase, .. } = &**node_rc {
+                                let phase_key = (osc_id, semitone_key);
+                                let new_phase = *phase.borrow();
+                                self.synthesis_phase_cache.borrow_mut().insert(phase_key, new_phase);
+                            }
+                        }
+                    }
+
+                    // Restore original state (offset AND phase) for all oscillators
+                    // This ensures the next pitch variant starts with clean state
+                    for (osc_id, original_offset, original_phase) in original_state {
+                        if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
+                            let node = std::rc::Rc::make_mut(node_rc);
+                            if let SignalNode::Oscillator { semitone_offset: node_offset, phase, .. } = node {
+                                *node_offset = original_offset;
+                                *phase.borrow_mut() = original_phase;
+                            }
+                        }
+                    }
                 }
 
                 // Process synthesis voices with envelopes and mix into voice_buffers
@@ -11669,12 +11804,31 @@ impl UnifiedSignalGraph {
                     .process_synthesis_buffers(&synthesis_buffers, buffer.len());
 
                 // Mix synthesis outputs into voice_buffers
+                if std::env::var("DEBUG_SYNTH_MIX").is_ok() {
+                    eprintln!("[SYNTH_MIX] synthesis_voice_buffers.len()={}, voice_buffers.len()={}",
+                        synthesis_voice_buffers.len(), voice_buffers.len());
+                    // Check samples 10 and 100 instead of 0 (sin(0)=0)
+                    for idx in [10, 100] {
+                        if let Some(sample) = synthesis_voice_buffers.get(idx) {
+                            for (&k, &v) in sample.iter() {
+                                eprintln!("[SYNTH_MIX] synth[{}][{}]={:.6}", idx, k, v);
+                            }
+                        }
+                    }
+                }
                 for (i, synth_outputs) in synthesis_voice_buffers.iter().enumerate() {
                     for (&source_node, &value) in synth_outputs {
                         voice_buffers[i]
                             .entry(source_node)
                             .and_modify(|v| *v += value)
                             .or_insert(value);
+                    }
+                }
+                // DEBUG: Check voice_buffers AFTER mixing
+                if std::env::var("DEBUG_SYNTH_MIX").is_ok() {
+                    if let Some(sample_10) = voice_buffers.get(10) {
+                        eprintln!("[SYNTH_MIX] voice_buffers[10] AFTER mix: {:?}",
+                            sample_10.iter().collect::<Vec<_>>());
                     }
                 }
             }
@@ -11979,6 +12133,72 @@ impl UnifiedSignalGraph {
     /// # Migration Status
     /// During gradual migration, not all nodes support buffer evaluation yet.
     /// Unsupported nodes fall back to sample-by-sample evaluation.
+
+    /// Find all oscillator nodes in a signal chain by traversing from the output node
+    /// This is needed because a bus like `sine 440 # gain 0.3` creates a chain where
+    /// the bus points to the Multiply (gain) node, not the Oscillator.
+    fn find_oscillator_nodes_in_chain(&self, start_node_id: usize) -> Vec<usize> {
+        let mut oscillators = Vec::new();
+        let mut visited = std::collections::HashSet::new();
+        let mut stack = vec![start_node_id];
+
+        while let Some(node_id) = stack.pop() {
+            if visited.contains(&node_id) {
+                continue;
+            }
+            visited.insert(node_id);
+
+            if let Some(Some(node_rc)) = self.nodes.get(node_id) {
+                match &**node_rc {
+                    SignalNode::Oscillator { .. } => {
+                        oscillators.push(node_id);
+                    }
+                    // Traverse through common wrapper nodes - binary ops
+                    SignalNode::Multiply { a, b } | SignalNode::Add { a, b } | SignalNode::Min { a, b } => {
+                        if let Signal::Node(id) = a { stack.push(id.0); }
+                        if let Signal::Node(id) = b { stack.push(id.0); }
+                    }
+                    // Filters
+                    SignalNode::LowPass { input, .. } | SignalNode::HighPass { input, .. } |
+                    SignalNode::BandPass { input, .. } | SignalNode::Notch { input, .. } |
+                    SignalNode::MoogLadder { input, .. } | SignalNode::SVF { input, .. } |
+                    SignalNode::DJFilter { input, .. } | SignalNode::Resonz { input, .. } => {
+                        if let Signal::Node(id) = input { stack.push(id.0); }
+                    }
+                    // Effects
+                    SignalNode::Reverb { input, .. } | SignalNode::DattorroReverb { input, .. } |
+                    SignalNode::Distortion { input, .. } | SignalNode::Compressor { input, .. } |
+                    SignalNode::BitCrush { input, .. } | SignalNode::Chorus { input, .. } |
+                    SignalNode::Vibrato { input, .. } | SignalNode::Tremolo { input, .. } |
+                    SignalNode::RingMod { input, .. } | SignalNode::Expander { input, .. } |
+                    SignalNode::Comb { input, .. } | SignalNode::TapeDelay { input, .. } |
+                    SignalNode::PingPongDelay { input, .. } | SignalNode::ParametricEQ { input, .. } => {
+                        if let Signal::Node(id) = input { stack.push(id.0); }
+                    }
+                    // Formant has "source" not "input"
+                    SignalNode::Formant { source, .. } => {
+                        if let Signal::Node(id) = source { stack.push(id.0); }
+                    }
+                    // Wrap and other utility nodes
+                    SignalNode::Wrap { input, .. } | SignalNode::Output { input } |
+                    SignalNode::Lag { input, .. } => {
+                        if let Signal::Node(id) = input { stack.push(id.0); }
+                    }
+                    // Crossfade
+                    SignalNode::XFade { signal_a, signal_b, .. } => {
+                        if let Signal::Node(id) = signal_a { stack.push(id.0); }
+                        if let Signal::Node(id) = signal_b { stack.push(id.0); }
+                    }
+                    _ => {
+                        // Other nodes - don't traverse (constants, patterns, noise, etc.)
+                    }
+                }
+            }
+        }
+
+        oscillators
+    }
+
     pub fn eval_node_buffer(&mut self, node_id: &NodeId, output: &mut [f32]) {
         let buffer_size = output.len();
 
@@ -12085,10 +12305,34 @@ impl UnifiedSignalGraph {
                         current_freq = pending;
                     }
 
-                    // Apply semitone offset: freq * 2^(semitones/12)
-                    if *semitone_offset != 0.0 {
-                        current_freq *= 2.0_f32.powf(*semitone_offset / 12.0);
+                    // Decode pitch value:
+                    // >= 1000: Absolute MIDI note (subtract 1000, convert to Hz)
+                    // < 1000: Relative semitone offset from base frequency
+                    let final_freq = if *semitone_offset >= 1000.0 {
+                        // Absolute MIDI: convert to Hz using A4=440Hz as reference
+                        let midi = *semitone_offset - 1000.0;
+                        440.0 * 2.0_f32.powf((midi - 69.0) / 12.0)
+                    } else if *semitone_offset != 0.0 {
+                        // Relative: apply semitone offset to base frequency
+                        current_freq * 2.0_f32.powf(*semitone_offset / 12.0)
+                    } else {
+                        current_freq
+                    };
+
+                    // DEBUG: Log frequency calculation (only for first sample)
+                    if i == 0 && std::env::var("DEBUG_OSC_FREQ").is_ok() {
+                        eprintln!("[OSC_FREQ] semitone_offset={}, requested_freq={:.2}, final_freq={:.2}",
+                            *semitone_offset, requested_freq, final_freq);
                     }
+                    if i == 0 && std::env::var("DEBUG_OSC_FREQ_OLD").is_ok() {
+                        // Log when final_freq is close to 440 Hz (the base oscillator freq)
+                        if (final_freq - 440.0).abs() < 5.0 {
+                            eprintln!("[OSC_FREQ] WARNING: 440Hz! semitone_offset={}, requested_freq={}",
+                                *semitone_offset, requested_freq);
+                        }
+                    }
+
+                    current_freq = final_freq;
 
                     // Generate sample based on waveform
                     let sample = match waveform {
@@ -12126,12 +12370,10 @@ impl UnifiedSignalGraph {
                     }
 
                     // Update phase for next sample
-                    let freq_to_use = if current_pending.is_some() {
-                        current_freq
-                    } else {
-                        requested_freq
-                    };
-                    current_phase += freq_to_use / self.sample_rate;
+                    // CRITICAL FIX: Use final_freq (pitch-shifted) for phase increment,
+                    // not requested_freq (original oscillator freq)
+                    // pending_freq only affects anti-click smoothing, not pitch shifting
+                    current_phase += final_freq / self.sample_rate;
                     if current_phase >= 1.0 {
                         current_phase -= 1.0;
                     }

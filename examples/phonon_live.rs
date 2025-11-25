@@ -219,6 +219,7 @@ fn parse_phonon_file(content: &str, sample_rate: f32) -> Result<UnifiedSignalGra
         let osc = graph.add_node(SignalNode::Oscillator {
             freq: Signal::Value(440.0),
             waveform: Waveform::Sine,
+        semitone_offset: 0.0,
             phase: RefCell::new(0.0),
             pending_freq: RefCell::new(None),
             last_sample: RefCell::new(0.0),
@@ -275,6 +276,7 @@ fn parse_expression(
             return Some(graph.add_node(SignalNode::Oscillator {
                 freq: Signal::Value(freq),
                 waveform: Waveform::Sine,
+        semitone_offset: 0.0,
                 phase: RefCell::new(0.0),
                 pending_freq: RefCell::new(None),
                 last_sample: RefCell::new(0.0),
@@ -288,6 +290,7 @@ fn parse_expression(
             return Some(graph.add_node(SignalNode::Oscillator {
                 freq: Signal::Value(freq),
                 waveform: Waveform::Saw,
+        semitone_offset: 0.0,
                 phase: RefCell::new(0.0),
                 pending_freq: RefCell::new(None),
                 last_sample: RefCell::new(0.0),
@@ -305,6 +308,7 @@ fn parse_expression(
             return Some(graph.add_node(SignalNode::Oscillator {
                 freq: Signal::Value(freq),
                 waveform: Waveform::Square,
+        semitone_offset: 0.0,
                 phase: RefCell::new(0.0),
                 pending_freq: RefCell::new(None),
                 last_sample: RefCell::new(0.0),
@@ -318,6 +322,7 @@ fn parse_expression(
             return Some(graph.add_node(SignalNode::Oscillator {
                 freq: Signal::Value(freq),
                 waveform: Waveform::Triangle,
+        semitone_offset: 0.0,
                 phase: RefCell::new(0.0),
                 pending_freq: RefCell::new(None),
                 last_sample: RefCell::new(0.0),

@@ -117,6 +117,10 @@ pub struct Voice {
     /// This is filled by VoiceManager before calling process_stereo()
     synthesis_sample_cache: f32,
 
+    /// Semitone offset for synthesis pitch control (0 = no change, 12 = +1 octave)
+    /// Used to implement note parameter: `s "~synth" # note "c4 e4 g4"`
+    synthesis_semitone_offset: f32,
+
     /// Current playback position in the sample (fractional for speed control)
     position: f32,
 
@@ -192,6 +196,7 @@ impl Voice {
             sample_data: None,
             synthesis_node_id: None,   // No synthesis node by default
             synthesis_sample_cache: 0.0, // No cached sample yet
+            synthesis_semitone_offset: 0.0, // No pitch offset by default
             position: 0.0,
             state: VoiceState::Free,
             gain: 1.0,
@@ -1022,6 +1027,7 @@ impl VoiceManager {
     /// Trigger a continuous synthesis voice (no pre-rendered buffer)
     /// The synthesis_node_id will be evaluated continuously for each sample
     /// This enables bus-triggered synthesis without pre-rendering to fixed buffers
+    /// semitone_offset: pitch offset in semitones (0 = no change, 12 = +1 octave, -12 = -1 octave)
     pub fn trigger_synthesis_voice(
         &mut self,
         synthesis_node_id: usize,
@@ -1030,11 +1036,12 @@ impl VoiceManager {
         cut_group: Option<u32>,
         attack: f32,
         release: f32,
+        semitone_offset: f32,
     ) {
         // DEBUG: Log synthesis voice triggers
         if std::env::var("DEBUG_VOICE_TRIGGERS").is_ok() {
-            eprintln!("[VOICE_MGR] trigger_synthesis_voice called: node_id={}, gain={:.3}, pan={:.3}",
-                synthesis_node_id, gain, pan);
+            eprintln!("[VOICE_MGR] trigger_synthesis_voice: node_id={}, semitone_offset={:.1}",
+                synthesis_node_id, semitone_offset);
         }
 
         // If this has a cut group, fade out all other voices in the same cut group
@@ -1055,6 +1062,7 @@ impl VoiceManager {
                 self.voices[idx].synthesis_node_id = Some(synthesis_node_id);
                 self.voices[idx].sample_data = None; // Clear any sample data
                 self.voices[idx].synthesis_sample_cache = 0.0; // Will be filled during processing
+                self.voices[idx].synthesis_semitone_offset = semitone_offset; // Pitch offset for note parameter
                 self.voices[idx].state = VoiceState::Playing;
                 self.voices[idx].gain = gain;
                 self.voices[idx].pan = pan;
@@ -1086,6 +1094,7 @@ impl VoiceManager {
             self.voices[idx].synthesis_node_id = Some(synthesis_node_id);
             self.voices[idx].sample_data = None;
             self.voices[idx].synthesis_sample_cache = 0.0;
+            self.voices[idx].synthesis_semitone_offset = semitone_offset; // Pitch offset for note parameter
             self.voices[idx].state = VoiceState::Playing;
             self.voices[idx].gain = gain;
             self.voices[idx].pan = pan;
@@ -1135,14 +1144,15 @@ impl VoiceManager {
         self.last_triggered_voice_index = Some(oldest_idx);
     }
 
-    /// Get synthesis node IDs for all active synthesis voices
-    /// Used to pre-query which nodes need evaluation
-    pub fn get_active_synthesis_node_ids(&self) -> Vec<usize> {
+    /// Get synthesis node IDs and semitone offsets for all active synthesis voices
+    /// Returns (node_id, semitone_offset) pairs for per-voice pitch shifting
+    /// Used to pre-query which (node, pitch) combinations need evaluation
+    pub fn get_active_synthesis_node_ids_with_pitch(&self) -> Vec<(usize, f32)> {
         self.voices
             .iter()
             .filter_map(|v| {
                 if v.synthesis_node_id.is_some() && v.state != VoiceState::Free {
-                    v.synthesis_node_id
+                    v.synthesis_node_id.map(|node_id| (node_id, v.synthesis_semitone_offset))
                 } else {
                     None
                 }
@@ -1615,9 +1625,12 @@ impl VoiceManager {
     /// mixed output in the same format as process_buffer_per_node().
     ///
     /// This enables SIMD auto-vectorization by processing entire buffers at once.
+    ///
+    /// The synthesis_buffers HashMap uses (node_id, semitone_key) as key to support
+    /// per-voice pitch shifting for chords.
     pub fn process_synthesis_buffers(
         &mut self,
-        synthesis_buffers: &std::collections::HashMap<usize, Vec<f32>>,
+        synthesis_buffers: &std::collections::HashMap<(usize, i32), Vec<f32>>,
         buffer_size: usize,
     ) -> Vec<std::collections::HashMap<usize, f32>> {
         use std::collections::HashMap;
@@ -1629,9 +1642,22 @@ impl VoiceManager {
         for voice in &mut self.voices {
             // Only process synthesis voices
             if let Some(synthesis_node_id) = voice.synthesis_node_id {
-                // Find the pre-generated buffer for this synthesis node
-                if let Some(synth_buffer) = synthesis_buffers.get(&synthesis_node_id) {
+                // Calculate buffer key from voice's semitone offset
+                // Round to avoid floating point precision issues
+                let semitone_key = (voice.synthesis_semitone_offset * 100.0).round() as i32;
+                let buffer_key = (synthesis_node_id, semitone_key);
+
+                // Find the pre-generated buffer for this (node, pitch) combination
+                if let Some(synth_buffer) = synthesis_buffers.get(&buffer_key) {
                     let source_node = voice.source_node;
+
+                    // DEBUG: Log successful buffer lookup
+                    if std::env::var("DEBUG_SYNTH_LOOKUP").is_ok() {
+                        let sum: f32 = synth_buffer.iter().sum();
+                        let sample_10 = synth_buffer.get(10).copied().unwrap_or(0.0);
+                        eprintln!("[SYNTH_LOOKUP] Found buffer key=({}, {}), source={}, sum={:.2}, sample[10]={:.6}",
+                            synthesis_node_id, semitone_key, source_node, sum, sample_10);
+                    }
 
                     // Process each sample in the buffer
                     for i in 0..buffer_size.min(synth_buffer.len()) {
@@ -1667,10 +1693,17 @@ impl VoiceManager {
                         let mono = (left + right) / std::f32::consts::SQRT_2;
 
                         // Accumulate into output
+                        let old_val = output[i].get(&source_node).copied().unwrap_or(0.0);
                         output[i]
                             .entry(source_node)
                             .and_modify(|v| *v += mono)
                             .or_insert(mono);
+
+                        // DEBUG: Log accumulation for first few samples
+                        if std::env::var("DEBUG_SYNTH_OUTPUT").is_ok() && i < 3 {
+                            eprintln!("[SYNTH_OUT] i={}, key={}, env={:.4}, mono={:.6}, old={:.6}, new={:.6}",
+                                i, semitone_key, env_value, mono, old_val, old_val + mono);
+                        }
 
                         // Check if envelope finished
                         if !voice.envelope.is_active() {
@@ -1679,6 +1712,9 @@ impl VoiceManager {
                             break; // Stop processing this voice
                         }
                     }
+                } else if std::env::var("DEBUG_SYNTH_LOOKUP").is_ok() {
+                    eprintln!("[SYNTH_LOOKUP] WARNING: No buffer for key=({}, {}), voice semitone={}",
+                        synthesis_node_id, semitone_key, voice.synthesis_semitone_offset);
                 }
             }
         }

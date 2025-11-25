@@ -21,6 +21,7 @@ fn main() {
     let osc = graph.add_node(SignalNode::Oscillator {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
+        semitone_offset: 0.0,
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
