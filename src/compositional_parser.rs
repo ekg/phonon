@@ -364,10 +364,26 @@ pub enum Transform {
 /// Binary operators
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinOp {
+    // Standard arithmetic (both structures / audio-rate)
     Add,
     Sub,
     Mul,
     Div,
+
+    // Pattern structure operators (Tidal-style)
+    // |op = left structure, op| = right structure
+    AddLeft,  // |+
+    AddRight, // +|
+    SubLeft,  // |-
+    SubRight, // -|
+    MulLeft,  // |*
+    MulRight, // *|
+    DivLeft,  // |/
+    DivRight, // /|
+
+    // Union operators (for control values like gain, pan)
+    UnionLeft,  // |> (structure from left, values from right) - same as #
+    UnionRight, // <| (structure from right, values from left)
 }
 
 /// Unary operators
@@ -962,6 +978,7 @@ fn parse_transform_expr(input: &str) -> IResult<&str, Expr> {
 }
 
 /// Parse additive expression: expr + expr | expr - expr
+/// Also handles Tidal pattern structure operators: |+, +|, |-, -|, |>, <|
 fn parse_additive_expr(input: &str) -> IResult<&str, Expr> {
     let (input, mut expr) = parse_multiplicative_expr(input)?;
 
@@ -969,9 +986,26 @@ fn parse_additive_expr(input: &str) -> IResult<&str, Expr> {
     loop {
         let (input, _) = space0(current_input)?;
 
-        // Try to parse + or -
-        // IMPORTANT: For -, we must check it's not followed by another - (which would be a comment)
-        let op = if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('+')(input) {
+        // Try to parse pattern structure operators and standard +/-
+        // Order matters: check two-char operators before single-char
+        let op = if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("|+")(input) {
+            Some((input, BinOp::AddLeft))
+        } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("+|")(input) {
+            Some((input, BinOp::AddRight))
+        } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("|-")(input) {
+            // Check it's not |-- (comment after |)
+            if peek::<_, _, nom::error::Error<&str>, _>(char('-'))(input).is_ok() {
+                None
+            } else {
+                Some((input, BinOp::SubLeft))
+            }
+        } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("-|")(input) {
+            Some((input, BinOp::SubRight))
+        } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("|>")(input) {
+            Some((input, BinOp::UnionLeft))
+        } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("<|")(input) {
+            Some((input, BinOp::UnionRight))
+        } else if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('+')(input) {
             Some((input, BinOp::Add))
         } else if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('-')(input) {
             // Check that it's not followed by another - (comment start)
@@ -1004,6 +1038,7 @@ fn parse_additive_expr(input: &str) -> IResult<&str, Expr> {
 }
 
 /// Parse multiplicative expression: expr * expr | expr / expr
+/// Also handles Tidal pattern structure operators: |*, *|, |/, /|
 fn parse_multiplicative_expr(input: &str) -> IResult<&str, Expr> {
     let (input, mut expr) = parse_unary_expr(input)?;
 
@@ -1011,8 +1046,17 @@ fn parse_multiplicative_expr(input: &str) -> IResult<&str, Expr> {
     loop {
         let (input, _) = space0(current_input)?;
 
-        // Try to parse * or /
-        let op = if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('*')(input) {
+        // Try to parse pattern structure operators and standard * /
+        // Order matters: check two-char operators before single-char
+        let op = if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("|*")(input) {
+            Some((input, BinOp::MulLeft))
+        } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("*|")(input) {
+            Some((input, BinOp::MulRight))
+        } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("|/")(input) {
+            Some((input, BinOp::DivLeft))
+        } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("/|")(input) {
+            Some((input, BinOp::DivRight))
+        } else if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('*')(input) {
             Some((input, BinOp::Mul))
         } else if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('/')(input) {
             Some((input, BinOp::Div))
@@ -2931,5 +2975,140 @@ o2: s "cp(2,4)"
                 panic!("Expected OutputChannel statement, got: {:?}", statements[1]);
             }
         }
+    }
+
+    // ========== Pattern Structure Operator Tests ==========
+
+    #[test]
+    fn test_pattern_add_left() {
+        // |+ operator: left structure
+        let result = parse_expr("\"1 2 3\" |+ \"10\"");
+        assert!(result.is_ok(), "Failed to parse |+ operator");
+        if let Ok((_, Expr::BinOp { op: BinOp::AddLeft, .. })) = result {
+            // Success
+        } else {
+            panic!("Expected BinOp::AddLeft, got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_pattern_add_right() {
+        // +| operator: right structure
+        let result = parse_expr("\"1 2 3\" +| \"10 20\"");
+        assert!(result.is_ok(), "Failed to parse +| operator");
+        if let Ok((_, Expr::BinOp { op: BinOp::AddRight, .. })) = result {
+            // Success
+        } else {
+            panic!("Expected BinOp::AddRight, got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_pattern_sub_left() {
+        // |- operator
+        let result = parse_expr("x |- y");
+        assert!(result.is_ok(), "Failed to parse |- operator");
+        if let Ok((_, Expr::BinOp { op: BinOp::SubLeft, .. })) = result {
+            // Success
+        } else {
+            panic!("Expected BinOp::SubLeft, got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_pattern_sub_right() {
+        // -| operator
+        let result = parse_expr("x -| y");
+        assert!(result.is_ok(), "Failed to parse -| operator");
+        if let Ok((_, Expr::BinOp { op: BinOp::SubRight, .. })) = result {
+            // Success
+        } else {
+            panic!("Expected BinOp::SubRight, got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_pattern_mul_left() {
+        // |* operator
+        let result = parse_expr("a |* b");
+        assert!(result.is_ok(), "Failed to parse |* operator");
+        if let Ok((_, Expr::BinOp { op: BinOp::MulLeft, .. })) = result {
+            // Success
+        } else {
+            panic!("Expected BinOp::MulLeft, got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_pattern_mul_right() {
+        // *| operator
+        let result = parse_expr("a *| b");
+        assert!(result.is_ok(), "Failed to parse *| operator");
+        if let Ok((_, Expr::BinOp { op: BinOp::MulRight, .. })) = result {
+            // Success
+        } else {
+            panic!("Expected BinOp::MulRight, got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_pattern_div_left() {
+        // |/ operator
+        let result = parse_expr("a |/ b");
+        assert!(result.is_ok(), "Failed to parse |/ operator");
+        if let Ok((_, Expr::BinOp { op: BinOp::DivLeft, .. })) = result {
+            // Success
+        } else {
+            panic!("Expected BinOp::DivLeft, got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_pattern_div_right() {
+        // /| operator
+        let result = parse_expr("a /| b");
+        assert!(result.is_ok(), "Failed to parse /| operator");
+        if let Ok((_, Expr::BinOp { op: BinOp::DivRight, .. })) = result {
+            // Success
+        } else {
+            panic!("Expected BinOp::DivRight, got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_pattern_union_left() {
+        // |> operator: structure from left, values from right (like #)
+        let result = parse_expr("a |> b");
+        assert!(result.is_ok(), "Failed to parse |> operator");
+        if let Ok((_, Expr::BinOp { op: BinOp::UnionLeft, .. })) = result {
+            // Success
+        } else {
+            panic!("Expected BinOp::UnionLeft, got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_pattern_union_right() {
+        // <| operator: structure from right, values from left
+        let result = parse_expr("a <| b");
+        assert!(result.is_ok(), "Failed to parse <| operator");
+        if let Ok((_, Expr::BinOp { op: BinOp::UnionRight, .. })) = result {
+            // Success
+        } else {
+            panic!("Expected BinOp::UnionRight, got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_pattern_operators_in_program() {
+        // Test pattern operators in a full program
+        let code = r#"
+tempo: 2.0
+~notes: "c4 e4 g4"
+~shifted: ~notes |+ 12
+out: sine ~shifted
+"#;
+        let result = parse_program(code);
+        assert!(result.is_ok(), "Failed to parse program with |+ operator: {:?}", result);
     }
 }

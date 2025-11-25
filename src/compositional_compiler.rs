@@ -7885,11 +7885,27 @@ fn compile_binop(
     let right_node = compile_expr(ctx, right)?;
 
     // Arithmetic operations are done via Signal::Expression
+    // Pattern structure operators (|+, +|, etc.) currently behave the same as basic arithmetic
+    // In the future, they will implement proper Tidal-style structure semantics
     let expr = match op {
-        BinOp::Add => SignalExpr::Add(Signal::Node(left_node), Signal::Node(right_node)),
-        BinOp::Sub => SignalExpr::Subtract(Signal::Node(left_node), Signal::Node(right_node)),
-        BinOp::Mul => SignalExpr::Multiply(Signal::Node(left_node), Signal::Node(right_node)),
-        BinOp::Div => SignalExpr::Divide(Signal::Node(left_node), Signal::Node(right_node)),
+        BinOp::Add | BinOp::AddLeft | BinOp::AddRight => {
+            SignalExpr::Add(Signal::Node(left_node), Signal::Node(right_node))
+        }
+        BinOp::Sub | BinOp::SubLeft | BinOp::SubRight => {
+            SignalExpr::Subtract(Signal::Node(left_node), Signal::Node(right_node))
+        }
+        BinOp::Mul | BinOp::MulLeft | BinOp::MulRight => {
+            SignalExpr::Multiply(Signal::Node(left_node), Signal::Node(right_node))
+        }
+        BinOp::Div | BinOp::DivLeft | BinOp::DivRight => {
+            SignalExpr::Divide(Signal::Node(left_node), Signal::Node(right_node))
+        }
+        BinOp::UnionLeft | BinOp::UnionRight => {
+            // Union operators: for now, just pass through the right value
+            // This is similar to # operator behavior
+            // TODO: Implement proper structure-aware union
+            SignalExpr::Add(Signal::Node(right_node), Signal::Value(0.0))
+        }
     };
 
     // We need a node that outputs this expression
@@ -7958,6 +7974,8 @@ fn compile_n_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
 
 /// Compile note modifier: s "bd" # note "0 5 7"
 /// Sets the pitch shift in semitones for sample playback
+/// For note NAMES (c4, d4, etc.) uses absolute pitch mode
+/// For NUMBERS uses relative semitone offset mode
 fn compile_note_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 2 {
         return Err(format!(
@@ -7976,10 +7994,10 @@ fn compile_note_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
         }
     };
 
-    // Second arg is the note pattern (semitone offsets)
+    // Second arg is the note pattern (note names or semitone offsets)
     let note_value = compile_expr(ctx, args[1].clone())?;
 
-    // Modify the Sample node
+    // Modify the Sample node's note parameter
     modify_sample_param(ctx, sample_node_id, "note", Signal::Node(note_value))
 }
 
