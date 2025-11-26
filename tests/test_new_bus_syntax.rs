@@ -181,3 +181,89 @@ fn test_complex_pattern_with_new_syntax() {
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
     assert!(rms > 0.01, "Complex patterns should work, got RMS={}", rms);
 }
+
+#[test]
+fn test_modifier_bus_with_hash_lfo() {
+    // Test: # creates modifier/parameter bus (LFO modulating filter cutoff)
+    // ~lfo # sine 0.5 creates a modulation bus
+    // ~bass $ saw 55 uses that bus as filter cutoff modulator
+    let input = r#"
+        cps: 1.0
+        ~lfo # sine 2
+        ~bass $ saw 55 # lpf (~lfo * 500 + 800) 0.8
+        out $ ~bass * 0.3
+    "#;
+
+    let (_, statements) = parse_dsl(input).expect("Should parse modifier bus with #");
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
+
+    let buffer = graph.render(44100); // 1 second
+
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    assert!(rms > 0.01, "Modifier bus (LFO) should produce modulated audio, got RMS={}", rms);
+}
+
+#[test]
+fn test_modifier_bus_with_hash_pattern() {
+    // Test: # creates pattern-based modifier bus
+    // ~cutoff # "500 1000 2000" creates a stepped parameter pattern
+    let input = r#"
+        cps: 2.0
+        ~cutoff # "500 1000 2000 1500"
+        ~bass $ saw 55 # lpf ~cutoff 0.8
+        out $ ~bass * 0.3
+    "#;
+
+    let (_, statements) = parse_dsl(input).expect("Should parse pattern modifier bus with #");
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
+
+    let buffer = graph.render(44100); // 1 second = 2 cycles
+
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    assert!(rms > 0.01, "Pattern modifier bus should produce audio, got RMS={}", rms);
+}
+
+#[test]
+fn test_multiple_modifier_buses() {
+    // Test: multiple # modifier buses controlling different parameters
+    let input = r#"
+        cps: 2.0
+        ~freq_mod # sine 0.25
+        ~cutoff # "2000 3000 1500 2500"
+        ~bass $ saw (110 + ~freq_mod * 20) # lpf ~cutoff 0.5
+        out $ ~bass * 0.5
+    "#;
+
+    let (_, statements) = parse_dsl(input).expect("Should parse multiple modifier buses");
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
+
+    let buffer = graph.render(44100);
+
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    assert!(rms > 0.01, "Multiple modifier buses should work, got RMS={}", rms);
+}
+
+#[test]
+fn test_dollar_vs_hash_semantic_distinction() {
+    // Test: $ for signal sources, # for modifier buses
+    // Both should work but have semantic meaning
+    let input = r#"
+        cps: 2.0
+        ~drums $ s "bd sn"
+        ~mod # sine 4
+        ~bass $ saw 110 # lpf (~mod * 500 + 500) 0.7
+        out $ ~drums * 0.5 + ~bass * 0.3
+    "#;
+
+    let (_, statements) = parse_dsl(input).expect("Should parse $ and # with semantic distinction");
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
+
+    let buffer = graph.render(44100);
+
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    assert!(rms > 0.01, "$ and # should work together semantically, got RMS={}", rms);
+}
