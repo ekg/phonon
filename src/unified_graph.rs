@@ -4531,6 +4531,34 @@ impl UnifiedSignalGraph {
 
         // Also transfer the cached cycle position to ensure consistency
         self.cached_cycle_position = old_cycle_pos;
+
+        // CRITICAL: Update ALL Sample/Pattern node states to prevent re-triggering
+        // When we reload at (e.g.) cycle 5.3, nodes must know we've already processed up to 5.3
+        // Without this, last_trigger_time defaults to -1.0 and events from 0.0-5.3 re-trigger!
+        let current_cycle = old_cycle_pos.floor() as i32;
+
+        for node_opt in self.nodes.iter_mut() {
+            if let Some(node_rc) = node_opt {
+                // Use Rc::make_mut to get mutable access (will clone if needed)
+                let node = Rc::make_mut(node_rc);
+                match node {
+                    SignalNode::Sample { last_cycle, last_trigger_time, .. } => {
+                        *last_cycle = current_cycle;
+                        *last_trigger_time = old_cycle_pos as f32;
+                    }
+                    SignalNode::CycleTrigger { last_cycle, .. } => {
+                        *last_cycle = current_cycle;
+                    }
+                    SignalNode::Pattern { last_trigger_time, .. } => {
+                        *last_trigger_time = old_cycle_pos as f32;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        eprintln!("🔧 Updated {} nodes with cycle position {:.4}",
+            self.nodes.iter().filter(|n| n.is_some()).count(), old_cycle_pos);
     }
 
     /// Extract all FX state from this graph for preservation across hot-swaps
@@ -9477,6 +9505,10 @@ impl UnifiedSignalGraph {
                         last_trigger_time: lt,
                         ..
                     } = &**node {
+                        if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
+                            eprintln!("[DEDUP] Node {} reading last_trigger_time={:.6} from Sample node",
+                                node_id.0, *lt);
+                        }
                         *lt as f64
                     } else {
                         -1.0

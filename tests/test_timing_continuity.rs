@@ -39,6 +39,7 @@ fn start_phonon_audio(output_path: &str) -> Child {
             "--record",
             output_path,
         ])
+        .env("DEBUG_SAMPLE_EVENTS", "1")
         .spawn()
         .expect("Failed to start phonon-audio")
 }
