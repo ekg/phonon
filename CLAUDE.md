@@ -176,20 +176,25 @@ Parentheses and commas are NOT supported for function calls.
 
 ### Bus Syntax
 
-**New Syntax (recommended)**: Uses `$` for source assignment, `#` for effect chaining:
-- `$` - assigns source OR applies pattern transform
-- `#` - chains effects/modifiers onto existing signal
+**New Syntax (recommended)**: Uses `$` for audio sources, `#` for modifier/parameter buses:
+- `$` - assigns audio source OR applies pattern transform
+- `#` - creates modifier/parameter bus (LFOs, control patterns)
 
 ```phonon
 -- Comments use double-dash
 cps: 2.0
 
--- Bus assignment with $ (source) and # (effects)
-~lfo $ sine 0.25
-~bass $ saw "55 82.5" # lpf (~lfo * 2000 + 500) 0.8
-
--- Sample playback
+-- Audio buses with $ (signal generators)
 ~drums $ s "bd sn hh*4 cp"
+~bass $ saw "55 82.5"
+
+-- Modifier buses with # (parameter control)
+~lfo # sine 2                      -- LFO for modulation
+~cutoff # "500 1000 2000 1500"     -- stepped parameter pattern
+
+-- Using modifier buses in audio chain
+~filtered $ saw 55 # lpf (~lfo * 500 + 800) 0.8
+~stepped $ saw 110 # lpf ~cutoff 0.7
 
 -- Sample bank selection with :N syntax
 ~kicks $ s "bd:0 bd:1 bd:2"
@@ -199,7 +204,7 @@ cps: 2.0
 ~reversed $ s "bd sn" $ rev
 
 -- Output ($ assigns)
-out $ ~bass * 0.4 + ~drums * 0.6
+out $ ~drums * 0.4 + ~bass * 0.3
 ```
 
 **Legacy syntax**: Colon `:` still works for backward compatibility:
