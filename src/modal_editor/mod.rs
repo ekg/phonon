@@ -701,13 +701,7 @@ impl ModalEditor {
                 KeyResult::Continue
             }
 
-            // Alt+Space: Start/stop MIDI recording (easier one-handed control)
-            KeyCode::Char(' ') if key.modifiers.contains(KeyModifiers::ALT) => {
-                self.toggle_midi_recording();
-                KeyResult::Continue
-            }
-
-            // Alt+R: Start/stop MIDI recording (alternative keybinding)
+            // Alt+R: Start/stop MIDI recording
             KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::ALT) => {
                 self.toggle_midi_recording();
                 KeyResult::Continue
@@ -1940,7 +1934,7 @@ impl ModalEditor {
             }
 
             self.status_message = format!(
-                "⏺️ Recording MIDI at cycle {:.2}... (Alt+Space to stop)",
+                "⏺️ Recording MIDI at cycle {:.2}... (Alt+R to stop)",
                 current_cycle
             );
         }
@@ -1990,7 +1984,7 @@ impl ModalEditor {
             let elapsed_cycles = current_cycle - start_cycle;
 
             self.status_message = format!(
-                "⏺️ Recording MIDI... Cycle {:.2} (elapsed: {:.2}) - Alt+Space to stop",
+                "⏺️ Recording MIDI... Cycle {:.2} (elapsed: {:.2}) - Alt+R to stop",
                 current_cycle,
                 elapsed_cycles
             );
