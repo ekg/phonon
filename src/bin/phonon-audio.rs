@@ -9,7 +9,9 @@
 //! - Separation ensures compilation NEVER blocks audio (< 30ms pattern swaps)
 
 use arc_swap::ArcSwap;
+use clap::Parser;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use hound::{WavSpec, WavWriter};
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::ipc::{AudioServer, IpcMessage};
@@ -17,9 +19,20 @@ use phonon::unified_graph::UnifiedSignalGraph;
 use ringbuf::traits::{Consumer, Observer, Producer, Split};
 use ringbuf::HeapRb;
 use std::cell::RefCell;
-use std::sync::Arc;
+use std::fs::File;
+use std::io::BufWriter;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration as StdDuration;
+
+/// Phonon Audio Engine - Real-time audio synthesis
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Record audio output to WAV file (for debugging)
+    #[arg(short, long)]
+    record: Option<String>,
+}
 
 // Audio buffer size in samples
 // Can be overridden with PHONON_BUFFER_SIZE environment variable
@@ -44,7 +57,13 @@ unsafe impl Send for GraphCell {}
 unsafe impl Sync for GraphCell {}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+
     eprintln!("🎵 Phonon Audio Engine starting...");
+
+    if let Some(ref record_path) = args.record {
+        eprintln!("🔴 Recording to: {}", record_path);
+    }
 
     // Create Unix socket server
     let server = AudioServer::new()?;
@@ -78,6 +97,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!("🎵 Audio: {} Hz, {} channels", sample_rate as u32, channels);
     eprintln!("🔧 Buffer size: {} samples ({:.1}ms latency)", buffer_size, latency_ms);
     eprintln!("🔧 Using ring buffer architecture for parallel synthesis");
+
+    // Create WAV writer for recording (if requested)
+    let wav_writer: Arc<Mutex<Option<WavWriter<BufWriter<File>>>>> = if let Some(ref record_path) = args.record {
+        let spec = WavSpec {
+            channels: channels as u16,
+            sample_rate: sample_rate as u32,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        };
+        let writer = WavWriter::create(record_path, spec)?;
+        eprintln!("✅ WAV writer created for recording");
+        Arc::new(Mutex::new(Some(writer)))
+    } else {
+        Arc::new(Mutex::new(None))
+    };
 
     // Graph for background synthesis thread (lock-free swap)
     let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));
@@ -143,6 +177,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    // Clone wav_writer for audio callbacks
+    let wav_writer_f32 = Arc::clone(&wav_writer);
+    let wav_writer_i16 = Arc::clone(&wav_writer);
+
     // Build audio stream based on sample format
     let stream_result = match sample_format {
         cpal::SampleFormat::F32 => {
@@ -170,6 +208,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
                     }
+
+                    // Write to WAV file if recording
+                    if let Ok(mut writer_lock) = wav_writer_f32.lock() {
+                        if let Some(ref mut writer) = *writer_lock {
+                            for &sample in data.iter() {
+                                let _ = writer.write_sample(sample);
+                            }
+                        }
+                    }
                 },
                 err_fn,
                 None,
@@ -185,6 +232,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         // Read from ring buffer and convert to i16
                         let mut temp = vec![0.0f32; data.len()];
                         ring_consumer.pop_slice(&mut temp);
+
+                        // Write f32 samples to WAV file if recording
+                        if let Ok(mut writer_lock) = wav_writer_i16.lock() {
+                            if let Some(ref mut writer) = *writer_lock {
+                                for &sample in temp.iter() {
+                                    let _ = writer.write_sample(sample);
+                                }
+                            }
+                        }
+
+                        // Convert to i16 for audio output
                         for (dst, src) in data.iter_mut().zip(temp.iter()) {
                             *dst = (*src * 32767.0) as i16;
                         }
@@ -192,6 +250,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         // Underrun
                         let mut temp = vec![0.0f32; available];
                         ring_consumer.pop_slice(&mut temp);
+
+                        // Write f32 samples to WAV file if recording (with zero padding)
+                        if let Ok(mut writer_lock) = wav_writer_i16.lock() {
+                            if let Some(ref mut writer) = *writer_lock {
+                                for &sample in temp.iter() {
+                                    let _ = writer.write_sample(sample);
+                                }
+                                // Write zeros for underrun portion
+                                for _ in temp.len()..data.len() {
+                                    let _ = writer.write_sample(0.0f32);
+                                }
+                            }
+                        }
+
+                        // Convert to i16 for audio output
                         for (i, dst) in data.iter_mut().enumerate() {
                             if i < temp.len() {
                                 *dst = (temp[i] * 32767.0) as i16;
@@ -326,6 +399,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     eprintln!("🛑 Audio engine shutting down");
+
+    // Finalize WAV recording if active
+    if let Ok(mut writer_lock) = wav_writer.lock() {
+        if let Some(writer) = writer_lock.take() {
+            match writer.finalize() {
+                Ok(_) => eprintln!("✅ Recording finalized successfully"),
+                Err(e) => eprintln!("⚠️  Error finalizing recording: {}", e),
+            }
+        }
+    }
+
     Ok(())
 }
 

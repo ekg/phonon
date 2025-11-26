@@ -4498,6 +4498,9 @@ impl UnifiedSignalGraph {
     /// IMPORTANT: We DO NOT transfer cps - the new graph's tempo from code should be respected!
     /// Only the clock (session_start_time, cycle_offset) is transferred for continuity.
     pub fn transfer_session_timing(&mut self, old_graph: &UnifiedSignalGraph) {
+        // CRITICAL: Enable wall-clock mode (must be done BEFORE transferring session_start_time)
+        self.use_wall_clock = true;
+
         // CRITICAL: Transfer the wall-clock reference point
         self.session_start_time = old_graph.session_start_time;
 

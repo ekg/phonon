@@ -484,10 +484,16 @@ impl ModalEditor {
         eprintln!("✅ Compiled graph successfully");
         eprintln!("📊 New graph CPS from code: {}", new_graph.get_cps());
 
-        // CRITICAL: Enable wall-clock timing for live mode
-        // This ensures the beat NEVER drops during code reloads!
-        new_graph.enable_wall_clock_timing();
-        eprintln!("📊 After enable_wall_clock_timing - cycle position: {}", new_graph.get_cycle_position());
+        // CRITICAL: Check if we have an old graph to transfer timing from
+        // If we do, transfer will preserve wall-clock timing
+        // If we don't (first load), we need to initialize wall-clock timing
+        let has_old_graph = matches!(**self.graph.load(), Some(_));
+
+        if !has_old_graph {
+            // First load - initialize wall-clock timing
+            eprintln!("📊 First load - enabling wall-clock timing");
+            new_graph.enable_wall_clock_timing();
+        }
 
         // CRITICAL: Transfer state from old graph to prevent clicks and timing shifts
         // This ensures seamless hot-swapping:

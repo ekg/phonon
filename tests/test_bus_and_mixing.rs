@@ -353,12 +353,12 @@ fn test_complex_expression_parsing() {
     let phonon_code = r#"
 -- Complex mixing expression
 tempo: 2.0
-~lfo: sine 2
-~bass: saw 55
-~filtered_bass: ~bass # lpf "200 500 1000 500" 3
-~lead: square "220 330 440 330"
+~lfo $ sine 2
+~bass $ saw 55
+~filtered_bass $ ~bass # lpf "200 500 1000 500" 3
+~lead $ square "220 330 440 330"
 
-out: ~filtered_bass * 0.4 + ~lead * 0.1
+out $ ~filtered_bass * 0.4 + ~lead * 0.1
 "#;
 
     std::fs::write("/tmp/test_complex.phonon", phonon_code).unwrap();

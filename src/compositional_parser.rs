@@ -430,7 +430,7 @@ fn skip_space_and_comments(input: &str) -> IResult<&str, ()> {
 /// ```
 /// -- This is a full-line comment
 /// tempo: 2.0  -- This is an inline comment
-/// ~bass: saw 110 # lpf 1000 0.8  -- # is the chain operator
+/// ~bass $ saw 110 # lpf 1000 0.8  -- # is the chain operator
 /// ```
 ///
 /// Preprocess input to join continuation lines
@@ -542,8 +542,7 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
         parse_bus_assignment,
         parse_template_assignment,
         parse_pattern_assignment,
-        parse_output_channel,  // Try multi-channel output first
-        parse_output,          // Then single output
+        parse_output_or_channel,  // Try output (combines channel + single)
         parse_bpm,             // Try BPM before tempo (bpm: vs tempo:)
         parse_tempo,
         parse_outmix,          // Output mixing mode
@@ -581,12 +580,14 @@ fn parse_function_def(input: &str) -> IResult<&str, Statement> {
     ))
 }
 
-/// Parse bus assignment: ~name: expr
+/// Parse bus assignment: ~name $ expr or ~name # expr
+/// $ is for function application/transforms, # is for chaining
 fn parse_bus_assignment(input: &str) -> IResult<&str, Statement> {
     let (input, _) = char('~')(input)?;
     let (input, name) = parse_identifier(input)?;
     let (input, _) = space0(input)?;
-    let (input, _) = char(':')(input)?;
+    // Only accept $ or # (no : to avoid confusion)
+    let (input, _) = alt((char('$'), char('#')))(input)?;
     let (input, _) = space0(input)?;
     let (input, expr) = parse_expr(input)?;
 
@@ -636,32 +637,36 @@ fn parse_pattern_assignment(input: &str) -> IResult<&str, Statement> {
     ))
 }
 
-/// Parse multi-channel output: out1:, o1:, d1: expr (all equivalent)
-/// Supports: out1:, out2:, ... (legacy)
-///           o1:, o2:, o3:, ... (primary)
-///           d1:, d2:, d3:, ... (Tidal-style alias)
-fn parse_output_channel(input: &str) -> IResult<&str, Statement> {
-    // Try to match o1, o2, o3, ... or d1, d2, d3, ... or out1, out2, out3, ...
+/// Combined parser for output and output channels
+/// Handles: out $ expr, o1 $ expr, o2 $ expr, etc.
+fn parse_output_or_channel(input: &str) -> IResult<&str, Statement> {
+    // Try to match o, d, or out prefix
     let (input, prefix) = alt((tag("out"), tag("o"), tag("d")))(input)?;
-    let (input, channel_str) = digit1(input)?;
-    let channel: usize = channel_str.parse().unwrap();
+
+    // Check if there's a digit after the prefix (for channel output)
+    let (input, channel_opt) = opt(digit1)(input)?;
+
     let (input, _) = space0(input)?;
-    let (input, _) = char(':')(input)?;
+    // Only accept $ or # (no : to avoid confusion)
+    let (input, _) = alt((char('$'), char('#')))(input)?;
     let (input, _) = space0(input)?;
     let (input, expr) = parse_expr(input)?;
 
-    Ok((input, Statement::OutputChannel { channel, expr }))
-}
-
-/// Parse output: out: expr
-fn parse_output(input: &str) -> IResult<&str, Statement> {
-    let (input, _) = tag("out")(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(':')(input)?;
-    let (input, _) = space0(input)?;
-    let (input, expr) = parse_expr(input)?;
-
-    Ok((input, Statement::Output(expr)))
+    // If we found a channel number, return OutputChannel, otherwise Output
+    match channel_opt {
+        Some(channel_str) => {
+            let channel: usize = channel_str.parse().unwrap();
+            Ok((input, Statement::OutputChannel { channel, expr }))
+        }
+        None => {
+            // Only "out" without a number is valid for single output
+            // "o" or "d" without number should be rejected
+            if prefix == "o" || prefix == "d" {
+                return Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Digit)));
+            }
+            Ok((input, Statement::Output(expr)))
+        }
+    }
 }
 
 /// Parse tempo: cps: 2.0 or tempo: 0.5 (cycles per second)
@@ -2187,7 +2192,7 @@ mod tests {
 
     #[test]
     fn test_parse_bus_assignment() {
-        let result = parse_statement("~drums: s \"bd sn hh cp\"");
+        let result = parse_statement("~drums $ s \"bd sn hh cp\"");
         assert!(result.is_ok());
         if let Ok((_, Statement::BusAssignment { name, expr })) = result {
             assert_eq!(name, "drums");
@@ -2197,7 +2202,7 @@ mod tests {
     #[test]
     fn test_parse_bus_assignment_with_transform() {
         // This is the key test - transform on bus assignment!
-        let result = parse_statement("~fast_drums: \"bd sn\" $ fast 2");
+        let result = parse_statement("~fast_drums $ \"bd sn\" $ fast 2");
         assert!(result.is_ok());
     }
 
@@ -2510,11 +2515,11 @@ mod tests {
     #[test]
     fn test_parse_simple_program() {
         // Test with semicolons first
-        let code = "~drums: s \"bd\"; ~filtered: ~drums";
+        let code = "~drums $ s \"bd\"; ~filtered $ ~drums";
         let result = parse_program(code);
         println!("Simple test result: {:?}", result);
         // We don't have semicolon support, so let's try newlines
-        let code2 = "~drums: s \"bd\"\n~filtered: ~drums";
+        let code2 = "~drums $ s \"bd\"\n~filtered $ ~drums";
         let result2 = parse_program(code2);
         println!("Newline test result: {:?}", result2);
         if let Ok((rest, statements)) = result2 {
@@ -2525,9 +2530,9 @@ mod tests {
     #[test]
     fn test_parse_program_multiple_statements() {
         let code = r#"
-            ~drums: s "bd sn hh cp"
-            ~filtered: ~drums # lpf 2000 0.8
-            out: ~filtered $ fast 2
+            ~drums $ s "bd sn hh cp"
+            ~filtered $ ~drums # lpf 2000 0.8
+            out $ ~filtered $ fast 2
         "#;
         let result = parse_program(code);
         if result.is_err() {
@@ -2552,7 +2557,7 @@ mod tests {
 
     #[test]
     fn test_parse_output() {
-        let result = parse_statement("out: ~drums # reverb 0.5 0.7 0.3");
+        let result = parse_statement("out $ ~drums # reverb 0.5 0.7 0.3");
         assert!(result.is_ok());
         if let Ok((_, Statement::Output(_))) = result {
             // Success
@@ -2654,7 +2659,7 @@ mod tests {
     #[test]
     fn test_real_world_example_2() {
         // Pattern with transform on bus
-        let code = "~cutoffs: \"<300 200 1000>\" $ fast 2";
+        let code = "~cutoffs $ \"<300 200 1000>\" $ fast 2";
         let result = parse_statement(code);
         assert!(result.is_ok());
     }
@@ -2706,9 +2711,16 @@ mod tests {
     #[test]
     fn test_comment_at_start_of_program() {
         let code = r#"-- This is a comment
-~drums: s "bd sn hh cp"
-out: ~drums"#;
+~drums $ s "bd sn hh cp"
+out $ ~drums"#;
         let result = parse_program(code);
+        if let Ok((rest, ref statements)) = result {
+            eprintln!("Parsed {} statements", statements.len());
+            eprintln!("Remaining input: '{}'", rest);
+            for (i, stmt) in statements.iter().enumerate() {
+                eprintln!("Statement {}: {:?}", i, stmt);
+            }
+        }
         assert!(
             result.is_ok(),
             "Failed to parse program with comment at start"
@@ -2720,9 +2732,9 @@ out: ~drums"#;
 
     #[test]
     fn test_comment_between_statements() {
-        let code = r#"~drums: s "bd sn hh cp"
+        let code = r#"~drums $ s "bd sn hh cp"
 -- This is a comment in the middle
-out: ~drums"#;
+out $ ~drums"#;
         let result = parse_program(code);
         assert!(
             result.is_ok(),
@@ -2737,10 +2749,10 @@ out: ~drums"#;
     fn test_multiple_comments() {
         let code = r#"-- Comment 1
 -- Comment 2
-~drums: s "bd sn hh cp"
+~drums $ s "bd sn hh cp"
 -- Comment 3
 -- Comment 4
-out: ~drums
+out $ ~drums
 -- Comment at end"#;
         let result = parse_program(code);
         assert!(
@@ -2755,7 +2767,7 @@ out: ~drums
     #[test]
     fn test_chain_operator_works() {
         // Make sure # as chain operator works
-        let code = "~drums: s \"bd sn\" # lpf 500 0.8";
+        let code = "~drums $ s \"bd sn\" # lpf 500 0.8";
         let result = parse_statement(code);
         assert!(result.is_ok(), "Chain operator # should work");
     }
@@ -2764,7 +2776,7 @@ out: ~drums
     fn test_inline_comments_work() {
         // Inline comments should work with --
         let code =
-            "tempo: 2.0  -- 120 BPM\n~drums: s \"bd sn\" # lpf 500 0.8  -- filtered\nout: ~drums";
+            "tempo: 2.0  -- 120 BPM\n~drums $ s \"bd sn\" # lpf 500 0.8  -- filtered\nout $ ~drums";
         let result = parse_program(code);
         assert!(result.is_ok(), "Inline comments should work");
         if let Ok((_, statements)) = result {
@@ -2778,20 +2790,20 @@ out: ~drums
 tempo: 2.0  -- 120 BPM
 
 -- Drums section
-~kick: s "bd ~ bd ~"
-~snare: s "~ sn ~ sn"
-~hats: s "hh*8" $ fast 2
+~kick $ s "bd ~ bd ~"
+~snare $ s "~ sn ~ sn"
+~hats $ s "hh*8" $ fast 2
 
 -- Mix drums
-~drums: ~kick + ~snare + ~hats
-~filtered_drums: ~drums # lpf 2000 0.6  -- low-pass filter
+~drums $ ~kick + ~snare + ~hats
+~filtered_drums $ ~drums # lpf 2000 0.6  -- low-pass filter
 
 -- Bass section
-~bass_freq: "55 82.5 110" $ slow 2
-~bass: saw ~bass_freq # lpf 500 0.8
+~bass_freq $ "55 82.5 110" $ slow 2
+~bass $ saw ~bass_freq # lpf 500 0.8
 
 -- Output mix
-out: ~filtered_drums * 0.6 + ~bass * 0.4
+out $ ~filtered_drums * 0.6 + ~bass * 0.4
 "#;
         let result = parse_program(code);
         assert!(
@@ -2914,7 +2926,7 @@ out: ~filtered_drums * 0.6 + ~bass * 0.4
         let code = r#"
 fn doublesaw freq detune = saw (freq - detune) + saw (freq + detune)
 tempo: 2.0
-out: doublesaw 110 5
+out $ doublesaw 110 5
 "#;
         let result = parse_program(code);
         assert!(
@@ -2940,13 +2952,13 @@ out: doublesaw 110 5
 tempo: 0.5
 
 -- Multi-line stack definition
-o1: stack [
+o1 $ stack [
   s "bd(4,4)" # gain 0.5,
   s "hh*8" # gain 0.3
 ]
 
 -- Another output
-o2: s "cp(2,4)"
+o2 $ s "cp(2,4)"
 "#;
 
         let result = parse_program(code);
@@ -3104,9 +3116,9 @@ o2: s "cp(2,4)"
         // Test pattern operators in a full program
         let code = r#"
 tempo: 2.0
-~notes: "c4 e4 g4"
-~shifted: ~notes |+ 12
-out: sine ~shifted
+~notes $ "c4 e4 g4"
+~shifted $ ~notes |+ 12
+out $ sine ~shifted
 "#;
         let result = parse_program(code);
         assert!(result.is_ok(), "Failed to parse program with |+ operator: {:?}", result);
