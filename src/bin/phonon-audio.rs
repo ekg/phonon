@@ -329,17 +329,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     // This ensures timing continuity - ALL graphs use the same wall-clock reference!
                                     new_graph.session_start_time = session_start_time;
                                     new_graph.use_wall_clock = true;
-                                    new_graph.cycle_offset = 0.0; // No offset needed - all graphs share session_start_time
+
+                                    // CRITICAL: Calculate cycle_offset to maintain timing continuity
+                                    // even when tempo changes between graphs!
+                                    //
+                                    // Formula: cycle_position = (now - session_start) * cps + cycle_offset
+                                    // We want: new_cycle_position = old_cycle_position (continuity!)
+                                    // Therefore: cycle_offset = old_position - (now - session_start) * new_cps
+                                    let current_graph = graph.load();
+                                    let old_cycle_position = if let Some(ref old_graph_cell) = **current_graph {
+                                        // Get current position from old graph
+                                        if let Ok(old_g) = old_graph_cell.0.try_borrow() {
+                                            old_g.cached_cycle_position
+                                        } else {
+                                            // Can't borrow (synthesis thread using it), estimate from wall-clock
+                                            let elapsed = session_start_time.elapsed().as_secs_f64();
+                                            elapsed * new_graph.cps as f64  // Rough estimate
+                                        }
+                                    } else {
+                                        // No old graph, start from 0
+                                        0.0
+                                    };
+
+                                    let elapsed = session_start_time.elapsed().as_secs_f64();
+                                    new_graph.cycle_offset = old_cycle_position - (elapsed * new_graph.cps as f64);
+
+                                    eprintln!("🔄 Graph updated: old_pos={:.4}, new_cps={:.2}, offset={:.4}",
+                                        old_cycle_position, new_graph.cps, new_graph.cycle_offset);
 
                                     // NOTE: Node timing initialization removed!
                                     // Graph now initializes nodes on first buffer processing
-                                    // This ensures timing is based on ACTUAL buffer start time,
-                                    // not IPC message arrival time (which can differ!)
-
-                                    eprintln!("🔄 Graph updated (nodes will initialize on first buffer)");
 
                                     // Swap in new graph (atomic, lock-free)
-                                    // Timing is continuous because all graphs share the same session_start_time!
                                     graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
                                 }
                                 Err(e) => {
