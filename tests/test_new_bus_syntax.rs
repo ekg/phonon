@@ -105,6 +105,25 @@ fn test_new_output_syntax_dollar() {
 }
 
 #[test]
+fn test_new_output_syntax_hash() {
+    // Test: out # expression (for signal routing feel)
+    let input = r#"
+        cps: 1.0
+        ~bass $ saw 55
+        out # ~bass * 0.3
+    "#;
+
+    let (_, statements) = parse_dsl(input).expect("Should parse out # syntax");
+    let compiler = DslCompiler::new(44100.0);
+    let mut graph = compiler.compile(statements);
+
+    let buffer = graph.render(4410);
+
+    let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
+    assert!(rms > 0.01, "out # syntax should produce audio, got RMS={}", rms);
+}
+
+#[test]
 fn test_backward_compatibility_colon() {
     // Test that old colon syntax still works
     let input = r#"
