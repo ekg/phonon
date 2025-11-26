@@ -25,7 +25,7 @@ out: ~mixed * 0.3
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Mix should compile successfully: {:?}",
@@ -48,7 +48,7 @@ out: ~mixed * 0.5
     let (remaining, statements) = parse_program(dsl).unwrap();
     assert!(remaining.trim().is_empty());
 
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Generate 1 second of audio
     let duration = 1.0;
@@ -82,7 +82,7 @@ out: ~mixed * 0.3
     let (remaining, statements) = parse_program(dsl).unwrap();
     assert!(remaining.trim().is_empty());
 
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Generate 1 second of audio
     let duration = 1.0;
@@ -116,7 +116,7 @@ out: ~mixed * 0.3
     let (remaining, statements) = parse_program(dsl).unwrap();
     assert!(remaining.trim().is_empty());
 
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Generate 1 second of audio
     let duration = 1.0;
@@ -151,7 +151,7 @@ out: ~mixed * 0.5
     let (remaining, statements) = parse_program(dsl).unwrap();
     assert!(remaining.trim().is_empty());
 
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Generate 2 seconds of audio
     let duration = 2.0;
@@ -186,7 +186,7 @@ out: ~mixed * 0.25
     let (remaining, statements) = parse_program(dsl).unwrap();
     assert!(remaining.trim().is_empty());
 
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Generate 1 second of audio
     let duration = 1.0;
@@ -220,7 +220,7 @@ out: ~mixed * 0.5
     let (remaining, statements) = parse_program(dsl).unwrap();
     assert!(remaining.trim().is_empty());
 
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Generate 1 second of audio
     let duration = 1.0;

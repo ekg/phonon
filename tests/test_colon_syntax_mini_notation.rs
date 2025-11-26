@@ -22,7 +22,7 @@ out: ~drums
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Colon syntax should compile successfully: {:?}",
@@ -40,7 +40,7 @@ out: ~drums
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 2 seconds
     let buffer = graph.render((SAMPLE_RATE * 2.0) as usize);
@@ -64,7 +64,7 @@ out: ~drums
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let buffer = graph.render((SAMPLE_RATE * 2.0) as usize);
 
@@ -87,7 +87,7 @@ out: ~drums
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let buffer = graph.render((SAMPLE_RATE * 3.0) as usize);
 
@@ -112,7 +112,7 @@ out: (~kick + ~snare + ~hats) * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let buffer = graph.render((SAMPLE_RATE * 2.0) as usize);
 

@@ -21,7 +21,7 @@ out: ~ramp * sine 440
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Line should compile successfully: {:?}",
@@ -44,7 +44,7 @@ out: ~ramp
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1 full cycle (1 second at tempo 1.0)
     let samples = graph.render(SAMPLE_RATE as usize);
@@ -101,7 +101,7 @@ out: ~ramp
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE / 2.0) as usize); // 0.5 second at tempo 2.0
 
@@ -134,7 +134,7 @@ out: ~tone * ~fade * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -203,7 +203,7 @@ out: ~sweep * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE / 2.0) as usize); // 0.5 second
 
@@ -229,7 +229,7 @@ out: ~ramp * sine 440
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     // This should parse and compile (pattern modulation is a Phonon strength)
     assert!(
@@ -251,7 +251,7 @@ out: ~ramp * sine 440
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 

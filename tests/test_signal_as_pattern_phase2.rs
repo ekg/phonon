@@ -29,7 +29,7 @@ out: sine 440
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "SignalAsPattern DSL should compile successfully: {:?}",
@@ -76,7 +76,7 @@ out: ~synth
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),

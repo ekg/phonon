@@ -21,7 +21,7 @@ out2: pan2_r ~input 0.0
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Pan2 should compile successfully: {:?}",
@@ -41,7 +41,7 @@ out2: pan2_r ~input -1.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let (left, right) = graph.render_stereo(1000);
 
@@ -82,7 +82,7 @@ out2: pan2_r ~input 1.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let (left, right) = graph.render_stereo(1000);
 
@@ -123,7 +123,7 @@ out2: pan2_r ~input 0.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let (left, right) = graph.render_stereo(1000);
 
@@ -176,7 +176,7 @@ out2: pan2_r ~input -0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let (left, right) = graph.render_stereo(1000);
 
@@ -220,7 +220,7 @@ out2: ~bass_right + ~lead_right
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let (left, right) = graph.render_stereo((SAMPLE_RATE / 2.0) as usize);
 
@@ -259,7 +259,7 @@ out2: pan2_r ~input ~pan_pattern
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),
@@ -291,7 +291,7 @@ out2: ~saw_r + ~square_r + ~noise_r
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let (left, right) = graph.render_stereo(1000);
 
@@ -314,7 +314,7 @@ out2: pan2_r ~input 5.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let (left, right) = graph.render_stereo(1000);
 

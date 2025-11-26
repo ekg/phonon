@@ -21,7 +21,7 @@ out: ~amp
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Amp Follower should compile successfully: {:?}",
@@ -43,7 +43,7 @@ out: ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
 
@@ -73,7 +73,7 @@ out: ~smooth
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 0.5) as usize);
 
@@ -105,7 +105,7 @@ out: ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 0.5) as usize);
 
@@ -138,7 +138,7 @@ out: ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -168,7 +168,7 @@ out: ~envelope * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -199,7 +199,7 @@ out: ~ducked * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
 
@@ -227,7 +227,7 @@ out: ~smooth_env
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
 
@@ -256,7 +256,7 @@ out: ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),

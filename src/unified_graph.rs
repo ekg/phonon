@@ -12235,10 +12235,55 @@ impl UnifiedSignalGraph {
         }
     }
 
-    /// Process a buffer of audio samples (optimized - clears cache once per buffer)
-    /// This is 2x-4x faster than calling process_sample() in a loop
+    /// Process a buffer of audio samples with timing provided by GlobalClock
+    ///
+    /// CRITICAL: This is the main entry point for live audio rendering.
+    /// Timing comes FROM the GlobalClock (single source of truth), not from this graph.
+    ///
+    /// Arguments:
+    /// - buffer: Output buffer to fill
+    /// - buffer_start_cycle: Cycle position at start of buffer (from GlobalClock)
+    /// - sample_increment: Cycle increment per sample (cps / sample_rate)
+    /// - cps: Cycles per second (tempo) from GlobalClock
+    #[inline]
+    pub fn process_buffer_at(
+        &mut self,
+        buffer: &mut [f32],
+        buffer_start_cycle: f64,
+        sample_increment: f64,
+        cps: f32,
+    ) {
+        // Update CPS from GlobalClock (single source of truth for tempo)
+        self.cps = cps;
+
+        // Process using the externally-provided timing
+        self.process_buffer_internal(buffer, buffer_start_cycle, sample_increment);
+    }
+
+    /// Process a buffer of audio samples (for offline rendering)
+    /// Calculates timing internally - use process_buffer_at() for live rendering!
     #[inline]
     pub fn process_buffer(&mut self, buffer: &mut [f32]) {
+        // Calculate timing internally (for offline rendering)
+        let buffer_start_cycle = if self.use_wall_clock {
+            let elapsed = self.session_start_time.elapsed().as_secs_f64();
+            elapsed * self.cps as f64 + self.cycle_offset
+        } else {
+            self.cached_cycle_position
+        };
+        let sample_increment = self.cps as f64 / self.sample_rate as f64;
+
+        self.process_buffer_internal(buffer, buffer_start_cycle, sample_increment);
+    }
+
+    /// Internal buffer processing - timing is passed in
+    #[inline]
+    fn process_buffer_internal(
+        &mut self,
+        buffer: &mut [f32],
+        buffer_start_cycle: f64,
+        sample_increment: f64,
+    ) {
         // CRITICAL: Clear buffer cache at start of each buffer render
         // This prevents stale cached values from previous buffer
         self.buffer_cache.borrow_mut().clear();
@@ -12434,16 +12479,8 @@ impl UnifiedSignalGraph {
         let output_channels: Vec<(usize, crate::unified_graph::NodeId)> =
             self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
 
-        // CRITICAL: Calculate buffer start time ONCE before processing
-        // This ensures the entire buffer represents a single coherent moment in time
-        let buffer_start_cycle = if self.use_wall_clock {
-            // LIVE MODE: Calculate from wall-clock (but only once per buffer!)
-            let elapsed = self.session_start_time.elapsed().as_secs_f64();
-            elapsed * self.cps as f64 + self.cycle_offset
-        } else {
-            // OFFLINE MODE: Use current cached position
-            self.cached_cycle_position
-        };
+        // NOTE: buffer_start_cycle is now passed in as a parameter from GlobalClock
+        // This is THE SINGLE SOURCE OF TRUTH for timing
 
         // Initialize node timing state on first buffer after graph swap
         if !self.nodes_initialized {
@@ -12487,14 +12524,14 @@ impl UnifiedSignalGraph {
         let initial_voice_count = self.voice_manager.borrow().active_voice_count();
         let mut newly_triggered_voices: Vec<usize> = Vec::new(); // Indices of newly triggered voices
 
-        // Cycle increment per sample (deterministic, not dependent on wall-clock queries!)
-        let cycle_increment = self.cps as f64 / self.sample_rate as f64;
+        // NOTE: sample_increment is now passed in as a parameter from GlobalClock
+        // This ensures timing is independent of buffer processing time
 
         for i in 0..buffer.len() {
-            // CRITICAL: Increment cycle position deterministically, not from wall-clock!
-            // This ensures timing is independent of buffer processing time
+            // CRITICAL: Increment cycle position deterministically using passed-in increment
+            // This ensures timing comes from GlobalClock (single source of truth)
             if i > 0 {
-                self.cached_cycle_position += cycle_increment;
+                self.cached_cycle_position += sample_increment;
             }
 
             // CRITICAL OPTIMIZATION: Only clear value_cache at buffer start!

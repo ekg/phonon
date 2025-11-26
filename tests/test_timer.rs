@@ -21,7 +21,7 @@ out: ~time
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Timer should compile successfully: {:?}",
@@ -41,7 +41,7 @@ out: ~time
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -99,7 +99,7 @@ out: ~time
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -148,7 +148,7 @@ out: ~time
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -196,7 +196,7 @@ out: ~time
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -226,7 +226,7 @@ out: ~time * 0.1
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -258,7 +258,7 @@ out: ~swept * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
 
@@ -285,7 +285,7 @@ out: ~tone * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -311,7 +311,7 @@ out: ~time
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),

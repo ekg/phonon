@@ -20,7 +20,7 @@ out: ~pulse
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Impulse should compile successfully: {:?}",
@@ -38,7 +38,7 @@ out: impulse 2.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1 second (should have 2 impulses at 2 Hz)
     let samples = graph.render(SAMPLE_RATE as usize);
@@ -97,7 +97,7 @@ out: impulse 10.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1 second (should have 10 impulses at 10 Hz)
     let samples = graph.render(SAMPLE_RATE as usize);
@@ -124,7 +124,7 @@ out: impulse 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 4 seconds (should have 2 impulses at 0.5 Hz)
     let samples = graph.render((SAMPLE_RATE * 4.0) as usize);
@@ -151,7 +151,7 @@ out: impulse 4.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1 second
     let samples = graph.render(SAMPLE_RATE as usize);
@@ -199,7 +199,7 @@ out: impulse 5.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -227,7 +227,7 @@ out: ~tone * ~pulse
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -261,7 +261,7 @@ out: impulse ~freq_pattern
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),
@@ -283,7 +283,7 @@ out: ~kick
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 0.5) as usize);
 

@@ -21,7 +21,7 @@ out: ~filtered
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Notch filter should compile successfully: {:?}",
@@ -41,7 +41,7 @@ out: ~notched
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -70,7 +70,7 @@ out: ~notched
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -100,7 +100,7 @@ out: ~notched
 "#;
 
     let (_, statements) = parse_program(dsl_narrow).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_narrow = graph.render(SAMPLE_RATE as usize);
     let rms_narrow: f32 =
         samples_narrow.iter().map(|s| s * s).sum::<f32>() / samples_narrow.len() as f32;
@@ -114,7 +114,7 @@ out: ~notched
 "#;
 
     let (_, statements) = parse_program(dsl_wide).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_wide = graph.render(SAMPLE_RATE as usize);
     let rms_wide: f32 = samples_wide.iter().map(|s| s * s).sum::<f32>() / samples_wide.len() as f32;
 
@@ -144,7 +144,7 @@ out: ~notched * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -175,7 +175,7 @@ out: ~dehum * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -202,7 +202,7 @@ out: ~notched * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),
@@ -224,7 +224,7 @@ out: ~clean * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -252,7 +252,7 @@ out: ~notch3 * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 

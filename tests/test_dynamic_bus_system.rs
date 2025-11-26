@@ -23,7 +23,7 @@ out: ~output
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Conditional routing should compile successfully: {:?}",
@@ -47,7 +47,7 @@ out: ~output * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1 second
     let samples = graph.render(SAMPLE_RATE as usize);
@@ -88,7 +88,7 @@ out: ~output * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 2 seconds (1 full LFO cycle)
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
@@ -144,7 +144,7 @@ out: ~output
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Select routing should compile successfully: {:?}",
@@ -169,7 +169,7 @@ out: ~output * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 0.5 seconds
     let samples = graph.render((SAMPLE_RATE * 0.5) as usize);
@@ -201,7 +201,7 @@ out: ~output * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 2 seconds (4 cycles at tempo 2.0)
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
@@ -242,7 +242,7 @@ out: ~output * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 2 seconds (2 full LFO cycles)
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
@@ -272,7 +272,7 @@ out: ~output * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1 second (2 cycles)
     let samples = graph.render(SAMPLE_RATE as usize);
@@ -325,7 +325,7 @@ out: ~output * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 2 seconds (4 cycles)
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
@@ -382,7 +382,7 @@ out: ~output * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render and verify it produces output (doesn't crash)
     let samples = graph.render((SAMPLE_RATE * 0.5) as usize);
@@ -411,7 +411,7 @@ out: ~output
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(1000);
 
@@ -434,7 +434,7 @@ out: ~output
 "#;
 
     let (_, statements2) = parse_program(dsl2).unwrap();
-    let mut graph2 = compile_program(statements2, SAMPLE_RATE).unwrap();
+    let mut graph2 = compile_program(statements2, SAMPLE_RATE, None).unwrap();
 
     let samples2 = graph2.render(1000);
     let avg2 = samples2.iter().sum::<f32>() / samples2.len() as f32;

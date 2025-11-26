@@ -21,7 +21,7 @@ out: ~level
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "RMS should compile successfully: {:?}",
@@ -42,7 +42,7 @@ out: ~rms
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 0.5) as usize);
 
@@ -76,7 +76,7 @@ out: ~rms
 "#;
 
     let (_, statements) = parse_program(dsl_small).unwrap();
-    let mut graph_small = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_small = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_small = graph_small.render(SAMPLE_RATE as usize);
 
     // Large window (slow response)
@@ -88,7 +88,7 @@ out: ~rms
 "#;
 
     let (_, statements) = parse_program(dsl_large).unwrap();
-    let mut graph_large = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_large = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_large = graph_large.render(SAMPLE_RATE as usize);
 
     // Measure variability (standard deviation)
@@ -131,7 +131,7 @@ out: ~rms
 "#;
 
     let (_, statements) = parse_program(dsl_low).unwrap();
-    let mut graph_low = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_low = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_low = graph_low.render(SAMPLE_RATE as usize);
 
     let dsl_high = r#"
@@ -142,7 +142,7 @@ out: ~rms
 "#;
 
     let (_, statements) = parse_program(dsl_high).unwrap();
-    let mut graph_high = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_high = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_high = graph_high.render(SAMPLE_RATE as usize);
 
     // Sample at midpoint after RMS window has stabilized
@@ -177,7 +177,7 @@ out: ~rms
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -207,7 +207,7 @@ out: ~rms * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -238,7 +238,7 @@ out: ~ducked * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
 
@@ -265,7 +265,7 @@ out: ~rms
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),
@@ -286,7 +286,7 @@ out: ~level
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 

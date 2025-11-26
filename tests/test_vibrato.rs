@@ -7,7 +7,7 @@ fn render_dsl(code: &str, duration_sec: f32) -> Vec<f32> {
     let num_samples = (duration_sec * SAMPLE_RATE) as usize;
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert!(rest.trim().is_empty(), "Failed to parse entire program");
-    let mut graph = compile_program(statements, SAMPLE_RATE).expect("Failed to compile");
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).expect("Failed to compile");
     graph.render(num_samples)
 }
 
@@ -33,7 +33,7 @@ out: ~vibrato
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Vibrato should compile successfully: {:?}",
@@ -52,7 +52,7 @@ out: ~vibrato
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -82,11 +82,11 @@ out: ~vibrato
 "#;
 
     let (_, statements1) = parse_program(dsl_no_vibrato).unwrap();
-    let mut graph1 = compile_program(statements1, SAMPLE_RATE).unwrap();
+    let mut graph1 = compile_program(statements1, SAMPLE_RATE, None).unwrap();
     let samples1 = graph1.render((SAMPLE_RATE * 0.5) as usize);
 
     let (_, statements2) = parse_program(dsl_zero_vibrato).unwrap();
-    let mut graph2 = compile_program(statements2, SAMPLE_RATE).unwrap();
+    let mut graph2 = compile_program(statements2, SAMPLE_RATE, None).unwrap();
     let samples2 = graph2.render((SAMPLE_RATE * 0.5) as usize);
 
     let rms1 = calculate_rms(&samples1);
@@ -112,7 +112,7 @@ out: ~vibrato
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -139,11 +139,11 @@ out: ~vibrato
 "#;
 
     let (_, statements_shallow) = parse_program(dsl_shallow).unwrap();
-    let mut graph_shallow = compile_program(statements_shallow, SAMPLE_RATE).unwrap();
+    let mut graph_shallow = compile_program(statements_shallow, SAMPLE_RATE, None).unwrap();
     let samples_shallow = graph_shallow.render((SAMPLE_RATE * 0.5) as usize);
 
     let (_, statements_deep) = parse_program(dsl_deep).unwrap();
-    let mut graph_deep = compile_program(statements_deep, SAMPLE_RATE).unwrap();
+    let mut graph_deep = compile_program(statements_deep, SAMPLE_RATE, None).unwrap();
     let samples_deep = graph_deep.render((SAMPLE_RATE * 0.5) as usize);
 
     // Both should produce audio
@@ -165,7 +165,7 @@ out: ~vibrato
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -195,7 +195,7 @@ out: ~vibrato
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -219,7 +219,7 @@ out: ~vibrato * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -243,7 +243,7 @@ out: ~vibrato * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
 

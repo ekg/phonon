@@ -50,6 +50,83 @@ fn get_buffer_size() -> usize {
         .clamp(32, 2048) // Reasonable bounds: 0.7ms - 46ms
 }
 
+/// Global Clock - THE SINGLE SOURCE OF TIMING TRUTH
+///
+/// This struct owns all timing state. Graphs do NOT own timing.
+/// When rendering, timing is passed TO the graph as a parameter.
+///
+/// This eliminates race conditions between threads because:
+/// - Only the synthesis thread reads the clock
+/// - Only the IPC thread writes the clock (tempo changes)
+/// - No state needs to be transferred between graphs
+///
+/// TEMPO CHANGE HANDLING:
+/// When tempo changes, we don't want timing to jump. So we:
+/// 1. Save current position as base_cycle_position
+/// 2. Save current time as base_time
+/// 3. Future positions = base_position + (now - base_time) * new_cps
+struct GlobalClock {
+    /// Time at last tempo change (or session start)
+    base_time: std::time::Instant,
+    /// Cycle position at last tempo change (or 0 at start)
+    base_cycle_position: f64,
+    /// Current cycles per second (tempo)
+    cps: f32,
+    /// Sample rate for calculating per-sample increment
+    sample_rate: f32,
+}
+
+impl GlobalClock {
+    fn new(sample_rate: f32) -> Self {
+        Self {
+            base_time: std::time::Instant::now(),
+            base_cycle_position: 0.0,
+            cps: 0.5, // Default tempo
+            sample_rate,
+        }
+    }
+
+    /// Get current cycle position from wall-clock
+    /// Position = base_position + (now - base_time) * cps
+    fn get_position(&self) -> f64 {
+        let elapsed = self.base_time.elapsed().as_secs_f64();
+        self.base_cycle_position + elapsed * self.cps as f64
+    }
+
+    /// Get cycle increment per sample
+    fn get_sample_increment(&self) -> f64 {
+        self.cps as f64 / self.sample_rate as f64
+    }
+
+    /// Set tempo - MAINTAINS TIMING CONTINUITY!
+    /// Before changing cps, we save the current position as the new base.
+    /// This ensures no timing jump when tempo changes.
+    fn set_cps(&mut self, new_cps: f32) {
+        if (self.cps - new_cps).abs() < 0.0001 {
+            return; // No change needed
+        }
+        // Save current position as new base BEFORE changing tempo
+        let current_pos = self.get_position();
+        self.base_cycle_position = current_pos;
+        self.base_time = std::time::Instant::now();
+        self.cps = new_cps;
+    }
+
+    /// Get current CPS
+    fn get_cps(&self) -> f32 {
+        self.cps
+    }
+
+    /// Get buffer timing info atomically (position AND increment together)
+    /// Returns (buffer_start_cycle, sample_increment, cps)
+    /// This ensures consistent values even if tempo is changing
+    fn get_buffer_timing(&self) -> (f64, f64, f32) {
+        let position = self.get_position();
+        let increment = self.get_sample_increment();
+        (position, increment, self.cps)
+    }
+}
+
 // Newtype wrapper to impl Send+Sync for RefCell<UnifiedSignalGraph>
 // SAFETY: Each GraphCell instance is only accessed by one thread at a time.
 struct GraphCell(RefCell<UnifiedSignalGraph>);
@@ -113,10 +190,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(Mutex::new(None))
     };
 
-    // Shared session start time - ALL graphs use this same timing reference
-    // This ensures timing continuity when swapping graphs during live coding
-    let session_start_time = std::time::Instant::now();
-    eprintln!("⏰ Session timing initialized");
+    // GLOBAL CLOCK - THE SINGLE SOURCE OF TIMING TRUTH
+    // This is the ONLY thing that tracks timing. Graphs don't own timing.
+    // Synthesis thread reads from it, IPC thread can update tempo.
+    let global_clock = Arc::new(Mutex::new(GlobalClock::new(sample_rate)));
+    eprintln!("⏰ Global clock initialized (single source of timing truth)");
 
     // Graph for background synthesis thread (lock-free swap)
     let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));
@@ -129,6 +207,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Background synthesis thread: continuously renders samples into ring buffer
     let graph_clone_synth = Arc::clone(&graph);
+    let clock_clone_synth = Arc::clone(&global_clock);
     thread::spawn(move || {
         // Use configurable buffer size (can't use array with runtime size, use Vec)
         let mut buffer = vec![0.0f32; buffer_size];
@@ -138,12 +217,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let space = ring_producer.vacant_len();
 
             if space >= buffer.len() {
+                // CRITICAL: Get timing from GlobalClock ONCE per buffer
+                // This is THE SINGLE SOURCE OF TRUTH for timing
+                let (buffer_start_cycle, sample_increment, cps) = {
+                    let clock = clock_clone_synth.lock().unwrap();
+                    clock.get_buffer_timing()
+                };
+
                 // Render a chunk of audio
                 let graph_snapshot = graph_clone_synth.load();
 
                 if let Some(ref graph_cell) = **graph_snapshot {
                     // Synthesize samples using optimized buffer processing
-                    graph_cell.0.borrow_mut().process_buffer(&mut buffer);
+                    // CRITICAL: Pass timing FROM GlobalClock TO the graph
+                    // The graph does NOT calculate timing - it receives it as a parameter
+                    graph_cell.0.borrow_mut().process_buffer_at(
+                        &mut buffer,
+                        buffer_start_cycle,
+                        sample_increment,
+                        cps,
+                    );
 
                     // Write to ring buffer
                     let written = ring_producer.push_slice(&buffer);
@@ -324,43 +417,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                             // Compile into a graph
                             match compile_program(statements, sample_rate, None) {
-                                Ok(mut new_graph) => {
-                                    // Set the shared session start time on the new graph
-                                    // This ensures timing continuity - ALL graphs use the same wall-clock reference!
-                                    new_graph.session_start_time = session_start_time;
-                                    new_graph.use_wall_clock = true;
+                                Ok(new_graph) => {
+                                    // CRITICAL: Update GlobalClock's tempo if it changed
+                                    // GlobalClock.set_cps() handles timing continuity automatically!
+                                    // No need for cycle_offset calculation - GlobalClock tracks position.
+                                    {
+                                        let mut clock = global_clock.lock().unwrap();
+                                        clock.set_cps(new_graph.cps);
+                                    }
 
-                                    // CRITICAL: Calculate cycle_offset to maintain timing continuity
-                                    // even when tempo changes between graphs!
-                                    //
-                                    // Formula: cycle_position = (now - session_start) * cps + cycle_offset
-                                    // We want: new_cycle_position = old_cycle_position (continuity!)
-                                    // Therefore: cycle_offset = old_position - (now - session_start) * new_cps
-                                    let current_graph = graph.load();
-                                    let old_cycle_position = if let Some(ref old_graph_cell) = **current_graph {
-                                        // Get current position from old graph
-                                        if let Ok(old_g) = old_graph_cell.0.try_borrow() {
-                                            old_g.cached_cycle_position
-                                        } else {
-                                            // Can't borrow (synthesis thread using it), estimate from wall-clock
-                                            let elapsed = session_start_time.elapsed().as_secs_f64();
-                                            elapsed * new_graph.cps as f64  // Rough estimate
-                                        }
-                                    } else {
-                                        // No old graph, start from 0
-                                        0.0
-                                    };
-
-                                    let elapsed = session_start_time.elapsed().as_secs_f64();
-                                    new_graph.cycle_offset = old_cycle_position - (elapsed * new_graph.cps as f64);
-
-                                    eprintln!("🔄 Graph updated: old_pos={:.4}, new_cps={:.2}, offset={:.4}",
-                                        old_cycle_position, new_graph.cps, new_graph.cycle_offset);
-
-                                    // NOTE: Node timing initialization removed!
-                                    // Graph now initializes nodes on first buffer processing
+                                    eprintln!("🔄 Graph updated: new_cps={:.2}", new_graph.cps);
 
                                     // Swap in new graph (atomic, lock-free)
+                                    // Graph does NOT own timing - it receives timing from GlobalClock
                                     graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
                                 }
                                 Err(e) => {
@@ -386,12 +455,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 IpcMessage::SetTempo { cps } => {
                     eprintln!("⏱️  Setting tempo to {} CPS", cps);
-                    let current_graph = graph.load();
-                    if let Some(ref graph_cell) = **current_graph {
-                        if let Ok(mut g) = graph_cell.0.try_borrow_mut() {
-                            g.set_cps(cps);
-                        }
-                    }
+                    // Update GlobalClock (THE SINGLE SOURCE OF TRUTH)
+                    // GlobalClock.set_cps() handles timing continuity automatically
+                    let mut clock = global_clock.lock().unwrap();
+                    clock.set_cps(cps);
                 }
 
                 IpcMessage::Shutdown => {

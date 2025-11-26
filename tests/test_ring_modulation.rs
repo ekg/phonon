@@ -22,7 +22,7 @@ out: ~ring * 0.3
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Ring mod should compile successfully: {:?}",
@@ -91,7 +91,7 @@ out: ~ring * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1 second
     let samples = graph.render(SAMPLE_RATE as usize);
@@ -161,7 +161,7 @@ out: ~bell * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE / 2.0) as usize); // 0.5 seconds
 
@@ -211,7 +211,7 @@ out: ~ring * ~env * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render((SAMPLE_RATE / 2.0) as usize);
 
     // Should produce percussive metallic sound
@@ -249,7 +249,7 @@ out: ~ring * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render(SAMPLE_RATE as usize);
 
     let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
@@ -270,7 +270,7 @@ out: ~ring * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),
@@ -292,7 +292,7 @@ out: ~ring * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render(SAMPLE_RATE as usize);
 
     // Should produce tremolo effect (amplitude modulation)

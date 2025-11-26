@@ -21,7 +21,7 @@ out: ~eq * 0.5
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Parametric EQ should compile successfully: {:?}",
@@ -42,7 +42,7 @@ out: ~eq
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1/10 second
     let samples = graph.render((SAMPLE_RATE / 10.0) as usize);
@@ -93,7 +93,7 @@ out: ~eq * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl_boost).unwrap();
-    let mut graph_boost = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_boost = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_boost = graph_boost.render((SAMPLE_RATE / 10.0) as usize);
 
     // Without boost
@@ -105,7 +105,7 @@ out: ~eq * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl_flat).unwrap();
-    let mut graph_flat = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_flat = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_flat = graph_flat.render((SAMPLE_RATE / 10.0) as usize);
 
     // Boosted should have higher RMS
@@ -136,7 +136,7 @@ out: ~eq
 "#;
 
     let (_, statements) = parse_program(dsl_cut).unwrap();
-    let mut graph_cut = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_cut = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_cut = graph_cut.render((SAMPLE_RATE / 10.0) as usize);
 
     // Without cut
@@ -148,7 +148,7 @@ out: ~eq
 "#;
 
     let (_, statements) = parse_program(dsl_flat).unwrap();
-    let mut graph_flat = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_flat = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_flat = graph_flat.render((SAMPLE_RATE / 10.0) as usize);
 
     // Cut should have lower RMS
@@ -179,7 +179,7 @@ out: ~scooped * ~env * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE / 2.0) as usize); // 0.5 seconds
 
@@ -220,7 +220,7 @@ out: ~dynamic_eq * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),
@@ -240,7 +240,7 @@ out: ~shaped * 0.15
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render((SAMPLE_RATE / 10.0) as usize);
 
     let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
@@ -262,7 +262,7 @@ out: ~flat_eq
 "#;
 
     let (_, statements) = parse_program(dsl_eq).unwrap();
-    let mut graph_eq = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_eq = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_eq = graph_eq.render((SAMPLE_RATE / 10.0) as usize);
 
     // Compare with no EQ
@@ -273,7 +273,7 @@ out: ~input
 "#;
 
     let (_, statements) = parse_program(dsl_plain).unwrap();
-    let mut graph_plain = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_plain = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_plain = graph_plain.render((SAMPLE_RATE / 10.0) as usize);
 
     // Signals should be very similar
@@ -303,7 +303,7 @@ out: ~boosted * 0.05
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render((SAMPLE_RATE / 10.0) as usize);
 
     // Should not produce NaN or Inf

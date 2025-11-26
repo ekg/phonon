@@ -32,7 +32,7 @@ out: ~drums
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "n parameter should compile successfully: {:?}",
@@ -58,10 +58,10 @@ out: ~drums
 "#;
 
     let (_, statements_0) = parse_program(dsl_0).unwrap();
-    let mut graph_0 = compile_program(statements_0, SAMPLE_RATE).unwrap();
+    let mut graph_0 = compile_program(statements_0, SAMPLE_RATE, None).unwrap();
 
     let (_, statements_1) = parse_program(dsl_1).unwrap();
-    let mut graph_1 = compile_program(statements_1, SAMPLE_RATE).unwrap();
+    let mut graph_1 = compile_program(statements_1, SAMPLE_RATE, None).unwrap();
 
     // Render 1 second
     let buffer_0 = graph_0.render((SAMPLE_RATE * 1.0) as usize);
@@ -93,7 +93,7 @@ out: ~drums
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 2 seconds (4 cycles at tempo 2.0)
     let buffer = graph.render((SAMPLE_RATE * 2.0) as usize);
@@ -120,7 +120,7 @@ out: ~drums
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1 second
     let buffer = graph.render((SAMPLE_RATE * 1.0) as usize);
@@ -145,7 +145,7 @@ out: ~drums * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 3 seconds to get full alternation cycle
     let buffer = graph.render((SAMPLE_RATE * 3.0) as usize);
@@ -169,7 +169,7 @@ out: ~drums * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 2 seconds
     let buffer = graph.render((SAMPLE_RATE * 2.0) as usize);

@@ -13,7 +13,7 @@ out2: sine 880 * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render stereo
     let (left, right) = graph.render_stereo(1000);
@@ -54,7 +54,7 @@ out1: sine 440 * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let (left, right) = graph.render_stereo(1000);
 
@@ -80,7 +80,7 @@ out2: sine 440 * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let (left, right) = graph.render_stereo(1000);
 
@@ -106,7 +106,7 @@ out: sine 440 * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Mono render should still work
     let mono = graph.render(1000);
@@ -127,7 +127,7 @@ out2: ~sig
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let (left, right) = graph.render_stereo(1000);
 
@@ -155,7 +155,7 @@ out2: sine 880 * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let (left, right) = graph.render_stereo((SAMPLE_RATE * 0.5) as usize);
 

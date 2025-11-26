@@ -24,7 +24,7 @@ out: ~crossfade
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "XFade should compile successfully: {:?}",
@@ -47,7 +47,7 @@ out: ~faded
     let (remaining, statements) = parse_program(dsl).unwrap();
     assert!(remaining.trim().is_empty());
 
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Generate 1 second of audio
     let duration = 1.0;
@@ -81,7 +81,7 @@ out: ~faded
     let (remaining, statements) = parse_program(dsl).unwrap();
     assert!(remaining.trim().is_empty());
 
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Generate 1 second of audio
     let duration = 1.0;
@@ -115,7 +115,7 @@ out: ~faded
     let (remaining, statements) = parse_program(dsl).unwrap();
     assert!(remaining.trim().is_empty());
 
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Generate 1 second of audio
     let duration = 1.0;
@@ -150,7 +150,7 @@ out: ~faded * 0.5
     let (remaining, statements) = parse_program(dsl).unwrap();
     assert!(remaining.trim().is_empty());
 
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Generate 1 second of audio
     let duration = 1.0;
@@ -184,7 +184,7 @@ out: ~faded * 0.5
     let (remaining, statements) = parse_program(dsl).unwrap();
     assert!(remaining.trim().is_empty());
 
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Generate 1 second of audio
     let duration = 1.0;
@@ -220,7 +220,7 @@ out: ~faded * 0.5
     let (remaining, statements) = parse_program(dsl).unwrap();
     assert!(remaining.trim().is_empty());
 
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Generate 2 seconds of audio (full ADSR cycle)
     let duration = 2.0;

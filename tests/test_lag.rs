@@ -21,7 +21,7 @@ out: ~smoothed
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Lag should compile successfully: {:?}",
@@ -41,7 +41,7 @@ out: ~smoothed
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render enough samples to see the lag effect
     let samples = graph.render(1000);
@@ -82,10 +82,10 @@ out: ~smoothed
 "#;
 
     let (_, statements_fast) = parse_program(dsl_fast).unwrap();
-    let mut graph_fast = compile_program(statements_fast, SAMPLE_RATE).unwrap();
+    let mut graph_fast = compile_program(statements_fast, SAMPLE_RATE, None).unwrap();
 
     let (_, statements_slow) = parse_program(dsl_slow).unwrap();
-    let mut graph_slow = compile_program(statements_slow, SAMPLE_RATE).unwrap();
+    let mut graph_slow = compile_program(statements_slow, SAMPLE_RATE, None).unwrap();
 
     let samples_fast = graph_fast.render(1000);
     let samples_slow = graph_slow.render(1000);
@@ -123,7 +123,7 @@ out: ~lagged
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(1000);
 
@@ -152,7 +152,7 @@ out: ~lagged
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
 
@@ -179,7 +179,7 @@ out: ~tone * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 0.5) as usize);
 
@@ -206,7 +206,7 @@ out: ~tone * ~smooth_gate * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 0.5) as usize);
 
@@ -240,7 +240,7 @@ out: ~smoothed
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),
@@ -261,7 +261,7 @@ out: ~lagged
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(1000);
 

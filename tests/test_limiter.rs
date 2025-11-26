@@ -21,7 +21,7 @@ out: ~limited * 0.5
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Limiter should compile successfully: {:?}",
@@ -42,7 +42,7 @@ out: ~limited
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1/10 second
     let samples = graph.render((SAMPLE_RATE / 10.0) as usize);
@@ -95,7 +95,7 @@ out: ~limited
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph_limited = compile_program(statements.clone(), SAMPLE_RATE).unwrap();
+    let mut graph_limited = compile_program(statements.clone(), SAMPLE_RATE, None).unwrap();
     let samples_limited = graph_limited.render((SAMPLE_RATE / 10.0) as usize);
 
     // Compare with unlimited version
@@ -105,7 +105,7 @@ tempo: 1.0
 out: ~quiet
 "#;
     let (_, statements) = parse_program(dsl_unlimited).unwrap();
-    let mut graph_unlimited = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_unlimited = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_unlimited = graph_unlimited.render((SAMPLE_RATE / 10.0) as usize);
 
     // Samples should be nearly identical (below threshold)
@@ -135,7 +135,7 @@ out: ~limited
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render((SAMPLE_RATE / 10.0) as usize);
 
     // Find positive and negative peaks
@@ -170,7 +170,7 @@ out: ~safe * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE / 2.0) as usize); // 0.5 seconds
 
@@ -219,7 +219,7 @@ out: ~limited * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),
@@ -243,7 +243,7 @@ out: ~safe
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render((SAMPLE_RATE / 10.0) as usize);
 
     // Peak should not exceed 1.0
@@ -271,7 +271,7 @@ out: ~master * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render((SAMPLE_RATE / 2.0) as usize);
 
     // Should produce audible output

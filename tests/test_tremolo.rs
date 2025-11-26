@@ -21,7 +21,7 @@ out: ~tremolo
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Tremolo should compile successfully: {:?}",
@@ -41,7 +41,7 @@ out: ~tremolo
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 0.5) as usize);
 
@@ -87,7 +87,7 @@ out: ~tremolo
 "#;
 
     let (_, statements) = parse_program(dsl_fast).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples_fast = graph.render((SAMPLE_RATE * 0.5) as usize);
 
@@ -136,11 +136,11 @@ out: ~tremolo
 "#;
 
     let (_, statements_shallow) = parse_program(dsl_shallow).unwrap();
-    let mut graph_shallow = compile_program(statements_shallow, SAMPLE_RATE).unwrap();
+    let mut graph_shallow = compile_program(statements_shallow, SAMPLE_RATE, None).unwrap();
     let samples_shallow = graph_shallow.render((SAMPLE_RATE * 0.4) as usize);
 
     let (_, statements_deep) = parse_program(dsl_deep).unwrap();
-    let mut graph_deep = compile_program(statements_deep, SAMPLE_RATE).unwrap();
+    let mut graph_deep = compile_program(statements_deep, SAMPLE_RATE, None).unwrap();
     let samples_deep = graph_deep.render((SAMPLE_RATE * 0.4) as usize);
 
     // Calculate amplitude variation for each
@@ -185,7 +185,7 @@ out: ~tremolo
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -218,7 +218,7 @@ out: ~tremolo
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -249,7 +249,7 @@ out: ~tremolo
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -275,7 +275,7 @@ out: ~tremolo * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -301,7 +301,7 @@ out: ~tremolo * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 3.0) as usize);
 

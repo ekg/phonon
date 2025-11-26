@@ -21,7 +21,7 @@ out: ~filtered * 0.5
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Moog ladder should compile successfully: {:?}",
@@ -43,7 +43,7 @@ out: ~filtered
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1/10 second
     let samples = graph.render((SAMPLE_RATE / 10.0) as usize);
@@ -92,7 +92,7 @@ out: ~filtered
 "#;
 
     let (_, statements) = parse_program(dsl_low).unwrap();
-    let mut graph_low = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_low = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_low = graph_low.render((SAMPLE_RATE / 10.0) as usize);
 
     let dsl_high = r#"
@@ -103,7 +103,7 @@ out: ~filtered
 "#;
 
     let (_, statements) = parse_program(dsl_high).unwrap();
-    let mut graph_high = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_high = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_high = graph_high.render((SAMPLE_RATE / 10.0) as usize);
 
     // High resonance should have higher peak (resonance boost)
@@ -133,7 +133,7 @@ out: ~self_osc * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render((SAMPLE_RATE / 10.0) as usize);
 
     // High resonance should produce significant output even from tiny input
@@ -162,7 +162,7 @@ out: ~moog_bass * ~env * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE / 2.0) as usize); // 0.5 seconds
 
@@ -203,7 +203,7 @@ out: ~swept * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),
@@ -224,7 +224,7 @@ out: ~variable_res * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),
@@ -245,7 +245,7 @@ out: ~filtered_noise * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render((SAMPLE_RATE / 10.0) as usize);
 
     let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
@@ -266,7 +266,7 @@ out: ~filtered_square * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render((SAMPLE_RATE / 10.0) as usize);
 
     let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
@@ -285,7 +285,7 @@ out: ~stage2 * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render((SAMPLE_RATE / 10.0) as usize);
 
     // Should produce audible output

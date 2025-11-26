@@ -7,7 +7,7 @@ fn render_dsl(code: &str, duration_sec: f32) -> Vec<f32> {
     let num_samples = (duration_sec * SAMPLE_RATE) as usize;
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert!(rest.trim().is_empty(), "Failed to parse entire program");
-    let mut graph = compile_program(statements, SAMPLE_RATE).expect("Failed to compile");
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).expect("Failed to compile");
     graph.render(num_samples)
 }
 
@@ -41,7 +41,7 @@ out: ~phased
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Phaser should compile successfully: {:?}",
@@ -66,11 +66,11 @@ out: ~phased * 0.5
 "#;
 
     let (_, statements_dry) = parse_program(dsl_dry).unwrap();
-    let mut graph_dry = compile_program(statements_dry, SAMPLE_RATE).unwrap();
+    let mut graph_dry = compile_program(statements_dry, SAMPLE_RATE, None).unwrap();
     let samples_dry = graph_dry.render((SAMPLE_RATE * 1.0) as usize);
 
     let (_, statements_wet) = parse_program(dsl_wet).unwrap();
-    let mut graph_wet = compile_program(statements_wet, SAMPLE_RATE).unwrap();
+    let mut graph_wet = compile_program(statements_wet, SAMPLE_RATE, None).unwrap();
     let samples_wet = graph_wet.render((SAMPLE_RATE * 1.0) as usize);
 
     // Phaser should create spectral modulation (measurable via variance)
@@ -103,11 +103,11 @@ out: ~phased * 0.5
 "#;
 
     let (_, statements1) = parse_program(dsl_no_phaser).unwrap();
-    let mut graph1 = compile_program(statements1, SAMPLE_RATE).unwrap();
+    let mut graph1 = compile_program(statements1, SAMPLE_RATE, None).unwrap();
     let samples1 = graph1.render((SAMPLE_RATE * 0.5) as usize);
 
     let (_, statements2) = parse_program(dsl_zero_phaser).unwrap();
-    let mut graph2 = compile_program(statements2, SAMPLE_RATE).unwrap();
+    let mut graph2 = compile_program(statements2, SAMPLE_RATE, None).unwrap();
     let samples2 = graph2.render((SAMPLE_RATE * 0.5) as usize);
 
     let rms1 = calculate_rms(&samples1);
@@ -140,11 +140,11 @@ out: ~phased * 0.5
 "#;
 
     let (_, statements_slow) = parse_program(dsl_slow).unwrap();
-    let mut graph_slow = compile_program(statements_slow, SAMPLE_RATE).unwrap();
+    let mut graph_slow = compile_program(statements_slow, SAMPLE_RATE, None).unwrap();
     let samples_slow = graph_slow.render((SAMPLE_RATE * 1.0) as usize);
 
     let (_, statements_fast) = parse_program(dsl_fast).unwrap();
-    let mut graph_fast = compile_program(statements_fast, SAMPLE_RATE).unwrap();
+    let mut graph_fast = compile_program(statements_fast, SAMPLE_RATE, None).unwrap();
     let samples_fast = graph_fast.render((SAMPLE_RATE * 1.0) as usize);
 
     // Both should produce audible output
@@ -173,11 +173,11 @@ out: ~phased * 0.5
 "#;
 
     let (_, statements_shallow) = parse_program(dsl_shallow).unwrap();
-    let mut graph_shallow = compile_program(statements_shallow, SAMPLE_RATE).unwrap();
+    let mut graph_shallow = compile_program(statements_shallow, SAMPLE_RATE, None).unwrap();
     let samples_shallow = graph_shallow.render((SAMPLE_RATE * 1.0) as usize);
 
     let (_, statements_deep) = parse_program(dsl_deep).unwrap();
-    let mut graph_deep = compile_program(statements_deep, SAMPLE_RATE).unwrap();
+    let mut graph_deep = compile_program(statements_deep, SAMPLE_RATE, None).unwrap();
     let samples_deep = graph_deep.render((SAMPLE_RATE * 1.0) as usize);
 
     // Both should produce audible output
@@ -199,7 +199,7 @@ out: ~phased * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
 
@@ -234,11 +234,11 @@ out: ~phased * 0.5
 "#;
 
     let (_, statements_no_fb) = parse_program(dsl_no_fb).unwrap();
-    let mut graph_no_fb = compile_program(statements_no_fb, SAMPLE_RATE).unwrap();
+    let mut graph_no_fb = compile_program(statements_no_fb, SAMPLE_RATE, None).unwrap();
     let samples_no_fb = graph_no_fb.render((SAMPLE_RATE * 0.5) as usize);
 
     let (_, statements_high_fb) = parse_program(dsl_high_fb).unwrap();
-    let mut graph_high_fb = compile_program(statements_high_fb, SAMPLE_RATE).unwrap();
+    let mut graph_high_fb = compile_program(statements_high_fb, SAMPLE_RATE, None).unwrap();
     let samples_high_fb = graph_high_fb.render((SAMPLE_RATE * 0.5) as usize);
 
     // Both should be audible
@@ -262,7 +262,7 @@ out: ~phased * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -286,7 +286,7 @@ out: ~phased * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -310,7 +310,7 @@ out: ~deep_phase * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
 

@@ -17,7 +17,7 @@ out: min 3.0 5.0
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let _graph = compile_program(statements, SAMPLE_RATE).expect("Failed to compile");
+    let _graph = compile_program(statements, SAMPLE_RATE, None).expect("Failed to compile");
     // If compilation succeeds, the min function is working
 }
 
@@ -32,7 +32,7 @@ out: min ~a ~b
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let _graph = compile_program(statements, SAMPLE_RATE).expect("Failed to compile");
+    let _graph = compile_program(statements, SAMPLE_RATE, None).expect("Failed to compile");
 }
 
 #[test]
@@ -44,7 +44,7 @@ out: min -2.0 1.0
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let _graph = compile_program(statements, SAMPLE_RATE).expect("Failed to compile");
+    let _graph = compile_program(statements, SAMPLE_RATE, None).expect("Failed to compile");
 }
 
 #[test]
@@ -56,7 +56,7 @@ out: min 1.0
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, SAMPLE_RATE);
+    let result = compile_program(statements, SAMPLE_RATE, None);
     assert!(result.is_err(), "Should fail with only one argument");
     if let Err(err_msg) = result {
         assert!(err_msg.contains("min requires exactly 2 arguments"), "Error was: {}", err_msg);
@@ -72,7 +72,7 @@ out: min 1.0 2.0 3.0
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, SAMPLE_RATE);
+    let result = compile_program(statements, SAMPLE_RATE, None);
     assert!(result.is_err(), "Should fail with three arguments");
     if let Err(err_msg) = result {
         assert!(err_msg.contains("min requires exactly 2 arguments"), "Error was: {}", err_msg);
@@ -89,7 +89,7 @@ out: min ~lfo 0.5
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let _graph = compile_program(statements, SAMPLE_RATE).expect("Failed to compile");
+    let _graph = compile_program(statements, SAMPLE_RATE, None).expect("Failed to compile");
 }
 
 #[test]
@@ -109,7 +109,7 @@ out: min 5.0 3.0
     let (_, statements1) = parse_program(code1).expect("Failed to parse 1");
     let (_, statements2) = parse_program(code2).expect("Failed to parse 2");
 
-    let _graph1 = compile_program(statements1, SAMPLE_RATE).expect("Failed to compile 1");
-    let _graph2 = compile_program(statements2, SAMPLE_RATE).expect("Failed to compile 2");
+    let _graph1 = compile_program(statements1, SAMPLE_RATE, None).expect("Failed to compile 1");
+    let _graph2 = compile_program(statements2, SAMPLE_RATE, None).expect("Failed to compile 2");
     // Both compile successfully - min is symmetric
 }

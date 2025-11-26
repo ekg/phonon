@@ -21,7 +21,7 @@ out: ~flanged * 0.5
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "Flanger should compile successfully: {:?}",
@@ -42,7 +42,7 @@ out: ~flanged * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1 second to capture LFO sweep
     let samples = graph.render(SAMPLE_RATE as usize);
@@ -91,7 +91,7 @@ out: ~flanged
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph_flanged = compile_program(statements.clone(), SAMPLE_RATE).unwrap();
+    let mut graph_flanged = compile_program(statements.clone(), SAMPLE_RATE, None).unwrap();
     let samples_flanged = graph_flanged.render((SAMPLE_RATE / 10.0) as usize);
 
     // Compare with dry signal
@@ -101,7 +101,7 @@ tempo: 1.0
 out: ~input
 "#;
     let (_, statements) = parse_program(dsl_dry).unwrap();
-    let mut graph_dry = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_dry = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_dry = graph_dry.render((SAMPLE_RATE / 10.0) as usize);
 
     // Signals should be very similar (zero depth = no flanging)
@@ -134,7 +134,7 @@ out: ~flanged * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl_low).unwrap();
-    let mut graph_low = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_low = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_low = graph_low.render((SAMPLE_RATE / 10.0) as usize);
 
     let dsl_high = r#"
@@ -145,7 +145,7 @@ out: ~flanged * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl_high).unwrap();
-    let mut graph_high = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph_high = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples_high = graph_high.render((SAMPLE_RATE / 10.0) as usize);
 
     // High feedback should have higher peak (more resonance)
@@ -176,7 +176,7 @@ out: ~flanged * ~env * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE / 2.0) as usize); // 0.5 seconds
 
@@ -217,7 +217,7 @@ out: ~flanged * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),
@@ -238,7 +238,7 @@ out: ~flanged * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     assert!(
         graph.is_ok(),
@@ -259,7 +259,7 @@ out: ~flanged * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render((SAMPLE_RATE / 10.0) as usize);
 
     let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
@@ -274,7 +274,7 @@ out: ~flanged * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
     let samples = graph.render((SAMPLE_RATE / 10.0) as usize);
 
     let rms: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;

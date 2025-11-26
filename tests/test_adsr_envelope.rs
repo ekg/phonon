@@ -21,7 +21,7 @@ out: ~env * sine 440
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "ADSR should compile successfully: {:?}",
@@ -45,7 +45,7 @@ out: ~env
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1 full cycle (1 second at tempo 1.0)
     let samples = graph.render(SAMPLE_RATE as usize);
@@ -110,7 +110,7 @@ out: ~tone * ~env * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 2 cycles (1 second at tempo 2.0)
     let samples = graph.render(SAMPLE_RATE as usize);
@@ -169,7 +169,7 @@ out: ~saw * ~env * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render(SAMPLE_RATE as usize);
 
@@ -195,7 +195,7 @@ out: ~env * sine 220
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
 
     // This should parse and compile (pattern modulation is a Phonon strength)
     assert!(

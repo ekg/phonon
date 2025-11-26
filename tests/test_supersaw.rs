@@ -7,7 +7,7 @@ fn render_dsl(code: &str, duration_sec: f32) -> Vec<f32> {
     let num_samples = (duration_sec * SAMPLE_RATE) as usize;
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert!(rest.trim().is_empty(), "Failed to parse entire program");
-    let mut graph = compile_program(statements, SAMPLE_RATE).expect("Failed to compile");
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).expect("Failed to compile");
     graph.render(num_samples)
 }
 
@@ -40,7 +40,7 @@ out: ~synth
         remaining
     );
 
-    let graph = compile_program(statements, SAMPLE_RATE);
+    let graph = compile_program(statements, SAMPLE_RATE, None);
     assert!(
         graph.is_ok(),
         "SuperSaw should compile successfully: {:?}",
@@ -58,7 +58,7 @@ out: ~synth * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -80,7 +80,7 @@ out: ~synth * 0.3
 "#;
 
     let (_, statements_supersaw) = parse_program(dsl_supersaw_zero).unwrap();
-    let mut graph_supersaw = compile_program(statements_supersaw, SAMPLE_RATE).unwrap();
+    let mut graph_supersaw = compile_program(statements_supersaw, SAMPLE_RATE, None).unwrap();
     let samples_supersaw = graph_supersaw.render((SAMPLE_RATE * 0.5) as usize);
 
     let rms_supersaw = calculate_rms(&samples_supersaw);
@@ -109,11 +109,11 @@ out: ~synth * 0.2
 "#;
 
     let (_, statements_low) = parse_program(dsl_low_detune).unwrap();
-    let mut graph_low = compile_program(statements_low, SAMPLE_RATE).unwrap();
+    let mut graph_low = compile_program(statements_low, SAMPLE_RATE, None).unwrap();
     let samples_low = graph_low.render((SAMPLE_RATE * 1.0) as usize);
 
     let (_, statements_high) = parse_program(dsl_high_detune).unwrap();
-    let mut graph_high = compile_program(statements_high, SAMPLE_RATE).unwrap();
+    let mut graph_high = compile_program(statements_high, SAMPLE_RATE, None).unwrap();
     let samples_high = graph_high.render((SAMPLE_RATE * 1.0) as usize);
 
     // Both should be audible
@@ -137,7 +137,7 @@ out: ~synth * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
 
@@ -164,7 +164,7 @@ out: ~synth * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -187,7 +187,7 @@ out: ~bass * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -210,7 +210,7 @@ out: ~lead * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
@@ -233,7 +233,7 @@ out: ~pad * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
-    let mut graph = compile_program(statements, SAMPLE_RATE).unwrap();
+    let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     let samples = graph.render((SAMPLE_RATE * 2.0) as usize);
 
