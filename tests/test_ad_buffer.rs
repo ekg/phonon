@@ -343,7 +343,7 @@ fn test_ad_continuity_across_buffers() {
     let code = "out: ad 0.01 0.05"; // AD envelope with 10ms attack, 50ms decay
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
 
     // Generate two consecutive buffers using render() which properly advances time
     let buffer_size = 512;

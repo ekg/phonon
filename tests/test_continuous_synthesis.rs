@@ -16,7 +16,7 @@ out: ~trig
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
 
     // Use sample-based timing for offline rendering (no wall-clock)
     // Time advances exactly by buffer_size samples per render() call
@@ -73,7 +73,7 @@ out: ~trig
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
 
     // Use sample-based timing for offline rendering
     // Time advances exactly by buffer_size samples per render() call
@@ -121,7 +121,7 @@ out: ~trig
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
 
     // Render in small chunks
     let buffer_size = 128;
@@ -185,7 +185,7 @@ out: ~c
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
 
     // Use sample-based timing for offline rendering
     // Time advances exactly by buffer_size samples per render() call

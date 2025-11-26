@@ -9,7 +9,7 @@ use std::collections::HashMap;
 /// Helper to parse and compile DSL code
 fn compile_dsl(code: &str, sample_rate: f32) -> Result<phonon::unified_graph::UnifiedSignalGraph, String> {
     let (_rest, statements) = parse_program(code).map_err(|e| format!("Parse error: {:?}", e))?;
-    compile_program(statements, sample_rate)
+    compile_program(statements, sample_rate, None)
 }
 
 /// Helper to count pattern events over multiple cycles

@@ -107,12 +107,20 @@ pub struct ModalEditor {
     midi_recorded_n_pattern: Option<String>,
     /// Recorded MIDI velocity pattern (ready to insert)
     midi_recorded_velocity: Option<String>,
+    /// Recorded MIDI legato pattern (ready to insert)
+    midi_recorded_legato: Option<String>,
     /// Base note name for the n-offset pattern
     midi_recorded_base_note: Option<String>,
     /// Number of cycles the pattern spans
     midi_recorded_cycles: usize,
+    /// Counter for auto-generating ~rec1, ~rec2, etc.
+    recording_counter: usize,
     /// Available MIDI input devices
     midi_devices: Vec<String>,
+    /// MIDI quantization setting (0 = off, 4 = quarter notes, 8 = 8th, 16 = 16th, 32 = 32nd)
+    midi_quantize: u8,
+    /// Whether to show configuration panel
+    show_config_panel: bool,
 }
 
 impl ModalEditor {
@@ -425,13 +433,17 @@ impl ModalEditor {
             midi_recorded_pattern: None,
             midi_recorded_n_pattern: None,
             midi_recorded_velocity: None,
+            midi_recorded_legato: None,
             midi_recorded_base_note: None,
             midi_recorded_cycles: 0,
+            recording_counter: 0,
             midi_devices: MidiInputHandler::list_devices()
                 .unwrap_or_default()
                 .into_iter()
                 .map(|d| d.name)
                 .collect(),
+            midi_quantize: 16, // Default to 16th note quantization
+            show_config_panel: false,
         };
 
         Ok(editor)
@@ -459,7 +471,11 @@ impl ModalEditor {
         // Compile into a graph
         // Note: compile_program sets CPS from tempo:/bpm: statements in the code
         // Default is 0.5 CPS if not specified
-        let mut new_graph = compile_program(statements, self.sample_rate)
+        // Pass MIDI event queue for real-time monitoring (~midi buses)
+        let midi_queue = self.midi_input.as_ref()
+            .map(|handler| handler.get_monitoring_queue());
+
+        let mut new_graph = compile_program(statements, self.sample_rate, midi_queue)
             .map_err(|e| {
                 eprintln!("❌ Compile error: {}", e);
                 format!("Compile error: {}", e)
@@ -574,6 +590,11 @@ impl ModalEditor {
             // Process any pending MIDI input events
             self.process_midi_events();
 
+            // Update recording status with cycle position
+            if self.midi_recording {
+                self.update_recording_status();
+            }
+
             terminal.draw(|f| self.ui(f))?;
 
             // Use poll with timeout to enable flash animation
@@ -602,6 +623,31 @@ impl ModalEditor {
         // If command console is visible, route keys to it
         if self.command_console.is_visible() {
             return self.handle_console_key_event(key);
+        }
+
+        // If config panel is visible, handle config keys
+        if self.show_config_panel {
+            match key.code {
+                // Q: Cycle quantization setting
+                KeyCode::Char('q') | KeyCode::Char('Q') => {
+                    self.cycle_quantization();
+                    return KeyResult::Continue;
+                }
+                // Esc: Close config panel
+                KeyCode::Esc => {
+                    self.show_config_panel = false;
+                    self.status_message = "Configuration closed".to_string();
+                    return KeyResult::Continue;
+                }
+                // Alt+Comma: Toggle off
+                KeyCode::Char(',') if key.modifiers.contains(KeyModifiers::ALT) => {
+                    self.show_config_panel = false;
+                    self.status_message = "Configuration closed".to_string();
+                    return KeyResult::Continue;
+                }
+                // Other keys ignored in config mode
+                _ => return KeyResult::Continue,
+            }
         }
 
         match key.code {
@@ -644,9 +690,26 @@ impl ModalEditor {
                 KeyResult::Continue
             }
 
+            // Alt+Comma: Toggle configuration panel
+            KeyCode::Char(',') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.show_config_panel = !self.show_config_panel;
+                if self.show_config_panel {
+                    self.status_message = "⚙️  Configuration Panel (Q: quantize, Esc: close)".to_string();
+                } else {
+                    self.status_message = "Configuration closed".to_string();
+                }
+                KeyResult::Continue
+            }
+
             // Alt+R: Start/stop MIDI recording
             KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::ALT) => {
                 self.toggle_midi_recording();
+                KeyResult::Continue
+            }
+
+            // Alt+Shift+I: Smart paste complete pattern (~rec1: slow N $ n "..." # gain "...")
+            KeyCode::Char('I') if key.modifiers.contains(KeyModifiers::ALT) && key.modifiers.contains(KeyModifiers::SHIFT) => {
+                self.insert_midi_smart_paste();
                 KeyResult::Continue
             }
 
@@ -665,6 +728,12 @@ impl ModalEditor {
             // Alt+V: Insert recorded MIDI velocity pattern
             KeyCode::Char('v') if key.modifiers.contains(KeyModifiers::ALT) => {
                 self.insert_midi_velocity_pattern();
+                KeyResult::Continue
+            }
+
+            // Alt+L: Insert recorded MIDI legato pattern
+            KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.insert_midi_legato_pattern();
                 KeyResult::Continue
             }
 
@@ -961,6 +1030,66 @@ impl ModalEditor {
                 .style(Style::default().bg(Color::Black));
 
             f.render_widget(popup_paragraph, popup_area);
+        }
+
+        // Configuration panel (if visible)
+        if self.show_config_panel {
+            let quantize_str = match self.midi_quantize {
+                0 => "Off (no quantization)",
+                4 => "Quarter notes (4 per cycle)",
+                8 => "8th notes (8 per cycle)",
+                16 => "16th notes (16 per cycle)",
+                32 => "32nd notes (32 per cycle)",
+                _ => "Unknown",
+            };
+
+            let midi_device_str = if self.midi_input.is_some() {
+                "Connected"
+            } else {
+                "Not connected"
+            };
+
+            let config_lines = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("  [Q] Quantization: ", Style::default().fg(Color::Yellow)),
+                    Span::raw(quantize_str),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("  [M] MIDI Device: ", Style::default().fg(Color::Yellow)),
+                    Span::raw(midi_device_str),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("  [Esc] ", Style::default().fg(Color::Cyan)),
+                    Span::raw("Close"),
+                ]),
+                Line::from(""),
+            ];
+
+            let popup_width = 50;
+            let popup_height = 9;
+            let popup_x = (editor_chunk.width.saturating_sub(popup_width)) / 2;
+            let popup_y = (editor_chunk.height.saturating_sub(popup_height)) / 2;
+
+            let config_area = ratatui::layout::Rect {
+                x: editor_chunk.x + popup_x,
+                y: editor_chunk.y + popup_y,
+                width: popup_width,
+                height: popup_height,
+            };
+
+            let config_block = Block::default()
+                .title(" ⚙️  Recording Configuration ")
+                .borders(Borders::ALL)
+                .style(Style::default().fg(Color::Green).bg(Color::Black));
+
+            let config_paragraph = Paragraph::new(config_lines)
+                .block(config_block)
+                .style(Style::default().bg(Color::Black));
+
+            f.render_widget(config_paragraph, config_area);
         }
 
         // Status area with performance stats
@@ -1751,6 +1880,7 @@ impl ModalEditor {
                     self.midi_recorded_pattern = Some(recorded.notes.clone());
                     self.midi_recorded_n_pattern = Some(recorded.n_offsets.clone());
                     self.midi_recorded_velocity = Some(recorded.velocities.clone());
+                    self.midi_recorded_legato = Some(recorded.legato.clone());
                     self.midi_recorded_base_note = Some(recorded.base_note_name.clone());
                     self.midi_recorded_cycles = recorded.cycle_count;
 
@@ -1774,13 +1904,90 @@ impl ModalEditor {
         } else {
             // Start recording
             self.midi_recording = true;
+
             // Get tempo from current graph or use default 120 BPM
             let tempo = 120.0; // TODO: Get from graph.get_cps() * 60
+
+            // Get current cycle position from graph (for punch-in)
+            let current_cycle = {
+                let graph_arc = self.graph.load();
+                if let Some(ref graph_cell) = **graph_arc {
+                    if let Ok(graph) = graph_cell.0.try_borrow() {
+                        graph.get_cycle_position()
+                    } else {
+                        0.0 // Fallback if graph is borrowed
+                    }
+                } else {
+                    0.0 // No graph yet
+                }
+            };
+
             self.midi_recorder = Some(MidiRecorder::new(tempo));
             if let Some(ref mut recorder) = self.midi_recorder {
-                recorder.start();
+                // Set quantization from config
+                if self.midi_quantize > 0 {
+                    recorder.set_quantize(self.midi_quantize);
+                }
+
+                // Use punch-in recording (start at current cycle)
+                recorder.start_at_cycle(current_cycle);
             }
-            self.status_message = "⏺️ Recording MIDI... (Alt+R to stop)".to_string();
+
+            self.status_message = format!(
+                "⏺️ Recording MIDI at cycle {:.2}... (Alt+R to stop)",
+                current_cycle
+            );
+        }
+    }
+
+    /// Cycle through quantization settings (0 = off, 4, 8, 16, 32)
+    fn cycle_quantization(&mut self) {
+        self.midi_quantize = match self.midi_quantize {
+            0 => 4,   // off → quarter notes
+            4 => 8,   // quarter → 8th notes
+            8 => 16,  // 8th → 16th notes
+            16 => 32, // 16th → 32nd notes
+            32 => 0,  // 32nd → off
+            _ => 16,  // default to 16th notes
+        };
+
+        let quantize_str = match self.midi_quantize {
+            0 => "Off (no quantization)".to_string(),
+            4 => "Quarter notes (4 per cycle)".to_string(),
+            8 => "8th notes (8 per cycle)".to_string(),
+            16 => "16th notes (16 per cycle)".to_string(),
+            32 => "32nd notes (32 per cycle)".to_string(),
+            _ => "Unknown".to_string(),
+        };
+
+        self.status_message = format!("⚙️  Quantization: {}", quantize_str);
+    }
+
+    /// Update recording status with current cycle position
+    fn update_recording_status(&mut self) {
+        if let Some(ref recorder) = self.midi_recorder {
+            // Get current cycle position from graph
+            let current_cycle = {
+                let graph_arc = self.graph.load();
+                if let Some(ref graph_cell) = **graph_arc {
+                    if let Ok(graph) = graph_cell.0.try_borrow() {
+                        graph.get_cycle_position()
+                    } else {
+                        return; // Can't get cycle if graph is borrowed
+                    }
+                } else {
+                    return; // No graph yet
+                }
+            };
+
+            let start_cycle = recorder.get_recording_start_cycle();
+            let elapsed_cycles = current_cycle - start_cycle;
+
+            self.status_message = format!(
+                "⏺️ Recording MIDI... Cycle {:.2} (elapsed: {:.2}) - Alt+R to stop",
+                current_cycle,
+                elapsed_cycles
+            );
         }
     }
 
@@ -1822,6 +2029,71 @@ impl ModalEditor {
                 self.insert_char(c);
             }
             self.status_message = format!("📝 Inserted velocities: {}", pattern_str);
+        } else {
+            self.status_message = "🎹 No recorded pattern (Alt+R to record)".to_string();
+        }
+    }
+
+    /// Insert recorded MIDI legato pattern at cursor position (for articulation control)
+    fn insert_midi_legato_pattern(&mut self) {
+        if let Some(ref pattern) = self.midi_recorded_legato.clone() {
+            // Insert the pattern as a quoted string
+            let pattern_str = format!("\"{}\"", pattern);
+            for c in pattern_str.chars() {
+                self.insert_char(c);
+            }
+            self.status_message = format!("📝 Inserted legato: {}", pattern_str);
+        } else {
+            self.status_message = "🎹 No recorded pattern (Alt+R to record)".to_string();
+        }
+    }
+
+    /// Smart paste: Insert complete pattern with auto-generated bus name (~rec1, ~rec2, etc.)
+    /// Includes:
+    /// - Auto-generated bus name (~rec1, ~rec2, ...)
+    /// - slow N $ wrapper (if multi-cycle)
+    /// - Note pattern (n "...")
+    /// - Velocity pattern (# gain "...")
+    /// - Legato pattern (# legato "...")
+    /// - Properly aligned and formatted for readability
+    fn insert_midi_smart_paste(&mut self) {
+        if let Some(ref pattern) = self.midi_recorded_pattern.clone() {
+            if let Some(ref velocity) = self.midi_recorded_velocity.clone() {
+                if let Some(ref legato) = self.midi_recorded_legato.clone() {
+                    // Increment counter and generate bus name
+                    self.recording_counter += 1;
+                    let rec_name = format!("~rec{}", self.recording_counter);
+
+                    // Build slow wrapper if multi-cycle
+                    let slow_wrapper = if self.midi_recorded_cycles > 1 {
+                        format!("slow {} $ ", self.midi_recorded_cycles)
+                    } else {
+                        String::new()
+                    };
+
+                    // Build complete pattern
+                    // Format: ~rec1: slow 4 $ n "c4 e4 g4" # gain "0.8 1.0 0.6" # legato "0.9 0.5 1.0"
+                    let full_pattern = format!(
+                        "{}: {}n \"{}\" # gain \"{}\" # legato \"{}\"",
+                        rec_name,
+                        slow_wrapper,
+                        pattern,
+                        velocity,
+                        legato
+                    );
+
+                    // Insert at cursor
+                    for c in full_pattern.chars() {
+                        self.insert_char(c);
+                    }
+
+                    self.status_message = format!("📝 Inserted {} with dynamics & legato", rec_name);
+                } else {
+                    self.status_message = "🎹 No legato data (recording may have failed)".to_string();
+                }
+            } else {
+                self.status_message = "🎹 No velocity data (recording may have failed)".to_string();
+            }
         } else {
             self.status_message = "🎹 No recorded pattern (Alt+R to record)".to_string();
         }

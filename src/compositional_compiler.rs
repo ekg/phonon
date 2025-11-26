@@ -5,6 +5,7 @@
 //! Uses block-based buffer passing for efficient DAW-style processing.
 
 use crate::compositional_parser::{BinOp, Expr, Statement, Transform, UnOp};
+use crate::midi_input::MidiEventQueue;
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
 use crate::superdirt_synths::SynthLibrary;
@@ -50,6 +51,8 @@ pub struct CompilerContext {
     sample_node_metadata: HashMap<usize, SampleNodeMetadata>,
     /// NEW: Pattern registry for pattern-to-pattern modulation (%pattern_name references)
     pattern_registry: HashMap<String, Pattern<f64>>,
+    /// MIDI event queue for real-time monitoring (~midi, ~midi1-16 buses)
+    pub midi_event_queue: Option<MidiEventQueue>,
 }
 
 /// Function definition storage
@@ -157,6 +160,7 @@ impl CompilerContext {
             use_audio_nodes,
             sample_node_metadata: HashMap::new(),
             pattern_registry: HashMap::new(),
+            midi_event_queue: None,
         }
     }
 
@@ -308,8 +312,10 @@ impl CompilerContext {
 pub fn compile_program(
     statements: Vec<Statement>,
     sample_rate: f32,
+    midi_event_queue: Option<MidiEventQueue>,
 ) -> Result<UnifiedSignalGraph, String> {
     let mut ctx = CompilerContext::new(sample_rate);
+    ctx.midi_event_queue = midi_event_queue;
 
     // PASS 1: Pre-register all bus names with placeholder nodes
     // This allows circular dependencies (a -> b -> a)
@@ -530,6 +536,27 @@ pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Res
     }
 }
 
+/// Create a MIDI input node for real-time monitoring
+///
+/// # Arguments
+/// * `ctx` - Compiler context containing the MIDI event queue
+/// * `channel` - Optional MIDI channel (0-15), None for all channels
+///
+/// # Returns
+/// NodeId of the created MidiInput node
+fn create_midi_input_node(ctx: &mut CompilerContext, channel: Option<u8>) -> Result<NodeId, String> {
+    let queue = ctx.midi_event_queue.clone()
+        .ok_or("MIDI input not available - no MIDI device connected")?;
+
+    Ok(ctx.graph.add_node(SignalNode::MidiInput {
+        channel,
+        active_notes: RefCell::new(HashMap::new()),
+        event_queue: queue,
+        last_freq: RefCell::new(440.0),
+        gate: RefCell::new(0.0),
+    }))
+}
+
 /// Compile an expression to a node ID
 fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String> {
     match expr {
@@ -552,6 +579,20 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
         }
 
         Expr::BusRef(name) => {
+            // Check for MIDI input buses (~midi or ~midi1-16)
+            if name == "midi" {
+                // ~midi = all MIDI channels
+                return create_midi_input_node(ctx, None);
+            } else if name.starts_with("midi") && name.len() > 4 {
+                // ~midi1 through ~midi16
+                if let Ok(channel) = name[4..].parse::<u8>() {
+                    if channel >= 1 && channel <= 16 {
+                        // Convert to 0-indexed channel (0-15)
+                        return create_midi_input_node(ctx, Some(channel - 1));
+                    }
+                }
+            }
+
             // Check if this is an effect bus
             if ctx.effect_buses.contains_key(&name) {
                 // Compile the effect bus (mixing all sends)
@@ -8671,7 +8712,7 @@ mod tests {
     fn test_compile_simple_constant() {
         let code = "out: 440";
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok());
     }
 
@@ -8679,7 +8720,7 @@ mod tests {
     fn test_compile_arithmetic() {
         let code = "out: 1 + 2";
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok());
     }
 
@@ -8690,7 +8731,7 @@ mod tests {
             out: ~freq
         "#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok());
     }
 
@@ -8699,7 +8740,7 @@ mod tests {
         // Use space-separated syntax: sine 440 (not sine(440))
         let code = "out: sine 440";
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok());
     }
 
@@ -8707,7 +8748,7 @@ mod tests {
     fn test_undefined_bus_error() {
         let code = "out: ~undefined";
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_err());
         if let Err(e) = result {
             eprintln!("Error message: {}", e);
@@ -8721,7 +8762,7 @@ mod tests {
     fn test_compile_pattern_fast() {
         let code = r#"out: "bd sn" $ fast 2"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         match result {
             Ok(_) => {},
             Err(e) => panic!("Failed to compile fast transform: {}", e),
@@ -8732,7 +8773,7 @@ mod tests {
     fn test_compile_pattern_slow() {
         let code = r#"out: "bd sn hh cp" $ slow 0.5"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile slow transform");
     }
 
@@ -8740,7 +8781,7 @@ mod tests {
     fn test_compile_pattern_rev() {
         let code = r#"out: "bd sn hh" $ rev"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile rev transform");
     }
 
@@ -8748,7 +8789,7 @@ mod tests {
     fn test_compile_pattern_degrade() {
         let code = r#"out: "bd*8" $ degrade"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile degrade transform");
     }
 
@@ -8756,7 +8797,7 @@ mod tests {
     fn test_compile_pattern_degrade_by() {
         let code = r#"out: "hh*16" $ degradeBy 0.3"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile degradeBy transform");
     }
 
@@ -8764,7 +8805,7 @@ mod tests {
     fn test_compile_pattern_stutter() {
         let code = r#"out: "bd sn" $ stutter 4"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile stutter transform");
     }
 
@@ -8772,7 +8813,7 @@ mod tests {
     fn test_compile_pattern_palindrome() {
         let code = r#"out: "a b c" $ palindrome"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile palindrome transform");
     }
 
@@ -8781,7 +8822,7 @@ mod tests {
         // The key test - multiple transforms in sequence
         let code = r#"out: "bd sn" $ fast 2 $ rev $ slow 0.5"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile stacked transforms");
     }
 
@@ -8793,7 +8834,7 @@ mod tests {
             out: ~cutoffs
         "#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile bus with transform");
     }
 
@@ -8806,7 +8847,7 @@ mod tests {
             out: ~cutoffs
         "#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile user example from x.ph");
     }
 
@@ -8817,7 +8858,7 @@ mod tests {
         // Space-separated (Phonon standard)
         let code1 = r#"out: sine 440"#;
         let (_, statements) = parse_program(code1).unwrap();
-        assert!(compile_program(statements, 44100.0).is_ok());
+        assert!(compile_program(statements, 44100.0, None).is_ok());
 
         // Parenthesized expressions as arguments
         let code2 = r#"
@@ -8825,12 +8866,12 @@ mod tests {
             out: sine (~base)
         "#;
         let (_, statements) = parse_program(code2).unwrap();
-        assert!(compile_program(statements, 44100.0).is_ok());
+        assert!(compile_program(statements, 44100.0, None).is_ok());
 
         // Multiple arguments
         let code3 = r#"out: lpf (sine 440) 1000 0.8"#;
         let (_, statements) = parse_program(code3).unwrap();
-        assert!(compile_program(statements, 44100.0).is_ok());
+        assert!(compile_program(statements, 44100.0, None).is_ok());
     }
 
     #[test]
@@ -8838,7 +8879,7 @@ mod tests {
         // Transforms with parentheses for grouping
         let code = r#"out: ("bd sn" $ fast 2)"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile parenthesized transform");
     }
 
@@ -8849,7 +8890,7 @@ mod tests {
         // Most common usage: chained with #
         let code = r#"out: sine 440 # lpf 1000 0.8"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile chained lpf");
     }
 
@@ -8858,7 +8899,7 @@ mod tests {
         // Space-separated syntax
         let code = r#"out: sine 440 # lpf 1000 0.8"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile lpf with space syntax");
     }
 
@@ -8866,7 +8907,7 @@ mod tests {
     fn test_compile_hpf() {
         let code = r#"out: saw 220 # hpf 500 1.5"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile hpf");
     }
 
@@ -8874,7 +8915,7 @@ mod tests {
     fn test_compile_bpf() {
         let code = r#"out: square 110 # bpf 800 2.0"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile bpf");
     }
 
@@ -8883,7 +8924,7 @@ mod tests {
         // Samples through filters
         let code = r#"out: s "bd sn hh cp" # lpf 2000 0.5"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile sample with filter");
     }
 
@@ -8896,7 +8937,7 @@ mod tests {
             out: s "hh*4 cp" # lpf ~cutoffs ~resonances
         "#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(
             result.is_ok(),
             "Failed to compile filter with bus ref parameters"
@@ -8912,7 +8953,7 @@ mod tests {
             out: s "hh*4 cp" # lpf ~cutoffs ~resonances
         "#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(
             result.is_ok(),
             "Failed to compile filter with bus refs (space syntax)"
@@ -8924,7 +8965,7 @@ mod tests {
         // Multiple filters in series
         let code = r#"out: saw 110 # lpf 2000 0.8 # hpf 100 0.5"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(result.is_ok(), "Failed to compile chained filters");
     }
 
@@ -8937,7 +8978,7 @@ mod tests {
             out: s "hh*4 cp" # lpf ~cutoffs ~resonances
         "#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(
             result.is_ok(),
             "Failed to compile full user example from x.ph"
@@ -8951,7 +8992,7 @@ mod tests {
         // Basic sample bank selection with :n syntax
         let code = r#"out: s "bd:0 bd:1 bd:2""#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         match result {
             Ok(_) => {},
             Err(e) => panic!("Failed to compile sample bank selection: {}", e),
@@ -8963,7 +9004,7 @@ mod tests {
         // Sample bank selection with transforms
         let code = r#"out: s "bd:0*4 sn:2" $ fast 2"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(
             result.is_ok(),
             "Failed to compile sample bank with transform"
@@ -8975,7 +9016,7 @@ mod tests {
         // Sample bank selection routed through effects
         let code = r#"out: s "bd:0 sn:2 hh:1" # lpf 1000 0.8"#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(
             result.is_ok(),
             "Failed to compile sample bank through filter"
@@ -8987,7 +9028,7 @@ mod tests {
         // Space-separated syntax with sample banks
         let code = r#"out: s "bd:0 bd:1 bd:2 bd:3""#;
         let (_, statements) = parse_program(code).unwrap();
-        let result = compile_program(statements, 44100.0);
+        let result = compile_program(statements, 44100.0, None);
         assert!(
             result.is_ok(),
             "Failed to compile sample bank with space syntax"

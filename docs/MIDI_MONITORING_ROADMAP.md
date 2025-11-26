@@ -39,17 +39,17 @@ out: ~piano + ~melody * 0.5
 
 ---
 
-### 🚧 Phase 1: MIDI Monitoring (IN PROGRESS)
+### ✅ Phase 1: MIDI Monitoring (COMPLETE)
 
 **Goal**: Hear MIDI input in real-time while recording
 
 #### Features
-- [ ] Special `~midi` bus receives all MIDI channels
-- [ ] Per-channel buses: `~midi1` through `~midi16`
-- [ ] Real-time note triggering (note-on → trigger synth)
-- [ ] Note-off handling (release envelope)
-- [ ] Velocity → gain mapping
-- [ ] Multiple MIDI controllers simultaneously
+- [x] Special `~midi` bus receives all MIDI channels
+- [x] Per-channel buses: `~midi1` through `~midi16`
+- [x] Real-time note triggering (note-on → trigger synth)
+- [x] Note-off handling (release envelope)
+- [x] Velocity → gain mapping (tracked in active_notes HashMap)
+- [x] Multiple MIDI controllers simultaneously (via shared event queue)
 
 #### Technical Implementation
 
@@ -97,12 +97,14 @@ out: ~piano * 0.6 + ~bass * 0.4
 ```
 
 #### Tests
-- [ ] `test_midi_bus_note_triggering` - Note-on triggers synth
-- [ ] `test_midi_bus_velocity` - Velocity mapped to gain
-- [ ] `test_midi_bus_channels` - Per-channel routing
-- [ ] `test_midi_bus_polyphony` - Multiple notes simultaneously
+- [x] `test_midi_monitoring_basic` - Note-on triggers synth
+- [x] `test_midi_monitoring_frequency_change` - Different notes change frequency
+- [x] `test_midi_monitoring_channel_filtering` - Per-channel routing
+- [x] `test_midi_monitoring_polyphony_tracking` - Multiple notes simultaneously
+- [x] `test_midi_monitoring_note_off` - Note-off handling
+- [x] `test_midi_to_saw_integration` - MIDI drives oscillator frequency
 
-**Estimated effort**: 1-2 days
+**Status**: ✅ Implemented in 1 session (6 tests passing)
 
 ---
 
@@ -346,10 +348,13 @@ impl RecordedPattern {
 ## Current Status
 
 - **Phase 0**: ✅ Complete (34 tests passing)
-- **Phase 1**: 🚧 In Progress (Design complete, implementation starting)
-- **Phase 2**: 📋 Planned
-- **Phase 3**: 📋 Planned
-- **Phase 4**: 📋 Planned
-- **Phase 5**: 📋 Future
+- **Phase 1**: ✅ Complete (6 MIDI monitoring tests passing)
+  - Real-time MIDI playthrough working
+  - ~midi and ~midi1-~midi16 buses functional
+  - Smart paste (Alt+Shift+I) with auto-generated ~rec1, ~rec2, etc.
+- **Phase 2**: 📋 Next - Note Duration Capture (legato)
+- **Phase 3**: 📋 Planned - Punch-in Recording
+- **Phase 4**: 📋 Planned - Multi-line Smart Paste formatting
+- **Phase 5**: 📋 Future - MIDI CC, Multi-take, MIDI File Import
 
-**Next Action**: Implement Phase 1 (MIDI Monitoring)
+**Next Action**: Implement Phase 2 (Note Duration / Legato)

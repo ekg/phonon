@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let compile_start = Instant::now();
     let (_, statements) = parse_program(&pattern_code)
         .map_err(|e| format!("Parse error: {:?}", e))?;
-    let mut graph = compile_program(statements, 44100.0)?;
+    let mut graph = compile_program(statements, 44100.0, None)?;
     println!("✓ Compilation: {:.2}ms\n", compile_start.elapsed().as_micros() as f64 / 1000.0);
 
     // Warm up (fill voice pool, caches, etc.)

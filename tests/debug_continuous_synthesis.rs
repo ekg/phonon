@@ -15,7 +15,7 @@ out: ~trig
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
 
     // Render 2 seconds in multiple buffers
     let buffer_size = 512;

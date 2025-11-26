@@ -7,6 +7,11 @@ use midir::{Ignore, MidiInput, MidiInputConnection, MidiInputPort};
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use std::collections::{HashMap, VecDeque};
+
+/// Shared MIDI event queue for real-time monitoring
+/// Used by both MidiInputHandler (writes) and UnifiedSignalGraph (reads)
+pub type MidiEventQueue = Arc<Mutex<VecDeque<MidiEvent>>>;
 
 /// Parsed MIDI event with timing
 #[derive(Debug, Clone)]
@@ -97,6 +102,8 @@ pub struct MidiInputHandler {
     connection: Option<MidiInputConnection<()>>,
     receiver: Option<Receiver<MidiEvent>>,
     start_time: Instant,
+    /// Shared queue for real-time MIDI monitoring (used by graph)
+    monitoring_queue: MidiEventQueue,
 }
 
 impl MidiInputHandler {
@@ -106,7 +113,13 @@ impl MidiInputHandler {
             connection: None,
             receiver: None,
             start_time: Instant::now(),
+            monitoring_queue: Arc::new(Mutex::new(VecDeque::new())),
         })
+    }
+
+    /// Get the shared MIDI event queue for real-time monitoring
+    pub fn get_monitoring_queue(&self) -> MidiEventQueue {
+        self.monitoring_queue.clone()
     }
 
     /// List available MIDI input devices
@@ -159,9 +172,12 @@ impl MidiInputHandler {
         mut midi_in: MidiInput,
         port: MidiInputPort,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Create channel for MIDI messages
+        // Create channel for MIDI messages (for recording)
         let (sender, receiver) = channel::<MidiEvent>();
         let start_time = Instant::now();
+
+        // Clone monitoring queue for the callback
+        let monitoring_queue = self.monitoring_queue.clone();
 
         // Ignore sysex and timing messages for cleaner input
         midi_in.ignore(Ignore::Sysex | Ignore::Time);
@@ -172,7 +188,17 @@ impl MidiInputHandler {
             "phonon-input",
             move |timestamp_us, message, _| {
                 if let Some(event) = MidiEvent::from_bytes(message, timestamp_us) {
-                    let _ = sender.send(event);
+                    // Send to channel for recording
+                    let _ = sender.send(event.clone());
+
+                    // Also send to monitoring queue for real-time playthrough
+                    if let Ok(mut queue) = monitoring_queue.lock() {
+                        queue.push_back(event);
+                        // Limit queue size to prevent memory growth
+                        while queue.len() > 1000 {
+                            queue.pop_front();
+                        }
+                    }
                 }
             },
             (),
@@ -223,6 +249,15 @@ impl Default for MidiInputHandler {
     }
 }
 
+/// Complete MIDI note with start and end times (for legato calculation)
+#[derive(Debug, Clone)]
+struct NoteEvent {
+    pub note: u8,
+    pub velocity: u8,
+    pub start_us: u64,      // When note-on received
+    pub end_us: Option<u64>, // When note-off received (None if still active)
+}
+
 /// MIDI pattern recorder - records MIDI events into Phonon patterns
 pub struct MidiRecorder {
     events: Vec<MidiEvent>,
@@ -231,6 +266,12 @@ pub struct MidiRecorder {
     quantize_division: u8,
     /// Recording start timestamp (for relative timing)
     recording_start_us: u64,
+    /// Recording start cycle position (for punch-in alignment)
+    recording_start_cycle: f64,
+    /// Track active notes (note number → NoteEvent) for duration calculation
+    active_notes: HashMap<u8, NoteEvent>,
+    /// Completed notes with full duration info
+    completed_notes: Vec<NoteEvent>,
 }
 
 /// Full recorded pattern with notes, velocities, and timing
@@ -242,6 +283,8 @@ pub struct RecordedPattern {
     pub n_offsets: String,
     /// Velocity/gain pattern: "0.8 1.0 0.6" (normalized 0-1)
     pub velocities: String,
+    /// Legato/duration pattern: "0.9 0.5 1.0" (0.0=staccato, 1.0=full sustain)
+    pub legato: String,
     /// Base note (lowest note played)
     pub base_note: u8,
     /// Base note name
@@ -261,6 +304,9 @@ impl MidiRecorder {
             tempo_bpm,
             quantize_division: 16, // Default to 16th notes
             recording_start_us: 0,
+            recording_start_cycle: 0.0,
+            active_notes: HashMap::new(),
+            completed_notes: Vec::new(),
         }
     }
 
@@ -269,11 +315,25 @@ impl MidiRecorder {
         self.quantize_division = division;
     }
 
-    /// Start recording
+    /// Start recording (at cycle 0)
     pub fn start(&mut self) {
         self.events.clear();
         self.start_time = Instant::now();
         self.recording_start_us = 0;
+        self.recording_start_cycle = 0.0;
+        self.active_notes.clear();
+        self.completed_notes.clear();
+    }
+
+    /// Start recording at a specific cycle position (for punch-in)
+    pub fn start_at_cycle(&mut self, cycle_position: f64) {
+        self.start();
+        self.recording_start_cycle = cycle_position;
+    }
+
+    /// Get the cycle position when recording started (for status display)
+    pub fn get_recording_start_cycle(&self) -> f64 {
+        self.recording_start_cycle
     }
 
     /// Record a MIDI event
@@ -282,6 +342,29 @@ impl MidiRecorder {
         if self.events.is_empty() {
             self.recording_start_us = event.timestamp_us;
         }
+
+        // Track note durations for legato calculation
+        match event.message_type {
+            MidiMessageType::NoteOn { note, velocity } if velocity > 0 => {
+                // Start tracking this note
+                self.active_notes.insert(note, NoteEvent {
+                    note,
+                    velocity,
+                    start_us: event.timestamp_us,
+                    end_us: None,
+                });
+            }
+            MidiMessageType::NoteOff { note, .. } |
+            MidiMessageType::NoteOn { note, velocity: 0 } => {
+                // Complete the note duration
+                if let Some(mut note_event) = self.active_notes.remove(&note) {
+                    note_event.end_us = Some(event.timestamp_us);
+                    self.completed_notes.push(note_event);
+                }
+            }
+            _ => {}
+        }
+
         self.events.push(event);
     }
 
@@ -300,6 +383,24 @@ impl MidiRecorder {
                 MidiMessageType::NoteOff { note, velocity: 0 }
             },
         };
+
+        // Track note durations for legato calculation
+        if velocity > 0 {
+            // Note-on: Start tracking
+            self.active_notes.insert(note, NoteEvent {
+                note,
+                velocity,
+                start_us: timestamp_us,
+                end_us: None,
+            });
+        } else {
+            // Note-off: Complete duration
+            if let Some(mut note_event) = self.active_notes.remove(&note) {
+                note_event.end_us = Some(timestamp_us);
+                self.completed_notes.push(note_event);
+            }
+        }
+
         self.events.push(event);
     }
 
@@ -316,10 +417,30 @@ impl MidiRecorder {
         relative_us as f64 / us_per_beat
     }
 
+    /// Convert timestamp to absolute cycle position (accounting for punch-in offset)
+    fn timestamp_to_cycle(&self, timestamp_us: u64, beats_per_cycle: f64) -> f64 {
+        let relative_us = timestamp_us.saturating_sub(self.recording_start_us);
+        let us_per_beat = 60_000_000.0 / self.tempo_bpm;
+        let relative_beats = relative_us as f64 / us_per_beat;
+        let relative_cycles = relative_beats / beats_per_cycle;
+
+        // Add recording start offset to get absolute cycle position
+        self.recording_start_cycle + relative_cycles
+    }
+
     /// Quantize a beat position to the nearest grid division
     fn quantize_beat(&self, beat: f64) -> f64 {
         let grid = 1.0 / self.quantize_division as f64;
         (beat / grid).round() * grid
+    }
+
+    /// Quantize a cycle position to the nearest grid division (absolute grid)
+    fn quantize_cycle(&self, cycle: f64, beats_per_cycle: f64) -> f64 {
+        let slots_per_cycle = self.quantize_division as f64;
+        let slot_duration_cycles = beats_per_cycle / slots_per_cycle;
+
+        // Quantize to absolute grid (not relative to recording start)
+        (cycle / slot_duration_cycles).round() * slot_duration_cycles
     }
 
     /// Convert recorded events to full pattern data
@@ -375,7 +496,20 @@ impl MidiRecorder {
         let mut notes_parts = Vec::new();
         let mut n_offset_parts = Vec::new();
         let mut velocity_parts = Vec::new();
+        let mut legato_parts = Vec::new();
         let mut consecutive_rests = 0;
+
+        // Create lookup map for note durations (note -> duration_us)
+        let mut note_durations: std::collections::HashMap<(u8, u64), u64> = std::collections::HashMap::new();
+        for note_event in &self.completed_notes {
+            if let Some(end_us) = note_event.end_us {
+                let duration = end_us.saturating_sub(note_event.start_us);
+                note_durations.insert((note_event.note, note_event.start_us), duration);
+            }
+        }
+
+        let us_per_beat = 60_000_000.0 / self.tempo_bpm;
+        let slot_duration_us = (slot_duration_beats * us_per_beat) as u64;
 
         for slot_events in grid.iter() {
             match slot_events {
@@ -389,15 +523,30 @@ impl MidiRecorder {
                         };
                         notes_parts.push(rest.clone());
                         n_offset_parts.push(rest.clone());
-                        velocity_parts.push(rest);
+                        velocity_parts.push(rest.clone());
+                        legato_parts.push(rest);
                         consecutive_rests = 0;
                     }
 
                     if events.len() == 1 {
                         let (note, vel) = events[0];
+                        let timestamp = note_ons.iter()
+                            .find(|(n, v, _)| *n == note && *v == vel)
+                            .map(|(_, _, t)| *t)
+                            .unwrap_or(0);
+
+                        // Calculate legato
+                        let legato = if let Some(&duration_us) = note_durations.get(&(note, timestamp)) {
+                            let legato_raw = duration_us as f64 / slot_duration_us as f64;
+                            legato_raw.clamp(0.0, 1.0)
+                        } else {
+                            0.8 // Default for notes still held or not tracked
+                        };
+
                         notes_parts.push(MidiEvent::midi_to_note_name(note));
                         n_offset_parts.push((note - base_note).to_string());
                         velocity_parts.push(format!("{:.2}", vel as f64 / 127.0));
+                        legato_parts.push(format!("{:.2}", legato));
                     } else {
                         // Chord - multiple notes
                         let note_chord: Vec<_> = events
@@ -411,9 +560,25 @@ impl MidiRecorder {
                         // For velocity in chords, use average or max
                         let max_vel = events.iter().map(|(_, v)| *v).max().unwrap();
 
+                        // For legato in chords, use average of all note durations
+                        let legato_values: Vec<f64> = events.iter().filter_map(|(note, vel)| {
+                            let timestamp = note_ons.iter()
+                                .find(|(n, v, _)| *n == *note && *v == *vel)
+                                .map(|(_, _, t)| *t)?;
+                            let duration_us = *note_durations.get(&(*note, timestamp))?;
+                            let legato_raw = duration_us as f64 / slot_duration_us as f64;
+                            Some(legato_raw.clamp(0.0, 1.0))
+                        }).collect();
+                        let avg_legato = if legato_values.is_empty() {
+                            0.8
+                        } else {
+                            legato_values.iter().sum::<f64>() / legato_values.len() as f64
+                        };
+
                         notes_parts.push(format!("[{}]", note_chord.join(" ")));
                         n_offset_parts.push(format!("[{}]", offset_chord.join(" ")));
                         velocity_parts.push(format!("{:.2}", max_vel as f64 / 127.0));
+                        legato_parts.push(format!("{:.2}", avg_legato));
                     }
                 }
                 None => {
@@ -426,6 +591,7 @@ impl MidiRecorder {
             notes: notes_parts.join(" "),
             n_offsets: n_offset_parts.join(" "),
             velocities: velocity_parts.join(" "),
+            legato: legato_parts.join(" "),
             base_note,
             base_note_name,
             cycle_count: num_cycles,

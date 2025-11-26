@@ -15,7 +15,7 @@ use phonon::compositional_parser::parse_program;
 fn render_dsl(code: &str, duration_seconds: f64) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_remaining, statements) = parse_program(code).expect("Failed to parse DSL");
-    let mut graph = compile_program(statements, sample_rate).expect("Failed to compile");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile");
 
     let num_samples = (duration_seconds * sample_rate as f64) as usize;
     let mut buffer = vec![0.0; num_samples];

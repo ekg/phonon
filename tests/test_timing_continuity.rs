@@ -23,7 +23,7 @@ out: s "bd sn hh cp"
 "#;
 
     let (_, statements) = parse_program(code_v1).expect("Failed to parse v1");
-    let mut graph_v1 = compile_program(statements, sample_rate).expect("Failed to compile v1");
+    let mut graph_v1 = compile_program(statements, sample_rate, None).expect("Failed to compile v1");
 
     // Enable wall-clock timing (like live mode)
     graph_v1.enable_wall_clock_timing();
@@ -49,7 +49,7 @@ out: s "bd*2 sn hh*3 cp"
 "#;
 
     let (_, statements) = parse_program(code_v2).expect("Failed to parse v2");
-    let mut graph_v2 = compile_program(statements, sample_rate).expect("Failed to compile v2");
+    let mut graph_v2 = compile_program(statements, sample_rate, None).expect("Failed to compile v2");
 
     // CRITICAL: Transfer timing state from old graph to new graph
     graph_v2.enable_wall_clock_timing();
@@ -96,7 +96,7 @@ out: s "bd sn"
 
     // Create initial graph
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, sample_rate).expect("Failed to compile");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile");
     graph.enable_wall_clock_timing();
 
     // Process some audio to get started
@@ -119,7 +119,7 @@ out: s "bd sn"
 
         // Create new graph
         let (_, statements) = parse_program(code).expect("Failed to parse");
-        let mut new_graph = compile_program(statements, sample_rate).expect("Failed to compile");
+        let mut new_graph = compile_program(statements, sample_rate, None).expect("Failed to compile");
         new_graph.enable_wall_clock_timing();
 
         // Transfer timing
@@ -181,7 +181,7 @@ out: s "bd sn"
 "#;
 
     let (_, statements) = parse_program(code_v1).expect("Failed to parse v1");
-    let mut graph_v1 = compile_program(statements, sample_rate).expect("Failed to compile v1");
+    let mut graph_v1 = compile_program(statements, sample_rate, None).expect("Failed to compile v1");
     graph_v1.enable_wall_clock_timing();
 
     // Advance to cycle 5
@@ -205,7 +205,7 @@ out: s "bd sn"
 "#;
 
     let (_, statements) = parse_program(code_v2).expect("Failed to parse v2");
-    let mut graph_v2 = compile_program(statements, sample_rate).expect("Failed to compile v2");
+    let mut graph_v2 = compile_program(statements, sample_rate, None).expect("Failed to compile v2");
     graph_v2.enable_wall_clock_timing();
     graph_v2.transfer_session_timing(&graph_v1);
 
@@ -249,7 +249,7 @@ out: s "bd sn hh cp"
 "#;
 
     let (_, statements) = parse_program(code_v1).expect("Failed to parse");
-    let graph = compile_program(statements, sample_rate).expect("Failed to compile");
+    let graph = compile_program(statements, sample_rate, None).expect("Failed to compile");
 
     // Wrap in Arc for thread-safe sharing
     let graph_arc = Arc::new(Mutex::new(graph));
@@ -284,7 +284,7 @@ out: s "bd*2 sn*2 hh*2 cp*2"
 "#;
 
     let (_, statements) = parse_program(code_v2).expect("Failed to parse v2");
-    let mut new_graph = compile_program(statements, sample_rate).expect("Failed to compile v2");
+    let mut new_graph = compile_program(statements, sample_rate, None).expect("Failed to compile v2");
 
     // Get old graph state
     let old_graph = {
@@ -358,7 +358,7 @@ out: s "bd sn hh cp"
     for (test_idx, &target_fractional_pos) in reload_positions.iter().enumerate() {
         // Create fresh graph for each test
         let (_, statements) = parse_program(code).expect("Failed to parse");
-        let mut graph = compile_program(statements, sample_rate).expect("Failed to compile");
+        let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile");
         graph.enable_wall_clock_timing();
 
         // Process audio until we reach the target fractional position
@@ -387,7 +387,7 @@ out: s "bd sn hh cp"
 
         // RELOAD at this random position
         let (_, statements) = parse_program(code).expect("Failed to parse reload");
-        let mut new_graph = compile_program(statements, sample_rate).expect("Failed to compile reload");
+        let mut new_graph = compile_program(statements, sample_rate, None).expect("Failed to compile reload");
         new_graph.enable_wall_clock_timing();
         new_graph.transfer_session_timing(&graph);
 
@@ -439,7 +439,7 @@ out: s "bd cp"
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, sample_rate).expect("Failed to compile");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile");
     graph.enable_wall_clock_timing();
 
     let mut buffer = vec![0.0f32; 512];
@@ -459,7 +459,7 @@ out: s "sn hh"
 "#;
 
     let (_, statements) = parse_program(code_v2).expect("Failed to parse v2");
-    let mut new_graph = compile_program(statements, sample_rate).expect("Failed to compile v2");
+    let mut new_graph = compile_program(statements, sample_rate, None).expect("Failed to compile v2");
     new_graph.enable_wall_clock_timing();
     new_graph.transfer_session_timing(&graph);
 

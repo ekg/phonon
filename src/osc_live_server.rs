@@ -173,7 +173,7 @@ pub fn apply_command_to_graph(cmd: &LiveCommand, sample_rate: f32) -> Option<Uni
             info!("Compiling: {}", code);
 
             match parse_program(code) {
-                Ok((_remaining, statements)) => match compile_program(statements, sample_rate) {
+                Ok((_remaining, statements)) => match compile_program(statements, sample_rate, None) {
                     Ok(graph) => {
                         info!("✅ Compiled successfully");
                         Some(graph)

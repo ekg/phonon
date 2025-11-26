@@ -1834,7 +1834,7 @@ out sine(440) * 0.2
 
                     // Parse using compositional parser
                     match parse_program(content) {
-                        Ok((_, statements)) => compile_program(statements, sample_rate),
+                        Ok((_, statements)) => compile_program(statements, sample_rate, None),
                         Err(e) => Err(format!("Parse error: {:?}", e)),
                     }
                 };

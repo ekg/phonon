@@ -16,7 +16,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
 
     // Compile to signal graph
-    let mut graph = compile_program(statements, sample_rate).expect("Failed to compile DSL code");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
 
     // Calculate number of samples
     let num_samples = (duration * sample_rate) as usize;

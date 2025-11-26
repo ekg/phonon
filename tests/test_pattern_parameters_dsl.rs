@@ -11,7 +11,7 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, cycles: usize) -> Vec<f32> {
     let (_, statements) = parse_program(code).expect("Parse failed");
     let sample_rate = 44100.0;
-    let mut graph = compile_program(statements, sample_rate).expect("Compile failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compile failed");
 
     let samples_per_cycle = (sample_rate as f64 / 0.5) as usize; // tempo = 0.5 cps
     let total_samples = samples_per_cycle * cycles;

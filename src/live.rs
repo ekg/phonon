@@ -255,7 +255,7 @@ impl LiveSession {
         // Compile into a graph
         // Note: compile_program sets CPS from tempo:/bpm: statements in the file
         // Default is 0.5 CPS if not specified
-        let mut new_graph = compile_program(statements, self.sample_rate)
+        let mut new_graph = compile_program(statements, self.sample_rate, None)
             .map_err(|e| format!("Compile error: {}", e))?;
 
         // CRITICAL: Enable wall-clock timing for live mode

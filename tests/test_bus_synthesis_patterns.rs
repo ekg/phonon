@@ -30,7 +30,7 @@ out: ~c
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
     let buffer = render_in_chunks(&mut graph, 44100, 128); // 1 second in 128-sample chunks
 
     let rms = calculate_rms(&buffer);
@@ -49,7 +49,7 @@ out: ~c
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
     let buffer = render_in_chunks(&mut graph, 44100, 128);
 
     let rms = calculate_rms(&buffer);
@@ -68,7 +68,7 @@ out: ~c
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
     let buffer = render_in_chunks(&mut graph, 44100, 128);
 
     let rms = calculate_rms(&buffer);
@@ -87,7 +87,7 @@ out: ~c
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
     let buffer = render_in_chunks(&mut graph, 44100, 128);
 
     let rms = calculate_rms(&buffer);
@@ -106,7 +106,7 @@ out: ~c
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
     let buffer = render_in_chunks(&mut graph, 44100, 128);
 
     let rms = calculate_rms(&buffer);
@@ -125,7 +125,7 @@ out: ~c
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
     let buffer = render_in_chunks(&mut graph, 44100, 128);
 
     let rms = calculate_rms(&buffer);

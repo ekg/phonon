@@ -244,7 +244,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
 
                             // Compile into a graph
-                            match compile_program(statements, sample_rate) {
+                            match compile_program(statements, sample_rate, None) {
                                 Ok(mut new_graph) => {
                                     // Enable wall-clock timing
                                     new_graph.enable_wall_clock_timing();

@@ -45,7 +45,7 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let mut graph = compile_program(statements, 44100.0)
+    let mut graph = compile_program(statements, 44100.0, None)
         .expect("Failed to compile DSL");
     let compile_time = compile_start.elapsed();
 

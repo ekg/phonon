@@ -142,7 +142,7 @@ fn test_dsl_audio_consistency_across_modes() {
 
     // Mode 1: Direct compositional compiler
     let (_, statements) = parse_program(REFERENCE_DSL).unwrap();
-    let mut graph1 = compile_program(statements, sample_rate).unwrap();
+    let mut graph1 = compile_program(statements, sample_rate, None).unwrap();
     let audio1 = graph1.render(render_samples);
 
     // Mode 2: OSC Server

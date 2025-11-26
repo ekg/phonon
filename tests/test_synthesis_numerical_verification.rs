@@ -68,7 +68,7 @@ fn test_sine_440_numerical_accuracy() {
     // Generate using Phonon synthesis
     let code = "out: sine 440";
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
     let actual = graph.render(num_samples);
 
     // Calculate error metrics
@@ -102,7 +102,7 @@ fn test_sine_phase_continuity_numerical() {
     // Render in two separate buffers
     let code = "out: sine 440";
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
 
     let buffer_size = 512;
     let buffer1 = graph.render(buffer_size);
@@ -163,7 +163,7 @@ out: ~trig
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
 
     // Render 2 seconds (4 cycles at 2 cps)
     let buffer_size = 128;
@@ -274,7 +274,7 @@ fn test_multiple_frequencies_numerical() {
     for frequency in frequencies {
         let code = format!("out: sine {}", frequency);
         let (_, statements) = parse_program(&code).expect("Parse failed");
-        let mut graph = compile_program(statements, sample_rate).expect("Compilation failed");
+        let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
 
         let num_samples = 4410; // 0.1 second
         let expected = generate_expected_sine(frequency, sample_rate, num_samples);

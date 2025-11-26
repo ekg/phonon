@@ -24,7 +24,7 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn render_dsl(code: &str, duration: f64) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate).expect("Failed to compile DSL");
+    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL");
 
     let samples = (duration * sample_rate as f64) as usize;
     let mut output = vec![0.0; samples];

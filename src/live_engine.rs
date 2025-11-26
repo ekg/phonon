@@ -149,7 +149,7 @@ fn run_audio_loop(
                         match parse_program(&current_code) {
                             Ok((_, statements)) => {
                                 // Compile to graph
-                                match compile_program(statements, sample_rate) {
+                                match compile_program(statements, sample_rate, None) {
                                     Ok(mut graph) => {
                                         // CRITICAL FIX: Preserve time continuity between reloads!
                                         // Time should be independent of patterns - synthesis depends on time.

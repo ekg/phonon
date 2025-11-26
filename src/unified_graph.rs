@@ -642,6 +642,26 @@ pub enum SignalNode {
     /// Also called Brownian noise or red noise
     BrownNoise { state: BrownNoiseState },
 
+    /// MIDI Input - Real-time MIDI note triggering
+    /// Receives MIDI events from external keyboard/controller
+    /// Outputs frequency corresponding to currently pressed notes
+    /// Supports polyphony tracking and per-channel filtering
+    ///
+    /// Usage: ~midi (all channels) or ~midi1 through ~midi16 (specific channel)
+    /// Example: ~keys: ~midi1 # saw 440 # adsr 0.01 0.1 0.7 0.2
+    MidiInput {
+        /// MIDI channel filter: None = all channels, Some(0-15) = specific channel
+        channel: Option<u8>,
+        /// Active notes currently being played (note → velocity 0-1)
+        active_notes: std::cell::RefCell<std::collections::HashMap<u8, f32>>,
+        /// Shared event queue from MIDI input handler
+        event_queue: crate::midi_input::MidiEventQueue,
+        /// Current output frequency (Hz)
+        last_freq: std::cell::RefCell<f32>,
+        /// Current gate value (0.0 = off, 1.0 = on) - for envelope triggering
+        gate: std::cell::RefCell<f32>,
+    },
+
     /// Impulse generator (single-sample spikes)
     /// Generates periodic impulses (1.0 for single sample, 0.0 otherwise)
     /// Useful for triggering envelopes, creating rhythmic gates
@@ -4394,6 +4414,14 @@ impl Clone for UnifiedSignalGraph {
     }
 }
 
+/// Convert MIDI note number to frequency in Hz
+/// MIDI note 69 (A4) = 440 Hz
+/// Each semitone is a factor of 2^(1/12)
+#[inline]
+pub fn midi_note_to_freq(note: u8) -> f32 {
+    440.0 * 2.0f32.powf((note as f32 - 69.0) / 12.0)
+}
+
 impl UnifiedSignalGraph {
     pub fn new(sample_rate: f32) -> Self {
         Self {
@@ -6863,6 +6891,53 @@ impl UnifiedSignalGraph {
 
                 // Normalize output to approximately -1 to 1
                 new_accumulator * 0.7
+            }
+
+            SignalNode::MidiInput { channel, active_notes, event_queue, last_freq, gate } => {
+                use crate::midi_input::MidiMessageType;
+
+                // Process all pending MIDI events from the queue
+                if let Ok(mut queue) = event_queue.lock() {
+                    while let Some(event) = queue.pop_front() {
+                        // Filter by channel if specified
+                        if let Some(ch) = channel {
+                            if event.channel != *ch {
+                                continue; // Skip events from other channels
+                            }
+                        }
+
+                        // Update active notes based on event type
+                        match event.message_type {
+                            MidiMessageType::NoteOn { note, velocity } if velocity > 0 => {
+                                // Note on: add to active notes with normalized velocity
+                                active_notes.borrow_mut().insert(note, velocity as f32 / 127.0);
+                                *gate.borrow_mut() = 1.0; // Gate on
+                            }
+                            MidiMessageType::NoteOff { note, .. } |
+                            MidiMessageType::NoteOn { note, velocity: 0 } => {
+                                // Note off: remove from active notes
+                                active_notes.borrow_mut().remove(&note);
+                                // Gate off only if no notes are active
+                                if active_notes.borrow().is_empty() {
+                                    *gate.borrow_mut() = 0.0;
+                                }
+                            }
+                            _ => {} // Ignore other MIDI messages for now
+                        }
+                    }
+                }
+
+                // Get the highest active note (monophonic for now)
+                let freq = if let Some(&note) = active_notes.borrow().keys().max() {
+                    let f = midi_note_to_freq(note);
+                    *last_freq.borrow_mut() = f; // Store for when no notes active
+                    f
+                } else {
+                    // No notes active, return last frequency (for release phase)
+                    *last_freq.borrow()
+                };
+
+                freq
             }
 
             SignalNode::Impulse { frequency, state } => {
