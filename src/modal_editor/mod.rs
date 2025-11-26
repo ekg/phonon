@@ -544,11 +544,12 @@ impl ModalEditor {
         // Background synthesis thread will pick up new graph on next render
         self.graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
 
-        // Signal audio callback to drain the ring buffer for instant transition
-        // This prevents hearing stale audio from the old graph
-        self.should_clear_ring.store(true, Ordering::Relaxed);
+        // DON'T clear the ring buffer for live coding!
+        // Let it play out smoothly - the new graph will naturally take over.
+        // This prevents beat drops and maintains groove continuity.
+        // (Only clear ring for explicit "hush" command)
 
-        eprintln!("✅ Graph stored! Audio should start now.");
+        eprintln!("✅ Graph stored! Smooth transition to new code...");
 
         Ok(())
     }
