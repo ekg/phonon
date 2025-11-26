@@ -103,6 +103,14 @@ pub struct ModalEditor {
     midi_recording: bool,
     /// Recorded MIDI pattern (ready to insert)
     midi_recorded_pattern: Option<String>,
+    /// Recorded MIDI pattern as n-offsets (ready to insert)
+    midi_recorded_n_pattern: Option<String>,
+    /// Recorded MIDI velocity pattern (ready to insert)
+    midi_recorded_velocity: Option<String>,
+    /// Base note name for the n-offset pattern
+    midi_recorded_base_note: Option<String>,
+    /// Number of cycles the pattern spans
+    midi_recorded_cycles: usize,
     /// Available MIDI input devices
     midi_devices: Vec<String>,
 }
@@ -415,6 +423,10 @@ impl ModalEditor {
             midi_recorder: None,
             midi_recording: false,
             midi_recorded_pattern: None,
+            midi_recorded_n_pattern: None,
+            midi_recorded_velocity: None,
+            midi_recorded_base_note: None,
+            midi_recorded_cycles: 0,
             midi_devices: MidiInputHandler::list_devices()
                 .unwrap_or_default()
                 .into_iter()
@@ -638,9 +650,21 @@ impl ModalEditor {
                 KeyResult::Continue
             }
 
-            // Alt+I: Insert recorded MIDI pattern at cursor
+            // Alt+I: Insert recorded MIDI pattern at cursor (note names)
             KeyCode::Char('i') if key.modifiers.contains(KeyModifiers::ALT) => {
                 self.insert_midi_pattern();
+                KeyResult::Continue
+            }
+
+            // Alt+N: Insert recorded MIDI pattern as n-offsets
+            KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.insert_midi_n_pattern();
+                KeyResult::Continue
+            }
+
+            // Alt+V: Insert recorded MIDI velocity pattern
+            KeyCode::Char('v') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.insert_midi_velocity_pattern();
                 KeyResult::Continue
             }
 
@@ -1721,10 +1745,28 @@ impl ModalEditor {
 
             // Convert recorded events to pattern
             if let Some(ref recorder) = self.midi_recorder {
-                let pattern = recorder.to_pattern_string(4.0); // 4 beats per cycle
-                if !pattern.is_empty() {
-                    self.midi_recorded_pattern = Some(pattern.clone());
-                    self.status_message = format!("⏹️ Recorded: \"{}\" (Alt+I to insert)", pattern);
+                let beats_per_cycle = 4.0;
+
+                if let Some(recorded) = recorder.to_recorded_pattern(beats_per_cycle) {
+                    self.midi_recorded_pattern = Some(recorded.notes.clone());
+                    self.midi_recorded_n_pattern = Some(recorded.n_offsets.clone());
+                    self.midi_recorded_velocity = Some(recorded.velocities.clone());
+                    self.midi_recorded_base_note = Some(recorded.base_note_name.clone());
+                    self.midi_recorded_cycles = recorded.cycle_count;
+
+                    let summary = recorder.get_recording_summary(beats_per_cycle);
+
+                    // Include hint about using slow if recorded over multiple cycles
+                    let slow_hint = if recorded.cycle_count > 1 {
+                        format!(" (use $ slow {})", recorded.cycle_count)
+                    } else {
+                        String::new()
+                    };
+
+                    self.status_message = format!(
+                        "⏹️ {} - Alt+I/N/V to insert{}",
+                        summary, slow_hint
+                    );
                 } else {
                     self.status_message = "⏹️ Recording stopped (no notes)".to_string();
                 }
@@ -1742,7 +1784,7 @@ impl ModalEditor {
         }
     }
 
-    /// Insert recorded MIDI pattern at cursor position
+    /// Insert recorded MIDI pattern at cursor position (note names)
     fn insert_midi_pattern(&mut self) {
         if let Some(ref pattern) = self.midi_recorded_pattern.clone() {
             // Insert the pattern as a quoted string
@@ -1751,6 +1793,35 @@ impl ModalEditor {
                 self.insert_char(c);
             }
             self.status_message = format!("📝 Inserted: {}", pattern_str);
+        } else {
+            self.status_message = "🎹 No recorded pattern (Alt+R to record)".to_string();
+        }
+    }
+
+    /// Insert recorded MIDI pattern at cursor position (n-offsets from lowest note)
+    fn insert_midi_n_pattern(&mut self) {
+        if let Some(ref pattern) = self.midi_recorded_n_pattern.clone() {
+            // Insert the pattern as a quoted string
+            let pattern_str = format!("\"{}\"", pattern);
+            for c in pattern_str.chars() {
+                self.insert_char(c);
+            }
+            let base_info = self.midi_recorded_base_note.as_deref().unwrap_or("?");
+            self.status_message = format!("📝 Inserted n-offsets: {} (base: {})", pattern_str, base_info);
+        } else {
+            self.status_message = "🎹 No recorded pattern (Alt+R to record)".to_string();
+        }
+    }
+
+    /// Insert recorded MIDI velocity pattern at cursor position (for gain control)
+    fn insert_midi_velocity_pattern(&mut self) {
+        if let Some(ref pattern) = self.midi_recorded_velocity.clone() {
+            // Insert the pattern as a quoted string
+            let pattern_str = format!("\"{}\"", pattern);
+            for c in pattern_str.chars() {
+                self.insert_char(c);
+            }
+            self.status_message = format!("📝 Inserted velocities: {}", pattern_str);
         } else {
             self.status_message = "🎹 No recorded pattern (Alt+R to record)".to_string();
         }

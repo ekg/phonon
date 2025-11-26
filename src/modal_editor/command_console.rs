@@ -232,7 +232,11 @@ impl CommandConsole {
         self.output.push("MIDI Input:".to_string());
         self.output.push("  Alt+M  - Connect to MIDI device (cycle through)".to_string());
         self.output.push("  Alt+R  - Start/stop MIDI recording".to_string());
-        self.output.push("  Alt+I  - Insert recorded pattern at cursor".to_string());
+        self.output.push("  Alt+I  - Insert recorded pattern (note names)".to_string());
+        self.output.push("  Alt+N  - Insert recorded pattern (n-offsets from lowest)".to_string());
+        self.output.push("  Alt+V  - Insert recorded velocities (as gain pattern)".to_string());
+        self.output.push("".to_string());
+        self.output.push("Tip: If recorded over N cycles, use $ slow N to fit pattern".to_string());
         self.output.push("".to_string());
         self.output.push("Press Esc or Alt+/ to close".to_string());
     }
