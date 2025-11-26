@@ -319,17 +319,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             // Compile into a graph
                             match compile_program(statements, sample_rate, None) {
                                 Ok(mut new_graph) => {
-                                    // Enable wall-clock timing
-                                    new_graph.enable_wall_clock_timing();
+                                    // CRITICAL: Check if we have an old graph to transfer timing from
+                                    // If we do, transfer will preserve wall-clock timing
+                                    // If we don't (first load), we need to initialize wall-clock timing
+                                    let current_graph = graph.load();
+                                    let has_old_graph = matches!(**current_graph, Some(_));
+
+                                    if !has_old_graph {
+                                        // First load - initialize wall-clock timing
+                                        eprintln!("📊 First graph load - enabling wall-clock timing");
+                                        new_graph.enable_wall_clock_timing();
+                                    }
 
                                     // Transfer state from old graph to prevent clicks
-                                    let current_graph = graph.load();
                                     if let Some(ref old_graph_cell) = **current_graph {
                                         // Try to transfer state, but don't block if graph is busy
                                         for _attempt in 0..20 {
                                             match old_graph_cell.0.try_borrow_mut() {
                                                 Ok(mut old_graph) => {
                                                     // Transfer session timing (wall-clock based)
+                                                    // This MUST happen BEFORE enable_wall_clock_timing()
+                                                    // or the timing will be reset!
                                                     new_graph.transfer_session_timing(&old_graph);
 
                                                     // Transfer VoiceManager to preserve active voices

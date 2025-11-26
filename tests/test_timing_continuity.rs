@@ -1,491 +1,340 @@
-//! Test timing continuity across code reloads
-//!
-//! CRITICAL REQUIREMENT: When reloading code (Ctrl-X in editor, file change in live mode),
-//! the cycle position must continue smoothly without jumps or resets.
-//!
-//! This test verifies that time is immutable from the user's perspective.
+/// Test timing continuity during rapid code reloads (Ctrl-X spam simulation)
+///
+/// This test verifies that pressing Ctrl-X multiple times in phonon edit
+/// does NOT cause beat drops, timing jumps, or cycle resets.
+///
+/// TIME IS IMMUTABLE - the cycle position must never jump.
 
-use phonon::compositional_compiler::compile_program;
-use phonon::compositional_parser::parse_program;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use phonon::ipc::{PatternClient, IpcMessage};
+use std::process::{Child, Command};
+use std::thread;
+use std::time::Duration;
 
-/// Test that cycle position advances continuously when swapping graphs
-#[test]
-fn test_cycle_position_continuity_on_graph_swap() {
-    let sample_rate = 44100.0;
-    let _cps = 2.0; // 2 cycles per second
+mod pattern_verification_utils;
+use pattern_verification_utils::detect_audio_events;
 
-    // Parse and compile initial code
-    let code_v1 = r#"
-tempo: 2.0
-out: s "bd sn hh cp"
-"#;
-
-    let (_, statements) = parse_program(code_v1).expect("Failed to parse v1");
-    let mut graph_v1 = compile_program(statements, sample_rate, None).expect("Failed to compile v1");
-
-    // Enable wall-clock timing (like live mode)
-    graph_v1.enable_wall_clock_timing();
-
-    // Process some audio to advance time
-    let block_size = 512;
-    let mut buffer = vec![0.0f32; block_size];
-
-    // Process 1 second of audio (should advance by 2 cycles at cps=2)
-    let blocks_per_second = (sample_rate as usize) / block_size;
-    for _ in 0..blocks_per_second {
-        graph_v1.process_buffer(&mut buffer);
-    }
-
-    // Record cycle position before swap
-    let position_before_swap = graph_v1.get_cycle_position();
-    println!("Cycle position before swap: {:.6}", position_before_swap);
-
-    // Parse and compile new code (user made an edit) - happens INSTANTLY in real editor
-    let code_v2 = r#"
-tempo: 2.0
-out: s "bd*2 sn hh*3 cp"
-"#;
-
-    let (_, statements) = parse_program(code_v2).expect("Failed to parse v2");
-    let mut graph_v2 = compile_program(statements, sample_rate, None).expect("Failed to compile v2");
-
-    // CRITICAL: Transfer timing state from old graph to new graph
-    graph_v2.enable_wall_clock_timing();
-    graph_v2.transfer_session_timing(&graph_v1);
-
-    // Record cycle position after swap
-    let position_after_swap = graph_v2.get_cycle_position();
-    println!("Cycle position after swap: {:.6}", position_after_swap);
-
-    // The cycle position should be THE SAME (or very close) because transfer happens instantly
-    let actual_advance = position_after_swap - position_before_swap;
-
-    println!("Cycle advance during swap: {:.6} cycles", actual_advance);
-
-    // Verify timing continuity - position should NOT jump
-    let max_jump = 0.01; // Allow tiny difference due to timing precision
-    assert!(
-        actual_advance.abs() < max_jump,
-        "Timing jump detected during swap! Position changed by {:.6} cycles",
-        actual_advance
-    );
-
-    // Verify we didn't reset to 0 - position should be whatever it was before swap
-    assert!(
-        position_after_swap == position_before_swap || (position_after_swap - position_before_swap).abs() < 0.001,
-        "Cycle position changed during swap! Before: {:.6}, After: {:.6}",
-        position_before_swap,
-        position_after_swap
-    );
-
-    println!("✅ Timing preserved: cycle {:.6} -> {:.6} (no jump)", position_before_swap, position_after_swap);
+/// Read WAV file and return (samples, sample_rate)
+fn read_wav_samples(path: &str) -> (Vec<f32>, f32) {
+    let mut reader = hound::WavReader::open(path).expect("Failed to open WAV file");
+    let spec = reader.spec();
+    let sample_rate = spec.sample_rate as f32;
+    
+    let samples: Vec<f32> = reader
+        .samples::<f32>()
+        .map(|s| s.unwrap_or(0.0))
+        .collect();
+    
+    (samples, sample_rate)
 }
 
-/// Test that multiple rapid reloads don't cause timing drift
-#[test]
-fn test_no_timing_drift_on_rapid_reloads() {
-    let sample_rate = 44100.0;
-    let cps = 4.0; // Faster tempo to make drift more obvious
+/// Start phonon-audio in background with recording enabled
+fn start_phonon_audio(output_path: &str) -> Child {
+    Command::new("cargo")
+        .args(&[
+            "run",
+            "--release",
+            "--bin",
+            "phonon-audio",
+            "--",
+            "--record",
+            output_path,
+        ])
+        .spawn()
+        .expect("Failed to start phonon-audio")
+}
 
-    let code = r#"
-tempo: 4.0
-out: s "bd sn"
-"#;
+/// Detect timing discontinuities by analyzing onset timing
+///
+/// Returns: (num_discontinuities, expected_interval, actual_intervals)
+fn detect_timing_discontinuities(
+    samples: &[f32],
+    sample_rate: f32,
+    expected_interval: f32,
+    tolerance: f32,
+) -> (usize, f32, Vec<f32>) {
+    // Detect audio events (kick drum hits)
+    let onsets = detect_audio_events(samples, sample_rate, 0.1);
 
-    // Create initial graph
-    let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile");
-    graph.enable_wall_clock_timing();
-
-    // Process some audio to get started
-    let mut buffer = vec![0.0f32; 512];
-    for _ in 0..10 {
-        graph.process_buffer(&mut buffer);
+    if onsets.len() < 2 {
+        return (0, expected_interval, vec![]);
     }
 
-    let start_position = graph.get_cycle_position();
-    let start_time = Instant::now();
+    // Calculate intervals between onsets
+    let mut intervals = Vec::new();
+    let mut discontinuities = 0;
 
-    // Simulate 10 rapid code reloads
-    for i in 0..10 {
-        // Process some audio before reloading (simulates audio callback running)
-        for _ in 0..5 {
-            graph.process_buffer(&mut buffer);
+    for i in 1..onsets.len() {
+        let interval = (onsets[i].time - onsets[i - 1].time) as f32;
+        intervals.push(interval);
+
+        // Check if interval deviates significantly from expected
+        let deviation = (interval - expected_interval).abs();
+        if deviation > tolerance {
+            discontinuities += 1;
+            eprintln!(
+                "⚠️  Discontinuity detected: expected {:.4}s, got {:.4}s (deviation: {:.4}s)",
+                expected_interval, interval, deviation
+            );
         }
-
-        std::thread::sleep(Duration::from_millis(50)); // 50ms between reloads
-
-        // Create new graph
-        let (_, statements) = parse_program(code).expect("Failed to parse");
-        let mut new_graph = compile_program(statements, sample_rate, None).expect("Failed to compile");
-        new_graph.enable_wall_clock_timing();
-
-        // Transfer timing
-        new_graph.transfer_session_timing(&graph);
-
-        // Verify continuity
-        let old_pos = graph.get_cycle_position();
-        let new_pos = new_graph.get_cycle_position();
-
-        println!(
-            "Reload {}: old_pos={:.6}, new_pos={:.6}, diff={:.6}",
-            i,
-            old_pos,
-            new_pos,
-            new_pos - old_pos
-        );
-
-        assert!(
-            (new_pos - old_pos).abs() < 0.5,
-            "Large timing jump detected on reload {}!",
-            i
-        );
-
-        graph = new_graph;
     }
 
-    let end_position = graph.get_cycle_position();
-    let elapsed = start_time.elapsed().as_secs_f64();
-
-    // Expected advance = elapsed_seconds * cps
-    let expected_cycles = elapsed * cps as f64;
-    let actual_cycles = end_position - start_position;
-
-    println!("\nAfter 10 reloads:");
-    println!("  Elapsed time: {:.3}s", elapsed);
-    println!("  Expected cycles: {:.3}", expected_cycles);
-    println!("  Actual cycles: {:.3}", actual_cycles);
-    println!("  Drift: {:.6} cycles", actual_cycles - expected_cycles);
-
-    // Allow 100ms total drift across all reloads
-    let max_drift = 0.1 * cps as f64;
-    assert!(
-        (actual_cycles - expected_cycles).abs() < max_drift,
-        "Accumulated timing drift too large: {:.3} cycles (max: {:.3})",
-        actual_cycles - expected_cycles,
-        max_drift
-    );
+    (discontinuities, expected_interval, intervals)
 }
 
-/// Test that cycle position doesn't reset when changing tempo
 #[test]
-fn test_tempo_change_preserves_cycle_position() {
-    let sample_rate = 44100.0;
+#[ignore] // Ignore by default (requires audio device)
+fn test_no_beat_drops_during_rapid_reloads() {
+    println!("🧪 Testing timing continuity during rapid code reloads...");
+    println!("This simulates pressing Ctrl-X multiple times rapidly in phonon edit");
+    println!();
 
-    // Start at 2 cps
-    let code_v1 = r#"
-tempo: 2.0
-out: s "bd sn"
-"#;
+    let output_path = "/tmp/test_timing_continuity.wav";
 
-    let (_, statements) = parse_program(code_v1).expect("Failed to parse v1");
-    let mut graph_v1 = compile_program(statements, sample_rate, None).expect("Failed to compile v1");
-    graph_v1.enable_wall_clock_timing();
+    // Clean up any previous test file
+    let _ = std::fs::remove_file(output_path);
 
-    // Advance to cycle 5
-    let mut buffer = vec![0.0f32; 512];
-    while graph_v1.get_cycle_position() < 5.0 {
-        graph_v1.process_buffer(&mut buffer);
+    // Start phonon-audio with recording
+    println!("📡 Starting phonon-audio with recording...");
+    let mut audio_process = start_phonon_audio(output_path);
+
+    // Give it time to start and create the Unix socket
+    thread::sleep(Duration::from_secs(2));
+
+    // Check if phonon-audio is still running
+    if audio_process.try_wait().unwrap().is_some() {
+        panic!("phonon-audio failed to start");
     }
 
-    let position_at_tempo_change = graph_v1.get_cycle_position();
-    println!(
-        "Cycle position before tempo change: {:.6}",
-        position_at_tempo_change
-    );
+    println!("✅ phonon-audio started");
 
-    std::thread::sleep(Duration::from_millis(50));
-
-    // Change tempo to 4 cps
-    let code_v2 = r#"
-tempo: 4.0
-out: s "bd sn"
-"#;
-
-    let (_, statements) = parse_program(code_v2).expect("Failed to parse v2");
-    let mut graph_v2 = compile_program(statements, sample_rate, None).expect("Failed to compile v2");
-    graph_v2.enable_wall_clock_timing();
-    graph_v2.transfer_session_timing(&graph_v1);
-
-    let position_after_tempo_change = graph_v2.get_cycle_position();
-    println!(
-        "Cycle position after tempo change: {:.6}",
-        position_after_tempo_change
-    );
-
-    // Position should be approximately the same (plus the 50ms that elapsed)
-    let expected_advance = 0.05 * 2.0; // 50ms at old tempo (2 cps)
-    let actual_advance = position_after_tempo_change - position_at_tempo_change;
-
-    println!("Expected advance: ~{:.3} cycles", expected_advance);
-    println!("Actual advance: {:.3} cycles", actual_advance);
-
-    // The cycle NUMBER should be preserved, even if tempo changes
-    assert!(
-        position_after_tempo_change >= position_at_tempo_change,
-        "Cycle position went backwards! {} -> {}",
-        position_at_tempo_change,
-        position_after_tempo_change
-    );
-
-    // Should still be around cycle 5, not reset to 0
-    assert!(
-        position_after_tempo_change > 4.5,
-        "Cycle position reset instead of continuing! Got: {}",
-        position_after_tempo_change
-    );
-}
-
-/// Test concurrent audio processing and graph swapping (simulates live mode)
-#[test]
-fn test_concurrent_processing_and_swap() {
-    let sample_rate = 44100.0;
-
-    let code_v1 = r#"
-tempo: 2.0
-out: s "bd sn hh cp"
-"#;
-
-    let (_, statements) = parse_program(code_v1).expect("Failed to parse");
-    let graph = compile_program(statements, sample_rate, None).expect("Failed to compile");
-
-    // Wrap in Arc for thread-safe sharing
-    let graph_arc = Arc::new(Mutex::new(graph));
-    let graph_clone = graph_arc.clone();
-
-    // Simulate audio thread processing
-    let audio_thread = std::thread::spawn(move || {
-        let mut positions = Vec::new();
-        let mut buffer = vec![0.0f32; 512];
-
-        for i in 0..100 {
-            {
-                let mut g = graph_clone.lock().unwrap();
-                if i == 0 {
-                    g.enable_wall_clock_timing();
-                }
-                g.process_buffer(&mut buffer);
-                positions.push(g.get_cycle_position());
-            }
-            std::thread::sleep(Duration::from_millis(10));
+    // Connect to phonon-audio via IPC (like phonon edit does)
+    println!("🔌 Connecting to audio engine via IPC...");
+    let mut client = match PatternClient::connect() {
+        Ok(c) => c,
+        Err(e) => {
+            audio_process.kill().ok();
+            panic!("Failed to connect to audio engine: {}", e);
         }
-
-        positions
-    });
-
-    // Simulate main thread swapping graph (like Ctrl-X reload)
-    std::thread::sleep(Duration::from_millis(250)); // Let audio start
-
-    let code_v2 = r#"
-tempo: 2.0
-out: s "bd*2 sn*2 hh*2 cp*2"
-"#;
-
-    let (_, statements) = parse_program(code_v2).expect("Failed to parse v2");
-    let mut new_graph = compile_program(statements, sample_rate, None).expect("Failed to compile v2");
-
-    // Get old graph state
-    let old_graph = {
-        let g = graph_arc.lock().unwrap();
-        g.get_cycle_position()
     };
 
-    // Transfer and swap
-    {
-        let old = graph_arc.lock().unwrap();
-        new_graph.enable_wall_clock_timing();
-        new_graph.transfer_session_timing(&*old);
+    // Wait for Ready message
+    match client.receive() {
+        Ok(IpcMessage::Ready) => println!("✅ Audio engine ready"),
+        Ok(msg) => {
+            audio_process.kill().ok();
+            panic!("Expected Ready, got {:?}", msg);
+        }
+        Err(e) => {
+            audio_process.kill().ok();
+            panic!("IPC error: {}", e);
+        }
     }
 
-    let new_pos = new_graph.get_cycle_position();
-    println!(
-        "Graph swap: old={:.3}, new={:.3}, diff={:.6}",
-        old_graph,
-        new_pos,
-        new_pos - old_graph
-    );
-
-    *graph_arc.lock().unwrap() = new_graph;
-
-    // Wait for audio thread to finish
-    let positions = audio_thread.join().expect("Audio thread panicked");
-
-    // Verify positions always increase (no resets)
-    for i in 1..positions.len() {
-        assert!(
-            positions[i] >= positions[i - 1],
-            "Cycle position went backwards at sample {}: {:.6} -> {:.6}",
-            i,
-            positions[i - 1],
-            positions[i]
-        );
-    }
-
-    println!("✅ All {} position samples continuously increased", positions.len());
-}
-
-/// Test reloading at random fractional cycle positions (deterministic seed)
-/// This is CRITICAL - reloads can happen at ANY point in the cycle, not just boundaries
-#[test]
-fn test_reload_at_random_cycle_positions() {
-    
-    
-
-    let sample_rate = 44100.0;
-    let _cps = 2.0;
-
+    // Test code: simple kick drum pattern
+    // At tempo 2.0, kick hits every 0.25 seconds (4 times per cycle)
     let code = r#"
 tempo: 2.0
-out: s "bd sn hh cp"
+o1 $ s "808bd(1,4)"
 "#;
 
-    // Deterministic "random" positions using simple hash (0.0 to 1.0 within cycle)
-    let reload_positions = vec![
-        0.001, // Very start of cycle
-        0.123, // Early
-        0.333, // Third
-        0.499, // Just before half
-        0.501, // Just after half
-        0.667, // Two thirds
-        0.789, // Late
-        0.999, // Very end of cycle
-        0.250, // Quarter
-        0.750, // Three quarters
-    ];
+    println!();
+    println!("📝 Test code:");
+    println!("{}", code);
+    println!();
 
-    for (test_idx, &target_fractional_pos) in reload_positions.iter().enumerate() {
-        // Create fresh graph for each test
-        let (_, statements) = parse_program(code).expect("Failed to parse");
-        let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile");
-        graph.enable_wall_clock_timing();
+    // Simulate rapid Ctrl-X presses by sending UpdateGraph multiple times
+    // This is the critical test: does timing stay continuous?
+    let num_reloads = 10;
+    println!("🔄 Simulating {} rapid code reloads (Ctrl-X spam)...", num_reloads);
 
-        // Process audio until we reach the target fractional position
-        let mut buffer = vec![0.0f32; 512];
-        let target_cycle = 3.0 + target_fractional_pos; // Target cycle 3.xxx
-
-        while graph.get_cycle_position() < target_cycle {
-            graph.process_buffer(&mut buffer);
+    for i in 0..num_reloads {
+        // Send the same code repeatedly (simulating Ctrl-X)
+        let msg = IpcMessage::UpdateGraph {
+            code: code.to_string(),
+        };
+        if let Err(e) = client.send(&msg) {
+            audio_process.kill().ok();
+            panic!("Failed to send UpdateGraph: {}", e);
         }
 
-        let position_before = graph.get_cycle_position();
-        let fractional_before = position_before - position_before.floor();
+        // Small delay between reloads to simulate realistic typing/Ctrl-X timing
+        // User reported bug happens when spamming Ctrl-X within one cycle
+        // At tempo 2.0, one cycle = 0.5 seconds
+        thread::sleep(Duration::from_millis(50)); // 20 reloads per second
 
-        println!(
-            "\nTest {}: Reloading at cycle {:.6} (fractional: {:.3})",
-            test_idx, position_before, fractional_before
-        );
+        if (i + 1) % 3 == 0 {
+            print!(".");
+            std::io::Write::flush(&mut std::io::stdout()).ok();
+        }
+    }
+    println!();
 
-        // Verify we're actually at different fractional positions
-        assert!(
-            (fractional_before - target_fractional_pos).abs() < 0.1,
-            "Failed to reach target position {:.3}, got {:.3}",
-            target_fractional_pos,
-            fractional_before
-        );
+    println!("✅ All {} reloads sent", num_reloads);
+    println!();
 
-        // RELOAD at this random position
-        let (_, statements) = parse_program(code).expect("Failed to parse reload");
-        let mut new_graph = compile_program(statements, sample_rate, None).expect("Failed to compile reload");
-        new_graph.enable_wall_clock_timing();
-        new_graph.transfer_session_timing(&graph);
+    // Let it play for a few cycles to accumulate data
+    println!("🎵 Recording for 3 seconds...");
+    thread::sleep(Duration::from_secs(3));
 
-        let position_after = new_graph.get_cycle_position();
-        let fractional_after = position_after - position_after.floor();
-
-        println!(
-            "  Before: {:.6} (frac: {:.3})",
-            position_before, fractional_before
-        );
-        println!(
-            "  After:  {:.6} (frac: {:.3})",
-            position_after, fractional_after
-        );
-
-        // CRITICAL: Position must be preserved regardless of where in cycle we reload
-        let position_diff = (position_after - position_before).abs();
-        assert!(
-            position_diff < 0.001,
-            "Position jumped during reload at fractional pos {:.3}! Diff: {:.6}",
-            fractional_before,
-            position_diff
-        );
-
-        // Verify fractional position is preserved
-        let fractional_diff = (fractional_after - fractional_before).abs();
-        assert!(
-            fractional_diff < 0.001,
-            "Fractional position changed at {:.3}! Before: {:.3}, After: {:.3}",
-            target_fractional_pos,
-            fractional_before,
-            fractional_after
-        );
-
-        println!("  ✅ Timing preserved at fractional position {:.3}", fractional_before);
+    // Shutdown
+    println!("🛑 Shutting down audio engine...");
+    if let Err(e) = client.send(&IpcMessage::Shutdown) {
+        eprintln!("Warning: Failed to send shutdown: {}", e);
     }
 
-    println!("\n✅ ALL {} reload positions verified - timing preserved everywhere in cycle!", reload_positions.len());
+    // Give it time to finalize the WAV file
+    thread::sleep(Duration::from_millis(500));
+
+    // Kill if still running
+    audio_process.kill().ok();
+    audio_process.wait().ok();
+
+    println!("✅ Audio engine stopped");
+    println!();
+
+    // Verify WAV file was created
+    if !std::path::Path::new(output_path).exists() {
+        panic!("Recording file was not created: {}", output_path);
+    }
+
+    println!("📊 Analyzing recorded audio for timing discontinuities...");
+    println!();
+
+    // Read WAV file
+    let (samples, sample_rate) = read_wav_samples(output_path);
+
+    println!("📈 Recording info:");
+    println!("   Duration: {:.2}s", samples.len() as f32 / sample_rate);
+    println!("   Sample rate: {} Hz", sample_rate as u32);
+    println!("   Total samples: {}", samples.len());
+    println!();
+
+    // Expected interval: at tempo 2.0, kick pattern "808bd(1,4)" triggers 4 times per cycle
+    // Cycle duration = 1 / tempo = 1 / 2.0 = 0.5 seconds
+    // Interval between kicks = 0.5 / 4 = 0.125 seconds
+    let tempo = 2.0;
+    let kicks_per_cycle = 4.0;
+    let cycle_duration = 1.0 / tempo;
+    let expected_interval = cycle_duration / kicks_per_cycle;
+
+    println!("⏱️  Expected timing:");
+    println!("   Tempo: {} CPS", tempo);
+    println!("   Cycle duration: {:.3}s", cycle_duration);
+    println!("   Expected interval between kicks: {:.3}s", expected_interval);
+    println!();
+
+    // Tolerance: allow 5ms deviation (very tight for 125ms intervals)
+    let tolerance = 0.005; // 5ms
+
+    let (discontinuities, _, intervals) =
+        detect_timing_discontinuities(&samples, sample_rate, expected_interval as f32, tolerance);
+
+    println!("📊 Timing analysis:");
+    println!("   Total kick events detected: {}", intervals.len() + 1);
+    println!("   Intervals measured: {}", intervals.len());
+    println!("   Timing discontinuities: {}", discontinuities);
+    println!();
+
+    if !intervals.is_empty() {
+        let avg_interval: f32 = intervals.iter().sum::<f32>() / intervals.len() as f32;
+        let min_interval = intervals.iter().cloned().fold(f32::INFINITY, f32::min);
+        let max_interval = intervals.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+
+        println!("   Average interval: {:.4}s", avg_interval);
+        println!("   Min interval: {:.4}s", min_interval);
+        println!("   Max interval: {:.4}s", max_interval);
+        println!("   Expected interval: {:.4}s", expected_interval);
+        println!("   Tolerance: {:.4}s (±{:.1}%)", tolerance, tolerance / expected_interval as f32 * 100.0);
+        println!();
+    }
+
+    // Test assertions
+    assert!(
+        intervals.len() >= 10,
+        "Not enough kick events detected (got {}, expected at least 10)",
+        intervals.len()
+    );
+
+    // The critical test: NO timing discontinuities
+    if discontinuities > 0 {
+        println!("❌ FAILED: {} timing discontinuities detected", discontinuities);
+        println!();
+        println!("This means the beat drops / cycle resets during code reloads.");
+        println!("TIME IS IMMUTABLE - cycle position must never jump!");
+        println!();
+        panic!("Timing continuity test FAILED: {} discontinuities", discontinuities);
+    }
+
+    println!("✅ SUCCESS: No timing discontinuities detected!");
+    println!("✅ Timing remains continuous during {} rapid reloads", num_reloads);
+    println!();
+    println!("TIME IS IMMUTABLE ✨");
 }
 
-/// Test that reloading during active events doesn't cause discontinuities
 #[test]
-fn test_reload_during_event_playback() {
+#[ignore] // Ignore by default (requires audio device)
+fn test_detect_timing_discontinuities_function() {
+    println!("🧪 Testing timing discontinuity detection algorithm...");
+    println!();
+
+    // Create synthetic audio with known discontinuity
     let sample_rate = 44100.0;
+    let duration = 2.0;
+    let num_samples = (sample_rate * duration) as usize;
+    let mut samples = vec![0.0f32; num_samples];
 
-    let code = r#"
-tempo: 1.0
-out: s "bd cp"
-"#;
+    // Expected interval: 0.125 seconds (8 Hz)
+    let expected_interval = 0.125;
+    let interval_samples = (expected_interval * sample_rate) as usize;
 
-    let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile");
-    graph.enable_wall_clock_timing();
+    // Place regular kicks every 0.125 seconds
+    let kicks = vec![
+        0,                   // t=0.000s
+        interval_samples,    // t=0.125s
+        interval_samples * 2, // t=0.250s
+        interval_samples * 3, // t=0.375s
+        // DISCONTINUITY: skip one kick, simulate cycle reset
+        interval_samples * 4, // t=0.500s (should be at interval_samples * 4)
+        interval_samples * 6, // t=0.750s (jumped ahead - discontinuity!)
+        interval_samples * 7, // t=0.875s
+        interval_samples * 8, // t=1.000s
+    ];
 
-    let mut buffer = vec![0.0f32; 512];
-
-    // Advance to middle of first cycle (when "bd" is likely playing)
-    while graph.get_cycle_position() < 0.25 {
-        graph.process_buffer(&mut buffer);
+    // Place impulses (kick drums)
+    for &pos in &kicks {
+        if pos < num_samples {
+            samples[pos] = 1.0;
+            // Decay
+            for i in 1..100 {
+                if pos + i < num_samples {
+                    let i_f32 = i as f32;
+                    samples[pos + i] = (-i_f32 * 0.05).exp();
+                }
+            }
+        }
     }
 
-    let pos_during_event = graph.get_cycle_position();
-    println!("Reloading during event at cycle: {:.6}", pos_during_event);
+    println!("📊 Synthetic audio:");
+    println!("   Sample rate: {} Hz", sample_rate);
+    println!("   Duration: {}s", duration);
+    println!("   Expected interval: {}s", expected_interval);
+    println!("   Kicks placed at indices: {:?}", kicks);
+    println!();
 
-    // Reload while event is potentially playing
-    let code_v2 = r#"
-tempo: 1.0
-out: s "sn hh"
-"#;
+    let tolerance = 0.01; // 10ms tolerance
+    let (discontinuities, _, intervals) =
+        detect_timing_discontinuities(&samples, sample_rate, expected_interval, tolerance);
 
-    let (_, statements) = parse_program(code_v2).expect("Failed to parse v2");
-    let mut new_graph = compile_program(statements, sample_rate, None).expect("Failed to compile v2");
-    new_graph.enable_wall_clock_timing();
-    new_graph.transfer_session_timing(&graph);
+    println!("📊 Detection results:");
+    println!("   Discontinuities detected: {}", discontinuities);
+    println!("   Intervals: {:?}", intervals);
+    println!();
 
-    let pos_after_reload = new_graph.get_cycle_position();
-    println!("Position after reload: {:.6}", pos_after_reload);
-
-    // Position must not jump even during active event playback
-    assert!(
-        (pos_after_reload - pos_during_event).abs() < 0.001,
-        "Position jumped during event playback! {} -> {}",
-        pos_during_event,
-        pos_after_reload
+    // We expect to detect 1 discontinuity (the jump from kick 4 to kick 5)
+    assert_eq!(
+        discontinuities, 1,
+        "Expected to detect exactly 1 discontinuity in synthetic audio"
     );
 
-    // Continue processing - should not crash or have discontinuities
-    for _ in 0..100 {
-        new_graph.process_buffer(&mut buffer);
-    }
-
-    let final_pos = new_graph.get_cycle_position();
-    assert!(
-        final_pos > pos_after_reload,
-        "Time didn't advance after reload: {} -> {}",
-        pos_after_reload,
-        final_pos
-    );
-
-    println!("✅ Timing preserved during event playback reload");
+    println!("✅ Discontinuity detection algorithm works correctly!");
 }

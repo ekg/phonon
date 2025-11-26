@@ -4514,6 +4514,14 @@ impl UnifiedSignalGraph {
         // => new_offset = old_cycle_pos - old_elapsed * new_cps
         self.cycle_offset = old_cycle_pos - old_elapsed * self.cps as f64;
 
+        // DEBUG: Log timing transfer details
+        eprintln!("🔍 TIMING TRANSFER:");
+        eprintln!("   Old: elapsed={:.4}s, cps={:.2}, offset={:.4}, position={:.4}",
+            old_elapsed, old_graph.cps, old_graph.cycle_offset, old_cycle_pos);
+        eprintln!("   New: cps={:.2}, offset={:.4}, will continue from position={:.4}",
+            self.cps, self.cycle_offset, old_cycle_pos);
+        eprintln!("   Wall-clock mode: old={}, new={}", old_graph.use_wall_clock, self.use_wall_clock);
+
         // NOTE: We keep self.cps as-is (from compile_program's tempo: statement)
         // This allows tempo changes to take effect immediately!
 
