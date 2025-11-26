@@ -100,6 +100,89 @@ impl IpcMessage {
 
         Self::from_bytes(&data)
     }
+
+    /// Try to receive a message without blocking
+    /// Returns Ok(Some(msg)) if message available, Ok(None) if no message, Err on error
+    pub fn try_receive(stream: &mut UnixStream) -> Result<Option<Self>, String> {
+        // Temporarily set non-blocking
+        stream
+            .set_nonblocking(true)
+            .map_err(|e| format!("Failed to set non-blocking: {}", e))?;
+
+        // Try to read length prefix
+        let mut len_bytes = [0u8; 4];
+        let result = match stream.read_exact(&mut len_bytes) {
+            Ok(_) => {
+                let len = u32::from_le_bytes(len_bytes) as usize;
+
+                // Sanity check
+                if len > 100_000_000 {
+                    Err(format!("Message too large: {} bytes", len))
+                } else {
+                    // Read data
+                    let mut data = vec![0u8; len];
+                    stream
+                        .read_exact(&mut data)
+                        .map_err(|e| format!("Failed to read data: {}", e))?;
+
+                    Self::from_bytes(&data).map(Some)
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(None),
+            Err(e) => Err(format!("Failed to read length: {}", e)),
+        };
+
+        // Restore blocking mode
+        stream
+            .set_nonblocking(false)
+            .map_err(|e| format!("Failed to restore blocking: {}", e))?;
+
+        result
+    }
+
+    /// Drain all pending UpdateGraph messages and return only the most recent one
+    /// Returns Ok(Some(code)) if UpdateGraph(s) found, Ok(None) if no UpdateGraph pending
+    /// Other message types are returned immediately without draining
+    pub fn receive_coalesced(stream: &mut UnixStream) -> Result<Self, String> {
+        // Receive first message (blocking)
+        let first_msg = Self::receive(stream)?;
+
+        // If it's not an UpdateGraph, return it immediately
+        if !matches!(first_msg, IpcMessage::UpdateGraph { .. }) {
+            return Ok(first_msg);
+        }
+
+        // It's an UpdateGraph - check if there are more pending
+        let mut latest_update = first_msg;
+        let mut drained_count = 0;
+
+        loop {
+            match Self::try_receive(stream)? {
+                Some(msg) => {
+                    // If it's another UpdateGraph, replace the latest
+                    if let IpcMessage::UpdateGraph { .. } = msg {
+                        latest_update = msg;
+                        drained_count += 1;
+                    } else {
+                        // It's a different message type - we should process it
+                        // But for now, prioritize the UpdateGraph
+                        // TODO: Consider queuing non-UpdateGraph messages
+                        eprintln!("⚠️  Draining UpdateGraph, but received {:?} - ignoring for now", msg);
+                    }
+                }
+                None => {
+                    // No more messages pending
+                    break;
+                }
+            }
+        }
+
+        if drained_count > 0 {
+            eprintln!("🔄 Drained {} stale UpdateGraph message(s), processing most recent", drained_count);
+        }
+
+        Ok(latest_update)
+    }
 }
 
 /// Get the Unix socket path for IPC

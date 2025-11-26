@@ -307,8 +307,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     IpcMessage::Ready.send(&mut stream)?;
 
     // IPC message loop - receive graph updates from pattern engine
+    // Use receive_coalesced to automatically drain stale UpdateGraph messages
     loop {
-        match IpcMessage::receive(&mut stream) {
+        match IpcMessage::receive_coalesced(&mut stream) {
             Ok(msg) => match msg {
                 IpcMessage::UpdateGraph { code } => {
                     eprintln!("📦 Received code update ({} bytes)", code.len());
