@@ -1455,9 +1455,10 @@ fn panic_statement(input: &str) -> IResult<&str, DslStatement> {
     map(tag("panic"), |_| DslStatement::Panic)(input)
 }
 
-/// Skip a comment (from # to end of line)
+/// Skip a comment (from -- to end of line)
+/// Note: # is NOT a comment - it's the DSP chain operator!
 fn skip_comment(input: &str) -> IResult<&str, ()> {
-    let (input, _) = tag("#")(input)?;
+    let (input, _) = tag("--")(input)?;
     let (input, _) = take_while(|c| c != '\n')(input)?;
     Ok((input, ()))
 }

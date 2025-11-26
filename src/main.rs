@@ -3,7 +3,6 @@
 
 use clap::{Parser, Subcommand};
 use phonon::pattern::Pattern;
-use phonon::simple_dsp_executor;
 use std::cell::RefCell;
 use std::path::PathBuf;
 
@@ -240,13 +239,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Master gain: {gain:.1}");
             println!();
 
-            // Parse and render using the compositional parser
-            use phonon::compositional_compiler::compile_program;
-            use phonon::compositional_parser::parse_program;
+            // Parse and render using the unified_graph_parser (supports $ and # syntax)
+            use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
             // Parse the DSL
             let (remaining, statements) =
-                parse_program(&dsl_code).map_err(|e| format!("Failed to parse DSL: {:?}", e))?;
+                parse_dsl(&dsl_code).map_err(|e| format!("Failed to parse DSL: {:?}", e))?;
 
             // Check for parse errors (unparsed input remaining)
             if !remaining.trim().is_empty() {
@@ -272,9 +270,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 eprintln!();
             }
 
-            // Compile to graph (with auto-routing)
-            let mut graph = compile_program(statements, sample_rate as f32)
-                .map_err(|e| format!("Failed to compile: {}", e))?;
+            // Compile to graph using DslCompiler
+            let compiler = DslCompiler::new(sample_rate as f32);
+            let mut graph = compiler.compile(statements);
 
             // Print auto-routing info if it happened
             if graph.has_output() && !graph.get_all_bus_names().is_empty() {
@@ -1628,7 +1626,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             sample_rate,
             gain,
         } => {
-            use crate::simple_dsp_executor::render_dsp_to_audio_simple;
+            use hound::{SampleFormat, WavSpec, WavWriter};
+            use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
             use std::process::Command;
 
             // Read DSL code
@@ -1643,18 +1642,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Treat as inline DSL code
                 input.clone()
             };
-
-            // Strip comments and empty lines
-            let clean_code = dsl_code
-                .lines()
-                .filter(|line| !line.trim().starts_with('#') && !line.trim().is_empty())
-                .collect::<Vec<_>>()
-                .join("\n");
-
-            if clean_code.trim().is_empty() {
-                println!("❌ No DSL code to process");
-                return Ok(());
-            }
 
             println!("🎵 Phonon Player");
             println!("================");
@@ -1671,68 +1658,87 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Gain:       {gain:.1}");
             println!();
 
-            println!("DSL Code:");
-            for line in clean_code.lines() {
-                println!("  {line}");
+            // Parse using unified_graph_parser (supports new $ and # syntax)
+            let (remaining, statements) =
+                parse_dsl(&dsl_code).map_err(|e| format!("Failed to parse DSL: {:?}", e))?;
+
+            if !remaining.trim().is_empty() {
+                eprintln!("⚠️  Warning: unparsed input remaining: {}", remaining.trim());
             }
-            println!();
+
+            // Compile to graph using DslCompiler
+            let compiler = DslCompiler::new(sample_rate as f32);
+            let mut graph = compiler.compile(statements);
+
+            // Calculate samples
+            let num_samples = (duration * sample_rate as f32) as usize;
 
             // Render audio
-            match render_dsp_to_audio_simple(&clean_code, sample_rate as f32, duration) {
-                Ok(mut buffer) => {
-                    // Apply gain
-                    for sample in buffer.data.iter_mut() {
-                        *sample *= gain;
-                    }
+            let buffer = graph.render(num_samples);
 
-                    let output_path = "/tmp/phonon_play.wav";
+            // Apply gain and calculate stats
+            let mut peak: f32 = 0.0;
+            let mut sum_sq: f32 = 0.0;
+            let samples: Vec<f32> = buffer
+                .iter()
+                .map(|&s: &f32| {
+                    let sample: f32 = s * gain;
+                    peak = peak.max(sample.abs());
+                    sum_sq += sample * sample;
+                    sample
+                })
+                .collect();
+            let rms = (sum_sq / samples.len() as f32).sqrt();
 
-                    match buffer.write_wav(output_path) {
-                        Ok(_) => {
-                            println!("✅ Audio generated!");
-                            println!("   Peak: {:.3}", buffer.peak());
-                            println!("   RMS: {:.3}", buffer.rms());
-                            println!("   Saved to: {output_path}");
+            // Write WAV
+            let output_path = "/tmp/phonon_play.wav";
+            let spec = WavSpec {
+                channels: 1,
+                sample_rate,
+                bits_per_sample: 32,
+                sample_format: SampleFormat::Float,
+            };
 
-                            println!("\n🔊 Playing...");
+            let mut writer = WavWriter::create(output_path, spec)?;
+            for sample in &samples {
+                writer.write_sample(*sample)?;
+            }
+            writer.finalize()?;
 
-                            // Try different players
-                            let players = ["play", "aplay", "pw-play", "paplay"];
-                            let mut played = false;
+            println!("✅ Audio generated!");
+            println!("   Peak: {:.3}", peak);
+            println!("   RMS: {:.3}", rms);
+            println!("   Saved to: {output_path}");
 
-                            for player in &players {
-                                let result = if *player == "play" {
-                                    Command::new(player).arg(output_path).arg("-q").status()
-                                } else {
-                                    Command::new(player).arg(output_path).status()
-                                };
+            println!("\n🔊 Playing...");
 
-                                if let Ok(status) = result {
-                                    if status.success() {
-                                        played = true;
-                                        break;
-                                    }
-                                }
-                            }
+            // Try different players
+            let players = ["play", "aplay", "pw-play", "paplay"];
+            let mut played = false;
 
-                            if !played {
-                                println!("⚠️  Could not auto-play. Try:");
-                                for player in &players {
-                                    if *player == "play" {
-                                        println!("   {player} -q {output_path}");
-                                    } else {
-                                        println!("   {player} {output_path}");
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            println!("❌ Failed to save WAV: {e}");
-                        }
+            for player in &players {
+                let result = if *player == "play" {
+                    Command::new(player).arg(output_path).arg("-q").status()
+                } else {
+                    Command::new(player).arg(output_path).status()
+                };
+
+                if let Ok(status) = result {
+                    if status.success() {
+                        played = true;
+                        break;
                     }
                 }
-                Err(e) => {
-                    println!("❌ Failed to generate audio: {e}");
+            }
+
+            if !played {
+                println!("⚠️  Could not auto-play. Try:");
+                for player in &players {
+                    if *player == "play" {
+                        println!("   {player} -q {output_path}");
+                    } else {
+                        println!("   {player} {output_path}");
+                    }
                 }
             }
         }
