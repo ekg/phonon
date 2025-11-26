@@ -15,6 +15,7 @@ use highlighting::highlight_line;
 
 use crate::compositional_compiler::compile_program;
 use crate::compositional_parser::parse_program;
+use crate::midi_input::{MidiEvent, MidiInputHandler, MidiMessageType, MidiRecorder};
 use crate::unified_graph::UnifiedSignalGraph;
 use arc_swap::ArcSwap;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -94,6 +95,16 @@ pub struct ModalEditor {
     ring_fill_percent: Arc<AtomicUsize>,
     /// Signal to clear ring buffer on next audio callback (instant transitions)
     should_clear_ring: Arc<AtomicBool>,
+    /// MIDI input handler
+    midi_input: Option<MidiInputHandler>,
+    /// MIDI recorder for capturing patterns
+    midi_recorder: Option<MidiRecorder>,
+    /// Whether MIDI recording is active
+    midi_recording: bool,
+    /// Recorded MIDI pattern (ready to insert)
+    midi_recorded_pattern: Option<String>,
+    /// Available MIDI input devices
+    midi_devices: Vec<String>,
 }
 
 impl ModalEditor {
@@ -400,6 +411,15 @@ impl ModalEditor {
             synth_time_us,
             ring_fill_percent,
             should_clear_ring,
+            midi_input: None,
+            midi_recorder: None,
+            midi_recording: false,
+            midi_recorded_pattern: None,
+            midi_devices: MidiInputHandler::list_devices()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|d| d.name)
+                .collect(),
         };
 
         Ok(editor)
@@ -539,6 +559,9 @@ impl ModalEditor {
                 }
             }
 
+            // Process any pending MIDI input events
+            self.process_midi_events();
+
             terminal.draw(|f| self.ui(f))?;
 
             // Use poll with timeout to enable flash animation
@@ -600,6 +623,24 @@ impl ModalEditor {
             // Ctrl+H: Hush
             KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.hush();
+                KeyResult::Continue
+            }
+
+            // Alt+M: Connect to MIDI device (cycles through available devices)
+            KeyCode::Char('m') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.cycle_midi_device();
+                KeyResult::Continue
+            }
+
+            // Alt+R: Start/stop MIDI recording
+            KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.toggle_midi_recording();
+                KeyResult::Continue
+            }
+
+            // Alt+I: Insert recorded MIDI pattern at cursor
+            KeyCode::Char('i') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.insert_midi_pattern();
                 KeyResult::Continue
             }
 
@@ -1611,6 +1652,135 @@ impl ModalEditor {
         // Clear ring buffer for instant silence
         self.should_clear_ring.store(true, Ordering::Relaxed);
         self.status_message = "🚨 PANIC! All stopped - C-r to restart".to_string();
+    }
+
+    // ==================== MIDI INPUT ====================
+
+    /// Cycle through available MIDI input devices
+    fn cycle_midi_device(&mut self) {
+        // Refresh device list
+        self.midi_devices = MidiInputHandler::list_devices()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|d| d.name)
+            .collect();
+
+        if self.midi_devices.is_empty() {
+            self.status_message = "🎹 No MIDI devices found".to_string();
+            return;
+        }
+
+        // Check current connection state
+        let current_device = if let Some(ref handler) = self.midi_input {
+            if handler.is_connected() {
+                // Find which device we're connected to
+                self.midi_devices.iter().position(|_| true).unwrap_or(0)
+            } else {
+                self.midi_devices.len() // Will wrap to 0
+            }
+        } else {
+            self.midi_devices.len() // Will wrap to 0
+        };
+
+        // Cycle to next device
+        let next_index = (current_device + 1) % (self.midi_devices.len() + 1);
+
+        if next_index >= self.midi_devices.len() {
+            // Disconnect
+            self.midi_input = None;
+            self.status_message = "🎹 MIDI disconnected".to_string();
+        } else {
+            // Connect to device
+            let device_name = self.midi_devices[next_index].clone();
+            match MidiInputHandler::new() {
+                Ok(mut handler) => {
+                    if let Err(e) = handler.connect(&device_name) {
+                        self.status_message = format!("🎹 MIDI error: {}", e);
+                    } else {
+                        self.status_message = format!("🎹 MIDI: {}", device_name);
+                        self.midi_input = Some(handler);
+                    }
+                }
+                Err(e) => {
+                    self.status_message = format!("🎹 MIDI init error: {}", e);
+                }
+            }
+        }
+    }
+
+    /// Toggle MIDI recording on/off
+    fn toggle_midi_recording(&mut self) {
+        if self.midi_input.is_none() {
+            self.status_message = "🎹 Connect MIDI first (Alt+M)".to_string();
+            return;
+        }
+
+        if self.midi_recording {
+            // Stop recording
+            self.midi_recording = false;
+
+            // Convert recorded events to pattern
+            if let Some(ref recorder) = self.midi_recorder {
+                let pattern = recorder.to_pattern_string(4.0); // 4 beats per cycle
+                if !pattern.is_empty() {
+                    self.midi_recorded_pattern = Some(pattern.clone());
+                    self.status_message = format!("⏹️ Recorded: \"{}\" (Alt+I to insert)", pattern);
+                } else {
+                    self.status_message = "⏹️ Recording stopped (no notes)".to_string();
+                }
+            }
+        } else {
+            // Start recording
+            self.midi_recording = true;
+            // Get tempo from current graph or use default 120 BPM
+            let tempo = 120.0; // TODO: Get from graph.get_cps() * 60
+            self.midi_recorder = Some(MidiRecorder::new(tempo));
+            if let Some(ref mut recorder) = self.midi_recorder {
+                recorder.start();
+            }
+            self.status_message = "⏺️ Recording MIDI... (Alt+R to stop)".to_string();
+        }
+    }
+
+    /// Insert recorded MIDI pattern at cursor position
+    fn insert_midi_pattern(&mut self) {
+        if let Some(ref pattern) = self.midi_recorded_pattern.clone() {
+            // Insert the pattern as a quoted string
+            let pattern_str = format!("\"{}\"", pattern);
+            for c in pattern_str.chars() {
+                self.insert_char(c);
+            }
+            self.status_message = format!("📝 Inserted: {}", pattern_str);
+        } else {
+            self.status_message = "🎹 No recorded pattern (Alt+R to record)".to_string();
+        }
+    }
+
+    /// Process incoming MIDI events (called from main loop)
+    fn process_midi_events(&mut self) {
+        if let Some(ref handler) = self.midi_input {
+            let events = handler.recv_all();
+            for event in events {
+                // If recording, add to recorder
+                if self.midi_recording {
+                    if let Some(ref mut recorder) = self.midi_recorder {
+                        recorder.record_event(event.clone());
+                    }
+                }
+
+                // Show note-on events in status (feedback)
+                if let MidiMessageType::NoteOn { note, velocity } = event.message_type {
+                    if velocity > 0 {
+                        let note_name = MidiEvent::midi_to_note_name(note);
+                        self.console_messages.push(format!("🎹 {}", note_name));
+                        // Keep console messages limited
+                        while self.console_messages.len() > 10 {
+                            self.console_messages.remove(0);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// Save the current file

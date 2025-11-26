@@ -229,6 +229,11 @@ impl CommandConsole {
         self.output.push("  /search reverb".to_string());
         self.output.push("  /params adsr".to_string());
         self.output.push("".to_string());
+        self.output.push("MIDI Input:".to_string());
+        self.output.push("  Alt+M  - Connect to MIDI device (cycle through)".to_string());
+        self.output.push("  Alt+R  - Start/stop MIDI recording".to_string());
+        self.output.push("  Alt+I  - Insert recorded pattern at cursor".to_string());
+        self.output.push("".to_string());
         self.output.push("Press Esc or Alt+/ to close".to_string());
     }
 

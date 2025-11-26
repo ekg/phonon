@@ -297,6 +297,7 @@ pub mod glicol_parser_v2;
 pub mod glicol_pattern_bridge;
 pub mod live;
 pub mod live_engine;
+pub mod midi_input;
 pub mod midi_output;
 pub mod mini_notation;
 pub mod mini_notation_v3;
