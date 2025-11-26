@@ -29,13 +29,9 @@ fn read_wav_samples(path: &str) -> (Vec<f32>, f32) {
 
 /// Start phonon-audio in background with recording enabled
 fn start_phonon_audio(output_path: &str) -> Child {
-    Command::new("cargo")
+    // Use pre-built binary directly to avoid recompilation during test
+    Command::new("./target/release/phonon-audio")
         .args(&[
-            "run",
-            "--release",
-            "--bin",
-            "phonon-audio",
-            "--",
             "--record",
             output_path,
         ])
@@ -131,11 +127,12 @@ fn test_no_beat_drops_during_rapid_reloads() {
         }
     }
 
-    // Test code: simple kick drum pattern
+    // Test code: simple kick drum pattern with a single sample
     // At tempo 2.0, kick hits every 0.25 seconds (4 times per cycle)
+    // Using a single sample (bd) repeatedly to avoid confusion from bank selection
     let code = r#"
 tempo: 2.0
-o1 $ s "808bd(1,4)"
+o1 $ s "bd bd bd bd"
 "#;
 
     println!();
@@ -210,7 +207,7 @@ o1 $ s "808bd(1,4)"
     println!("   Total samples: {}", samples.len());
     println!();
 
-    // Expected interval: at tempo 2.0, kick pattern "808bd(1,4)" triggers 4 times per cycle
+    // Expected interval: at tempo 2.0, pattern "bd bd bd bd" triggers 4 times per cycle
     // Cycle duration = 1 / tempo = 1 / 2.0 = 0.5 seconds
     // Interval between kicks = 0.5 / 4 = 0.125 seconds
     let tempo = 2.0;

@@ -113,6 +113,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(Mutex::new(None))
     };
 
+    // Shared session start time - ALL graphs use this same timing reference
+    // This ensures timing continuity when swapping graphs during live coding
+    let session_start_time = std::time::Instant::now();
+    eprintln!("⏰ Session timing initialized");
+
     // Graph for background synthesis thread (lock-free swap)
     let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));
 
@@ -319,47 +324,46 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             // Compile into a graph
                             match compile_program(statements, sample_rate, None) {
                                 Ok(mut new_graph) => {
-                                    // CRITICAL: Check if we have an old graph to transfer timing from
-                                    // If we do, transfer will preserve wall-clock timing
-                                    // If we don't (first load), we need to initialize wall-clock timing
-                                    let current_graph = graph.load();
-                                    let has_old_graph = matches!(**current_graph, Some(_));
+                                    // Set the shared session start time on the new graph
+                                    // This ensures timing continuity - ALL graphs use the same wall-clock reference!
+                                    new_graph.session_start_time = session_start_time;
+                                    new_graph.use_wall_clock = true;
+                                    new_graph.cycle_offset = 0.0; // No offset needed - all graphs share session_start_time
 
-                                    if !has_old_graph {
-                                        // First load - initialize wall-clock timing
-                                        eprintln!("📊 First graph load - enabling wall-clock timing");
-                                        new_graph.enable_wall_clock_timing();
-                                    }
+                                    // Calculate current cycle position based on shared session start time
+                                    let elapsed = session_start_time.elapsed().as_secs_f64();
+                                    let current_cycle_pos = elapsed * new_graph.cps as f64 + new_graph.cycle_offset;
 
-                                    // Transfer state from old graph to prevent clicks
-                                    if let Some(ref old_graph_cell) = **current_graph {
-                                        // Try to transfer state, but don't block if graph is busy
-                                        for _attempt in 0..20 {
-                                            match old_graph_cell.0.try_borrow_mut() {
-                                                Ok(mut old_graph) => {
-                                                    // Transfer session timing (wall-clock based)
-                                                    // This MUST happen BEFORE enable_wall_clock_timing()
-                                                    // or the timing will be reset!
-                                                    new_graph.transfer_session_timing(&old_graph);
+                                    // CRITICAL: Also update the cached cycle position!
+                                    // This ensures the graph doesn't think it's at cycle 0
+                                    new_graph.cached_cycle_position = current_cycle_pos;
 
-                                                    // Transfer VoiceManager to preserve active voices
-                                                    // This prevents the click from voices being cut off mid-sample
-                                                    new_graph.transfer_voice_manager(old_graph.take_voice_manager());
+                                    // Initialize node states to the CURRENT cycle position
+                                    // This prevents re-triggering events that have already occurred
+                                    // Only future events (after this moment) will trigger
+                                    let current_pos_f32 = current_cycle_pos as f32;
 
-                                                    eprintln!("✅ State transferred from old graph");
-                                                    break;
+                                    for node_opt in new_graph.nodes.iter_mut() {
+                                        if let Some(node_rc) = node_opt {
+                                            let node = std::rc::Rc::make_mut(node_rc);
+                                            match node {
+                                                phonon::unified_graph::SignalNode::Sample { last_trigger_time, .. } => {
+                                                    *last_trigger_time = current_pos_f32;
                                                 }
-                                                Err(_) => {
-                                                    // Graph is busy, sleep and retry
-                                                    thread::sleep(StdDuration::from_micros(500));
+                                                phonon::unified_graph::SignalNode::Pattern { last_trigger_time, .. } => {
+                                                    *last_trigger_time = current_pos_f32;
                                                 }
+                                                _ => {}
                                             }
                                         }
                                     }
 
+                                    eprintln!("🔄 Graph updated: cycle={:.4}, cached={:.4}",
+                                        current_cycle_pos, new_graph.cached_cycle_position);
+
                                     // Swap in new graph (atomic, lock-free)
+                                    // Timing is continuous because all graphs share the same session_start_time!
                                     graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
-                                    eprintln!("🔄 Graph updated");
                                 }
                                 Err(e) => {
                                     eprintln!("❌ Compile error: {}", e);

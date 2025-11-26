@@ -4272,7 +4272,7 @@ pub type FxStateMap = HashMap<FxStateKey, ExtractedFxState>;
 /// The unified signal graph that processes everything
 pub struct UnifiedSignalGraph {
     /// All nodes in the graph (Rc for cheap cloning - eliminates deep clone overhead)
-    nodes: Vec<Option<std::rc::Rc<SignalNode>>>,
+    pub nodes: Vec<Option<std::rc::Rc<SignalNode>>>,
 
     /// Named buses for easy reference
     buses: HashMap<String, NodeId>,
@@ -4294,22 +4294,22 @@ pub struct UnifiedSignalGraph {
 
     /// Session start time (wall-clock) - for drift-free timing in LIVE mode
     /// In offline rendering, timing is sample-count based instead
-    session_start_time: std::time::Instant,
+    pub session_start_time: std::time::Instant,
 
     /// Cycle offset for resetCycles command
     /// Formula: cycle_position = (now - session_start_time).as_secs_f64() * cps + cycle_offset
-    cycle_offset: f64,
+    pub cycle_offset: f64,
 
     /// Use wall-clock timing (true for live mode, false for offline rendering)
-    use_wall_clock: bool,
+    pub use_wall_clock: bool,
 
     /// Cycles per second (tempo)
-    cps: f32,
+    pub cps: f32,
 
     /// Cached cycle position for current sample
     /// Updated once at start of process_sample(), then stays constant during processing
     /// This ensures all evaluations within a single sample see the same time
-    cached_cycle_position: f64,
+    pub cached_cycle_position: f64,
 
     /// Node ID counter
     next_node_id: usize,
