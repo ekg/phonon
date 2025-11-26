@@ -18,14 +18,21 @@ These domains use different operators to maintain clarity:
 ```ebnf
 (* Top-level structure *)
 program         = { line } ;
-line            = bus_definition | output_definition | empty_line ;
-bus_definition  = "~" identifier ":" expression ;
-output_definition = ("o" | "out") ":" expression ;
+line            = bus_definition | output_definition | config_line | empty_line ;
+bus_definition  = "~" identifier ("$" | "#" | ":") expression ;
+output_definition = ("o" | "out") ["1"-"9"] ("$" | ":") expression ;
+config_line     = "cps" ":" number ;
+
+(* Bus operators:
+   $ = audio source assignment or pattern transform
+   # = modifier/parameter bus (LFOs, control patterns)
+   : = legacy syntax (backward compatible)
+*)
 
 (* Expressions *)
 expression      = pattern_expr ;
-pattern_expr    = chain_expr { "|>" pattern_transform } ;
-chain_expr      = additive_expr { ">>" additive_expr } ;
+pattern_expr    = chain_expr { "$" pattern_transform } ;
+chain_expr      = additive_expr { "#" additive_expr } ;
 additive_expr   = multiplicative_expr { ("+" | "-") multiplicative_expr } ;
 multiplicative_expr = primary_expr { ("*" | "/") primary_expr } ;
 primary_expr    = bus_ref | pattern | node | number | "(" expression ")" ;
@@ -42,13 +49,13 @@ string_literal  = '"' { any_char_except_quote } '"' ;
 (* Pattern transformations *)
 pattern_transform = simple_transform | parameterized_transform | nested_transform ;
 simple_transform  = "rev" | "palindrome" ;
-parameterized_transform = 
-    ("fast" | "slow" | "rotate" | "degrade" | "degradeBy" | 
-     "gain" | "pan" | "speed" | "crush" | "legato" | "shape" | 
+parameterized_transform =
+    ("fast" | "slow" | "rotate" | "degrade" | "degradeBy" |
+     "gain" | "pan" | "speed" | "crush" | "legato" | "shape" |
      "squiz" | "accelerate") number |
     ("chop" | "striate" | "shuffle" | "scramble" | "coarse" | "cut") integer |
     "scale" string_literal ;
-nested_transform  = 
+nested_transform  =
     "every" integer pattern_transform |
     ("sometimes" | "rarely" | "often" | "jux") pattern_transform |
     "chunk" integer pattern_transform ;
@@ -67,12 +74,12 @@ nested_transform  =
 
 ### 1. Buses (Signal References)
 
-Buses are named signal paths prefixed with `~`. They can contain patterns, DSP chains, or combinations:
+Buses are named signal paths prefixed with `~`. Use `$` for audio sources, `#` for modifiers:
 
 ```phonon
-~lfo: sin 0.5               # Low-frequency oscillator
-~drums: "bd sn hh cp"       # Pattern
-~bass: saw 55 # lpf 1000   # DSP chain
+~lfo # sine 0.5              -- Modifier bus (LFO for modulation)
+~drums $ s "bd sn hh cp"     -- Audio bus (sample pattern)
+~bass $ saw 55 # lpf 1000    -- Audio bus with effect chain
 ```
 
 ### 2. Patterns
@@ -80,12 +87,12 @@ Buses are named signal paths prefixed with `~`. They can contain patterns, DSP c
 Patterns define sequences of events that repeat every cycle:
 
 ```phonon
-# Mini-notation patterns
-"bd sn"                     # Basic pattern
-"bd*4 sn . hh*8"           # Repetition and rests
-"[bd sn] hh"               # Grouping
-"bd <sn cp> hh"            # Alternation
-"0 3 7 10"                 # Numeric patterns
+-- Mini-notation patterns
+"bd sn"                     -- Basic pattern
+"bd*4 sn . hh*8"           -- Repetition and rests
+"[bd sn] hh"               -- Grouping
+"bd <sn cp> hh"            -- Alternation
+"0 3 7 10"                 -- Numeric patterns
 ```
 
 ### 3. Pattern Transformations
@@ -93,31 +100,31 @@ Patterns define sequences of events that repeat every cycle:
 Pattern operations transform event sequences using the `$` operator:
 
 ```phonon
-# Time transformations
-"bd sn" $ fast 2          # Double speed
-"bd sn" $ slow 2          # Half speed
-"bd sn" $ rotate 0.25     # Shift by 1/4 cycle
+-- Time transformations
+s "bd sn" $ fast 2          -- Double speed
+s "bd sn" $ slow 2          -- Half speed
+s "bd sn" $ rotL 0.25       -- Shift left by 1/4 cycle
 
-# Structural transformations
-"bd sn hh cp" $ rev       # Reverse
-"bd sn" $ palindrome      # Forward then backward
-"bd sn" $ chop 4          # Slice into 4 equal parts
-"bd sn" $ scramble 4      # Randomize event order
-"bd sn" $ stutter 3       # Repeat each event 3 times
-"bd sn" $ jux rev         # Apply transform to one stereo channel
+-- Structural transformations
+s "bd sn hh cp" $ rev       -- Reverse
+s "bd sn" $ palindrome      -- Forward then backward
+s "bd sn" $ chop 4          -- Slice into 4 equal parts
+s "bd sn" $ scramble 4      -- Randomize event order
+s "bd sn" $ stutter 3       -- Repeat each event 3 times
+s "bd sn" $ jux rev         -- Apply transform to one stereo channel
 
-# Conditional transformations
-"bd sn" $ every 3 rev     # Reverse every 3rd cycle
-"bd sn" $ sometimes rev   # Randomly reverse (~50%)
-"bd sn" $ rarely rev      # Rarely reverse (~10%)
-"bd sn" $ often rev       # Often reverse (~90%)
+-- Conditional transformations
+s "bd sn" $ every 3 rev     -- Reverse every 3rd cycle
+s "bd sn" $ sometimes rev   -- Randomly reverse (~50%)
+s "bd sn" $ rarely rev      -- Rarely reverse (~10%)
+s "bd sn" $ often rev       -- Often reverse (~90%)
 
-# Degradation
-"bd*16" $ degrade         # Random dropout (50%)
-"bd*16" $ degradeBy 0.3   # 30% chance of dropout per event
+-- Degradation
+s "bd*16" $ degrade         -- Random dropout (50%)
+s "bd*16" $ degradeBy 0.3   -- 30% chance of dropout per event
 
-# Chaining transformations
-"bd sn" $ fast 2 $ every 4 rev $ rotate 0.125
+-- Chaining transformations
+s "bd sn" $ fast 2 $ every 4 rev $ rotL 0.125
 ```
 
 ### 4. DSP Nodes
@@ -126,14 +133,14 @@ DSP nodes process audio signals and chain with `#`:
 
 #### Oscillators
 ```phonon
-sin 440                    # Sine wave
-saw 220                    # Sawtooth wave
-square 110                 # Square wave
-tri 880                    # Triangle wave
-noise                      # White noise
-pink                       # Pink noise
-brown                      # Brown noise
-impulse 2                  # Impulse train
+sine 440                   -- Sine wave
+saw 220                    -- Sawtooth wave
+square 110                 -- Square wave
+tri 880                    -- Triangle wave
+noise                      -- White noise
+pink                       -- Pink noise
+brown                      -- Brown noise
+impulse 2                  -- Impulse train
 ```
 
 #### Filters

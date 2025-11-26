@@ -21,8 +21,8 @@ cargo install --path .
 Create a file called `first.ph`:
 
 ```phonon
-tempo: 1.0
-out: sine 440
+cps: 1.0
+out $ sine 440
 ```
 
 Render it to WAV:
@@ -38,8 +38,8 @@ You should hear a 440Hz sine wave!
 Phonon uses mini-notation from TidalCycles for rhythmic patterns:
 
 ```phonon
-tempo: 2.0
-out: s "bd sn bd sn"
+cps: 2.0
+out $ s "bd sn bd sn"
 ```
 
 This plays kick-snare-kick-snare at 2 cycles per second.
@@ -47,18 +47,18 @@ This plays kick-snare-kick-snare at 2 cycles per second.
 ### Pattern Tricks
 
 ```phonon
-tempo: 2.0
-out: s "bd sn hh*4 cp"    # hh*4 = 4 hi-hats in one beat
+cps: 2.0
+out $ s "bd sn hh*4 cp"    -- hh*4 = 4 hi-hats in one beat
 ```
 
 ```phonon
-tempo: 2.0
-out: s "bd [sn cp] hh*4"  # [sn cp] = subdivision
+cps: 2.0
+out $ s "bd [sn cp] hh*4"  -- [sn cp] = subdivision
 ```
 
 ```phonon
-tempo: 2.0
-out: s "bd <sn cp hh>"    # <> = alternation each cycle
+cps: 2.0
+out $ s "bd <sn cp hh>"    -- <> = alternation each cycle
 ```
 
 ## Pattern Transformations
@@ -66,18 +66,18 @@ out: s "bd <sn cp hh>"    # <> = alternation each cycle
 Use `$` to transform patterns:
 
 ```phonon
-tempo: 2.0
-out: s "bd sn" $ fast 2           # Double speed
+cps: 2.0
+out $ s "bd sn" $ fast 2           -- Double speed
 ```
 
 ```phonon
-tempo: 2.0
-out: s "bd sn hh cp" $ rev        # Reverse
+cps: 2.0
+out $ s "bd sn hh cp" $ rev        -- Reverse
 ```
 
 ```phonon
-tempo: 2.0
-out: s "bd sn" $ every 4 rev      # Reverse every 4th cycle
+cps: 2.0
+out $ s "bd sn" $ every 4 rev      -- Reverse every 4th cycle
 ```
 
 ## Sample Control
@@ -85,18 +85,18 @@ out: s "bd sn" $ every 4 rev      # Reverse every 4th cycle
 Control samples with `#` chaining:
 
 ```phonon
-tempo: 2.0
-out: s "bd sn" # gain 0.8                    # Adjust volume
+cps: 2.0
+out $ s "bd sn" # gain 0.8                    -- Adjust volume
 ```
 
 ```phonon
-tempo: 2.0
-out: s "bd sn hh cp" # pan "-1 0 0.5 1"     # Stereo panning
+cps: 2.0
+out $ s "bd sn hh cp" # pan "-1 0 0.5 1"     -- Stereo panning
 ```
 
 ```phonon
-tempo: 2.0
-out: s "bd sn" # speed "1 0.5 2"             # Playback speed
+cps: 2.0
+out $ s "bd sn" # speed "1 0.5 2"             -- Playback speed
 ```
 
 ## Synthesis
@@ -104,17 +104,17 @@ out: s "bd sn" # speed "1 0.5 2"             # Playback speed
 Phonon can generate oscillators:
 
 ```phonon
-tempo: 1.0
-~bass: saw 55                     # 55Hz sawtooth
-out: ~bass # lpf 800 1.2          # Low-pass filter
+cps: 1.0
+~bass $ saw 55                     -- 55Hz sawtooth
+out $ ~bass # lpf 800 1.2          -- Low-pass filter
 ```
 
 Pattern-controlled synthesis:
 
 ```phonon
-tempo: 2.0
-~melody: sine "220 330 440 330"  # Pattern of frequencies
-out: ~melody * 0.3
+cps: 2.0
+~melody $ sine "220 330 440 330"  -- Pattern of frequencies
+out $ ~melody * 0.3
 ```
 
 ## Effects
@@ -122,21 +122,21 @@ out: ~melody * 0.3
 Add effects with `#`:
 
 ```phonon
-tempo: 2.0
-~drums: s "bd sn hh*4 cp"
-out: ~drums # reverb 0.5 0.8      # Add reverb
+cps: 2.0
+~drums $ s "bd sn hh*4 cp"
+out $ ~drums # reverb 0.5 0.8      -- Add reverb
 ```
 
 ```phonon
-tempo: 2.0
-~drums: s "bd sn"
-out: ~drums # delay 0.25 0.6 0.3  # Delay effect
+cps: 2.0
+~drums $ s "bd sn"
+out $ ~drums # delay 0.25 0.6 0.3  -- Delay effect
 ```
 
 ```phonon
-tempo: 1.0
-~bass: saw 55 # lpf 400 1.5
-out: ~bass # distortion 2.0       # Distort that bass!
+cps: 1.0
+~bass $ saw 55 # lpf 400 1.5
+out $ ~bass # distortion 2.0       -- Distort that bass!
 ```
 
 ## Combining Patterns
@@ -144,12 +144,12 @@ out: ~bass # distortion 2.0       # Distort that bass!
 Use buses (`~name`) to build complex compositions:
 
 ```phonon
-tempo: 2.0
-~kick: s "bd*4"
-~snare: s "~ sn ~ sn"
-~hats: s "hh*16" # gain 0.6
-~mix: ~kick + ~snare + ~hats
-out: ~mix # reverb 0.3 0.7
+cps: 2.0
+~kick $ s "bd*4"
+~snare $ s "~ sn ~ sn"
+~hats $ s "hh*16" # gain 0.6
+~mix $ ~kick + ~snare + ~hats
+out $ ~mix # reverb 0.3 0.7
 ```
 
 ## Modulation
@@ -157,37 +157,37 @@ out: ~mix # reverb 0.3 0.7
 Patterns can modulate other patterns:
 
 ```phonon
-tempo: 0.5
-~lfo: sine 0.25
-~bass: saw 55
-~cutoff: ~lfo * 1500 + 500        # LFO modulates cutoff
-out: ~bass # lpf ~cutoff 1.0
+cps: 0.5
+~lfo # sine 0.25                   -- # for modifier bus
+~bass $ saw 55
+~cutoff $ ~lfo * 1500 + 500        -- LFO modulates cutoff
+out $ ~bass # lpf ~cutoff 1.0
 ```
 
 ## Advanced Pattern Transformations
 
 ```phonon
-tempo: 2.0
-# Chop samples into pieces
-out: s "bd" $ chop 4
+cps: 2.0
+-- Chop samples into pieces
+out $ s "bd" $ chop 4
 ```
 
 ```phonon
-tempo: 2.0
-# Randomize event order
-out: s "bd sn hh cp" $ scramble 4
+cps: 2.0
+-- Randomize event order
+out $ s "bd sn hh cp" $ scramble 4
 ```
 
 ```phonon
-tempo: 2.0
-# Repeat events (stuttering)
-out: s "bd sn" $ stutter 3
+cps: 2.0
+-- Repeat events (stuttering)
+out $ s "bd sn" $ stutter 3
 ```
 
 ```phonon
-tempo: 2.0
-# Probabilistic dropout
-out: s "bd*16" $ degradeBy 0.3    # 30% chance of silence
+cps: 2.0
+-- Probabilistic dropout
+out $ s "bd*16" $ degradeBy 0.3    -- 30% chance of silence
 ```
 
 ## Live Coding
@@ -204,36 +204,36 @@ Try this progression:
 
 **Step 1** - Simple beat:
 ```phonon
-tempo: 2.0
-out: s "bd sn"
+cps: 2.0
+out $ s "bd sn"
 ```
 
 **Step 2** - Add hi-hats:
 ```phonon
-tempo: 2.0
-~kick: s "bd*2"
-~snare: s "~ sn"
-~hats: s "hh*8"
-out: ~kick + ~snare + ~hats
+cps: 2.0
+~kick $ s "bd*2"
+~snare $ s "~ sn"
+~hats $ s "hh*8"
+out $ ~kick + ~snare + ~hats
 ```
 
 **Step 3** - Add transformations:
 ```phonon
-tempo: 2.0
-~kick: s "bd*2"
-~snare: s "~ sn"
-~hats: s "hh*8" $ every 4 (fast 2)
-out: ~kick + ~snare + ~hats
+cps: 2.0
+~kick $ s "bd*2"
+~snare $ s "~ sn"
+~hats $ s "hh*8" $ every 4 (fast 2)
+out $ ~kick + ~snare + ~hats
 ```
 
 **Step 4** - Add effects:
 ```phonon
-tempo: 2.0
-~kick: s "bd*2"
-~snare: s "~ sn" # reverb 0.5 0.8
-~hats: s "hh*8" $ every 4 (fast 2) # gain 0.6
-~drums: ~kick + ~snare + ~hats
-out: ~drums # compressor -12 4.0 0.01 0.1 3.0
+cps: 2.0
+~kick $ s "bd*2"
+~snare $ s "~ sn" # reverb 0.5 0.8
+~hats $ s "hh*8" $ every 4 (fast 2) # gain 0.6
+~drums $ ~kick + ~snare + ~hats
+out $ ~drums # compressor -12 4.0 0.01 0.1 3.0
 ```
 
 ## Multi-Output
@@ -241,10 +241,10 @@ out: ~drums # compressor -12 4.0 0.01 0.1 3.0
 Route to different outputs for multi-track recording:
 
 ```phonon
-tempo: 2.0
-o1: s "bd*4"                      # Output 1: Kicks
-o2: s "~ sn ~ sn"                # Output 2: Snares
-o3: s "hh*8" # gain 0.5          # Output 3: Hi-hats
+cps: 2.0
+o1 $ s "bd*4"                      -- Output 1: Kicks
+o2 $ s "~ sn ~ sn"                 -- Output 2: Snares
+o3 $ s "hh*8" # gain 0.5           -- Output 3: Hi-hats
 ```
 
 ## Silencing
@@ -261,39 +261,41 @@ panic       # Emergency silence (kills all voices)
 
 1. **Start Simple**: Begin with basic patterns, add complexity gradually
 2. **Use Buses**: Name intermediate results with `~name` for clarity
-3. **Comment Your Code**: Use `--` for comments
-4. **Experiment**: Try transforming patterns in different ways
-5. **Listen**: Render often to hear your changes
-6. **Save Often**: Live mode auto-reloads, so save frequently
+3. **$ for Sources**: Use `~bass $ saw 55` for audio generators
+4. **# for Modifiers**: Use `~lfo # sine 2` for parameter modulation
+5. **Comment Your Code**: Use `--` for comments
+6. **Experiment**: Try transforming patterns in different ways
+7. **Listen**: Render often to hear your changes
+8. **Save Often**: Live mode auto-reloads, so save frequently
 
 ## Common Patterns
 
 ### Four-on-the-floor:
 ```phonon
-tempo: 2.0
-out: s "bd*4"
+cps: 2.0
+out $ s "bd*4"
 ```
 
 ### Breakbeat:
 ```phonon
-tempo: 2.0
-~beat: s "bd sn [bd bd] sn"
-out: ~beat $ fast 2
+cps: 2.0
+~beat $ s "bd sn [bd bd] sn"
+out $ ~beat $ fast 2
 ```
 
 ### Acid Bass:
 ```phonon
-tempo: 2.0
-~bass: saw "55 55 82.5 110" # env 0.01 0.1 0.0 0.05
-~cutoff: sine 4 * 1000 + 500
-out: ~bass # lpf ~cutoff 2.0 # distortion 1.5
+cps: 2.0
+~bass $ saw "55 55 82.5 110"
+~cutoff # sine 4 * 1000 + 500
+out $ ~bass # lpf ~cutoff 2.0 # distortion 1.5
 ```
 
 ### Ambient Pad:
 ```phonon
-tempo: 0.5
-~pad: sine "110 165 220 330" # env 2.0 1.0 0.8 3.0
-out: ~pad # reverb 0.8 0.9 # chorus 0.5 0.8
+cps: 0.5
+~pad $ sine "110 165 220 330"
+out $ ~pad # reverb 0.8 0.9 # chorus 0.5 0.8
 ```
 
 ## Next Steps
