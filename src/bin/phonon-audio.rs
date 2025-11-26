@@ -343,15 +343,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     // This prevents re-triggering events that have already occurred
                                     // Only future events (after this moment) will trigger
                                     let current_pos_f32 = current_cycle_pos as f32;
+                                    let current_cycle_i32 = current_cycle_pos.floor() as i32;
 
                                     for node_opt in new_graph.nodes.iter_mut() {
                                         if let Some(node_rc) = node_opt {
                                             let node = std::rc::Rc::make_mut(node_rc);
                                             match node {
-                                                phonon::unified_graph::SignalNode::Sample { last_trigger_time, .. } => {
+                                                phonon::unified_graph::SignalNode::Sample { last_cycle, last_trigger_time, .. } => {
+                                                    *last_cycle = current_cycle_i32;
                                                     *last_trigger_time = current_pos_f32;
                                                 }
                                                 phonon::unified_graph::SignalNode::Pattern { last_trigger_time, .. } => {
+                                                    *last_trigger_time = current_pos_f32;
+                                                }
+                                                phonon::unified_graph::SignalNode::SynthPattern { last_trigger_time, .. } => {
+                                                    *last_trigger_time = current_pos_f32;
+                                                }
+                                                phonon::unified_graph::SignalNode::EnvelopePattern { last_cycle, last_trigger_time, .. } => {
+                                                    *last_cycle = current_cycle_i32;
                                                     *last_trigger_time = current_pos_f32;
                                                 }
                                                 _ => {}
