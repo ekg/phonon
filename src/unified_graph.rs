@@ -4360,6 +4360,11 @@ pub struct UnifiedSignalGraph {
     /// caching stateful nodes (oscillators) across multiple independent evaluations
     buffer_cache_enabled: std::cell::Cell<bool>,
 
+    /// Flag indicating whether node timing state has been initialized
+    /// Set to false when graph is created, true after first buffer processes
+    /// This ensures timing state is initialized based on actual buffer start time
+    nodes_initialized: bool,
+
     /// Per-pitch phase tracking for synthesis voices
     /// Key: (oscillator_node_id, semitone_key) where semitone_key = (semitone_offset * 100).round() as i32
     /// Value: phase value in [0, 1)
@@ -4409,6 +4414,7 @@ impl Clone for UnifiedSignalGraph {
             sample_count: self.sample_count,
             buffer_cache: RefCell::new(HashMap::new()), // Fresh cache for cloned instance
             buffer_cache_enabled: std::cell::Cell::new(false),
+            nodes_initialized: false, // Cloned graph needs initialization on first buffer
             synthesis_phase_cache: RefCell::new(HashMap::new()), // Fresh phase cache
         }
     }
@@ -4450,6 +4456,7 @@ impl UnifiedSignalGraph {
             sample_count: 0,
             buffer_cache: RefCell::new(HashMap::new()),
             buffer_cache_enabled: std::cell::Cell::new(false),
+            nodes_initialized: false,
             synthesis_phase_cache: RefCell::new(HashMap::new()),
         }
     }
@@ -12427,13 +12434,68 @@ impl UnifiedSignalGraph {
         let output_channels: Vec<(usize, crate::unified_graph::NodeId)> =
             self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
 
+        // CRITICAL: Calculate buffer start time ONCE before processing
+        // This ensures the entire buffer represents a single coherent moment in time
+        let buffer_start_cycle = if self.use_wall_clock {
+            // LIVE MODE: Calculate from wall-clock (but only once per buffer!)
+            let elapsed = self.session_start_time.elapsed().as_secs_f64();
+            elapsed * self.cps as f64 + self.cycle_offset
+        } else {
+            // OFFLINE MODE: Use current cached position
+            self.cached_cycle_position
+        };
+
+        // Initialize node timing state on first buffer after graph swap
+        if !self.nodes_initialized {
+            let current_pos_f32 = buffer_start_cycle as f32;
+            let current_cycle_i32 = buffer_start_cycle.floor() as i32;
+
+            for node_opt in self.nodes.iter_mut() {
+                if let Some(node_rc) = node_opt {
+                    let node = std::rc::Rc::make_mut(node_rc);
+                    match node {
+                        SignalNode::Sample { last_cycle, last_trigger_time, .. } => {
+                            *last_cycle = current_cycle_i32;
+                            *last_trigger_time = current_pos_f32;
+                        }
+                        SignalNode::Pattern { last_trigger_time, .. } => {
+                            *last_trigger_time = current_pos_f32;
+                        }
+                        SignalNode::SynthPattern { last_trigger_time, .. } => {
+                            *last_trigger_time = current_pos_f32;
+                        }
+                        SignalNode::EnvelopePattern { last_cycle, last_trigger_time, .. } => {
+                            *last_cycle = current_cycle_i32;
+                            *last_trigger_time = current_pos_f32;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            self.nodes_initialized = true;
+
+            if std::env::var("DEBUG_TIMING").is_ok() {
+                eprintln!("🔧 Nodes initialized to cycle {:.4}", buffer_start_cycle);
+            }
+        }
+
+        // Set initial cycle position for this buffer
+        self.cached_cycle_position = buffer_start_cycle;
+
         // Track voices triggered during this buffer so we can process them live
         let initial_voice_count = self.voice_manager.borrow().active_voice_count();
         let mut newly_triggered_voices: Vec<usize> = Vec::new(); // Indices of newly triggered voices
 
+        // Cycle increment per sample (deterministic, not dependent on wall-clock queries!)
+        let cycle_increment = self.cps as f64 / self.sample_rate as f64;
+
         for i in 0..buffer.len() {
-            // CRITICAL: Update cycle position ONCE per sample (wall-clock or sample-count based)
-            self.update_cycle_position_from_clock();
+            // CRITICAL: Increment cycle position deterministically, not from wall-clock!
+            // This ensures timing is independent of buffer processing time
+            if i > 0 {
+                self.cached_cycle_position += cycle_increment;
+            }
 
             // CRITICAL OPTIMIZATION: Only clear value_cache at buffer start!
             // Most signal graph nodes compute static values that don't change every sample.

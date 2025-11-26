@@ -331,45 +331,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     new_graph.use_wall_clock = true;
                                     new_graph.cycle_offset = 0.0; // No offset needed - all graphs share session_start_time
 
-                                    // Calculate current cycle position based on shared session start time
-                                    let elapsed = session_start_time.elapsed().as_secs_f64();
-                                    let current_cycle_pos = elapsed * new_graph.cps as f64 + new_graph.cycle_offset;
+                                    // NOTE: Node timing initialization removed!
+                                    // Graph now initializes nodes on first buffer processing
+                                    // This ensures timing is based on ACTUAL buffer start time,
+                                    // not IPC message arrival time (which can differ!)
 
-                                    // CRITICAL: Also update the cached cycle position!
-                                    // This ensures the graph doesn't think it's at cycle 0
-                                    new_graph.cached_cycle_position = current_cycle_pos;
-
-                                    // Initialize node states to the CURRENT cycle position
-                                    // This prevents re-triggering events that have already occurred
-                                    // Only future events (after this moment) will trigger
-                                    let current_pos_f32 = current_cycle_pos as f32;
-                                    let current_cycle_i32 = current_cycle_pos.floor() as i32;
-
-                                    for node_opt in new_graph.nodes.iter_mut() {
-                                        if let Some(node_rc) = node_opt {
-                                            let node = std::rc::Rc::make_mut(node_rc);
-                                            match node {
-                                                phonon::unified_graph::SignalNode::Sample { last_cycle, last_trigger_time, .. } => {
-                                                    *last_cycle = current_cycle_i32;
-                                                    *last_trigger_time = current_pos_f32;
-                                                }
-                                                phonon::unified_graph::SignalNode::Pattern { last_trigger_time, .. } => {
-                                                    *last_trigger_time = current_pos_f32;
-                                                }
-                                                phonon::unified_graph::SignalNode::SynthPattern { last_trigger_time, .. } => {
-                                                    *last_trigger_time = current_pos_f32;
-                                                }
-                                                phonon::unified_graph::SignalNode::EnvelopePattern { last_cycle, last_trigger_time, .. } => {
-                                                    *last_cycle = current_cycle_i32;
-                                                    *last_trigger_time = current_pos_f32;
-                                                }
-                                                _ => {}
-                                            }
-                                        }
-                                    }
-
-                                    eprintln!("🔄 Graph updated: cycle={:.4}, cached={:.4}",
-                                        current_cycle_pos, new_graph.cached_cycle_position);
+                                    eprintln!("🔄 Graph updated (nodes will initialize on first buffer)");
 
                                     // Swap in new graph (atomic, lock-free)
                                     // Timing is continuous because all graphs share the same session_start_time!
