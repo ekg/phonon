@@ -1322,14 +1322,15 @@ fn expression(input: &str) -> IResult<&str, DslExpression> {
     arithmetic(input) // Start with lowest precedence (arithmetic calls chain calls term)
 }
 
-/// Parse a bus definition: ~name $ expression or ~name # expression (new syntax)
+/// Parse a bus definition: ~name $ expression (new syntax)
 /// Also supports legacy ~name: expression for backward compatibility
+/// Note: # is NOT valid here - it's only for effect chaining within expressions
 fn bus_definition(input: &str) -> IResult<&str, DslStatement> {
     map(
         tuple((
             preceded(char('~'), identifier),
-            // Accept $, #, or : (for backward compatibility)
-            alt((ws(char('$')), ws(char('#')), ws(char(':')))),
+            // Accept $ or : (for backward compatibility) - NOT # (that's for effect chains)
+            alt((ws(char('$')), ws(char(':')))),
             expression,
         )),
         |(name, _, expr)| DslStatement::BusDefinition {
@@ -1339,9 +1340,10 @@ fn bus_definition(input: &str) -> IResult<&str, DslStatement> {
     )(input)
 }
 
-/// Parse output definition: out $ expression, out # expression (new syntax)
+/// Parse output definition: out $ expression (new syntax)
 /// Also supports: out1: expression, out2: expression, etc.
 /// And Tidal-style: o1, o2, o3 and d1, d2, d3 syntax
+/// Note: # is NOT valid here - it's only for effect chaining within expressions
 fn output_definition(input: &str) -> IResult<&str, DslStatement> {
     map(
         tuple((
@@ -1356,8 +1358,8 @@ fn output_definition(input: &str) -> IResult<&str, DslStatement> {
                 map_res(digit1, |s: &str| s.parse::<usize>()),
                 value(0, tag("")), // Default to channel 0 for plain "out"
             )),
-            // Accept $, #, or : (for backward compatibility)
-            alt((ws(char('$')), ws(char('#')), ws(char(':')))),
+            // Accept $ or : (for backward compatibility) - NOT # (that's for effect chains)
+            alt((ws(char('$')), ws(char(':')))),
             expression,
         )),
         |(prefix, channel, _, expr)| {
