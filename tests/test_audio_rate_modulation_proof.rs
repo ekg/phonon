@@ -31,7 +31,7 @@ out: ~modulated * 0.3
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 second (2 cycles at tempo 2.0)
@@ -68,7 +68,7 @@ out: ~osc * 0.3
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(1.0);
 
     // Render 3 seconds (3 cycles, one per frequency)
@@ -106,7 +106,7 @@ out: ~carrier * 0.3
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 second
@@ -151,7 +151,7 @@ out: ~filtered * 0.3
             let (rest, statements) = parse_program(code).expect("Failed to parse");
             assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-            let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+            let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
             graph.set_cps(2.0);
 
             // Render 2 seconds
@@ -195,7 +195,7 @@ out: ~osc * 0.3
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 4 seconds to hear the meta-modulation
@@ -234,7 +234,7 @@ out: ~modulated * 0.3
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 0.5 seconds
@@ -282,7 +282,7 @@ out: ~amplified * 0.3
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 second = 44,100 samples

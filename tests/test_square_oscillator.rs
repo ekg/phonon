@@ -67,7 +67,7 @@ fn test_square_compiles() {
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
     assert!(result.is_ok(), "Square should compile: {:?}", result.err());
 }
 

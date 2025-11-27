@@ -34,7 +34,7 @@ out: formant ~source 730 1090 2440 80 90 120
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100); // 1 second
 
     let rms = calculate_rms(&buffer);
@@ -60,11 +60,11 @@ out: formant ~source 730 1090 2440 80 90 120
 "#;
 
     let (_, statements_no) = parse_program(code_no_source).expect("Failed to parse");
-    let mut graph_no = compile_program(statements_no, 44100.0).expect("Failed to compile");
+    let mut graph_no = compile_program(statements_no, 44100.0, None).expect("Failed to compile");
     let buffer_no = graph_no.render(44100);
 
     let (_, statements_yes) = parse_program(code_with_source).expect("Failed to parse");
-    let mut graph_yes = compile_program(statements_yes, 44100.0).expect("Failed to compile");
+    let mut graph_yes = compile_program(statements_yes, 44100.0, None).expect("Failed to compile");
     let buffer_yes = graph_yes.render(44100);
 
     let rms_no = calculate_rms(&buffer_no);
@@ -92,11 +92,11 @@ out: formant ~source 270 2290 3010 60 90 150
 "#;
 
     let (_, statements_a) = parse_program(code_a).expect("Failed to parse");
-    let mut graph_a = compile_program(statements_a, 44100.0).expect("Failed to compile");
+    let mut graph_a = compile_program(statements_a, 44100.0, None).expect("Failed to compile");
     let buffer_a = graph_a.render(44100);
 
     let (_, statements_i) = parse_program(code_i).expect("Failed to parse");
-    let mut graph_i = compile_program(statements_i, 44100.0).expect("Failed to compile");
+    let mut graph_i = compile_program(statements_i, 44100.0, None).expect("Failed to compile");
     let buffer_i = graph_i.render(44100);
 
     // Both should produce sound
@@ -130,11 +130,11 @@ out: formant ~source 730 1090 2440 200 300 400
 "#;
 
     let (_, statements_narrow) = parse_program(code_narrow).expect("Failed to parse");
-    let mut graph_narrow = compile_program(statements_narrow, 44100.0).expect("Failed to compile");
+    let mut graph_narrow = compile_program(statements_narrow, 44100.0, None).expect("Failed to compile");
     let buffer_narrow = graph_narrow.render(44100);
 
     let (_, statements_wide) = parse_program(code_wide).expect("Failed to parse");
-    let mut graph_wide = compile_program(statements_wide, 44100.0).expect("Failed to compile");
+    let mut graph_wide = compile_program(statements_wide, 44100.0, None).expect("Failed to compile");
     let buffer_wide = graph_wide.render(44100);
 
     let rms_narrow = calculate_rms(&buffer_narrow);
@@ -165,7 +165,7 @@ out: formant ~source "730 270" 1090 2440 80 90 120
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100); // 1 second = 2 cycles
@@ -190,7 +190,7 @@ out: formant ~source 730 1090 2440 "30 200" 90 120
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -219,7 +219,7 @@ out: formant ~source ~f1 ~f2 ~f3 80 90 120
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(88200); // 2 seconds = 4 cycles
@@ -246,7 +246,7 @@ out: formant ~source 730 1090 2440 80 90 120
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
@@ -270,7 +270,7 @@ out: formant ~source 730 1090 2440 80 90 120 * 0.3
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
@@ -296,7 +296,7 @@ out: formant ~source 530 1840 2480 80 90 120
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -324,7 +324,7 @@ out: (~voice1 + ~voice2 + ~voice3) * 0.3
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);

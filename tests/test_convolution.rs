@@ -34,7 +34,7 @@ out: convolve ~source
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100); // 1 second
 
     let rms = calculate_rms(&buffer);
@@ -61,11 +61,11 @@ out: convolve ~source
 "#;
 
     let (_, statements_dry) = parse_program(code_dry).expect("Failed to parse");
-    let mut graph_dry = compile_program(statements_dry, 44100.0).expect("Failed to compile");
+    let mut graph_dry = compile_program(statements_dry, 44100.0, None).expect("Failed to compile");
     let buffer_dry = graph_dry.render(44100);
 
     let (_, statements_wet) = parse_program(code_wet).expect("Failed to parse");
-    let mut graph_wet = compile_program(statements_wet, 44100.0).expect("Failed to compile");
+    let mut graph_wet = compile_program(statements_wet, 44100.0, None).expect("Failed to compile");
     let buffer_wet = graph_wet.render(44100);
 
     let rms_dry = calculate_rms(&buffer_dry);
@@ -93,7 +93,7 @@ out: convolve ~kick * 0.3
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
     let buffer = graph.render(88200); // 2 seconds
 
@@ -119,7 +119,7 @@ out: convolve ~chord * 0.2
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(88200); // 2 seconds
 
     let rms = calculate_rms(&buffer);

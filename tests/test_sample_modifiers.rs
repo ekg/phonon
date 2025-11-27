@@ -15,7 +15,7 @@ tempo: 2.0
 out: s "bd sn" # n 2
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -30,7 +30,7 @@ tempo: 2.0
 out: s "bd sn" # gain 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -45,7 +45,7 @@ tempo: 2.0
 out: s "bd sn" # pan 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -60,7 +60,7 @@ tempo: 2.0
 out: s "bd sn" # speed 2.0
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -75,7 +75,7 @@ tempo: 2.0
 out: s "bd sn" # attack 0.01
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -90,7 +90,7 @@ tempo: 2.0
 out: s "bd sn" # release 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -105,7 +105,7 @@ tempo: 2.0
 out: s "bd sn" # ar 0.01 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -122,7 +122,7 @@ tempo: 2.0
 out: s "bd sn" # gain 0.8 # pan 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -137,7 +137,7 @@ tempo: 2.0
 out: s "bd sn" # gain 0.8 # pan 0.5 # speed 1.5 # attack 0.01
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -152,7 +152,7 @@ tempo: 2.0
 out: s "bd" # gain 0.8 # pan 0.5 # speed 1.5 # n 2 # attack 0.01 # release 0.3
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -169,7 +169,7 @@ tempo: 2.0
 out: s "bd*4" # gain "0.5 0.8 1.0 0.6"
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -184,7 +184,7 @@ tempo: 2.0
 out: s "hh*4" # pan "-1 0 1 0.5"
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -199,7 +199,7 @@ tempo: 2.0
 out: s "bd*4" # n "0 5 7 12"
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -214,7 +214,7 @@ tempo: 2.0
 out: s "bd*4" # speed "1 2 0.5 1.5"
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -231,7 +231,7 @@ tempo: 2.0
 out: s "bd sn" $ fast 2 # gain 0.8 # pan 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -247,7 +247,7 @@ tempo: 2.0
 out: s "808bd(3,8)" # n 2
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -262,7 +262,7 @@ tempo: 2.0
 out: s "rave(3,8,1)" # ar 0.1 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Ok(_) => {}, // Success
@@ -279,7 +279,7 @@ tempo: 2.0
 out: s "bd" # n 2 3
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Err(e) => {
@@ -297,7 +297,7 @@ tempo: 2.0
 out: s "bd" # ar 0.1
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     match result {
         Err(e) => {
@@ -317,7 +317,7 @@ tempo: 2.0
 out: gain 0.5 "bd"
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     // This should either fail to parse or fail to compile
     // Just verify it doesn't panic

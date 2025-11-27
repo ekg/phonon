@@ -35,7 +35,7 @@ out: pitch_shift ~source 0
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100); // 1 second
 
     let rms = calculate_rms(&buffer);
@@ -61,11 +61,11 @@ out: pitch_shift ~source 0
 "#;
 
     let (_, statements_orig) = parse_program(code_original).expect("Failed to parse");
-    let mut graph_orig = compile_program(statements_orig, 44100.0).expect("Failed to compile");
+    let mut graph_orig = compile_program(statements_orig, 44100.0, None).expect("Failed to compile");
     let buffer_orig = graph_orig.render(44100);
 
     let (_, statements_shift) = parse_program(code_shifted).expect("Failed to parse");
-    let mut graph_shift = compile_program(statements_shift, 44100.0).expect("Failed to compile");
+    let mut graph_shift = compile_program(statements_shift, 44100.0, None).expect("Failed to compile");
     let buffer_shift = graph_shift.render(44100);
 
     let rms_orig = calculate_rms(&buffer_orig);
@@ -96,7 +96,7 @@ out: pitch_shift ~source 12
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
@@ -119,7 +119,7 @@ out: pitch_shift ~source -12
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
@@ -150,7 +150,7 @@ out: pitch_shift ~source {}
         let (rest, statements) = parse_program(&code).expect("Failed to parse");
         assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-        let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+        let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
         let buffer = graph.render(44100);
 
         let rms = calculate_rms(&buffer);
@@ -178,7 +178,7 @@ out: pitch_shift ~source ~shifts
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100); // 1 second = 2 cycles
@@ -206,7 +206,7 @@ out: (~source + ~shifted) * 0.5
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
@@ -232,7 +232,7 @@ out: (~root + ~third + ~fifth) * 0.33
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);

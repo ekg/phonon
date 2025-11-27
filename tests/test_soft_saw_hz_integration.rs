@@ -16,7 +16,7 @@ use audio_test_utils::calculate_rms;
 /// Helper to compile and render DSL
 fn compile_and_render(input: &str, duration_samples: usize) -> Vec<f32> {
     let (_, program) = parse_program(input).expect("Failed to parse DSL");
-    let mut graph = compile_program(program, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(program, 44100.0, None).expect("Failed to compile");
     graph.render(duration_samples)
 }
 
@@ -156,7 +156,7 @@ fn test_soft_saw_hz_stereo() {
 out: ~saw # pan2 0.0"#;
 
     let (_, program) = parse_program(code).expect("Failed to parse DSL");
-    let mut graph = compile_program(program, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(program, 44100.0, None).expect("Failed to compile");
 
     let (left, right) = graph.render_stereo(44100); // 1 second
 

@@ -214,7 +214,7 @@ fn test_static_vs_live_synthesis() {
     // STATIC: Direct sine oscillator (no pattern triggering)
     let code_static = "out: sine 440";
     let (_, statements_static) = parse_program(code_static).expect("Parse failed");
-    let mut graph_static = compile_program(statements_static, sample_rate).expect("Compilation failed");
+    let mut graph_static = compile_program(statements_static, sample_rate, None).expect("Compilation failed");
     let static_audio = graph_static.render(44100); // 1 second
 
     // LIVE: Bus-triggered continuous synthesis
@@ -225,7 +225,7 @@ tempo: 10.0
 out: ~trig
 "#;
     let (_, statements_live) = parse_program(code_live).expect("Parse failed");
-    let mut graph_live = compile_program(statements_live, sample_rate).expect("Compilation failed");
+    let mut graph_live = compile_program(statements_live, sample_rate, None).expect("Compilation failed");
 
     // Render in multiple buffers to test live mode
     let buffer_size = 512;

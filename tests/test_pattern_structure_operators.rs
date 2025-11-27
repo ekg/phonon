@@ -11,7 +11,7 @@ fn render_phonon_code(code: &str, num_samples: usize) -> Vec<f32> {
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(1.0); // 1 cycle per second
 
     graph.render(num_samples)

@@ -181,11 +181,11 @@ out: s "bd*4" # gain 0.3
 "#;
 
     let (_rest, statements_normal) = parse_program(code_normal).expect("Failed to parse");
-    let mut graph_normal = compile_program(statements_normal, 44100.0).expect("Failed to compile");
+    let mut graph_normal = compile_program(statements_normal, 44100.0, None).expect("Failed to compile");
     graph_normal.set_cps(2.0);
 
     let (_rest, statements_quiet) = parse_program(code_quiet).expect("Failed to parse");
-    let mut graph_quiet = compile_program(statements_quiet, 44100.0).expect("Failed to compile");
+    let mut graph_quiet = compile_program(statements_quiet, 44100.0, None).expect("Failed to compile");
     graph_quiet.set_cps(2.0);
 
     // Render 2 cycles
@@ -219,7 +219,7 @@ out: s "bd*8" # gain "1.0 0.2 1.0 0.2 1.0 0.2 1.0 0.2"
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -244,7 +244,7 @@ out: s "bd*4" # gain 0.0
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -271,7 +271,7 @@ out: s "bd*4" # pan -1.0
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -292,7 +292,7 @@ out: s "bd*4" # pan 1.0
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -313,7 +313,7 @@ out: s "hh*8" # pan "-1 0 1 0 -1 0 1 0"
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -340,7 +340,7 @@ out: s "bd*4" # speed 1.0
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -365,7 +365,7 @@ out: s "bd*4" # speed 2.0
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -390,7 +390,7 @@ out: s "bd*4" # speed 0.5
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -415,7 +415,7 @@ out: s "bd*4" # speed "1.0 2.0 0.5 1.5"
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -443,7 +443,7 @@ out: s "hh*16" # cut 1
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -468,7 +468,7 @@ out: s "hh*8" # cut "1 2 1 2 1 2 1 2"
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -495,7 +495,7 @@ out: s "bd*4" # attack 0.001
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -520,7 +520,7 @@ out: s "bd*4" # release 0.05
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -545,7 +545,7 @@ out: s "bd*4" # attack 0.01 # release 0.1
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -572,7 +572,7 @@ out: s "bd*4" # gain 0.7 # pan 0.5 # speed 1.2
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -597,7 +597,7 @@ out: s "bd*4" # gain 0.8 # pan -0.3 # speed 0.9 # cut 1 # attack 0.01 # release 
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -622,7 +622,7 @@ out: s "bd*4" # gain "0.8 1.0 0.6 0.9" # pan "-1 0 1 0" # speed "1.0 1.5 0.8 1.2
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle
@@ -647,7 +647,7 @@ out: s "bd sn" $ fast 2 # gain 0.7 # pan 0.5
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 cycle

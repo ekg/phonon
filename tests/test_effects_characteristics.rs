@@ -12,7 +12,7 @@ use audio_test_utils::{calculate_rms, compute_spectral_centroid, find_peak};
 /// Helper to compile and render DSL
 fn compile_and_render(input: &str, duration_samples: usize) -> Vec<f32> {
     let (_, program) = parse_program(input).expect("Failed to parse DSL");
-    let mut graph = compile_program(program, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(program, 44100.0, None).expect("Failed to compile");
     graph.render(duration_samples)
 }
 

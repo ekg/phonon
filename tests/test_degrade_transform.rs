@@ -9,7 +9,7 @@ fn test_degrade_transform_dsl() {
     "#;
 
     let (_, statements) = parse_program(input).expect("Should parse DSL");
-    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
 
     // Render 2 seconds (4 cycles at 2 CPS)
     // With degrade, we expect ~50% of events to be dropped
@@ -37,7 +37,7 @@ fn test_degrade_by_transform_dsl() {
     "#;
 
     let (_, statements) = parse_program(input).expect("Should parse DSL");
-    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
 
     // Render 2 seconds (4 cycles at 2 CPS)
     // With 90% degradation, we expect ~10% of events to remain
@@ -62,7 +62,7 @@ fn test_degrade_with_sample_pattern() {
     "#;
 
     let (_, statements) = parse_program(input).expect("Should parse DSL");
-    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
 
     // Just verify it compiles and runs without crashing
     let buffer = graph.render(44100);

@@ -14,7 +14,7 @@ fn test_template_simple_constant() {
     "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let graph = compile_program(statements, 44100.0);
+    let graph = compile_program(statements, 44100.0, None);
 
     // Should compile successfully without errors
     assert!(graph.is_ok());
@@ -30,7 +30,7 @@ fn test_template_transform() {
     "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     // Should compile successfully
     assert!(result.is_ok());
@@ -45,7 +45,7 @@ fn test_template_effect_chain() {
     "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     // Should compile successfully
     assert!(result.is_ok());
@@ -62,7 +62,7 @@ fn test_template_multiple_uses() {
     "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     // Should compile successfully
     assert!(result.is_ok());
@@ -76,7 +76,7 @@ fn test_template_undefined_error() {
     "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     // Should fail with undefined template error
     assert!(result.is_err());
@@ -94,7 +94,7 @@ fn test_template_chained_transforms() {
     "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     // Should compile successfully
     assert!(result.is_ok());
@@ -110,7 +110,7 @@ fn test_template_in_bus() {
     "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
 
     // Should compile successfully
     assert!(result.is_ok());

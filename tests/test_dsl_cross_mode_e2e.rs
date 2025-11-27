@@ -92,7 +92,7 @@ fn test_dsl_compiler_direct() {
     );
 
     // Compile to graph
-    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
 
     // Should have output
     assert!(graph.has_output(), "Graph should have output set");
@@ -220,7 +220,7 @@ out: saw 110 # lpf 1000 0.8
             remaining
         );
 
-        let mut graph = compile_program(statements, 44100.0).unwrap();
+        let mut graph = compile_program(statements, 44100.0, None).unwrap();
 
         assert!(graph.has_output(), "{}: Should have output", name);
 
@@ -241,7 +241,7 @@ fn test_dsl_auto_routing() {
 "#;
 
     let (_, statements) = parse_program(dsl).expect("Should parse");
-    let graph = compile_program(statements, 44100.0).expect("Should compile");
+    let graph = compile_program(statements, 44100.0, None).expect("Should compile");
 
     // Auto-routing should set output
     assert!(
@@ -268,7 +268,7 @@ out: ~bass + ~lead
 "#;
 
     let (_, statements) = parse_program(dsl).expect("Should parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
 
     assert!(graph.has_output(), "Should have output");
 

@@ -53,7 +53,7 @@ out: pluck 440 0.5
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100); // 1 second
 
     let rms = calculate_rms(&buffer);
@@ -76,7 +76,7 @@ out: pluck 220
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     // Skip first 0.1 second (initial noise burst)
@@ -107,7 +107,7 @@ out: pluck 440 0.5
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(88200); // 2 seconds
 
     // Measure RMS in first and second halves
@@ -140,11 +140,11 @@ out: pluck 440 0.9
 "#;
 
     let (_, statements_low) = parse_program(code_low_damp).expect("Failed to parse");
-    let mut graph_low = compile_program(statements_low, 44100.0).expect("Failed to compile");
+    let mut graph_low = compile_program(statements_low, 44100.0, None).expect("Failed to compile");
     let buffer_low = graph_low.render(88200); // 2 seconds
 
     let (_, statements_high) = parse_program(code_high_damp).expect("Failed to parse");
-    let mut graph_high = compile_program(statements_high, 44100.0).expect("Failed to compile");
+    let mut graph_high = compile_program(statements_high, 44100.0, None).expect("Failed to compile");
     let buffer_high = graph_high.render(88200);
 
     // Measure RMS in second half (after initial pluck)
@@ -179,7 +179,7 @@ out: pluck {}
         let (rest, statements) = parse_program(&code).expect("Failed to parse");
         assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-        let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+        let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
         let buffer = graph.render(44100);
 
         let rms = calculate_rms(&buffer);
@@ -205,7 +205,7 @@ out: pluck "220 330 440 330"
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100); // 1 second = 2 cycles
@@ -229,7 +229,7 @@ out: pluck 440 "0.3 0.7"
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -255,7 +255,7 @@ out: pluck "220 330 440 330 220" 0.5
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -279,7 +279,7 @@ out: pluck "55 82.5" 0.2
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);

@@ -45,7 +45,7 @@ fn test_render_x_ph_to_wav() {
     // Compile
     println!();
     println!("🔨 Compiling...");
-    let compile_result = compile_program(statements, 44100.0);
+    let compile_result = compile_program(statements, 44100.0, None);
 
     if let Err(ref e) = compile_result {
         panic!("❌ Compile failed: {}", e);
@@ -131,7 +131,7 @@ fn test_render_complex_compositional_example() {
     let (_, statements) = parse_program(code).expect("Failed to parse");
 
     println!("🔨 Compiling...");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     println!("🎵 Rendering...");

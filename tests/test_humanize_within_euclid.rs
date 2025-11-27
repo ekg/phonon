@@ -19,7 +19,7 @@ fn test_compilation(code: &str, description: &str) {
         description
     );
 
-    compile_program(statements, 44100.0)
+    compile_program(statements, 44100.0, None)
         .unwrap_or_else(|e| panic!("{} - Compilation failed: {}", description, e));
 }
 

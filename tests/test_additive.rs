@@ -28,7 +28,7 @@ out: additive 440 "1.0 0.5 0.25"
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100); // 1 second
 
     let rms = calculate_rms(&buffer);
@@ -50,7 +50,7 @@ out: additive 440 "1.0"
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
@@ -75,12 +75,12 @@ out: additive 440 "1.0 0.5 0.25"
 "#;
 
     let (_, statements_single) = parse_program(code_single).expect("Failed to parse");
-    let mut graph_single = compile_program(statements_single, 44100.0).expect("Failed to compile");
+    let mut graph_single = compile_program(statements_single, 44100.0, None).expect("Failed to compile");
     let buffer_single = graph_single.render(44100);
 
     let (_, statements_multiple) = parse_program(code_multiple).expect("Failed to parse");
     let mut graph_multiple =
-        compile_program(statements_multiple, 44100.0).expect("Failed to compile");
+        compile_program(statements_multiple, 44100.0, None).expect("Failed to compile");
     let buffer_multiple = graph_multiple.render(44100);
 
     let rms_single = calculate_rms(&buffer_single);
@@ -114,7 +114,7 @@ out: additive 110 "1.0 0.5 0.33 0.25 0.2"
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
@@ -144,7 +144,7 @@ out: additive {} "1.0 0.5 0.33"
         let (rest, statements) = parse_program(&code).expect("Failed to parse");
         assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-        let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+        let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
         let buffer = graph.render(44100);
 
         let rms = calculate_rms(&buffer);
@@ -168,7 +168,7 @@ out: additive 220 "1.0 0.0 0.33 0.0 0.2"
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
@@ -192,7 +192,7 @@ out: additive "220 330 440 330" "1.0 0.5 0.25"
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100); // 1 second = 2 cycles
@@ -218,7 +218,7 @@ out: additive 220 ~amps
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -244,7 +244,7 @@ out: additive "220 330 440 330 220" "1.0 0.5 0.33 0.25"
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -268,7 +268,7 @@ out: additive 110 "1.0 0.5 0.33 0.25 0.2 0.17 0.14 0.13"
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);

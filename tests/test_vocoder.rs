@@ -31,7 +31,7 @@ out: vocoder ~modulator ~carrier 8
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100); // 1 second
 
     let rms = calculate_rms(&buffer);
@@ -55,7 +55,7 @@ out: vocoder ~modulator ~carrier 8
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
@@ -79,7 +79,7 @@ out: vocoder ~modulator ~carrier 8
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
@@ -109,7 +109,7 @@ out: vocoder ~modulator ~carrier {}
         let (rest, statements) = parse_program(&code).expect("Failed to parse");
         assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-        let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+        let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
         let buffer = graph.render(44100);
 
         let rms = calculate_rms(&buffer);
@@ -141,12 +141,12 @@ out: saw 220
 
     let (_, statements_vocoded) = parse_program(code_vocoded).expect("Failed to parse");
     let mut graph_vocoded =
-        compile_program(statements_vocoded, 44100.0).expect("Failed to compile");
+        compile_program(statements_vocoded, 44100.0, None).expect("Failed to compile");
     let buffer_vocoded = graph_vocoded.render(44100);
 
     let (_, statements_carrier) = parse_program(code_carrier_only).expect("Failed to parse");
     let mut graph_carrier =
-        compile_program(statements_carrier, 44100.0).expect("Failed to compile");
+        compile_program(statements_carrier, 44100.0, None).expect("Failed to compile");
     let buffer_carrier = graph_carrier.render(44100);
 
     let rms_vocoded = calculate_rms(&buffer_vocoded);
@@ -178,7 +178,7 @@ out: vocoder ~modulator ~carrier 8
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100); // 1 second = 2 cycles
@@ -204,7 +204,7 @@ out: vocoder ~modulator ~carrier 8
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -235,7 +235,7 @@ out: vocoder ~modulator ~carrier 8
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
@@ -261,7 +261,7 @@ out: vocoder ~modulator ~carrier 8
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(4410); // Render only 0.1 second to avoid timeout
 
     let rms = calculate_rms(&buffer);

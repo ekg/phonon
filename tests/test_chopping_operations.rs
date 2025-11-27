@@ -8,7 +8,7 @@ fn test_chop_transform() {
     let input = "cps: 1.0\nout: s \"bd sn\" $ chop 4";
 
     let (_, statements) = parse_program(input).expect("Should parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
     let audio = graph.render(44100);
 
     // Should produce audible output
@@ -26,7 +26,7 @@ fn test_gap_transform() {
     let input = "cps: 1.0\nout: s \"bd sn hh cp\" $ gap 2";
 
     let (_, statements) = parse_program(input).expect("Should parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
@@ -43,7 +43,7 @@ fn test_segment_transform() {
     let input = "cps: 1.0\nout: s \"bd sn hh cp\" $ segment 2";
 
     let (_, statements) = parse_program(input).expect("Should parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
@@ -170,7 +170,7 @@ fn test_chop_with_chained_transforms() {
     let input = "cps: 1.0\nout: s \"bd sn\" $ chop 4 $ rev";
 
     let (_, statements) = parse_program(input).expect("Should parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();

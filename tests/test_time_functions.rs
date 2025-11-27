@@ -447,7 +447,7 @@ mod dsl_integration {
     fn compile_dsl(code: &str) -> Result<phonon::unified_graph::UnifiedSignalGraph, String> {
         let (_remaining, statements) = parse_program(code)
             .map_err(|e| format!("Parse error: {:?}", e))?;
-        compile_program(statements, 44100.0)
+        compile_program(statements, 44100.0, None)
     }
 
     #[test]

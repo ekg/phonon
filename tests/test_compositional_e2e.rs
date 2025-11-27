@@ -16,7 +16,7 @@ fn test_code(code: &str, duration_seconds: f32) -> Vec<f32> {
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
     // Compile
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0); // 2 cycles per second
 
     // Render

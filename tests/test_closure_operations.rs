@@ -9,7 +9,7 @@ fn test_chunk_transform() {
     let input = "cps: 1.0\nout: s \"bd sn hh cp\" $ chunk 4 (rev)";
 
     let (_, statements) = parse_program(input).expect("Should parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
     let audio = graph.render(44100);
 
     // Should produce audible output
@@ -69,7 +69,7 @@ fn test_jux_transform() {
     "#;
 
     let (_, statements) = parse_program(input).expect("Should parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
     let audio = graph.render(44100);
 
     // Should produce audible output
@@ -124,7 +124,7 @@ fn test_chunk_with_chained_transforms() {
     let input = "cps: 1.0\nout: s \"bd sn hh cp\" $ chunk 2 (fast 2) $ slow 0.5";
 
     let (_, statements) = parse_program(input).expect("Should parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
     let audio = graph.render(88200); // 2 seconds for slow
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();
@@ -145,7 +145,7 @@ fn test_jux_with_chained_transforms() {
     "#;
 
     let (_, statements) = parse_program(input).expect("Should parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Should compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
     let audio = graph.render(44100);
 
     let rms: f32 = (audio.iter().map(|x| x * x).sum::<f32>() / audio.len() as f32).sqrt();

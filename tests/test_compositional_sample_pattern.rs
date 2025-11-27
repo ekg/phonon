@@ -18,7 +18,7 @@ out: "bd sn"
     let (_globals, statements) = parse_program(code).expect("Failed to parse program");
 
     // Compile the program
-    let result = phonon::compositional_compiler::compile_program(statements, 44100.0);
+    let result = phonon::compositional_compiler::compile_program(statements, 44100.0, None);
 
     // Should compile without errors
     if let Err(e) = result {
@@ -37,7 +37,7 @@ out: "bd sn" $ fast 2
     let (_globals, statements) = parse_program(code).expect("Failed to parse program");
 
     // Compile the program
-    let result = phonon::compositional_compiler::compile_program(statements, 44100.0);
+    let result = phonon::compositional_compiler::compile_program(statements, 44100.0, None);
 
     // Should compile without errors
     if let Err(e) = result {
@@ -56,7 +56,7 @@ out: s "bd sn hh cp"
     let (_globals, statements) = parse_program(code).expect("Failed to parse program");
 
     // Compile the program
-    let result = phonon::compositional_compiler::compile_program(statements, 44100.0);
+    let result = phonon::compositional_compiler::compile_program(statements, 44100.0, None);
 
     // Should compile without errors
     if let Err(e) = result {
@@ -75,7 +75,7 @@ out: s "bd sn" $ fast 2
     let (_globals, statements) = parse_program(code).expect("Failed to parse program");
 
     // Compile the program
-    let result = phonon::compositional_compiler::compile_program(statements, 44100.0);
+    let result = phonon::compositional_compiler::compile_program(statements, 44100.0, None);
 
     // Should compile without errors
     if let Err(e) = result {
@@ -94,7 +94,7 @@ out: "bd sn" $ fast 2 $ rev
     let (_globals, statements) = parse_program(code).expect("Failed to parse program");
 
     // Compile the program
-    let result = phonon::compositional_compiler::compile_program(statements, 44100.0);
+    let result = phonon::compositional_compiler::compile_program(statements, 44100.0, None);
 
     // Should compile without errors
     if let Err(e) = result {
@@ -113,7 +113,7 @@ out: s "bd" "sn"
     let (_globals, statements) = parse_program(code).expect("Failed to parse program");
 
     // Compile the program
-    let result = phonon::compositional_compiler::compile_program(statements, 44100.0);
+    let result = phonon::compositional_compiler::compile_program(statements, 44100.0, None);
 
     // Should fail with clear error message
     match result {

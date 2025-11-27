@@ -638,7 +638,7 @@ fn test_all_oscillators_compile() {
         assert!(result.is_ok(), "Failed to parse: {}", osc);
 
         let (_, statements) = result.unwrap();
-        let graph_result = compile_program(statements, 44100.0);
+        let graph_result = compile_program(statements, 44100.0, None);
         assert!(graph_result.is_ok(), "Failed to compile: {}", osc);
     }
 

@@ -54,7 +54,7 @@ out: waveguide 440 0.5 0.5
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100); // 1 second
 
     let rms = calculate_rms(&buffer);
@@ -77,7 +77,7 @@ out: waveguide 220 0.3 0.5
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     // Skip first 0.1 second (initial noise burst)
@@ -107,7 +107,7 @@ out: waveguide 440 0.5 0.5
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(88200); // 2 seconds
 
     // Measure RMS in first and second halves
@@ -140,11 +140,11 @@ out: waveguide 440 0.9 0.5
 "#;
 
     let (_, statements_low) = parse_program(code_low_damp).expect("Failed to parse");
-    let mut graph_low = compile_program(statements_low, 44100.0).expect("Failed to compile");
+    let mut graph_low = compile_program(statements_low, 44100.0, None).expect("Failed to compile");
     let buffer_low = graph_low.render(88200); // 2 seconds
 
     let (_, statements_high) = parse_program(code_high_damp).expect("Failed to parse");
-    let mut graph_high = compile_program(statements_high, 44100.0).expect("Failed to compile");
+    let mut graph_high = compile_program(statements_high, 44100.0, None).expect("Failed to compile");
     let buffer_high = graph_high.render(88200);
 
     // Measure RMS in second half (after initial excitation)
@@ -175,11 +175,11 @@ out: waveguide 220 0.3 0.25
 "#;
 
     let (_, statements_center) = parse_program(code_center).expect("Failed to parse");
-    let mut graph_center = compile_program(statements_center, 44100.0).expect("Failed to compile");
+    let mut graph_center = compile_program(statements_center, 44100.0, None).expect("Failed to compile");
     let buffer_center = graph_center.render(44100);
 
     let (_, statements_off) = parse_program(code_off_center).expect("Failed to parse");
-    let mut graph_off = compile_program(statements_off, 44100.0).expect("Failed to compile");
+    let mut graph_off = compile_program(statements_off, 44100.0, None).expect("Failed to compile");
     let buffer_off = graph_off.render(44100);
 
     // Both should produce sound
@@ -215,7 +215,7 @@ out: waveguide {} 0.5 0.5
         let (rest, statements) = parse_program(&code).expect("Failed to parse");
         assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-        let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+        let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
         let buffer = graph.render(44100);
 
         let rms = calculate_rms(&buffer);
@@ -241,7 +241,7 @@ out: waveguide "220 330 440 330" 0.5 0.5
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100); // 1 second = 2 cycles
@@ -265,7 +265,7 @@ out: waveguide 440 "0.3 0.7" 0.5
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -291,7 +291,7 @@ out: waveguide "220 330 440 330 220" 0.4 0.5
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -315,7 +315,7 @@ out: waveguide "55 82.5" 0.2 0.5
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);

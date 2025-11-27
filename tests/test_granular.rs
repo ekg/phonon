@@ -28,7 +28,7 @@ out: granular ~source 50 0.1 1.0
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100); // 1 second
 
     let rms = calculate_rms(&buffer);
@@ -57,7 +57,7 @@ out: granular ~source {} 0.5 1.0
         let (rest, statements) = parse_program(&code).expect("Failed to parse");
         assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-        let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+        let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
         let buffer = graph.render(44100);
 
         let rms = calculate_rms(&buffer);
@@ -86,12 +86,12 @@ out: granular ~source 50 0.9 1.0
 "#;
 
     let (_, statements_sparse) = parse_program(code_sparse).expect("Failed to parse");
-    let mut graph_sparse = compile_program(statements_sparse, 44100.0).expect("Failed to compile");
+    let mut graph_sparse = compile_program(statements_sparse, 44100.0, None).expect("Failed to compile");
     let buffer_sparse = graph_sparse.render(44100);
     let rms_sparse = calculate_rms(&buffer_sparse);
 
     let (_, statements_dense) = parse_program(code_dense).expect("Failed to parse");
-    let mut graph_dense = compile_program(statements_dense, 44100.0).expect("Failed to compile");
+    let mut graph_dense = compile_program(statements_dense, 44100.0, None).expect("Failed to compile");
     let buffer_dense = graph_dense.render(44100);
     let rms_dense = calculate_rms(&buffer_dense);
 
@@ -117,7 +117,7 @@ out: granular ~source 50 0.5 2.0
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
@@ -142,7 +142,7 @@ out: granular ~source "25 50 100" 0.5 1.0
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -167,7 +167,7 @@ out: granular ~source 50 "0.3 0.7 0.5" 1.0
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -194,7 +194,7 @@ out: granular ~source 100 0.7 0.8 * 0.3
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     let buffer = graph.render(44100);
 
     let rms = calculate_rms(&buffer);
@@ -218,7 +218,7 @@ out: granular ~source 30 ~density_pattern 1.0 * 0.4
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);

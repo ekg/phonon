@@ -15,7 +15,7 @@ out: superkick 60
     let (rest, statements) = parse_program(code).expect("Failed to parse");
     assert_eq!(rest.trim(), "", "Parser should consume all input");
 
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 100ms
@@ -35,7 +35,7 @@ out: superkick 60 0.8 0.4 0.2
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(4410);
@@ -54,7 +54,7 @@ out: supersaw 220
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     // Render 1 second for stable RMS
@@ -74,7 +74,7 @@ out: supersaw 110 0.5 5
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -93,7 +93,7 @@ out: superpwm 110
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -112,7 +112,7 @@ out: superchip 440
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -131,7 +131,7 @@ out: superfm 440
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(4410);
@@ -148,7 +148,7 @@ out: superfm 440 2.0 1.0
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(4410);
@@ -167,7 +167,7 @@ out: supersnare 200
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(2205); // 50ms
@@ -186,7 +186,7 @@ out: superhat 0.7 0.05
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(2205); // 50ms
@@ -207,7 +207,7 @@ out: ~kick * 0.5 + ~bass * 0.3
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -224,7 +224,7 @@ out: supersaw 110 # lpf 2000 0.8
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -241,7 +241,7 @@ out: supersaw 110 0.5 5 # distortion 2.0 0.3 # reverb 0.5 0.5 0.2
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(22050); // 0.5 seconds
@@ -261,7 +261,7 @@ out: supersaw ~freq
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(44100);
@@ -282,7 +282,7 @@ out: ~kick * 0.8 + ~snare * 0.6 + ~hat * 0.4
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
     graph.set_cps(2.0);
 
     let buffer = graph.render(22050); // 0.5 seconds

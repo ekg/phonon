@@ -57,7 +57,7 @@ fn test_auto_routing_cross_mode() {
 
     // Test 2: Direct DslCompiler (used by Render and OSC internally)
     let (_, statements) = parse_program(code).expect("Should parse DSL");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
 
     assert!(graph.has_output(), "Should have output via auto-routing");
     assert_eq!(graph.get_cps(), 2.0, "Should set CPS to 2.0");
@@ -123,7 +123,7 @@ fn test_synthesis_cross_mode() {
 
     // Direct DslCompiler
     let (_, statements) = parse_program(code).expect("Should parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
 
     assert!(graph.has_output());
     let audio = graph.render(44100);
@@ -175,7 +175,7 @@ fn test_effects_cross_mode() {
 
     // Direct DslCompiler
     let (_, statements) = parse_program(code).expect("Should parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
 
     assert!(graph.has_output());
     let audio = graph.render(44100);
@@ -197,7 +197,7 @@ fn test_bus_routing_cross_mode() {
 
     // Direct DslCompiler
     let (_, statements) = parse_program(code).expect("Should parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
 
     assert!(graph.has_output(), "Bus routing should work");
 
@@ -253,7 +253,7 @@ fn test_pattern_params_cross_mode() {
 
     // Direct DslCompiler
     let (_, statements) = parse_program(code).expect("Should parse");
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
 
     let audio = graph.render(44100);
     assert!(audio.iter().any(|&s| s.abs() > 0.001));
@@ -314,7 +314,7 @@ cps: 2.0
 
     // Mode 2: Direct DslCompiler (powers Render internally)
     let (_, statements) = parse_program(code).unwrap();
-    let mut graph = compile_program(statements, 44100.0).expect("Failed to compile");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile");
 
     assert!(
         graph.has_output(),

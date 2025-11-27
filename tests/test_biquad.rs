@@ -67,7 +67,7 @@ fn test_biquad_lowpass_compiles() {
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
     assert!(result.is_ok(), "Biquad lowpass should compile: {:?}", result.err());
 }
 
@@ -79,7 +79,7 @@ fn test_biquad_highpass_compiles() {
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
     assert!(result.is_ok(), "Biquad highpass should compile: {:?}", result.err());
 }
 
@@ -91,7 +91,7 @@ fn test_biquad_bandpass_compiles() {
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
     assert!(result.is_ok(), "Biquad bandpass should compile: {:?}", result.err());
 }
 
@@ -103,7 +103,7 @@ fn test_biquad_notch_compiles() {
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let result = compile_program(statements, 44100.0);
+    let result = compile_program(statements, 44100.0, None);
     assert!(result.is_ok(), "Biquad notch should compile: {:?}", result.err());
 }
 
