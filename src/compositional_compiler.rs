@@ -8746,7 +8746,7 @@ mod tests {
 
     #[test]
     fn test_undefined_bus_error() {
-        let code = "out: ~undefined";
+        let code = "out $ ~undefined";
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0, None);
         assert!(result.is_err());

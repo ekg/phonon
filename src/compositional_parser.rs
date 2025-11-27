@@ -440,7 +440,7 @@ fn preprocess_multiline(input: &str) -> String {
     let mut result = Vec::new();
     let mut current_statement = String::new();
 
-    for line in lines {
+    for line in lines.iter() {
         let trimmed = line.trim();
 
         // Skip empty lines and pure comment lines
@@ -456,12 +456,24 @@ fn preprocess_multiline(input: &str) -> String {
         }
 
         // Check if this line starts a new definition
-        // A definition line has the pattern: identifier followed by colon
-        // Examples: tempo:, out:, o1:, d1:, ~bus:, fn name = ..., etc.
-        let is_definition = if let Some(colon_pos) = trimmed.find(':') {
-            let before_colon = &trimmed[..colon_pos];
-            // Check if what's before the colon looks like an identifier
+        // A definition line has the pattern: identifier followed by $, #, or : (for tempo/bpm/outmix)
+        // Examples: tempo:, out $, o1 $, d1 #, ~bus $, fn name = ..., etc.
+        let is_definition = if let Some(dollar_pos) = trimmed.find('$') {
+            let before_dollar = trimmed[..dollar_pos].trim();
+            // Check if what's before $ looks like an identifier (bus/output)
             // It should be alphanumeric, possibly starting with ~ or o/d followed by digits
+            let is_valid_identifier = before_dollar.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
+                && !before_dollar.is_empty();
+            is_valid_identifier
+        } else if let Some(hash_pos) = trimmed.find('#') {
+            let before_hash = trimmed[..hash_pos].trim();
+            // Check if what's before # looks like an identifier (bus/output with chaining)
+            let is_valid_identifier = before_hash.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
+                && !before_hash.is_empty();
+            is_valid_identifier
+        } else if let Some(colon_pos) = trimmed.find(':') {
+            let before_colon = &trimmed[..colon_pos];
+            // Check if what's before : looks like an identifier (tempo, bpm, outmix)
             let is_valid_identifier = before_colon.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
                 && !before_colon.is_empty();
             is_valid_identifier
