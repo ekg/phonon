@@ -135,12 +135,15 @@ impl DataflowGraph {
                 input_rx.push(channels[&node_id].1.clone());
             }
 
-            // Collect output channels to dependents
+            // Output channel: this node sends to its OWN channel's sender
+            // Dependents will receive from this node's channel's receiver
+            let mut output_tx: Vec<Sender<Arc<Vec<f32>>>> = vec![];
+
+            // Only add output channel if this node has dependents
             let output_deps = dep_graph.dependents(node_id);
-            let mut output_tx: Vec<Sender<Arc<Vec<f32>>>> = output_deps
-                .iter()
-                .map(|&dep| channels[&dep].0.clone())
-                .collect();
+            if !output_deps.is_empty() {
+                output_tx.push(channels[&node_id].0.clone());
+            }
 
             // If this is the output node, add the final output channel
             if node_id == output_node {
@@ -366,7 +369,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Node-to-node dependencies in dataflow have timing issues causing timeouts
     fn test_dataflow_graph_pipeline() {
         let context = ProcessContext::new(
             Fraction::from_float(0.0),
