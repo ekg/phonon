@@ -198,7 +198,7 @@ out: pluck {}
 fn test_karplus_strong_pattern_frequency() {
     // Pattern-modulated frequency (melody)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: pluck "220 330 440 330"
 "#;
 
@@ -222,7 +222,7 @@ out: pluck "220 330 440 330"
 fn test_karplus_strong_pattern_damping() {
     // Pattern-modulated damping
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: pluck 440 "0.3 0.7"
 "#;
 
@@ -248,7 +248,7 @@ out: pluck 440 "0.3 0.7"
 fn test_karplus_strong_melody() {
     // Play a simple melody with Karplus-Strong
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: pluck "220 330 440 330 220" 0.5
 "#;
 
@@ -272,7 +272,7 @@ out: pluck "220 330 440 330 220" 0.5
 fn test_karplus_strong_bass() {
     // Bass string with low damping
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: pluck "55 82.5" 0.2
 "#;
 

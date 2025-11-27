@@ -2,7 +2,7 @@
 -- Creates vowel sounds by filtering a source through three resonant bandpass filters
 -- Each vowel is characterized by specific formant frequencies (F1, F2, F3)
 
-tempo: 2.0
+tempo: 0.5
 
 -- SYNTAX: formant source f1 f2 f3 bw1 bw2 bw3
 -- source: input signal to filter (sawtooth, pulse, or noise work well)

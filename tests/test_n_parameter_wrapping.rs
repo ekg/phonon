@@ -20,7 +20,7 @@ const SAMPLE_RATE: f32 = 44100.0;
 #[test]
 fn test_n_parameter_parses() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd" # n 0
 out: ~drums
 "#;
@@ -46,13 +46,13 @@ fn test_n_selects_different_samples() {
     // This test assumes bd has multiple samples (bd:0, bd:1, etc.)
     // If only one sample exists, they'll all sound the same - that's OK
     let dsl_0 = r#"
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd" # n 0
 out: ~drums
 "#;
 
     let dsl_1 = r#"
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd" # n 1
 out: ~drums
 "#;
@@ -87,7 +87,7 @@ out: ~drums
 #[test]
 fn test_n_pattern_variation() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd*4" # n "0 1 2 3"
 out: ~drums
 "#;
@@ -114,7 +114,7 @@ fn test_n_wrapping_large_values() {
     // Test with large n values that should wrap
     // If bd has 3 samples: n=100 should wrap to 100 % 3 = 1
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd" # n 100
 out: ~drums
 "#;
@@ -139,7 +139,7 @@ out: ~drums
 #[test]
 fn test_n_musical_cycle() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd*8" # n "<0 1 2>"
 out: ~drums * 0.5
 "#;
@@ -163,7 +163,7 @@ out: ~drums * 0.5
 #[test]
 fn test_n_with_other_parameters() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd*4" # n "0 1 2 3" # gain "1.0 0.8 0.6 0.4" # pan "-1 -0.5 0.5 1"
 out: ~drums * 0.5
 "#;

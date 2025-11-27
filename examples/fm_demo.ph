@@ -1,7 +1,7 @@
 -- FM (Frequency Modulation) Synthesis Demonstration
 -- Classic FM synthesis with carrier, modulator, and modulation index
 
-tempo: 2.0
+tempo: 0.5
 
 -- Classic FM bell tone
 -- Carrier:Modulator ratio of 1:2 creates harmonic bell timbre

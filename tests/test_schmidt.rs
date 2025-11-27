@@ -213,7 +213,7 @@ out: ~gate * 0.5
 #[test]
 fn test_schmidt_gate_from_lfo() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 4
 ~gate: ~lfo # schmidt 0.3 -0.3
 ~pulse: saw 220 * ~gate
@@ -240,7 +240,7 @@ out: ~pulse * 0.3
 #[test]
 fn test_schmidt_pattern_thresholds() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~input: sine 2
 ~highs: "0.5 0.7"
 ~lows: "-0.5 -0.7"

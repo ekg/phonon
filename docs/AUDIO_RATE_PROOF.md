@@ -237,7 +237,7 @@ This is genuinely novel. No other live coding system does patterns-as-audio-sign
 ## The Killer Demo
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Meta-LFO: controls the speed of the main LFO
 ~meta: sine 0.1

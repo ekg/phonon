@@ -153,7 +153,7 @@ out: ~self_osc * 0.3
 #[test]
 fn test_moog_ladder_musical_example() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 -- Classic Moog bass sound
 ~bass: saw 55
 ~moog_bass: moog_ladder ~bass 400 0.7
@@ -195,7 +195,7 @@ out: ~moog_bass * ~env * 0.4
 #[test]
 fn test_moog_ladder_pattern_cutoff() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~cutoff_pattern: "500 1000 2000 4000"
 ~input: saw 110
 ~swept: moog_ladder ~input ~cutoff_pattern 0.6
@@ -216,7 +216,7 @@ out: ~swept * 0.3
 #[test]
 fn test_moog_ladder_pattern_resonance() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~res_pattern: "0.1 0.4 0.7 0.95"
 ~input: saw 110
 ~variable_res: moog_ladder ~input 800 ~res_pattern

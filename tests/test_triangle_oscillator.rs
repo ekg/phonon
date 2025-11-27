@@ -62,7 +62,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_triangle_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle 440
     "#;
 
@@ -74,7 +74,7 @@ fn test_triangle_compiles() {
 #[test]
 fn test_triangle_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle 440 * 0.3
     "#;
 
@@ -91,7 +91,7 @@ fn test_triangle_generates_audio() {
 fn test_triangle_odd_harmonics_only() {
     // Triangle wave should have only odd harmonics (like square)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle 440 * 0.3
     "#;
 
@@ -145,12 +145,12 @@ fn test_triangle_odd_harmonics_only() {
 fn test_triangle_softer_than_square() {
     // Triangle should have less high-frequency content than square
     let code_triangle = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle 440 * 0.3
     "#;
 
     let code_square = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square 440 * 0.3
     "#;
 
@@ -185,7 +185,7 @@ fn test_triangle_softer_than_square() {
 #[test]
 fn test_triangle_bass() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle 55 * 0.3
     "#;
 
@@ -199,7 +199,7 @@ fn test_triangle_bass() {
 #[test]
 fn test_triangle_mid_range() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle 880 * 0.3
     "#;
 
@@ -213,7 +213,7 @@ fn test_triangle_mid_range() {
 #[test]
 fn test_triangle_high_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle 2000 * 0.3
     "#;
 
@@ -230,7 +230,7 @@ fn test_triangle_high_frequency() {
 fn test_triangle_soft_bass() {
     // Softer, mellower bass than square or saw
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.3
         o1: triangle 55 * ~env * 0.4
     "#;
@@ -246,7 +246,7 @@ fn test_triangle_soft_bass() {
 fn test_triangle_lead_synth() {
     // Smooth lead sound
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.001 0.2
         o1: triangle 440 * ~env * 0.3
     "#;
@@ -262,7 +262,7 @@ fn test_triangle_lead_synth() {
 fn test_triangle_flute_simulation() {
     // Flute-like sound (flutes have few harmonics)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.05 0.3
         ~flute: triangle 440 # rlpf 2500 1.0
         o1: ~flute * ~env * 0.3
@@ -296,7 +296,7 @@ fn test_triangle_pad() {
 fn test_triangle_lfo() {
     // Triangle as LFO (smoother than square LFO)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: triangle 0.5
         ~freq: ~lfo * 100 + 440
         o1: sine ~freq * 0.3
@@ -314,7 +314,7 @@ fn test_triangle_lfo() {
 #[test]
 fn test_triangle_pattern_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~freq: sine 1 * 100 + 440
         o1: triangle ~freq * 0.3
     "#;
@@ -332,7 +332,7 @@ fn test_triangle_pattern_frequency() {
 #[test]
 fn test_triangle_pattern_amplitude() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~amp: sine 2 * 0.2 + 0.3
         o1: triangle 440 * ~amp
     "#;
@@ -353,7 +353,7 @@ fn test_triangle_pattern_amplitude() {
 fn test_triangle_lowpass_filter() {
     // Lowpassed triangle becomes even more sine-like
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: triangle 220 # rlpf 600 2.0
         o1: ~filtered * 0.3
     "#;
@@ -369,7 +369,7 @@ fn test_triangle_lowpass_filter() {
 fn test_triangle_highpass_filter() {
     // Highpassed triangle
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: triangle 220 # rhpf 300 2.0
         o1: ~filtered * 0.3
     "#;
@@ -385,7 +385,7 @@ fn test_triangle_highpass_filter() {
 fn test_triangle_resonant_filter() {
     // Triangle through resonant filter
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.2
         ~cutoff: ~env * 2500 + 300
         ~synth: triangle 110 # rlpf ~cutoff 8.0
@@ -404,7 +404,7 @@ fn test_triangle_resonant_filter() {
 #[test]
 fn test_triangle_no_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle 440 * 0.5
     "#;
 
@@ -422,7 +422,7 @@ fn test_triangle_no_clipping() {
 fn test_triangle_dc_offset() {
     // Triangle should have no DC offset (symmetric waveform)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle 440 * 0.3
     "#;
 
@@ -442,7 +442,7 @@ fn test_triangle_dc_offset() {
 fn test_triangle_continuous() {
     // Triangle should be smooth and continuous
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle 440 * 0.3
     "#;
 
@@ -469,17 +469,17 @@ fn test_triangle_continuous() {
 fn test_triangle_closer_to_sine_than_square() {
     // Triangle should have less harmonic content than square, closer to sine
     let code_triangle = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle 440 * 0.3
     "#;
 
     let code_square = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square 440 * 0.3
     "#;
 
     let code_sine = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 * 0.3
     "#;
 

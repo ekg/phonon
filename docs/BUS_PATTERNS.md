@@ -33,7 +33,7 @@ This means your custom synths/sounds get:
 ### Basic Bus Triggering
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- Define a custom kick on a bus
 ~mykick: sine 55 + sine 54.8
@@ -45,7 +45,7 @@ out: s "~mykick ~ ~mykick ~"
 ### Mixing Buses and Samples
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- Custom synths
 ~kick: sine 55
@@ -58,7 +58,7 @@ out: s "~kick sd ~kick ~snare"
 ### Melodic Bus Patterns
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- Bass synth
 ~bass: saw 55 + saw 55.5
@@ -70,7 +70,7 @@ out: s "~bass ~bass ~bass*2 ~bass"
 ### Complex Multi-Layer
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- Custom instruments
 ~kick: sine 55 + sine 54.8
@@ -89,7 +89,7 @@ out: ~drums1 * 0.5 + ~drums2 * 0.4 + ~bassline * 0.6
 ### With Effects Chains
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- Synth with effects
 ~acid: saw 110 # lpf 800 0.9 # delay 0.25 0.4 0.5
@@ -101,7 +101,7 @@ out: s "~acid ~ ~acid*3 ~acid"
 ### With Env_trig
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- Continuous drone
 ~drone: saw 55 + saw 55.5

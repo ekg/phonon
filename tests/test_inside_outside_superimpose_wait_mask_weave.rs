@@ -61,7 +61,7 @@ fn test_inside_basic() {
     // Test: apply fast transform inside first half of cycle
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ inside 0.0 0.5 fast 2
 "#,
         "Inside 0.0-0.5 with fast 2",
@@ -73,7 +73,7 @@ fn test_inside_second_half() {
     // Test: apply rev inside second half
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ inside 0.5 1.0 rev
 "#,
         "Inside 0.5-1.0 with rev",
@@ -85,7 +85,7 @@ fn test_inside_middle_quarter() {
     // Test: apply transform in middle quarter
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd*8" $ inside 0.25 0.75 fast 4
 "#,
         "Inside 0.25-0.75 with fast 4",
@@ -97,7 +97,7 @@ fn test_inside_with_effects() {
     // Test: inside pattern through reverb
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh*2" $ inside 0.0 0.5 rev # reverb 0.5 0.3 0.2
 "#,
         "Inside with reverb",
@@ -109,7 +109,7 @@ fn test_inside_nested() {
     // Test: nested inside transforms
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ inside 0.0 0.5 fast 2 $ inside 0.5 1.0 slow 2
 "#,
         "Nested inside transforms",
@@ -123,7 +123,7 @@ fn test_outside_basic() {
     // Test: apply fast transform outside first half of cycle
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ outside 0.0 0.5 fast 2
 "#,
         "Outside 0.0-0.5 with fast 2",
@@ -135,7 +135,7 @@ fn test_outside_middle_half() {
     // Test: apply rev outside middle half
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ outside 0.25 0.75 rev
 "#,
         "Outside 0.25-0.75 with rev",
@@ -147,7 +147,7 @@ fn test_outside_with_subdivision() {
     // Test: outside with subdivision pattern
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd*8" $ outside 0.5 1.0 fast 4
 "#,
         "Outside 0.5-1.0 with fast 4",
@@ -159,7 +159,7 @@ fn test_outside_with_effects() {
     // Test: outside pattern through delay
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh*4" $ outside 0.25 0.75 rev # delay 0.25 0.5 0.3
 "#,
         "Outside with delay",
@@ -171,7 +171,7 @@ fn test_inside_and_outside_together() {
     // Test: inside and outside in same program
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 ~inside_pat: "bd sn" $ inside 0.0 0.5 fast 2
 ~outside_pat: "hh cp" $ outside 0.0 0.5 rev
 out: ~inside_pat + ~outside_pat
@@ -187,7 +187,7 @@ fn test_superimpose_not_implemented() {
     // Test: superimpose requires function argument - not yet exposed
     test_compilation_error(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn" $ superimpose
 "#,
         "Superimpose should not be fully implemented",
@@ -202,7 +202,7 @@ fn test_wait_basic() {
     // Test: wait/delay pattern by 1 cycle
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ wait 1.0
 "#,
         "Wait 1 cycle",
@@ -214,7 +214,7 @@ fn test_wait_half_cycle() {
     // Test: wait half cycle
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd*8" $ wait 0.5
 "#,
         "Wait 0.5 cycles",
@@ -226,7 +226,7 @@ fn test_wait_multiple_cycles() {
     // Test: wait multiple cycles
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh*4" $ wait 4.0
 "#,
         "Wait 4 cycles",
@@ -238,7 +238,7 @@ fn test_wait_with_effects() {
     // Test: waited pattern through reverb
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh*2" $ wait 2.0 # reverb 0.5 0.3 0.2
 "#,
         "Wait with reverb",
@@ -250,7 +250,7 @@ fn test_wait_combined() {
     // Test: wait combined with other transforms
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh" $ wait 1.0 $ fast 2
 "#,
         "Wait combined with fast",
@@ -264,7 +264,7 @@ fn test_mask_not_implemented() {
     // Test: mask should fail with not implemented error
     test_compilation_error(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ mask "1 0 1 0"
 "#,
         "Mask should not be fully implemented",
@@ -279,7 +279,7 @@ fn test_weave_not_implemented() {
     // Test: weave requires pattern argument - not yet exposed
     test_compilation_error(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn" $ weave 4
 "#,
         "Weave should not be fully implemented",
@@ -294,7 +294,7 @@ fn test_working_operations_in_program() {
     // Test: using working operations in same program (inside, outside, wait)
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 ~inside_pat: "bd*8" $ inside 0.0 0.5 fast 2
 ~outside_pat: "sn*4" $ outside 0.25 0.75 rev
 ~waited: "cp*2" $ wait 1.0
@@ -309,7 +309,7 @@ fn test_outside_and_wait() {
     // Test: outside and wait together
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 ~outside_pat: "bd*4 sn*4" $ outside 0.25 0.75 rev
 ~waited: "hh*4 cp*4" $ wait 2.0
 out: ~outside_pat + ~waited
@@ -323,7 +323,7 @@ fn test_complex_combination() {
     // Test: complex combination of working operations
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ inside 0.0 0.5 fast 2 $ wait 1.0
 "#,
         "Complex combination: inside, wait",
@@ -335,7 +335,7 @@ fn test_with_effects_chain() {
     // Test: multiple operations with effects chain
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh*4" $ inside 0.25 0.75 fast 2 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Multiple operations with effects chain",
@@ -347,7 +347,7 @@ fn test_in_complex_multi_bus_program() {
     // Test: working operations in complex multi-bus program
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: "bd*4" $ inside 0.0 0.5 fast 2 $ wait 0.5
 ~snare: "~ sn ~ sn" $ outside 0.25 0.75 rev
 ~hats: "hh*8" $ wait 1.0
@@ -364,7 +364,7 @@ fn test_nested_inside_outside() {
     // Test: nested inside and outside
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ inside 0.0 0.5 fast 2 $ outside 0.25 0.75 slow 2
 "#,
         "Nested inside and outside",

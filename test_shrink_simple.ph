@@ -1,4 +1,4 @@
-tempo: 2.0
+tempo: 0.5
 -- Ultra-simple shrink test:
 -- Cycle 0-1: Trigger 50 voices (will grow from 16)
 -- Cycle 2-9: Complete silence for 4 seconds (plenty of time for cleanup)

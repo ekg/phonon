@@ -243,7 +243,7 @@ Oscillators now support both positional and keyword syntax:
 
 **Example - All oscillators together:**
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~tone: sine 440 * 0.25
 ~bass: saw 55 * 0.25
 ~lead: square 220 * 0.25
@@ -333,7 +333,7 @@ The infrastructure is in place to easily convert any function when optional para
 
 ### Full Song Snippet
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- Drums with envelope shaping
 ~drums: s "bd sn hh cp"

@@ -171,7 +171,7 @@ out: ~lagged
 #[test]
 fn test_lag_portamento() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~notes: "220 330 440 550"
 ~smooth_freq: lag ~notes 0.05
 ~tone: sine ~smooth_freq

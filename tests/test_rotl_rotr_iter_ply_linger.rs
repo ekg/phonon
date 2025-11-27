@@ -33,7 +33,7 @@ fn test_rotl_basic() {
     // Test: rotate pattern left by 0.25 steps
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ rotL 0.25
 "#,
         "RotL by 0.25 steps",
@@ -45,7 +45,7 @@ fn test_rotl_small_amount() {
     // Test: subtle rotation
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd*8" $ rotL 0.125
 "#,
         "RotL by 0.125 steps (small rotation)",
@@ -57,7 +57,7 @@ fn test_rotl_full_cycle() {
     // Test: rotate by full cycle
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ rotL 1.0
 "#,
         "RotL by full cycle",
@@ -69,7 +69,7 @@ fn test_rotl_with_effects() {
     // Test: rotated pattern through reverb
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh*2" $ rotL 0.5 # reverb 0.5 0.3 0.2
 "#,
         "RotL with reverb",
@@ -81,7 +81,7 @@ fn test_rotl_combined() {
     // Test: rotL combined with other transforms
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh" $ rotL 0.125 $ fast 2
 "#,
         "RotL combined with fast",
@@ -95,7 +95,7 @@ fn test_rotr_basic() {
     // Test: rotate pattern right by 0.25 steps
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ rotR 0.25
 "#,
         "RotR by 0.25 steps",
@@ -107,7 +107,7 @@ fn test_rotr_small_amount() {
     // Test: subtle rotation
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd*8" $ rotR 0.125
 "#,
         "RotR by 0.125 steps (small rotation)",
@@ -119,7 +119,7 @@ fn test_rotr_with_effects() {
     // Test: rotated pattern through delay
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh*4" $ rotR 0.5 # delay 0.25 0.5 0.3
 "#,
         "RotR with delay",
@@ -131,7 +131,7 @@ fn test_rotl_and_rotr_cancel() {
     // Test: rotL and rotR of same amount should cancel
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ rotL 0.25 $ rotR 0.25
 "#,
         "RotL and RotR cancel",
@@ -145,7 +145,7 @@ fn test_iter_basic() {
     // Test: iterate pattern over 4 cycles
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ iter 4
 "#,
         "Iter over 4 cycles",
@@ -157,7 +157,7 @@ fn test_iter_small_n() {
     // Test: iterate over 2 cycles
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd*4" $ iter 2
 "#,
         "Iter over 2 cycles",
@@ -169,7 +169,7 @@ fn test_iter_large_n() {
     // Test: iterate over many cycles
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh*4 cp*2" $ iter 8
 "#,
         "Iter over 8 cycles",
@@ -181,7 +181,7 @@ fn test_iter_with_euclidean() {
     // Test: iter with euclidean pattern
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd(3,8)" $ iter 3
 "#,
         "Iter with euclidean pattern",
@@ -193,7 +193,7 @@ fn test_iter_with_effects() {
     // Test: iterated pattern through chorus
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ iter 4 # chorus 0.5 0.3 0.2
 "#,
         "Iter with chorus",
@@ -207,7 +207,7 @@ fn test_iterback_basic() {
     // Test: iterate pattern backwards over 4 cycles
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ iterBack 4
 "#,
         "IterBack over 4 cycles",
@@ -219,7 +219,7 @@ fn test_iterback_with_fast() {
     // Test: iterBack combined with fast
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh*4" $ iterBack 3 $ fast 2
 "#,
         "IterBack with fast",
@@ -231,7 +231,7 @@ fn test_iter_and_iterback() {
     // Test: iter and iterBack in same program
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 ~forward: "bd sn" $ iter 4
 ~backward: "hh cp" $ iterBack 4
 out: ~forward + ~backward
@@ -247,7 +247,7 @@ fn test_ply_basic() {
     // Test: repeat each event 3 times
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn" $ ply 3
 "#,
         "Ply 3 times",
@@ -259,7 +259,7 @@ fn test_ply_many_times() {
     // Test: repeat many times
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd" $ ply 8
 "#,
         "Ply 8 times",
@@ -271,7 +271,7 @@ fn test_ply_with_subdivision() {
     // Test: ply with subdivision pattern
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd*4 sn*4" $ ply 2
 "#,
         "Ply with subdivision",
@@ -283,7 +283,7 @@ fn test_ply_with_effects() {
     // Test: plied pattern through distortion
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh" $ ply 4 # distort 2.0 0.5
 "#,
         "Ply with distortion",
@@ -295,7 +295,7 @@ fn test_ply_combined() {
     // Test: ply combined with other transforms
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn" $ ply 3 $ fast 2
 "#,
         "Ply combined with fast",
@@ -309,7 +309,7 @@ fn test_linger_basic() {
     // Test: linger on values for 2x longer
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ linger 2.0
 "#,
         "Linger factor 2.0",
@@ -321,7 +321,7 @@ fn test_linger_small_factor() {
     // Test: linger with small factor
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd*8" $ linger 1.5
 "#,
         "Linger factor 1.5",
@@ -333,7 +333,7 @@ fn test_linger_large_factor() {
     // Test: linger with large factor
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ linger 4.0
 "#,
         "Linger factor 4.0",
@@ -345,7 +345,7 @@ fn test_linger_with_effects() {
     // Test: lingered pattern through reverb
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh*2" $ linger 3.0 # reverb 0.5 0.3 0.2
 "#,
         "Linger with reverb",
@@ -357,7 +357,7 @@ fn test_linger_combined() {
     // Test: linger combined with other transforms
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh" $ linger 2.0 $ rev
 "#,
         "Linger combined with rev",
@@ -371,7 +371,7 @@ fn test_all_six_operations_in_program() {
     // Test: using all six operations in same program
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 ~rotated_left: "bd*8" $ rotL 0.25
 ~rotated_right: "sn*4" $ rotR 0.125
 ~iterated: "hh*8" $ iter 4
@@ -389,7 +389,7 @@ fn test_rotation_operations() {
     // Test: both rotation operations together
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 ~left: "bd sn hh cp" $ rotL 0.5
 ~right: "bd sn hh cp" $ rotR 0.5
 out: ~left + ~right
@@ -403,7 +403,7 @@ fn test_iteration_operations() {
     // Test: both iteration operations together
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 ~forward: "bd*4 sn*4" $ iter 4
 ~backward: "hh*4 cp*4" $ iterBack 4
 out: ~forward + ~backward
@@ -417,7 +417,7 @@ fn test_ply_and_linger() {
     // Test: ply and linger together
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 ~plied: "bd sn" $ ply 4
 ~lingered: "hh cp" $ linger 2.0
 out: ~plied + ~lingered
@@ -431,7 +431,7 @@ fn test_complex_combination() {
     // Test: complex combination of operations
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ rotL 0.25 $ iter 4 $ ply 2 $ fast 2
 "#,
         "Complex combination: rotL, iter, ply, fast",
@@ -443,7 +443,7 @@ fn test_with_effects_chain() {
     // Test: multiple operations with effects chain
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh*4" $ rotL 0.125 $ iter 3 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Multiple operations with effects chain",
@@ -455,7 +455,7 @@ fn test_linger_and_iter() {
     // Test: linger and iter combined
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn hh cp" $ linger 2.0 $ iter 4
 "#,
         "Linger and iter combined",
@@ -467,7 +467,7 @@ fn test_ply_with_rotations() {
     // Test: ply with rotations
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn" $ ply 3 $ rotL 0.25 $ rotR 0.125
 "#,
         "Ply with rotations",
@@ -479,7 +479,7 @@ fn test_in_complex_multi_bus_program() {
     // Test: all operations in complex multi-bus program
     test_compilation(
         r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: "bd*4" $ ply 2 $ rotL 0.125
 ~snare: "~ sn ~ sn" $ iter 4
 ~hats: "hh*8" $ iterBack 3

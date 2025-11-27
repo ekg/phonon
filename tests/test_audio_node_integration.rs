@@ -62,7 +62,7 @@ fn test_audio_node_simple_constant() {
 #[test]
 fn test_audio_node_sine_440hz() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine 440
     "#;
 
@@ -106,7 +106,7 @@ fn test_audio_node_addition() {
 #[test]
 fn test_audio_node_complex_expression() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~freq: 220
         ~osc: sine ~freq
         out: ~osc
@@ -147,7 +147,7 @@ fn test_audio_node_graph_traversed_once() {
     // rather than once per sample (the whole point of the DAW architecture!)
 
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~a: 0.1
         ~b: 0.2
         ~c: ~a + ~b
@@ -180,7 +180,7 @@ fn test_audio_node_signal_chain() {
     // Test signal chain operator (#)
     // Example: saw 110 # lpf 1000 0.8
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: saw 110 # lpf 1000 0.8
     "#;
 
@@ -208,7 +208,7 @@ fn test_audio_node_signal_chain() {
 fn test_audio_node_chain_with_bus() {
     // Test chaining with bus reference
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~osc: saw 220
         out: ~osc # lpf 500 0.9
     "#;
@@ -228,7 +228,7 @@ fn test_audio_node_chain_with_bus() {
 fn test_audio_node_delay_effect() {
     // Test delay effect
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine 440 # delay 0.1
     "#;
 
@@ -247,7 +247,7 @@ fn test_audio_node_delay_effect() {
 fn test_audio_node_reverb_effect() {
     // Test reverb effect
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine 440 # reverb 0.7 0.5 0.3
     "#;
 
@@ -266,7 +266,7 @@ fn test_audio_node_reverb_effect() {
 fn test_audio_node_distortion_effect() {
     // Test distortion effect
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine 440 # distortion 5.0 0.8
     "#;
 
@@ -289,7 +289,7 @@ fn test_audio_node_distortion_effect() {
 fn test_audio_node_effect_chain() {
     // Test chaining multiple effects
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~osc: saw 110
         ~filtered: ~osc # lpf 800 0.7
         ~delayed: ~filtered # delay 0.05
@@ -311,7 +311,7 @@ fn test_audio_node_effect_chain() {
 fn test_audio_node_complex_synthesis() {
     // Complex test: FM synthesis with filter and effects
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
 
         -- FM synthesis
         ~modulator_freq: 110 * 3
@@ -350,7 +350,7 @@ fn test_audio_node_complex_synthesis() {
 fn test_audio_node_multi_voice_mix() {
     // Test mixing multiple voices with different processing
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
 
         -- Voice 1: Bass
         ~bass: saw 55 # lpf 300 0.8
@@ -387,7 +387,7 @@ fn test_audio_node_multi_voice_mix() {
 fn test_audio_node_modulated_parameters() {
     // Test pattern-controlled filter cutoff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
 
         -- LFO for filter cutoff
         ~lfo: sine 0.5

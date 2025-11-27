@@ -157,7 +157,7 @@ out: s("bd ~ ~ ~" $ fast 2) * 0.5
 
 #### Test 2: Chained Transforms
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s("bd sn hh cp" $ fast 2 $ rev) * 0.5
 ```
 **Expected**: Pattern plays 2x fast then reversed
@@ -165,7 +165,7 @@ out: s("bd sn hh cp" $ fast 2 $ rev) * 0.5
 
 #### Test 3: Higher-Order Transforms
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s("bd sn" $ every 2 (fast 2)) * 0.5
 ```
 **Expected**: Normal on cycle 0, fast on cycle 1, normal on cycle 2, fast on cycle 3...
@@ -173,7 +173,7 @@ out: s("bd sn" $ every 2 (fast 2)) * 0.5
 
 #### Test 4: Pattern Reuse
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~drums: "bd sn hh cp"
 ~fast_drums: ~drums $ fast 2
 ~reversed_drums: ~drums $ rev

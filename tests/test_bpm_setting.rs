@@ -118,7 +118,7 @@ fn test_bpm_without_colon() {
 fn test_tempo_alias_still_works() {
     // Make sure tempo: still works as alias for cps:
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd sn" * 0.5
     "#;
 

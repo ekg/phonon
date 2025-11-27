@@ -1,7 +1,7 @@
 -- Multi-output bus demonstration
 -- Shows how o1:, o2:, etc. work in AudioNode mode
 
-tempo: 2.0
+tempo: 0.5
 
 -- Kick drum on o1
 o1: s "bd"

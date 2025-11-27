@@ -1,7 +1,7 @@
 -- Sample-and-Hold Demo
 -- Demonstrates classic analog-style sample-and-hold behavior
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Random voltage generation
 -- Sample random noise on each clock pulse

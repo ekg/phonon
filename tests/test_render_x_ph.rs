@@ -114,7 +114,7 @@ fn test_render_x_ph_to_wav() {
 fn test_render_complex_compositional_example() {
     // Test a complex example that exercises all features
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
 
         ~kick: s "bd*4"
         ~snare: s "~ sn ~ sn"

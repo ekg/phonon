@@ -46,7 +46,7 @@ out: s "bd" * 0.8
 fn test_dsl_compiler_single_event_fast() {
     // This should PASS - produces audio
     let dsl_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" * 0.8
 "#;
 

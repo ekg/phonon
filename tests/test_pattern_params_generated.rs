@@ -28,7 +28,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 #[test]
 fn test_hpf_pattern_cutoff() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # hpf (sine 0.5 * 1000 + 2000) 0.8
     "#;
     let buffer = render_dsl(code, 2.0);
@@ -38,7 +38,7 @@ fn test_hpf_pattern_cutoff() {
 #[test]
 fn test_bpf_pattern_center() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bpf (sine 0.5 * 1000 + 1500) 2.0
     "#;
     let buffer = render_dsl(code, 2.0);
@@ -48,7 +48,7 @@ fn test_bpf_pattern_center() {
 #[test]
 fn test_notch_pattern_center() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # notch (sine 1.0 * 500 + 1000) 2.0
     "#;
     let buffer = render_dsl(code, 2.0);
@@ -62,7 +62,7 @@ fn test_notch_pattern_center() {
 #[test]
 fn test_saw_pattern_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw (sine 2.0 * 100.0 + 220.0)
     "#;
     let buffer = render_dsl(code, 2.0);
@@ -72,7 +72,7 @@ fn test_saw_pattern_frequency() {
 #[test]
 fn test_square_pattern_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square (sine 2.0 * 100.0 + 220.0)
     "#;
     let buffer = render_dsl(code, 2.0);
@@ -82,7 +82,7 @@ fn test_square_pattern_frequency() {
 #[test]
 fn test_triangle_pattern_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle (sine 2.0 * 100.0 + 220.0)
     "#;
     let buffer = render_dsl(code, 2.0);
@@ -96,7 +96,7 @@ fn test_triangle_pattern_frequency() {
 #[test]
 fn test_delay_pattern_time() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # delay (sine 1.0 * 0.2 + 0.1) 0.3
     "#;
     let buffer = render_dsl(code, 2.0);
@@ -106,7 +106,7 @@ fn test_delay_pattern_time() {
 #[test]
 fn test_distortion_pattern_drive() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # dist (sine 2.0 * 2.0 + 1.0)
     "#;
     let buffer = render_dsl(code, 2.0);
@@ -116,7 +116,7 @@ fn test_distortion_pattern_drive() {
 #[test]
 fn test_chorus_pattern_rate() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # chorus (sine 0.5 * 2.0 + 2.0) 0.003 0.5
     "#;
     let buffer = render_dsl(code, 2.0);
@@ -126,7 +126,7 @@ fn test_chorus_pattern_rate() {
 #[test]
 fn test_bitcrush_pattern_bits() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # bitcrush (sine 1.0 * 4.0 + 8.0) 44100
     "#;
     let buffer = render_dsl(code, 2.0);
@@ -140,7 +140,7 @@ fn test_bitcrush_pattern_bits() {
 #[test]
 fn test_multiple_pattern_modulation() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo1: sine 0.5 * 1500 + 500
         ~lfo2: sine 2.0 * 3.0 + 3.0
         o1: saw 110 # lpf ~lfo1 ~lfo2
@@ -152,7 +152,7 @@ fn test_multiple_pattern_modulation() {
 #[test]
 fn test_nested_arithmetic_pattern() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo1: sine 0.25
         ~lfo2: sine 0.5
         o1: sine ((~lfo1 * 100.0 + ~lfo2 * 50.0) + 440.0)
@@ -164,7 +164,7 @@ fn test_nested_arithmetic_pattern() {
 #[test]
 fn test_pattern_bus_reference_chain() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~scaled: ~lfo * 1500 + 500
         o1: saw 110 # lpf ~scaled 0.8

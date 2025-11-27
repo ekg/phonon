@@ -224,7 +224,7 @@ And add parsing for `synth("notes", waveform, params...)`.
 Create test file `test_synth_pattern.ph`:
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Pattern-triggered melody
 ~melody: synth("c4 e4 g4 c5", saw, attack=0.01, release=0.2)

@@ -60,7 +60,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_delay_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~delayed: sine 440 # delay 0.2 0.5
         o1: ~delayed
     "#;
@@ -73,7 +73,7 @@ fn test_delay_compiles() {
 #[test]
 fn test_delay_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~source: sine 440 * 0.3
         ~delayed: ~source # delay 0.2 0.5
         o1: ~delayed
@@ -92,7 +92,7 @@ fn test_delay_generates_audio() {
 fn test_delay_short_delay_time() {
     // Short delay (50ms) - slapback effect
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~impulse: ad 0.001 0.05 * sine 440
         ~delayed: ~impulse # delay 0.05 0.3
         o1: ~delayed * 0.3
@@ -109,7 +109,7 @@ fn test_delay_short_delay_time() {
 fn test_delay_medium_delay_time() {
     // Medium delay (250ms) - classic echo
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~impulse: ad 0.001 0.05 * sine 440
         ~delayed: ~impulse # delay 0.25 0.4
         o1: ~delayed * 0.3
@@ -126,7 +126,7 @@ fn test_delay_medium_delay_time() {
 fn test_delay_long_delay_time() {
     // Long delay (500ms) - spacious echo
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~impulse: ad 0.001 0.05 * sine 440
         ~delayed: ~impulse # delay 0.5 0.4
         o1: ~delayed * 0.3
@@ -145,7 +145,7 @@ fn test_delay_long_delay_time() {
 fn test_delay_no_feedback() {
     // Feedback = 0, only one echo
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~impulse: ad 0.001 0.05 * sine 440
         ~delayed: ~impulse # delay 0.2 0.0
         o1: ~delayed * 0.3
@@ -166,7 +166,7 @@ fn test_delay_no_feedback() {
 fn test_delay_low_feedback() {
     // Low feedback = few echoes
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~impulse: ad 0.001 0.05 * sine 440
         ~delayed: ~impulse # delay 0.2 0.3
         o1: ~delayed * 0.3
@@ -183,7 +183,7 @@ fn test_delay_low_feedback() {
 fn test_delay_high_feedback() {
     // High feedback = many echoes
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~impulse: ad 0.001 0.05 * sine 440
         ~delayed: ~impulse # delay 0.15 0.7
         o1: ~delayed * 0.3
@@ -200,14 +200,14 @@ fn test_delay_high_feedback() {
 fn test_delay_feedback_comparison() {
     // Compare RMS with different feedback levels
     let code_low = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~impulse: ad 0.001 0.05 * sine 440
         ~delayed: ~impulse # delay 0.2 0.2
         o1: ~delayed * 0.3
     "#;
 
     let code_high = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~impulse: ad 0.001 0.05 * sine 440
         ~delayed: ~impulse # delay 0.2 0.7
         o1: ~delayed * 0.3
@@ -233,7 +233,7 @@ fn test_delay_feedback_comparison() {
 fn test_delay_slapback() {
     // Slapback delay - short single echo
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~snare: white_noise * ad 0.001 0.1
         ~slapback: ~snare # delay 0.08 0.2
         o1: ~slapback * 0.3
@@ -250,7 +250,7 @@ fn test_delay_slapback() {
 fn test_delay_echo_rhythmic() {
     // Rhythmic echo synced to tempo
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~kick: ad 0.001 0.1 * sine 60
         ~echo: ~kick # delay 0.25 0.5
         o1: ~echo * 0.3
@@ -267,7 +267,7 @@ fn test_delay_echo_rhythmic() {
 fn test_delay_doubling() {
     // Doubling effect - very short delay
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~vocal: sine 220 * 0.3
         ~doubled: ~vocal # delay 0.03 0.0
         o1: (~vocal + ~doubled) * 0.2
@@ -301,7 +301,7 @@ fn test_delay_ambient_wash() {
 fn test_delay_dub_style() {
     // Dub-style delay - medium time, high feedback
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~snare: white_noise * ad 0.001 0.1
         ~dub: ~snare # delay 0.375 0.6
         o1: ~dub * 0.3
@@ -320,7 +320,7 @@ fn test_delay_dub_style() {
 fn test_delay_pattern_delay_time() {
     // Delay time modulated by pattern
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~impulse: ad 0.001 0.05 * sine 440
         ~mod_time: sine 0.5 * 0.1 + 0.2
         ~delayed: ~impulse # delay ~mod_time 0.4
@@ -341,7 +341,7 @@ fn test_delay_pattern_delay_time() {
 fn test_delay_pattern_feedback() {
     // Feedback modulated by envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~impulse: ad 0.001 0.05 * sine 440
         ~env: line 0.2 0.7
         ~delayed: ~impulse # delay 0.2 ~env
@@ -364,12 +364,12 @@ fn test_delay_pattern_feedback() {
 fn test_delay_preserves_frequency() {
     // Delay should preserve frequency content
     let code_dry = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 * 0.3
     "#;
 
     let code_delayed = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~delayed: sine 440 # delay 0.2 0.3
         o1: ~delayed * 0.3
     "#;
@@ -410,7 +410,7 @@ fn test_delay_preserves_frequency() {
 fn test_delay_cascade() {
     // Multiple delays in series
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~impulse: ad 0.001 0.05 * sine 440
         ~delayed: ~impulse # delay 0.15 0.4 # delay 0.2 0.3
         o1: ~delayed * 0.3
@@ -429,7 +429,7 @@ fn test_delay_cascade() {
 #[test]
 fn test_delay_no_excessive_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~source: sine 440 * 0.5
         ~delayed: ~source # delay 0.2 0.5
         o1: ~delayed
@@ -448,7 +448,7 @@ fn test_delay_no_excessive_clipping() {
 #[test]
 fn test_delay_consistent_output() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~delayed: sine 440 # delay 0.2 0.5
         o1: ~delayed * 0.3
     "#;
@@ -476,7 +476,7 @@ fn test_delay_consistent_output() {
 fn test_delay_no_dc_offset() {
     // Delay should not introduce DC offset
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~delayed: sine 440 # delay 0.2 0.5
         o1: ~delayed * 0.3
     "#;
@@ -497,7 +497,7 @@ fn test_delay_no_dc_offset() {
 fn test_delay_very_short_time() {
     // Very short delay (10ms) - comb filtering effect
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~source: white_noise * 0.3
         ~delayed: ~source # delay 0.01 0.5
         o1: ~delayed
@@ -517,7 +517,7 @@ fn test_delay_very_short_time() {
 fn test_delay_zero_feedback() {
     // Feedback = 0 should not cause issues
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~delayed: sine 440 # delay 0.2 0.0
         o1: ~delayed * 0.3
     "#;
@@ -536,7 +536,7 @@ fn test_delay_zero_feedback() {
 fn test_delay_max_feedback() {
     // Very high feedback (close to 1.0) - long sustain
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~impulse: ad 0.001 0.05 * sine 440
         ~delayed: ~impulse # delay 0.2 0.95
         o1: ~delayed * 0.2

@@ -429,7 +429,7 @@ fn skip_space_and_comments(input: &str) -> IResult<&str, ()> {
 /// Comments use -- (Haskell-style), supporting both full-line and inline:
 /// ```
 /// -- This is a full-line comment
-/// tempo: 2.0  -- This is an inline comment
+/// tempo: 0.5  -- This is an inline comment
 /// ~bass $ saw 110 # lpf 1000 0.8  -- # is the chain operator
 /// ```
 ///
@@ -2788,7 +2788,7 @@ out $ ~drums
     fn test_inline_comments_work() {
         // Inline comments should work with --
         let code =
-            "tempo: 2.0  -- 120 BPM\n~drums $ s \"bd sn\" # lpf 500 0.8  -- filtered\nout $ ~drums";
+            "tempo: 0.5  -- 120 BPM\n~drums $ s \"bd sn\" # lpf 500 0.8  -- filtered\nout $ ~drums";
         let result = parse_program(code);
         assert!(result.is_ok(), "Inline comments should work");
         if let Ok((_, statements)) = result {
@@ -2799,7 +2799,7 @@ out $ ~drums
     #[test]
     fn test_complex_example_with_comments() {
         let code = r#"-- Complex live coding session
-tempo: 2.0  -- 120 BPM
+tempo: 0.5  -- 120 BPM
 
 -- Drums section
 ~kick $ s "bd ~ bd ~"
@@ -2937,7 +2937,7 @@ out $ ~filtered_drums * 0.6 + ~bass * 0.4
     fn test_function_in_program() {
         let code = r#"
 fn doublesaw freq detune = saw (freq - detune) + saw (freq + detune)
-tempo: 2.0
+tempo: 0.5
 out $ doublesaw 110 5
 "#;
         let result = parse_program(code);
@@ -3127,7 +3127,7 @@ o2 $ s "cp(2,4)"
     fn test_pattern_operators_in_program() {
         // Test pattern operators in a full program
         let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~notes $ "c4 e4 g4"
 ~shifted $ ~notes |+ 12
 out $ sine ~shifted

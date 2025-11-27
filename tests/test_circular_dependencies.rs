@@ -32,7 +32,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 fn test_self_referential_feedback_basic() {
     // Basic self-feedback: signal mixes with delayed version of itself
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~input: sine 440 * 0.5
         ~feedback: ~input * 0.5 + ~feedback * 0.3
         out: ~feedback
@@ -48,7 +48,7 @@ fn test_self_referential_feedback_basic() {
 fn test_self_referential_with_processing() {
     // Self-feedback with filtering
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~input: saw 110 * 0.5
         ~feedback: (~input * 0.6 + ~feedback * 0.4) # lpf 2000 0.8
         out: ~feedback * 0.7
@@ -66,7 +66,7 @@ fn test_self_referential_reverb_injection() {
     // "we have a reverb or delay in a hard self loop and then
     //  in the self loop we have a mix with another input"
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~input: saw 110 * 0.5
         ~feedback: (~feedback * 0.7 + ~input * 0.3) # reverb 0.95 0.3 0.8
         out: ~feedback * 0.5
@@ -86,7 +86,7 @@ fn test_self_referential_reverb_injection() {
 fn test_two_bus_cycle_basic() {
     // The exact pattern from the user's question: "a -> b -> a"
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~a: ~b # lpf 1000 0.8
         ~b: ~a # delay 0.1 0.5
         out: ~a * 0.5
@@ -104,7 +104,7 @@ fn test_two_bus_cycle_basic() {
 fn test_two_bus_cycle_with_input() {
     // Two-bus cycle with external input injection
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~input: sine 440 * 0.5
         ~a: ~input * 0.5 + ~b * 0.3
         ~b: ~a # delay 0.125 0.6
@@ -121,7 +121,7 @@ fn test_two_bus_cycle_with_input() {
 fn test_two_bus_cross_feedback_delay() {
     // Stereo ping-pong delay (cross-feedback)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~input: saw 110 * 0.5
         ~left: (~left * 0.4 + ~right * 0.2 + ~input * 0.4) # delay 0.25 0.6
         ~right: (~right * 0.4 + ~left * 0.2 + ~input * 0.4) # delay 0.33 0.5
@@ -142,7 +142,7 @@ fn test_two_bus_cross_feedback_delay() {
 fn test_three_bus_cycle() {
     // Three buses in circular dependency
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~input: sine 220 * 0.4
         ~a: ~input * 0.4 + ~c * 0.2
         ~b: ~a # lpf 2000 0.7
@@ -160,7 +160,7 @@ fn test_three_bus_cycle() {
 fn test_three_bus_cycle_different_effects() {
     // Three buses with different processing
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~input: saw 110 * 0.5
         ~a: (~input * 0.5 + ~c * 0.2) # lpf 1500 0.8
         ~b: ~a # delay 0.125 0.6
@@ -183,7 +183,7 @@ fn test_fm_in_self_feedback_loop() {
     // FM synthesis where modulator is in self-feedback loop
     // "or a fm synth or something" from the user's question
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~input: sine 2.0 * 0.5
         ~modulator: (~modulator * 0.5 + ~input * 0.5) # lpf 2000 0.8
         ~fm: sine (~modulator * 100 + 440)
@@ -219,7 +219,7 @@ fn test_four_tap_cross_feedback_network() {
 fn test_karplus_strong_feedback() {
     // Karplus-Strong plucked string (self-referential delay)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~input: sine 440 * 0.8
         ~string: (~string * 0.98 + ~input * 0.02) # delay 0.00227 0.995
         out: ~string * 0.7
@@ -235,7 +235,7 @@ fn test_karplus_strong_feedback() {
 fn test_mix_function_in_circular_feedback() {
     // Mix function used in circular feedback
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~input: sine 440 * 0.5
         ~feedback: mix ~feedback ~input
         out: ~feedback * 0.7

@@ -1,7 +1,7 @@
 -- Tremolo Effect Demonstration
 -- Classic amplitude modulation for rhythmic pulsing effects
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Classic Electric Guitar Tremolo (6 Hz, medium depth)
 ~guitar1: saw 220

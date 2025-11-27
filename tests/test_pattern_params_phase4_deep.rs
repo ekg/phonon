@@ -530,7 +530,7 @@ fn test_parameter_interpolation_across_cycles() {
     // Should interpolate smoothly, not jump
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~input: saw 110
 ~filtered: ~input # lpf "500 2000 1000 3000" 0.8
 out: ~filtered

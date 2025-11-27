@@ -71,7 +71,7 @@ fn test_stut_creates_echoes() {
 fn test_stut_with_multiple_events() {
     // Test stut on pattern with multiple events
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd sn" $ stut 2 0.125 0.8
     "#;
 
@@ -90,12 +90,12 @@ fn test_stut_with_multiple_events() {
 fn test_stut_no_echo() {
     // stut 1 should just return original (no echoes)
     let code_normal = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4"
     "#;
 
     let code_stut1 = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4" $ stut 1 0.125 0.7
     "#;
 
@@ -122,12 +122,12 @@ fn test_stut_no_echo() {
 fn test_stut_increases_density() {
     // More echoes = higher RMS (more energy)
     let code_normal = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4"
     "#;
 
     let code_stut = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4" $ stut 4 0.0625 0.8
     "#;
 
@@ -152,12 +152,12 @@ fn test_stut_increases_density() {
 fn test_stut_decay_reduces_energy() {
     // Lower decay = less energy added
     let code_high_decay = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4" $ stut 4 0.0625 0.9
     "#;
 
     let code_low_decay = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4" $ stut 4 0.0625 0.3
     "#;
 
@@ -182,12 +182,12 @@ fn test_stut_decay_reduces_energy() {
 fn test_stut_timing_variations() {
     // Different timing values should work
     let code_short = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd" $ stut 3 0.05 0.8
     "#;
 
     let code_long = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd" $ stut 3 0.25 0.8
     "#;
 
@@ -227,7 +227,7 @@ fn test_stut_timing_variations() {
 fn test_stut_with_pattern_parameters() {
     // stut should work with pattern-modulated parameters
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4" $ stut 3 "0.125 0.25" 0.7
     "#;
 
@@ -244,7 +244,7 @@ fn test_stut_with_pattern_parameters() {
 fn test_stut_with_other_transforms() {
     // stut should compose with other transforms
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd sn" $ fast 2 $ stut 2 0.125 0.8
     "#;
 
@@ -258,7 +258,7 @@ fn test_stut_with_other_transforms() {
 fn test_stut_classic_tidal_example() {
     // Classic Tidal pattern: delayed echo feel
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd sn hh cp" $ stut 4 0.125 0.6
     "#;
 

@@ -98,56 +98,56 @@ After fixing, these tests must pass:
 
 ### Test 1: No Legato = Full Duration
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s "bev ~ ~ ~"
 ```
 **Expected**: "bev" sample plays for its full length (likely >1 second), extending past the next event
 
 ### Test 2: Legato 1 = Exact Event Duration
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s "bev bev bev bev" $ legato 1
 ```
 **Expected**: Each "bev" plays for exactly 0.25 cycles (0.125 seconds at tempo 2), with clean cuts (NO fade)
 
 ### Test 3: Legato 0.1 = Staccato
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s "bd bd bd bd" $ legato 0.1
 ```
 **Expected**: Very short sharp clicks with lots of silence between
 
 ### Test 4: Legato 4 = Overlap
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s "bd ~ bd ~" $ legato 4
 ```
 **Expected**: Each "bd" plays for 2 cycles (1 second at tempo 2), massive overlap
 
 ### Test 5: Negative Speed = Reverse
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s "amen" # speed "-1"
 ```
 **Expected**: Amen break plays backwards at normal pitch
 
 ### Test 6: Negative Speed with Different Rate
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s "amen" # speed "-0.5"
 ```
 **Expected**: Amen break plays backwards at half speed (lower pitch)
 
 ### Test 7: Speed Pattern with Negative
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # speed "1 -1 2 -2"
 ```
 **Expected**: Forward normal, backward normal, forward 2x, backward 2x
 
 ### Test 8: Zero Speed = No Playback
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # speed 0
 ```
 **Expected**: No sound (silence or error - both acceptable)

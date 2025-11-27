@@ -196,7 +196,7 @@ Once integrated into the compiler, the DSL syntax would be:
 
 ```phonon
 -- FUTURE SYNTAX (not yet implemented)
-tempo: 2.0
+tempo: 0.5
 
 -- Octave down
 ~bass: saw 110

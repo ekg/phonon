@@ -108,7 +108,7 @@ Tempo 0.5 (2s cycle, "bd*16" = 16 kicks/2s):
 ### 1. Adjust Test Patterns
 - Use denser patterns for onset detection tests: `s "bd*8"` instead of `s "bd"`
 - Use multiple cycles: `--cycles 2` minimum
-- Use faster tempos for stress testing: `tempo: 2.0` (240 BPM)
+- Use faster tempos for stress testing: `tempo: 0.5` (240 BPM)
 
 ### 2. Audio Verification Thresholds
 - **RMS threshold**: Pattern-density dependent

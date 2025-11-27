@@ -3,7 +3,7 @@
 -- Holds sampled value until next trigger, creating stepped/quantized outputs
 -- Perfect for random melodies, stepped filter sweeps, and rhythmic effects
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Random stepped melody
 ~noise1: white_noise * 200.0 + 440.0

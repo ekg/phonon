@@ -2,7 +2,7 @@
 -- Frequency modulation creates complex harmonic spectra
 -- Multiple modulators create rich, evolving timbres
 
-tempo: 2.0
+tempo: 0.5
 
 -- Slow LFO modulator (vibrato-like)
 ~lfo1: sine 3.0 * 50

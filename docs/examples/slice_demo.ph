@@ -3,7 +3,7 @@
 -- slice n indices_pattern - divides pattern into n chunks, reorders by indices
 -- Different from chop (stacks) and scramble (random) - slice gives you CONTROL
 
-tempo: 2.0
+tempo: 0.5
 
 -- BASIC USAGE
 -- ============

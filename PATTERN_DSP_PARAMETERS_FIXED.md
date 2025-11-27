@@ -67,7 +67,7 @@ This proves that each event gets its OWN gain value from the pattern!
 ### Example Usage (Now Working!)
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Pattern-valued gain - each sample gets different gain
 out: s "bd sn hh cp" # gain "1.0 0.5 0.8 0.3"

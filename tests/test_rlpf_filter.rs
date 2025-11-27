@@ -60,7 +60,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_rlpf_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 440 # rlpf 1000 2.0
         o1: ~filtered
     "#;
@@ -73,7 +73,7 @@ fn test_rlpf_compiles() {
 #[test]
 fn test_rlpf_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 440 # rlpf 2000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -91,13 +91,13 @@ fn test_rlpf_generates_audio() {
 fn test_rlpf_passes_low_frequencies() {
     // Sine at 200Hz through 1000Hz RLPF should pass mostly unaffected
     let code_filtered = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 200 # rlpf 1000 1.0
         o1: ~filtered * 0.3
     "#;
 
     let code_unfiltered = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 200 * 0.3
     "#;
 
@@ -120,13 +120,13 @@ fn test_rlpf_passes_low_frequencies() {
 fn test_rlpf_attenuates_high_frequencies() {
     // Sine at 4000Hz through 1000Hz RLPF should be heavily attenuated
     let code_filtered = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 4000 # rlpf 1000 1.0
         o1: ~filtered * 0.3
     "#;
 
     let code_unfiltered = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 4000 * 0.3
     "#;
 
@@ -149,7 +149,7 @@ fn test_rlpf_attenuates_high_frequencies() {
 fn test_rlpf_frequency_response_curve() {
     // Test RLPF response across frequency spectrum using white noise
     let code_filtered = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rlpf 1000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -185,7 +185,7 @@ fn test_rlpf_frequency_response_curve() {
 fn test_rlpf_low_resonance() {
     // Low resonance = gentle rolloff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rlpf 1000 0.5
         o1: ~filtered * 0.3
     "#;
@@ -201,7 +201,7 @@ fn test_rlpf_low_resonance() {
 fn test_rlpf_high_resonance() {
     // High resonance = sharp peak at cutoff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rlpf 1000 8.0
         o1: ~filtered * 0.3
     "#;
@@ -233,13 +233,13 @@ fn test_rlpf_high_resonance() {
 fn test_rlpf_resonance_comparison() {
     // High resonance should emphasize cutoff more than low resonance
     let code_low = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rlpf 1000 1.0
         o1: ~filtered * 0.3
     "#;
 
     let code_high = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rlpf 1000 6.0
         o1: ~filtered * 0.3
     "#;
@@ -276,7 +276,7 @@ fn test_rlpf_resonance_comparison() {
 #[test]
 fn test_rlpf_cutoff_500() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rlpf 500 2.0
         o1: ~filtered * 0.3
     "#;
@@ -306,7 +306,7 @@ fn test_rlpf_cutoff_500() {
 #[test]
 fn test_rlpf_cutoff_2000() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rlpf 2000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -337,7 +337,7 @@ fn test_rlpf_cutoff_2000() {
 fn test_rlpf_cutoff_8000() {
     // Very high cutoff - should pass most audio
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rlpf 8000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -358,7 +358,7 @@ fn test_rlpf_cutoff_8000() {
 fn test_rlpf_synth_bass() {
     // Classic resonant bass: saw with filter envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.3
         ~cutoff: ~env * 3000 + 200
         ~bass: saw 55 # rlpf ~cutoff 4.0
@@ -376,7 +376,7 @@ fn test_rlpf_synth_bass() {
 fn test_rlpf_acid_bass() {
     // Acid bass: high resonance with fast envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.001 0.2
         ~cutoff: ~env * 4000 + 100
         ~acid: saw 82.5 # rlpf ~cutoff 12.0
@@ -411,7 +411,7 @@ fn test_rlpf_warm_pad() {
 fn test_rlpf_resonant_sweep() {
     // Classic filter sweep
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~sweep: line 200 3000
         ~synth: saw 110 # rlpf ~sweep 8.0
         o1: ~synth * 0.3
@@ -428,7 +428,7 @@ fn test_rlpf_resonant_sweep() {
 fn test_rlpf_mellow_square() {
     // Square wave mellowed by filter
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mellowed: square 440 # rlpf 800 2.0
         o1: ~mellowed * 0.3
     "#;
@@ -446,7 +446,7 @@ fn test_rlpf_mellow_square() {
 fn test_rlpf_pattern_cutoff() {
     // Cutoff modulated by LFO
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5 * 1000 + 1500
         ~synth: saw 110 # rlpf ~lfo 3.0
         o1: ~synth * 0.3
@@ -466,7 +466,7 @@ fn test_rlpf_pattern_cutoff() {
 fn test_rlpf_pattern_resonance() {
     // Resonance modulated by envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.3
         ~res: ~env * 8.0 + 2.0
         ~synth: saw 110 # rlpf 800 ~res
@@ -489,7 +489,7 @@ fn test_rlpf_pattern_resonance() {
 fn test_rlpf_cascade() {
     // Two RLPFs in series create steeper rolloff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rlpf 1000 2.0 # rlpf 1000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -523,7 +523,7 @@ fn test_rlpf_cascade() {
 #[test]
 fn test_rlpf_no_excessive_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 440 # rlpf 2000 2.0
         o1: ~filtered * 0.5
     "#;
@@ -541,7 +541,7 @@ fn test_rlpf_no_excessive_clipping() {
 #[test]
 fn test_rlpf_consistent_output() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 440 # rlpf 1000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -569,7 +569,7 @@ fn test_rlpf_consistent_output() {
 fn test_rlpf_no_dc_offset() {
     // RLPF should not introduce DC offset
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 440 # rlpf 1000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -590,7 +590,7 @@ fn test_rlpf_no_dc_offset() {
 fn test_rlpf_very_low_cutoff() {
     // Very low cutoff removes almost everything
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rlpf 50 2.0
         o1: ~filtered * 0.5
     "#;
@@ -610,7 +610,7 @@ fn test_rlpf_very_low_cutoff() {
 fn test_rlpf_self_oscillation() {
     // Very high resonance can cause self-oscillation
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise * 0.01 # rlpf 1000 20.0
         o1: ~filtered * 0.3
     "#;

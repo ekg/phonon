@@ -220,7 +220,7 @@ for sample in data.iter_mut() {
 
 **Correct behavior**:
 ```phonon
-tempo: 2.0         -- 2 cycles per second (global tempo, unchanged)
+tempo: 0.5         -- 2 cycles per second (global tempo, unchanged)
 fast 3             -- 3x more events per cycle, still 2 cycles/second ✅
 slow 2             -- 0.5x events per cycle, still 2 cycles/second ✅
 hurry 1.5          -- Speed up pattern 1.5x, still 2 cycles/second ✅

@@ -60,7 +60,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_hpf_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 440 # hpf 200
         o1: ~filtered
     "#;
@@ -73,7 +73,7 @@ fn test_hpf_compiles() {
 #[test]
 fn test_hpf_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 440 # hpf 200
         o1: ~filtered * 0.3
     "#;
@@ -91,13 +91,13 @@ fn test_hpf_generates_audio() {
 fn test_hpf_passes_high_frequencies() {
     // Sine at 2000Hz through 500Hz HPF should pass mostly unaffected
     let code_filtered = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 2000 # hpf 500
         o1: ~filtered * 0.3
     "#;
 
     let code_unfiltered = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 2000 * 0.3
     "#;
 
@@ -120,13 +120,13 @@ fn test_hpf_passes_high_frequencies() {
 fn test_hpf_attenuates_low_frequencies() {
     // Sine at 100Hz through 1000Hz HPF should be heavily attenuated
     let code_filtered = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 100 # hpf 1000
         o1: ~filtered * 0.3
     "#;
 
     let code_unfiltered = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 100 * 0.3
     "#;
 
@@ -149,13 +149,13 @@ fn test_hpf_attenuates_low_frequencies() {
 fn test_hpf_frequency_response_curve() {
     // Test HPF response across frequency spectrum using white noise
     let code_filtered = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # hpf 2000
         o1: ~filtered * 0.3
     "#;
 
     let code_unfiltered = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise * 0.3
     "#;
 
@@ -193,7 +193,7 @@ fn test_hpf_frequency_response_curve() {
 fn test_hpf_cutoff_200() {
     // Low cutoff - removes sub-bass
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # hpf 200
         o1: ~filtered * 0.3
     "#;
@@ -223,7 +223,7 @@ fn test_hpf_cutoff_200() {
 #[test]
 fn test_hpf_cutoff_1000() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # hpf 1000
         o1: ~filtered * 0.3
     "#;
@@ -254,7 +254,7 @@ fn test_hpf_cutoff_1000() {
 fn test_hpf_cutoff_5000() {
     // Very high cutoff - only brightest frequencies pass
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # hpf 5000
         o1: ~filtered * 0.5
     "#;
@@ -287,7 +287,7 @@ fn test_hpf_cutoff_5000() {
 fn test_hpf_removing_rumble() {
     // Remove low-frequency rumble from bass
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.3
         ~bass: saw 55 # hpf 40
         o1: ~bass * ~env * 0.4
@@ -304,7 +304,7 @@ fn test_hpf_removing_rumble() {
 fn test_hpf_thin_bass() {
     // Thin out bass for more clarity
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.3
         ~bass: saw 110 # hpf 150
         o1: ~bass * ~env * 0.3
@@ -321,7 +321,7 @@ fn test_hpf_thin_bass() {
 fn test_hpf_air_and_sparkle() {
     // High HPF adds air and sparkle
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~sparkle: white_noise # hpf 8000
         o1: ~sparkle * 0.3
     "#;
@@ -346,7 +346,7 @@ fn test_hpf_air_and_sparkle() {
 fn test_hpf_telephone_voice() {
     // Telephone voice effect (HPF + LPF)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~voice: sine 250 # hpf 300
         o1: ~voice * 0.3
     "#;
@@ -368,7 +368,7 @@ fn test_hpf_telephone_voice() {
 fn test_hpf_swept_cutoff() {
     // Cutoff frequency modulated by LFO
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5 * 500 + 1000
         ~swept: white_noise # hpf ~lfo
         o1: ~swept * 0.3
@@ -388,7 +388,7 @@ fn test_hpf_swept_cutoff() {
 fn test_hpf_envelope_controlled_cutoff() {
     // Envelope opens HPF cutoff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.02 0.3
         ~cutoff: ~env * 2000 + 100
         ~synth: saw 110 # hpf ~cutoff
@@ -411,7 +411,7 @@ fn test_hpf_envelope_controlled_cutoff() {
 fn test_hpf_cascade() {
     // Two HPFs in series create steeper rolloff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # hpf 2000 # hpf 2000
         o1: ~filtered * 0.3
     "#;
@@ -444,7 +444,7 @@ fn test_hpf_cascade() {
 fn test_hpf_lpf_bandpass() {
     // HPF + LPF creates bandpass effect
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~bandpass: white_noise # hpf 500 # lpf 2000
         o1: ~bandpass * 0.3
     "#;
@@ -478,7 +478,7 @@ fn test_hpf_lpf_bandpass() {
 #[test]
 fn test_hpf_no_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 2000 # hpf 500
         o1: ~filtered * 0.5
     "#;
@@ -496,7 +496,7 @@ fn test_hpf_no_clipping() {
 #[test]
 fn test_hpf_consistent_output() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 1000 # hpf 500
         o1: ~filtered * 0.3
     "#;
@@ -526,7 +526,7 @@ fn test_hpf_consistent_output() {
 fn test_hpf_very_low_cutoff() {
     // Very low cutoff passes almost everything
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # hpf 20
         o1: ~filtered * 0.3
     "#;

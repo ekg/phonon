@@ -237,7 +237,7 @@ fn test_adsr_level1_trigger_pattern() {
 #[test]
 fn test_adsr_level2_onset_detection() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~trigger: "x ~ x ~"
 ~env: ~trigger # adsr 0.01 0.1 0.5 0.2
 ~tone: sine 440 * ~env
@@ -308,7 +308,7 @@ out: ~tone
 #[test]
 fn test_adsr_pattern_params() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~trigger: "x x x x"
 ~attack_pattern: "0.01 0.05 0.1 0.2"
 ~env: ~trigger # adsr ~attack_pattern 0.1 0.7 0.2
@@ -341,7 +341,7 @@ All tests should pass!
 
 ```phonon
 -- ADSR Envelope Demonstration
-tempo: 2.0
+tempo: 0.5
 
 -- Simple trigger pattern
 ~trigger: "x ~ x ~"
@@ -466,7 +466,7 @@ use pattern_verification_utils::*;
 #[test]
 fn test_${UGEN_NAME}_basic() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~sig: ${UGEN_NAME} 440  -- TODO: add params
 out: ~sig
 "#;

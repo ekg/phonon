@@ -27,7 +27,7 @@ I audited all claimed features against:
 - ✅ Graph node implementation exists
 - ❌ **NO E2E DSL tests** - Can't verify this syntax works:
   ```phonon
-  tempo: 2.0
+  tempo: 0.5
   out: s "bd sn" # compressor -20.0 4.0 0.01 0.1 10.0
   ```
 
@@ -44,7 +44,7 @@ I audited all claimed features against:
 - ⚠️ **Tests manually construct graph nodes** - NOT parsing DSL!
 - ❌ **NO E2E tests** for this syntax:
   ```phonon
-  tempo: 2.0
+  tempo: 0.5
   out: s "bd*4" # gain "1.0 0.8 0.6 0.4" # pan "-1 1"
   ```
 
@@ -70,7 +70,7 @@ I audited all claimed features against:
 - ⚠️ **Limited E2E DSL tests**
 - ❌ No comprehensive verification of:
   ```phonon
-  tempo: 2.0
+  tempo: 0.5
   ~drums: s "bd sn" $ fast 2 $ every 4 rev
   out: ~drums
   ```
@@ -169,14 +169,14 @@ out: ~compressed * 0.3
 
 ### Pattern DSP Parameters E2E
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" # gain "1.0 0.5 0.8 0.3" # pan "-1 0 1 0"
 ```
 **Expected**: Each event has different gain and pan
 
 ### Chained Transforms E2E
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd sn" $ fast 2 $ every 4 rev $ degrade 0.3
 out: ~drums * 0.8
 ```
@@ -184,7 +184,7 @@ out: ~drums * 0.8
 
 ### Pattern-Controlled Effects E2E
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~mix: "0.3 0.6 0.9"
 out: s "bd*4" # reverb ~mix 0.7
 ```

@@ -62,7 +62,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_fm_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: fm 440 220 1.0
     "#;
 
@@ -74,7 +74,7 @@ fn test_fm_compiles() {
 #[test]
 fn test_fm_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: fm 440 220 1.0 * 0.3
     "#;
 
@@ -91,7 +91,7 @@ fn test_fm_generates_audio() {
 fn test_fm_zero_index_is_sine() {
     // Index=0 should produce pure sine wave at carrier frequency
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: fm 440 220 0.0 * 0.3
     "#;
 
@@ -121,7 +121,7 @@ fn test_fm_zero_index_is_sine() {
 fn test_fm_low_index_bright() {
     // Low index (1.0) creates bright but simple timbre
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: fm 440 220 1.0 * 0.3
     "#;
 
@@ -136,7 +136,7 @@ fn test_fm_low_index_bright() {
 fn test_fm_high_index_complex() {
     // High index (5.0) creates complex timbre with many sidebands
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: fm 440 220 5.0 * 0.2
     "#;
 
@@ -158,7 +158,7 @@ fn test_fm_high_index_complex() {
 fn test_fm_harmonic_1_1_ratio() {
     // C:M = 1:1 produces harmonic spectrum
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: fm 440 440 2.0 * 0.3
     "#;
 
@@ -173,7 +173,7 @@ fn test_fm_harmonic_1_1_ratio() {
 fn test_fm_harmonic_2_1_ratio() {
     // C:M = 2:1 produces harmonic spectrum
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: fm 440 220 2.0 * 0.3
     "#;
 
@@ -188,7 +188,7 @@ fn test_fm_harmonic_2_1_ratio() {
 fn test_fm_inharmonic_ratio() {
     // C:M = irrational produces inharmonic (bell-like) spectrum
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: fm 440 314.159 3.0 * 0.2
     "#;
 
@@ -205,7 +205,7 @@ fn test_fm_inharmonic_ratio() {
 fn test_fm_electric_piano() {
     // Electric piano: C:M = 1:1 or 2:1, moderate index
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.001 0.5
         o1: fm 220 220 2.0 * ~env * 0.3
     "#;
@@ -221,7 +221,7 @@ fn test_fm_electric_piano() {
 fn test_fm_bell_sound() {
     // Bell sound: inharmonic ratio, envelope on index
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.001 1.0
         ~index: ~env * 8.0
         o1: fm 440 550 ~index * ~env * 0.2
@@ -238,7 +238,7 @@ fn test_fm_bell_sound() {
 fn test_fm_brass_sound() {
     // Brass: harmonic ratio, index varies with dynamics
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: adsr 0.05 0.1 0.7 0.2
         ~index: ~env * 3.0 + 1.0
         o1: fm 220 220 ~index * ~env * 0.3
@@ -255,7 +255,7 @@ fn test_fm_brass_sound() {
 fn test_fm_bass_sound() {
     // FM bass: low carrier, moderate C:M ratio
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.3
         o1: fm 55 82.5 2.5 * ~env * 0.4
     "#;
@@ -272,7 +272,7 @@ fn test_fm_bass_sound() {
 #[test]
 fn test_fm_pattern_carrier() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~carrier: sine 2 * 100 + 440
         o1: fm ~carrier 220 2.0 * 0.3
     "#;
@@ -290,7 +290,7 @@ fn test_fm_pattern_carrier() {
 #[test]
 fn test_fm_pattern_modulator() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~modulator: sine 1 * 50 + 200
         o1: fm 440 ~modulator 2.0 * 0.3
     "#;
@@ -308,7 +308,7 @@ fn test_fm_pattern_modulator() {
 #[test]
 fn test_fm_pattern_index() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~index: sine 1 * 2.0 + 3.0
         o1: fm 440 220 ~index * 0.3
     "#;
@@ -328,7 +328,7 @@ fn test_fm_pattern_index() {
 #[test]
 fn test_fm_very_low_frequencies() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: fm 20 10 1.0 * 0.3
     "#;
 
@@ -342,7 +342,7 @@ fn test_fm_very_low_frequencies() {
 #[test]
 fn test_fm_high_carrier() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: fm 8000 4000 1.0 * 0.3
     "#;
 
@@ -357,7 +357,7 @@ fn test_fm_high_carrier() {
 fn test_fm_extreme_index() {
     // Very high index creates very complex spectrum
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: fm 440 220 20.0 * 0.1
     "#;
 
@@ -373,7 +373,7 @@ fn test_fm_extreme_index() {
 #[test]
 fn test_fm_no_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: fm 440 220 5.0 * 0.5
     "#;
 

@@ -77,7 +77,7 @@ out: organ_hz (~lfo * 110 + 440)
 
 **Verification**: Manually tested with `/tmp/test_organ_existing.ph`:
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~organ: organ 220
 out: ~organ * 0.5
 ```

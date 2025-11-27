@@ -2,7 +2,7 @@
 -- Smooths abrupt changes with exponential approach to target
 -- Useful for portamento, click removal, parameter smoothing
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Portamento (pitch glide)
 ~notes: "220 330 440 550"

@@ -65,7 +65,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_allpass_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # allpass 0.5
     "#;
 
@@ -77,7 +77,7 @@ fn test_allpass_compiles() {
 #[test]
 fn test_allpass_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # allpass 0.5
     "#;
 
@@ -93,7 +93,7 @@ fn test_allpass_generates_audio() {
 #[test]
 fn test_allpass_no_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # allpass 0.7
     "#;
 
@@ -108,7 +108,7 @@ fn test_allpass_no_clipping() {
 #[test]
 fn test_allpass_no_dc_offset() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # allpass 0.5
     "#;
 
@@ -126,12 +126,12 @@ fn test_allpass_no_dc_offset() {
 fn test_allpass_unity_gain() {
     // Allpass should not change amplitude, only phase
     let dry_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440
     "#;
 
     let wet_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # allpass 0.5
     "#;
 
@@ -154,7 +154,7 @@ fn test_allpass_unity_gain() {
 fn test_allpass_flat_magnitude_response() {
     // Allpass should pass all frequencies equally
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # allpass 0.3
     "#;
 
@@ -163,7 +163,7 @@ fn test_allpass_flat_magnitude_response() {
 
     // Compare with dry white noise
     let dry_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise
     "#;
     let dry_buffer = render_dsl(dry_code, 2.0);
@@ -198,12 +198,12 @@ fn test_allpass_flat_magnitude_response() {
 fn test_allpass_changes_phase() {
     // Allpass should change phase but not amplitude
     let dry_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440
     "#;
 
     let wet_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # allpass 0.5
     "#;
 
@@ -229,12 +229,12 @@ fn test_allpass_changes_phase() {
 fn test_allpass_different_coefficients() {
     // Different coefficients should produce different phase shifts
     let code1 = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # allpass 0.3
     "#;
 
     let code2 = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # allpass 0.7
     "#;
 
@@ -261,7 +261,7 @@ fn test_allpass_different_coefficients() {
 fn test_allpass_pattern_coefficient() {
     // Allpass should work with pattern-modulated coefficient
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 2 * 0.3 + 0.5
         o1: sine 440 # allpass ~lfo
     "#;
@@ -283,7 +283,7 @@ fn test_allpass_pattern_coefficient() {
 fn test_allpass_cascade() {
     // Multiple allpass filters in series
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # allpass 0.3 # allpass 0.5 # allpass 0.7
     "#;
 
@@ -304,7 +304,7 @@ fn test_allpass_cascade() {
 fn test_allpass_for_reverb() {
     // Allpass filters are key building blocks of reverb
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~dry: saw 110
         ~ap1: ~dry # allpass 0.131
         ~ap2: ~ap1 # allpass 0.359
@@ -327,7 +327,7 @@ fn test_allpass_for_reverb() {
 fn test_allpass_for_phaser() {
     // Allpass + dry signal creates phaser effect
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~dry: saw 220
         ~wet: ~dry # allpass 0.5
         o1: (~dry + ~wet) * 0.5
@@ -350,12 +350,12 @@ fn test_allpass_for_phaser() {
 fn test_allpass_zero_coefficient() {
     // Coefficient of 0 should pass signal through unchanged
     let dry_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440
     "#;
 
     let wet_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 # allpass 0.0
     "#;
 
@@ -375,7 +375,7 @@ fn test_allpass_zero_coefficient() {
 #[test]
 fn test_allpass_with_noise() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # allpass 0.5
     "#;
 

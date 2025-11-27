@@ -1,7 +1,7 @@
 -- White Noise Generator Demonstration
 -- Generates uniformly distributed random samples
 
-tempo: 2.0
+tempo: 0.5
 
 -- Raw white noise (useful for percussion, hi-hats, effects)
 ~noise_raw: white_noise * 0.2

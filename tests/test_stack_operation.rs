@@ -12,7 +12,7 @@ fn test_stack_basic_oscillators() {
     println!("Testing basic stack with oscillators...");
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~stacked: stack [sine 220, sine 440]
 out: ~stacked * 0.2
 "#;
@@ -38,7 +38,7 @@ fn test_stack_with_different_gains() {
 
     // This is the key use case: per-voice gain!
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~loud: sine 220 * 0.8
 ~quiet: sine 440 * 0.2
 ~stacked: stack [~loud, ~quiet]
@@ -67,7 +67,7 @@ fn test_stack_samples() {
     println!("Testing stack with sample patterns...");
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: s "bd"
 ~snare: s "~ sn"
 ~hh: s "hh*4"
@@ -93,7 +93,7 @@ fn test_stack_with_transforms() {
     println!("Testing stack with pattern transforms...");
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~normal: s "bd sn"
 ~fast: s "bd sn" $ fast 2
 ~stacked: stack [~normal, ~fast]
@@ -120,7 +120,7 @@ fn test_stack_per_voice_gain_e2e() {
     println!("Testing per-voice gain control via stack (E2E)...");
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 # Three samples with different gain levels
 ~kick: s "bd" * 0.8
 ~snare: s "~ sn" * 1.0
@@ -185,7 +185,7 @@ fn test_stack_oscillator_frequency_blend() {
 
     // Stack two frequencies - should see both in spectrum
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~low: sine 110 * 0.3
 ~high: sine 440 * 0.3
 ~blend: stack [~low, ~high]
@@ -234,7 +234,7 @@ fn test_stack_three_way_mix() {
     println!("Testing stack with three patterns (E2E)...");
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~a: sine 220 * 0.2
 ~b: sine 330 * 0.2
 ~c: sine 440 * 0.2

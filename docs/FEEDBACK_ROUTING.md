@@ -186,7 +186,7 @@ The two-pass compilation system allows:
 ### Delay Feedback (Dub Techno)
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~kick: sine 55 * 0.6
 ~dub: ~kick # delay 0.375 0.75 # hpf 800 0.7
 out: ~kick * 0.5 + ~dub * 0.5
@@ -223,7 +223,7 @@ out: (~source + ~tap1 + ~tap2 + ~tap3 + ~tap4) * 0.2
 ### Send/Return (Aux Send)
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~dry1: sine 440 * 0.3
 ~dry2: saw 220 * 0.3
 ~send: (~dry1 + ~dry2) * 0.5
@@ -242,7 +242,7 @@ out: ~dry1 * 0.4 + ~dry2 * 0.4 + ~return * 0.3
 ### Filter Sweep with Feedback
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~source: saw 110 * 0.5
 ~lfo: sine 0.25 * 2000 + 1000
 ~filtered: ~source # lpf ~lfo 0.8 # delay 0.25 0.6

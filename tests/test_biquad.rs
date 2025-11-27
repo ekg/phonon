@@ -62,7 +62,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_biquad_lowpass_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bq_lp 1000 0.7
     "#;
 
@@ -74,7 +74,7 @@ fn test_biquad_lowpass_compiles() {
 #[test]
 fn test_biquad_highpass_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bq_hp 1000 0.7
     "#;
 
@@ -86,7 +86,7 @@ fn test_biquad_highpass_compiles() {
 #[test]
 fn test_biquad_bandpass_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bq_bp 1000 2.0
     "#;
 
@@ -98,7 +98,7 @@ fn test_biquad_bandpass_compiles() {
 #[test]
 fn test_biquad_notch_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bq_notch 1000 2.0
     "#;
 
@@ -112,7 +112,7 @@ fn test_biquad_notch_compiles() {
 #[test]
 fn test_biquad_lowpass_attenuates_highs() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # bq_lp 1000 0.7
     "#;
 
@@ -142,7 +142,7 @@ fn test_biquad_lowpass_attenuates_highs() {
 #[test]
 fn test_biquad_lowpass_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bq_lp 1000 0.7
     "#;
 
@@ -158,7 +158,7 @@ fn test_biquad_lowpass_generates_audio() {
 #[test]
 fn test_biquad_highpass_attenuates_lows() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # bq_hp 1000 0.7
     "#;
 
@@ -188,7 +188,7 @@ fn test_biquad_highpass_attenuates_lows() {
 #[test]
 fn test_biquad_highpass_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bq_hp 500 0.5
     "#;
 
@@ -204,7 +204,7 @@ fn test_biquad_highpass_generates_audio() {
 #[test]
 fn test_biquad_bandpass_passes_band() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # bq_bp 1000 3.0
     "#;
 
@@ -233,7 +233,7 @@ fn test_biquad_bandpass_passes_band() {
 #[test]
 fn test_biquad_bandpass_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bq_bp 1000 2.0
     "#;
 
@@ -249,7 +249,7 @@ fn test_biquad_bandpass_generates_audio() {
 #[test]
 fn test_biquad_notch_rejects_center() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # bq_notch 1000 3.0
     "#;
 
@@ -279,7 +279,7 @@ fn test_biquad_notch_rejects_center() {
 #[test]
 fn test_biquad_notch_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bq_notch 440 2.0
     "#;
 
@@ -295,7 +295,7 @@ fn test_biquad_notch_generates_audio() {
 #[test]
 fn test_biquad_pattern_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 4 * 500 + 1000
         o1: saw 110 # bq_lp ~lfo 0.7
     "#;
@@ -313,7 +313,7 @@ fn test_biquad_pattern_frequency() {
 #[test]
 fn test_biquad_pattern_q() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 2 * 2.0 + 3.0
         o1: saw 110 # bq_lp 1000 ~lfo
     "#;
@@ -333,7 +333,7 @@ fn test_biquad_pattern_q() {
 #[test]
 fn test_biquad_no_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bq_lp 1000 10.0
     "#;
 
@@ -351,7 +351,7 @@ fn test_biquad_no_clipping() {
 #[test]
 fn test_biquad_no_dc_offset() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bq_lp 500 1.0
     "#;
 
@@ -367,7 +367,7 @@ fn test_biquad_no_dc_offset() {
 #[test]
 fn test_biquad_cascade() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bq_lp 1000 0.7 # bq_hp 200 0.7
     "#;
 
@@ -383,7 +383,7 @@ fn test_biquad_cascade() {
 #[test]
 fn test_biquad_resonant_bass() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 55 # bq_lp 300 5.0
     "#;
 
@@ -397,7 +397,7 @@ fn test_biquad_resonant_bass() {
 #[test]
 fn test_biquad_filter_sweep() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~sweep: line 200 5000
         o1: saw 55 # bq_lp ~sweep 1.0
     "#;
@@ -414,7 +414,7 @@ fn test_biquad_filter_sweep() {
 #[test]
 fn test_biquad_very_low_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # bq_lp 50 0.7
     "#;
 
@@ -428,7 +428,7 @@ fn test_biquad_very_low_frequency() {
 #[test]
 fn test_biquad_very_high_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # bq_lp 15000 0.7
     "#;
 
@@ -442,7 +442,7 @@ fn test_biquad_very_high_frequency() {
 #[test]
 fn test_biquad_low_q() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bq_lp 1000 0.1
     "#;
 
@@ -456,7 +456,7 @@ fn test_biquad_low_q() {
 #[test]
 fn test_biquad_high_q() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bq_bp 1000 20.0
     "#;
 

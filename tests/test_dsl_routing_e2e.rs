@@ -38,7 +38,7 @@ fn render_and_verify(dsl_code: &str, test_name: &str) -> (bool, String) {
 #[test]
 fn test_single_bus_to_output() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~osc: sine 440
 out: ~osc * 0.2
 "#;
@@ -49,7 +49,7 @@ out: ~osc * 0.2
 #[test]
 fn test_two_buses_mixed() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~osc1: sine 220
 ~osc2: sine 440
 out: ~osc1 * 0.1 + ~osc2 * 0.1
@@ -61,7 +61,7 @@ out: ~osc1 * 0.1 + ~osc2 * 0.1
 #[test]
 fn test_three_buses_mixed() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~osc1: sine 220
 ~osc2: sine 440
 ~osc3: sine 660
@@ -74,7 +74,7 @@ out: ~osc1 * 0.1 + ~osc2 * 0.1 + ~osc3 * 0.1
 #[test]
 fn test_four_buses_mixed() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~a: sine 220
 ~b: saw 110
 ~c: square 440
@@ -92,7 +92,7 @@ out: ~a * 0.05 + ~b * 0.05 + ~c * 0.05 + ~d * 0.05
 #[test]
 fn test_nested_buses_two_levels() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~osc1: sine 440
 ~osc2: sine 880
 ~mix: ~osc1 + ~osc2
@@ -105,7 +105,7 @@ out: ~mix * 0.1
 #[test]
 fn test_nested_buses_three_levels() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~osc1: sine 220
 ~osc2: sine 440
 ~submix: ~osc1 + ~osc2
@@ -119,7 +119,7 @@ out: ~master * 0.05
 #[test]
 fn test_multiple_submixes() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~osc1: sine 220
 ~osc2: sine 440
 ~osc3: saw 110
@@ -135,7 +135,7 @@ out: ~synth_mix * 0.1 + ~bass_mix * 0.1
 #[test]
 fn test_complex_bus_tree() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: s "bd ~"
 ~snare: s "~ sn"
 ~drums: ~kick + ~snare
@@ -154,7 +154,7 @@ out: ~low_end * 0.3
 #[test]
 fn test_bus_reused_in_mix() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~osc: sine 440
 out: ~osc * 0.1 + ~osc * 0.1
 "#;
@@ -165,7 +165,7 @@ out: ~osc * 0.1 + ~osc * 0.1
 #[test]
 fn test_bus_different_gains() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~osc: sine 440
 out: ~osc * 0.2 + ~osc * 0.1
 "#;
@@ -176,7 +176,7 @@ out: ~osc * 0.2 + ~osc * 0.1
 #[test]
 fn test_bus_parallel_processing() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~osc: sine 440
 ~dry: ~osc
 ~wet: ~osc # lpf 1000 0.8
@@ -193,7 +193,7 @@ out: ~dry * 0.15 + ~wet * 0.15
 #[test]
 fn test_forward_flow_filter() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~sig: saw 110 # lpf 2000 0.8
 out: ~sig * 0.3
 "#;
@@ -204,7 +204,7 @@ out: ~sig * 0.3
 #[test]
 fn test_forward_flow_chain() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~sig: saw 110 # lpf 2000 0.7 # reverb 0.5 0.6
 out: ~sig * 0.3
 "#;
@@ -215,7 +215,7 @@ out: ~sig * 0.3
 #[test]
 fn test_forward_flow_long_chain() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~sig: saw 110 # lpf 2000 0.7 # distortion 0.3 # reverb 0.4 0.6 # lpf 3000 0.5
 out: ~sig * 0.3
 "#;
@@ -232,7 +232,7 @@ fn test_reverse_flow_filter() {
     // Note: Reverse flow syntax (<<) is not yet supported in compositional parser
     // Using standard forward flow (#) instead
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~sig: saw 110 # lpf 2000 0.8
 out: ~sig * 0.3
 "#;
@@ -245,7 +245,7 @@ fn test_reverse_flow_chain() {
     // Note: Reverse flow syntax (<<) is not yet supported in compositional parser
     // Using standard forward flow (#) instead
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~sig: saw 110 # lpf 2000 0.7 # reverb 0.5 0.6
 out: ~sig * 0.3
 "#;
@@ -258,7 +258,7 @@ fn test_reverse_flow_samples() {
     // Note: Reverse flow syntax (<<) is not yet supported in compositional parser
     // Using standard forward flow (#) instead
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd sn hh cp" # lpf 2000 0.8
 out: ~drums * 0.7
 "#;
@@ -275,7 +275,7 @@ fn test_mixed_flow_directions() {
     // Note: Reverse flow syntax (<<) is not yet supported in compositional parser
     // Using standard forward flow (#) for both signals
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~sig1: saw 110 # lpf 2000 0.8
 ~sig2: saw 220 # lpf 1500 0.7
 out: ~sig1 * 0.15 + ~sig2 * 0.15
@@ -289,7 +289,7 @@ fn test_forward_into_reverse() {
     // Note: Reverse flow syntax (<<) is not yet supported in compositional parser
     // Using standard forward flow (#) for both chains
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~proc1: saw 110 # lpf 2000 0.8
 ~proc2: ~proc1 # reverb 0.5 0.6
 out: ~proc2 * 0.3
@@ -305,7 +305,7 @@ out: ~proc2 * 0.3
 #[test]
 fn test_weighted_two_bus_mix() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~bass: saw 55
 ~melody: sine 440
 out: ~bass * 0.3 + ~melody * 0.1
@@ -317,7 +317,7 @@ out: ~bass * 0.3 + ~melody * 0.1
 #[test]
 fn test_weighted_three_bus_mix() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~bass: saw 55
 ~mid: square 220
 ~high: sine 880
@@ -330,7 +330,7 @@ out: ~bass * 0.4 + ~mid * 0.2 + ~high * 0.1
 #[test]
 fn test_weighted_complex_mix() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: s "bd ~"
 ~bass: saw 55
 ~melody: sine "220 440"
@@ -348,7 +348,7 @@ out: ~kick * 0.8 + ~bass * 0.3 + ~melody * 0.15 + ~hats * 0.5
 #[test]
 fn test_send_to_reverb() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~dry: sine 440
 ~reverb_return: ~dry # reverb 0.9 0.9
 out: ~dry * 0.2 + ~reverb_return * 0.1
@@ -360,7 +360,7 @@ out: ~dry * 0.2 + ~reverb_return * 0.1
 #[test]
 fn test_multiple_sends() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~dry: sine 440
 ~reverb_send: ~dry # reverb 0.7 0.8
 ~delay_send: ~dry # delay 0.5 0.5 0.6
@@ -373,7 +373,7 @@ out: ~dry * 0.15 + ~reverb_send * 0.1 + ~delay_send * 0.1
 #[test]
 fn test_parallel_effects_chain() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~src: saw 110
 ~path1: ~src # lpf 1000 0.8
 ~path2: ~src # hpf 1000 0.7
@@ -390,7 +390,7 @@ out: ~path1 * 0.15 + ~path2 * 0.15
 #[test]
 fn test_pattern_mix_levels() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~osc1: sine 220
 ~osc2: sine 440
 ~mix_amt: "0.1 0.3 0.2 0.4"
@@ -403,7 +403,7 @@ out: ~osc1 * ~mix_amt + ~osc2 * (1 - ~mix_amt)
 #[test]
 fn test_pattern_individual_levels() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~osc1: sine 220
 ~osc2: sine 440
 ~gain1: "0.1 0.2"
@@ -421,7 +421,7 @@ out: ~osc1 * ~gain1 + ~osc2 * ~gain2
 #[test]
 fn test_drum_bus_routing() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: s "bd ~"
 ~snare: s "~ sn"
 ~hats: s "hh*8"
@@ -435,7 +435,7 @@ out: ~drum_bus * 0.7
 #[test]
 fn test_synth_submix() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~osc1: sine "220 440"
 ~osc2: saw "110 220"
 ~synth_bus: (~osc1 + ~osc2) # lpf 3000 0.7
@@ -448,7 +448,7 @@ out: ~synth_bus * 0.2
 #[test]
 fn test_master_bus_processing() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~bass: saw 55 * 0.3
 ~melody: sine 440 * 0.15
 ~drums: s "bd sn hh cp" * 0.6
@@ -462,7 +462,7 @@ out: ~master
 #[test]
 fn test_hierarchical_mixing() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: s "bd ~"
 ~snare: s "~ sn"
 ~rhythm: ~kick + ~snare
@@ -483,7 +483,7 @@ out: ~master
 #[test]
 fn test_many_buses() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~b1: sine 110
 ~b2: sine 165
 ~b3: sine 220
@@ -501,7 +501,7 @@ out: (~b1 + ~b2 + ~b3 + ~b4 + ~b5 + ~b6 + ~b7 + ~b8) * 0.05
 #[test]
 fn test_deep_nesting() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~a: sine 440
 ~b: ~a * 0.8
 ~c: ~b * 0.9
@@ -516,7 +516,7 @@ out: ~e * 0.2
 #[test]
 fn test_complex_arithmetic_routing() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~a: sine 220
 ~b: sine 440
 ~c: sine 660
@@ -533,7 +533,7 @@ out: (~a * 0.5 + ~b * 0.3) * (~c * 0.1 + 0.15)
 #[test]
 fn test_simple_auto_routing() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~d1: sine 440 * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "auto_d1");
@@ -546,7 +546,7 @@ tempo: 2.0
 #[test]
 fn test_multiple_auto_routing() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~d1: sine 220 * 0.1
 ~d2: sine 440 * 0.1
 "#;
@@ -562,7 +562,7 @@ tempo: 2.0
 #[test]
 fn test_bus_with_transform() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~base: sine "220 440"
 ~fast: ~base $ fast 2
 out: ~fast * 0.2
@@ -574,7 +574,7 @@ out: ~fast * 0.2
 #[test]
 fn test_multiple_transforms_on_bus() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~base: sine "220 330 440"
 ~transformed: ~base $ fast 2 $ rev
 out: ~transformed * 0.2

@@ -243,7 +243,7 @@ fn test_bpm_240_produces_correct_tempo() {
 fn test_tempo_cps_directly() {
     // tempo: X sets cycles per second directly (not BPM)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd"
     "#;
 

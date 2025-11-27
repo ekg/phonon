@@ -32,7 +32,7 @@ Result: Peak 0.000 ❌ COMPLETELY SILENT
 DSL: s "bd bd", tempo: 0.5
 Result: Peak 0.012 ✅ WORKS (2 events)
 
-DSL: s "bd", tempo: 2.0
+DSL: s "bd", tempo: 0.5
 Result: Peak 0.012 ✅ WORKS (fast tempo)
 
 Direct graph: pattern = parse_mini_notation("bd")

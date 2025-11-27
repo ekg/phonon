@@ -46,7 +46,7 @@ fn test_synth_with_note_pattern() {
 
     println!("\n=== Pattern-Triggered Synth Test ===");
     println!("This is what the user wants:\n");
-    println!("  tempo: 2.0");
+    println!("  tempo: 0.5");
     println!("  out: synth(\"c4 a3 g3 e4\", saw()) * 0.3\n");
     println!("Each note should:");
     println!("  1. Trigger a new synth voice");

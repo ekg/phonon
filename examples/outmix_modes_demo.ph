@@ -3,7 +3,7 @@
 -- When you have multiple output channels (o1, o2, o3, etc.),
 -- they get summed to mono. The outmix setting controls how.
 
-tempo: 2.0
+tempo: 0.5
 
 -- Five mixing modes available:
 --

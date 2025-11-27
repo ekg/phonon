@@ -1,4 +1,4 @@
-tempo: 2.0
+tempo: 0.5
 
 ~bass: synth("c2 c2 ~ g2 ~ c2 g2 ~", "square", 0.01, 0.05, 0.8, 0.1)
 

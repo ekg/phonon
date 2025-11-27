@@ -1,7 +1,7 @@
 -- Sample Bank Selection Demo
 -- Demonstrates the `n` parameter and colon syntax for sample variation
 
-tempo: 2.0
+tempo: 0.5
 
 -- METHOD 1: Using n parameter with patterns
 -- This cycles through samples dynamically

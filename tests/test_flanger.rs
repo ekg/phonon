@@ -167,7 +167,7 @@ out: ~flanged * 0.5
 #[test]
 fn test_flanger_musical_example() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 -- Classic flanger on guitar-like sound
 ~guitar: saw 220
 ~flanged: flanger ~guitar 0.7 0.3 0.5
@@ -209,7 +209,7 @@ out: ~flanged * ~env * 0.3
 #[test]
 fn test_flanger_pattern_depth() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~depth_pattern: "0.2 0.5 0.8 1.0"
 ~input: sine 440
 ~flanged: flanger ~input ~depth_pattern 2.0 0.5
@@ -230,7 +230,7 @@ out: ~flanged * 0.3
 #[test]
 fn test_flanger_pattern_rate() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~rate_pattern: "0.5 1.0 2.0 4.0"
 ~input: saw 220
 ~flanged: flanger ~input 0.7 ~rate_pattern 0.4

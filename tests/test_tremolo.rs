@@ -240,7 +240,7 @@ out: ~tremolo
 #[test]
 fn test_tremolo_pattern_modulation() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~rate_lfo: sine 0.5 * 2.0 + 5.0
 ~depth_lfo: sine 0.3 * 0.3 + 0.5
 ~carrier: sine 440
@@ -268,7 +268,7 @@ out: ~tremolo
 #[test]
 fn test_tremolo_classic() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~guitar: saw 220
 ~tremolo: ~guitar # tremolo 6.0 0.6
 out: ~tremolo * 0.3

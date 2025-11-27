@@ -107,7 +107,7 @@ fn test_moog_hz_level3_resonance_sweep() {
 fn test_moog_hz_level3_pattern_modulation() {
     // Test Phonon's killer feature: pattern modulation at audio rate!
     let code = "
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~cutoff: ~lfo * 2000 + 1000
         out: saw 110 # moog_hz ~cutoff 0.7
@@ -316,14 +316,14 @@ fn test_moog_hz_level4_resonance_comparison() {
 fn test_moog_hz_level4_pattern_modulation_comparison() {
     // Compare pattern modulation behavior
     let code_fundsp = "
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~cutoff: ~lfo * 2000 + 1000
         out: saw 110 # moog_hz ~cutoff 0.7
     ";
 
     let code_custom = "
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~cutoff: ~lfo * 2000 + 1000
         out: saw 110 # moogLadder ~cutoff 0.7

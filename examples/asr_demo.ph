@@ -3,7 +3,7 @@
 -- Perfect for organ-style sounds, held notes, and gated synthesis
 -- Unlike ADSR, sustain holds indefinitely while gate is high
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Classic organ tone
 ~organ_gate: "1.0 1.0 0.0 0.0"

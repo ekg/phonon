@@ -10,7 +10,7 @@
 -- This implementation uses a built-in IR with early reflections
 -- and exponential decay tail (RT60 ≈ 0.3s)
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Dry percussion vs convolution reverb
 -- Listen to the difference - convolution adds space and depth

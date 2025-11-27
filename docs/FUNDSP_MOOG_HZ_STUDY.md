@@ -207,7 +207,7 @@ fn test_moog_hz_level3_resonance_sweep() {
 #[test]
 fn test_moog_hz_level3_pattern_modulation() {
     let code = "
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~cutoff: ~lfo * 2000 + 1000
         out: saw 110 # moog_hz ~cutoff 0.7

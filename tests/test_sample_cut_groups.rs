@@ -17,7 +17,7 @@ fn test_cut_group_stops_previous_voice() {
     // The second should stop the first
     // Positional args: s("pattern", gain, pan, speed, cut_group)
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("hh hh", "1.0 1.0", "0 0", "1 1", "1 1")
     "#;
 
@@ -80,7 +80,7 @@ fn test_no_cut_group_allows_overlap() {
     // Two hi-hats with cut group 0 (no cutting)
     // Both should play simultaneously
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("hh hh", "1.0 1.0", "0 0", "1 1", "0 0")
     "#;
 
@@ -113,7 +113,7 @@ fn test_different_cut_groups_dont_interact() {
     // Two samples in different cut groups
     // They should not stop each other
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("hh hh", "1.0 1.0", "0 0", "1 1", "1 2")
     "#;
 
@@ -146,7 +146,7 @@ fn test_cut_group_pattern() {
     // Pattern with alternating cut groups
     // Cut group 1 events should stop each other
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("hh*8", "1 1 1 1 1 1 1 1", "0 0 0 0 0 0 0 0", "1 1 1 1 1 1 1 1", "1 1 1 1 1 1 1 1")
     "#;
 
@@ -179,12 +179,12 @@ fn test_cut_group_default_is_zero() {
     // Without cut group parameter, should default to 0 (no cutting)
     // This allows multiple voices to overlap
     let input_with_cut = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("hh hh", "1.0 1.0", "0 0", "1 1", "0 0")
     "#;
 
     let input_without_cut = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "hh hh"
     "#;
 
@@ -237,7 +237,7 @@ fn test_hi_hat_open_close_simulation() {
     // Realistic hi-hat scenario: closed hits stop open hits
     // hh:0 = open, hh:1 = closed (both in cut group 1)
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("hh:0 hh:1 hh:0 hh:1", "1 1 1 1", "0 0 0 0", "1 1 1 1", "1 1 1 1")
     "#;
 

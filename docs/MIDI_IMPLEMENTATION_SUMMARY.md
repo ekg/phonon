@@ -102,7 +102,7 @@ cargo run --release --bin phonon -- edit
 ### Example Pattern
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Recorded notes
 ~melody: n "c4 e4 g4 e4"
@@ -117,7 +117,7 @@ out: ~melody # gain ~vel
 ### Advanced Example
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Multi-cycle recording (recorded over 2 cycles)
 ~long_pattern: n "c4 d4 e4 f4 g4 a4 b4 c5" $ slow 2

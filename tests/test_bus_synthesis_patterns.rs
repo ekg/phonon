@@ -23,7 +23,7 @@ fn render_in_chunks(graph: &mut phonon::unified_graph::UnifiedSignalGraph, total
 fn test_simple_bus_trigger() {
     let sample_rate = 44100.0;
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~s: sine 440
 ~c: s "~s"
 out: ~c
@@ -42,7 +42,7 @@ out: ~c
 fn test_bus_trigger_with_pattern() {
     let sample_rate = 44100.0;
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~s: sine 440
 ~c: s "~s ~s ~s ~s"
 out: ~c
@@ -61,7 +61,7 @@ out: ~c
 fn test_bus_trigger_with_gain() {
     let sample_rate = 44100.0;
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~s: sine 440
 ~c: s "~s" # gain 1
 out: ~c
@@ -80,7 +80,7 @@ out: ~c
 fn test_bus_trigger_with_note() {
     let sample_rate = 44100.0;
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~s: sine 440
 ~c: s "~s" # note "c3"
 out: ~c
@@ -99,7 +99,7 @@ out: ~c
 fn test_bus_trigger_with_euclidean() {
     let sample_rate = 44100.0;
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~s: sine 440
 ~c: s "~s(3,8)"
 out: ~c
@@ -118,7 +118,7 @@ out: ~c
 fn test_bus_trigger_euclidean_plus_note_plus_gain() {
     let sample_rate = 44100.0;
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~s: sine 440
 ~c: s "~s(3,8)" # note "c3" # gain 1
 out: ~c

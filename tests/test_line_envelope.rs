@@ -95,7 +95,7 @@ out: ~ramp
 #[test]
 fn test_line_descending() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~ramp: line 1 0
 out: ~ramp
 "#;
@@ -195,7 +195,7 @@ out: ~tone * ~fade * 0.5
 #[test]
 fn test_line_frequency_sweep() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 -- Sweep from 100Hz to 1000Hz
 ~freq_ramp: line 100 1000
 ~sweep: sine ~freq_ramp
@@ -221,7 +221,7 @@ out: ~sweep * 0.3
 #[test]
 fn test_line_pattern_parameters() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 -- Pattern-controlled end value
 ~end_pattern: "0.5 1.0"
 ~ramp: line 0 ~end_pattern

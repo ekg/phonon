@@ -23,7 +23,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 #[test]
 fn test_wavetable_constant_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: wavetable 440
     "#;
 
@@ -36,7 +36,7 @@ fn test_wavetable_constant_frequency() {
 fn test_wavetable_pattern_frequency_lfo() {
     // Wavetable with LFO-modulated frequency (vibrato)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: wavetable (sine 5 * 10 + 440)
     "#;
 
@@ -49,7 +49,7 @@ fn test_wavetable_pattern_frequency_lfo() {
 fn test_wavetable_pattern_frequency_sweep() {
     // Wavetable with slow frequency sweep
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: wavetable (sine 0.5 * 220 + 440)
     "#;
 
@@ -62,12 +62,12 @@ fn test_wavetable_pattern_frequency_sweep() {
 fn test_wavetable_vs_sine_comparison() {
     // Wavetable defaults to sine, should sound similar to sine oscillator
     let wavetable_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: wavetable 440
     "#;
 
     let sine_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440
     "#;
 
@@ -97,7 +97,7 @@ fn test_wavetable_vs_sine_comparison() {
 #[test]
 fn test_granular_constant_parameters() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~source: sine 440
         o1: granular ~source 50 0.5 1.0
     "#;
@@ -111,7 +111,7 @@ fn test_granular_constant_parameters() {
 fn test_granular_pattern_grain_size() {
     // Granular with pattern-modulated grain size
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~source: saw 110
         o1: granular ~source (sine 1.0 * 30 + 50) 0.5 1.0
     "#;
@@ -125,7 +125,7 @@ fn test_granular_pattern_grain_size() {
 fn test_granular_pattern_density() {
     // Granular with pattern-modulated density
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~source: square 220
         o1: granular ~source 50 (sine 2.0 * 0.3 + 0.5) 1.0
     "#;
@@ -139,7 +139,7 @@ fn test_granular_pattern_density() {
 fn test_granular_pattern_pitch() {
     // Granular with pattern-modulated pitch
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~source: triangle 110
         o1: granular ~source 50 0.5 (sine 0.5 * 0.5 + 1.0)
     "#;
@@ -153,7 +153,7 @@ fn test_granular_pattern_pitch() {
 fn test_granular_all_patterns() {
     // Granular with all parameters as patterns
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~source: saw 55
         o1: granular ~source (sine 1.0 * 30 + 50) (sine 2.0 * 0.3 + 0.5) (sine 0.5 * 0.5 + 1.0)
     "#;
@@ -167,12 +167,12 @@ fn test_granular_all_patterns() {
 fn test_granular_produces_different_texture() {
     // Verify granular synthesis produces different texture than direct playback
     let direct_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440
     "#;
 
     let granular_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~source: sine 440
         o1: granular ~source 30 0.8 1.0
     "#;

@@ -82,7 +82,7 @@ out: freeze ~source ~trigger
 fn test_spectral_freeze_complex_source() {
     // Freeze should work with complex sounds (chords, noise, etc.)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~chord: saw "110 220 330"
 ~trigger: "x ~ x ~"
 out: freeze ~chord ~trigger * 0.3

@@ -288,7 +288,7 @@ phonon import song.mid → generates song.ph
 
 ```phonon
 -- Generated from song.mid
-tempo: 2.0
+tempo: 0.5
 
 ~drums: n "bd sn hh*4 cp"
 ~bass: n "c2 ~ c2 g2" # legato "0.9 ~ 0.5 1.0"

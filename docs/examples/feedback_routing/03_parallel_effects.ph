@@ -2,7 +2,7 @@
 -- Split signal into parallel paths with different processing
 -- Common in mixing: wet/dry parallel compression, parallel reverb, etc.
 
-tempo: 2.0
+tempo: 0.5
 
 -- Source signal
 ~source: saw 110 * 0.5

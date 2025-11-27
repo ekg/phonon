@@ -4,7 +4,7 @@
 -- Formula: output = input + feedback * delayed_output
 -- Delay time = sample_rate / frequency
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Bell Sound (impulse + comb)
 ~strike1: impulse 1.0

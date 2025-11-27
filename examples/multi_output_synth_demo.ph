@@ -1,7 +1,7 @@
 -- Multi-output bus demonstration with synthesis
 -- Shows how o1:, o2:, o3: are automatically mixed
 
-tempo: 2.0
+tempo: 0.5
 
 -- Bass on o1
 o1: sine 55

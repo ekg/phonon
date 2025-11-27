@@ -2,7 +2,7 @@
 -- Tracks peak amplitude with fast attack and slow release
 -- Classic envelope follower for dynamics and modulation effects
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Envelope extraction from modulated tone
 ~lfo1: sine 2 * 0.5 + 0.5

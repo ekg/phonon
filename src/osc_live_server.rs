@@ -267,15 +267,15 @@ mod tests {
     #[test]
     fn test_apply_eval_command() {
         let cmd = LiveCommand::Eval {
-            code: "tempo: 2.0\n~d1: sine 440\nout: ~d1".to_string(),
+            code: "tempo: 0.5\n~d1: sine 440\nout: ~d1".to_string(),
         };
 
         let graph = apply_command_to_graph(&cmd, 44100.0);
         assert!(graph.is_some());
 
         let graph = graph.unwrap();
-        // tempo: 2.0 → 2.0 cps (480 BPM)
-        assert_eq!(graph.get_cps(), 2.0);
+        // tempo: 0.5 → 0.5 cps (120 BPM)
+        assert_eq!(graph.get_cps(), 0.5);
     }
 
     #[test]

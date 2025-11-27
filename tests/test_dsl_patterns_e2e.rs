@@ -38,7 +38,7 @@ fn render_and_verify(dsl_code: &str, test_name: &str) -> (bool, String) {
 #[test]
 fn test_two_value_pattern() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "220 440" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "two_values");
@@ -48,7 +48,7 @@ out: sine "220 440" * 0.2
 #[test]
 fn test_four_value_pattern() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "110 220 330 440" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "four_values");
@@ -58,7 +58,7 @@ out: sine "110 220 330 440" * 0.2
 #[test]
 fn test_eight_value_pattern() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "110 165 220 275 330 385 440 495" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "eight_values");
@@ -68,7 +68,7 @@ out: sine "110 165 220 275 330 385 440 495" * 0.2
 #[test]
 fn test_single_value_pattern() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "440" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "single_value");
@@ -78,7 +78,7 @@ out: sine "440" * 0.2
 #[test]
 fn test_three_value_pattern() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "220 330 440" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "three_values");
@@ -92,7 +92,7 @@ out: sine "220 330 440" * 0.2
 #[test]
 fn test_pattern_with_rest() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "440 ~ 330 ~" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "with_rest");
@@ -102,7 +102,7 @@ out: sine "440 ~ 330 ~" * 0.2
 #[test]
 fn test_pattern_alternating_rest() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "220 ~ 440 ~ 660 ~" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "alternating_rest");
@@ -116,7 +116,7 @@ out: sine "220 ~ 440 ~ 660 ~" * 0.2
 #[test]
 fn test_pattern_multiple_consecutive_rests() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "440 ~ ~ 220" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "consecutive_rests");
@@ -130,7 +130,7 @@ out: sine "440 ~ ~ 220" * 0.2
 #[test]
 fn test_subdivision_2x() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "220 440*2" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "subdiv_2x");
@@ -140,7 +140,7 @@ out: sine "220 440*2" * 0.2
 #[test]
 fn test_subdivision_4x() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "220 330*4" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "subdiv_4x");
@@ -150,7 +150,7 @@ out: sine "220 330*4" * 0.2
 #[test]
 fn test_subdivision_8x() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "220 440*8" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "subdiv_8x");
@@ -160,7 +160,7 @@ out: sine "220 440*8" * 0.2
 #[test]
 fn test_multiple_subdivisions() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "220*2 330*3 440*4" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "multi_subdiv");
@@ -178,7 +178,7 @@ out: sine "220*2 330*3 440*4" * 0.2
 #[test]
 fn test_alternation_two_choices() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "<220 440>" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "alt_two");
@@ -188,7 +188,7 @@ out: sine "<220 440>" * 0.2
 #[test]
 fn test_alternation_three_choices() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "<220 330 440>" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "alt_three");
@@ -198,7 +198,7 @@ out: sine "<220 330 440>" * 0.2
 #[test]
 fn test_alternation_four_choices() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "<110 220 330 440>" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "alt_four");
@@ -208,7 +208,7 @@ out: sine "<110 220 330 440>" * 0.2
 #[test]
 fn test_alternation_mixed_with_values() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "220 <330 440> 550" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "alt_mixed");
@@ -222,7 +222,7 @@ out: sine "220 <330 440> 550" * 0.2
 #[test]
 fn test_euclidean_3_8() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "(3,8,440)" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "euclid_3_8");
@@ -232,7 +232,7 @@ out: sine "(3,8,440)" * 0.2
 #[test]
 fn test_euclidean_5_8() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "(5,8,440)" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "euclid_5_8");
@@ -242,7 +242,7 @@ out: sine "(5,8,440)" * 0.2
 #[test]
 fn test_euclidean_3_4() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "(3,4,440)" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "euclid_3_4");
@@ -252,7 +252,7 @@ out: sine "(3,4,440)" * 0.2
 #[test]
 fn test_euclidean_7_16() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "(7,16,440)" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "euclid_7_16");
@@ -266,7 +266,7 @@ out: sine "(7,16,440)" * 0.2
 #[test]
 fn test_fast_transform() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~base: sine "220 440"
 out: (~base $ fast 2) * 0.2
 "#;
@@ -277,7 +277,7 @@ out: (~base $ fast 2) * 0.2
 #[test]
 fn test_slow_transform() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~base: sine "220 440 330 550"
 out: (~base $ slow 2) * 0.2
 "#;
@@ -288,7 +288,7 @@ out: (~base $ slow 2) * 0.2
 #[test]
 fn test_rev_transform() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~base: sine "220 330 440 550"
 out: (~base $ rev) * 0.2
 "#;
@@ -299,7 +299,7 @@ out: (~base $ rev) * 0.2
 #[test]
 fn test_every_transform() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~base: sine "220 440"
 out: (~base $ every 2 rev) * 0.2
 "#;
@@ -310,7 +310,7 @@ out: (~base $ every 2 rev) * 0.2
 #[test]
 fn test_chained_transforms() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~base: sine "220 330 440"
 out: (~base $ fast 2 $ rev) * 0.2
 "#;
@@ -325,7 +325,7 @@ out: (~base $ fast 2 $ rev) * 0.2
 #[test]
 fn test_pattern_addition() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~p1: sine "220 440"
 ~p2: sine "330 550"
 out: (~p1 + ~p2) * 0.1
@@ -337,7 +337,7 @@ out: (~p1 + ~p2) * 0.1
 #[test]
 fn test_pattern_multiplication() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~p1: sine "220 440"
 ~amp: "0.1 0.3 0.2 0.4"
 out: ~p1 * ~amp
@@ -349,7 +349,7 @@ out: ~p1 * ~amp
 #[test]
 fn test_pattern_scaling() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~base: "100 200 300"
 out: sine (~base * 2) * 0.2
 "#;
@@ -360,7 +360,7 @@ out: sine (~base * 2) * 0.2
 #[test]
 fn test_pattern_offset() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~base: "100 200 300"
 out: sine (~base + 220) * 0.2
 "#;
@@ -375,7 +375,7 @@ out: sine (~base + 220) * 0.2
 #[test]
 fn test_subdivision_with_alternation() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "220 <330 440>*2" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "subdiv_alt");
@@ -385,7 +385,7 @@ out: sine "220 <330 440>*2" * 0.2
 #[test]
 fn test_rests_with_subdivision() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "220 ~*2 440" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "rest_subdiv");
@@ -395,7 +395,7 @@ out: sine "220 ~*2 440" * 0.2
 #[test]
 fn test_alternation_with_rests() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "<220 ~ 440>" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "alt_rest");
@@ -405,7 +405,7 @@ out: sine "<220 ~ 440>" * 0.2
 #[test]
 fn test_nested_subdivisions() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "220 [330 440]*2" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "nested_subdiv");
@@ -419,7 +419,7 @@ out: sine "220 [330 440]*2" * 0.2
 #[test]
 fn test_pattern_controls_filter_cutoff() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~cutoff: "500 1000 1500 2000"
 ~bass: saw 55 # lpf ~cutoff 0.8
 out: ~bass * 0.3
@@ -431,7 +431,7 @@ out: ~bass * 0.3
 #[test]
 fn test_pattern_controls_resonance() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~res: "0.3 0.6 0.8 0.5"
 ~bass: saw 55 # lpf 1500 ~res
 out: ~bass * 0.3
@@ -443,7 +443,7 @@ out: ~bass * 0.3
 #[test]
 fn test_pattern_controls_amplitude() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~amp: "0.1 0.3 0.2 0.4"
 out: sine 440 * ~amp
 "#;
@@ -454,7 +454,7 @@ out: sine 440 * ~amp
 #[test]
 fn test_multiple_pattern_params() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~freq: "220 330 440"
 ~cutoff: "1000 2000 3000"
 ~osc: saw ~freq # lpf ~cutoff 0.7
@@ -471,7 +471,7 @@ out: ~osc * 0.3
 #[test]
 fn test_2_against_3_pattern() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~p1: sine "220 440"
 ~p2: sine "330 550 660"
 out: (~p1 + ~p2) * 0.1
@@ -483,7 +483,7 @@ out: (~p1 + ~p2) * 0.1
 #[test]
 fn test_3_against_4_pattern() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~p1: sine "220 330 440"
 ~p2: sine "110 165 220 275"
 out: (~p1 + ~p2) * 0.1
@@ -495,7 +495,7 @@ out: (~p1 + ~p2) * 0.1
 #[test]
 fn test_4_against_8_pattern() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~p1: sine "220 440 330 550"
 ~p2: sine "110 165 220 275 330 385 440 495"
 out: (~p1 + ~p2) * 0.1
@@ -535,7 +535,7 @@ out: sine "220 440" * 0.2
 #[test]
 fn test_pattern_low_values() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "55 82.5 110" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "low_values");
@@ -545,7 +545,7 @@ out: sine "55 82.5 110" * 0.2
 #[test]
 fn test_pattern_high_values() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "1760 2200 2640" * 0.1
 "#;
     let (success, stderr) = render_and_verify(dsl, "high_values");
@@ -555,7 +555,7 @@ out: sine "1760 2200 2640" * 0.1
 #[test]
 fn test_pattern_decimal_values() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "220.5 440.25 330.75" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "decimal_values");
@@ -565,7 +565,7 @@ out: sine "220.5 440.25 330.75" * 0.2
 #[test]
 fn test_pattern_zero_value() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "0 220 440" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "zero_value");
@@ -579,7 +579,7 @@ out: sine "0 220 440" * 0.2
 #[test]
 fn test_pattern_as_lfo_freq() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine "0.5 1 2" * 0.5 + 0.5
 ~carrier: sine 440
 out: ~carrier * ~lfo * 0.2
@@ -591,7 +591,7 @@ out: ~carrier * ~lfo * 0.2
 #[test]
 fn test_pattern_drives_fm_modulator() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~mod_freq: "55 110 165"
 ~mod: sine ~mod_freq * 200
 ~carrier: sine (440 + ~mod)
@@ -604,7 +604,7 @@ out: ~carrier * 0.1
 #[test]
 fn test_pattern_in_arithmetic() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~base: "100 200 300"
 out: sine (~base * 2 + 100) * 0.2
 "#;
@@ -619,7 +619,7 @@ out: sine (~base * 2 + 100) * 0.2
 #[test]
 fn test_very_long_pattern() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "110 165 220 275 330 385 440 495 550 605 660 715 770 825 880 935" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "long_pattern");
@@ -629,7 +629,7 @@ out: sine "110 165 220 275 330 385 440 495 550 605 660 715 770 825 880 935" * 0.
 #[test]
 fn test_pattern_all_same_value() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "440 440 440 440" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "all_same");
@@ -639,7 +639,7 @@ out: sine "440 440 440 440" * 0.2
 #[test]
 fn test_pattern_with_very_fast_subdivision() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "220 440*16" * 0.2
 "#;
     let (success, stderr) = render_and_verify(dsl, "fast_subdiv");

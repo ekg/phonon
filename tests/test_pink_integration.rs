@@ -94,7 +94,7 @@ fn test_pink_level3_hihat() {
 fn test_pink_level3_rain() {
     // Rain: pink noise with envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.1
         ~env: ~lfo * 0.5 + 0.5
         ~filtered: pink # lpf 2000 0.3
@@ -126,7 +126,7 @@ fn test_pink_level3_waterfall() {
 fn test_pink_level3_with_envelope() {
     // Pink noise burst with envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~env: ~lfo * 0.4 + 0.6
         out: pink * ~env * 0.3

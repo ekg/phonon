@@ -8,7 +8,7 @@ fn debug_bus_triggered_synth_with_output() {
     let sample_rate = 44100.0;
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~synth: sine 440
 ~trig: s "~synth"
 out: ~trig

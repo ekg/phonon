@@ -170,7 +170,7 @@ out: ~eq
 #[test]
 fn test_parametric_eq_musical_example() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 -- Classic bass boost, mid scoop, treble boost
 ~bass: saw 110
 ~scooped: parametric_eq ~bass 80 6.0 0.7 500 -4.0 1.0 3000 3.0 1.0
@@ -212,7 +212,7 @@ out: ~scooped * ~env * 0.3
 #[test]
 fn test_parametric_eq_pattern_gain() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~gain_pattern: "0.0 3.0 6.0 -3.0"
 ~input: saw 220
 ~dynamic_eq: parametric_eq ~input 100 0.0 1.0 1000 ~gain_pattern 1.0 4000 0.0 1.0

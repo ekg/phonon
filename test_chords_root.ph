@@ -1,4 +1,4 @@
-tempo: 2.0
+tempo: 0.5
 
 -- Test chord notation (plays root note only for now)
 -- c4'maj = C major chord, but plays just C4

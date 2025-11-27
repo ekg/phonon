@@ -197,7 +197,7 @@ s "hh" # curve 0 1 0.1 -5
 Envelopes can be combined with other sample parameters:
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- Segments envelope with pattern gain
 ~drums: s "bd sn hh cp" # segments "0 1 0" "0.05 0.1" # gain "1 0.8 0.6 0.4"

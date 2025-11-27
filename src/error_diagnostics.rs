@@ -187,7 +187,7 @@ fn detect_common_error(text: &str, source_line: &str) -> (String, Option<String>
             "'bpm' keyword is not supported".to_string(),
             Some(
                 "Use 'tempo:' instead\n\
-                  Example: tempo: 2.0"
+                  Example: tempo: 0.5"
                     .to_string(),
             ),
         );
@@ -253,7 +253,7 @@ mod tests {
 
     #[test]
     fn test_detect_hash_comments() {
-        let input = "tempo: 2.0\n# This is a comment\nout: sine 440";
+        let input = "tempo: 0.5\n# This is a comment\nout: sine 440";
         let remaining = "# This is a comment\nout: sine 440";
 
         let diag = diagnose_parse_failure(input, remaining);
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_detect_parentheses_syntax() {
-        let input = "tempo: 2.0\n~kick: s(\"bd*4\")";
+        let input = "tempo: 0.5\n~kick: s(\"bd*4\")";
         let remaining = "~kick: s(\"bd*4\")";
 
         let diag = diagnose_parse_failure(input, remaining);
@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_check_common_mistakes() {
-        let input = "tempo: 2.0\n# comment\n~kick: s(\"bd\")";
+        let input = "tempo: 0.5\n# comment\n~kick: s(\"bd\")";
         let warnings = check_for_common_mistakes(input);
 
         assert!(warnings.len() >= 2);

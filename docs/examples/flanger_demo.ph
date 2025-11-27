@@ -9,7 +9,7 @@
 -- - rate: LFO rate in Hz (0.1-10.0, typical 0.5-2.0)
 -- - feedback: Feedback amount (0.0-0.95, higher = more resonance)
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Flanged sawtooth pad
 ~pad: saw "110 165 220" * 0.15

@@ -13,7 +13,7 @@ fn test_audio_rate_lfo_modulation() {
     // Test 1: LFO modulating filter cutoff
     // If this works at audio rate, we should hear smooth filter sweeping
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- LFO at 0.5 Hz (oscillates between -1 and 1)
 ~lfo: sine 0.5
@@ -90,7 +90,7 @@ fn test_oscillator_modulating_oscillator() {
     // Test 3: Pure audio-rate FM synthesis
     // Oscillator modulating another oscillator's frequency
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- Modulator: 5 Hz sine wave
 ~modulator: sine 5
@@ -134,7 +134,7 @@ fn test_feedback_loop_simulation() {
             // This demonstrates the compositional nature where signals can
             // reference each other in complex ways
             let code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- LFO modulating its own frequency (via separate stages)
 ~lfo_base: sine 0.5
@@ -178,7 +178,7 @@ fn test_pattern_modulating_pattern_parameter() {
     // Test 5: Pattern controlling another pattern's speed
     // This is meta-level: patterns modifying pattern behavior
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- Speed modulation pattern
 ~speed_mod: sine 0.25
@@ -218,7 +218,7 @@ fn test_proof_of_per_sample_evaluation() {
     // Create an LFO at a high frequency and use it as control signal
     // If this was event-based, high-frequency LFO wouldn't work properly
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- High-frequency LFO: 100 Hz
 -- This is way above typical pattern event rates!
@@ -265,7 +265,7 @@ fn test_comparison_to_event_based_systems() {
     // In Phonon, patterns ARE continuous signals
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- This pattern evaluates 44,100 times per second!
 -- Not 4 times per cycle, not 8 times per cycle,

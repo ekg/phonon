@@ -1,7 +1,7 @@
 -- ADSR Envelope Demonstration
 -- Shows how ADSR shapes amplitude over time
 
-tempo: 2.0
+tempo: 0.5
 
 -- Classic ADSR envelope: quick attack, smooth decay, moderate sustain, slow release
 ~env: adsr 0.01 0.1 0.6 0.3

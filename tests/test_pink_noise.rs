@@ -62,7 +62,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_pink_noise_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pink_noise
     "#;
 
@@ -74,7 +74,7 @@ fn test_pink_noise_compiles() {
 #[test]
 fn test_pink_noise_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pink_noise * 0.3
     "#;
 
@@ -90,7 +90,7 @@ fn test_pink_noise_generates_audio() {
 #[test]
 fn test_pink_noise_mean_near_zero() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pink_noise
     "#;
 
@@ -107,7 +107,7 @@ fn test_pink_noise_mean_near_zero() {
 #[test]
 fn test_pink_noise_has_variance() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pink_noise
     "#;
 
@@ -130,7 +130,7 @@ fn test_pink_noise_has_variance() {
 fn test_pink_noise_1_over_f_spectrum() {
     // Pink noise should have -3dB/octave rolloff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pink_noise
     "#;
 
@@ -169,12 +169,12 @@ fn test_pink_noise_1_over_f_spectrum() {
 fn test_pink_vs_white_spectrum() {
     // Pink noise should have more bass than white noise
     let code_pink = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pink_noise
     "#;
 
     let code_white = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise
     "#;
 
@@ -227,7 +227,7 @@ fn test_pink_vs_white_spectrum() {
 fn test_pink_noise_rain() {
     // Rain sound: filtered pink noise
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: line 0.5 1.0
         ~rain: pink_noise # rlpf 3000 1.0
         o1: ~rain * ~env * 0.3
@@ -244,7 +244,7 @@ fn test_pink_noise_rain() {
 fn test_pink_noise_snare() {
     // Snare with pink noise body
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.001 0.15
         ~tone: sine 180
         ~noise: pink_noise # rlpf 4000 2.0
@@ -296,7 +296,7 @@ fn test_pink_noise_wind() {
 fn test_pink_noise_bass_texture() {
     // Bass texture with pink noise
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.3
         ~bass: pink_noise # rlpf 200 2.0
         o1: ~bass * ~env * 0.4
@@ -314,7 +314,7 @@ fn test_pink_noise_bass_texture() {
 #[test]
 fn test_pink_noise_lowpass_filter() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: pink_noise # rlpf 1000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -346,7 +346,7 @@ fn test_pink_noise_lowpass_filter() {
 #[test]
 fn test_pink_noise_highpass_filter() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: pink_noise # rhpf 2000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -379,7 +379,7 @@ fn test_pink_noise_highpass_filter() {
 fn test_pink_noise_bandpass() {
     // Bandpassed pink noise creates focused noise band
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: pink_noise # rhpf 500 2.0 # rlpf 2000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -396,7 +396,7 @@ fn test_pink_noise_bandpass() {
 #[test]
 fn test_pink_noise_amplitude_scaling() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pink_noise * 0.1
     "#;
 
@@ -414,7 +414,7 @@ fn test_pink_noise_amplitude_scaling() {
 #[test]
 fn test_pink_noise_envelope_shaping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.2
         o1: pink_noise * ~env * 0.3
     "#;
@@ -435,7 +435,7 @@ fn test_pink_noise_envelope_shaping() {
 #[test]
 fn test_pink_noise_no_excessive_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pink_noise * 0.5
     "#;
 
@@ -453,7 +453,7 @@ fn test_pink_noise_no_excessive_clipping() {
 fn test_pink_noise_consistent_output() {
     // Generate two separate buffers, they should be different (not stuck)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pink_noise
     "#;
 

@@ -61,7 +61,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_white_noise_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise
     "#;
 
@@ -73,7 +73,7 @@ fn test_white_noise_compiles() {
 #[test]
 fn test_white_noise_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise * 0.3
     "#;
 
@@ -89,7 +89,7 @@ fn test_white_noise_generates_audio() {
 #[test]
 fn test_white_noise_mean_near_zero() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise
     "#;
 
@@ -106,7 +106,7 @@ fn test_white_noise_mean_near_zero() {
 #[test]
 fn test_white_noise_has_variance() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise
     "#;
 
@@ -128,7 +128,7 @@ fn test_white_noise_has_variance() {
 #[test]
 fn test_white_noise_flat_spectrum() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise
     "#;
 
@@ -155,7 +155,7 @@ fn test_white_noise_flat_spectrum() {
 #[test]
 fn test_white_noise_full_bandwidth() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise
     "#;
 
@@ -195,7 +195,7 @@ fn test_white_noise_full_bandwidth() {
 fn test_white_noise_hi_hat() {
     // Hi-hat: filtered white noise with envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.001 0.05
         ~hh: white_noise # rhpf 8000 2.0
         o1: ~hh * ~env * 0.4
@@ -212,7 +212,7 @@ fn test_white_noise_hi_hat() {
 fn test_white_noise_snare() {
     // Snare: mix of tone and filtered noise
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.001 0.15
         ~tone: sine 180
         ~noise: white_noise # rlpf 4000 2.0
@@ -247,7 +247,7 @@ fn test_white_noise_wind() {
 fn test_white_noise_crash() {
     // Crash cymbal: bandpassed noise with decay
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.001 0.8
         ~crash: white_noise # rhpf 3000 1.5 # rlpf 12000 1.5
         o1: ~crash * ~env * 0.3
@@ -265,7 +265,7 @@ fn test_white_noise_crash() {
 #[test]
 fn test_white_noise_lowpass_filter() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rlpf 1000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -297,7 +297,7 @@ fn test_white_noise_lowpass_filter() {
 #[test]
 fn test_white_noise_highpass_filter() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rhpf 5000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -331,7 +331,7 @@ fn test_white_noise_highpass_filter() {
 #[test]
 fn test_white_noise_amplitude_scaling() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise * 0.1
     "#;
 
@@ -349,7 +349,7 @@ fn test_white_noise_amplitude_scaling() {
 #[test]
 fn test_white_noise_envelope_shaping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.2
         o1: white_noise * ~env * 0.3
     "#;

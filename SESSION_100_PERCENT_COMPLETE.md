@@ -86,7 +86,7 @@ Reduction:         81% (with 10:1 ratio)
 ## Example Usage (All Features Working!)
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Pattern-valued DSP parameters
 ~drums: s "bd sn hh cp" # gain "1.0 0.7 0.9 0.5" # pan "-1 1 -0.5 0.5"

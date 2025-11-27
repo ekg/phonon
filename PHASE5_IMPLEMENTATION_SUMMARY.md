@@ -204,7 +204,7 @@ output = main_input * gain_reduction;
 
 ```phonon
 -- Zero crossing detector
-tempo: 2.0
+tempo: 0.5
 ~osc: sine 440
 ~detected_freq: ~osc # zero_crossing 0.1
 out: ~osc

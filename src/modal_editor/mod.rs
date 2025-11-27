@@ -395,7 +395,7 @@ impl ModalEditor {
             }
         } else {
             // Default starter template
-            String::from("# Phonon Live Coding\n# C-x: Eval block | C-r: Reload all | C-h: Hush | C-s: Save | Alt-q: Quit\n\n# Example: Simple drum pattern\ntempo: 2.0\n~drums: s \"bd sn bd sn\"\nout: ~drums * 0.8\n")
+            String::from("# Phonon Live Coding\n# C-x: Eval block | C-r: Reload all | C-h: Hush | C-s: Save | Alt-q: Quit\n\n# Example: Simple drum pattern\ntempo: 0.5\n~drums: s \"bd sn bd sn\"\nout: ~drums * 0.8\n")
         };
 
         // Start cursor at beginning of file (not end)

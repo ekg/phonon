@@ -131,7 +131,7 @@ fn test_no_beat_drops_during_rapid_reloads() {
     // At tempo 2.0, kick hits every 0.25 seconds (4 times per cycle)
     // Using a single sample (bd) repeatedly to avoid confusion from bank selection
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 o1 $ s "bd bd bd bd"
 "#;
 

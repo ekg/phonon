@@ -11,7 +11,7 @@ use phonon::compositional_parser::parse_program;
 fn test_noise_direct_output() {
     // Simplest possible test - direct output
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: noise
 "#;
 
@@ -37,7 +37,7 @@ out: noise
 fn test_noise_in_bus() {
     // Test noise assigned to bus
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~n: noise
 out: ~n
 "#;
@@ -64,7 +64,7 @@ out: ~n
 fn test_noise_through_lpf() {
     // Test noise through low-pass filter
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~n: noise
 out: ~n # lpf 2000 0.8
 "#;

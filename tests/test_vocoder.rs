@@ -169,7 +169,7 @@ out: saw 220
 fn test_vocoder_pattern_modulator() {
     // Pattern-modulated modulator
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~modulator: saw "110 165 220 165"
 ~carrier: saw 440
 out: vocoder ~modulator ~carrier 8
@@ -195,7 +195,7 @@ out: vocoder ~modulator ~carrier 8
 fn test_vocoder_pattern_carrier() {
     // Pattern-modulated carrier
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~modulator: saw 110
 ~carrier: saw "220 330 440 330"
 out: vocoder ~modulator ~carrier 8

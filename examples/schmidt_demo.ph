@@ -3,7 +3,7 @@
 -- Hysteresis: different on/off thresholds prevent rapid oscillation
 -- Formula: output HIGH if input > high_threshold, LOW if input < low_threshold
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Basic gate from LFO
 ~lfo1: sine 4

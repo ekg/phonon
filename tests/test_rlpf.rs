@@ -63,7 +63,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_rlpf_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # rlpf 1000 5.0
     "#;
 
@@ -75,7 +75,7 @@ fn test_rlpf_compiles() {
 #[test]
 fn test_rlpf_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # rlpf 1000 2.0
     "#;
 
@@ -91,7 +91,7 @@ fn test_rlpf_generates_audio() {
 #[test]
 fn test_rlpf_attenuates_highs() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # rlpf 1000 1.0
     "#;
 
@@ -124,7 +124,7 @@ fn test_rlpf_attenuates_highs() {
 fn test_rlpf_resonance_peak() {
     // High Q should create resonant peak at cutoff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # rlpf 1000 10.0
     "#;
 
@@ -162,7 +162,7 @@ fn test_rlpf_resonance_peak() {
 fn test_rlpf_low_q_smooth() {
     // Low Q should have smooth rolloff without peak
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # rlpf 1000 0.5
     "#;
 
@@ -178,7 +178,7 @@ fn test_rlpf_low_q_smooth() {
 fn test_rlpf_extreme_resonance() {
     // Very high Q can self-oscillate
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # rlpf 440 20.0
     "#;
 
@@ -194,7 +194,7 @@ fn test_rlpf_extreme_resonance() {
 #[test]
 fn test_rlpf_pattern_cutoff() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 4 * 1000 + 1500
         o1: saw 110 # rlpf ~lfo 2.0
     "#;
@@ -212,7 +212,7 @@ fn test_rlpf_pattern_cutoff() {
 #[test]
 fn test_rlpf_pattern_resonance() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 2 * 5.0 + 7.0
         o1: saw 110 # rlpf 1000 ~lfo
     "#;
@@ -232,7 +232,7 @@ fn test_rlpf_pattern_resonance() {
 #[test]
 fn test_rlpf_no_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # rlpf 1000 15.0
     "#;
 
@@ -250,7 +250,7 @@ fn test_rlpf_no_clipping() {
 #[test]
 fn test_rlpf_no_dc_offset() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # rlpf 500 2.0
     "#;
 
@@ -267,7 +267,7 @@ fn test_rlpf_no_dc_offset() {
 fn test_rlpf_classic_filter_sweep() {
     // Classic analog synth filter sweep
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~sweep: line 100 5000
         o1: saw 55 # rlpf ~sweep 5.0
     "#;
@@ -282,7 +282,7 @@ fn test_rlpf_classic_filter_sweep() {
 #[test]
 fn test_rlpf_resonant_bass() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 55 # rlpf 200 8.0
     "#;
 
@@ -297,7 +297,7 @@ fn test_rlpf_resonant_bass() {
 fn test_rlpf_acid_bassline() {
     // Typical acid house filter settings
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~sweep: line 50 2000
         o1: saw 55 # rlpf ~sweep 12.0
     "#;
@@ -315,7 +315,7 @@ fn test_rlpf_acid_bassline() {
 fn test_rlpf_cascade() {
     // Two RLPF in series for steeper rolloff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # rlpf 1000 2.0 # rlpf 1200 2.0
     "#;
 
@@ -331,7 +331,7 @@ fn test_rlpf_cascade() {
 #[test]
 fn test_rlpf_very_low_cutoff() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # rlpf 50 2.0
     "#;
 
@@ -345,7 +345,7 @@ fn test_rlpf_very_low_cutoff() {
 #[test]
 fn test_rlpf_very_high_cutoff() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # rlpf 15000 2.0
     "#;
 

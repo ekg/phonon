@@ -307,7 +307,7 @@ cargo test test_ugen_NAME
 ### 5. Create Musical Example (10 min)
 ```phonon
 -- docs/examples/NAME_demo.ph
-tempo: 2.0
+tempo: 0.5
 ~osc: NAME 440
 out: ~osc * 0.3
 ```

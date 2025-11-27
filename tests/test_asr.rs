@@ -103,7 +103,7 @@ out: ~envelope
 #[test]
 fn test_asr_release() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~gate: "1.0 0.0"
 ~envelope: asr ~gate 0.01 0.1
 out: ~envelope
@@ -186,7 +186,7 @@ out: ~envelope
 #[test]
 fn test_asr_organ() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~gate: "1.0 0.0 1.0 1.0"
 ~env: asr ~gate 0.02 0.1
 ~tone: sine 440
@@ -267,7 +267,7 @@ out: ~gated * 0.3
 #[test]
 fn test_asr_asymmetric() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~gate: "1.0 0.0"
 ~fast_attack_slow_release: asr ~gate 0.001 0.2
 out: ~fast_attack_slow_release

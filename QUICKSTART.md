@@ -19,7 +19,7 @@ git clone https://github.com/tidalcycles/Dirt-Samples.git samples
 Create `first.ph`:
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn" * 0.8
 ```
 
@@ -38,7 +38,7 @@ Try changing `"bd sn"` to `"bd*4 sn"` and save - it updates instantly!
 ### Simple Rhythms
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Kick and snare
 out: s "bd sn bd sn"
@@ -53,7 +53,7 @@ out: s "bd ~ sn ~"
 ### Multiplication
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Play bd 4 times per cycle
 out: s "bd*4"
@@ -65,7 +65,7 @@ out: s "[bd*4, sn*2, hh*8]"
 ### Euclidean Rhythms
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # 3 hits distributed across 8 steps
 out: s "bd(3,8)"
@@ -79,7 +79,7 @@ out: s "[bd(3,8), hh(5,16)]"
 ### Gain (Volume)
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Constant gain
 out: s "bd*4" # gain 0.5
@@ -91,7 +91,7 @@ out: s "bd*4" # gain "1.0 0.8 0.6 0.4"
 ### Pan (Stereo Position)
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Alternate left/right
 out: s "hh*8" # pan "-1 1"
@@ -103,7 +103,7 @@ out: s "hh*16" # pan "-1 -0.5 0 0.5 1"
 ### Speed (Playback Rate / Pitch)
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Play sample at different speeds
 out: s "bd*4" # speed "1 2 0.5 1.5"
@@ -115,7 +115,7 @@ out: s "bd bd" # speed "0.5 2.0"
 ### More DSP Parameters
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Sample selection (n) - cycle through different samples
 out: s "bd bd bd bd" # n "0 1 2 3"
@@ -132,7 +132,7 @@ out: s "bd*4" # attack 0.1 # release 0.5
 ### Reverb
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 # reverb: room_size, damping, mix
 out: s "bd sn" # reverb 0.8 0.5 0.3
 ```
@@ -140,7 +140,7 @@ out: s "bd sn" # reverb 0.8 0.5 0.3
 ### Delay
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 # delay: time, feedback, mix
 out: s "bd sn" # delay 0.25 0.6 0.5
 ```
@@ -148,7 +148,7 @@ out: s "bd sn" # delay 0.25 0.6 0.5
 ### Distortion
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 # distortion: drive, mix
 out: s "bd sn" # distortion 10.0 0.5
 ```
@@ -156,7 +156,7 @@ out: s "bd sn" # distortion 10.0 0.5
 ### Chaining Effects
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn"
   # delay 0.25 0.6 0.3
   # reverb 0.7 0.5 0.4
@@ -167,7 +167,7 @@ out: s "bd sn"
 ### Fast and Slow
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Play pattern twice as fast
 ~drums: s "bd sn" $ fast 2
@@ -181,7 +181,7 @@ out: ~drums
 ### Reverse
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd sn cp hh" $ rev
 out: ~drums
 ```
@@ -189,7 +189,7 @@ out: ~drums
 ### Every N Cycles
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Reverse every 4 cycles
 ~drums: s "bd sn" $ every 4 rev
@@ -201,7 +201,7 @@ out: ~drums
 ### House Beat
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 ~kick: s "bd*4"
 ~snare: s "~ sn ~ sn"

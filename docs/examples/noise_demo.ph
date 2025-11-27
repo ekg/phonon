@@ -9,7 +9,7 @@
 -- Unlike oscillators which generate periodic waveforms, noise produces
 -- random values useful for percussion, effects, and synthesis.
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Basic white noise at constant amplitude
 -- ~noise: noise 0.3

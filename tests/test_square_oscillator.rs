@@ -62,7 +62,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_square_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square 440
     "#;
 
@@ -74,7 +74,7 @@ fn test_square_compiles() {
 #[test]
 fn test_square_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square 440 * 0.3
     "#;
 
@@ -91,7 +91,7 @@ fn test_square_generates_audio() {
 fn test_square_odd_harmonics_only() {
     // Square wave should have only odd harmonics
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square 440 * 0.3
     "#;
 
@@ -143,12 +143,12 @@ fn test_square_odd_harmonics_only() {
 fn test_square_vs_saw_spectrum() {
     // Square has fewer harmonics than saw (only odd vs all)
     let code_square = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square 440 * 0.3
     "#;
 
     let code_saw = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 440 * 0.3
     "#;
 
@@ -193,7 +193,7 @@ fn test_square_vs_saw_spectrum() {
 #[test]
 fn test_square_bass() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square 55 * 0.3
     "#;
 
@@ -207,7 +207,7 @@ fn test_square_bass() {
 #[test]
 fn test_square_mid_range() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square 880 * 0.3
     "#;
 
@@ -221,7 +221,7 @@ fn test_square_mid_range() {
 #[test]
 fn test_square_high_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square 2000 * 0.3
     "#;
 
@@ -238,7 +238,7 @@ fn test_square_high_frequency() {
 fn test_square_bass_synth() {
     // Classic square wave bass
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.3
         o1: square 55 * ~env * 0.4
     "#;
@@ -254,7 +254,7 @@ fn test_square_bass_synth() {
 fn test_square_lead_synth() {
     // Lead synth with square wave
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.001 0.2
         o1: square 440 * ~env * 0.3
     "#;
@@ -270,7 +270,7 @@ fn test_square_lead_synth() {
 fn test_square_retro_game() {
     // Retro game sound with square wave
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.001 0.1
         ~pitch: line 880 440
         o1: square ~pitch * ~env * 0.3
@@ -287,7 +287,7 @@ fn test_square_retro_game() {
 fn test_square_clarinet_simulation() {
     // Clarinet-like sound (clarinet has strong odd harmonics)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.05 0.3
         ~clarinet: square 220 # rlpf 2000 1.5
         o1: ~clarinet * ~env * 0.3
@@ -322,7 +322,7 @@ fn test_square_pad() {
 #[test]
 fn test_square_pattern_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~freq: sine 1 * 100 + 440
         o1: square ~freq * 0.3
     "#;
@@ -340,7 +340,7 @@ fn test_square_pattern_frequency() {
 #[test]
 fn test_square_pattern_amplitude() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~amp: sine 2 * 0.2 + 0.3
         o1: square 440 * ~amp
     "#;
@@ -361,7 +361,7 @@ fn test_square_pattern_amplitude() {
 fn test_square_lowpass_filter() {
     // Lowpassed square becomes more sine-like
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: square 220 # rlpf 600 2.0
         o1: ~filtered * 0.3
     "#;
@@ -377,7 +377,7 @@ fn test_square_lowpass_filter() {
 fn test_square_highpass_filter() {
     // Highpassed square removes bass
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: square 220 # rhpf 300 2.0
         o1: ~filtered * 0.3
     "#;
@@ -393,7 +393,7 @@ fn test_square_highpass_filter() {
 fn test_square_resonant_filter() {
     // Square through resonant filter
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.2
         ~cutoff: ~env * 2500 + 300
         ~synth: square 110 # rlpf ~cutoff 8.0
@@ -412,7 +412,7 @@ fn test_square_resonant_filter() {
 #[test]
 fn test_square_no_excessive_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square 440 * 0.5
     "#;
 
@@ -430,7 +430,7 @@ fn test_square_no_excessive_clipping() {
 fn test_square_dc_offset() {
     // Square should have no DC offset (symmetric waveform)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square 440 * 0.3
     "#;
 
@@ -450,7 +450,7 @@ fn test_square_dc_offset() {
 fn test_square_transitions() {
     // Square wave should have clean transitions
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square 440 * 0.3
     "#;
 

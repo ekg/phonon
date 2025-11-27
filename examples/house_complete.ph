@@ -2,7 +2,7 @@
 -- Four-on-the-floor with bass and pads
 
 -- 120 BPM
-tempo: 2.0
+tempo: 0.5
 
 -- DRUMS
 

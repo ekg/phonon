@@ -17,7 +17,7 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_signal_as_pattern_compiles() {
     // Test that SignalAsPattern compiles in DSL
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 0.5
 out: sine 440
 "#;

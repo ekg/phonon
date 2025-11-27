@@ -4,7 +4,7 @@
 -- PATTERNS CAN MODULATE AUDIO PARAMETERS AT SAMPLE RATE!
 
 -- 120 BPM
-tempo: 2.0
+tempo: 0.5
 
 -- ========== THE UNIQUE FEATURE ==========
 --

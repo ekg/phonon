@@ -62,7 +62,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_brown_noise_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: brown_noise
     "#;
 
@@ -74,7 +74,7 @@ fn test_brown_noise_compiles() {
 #[test]
 fn test_brown_noise_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: brown_noise * 0.3
     "#;
 
@@ -90,7 +90,7 @@ fn test_brown_noise_generates_audio() {
 #[test]
 fn test_brown_noise_mean_near_zero() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: brown_noise
     "#;
 
@@ -107,7 +107,7 @@ fn test_brown_noise_mean_near_zero() {
 #[test]
 fn test_brown_noise_has_variance() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: brown_noise
     "#;
 
@@ -130,7 +130,7 @@ fn test_brown_noise_has_variance() {
 fn test_brown_noise_1_over_f_squared_spectrum() {
     // Brown noise should have -6dB/octave rolloff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: brown_noise
     "#;
 
@@ -172,17 +172,17 @@ fn test_brown_noise_1_over_f_squared_spectrum() {
 fn test_brown_vs_pink_vs_white_spectrum() {
     // Brown should have most bass, then pink, then white
     let code_brown = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: brown_noise
     "#;
 
     let code_pink = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pink_noise
     "#;
 
     let code_white = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise
     "#;
 
@@ -271,7 +271,7 @@ fn test_brown_noise_thunder() {
 fn test_brown_noise_sub_bass() {
     // Deep sub-bass texture
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.5
         ~bass: brown_noise # rlpf 80 1.0
         o1: ~bass * ~env * 0.5
@@ -340,7 +340,7 @@ fn test_brown_noise_wind_gust() {
 #[test]
 fn test_brown_noise_lowpass_filter() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: brown_noise # rlpf 500 2.0
         o1: ~filtered * 0.3
     "#;
@@ -373,7 +373,7 @@ fn test_brown_noise_lowpass_filter() {
 fn test_brown_noise_highpass_filter() {
     // Highpass removes most of brown noise energy
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: brown_noise # rhpf 2000 2.0
         o1: ~filtered * 0.5
     "#;
@@ -393,7 +393,7 @@ fn test_brown_noise_highpass_filter() {
 fn test_brown_noise_very_low_filter() {
     // Brown noise with very low cutoff creates deep rumble
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: brown_noise # rlpf 60 1.0
         o1: ~filtered * 0.5
     "#;
@@ -410,7 +410,7 @@ fn test_brown_noise_very_low_filter() {
 #[test]
 fn test_brown_noise_amplitude_scaling() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: brown_noise * 0.1
     "#;
 
@@ -428,7 +428,7 @@ fn test_brown_noise_amplitude_scaling() {
 #[test]
 fn test_brown_noise_envelope_shaping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.02 0.3
         o1: brown_noise * ~env * 0.3
     "#;
@@ -449,7 +449,7 @@ fn test_brown_noise_envelope_shaping() {
 #[test]
 fn test_brown_noise_no_excessive_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: brown_noise * 0.5
     "#;
 
@@ -467,7 +467,7 @@ fn test_brown_noise_no_excessive_clipping() {
 fn test_brown_noise_consistent_output() {
     // Generate two separate buffers, they should be different (not stuck)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: brown_noise
     "#;
 
@@ -496,7 +496,7 @@ fn test_brown_noise_consistent_output() {
 fn test_brown_noise_bass_dominance() {
     // Brown noise should have very strong bass presence
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: brown_noise
     "#;
 

@@ -560,7 +560,7 @@ diff old.wav new.wav || echo "Outputs differ!"
    fn test_audio_node_simple_sine() {
        std::env::set_var("PHONON_USE_AUDIO_NODES", "1");
 
-       let code = "tempo: 2.0\nout: sine 440";
+       let code = "tempo: 0.5\nout: sine 440";
        let audio = render_dsl(code, 1.0);
 
        // Should hear 440 Hz sine wave

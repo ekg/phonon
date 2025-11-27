@@ -2,7 +2,7 @@
 -- Simulates wave propagation in strings/tubes using bidirectional delay lines
 -- More sophisticated than Karplus-Strong with separate forward/backward waves
 
-tempo: 2.0
+tempo: 0.5
 
 -- SYNTAX: waveguide frequency damping pickup_position
 -- frequency: pitch in Hz (or pattern)

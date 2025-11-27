@@ -345,7 +345,7 @@ fn test_noise_level3_wind() {
 fn test_noise_level3_with_envelope() {
     // Noise burst with envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~env: ~lfo * 0.4 + 0.6
         out: noise * ~env * 0.3

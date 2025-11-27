@@ -62,7 +62,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_resonz_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # resonz 1000 10.0
     "#;
 
@@ -74,7 +74,7 @@ fn test_resonz_compiles() {
 #[test]
 fn test_resonz_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # resonz 1000 10.0
     "#;
 
@@ -90,7 +90,7 @@ fn test_resonz_generates_audio() {
 #[test]
 fn test_resonz_passes_center_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # resonz 1000 20.0
     "#;
 
@@ -123,7 +123,7 @@ fn test_resonz_passes_center_frequency() {
 fn test_resonz_high_q_narrow_band() {
     // High Q should produce very narrow passband
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # resonz 1000 50.0
     "#;
 
@@ -156,7 +156,7 @@ fn test_resonz_high_q_narrow_band() {
 fn test_resonz_low_q_wider_band() {
     // Low Q should produce wider passband
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # resonz 1000 2.0
     "#;
 
@@ -190,7 +190,7 @@ fn test_resonz_low_q_wider_band() {
 #[test]
 fn test_resonz_pattern_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 4 * 500 + 1000
         o1: saw 110 # resonz ~lfo 10.0
     "#;
@@ -208,7 +208,7 @@ fn test_resonz_pattern_frequency() {
 #[test]
 fn test_resonz_pattern_q() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 2 * 10.0 + 15.0
         o1: saw 110 # resonz 1000 ~lfo
     "#;
@@ -228,7 +228,7 @@ fn test_resonz_pattern_q() {
 #[test]
 fn test_resonz_no_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # resonz 1000 50.0
     "#;
 
@@ -246,7 +246,7 @@ fn test_resonz_no_clipping() {
 #[test]
 fn test_resonz_no_dc_offset() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # resonz 500 10.0
     "#;
 
@@ -262,7 +262,7 @@ fn test_resonz_no_dc_offset() {
 #[test]
 fn test_resonz_cascade() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # resonz 800 10.0 # resonz 1200 10.0
     "#;
 
@@ -280,7 +280,7 @@ fn test_resonz_cascade() {
 fn test_resonz_formant_synthesis() {
     // Multiple resonz filters can create vocal formants
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~src: saw 110
         ~f1: ~src # resonz 800 15.0
         ~f2: ~src # resonz 1200 15.0
@@ -299,7 +299,7 @@ fn test_resonz_formant_synthesis() {
 #[test]
 fn test_resonz_resonant_sweep() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~sweep: line 200 5000
         o1: saw 55 # resonz ~sweep 20.0
     "#;
@@ -315,7 +315,7 @@ fn test_resonz_resonant_sweep() {
 fn test_resonz_pluck_simulation() {
     // High Q resonz on noise burst simulates plucked string
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~burst: white_noise * (line 1.0 0.0)
         o1: ~burst # resonz 440 40.0
     "#;
@@ -333,7 +333,7 @@ fn test_resonz_pluck_simulation() {
 #[test]
 fn test_resonz_very_low_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # resonz 50 10.0
     "#;
 
@@ -348,7 +348,7 @@ fn test_resonz_very_low_frequency() {
 #[test]
 fn test_resonz_very_high_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: white_noise # resonz 15000 10.0
     "#;
 
@@ -362,7 +362,7 @@ fn test_resonz_very_high_frequency() {
 #[test]
 fn test_resonz_extreme_high_q() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # resonz 1000 100.0
     "#;
 
@@ -376,7 +376,7 @@ fn test_resonz_extreme_high_q() {
 #[test]
 fn test_resonz_low_q() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # resonz 1000 1.0
     "#;
 

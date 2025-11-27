@@ -6,7 +6,7 @@
 
 ```phonon
 # Use COLONS for assignment
-tempo: 2.0
+tempo: 0.5
 
 # Use SPACE-SEPARATED arguments (NOT parentheses!)
 out: sine 440 * 0.2
@@ -15,7 +15,7 @@ out: sine 440 * 0.2
 ### Working Example - Synthesis
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~bass: saw 55
 out: ~bass * 0.4
 ```
@@ -25,7 +25,7 @@ out: ~bass * 0.4
 ### Working Example - Pattern Modulation
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 0.5 * 0.5 + 0.5
 ~bass: saw 55 # lpf (~lfo * 2000 + 500) 0.8
 out: ~bass * 0.4
@@ -91,7 +91,7 @@ tempo 2.0              # ❌ Missing colon
 ### Assignment
 
 ```phonon
-tempo: 2.0                    # Set tempo
+tempo: 0.5                    # Set tempo
 ~busname: expression          # Create bus
 out: expression               # Set output
 ```
@@ -139,14 +139,14 @@ s "bd sn hh*4"                # Pattern string
 ### 1. Simple Tone
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: sine 440 * 0.2
 ```
 
 ### 2. Bass Synth
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~bass: saw 55
 out: ~bass * 0.4
 ```
@@ -154,7 +154,7 @@ out: ~bass * 0.4
 ### 3. LFO Modulation
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 0.5 * 0.5 + 0.5
 ~bass: saw 55 # lpf (~lfo * 2000 + 500) 0.8
 out: ~bass * 0.4
@@ -163,7 +163,7 @@ out: ~bass * 0.4
 ### 4. Two Oscillators
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~bass: saw 55 * 0.3
 ~lead: square 440 * 0.2
 out: ~bass + ~lead
@@ -185,8 +185,8 @@ out: ~bass + ~lead
 
 | Syntax | Result | Output |
 |--------|--------|--------|
-| `tempo: 2.0` + `out: sine 440 * 0.2` | ✅ WORKS | RMS: -19.0 dB |
-| `tempo: 2.0` + `out: saw 55 * 0.4` | ✅ WORKS | RMS: -14.8 dB |
+| `tempo: 0.5` + `out: sine 440 * 0.2` | ✅ WORKS | RMS: -19.0 dB |
+| `tempo: 0.5` + `out: saw 55 * 0.4` | ✅ WORKS | RMS: -14.8 dB |
 | `tempo 2.0` + `out = sine(440) * 0.2` | ❌ FAILS | No output |
 | `~d1: sine 440` (auto-route) | ❌ FAILS | No output |
 

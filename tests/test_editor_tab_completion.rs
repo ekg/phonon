@@ -273,7 +273,7 @@ fn test_multiline_completion() {
     let mut harness = EditorTestHarness::new().unwrap();
 
     // Type on first line
-    harness.type_text("tempo: 2.0")
+    harness.type_text("tempo: 0.5")
         .enter();
 
     // Type on second line
@@ -286,7 +286,7 @@ fn test_multiline_completion() {
 #[test]
 fn test_completion_with_existing_code() {
     let mut harness = EditorTestHarness::with_content(
-        "tempo: 2.0\n~drums: s \"bd sn\"\nout: ~drums"
+        "tempo: 0.5\n~drums: s \"bd sn\"\nout: ~drums"
     ).unwrap();
 
     // Move to end and add new line

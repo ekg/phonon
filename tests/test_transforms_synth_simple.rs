@@ -63,11 +63,11 @@ fn test_fast_with_synthesis() {
     println!("\n2. Audio Verification:");
 
     let input_normal = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine "110 220" * 0.3
     "#;
     let input_fast2 = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine "110 220 110 220" * 0.3
     "#;
 
@@ -98,7 +98,7 @@ fn test_plain_sine() {
     use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine 440 * 0.3
     "#;
 

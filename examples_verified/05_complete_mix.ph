@@ -1,7 +1,7 @@
 # Example 5: Complete Mix
 # Combining synthesis, samples, and effects
 
-tempo: 2.0
+tempo: 0.5
 
 # Simple tone
 ~tone: sine 440 * 0.1

@@ -30,7 +30,7 @@ tri_trig "pattern" [attack decay sustain release]
 ### Kick Drum
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: sine_trig "c2 ~ ~ ~" 0.001 0.2 0.0 0.05
 ```
 
@@ -39,7 +39,7 @@ Creates a kick drum on beat 1 of each bar.
 ### Snare Pattern
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: square_trig "~ e4 ~ e4" 0.001 0.1 0.0 0.05
 ```
 
@@ -48,7 +48,7 @@ Creates snare hits on beats 2 and 4.
 ### Bass Line
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: saw_trig "c1 e1 g1 a1" 0.01 0.1 0.3 0.1
 ```
 
@@ -57,7 +57,7 @@ Plays a bass line with slight sustain for a fuller sound.
 ### Complete Beat
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 ~kick: sine_trig "c2 ~ ~ ~" 0.001 0.2 0.0 0.05
 ~snare: square_trig "~ e4 ~ e4" 0.001 0.1 0.0 0.05

@@ -351,15 +351,15 @@ mod tests {
 
     #[test]
     fn test_tempo_line() {
-        let line = "tempo: 2.0";
+        let line = "tempo: 0.5";
         let spans = highlight_line(line);
 
         assert_eq!(span_text(&spans), line);
 
         // tempo is a function
         assert!(spans.iter().any(|s| s.content == "tempo" && s.style.fg == Some(Color::Blue)));
-        // 2.0 is a number
-        assert!(spans.iter().any(|s| s.content == "2.0" && s.style.fg == Some(Color::Rgb(255, 165, 0))));
+        // 0.5 is a number
+        assert!(spans.iter().any(|s| s.content == "0.5" && s.style.fg == Some(Color::Rgb(255, 165, 0))));
     }
 
     #[test]

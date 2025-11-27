@@ -1,7 +1,7 @@
 -- SuperDirt Synths Demo
 -- Demonstrates all SuperDirt synthesizers available in Phonon
 
-tempo: 2.0
+tempo: 0.5
 
 -- ========== Drum Synths ==========
 

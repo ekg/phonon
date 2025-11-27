@@ -229,7 +229,7 @@ out: ~rms * 0.5
 #[test]
 fn test_rms_envelope_follower() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: impulse 2.0
 ~kick_rms: ~kick # rms 0.01
 ~pad: saw 110
@@ -257,7 +257,7 @@ out: ~ducked * 0.3
 #[test]
 fn test_rms_pattern_window() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~input: sine 440
 ~windows: "0.01 0.05"
 ~rms: ~input # rms ~windows

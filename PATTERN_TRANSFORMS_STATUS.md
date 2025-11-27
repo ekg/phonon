@@ -5,7 +5,7 @@
 ### Tempo Control
 - **`bpm 120`** - Set tempo in beats per minute (NEW!)
 - **`bpm 120 [4/4]`** - Set tempo with time signature (NEW!)
-- **`tempo: 2.0`** - Set tempo in cycles per second (alias for cps:)
+- **`tempo: 0.5`** - Set tempo in cycles per second (alias for cps:)
 - **`cps: 2.0`** - Set cycles per second (original syntax)
 
 **Conversion:** BPM = CPS × 60, so `bpm 120` = `cps: 2.0`
@@ -83,7 +83,7 @@ bpm 180 [6/8]   # Compound time
 bpm 120        # = 2 cycles per second, assumes 4/4
 bpm 120 [4/4]  # = 2 cycles per second, explicit 4/4
 cps: 2.0       # = 2 cycles per second (technical)
-tempo: 2.0     # = 2 cycles per second (legacy alias)
+tempo: 0.5     # = 2 cycles per second (legacy alias)
 ```
 
 ### Closure-Based Transforms

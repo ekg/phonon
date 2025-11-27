@@ -1,4 +1,4 @@
-tempo: 2.0
+tempo: 0.5
 -- Test gain and pan DSP parameters
 
 -- Test simple gain (reduce volume)

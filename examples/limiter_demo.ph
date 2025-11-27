@@ -1,7 +1,7 @@
 -- Limiter (Brick-Wall) Demonstration
 -- Prevents signals from exceeding threshold (mastering/safety)
 
-tempo: 2.0
+tempo: 0.5
 
 -- Basic limiting: prevent clipping from hot signal
 ~hot_saw: saw 220 * 2.0

@@ -234,7 +234,7 @@ out: waveguide {} 0.5 0.5
 fn test_waveguide_pattern_frequency() {
     // Pattern-modulated frequency (melody)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: waveguide "220 330 440 330" 0.5 0.5
 "#;
 
@@ -258,7 +258,7 @@ out: waveguide "220 330 440 330" 0.5 0.5
 fn test_waveguide_pattern_damping() {
     // Pattern-modulated damping
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: waveguide 440 "0.3 0.7" 0.5
 "#;
 
@@ -284,7 +284,7 @@ out: waveguide 440 "0.3 0.7" 0.5
 fn test_waveguide_melody() {
     // Play a simple melody with waveguide
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: waveguide "220 330 440 330 220" 0.4 0.5
 "#;
 
@@ -308,7 +308,7 @@ out: waveguide "220 330 440 330 220" 0.4 0.5
 fn test_waveguide_bass() {
     // Bass string with low damping
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: waveguide "55 82.5" 0.2 0.5
 "#;
 

@@ -142,7 +142,7 @@ fn test_ad_silent_after_decay() {
 #[test]
 fn test_ad_percussive_tone() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.001 0.15
         ~tone: sine 440
         o1: ~tone * ~env * 0.5
@@ -175,7 +175,7 @@ fn test_ad_filter_envelope() {
 #[test]
 fn test_ad_pattern_attack() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~attack_pat: sine 1 * 0.05 + 0.05
         ~env: ad ~attack_pat 0.2
         o1: ~env

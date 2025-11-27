@@ -49,7 +49,7 @@ fn test_unit_r_default_rate_mode() {
     // Default behavior: speed is a rate multiplier
     // This should work the same as current implementation
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # speed 2.0
 "#;
 
@@ -64,7 +64,7 @@ out: s "bd" # speed 2.0
 fn test_unit_r_explicit_rate_mode() {
     // Explicit unit "r" should behave same as default
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # unit "r"
 "#;
 
@@ -80,7 +80,7 @@ fn test_unit_c_cycle_mode() {
     // Cycle mode: speed syncs to cycle timing
     // In this mode, speed represents how many cycles the sample should span
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # unit "c"
 "#;
 
@@ -95,7 +95,7 @@ out: s "bd" # unit "c"
 fn test_unit_pattern() {
     // unit can be a pattern that changes per event
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn" # unit "r c"
 "#;
 
@@ -110,7 +110,7 @@ out: s "bd sn" # unit "r c"
 fn test_loop_0_plays_once() {
     // Default: sample plays once
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # loop "0"
 "#;
 
@@ -133,7 +133,7 @@ out: s "bd" # loop "0"
 fn test_loop_1_repeats() {
     // loop 1: sample should loop/repeat
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # loop "1"
 "#;
 
@@ -159,7 +159,7 @@ out: s "bd" # loop "1"
 fn test_loop_pattern() {
     // loop can be a pattern that changes per event
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn" # loop "0 1"
 "#;
 
@@ -174,7 +174,7 @@ out: s "bd sn" # loop "0 1"
 fn test_unit_loop_combined() {
     // Test both unit and loop parameters together
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # unit "c" # loop "1"
 "#;
 

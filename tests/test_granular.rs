@@ -134,7 +134,7 @@ out: granular ~source 50 0.5 2.0
 fn test_granular_pattern_grain_size() {
     // Pattern-modulated grain size
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~source: sine 440
 out: granular ~source "25 50 100" 0.5 1.0
 "#;
@@ -159,7 +159,7 @@ out: granular ~source "25 50 100" 0.5 1.0
 fn test_granular_pattern_density() {
     // Pattern-modulated density
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~source: sine 440
 out: granular ~source 50 "0.3 0.7 0.5" 1.0
 "#;
@@ -209,7 +209,7 @@ out: granular ~source 100 0.7 0.8 * 0.3
 fn test_granular_rhythmic() {
     // Granular synthesis with rhythmic patterns
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~source: sine 220
 ~density_pattern: "0.9 0.3 0.6 0.2"
 out: granular ~source 30 ~density_pattern 1.0 * 0.4

@@ -186,7 +186,7 @@ out: ~vibrato
 #[test]
 fn test_vibrato_pattern_modulation() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~rate_lfo: sine 0.3 * 2.0 + 5.0
 ~depth_lfo: sine 0.2 * 0.3 + 0.5
 ~carrier: sine 440
@@ -212,7 +212,7 @@ out: ~vibrato
 #[test]
 fn test_vibrato_classic() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~voice: sine 330
 ~vibrato: ~voice # vibrato 5.5 0.4
 out: ~vibrato * 0.4

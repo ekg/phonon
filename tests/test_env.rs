@@ -240,7 +240,7 @@ out: ~shaped * 0.3
 #[test]
 fn test_env_percussion() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~perc: segments "0 1 0" "0.01 0.3"
 ~osc: sine 110
 ~drum: ~osc * ~perc

@@ -18,7 +18,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 fn test_sample_hold_compiles() {
     // Test that sample_hold compiles correctly
     let code = "
-        tempo: 2.0
+        tempo: 0.5
         ~noise: white_noise
         ~clock: square 4.0
         ~sh: sample_hold ~noise ~clock
@@ -34,7 +34,7 @@ fn test_sample_hold_compiles() {
 fn test_sample_hold_with_sine_trigger() {
     // Test sample_hold with sine wave trigger (crosses zero)
     let code = "
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 2.0
         ~trigger: sine 4.0
         ~sh: sample_hold ~lfo ~trigger
@@ -49,7 +49,7 @@ fn test_sample_hold_with_sine_trigger() {
 fn test_sample_hold_stepped_modulation() {
     // Test sample_hold for stepped modulation (classic use case)
     let code = "
-        tempo: 2.0
+        tempo: 0.5
         ~noise: white_noise
         ~clock: square 8.0
         ~sh: sample_hold ~noise ~clock
@@ -71,7 +71,7 @@ fn test_sample_hold_stepped_modulation() {
 fn test_sample_hold_multiple_instances() {
     // Test multiple sample_hold nodes in same graph
     let code = "
-        tempo: 2.0
+        tempo: 0.5
         ~noise1: white_noise
         ~noise2: white_noise
         ~clock: square 4.0

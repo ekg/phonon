@@ -23,7 +23,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 #[test]
 fn test_sine_constant_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440
     "#;
 
@@ -36,7 +36,7 @@ fn test_sine_constant_frequency() {
 fn test_sine_pattern_frequency_lfo() {
     // Sine with LFO-modulated frequency (vibrato)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine (sine 5 * 10 + 440)
     "#;
 
@@ -49,7 +49,7 @@ fn test_sine_pattern_frequency_lfo() {
 fn test_sine_pattern_frequency_slow_sweep() {
     // Sine with slow frequency sweep
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine (sine 0.5 * 220 + 440)
     "#;
 
@@ -63,7 +63,7 @@ fn test_sine_pattern_frequency_slow_sweep() {
 #[test]
 fn test_saw_constant_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110
     "#;
 
@@ -76,7 +76,7 @@ fn test_saw_constant_frequency() {
 fn test_saw_pattern_frequency_lfo() {
     // Saw with LFO-modulated frequency
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw (sine 2 * 55 + 110)
     "#;
 
@@ -89,7 +89,7 @@ fn test_saw_pattern_frequency_lfo() {
 fn test_saw_pattern_frequency_fm() {
     // Saw with frequency modulation (FM)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw (square 4 * 110 + 220)
     "#;
 
@@ -103,7 +103,7 @@ fn test_saw_pattern_frequency_fm() {
 #[test]
 fn test_square_constant_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square 220
     "#;
 
@@ -116,7 +116,7 @@ fn test_square_constant_frequency() {
 fn test_square_pattern_frequency_lfo() {
     // Square with LFO-modulated frequency
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square (sine 3 * 110 + 220)
     "#;
 
@@ -129,7 +129,7 @@ fn test_square_pattern_frequency_lfo() {
 fn test_square_pattern_frequency_stepped() {
     // Square with stepped frequency pattern (arpeggio)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: square (square 2 * 110 + 220)
     "#;
 
@@ -143,7 +143,7 @@ fn test_square_pattern_frequency_stepped() {
 #[test]
 fn test_triangle_constant_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle 330
     "#;
 
@@ -156,7 +156,7 @@ fn test_triangle_constant_frequency() {
 fn test_triangle_pattern_frequency_lfo() {
     // Triangle with LFO-modulated frequency
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle (sine 4 * 165 + 330)
     "#;
 
@@ -169,7 +169,7 @@ fn test_triangle_pattern_frequency_lfo() {
 fn test_triangle_pattern_frequency_sweep() {
     // Triangle with slow sweep
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: triangle (sine 0.25 * 220 + 330)
     "#;
 
@@ -184,7 +184,7 @@ fn test_triangle_pattern_frequency_sweep() {
 fn test_oscillator_meta_modulation() {
     // LFO modulating LFO modulating carrier (meta-modulation)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine (sine (sine 0.1 * 2 + 5) * 110 + 440)
     "#;
 
@@ -197,7 +197,7 @@ fn test_oscillator_meta_modulation() {
 fn test_oscillator_fm_synthesis() {
     // Classic FM synthesis (carrier + modulator)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine (sine 880 * 100 + 440)
     "#;
 
@@ -210,7 +210,7 @@ fn test_oscillator_fm_synthesis() {
 fn test_oscillator_additive_with_modulation() {
     // Additive synthesis with modulated frequencies
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 2
         ~fund: sine (~lfo * 55 + 110)
         ~harm2: sine (~lfo * 110 + 220)
@@ -229,12 +229,12 @@ fn test_oscillator_additive_with_modulation() {
 fn test_sine_pattern_differs_from_constant() {
     // Verify pattern modulation produces different result than constant
     let constant_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440
     "#;
 
     let pattern_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine (sine 5 * 10 + 440)
     "#;
 

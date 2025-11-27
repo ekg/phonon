@@ -1,7 +1,7 @@
 -- Pink Noise Demonstration
 -- 1/f spectrum (equal energy per octave) - warmer than white noise
 
-tempo: 2.0
+tempo: 0.5
 
 -- Classic pink noise (reference)
 ~pink: pink_noise * 0.15

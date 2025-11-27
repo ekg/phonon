@@ -304,7 +304,7 @@ out: ~tone * 0.2
 #[test]
 fn test_timer_pattern_trigger() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~triggers: "0.0 1.0 0.0 1.0"
 ~time: ~triggers # timer
 out: ~time

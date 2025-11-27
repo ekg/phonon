@@ -1,7 +1,7 @@
 -- Ring Modulation Demonstration
 -- Multiplying two signals creates sidebands at sum and difference frequencies
 
-tempo: 2.0
+tempo: 0.5
 
 -- Classic ring mod: creates inharmonic bell-like tones
 ~carrier1: sine 440

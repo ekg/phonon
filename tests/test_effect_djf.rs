@@ -33,7 +33,7 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 fn test_djf_lowpass() {
     // Test djf in low-pass mode (value < 0.5)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: saw 220 # djf 0.2
 "#;
 
@@ -52,7 +52,7 @@ out: saw 220 # djf 0.2
 fn test_djf_highpass() {
     // Test djf in high-pass mode (value > 0.5)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: saw 55 # djf 0.8
 "#;
 
@@ -74,7 +74,7 @@ fn test_djf_sweep() {
     for djf_val in [0.0, 0.25, 0.5, 0.75, 1.0] {
         let code = format!(
             r#"
-tempo: 2.0
+tempo: 0.5
 out: square 880 # djf {}
 "#,
             djf_val
@@ -103,12 +103,12 @@ out: square 880 # djf {}
 fn test_djf_changes_tone() {
     // Test that djf actually affects the sound differently at different values
     let lowpass_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: square 440 # djf 0.1
 "#;
 
     let highpass_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: square 440 # djf 0.9
 "#;
 

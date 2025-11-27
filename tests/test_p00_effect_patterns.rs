@@ -23,7 +23,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 fn test_lpf_pattern_cutoff() {
     // LPF with pattern-modulated cutoff frequency
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # lpf (sine 0.5 * 1500 + 500) 0.8
     "#;
 
@@ -36,7 +36,7 @@ fn test_lpf_pattern_cutoff() {
 fn test_hpf_pattern_cutoff() {
     // HPF with pattern-modulated cutoff frequency
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # hpf (sine 0.5 * 1000 + 2000) 0.8
     "#;
 
@@ -49,7 +49,7 @@ fn test_hpf_pattern_cutoff() {
 fn test_bpf_pattern_center() {
     // BPF with pattern-modulated center frequency
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # bpf (sine 0.5 * 1000 + 1500) 2.0
     "#;
 
@@ -62,7 +62,7 @@ fn test_bpf_pattern_center() {
 fn test_delay_pattern_time() {
     // Delay with pattern-modulated delay time
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4" # delay (sine 1.0 * 0.2 + 0.1) 0.3
     "#;
 
@@ -75,7 +75,7 @@ fn test_delay_pattern_time() {
 fn test_reverb_pattern_room_size() {
     // Reverb with pattern-modulated room size
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "sn*2" # reverb (sine 0.25 * 0.5 + 0.3) 0.5
     "#;
 
@@ -88,7 +88,7 @@ fn test_reverb_pattern_room_size() {
 fn test_distortion_pattern_drive() {
     // Distortion with pattern-modulated drive
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4" # dist (sine 2.0 * 2.0 + 1.0)
     "#;
 
@@ -101,7 +101,7 @@ fn test_distortion_pattern_drive() {
 fn test_multiple_pattern_parameters() {
     // Multiple effects with pattern-modulated parameters
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # lpf (sine 0.5 * 1500 + 500) 0.8 # dist (sine 2.0 + 1.5) # delay (sine 1.0 * 0.15 + 0.1) 0.3
     "#;
 
@@ -114,12 +114,12 @@ fn test_multiple_pattern_parameters() {
 fn test_pattern_vs_constant() {
     // Verify pattern modulation produces different result than constant
     let constant_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # lpf 1000 0.8
     "#;
 
     let pattern_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # lpf (sine 0.5 * 1500 + 500) 0.8
     "#;
 

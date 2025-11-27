@@ -1,7 +1,7 @@
 -- Loop Chopping and Shuffling Demo
 -- Demonstrates how to take audio loops and creatively re-arrange them
 
-tempo: 2.0
+tempo: 0.5
 
 -- BASIC WORKFLOW: Loop → Chop → Shuffle/Scramble
 -- ================================================

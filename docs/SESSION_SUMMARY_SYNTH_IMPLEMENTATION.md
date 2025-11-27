@@ -120,7 +120,7 @@ out: supersaw 110 # lpf 2000 0.8 # distortion 2.0 0.3 # reverb 0.5 0.5 0.2
 
 ### Complete Drum Kit (No Samples!)
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~kick: superkick 60 0.5 0.3 0.1
 ~snare: supersnare 200 0.8 0.15
 ~hat: superhat 0.7 0.05

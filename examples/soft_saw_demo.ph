@@ -1,7 +1,7 @@
 -- Soft Sawtooth Oscillator Demo
 -- Demonstrates softer saw wave with fewer harmonics than regular saw
 
-tempo: 2.0
+tempo: 0.5
 
 -- Basic soft saw bass
 ~bass: soft_saw_hz 55 * 0.3

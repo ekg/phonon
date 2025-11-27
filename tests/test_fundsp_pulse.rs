@@ -119,7 +119,7 @@ fn test_pulse_level3_width_variation() {
 fn test_pulse_level2_pwm_modulation() {
     // Use DSL to create pulse with LFO modulating pulse width
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 2  # 2 Hz LFO
 ~width: ~lfo * 0.25 + 0.5  # Modulate width: 0.25 to 0.75
 out: pulse 220 ~width * 0.3
@@ -156,7 +156,7 @@ out: pulse 220 ~width * 0.3
 fn test_pulse_level2_pattern_frequency() {
     // Use DSL to create pulse with pattern-controlled frequency
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: pulse "110 220 440" 0.5 * 0.3
 "#;
 

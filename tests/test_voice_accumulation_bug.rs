@@ -125,7 +125,7 @@ fn test_rms_does_not_grow_exponentially() {
 fn test_simple_pattern_voice_stability() {
     // Even simpler: just "bd" repeated
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd"
     "#;
 

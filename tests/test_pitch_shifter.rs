@@ -169,7 +169,7 @@ out: pitch_shift ~source {}
 fn test_pitch_shifter_pattern_shift() {
     // Pattern-modulated pitch shift (arpeggiator effect)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~source: saw 220
 ~shifts: "0 7 12 7"
 out: pitch_shift ~source ~shifts

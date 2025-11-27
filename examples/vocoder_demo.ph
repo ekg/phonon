@@ -2,7 +2,7 @@
 -- Analyzes modulator amplitude envelope in frequency bands and applies to carrier
 -- Classic use: Robot voice effect (voice modulating synth)
 
-tempo: 2.0
+tempo: 0.5
 
 -- SYNTAX: vocoder modulator carrier num_bands
 -- modulator: signal to analyze (usually voice/rhythmic)

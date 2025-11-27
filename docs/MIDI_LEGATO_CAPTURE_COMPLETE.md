@@ -114,7 +114,7 @@ let legato = (duration_us as f64 / slot_duration_us as f64).clamp(0.0, 1.0);
 ### Basic Recording with Legato
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- 1. Connect MIDI: Alt+M
 -- 2. Record pattern: Alt+R (start), play notes, Alt+R (stop)
@@ -140,7 +140,7 @@ out: saw ~rec1
 ### Expressive Performance
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- Record expressive melody with dynamics & articulation
 ~rec1: n "c4 d4 e4 f4 g4 a4 g4 f4"
@@ -158,7 +158,7 @@ out: ~piano * 0.4 + ~strings * 0.3 + ~bass * 0.3
 ### Mixed Staccato/Legato
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- Staccato bass (short notes)
 ~bass: n "c2 ~ c2 ~" # legato "0.2 ~ 0.2 ~"

@@ -2,7 +2,7 @@
 -- Arbitrary breakpoint envelopes with linear interpolation
 -- Create complex envelopes with any number of stages
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: ADSR-style envelope (4 breakpoints)
 ~adsr1: segments "0 1 0.7 0" "0.1 0.2 0.3"

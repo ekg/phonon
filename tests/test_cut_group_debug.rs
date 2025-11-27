@@ -5,7 +5,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 fn test_cut_group_debug_simple() {
     // Two hi-hats with cut group 1
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("hh hh", "1.0 1.0", "0 0", "1 1", "1 1")
     "#;
 

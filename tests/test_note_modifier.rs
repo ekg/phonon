@@ -9,7 +9,7 @@ fn test_note_modifier_pitch_shift() {
     // note values change playback speed: 0 = normal, 12 = octave up, -12 = octave down
     // Using semitone formula: speed = 2^(note/12)
     let phonon_code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- Play sample at different pitches using note modifier
 -- 0 = original pitch, 5 = perfect fourth up, 7 = perfect fifth up, 12 = octave up
@@ -76,7 +76,7 @@ fn test_note_modifier_scale() {
 
     // A minor scale in semitones: 0, 2, 3, 5, 7, 8, 10, 12
     let phonon_code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- Play minor scale using note modifier
 out: s "bd*8" # note "0 2 3 5 7 8 10 12"
@@ -123,7 +123,7 @@ fn test_note_modifier_negative() {
     println!("Testing note modifier with negative values...");
 
     let phonon_code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- Pitch down by octave and fifth
 out: s "bd*4" # note "0 -5 -7 -12"
@@ -170,7 +170,7 @@ fn test_note_modifier_constant() {
     println!("Testing note modifier with constant value...");
 
     let phonon_code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- Play all samples one octave up
 out: s "bd*4" # note 12
@@ -217,7 +217,7 @@ fn test_n_and_note_together() {
     println!("Testing n and note modifiers together...");
 
     let phonon_code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- Select different samples with different pitches
 out: s "bd*4" # n "0 1 0 1" # note "0 5 7 12"

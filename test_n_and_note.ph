@@ -1,4 +1,4 @@
-tempo: 2.0
+tempo: 0.5
 
 -- Test n and note modifiers together
 -- Select different samples and apply pitch shifts

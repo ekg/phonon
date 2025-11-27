@@ -288,7 +288,7 @@ fn test_parser_bus_and_mixing() {
     use std::process::Command;
 
     let phonon_code = r#"
-tempo: 2.0
+tempo: 0.5
 ~bass: saw 55 # lpf 500 3
 ~lead: square 440
 out: ~bass * 0.3 + ~lead * 0.1
@@ -352,7 +352,7 @@ fn test_complex_expression_parsing() {
 
     let phonon_code = r#"
 -- Complex mixing expression
-tempo: 2.0
+tempo: 0.5
 ~lfo $ sine 2
 ~bass $ saw 55
 ~filtered_bass $ ~bass # lpf "200 500 1000 500" 3

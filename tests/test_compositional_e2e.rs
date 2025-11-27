@@ -44,7 +44,7 @@ fn assert_has_audio(buffer: &[f32], description: &str) {
 fn test_e2e_comments() {
     let code = r#"
 -- This is a comment
-tempo: 2.0
+tempo: 0.5
 
 -- Another comment
 ~freq: 440
@@ -62,7 +62,7 @@ out: sine ~freq
 #[test]
 fn test_e2e_reverb() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine 440 # reverb 0.7 0.5 0.3
 "#;
 
@@ -73,7 +73,7 @@ out: sine 440 # reverb 0.7 0.5 0.3
 #[test]
 fn test_e2e_distortion() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: saw 110 # distortion 3.0 0.5
 "#;
 
@@ -84,7 +84,7 @@ out: saw 110 # distortion 3.0 0.5
 #[test]
 fn test_e2e_delay() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine 440 # delay 0.25 0.5 0.4
 "#;
 
@@ -95,7 +95,7 @@ out: sine 440 # delay 0.25 0.5 0.4
 #[test]
 fn test_e2e_chorus() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine 220 # chorus 2.0 0.5 0.3
 "#;
 
@@ -106,7 +106,7 @@ out: sine 220 # chorus 2.0 0.5 0.3
 #[test]
 fn test_e2e_bitcrush() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine 440 # bitcrush 4.0 8000.0
 "#;
 
@@ -117,7 +117,7 @@ out: sine 440 # bitcrush 4.0 8000.0
 #[test]
 fn test_e2e_chained_effects() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~bass: saw 55 # lpf 400 0.8
 out: ~bass # distortion 2.0 0.3 # reverb 0.5 0.4 0.2
 "#;
@@ -131,7 +131,7 @@ out: ~bass # distortion 2.0 0.3 # reverb 0.5 0.4 0.2
 #[test]
 fn test_e2e_sample_banks() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd:0 bd:1 bd:2"
 "#;
 
@@ -144,7 +144,7 @@ out: s "bd:0 bd:1 bd:2"
 #[test]
 fn test_e2e_sample_banks_with_effects() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd:0 sn:1 hh:2" # lpf 2000 0.8
 "#;
 
@@ -157,7 +157,7 @@ out: s "bd:0 sn:1 hh:2" # lpf 2000 0.8
 #[test]
 fn test_e2e_fast_transform() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn" $ fast 2
 "#;
 
@@ -168,7 +168,7 @@ out: s "bd sn" $ fast 2
 #[test]
 fn test_e2e_slow_transform() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd*4" $ slow 0.5
 "#;
 
@@ -179,7 +179,7 @@ out: s "bd*4" $ slow 0.5
 #[test]
 fn test_e2e_rev_transform() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ rev
 "#;
 
@@ -190,7 +190,7 @@ out: s "bd sn hh cp" $ rev
 #[test]
 fn test_e2e_degrade_transform() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "hh*16" $ degrade
 "#;
 
@@ -201,7 +201,7 @@ out: s "hh*16" $ degrade
 #[test]
 fn test_e2e_stutter_transform() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn" $ stutter 4
 "#;
 
@@ -212,7 +212,7 @@ out: s "bd sn" $ stutter 4
 #[test]
 fn test_e2e_palindrome_transform() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "a b c" $ palindrome
 "#;
 
@@ -223,7 +223,7 @@ out: s "a b c" $ palindrome
 #[test]
 fn test_e2e_stacked_transforms() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn" $ fast 2 $ rev
 "#;
 
@@ -237,7 +237,7 @@ out: s "bd sn" $ fast 2 $ rev
 fn test_e2e_full_track() {
     let code = r#"
 -- Full track with all features
-tempo: 2.0
+tempo: 0.5
 
 -- Drums with pattern transforms
 ~drums: s "bd sn hh cp" $ fast 2
@@ -261,7 +261,7 @@ out: (~filtered_drums * 0.5 + ~bass * 0.3) # reverb 0.5 0.4 0.2
 #[test]
 fn test_e2e_pattern_controlled_synthesis() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- Pattern-controlled oscillator frequency
 ~freqs: "220 440 330"
@@ -281,7 +281,7 @@ out: ~filtered * 0.3
 #[test]
 fn test_e2e_arithmetic_operations() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 
 ~base: 220
 ~octave: ~base * 2
@@ -298,7 +298,7 @@ out: ~chord * 0.2
 #[test]
 fn test_e2e_all_waveforms() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 
 ~sine_osc: sine 220
 ~saw_osc: saw 220
@@ -315,7 +315,7 @@ out: (~sine_osc + ~saw_osc + ~square_osc + ~tri_osc) * 0.1
 #[test]
 fn test_e2e_all_filters() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 
 ~source: saw 110
 ~lpf_out: ~source # lpf 1000 0.8
@@ -332,7 +332,7 @@ out: (~lpf_out + ~hpf_out + ~bpf_out) * 0.15
 #[test]
 fn test_e2e_complex_modulation() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- LFO modulating filter cutoff
 ~lfo: sine 0.5
@@ -368,7 +368,7 @@ out: sine ~pattern * 0.3
 fn test_e2e_space_separated_syntax() {
     // This is the PREFERRED syntax style
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~freq: 440
 out: sine ~freq # lpf 1000 0.8
 "#;
@@ -384,7 +384,7 @@ out: sine ~freq # lpf 1000 0.8
 fn test_e2e_mixed_syntax() {
     // Both work, but prefer space-separated for consistency
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 
 ~osc1: sine 220
 ~osc2: saw 330

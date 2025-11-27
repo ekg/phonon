@@ -1,7 +1,7 @@
 -- Parametric EQ Demonstration
 -- 3-band peaking equalizer (low/mid/high)
 
-tempo: 2.0
+tempo: 0.5
 
 -- Classic "scooped" metal sound (bass boost, mid cut, treble boost)
 ~guitar: saw 165

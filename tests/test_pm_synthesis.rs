@@ -82,7 +82,7 @@ fn find_spectral_peaks(frequencies: &[f32], magnitudes: &[f32], threshold: f32) 
 #[test]
 fn test_pm_constant_parameters() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: sine 5
         o1: pm 440 ~mod 2.0
     "#;
@@ -96,7 +96,7 @@ fn test_pm_constant_parameters() {
 fn test_pm_pattern_carrier_frequency() {
     // PM with pattern-modulated carrier frequency
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: sine 5
         o1: pm (sine 1.0 * 110 + 440) ~mod 2.0
     "#;
@@ -110,7 +110,7 @@ fn test_pm_pattern_carrier_frequency() {
 fn test_pm_pattern_modulation_index() {
     // PM with pattern-modulated index
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: sine 5
         o1: pm 440 ~mod (sine 0.5 * 3.0 + 2.0)
     "#;
@@ -124,7 +124,7 @@ fn test_pm_pattern_modulation_index() {
 fn test_pm_all_patterns() {
     // PM with all parameters as patterns
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: sine 5
         o1: pm (sine 0.5 * 220 + 440) ~mod (sine 1.0 * 2.0 + 2.0)
     "#;
@@ -140,7 +140,7 @@ fn test_pm_all_patterns() {
 fn test_pm_sine_modulator() {
     // PM with sine wave modulator
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: sine 100
         o1: pm 440 ~mod 3.0
     "#;
@@ -154,7 +154,7 @@ fn test_pm_sine_modulator() {
 fn test_pm_saw_modulator() {
     // PM with saw wave modulator (brighter, more harmonics)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: saw 100
         o1: pm 440 ~mod 1.5
     "#;
@@ -168,7 +168,7 @@ fn test_pm_saw_modulator() {
 fn test_pm_square_modulator() {
     // PM with square wave modulator (odd harmonics)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: square 100
         o1: pm 440 ~mod 2.0
     "#;
@@ -182,7 +182,7 @@ fn test_pm_square_modulator() {
 fn test_pm_noise_modulator() {
     // PM with noise modulator (randomized phase shifts)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: noise
         o1: pm 440 ~mod 0.5
     "#;
@@ -200,7 +200,7 @@ fn test_pm_produces_sidebands() {
     // Carrier = 440 Hz, Modulator = 100 Hz
     // Expected peaks: 440±100, 440±200, 440±300, etc.
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: sine 100
         o1: pm 440 ~mod 2.0
     "#;
@@ -228,13 +228,13 @@ fn test_pm_produces_sidebands() {
 fn test_pm_modulation_index_affects_sidebands() {
     // Higher modulation index = more/stronger sidebands
     let low_index_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: sine 100
         o1: pm 440 ~mod 0.5
     "#;
 
     let high_index_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: sine 100
         o1: pm 440 ~mod 5.0
     "#;
@@ -263,12 +263,12 @@ fn test_pm_modulation_index_affects_sidebands() {
 fn test_pm_vs_sine_spectral_difference() {
     // PM should have richer spectrum than pure sine
     let sine_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440
     "#;
 
     let pm_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: sine 100
         o1: pm 440 ~mod 3.0
     "#;
@@ -298,7 +298,7 @@ fn test_pm_vs_sine_spectral_difference() {
 fn test_pm_no_dc_offset() {
     // PM output should be centered around zero (no DC offset)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: sine 100
         o1: pm 440 ~mod 2.0
     "#;
@@ -313,7 +313,7 @@ fn test_pm_no_dc_offset() {
 fn test_pm_no_clipping() {
     // PM output should not clip (stay within -1.0 to 1.0)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: sine 100
         o1: pm 440 ~mod 5.0
     "#;
@@ -328,7 +328,7 @@ fn test_pm_no_clipping() {
 fn test_pm_continuous_output() {
     // PM should produce continuous output without silence gaps
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~mod: sine 100
         o1: pm 440 ~mod 2.0
     "#;

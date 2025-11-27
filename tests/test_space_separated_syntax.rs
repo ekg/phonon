@@ -107,7 +107,7 @@ fn test_traditional_scale() {
 fn test_space_sep_synth_pattern() {
     // Test: synth "c4 e4" "saw" (space-separated)
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: synth "c4 e4" "saw"
     "#;
     let result = parse_dsl(input);
@@ -118,7 +118,7 @@ fn test_space_sep_synth_pattern() {
 fn test_traditional_synth_pattern() {
     // Test: synth("c4 e4", "saw") (traditional parens)
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: synth("c4 e4", "saw")
     "#;
     let result = parse_dsl(input);
@@ -128,7 +128,7 @@ fn test_traditional_synth_pattern() {
 #[test]
 fn test_mixed_syntax() {
     // Test mixing both syntaxes in same file
-    let input = r#"tempo: 2.0
+    let input = r#"tempo: 0.5
 ~drums: s "bd sn"
 ~bass: sine 55
 out: ~drums * 0.5 + ~bass * 0.3"#;
@@ -144,7 +144,7 @@ out: ~drums * 0.5 + ~bass * 0.3"#;
 fn test_space_sep_with_transforms() {
     // Test: s "bd sn" $ fast 2 (space-separated with transform)
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd sn" $ fast 2
     "#;
     let result = parse_dsl(input);
@@ -175,7 +175,7 @@ fn test_traditional_delay() {
 fn test_render_space_sep_samples() {
     // Integration test: render audio with space-separated syntax
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd sn" * 0.5
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
@@ -197,7 +197,7 @@ fn test_render_space_sep_samples() {
 fn test_render_traditional_samples() {
     // Integration test: render audio with traditional syntax
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd sn" * 0.5
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
@@ -220,11 +220,11 @@ fn test_render_traditional_samples() {
 fn test_both_syntaxes_produce_same_audio() {
     // Verify both syntaxes produce identical audio
     let space_sep = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd sn" * 0.5
     "#;
     let traditional = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd sn" * 0.5
     "#;
 

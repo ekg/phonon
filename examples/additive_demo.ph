@@ -2,7 +2,7 @@
 -- Creates complex timbres by summing multiple sine wave partials (harmonics)
 -- Each partial is a harmonic (integer multiple of fundamental) with independent amplitude
 
-tempo: 2.0
+tempo: 0.5
 
 -- SYNTAX: additive frequency amplitudes
 -- frequency: fundamental frequency in Hz (pattern-modulatable)

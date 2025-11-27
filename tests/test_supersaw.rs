@@ -158,7 +158,7 @@ out: ~synth * 0.2
 #[test]
 fn test_supersaw_pattern_frequency() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~synth: supersaw "110 220" 0.5
 out: ~synth * 0.2
 "#;
@@ -181,7 +181,7 @@ out: ~synth * 0.2
 #[test]
 fn test_supersaw_bass() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~bass: supersaw 55 0.3
 out: ~bass * 0.3
 "#;

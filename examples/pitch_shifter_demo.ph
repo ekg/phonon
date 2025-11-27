@@ -2,7 +2,7 @@
 -- Changes pitch without changing duration using granular synthesis
 -- Classic use: Harmonizers, vocal correction, creative sound design
 
-tempo: 2.0
+tempo: 0.5
 
 -- SYNTAX: pitch_shift input semitones
 -- input: signal to pitch shift

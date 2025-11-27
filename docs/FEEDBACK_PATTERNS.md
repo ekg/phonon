@@ -20,7 +20,7 @@ Analysis nodes extract information from audio signals to use as control signals.
 Measures the average power/loudness of a signal over a time window.
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd sn hh*4 cp"
 ~level: rms ~drums 0.1  -- 100ms window
 out: ~drums
@@ -112,7 +112,7 @@ out: ~compressed
 Signals flow through multiple stages and loop back to the beginning.
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~input: sine 110  -- Base oscillator
 
 -- Stage 1: Filter
@@ -351,7 +351,7 @@ For 8 parallel loops with RMS: ~1.4MB total
 ### Example 1: Dynamic Ducking
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~kick: s "bd*4"
 ~bass: saw 55 # lpf 500 0.8
 ~kick_level: rms ~kick 0.05

@@ -169,20 +169,20 @@ Successfully completed **ALL of Phase 1** from the synth development roadmap! Ph
 
 ### Simple Kick Drum
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: superkick 60
 ```
 
 ### Bass Line with Envelope
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~bass: saw 55 # env 0.001 0.2 0.3 0.1 # lpf 800 1.2
 out: ~bass * 0.5
 ```
 
 ### Full Drum Kit (No Samples!)
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~kick: superkick 60 0.5 0.3 0.1
 ~snare: supersnare 200 0.8 0.15
 ~hh: superhat 0.7 0.05
@@ -191,14 +191,14 @@ out: ~kick * 0.8 + ~snare * 0.6 + ~hh * 0.4
 
 ### Textured Pad
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~pad: saw 220 # env 0.5 0.3 0.8 0.4 # chorus 0.5 0.5 0.3 # reverb 0.7 0.5 0.4
 out: ~pad * 0.3
 ```
 
 ### Complete Track (Synths Only)
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Drums
 ~kick: superkick 60

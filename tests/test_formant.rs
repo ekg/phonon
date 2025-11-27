@@ -157,7 +157,7 @@ out: formant ~source 730 1090 2440 200 300 400
 fn test_formant_pattern_frequency() {
     // Pattern-modulated formant frequencies (vowel morphing)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~source: saw 110
 out: formant ~source "730 270" 1090 2440 80 90 120
 "#;
@@ -182,7 +182,7 @@ out: formant ~source "730 270" 1090 2440 80 90 120
 fn test_formant_pattern_bandwidth() {
     // Pattern-modulated bandwidth (resonance modulation)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~source: saw 110
 out: formant ~source 730 1090 2440 "30 200" 90 120
 "#;
@@ -208,7 +208,7 @@ fn test_formant_vowel_morphing() {
     // Morph between vowels by pattern-modulating formants
     // /a/ to /i/ transition
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~source: saw 110
 ~f1: "730 270"      -- /a/ to /i/ F1
 ~f2: "1090 2290"    -- /a/ to /i/ F2
@@ -287,7 +287,7 @@ out: formant ~source 730 1090 2440 80 90 120 * 0.3
 fn test_formant_singing_melody() {
     // Singing melody with formant synthesis
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~melody: "110 165 220 165"
 ~source: saw ~melody
 out: formant ~source 530 1840 2480 80 90 120

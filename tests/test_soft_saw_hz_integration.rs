@@ -23,7 +23,7 @@ fn compile_and_render(input: &str, duration_samples: usize) -> Vec<f32> {
 #[test]
 fn test_soft_saw_hz_basic_audio() {
     // Test that soft_saw_hz produces audio
-    let code = r#"tempo: 2.0
+    let code = r#"tempo: 0.5
 out: soft_saw_hz 440 * 0.3"#;
 
     let audio = compile_and_render(code, 44100); // 1 second
@@ -41,10 +41,10 @@ out: soft_saw_hz 440 * 0.3"#;
 #[test]
 fn test_soft_saw_hz_different_frequencies() {
     // Test low and high frequencies
-    let low_code = r#"tempo: 2.0
+    let low_code = r#"tempo: 0.5
 out: soft_saw_hz 55 * 0.3"#;
 
-    let high_code = r#"tempo: 2.0
+    let high_code = r#"tempo: 0.5
 out: soft_saw_hz 2000 * 0.3"#;
 
     let low_audio = compile_and_render(low_code, 44100);
@@ -63,7 +63,7 @@ out: soft_saw_hz 2000 * 0.3"#;
 #[test]
 fn test_soft_saw_hz_pattern_modulation() {
     // Test pattern-modulated frequency
-    let code = r#"tempo: 2.0
+    let code = r#"tempo: 0.5
 out: soft_saw_hz "110 220 440" * 0.3"#;
 
     let audio = compile_and_render(code, 88200); // 2 seconds
@@ -80,10 +80,10 @@ out: soft_saw_hz "110 220 440" * 0.3"#;
 #[test]
 fn test_soft_saw_vs_regular_saw_amplitude() {
     // Compare RMS levels between soft_saw and regular saw
-    let soft_code = r#"tempo: 2.0
+    let soft_code = r#"tempo: 0.5
 out: soft_saw_hz 220 * 0.3"#;
 
-    let regular_code = r#"tempo: 2.0
+    let regular_code = r#"tempo: 0.5
 out: saw_hz 220 * 0.3"#;
 
     let soft_audio = compile_and_render(soft_code, 44100);
@@ -106,7 +106,7 @@ out: saw_hz 220 * 0.3"#;
 #[test]
 fn test_soft_saw_hz_arithmetic() {
     // Test soft_saw_hz with arithmetic operations
-    let code = r#"tempo: 2.0
+    let code = r#"tempo: 0.5
 ~lfo: sine 0.5
 out: soft_saw_hz (~lfo * 100 + 220) * 0.3"#;
 
@@ -121,7 +121,7 @@ out: soft_saw_hz (~lfo * 100 + 220) * 0.3"#;
 #[test]
 fn test_soft_saw_hz_with_filter() {
     // Test soft_saw_hz through a filter
-    let code = r#"tempo: 2.0
+    let code = r#"tempo: 0.5
 out: soft_saw_hz 110 # lpf 500 0.8 * 0.3"#;
 
     let audio = compile_and_render(code, 44100);
@@ -135,7 +135,7 @@ out: soft_saw_hz 110 # lpf 500 0.8 * 0.3"#;
 #[test]
 fn test_soft_saw_hz_mixing() {
     // Test mixing soft_saw with other signals
-    let code = r#"tempo: 2.0
+    let code = r#"tempo: 0.5
 ~soft: soft_saw_hz 110 * 0.15
 ~regular: saw_hz 220 * 0.15
 out: ~soft + ~regular"#;
@@ -151,7 +151,7 @@ out: ~soft + ~regular"#;
 #[test]
 fn test_soft_saw_hz_stereo() {
     // Test soft_saw_hz in stereo context
-    let code = r#"tempo: 2.0
+    let code = r#"tempo: 0.5
 ~saw: soft_saw_hz 220 * 0.3
 out: ~saw # pan2 0.0"#;
 

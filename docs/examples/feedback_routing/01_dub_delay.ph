@@ -2,7 +2,7 @@
 -- Classic dub techno delay with HPF in feedback loop
 -- The high-pass filter prevents low-frequency buildup in the echoes
 
-tempo: 2.0
+tempo: 0.5
 
 -- Source signal (kick-like bass tone)
 ~kick: sine 55 * 0.6

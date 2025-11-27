@@ -71,7 +71,7 @@ resetCycles
 setCycle 5.3
 
 -- Current tempo (cycles per second)
-tempo: 2.0
+tempo: 0.5
 ```
 
 ### Implementation Notes

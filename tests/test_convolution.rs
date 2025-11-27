@@ -85,7 +85,7 @@ fn test_convolution_percussion() {
     // Convolution creates realistic room acoustics for percussion
     // Using a simple impulse (clap-like sound)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: saw "55 ~ 82.5 ~" * 0.5
 out: convolve ~kick * 0.3
 "#;

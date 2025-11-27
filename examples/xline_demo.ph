@@ -3,7 +3,7 @@
 -- More natural sounding than linear ramps for pitch/amplitude
 -- Useful for realistic fades, pitch glides, parameter sweeps
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Exponential pitch glide (descending)
 ~pitch1: xline 880.0 110.0 1.0

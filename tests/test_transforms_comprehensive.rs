@@ -93,15 +93,15 @@ fn test_fast_doubles_event_density() {
     println!("\n2. Audio Verification:");
 
     let input_normal = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd sn hh cp"
     "#;
     let input_fast2 = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp"
     "#;
     let input_fast4 = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp"
     "#;
 
@@ -167,15 +167,15 @@ fn test_slow_reduces_event_density() {
     println!("\n2. Audio Verification:");
 
     let input_normal = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd sn hh cp")
     "#;
     let input_slow2 = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd sn hh cp" |> slow 2)
     "#;
     let input_slow4 = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd sn hh cp" |> slow 4)
     "#;
 
@@ -245,11 +245,11 @@ fn test_rev_reverses_pattern_order() {
     println!("\n2. Audio Verification:");
 
     let input_normal = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd sn hh cp")
     "#;
     let input_rev = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd sn hh cp" |> rev)
     "#;
 
@@ -312,7 +312,7 @@ fn test_every_alternates_transformation() {
     println!("\n2. Audio Verification:");
 
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd sn hh cp" |> every 2 (fast 2))
     "#;
 
@@ -376,11 +376,11 @@ fn test_degrade_removes_events() {
     println!("\n2. Audio Verification:");
 
     let input_normal = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd*8")
     "#;
     let input_degrade = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd*8" |> degrade)
     "#;
 
@@ -435,11 +435,11 @@ fn test_stutter_repeats_events() {
     println!("\n2. Audio Verification:");
 
     let input_normal = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd sn")
     "#;
     let input_stutter = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd sn" |> stutter 3)
     "#;
 

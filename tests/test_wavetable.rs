@@ -124,7 +124,7 @@ out: ~synth * 0.5
 #[test]
 fn test_wavetable_pattern_frequency() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~synth: wavetable "110 220 440"
 out: ~synth * 0.5
 "#;
@@ -147,7 +147,7 @@ out: ~synth * 0.5
 #[test]
 fn test_wavetable_bass() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~bass: wavetable 55
 out: ~bass * 0.4
 "#;

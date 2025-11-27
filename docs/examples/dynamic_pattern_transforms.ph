@@ -2,7 +2,7 @@
 -- Pattern-to-pattern modulation examples
 -- Patterns can now modulate other pattern transforms dynamically!
 
-tempo: 2.0
+tempo: 0.5
 
 -- ============================================================
 -- BASIC PATTERN MODULATION

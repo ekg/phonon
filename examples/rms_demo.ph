@@ -3,7 +3,7 @@
 -- Useful for envelope following, loudness metering, VU meters, and sidechain effects
 -- Formula: RMS = sqrt(sum(x²) / N) where N is window size
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Basic amplitude measurement
 ~sine1: sine 440

@@ -38,7 +38,7 @@
 - **Bidirectional operators**: `#` (chain) and `<<` (reverse) ✅
 - **Transform operator**: `$` for pattern transforms ✅
 - **Output assignment**: `out: expression` ✅ (colon required!)
-- **Tempo setting**: `tempo: 2.0` ✅ (colon required!)
+- **Tempo setting**: `tempo: 0.5` ✅ (colon required!)
 
 **Critical syntax note**: DSL requires colons:
 ```phonon

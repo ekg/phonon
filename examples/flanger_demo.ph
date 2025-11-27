@@ -1,7 +1,7 @@
 -- Flanger Effect Demonstration
 -- Sweeping comb filter via delay modulation
 
-tempo: 2.0
+tempo: 0.5
 
 -- Classic slow flanger on guitar-like sound
 ~guitar: saw 220

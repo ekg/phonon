@@ -15,7 +15,7 @@ fn compile_dsl(code: &str) -> Result<phonon::unified_graph::UnifiedSignalGraph, 
 #[test]
 fn test_reset_cycles_sets_to_zero() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd"
     "#;
 
@@ -41,7 +41,7 @@ fn test_reset_cycles_sets_to_zero() {
 #[test]
 fn test_reset_cycles_in_dsl() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         resetCycles
         o1: s "bd"
     "#;
@@ -56,7 +56,7 @@ fn test_reset_cycles_in_dsl() {
 #[test]
 fn test_set_cycle_jumps_to_position() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd"
     "#;
 
@@ -84,7 +84,7 @@ fn test_set_cycle_jumps_to_position() {
 #[test]
 fn test_set_cycle_in_dsl() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         setCycle 42.7
         o1: s "bd"
     "#;
@@ -98,7 +98,7 @@ fn test_set_cycle_in_dsl() {
 #[test]
 fn test_nudge_shifts_timing() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd"
     "#;
 
@@ -129,7 +129,7 @@ fn test_nudge_shifts_timing() {
 #[test]
 fn test_nudge_in_dsl() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         setCycle 5.0
         nudge 0.3
         o1: s "bd"
@@ -144,7 +144,7 @@ fn test_nudge_in_dsl() {
 #[test]
 fn test_nudge_negative_in_dsl() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         setCycle 10.0
         nudge -0.5
         o1: s "bd"
@@ -159,7 +159,7 @@ fn test_nudge_negative_in_dsl() {
 #[test]
 fn test_commands_work_together() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd"
     "#;
 
@@ -182,7 +182,7 @@ fn test_commands_work_together() {
 #[test]
 fn test_multiple_commands_in_dsl() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         setCycle 10.0
         nudge 2.5
         nudge -1.0
@@ -239,7 +239,7 @@ fn test_nudge_requires_number() {
 #[test]
 fn test_timing_persists_through_wall_clock() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         setCycle 10.0
         o1: s "bd"
     "#;
@@ -268,7 +268,7 @@ fn test_timing_persists_through_wall_clock() {
 #[test]
 fn test_nudge_affects_wall_clock_mode() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd"
     "#;
 

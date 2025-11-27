@@ -103,7 +103,7 @@ fn test_fchorus_level3_mod_frequency_sweep() {
 fn test_fchorus_level3_pattern_modulation() {
     // Test Phonon's killer feature: pattern modulation at audio rate!
     let code = "
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~mod_freq: ~lfo * 0.8 + 0.4
         out: saw 110 # fchorus 0.015 0.005 ~mod_freq

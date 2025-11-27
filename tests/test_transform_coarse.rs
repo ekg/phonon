@@ -32,7 +32,7 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 fn test_coarse_with_synthesis() {
     // Test coarse on synthesized sound
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: saw 110 # coarse 3
 "#;
 
@@ -52,13 +52,13 @@ fn test_coarse_reduces_quality() {
     // Test that coarse actually reduces sample quality
     // Original sound
     let original_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine 440
 "#;
 
     // Coarse sound (half sample rate)
     let coarse_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine 440 # coarse 2
 "#;
 
@@ -91,7 +91,7 @@ fn test_coarse_different_rates() {
     for coarse_val in [1.0, 2.0, 4.0] {
         let code = format!(
             r#"
-tempo: 2.0
+tempo: 0.5
 out: saw 220 # coarse {}
 "#,
             coarse_val

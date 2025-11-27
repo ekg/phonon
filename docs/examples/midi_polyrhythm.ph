@@ -2,7 +2,7 @@
 #
 # Record two different patterns and layer them
 
-tempo: 2.0
+tempo: 0.5
 
 # Pattern 1: Bass line (record with Alt+R, insert with Alt+N)
 # Example: 3 notes over 1 cycle

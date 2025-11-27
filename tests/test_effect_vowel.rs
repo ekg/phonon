@@ -32,7 +32,7 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 fn test_vowel_a() {
     // Test vowel "a" formant
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: saw 110 # vowel "a"
 "#;
 
@@ -51,7 +51,7 @@ out: saw 110 # vowel "a"
 fn test_vowel_e() {
     // Test vowel "e" formant
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: square 220 # vowel "e"
 "#;
 
@@ -70,7 +70,7 @@ out: square 220 # vowel "e"
 fn test_vowel_pattern() {
     // Test pattern of vowels
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: saw 110 # vowel "a e i o"
 "#;
 
@@ -91,7 +91,7 @@ fn test_all_vowels() {
     for vowel in ["a", "e", "i", "o", "u"] {
         let code = format!(
             r#"
-tempo: 2.0
+tempo: 0.5
 out: square 440 # vowel "{}"
 "#,
             vowel
@@ -114,12 +114,12 @@ out: square 440 # vowel "{}"
 fn test_vowel_changes_tone() {
     // Test that different vowels produce different tones
     let vowel_a = r#"
-tempo: 2.0
+tempo: 0.5
 out: saw 220 # vowel "a"
 "#;
 
     let vowel_i = r#"
-tempo: 2.0
+tempo: 0.5
 out: saw 220 # vowel "i"
 "#;
 

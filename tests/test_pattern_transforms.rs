@@ -96,7 +96,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 #[test]
 fn test_dsl_fast_transform() {
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine("110 220" |> fast 2) * 0.2
     "#;
 
@@ -121,7 +121,7 @@ fn test_dsl_fast_transform() {
 #[test]
 fn test_dsl_slow_transform() {
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine("110 220 330 440" |> slow 2) * 0.2
     "#;
 
@@ -145,7 +145,7 @@ fn test_dsl_slow_transform() {
 #[test]
 fn test_dsl_rev_transform() {
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine("110 220 330 440" |> rev) * 0.2
     "#;
 
@@ -169,7 +169,7 @@ fn test_dsl_rev_transform() {
 #[test]
 fn test_dsl_chained_transforms() {
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine("110 220" |> fast 2 |> rev) * 0.2
     "#;
 
@@ -218,7 +218,7 @@ fn test_dsl_every_transform() {
 #[test]
 fn test_dsl_fast_with_samples() {
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd sn" |> fast 2) * 0.5
     "#;
 
@@ -242,7 +242,7 @@ fn test_dsl_fast_with_samples() {
 #[test]
 fn test_dsl_rev_with_samples() {
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd sn hh cp" |> rev) * 0.5
     "#;
 
@@ -266,7 +266,7 @@ fn test_dsl_rev_with_samples() {
 #[test]
 fn test_dsl_transform_filter_modulation() {
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: saw 55 >> lpf("500 2000" |> fast 2, 0.8) * 0.3
     "#;
 
@@ -291,7 +291,7 @@ fn test_dsl_transform_filter_modulation() {
 fn test_dsl_transform_precedence() {
     // This should parse as: (sine("110 220" |> fast 2)) * 0.5
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine("110 220" |> fast 2) * 0.5
     "#;
 

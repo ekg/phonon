@@ -17,7 +17,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 fn test_legato_constant() {
     // Test that legato with a constant number works
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4" $ legato 0.5
     "#;
 
@@ -30,7 +30,7 @@ fn test_legato_constant() {
 fn test_legato_pattern() {
     // Test that legato with a pattern works
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4" $ legato "0.5 1.5"
     "#;
 
@@ -43,12 +43,12 @@ fn test_legato_pattern() {
 fn test_legato_affects_duration() {
     // Test that different legato values produce different results
     let short_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*8" $ legato 0.1
     "#;
 
     let long_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*8" $ legato 1.5
     "#;
 
@@ -75,7 +75,7 @@ fn test_legato_affects_duration() {
 fn test_legato_pattern_alternating() {
     // Test that pattern-based legato alternates correctly
     let alternating_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*8" $ legato "0.1 1.5"
     "#;
 

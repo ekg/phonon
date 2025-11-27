@@ -1,7 +1,7 @@
 -- Envelope Demo
 -- Demonstrates ADSR envelope shaping for oscillators
 
-tempo: 2.0
+tempo: 0.5
 
 -- ========== Envelope Parameters ==========
 -- env(attack, decay, sustain_level, release)

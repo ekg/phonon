@@ -15,7 +15,7 @@ fn test_speed_parameter_affects_playback_rate() {
     // Double speed should finish in half the time
     // Positional args: s("pattern", gain, pan, speed)
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd bd", "1.0 1.0", "0 0", "1 2")
     "#;
 
@@ -102,7 +102,7 @@ fn test_speed_half_plays_longer() {
 fn test_speed_pattern_with_multiple_values() {
     // Four samples with different speeds
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd*4", "1 1 1 1", "0 0 0 0", "1 2 0.5 1.5")
     "#;
 
@@ -139,12 +139,12 @@ fn test_speed_pattern_with_multiple_values() {
 fn test_speed_default_is_one() {
     // Without speed parameter, should default to 1.0 (normal speed)
     let input_with_speed = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd", "1.0", "0", "1")
     "#;
 
     let input_without_speed = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd"
     "#;
 
@@ -177,12 +177,12 @@ fn test_speed_default_is_one() {
 fn test_speed_extreme_values() {
     // Test very fast and very slow speeds
     let input_fast = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd", "1.0", "0", "4")
     "#;
 
     let input_slow = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s("bd", "1.0", "0", "0.25")
     "#;
 

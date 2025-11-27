@@ -12,7 +12,7 @@ fn test_noise_basic() {
     // Test that noise compiles and generates audio
     // noise 0 - argument is ignored, just satisfies parser
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: noise 0 * 0.3
 "#;
 
@@ -41,7 +41,7 @@ out: noise 0 * 0.3
 fn test_noise_through_filter() {
     // Test noise through high-pass filter (classic hi-hat sound)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~hh: noise 0 # hpf 8000 2.0
 out: ~hh * 0.3
 "#;
@@ -79,7 +79,7 @@ out: ~hh * 0.3
 fn test_noise_lowpass() {
     // Test noise through low-pass filter (rumble/texture sound)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~rumble: noise 0 # lpf 200 0.8
 out: ~rumble * 0.3
 "#;
@@ -109,7 +109,7 @@ out: ~rumble * 0.3
 fn test_noise_bandpass() {
     // Test noise through band-pass filter (snare-like texture)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~snare: noise 0 # bpf 3000 2.0
 out: ~snare * 0.3
 "#;
@@ -139,7 +139,7 @@ out: ~snare * 0.3
 fn test_noise_randomness() {
     // Test that noise is actually random (not constant)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: noise 0 * 0.3
 "#;
 
@@ -183,7 +183,7 @@ out: noise 0 * 0.3
 fn test_noise_with_effects() {
     // Test noise through multiple effects (realistic use case)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~hh: noise 0 # hpf 8000 2.0 # distortion 1.5 0.3
 out: ~hh * 0.2
 "#;

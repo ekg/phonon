@@ -31,7 +31,7 @@ fn render_dsl(code: &str, duration_seconds: f32) -> Vec<f32> {
 fn test_basic_chop_scramble() {
     // Basic workflow: Take a pattern, chop it, scramble it
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ chop 8 $ scramble 8
 "#;
 
@@ -46,7 +46,7 @@ out: s "bd sn hh cp" $ chop 8 $ scramble 8
 fn test_chop_shuffle() {
     // Use shuffle instead of scramble (time-based vs order-based)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ chop 8 $ shuffle 0.2
 "#;
 
@@ -61,7 +61,7 @@ out: s "bd sn hh cp" $ chop 8 $ shuffle 0.2
 fn test_fine_granular_chopping() {
     // Chop into many pieces for granular-style effect
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn" $ chop 32 $ scramble 32
 "#;
 
@@ -76,7 +76,7 @@ out: s "bd sn" $ chop 32 $ scramble 32
 fn test_chop_with_effects() {
     // Chop, scramble, then add effects
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ chop 16 $ scramble 16 # lpf 2000 0.8
 "#;
 
@@ -91,7 +91,7 @@ out: s "bd sn hh cp" $ chop 16 $ scramble 16 # lpf 2000 0.8
 fn test_chop_euclidean_pattern() {
     // Chop a euclidean rhythm
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd(5,8)" $ chop 16 $ scramble 16
 "#;
 
@@ -106,7 +106,7 @@ out: s "bd(5,8)" $ chop 16 $ scramble 16
 fn test_chop_with_fast() {
     // Combine with fast transform
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn" $ fast 2 $ chop 16 $ scramble 16
 "#;
 
@@ -121,7 +121,7 @@ out: s "bd sn" $ fast 2 $ chop 16 $ scramble 16
 fn test_layered_chop_variations() {
     // Layer multiple differently-chopped versions
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~layer1: s "bd sn hh cp" $ chop 8 $ scramble 8 # gain 0.5
 ~layer2: s "bd sn hh cp" $ chop 16 $ scramble 16 # gain 0.3
 out: ~layer1 + ~layer2
@@ -138,7 +138,7 @@ out: ~layer1 + ~layer2
 fn test_varying_chop_sizes() {
     // Test different chop sizes (not pattern-controlled, chop only takes constants)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd*8" $ chop 16 $ scramble 16
 "#;
 
@@ -153,12 +153,12 @@ out: s "bd*8" $ chop 16 $ scramble 16
 fn test_chop_preserves_audio_energy() {
     // Verify chopping doesn't lose significant energy
     let normal_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp"
 "#;
 
     let chopped_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ chop 8 $ scramble 8
 "#;
 
@@ -184,12 +184,12 @@ fn test_chop_scramble_different_from_original() {
     // Verify that chop + scramble actually changes the pattern
     // (This is a basic sanity check - scramble should reorder events)
     let original = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp"
 "#;
 
     let scrambled = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ chop 8 $ scramble 8
 "#;
 

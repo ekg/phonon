@@ -8,7 +8,7 @@
 # 5. Alt+R to stop
 # 6. Alt+I to insert notes, Alt+V to insert velocities
 
-tempo: 2.0
+tempo: 0.5
 
 # After recording, insert patterns here:
 # ~notes: n "c4 e4 g4 c5"

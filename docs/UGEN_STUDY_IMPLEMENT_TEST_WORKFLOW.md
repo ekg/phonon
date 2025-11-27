@@ -237,7 +237,7 @@
 6. **Create musical example**:
    ```phonon
    -- docs/examples/[name]_demo.ph
-   tempo: 2.0
+   tempo: 0.5
 
    -- Demonstrate the UGen musically
    ~example: [use the UGen]

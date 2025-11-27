@@ -1,4 +1,4 @@
-tempo: 2.0
+tempo: 0.5
 -- Test voice pool shrinking:
 -- 1. First cycle triggers 100 voices (grows to ~108)
 -- 2. Subsequent cycles use only 4 voices

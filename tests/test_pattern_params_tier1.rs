@@ -46,7 +46,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 fn test_lpf_cutoff_constant() {
     // Baseline: Constant cutoff parameter
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # lpf 1000 0.8
     "#;
 
@@ -59,7 +59,7 @@ fn test_lpf_cutoff_constant() {
 fn test_lpf_cutoff_pattern_modulation() {
     // Pattern modulation: Sine LFO modulating cutoff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # lpf (sine 0.5 * 1500 + 500) 0.8
     "#;
 
@@ -72,7 +72,7 @@ fn test_lpf_cutoff_pattern_modulation() {
 fn test_lpf_cutoff_bus_reference() {
     // Bus reference: LFO on separate bus
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5 * 1500 + 500
         o1: saw 110 # lpf ~lfo 0.8
     "#;
@@ -86,7 +86,7 @@ fn test_lpf_cutoff_bus_reference() {
 fn test_lpf_q_constant() {
     // Baseline: Constant Q parameter
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # lpf 1000 2.0
     "#;
 
@@ -99,7 +99,7 @@ fn test_lpf_q_constant() {
 fn test_lpf_q_pattern_modulation() {
     // Pattern modulation: Sine LFO modulating Q
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # lpf 1000 (sine 2.0 * 3.0 + 3.0)
     "#;
 
@@ -116,7 +116,7 @@ fn test_lpf_q_pattern_modulation() {
 fn test_reverb_room_size_constant() {
     // Baseline: Constant room_size
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # reverb 0.8 0.5 0.5
     "#;
 
@@ -129,7 +129,7 @@ fn test_reverb_room_size_constant() {
 fn test_reverb_room_size_pattern_modulation() {
     // Pattern modulation: Sine LFO modulating room_size
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # reverb (sine 0.25 * 0.5 + 0.3) 0.5 0.5
     "#;
 
@@ -142,7 +142,7 @@ fn test_reverb_room_size_pattern_modulation() {
 fn test_reverb_damping_pattern_modulation() {
     // Pattern modulation: Sine LFO modulating damping
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # reverb 0.8 (sine 0.5 * 0.3 + 0.5) 0.5
     "#;
 
@@ -155,7 +155,7 @@ fn test_reverb_damping_pattern_modulation() {
 fn test_reverb_mix_pattern_modulation() {
     // Pattern modulation: Sine LFO modulating mix (wet parameter)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # reverb 0.8 0.5 (sine 1.0 * 0.3 + 0.4)
     "#;
 
@@ -172,7 +172,7 @@ fn test_reverb_mix_pattern_modulation() {
 fn test_sine_frequency_constant() {
     // Baseline: Constant frequency
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440
     "#;
 
@@ -185,7 +185,7 @@ fn test_sine_frequency_constant() {
 fn test_sine_frequency_pattern_modulation() {
     // Pattern modulation: Sine LFO modulating frequency (FM synthesis)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine (sine 5.0 * 100.0 + 440.0)
     "#;
 
@@ -198,7 +198,7 @@ fn test_sine_frequency_pattern_modulation() {
 fn test_sine_frequency_bus_reference() {
     // Bus reference: LFO on separate bus
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 5.0 * 100.0 + 440.0
         o1: sine ~lfo
     "#;
@@ -216,7 +216,7 @@ fn test_sine_frequency_bus_reference() {
 fn test_gain_constant() {
     // Baseline: Constant gain
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 * 0.5
     "#;
 
@@ -229,7 +229,7 @@ fn test_gain_constant() {
 fn test_gain_pattern_modulation() {
     // Pattern modulation: Sine LFO modulating gain (tremolo)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 4.0 * 0.5 + 0.5
         o1: sine 440 * ~lfo
     "#;
@@ -243,7 +243,7 @@ fn test_gain_pattern_modulation() {
 fn test_gain_arithmetic_expression() {
     // Arithmetic expression: Complex gain calculation
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo1: sine 4.0
         ~lfo2: sine 3.0
         o1: sine 440 * (~lfo1 * 0.3 + ~lfo2 * 0.2 + 0.5)
@@ -262,12 +262,12 @@ fn test_gain_arithmetic_expression() {
 fn test_lpf_pattern_vs_constant() {
     // Verify pattern modulation produces different result than constant
     let constant_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # lpf 1000 0.8
     "#;
 
     let pattern_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110 # lpf (sine 0.5 * 1500 + 500) 0.8
     "#;
 
@@ -294,12 +294,12 @@ fn test_lpf_pattern_vs_constant() {
 fn test_sine_pattern_vs_constant() {
     // Verify FM synthesis differs from constant frequency
     let constant_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440
     "#;
 
     let pattern_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine (sine 5.0 * 100.0 + 440.0)
     "#;
 

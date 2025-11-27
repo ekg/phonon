@@ -2,7 +2,7 @@
 -- A minimal starting point for live coding
 
 -- 2 cycles per second (120 BPM equivalent)
-tempo: 2.0
+tempo: 0.5
 
 -- Start with a simple kick drum
 ~kick: s "bd*4"

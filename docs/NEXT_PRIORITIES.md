@@ -82,7 +82,7 @@ out: s("bd sn") $ gain "0.8 1.0" $ pan "-0.5 0.5"
 1. **Parser Bug:** Bus assignments with transforms (`~x: ~y $ f`)
 2. **test_effects_comprehensive:** Uses old API, needs update or ignore
 3. **Operator Semantics:** `$` is reversed from Tidal (document clearly)
-4. **DSL Syntax:** Keywords require colons (`tempo: 2.0` not `tempo 2.0`)
+4. **DSL Syntax:** Keywords require colons (`tempo: 0.5` not `tempo 2.0`)
 
 ## Success Criteria for "1.0 Release"
 

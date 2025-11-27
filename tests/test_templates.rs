@@ -24,7 +24,7 @@ fn test_template_simple_constant() {
 fn test_template_transform() {
     // Define a transform template and apply it
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         @swing: swing 0.6
         out: s "bd sn" $ @swing
     "#;

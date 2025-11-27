@@ -2,7 +2,7 @@
 -- Generates periodic single-sample spikes at specified frequency
 -- Useful for triggering, creating rhythmic gates, clock signals
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Basic impulse as clock
 ~clock: impulse 4.0

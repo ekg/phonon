@@ -1,7 +1,7 @@
 -- Phaser Effect Demo
 -- Demonstrates various phaser configurations
 
-tempo: 2.0
+tempo: 0.5
 
 -- Classic phaser on saw wave
 ~classic: saw 110 # phaser 0.4 0.7 0.5 4

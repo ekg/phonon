@@ -81,7 +81,7 @@ fn test_organ_hz_level3_frequency_sweep() {
 fn test_organ_hz_level3_pattern_modulation() {
     // Test Phonon's killer feature: pattern modulation at audio rate!
     let code = "
-        tempo: 2.0
+        tempo: 0.5
         ~freq: sine 0.5 * 110 + 440
         out: organ_hz ~freq
     ";
@@ -156,7 +156,7 @@ fn test_organ_hz_level3_silence_comparison() {
 fn test_organ_hz_level3_multiple_cycles() {
     // Test that organ_hz is stable over multiple cycles
     let code = "
-        tempo: 2.0
+        tempo: 0.5
         out: organ_hz 440
     ";
 
@@ -193,7 +193,7 @@ fn test_organ_hz_level3_multiple_cycles() {
 fn test_organ_hz_level3_pattern_arithmetic() {
     // Test that organ_hz works with arithmetic pattern expressions
     let code = "
-        tempo: 2.0
+        tempo: 0.5
         out: organ_hz (220 * 2)
     ";
     let audio = render_dsl(code, 1.0);

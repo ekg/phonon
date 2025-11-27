@@ -230,7 +230,7 @@ Each test:
 #[test]
 fn test_lfo_modulated_filter() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 0.5 * 0.5 + 0.5
 ~bass: saw 55 # lpf (~lfo * 2000 + 500) 0.8
 out: ~bass * 0.4

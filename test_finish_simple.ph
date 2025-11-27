@@ -1,2 +1,2 @@
-tempo: 2.0
+tempo: 0.5
 out: s "hh*4"

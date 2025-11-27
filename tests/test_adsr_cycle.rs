@@ -255,7 +255,7 @@ fn test_adsr_release_phase() {
 #[test]
 fn test_adsr_shaping_tone() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: adsr 0.01 0.05 0.6 0.1
         ~tone: sine 440
         o1: ~tone * ~env * 0.5
@@ -290,7 +290,7 @@ fn test_adsr_filter_modulation() {
 fn test_adsr_percussive_sound() {
     // Fast attack, no sustain, medium decay/release
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: adsr 0.001 0.05 0.0 0.05
         ~tone: sine 220
         o1: ~tone * ~env * 0.5
@@ -327,7 +327,7 @@ fn test_adsr_pad_sound() {
 #[test]
 fn test_adsr_pattern_attack() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~attack_pat: sine 1 * 0.05 + 0.05
         ~env: adsr ~attack_pat 0.05 0.5 0.1
         o1: ~env
@@ -346,7 +346,7 @@ fn test_adsr_pattern_attack() {
 #[test]
 fn test_adsr_pattern_sustain() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~sustain_pat: sine 1 * 0.3 + 0.5
         ~env: adsr 0.05 0.05 ~sustain_pat 0.1
         o1: ~env

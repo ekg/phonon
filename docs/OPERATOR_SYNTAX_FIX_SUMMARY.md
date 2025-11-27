@@ -14,7 +14,7 @@ Date: 2025-10-16
 
 **Root Cause**: Parser requires colons after keywords!
 - ❌ `tempo 2.0` → Parses 0 statements
-- ✅ `tempo: 2.0` → Correctly parses SetCps statement
+- ✅ `tempo: 0.5` → Correctly parses SetCps statement
 
 **Fix**: Updated all test DSL to use correct syntax with colons
 
@@ -57,7 +57,7 @@ Date: 2025-10-16
 ### DSL Syntax Requirements
 **MUST use colons after keywords:**
 ```phonon
-tempo: 2.0          # ✅ Correct
+tempo: 0.5          # ✅ Correct
 ~bass: saw(55)      # ✅ Correct
 out: ~bass * 0.3    # ✅ Correct
 

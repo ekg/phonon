@@ -162,7 +162,7 @@ out: ~limited
 #[test]
 fn test_limiter_musical_example() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 -- Prevent distortion from hot signal
 ~synth: saw 220 * 1.5
 ~safe: limiter ~synth 0.7
@@ -211,7 +211,7 @@ out: ~safe * 0.5
 #[test]
 fn test_limiter_pattern_threshold() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~threshold_pattern: "0.3 0.5 0.7 0.9"
 ~hot: sine 440 * 2.0
 ~limited: limiter ~hot ~threshold_pattern
@@ -262,7 +262,7 @@ out: ~safe
 #[test]
 fn test_limiter_with_envelope() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~env: ad 0.01 0.3
 ~synth: saw 440 * 2.5
 ~hot: ~synth * ~env

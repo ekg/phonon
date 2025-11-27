@@ -185,7 +185,7 @@ out: additive 220 "1.0 0.0 0.33 0.0 0.2"
 fn test_additive_pattern_frequency() {
     // Pattern-modulated fundamental frequency
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: additive "220 330 440 330" "1.0 0.5 0.25"
 "#;
 
@@ -210,7 +210,7 @@ out: additive "220 330 440 330" "1.0 0.5 0.25"
 fn test_additive_pattern_amplitudes() {
     // Pattern-modulated partial amplitudes (timbre modulation)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~amps: "1.0 0.5 0.25" "1.0 0.0 0.5"
 out: additive 220 ~amps
 "#;
@@ -237,7 +237,7 @@ out: additive 220 ~amps
 fn test_additive_melody() {
     // Play a melody with additive synthesis
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: additive "220 330 440 330 220" "1.0 0.5 0.33 0.25"
 "#;
 

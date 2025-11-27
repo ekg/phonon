@@ -373,7 +373,7 @@ Effects that respond to external signals:
 
 ### Dub Techno
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- Shared dub delay
 ~dubDelay: tapedelay 0.375 0.75 0.5 0.03 6.0 0.06 0.4 0.6

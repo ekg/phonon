@@ -290,7 +290,7 @@ fn test_saw_hz_level3_frequency_sweep() {
 fn test_saw_hz_level3_pattern_control() {
     // Test pattern-controlled frequency (Phonon's killer feature!)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: saw_hz "110 165 220 330"
     "#;
     let audio = render_dsl(code, 2.0);
@@ -306,7 +306,7 @@ fn test_saw_hz_level3_pattern_control() {
 fn test_saw_hz_level3_lfo_modulation() {
     // Test LFO modulation of frequency
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~freq: ~lfo * 100 + 220
         out: saw_hz ~freq

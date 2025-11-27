@@ -22,12 +22,12 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 #[test]
 fn test_gain_doubles_amplitude() {
     let code_normal = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd"
     "#;
 
     let code_loud = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # gain 2.0
     "#;
 
@@ -48,12 +48,12 @@ fn test_gain_doubles_amplitude() {
 #[test]
 fn test_gain_halves_amplitude() {
     let code_normal = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd"
     "#;
 
     let code_quiet = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # gain 0.5
     "#;
 
@@ -74,7 +74,7 @@ fn test_gain_halves_amplitude() {
 #[test]
 fn test_gain_pattern_varies_per_event() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd*4" # gain "1.0 0.8 0.6 0.4"
     "#;
 
@@ -100,7 +100,7 @@ fn test_gain_pattern_varies_per_event() {
 #[test]
 fn test_pan_center_produces_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # pan 0.0
     "#;
 
@@ -114,7 +114,7 @@ fn test_pan_center_produces_audio() {
 #[test]
 fn test_pan_left_produces_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # pan (-1.0)
     "#;
 
@@ -128,7 +128,7 @@ fn test_pan_left_produces_audio() {
 #[test]
 fn test_pan_right_produces_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # pan 1.0
     "#;
 
@@ -142,7 +142,7 @@ fn test_pan_right_produces_audio() {
 #[test]
 fn test_pan_pattern_varies_per_event() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd*3" # pan "-1 0 1"
     "#;
 
@@ -221,7 +221,7 @@ fn test_speed_half_plays_slower() {
 #[test]
 fn test_speed_negative_plays_backwards() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # speed (-1.0)
     "#;
 
@@ -235,7 +235,7 @@ fn test_speed_negative_plays_backwards() {
 #[test]
 fn test_speed_pattern_varies_per_event() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd*3" # speed "1 2 0.5"
     "#;
 
@@ -261,7 +261,7 @@ fn test_speed_pattern_varies_per_event() {
 #[test]
 fn test_note_zero_is_original_pitch() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # note 0
     "#;
 
@@ -275,7 +275,7 @@ fn test_note_zero_is_original_pitch() {
 #[test]
 fn test_note_positive_shifts_pitch_up() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # note 12
     "#;
 
@@ -289,7 +289,7 @@ fn test_note_positive_shifts_pitch_up() {
 #[test]
 fn test_note_negative_shifts_pitch_down() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # note (-12)
     "#;
 
@@ -303,7 +303,7 @@ fn test_note_negative_shifts_pitch_down() {
 #[test]
 fn test_note_pattern_varies_pitch() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd*3" # note "0 5 7"
     "#;
 
@@ -329,7 +329,7 @@ fn test_note_pattern_varies_pitch() {
 #[test]
 fn test_n_zero_selects_first_sample() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # n 0
     "#;
 
@@ -343,7 +343,7 @@ fn test_n_zero_selects_first_sample() {
 #[test]
 fn test_n_pattern_varies_sample_selection() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd*3" # n "0 1 2"
     "#;
 
@@ -368,7 +368,7 @@ fn test_n_pattern_varies_sample_selection() {
 #[test]
 fn test_begin_zero_starts_at_beginning() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # begin 0.0
     "#;
 
@@ -382,7 +382,7 @@ fn test_begin_zero_starts_at_beginning() {
 #[test]
 fn test_begin_half_starts_at_midpoint() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # begin 0.5
     "#;
 
@@ -396,7 +396,7 @@ fn test_begin_half_starts_at_midpoint() {
 #[test]
 fn test_begin_pattern_varies_start_point() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd*3" # begin "0.0 0.25 0.5"
     "#;
 
@@ -418,7 +418,7 @@ fn test_begin_pattern_varies_start_point() {
 #[test]
 fn test_end_one_plays_full_sample() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # end 1.0
     "#;
 
@@ -432,12 +432,12 @@ fn test_end_one_plays_full_sample() {
 #[test]
 fn test_end_half_stops_at_midpoint() {
     let code_full = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # end 1.0
     "#;
 
     let code_half = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # end 0.5
     "#;
 
@@ -458,7 +458,7 @@ fn test_end_half_stops_at_midpoint() {
 #[test]
 fn test_begin_and_end_slice_sample() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # begin 0.25 # end 0.75
     "#;
 
@@ -513,7 +513,7 @@ fn test_loop_true_continues_playing() {
 #[test]
 fn test_loop_pattern_varies_per_event() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd*2" # loop "0 1"
     "#;
 
@@ -537,7 +537,7 @@ fn test_loop_pattern_varies_per_event() {
 #[test]
 fn test_unit_r_uses_rate_mode() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # unit "r"
     "#;
 
@@ -551,7 +551,7 @@ fn test_unit_r_uses_rate_mode() {
 #[test]
 fn test_unit_c_uses_cycle_mode() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd" # unit "c"
     "#;
 
@@ -565,7 +565,7 @@ fn test_unit_c_uses_cycle_mode() {
 #[test]
 fn test_unit_pattern_varies_mode() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd*2" # unit "r c"
     "#;
 
@@ -589,7 +589,7 @@ fn test_unit_pattern_varies_mode() {
 #[test]
 fn test_cut_zero_no_stealing() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd*4" # cut 0
     "#;
 
@@ -632,7 +632,7 @@ fn test_cut_group_stops_previous() {
 #[test]
 fn test_cut_pattern_varies_groups() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd*3" # cut "0 1 2"
     "#;
 

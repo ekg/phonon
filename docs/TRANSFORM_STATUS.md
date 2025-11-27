@@ -31,14 +31,14 @@
 
 ### striate
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s "amen" $ striate 8
 ```
 **Result**: Complete silence (RMS: 0.000, Peak: 0.000)
 
 ### slice
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s "amen" $ slice 8 "0 7 2 5"
 ```
 **Result**: Complete silence (RMS: 0.000, Peak: 0.000)

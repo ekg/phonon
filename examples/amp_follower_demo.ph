@@ -2,7 +2,7 @@
 -- RMS-based envelope follower with attack/release smoothing
 -- Smoother than peak follower - perfect for musical dynamics and ducking
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Smooth envelope extraction
 ~lfo1: sine 2 * 0.5 + 0.5

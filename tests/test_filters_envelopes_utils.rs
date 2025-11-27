@@ -72,8 +72,8 @@ fn calculate_band_energy(frequencies: &[f32], magnitudes: &[f32], low_hz: f32, h
 
 #[test]
 fn test_lpf_removes_high_frequencies() {
-    let dry = render_dsl("tempo: 2.0\nout: saw 220", 0.5);
-    let filtered = render_dsl("tempo: 2.0\nout: saw 220 # lpf 500 0.8", 0.5);
+    let dry = render_dsl("tempo: 0.5\nout: saw 220", 0.5);
+    let filtered = render_dsl("tempo: 0.5\nout: saw 220 # lpf 500 0.8", 0.5);
 
     let (freqs_dry, mags_dry) = analyze_spectrum(&dry, SAMPLE_RATE);
     let (freqs_filt, mags_filt) = analyze_spectrum(&filtered, SAMPLE_RATE);
@@ -94,8 +94,8 @@ fn test_lpf_removes_high_frequencies() {
 #[test]
 fn test_lpf_passes_low_frequencies() {
     // Sine at 200Hz through 1000Hz LPF should pass mostly unaffected
-    let dry = render_dsl("tempo: 2.0\nout: sine 200", 1.0);
-    let filtered = render_dsl("tempo: 2.0\nout: sine 200 # lpf 1000 0.8", 1.0);
+    let dry = render_dsl("tempo: 0.5\nout: sine 200", 1.0);
+    let filtered = render_dsl("tempo: 0.5\nout: sine 200 # lpf 1000 0.8", 1.0);
 
     let rms_dry = calculate_rms(&dry);
     let rms_filtered = calculate_rms(&filtered);
@@ -111,8 +111,8 @@ fn test_lpf_passes_low_frequencies() {
 #[test]
 fn test_lpf_cutoff_frequency_effect() {
     // Test that different cutoffs produce different spectral content
-    let lpf_500 = render_dsl("tempo: 2.0\nout: white_noise # lpf 500 0.8", 1.0);
-    let lpf_2000 = render_dsl("tempo: 2.0\nout: white_noise # lpf 2000 0.8", 1.0);
+    let lpf_500 = render_dsl("tempo: 0.5\nout: white_noise # lpf 500 0.8", 1.0);
+    let lpf_2000 = render_dsl("tempo: 0.5\nout: white_noise # lpf 2000 0.8", 1.0);
 
     let centroid_500 = compute_spectral_centroid(&lpf_500, SAMPLE_RATE);
     let centroid_2000 = compute_spectral_centroid(&lpf_2000, SAMPLE_RATE);
@@ -129,8 +129,8 @@ fn test_lpf_cutoff_frequency_effect() {
 
 #[test]
 fn test_hpf_removes_low_frequencies() {
-    let dry = render_dsl("tempo: 2.0\nout: saw 55", 0.5);
-    let filtered = render_dsl("tempo: 2.0\nout: saw 55 # hpf 500 0.8", 0.5);
+    let dry = render_dsl("tempo: 0.5\nout: saw 55", 0.5);
+    let filtered = render_dsl("tempo: 0.5\nout: saw 55 # hpf 500 0.8", 0.5);
 
     let (freqs_dry, mags_dry) = analyze_spectrum(&dry, SAMPLE_RATE);
     let (freqs_filt, mags_filt) = analyze_spectrum(&filtered, SAMPLE_RATE);
@@ -151,8 +151,8 @@ fn test_hpf_removes_low_frequencies() {
 #[test]
 fn test_hpf_passes_high_frequencies() {
     // Sine at 2000Hz through 1000Hz HPF should pass mostly unaffected
-    let dry = render_dsl("tempo: 2.0\nout: sine 2000", 1.0);
-    let filtered = render_dsl("tempo: 2.0\nout: sine 2000 # hpf 1000 0.8", 1.0);
+    let dry = render_dsl("tempo: 0.5\nout: sine 2000", 1.0);
+    let filtered = render_dsl("tempo: 0.5\nout: sine 2000 # hpf 1000 0.8", 1.0);
 
     let rms_dry = calculate_rms(&dry);
     let rms_filtered = calculate_rms(&filtered);
@@ -168,8 +168,8 @@ fn test_hpf_passes_high_frequencies() {
 #[test]
 fn test_hpf_cutoff_frequency_effect() {
     // Test that different cutoffs produce different spectral content
-    let hpf_500 = render_dsl("tempo: 2.0\nout: white_noise # hpf 500 0.8", 1.0);
-    let hpf_2000 = render_dsl("tempo: 2.0\nout: white_noise # hpf 2000 0.8", 1.0);
+    let hpf_500 = render_dsl("tempo: 0.5\nout: white_noise # hpf 500 0.8", 1.0);
+    let hpf_2000 = render_dsl("tempo: 0.5\nout: white_noise # hpf 2000 0.8", 1.0);
 
     let centroid_500 = compute_spectral_centroid(&hpf_500, SAMPLE_RATE);
     let centroid_2000 = compute_spectral_centroid(&hpf_2000, SAMPLE_RATE);
@@ -187,8 +187,8 @@ fn test_hpf_cutoff_frequency_effect() {
 #[test]
 fn test_bpf_passes_center_frequency() {
     // Sine at 1000Hz through 1000Hz BPF should pass
-    let dry = render_dsl("tempo: 2.0\nout: sine 1000", 1.0);
-    let filtered = render_dsl("tempo: 2.0\nout: sine 1000 # bpf 1000 2.0", 1.0);
+    let dry = render_dsl("tempo: 0.5\nout: sine 1000", 1.0);
+    let filtered = render_dsl("tempo: 0.5\nout: sine 1000 # bpf 1000 2.0", 1.0);
 
     let rms_dry = calculate_rms(&dry);
     let rms_filtered = calculate_rms(&filtered);
@@ -204,8 +204,8 @@ fn test_bpf_passes_center_frequency() {
 #[test]
 fn test_bpf_attenuates_low_frequencies() {
     // Sine at 200Hz through 1000Hz BPF should be attenuated
-    let dry = render_dsl("tempo: 2.0\nout: sine 200", 1.0);
-    let filtered = render_dsl("tempo: 2.0\nout: sine 200 # bpf 1000 2.0", 1.0);
+    let dry = render_dsl("tempo: 0.5\nout: sine 200", 1.0);
+    let filtered = render_dsl("tempo: 0.5\nout: sine 200 # bpf 1000 2.0", 1.0);
 
     let rms_dry = calculate_rms(&dry);
     let rms_filtered = calculate_rms(&filtered);
@@ -221,8 +221,8 @@ fn test_bpf_attenuates_low_frequencies() {
 #[test]
 fn test_bpf_attenuates_high_frequencies() {
     // Sine at 4000Hz through 1000Hz BPF should be attenuated
-    let dry = render_dsl("tempo: 2.0\nout: sine 4000", 1.0);
-    let filtered = render_dsl("tempo: 2.0\nout: sine 4000 # bpf 1000 2.0", 1.0);
+    let dry = render_dsl("tempo: 0.5\nout: sine 4000", 1.0);
+    let filtered = render_dsl("tempo: 0.5\nout: sine 4000 # bpf 1000 2.0", 1.0);
 
     let rms_dry = calculate_rms(&dry);
     let rms_filtered = calculate_rms(&filtered);
@@ -238,8 +238,8 @@ fn test_bpf_attenuates_high_frequencies() {
 #[test]
 fn test_bpf_q_factor_width() {
     // Wide BPF (low Q) should pass more frequencies
-    let narrow = render_dsl("tempo: 2.0\nout: white_noise # bpf 1000 10.0", 1.0);
-    let wide = render_dsl("tempo: 2.0\nout: white_noise # bpf 1000 0.5", 1.0);
+    let narrow = render_dsl("tempo: 0.5\nout: white_noise # bpf 1000 10.0", 1.0);
+    let wide = render_dsl("tempo: 0.5\nout: white_noise # bpf 1000 0.5", 1.0);
 
     let (freqs_narrow, mags_narrow) = analyze_spectrum(&narrow, SAMPLE_RATE);
     let (freqs_wide, mags_wide) = analyze_spectrum(&wide, SAMPLE_RATE);
@@ -261,8 +261,8 @@ fn test_bpf_q_factor_width() {
 #[test]
 fn test_notch_attenuates_center_frequency() {
     // Sine at 1000Hz through 1000Hz notch should be attenuated
-    let dry = render_dsl("tempo: 2.0\nout: sine 1000", 1.0);
-    let filtered = render_dsl("tempo: 2.0\nout: sine 1000 # notch 1000 2.0", 1.0);
+    let dry = render_dsl("tempo: 0.5\nout: sine 1000", 1.0);
+    let filtered = render_dsl("tempo: 0.5\nout: sine 1000 # notch 1000 2.0", 1.0);
 
     let rms_dry = calculate_rms(&dry);
     let rms_filtered = calculate_rms(&filtered);
@@ -278,8 +278,8 @@ fn test_notch_attenuates_center_frequency() {
 #[test]
 fn test_notch_passes_other_frequencies() {
     // Sine at 2000Hz through 1000Hz notch should pass
-    let dry = render_dsl("tempo: 2.0\nout: sine 2000", 1.0);
-    let filtered = render_dsl("tempo: 2.0\nout: sine 2000 # notch 1000 2.0", 1.0);
+    let dry = render_dsl("tempo: 0.5\nout: sine 2000", 1.0);
+    let filtered = render_dsl("tempo: 0.5\nout: sine 2000 # notch 1000 2.0", 1.0);
 
     let rms_dry = calculate_rms(&dry);
     let rms_filtered = calculate_rms(&filtered);
@@ -295,8 +295,8 @@ fn test_notch_passes_other_frequencies() {
 #[test]
 fn test_notch_q_factor_width() {
     // Narrow notch (high Q) should only affect narrow band
-    let narrow = render_dsl("tempo: 2.0\nout: sine 1050 # notch 1000 10.0", 1.0);
-    let wide = render_dsl("tempo: 2.0\nout: sine 1050 # notch 1000 0.5", 1.0);
+    let narrow = render_dsl("tempo: 0.5\nout: sine 1050 # notch 1000 10.0", 1.0);
+    let wide = render_dsl("tempo: 0.5\nout: sine 1050 # notch 1000 0.5", 1.0);
 
     let rms_narrow = calculate_rms(&narrow);
     let rms_wide = calculate_rms(&wide);
@@ -318,8 +318,8 @@ fn test_notch_q_factor_width() {
 
 #[test]
 fn test_attack_shapes_onset() {
-    let fast = render_dsl("tempo: 2.0\nout: sine 440 # attack 0.001", 0.2);
-    let slow = render_dsl("tempo: 2.0\nout: sine 440 # attack 0.1", 0.2);
+    let fast = render_dsl("tempo: 0.5\nout: sine 440 # attack 0.001", 0.2);
+    let slow = render_dsl("tempo: 0.5\nout: sine 440 # attack 0.1", 0.2);
 
     // Check first 100ms (4410 samples)
     let fast_start_avg = calculate_rms(&fast[..4410]);
@@ -336,7 +336,7 @@ fn test_attack_shapes_onset() {
 #[test]
 fn test_attack_reaches_full_amplitude() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine 440 # attack 0.05
     "#;
 
@@ -356,8 +356,8 @@ fn test_attack_reaches_full_amplitude() {
 
 #[test]
 fn test_attack_different_times() {
-    let attack_10ms = render_dsl("tempo: 2.0\nout: sine 440 # attack 0.01", 0.1);
-    let attack_50ms = render_dsl("tempo: 2.0\nout: sine 440 # attack 0.05", 0.1);
+    let attack_10ms = render_dsl("tempo: 0.5\nout: sine 440 # attack 0.01", 0.1);
+    let attack_50ms = render_dsl("tempo: 0.5\nout: sine 440 # attack 0.05", 0.1);
 
     // First 20ms should show difference
     let rms_10ms = calculate_rms(&attack_10ms[..882]);
@@ -377,8 +377,8 @@ fn test_release_shapes_decay() {
     // Note: release affects how quickly sound fades when events end
     // For continuous signals, release creates a fade-out tail
 
-    let fast = render_dsl("tempo: 2.0\nout: sine 440 # release 0.001", 0.2);
-    let slow = render_dsl("tempo: 2.0\nout: sine 440 # release 0.2", 0.2);
+    let fast = render_dsl("tempo: 0.5\nout: sine 440 # release 0.001", 0.2);
+    let slow = render_dsl("tempo: 0.5\nout: sine 440 # release 0.2", 0.2);
 
     // Both should have sound at the start
     let fast_start = calculate_rms(&fast[..4410]);
@@ -394,8 +394,8 @@ fn test_release_shapes_decay() {
 
 #[test]
 fn test_release_different_times() {
-    let release_10ms = render_dsl("tempo: 2.0\nout: sine 440 # release 0.01", 0.3);
-    let release_100ms = render_dsl("tempo: 2.0\nout: sine 440 # release 0.1", 0.3);
+    let release_10ms = render_dsl("tempo: 0.5\nout: sine 440 # release 0.01", 0.3);
+    let release_100ms = render_dsl("tempo: 0.5\nout: sine 440 # release 0.1", 0.3);
 
     // Both should produce audible output
     let rms_10ms = calculate_rms(&release_10ms);
@@ -416,7 +416,7 @@ fn test_release_different_times() {
 #[ignore]
 fn test_ar_combines_attack_release() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine 440 # ar 0.01 0.05
     "#;
 
@@ -434,8 +434,8 @@ fn test_ar_combines_attack_release() {
 #[test]
 #[ignore]
 fn test_ar_attack_affects_onset() {
-    let fast_attack = render_dsl("tempo: 2.0\nout: sine 440 # ar 0.001 0.05", 0.2);
-    let slow_attack = render_dsl("tempo: 2.0\nout: sine 440 # ar 0.1 0.05", 0.2);
+    let fast_attack = render_dsl("tempo: 0.5\nout: sine 440 # ar 0.001 0.05", 0.2);
+    let slow_attack = render_dsl("tempo: 0.5\nout: sine 440 # ar 0.1 0.05", 0.2);
 
     // First 50ms should show attack difference
     let fast_start = calculate_rms(&fast_attack[..2205]);
@@ -453,8 +453,8 @@ fn test_ar_attack_affects_onset() {
 #[test]
 #[ignore]
 fn test_ar_different_parameters() {
-    let short = render_dsl("tempo: 2.0\nout: sine 440 # ar 0.01 0.01", 0.2);
-    let long = render_dsl("tempo: 2.0\nout: sine 440 # ar 0.1 0.1", 0.2);
+    let short = render_dsl("tempo: 0.5\nout: sine 440 # ar 0.01 0.01", 0.2);
+    let long = render_dsl("tempo: 0.5\nout: sine 440 # ar 0.1 0.1", 0.2);
 
     let rms_short = calculate_rms(&short);
     let rms_long = calculate_rms(&long);
@@ -593,7 +593,7 @@ fn test_irand_range_affects_output() {
 #[test]
 fn test_filter_with_envelope() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: saw 110 # lpf 2000 0.8 # attack 0.05
     "#;
 
@@ -609,7 +609,7 @@ fn test_filter_with_envelope() {
 #[test]
 fn test_envelope_with_filter() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine 440 # ar 0.01 0.1 # lpf 2000 0.5
     "#;
 
@@ -674,7 +674,7 @@ fn test_all_filters_produce_audio() {
     ];
 
     for (name, filter_code) in filters {
-        let code = format!("tempo: 2.0\nout: {}", filter_code);
+        let code = format!("tempo: 0.5\nout: {}", filter_code);
         let audio = render_dsl(&code, 0.5);
         let rms = calculate_rms(&audio);
 
@@ -695,7 +695,7 @@ fn test_all_envelopes_produce_audio() {
     ];
 
     for (name, env_code) in envelopes {
-        let code = format!("tempo: 2.0\nout: {}", env_code);
+        let code = format!("tempo: 0.5\nout: {}", env_code);
         let audio = render_dsl(&code, 0.3);
         let rms = calculate_rms(&audio);
 

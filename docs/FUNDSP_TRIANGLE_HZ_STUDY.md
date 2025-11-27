@@ -318,7 +318,7 @@ fn test_triangle_hz_level3_frequency_sweep() {
 #[test]
 fn test_triangle_hz_level3_pattern_control() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: triangle_hz "110 165 220 330"
     "#;
     let audio = render_dsl(code, 2.0);

@@ -103,7 +103,7 @@ fn test_three_outputs_mixed() {
 fn test_output_with_samples() {
     // Multi-output with sample playback
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd"
         o2: s "sn"
     "#;
@@ -127,7 +127,7 @@ fn test_output_with_samples() {
 fn test_output_with_synthesis() {
     // Multi-output with synthesizers
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 220
         o2: sine 440
     "#;
@@ -193,7 +193,7 @@ fn test_bus_references_in_outputs() {
 fn test_complex_multi_output() {
     // Complex example with multiple buses and outputs
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~bass: sine 55
         ~lead: sine 220

@@ -21,7 +21,7 @@ cargo build --release
 
 **Create `mytrack.ph`:**
 ```phonon
-tempo: 2.0
+tempo: 0.5
 # Classic house beat (TidalCycles style!)
 out: s "[bd*4, hh*8, ~ sn ~ sn]" * 0.8
 ```
@@ -41,14 +41,14 @@ d1 $ sound "bd sn"  # Triggers discrete events
 
 **Phonon** (signal-based):
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: sine "110 220 440" * 0.2  # Pattern IS the control signal
 ```
 
 In Phonon, patterns evaluate **at sample rate** (44.1kHz) and can modulate any synthesis parameter:
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 0.25
 ~bass: saw "55 82.5 110" # lpf (~lfo * 2000 + 500) 0.8
 out: ~bass * 0.3
@@ -106,35 +106,35 @@ This is **not possible** in Tidal/Strudel - patterns trigger events, they don't 
 
 ### Classic House Beat
 ```phonon
-tempo: 2.0
+tempo: 0.5
 # Four-on-the-floor with hi-hats and snare
 out: s "[bd*4, hh*8, ~ sn ~ sn]" * 0.8
 ```
 
 ### Euclidean Rhythms
 ```phonon
-tempo: 2.0
+tempo: 0.5
 # Tresillo pattern (3-against-8) with layered hi-hats
 out: s "[bd(3,8), hh(5,16)]" * 0.7
 ```
 
 ### Pattern DSP Parameters
 ```phonon
-tempo: 2.0
+tempo: 0.5
 # Each kick has different gain, pan, and speed
 out: s "bd*4" # gain "1.0 0.8 0.6 0.4" # pan "-1 0 1 0" # speed "1.0 1.2 0.8 1.5"
 ```
 
 ### Sample Selection
 ```phonon
-tempo: 2.0
+tempo: 0.5
 # Cycle through different kick samples using 'n' parameter
 out: s "bd bd bd bd" # n "0 1 2 3" * 0.8
 ```
 
 ### Pattern Transforms
 ```phonon
-tempo: 2.0
+tempo: 0.5
 # Apply transformations to patterns
 ~drums: s "bd sn" $ fast 2 $ every 4 rev
 out: ~drums * 0.8
@@ -142,7 +142,7 @@ out: ~drums * 0.8
 
 ### Synthesis + Samples
 ```phonon
-tempo: 2.0
+tempo: 0.5
 # Combine oscillators with sample patterns
 ~kick: s "bd ~ bd ~"
 ~bass: saw "55 82.5 110" # lpf 500 0.8
@@ -152,7 +152,7 @@ out: (~kick + ~bass * 0.2 + ~hats * 0.3) * 0.7
 
 ### Effects Processing
 ```phonon
-tempo: 2.0
+tempo: 0.5
 # Drums through delay and reverb
 ~drums: s "[bd sn, hh*8]"
 ~wet: ~drums # delay 0.25 0.6 0.3 # reverb 0.7 0.5 0.4
@@ -161,7 +161,7 @@ out: ~wet * 0.8
 
 ### LFO Modulation
 ```phonon
-tempo: 2.0
+tempo: 0.5
 # Pattern-controlled filter cutoff
 ~lfo: sine 0.25
 ~bass: saw 55 # lpf (~lfo * 2000 + 500) 0.8
@@ -233,7 +233,7 @@ See **[docs/PHONON_CURRENT_STATE.md](docs/PHONON_CURRENT_STATE.md)** for archite
 
 ```phonon
 # Comment
-tempo: 2.0              # Cycles per second
+tempo: 0.5              # Cycles per second
 
 # Bus assignment
 ~name: expression

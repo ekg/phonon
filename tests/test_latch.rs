@@ -231,7 +231,7 @@ out: ~held * 0.5
 #[test]
 fn test_latch_random_melody() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~noise: white_noise * 200.0 + 440.0
 ~notes: impulse 8.0
 ~freq: ~noise # latch ~notes
@@ -288,7 +288,7 @@ out: ~filtered * 0.3
 #[test]
 fn test_latch_pattern_gate() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~input: sine 1
 ~gates: "0.0 1.0 0.0 1.0"
 ~held: ~input # latch ~gates

@@ -2,7 +2,7 @@
 -- Classic mixing technique: multiple sources share one reverb
 -- Like an aux send on a mixing console
 
-tempo: 2.0
+tempo: 0.5
 
 -- Two dry sources
 ~dry1: sine 440 * 0.3

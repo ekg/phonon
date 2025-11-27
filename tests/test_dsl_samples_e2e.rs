@@ -937,7 +937,7 @@ out: s "bd sn hh cp" * 0.8
 #[test]
 fn test_samples_fast_tempo() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "fast_tempo");

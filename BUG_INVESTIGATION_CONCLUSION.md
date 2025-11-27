@@ -47,7 +47,7 @@ out: s "bd" * 0.8
 Result: ✅ Peak 0.014418
 
 // Test 2: Single event, fast tempo
-tempo: 2.0
+tempo: 0.5
 out: s "bd" * 0.8
 Result: ✅ Peak 0.014418
 
@@ -89,7 +89,7 @@ Result: ✅ Peak 0.014418
 
 ```phonon
 # Comments
-tempo: 2.0              # Cycles per second (colon required)
+tempo: 0.5              # Cycles per second (colon required)
 tempo 2.0               # ❌ WRONG - parser will skip this line
 
 # Sample playback

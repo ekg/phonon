@@ -1,4 +1,4 @@
-tempo: 2.0
+tempo: 0.5
 -- Test various chord types
 -- Each chord triggers multiple simultaneous voices
 -- maj=3 notes, min=3 notes, dom7=4 notes, maj7=4 notes

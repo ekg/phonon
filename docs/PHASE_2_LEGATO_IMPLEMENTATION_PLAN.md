@@ -465,7 +465,7 @@ impl MidiRecorder {
 -- Legato Expression Example
 -- Shows how note duration affects musical expression
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Staccato (short, detached notes)
 ~staccato: n "c4 e4 g4 c5"

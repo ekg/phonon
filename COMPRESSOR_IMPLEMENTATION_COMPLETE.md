@@ -109,7 +109,7 @@ s "bd sn" # compressor -20.0 4.0 0.01 0.1 10.0  # threshold_db, ratio, attack, r
 ### Basic Compression
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Compress drums to control peaks
 ~drums: s "[bd*4, sn*2, hh*8]"
@@ -121,7 +121,7 @@ out: ~compressed * 0.8
 ### Sidechain-Style Ducking
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Fast attack, medium release for pumping effect
 ~bass: saw 55
@@ -134,7 +134,7 @@ out: (~ducked * 0.4 + ~drums * 0.7) * 0.8
 ### Glue Compression on Mix
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Gentle compression on full mix
 ~kick: s "bd*4"

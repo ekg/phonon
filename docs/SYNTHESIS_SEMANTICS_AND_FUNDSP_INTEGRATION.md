@@ -760,7 +760,7 @@ fn compile_moog_ladder(ctx: &mut CompilerContext, args: Vec<Expr>)
 -- Moog Ladder Filter Demo
 -- Classic analog-style low-pass filter with resonance
 
-tempo: 2.0
+tempo: 0.5
 
 -- Static filter
 ~bass1: saw 55 # moogLadder 500 0.8

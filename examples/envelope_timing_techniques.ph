@@ -1,7 +1,7 @@
 -- Envelope Timing & Triggering Techniques in Phonon
 -- A comprehensive guide to sequencing envelopes in time
 
-tempo: 2.0
+tempo: 0.5
 
 -- ============================================================
 -- TECHNIQUE 1: Continuous Envelopes (One-Shot)

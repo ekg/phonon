@@ -228,7 +228,7 @@ fn test_verify_single_tone_fft() {
 
     // Render pure 440Hz tone
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine 440
 "#;
 
@@ -259,7 +259,7 @@ fn test_verify_two_tone_pattern() {
 
     // Pattern alternates 300Hz and 600Hz
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "300 600"
 "#;
 
@@ -295,13 +295,13 @@ fn test_fast_doubles_pattern_rate() {
 
     // Without fast: pattern plays at tempo rate (2 Hz = 0.5s per event)
     let normal = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "200 400"
 "#;
 
     // With fast 2: pattern plays at 4 Hz (0.25s per event)
     let fast = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "200 400" $ fast 2
 "#;
 
@@ -340,7 +340,7 @@ fn test_rev_reverses_pattern_order() {
     //
     // All frequencies should still be present, but spectral evolution differs
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "100 200 300 400" $ rev
 "#;
 
@@ -367,7 +367,7 @@ fn test_slow_halves_pattern_rate() {
     // Pattern: 300Hz, 600Hz (normally 2 per cycle at tempo 2.0)
     // With slow 2: should be 1 per cycle (pattern spans 2 cycles)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "300 600" $ slow 2
 "#;
 
@@ -457,7 +457,7 @@ fn test_euclid_rhythm_pattern() {
     // euclid(3, 8): Distribute 3 pulses over 8 steps
     // Use samples (not sine) to get transients for onset detection
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" $ euclid 3 8
 "#;
 
@@ -517,7 +517,7 @@ fn test_superimpose_layers_pattern() {
     // superimpose (fast 2): Layer original + fast version
     // Should see both normal timing and fast timing
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine 300 $ superimpose (fast 2)
 "#;
 
@@ -548,7 +548,7 @@ fn test_chunk_subdivides_pattern() {
 
     // chunk 4 (fast 2): Apply transform to chunks
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "100 200 300 400" $ chunk 4 (fast 2)
 "#;
 

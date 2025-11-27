@@ -80,7 +80,7 @@ fn test_reverb_stereo_level3_time_sweep() {
 fn test_reverb_stereo_level3_pattern_modulation() {
     // Test Phonon's killer feature: pattern modulation at audio rate!
     let code = "
-        tempo: 2.0
+        tempo: 0.5
         ~wet: sine 0.5 * 0.3 + 0.3
         out: saw 110 # reverb_stereo ~wet 1.5
     ";

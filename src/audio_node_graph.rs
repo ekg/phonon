@@ -104,7 +104,7 @@ impl AudioNodeGraph {
         Self {
             audio_nodes: Vec::new(),
             sample_rate,
-            tempo: 2.0, // Default: 120 BPM
+            tempo: 0.5, // Default: 120 BPM
             cycle_position: Fraction::from_float(0.0),
             sample_count: 0,
             output_node: None,
@@ -417,7 +417,7 @@ mod tests {
     fn test_audio_node_graph_creation() {
         let graph = AudioNodeGraph::new(44100.0);
         assert_eq!(graph.sample_rate(), 44100.0);
-        assert_eq!(graph.tempo(), 2.0);
+        assert_eq!(graph.tempo(), 0.5);
         assert_eq!(graph.node_count(), 0);
         assert!(!graph.is_ready());
     }

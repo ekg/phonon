@@ -1,7 +1,7 @@
 -- Synth Comparison: Basic Oscillators vs SuperDirt Synths
 -- Shows the difference between basic oscillators + envelope and pre-built synths
 
-tempo: 2.0
+tempo: 0.5
 
 -- ========== Basic Oscillator + Envelope ==========
 -- Manual synth building with envelope shaping

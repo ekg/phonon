@@ -17,7 +17,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 fn test_distortion_effect_dist_alias() {
     // Test that 'dist' alias works for distortion
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4" # dist 1
     "#;
 
@@ -30,7 +30,7 @@ fn test_distortion_effect_dist_alias() {
 fn test_distortion_effect_distort_alias() {
     // Test that 'distort' alias also works
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4" # distort 1
     "#;
 
@@ -43,7 +43,7 @@ fn test_distortion_effect_distort_alias() {
 fn test_distortion_effect_distortion_alias() {
     // Test that 'distortion' alias also works
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4" # distortion 1
     "#;
 
@@ -58,12 +58,12 @@ fn test_distortion_effect_increases_harmonics() {
     // Compare clean vs distorted signal
 
     let clean_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4"
     "#;
 
     let distorted_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: s "bd*4" # dist 5
     "#;
 

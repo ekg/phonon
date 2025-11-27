@@ -237,7 +237,7 @@ fn test_render_simple_pattern() {
     // Use short sine blips at different frequencies to verify pattern order
     // 440Hz, 550Hz, 660Hz, 770Hz - one per quarter note
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "440 550 660 770" * 0.3
 "#;
 
@@ -328,7 +328,7 @@ fn test_render_slow_transform() {
     // Test that slow 2 actually slows down the pattern
     // Use a simple two-tone pattern
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "200 400" $ slow 2
 "#;
 
@@ -364,7 +364,7 @@ fn test_render_rev_transform() {
 
     // Test rev with synthesis - should reverse the pattern
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine "300 600 900" $ rev
 "#;
 
@@ -397,7 +397,7 @@ fn test_render_euclid_pattern() {
 
     // Test euclidean rhythm generation with samples
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" $ euclid 3 8
 "#;
 
@@ -424,7 +424,7 @@ fn test_render_every_transform() {
     let test = AudioTest::new("every_transform");
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ every 2 (fast 2)
 "#;
 
@@ -442,7 +442,7 @@ fn test_render_sometimes_transform() {
     let test = AudioTest::new("sometimes_transform");
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ sometimes (fast 2)
 "#;
 
@@ -460,7 +460,7 @@ fn test_render_superimpose() {
     let test = AudioTest::new("superimpose");
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn" $ superimpose (fast 2)
 "#;
 
@@ -478,7 +478,7 @@ fn test_render_chunk_transform() {
     let test = AudioTest::new("chunk_transform");
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ chunk 2 (fast 2)
 "#;
 
@@ -496,7 +496,7 @@ fn test_render_within_transform() {
     let test = AudioTest::new("within_transform");
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ within 0.0 0.5 (fast 2)
 "#;
 
@@ -514,7 +514,7 @@ fn test_render_complex_composition() {
     let test = AudioTest::new("complex_composition");
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: s "bd" $ euclid 5 8
 ~snare: s "sn" $ euclid 3 8 $ fast 2
 ~hats: s "hh*8" $ sometimes (fast 2)
@@ -535,7 +535,7 @@ fn test_silence_produces_empty_audio() {
     let test = AudioTest::new("silence");
 
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine 0
 "#;
 
@@ -561,7 +561,7 @@ fn test_euclidean_rhythm_timing() {
     // Should create 3 evenly spaced onsets over 8 steps
     // Expected timing: 0.0s, ~0.167s, ~0.333s per cycle
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" $ euclid 3 8
 "#;
 
@@ -645,7 +645,7 @@ fn test_cycle_stability_and_repetition() {
 
     // Simple repetitive pattern that should be stable across cycles
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine 440 * 0.3
 "#;
 
@@ -680,7 +680,7 @@ fn test_fast_transform_doubles_event_rate() {
     // "bd bd" = 2 events per cycle = 0.25s apart normally
     // With fast 2: 4 events per cycle = 0.125s apart
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd bd" $ fast 2
 "#;
 
@@ -1060,7 +1060,7 @@ fn test_reverb_extends_decay() {
     // Short clap sample with reverb
     // Should have extended tail
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "cp" # reverb 0.5 0.7 0.5
 "#;
 
@@ -1237,7 +1237,7 @@ fn test_polyphonic_simultaneous_samples() {
 
     // 4 simultaneous samples using polyrhythm notation
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "[bd, sn, hh, cp]"
 "#;
 
@@ -1262,7 +1262,7 @@ fn test_rapid_triggering() {
 
     // Very fast hi-hats - 32 per cycle at fast 4 = 128 triggers/cycle
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "hh*32" $ fast 4
 "#;
 
@@ -1283,7 +1283,7 @@ fn test_voice_stability() {
 
     // Complex pattern with many simultaneous events
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~drums: s "[bd bd, sn sn, hh*4, cp]"
 out: ~drums
 "#;
@@ -1308,7 +1308,7 @@ fn test_two_bus_mix() {
 
     // Two separate buses mixed together
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: s "bd"
 ~snare: s "sn"
 out: ~kick * 0.7 + ~snare * 0.3
@@ -1370,7 +1370,7 @@ fn test_bus_through_effects() {
 
     // Dry/wet mix using buses
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~dry: s "bd"
 ~wet: ~dry # reverb 0.5 0.7 0.5
 out: ~dry * 0.5 + ~wet * 0.5
@@ -1393,7 +1393,7 @@ fn test_complex_bus_routing() {
 
     // Multi-stage bus processing
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~bass: saw 55
 ~filtered: ~bass # lpf 800 0.8
 ~affected: ~filtered # distort 0.3 1.0
@@ -1446,7 +1446,7 @@ fn test_sample_through_effects_chain() {
 
     // Sample through multiple effects
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # lpf 1000 0.8 # distort 0.2 1.0
 "#;
 
@@ -1489,7 +1489,7 @@ fn test_mini_notation_repetition() {
 
     // *4 should trigger 4 times per cycle
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd*4"
 "#;
 
@@ -1507,7 +1507,7 @@ fn test_mini_notation_division() {
 
     // /2 should trigger every other cycle
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd/2"
 "#;
 
@@ -1529,7 +1529,7 @@ fn test_mini_notation_polyrhythm() {
 
     // [bd bd bd, sn sn] - 3 against 2
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "[bd bd bd, sn sn]"
 "#;
 
@@ -1547,7 +1547,7 @@ fn test_mini_notation_alternation() {
 
     // <bd sn> - alternates each cycle
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "<bd sn>"
 "#;
 
@@ -1565,7 +1565,7 @@ fn test_mini_notation_rests() {
 
     // ~ represents rest
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd ~ sn ~"
 "#;
 
@@ -1587,7 +1587,7 @@ fn test_mini_notation_nested() {
 
     // Nested structures
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "[bd*2, [sn hh]*2]"
 "#;
 
@@ -1638,7 +1638,7 @@ fn test_many_simultaneous_voices_64() {
 
     // Push voice limit with many simultaneous events
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "[bd,sn,hh,cp,bd,sn,hh,cp,bd,sn,hh,cp,bd,sn,hh,cp]*4"
 "#;
 
@@ -1659,7 +1659,7 @@ fn test_complex_composition_stress() {
 
     // Complex multi-bus pattern with transforms
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~k: s "bd" $ euclid 5 8
 ~s: s "sn" $ euclid 3 8 $ fast 2
 ~h: s "hh*8" $ sometimes (fast 2)
@@ -1708,7 +1708,7 @@ fn test_edge_case_empty_pattern() {
 
     // Empty pattern should produce silence
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s ""
 "#;
 
@@ -1824,7 +1824,7 @@ fn test_edge_case_silence_pattern() {
 
     // Pattern of only rests
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "~ ~ ~ ~"
 "#;
 
@@ -1850,7 +1850,7 @@ fn test_compress_transform_audio() {
 
     // compress squeezes events into portion of cycle
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ compress 0.0 0.5
 "#;
 
@@ -1887,7 +1887,7 @@ fn test_shuffle_transform_audio() {
 
     // shuffle randomizes event order
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ shuffle 0.5
 "#;
 
@@ -1921,7 +1921,7 @@ fn test_spin_transform_audio() {
 
     // spin rotates events
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ spin 4
 "#;
 
@@ -1955,7 +1955,7 @@ fn test_fit_transform_audio() {
 
     // fit adjusts pattern length
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn" $ fit 2
 "#;
 
@@ -1982,7 +1982,7 @@ fn test_scramble_transform_audio() {
 
     // scramble reorders events with seed
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ scramble 42
 "#;
 
@@ -2020,7 +2020,7 @@ fn test_inside_transform_audio() {
 
     // inside applies transform only inside specified range
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ inside 0.25 0.75 (fast 2)
 "#;
 
@@ -2047,7 +2047,7 @@ fn test_outside_transform_audio() {
 
     // outside applies transform outside specified range
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ outside 0.25 0.75 (fast 2)
 "#;
 
@@ -2074,7 +2074,7 @@ fn test_wait_transform_audio() {
 
     // wait delays pattern start
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ wait 0.25
 "#;
 
@@ -2101,7 +2101,7 @@ fn test_focus_transform_audio() {
 
     // focus zooms into portion of pattern
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ focus 0.25 0.75
 "#;
 
@@ -2128,7 +2128,7 @@ fn test_smooth_transform_audio() {
 
     // smooth interpolates numeric patterns
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: saw "110 220 330 440" $ smooth
 "#;
 
@@ -2161,7 +2161,7 @@ fn test_trim_transform_audio() {
 
     // trim removes events outside range
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ trim 0.25 0.75
 "#;
 
@@ -2192,7 +2192,7 @@ fn test_chain_multiple_transforms_audio() {
 
     // Chain multiple transforms together
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ fast 2 $ rev $ euclid 5 8
 "#;
 
@@ -2230,12 +2230,12 @@ fn test_chain_order_independence() {
 
     // Test if order matters for commutative operations
     let code1 = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ fast 2 $ slow 2
 "#;
 
     let code2 = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ slow 2 $ fast 2
 "#;
 
@@ -2272,7 +2272,7 @@ fn test_chain_with_higher_order() {
 
     // Chain with higher-order transform (sometimes)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ fast 2 $ sometimes (fast 4) $ rev
 "#;
 
@@ -2302,7 +2302,7 @@ fn test_chain_structure_and_probability() {
 
     // Mix structural and probabilistic transforms
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ euclid 3 8 $ often (fast 2) $ rev
 "#;
 
@@ -2336,7 +2336,7 @@ fn test_exp_transform_audio() {
 
     // exp applies exponential curve to numeric patterns (LFO modulation)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 0.5 $ exp 2.0
 out: saw 110 # lpf (~lfo * 1000 + 500) 0.8
 "#;
@@ -2368,7 +2368,7 @@ fn test_log_transform_audio() {
 
     // log applies logarithmic curve to numeric patterns (LFO modulation)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 0.5 $ log 2.0
 out: saw 110 # lpf (~lfo * 1000 + 500) 0.8
 "#;
@@ -2400,7 +2400,7 @@ fn test_walk_transform_audio() {
 
     // walk creates random walk through numeric patterns
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 1.0 $ walk 0.5
 out: saw 110 # lpf (~lfo * 1000 + 500) 0.8
 "#;
@@ -2436,7 +2436,7 @@ fn test_reset_transform_audio() {
 
     // reset restarts pattern every N cycles
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ reset 2
 "#;
 
@@ -2468,7 +2468,7 @@ fn test_restart_transform_audio() {
 
     // restart is alias for reset
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ restart 2
 "#;
 
@@ -2500,7 +2500,7 @@ fn test_loopback_transform_audio() {
 
     // loopback applies pattern to its own output recursively
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ loopback 2 (fast 2)
 "#;
 
@@ -2535,7 +2535,7 @@ fn test_binary_transform_audio() {
 
     // binary interprets number as binary pattern (5 = 101 binary)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ binary 5
 "#;
 
@@ -2567,7 +2567,7 @@ fn test_range_transform_audio() {
 
     // range maps numeric pattern to new range
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 1.0 $ range 200 800
 out: saw 110 # lpf ~lfo 0.8
 "#;
@@ -2599,7 +2599,7 @@ fn test_quantize_transform_audio() {
 
     // quantize snaps numeric values to grid
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 1.0 $ quantize 0.25
 out: saw 110 # lpf (~lfo * 1000 + 500) 0.8
 "#;
@@ -2638,7 +2638,7 @@ fn test_offset_transform_audio() {
 
     // offset shifts pattern timing by fraction
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ offset 0.25
 "#;
 
@@ -2670,7 +2670,7 @@ fn test_loop_transform_audio() {
 
     // loop repeats first N cycles
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ loop 2
 "#;
 
@@ -2702,7 +2702,7 @@ fn test_chew_transform_audio() {
 
     // chew repeats pattern elements by count
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ chew 4
 "#;
 
@@ -2734,7 +2734,7 @@ fn test_fastgap_transform_audio() {
 
     // fastGap speeds up pattern and adds gaps
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ fastGap 2 0.5
 "#;
 
@@ -2766,7 +2766,7 @@ fn test_discretise_transform_audio() {
 
     // discretise quantizes event timing to grid
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ discretise 4
 "#;
 
@@ -2801,7 +2801,7 @@ fn test_compressgap_transform_audio() {
 
     // compressGap compresses pattern into time slice with gaps
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ compressGap 0.0 0.5
 "#;
 
@@ -2840,7 +2840,7 @@ fn test_humanize_transform_audio() {
 
     // humanize adds random timing and velocity variation
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ humanize 0.1 0.2
 "#;
 
@@ -2875,7 +2875,7 @@ fn test_euclid_legato_transform_audio() {
 
     // euclid with legato (overlapping events)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ euclid 3 8 $ legato 1.5
 "#;
 
@@ -2911,7 +2911,7 @@ fn test_sometimesby_transform_audio() {
 
     // sometimesBy applies transform with probability
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ sometimesBy 0.5 (fast 2)
 "#;
 
@@ -2946,7 +2946,7 @@ fn test_almostalways_transform_audio() {
 
     // almostAlways applies transform with high probability (0.9)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ almostAlways (fast 2)
 "#;
 
@@ -2981,7 +2981,7 @@ fn test_often_transform_audio() {
 
     // often applies transform with probability 0.75
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ often (fast 2)
 "#;
 
@@ -3013,7 +3013,7 @@ fn test_rarely_transform_audio() {
 
     // rarely applies transform with probability 0.25
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ rarely (fast 2)
 "#;
 
@@ -3049,7 +3049,7 @@ fn test_degradeseed_transform_audio() {
 
     // degradeSeed randomly drops events with seed
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ degradeSeed 0.5 42
 "#;
 
@@ -3080,7 +3080,7 @@ fn test_undegrade_transform_audio() {
 
     // undegrade restores events after degrade
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ degradeSeed 0.5 42 $ undegrade
 "#;
 
@@ -3115,7 +3115,7 @@ fn test_accelerate_transform_audio() {
 
     // accelerate changes sample playback speed
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ accelerate 0.5
 "#;
 

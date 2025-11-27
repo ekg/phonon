@@ -1,7 +1,7 @@
 -- Simple Select/Multiplex Example
 -- Demonstrates the 'select' function for choosing between multiple signals
 
-tempo: 2.0
+tempo: 0.5
 
 -- Create four different frequencies
 ~freq1: sine 220  -- A3

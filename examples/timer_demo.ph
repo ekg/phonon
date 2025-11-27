@@ -3,7 +3,7 @@
 -- Resets to 0 on rising edge, counts up in seconds
 -- Perfect for time-based modulation, envelopes, and sequencing
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Time-based filter sweep
 ~trig1: impulse 2.0

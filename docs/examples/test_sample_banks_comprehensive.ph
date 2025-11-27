@@ -1,4 +1,4 @@
-tempo: 2.0
+tempo: 0.5
 -- Comprehensive test of sample bank selection (colon notation)
 
 -- Multiple BD samples cycling

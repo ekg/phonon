@@ -3,7 +3,7 @@
 -- Opposite of bandpass: rejects a narrow band, passes everything else
 -- Useful for removing hum, feedback, resonances, or unwanted tones
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Remove 60Hz hum
 ~signal1: sine 440 + sine 880

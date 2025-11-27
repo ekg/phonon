@@ -19,7 +19,7 @@ fn test_outmix_gain_mode() {
     // Gain mode: divide by number of channels
     // With 2 channels at 0.5 each, result should be ~0.5 (sum=1.0, /2 = 0.5)
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         outmix: gain
         out1: s "bd ~ bd ~" * 0.5
         out2: s "~ sn ~ sn" * 0.5
@@ -55,7 +55,7 @@ fn test_outmix_sqrt_mode() {
     // Sqrt mode (default): divide by sqrt(num_channels)
     // This preserves perceived loudness better than gain mode
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         outmix: sqrt
         out1: s "bd ~ bd ~" * 0.5
         out2: s "~ sn ~ sn" * 0.5
@@ -90,7 +90,7 @@ fn test_outmix_tanh_mode() {
     // Tanh mode: soft saturation
     // Even with very loud signals, output is clamped smoothly
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         outmix: tanh
         out1: s "bd ~ bd ~" * 2.0
         out2: s "~ sn ~ sn" * 2.0
@@ -128,7 +128,7 @@ fn test_outmix_tanh_mode() {
 fn test_outmix_hard_mode() {
     // Hard mode: brick-wall limiting at ±1.0
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         outmix: hard
         out1: s "bd ~ bd ~" * 2.0
         out2: s "~ sn ~ sn" * 2.0
@@ -167,7 +167,7 @@ fn test_outmix_none_mode() {
     // None mode: no compensation, direct sum
     // This can clip, but users might want it for creative purposes
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         outmix: none
         out1: s "bd ~ bd ~" * 0.3
         out2: s "~ sn ~ sn" * 0.3
@@ -192,7 +192,7 @@ fn test_outmix_none_mode() {
 fn test_outmix_default_is_none() {
     // Default mode should be None (direct sum - like a hardware mixer)
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out1: s "bd ~ bd ~" * 0.5
         out2: s "~ sn ~ sn" * 0.5
     "#;
@@ -214,7 +214,7 @@ fn test_outmix_default_is_none() {
 fn test_outmix_three_channels_gain() {
     // With 3 channels, gain mode divides by 3
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         outmix: gain
         out1: s "bd ~ bd ~" * 0.5
         out2: s "~ sn ~ sn" * 0.5
@@ -246,7 +246,7 @@ fn test_outmix_three_channels_gain() {
 fn test_outmix_three_channels_sqrt() {
     // With 3 channels, sqrt mode divides by sqrt(3) ≈ 1.732
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         outmix: sqrt
         out1: s "bd ~ bd ~" * 0.5
         out2: s "~ sn ~ sn" * 0.5
@@ -282,7 +282,7 @@ fn test_outmix_three_channels_sqrt() {
 fn test_outmix_comparison_gain_vs_sqrt() {
     // Compare gain vs sqrt modes - sqrt should be louder
     let code_base = r#"
-        tempo: 2.0
+        tempo: 0.5
         out1: s "bd ~ bd ~" * 0.5
         out2: s "~ sn ~ sn" * 0.5
     "#;
@@ -322,7 +322,7 @@ fn test_outmix_invalid_mode() {
     // Test that invalid mode names are rejected
     // The parser will accept any identifier, but the compiler should reject invalid modes
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         outmix: invalid_mode
         out1: s "bd ~ bd ~"
     "#;
@@ -342,7 +342,7 @@ fn test_outmix_single_channel_no_effect() {
     // With only one channel, mixing mode shouldn't matter much
     // (except for tanh/hard which always apply)
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         outmix: gain
         out1: s "bd sn hh cp" * 0.8
     "#;
@@ -375,7 +375,7 @@ fn test_channel_independence_with_none_mode() {
 
     // Test with 2 channels
     let input_2ch = r#"
-        tempo: 2.0
+        tempo: 0.5
         outmix: none
         out1: sine 220 * 0.3
         out2: sine 440 * 0.3
@@ -389,7 +389,7 @@ fn test_channel_independence_with_none_mode() {
 
     // Test with 3 channels (same first two, plus a third)
     let input_3ch = r#"
-        tempo: 2.0
+        tempo: 0.5
         outmix: none
         out1: sine 220 * 0.3
         out2: sine 440 * 0.3
@@ -433,7 +433,7 @@ fn test_gain_mode_breaks_independence() {
     // This is a TRADE-OFF: prevent clipping vs. maintain independence
 
     let input_2ch = r#"
-        tempo: 2.0
+        tempo: 0.5
         outmix: gain
         out1: sine 220 * 0.3
         out2: sine 440 * 0.3
@@ -446,7 +446,7 @@ fn test_gain_mode_breaks_independence() {
     let rms_2ch = calculate_rms(&buffer_2ch);
 
     let input_3ch = r#"
-        tempo: 2.0
+        tempo: 0.5
         outmix: gain
         out1: sine 220 * 0.3
         out2: sine 440 * 0.3

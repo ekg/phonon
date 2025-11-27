@@ -189,7 +189,7 @@ out: ~output * 0.3
 #[test]
 fn test_select_pattern_modulation() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 -- Pattern that cycles through indices 0, 1, 2, 3
 ~index: "0 1 2 3"
 ~bus0: sine 220
@@ -262,7 +262,7 @@ out: ~output * 0.3
 #[test]
 fn test_conditional_effect_routing() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 -- Envelope to control routing
 ~env: adsr 0.01 0.1 0.5 0.2
 ~dry: sine 440
@@ -310,7 +310,7 @@ out: ~output * 0.3
 #[test]
 fn test_pattern_bus_selection() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 -- Different tones on different buses (using oscillators instead of samples)
 ~tone1: sine 220
 ~tone2: sine 330

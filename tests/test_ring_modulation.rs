@@ -152,7 +152,7 @@ out: ~ring * 0.5
 #[test]
 fn test_ring_mod_musical_example() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 -- Metallic bell-like tone using ring modulation
 ~carrier: sine 440
 ~mod: sine 333
@@ -202,7 +202,7 @@ out: ~bell * 0.3
 #[test]
 fn test_ring_mod_with_envelope() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~env: ad 0.001 0.1
 ~carrier: sine 880
 ~mod: sine 200
@@ -260,7 +260,7 @@ out: ~ring * 0.3
 #[test]
 fn test_ring_mod_pattern_modulation() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 -- Carrier frequency varies via pattern
 ~carrier_freq: "220 440 330 550"
 ~carrier: sine ~carrier_freq

@@ -456,7 +456,7 @@ fn test_voice_stealing_oldest() {
 #[test]
 fn test_polyphonic_chord_progression() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd*4" # note "c4'maj f4'maj g4'maj c4'maj"
     "#;
 
@@ -471,7 +471,7 @@ fn test_polyphonic_chord_progression() {
 #[test]
 fn test_high_polyphony_performance() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~chords: s "pad*16" # note "c4'maj13"  # 7 notes per trigger
         out: ~chords
     "#;

@@ -42,23 +42,23 @@ fn test_output_channels_sum_correctly_simple() {
 
     // Render each channel individually
     let o1_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 220 * 0.3
     "#;
 
     let o2_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o2: sine 440 * 0.3
     "#;
 
     let o3_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o3: sine 880 * 0.3
     "#;
 
     // Render all together
     let all_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 220 * 0.3
         o2: sine 440 * 0.3
         o3: sine 880 * 0.3

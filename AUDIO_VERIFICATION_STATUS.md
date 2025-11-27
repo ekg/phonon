@@ -159,7 +159,7 @@ Add frequency verification to EVERY oscillator test:
 #[test]
 fn test_sine_constant_frequency() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: sine 440 * 0.2
 "#;
 
@@ -203,7 +203,7 @@ Add onset detection:
 #[test]
 fn test_euclidean_3_8_kick() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "(3,8,bd)" * 0.8
 "#;
 
@@ -247,7 +247,7 @@ Add pattern modulation verification:
 #[test]
 fn test_pattern_controls_filter_cutoff() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~cutoff: "500 1000 1500 2000"
 ~bass: saw 55 # lpf ~cutoff 0.8
 out: ~bass * 0.3

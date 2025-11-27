@@ -7,7 +7,7 @@ Transform MIDI recording from "capture and paste" into a complete **punch-in rec
 ## Target Workflow
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Connect MIDI device (Alt+M)
 # MIDI plays through in real-time via ~midi1 bus
@@ -84,7 +84,7 @@ if let MidiMessageType::NoteOn { note, velocity } = event.message_type {
 
 #### Example Usage
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # All MIDI channels mixed
 ~all: ~midi # saw 440

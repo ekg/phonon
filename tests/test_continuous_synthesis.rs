@@ -9,7 +9,7 @@ fn test_bus_triggered_synth_continuous_generation() {
 
     // Synth bus with long attack/release that crosses buffer boundaries
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~synth: sine 440
 ~trig: s "~synth"
 out: ~trig
@@ -114,7 +114,7 @@ fn test_synth_phase_continuity_across_buffers() {
 
     // Continuous sine tone triggered by pattern
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~synth: sine 440
 ~trig: s "~synth"
 out: ~trig
@@ -178,7 +178,7 @@ fn test_user_case_no_clicking() {
 
     // User's exact case (simplified)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~s: sine 440
 ~c: s "~s(<7 7 6 10>,11,2)" # note "c3'maj" # gain 1
 out: ~c

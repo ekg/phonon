@@ -1,7 +1,7 @@
 -- Stack operation demo - Per-voice gain control
 -- This demonstrates THE KEY feature for controlling individual voices
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Stack oscillators with different gains
 ~low: sine 110 * 0.3

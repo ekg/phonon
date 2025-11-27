@@ -302,7 +302,7 @@ fn test_pattern_modulating_every_transform() {
 fn test_complex_pattern_modulation_scenario() {
     // Real-world scenario: evolving drum pattern
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
 
         -- Speed patterns that evolve over time
         %kick_speed: "1 2 1 4"

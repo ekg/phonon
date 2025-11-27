@@ -803,7 +803,7 @@ impl CompilerContext {
 #[test]
 fn test_sine_oscillator_block() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine 440
     "#;
 
@@ -822,7 +822,7 @@ fn test_sine_oscillator_block() {
 #[test]
 fn test_sample_trigger_timing_block() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd*4"
     "#;
 
@@ -843,7 +843,7 @@ fn test_sample_trigger_timing_block() {
 #[test]
 fn test_block_vs_sample_equivalence() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         out: saw 110 # lpf (~lfo * 1000 + 500) 0.8
     "#;
@@ -867,7 +867,7 @@ fn test_block_vs_sample_equivalence() {
 #[test]
 fn bench_complex_fx_chain() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~drums: s "bd*8 sn*8 hh*16 cp*4"
         ~drums_verb: ~drums # reverb 0.5 0.8
         ~drums_delay: ~drums # delay 0.25 0.6
@@ -930,7 +930,7 @@ impl UnifiedSignalGraph {
 #[test]
 fn test_parallel_fx_chains() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~input: s "bd*8"
 
         -- Four independent FX chains (can run in parallel)
@@ -972,7 +972,7 @@ fn test_parallel_fx_chains() {
 #[test]
 fn test_full_core_utilization() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
 
         -- 16 independent oscillators (one per core)
         ~osc1: sine 110 # lpf 500 0.8

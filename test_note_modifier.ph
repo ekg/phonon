@@ -1,4 +1,4 @@
-tempo: 2.0
+tempo: 0.5
 
 -- Test note modifier (pitch shift in semitones)
 -- This should play the same sample at different pitches

@@ -8,7 +8,7 @@ use phonon::compositional_parser::parse_program;
 #[test]
 fn test_superkick_basic() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: superkick 60
 "#;
 
@@ -30,7 +30,7 @@ out: superkick 60
 #[test]
 fn test_superkick_with_params() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: superkick 60 0.8 0.4 0.2
 "#;
 
@@ -49,7 +49,7 @@ out: superkick 60 0.8 0.4 0.2
 #[test]
 fn test_supersaw_basic() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: supersaw 220
 "#;
 
@@ -69,7 +69,7 @@ out: supersaw 220
 #[test]
 fn test_supersaw_with_params() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: supersaw 110 0.5 5
 "#;
 
@@ -88,7 +88,7 @@ out: supersaw 110 0.5 5
 #[test]
 fn test_superpwm_basic() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: superpwm 110
 "#;
 
@@ -107,7 +107,7 @@ out: superpwm 110
 #[test]
 fn test_superchip_basic() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: superchip 440
 "#;
 
@@ -126,7 +126,7 @@ out: superchip 440
 #[test]
 fn test_superfm_basic() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: superfm 440
 "#;
 
@@ -143,7 +143,7 @@ out: superfm 440
 #[test]
 fn test_superfm_with_params() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: superfm 440 2.0 1.0
 "#;
 
@@ -162,7 +162,7 @@ out: superfm 440 2.0 1.0
 #[test]
 fn test_supersnare_basic() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: supersnare 200
 "#;
 
@@ -181,7 +181,7 @@ out: supersnare 200
 #[test]
 fn test_superhat_basic() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: superhat 0.7 0.05
 "#;
 
@@ -200,7 +200,7 @@ out: superhat 0.7 0.05
 #[test]
 fn test_synths_in_bus() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: superkick 60
 ~bass: supersaw 55
 out: ~kick * 0.5 + ~bass * 0.3
@@ -219,7 +219,7 @@ out: ~kick * 0.5 + ~bass * 0.3
 #[test]
 fn test_synth_through_filter() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: supersaw 110 # lpf 2000 0.8
 "#;
 
@@ -236,7 +236,7 @@ out: supersaw 110 # lpf 2000 0.8
 #[test]
 fn test_synth_through_effects_chain() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: supersaw 110 0.5 5 # distortion 2.0 0.3 # reverb 0.5 0.5 0.2
 "#;
 
@@ -255,7 +255,7 @@ out: supersaw 110 0.5 5 # distortion 2.0 0.3 # reverb 0.5 0.5 0.2
 #[test]
 fn test_synth_with_pattern_freq() {
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~freq: "110 220 440"
 out: supersaw ~freq
 "#;
@@ -274,7 +274,7 @@ out: supersaw ~freq
 fn test_drum_kit() {
     // Real drum kit using SuperDirt synths
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: superkick 60 0.5 0.3 0.1
 ~snare: supersnare 200 0.8 0.15
 ~hat: superhat 0.7 0.05

@@ -1,7 +1,7 @@
 -- Karplus-Strong Physical Modeling Demo
 -- Realistic plucked string synthesis using delay line + lowpass filter
 
-tempo: 2.0
+tempo: 0.5
 
 -- SYNTAX: pluck frequency [damping]
 -- frequency: pitch in Hz (or pattern)

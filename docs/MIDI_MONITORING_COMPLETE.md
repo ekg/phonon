@@ -110,7 +110,7 @@ fn midi_note_to_freq(note: u8) -> f32 {
 
 ### Basic MIDI Monitoring
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- All MIDI channels
 out: saw ~midi
@@ -118,7 +118,7 @@ out: saw ~midi
 
 ### Multi-channel Setup
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 ~piano: saw ~midi1 # adsr 0.01 0.1 0.7 0.2
 ~bass: square ~midi2 # lpf 500 0.7
@@ -129,7 +129,7 @@ out: ~piano * 0.5 + ~bass * 0.3 + ~lead * 0.2
 
 ### Recording Workflow
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- 1. Connect MIDI: Alt+M
 -- 2. Hear real-time: saw ~midi

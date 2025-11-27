@@ -2,7 +2,7 @@
 -- Equal-power panning: constant perceived loudness across stereo field
 -- Position: -1.0 = hard left, 0.0 = center, 1.0 = hard right
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Static hard left panning
 ~bass: saw 55 * 0.3

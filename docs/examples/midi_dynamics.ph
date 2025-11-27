@@ -2,7 +2,7 @@
 #
 # Demonstrates velocity-controlled gain for expressive performance
 
-tempo: 2.0
+tempo: 0.5
 
 # Example recorded pattern (record your own with Alt+R, Alt+I, Alt+V):
 ~melody: n "c4 d4 e4 f4 g4 a4 g4 f4"

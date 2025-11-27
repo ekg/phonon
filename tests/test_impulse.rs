@@ -220,7 +220,7 @@ out: impulse 5.0
 #[test]
 fn test_impulse_with_tone() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~pulse: impulse 2.0
 ~tone: sine 440
 out: ~tone * ~pulse
@@ -275,7 +275,7 @@ out: impulse ~freq_pattern
 #[test]
 fn test_impulse_clock() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~clock: impulse 8.0
 ~bass: sine 55
 ~kick: ~bass * ~clock

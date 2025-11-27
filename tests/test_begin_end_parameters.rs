@@ -46,7 +46,7 @@ fn test_begin_start_at_beginning() {
 
     // LEVEL 2 & 3: Audio verification
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # begin 0.0
 "#;
 
@@ -62,7 +62,7 @@ out: s "bd" # begin 0.0
 fn test_begin_skip_start() {
     // Test that begin 0.5 skips first half of sample and still produces audio
     let begin_half_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # begin 0.5
 "#;
 
@@ -81,7 +81,7 @@ out: s "bd" # begin 0.5
 fn test_end_full_sample() {
     // Test that end 1.0 plays full sample
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # end 1.0
 "#;
 
@@ -97,7 +97,7 @@ out: s "bd" # end 1.0
 fn test_end_truncate_sample() {
     // Test that end 0.5 plays only first half and produces audio
     let end_half_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # end 0.5
 "#;
 
@@ -116,7 +116,7 @@ out: s "bd" # end 0.5
 fn test_begin_and_end_combined() {
     // Test slicing middle portion of sample with both begin and end
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # begin 0.25 # end 0.75
 "#;
 
@@ -132,7 +132,7 @@ out: s "bd" # begin 0.25 # end 0.75
 fn test_begin_end_pattern_based() {
     // Test pattern-based begin/end values
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd*4" # begin "0 0.25 0.5 0.75"
 "#;
 
@@ -148,7 +148,7 @@ out: s "bd*4" # begin "0 0.25 0.5 0.75"
 fn test_begin_end_extremes() {
     // Test that begin/end values are clamped properly
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd*3" # begin "-1 0 2" # end "0.5 1 3"
 "#;
 
@@ -164,7 +164,7 @@ out: s "bd*3" # begin "-1 0 2" # end "0.5 1 3"
 fn test_begin_larger_than_end() {
     // Test edge case where begin > end (should produce minimal or no sound)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # begin 0.8 # end 0.2
 "#;
 

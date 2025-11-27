@@ -189,7 +189,7 @@ out: xline 100.0 10.0 1.0
 #[test]
 fn test_xline_pitch_glide() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~pitch: xline 880.0 110.0 1.0
 ~tone: sine ~pitch
 out: ~tone * 0.3
@@ -215,7 +215,7 @@ out: ~tone * 0.3
 #[test]
 fn test_xline_fade_out() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~amplitude: xline 1.0 0.001 1.0
 ~tone: sine 440
 out: ~tone * ~amplitude
@@ -278,7 +278,7 @@ out: ~envelope
 #[test]
 fn test_xline_filter_sweep() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~cutoff: xline 8000.0 200.0 1.0
 ~source: saw 110
 ~filtered: ~source # lpf ~cutoff 0.8

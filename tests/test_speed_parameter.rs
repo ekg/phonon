@@ -51,7 +51,7 @@ fn test_speed_forward_playback() {
 
     // LEVEL 2 & 3: Audio verification
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd"
 "#;
 
@@ -69,7 +69,7 @@ out: s "bd"
 fn test_speed_double_playback() {
     // Test that speed 2.0 plays twice as fast
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # speed 2.0
 "#;
 
@@ -90,7 +90,7 @@ out: s "bd" # speed 2.0
 fn test_speed_reverse_playback() {
     // Test that negative speed enables reverse playback
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # speed -1.0
 "#;
 
@@ -111,17 +111,17 @@ out: s "bd" # speed -1.0
 fn test_speed_comparison() {
     // Compare normal vs fast vs reverse
     let normal_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd"
 "#;
 
     let fast_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # speed 2.0
 "#;
 
     let reverse_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # speed -1.0
 "#;
 
@@ -149,7 +149,7 @@ out: s "bd" # speed -1.0
 fn test_speed_half_playback() {
     // Test that speed 0.5 plays at half speed (pitch down)
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" # speed 0.5
 "#;
 
@@ -166,7 +166,7 @@ out: s "bd" # speed 0.5
 fn test_speed_pattern_based() {
     // Test pattern-based speed values
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd*4" # speed "1 2 0.5 -1"
 "#;
 

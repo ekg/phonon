@@ -103,7 +103,7 @@ fn test_lowpass_all_parameters_accept_patterns() {
 
     // Test 1: Constant parameters (baseline)
     let constant_audio = render_dsl(r#"
-        tempo: 2.0
+        tempo: 0.5
         ~saw: saw 110
         out: ~saw # lpf 1000 0.8
     "#, 4);
@@ -111,7 +111,7 @@ fn test_lowpass_all_parameters_accept_patterns() {
 
     // Test 2: Pattern string on cutoff
     let pattern_cutoff = render_dsl(r#"
-        tempo: 2.0
+        tempo: 0.5
         ~saw: saw 110
         out: ~saw # lpf "500 1000 2000" 0.8
     "#, 4);
@@ -123,7 +123,7 @@ fn test_lowpass_all_parameters_accept_patterns() {
 
     // Test 3: Bus reference on cutoff (audio-rate modulation)
     let bus_cutoff = render_dsl(r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~saw: saw 110
         out: ~saw # lpf (~lfo * 1000 + 500) 0.8
@@ -134,7 +134,7 @@ fn test_lowpass_all_parameters_accept_patterns() {
 
     // Test 4: Pattern string on Q
     let pattern_q = render_dsl(r#"
-        tempo: 2.0
+        tempo: 0.5
         ~saw: saw 110
         out: ~saw # lpf 1000 "0.5 2.0 5.0"
     "#, 4);
@@ -145,7 +145,7 @@ fn test_lowpass_all_parameters_accept_patterns() {
 
     // Test 5: Both parameters modulated simultaneously
     let both_modulated = render_dsl(r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo1: sine 0.25
         ~lfo2: sine 0.33
         ~saw: saw 110

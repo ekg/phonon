@@ -206,7 +206,7 @@ out2: pan2_r ~input -0.5
 #[test]
 fn test_pan2_musical_example() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~bass: saw 55 * 0.3
 ~bass_left: pan2_l ~bass -0.8
 ~bass_right: pan2_r ~bass -0.8
@@ -251,7 +251,7 @@ out2: ~bass_right + ~lead_right
 #[test]
 fn test_pan2_pattern_modulation() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~pan_pattern: "-1.0 0.0 1.0"
 ~input: sine 440 * 0.5
 out1: pan2_l ~input ~pan_pattern

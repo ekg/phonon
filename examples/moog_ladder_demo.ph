@@ -1,7 +1,7 @@
 -- Moog Ladder Filter Demonstration
 -- Classic 4-pole 24dB/octave lowpass with resonance
 
-tempo: 2.0
+tempo: 0.5
 
 -- Classic Moog bass sound (low cutoff, high resonance)
 ~bass: saw 55

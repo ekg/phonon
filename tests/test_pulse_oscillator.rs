@@ -62,7 +62,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_pulse_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pulse 440 0.5
     "#;
 
@@ -74,7 +74,7 @@ fn test_pulse_compiles() {
 #[test]
 fn test_pulse_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pulse 440 0.5 * 0.3
     "#;
 
@@ -91,7 +91,7 @@ fn test_pulse_generates_audio() {
 fn test_pulse_width_50_is_square() {
     // Width = 0.5 should produce square wave (only odd harmonics)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pulse 440 0.5 * 0.3
     "#;
 
@@ -117,7 +117,7 @@ fn test_pulse_width_50_is_square() {
 fn test_pulse_width_narrow() {
     // Narrow pulse (width = 0.1) creates brighter sound
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pulse 440 0.1 * 0.3
     "#;
 
@@ -132,7 +132,7 @@ fn test_pulse_width_narrow() {
 fn test_pulse_width_wide() {
     // Wide pulse (width = 0.9) creates different timbre
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pulse 440 0.9 * 0.3
     "#;
 
@@ -149,7 +149,7 @@ fn test_pulse_width_wide() {
 fn test_pwm_slow_modulation() {
     // Slow PWM creates chorusing effect
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~width: sine 0.5 * 0.2 + 0.5
         o1: pulse 440 ~width * 0.3
     "#;
@@ -165,7 +165,7 @@ fn test_pwm_slow_modulation() {
 fn test_pwm_fast_modulation() {
     // Fast PWM creates complex timbre
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~width: sine 4 * 0.25 + 0.5
         o1: pulse 440 ~width * 0.3
     "#;
@@ -183,7 +183,7 @@ fn test_pwm_fast_modulation() {
 fn test_pulse_bass() {
     // Classic analog bass sound: square wave with envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: adsr 0.01 0.1 0.5 0.2
         o1: pulse 55 0.5 * ~env * 0.4
     "#;
@@ -216,7 +216,7 @@ fn test_pulse_pad() {
 fn test_pulse_lead() {
     // Lead synth: narrow pulse, fast attack
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: adsr 0.001 0.05 0.7 0.1
         o1: pulse 440 0.3 * ~env * 0.4
     "#;
@@ -233,7 +233,7 @@ fn test_pulse_lead() {
 #[test]
 fn test_pulse_pattern_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~freq: sine 1 * 50 + 220
         o1: pulse ~freq 0.5 * 0.3
     "#;
@@ -251,7 +251,7 @@ fn test_pulse_pattern_frequency() {
 #[test]
 fn test_pulse_pattern_width() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~width_pat: sine 2 * 0.3 + 0.5
         o1: pulse 440 ~width_pat * 0.3
     "#;
@@ -272,7 +272,7 @@ fn test_pulse_pattern_width() {
 fn test_pulse_lowpass_filter() {
     // Lowpassed pulse creates mellower sound
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: pulse 220 0.5 # rlpf 1000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -288,7 +288,7 @@ fn test_pulse_lowpass_filter() {
 fn test_pulse_resonant_filter() {
     // Pulse through resonant filter
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: adsr 0.01 0.2 0.3 0.2
         ~cutoff: ~env * 3000 + 200
         ~synth: pulse 110 0.5 # rlpf ~cutoff 8.0
@@ -308,7 +308,7 @@ fn test_pulse_resonant_filter() {
 fn test_pulse_very_narrow() {
     // Very narrow pulse (width = 0.01)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pulse 440 0.01 * 0.3
     "#;
 
@@ -323,7 +323,7 @@ fn test_pulse_very_narrow() {
 fn test_pulse_very_wide() {
     // Very wide pulse (width = 0.99)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pulse 440 0.99 * 0.3
     "#;
 
@@ -337,7 +337,7 @@ fn test_pulse_very_wide() {
 #[test]
 fn test_pulse_low_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pulse 55 0.5 * 0.3
     "#;
 
@@ -351,7 +351,7 @@ fn test_pulse_low_frequency() {
 #[test]
 fn test_pulse_high_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: pulse 4000 0.5 * 0.3
     "#;
 

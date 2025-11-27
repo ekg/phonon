@@ -1,7 +1,7 @@
 -- AD (Attack-Decay) Envelope Demonstration
 -- Perfect for percussive sounds - attack then decay to silence
 
-tempo: 2.0
+tempo: 0.5
 
 -- Classic kick drum: quick attack, medium decay on low sine
 ~kick_env: ad 0.005 0.15

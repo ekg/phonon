@@ -7,7 +7,7 @@ fn test_n_modifier_sample_selection() {
 
     // Test DSL code using n modifier to select specific samples
     let phonon_code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- Select specific bd samples using n modifier
 -- bd:0 is first sample, bd:1 is second, etc.
@@ -65,7 +65,7 @@ fn test_n_modifier_with_patterns() {
     println!("Testing n modifier with complex patterns...");
 
     let phonon_code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- Use n to sequence through samples
 out: s "bd*4" # n "0 1 2 3"
@@ -112,7 +112,7 @@ fn test_n_modifier_constant() {
     println!("Testing n modifier with constant value...");
 
     let phonon_code = r#"
-tempo: 2.0
+tempo: 0.5
 
 -- Select bd:2 (third sample) for all triggers
 out: s "bd*4" # n 2

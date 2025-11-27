@@ -174,7 +174,7 @@ User Code: sine (sine 5 * 220 + 440)
 
 **LFO Vibrato**:
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 5                              -- 5 Hz LFO
 ~vibrato: sine (~lfo * 10 + 440)          -- ±10 Hz vibrato around 440 Hz
 out: ~vibrato
@@ -190,7 +190,7 @@ out: ~sweep
 
 **Rhythmic Pattern Modulation**:
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~rhythm: s "bd*8"
 ~filtered: ~rhythm # lpf "500 1000 2000 4000 500 1000 2000 4000" 0.8
 out: ~filtered
@@ -198,7 +198,7 @@ out: ~filtered
 
 **Breathing Distortion**:
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~lfo: sine 1.0                            -- 1 Hz breathing
 ~drive: ~lfo * 3.0 + 4.0                  -- Drive 1.0 to 7.0
 ~distorted: saw 110 # dist ~drive

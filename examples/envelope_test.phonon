@@ -1,7 +1,7 @@
 -- Per-Event Envelope Testing
 -- Tests the new syntax: s "bd sn" # segments "0 1 0" "0.1 0.2"
 
-tempo: 2.0
+tempo: 0.5
 
 -- Test 1: Segments envelope on samples
 ~segments_test: s "bd sn" # segments "0 1 0" "0.1 0.2"

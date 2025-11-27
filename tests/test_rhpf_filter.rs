@@ -60,7 +60,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_rhpf_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 440 # rhpf 1000 2.0
         o1: ~filtered
     "#;
@@ -73,7 +73,7 @@ fn test_rhpf_compiles() {
 #[test]
 fn test_rhpf_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 2000 # rhpf 1000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -91,13 +91,13 @@ fn test_rhpf_generates_audio() {
 fn test_rhpf_passes_high_frequencies() {
     // Sine at 4000Hz through 1000Hz RHPF should pass mostly unaffected
     let code_filtered = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 4000 # rhpf 1000 1.0
         o1: ~filtered * 0.3
     "#;
 
     let code_unfiltered = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 4000 * 0.3
     "#;
 
@@ -120,13 +120,13 @@ fn test_rhpf_passes_high_frequencies() {
 fn test_rhpf_attenuates_low_frequencies() {
     // Sine at 200Hz through 1000Hz RHPF should be heavily attenuated
     let code_filtered = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 200 # rhpf 1000 1.0
         o1: ~filtered * 0.3
     "#;
 
     let code_unfiltered = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 200 * 0.3
     "#;
 
@@ -149,7 +149,7 @@ fn test_rhpf_attenuates_low_frequencies() {
 fn test_rhpf_frequency_response_curve() {
     // Test RHPF response across frequency spectrum using white noise
     let code_filtered = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rhpf 1000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -185,7 +185,7 @@ fn test_rhpf_frequency_response_curve() {
 fn test_rhpf_low_resonance() {
     // Low resonance = gentle rolloff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rhpf 1000 0.5
         o1: ~filtered * 0.3
     "#;
@@ -201,7 +201,7 @@ fn test_rhpf_low_resonance() {
 fn test_rhpf_high_resonance() {
     // High resonance = sharp peak at cutoff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rhpf 1000 8.0
         o1: ~filtered * 0.3
     "#;
@@ -233,13 +233,13 @@ fn test_rhpf_high_resonance() {
 fn test_rhpf_resonance_comparison() {
     // High resonance should emphasize cutoff more than low resonance
     let code_low = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rhpf 1000 1.0
         o1: ~filtered * 0.3
     "#;
 
     let code_high = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rhpf 1000 6.0
         o1: ~filtered * 0.3
     "#;
@@ -276,7 +276,7 @@ fn test_rhpf_resonance_comparison() {
 #[test]
 fn test_rhpf_cutoff_500() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rhpf 500 2.0
         o1: ~filtered * 0.3
     "#;
@@ -306,7 +306,7 @@ fn test_rhpf_cutoff_500() {
 #[test]
 fn test_rhpf_cutoff_2000() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rhpf 2000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -337,7 +337,7 @@ fn test_rhpf_cutoff_2000() {
 fn test_rhpf_cutoff_100() {
     // Very low cutoff - should pass most audio (only removing sub-bass)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rhpf 100 2.0
         o1: ~filtered * 0.3
     "#;
@@ -358,7 +358,7 @@ fn test_rhpf_cutoff_100() {
 fn test_rhpf_remove_bass() {
     // Remove bass frequencies
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: saw 110 # rhpf 400 2.0
         o1: ~filtered * 0.3
     "#;
@@ -374,7 +374,7 @@ fn test_rhpf_remove_bass() {
 fn test_rhpf_air_and_brightness() {
     // Add air and brightness to signal
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~bright: white_noise # rhpf 8000 3.0
         o1: ~bright * 0.3
     "#;
@@ -390,7 +390,7 @@ fn test_rhpf_air_and_brightness() {
 fn test_rhpf_resonant_highs() {
     // Resonant high frequencies
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.2
         ~highs: saw 220 # rhpf 2000 8.0
         o1: ~highs * ~env * 0.3
@@ -407,7 +407,7 @@ fn test_rhpf_resonant_highs() {
 fn test_rhpf_thin_sound() {
     // Thin/hollow sound by removing lows
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~thin: square 440 # rhpf 1000 2.0
         o1: ~thin * 0.3
     "#;
@@ -423,7 +423,7 @@ fn test_rhpf_thin_sound() {
 fn test_rhpf_resonant_sweep() {
     // Upward filter sweep
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~sweep: line 200 3000
         ~synth: saw 110 # rhpf ~sweep 6.0
         o1: ~synth * 0.3
@@ -442,7 +442,7 @@ fn test_rhpf_resonant_sweep() {
 fn test_rhpf_pattern_cutoff() {
     // Cutoff modulated by LFO
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5 * 1000 + 1500
         ~synth: saw 110 # rhpf ~lfo 3.0
         o1: ~synth * 0.3
@@ -462,7 +462,7 @@ fn test_rhpf_pattern_cutoff() {
 fn test_rhpf_pattern_resonance() {
     // Resonance modulated by envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.3
         ~res: ~env * 8.0 + 2.0
         ~synth: saw 110 # rhpf 1500 ~res
@@ -485,7 +485,7 @@ fn test_rhpf_pattern_resonance() {
 fn test_rhpf_cascade() {
     // Two RHPFs in series create steeper rolloff
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rhpf 1000 2.0 # rhpf 1000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -518,7 +518,7 @@ fn test_rhpf_cascade() {
 fn test_rhpf_lpf_bandpass() {
     // RHPF + RLPF creates bandpass effect
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~bandpass: white_noise # rhpf 500 2.0 # rlpf 2000 2.0
         o1: ~bandpass * 0.3
     "#;
@@ -552,7 +552,7 @@ fn test_rhpf_lpf_bandpass() {
 #[test]
 fn test_rhpf_no_excessive_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 2000 # rhpf 1000 2.0
         o1: ~filtered * 0.5
     "#;
@@ -570,7 +570,7 @@ fn test_rhpf_no_excessive_clipping() {
 #[test]
 fn test_rhpf_consistent_output() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 2000 # rhpf 1000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -598,7 +598,7 @@ fn test_rhpf_consistent_output() {
 fn test_rhpf_no_dc_offset() {
     // RHPF should not introduce DC offset
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: sine 2000 # rhpf 1000 2.0
         o1: ~filtered * 0.3
     "#;
@@ -619,7 +619,7 @@ fn test_rhpf_no_dc_offset() {
 fn test_rhpf_very_low_cutoff() {
     // Very low cutoff passes almost everything
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise # rhpf 50 2.0
         o1: ~filtered * 0.3
     "#;
@@ -639,7 +639,7 @@ fn test_rhpf_very_low_cutoff() {
 fn test_rhpf_self_oscillation() {
     // Very high resonance can cause self-oscillation
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: white_noise * 0.01 # rhpf 1000 20.0
         o1: ~filtered * 0.3
     "#;

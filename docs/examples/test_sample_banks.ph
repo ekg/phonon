@@ -1,4 +1,4 @@
-tempo: 2.0
+tempo: 0.5
 -- Test sample bank selection with colon notation
 
 -- Play different BD samples

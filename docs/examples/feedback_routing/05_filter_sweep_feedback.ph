@@ -2,7 +2,7 @@
 -- LFO-modulated filter combined with delay feedback
 -- Creates evolving, rhythmic textures
 
-tempo: 2.0
+tempo: 0.5
 
 -- Source signal
 ~source: saw 110 * 0.5

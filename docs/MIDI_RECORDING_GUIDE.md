@@ -35,7 +35,7 @@ This guide demonstrates how to use MIDI recording in Phonon's live editor.
 ### Example 1: Simple Melody with Dynamics
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Record a melody (Alt+R, play notes, Alt+R)
 # Then insert with Alt+I
@@ -53,7 +53,7 @@ out: ~melody # gain ~vel
 If you record over 2 cycles, use `$ slow 2` to fit it properly:
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Recorded over 2 cycles: 8 notes
 ~long_melody: n "c4 d4 e4 f4 g4 a4 b4 c5" $ slow 2
@@ -69,7 +69,7 @@ out: ~long_melody # gain ~dynamics
 Using n-offsets lets you easily transpose patterns:
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Base note and intervals recorded with Alt+N
 # Base: C4, pattern: C-E-G-C (0, 4, 7, 12)
@@ -84,7 +84,7 @@ out: ~intervals # adsr 0.01 0.1 0.7 0.2
 ### Example 4: Hi-Hat with Accents
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Record hi-hat pattern with accents (hit harder on 1 and 3)
 # Use velocity to control gain

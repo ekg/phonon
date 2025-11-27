@@ -11,7 +11,7 @@ use phonon::compositional_parser::parse_program;
 fn test_compile_string_pattern() {
     // Test that a simple string pattern compiles successfully
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn"
 "#;
 
@@ -30,7 +30,7 @@ out: "bd sn"
 fn test_compile_pattern_with_transform() {
     // Test that a pattern with transform compiles successfully
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn" $ fast 2
 "#;
 
@@ -49,7 +49,7 @@ out: "bd sn" $ fast 2
 fn test_compile_s_function() {
     // Test that the s function compiles successfully
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp"
 "#;
 
@@ -68,7 +68,7 @@ out: s "bd sn hh cp"
 fn test_compile_s_with_transform() {
     // Test that s function with transform compiles successfully
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn" $ fast 2
 "#;
 
@@ -87,7 +87,7 @@ out: s "bd sn" $ fast 2
 fn test_compile_multiple_transforms() {
     // Test that multiple transforms compile successfully
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: "bd sn" $ fast 2 $ rev
 "#;
 
@@ -106,7 +106,7 @@ out: "bd sn" $ fast 2 $ rev
 fn test_s_function_wrong_arg_count() {
     // Test that s function with wrong number of arguments fails gracefully
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" "sn"
 "#;
 

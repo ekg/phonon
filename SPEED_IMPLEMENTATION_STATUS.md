@@ -95,7 +95,7 @@ To test once debugged:
 ```bash
 # Test normal vs reverse
 cat > /tmp/test.ph << 'EOF'
-tempo: 2.0
+tempo: 0.5
 ~fwd: s "bd" # speed 1.0
 ~rev: s "bd" # speed -1.0
 out: ~fwd + ~rev

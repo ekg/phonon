@@ -1,7 +1,7 @@
 -- Pulse Wave (PWM) Oscillator Demonstration
 -- Variable pulse width creates different harmonic content
 
-tempo: 2.0
+tempo: 0.5
 
 -- Square wave (50% duty cycle - only odd harmonics)
 ~square_env: ad 0.01 0.2

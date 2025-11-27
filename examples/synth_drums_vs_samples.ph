@@ -1,7 +1,7 @@
 -- Synth Drums vs Sample Drums
 -- Compare synthesized drums with sample-based drums
 
-tempo: 2.0
+tempo: 0.5
 
 -- ========== Synthesized Drums ==========
 

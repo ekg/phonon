@@ -68,7 +68,7 @@ fn test_square_hz_level3_frequency_sweep() {
 fn test_square_hz_level3_pattern_control() {
     // Test pattern-controlled frequency (Phonon's killer feature!)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: square_hz "110 165 220 330"
     "#;
     let audio = render_dsl(code, 2.0);
@@ -84,7 +84,7 @@ fn test_square_hz_level3_pattern_control() {
 fn test_square_hz_level3_lfo_modulation() {
     // Test LFO modulation of frequency
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~freq: ~lfo * 100 + 220
         out: square_hz ~freq
@@ -190,7 +190,7 @@ fn test_square_hz_level3_detuned_stack() {
 fn test_square_hz_level3_with_envelope() {
     // Test square with amplitude envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~env: ~lfo * 0.4 + 0.6
         out: square_hz 220 * ~env

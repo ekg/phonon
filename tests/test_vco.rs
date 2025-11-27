@@ -83,7 +83,7 @@ fn find_spectral_peaks(frequencies: &[f32], magnitudes: &[f32], threshold: f32) 
 #[test]
 fn test_vco_saw_constant_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 440 0
     "#;
 
@@ -96,7 +96,7 @@ fn test_vco_saw_constant_frequency() {
 fn test_vco_saw_pattern_frequency() {
     // VCO saw with LFO-modulated frequency (vibrato)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco (sine 5 * 110 + 440) 0
     "#;
 
@@ -110,7 +110,7 @@ fn test_vco_saw_pattern_frequency() {
 #[test]
 fn test_vco_square_constant_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 440 1
     "#;
 
@@ -122,7 +122,7 @@ fn test_vco_square_constant_frequency() {
 #[test]
 fn test_vco_square_pattern_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco (sine 3 * 110 + 220) 1
     "#;
 
@@ -136,7 +136,7 @@ fn test_vco_square_pattern_frequency() {
 #[test]
 fn test_vco_triangle_constant_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 440 2
     "#;
 
@@ -148,7 +148,7 @@ fn test_vco_triangle_constant_frequency() {
 #[test]
 fn test_vco_triangle_pattern_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco (sine 2 * 165 + 330) 2
     "#;
 
@@ -162,7 +162,7 @@ fn test_vco_triangle_pattern_frequency() {
 #[test]
 fn test_vco_sine_constant_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 440 3
     "#;
 
@@ -174,7 +174,7 @@ fn test_vco_sine_constant_frequency() {
 #[test]
 fn test_vco_sine_pattern_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco (sine 4 * 220 + 440) 3
     "#;
 
@@ -189,7 +189,7 @@ fn test_vco_sine_pattern_frequency() {
 fn test_vco_pwm_constant() {
     // Square wave with 25% duty cycle (narrow pulse)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 440 1 0.25
     "#;
 
@@ -202,7 +202,7 @@ fn test_vco_pwm_constant() {
 fn test_vco_pwm_pattern_modulated() {
     // Square wave with LFO-modulated pulse width
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 2 * 0.3 + 0.5
         o1: vco 220 1 ~lfo
     "#;
@@ -216,12 +216,12 @@ fn test_vco_pwm_pattern_modulated() {
 fn test_vco_pwm_affects_spectrum() {
     // Different pulse widths should produce different harmonic content
     let narrow_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 110 1 0.1
     "#;
 
     let wide_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 110 1 0.5
     "#;
 
@@ -252,7 +252,7 @@ fn test_vco_pwm_affects_spectrum() {
 fn test_vco_saw_rich_harmonics() {
     // VCO saw should have rich harmonic content (all harmonics)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 110 0
     "#;
 
@@ -278,7 +278,7 @@ fn test_vco_saw_rich_harmonics() {
 fn test_vco_square_odd_harmonics() {
     // Square wave should have predominantly odd harmonics
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 110 1
     "#;
 
@@ -300,7 +300,7 @@ fn test_vco_square_odd_harmonics() {
 fn test_vco_triangle_soft_harmonics() {
     // Triangle wave should have softer harmonics (falls off faster than square)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 110 2
     "#;
 
@@ -324,7 +324,7 @@ fn test_vco_triangle_soft_harmonics() {
 fn test_vco_sine_pure_tone() {
     // VCO sine should be close to pure tone (minimal harmonics)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 440 3
     "#;
 
@@ -349,7 +349,7 @@ fn test_vco_sine_pure_tone() {
 fn test_vco_band_limited() {
     // VCO should be band-limited (no significant aliasing)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 110 0
     "#;
 
@@ -382,7 +382,7 @@ fn test_vco_band_limited() {
 #[test]
 fn test_vco_no_dc_offset() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 440 0
     "#;
 
@@ -395,7 +395,7 @@ fn test_vco_no_dc_offset() {
 #[test]
 fn test_vco_no_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 110 0
     "#;
 
@@ -408,7 +408,7 @@ fn test_vco_no_clipping() {
 #[test]
 fn test_vco_continuous_output() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 440 1
     "#;
 
@@ -437,12 +437,12 @@ fn test_vco_continuous_output() {
 fn test_vco_saw_vs_basic_saw() {
     // VCO saw should sound similar to basic saw but with band-limiting
     let vco_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 110 0
     "#;
 
     let basic_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 110
     "#;
 
@@ -469,17 +469,17 @@ fn test_vco_saw_vs_basic_saw() {
 fn test_vco_waveform_selection() {
     // Different waveforms should produce different outputs
     let saw_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 220 0
     "#;
 
     let square_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 220 1
     "#;
 
     let triangle_code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: vco 220 2
     "#;
 

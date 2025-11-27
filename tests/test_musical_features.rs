@@ -30,7 +30,7 @@ fn test_sidechain_compression_basic() {
     // Basic sidechain compression - kick ducking bass
     // Threshold in dB: -10dB is typical for sidechain compression
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~kick: sine 55 * 0.8
         ~bass: saw 55 * 0.5
         ~compressed: ~bass # sidechain_compressor ~kick -10.0 4.0 0.01 0.1
@@ -48,7 +48,7 @@ fn test_sidechain_compression_house_track() {
     // Real house music scenario: kick sidechaining bass
     // Threshold in dB: -15dB allows strong kick to duck the bass
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~bass: saw 55 * 0.6
         ~kick: sine 55 * 0.8
         ~ducked_bass: ~bass # sidechain_compressor ~kick -15.0 8.0 0.001 0.2
@@ -67,13 +67,13 @@ fn test_sidechain_creates_pumping() {
     // Verify sidechain actually reduces bass level when kick hits
     // Threshold must be in dB: sine 1.0 = 0dB, sine 0.5 = -6dB, sine 0.1 = -20dB
     let no_sidechain = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~bass: saw 55 * 0.5
         o1: ~bass
     "#;
 
     let with_sidechain = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~bass: saw 55 * 0.5
         ~kick: sine 55 * 0.8
         ~ducked: ~bass # sidechain_compressor ~kick -20.0 10.0 0.001 0.2
@@ -101,7 +101,7 @@ fn test_sidechain_creates_pumping() {
 fn test_delay_with_feedback() {
     // Dub-style delay with feedback
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~input: sine 440 * 0.5
         ~delayed: ~input # delay 0.25 0.6
         o1: ~input * 0.5 + ~delayed * 0.5
@@ -117,12 +117,12 @@ fn test_delay_with_feedback() {
 fn test_delay_creates_echoes() {
     // Verify delay actually creates repeating events
     let no_delay = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 * 0.5
     "#;
 
     let with_delay = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~dry: sine 440 * 0.5
         ~wet: ~dry # delay 0.125 0.5
         o1: ~dry * 0.7 + ~wet * 0.3
@@ -165,7 +165,7 @@ fn test_dub_echo_chain() {
 fn test_major_chord() {
     // C major chord (C-E-G)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~note1: sine 261.63
         ~note2: sine 329.63
         ~note3: sine 392.00
@@ -182,7 +182,7 @@ fn test_major_chord() {
 fn test_minor_chord() {
     // A minor chord (A-C-E)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~note1: sine 220.00
         ~note2: sine 261.63
         ~note3: sine 329.63
@@ -199,7 +199,7 @@ fn test_minor_chord() {
 fn test_seventh_chord() {
     // Dominant 7th chord (G7: G-B-D-F)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~note1: sine 196.00
         ~note2: sine 246.94
         ~note3: sine 293.66
@@ -239,7 +239,7 @@ fn test_house_track_with_sidechain_and_chords() {
     // Complete house track: kick, bass (sidechained), chords
     // Threshold in dB: -15dB for typical house music pumping
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~kick: sine 55 * 0.8
         ~bass: saw 55 * 0.6
         ~ducked_bass: ~bass # sidechain_compressor ~kick -15.0 8.0 0.001 0.2
@@ -257,7 +257,7 @@ fn test_house_track_with_sidechain_and_chords() {
 fn test_melodic_pattern_with_effects() {
     // Melodic pattern with delay and reverb
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~melody: sine 440
         ~with_delay: ~melody # delay 0.125 0.4
         ~with_reverb: ~with_delay # reverb 0.5 0.5 0.3
@@ -274,7 +274,7 @@ fn test_melodic_pattern_with_effects() {
 fn test_vibrato_and_tremolo() {
     // Vibrato (FM) and tremolo (AM) modulation
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~vibrato: sine 5.0 * 10.0 + 440.0
         ~tremolo: sine 4.0 * 0.3 + 0.5
         ~modulated: sine ~vibrato * ~tremolo

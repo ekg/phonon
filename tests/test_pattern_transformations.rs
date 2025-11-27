@@ -169,7 +169,7 @@ fn test_scramble_randomizes_events() {
 fn test_degrade_by_dsl() {
     // Test degradeBy through the DSL
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd*8" $ degradeBy 1.0
 "#;
 
@@ -194,7 +194,7 @@ out: s "bd*8" $ degradeBy 1.0
 fn test_stutter_dsl() {
     // Test stutter through the DSL
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" $ stutter 3
 "#;
 
@@ -215,7 +215,7 @@ out: s "bd" $ stutter 3
 fn test_chop_dsl() {
     // Test chop through the DSL
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd" $ chop 4
 "#;
 
@@ -236,7 +236,7 @@ out: s "bd" $ chop 4
 fn test_scramble_dsl() {
     // Test scramble through the DSL
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ scramble 4
 "#;
 

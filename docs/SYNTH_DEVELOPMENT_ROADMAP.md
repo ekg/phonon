@@ -104,7 +104,7 @@ pub enum Waveform {
 
 **Test:**
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~hh: noise # hpf 8000 2.0 * 0.3
 out: ~hh
 ```
@@ -146,7 +146,7 @@ fn compile_superkick(
 
 **User syntax:**
 ```phonon
-tempo: 2.0
+tempo: 0.5
 ~kick: superkick 50
 ~saw: supersaw 220 0.3 7  # freq, detune, voices
 ~fm: superfm 110 2.0 5.0  # carrier, mod_freq, mod_amount
@@ -203,7 +203,7 @@ pub enum SignalNode {
 
 **What users CAN do today:**
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Build a supersaw by hand (7 detuned oscillators)
 ~freq: 220
@@ -249,7 +249,7 @@ def supersaw(freq, detune, voices):
     return mix(~oscs, 1.0 / voices * 0.7)
 
 # Use it
-tempo: 2.0
+tempo: 0.5
 ~bass: supersaw(55, 0.3, 7) # lpf 400 0.8
 out: ~bass * 0.4
 ```

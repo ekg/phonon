@@ -298,7 +298,7 @@ Looking at the codebase systematically revealed:
 ## Example Usage (Now Working!)
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 # Pattern-valued gain - each event gets its own gain!
 ~drums: s "bd sn hh cp" # gain "1.0 0.5 0.8 0.3"

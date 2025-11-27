@@ -7,14 +7,14 @@ All examples tested and producing audio.
 ### Basic Sample Playback
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s("bd sn hh cp")
 ```
 
 ### Euclidean Rhythms
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s("bd(3,8)")
 ```
 
@@ -30,28 +30,28 @@ out: s("bd(<3 4 5>,8)")
 ### Multiple Patterns
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s("bd sn hh cp cp")
 ```
 
 ### Pattern Repeats
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s("bd*4")
 ```
 
 ### Rests
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s("bd ~ sn ~")
 ```
 
 ### Simple Alternation
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 out: s("<bd sn cp>")
 ```
 
@@ -62,7 +62,7 @@ out: s("<bd sn cp>")
 3. **Quotes around pattern** - `s("bd sn")` NOT `s(bd sn)`
 4. **Spaces in alternation** - `<3 4 5>` NOT `<3,4,5>`
 5. **No comments with #** - Comments break the parser
-6. **Tempo with colon** - `tempo: 2.0`
+6. **Tempo with colon** - `tempo: 0.5`
 
 ## Commands
 

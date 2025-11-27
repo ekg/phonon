@@ -34,10 +34,10 @@ fn measure_decay_time(audio: &[f32], sample_rate: f32, threshold: f32) -> f32 {
 #[test]
 fn test_reverb_increases_decay_time() {
     // Test: Reverb should increase the time it takes for audio to decay
-    let dry = r#"tempo: 2.0
+    let dry = r#"tempo: 0.5
 out: s "bd ~ ~ ~" * 0.5"#; // Single kick
 
-    let wet = r#"tempo: 2.0
+    let wet = r#"tempo: 0.5
 out: s "bd ~ ~ ~" * 0.5 # reverb 0.8 0.7 0.5"#; // With reverb
 
     let audio_dry = compile_and_render(dry, 44100); // 1 second
@@ -64,10 +64,10 @@ out: s "bd ~ ~ ~" * 0.5 # reverb 0.8 0.7 0.5"#; // With reverb
 #[ignore] // TODO: Reverb actually reduces RMS (0.53x) - needs investigation
 fn test_reverb_increases_overall_amplitude() {
     // Test: Reverb adds energy, so RMS should increase
-    let dry = r#"tempo: 2.0
+    let dry = r#"tempo: 0.5
 out: s "bd" * 0.3"#;
 
-    let wet = r#"tempo: 2.0
+    let wet = r#"tempo: 0.5
 out: s "bd" * 0.3 # reverb 0.8 0.7 0.5"#;
 
     let audio_dry = compile_and_render(dry, 44100);
@@ -97,10 +97,10 @@ out: s "bd" * 0.3 # reverb 0.8 0.7 0.5"#;
 #[test]
 fn test_delay_increases_duration() {
     // Test: Delay creates echoes, extending audio duration
-    let dry = r#"tempo: 2.0
+    let dry = r#"tempo: 0.5
 out: s "bd ~ ~ ~" * 0.5"#;
 
-    let wet = r#"tempo: 2.0
+    let wet = r#"tempo: 0.5
 out: s "bd ~ ~ ~" * 0.5 # delay 0.25 0.5 0.8"#; // 250ms delay, 50% feedback
 
     let audio_dry = compile_and_render(dry, 88200); // 2 seconds
@@ -125,10 +125,10 @@ out: s "bd ~ ~ ~" * 0.5 # delay 0.25 0.5 0.8"#; // 250ms delay, 50% feedback
 #[test]
 fn test_delay_increases_amplitude() {
     // Test: Delay adds echoes, increasing overall energy
-    let dry = r#"tempo: 2.0
+    let dry = r#"tempo: 0.5
 out: s "bd" * 0.3"#;
 
-    let wet = r#"tempo: 2.0
+    let wet = r#"tempo: 0.5
 out: s "bd" * 0.3 # delay 0.2 0.5 0.7"#;
 
     let audio_dry = compile_and_render(dry, 44100);
@@ -157,10 +157,10 @@ out: s "bd" * 0.3 # delay 0.2 0.5 0.7"#;
 #[test]
 fn test_chorus_produces_audio() {
     // Test: Chorus should process audio and produce output
-    let dry = r#"tempo: 2.0
+    let dry = r#"tempo: 0.5
 out: saw 110 * 0.3"#;
 
-    let wet = r#"tempo: 2.0
+    let wet = r#"tempo: 0.5
 out: saw 110 * 0.3 # chorus 0.8 0.4 0.5"#;
 
     let audio_dry = compile_and_render(dry, 44100);
@@ -193,10 +193,10 @@ out: saw 110 * 0.3 # chorus 0.8 0.4 0.5"#;
 #[test]
 fn test_lpf_reduces_spectral_centroid() {
     // Test: Low-pass filter should reduce high frequency content
-    let unfiltered = r#"tempo: 2.0
+    let unfiltered = r#"tempo: 0.5
 out: saw 110 * 0.3"#;
 
-    let filtered = r#"tempo: 2.0
+    let filtered = r#"tempo: 0.5
 out: saw 110 >> lpf 500 0.7 * 0.3"#;
 
     let audio_unfiltered = compile_and_render(unfiltered, 44100);
@@ -226,10 +226,10 @@ out: saw 110 >> lpf 500 0.7 * 0.3"#;
 #[test]
 fn test_hpf_increases_spectral_centroid() {
     // Test: High-pass filter should reduce low frequency content
-    let unfiltered = r#"tempo: 2.0
+    let unfiltered = r#"tempo: 0.5
 out: saw 55 * 0.3"#;
 
-    let filtered = r#"tempo: 2.0
+    let filtered = r#"tempo: 0.5
 out: saw 55 >> hpf 200 0.7 * 0.3"#;
 
     let audio_unfiltered = compile_and_render(unfiltered, 44100);
@@ -263,10 +263,10 @@ out: saw 55 >> hpf 200 0.7 * 0.3"#;
 #[test]
 fn test_distortion_increases_harmonics() {
     // Test: Distortion adds harmonics, increasing spectral complexity
-    let clean = r#"tempo: 2.0
+    let clean = r#"tempo: 0.5
 out: saw 110 * 0.2"#;
 
-    let distorted = r#"tempo: 2.0
+    let distorted = r#"tempo: 0.5
 out: saw 110 * 0.2 # distortion 0.8 0.5"#;
 
     let audio_clean = compile_and_render(clean, 44100);
@@ -295,10 +295,10 @@ out: saw 110 * 0.2 # distortion 0.8 0.5"#;
 fn test_compressor_reduces_dynamic_range() {
     // Test: Compressor should reduce the difference between loud and quiet
     // Use a pattern with varying amplitude
-    let uncompressed = r#"tempo: 2.0
+    let uncompressed = r#"tempo: 0.5
 out: s "bd bd bd bd" * 0.5"#;
 
-    let compressed = r#"tempo: 2.0
+    let compressed = r#"tempo: 0.5
 out: s "bd bd bd bd" * 0.5 # compressor 0.5 2.0 0.01 0.1 1.0"#;
 
     let audio_uncompressed = compile_and_render(uncompressed, 44100);
@@ -347,10 +347,10 @@ out: s "bd bd bd bd" * 0.5 # compressor 0.5 2.0 0.01 0.1 1.0"#;
 #[ignore] // TODO: gate() not implemented in compositional_compiler yet
 fn test_gate_reduces_quiet_signals() {
     // Test: Gate should reduce or eliminate quiet sections
-    let ungated = r#"tempo: 2.0
+    let ungated = r#"tempo: 0.5
 out: s "bd ~ bd ~" * 0.2"#;
 
-    let gated = r#"tempo: 2.0
+    let gated = r#"tempo: 0.5
 out: s "bd ~ bd ~" * 0.2 # gate 0.1 2.0"#; // Gate at 0.1
 
     let audio_ungated = compile_and_render(ungated, 44100);

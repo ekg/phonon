@@ -6,7 +6,7 @@
 -- 2. Play notes on your MIDI keyboard
 -- 3. Hear immediate audio response (<10ms latency)
 
-tempo: 2.0
+tempo: 0.5
 
 -- Basic MIDI monitoring: All channels mixed together
 ~piano: saw ~midi

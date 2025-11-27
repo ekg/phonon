@@ -2,7 +2,7 @@
 -- 6dB/octave rolloff (steeper than pink) - very warm, rumbly sound
 -- Also called Brownian noise or red noise
 
-tempo: 2.0
+tempo: 0.5
 
 -- Classic brown noise (reference)
 ~brown: brown_noise * 0.2

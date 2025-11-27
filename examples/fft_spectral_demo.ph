@@ -5,7 +5,7 @@
 -- of an audio signal when triggered. This creates unique
 -- sound design possibilities.
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Basic spectral freeze with trigger pattern
 -- The freeze happens on "x" events, holding the spectrum

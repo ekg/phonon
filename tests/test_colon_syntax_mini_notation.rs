@@ -10,7 +10,7 @@ const SAMPLE_RATE: f32 = 44100.0;
 #[test]
 fn test_colon_syntax_parses() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd:0 bd:1"
 out: ~drums
 "#;
@@ -34,7 +34,7 @@ out: ~drums
 #[test]
 fn test_colon_syntax_produces_audio() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd:0 bd:1 bd:2"
 out: ~drums
 "#;
@@ -58,7 +58,7 @@ out: ~drums
 #[test]
 fn test_colon_with_euclidean() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~drums: s "bd:0(3,8) bd:1(5,8,2)"
 out: ~drums
 "#;
@@ -81,7 +81,7 @@ out: ~drums
 #[test]
 fn test_colon_with_alternation() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~drums: s "<bd:0 bd:1 bd:2>"
 out: ~drums
 "#;
@@ -104,7 +104,7 @@ out: ~drums
 #[test]
 fn test_colon_drum_variations() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: s "bd:0*4"
 ~snare: s "~ sn:1 ~ sn:2"
 ~hats: s "hh:0*8"

@@ -110,7 +110,7 @@ Kick density waves smoothly based on LFO (sine wave at 0.25 Hz).
 ### Complex Techno Pattern
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- Speed and density patterns
 %kick_speed: "1 1 2 4"

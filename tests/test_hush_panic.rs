@@ -83,7 +83,7 @@ fn test_parse_panic() {
 fn test_hush_silences_single_output() {
     // First, create an output with audio
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine 440 * 0.5
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
@@ -112,7 +112,7 @@ fn test_hush_silences_single_output() {
 
     // Better approach: compile everything together
     let full_input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine 440 * 0.5
         hush
     "#;
@@ -135,7 +135,7 @@ fn test_hush_silences_single_output() {
 fn test_hush_channel_silences_specific_channel() {
     // Create two output channels
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out1: sine 440 * 0.5
         out2: sine 880 * 0.5
     "#;
@@ -151,7 +151,7 @@ fn test_hush_channel_silences_specific_channel() {
 
     // Now hush only channel 1
     let hush_input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out1: sine 440 * 0.5
         out2: sine 880 * 0.5
         hush1
@@ -177,7 +177,7 @@ fn test_hush_channel_silences_specific_channel() {
 fn test_hush_all_silences_all_channels() {
     // Create multiple output channels
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out1: sine 440 * 0.5
         out2: sine 880 * 0.5
         out3: sine 1320 * 0.5
@@ -201,7 +201,7 @@ fn test_hush_all_silences_all_channels() {
 fn test_panic_silences_and_kills_voices() {
     // Create output with sample playback (which uses voices)
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd*4" * 0.5
         panic
     "#;
@@ -223,7 +223,7 @@ fn test_panic_silences_and_kills_voices() {
 fn test_panic_with_synth_pattern() {
     // Create output with synth pattern (which uses voices)
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: synth("c4 e4 g4 c5", "saw") * 0.3
         panic
     "#;
@@ -245,7 +245,7 @@ fn test_panic_with_synth_pattern() {
 fn test_multiple_hush_commands() {
     // Test that we can hush multiple channels individually
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out1: sine 440 * 0.5
         out2: sine 880 * 0.5
         out3: sine 1320 * 0.5
@@ -274,7 +274,7 @@ fn test_hush_then_unhush_not_supported() {
     // Once hushed, you need to re-evaluate the pattern to unhush
     // This test verifies that hush is persistent
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out1: sine 440 * 0.5
         hush1
     "#;
@@ -297,7 +297,7 @@ fn test_hush_then_unhush_not_supported() {
 fn test_parse_hush_with_whitespace() {
     // Test that parser handles whitespace correctly
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: sine 440
 
         hush
@@ -312,7 +312,7 @@ fn test_parse_hush_with_whitespace() {
 #[test]
 fn test_parse_panic_with_whitespace() {
     let input = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: s "bd"
 
         panic

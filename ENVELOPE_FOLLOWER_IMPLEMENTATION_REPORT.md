@@ -607,7 +607,7 @@ fn compile_envelope_follower(ctx: &mut CompilerContext, args: Vec<Expr>)
 Then test with Phonon DSL:
 ```phonon
 -- Test sidechain compression
-tempo: 2.0
+tempo: 0.5
 ~kick: s "bd"
 ~bass: sine 55
 ~kick_env: envelope_follower ~kick 0.005 0.3

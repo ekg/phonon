@@ -253,7 +253,7 @@ out: ~phased * 0.5
 #[test]
 fn test_phaser_pattern_modulation() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~rate_lfo: sine 0.1 * 1.0 + 1.0
 ~depth_lfo: sine 0.2 * 0.3 + 0.5
 ~carrier: saw 220
@@ -279,7 +279,7 @@ out: ~phased * 0.5
 #[test]
 fn test_phaser_classic() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~synth: saw 110
 ~phased: ~synth # phaser 0.4 0.7 0.5 4
 out: ~phased * 0.4

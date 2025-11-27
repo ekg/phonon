@@ -168,7 +168,7 @@ Pattern aligned to global cycle boundaries
 
 **Expected Result**:
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 ~drums: s "bd sn hh*4 cp"
 
@@ -183,7 +183,7 @@ out: ~drums * 0.5 + saw ~rec1 * 0.5
 ### Overdubbing Multiple Takes
 
 ```phonon
-tempo: 2.0
+tempo: 0.5
 
 -- Base pattern
 ~drums: s "bd sn hh*4 cp"

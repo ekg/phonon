@@ -33,7 +33,7 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 fn test_ring_basic() {
     // Test basic ring modulation
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 out: saw 220 # ring 440
 "#;
 
@@ -50,7 +50,7 @@ fn test_ring_different_frequencies() {
     for freq in [100.0, 440.0, 1000.0] {
         let code = format!(
             r#"
-tempo: 2.0
+tempo: 0.5
 out: square 220 # ring {}
 "#,
             freq
@@ -73,12 +73,12 @@ out: square 220 # ring {}
 fn test_ring_changes_tone() {
     // Test that ring modulation actually changes the sound
     let normal_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: saw 220
 "#;
 
     let ring_code = r#"
-tempo: 2.0
+tempo: 0.5
 out: saw 220 # ring 440
 "#;
 
@@ -105,7 +105,7 @@ fn test_ring_with_synthesis() {
     for osc in ["sine", "square", "saw"] {
         let code = format!(
             r#"
-tempo: 2.0
+tempo: 0.5
 out: {} 220 # ring 440
 "#,
             osc

@@ -190,7 +190,7 @@ out: ~envelope * 0.5
 #[test]
 fn test_amp_follower_sidechain() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: impulse 4.0
 ~kick_envelope: ~kick # amp_follower 0.001 0.2 0.01
 ~bass: saw 55

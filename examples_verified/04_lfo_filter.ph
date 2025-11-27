@@ -1,7 +1,7 @@
 # Example 4: LFO-Modulated Filter
 # Use a slow sine wave to modulate filter cutoff
 
-tempo: 2.0
+tempo: 0.5
 
 # LFO oscillating between 0 and 1
 ~lfo: sine 0.5 * 0.5 + 0.5

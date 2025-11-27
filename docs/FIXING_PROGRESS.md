@@ -91,17 +91,17 @@ After each fix, verify with:
 ### Legato Tests
 ```phonon
 # Test 1: Staccato (legato 0.1)
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ legato 0.1
 # Expected: Very short clicks, lots of silence
 
 # Test 2: Exact duration (legato 1.0)
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ legato 1.0
 # Expected: Each sample exactly 0.125s, sharp cut, no fade
 
 # Test 3: Overlap (legato 2.0)
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn hh cp" $ legato 2.0
 # Expected: Each sample 0.25s, overlapping
 ```
@@ -109,12 +109,12 @@ out: s "bd sn hh cp" $ legato 2.0
 ### Striate/Slice Tests
 ```phonon
 # Test 1: Striate
-tempo: 2.0
+tempo: 0.5
 out: s "amen" $ striate 8
 # Expected: Amen break chopped into 8 pieces, played together
 
 # Test 2: Slice
-tempo: 2.0
+tempo: 0.5
 out: s "amen" $ slice 8 "0 7 2 5"
 # Expected: Slices 0, 7, 2, 5 of amen break in sequence
 ```
@@ -122,7 +122,7 @@ out: s "amen" $ slice 8 "0 7 2 5"
 ### Jux Test
 ```phonon
 # Test 1: Basic jux
-tempo: 2.0
+tempo: 0.5
 out: s "bd sn" $ jux rev
 # Expected: Left channel normal, right channel reversed
 ```

@@ -7,7 +7,7 @@
 -- 3. Pattern-controlled signal selection
 -- 4. LFO-based dynamic effect switching
 
-tempo: 2.0
+tempo: 0.5
 
 -- ============================================================================
 -- PART 1: Conditional Routing (Dynamic Effect Application)

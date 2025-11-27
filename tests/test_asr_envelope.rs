@@ -253,7 +253,7 @@ fn test_asr_pattern_attack() {
 fn test_asr_pattern_gate() {
     // Gate modulated by LFO
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~gate_lfo: sine 2
         ~env: asr ~gate_lfo 0.05 0.05
         o1: ~env

@@ -102,7 +102,7 @@ out: ~env
 #[test]
 fn test_adsr_musical_example() {
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 -- Fast attack, slow release envelope
 ~env: adsr 0.01 0.05 0.6 0.3
 ~tone: sine 440

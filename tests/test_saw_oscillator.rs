@@ -62,7 +62,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 #[test]
 fn test_saw_compiles() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 440
     "#;
 
@@ -74,7 +74,7 @@ fn test_saw_compiles() {
 #[test]
 fn test_saw_generates_audio() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 440 * 0.3
     "#;
 
@@ -91,7 +91,7 @@ fn test_saw_generates_audio() {
 fn test_saw_has_harmonics() {
     // Sawtooth should have all harmonics present
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 440 * 0.3
     "#;
 
@@ -142,12 +142,12 @@ fn test_saw_has_harmonics() {
 fn test_saw_brighter_than_sine() {
     // Sawtooth should have more high-frequency content than sine
     let code_saw = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 440 * 0.3
     "#;
 
     let code_sine = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: sine 440 * 0.3
     "#;
 
@@ -182,7 +182,7 @@ fn test_saw_brighter_than_sine() {
 #[test]
 fn test_saw_bass() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 55 * 0.3
     "#;
 
@@ -196,7 +196,7 @@ fn test_saw_bass() {
 #[test]
 fn test_saw_mid_range() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 880 * 0.3
     "#;
 
@@ -210,7 +210,7 @@ fn test_saw_mid_range() {
 #[test]
 fn test_saw_high_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 4000 * 0.3
     "#;
 
@@ -227,7 +227,7 @@ fn test_saw_high_frequency() {
 fn test_saw_bass_synth() {
     // Classic analog bass: saw with filter envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.3
         ~cutoff: ~env * 3000 + 200
         ~bass: saw 55 # rlpf ~cutoff 4.0
@@ -245,7 +245,7 @@ fn test_saw_bass_synth() {
 fn test_saw_lead_synth() {
     // Lead synth: saw with fast envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.001 0.2
         o1: saw 440 * ~env * 0.3
     "#;
@@ -278,7 +278,7 @@ fn test_saw_pad() {
 fn test_saw_string_section() {
     // String section: multiple detuned saws
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~saw1: saw 220
         ~saw2: saw 221
         ~saw3: saw 219
@@ -296,7 +296,7 @@ fn test_saw_string_section() {
 fn test_saw_supersaw() {
     // Supersaw: multiple saws with slight detuning
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~s1: saw 440
         ~s2: saw 441
         ~s3: saw 439
@@ -317,7 +317,7 @@ fn test_saw_supersaw() {
 #[test]
 fn test_saw_pattern_frequency() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~freq: sine 1 * 100 + 440
         o1: saw ~freq * 0.3
     "#;
@@ -335,7 +335,7 @@ fn test_saw_pattern_frequency() {
 #[test]
 fn test_saw_pattern_amplitude() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~amp: sine 2 * 0.2 + 0.3
         o1: saw 440 * ~amp
     "#;
@@ -356,7 +356,7 @@ fn test_saw_pattern_amplitude() {
 fn test_saw_lowpass_filter() {
     // Lowpassed saw becomes mellower
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: saw 220 # rlpf 800 2.0
         o1: ~filtered * 0.3
     "#;
@@ -372,7 +372,7 @@ fn test_saw_lowpass_filter() {
 fn test_saw_highpass_filter() {
     // Highpassed saw removes bass
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~filtered: saw 220 # rhpf 400 2.0
         o1: ~filtered * 0.3
     "#;
@@ -388,7 +388,7 @@ fn test_saw_highpass_filter() {
 fn test_saw_resonant_filter() {
     // Saw through resonant filter
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~env: ad 0.01 0.2
         ~cutoff: ~env * 3000 + 300
         ~synth: saw 110 # rlpf ~cutoff 8.0
@@ -407,7 +407,7 @@ fn test_saw_resonant_filter() {
 #[test]
 fn test_saw_no_excessive_clipping() {
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 440 * 0.5
     "#;
 
@@ -425,7 +425,7 @@ fn test_saw_no_excessive_clipping() {
 fn test_saw_dc_offset() {
     // Saw should have no significant DC offset
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 440 * 0.3
     "#;
 
@@ -445,7 +445,7 @@ fn test_saw_dc_offset() {
 fn test_saw_continuous() {
     // Verify saw is mostly continuous (allow for intentional sawtooth discontinuity)
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         o1: saw 440 * 0.3
     "#;
 

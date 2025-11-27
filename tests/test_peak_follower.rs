@@ -238,7 +238,7 @@ out: ~envelope
 fn test_peak_follower_sidechain() {
     // Use kick pattern to modulate sustained bass
     let dsl = r#"
-tempo: 2.0
+tempo: 0.5
 ~kick: impulse 4.0
 ~kick_env: ~kick # peak_follower 0.001 0.2
 ~bass: saw 55

@@ -1,7 +1,7 @@
 -- SuperSaw Bass Demo
 -- Demonstrates thick, rich bass using detuned saw waves
 
-tempo: 2.0
+tempo: 0.5
 
 -- Deep bass with maximum detuning and 7 voices
 ~bass: supersaw 55 0.8 7

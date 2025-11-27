@@ -156,7 +156,7 @@ fn test_bus_triggered_synthesis_numerical() {
 
     // Simple bus-triggered synthesis
     let code = r#"
-tempo: 2.0
+tempo: 0.5
 ~synth: sine 440
 ~trig: s "~synth"
 out: ~trig

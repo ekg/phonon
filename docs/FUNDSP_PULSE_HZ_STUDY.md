@@ -340,7 +340,7 @@ fn test_pulse_hz_level3_width_sweep() {
 fn test_pulse_hz_level3_pwm() {
     // Test PWM (pulse width modulation) with LFO
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~width: ~lfo * 0.3 + 0.5
         out: pulse_hz 110 ~width
@@ -358,7 +358,7 @@ fn test_pulse_hz_level3_pwm() {
 fn test_pulse_hz_level3_pattern_frequency() {
     // Test pattern-controlled frequency
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: pulse_hz "110 165 220 330" 0.3
     "#;
     let audio = render_dsl(code, 2.0);
@@ -374,7 +374,7 @@ fn test_pulse_hz_level3_pattern_frequency() {
 fn test_pulse_hz_level3_pattern_width() {
     // Test pattern-controlled pulse width
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         out: pulse_hz 220 "0.2 0.5 0.8 0.2"
     "#;
     let audio = render_dsl(code, 2.0);
@@ -434,7 +434,7 @@ fn test_pulse_hz_level3_detuned_pad() {
 fn test_pulse_hz_level3_with_envelope() {
     // Pulse with amplitude envelope
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo: sine 0.5
         ~env: ~lfo * 0.4 + 0.6
         out: pulse_hz 220 0.3 * ~env
@@ -485,7 +485,7 @@ fn test_pulse_hz_level3_with_filter() {
 fn test_pulse_hz_level3_dual_pwm() {
     // Two PWM oscillators with different rates
     let code = r#"
-        tempo: 2.0
+        tempo: 0.5
         ~lfo1: sine 0.3
         ~lfo2: sine 0.7
         ~width1: ~lfo1 * 0.2 + 0.5

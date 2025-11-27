@@ -1,4 +1,4 @@
-tempo: 2.0
+tempo: 0.5
 
 -- Select specific bd samples using n modifier
 -- bd:0 is first sample, bd:1 is second, etc.

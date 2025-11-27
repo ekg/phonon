@@ -1,7 +1,7 @@
 -- Curve Envelope Demonstration
 -- Curved ramps with adjustable shape: linear, exponential, logarithmic
 
-tempo: 2.0
+tempo: 0.5
 
 -- Example 1: Exponential filter sweep (slow start, fast end)
 ~exp_sweep1: curve 200.0 4000.0 2.0 3.0

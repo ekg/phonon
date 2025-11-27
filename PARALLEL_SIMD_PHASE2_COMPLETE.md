@@ -130,7 +130,7 @@ pub fn process_buffer_per_node(&mut self, buffer_size: usize)
 **Test**:
 ```bash
 # Create 10× voice pattern
-echo 'tempo: 2.0' > /tmp/test_10x.ph
+echo 'tempo: 0.5' > /tmp/test_10x.ph
 echo '~drums: s "bd*720"' >> /tmp/test_10x.ph
 echo 'out: ~drums' >> /tmp/test_10x.ph
 
