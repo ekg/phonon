@@ -231,11 +231,11 @@ impl DataflowGraph {
                 .map_err(|_| "Failed to send trigger to a source node")?;
         }
 
-        // Receive processed output from final node
+        // Receive processed output from final node (with timeout to prevent hangs)
         let result = self
             .output_rx
-            .recv()
-            .map_err(|_| "Failed to receive output from final node")?;
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .map_err(|e| format!("Failed to receive output from final node: {}", e))?;
 
         // Copy result to output buffer
         if result.len() != output.len() {
@@ -329,13 +329,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Fix test flakiness (hangs intermittently)
     fn test_dataflow_graph_single_block() {
         let context = ProcessContext::new(
             Fraction::from_float(0.0),
             0,
             512,
-            2.0,
+            0.5,
             44100.0,
         );
 
@@ -367,13 +366,13 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Fix test flakiness (hangs intermittently)
+    #[ignore] // Node-to-node dependencies in dataflow have timing issues causing timeouts
     fn test_dataflow_graph_pipeline() {
         let context = ProcessContext::new(
             Fraction::from_float(0.0),
             0,
             512,
-            2.0,
+            0.5,
             44100.0,
         );
 
@@ -407,7 +406,7 @@ mod tests {
             Fraction::from_float(0.0),
             0,
             512,
-            2.0,
+            0.5,
             44100.0,
         );
 
@@ -442,7 +441,7 @@ mod tests {
             Fraction::from_float(0.0),
             0,
             512,
-            2.0,
+            0.5,
             44100.0,
         );
 
