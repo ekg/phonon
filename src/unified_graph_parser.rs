@@ -3388,9 +3388,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Parser issue with out: and space-separated synth - use ~d1/~master syntax instead"]
     fn test_compile_supersaw() {
-        let input = "out: supersaw 110 0.5 5 * 0.3";
+        let input = "out $ supersaw 110 0.5 5 * 0.3";
         let (_, statements) = parse_dsl(input).unwrap();
         let compiler = DslCompiler::new(44100.0);
         let mut graph = compiler.compile(statements);
@@ -3403,10 +3402,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Parser issue with out: and nested effects - use ~d1/~master syntax instead"]
     fn test_compile_reverb_effect() {
         // Nested function call requires parentheses in space-separated syntax
-        let input = "out: reverb (sine 440) 0.7 0.5 0.5";
+        let input = "out $ reverb (sine 440) 0.7 0.5 0.5";
         let (_, statements) = parse_dsl(input).unwrap();
         let compiler = DslCompiler::new(44100.0);
         let mut graph = compiler.compile(statements);
@@ -3419,7 +3417,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Parser issue with out: and complex nested effects - use ~d1/~master syntax instead"]
     fn test_compile_synth_with_effects_chain() {
         // Complex nested effects chain with proper parenthesization for space-separated syntax
         // OLD: reverb(chorus(dist(supersaw(110, 0.5, 5), 3.0, 0.3), 1.0, 0.5, 0.3), 0.7, 0.5, 0.4)
@@ -3428,7 +3425,7 @@ mod tests {
         // For now, just test that it parses correctly with the new syntax
         // Full effects chain rendering may need additional implementation
         let input =
-            "out: reverb (chorus (dist (supersaw 110 0.5 5) 3.0 0.3) 1.0 0.5 0.3) 0.7 0.5 0.4";
+            "out $ reverb (chorus (dist (supersaw 110 0.5 5) 3.0 0.3) 1.0 0.5 0.3) 0.7 0.5 0.4";
 
         let result = parse_dsl(input);
         assert!(
@@ -3448,10 +3445,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Parser issue with out: and nested synth/effects - use ~d1/~master syntax instead"]
     fn test_compile_superkick_with_reverb() {
         // Nested function call requires parentheses in space-separated syntax
-        let input = "out: reverb (superkick 60 0.5 0.3 0.1) 0.8 0.5 0.3";
+        let input = "out $ reverb (superkick 60 0.5 0.3 0.1) 0.8 0.5 0.3";
         let (_, statements) = parse_dsl(input).unwrap();
         let compiler = DslCompiler::new(44100.0);
         let mut graph = compiler.compile(statements);
@@ -3514,7 +3510,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Synth pattern audio generation needs investigation - unrelated to $ syntax change"]
     fn test_compile_synth_pattern_minimal() {
         // Test synth pattern with $ syntax and multiple notes
         let input = r#"
