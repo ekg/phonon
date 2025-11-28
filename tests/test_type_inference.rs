@@ -355,11 +355,8 @@ fn test_direct_effect_applies() {
 }
 
 #[test]
-#[ignore] // KNOWN LIMITATION: Transformer buses in chains are pass-through only
 fn test_transformer_bus_applies_effect() {
-    // TODO: Fix transformer bus effect application
-    // Currently, using a bus in a chain like `signal # ~effect_bus`
-    // doesn't apply the effect - it just passes through
+    // Transformer bus: ~fx $ lpf 500 0.8 applied via saw 110 # ~fx
     let code_unfiltered = r#"out $ saw 110"#;
     let code_filtered = r#"
 ~fx $ lpf 500 0.8

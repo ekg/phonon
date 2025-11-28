@@ -29,6 +29,8 @@ struct SampleNodeMetadata {
 pub struct CompilerContext {
     /// Map of bus names to node IDs
     buses: HashMap<String, NodeId>,
+    /// Map of bus names to their original expressions (for transformer bus re-instantiation)
+    bus_expressions: HashMap<String, Expr>,
     /// Map of template names to their expressions
     templates: HashMap<String, Expr>,
     /// Map of function names to their definitions
@@ -149,6 +151,7 @@ impl CompilerContext {
 
         Self {
             buses: HashMap::new(),
+            bus_expressions: HashMap::new(),
             templates: HashMap::new(),
             functions: HashMap::new(),
             effect_buses: HashMap::new(),
@@ -385,6 +388,10 @@ pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Res
                 // Normal bus assignment: ~name $ expr
                 // All bus assignments are compiled immediately as normal signal chains
                 // This allows effects to be chained and used inline: ~feel: delay ... # reverb ...
+
+                // Store the expression for transformer bus re-instantiation
+                ctx.bus_expressions.insert(name.clone(), expr.clone());
+
                 if ctx.use_audio_nodes {
                     // NEW: AudioNode path
                     let node_id = compile_expr_audio_node(ctx, expr)?;
@@ -1625,11 +1632,35 @@ fn compile_chain_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) 
         }
 
         Expr::BusRef(bus_name) => {
-            // Bus references in chains are problematic (same as old architecture)
-            // For now, just return the left signal (pass-through)
-            eprintln!("⚠️  Warning: Bus '~{}' used in chain - effect will be ignored", bus_name);
-            eprintln!("   Workaround: Use the effect directly instead of through a bus");
-            compile_expr_audio_node(ctx, left)
+            // Transformer bus: re-instantiate the bus's expression with the chain input
+            if let Some(bus_expr) = ctx.bus_expressions.get(&bus_name).cloned() {
+                let left_node = compile_expr_audio_node(ctx, left)?;
+
+                match bus_expr {
+                    Expr::Call { name, mut args } => {
+                        args.insert(0, Expr::ChainInput(NodeId(left_node)));
+                        match name.as_str() {
+                            "lpf" => compile_lpf_audio_node(ctx, args),
+                            "hpf" => compile_hpf_audio_node(ctx, args),
+                            "bpf" => compile_bpf_audio_node(ctx, args),
+                            "delay" => compile_delay_audio_node(ctx, args),
+                            "reverb" => compile_reverb_audio_node(ctx, args),
+                            "distortion" | "dist" => compile_distortion_audio_node(ctx, args),
+                            _ => Err(format!("Transformer bus: function '{}' not yet supported", name)),
+                        }
+                    }
+                    Expr::Chain(chain_left, chain_right) => {
+                        let first_result = compile_chain_audio_node(ctx, Expr::ChainInput(NodeId(left_node)), *chain_left)?;
+                        compile_chain_audio_node(ctx, Expr::ChainInput(NodeId(first_result)), *chain_right)
+                    }
+                    _ => {
+                        compile_expr_audio_node(ctx, bus_expr)
+                    }
+                }
+            } else {
+                eprintln!("⚠️  Warning: Bus '~{}' used in chain but has no stored expression", bus_name);
+                compile_expr_audio_node(ctx, left)
+            }
         }
 
         _ => {
@@ -6333,20 +6364,44 @@ fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<N
             compile_function_call(ctx, &name, args)
         }
         Expr::BusRef(bus_name) => {
-            // Bus references in chains are BROKEN
-            // The correct behavior would be to re-instantiate the bus's effect chain
-            // with the left signal as input, but buses are compiled to NodeIds which
-            // can't be cloned with new inputs.
-            //
-            // For now: just return the left signal (pass-through)
-            // This at least preserves the signal instead of dropping it
+            // Transformer bus: re-instantiate the bus's expression with the chain input
+            // This allows `~fx $ lpf 1000 0.8` to work as `saw 110 # ~fx`
 
-            eprintln!("⚠️  Warning: Bus '~{}' used in chain - effect will be ignored", bus_name);
-            eprintln!("   Workaround: Use the effect directly instead of through a bus");
-            eprintln!("   e.g., 's \"bd\" # delay 0.25 0.8' instead of 's \"bd\" # ~mydelay'");
+            if let Some(bus_expr) = ctx.bus_expressions.get(&bus_name).cloned() {
+                // Compile the left side to get the input node
+                let left_node = compile_expr(ctx, left)?;
 
-            // Return left signal (pass-through)
-            compile_expr(ctx, left)
+                // The bus expression is typically an effect chain like `lpf 1000 0.8`
+                // We need to apply it to the left_node
+                // This is equivalent to compiling `left # bus_expr`
+
+                // If the bus expression is a chain itself (effect1 # effect2),
+                // we need to recursively apply it
+                match bus_expr {
+                    Expr::Call { name, mut args } => {
+                        // Prepend the left node as the first argument
+                        args.insert(0, Expr::ChainInput(left_node));
+                        compile_function_call(ctx, &name, args)
+                    }
+                    Expr::Chain(chain_left, chain_right) => {
+                        // The bus is a chain like `lpf 1000 # hpf 100`
+                        // We need to inject left_node into the chain
+                        // First compile: left_node # chain_left
+                        let first_result = compile_chain(ctx, Expr::ChainInput(left_node), *chain_left)?;
+                        // Then compile: first_result # chain_right
+                        compile_chain(ctx, Expr::ChainInput(first_result), *chain_right)
+                    }
+                    _ => {
+                        // For other expressions, just compile them
+                        // This might not make sense for all cases, but handles simple buses
+                        compile_expr(ctx, bus_expr)
+                    }
+                }
+            } else {
+                // Bus not found or no stored expression - fall back to pass-through
+                eprintln!("⚠️  Warning: Bus '~{}' used in chain but has no stored expression", bus_name);
+                compile_expr(ctx, left)
+            }
         }
         Expr::Var(name) => {
             // Treat as zero-argument function call with chain input
