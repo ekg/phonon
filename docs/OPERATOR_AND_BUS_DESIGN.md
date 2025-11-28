@@ -299,11 +299,20 @@ out $ ~sidechain ~kick ~pad 0.8
   - Direct sample-by-sample `SignalExpr::Add/Subtract/Multiply/Divide`
   - Tests: `test_signal_operators.rs` (14 tests)
 
-### Phase 3: Buses as Functions
-- [ ] Fix transformer buses (effect chains via `#`)
-- [ ] Add parameter syntax: `~name a b $ expr`
-- [ ] Implement bus calling with arguments
-- [ ] Add higher-order bus support
+### Phase 3: Buses as Functions ✅ COMPLETE
+- [x] Transformer buses (effect chains via `#`)
+  - Already worked: `~fx $ lpf 1000 0.8` then `saw 110 # ~fx`
+- [x] Function buses: `~name a b $ expr` syntax
+  - Parameters before `$` create callable functions
+  - Example: `~mix a b $ a ~* 0.5 ~+ b ~* 0.5`
+- [x] Bus calling with arguments
+  - `parse_bus_call_expr` handles `~name arg1 arg2` syntax
+  - Compiler stores function definitions and instantiates on call
+- [x] Higher-order bus support
+  - Buses can take other buses as parameters
+  - Example: `~doubled f $ f ~+ f` then `~doubled ~osc`
+  - Parameter substitution via compile-time bindings
+  - Tests: `test_bus_as_function.rs` (13 tests)
 
 ### Phase 4: Type Inference
 - [ ] Automatic pattern vs signal context detection
