@@ -314,10 +314,17 @@ out $ ~sidechain ~kick ~pad 0.8
   - Parameter substitution via compile-time bindings
   - Tests: `test_bus_as_function.rs` (13 tests)
 
-### Phase 4: Type Inference
-- [ ] Automatic pattern vs signal context detection
-- [ ] Clean error messages for type mismatches
-- [ ] Optimization of known-constant patterns to signals
+### Phase 4: Type Inference ✅ COMPLETE
+- [x] Automatic pattern vs signal context detection
+  - Quoted strings (`"..."`) are patterns
+  - Oscillators (`sine`, `saw`, etc.) are signals
+  - Bus references adapt based on bus contents
+- [x] Clean error messages for type mismatches
+  - Undefined bus errors include bus name
+  - Wrong arity errors show expected/actual count
+- [x] Optimization of known-constant patterns to signals
+  - Single-value patterns like `"440"` work equivalently to `440`
+  - Tests: `test_type_inference.rs` (12 tests)
 
 ---
 
