@@ -384,6 +384,13 @@ pub enum BinOp {
     // Union operators (for control values like gain, pan)
     UnionLeft,  // |> (structure from left, values from right) - same as #
     UnionRight, // <| (structure from right, values from left)
+
+    // Signal operators (audio-rate, sample-by-sample)
+    // Use ~ prefix to distinguish from pattern operators
+    SignalAdd, // ~+
+    SignalSub, // ~-
+    SignalMul, // ~*
+    SignalDiv, // ~/
 }
 
 /// Unary operators
@@ -996,6 +1003,7 @@ fn parse_transform_expr(input: &str) -> IResult<&str, Expr> {
 
 /// Parse additive expression: expr + expr | expr - expr
 /// Also handles Tidal pattern structure operators: |+, +|, |-, -|, |>, <|
+/// Also handles signal operators: ~+, ~-
 fn parse_additive_expr(input: &str) -> IResult<&str, Expr> {
     let (input, mut expr) = parse_multiplicative_expr(input)?;
 
@@ -1003,9 +1011,13 @@ fn parse_additive_expr(input: &str) -> IResult<&str, Expr> {
     loop {
         let (input, _) = space0(current_input)?;
 
-        // Try to parse pattern structure operators and standard +/-
-        // Order matters: check two-char operators before single-char
-        let op = if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("|+")(input) {
+        // Try to parse operators in order of precedence
+        // Signal operators (~+, ~-) first, then structure operators, then bare operators
+        let op = if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("~+")(input) {
+            Some((input, BinOp::SignalAdd))
+        } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("~-")(input) {
+            Some((input, BinOp::SignalSub))
+        } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("|+")(input) {
             Some((input, BinOp::AddLeft))
         } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("+|")(input) {
             Some((input, BinOp::AddRight))
@@ -1056,6 +1068,7 @@ fn parse_additive_expr(input: &str) -> IResult<&str, Expr> {
 
 /// Parse multiplicative expression: expr * expr | expr / expr
 /// Also handles Tidal pattern structure operators: |*, *|, |/, /|
+/// Also handles signal operators: ~*, ~/
 fn parse_multiplicative_expr(input: &str) -> IResult<&str, Expr> {
     let (input, mut expr) = parse_unary_expr(input)?;
 
@@ -1063,9 +1076,13 @@ fn parse_multiplicative_expr(input: &str) -> IResult<&str, Expr> {
     loop {
         let (input, _) = space0(current_input)?;
 
-        // Try to parse pattern structure operators and standard * /
-        // Order matters: check two-char operators before single-char
-        let op = if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("|*")(input) {
+        // Try to parse operators in order
+        // Signal operators (~*, ~/) first, then structure operators, then bare operators
+        let op = if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("~*")(input) {
+            Some((input, BinOp::SignalMul))
+        } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("~/")(input) {
+            Some((input, BinOp::SignalDiv))
+        } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("|*")(input) {
             Some((input, BinOp::MulLeft))
         } else if let Ok((input, _)) = tag::<_, _, nom::error::Error<&str>>("*|")(input) {
             Some((input, BinOp::MulRight))
@@ -1124,6 +1141,7 @@ fn parse_primary_expr(input: &str) -> IResult<&str, Expr> {
     alt((
         map(parse_number, Expr::Number),
         parse_string_literal,
+        parse_signal_function_call, // Try ~add, ~sub, ~mul, ~div before bus ref
         parse_bus_ref_expr,
         parse_template_ref_expr,
         parse_pattern_ref_expr,
@@ -1157,6 +1175,57 @@ fn parse_list_expr(input: &str) -> IResult<&str, Expr> {
     let (input, _) = char(']')(input)?;
 
     Ok((input, Expr::List(exprs)))
+}
+
+/// Reserved signal function names that can't be used as bus names
+const SIGNAL_FUNCTIONS: &[&str] = &["add", "sub", "mul", "div"];
+
+/// Parse signal function call: ~add arg1 arg2, ~mul arg1 arg2, etc.
+/// These are reserved names that perform sample-by-sample arithmetic
+fn parse_signal_function_call(input: &str) -> IResult<&str, Expr> {
+    let (input, _) = char('~')(input)?;
+
+    // Try each signal function name
+    let (input, func_name) = alt((
+        tag("add"),
+        tag("sub"),
+        tag("mul"),
+        tag("div"),
+    ))(input)?;
+
+    // Require at least one space followed by arguments
+    let (input, _) = hspace1(input)?;
+
+    // Parse two arguments (required for binary signal operations)
+    let (input, arg1) = parse_signal_arg(input)?;
+    let (input, _) = hspace1(input)?;
+    let (input, arg2) = parse_signal_arg(input)?;
+
+    // Convert to BinOp expression based on function name
+    let op = match func_name {
+        "add" => BinOp::SignalAdd,
+        "sub" => BinOp::SignalSub,
+        "mul" => BinOp::SignalMul,
+        "div" => BinOp::SignalDiv,
+        _ => unreachable!(),
+    };
+
+    Ok((input, Expr::BinOp {
+        op,
+        left: Box::new(arg1),
+        right: Box::new(arg2),
+    }))
+}
+
+/// Parse a signal function argument - can be parenthesized expr, number, or bus ref
+fn parse_signal_arg(input: &str) -> IResult<&str, Expr> {
+    alt((
+        parse_paren_expr,
+        map(parse_number, Expr::Number),
+        parse_bus_ref_expr,
+        parse_function_call,
+        parse_var,
+    ))(input)
 }
 
 /// Parse bus reference: ~name

@@ -27,8 +27,8 @@ fn test_add_left_compiles_and_renders() {
     // "1 2 3" |+ "10" should produce 3 events per cycle with values 11, 12, 13
     let code = r#"
 tempo: 1.0
-~result: "1 2 3" |+ "10"
-out: sine (~result * 10)
+~result $ "1 2 3" |+ "10"
+out $ sine (~result * 10)
 "#;
 
     let buffer = render_phonon_code(code, 44100);
@@ -48,8 +48,8 @@ fn test_add_right_compiles_and_renders() {
     // "1 2 3" +| "10 20" should produce 2 events per cycle with values 11, 22
     let code = r#"
 tempo: 1.0
-~result: "1 2 3" +| "10 20"
-out: sine (~result * 10)
+~result $ "1 2 3" +| "10 20"
+out $ sine (~result * 10)
 "#;
 
     let buffer = render_phonon_code(code, 44100);
@@ -69,8 +69,8 @@ fn test_mul_left_compiles_and_renders() {
     // "2 3 4" |* "10" should produce 3 events with values 20, 30, 40
     let code = r#"
 tempo: 1.0
-~result: "2 3 4" |* "10"
-out: sine ~result
+~result $ "2 3 4" |* "10"
+out $ sine ~result
 "#;
 
     let buffer = render_phonon_code(code, 44100);
@@ -90,8 +90,8 @@ fn test_union_left_compiles_and_renders() {
     // "x x x" |> "100 200" should produce 3 events with values 100, 100, 200
     let code = r#"
 tempo: 1.0
-~result: "1 2 3" |> "100 200"
-out: sine ~result
+~result $ "1 2 3" |> "100 200"
+out $ sine ~result
 "#;
 
     let buffer = render_phonon_code(code, 44100);
@@ -111,8 +111,8 @@ fn test_union_right_compiles_and_renders() {
     // "100 200" <| "1 2 3" should produce 3 events with values 100, 100, 200
     let code = r#"
 tempo: 1.0
-~result: "100 200" <| "1 2 3"
-out: sine ~result
+~result $ "100 200" <| "1 2 3"
+out $ sine ~result
 "#;
 
     let buffer = render_phonon_code(code, 44100);
@@ -135,15 +135,15 @@ fn test_structure_affects_event_count() {
     // 4-event structure
     let code_left = r#"
 tempo: 1.0
-~result: "100 200 300 400" |+ "10 20"
-out: sine ~result * 0.3
+~result $ "100 200 300 400" |+ "10 20"
+out $ sine ~result * 0.3
 "#;
 
     // 2-event structure
     let code_right = r#"
 tempo: 1.0
-~result: "100 200 300 400" +| "10 20"
-out: sine ~result * 0.3
+~result $ "100 200 300 400" +| "10 20"
+out $ sine ~result * 0.3
 "#;
 
     let buffer_left = render_phonon_code(code_left, 44100);
@@ -182,9 +182,9 @@ fn test_nested_structure_operators() {
     // Test that structure operators can be nested
     let code = r#"
 tempo: 1.0
-~a: "1 2" |+ "10"
-~b: ~a |* "2 3"
-out: sine (~b * 10)
+~a $ "1 2" |+ "10"
+~b $ ~a |* "2 3"
+out $ sine (~b * 10)
 "#;
 
     let buffer = render_phonon_code(code, 44100);
@@ -204,8 +204,8 @@ fn test_structure_with_number_literal() {
     // Structure operators should work with number literals
     let code = r#"
 tempo: 1.0
-~result: "100 200 300" |+ 10
-out: sine ~result
+~result $ "100 200 300" |+ 10
+out $ sine ~result
 "#;
 
     let buffer = render_phonon_code(code, 44100);
@@ -238,8 +238,8 @@ fn test_all_arithmetic_structure_operators() {
         let code = format!(
             r#"
 tempo: 1.0
-~result: "100 200 300" {} "2 3"
-out: sine ~result * 0.3
+~result $ "100 200 300" {} "2 3"
+out $ sine ~result * 0.3
 "#,
             op
         );

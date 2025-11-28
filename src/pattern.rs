@@ -1999,6 +1999,145 @@ impl Pattern<f64> {
             }).collect()
         })
     }
+
+    // ========================================================================
+    // BOTH-STRUCTURE OPERATORS (union of events from both patterns)
+    // ========================================================================
+
+    /// Add with both structure: events from BOTH patterns, values combined
+    /// "1 2" + "10 20 30" = 5 events (2 from left + 3 from right)
+    /// Each event has the sum of values sampled at its onset time
+    pub fn add_both(self, other: Pattern<f64>) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            // Get events from left pattern
+            let left_events = self.query(state);
+            // Get events from right pattern
+            let right_events = other.query(state);
+
+            let mut result = Vec::new();
+
+            // For each left event, sample right and add
+            for mut hap in left_events {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let other_haps = other.query(&query_state);
+                let other_value = other_haps.first().map(|h| h.value).unwrap_or(0.0);
+                hap.value = hap.value + other_value;
+                result.push(hap);
+            }
+
+            // For each right event, sample left and add
+            for mut hap in right_events {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let self_haps = self.query(&query_state);
+                let self_value = self_haps.first().map(|h| h.value).unwrap_or(0.0);
+                hap.value = self_value + hap.value;
+                result.push(hap);
+            }
+
+            result
+        })
+    }
+
+    /// Subtract with both structure: events from BOTH patterns, values combined
+    /// "100 200" - "10 20 30" = 5 events, each with left - right
+    pub fn sub_both(self, other: Pattern<f64>) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let left_events = self.query(state);
+            let right_events = other.query(state);
+
+            let mut result = Vec::new();
+
+            // For each left event, sample right and subtract
+            for mut hap in left_events {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let other_haps = other.query(&query_state);
+                let other_value = other_haps.first().map(|h| h.value).unwrap_or(0.0);
+                hap.value = hap.value - other_value;
+                result.push(hap);
+            }
+
+            // For each right event, sample left and subtract
+            for mut hap in right_events {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let self_haps = self.query(&query_state);
+                let self_value = self_haps.first().map(|h| h.value).unwrap_or(0.0);
+                hap.value = self_value - hap.value;
+                result.push(hap);
+            }
+
+            result
+        })
+    }
+
+    /// Multiply with both structure: events from BOTH patterns, values combined
+    /// "10 20" * "2 3 4" = 5 events, each with left * right
+    pub fn mul_both(self, other: Pattern<f64>) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let left_events = self.query(state);
+            let right_events = other.query(state);
+
+            let mut result = Vec::new();
+
+            // For each left event, sample right and multiply
+            for mut hap in left_events {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let other_haps = other.query(&query_state);
+                let other_value = other_haps.first().map(|h| h.value).unwrap_or(1.0);
+                hap.value = hap.value * other_value;
+                result.push(hap);
+            }
+
+            // For each right event, sample left and multiply
+            for mut hap in right_events {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let self_haps = self.query(&query_state);
+                let self_value = self_haps.first().map(|h| h.value).unwrap_or(1.0);
+                hap.value = self_value * hap.value;
+                result.push(hap);
+            }
+
+            result
+        })
+    }
+
+    /// Divide with both structure: events from BOTH patterns, values combined
+    /// "100 200" / "2 4 5" = 5 events, each with left / right
+    pub fn div_both(self, other: Pattern<f64>) -> Pattern<f64> {
+        Pattern::new(move |state| {
+            let left_events = self.query(state);
+            let right_events = other.query(state);
+
+            let mut result = Vec::new();
+
+            // For each left event, sample right and divide
+            for mut hap in left_events {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let other_haps = other.query(&query_state);
+                let other_value = other_haps.first().map(|h| h.value).unwrap_or(1.0);
+                hap.value = if other_value.abs() > f64::EPSILON {
+                    hap.value / other_value
+                } else {
+                    hap.value
+                };
+                result.push(hap);
+            }
+
+            // For each right event, sample left and divide
+            for mut hap in right_events {
+                let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                let self_haps = self.query(&query_state);
+                let self_value = self_haps.first().map(|h| h.value).unwrap_or(1.0);
+                hap.value = if hap.value.abs() > f64::EPSILON {
+                    self_value / hap.value
+                } else {
+                    self_value
+                };
+                result.push(hap);
+            }
+
+            result
+        })
+    }
 }
 
 // Make Pattern cloneable

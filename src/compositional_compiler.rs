@@ -369,10 +369,18 @@ pub fn compile_program(
     Ok(graph)
 }
 
+/// Reserved signal function names that cannot be used as bus names
+const RESERVED_SIGNAL_NAMES: &[&str] = &["add", "sub", "mul", "div"];
+
 /// Compile a single statement
 pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<(), String> {
     match statement {
         Statement::BusAssignment { name, expr } => {
+            // Check for reserved signal function names
+            if RESERVED_SIGNAL_NAMES.contains(&name.as_str()) {
+                return Err(format!("'~{}' is a reserved signal function name and cannot be used as a bus name", name));
+            }
+
             // All bus assignments are compiled immediately as normal signal chains
             // This allows effects to be chained and used inline: ~feel: delay ... # reverb ...
             // Previous "effect bus" system was for send/return routing, which is not the current design
@@ -6236,6 +6244,45 @@ fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<N
             // Recursively compile chain with expanded template
             compile_chain(ctx, left, template_expr)
         }
+        Expr::BinOp {
+            op,
+            left: binop_left,
+            right: binop_right,
+        } => {
+            // Handle: s "bd" # note "c3'maj" + "0 3 7"
+            // The parser produces: Chain(s "bd", BinOp(note "c3'maj", +, "0 3 7"))
+            // We need to propagate the chain input into the left side of the BinOp
+            //
+            // If the left side of the BinOp is a function call, inject chain input there
+            // Otherwise compile normally
+
+            match *binop_left {
+                Expr::Call { name, mut args } => {
+                    // Inject chain input into the function call
+                    let left_node = compile_expr(ctx, left)?;
+                    args.insert(0, Expr::ChainInput(left_node));
+
+                    // Compile the modified function call
+                    let call_result = compile_function_call(ctx, &name, args)?;
+
+                    // Now compile the binary operation with the call result
+                    // Wrap the compiled call result in ChainInput to pass it to compile_binop
+                    compile_binop(ctx, op, Expr::ChainInput(call_result), *binop_right)
+                }
+                _ => {
+                    // For other left sides, just compile the whole thing normally
+                    let _left_node = compile_expr(ctx, left)?;
+                    compile_expr(
+                        ctx,
+                        Expr::BinOp {
+                            op,
+                            left: binop_left,
+                            right: binop_right,
+                        },
+                    )
+                }
+            }
+        }
         _ => {
             // For other expressions, just compile them separately and connect
             let _left_node = compile_expr(ctx, left)?;
@@ -7860,9 +7907,12 @@ fn extract_number(expr: &Expr) -> Result<f64, String> {
 }
 
 /// Check if an operator is a structure-aware pattern operator
+/// Includes both explicit structure operators (|+, +|, etc.) and bare operators (+, -, *, /)
+/// which use "both structure" semantics when applied to patterns
 fn is_structure_operator(op: &BinOp) -> bool {
     matches!(
         op,
+        // Explicit structure operators
         BinOp::AddLeft
             | BinOp::AddRight
             | BinOp::SubLeft
@@ -7873,6 +7923,11 @@ fn is_structure_operator(op: &BinOp) -> bool {
             | BinOp::DivRight
             | BinOp::UnionLeft
             | BinOp::UnionRight
+            // Bare operators (both-structure semantics on patterns)
+            | BinOp::Add
+            | BinOp::Sub
+            | BinOp::Mul
+            | BinOp::Div
     )
 }
 
@@ -7951,7 +8006,27 @@ fn compile_binop(
                     left_pattern.union_right(right_pattern),
                     format!("{} <| {}", left_str, right_str),
                 ),
-                _ => unreachable!("is_structure_operator already checked"),
+                // Bare operators use "both structure" semantics
+                BinOp::Add => (
+                    left_pattern.add_both(right_pattern),
+                    format!("{} + {}", left_str, right_str),
+                ),
+                BinOp::Sub => (
+                    left_pattern.sub_both(right_pattern),
+                    format!("{} - {}", left_str, right_str),
+                ),
+                BinOp::Mul => (
+                    left_pattern.mul_both(right_pattern),
+                    format!("{} * {}", left_str, right_str),
+                ),
+                BinOp::Div => (
+                    left_pattern.div_both(right_pattern),
+                    format!("{} / {}", left_str, right_str),
+                ),
+                // Signal operators should never reach here - they're not structure operators
+                BinOp::SignalAdd | BinOp::SignalSub | BinOp::SignalMul | BinOp::SignalDiv => {
+                    unreachable!("Signal operators should not be handled as structure operators")
+                }
             };
 
             // Convert Pattern<f64> to Pattern<String> for SignalNode::Pattern
@@ -7973,8 +8048,16 @@ fn compile_binop(
 
     // Standard signal-level combination for non-structure operators
     // or when pattern extraction fails
-    let left_node = compile_expr(ctx, left)?;
-    let right_node = compile_expr(ctx, right)?;
+    //
+    // Handle ChainInput specially - it's an internal marker containing an already-compiled NodeId
+    let left_node = match left {
+        Expr::ChainInput(node_id) => node_id,
+        _ => compile_expr(ctx, left)?,
+    };
+    let right_node = match right {
+        Expr::ChainInput(node_id) => node_id,
+        _ => compile_expr(ctx, right)?,
+    };
 
     // Arithmetic operations are done via Signal::Expression
     let expr = match op {
@@ -7997,6 +8080,19 @@ fn compile_binop(
         BinOp::UnionRight => {
             // Union right: pass through right value (structure from right)
             SignalExpr::Add(Signal::Node(right_node), Signal::Value(0.0))
+        }
+        // Signal operators: sample-by-sample audio-rate arithmetic
+        BinOp::SignalAdd => {
+            SignalExpr::Add(Signal::Node(left_node), Signal::Node(right_node))
+        }
+        BinOp::SignalSub => {
+            SignalExpr::Subtract(Signal::Node(left_node), Signal::Node(right_node))
+        }
+        BinOp::SignalMul => {
+            SignalExpr::Multiply(Signal::Node(left_node), Signal::Node(right_node))
+        }
+        BinOp::SignalDiv => {
+            SignalExpr::Divide(Signal::Node(left_node), Signal::Node(right_node))
         }
     };
 
