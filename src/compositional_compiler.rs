@@ -375,24 +375,37 @@ const RESERVED_SIGNAL_NAMES: &[&str] = &["add", "sub", "mul", "div"];
 /// Compile a single statement
 pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<(), String> {
     match statement {
-        Statement::BusAssignment { name, expr } => {
+        Statement::BusAssignment { name, params, expr } => {
             // Check for reserved signal function names
             if RESERVED_SIGNAL_NAMES.contains(&name.as_str()) {
                 return Err(format!("'~{}' is a reserved signal function name and cannot be used as a bus name", name));
             }
 
-            // All bus assignments are compiled immediately as normal signal chains
-            // This allows effects to be chained and used inline: ~feel: delay ... # reverb ...
-            // Previous "effect bus" system was for send/return routing, which is not the current design
-            if ctx.use_audio_nodes {
-                // NEW: AudioNode path
-                let node_id = compile_expr_audio_node(ctx, expr)?;
-                ctx.buses.insert(name.clone(), NodeId(node_id));
+            if params.is_empty() {
+                // Normal bus assignment: ~name $ expr
+                // All bus assignments are compiled immediately as normal signal chains
+                // This allows effects to be chained and used inline: ~feel: delay ... # reverb ...
+                if ctx.use_audio_nodes {
+                    // NEW: AudioNode path
+                    let node_id = compile_expr_audio_node(ctx, expr)?;
+                    ctx.buses.insert(name.clone(), NodeId(node_id));
+                } else {
+                    // OLD: SignalNode path
+                    let node_id = compile_expr(ctx, expr)?;
+                    ctx.buses.insert(name.clone(), node_id);
+                    ctx.graph.add_bus(name, node_id); // Register bus in graph for auto-routing
+                }
             } else {
-                // OLD: SignalNode path
-                let node_id = compile_expr(ctx, expr)?;
-                ctx.buses.insert(name.clone(), node_id);
-                ctx.graph.add_bus(name, node_id); // Register bus in graph for auto-routing
+                // Function bus: ~name param1 param2 $ expr
+                // Store as a function definition for later instantiation
+                ctx.functions.insert(
+                    name.clone(),
+                    FunctionDef {
+                        params: params.clone(),
+                        body: Vec::new(),
+                        return_expr: expr,
+                    },
+                );
             }
             Ok(())
         }
@@ -614,6 +627,40 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
                 .ok_or_else(|| format!("Undefined bus: ~{}", name))
         }
 
+        Expr::BusCall { name, args } => {
+            // Function bus call: ~mix ~osc1 ~osc2
+            // Look up the function definition and instantiate it
+            let func_def = ctx
+                .functions
+                .get(&name)
+                .cloned()
+                .ok_or_else(|| format!("Undefined function bus: ~{}", name))?;
+
+            if args.len() != func_def.params.len() {
+                return Err(format!(
+                    "Function bus ~{} expects {} arguments, got {}",
+                    name,
+                    func_def.params.len(),
+                    args.len()
+                ));
+            }
+
+            // Compile each argument
+            let mut arg_nodes = Vec::new();
+            for arg in args {
+                arg_nodes.push(compile_expr(ctx, arg)?);
+            }
+
+            // Create a mapping from param names to arg nodes
+            let mut param_bindings: HashMap<String, NodeId> = HashMap::new();
+            for (param, node) in func_def.params.iter().zip(arg_nodes.iter()) {
+                param_bindings.insert(param.clone(), *node);
+            }
+
+            // Compile the body expression with param bindings
+            compile_expr_with_bindings(ctx, func_def.return_expr, &param_bindings)
+        }
+
         Expr::TemplateRef(name) => {
             // Look up template and substitute (macro expansion)
             let template_expr = ctx
@@ -715,6 +762,74 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
             )
         }
     }
+}
+
+/// Compile an expression with parameter bindings
+/// Used for function bus instantiation where variables are bound to compiled nodes
+fn compile_expr_with_bindings(
+    ctx: &mut CompilerContext,
+    expr: Expr,
+    bindings: &HashMap<String, NodeId>,
+) -> Result<NodeId, String> {
+    match expr {
+        Expr::Var(name) => {
+            // Check if this variable is bound to a parameter
+            if let Some(&node_id) = bindings.get(&name) {
+                return Ok(node_id);
+            }
+            // Otherwise, fall through to normal compilation
+            compile_expr(ctx, Expr::Var(name))
+        }
+        Expr::BinOp { op, left, right } => {
+            // Recursively compile with bindings
+            let left_node = compile_expr_with_bindings(ctx, *left, bindings)?;
+            let right_node = compile_expr_with_bindings(ctx, *right, bindings)?;
+
+            // Use the BinOp compilation with pre-compiled nodes
+            let expr = match op {
+                BinOp::Add | BinOp::AddLeft | BinOp::AddRight | BinOp::SignalAdd => {
+                    SignalExpr::Add(Signal::Node(left_node), Signal::Node(right_node))
+                }
+                BinOp::Sub | BinOp::SubLeft | BinOp::SubRight | BinOp::SignalSub => {
+                    SignalExpr::Subtract(Signal::Node(left_node), Signal::Node(right_node))
+                }
+                BinOp::Mul | BinOp::MulLeft | BinOp::MulRight | BinOp::SignalMul => {
+                    SignalExpr::Multiply(Signal::Node(left_node), Signal::Node(right_node))
+                }
+                BinOp::Div | BinOp::DivLeft | BinOp::DivRight | BinOp::SignalDiv => {
+                    SignalExpr::Divide(Signal::Node(left_node), Signal::Node(right_node))
+                }
+                BinOp::UnionLeft | BinOp::UnionRight => {
+                    SignalExpr::Add(Signal::Node(left_node), Signal::Value(0.0))
+                }
+            };
+
+            let node = SignalNode::Add {
+                a: Signal::Expression(Box::new(expr)),
+                b: Signal::Value(0.0),
+            };
+            Ok(ctx.graph.add_node(node))
+        }
+        Expr::Chain(left, right) => {
+            // Compile chain with bindings
+            let left_node = compile_expr_with_bindings(ctx, *left, bindings)?;
+            compile_chain_with_bindings(ctx, left_node, *right, bindings)
+        }
+        Expr::Paren(inner) => compile_expr_with_bindings(ctx, *inner, bindings),
+        // For other expressions, just use normal compilation
+        _ => compile_expr(ctx, expr),
+    }
+}
+
+/// Compile a chain expression with parameter bindings
+fn compile_chain_with_bindings(
+    ctx: &mut CompilerContext,
+    input_node: NodeId,
+    right_expr: Expr,
+    _bindings: &HashMap<String, NodeId>,
+) -> Result<NodeId, String> {
+    // Wrap the input node as ChainInput and compile the chain
+    compile_chain(ctx, Expr::ChainInput(input_node), right_expr)
 }
 
 /// Compile constant value to AudioNode (NEW architecture)
@@ -6198,6 +6313,14 @@ fn compile_amp_follower(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<No
     Ok(ctx.graph.add_node(node))
 }
 
+/// Helper to get node from expression, handling ChainInput specially
+fn compile_or_extract_node(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String> {
+    match expr {
+        Expr::ChainInput(node_id) => Ok(node_id), // Already a node ID
+        _ => compile_expr(ctx, expr),             // Compile normally
+    }
+}
+
 /// Compile chain operator: a # b
 fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<NodeId, String> {
     // The chain operator passes left as input to right
@@ -6205,7 +6328,7 @@ fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<N
     match right {
         Expr::Call { name, mut args } => {
             // Prepend left as first argument using proper ChainInput marker
-            let left_node = compile_expr(ctx, left)?;
+            let left_node = compile_or_extract_node(ctx, left)?;
             args.insert(0, Expr::ChainInput(left_node)); // Type-safe!
             compile_function_call(ctx, &name, args)
         }

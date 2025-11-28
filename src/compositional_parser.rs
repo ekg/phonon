@@ -24,8 +24,8 @@ use nom::{
 /// Top-level statement in a Phonon program
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
-    /// Bus assignment: ~name: expr
-    BusAssignment { name: String, expr: Expr },
+    /// Bus assignment: ~name $ expr OR ~name param1 param2 $ expr (function bus)
+    BusAssignment { name: String, params: Vec<String>, expr: Expr },
     /// Template assignment: @name: expr
     TemplateAssignment { name: String, expr: Expr },
     /// Pattern assignment: %name: expr (for pattern-to-pattern modulation)
@@ -89,6 +89,9 @@ pub enum Expr {
     // ========== Function calls ==========
     /// Function call: lpf(input, cutoff, q), sine(440)
     Call { name: String, args: Vec<Expr> },
+
+    /// Bus function call: ~mix ~osc1 ~osc2 (calling a function bus)
+    BusCall { name: String, args: Vec<Expr> },
 
     // ========== Operators (all first-class!) ==========
     /// Chain operator: a # b (pipe a into b)
@@ -599,24 +602,49 @@ fn parse_function_def(input: &str) -> IResult<&str, Statement> {
     ))
 }
 
-/// Parse bus assignment: ~name $ expr or ~name # expr
+/// Parse bus assignment: ~name $ expr or ~name param1 param2 $ expr (function bus)
 /// $ is for function application/transforms, # is for chaining
 fn parse_bus_assignment(input: &str) -> IResult<&str, Statement> {
     let (input, _) = char('~')(input)?;
     let (input, name) = parse_identifier(input)?;
     let (input, _) = space0(input)?;
-    // Only accept $ or # (no : to avoid confusion)
-    let (input, _) = alt((char('$'), char('#')))(input)?;
-    let (input, _) = space0(input)?;
-    let (input, expr) = parse_expr(input)?;
 
-    Ok((
-        input,
-        Statement::BusAssignment {
-            name: name.to_string(),
-            expr,
-        },
-    ))
+    // Check if we have parameters before $ or #
+    // Parameters are identifiers separated by spaces, before the $ or #
+    let mut params = Vec::new();
+    let mut current_input = input;
+
+    // Keep parsing identifiers until we hit $ or #
+    loop {
+        // Try to match $ or #
+        if let Ok((after_op, _)) = alt::<_, _, nom::error::Error<&str>, _>((char('$'), char('#')))(current_input) {
+            // Found the operator, done parsing params
+            let (input, _) = space0(after_op)?;
+            let (input, expr) = parse_expr(input)?;
+
+            return Ok((
+                input,
+                Statement::BusAssignment {
+                    name: name.to_string(),
+                    params,
+                    expr,
+                },
+            ));
+        }
+
+        // Try to parse an identifier as a parameter
+        if let Ok((after_param, param)) = parse_identifier(current_input) {
+            params.push(param.to_string());
+            let (after_space, _) = space0(after_param)?;
+            current_input = after_space;
+        } else {
+            // No identifier found and no $ or # - this is an error
+            return Err(nom::Err::Error(nom::error::Error::new(
+                current_input,
+                nom::error::ErrorKind::Tag,
+            )));
+        }
+    }
 }
 
 /// Parse template assignment: @name: expr
@@ -1141,8 +1169,9 @@ fn parse_primary_expr(input: &str) -> IResult<&str, Expr> {
     alt((
         map(parse_number, Expr::Number),
         parse_string_literal,
-        parse_signal_function_call, // Try ~add, ~sub, ~mul, ~div before bus ref
-        parse_bus_ref_expr,
+        parse_signal_function_call, // Try ~add, ~sub, ~mul, ~div before bus call/ref
+        parse_bus_call_expr,        // Try ~name arg1 arg2 (function bus call)
+        parse_bus_ref_expr,         // Then try ~name (simple bus reference)
         parse_template_ref_expr,
         parse_pattern_ref_expr,
         parse_function_call, // Try function call first (requires space + args)
@@ -1224,6 +1253,52 @@ fn parse_signal_arg(input: &str) -> IResult<&str, Expr> {
         map(parse_number, Expr::Number),
         parse_bus_ref_expr,
         parse_function_call,
+        parse_var,
+    ))(input)
+}
+
+/// Parse bus function call: ~name arg1 arg2 ...
+/// This is for calling function buses like ~mix ~osc1 ~osc2
+fn parse_bus_call_expr(input: &str) -> IResult<&str, Expr> {
+    let (input, _) = char('~')(input)?;
+    let (input, name) = parse_identifier(input)?;
+
+    // Check this is not a reserved signal function
+    if SIGNAL_FUNCTIONS.contains(&name) {
+        // This should be handled by parse_signal_function_call
+        return Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        )));
+    }
+
+    // Require at least one space and one argument
+    let (input, _) = hspace1(input)?;
+
+    // Parse first argument
+    let (input, first_arg) = parse_bus_call_arg(input)?;
+
+    // Parse remaining space-separated arguments
+    let (input, mut rest_args) = many0(preceded(hspace1, parse_bus_call_arg))(input)?;
+
+    let mut args = vec![first_arg];
+    args.append(&mut rest_args);
+
+    Ok((
+        input,
+        Expr::BusCall {
+            name: name.to_string(),
+            args,
+        },
+    ))
+}
+
+/// Parse a bus call argument - can be bus ref, parenthesized expr, number, or var
+fn parse_bus_call_arg(input: &str) -> IResult<&str, Expr> {
+    alt((
+        parse_paren_expr,
+        map(parse_number, Expr::Number),
+        parse_bus_ref_expr,
         parse_var,
     ))(input)
 }
@@ -2275,8 +2350,9 @@ mod tests {
     fn test_parse_bus_assignment() {
         let result = parse_statement("~drums $ s \"bd sn hh cp\"");
         assert!(result.is_ok());
-        if let Ok((_, Statement::BusAssignment { name, expr })) = result {
+        if let Ok((_, Statement::BusAssignment { name, params, expr })) = result {
             assert_eq!(name, "drums");
+            assert!(params.is_empty());
         }
     }
 
