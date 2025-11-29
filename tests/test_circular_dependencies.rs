@@ -3,12 +3,15 @@
 /// These tests verify that circular bus dependencies work in the DSL:
 /// - Self-referential buses (~a $ ~a + ...) - WORKING
 /// - Two-bus cycles (~a $ ~b, ~b $ ~a) - WORKING
-/// - Three-bus cycles (~a $ ~b, ~b $ ~c, ~c $ ~a) - STACK OVERFLOW
+/// - Three-bus cycles (~a $ ~b, ~b $ ~c, ~c $ ~a) - WORKING
+/// - Complex cross-feedback networks (4 taps, FM synthesis) - WORKING
 ///
-/// Simple self-referential and two-bus cycles now work via placeholder nodes.
-/// Complex multi-bus cross-feedback patterns (where bus A references both B and C,
-/// B references A and C, etc.) cause stack overflow and need explicit delay-line
-/// evaluation to break the recursive evaluation cycle.
+/// The placeholder-based two-pass compilation allows forward and circular references:
+/// 1. Pass 1: Pre-register all bus names with placeholder nodes (Constant 0.0)
+/// 2. Pass 2: Compile expressions with forward references resolved to real nodes
+///
+/// Note: The `mix` function with bus references as parameters is not yet supported
+/// (separate from the circular dependency issue).
 
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
@@ -119,7 +122,6 @@ fn test_two_bus_cycle_with_input() {
 }
 
 #[test]
-#[ignore = "stack overflow: complex cross-feedback patterns need explicit delay-line evaluation"]
 fn test_two_bus_cross_feedback_delay() {
     // Stereo ping-pong delay (cross-feedback)
     let code = r#"
@@ -141,7 +143,6 @@ fn test_two_bus_cross_feedback_delay() {
 // ============================================================================
 
 #[test]
-#[ignore = "stack overflow: complex cross-feedback patterns need explicit delay-line evaluation"]
 fn test_three_bus_cycle() {
     // Three buses in circular dependency
     let code = r#"
@@ -160,7 +161,6 @@ fn test_three_bus_cycle() {
 }
 
 #[test]
-#[ignore = "stack overflow: complex cross-feedback patterns need explicit delay-line evaluation"]
 fn test_three_bus_cycle_different_effects() {
     // Three buses with different processing
     let code = r#"
@@ -183,7 +183,6 @@ fn test_three_bus_cycle_different_effects() {
 // ============================================================================
 
 #[test]
-#[ignore = "stack overflow: complex cross-feedback patterns need explicit delay-line evaluation"]
 fn test_fm_in_self_feedback_loop() {
     // FM synthesis where modulator is in self-feedback loop
     // "or a fm synth or something" from the user's question
@@ -202,7 +201,6 @@ fn test_fm_in_self_feedback_loop() {
 }
 
 #[test]
-#[ignore = "stack overflow: complex cross-feedback patterns need explicit delay-line evaluation"]
 fn test_four_tap_cross_feedback_network() {
     // Four delay taps with cross-feedback (reverb-like diffusion)
     let code = r#"
