@@ -25,7 +25,6 @@
 /// - Siegfried Linkwitz (1976) "Active Crossover Networks for Noncoincident Drivers"
 /// - Douglas Self (2009) "Audio Power Amplifier Design Handbook"
 /// - https://en.wikipedia.org/wiki/Linkwitz%E2%80%93Riley_filter
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz, Q_BUTTERWORTH_F32};
 
@@ -509,7 +508,11 @@ mod tests {
 
         let input_rms = calculate_rms(&osc_buf);
 
-        let inputs = vec![osc_buf.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            osc_buf.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 512];
         crossover.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -549,7 +552,11 @@ mod tests {
 
         let input_rms = calculate_rms(&osc_buf);
 
-        let inputs = vec![osc_buf.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            osc_buf.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 512];
         crossover.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -590,7 +597,11 @@ mod tests {
 
         let input_rms = calculate_rms(&osc_buf);
 
-        let inputs = vec![osc_buf.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            osc_buf.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 512];
         crossover.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -628,7 +639,11 @@ mod tests {
         let mut output = vec![0.0; 512];
 
         let context = test_context();
-        let inputs = vec![signal.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            signal.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         crossover.process_block(&inputs, &mut output, 44100.0, &context);
 
         assert!(output.iter().all(|&x| x.is_finite()));
@@ -660,7 +675,11 @@ mod tests {
 
         let input_rms = calculate_rms(&osc_buf);
 
-        let inputs = vec![osc_buf.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            osc_buf.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 512];
         crossover.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -700,7 +719,11 @@ mod tests {
 
         let input_rms = calculate_rms(&osc_buf);
 
-        let inputs = vec![osc_buf.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            osc_buf.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 512];
         crossover.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -740,7 +763,11 @@ mod tests {
 
         let input_rms = calculate_rms(&osc_buf);
 
-        let inputs = vec![osc_buf.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            osc_buf.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 512];
         crossover.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -778,7 +805,11 @@ mod tests {
         let mut output = vec![0.0; 512];
 
         let context = test_context();
-        let inputs = vec![signal.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            signal.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         crossover.process_block(&inputs, &mut output, 44100.0, &context);
 
         assert!(output.iter().all(|&x| x.is_finite()));
@@ -810,7 +841,11 @@ mod tests {
 
         let input_rms = calculate_rms(&osc_buf);
 
-        let inputs = vec![osc_buf.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            osc_buf.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 512];
         crossover.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -850,7 +885,11 @@ mod tests {
 
         let input_rms = calculate_rms(&osc_buf);
 
-        let inputs = vec![osc_buf.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            osc_buf.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 512];
         crossover.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -891,7 +930,11 @@ mod tests {
 
         let input_rms = calculate_rms(&osc_buf);
 
-        let inputs = vec![osc_buf.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            osc_buf.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 512];
         crossover.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -928,7 +971,11 @@ mod tests {
         let mut output = vec![0.0; 512];
 
         let context = test_context();
-        let inputs = vec![signal.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            signal.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         crossover.process_block(&inputs, &mut output, 44100.0, &context);
 
         assert!(output.iter().all(|&x| x.is_finite()));
@@ -962,7 +1009,11 @@ mod tests {
 
         let input_rms = calculate_rms(&osc_buf);
 
-        let inputs = vec![osc_buf.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            osc_buf.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         let mut low_out = vec![0.0; 512];
         let mut mid_out = vec![0.0; 512];
         let mut high_out = vec![0.0; 512];
@@ -1015,7 +1066,11 @@ mod tests {
 
         let input_rms = calculate_rms(&osc_buf);
 
-        let inputs = vec![osc_buf.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            osc_buf.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         let mut low_out = vec![0.0; 512];
         let mut mid_out = vec![0.0; 512];
         let mut high_out = vec![0.0; 512];
@@ -1067,7 +1122,11 @@ mod tests {
 
         let input_rms = calculate_rms(&osc_buf);
 
-        let inputs = vec![osc_buf.as_slice(), low_freq_buf.as_slice(), high_freq_buf.as_slice()];
+        let inputs = vec![
+            osc_buf.as_slice(),
+            low_freq_buf.as_slice(),
+            high_freq_buf.as_slice(),
+        ];
         let mut low_out = vec![0.0; 512];
         let mut mid_out = vec![0.0; 512];
         let mut high_out = vec![0.0; 512];

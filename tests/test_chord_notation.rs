@@ -7,7 +7,8 @@ use pattern_verification_utils::{calculate_rms, detect_audio_events};
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
 
     let buffer_size = 128;
@@ -40,7 +41,11 @@ out $ ~pattern
     println!("Onsets detected: {}", onsets.len());
 
     // Should produce audio (3 notes playing simultaneously)
-    assert!(rms > 0.05, "Chord should produce audio, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.05,
+        "Chord should produce audio, got RMS: {:.3}",
+        rms
+    );
 
     // RMS should be higher than single note due to 3 simultaneous voices
     let single_note_code = r#"
@@ -56,7 +61,11 @@ out $ ~pattern
     // Note: We don't strictly require chord RMS > single note RMS because
     // phase cancellation between chord notes can reduce overall amplitude.
     // Just verify both produce audio.
-    assert!(single_rms > 0.05, "Single note should produce audio, got RMS: {:.3}", single_rms);
+    assert!(
+        single_rms > 0.05,
+        "Single note should produce audio, got RMS: {:.3}",
+        single_rms
+    );
 }
 
 #[test]
@@ -76,7 +85,11 @@ out $ ~pattern
     println!("RMS: {:.3}", rms);
 
     // Should produce audio (4 notes: C Eb G Bb)
-    assert!(rms > 0.05, "Min7 chord should produce audio, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.05,
+        "Min7 chord should produce audio, got RMS: {:.3}",
+        rms
+    );
 }
 
 #[test]
@@ -97,9 +110,17 @@ out $ ~pattern
     println!("RMS: {:.3}", rms);
     println!("Onsets detected: {}", onsets.len());
 
-    assert!(rms > 0.05, "Chord sequence should produce audio, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.05,
+        "Chord sequence should produce audio, got RMS: {:.3}",
+        rms
+    );
     // Should have 4 chord triggers per cycle * 2 cycles = 8 onsets
-    assert!(onsets.len() >= 6, "Should detect multiple chord onsets, got {}", onsets.len());
+    assert!(
+        onsets.len() >= 6,
+        "Should detect multiple chord onsets, got {}",
+        onsets.len()
+    );
 }
 
 #[test]
@@ -118,7 +139,11 @@ out $ ~pattern
     println!("\n=== Mixed Notes and Chords ===");
     println!("RMS: {:.3}", rms);
 
-    assert!(rms > 0.05, "Mixed pattern should produce audio, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.05,
+        "Mixed pattern should produce audio, got RMS: {:.3}",
+        rms
+    );
 }
 
 #[test]
@@ -138,5 +163,9 @@ out $ ~pattern
     println!("\n=== Chord with 440Hz synth ===");
     println!("RMS: {:.3}", rms);
 
-    assert!(rms > 0.05, "440Hz synth should work with chord notation, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.05,
+        "440Hz synth should work with chord notation, got RMS: {:.3}",
+        rms
+    );
 }

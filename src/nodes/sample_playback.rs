@@ -17,7 +17,6 @@
 /// - Variable speed: speed = 1.0 (normal), 2.0 (double speed), 0.5 (half speed)
 /// - Shared data: Arc<Vec<f32>> allows multiple playback nodes to share same sample
 /// - Sample-accurate: Triggers detected at sample precision (not block level)
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::sync::Arc;
 
@@ -42,14 +41,14 @@ use std::sync::Arc;
 /// let playback = SamplePlaybackNode::new(0, 1, sample_data);  // NodeId 2
 /// ```
 pub struct SamplePlaybackNode {
-    trigger_input: NodeId,           // Trigger signal input (>0.5 = start)
-    speed_input: NodeId,             // Playback speed input (1.0 = normal)
-    sample_data: Arc<Vec<f32>>,     // Shared sample data
+    trigger_input: NodeId,      // Trigger signal input (>0.5 = start)
+    speed_input: NodeId,        // Playback speed input (1.0 = normal)
+    sample_data: Arc<Vec<f32>>, // Shared sample data
 
     // Internal playback state
-    playback_position: f32,          // Current read position (fractional)
-    is_playing: bool,                // Whether playback is active
-    last_trigger: f32,               // Last trigger value (for edge detection)
+    playback_position: f32, // Current read position (fractional)
+    is_playing: bool,       // Whether playback is active
+    last_trigger: f32,      // Last trigger value (for edge detection)
 }
 
 impl SamplePlaybackNode {
@@ -68,11 +67,7 @@ impl SamplePlaybackNode {
     /// ~trigger: square 4.0
     /// ~playback: sample_playback ~trigger 1.0
     /// ```
-    pub fn new(
-        trigger_input: NodeId,
-        speed_input: NodeId,
-        sample_data: Arc<Vec<f32>>,
-    ) -> Self {
+    pub fn new(trigger_input: NodeId, speed_input: NodeId, sample_data: Arc<Vec<f32>>) -> Self {
         Self {
             trigger_input,
             speed_input,
@@ -158,14 +153,11 @@ impl AudioNode for SamplePlaybackNode {
                 // Check if we're still within sample bounds
                 if pos < self.sample_data.len() {
                     // Linear interpolation for smooth playback
-                    let frac = self.playback_position.fract();  // Fractional part
+                    let frac = self.playback_position.fract(); // Fractional part
                     let s1 = self.sample_data[pos];
 
                     // Get next sample for interpolation (or use current if at end)
-                    let s2 = self.sample_data
-                        .get(pos + 1)
-                        .copied()
-                        .unwrap_or(s1);
+                    let s2 = self.sample_data.get(pos + 1).copied().unwrap_or(s1);
 
                     // Linear interpolation: s1 * (1 - frac) + s2 * frac
                     output[i] = s1 * (1.0 - frac) + s2 * frac;
@@ -221,18 +213,12 @@ mod tests {
     #[test]
     fn test_sample_playback_trigger_starts_playback() {
         // Test 1: Trigger starts playback
-        let sample_data = create_test_sample(1000);  // Longer sample (1000 samples)
-        let mut trigger = ConstantNode::new(1.0);  // High trigger
-        let mut speed = ConstantNode::new(1.0);    // Normal speed
+        let sample_data = create_test_sample(1000); // Longer sample (1000 samples)
+        let mut trigger = ConstantNode::new(1.0); // High trigger
+        let mut speed = ConstantNode::new(1.0); // Normal speed
         let mut playback = SamplePlaybackNode::new(0, 1, sample_data.clone());
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Generate input buffers
         let mut trigger_buf = vec![0.0; 512];
@@ -256,17 +242,11 @@ mod tests {
     fn test_sample_playback_no_trigger_no_sound() {
         // Test 2: No trigger = no sound
         let sample_data = create_test_sample(100);
-        let mut trigger = ConstantNode::new(0.0);  // Low trigger
+        let mut trigger = ConstantNode::new(0.0); // Low trigger
         let mut speed = ConstantNode::new(1.0);
         let mut playback = SamplePlaybackNode::new(0, 1, sample_data.clone());
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut trigger_buf = vec![0.0; 512];
         let mut speed_buf = vec![0.0; 512];
@@ -289,16 +269,10 @@ mod tests {
     #[test]
     fn test_sample_playback_rising_edge_detection() {
         // Test 3: Rising edge detection (0 -> 1 transition)
-        let sample_data = create_test_sample(1000);  // Longer sample
+        let sample_data = create_test_sample(1000); // Longer sample
         let mut playback = SamplePlaybackNode::new(0, 1, sample_data.clone());
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // First 256 samples: trigger low (0.0)
         // Last 256 samples: trigger high (1.0)
@@ -314,11 +288,17 @@ mod tests {
 
         // First 256 samples should be silent (trigger low)
         let first_half_silent = output.iter().take(256).all(|&x| x == 0.0);
-        assert!(first_half_silent, "First half should be silent (trigger low)");
+        assert!(
+            first_half_silent,
+            "First half should be silent (trigger low)"
+        );
 
         // After sample 256, should start playing (rising edge)
         let second_half_has_signal = output.iter().skip(257).take(50).any(|&x| x.abs() > 0.01);
-        assert!(second_half_has_signal, "Should start playing on rising edge");
+        assert!(
+            second_half_has_signal,
+            "Should start playing on rising edge"
+        );
 
         // Should be playing by the end (sample is 1000 long, only played 256 samples)
         assert!(playback.is_playing(), "Should be playing after rising edge");
@@ -327,16 +307,10 @@ mod tests {
     #[test]
     fn test_sample_playback_retrigger() {
         // Test 4: Retrigger restarts from beginning
-        let sample_data = create_ramp_sample(100);  // 0.0 to 1.0 ramp
+        let sample_data = create_ramp_sample(100); // 0.0 to 1.0 ramp
         let mut playback = SamplePlaybackNode::new(0, 1, sample_data.clone());
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            64,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 64, 2.0, 44100.0);
 
         // First trigger: start playback
         let trigger_buf = vec![1.0; 64];
@@ -352,7 +326,7 @@ mod tests {
 
         // Trigger goes low, then high again (retrigger)
         let mut trigger_buf = vec![0.0; 64];
-        trigger_buf[32] = 1.0;  // Rising edge at sample 32
+        trigger_buf[32] = 1.0; // Rising edge at sample 32
         for i in 33..64 {
             trigger_buf[i] = 1.0;
         }
@@ -362,7 +336,7 @@ mod tests {
 
         // After retrigger, position should reset and restart
         // The sample is a ramp, so early samples should be smaller values
-        let value_after_retrigger = output2[33];  // Just after retrigger
+        let value_after_retrigger = output2[33]; // Just after retrigger
         assert!(
             value_after_retrigger < 0.1,
             "Should restart from beginning on retrigger, got {}",
@@ -373,17 +347,11 @@ mod tests {
     #[test]
     fn test_sample_playback_speed_control() {
         // Test 5: Speed affects playback rate
-        let sample_data = create_test_sample(2000);  // Long sample (2000 samples)
+        let sample_data = create_test_sample(2000); // Long sample (2000 samples)
 
         // Normal speed (1.0)
         let mut playback_normal = SamplePlaybackNode::new(0, 1, sample_data.clone());
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let trigger_buf = vec![1.0; 512];
         let speed_buf = vec![1.0; 512];
@@ -419,16 +387,10 @@ mod tests {
         let sample_data = create_test_sample(1000);
         let mut playback = SamplePlaybackNode::new(0, 1, sample_data.clone());
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let trigger_buf = vec![1.0; 512];
-        let speed_buf = vec![0.5; 512];  // Half speed
+        let speed_buf = vec![0.5; 512]; // Half speed
         let inputs = vec![trigger_buf.as_slice(), speed_buf.as_slice()];
         let mut output = vec![0.0; 512];
         playback.process_block(&inputs, &mut output, 44100.0, &context);
@@ -446,16 +408,10 @@ mod tests {
     #[test]
     fn test_sample_playback_stops_at_end() {
         // Test 7: Playback stops at end of sample
-        let sample_data = create_test_sample(100);  // Short sample
+        let sample_data = create_test_sample(100); // Short sample
         let mut playback = SamplePlaybackNode::new(0, 1, sample_data.clone());
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Trigger playback
         let trigger_buf = vec![1.0; 512];
@@ -465,7 +421,10 @@ mod tests {
         playback.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Should have stopped (sample is only 100 samples long)
-        assert!(!playback.is_playing(), "Should stop after reaching end of sample");
+        assert!(
+            !playback.is_playing(),
+            "Should stop after reaching end of sample"
+        );
 
         // Later samples should be silent
         let later_samples_silent = output.iter().skip(150).all(|&x| x == 0.0);
@@ -479,17 +438,11 @@ mod tests {
         let sample_data = Arc::new(vec![0.0, 1.0]);
         let mut playback = SamplePlaybackNode::new(0, 1, sample_data.clone());
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         // Start playback, then manually set position to 0.5
         let trigger_buf = vec![1.0; 1];
-        let speed_buf = vec![0.0; 1];  // Zero speed (don't advance)
+        let speed_buf = vec![0.0; 1]; // Zero speed (don't advance)
         let inputs = vec![trigger_buf.as_slice(), speed_buf.as_slice()];
         let mut output = vec![0.0; 1];
         playback.process_block(&inputs, &mut output, 44100.0, &context);
@@ -499,8 +452,8 @@ mod tests {
         playback.is_playing = true;
 
         // Process one sample
-        let trigger_buf = vec![0.0; 1];  // Keep trigger low
-        let speed_buf = vec![0.0; 1];    // Don't advance
+        let trigger_buf = vec![0.0; 1]; // Keep trigger low
+        let speed_buf = vec![0.0; 1]; // Don't advance
         let inputs = vec![trigger_buf.as_slice(), speed_buf.as_slice()];
         let mut output = vec![0.0; 1];
         playback.process_block(&inputs, &mut output, 44100.0, &context);
@@ -520,13 +473,7 @@ mod tests {
         let sample_data = Arc::new(vec![0.1, 0.2, 0.3, 0.4, 0.5]);
         let mut playback = SamplePlaybackNode::new(0, 1, sample_data.clone());
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         // Trigger and play at normal speed
         let trigger_buf = vec![1.0; 5];
@@ -553,19 +500,13 @@ mod tests {
         let sample_data = create_ramp_sample(100);
         let mut playback = SamplePlaybackNode::new(0, 1, sample_data.clone());
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            128,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 128, 2.0, 44100.0);
 
         // Create trigger pattern: high, then low, then high again
         let mut trigger_buf = vec![0.0; 128];
-        trigger_buf[0] = 1.0;  // First trigger
+        trigger_buf[0] = 1.0; // First trigger
         trigger_buf[1] = 1.0;
-        trigger_buf[2] = 0.0;  // Goes low
+        trigger_buf[2] = 0.0; // Goes low
         trigger_buf[64] = 1.0; // Second trigger (rising edge)
         for i in 65..128 {
             trigger_buf[i] = 1.0;
@@ -593,8 +534,8 @@ mod tests {
         let deps = playback.input_nodes();
 
         assert_eq!(deps.len(), 2);
-        assert_eq!(deps[0], 10);  // trigger_input
-        assert_eq!(deps[1], 20);  // speed_input
+        assert_eq!(deps[0], 10); // trigger_input
+        assert_eq!(deps[1], 20); // speed_input
     }
 
     #[test]
@@ -625,13 +566,7 @@ mod tests {
         let sample_data = Arc::new(Vec::new());
         let mut playback = SamplePlaybackNode::new(0, 1, sample_data.clone());
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let trigger_buf = vec![1.0; 512];
         let speed_buf = vec![1.0; 512];
@@ -658,6 +593,6 @@ mod tests {
         assert_eq!(playback2.sample_length(), 100);
 
         // Verify Arc refcount increased (data is shared)
-        assert_eq!(Arc::strong_count(&sample_data), 3);  // Original + 2 nodes
+        assert_eq!(Arc::strong_count(&sample_data), 3); // Original + 2 nodes
     }
 }

@@ -12,7 +12,6 @@
 ///
 /// Note: The `mix` function with bus references as parameters is not yet supported
 /// (separate from the circular dependency issue).
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -23,7 +22,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -45,7 +45,11 @@ fn test_self_referential_feedback_basic() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Self-referential feedback should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Self-referential feedback should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -61,7 +65,11 @@ fn test_self_referential_with_processing() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Self-referential with processing should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Self-referential with processing should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -80,7 +88,11 @@ fn test_self_referential_reverb_injection() {
     let buffer = render_dsl(code, 4.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.01, "Reverb with self-feedback should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Reverb with self-feedback should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -119,7 +131,11 @@ fn test_two_bus_cycle_with_input() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Two-bus cycle with input should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Two-bus cycle with input should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -136,7 +152,11 @@ fn test_two_bus_cross_feedback_delay() {
     let buffer = render_dsl(code, 4.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Cross-feedback delay should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Cross-feedback delay should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -158,7 +178,11 @@ fn test_three_bus_cycle() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Three-bus cycle should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Three-bus cycle should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -176,7 +200,11 @@ fn test_three_bus_cycle_different_effects() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Three-bus cycle with effects should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Three-bus cycle with effects should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -198,7 +226,11 @@ fn test_fm_in_self_feedback_loop() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "FM in self-feedback loop should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "FM in self-feedback loop should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -217,7 +249,11 @@ fn test_four_tap_cross_feedback_network() {
     let buffer = render_dsl(code, 3.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.01, "Four-tap cross-feedback should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Four-tap cross-feedback should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -233,7 +269,11 @@ fn test_karplus_strong_feedback() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Karplus-Strong should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Karplus-Strong should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -250,7 +290,11 @@ fn test_mix_function_in_circular_feedback() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Mix function in circular feedback should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Mix function in circular feedback should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -331,7 +375,9 @@ fn test_unit_delay_feedback_accumulation() {
     assert!(
         convergence_ratio > 1.0 && convergence_ratio < 1.5,
         "Feedback should show convergence: late ({:.4}) / early ({:.4}) = {:.4}",
-        late_avg, early_avg, convergence_ratio
+        late_avg,
+        early_avg,
+        convergence_ratio
     );
 }
 

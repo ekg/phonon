@@ -514,7 +514,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 parse_parameter(graph, param, buses, 440.0);
                                             graph.add_node(SignalNode::Oscillator {
                                                 freq: freq_signal,
-        semitone_offset: 0.0,
+                                                semitone_offset: 0.0,
                                                 waveform: osc_type,
                                                 phase: RefCell::new(0.0),
                                                 pending_freq: RefCell::new(None),
@@ -929,7 +929,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                     Some(graph.add_node(SignalNode::Oscillator {
                                         freq: freq_signal,
-        semitone_offset: 0.0,
+                                        semitone_offset: 0.0,
                                         waveform: osc_type,
                                         phase: RefCell::new(0.0),
                                         pending_freq: RefCell::new(None),
@@ -1333,14 +1333,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 println!();
-
             } else if realtime {
                 // REALTIME MODE: Use process_buffer() like live mode for profiling
                 if parallel {
                     println!("🔬 Profiling mode: Using realtime process_buffer() path WITH PARALLEL PROCESSING");
                     println!("   Cores available: {}", rayon::current_num_threads());
                 } else {
-                    println!("🔬 Profiling mode: Using realtime process_buffer() path (single-threaded)");
+                    println!(
+                        "🔬 Profiling mode: Using realtime process_buffer() path (single-threaded)"
+                    );
                 }
 
                 const BLOCK_SIZE: usize = 512;
@@ -1354,15 +1355,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if parallel {
                     // PARALLEL MODE: Process multiple blocks concurrently
                     use rayon::prelude::*;
-                    
 
                     let start = Instant::now();
 
                     // Create graph instances (one per thread) - no mutex needed with chunks
                     let num_threads = rayon::current_num_threads();
 
-                    println!("   Parallel threads: {} (processing ~{} blocks each)",
-                        num_threads, (num_blocks + num_threads - 1) / num_threads);
+                    println!(
+                        "   Parallel threads: {} (processing ~{} blocks each)",
+                        num_threads,
+                        (num_blocks + num_threads - 1) / num_threads
+                    );
 
                     // Split blocks into chunks, one chunk per thread
                     let blocks_per_thread = (num_blocks + num_threads - 1) / num_threads;
@@ -1377,9 +1380,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     // CRITICAL FIX: Pre-clone graphs BEFORE parallel processing
                     // Multiple threads calling graph.clone() simultaneously causes RefCell issues
-                    let graph_clones: Vec<_> = chunks.iter()
-                        .map(|_| graph.clone())
-                        .collect();
+                    let graph_clones: Vec<_> = chunks.iter().map(|_| graph.clone()).collect();
 
                     // Process chunks in parallel - each thread gets its own pre-cloned graph
                     let mut all_blocks: Vec<(usize, Vec<f32>, std::time::Duration)> = chunks
@@ -1427,7 +1428,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         max_block_time = max_block_time.max(block_time);
                         output_buffer.extend_from_slice(&block_buffer);
                     }
-
                 } else {
                     // SEQUENTIAL MODE: Process blocks one at a time
                     for block_idx in 0..num_blocks {
@@ -1452,7 +1452,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         // Progress reporting
                         if block_idx % 100 == 0 {
-                            let progress = (output_buffer.len() as f32 / total_samples as f32) * 100.0;
+                            let progress =
+                                (output_buffer.len() as f32 / total_samples as f32) * 100.0;
                             print!("\r🔄 Rendering: {:.1}% (block {}/{}, avg: {:?}, min: {:?}, max: {:?})",
                                 progress, block_idx + 1, num_blocks,
                                 total_process_time / (block_idx as u32 + 1),
@@ -1468,26 +1469,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("⏱️  PROFILING RESULTS:");
                 println!("   Total blocks:     {}", num_blocks);
                 println!("   Total time:       {:?}", total_process_time);
-                println!("   Avg per block:    {:?}", total_process_time / num_blocks as u32);
+                println!(
+                    "   Avg per block:    {:?}",
+                    total_process_time / num_blocks as u32
+                );
                 println!("   Min block time:   {:?}", min_block_time);
                 println!("   Max block time:   {:?}", max_block_time);
-                println!("   Blocks/second:    {:.1}", num_blocks as f64 / total_process_time.as_secs_f64());
+                println!(
+                    "   Blocks/second:    {:.1}",
+                    num_blocks as f64 / total_process_time.as_secs_f64()
+                );
 
                 // Calculate if realtime is achievable
                 let block_duration_ms = (BLOCK_SIZE as f64 / sample_rate as f64) * 1000.0;
-                let avg_block_time_ms = total_process_time.as_secs_f64() * 1000.0 / num_blocks as f64;
+                let avg_block_time_ms =
+                    total_process_time.as_secs_f64() * 1000.0 / num_blocks as f64;
                 let cpu_usage_percent = (avg_block_time_ms / block_duration_ms) * 100.0;
 
                 println!("   Block duration:   {:.2} ms", block_duration_ms);
                 println!("   Avg process time: {:.2} ms", avg_block_time_ms);
                 println!("   CPU usage:        {:.1}%", cpu_usage_percent);
                 if cpu_usage_percent > 100.0 {
-                    println!("   ⚠️  CANNOT RUN IN REALTIME ({}% CPU)", cpu_usage_percent as i32);
+                    println!(
+                        "   ⚠️  CANNOT RUN IN REALTIME ({}% CPU)",
+                        cpu_usage_percent as i32
+                    );
                 } else {
-                    println!("   ✅ Can run in realtime with {:.1}% headroom", 100.0 - cpu_usage_percent);
+                    println!(
+                        "   ✅ Can run in realtime with {:.1}% headroom",
+                        100.0 - cpu_usage_percent
+                    );
                 }
                 println!();
-
             } else {
                 // OFFLINE MODE: Sample-by-sample using process_sample()
                 if let Some(out_node) = out_signal {
@@ -1540,8 +1553,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Calculate statistics
             let (rms, peak, dc_offset) = if stereo {
-                let rms_left = (left_buffer.iter().map(|&x| x * x).sum::<f32>() / left_buffer.len() as f32).sqrt();
-                let rms_right = (right_buffer.iter().map(|&x| x * x).sum::<f32>() / right_buffer.len() as f32).sqrt();
+                let rms_left = (left_buffer.iter().map(|&x| x * x).sum::<f32>()
+                    / left_buffer.len() as f32)
+                    .sqrt();
+                let rms_right = (right_buffer.iter().map(|&x| x * x).sum::<f32>()
+                    / right_buffer.len() as f32)
+                    .sqrt();
                 let rms = (rms_left + rms_right) / 2.0;
                 let peak_left = left_buffer.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
                 let peak_right = right_buffer.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
@@ -1551,7 +1568,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let dc_offset = (dc_left + dc_right) / 2.0;
                 (rms, peak, dc_offset)
             } else {
-                let rms = (output_buffer.iter().map(|&x| x * x).sum::<f32>() / output_buffer.len() as f32).sqrt();
+                let rms = (output_buffer.iter().map(|&x| x * x).sum::<f32>()
+                    / output_buffer.len() as f32)
+                    .sqrt();
                 let peak = output_buffer.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
                 let dc_offset = output_buffer.iter().sum::<f32>() / output_buffer.len() as f32;
                 (rms, peak, dc_offset)
@@ -1573,14 +1592,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for i in 0..left_buffer.len() {
                     let left_i16 = (left_buffer[i] * 32767.0) as i16;
                     let right_i16 = (right_buffer[i] * 32767.0) as i16;
-                    writer.write_sample(left_i16).map_err(|e| format!("Failed to write sample: {e}"))?;
-                    writer.write_sample(right_i16).map_err(|e| format!("Failed to write sample: {e}"))?;
+                    writer
+                        .write_sample(left_i16)
+                        .map_err(|e| format!("Failed to write sample: {e}"))?;
+                    writer
+                        .write_sample(right_i16)
+                        .map_err(|e| format!("Failed to write sample: {e}"))?;
                 }
             } else {
                 // Write mono samples
                 for &sample in &output_buffer {
                     let sample_i16 = (sample * 32767.0) as i16;
-                    writer.write_sample(sample_i16).map_err(|e| format!("Failed to write sample: {e}"))?;
+                    writer
+                        .write_sample(sample_i16)
+                        .map_err(|e| format!("Failed to write sample: {e}"))?;
                 }
             }
 
@@ -1663,7 +1688,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 parse_dsl(&dsl_code).map_err(|e| format!("Failed to parse DSL: {:?}", e))?;
 
             if !remaining.trim().is_empty() {
-                eprintln!("⚠️  Warning: unparsed input remaining: {}", remaining.trim());
+                eprintln!(
+                    "⚠️  Warning: unparsed input remaining: {}",
+                    remaining.trim()
+                );
             }
 
             // Compile to graph using DslCompiler
@@ -1793,9 +1821,9 @@ out sine(440) * 0.2
             //
             // Key insight: Audio callback doesn't synthesize, just copies pre-rendered samples
             use arc_swap::ArcSwap;
-            use std::cell::RefCell;
             use ringbuf::traits::{Consumer, Observer, Producer, Split};
             use ringbuf::HeapRb;
+            use std::cell::RefCell;
 
             // Newtype wrapper to impl Send+Sync for RefCell<UnifiedSignalGraph>
             // SAFETY: Each GraphCell instance is only accessed by one thread at a time.
@@ -1809,7 +1837,7 @@ out sine(440) * 0.2
             // Ring buffer: background synth writes, audio callback reads
             // Size: 1 second of audio @ 48kHz = 48000 samples
             // Provides smooth playback even if synth thread lags briefly
-            let ring_buffer_size = (sample_rate * 1.0) as usize;  // 1 second buffer
+            let ring_buffer_size = (sample_rate * 1.0) as usize; // 1 second buffer
             let ring = HeapRb::<f32>::new(ring_buffer_size);
             let (mut ring_producer, mut ring_consumer) = ring.split();
 
@@ -1860,7 +1888,7 @@ out sine(440) * 0.2
             // This is the KEY FIX for P1.3 - synthesis happens in background, not in audio callback!
             let graph_clone_synth = Arc::clone(&graph);
             std::thread::spawn(move || {
-                let mut buffer = [0.0f32; 512];  // Render in chunks of 512 samples
+                let mut buffer = [0.0f32; 512]; // Render in chunks of 512 samples
 
                 loop {
                     // Check if we have space in ring buffer
@@ -1877,7 +1905,10 @@ out sine(440) * 0.2
                             // Write to ring buffer
                             let written = ring_producer.push_slice(&buffer);
                             if written < buffer.len() {
-                                eprintln!("⚠️  Ring buffer full, dropped {} samples", buffer.len() - written);
+                                eprintln!(
+                                    "⚠️  Ring buffer full, dropped {} samples",
+                                    buffer.len() - written
+                                );
                             }
                         } else {
                             // No graph yet, write silence
@@ -1958,7 +1989,9 @@ out sine(440) * 0.2
                                     match parse_phonon(&content, sample_rate) {
                                         Ok(new_graph) => {
                                             // Lock-free atomic swap: no audio callback blocking!
-                                            graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
+                                            graph.store(Arc::new(Some(GraphCell(RefCell::new(
+                                                new_graph,
+                                            )))));
 
                                             // Update file state
                                             let mut state_lock = file_state.lock().unwrap();

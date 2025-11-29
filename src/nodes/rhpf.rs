@@ -16,7 +16,6 @@
 /// - Robert Bristow-Johnson's Audio EQ Cookbook
 /// - SuperCollider RHPF UGen
 /// - Classic analog filter designs (Moog, Roland, etc.)
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz};
 
@@ -382,7 +381,11 @@ mod tests {
         const_res.process_block(&[], &mut res_buf, 44100.0, &context);
 
         // Filter DC signal
-        let rhpf_inputs = vec![dc_buffer.as_slice(), cutoff_buf.as_slice(), res_buf.as_slice()];
+        let rhpf_inputs = vec![
+            dc_buffer.as_slice(),
+            cutoff_buf.as_slice(),
+            res_buf.as_slice(),
+        ];
         rhpf.process_block(&rhpf_inputs, &mut filtered, 44100.0, &context);
 
         // DC should be heavily attenuated (but with settling time)
@@ -422,11 +425,7 @@ mod tests {
 
         // Process with cutoff at 500 Hz (1000 Hz should pass well)
         const_cutoff.process_block(&[], &mut cutoff_buf, 44100.0, &context);
-        let rhpf_inputs1 = vec![
-            signal.as_slice(),
-            cutoff_buf.as_slice(),
-            res_buf.as_slice(),
-        ];
+        let rhpf_inputs1 = vec![signal.as_slice(), cutoff_buf.as_slice(), res_buf.as_slice()];
         let mut output1 = vec![0.0; 512];
         rhpf.process_block(&rhpf_inputs1, &mut output1, 44100.0, &context);
         let rms1 = calculate_rms(&output1);
@@ -434,11 +433,7 @@ mod tests {
         // Change cutoff to 2000 Hz (1000 Hz should be more attenuated)
         const_cutoff.set_value(2000.0);
         const_cutoff.process_block(&[], &mut cutoff_buf, 44100.0, &context);
-        let rhpf_inputs2 = vec![
-            signal.as_slice(),
-            cutoff_buf.as_slice(),
-            res_buf.as_slice(),
-        ];
+        let rhpf_inputs2 = vec![signal.as_slice(), cutoff_buf.as_slice(), res_buf.as_slice()];
         let mut output2 = vec![0.0; 512];
         rhpf.process_block(&rhpf_inputs2, &mut output2, 44100.0, &context);
         let rms2 = calculate_rms(&output2);
@@ -478,11 +473,7 @@ mod tests {
 
         // Process with low resonance
         const_res.process_block(&[], &mut res_buf, 44100.0, &context);
-        let rhpf_inputs1 = vec![
-            signal.as_slice(),
-            cutoff_buf.as_slice(),
-            res_buf.as_slice(),
-        ];
+        let rhpf_inputs1 = vec![signal.as_slice(), cutoff_buf.as_slice(), res_buf.as_slice()];
         let mut output1 = vec![0.0; 512];
         rhpf.process_block(&rhpf_inputs1, &mut output1, 44100.0, &context);
         let rms1 = calculate_rms(&output1);
@@ -490,11 +481,7 @@ mod tests {
         // Change to high resonance
         const_res.set_value(10.0);
         const_res.process_block(&[], &mut res_buf, 44100.0, &context);
-        let rhpf_inputs2 = vec![
-            signal.as_slice(),
-            cutoff_buf.as_slice(),
-            res_buf.as_slice(),
-        ];
+        let rhpf_inputs2 = vec![signal.as_slice(), cutoff_buf.as_slice(), res_buf.as_slice()];
         let mut output2 = vec![0.0; 512];
         rhpf.process_block(&rhpf_inputs2, &mut output2, 44100.0, &context);
         let rms2 = calculate_rms(&output2);
@@ -538,7 +525,11 @@ mod tests {
 
         let context = test_context();
 
-        let inputs = vec![dc_buffer.as_slice(), cutoff_buf.as_slice(), res_buf.as_slice()];
+        let inputs = vec![
+            dc_buffer.as_slice(),
+            cutoff_buf.as_slice(),
+            res_buf.as_slice(),
+        ];
         rhpf.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Should produce valid output
@@ -571,11 +562,7 @@ mod tests {
         let osc_inputs = vec![freq_buf.as_slice()];
         osc.process_block(&osc_inputs, &mut signal, 44100.0, &context);
 
-        let rhpf_inputs = vec![
-            signal.as_slice(),
-            cutoff_buf.as_slice(),
-            res_buf.as_slice(),
-        ];
+        let rhpf_inputs = vec![signal.as_slice(), cutoff_buf.as_slice(), res_buf.as_slice()];
         rhpf.process_block(&rhpf_inputs, &mut output, 44100.0, &context);
 
         // Should produce finite output even with extreme resonance
@@ -648,11 +635,7 @@ mod tests {
             let osc_inputs = vec![freq_buf.as_slice()];
             osc.process_block(&osc_inputs, &mut signal, 44100.0, &context);
 
-            let rhpf_inputs = vec![
-                signal.as_slice(),
-                cutoff_buf.as_slice(),
-                res_buf.as_slice(),
-            ];
+            let rhpf_inputs = vec![signal.as_slice(), cutoff_buf.as_slice(), res_buf.as_slice()];
             rhpf.process_block(&rhpf_inputs, &mut output, 44100.0, &context);
 
             let rms = calculate_rms(&output);

@@ -182,7 +182,11 @@ out $ s "bd sn hh cp" $ slice 4 "0 2 1 3"
     let audio = render_dsl(code, 8);
     let rms = calculate_rms(&audio);
 
-    assert!(rms > 0.05, "Sliced pattern should have audible audio (RMS = {})", rms);
+    assert!(
+        rms > 0.05,
+        "Sliced pattern should have audible audio (RMS = {})",
+        rms
+    );
 
     println!("✅ slice Level 3: RMS = {:.4}", rms);
 }

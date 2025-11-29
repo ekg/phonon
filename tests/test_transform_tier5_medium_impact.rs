@@ -498,7 +498,10 @@ fn test_splice_composition() {
     let p1 = parse_mini_notation("bd");
     let p2 = parse_mini_notation("sn");
 
-    let spliced = p1.clone().splice(Pattern::pure(0.5), p2.clone()).fast(Pattern::pure(2.0));
+    let spliced = p1
+        .clone()
+        .splice(Pattern::pure(0.5), p2.clone())
+        .fast(Pattern::pure(2.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),

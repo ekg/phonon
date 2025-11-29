@@ -75,7 +75,8 @@ out $ additive 440 "1.0 0.5 0.25"
 "#;
 
     let (_, statements_single) = parse_program(code_single).expect("Failed to parse");
-    let mut graph_single = compile_program(statements_single, 44100.0, None).expect("Failed to compile");
+    let mut graph_single =
+        compile_program(statements_single, 44100.0, None).expect("Failed to compile");
     let buffer_single = graph_single.render(44100);
 
     let (_, statements_multiple) = parse_program(code_multiple).expect("Failed to parse");

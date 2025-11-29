@@ -10,7 +10,6 @@
 /// - pan_angle = (pan + 1.0) * PI / 4.0
 /// - left = input * cos(pan_angle)
 /// - right = input * sin(pan_angle)
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -24,8 +23,8 @@ use std::f32::consts::PI;
 /// let panned = PanNode::new(1, 2);                     // NodeId 3
 /// ```
 pub struct PanNode {
-    input: NodeId,      // Audio input signal
-    pan_input: NodeId,  // Pan position: -1.0 (left) to 1.0 (right)
+    input: NodeId,     // Audio input signal
+    pan_input: NodeId, // Pan position: -1.0 (left) to 1.0 (right)
 }
 
 impl PanNode {
@@ -80,16 +79,12 @@ impl AudioNode for PanNode {
             output.len(),
             "Signal buffer length mismatch"
         );
-        debug_assert_eq!(
-            pan_buf.len(),
-            output.len(),
-            "Pan buffer length mismatch"
-        );
+        debug_assert_eq!(pan_buf.len(), output.len(), "Pan buffer length mismatch");
 
         // Apply equal-power panning
         for i in 0..output.len() {
             let signal = signal_buf[i];
-            let pan = pan_buf[i].clamp(-1.0, 1.0);  // Clamp to valid range
+            let pan = pan_buf[i].clamp(-1.0, 1.0); // Clamp to valid range
 
             // Equal-power law:
             // pan_angle ranges from 0 (left) to PI/2 (right)
@@ -124,30 +119,26 @@ mod tests {
         let mut pan = PanNode::new(0, 1);
 
         let signal = vec![1.0, -0.5, 0.8, -0.3];
-        let pan_pos = vec![0.0, 0.0, 0.0, 0.0];  // Center
+        let pan_pos = vec![0.0, 0.0, 0.0, 0.0]; // Center
         let inputs = vec![signal.as_slice(), pan_pos.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         pan.process_block(&inputs, &mut output, 44100.0, &context);
 
         // At center, left and right are equal (cos(PI/4) = sin(PI/4) = sqrt(2)/2)
         // So average should be signal * sqrt(2)/2
-        let expected_gain = (PI / 4.0).cos();  // cos(PI/4) = sqrt(2)/2 ≈ 0.707
+        let expected_gain = (PI / 4.0).cos(); // cos(PI/4) = sqrt(2)/2 ≈ 0.707
 
         for i in 0..4 {
             let expected = signal[i] * expected_gain;
             assert!(
                 (output[i] - expected).abs() < 0.001,
                 "Center pan sample {} mismatch: got {}, expected {}",
-                i, output[i], expected
+                i,
+                output[i],
+                expected
             );
         }
     }
@@ -158,17 +149,11 @@ mod tests {
         let mut pan = PanNode::new(0, 1);
 
         let signal = vec![1.0; 512];
-        let pan_pos = vec![-1.0; 512];  // Full left
+        let pan_pos = vec![-1.0; 512]; // Full left
         let inputs = vec![signal.as_slice(), pan_pos.as_slice()];
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         pan.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -189,17 +174,11 @@ mod tests {
         let mut pan = PanNode::new(0, 1);
 
         let signal = vec![1.0; 512];
-        let pan_pos = vec![1.0; 512];  // Full right
+        let pan_pos = vec![1.0; 512]; // Full right
         let inputs = vec![signal.as_slice(), pan_pos.as_slice()];
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         pan.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -222,13 +201,7 @@ mod tests {
         let pan_positions = vec![-1.0, -0.5, 0.0, 0.5, 1.0];
         let signal = vec![1.0; 512];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Test that the stereo power (before mono downmix) is constant
         for &pan_pos in &pan_positions {
@@ -242,7 +215,8 @@ mod tests {
             assert!(
                 (stereo_power - 1.0).abs() < 0.001,
                 "Pan position {} stereo power not equal: {:.6} (should be 1.0)",
-                pan_pos, stereo_power
+                pan_pos,
+                stereo_power
             );
         }
 
@@ -258,47 +232,44 @@ mod tests {
 
             pan.process_block(&inputs, &mut output, 44100.0, &context);
 
-            mono_outputs.push(output[0]);  // All samples are the same
+            mono_outputs.push(output[0]); // All samples are the same
         }
 
         // Center should have highest output (both L and R contributing)
-        let center_output = mono_outputs[2];  // 0.0 pan position
+        let center_output = mono_outputs[2]; // 0.0 pan position
 
         // Full left and full right should have equal output (symmetry)
         assert!(
             (mono_outputs[0] - mono_outputs[4]).abs() < 0.001,
             "Full left and full right outputs should be equal: left={}, right={}",
-            mono_outputs[0], mono_outputs[4]
+            mono_outputs[0],
+            mono_outputs[4]
         );
 
         // -0.5 and +0.5 should also be equal (symmetry)
         assert!(
             (mono_outputs[1] - mono_outputs[3]).abs() < 0.001,
             "Pan -0.5 and +0.5 outputs should be equal: -0.5={}, +0.5={}",
-            mono_outputs[1], mono_outputs[3]
+            mono_outputs[1],
+            mono_outputs[3]
         );
 
         // Center should be louder than full left/right
         assert!(
             center_output > mono_outputs[0],
             "Center output should be louder than hard panned: center={}, hard={}",
-            center_output, mono_outputs[0]
+            center_output,
+            mono_outputs[0]
         );
     }
 
     #[test]
     fn test_pan_with_constants() {
         let mut const_signal = ConstantNode::new(0.5);
-        let mut const_pan = ConstantNode::new(0.5);  // Slight right
+        let mut const_pan = ConstantNode::new(0.5); // Slight right
         let mut pan = PanNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut signal_buf = vec![0.0; 512];
@@ -329,17 +300,11 @@ mod tests {
         let mut pan = PanNode::new(0, 1);
 
         let signal = vec![1.0; 4];
-        let pan_pos = vec![-2.0, -1.5, 1.5, 2.0];  // Out of range
+        let pan_pos = vec![-2.0, -1.5, 1.5, 2.0]; // Out of range
         let inputs = vec![signal.as_slice(), pan_pos.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         pan.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -369,17 +334,11 @@ mod tests {
         let mut pan = PanNode::new(0, 1);
 
         let signal = vec![-1.0, -0.5, -0.8, -0.3];
-        let pan_pos = vec![0.0, 0.0, 0.0, 0.0];  // Center
+        let pan_pos = vec![0.0, 0.0, 0.0, 0.0]; // Center
         let inputs = vec![signal.as_slice(), pan_pos.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         pan.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -390,7 +349,9 @@ mod tests {
             assert!(
                 (output[i] - expected).abs() < 0.001,
                 "Negative signal pan sample {} mismatch: got {}, expected {}",
-                i, output[i], expected
+                i,
+                output[i],
+                expected
             );
         }
     }

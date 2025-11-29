@@ -9,7 +9,6 @@
 /// - No overtones
 /// - Frequency pattern-modulated
 /// - Used for sub-bass, pure tones, LFOs, test signals
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -20,14 +19,15 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
 
 /// Perform FFT and analyze spectrum
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -113,17 +113,23 @@ fn test_sine_single_harmonic() {
         }
     }
 
-    assert!(fundamental_mag > 0.1,
+    assert!(
+        fundamental_mag > 0.1,
         "Sine should have strong fundamental, got {}",
-        fundamental_mag);
+        fundamental_mag
+    );
 
     let ratio = second_harmonic_mag / fundamental_mag.max(0.001);
-    assert!(ratio < 0.05,
+    assert!(
+        ratio < 0.05,
         "Sine should have minimal harmonics, 2nd/1st ratio: {}",
-        ratio);
+        ratio
+    );
 
-    println!("Fundamental: {}, 2nd harmonic: {}, ratio: {}",
-        fundamental_mag, second_harmonic_mag, ratio);
+    println!(
+        "Fundamental: {}, 2nd harmonic: {}, ratio: {}",
+        fundamental_mag, second_harmonic_mag, ratio
+    );
 }
 
 #[test]
@@ -149,9 +155,11 @@ fn test_sine_frequency_accuracy() {
         }
     }
 
-    assert!((peak_freq - 440.0).abs() < 10.0,
+    assert!(
+        (peak_freq - 440.0).abs() < 10.0,
         "Sine should peak at 440Hz, got {}Hz",
-        peak_freq);
+        peak_freq
+    );
 
     println!("Peak frequency: {}Hz", peak_freq);
 }
@@ -300,9 +308,11 @@ fn test_sine_pattern_frequency() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1,
+    assert!(
+        rms > 0.1,
         "Sine with pattern-modulated frequency should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern frequency RMS: {}", rms);
 }
@@ -318,9 +328,11 @@ fn test_sine_pattern_amplitude() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "Sine with pattern-modulated amplitude should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern amplitude RMS: {}", rms);
 }
@@ -371,9 +383,11 @@ fn test_sine_no_clipping() {
     let buffer = render_dsl(code, 1.0);
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
-    assert!(max_amplitude <= 0.7,
+    assert!(
+        max_amplitude <= 0.7,
         "Sine should not clip, max: {}",
-        max_amplitude);
+        max_amplitude
+    );
 
     println!("Sine max amplitude: {}", max_amplitude);
 }
@@ -389,9 +403,11 @@ fn test_sine_dc_offset() {
     let buffer = render_dsl(code, 1.0);
     let mean: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
 
-    assert!(mean.abs() < 0.01,
+    assert!(
+        mean.abs() < 0.01,
         "Sine should have no DC offset, mean: {}",
-        mean);
+        mean
+    );
 
     println!("Sine DC offset: {}", mean);
 }
@@ -411,14 +427,16 @@ fn test_sine_continuous() {
     // Check for discontinuities (sudden jumps)
     let mut max_diff = 0.0f32;
     for i in 1..buffer.len() {
-        let diff = (buffer[i] - buffer[i-1]).abs();
+        let diff = (buffer[i] - buffer[i - 1]).abs();
         max_diff = max_diff.max(diff);
     }
 
     // At 440Hz and 44100 samples/sec, max change per sample should be small
-    assert!(max_diff < 0.1,
+    assert!(
+        max_diff < 0.1,
         "Sine should be continuous, max diff: {}",
-        max_diff);
+        max_diff
+    );
 
     println!("Sine max sample-to-sample diff: {}", max_diff);
 }

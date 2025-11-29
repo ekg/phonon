@@ -55,7 +55,6 @@
 /// let left_channel = splitter.left_output();
 /// let right_channel = splitter.right_output();
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Stereo splitter node - identity passthrough with stereo semantics
@@ -155,13 +154,7 @@ mod tests {
         let inputs = vec![stereo_signal.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         splitter.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -185,25 +178,19 @@ mod tests {
         let inputs = vec![stereo_signal.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         splitter.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Verify left channel (even indices)
-        assert_eq!(output[0], 1.0);  // L0
-        assert_eq!(output[2], 3.0);  // L1
-        assert_eq!(output[4], 5.0);  // L2
+        assert_eq!(output[0], 1.0); // L0
+        assert_eq!(output[2], 3.0); // L1
+        assert_eq!(output[4], 5.0); // L2
 
         // Verify right channel (odd indices)
-        assert_eq!(output[1], 2.0);  // R0
-        assert_eq!(output[3], 4.0);  // R1
-        assert_eq!(output[5], 6.0);  // R2
+        assert_eq!(output[1], 2.0); // R0
+        assert_eq!(output[3], 4.0); // R1
+        assert_eq!(output[5], 6.0); // R2
     }
 
     #[test]
@@ -218,13 +205,7 @@ mod tests {
         let inputs = vec![stereo_signal.as_slice()];
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         splitter.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -245,13 +226,7 @@ mod tests {
         let mut const_node = ConstantNode::new(0.75);
         let mut splitter = StereoSplitterNode::new(0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constant node first
         let mut const_buf = vec![0.0; 512];
@@ -282,13 +257,7 @@ mod tests {
         let inputs = vec![stereo_signal.as_slice()];
 
         let mut output = vec![0.0; 100];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            100,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 100, 2.0, 44100.0);
 
         splitter.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -325,14 +294,8 @@ mod tests {
         let stereo_signal = vec![0.0; 512];
         let inputs = vec![stereo_signal.as_slice()];
 
-        let mut output = vec![99.9; 512];  // Pre-fill with non-zero
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let mut output = vec![99.9; 512]; // Pre-fill with non-zero
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         splitter.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -348,25 +311,29 @@ mod tests {
         let mut splitter = StereoSplitterNode::new(0);
 
         let stereo_signal: Vec<f32> = (0..20)
-            .map(|i| if i % 2 == 0 { (i as f32) / 10.0 } else { -(i as f32) / 10.0 })
+            .map(|i| {
+                if i % 2 == 0 {
+                    (i as f32) / 10.0
+                } else {
+                    -(i as f32) / 10.0
+                }
+            })
             .collect();
 
         let inputs = vec![stereo_signal.as_slice()];
 
         let mut output = vec![0.0; 20];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            20,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 20, 2.0, 44100.0);
 
         splitter.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Verify alternating pattern preserved
         for i in 0..20 {
-            let expected = if i % 2 == 0 { (i as f32) / 10.0 } else { -(i as f32) / 10.0 };
+            let expected = if i % 2 == 0 {
+                (i as f32) / 10.0
+            } else {
+                -(i as f32) / 10.0
+            };
             assert_eq!(
                 output[i], expected,
                 "Alternating sample {} mismatch: got {}, expected {}",
@@ -381,20 +348,12 @@ mod tests {
         let mut splitter = StereoSplitterNode::new(1);
 
         // Simulate stereo signal from reverb (alternating values)
-        let reverb_output: Vec<f32> = (0..512)
-            .map(|i| ((i % 2) as f32) * 0.3 + 0.1)
-            .collect();
+        let reverb_output: Vec<f32> = (0..512).map(|i| ((i % 2) as f32) * 0.3 + 0.1).collect();
 
         let inputs = vec![reverb_output.as_slice()];
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         splitter.process_block(&inputs, &mut output, 44100.0, &context);
 

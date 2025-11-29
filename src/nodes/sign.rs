@@ -6,7 +6,6 @@
 /// - Zero → 0.0
 ///
 /// Output[i] = sign(Input[i]) for all samples.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Sign node: out = sign(input)
@@ -60,18 +59,11 @@ impl AudioNode for SignNode {
         _sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(
-            !inputs.is_empty(),
-            "SignNode requires 1 input, got 0"
-        );
+        debug_assert!(!inputs.is_empty(), "SignNode requires 1 input, got 0");
 
         let buf = inputs[0];
 
-        debug_assert_eq!(
-            buf.len(),
-            output.len(),
-            "Input length mismatch"
-        );
+        debug_assert_eq!(buf.len(), output.len(), "Input length mismatch");
 
         // Apply sign function to each sample
         for i in 0..output.len() {
@@ -108,13 +100,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         sign_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -132,13 +118,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         sign_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -156,13 +136,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         sign_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -180,23 +154,17 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 7];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            7,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 7, 2.0, 44100.0);
 
         sign_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);   // 1.0 → 1.0
-        assert_eq!(output[1], -1.0);  // -2.0 → -1.0
-        assert_eq!(output[2], 1.0);   // 3.0 → 1.0
-        assert_eq!(output[3], -1.0);  // -4.0 → -1.0
-        assert_eq!(output[4], 0.0);   // 0.0 → 0.0
-        assert_eq!(output[5], 1.0);   // 5.5 → 1.0
-        assert_eq!(output[6], -1.0);  // -0.1 → -1.0
+        assert_eq!(output[0], 1.0); // 1.0 → 1.0
+        assert_eq!(output[1], -1.0); // -2.0 → -1.0
+        assert_eq!(output[2], 1.0); // 3.0 → 1.0
+        assert_eq!(output[3], -1.0); // -4.0 → -1.0
+        assert_eq!(output[4], 0.0); // 0.0 → 0.0
+        assert_eq!(output[5], 1.0); // 5.5 → 1.0
+        assert_eq!(output[6], -1.0); // -0.1 → -1.0
     }
 
     #[test]
@@ -214,13 +182,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 16];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            16,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 16, 2.0, 44100.0);
 
         sign_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -268,13 +230,7 @@ mod tests {
         let mut const_node = ConstantNode::new(-5.0);
         let mut sign_node = SignNode::new(0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constant first
         let mut buf = vec![0.0; 512];

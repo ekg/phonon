@@ -4,10 +4,10 @@
 //! allowing patterns to be recorded from MIDI controllers.
 
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiInputPort};
+use std::collections::{HashMap, VecDeque};
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use std::collections::{HashMap, VecDeque};
 
 /// Shared MIDI event queue for real-time monitoring
 /// Used by both MidiInputHandler (writes) and UnifiedSignalGraph (reads)
@@ -83,7 +83,9 @@ impl MidiEvent {
 
     /// Convert MIDI note number to note name
     pub fn midi_to_note_name(note: u8) -> String {
-        let note_names = ["c", "cs", "d", "ds", "e", "f", "fs", "g", "gs", "a", "as", "b"];
+        let note_names = [
+            "c", "cs", "d", "ds", "e", "f", "fs", "g", "gs", "a", "as", "b",
+        ];
         let octave = (note / 12) as i32 - 1;
         let note_index = (note % 12) as usize;
         format!("{}{}", note_names[note_index], octave)
@@ -131,10 +133,10 @@ impl MidiInputHandler {
             .iter()
             .enumerate()
             .filter_map(|(i, port)| {
-                midi_in.port_name(port).ok().map(|name| MidiInputDevice {
-                    name,
-                    index: i,
-                })
+                midi_in
+                    .port_name(port)
+                    .ok()
+                    .map(|name| MidiInputDevice { name, index: i })
             })
             .collect();
 
@@ -148,7 +150,11 @@ impl MidiInputHandler {
 
         let port = ports
             .iter()
-            .find(|p| midi_in.port_name(p).map_or(false, |n| n.contains(device_name)))
+            .find(|p| {
+                midi_in
+                    .port_name(p)
+                    .map_or(false, |n| n.contains(device_name))
+            })
             .ok_or_else(|| format!("MIDI device '{}' not found", device_name))?;
 
         self.connect_to_port_internal(midi_in, port.clone())
@@ -254,7 +260,7 @@ impl Default for MidiInputHandler {
 struct NoteEvent {
     pub note: u8,
     pub velocity: u8,
-    pub start_us: u64,      // When note-on received
+    pub start_us: u64,       // When note-on received
     pub end_us: Option<u64>, // When note-off received (None if still active)
 }
 
@@ -347,15 +353,18 @@ impl MidiRecorder {
         match event.message_type {
             MidiMessageType::NoteOn { note, velocity } if velocity > 0 => {
                 // Start tracking this note
-                self.active_notes.insert(note, NoteEvent {
+                self.active_notes.insert(
                     note,
-                    velocity,
-                    start_us: event.timestamp_us,
-                    end_us: None,
-                });
+                    NoteEvent {
+                        note,
+                        velocity,
+                        start_us: event.timestamp_us,
+                        end_us: None,
+                    },
+                );
             }
-            MidiMessageType::NoteOff { note, .. } |
-            MidiMessageType::NoteOn { note, velocity: 0 } => {
+            MidiMessageType::NoteOff { note, .. }
+            | MidiMessageType::NoteOn { note, velocity: 0 } => {
                 // Complete the note duration
                 if let Some(mut note_event) = self.active_notes.remove(&note) {
                     note_event.end_us = Some(event.timestamp_us);
@@ -387,12 +396,15 @@ impl MidiRecorder {
         // Track note durations for legato calculation
         if velocity > 0 {
             // Note-on: Start tracking
-            self.active_notes.insert(note, NoteEvent {
+            self.active_notes.insert(
                 note,
-                velocity,
-                start_us: timestamp_us,
-                end_us: None,
-            });
+                NoteEvent {
+                    note,
+                    velocity,
+                    start_us: timestamp_us,
+                    end_us: None,
+                },
+            );
         } else {
             // Note-off: Complete duration
             if let Some(mut note_event) = self.active_notes.remove(&note) {
@@ -500,7 +512,8 @@ impl MidiRecorder {
         let mut consecutive_rests = 0;
 
         // Create lookup map for note durations (note -> duration_us)
-        let mut note_durations: std::collections::HashMap<(u8, u64), u64> = std::collections::HashMap::new();
+        let mut note_durations: std::collections::HashMap<(u8, u64), u64> =
+            std::collections::HashMap::new();
         for note_event in &self.completed_notes {
             if let Some(end_us) = note_event.end_us {
                 let duration = end_us.saturating_sub(note_event.start_us);
@@ -530,18 +543,20 @@ impl MidiRecorder {
 
                     if events.len() == 1 {
                         let (note, vel) = events[0];
-                        let timestamp = note_ons.iter()
+                        let timestamp = note_ons
+                            .iter()
                             .find(|(n, v, _)| *n == note && *v == vel)
                             .map(|(_, _, t)| *t)
                             .unwrap_or(0);
 
                         // Calculate legato
-                        let legato = if let Some(&duration_us) = note_durations.get(&(note, timestamp)) {
-                            let legato_raw = duration_us as f64 / slot_duration_us as f64;
-                            legato_raw.clamp(0.0, 1.0)
-                        } else {
-                            0.8 // Default for notes still held or not tracked
-                        };
+                        let legato =
+                            if let Some(&duration_us) = note_durations.get(&(note, timestamp)) {
+                                let legato_raw = duration_us as f64 / slot_duration_us as f64;
+                                legato_raw.clamp(0.0, 1.0)
+                            } else {
+                                0.8 // Default for notes still held or not tracked
+                            };
 
                         notes_parts.push(MidiEvent::midi_to_note_name(note));
                         n_offset_parts.push((note - base_note).to_string());
@@ -561,14 +576,18 @@ impl MidiRecorder {
                         let max_vel = events.iter().map(|(_, v)| *v).max().unwrap();
 
                         // For legato in chords, use average of all note durations
-                        let legato_values: Vec<f64> = events.iter().filter_map(|(note, vel)| {
-                            let timestamp = note_ons.iter()
-                                .find(|(n, v, _)| *n == *note && *v == *vel)
-                                .map(|(_, _, t)| *t)?;
-                            let duration_us = *note_durations.get(&(*note, timestamp))?;
-                            let legato_raw = duration_us as f64 / slot_duration_us as f64;
-                            Some(legato_raw.clamp(0.0, 1.0))
-                        }).collect();
+                        let legato_values: Vec<f64> = events
+                            .iter()
+                            .filter_map(|(note, vel)| {
+                                let timestamp = note_ons
+                                    .iter()
+                                    .find(|(n, v, _)| *n == *note && *v == *vel)
+                                    .map(|(_, _, t)| *t)?;
+                                let duration_us = *note_durations.get(&(*note, timestamp))?;
+                                let legato_raw = duration_us as f64 / slot_duration_us as f64;
+                                Some(legato_raw.clamp(0.0, 1.0))
+                            })
+                            .collect();
                         let avg_legato = if legato_values.is_empty() {
                             0.8
                         } else {
@@ -607,7 +626,11 @@ impl MidiRecorder {
     }
 
     /// Convert recorded events to pattern string, optionally including timing
-    pub fn to_pattern_string_with_options(&self, beats_per_cycle: f64, include_timing: bool) -> String {
+    pub fn to_pattern_string_with_options(
+        &self,
+        beats_per_cycle: f64,
+        include_timing: bool,
+    ) -> String {
         if self.events.is_empty() {
             return String::new();
         }
@@ -661,12 +684,10 @@ impl MidiRecorder {
         self.events
             .iter()
             .filter_map(|e| match &e.message_type {
-                MidiMessageType::NoteOn { note, velocity } if *velocity > 0 => {
-                    Some((
-                        MidiEvent::midi_to_note_name(*note),
-                        self.timestamp_to_beat(e.timestamp_us),
-                    ))
-                }
+                MidiMessageType::NoteOn { note, velocity } if *velocity > 0 => Some((
+                    MidiEvent::midi_to_note_name(*note),
+                    self.timestamp_to_beat(e.timestamp_us),
+                )),
                 _ => None,
             })
             .collect()
@@ -683,7 +704,11 @@ impl MidiRecorder {
     }
 
     /// Convert recorded events to n-offset pattern string, optionally including timing
-    pub fn to_n_pattern_string_with_options(&self, beats_per_cycle: f64, include_timing: bool) -> String {
+    pub fn to_n_pattern_string_with_options(
+        &self,
+        beats_per_cycle: f64,
+        include_timing: bool,
+    ) -> String {
         if !include_timing {
             // Simple mode: just offsets without timing grid
             let note_ons: Vec<_> = self
@@ -732,9 +757,7 @@ impl MidiRecorder {
             .events
             .iter()
             .filter_map(|e| match &e.message_type {
-                MidiMessageType::NoteOn { velocity, .. } if *velocity > 0 => {
-                    Some(e.timestamp_us)
-                }
+                MidiMessageType::NoteOn { velocity, .. } if *velocity > 0 => Some(e.timestamp_us),
                 _ => None,
             })
             .collect();
@@ -754,7 +777,11 @@ impl MidiRecorder {
         }
 
         let first_ts = self.recording_start_us;
-        let last_ts = self.events.last().map(|e| e.timestamp_us).unwrap_or(first_ts);
+        let last_ts = self
+            .events
+            .last()
+            .map(|e| e.timestamp_us)
+            .unwrap_or(first_ts);
         (last_ts - first_ts) as f64 / 1_000_000.0
     }
 
@@ -797,7 +824,10 @@ mod tests {
         assert_eq!(event.channel, 0);
         assert!(matches!(
             event.message_type,
-            MidiMessageType::NoteOn { note: 60, velocity: 100 }
+            MidiMessageType::NoteOn {
+                note: 60,
+                velocity: 100
+            }
         ));
     }
 
@@ -830,10 +860,10 @@ mod tests {
         recorder.set_quantize(4); // Quarter notes
 
         // Play C major arpeggio on each beat
-        recorder.record_event_at(60, 100, 0);          // Beat 0: C4
-        recorder.record_event_at(64, 100, 500_000);    // Beat 1: E4
-        recorder.record_event_at(67, 100, 1_000_000);  // Beat 2: G4
-        recorder.record_event_at(72, 100, 1_500_000);  // Beat 3: C5
+        recorder.record_event_at(60, 100, 0); // Beat 0: C4
+        recorder.record_event_at(64, 100, 500_000); // Beat 1: E4
+        recorder.record_event_at(67, 100, 1_000_000); // Beat 2: G4
+        recorder.record_event_at(72, 100, 1_500_000); // Beat 3: C5
 
         // 4 beats per cycle, all notes on beat boundaries
         let pattern = recorder.to_pattern_string(4.0);
@@ -847,8 +877,8 @@ mod tests {
         recorder.set_quantize(4); // Quarter notes
 
         // Play notes on beats 0 and 2 only (beats 1 and 3 are rests)
-        recorder.record_event_at(60, 100, 0);          // Beat 0: C4
-        recorder.record_event_at(67, 100, 1_000_000);  // Beat 2: G4
+        recorder.record_event_at(60, 100, 0); // Beat 0: C4
+        recorder.record_event_at(67, 100, 1_000_000); // Beat 2: G4
 
         let pattern = recorder.to_pattern_string(4.0);
         // Should have a rest between C4 and G4
@@ -862,8 +892,8 @@ mod tests {
         recorder.set_quantize(4); // Quarter notes
 
         // Play note only on beat 0 and beat 3
-        recorder.record_event_at(60, 100, 0);          // Beat 0: C4
-        recorder.record_event_at(72, 100, 1_500_000);  // Beat 3: C5
+        recorder.record_event_at(60, 100, 0); // Beat 0: C4
+        recorder.record_event_at(72, 100, 1_500_000); // Beat 3: C5
 
         let pattern = recorder.to_pattern_string(4.0);
         // Should have ~@2 for two consecutive rests
@@ -877,13 +907,13 @@ mod tests {
         recorder.set_quantize(16); // Sixteenth notes
 
         // Play hi-hat pattern: x . x . x . x . (every other 16th)
-        recorder.record_event_at(42, 100, 0);          // 16th 0
-        recorder.record_event_at(42, 100, 250_000);    // 16th 2
-        recorder.record_event_at(42, 100, 500_000);    // 16th 4
-        recorder.record_event_at(42, 100, 750_000);    // 16th 6
+        recorder.record_event_at(42, 100, 0); // 16th 0
+        recorder.record_event_at(42, 100, 250_000); // 16th 2
+        recorder.record_event_at(42, 100, 500_000); // 16th 4
+        recorder.record_event_at(42, 100, 750_000); // 16th 6
 
         let pattern = recorder.to_pattern_string(1.0); // 1 beat cycle
-        // Should have 4 notes with rests between
+                                                       // Should have 4 notes with rests between
         assert!(pattern.contains("fs2")); // MIDI 42 = F#2
         assert_eq!(recorder.note_count(), 4);
     }
@@ -927,8 +957,8 @@ mod tests {
         recorder.set_quantize(4); // Quarter notes
 
         // Play slightly off beat (10ms late)
-        recorder.record_event_at(60, 100, 10_000);     // Slightly after beat 0
-        recorder.record_event_at(64, 100, 510_000);    // Slightly after beat 1
+        recorder.record_event_at(60, 100, 10_000); // Slightly after beat 0
+        recorder.record_event_at(64, 100, 510_000); // Slightly after beat 1
 
         let pattern = recorder.to_pattern_string(4.0);
         // Should still snap to c4 e4 without extra rests
@@ -957,10 +987,10 @@ mod tests {
 
         // C major arpeggio: C4 E4 G4 C5
         // Offsets from C4: 0, 4, 7, 12
-        recorder.record_event_at(60, 100, 0);          // C4 -> 0
-        recorder.record_event_at(64, 100, 500_000);    // E4 -> 4
-        recorder.record_event_at(67, 100, 1_000_000);  // G4 -> 7
-        recorder.record_event_at(72, 100, 1_500_000);  // C5 -> 12
+        recorder.record_event_at(60, 100, 0); // C4 -> 0
+        recorder.record_event_at(64, 100, 500_000); // E4 -> 4
+        recorder.record_event_at(67, 100, 1_000_000); // G4 -> 7
+        recorder.record_event_at(72, 100, 1_500_000); // C5 -> 12
 
         let pattern = recorder.to_n_pattern_string(4.0);
         assert_eq!(pattern, "0 4 7 12");
@@ -972,8 +1002,8 @@ mod tests {
         recorder.set_quantize(4);
 
         // Notes on beats 0 and 2 only
-        recorder.record_event_at(60, 100, 0);          // C4 -> 0
-        recorder.record_event_at(67, 100, 1_000_000);  // G4 -> 7
+        recorder.record_event_at(60, 100, 0); // C4 -> 0
+        recorder.record_event_at(67, 100, 1_000_000); // G4 -> 7
 
         let pattern = recorder.to_n_pattern_string(4.0);
         assert_eq!(pattern, "0 ~ 7");
@@ -984,9 +1014,9 @@ mod tests {
         let mut recorder = MidiRecorder::new(120.0);
 
         // Play notes at various times (timing will be ignored)
-        recorder.record_event_at(48, 100, 0);          // C3 -> 0
-        recorder.record_event_at(55, 100, 123_456);    // G3 -> 7
-        recorder.record_event_at(60, 100, 999_999);    // C4 -> 12
+        recorder.record_event_at(48, 100, 0); // C3 -> 0
+        recorder.record_event_at(55, 100, 123_456); // G3 -> 7
+        recorder.record_event_at(60, 100, 999_999); // C4 -> 12
 
         // Without timing - just offsets
         let pattern = recorder.to_n_pattern_string_with_options(4.0, false);
@@ -1015,9 +1045,9 @@ mod tests {
     fn test_get_lowest_note() {
         let mut recorder = MidiRecorder::new(120.0);
 
-        recorder.record_event_at(72, 100, 0);    // C5
-        recorder.record_event_at(48, 100, 100);  // C3 (lowest)
-        recorder.record_event_at(60, 100, 200);  // C4
+        recorder.record_event_at(72, 100, 0); // C5
+        recorder.record_event_at(48, 100, 100); // C3 (lowest)
+        recorder.record_event_at(60, 100, 200); // C4
 
         assert_eq!(recorder.get_lowest_note(), Some(48));
         assert_eq!(recorder.get_base_note_name(), Some("c3".to_string()));
@@ -1029,10 +1059,10 @@ mod tests {
         recorder.set_quantize(4);
 
         // Octave jumping pattern
-        recorder.record_event_at(36, 100, 0);          // C2 -> 0
-        recorder.record_event_at(48, 100, 500_000);    // C3 -> 12
-        recorder.record_event_at(60, 100, 1_000_000);  // C4 -> 24
-        recorder.record_event_at(72, 100, 1_500_000);  // C5 -> 36
+        recorder.record_event_at(36, 100, 0); // C2 -> 0
+        recorder.record_event_at(48, 100, 500_000); // C3 -> 12
+        recorder.record_event_at(60, 100, 1_000_000); // C4 -> 24
+        recorder.record_event_at(72, 100, 1_500_000); // C5 -> 36
 
         let pattern = recorder.to_n_pattern_string(4.0);
         assert_eq!(pattern, "0 12 24 36");

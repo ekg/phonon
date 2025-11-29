@@ -2,7 +2,6 @@
 ///
 /// This node demonstrates buffer combining and dependency handling.
 /// Output[i] = Input_A[i] - Input_B[i] for all samples.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Subtraction node: out = a - b
@@ -67,16 +66,8 @@ impl AudioNode for SubtractionNode {
         let buf_a = inputs[0];
         let buf_b = inputs[1];
 
-        debug_assert_eq!(
-            buf_a.len(),
-            output.len(),
-            "Input A length mismatch"
-        );
-        debug_assert_eq!(
-            buf_b.len(),
-            output.len(),
-            "Input B length mismatch"
-        );
+        debug_assert_eq!(buf_a.len(), output.len(), "Input A length mismatch");
+        debug_assert_eq!(buf_b.len(), output.len(), "Input B length mismatch");
 
         // Vectorized subtraction
         for i in 0..output.len() {
@@ -109,20 +100,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         sub.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 2.0);  // 5 - 3
-        assert_eq!(output[1], 2.0);  // 5 - 3
-        assert_eq!(output[2], 2.0);  // 5 - 3
-        assert_eq!(output[3], 2.0);  // 5 - 3
+        assert_eq!(output[0], 2.0); // 5 - 3
+        assert_eq!(output[1], 2.0); // 5 - 3
+        assert_eq!(output[2], 2.0); // 5 - 3
+        assert_eq!(output[3], 2.0); // 5 - 3
     }
 
     #[test]
@@ -135,20 +120,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         sub.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], -5.0);  // 0 - 5
-        assert_eq!(output[1], -5.0);  // 0 - 5
-        assert_eq!(output[2], -5.0);  // 0 - 5
-        assert_eq!(output[3], -5.0);  // 0 - 5
+        assert_eq!(output[0], -5.0); // 0 - 5
+        assert_eq!(output[1], -5.0); // 0 - 5
+        assert_eq!(output[2], -5.0); // 0 - 5
+        assert_eq!(output[3], -5.0); // 0 - 5
     }
 
     #[test]
@@ -161,20 +140,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         sub.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 8.0);  // 5 - (-3)
-        assert_eq!(output[1], 8.0);  // 5 - (-3)
-        assert_eq!(output[2], 8.0);  // 5 - (-3)
-        assert_eq!(output[3], 8.0);  // 5 - (-3)
+        assert_eq!(output[0], 8.0); // 5 - (-3)
+        assert_eq!(output[1], 8.0); // 5 - (-3)
+        assert_eq!(output[2], 8.0); // 5 - (-3)
+        assert_eq!(output[3], 8.0); // 5 - (-3)
     }
 
     #[test]
@@ -193,13 +166,7 @@ mod tests {
         let mut const_b = ConstantNode::new(25.0);
         let mut sub = SubtractionNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut buf_a = vec![0.0; 512];
@@ -229,19 +196,13 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         sub.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 7.0);   // 10 - 3
-        assert_eq!(output[1], 13.0);  // 20 - 7
-        assert_eq!(output[2], 15.0);  // 30 - 15
-        assert_eq!(output[3], 15.0);  // 40 - 25
+        assert_eq!(output[0], 7.0); // 10 - 3
+        assert_eq!(output[1], 13.0); // 20 - 7
+        assert_eq!(output[2], 15.0); // 30 - 15
+        assert_eq!(output[3], 15.0); // 40 - 25
     }
 }

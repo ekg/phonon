@@ -8,7 +8,6 @@
 /// - Trigger input restarts the ramp
 /// - Holds at end value after completion
 /// - All parameters pattern-controllable
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Line Generator Node
@@ -29,14 +28,14 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 /// let line = LineNode::new(0, 1, 2, 3);    // NodeId 4
 /// ```
 pub struct LineNode {
-    start_input: NodeId,      // Starting value
-    end_input: NodeId,        // Ending value
-    duration_input: NodeId,   // Duration in seconds
-    trigger_input: NodeId,    // Trigger to restart ramp
-    current_value: f32,       // Current output value
-    elapsed_time: f32,        // Time elapsed in current ramp (seconds)
-    is_active: bool,          // Is ramp currently active?
-    last_trigger: f32,        // Previous trigger value (for edge detection)
+    start_input: NodeId,    // Starting value
+    end_input: NodeId,      // Ending value
+    duration_input: NodeId, // Duration in seconds
+    trigger_input: NodeId,  // Trigger to restart ramp
+    current_value: f32,     // Current output value
+    elapsed_time: f32,      // Time elapsed in current ramp (seconds)
+    is_active: bool,        // Is ramp currently active?
+    last_trigger: f32,      // Previous trigger value (for edge detection)
 }
 
 impl LineNode {
@@ -112,10 +111,22 @@ impl AudioNode for LineNode {
         let duration_buffer = inputs[2];
         let trigger_buffer = inputs[3];
 
-        debug_assert_eq!(start_buffer.len(), output.len(), "Start buffer length mismatch");
+        debug_assert_eq!(
+            start_buffer.len(),
+            output.len(),
+            "Start buffer length mismatch"
+        );
         debug_assert_eq!(end_buffer.len(), output.len(), "End buffer length mismatch");
-        debug_assert_eq!(duration_buffer.len(), output.len(), "Duration buffer length mismatch");
-        debug_assert_eq!(trigger_buffer.len(), output.len(), "Trigger buffer length mismatch");
+        debug_assert_eq!(
+            duration_buffer.len(),
+            output.len(),
+            "Duration buffer length mismatch"
+        );
+        debug_assert_eq!(
+            trigger_buffer.len(),
+            output.len(),
+            "Trigger buffer length mismatch"
+        );
 
         for i in 0..output.len() {
             let start = start_buffer[i];
@@ -192,13 +203,8 @@ mod tests {
 
         let mut line = LineNode::new(0, 1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Generate input buffers
         let mut start_buf = vec![0.0; block_size];
@@ -222,7 +228,10 @@ mod tests {
         line.process_block(&inputs, &mut output, sample_rate, &context);
 
         // First sample should be at start value (triggered)
-        assert_eq!(output[0], start_value, "First sample should be at start value");
+        assert_eq!(
+            output[0], start_value,
+            "First sample should be at start value"
+        );
 
         // Values should be increasing linearly
         assert!(output[100] > output[0], "Line should be rising");
@@ -251,13 +260,8 @@ mod tests {
 
         let mut line = LineNode::new(0, 1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let start_buf = vec![start_value; block_size];
         let end_buf = vec![end_value; block_size];
@@ -288,7 +292,8 @@ mod tests {
 
             // Should hold at end value
             assert_eq!(
-                output[block_size - 1], end_value,
+                output[block_size - 1],
+                end_value,
                 "Should hold at end value"
             );
         }
@@ -301,16 +306,11 @@ mod tests {
         let start_value = 0.0;
         let end_value = 1.0;
         let short_duration = 0.01; // 10ms
-        let long_duration = 0.1;   // 100ms
+        let long_duration = 0.1; // 100ms
         let block_size = 512;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Fast ramp
         let mut line_fast = LineNode::new(0, 1, 2, 3);
@@ -362,13 +362,8 @@ mod tests {
 
         let mut line = LineNode::new(0, 1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let start_buf = vec![start_value; block_size];
         let end_buf = vec![end_value; block_size];
@@ -388,7 +383,10 @@ mod tests {
 
         // Should be active and ramping
         assert!(line.is_active(), "Line should be active after trigger");
-        assert!(output[block_size - 1] > start_value, "Line should have progressed");
+        assert!(
+            output[block_size - 1] > start_value,
+            "Line should have progressed"
+        );
 
         // Trigger off (low)
         let trigger_buf = vec![0.0; block_size];
@@ -441,13 +439,8 @@ mod tests {
 
         let mut line = LineNode::new(0, 1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let start_buf = vec![start_value; block_size];
         let end_buf = vec![end_value; block_size];
@@ -472,10 +465,14 @@ mod tests {
                 "Should hold at end value after completion"
             );
             assert_eq!(
-                output[block_size - 1], end_value,
+                output[block_size - 1],
+                end_value,
                 "Should still hold at end value"
             );
-            assert!(!line.is_active(), "Line should be inactive after completion");
+            assert!(
+                !line.is_active(),
+                "Line should be inactive after completion"
+            );
         }
     }
 
@@ -508,13 +505,8 @@ mod tests {
 
         let mut line = LineNode::new(0, 1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Generate constant buffers
         let mut start_buf = vec![0.0; block_size];
@@ -562,7 +554,8 @@ mod tests {
 
         // Should reach and hold at end_value
         assert_eq!(
-            output[block_size - 1], end_value,
+            output[block_size - 1],
+            end_value,
             "Should hold at end value in second block"
         );
         assert!(!line.is_active(), "Should be inactive after completion");
@@ -579,13 +572,8 @@ mod tests {
 
         let mut line = LineNode::new(0, 1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let start_buf = vec![start_value; block_size];
         let end_buf = vec![end_value; block_size];

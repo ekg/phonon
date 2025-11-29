@@ -1,14 +1,15 @@
-use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Pattern, State, TimeSpan, Fraction};
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
+use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 
 /// Render DSL code to audio buffer using compositional compiler
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -59,7 +60,11 @@ out $ s "bd" # begin 0.0
     let rms = calculate_rms(&buffer);
 
     // begin 0.0 should start at the beginning (normal playback)
-    assert!(rms > 0.01, "begin 0.0 should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "begin 0.0 should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -76,7 +81,11 @@ out $ s "bd" # begin 0.5
     let begin_half_rms = calculate_rms(&begin_half);
 
     // Should produce audio (slicing is working)
-    assert!(begin_half_rms > 0.01, "begin 0.5 should produce audio, got RMS={}", begin_half_rms);
+    assert!(
+        begin_half_rms > 0.01,
+        "begin 0.5 should produce audio, got RMS={}",
+        begin_half_rms
+    );
 
     // Note: We don't compare RMS to normal because envelope and speed
     // parameters can normalize the loudness across different slice points
@@ -113,7 +122,11 @@ out $ s "bd" # end 0.5
     let end_half_rms = calculate_rms(&end_half);
 
     // Should produce audio (slicing is working)
-    assert!(end_half_rms > 0.01, "end 0.5 should produce audio, got RMS={}", end_half_rms);
+    assert!(
+        end_half_rms > 0.01,
+        "end 0.5 should produce audio, got RMS={}",
+        end_half_rms
+    );
 
     // Note: We don't compare RMS because envelope and speed parameters
     // can normalize the loudness across different slice endpoints
@@ -133,7 +146,11 @@ out $ s "bd" # begin 0.25 # end 0.75
     let rms = calculate_rms(&buffer);
 
     // Should produce audio from the middle portion
-    assert!(rms > 0.01, "begin 0.25 + end 0.75 should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "begin 0.25 + end 0.75 should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -150,7 +167,11 @@ out $ s "bd*4" # begin "0 0.25 0.5 0.75"
     let rms = calculate_rms(&buffer);
 
     // Pattern-based begin should produce audio
-    assert!(rms > 0.01, "Pattern-based begin should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Pattern-based begin should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -167,7 +188,11 @@ out $ s "bd*3" # begin "-1 0 2" # end "0.5 1 3"
     let rms = calculate_rms(&buffer);
 
     // Extreme values should be clamped and still produce audio
-    assert!(rms > 0.01, "Extreme begin/end values should be clamped and produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Extreme begin/end values should be clamped and produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -186,5 +211,9 @@ out $ s "bd" # begin 0.8 # end 0.2
     // The clamping should produce a minimal slice or handle gracefully
     // This is an edge case - we just verify it doesn't crash
     // RMS might be very small or zero
-    assert!(rms >= 0.0, "Invalid begin/end should not crash, got RMS={}", rms);
+    assert!(
+        rms >= 0.0,
+        "Invalid begin/end should not crash, got RMS={}",
+        rms
+    );
 }

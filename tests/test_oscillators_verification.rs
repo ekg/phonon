@@ -9,10 +9,9 @@
 /// 2. Waveform characteristics - Spectral content matches theoretical expectations
 /// 3. Amplitude - Generates appropriate signal level
 /// 4. Pattern triggering (for _trig variants) - Responds to pattern events
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
-use rustfft::{FftPlanner, num_complex::Complex};
+use rustfft::{num_complex::Complex, FftPlanner};
 use std::f32::consts::PI;
 
 mod audio_test_utils;
@@ -24,7 +23,8 @@ use pattern_verification_utils::detect_audio_events;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -68,8 +68,11 @@ out $ sine 440
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
-    assert!((freq - 440.0).abs() < 10.0,
-        "Sine 440Hz should have fundamental near 440Hz, got {}", freq);
+    assert!(
+        (freq - 440.0).abs() < 10.0,
+        "Sine 440Hz should have fundamental near 440Hz, got {}",
+        freq
+    );
     println!("Sine fundamental: {} Hz (expected 440Hz)", freq);
 }
 
@@ -101,11 +104,16 @@ out $ sine 440 * 0.5
 
     assert!(fundamental_mag > 0.1, "Sine should have strong fundamental");
     let harmonic_ratio = second_harmonic_mag / fundamental_mag.max(0.001);
-    assert!(harmonic_ratio < 0.05,
-        "Sine should have minimal harmonics, got 2nd/1st ratio: {}", harmonic_ratio);
+    assert!(
+        harmonic_ratio < 0.05,
+        "Sine should have minimal harmonics, got 2nd/1st ratio: {}",
+        harmonic_ratio
+    );
 
-    println!("Sine harmonic purity - 1st: {}, 2nd: {}, ratio: {}",
-        fundamental_mag, second_harmonic_mag, harmonic_ratio);
+    println!(
+        "Sine harmonic purity - 1st: {}, 2nd: {}, ratio: {}",
+        fundamental_mag, second_harmonic_mag, harmonic_ratio
+    );
 }
 
 #[test]
@@ -118,8 +126,11 @@ out $ sine 440 * 0.5
     let rms = calculate_rms(&audio);
 
     // Sine wave RMS should be amplitude/sqrt(2) ≈ 0.5/1.414 ≈ 0.35
-    assert!(rms > 0.25 && rms < 0.45,
-        "Sine wave RMS should be ~0.35 for amplitude 0.5, got {}", rms);
+    assert!(
+        rms > 0.25 && rms < 0.45,
+        "Sine wave RMS should be ~0.35 for amplitude 0.5, got {}",
+        rms
+    );
     println!("Sine RMS: {} (expected ~0.35)", rms);
 }
 
@@ -133,8 +144,11 @@ out $ saw 440
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
-    assert!((freq - 440.0).abs() < 10.0,
-        "Saw 440Hz should have fundamental near 440Hz, got {}", freq);
+    assert!(
+        (freq - 440.0).abs() < 10.0,
+        "Saw 440Hz should have fundamental near 440Hz, got {}",
+        freq
+    );
     println!("Saw fundamental: {} Hz (expected 440Hz)", freq);
 }
 
@@ -166,8 +180,10 @@ out $ saw 440 * 0.3
     assert!(second_harmonic_mag > 0.01, "Saw should have even harmonics");
     assert!(third_harmonic_mag > 0.01, "Saw should have odd harmonics");
 
-    println!("Saw harmonics - 1st: {}, 2nd: {}, 3rd: {}",
-        fundamental_mag, second_harmonic_mag, third_harmonic_mag);
+    println!(
+        "Saw harmonics - 1st: {}, 2nd: {}, 3rd: {}",
+        fundamental_mag, second_harmonic_mag, third_harmonic_mag
+    );
 }
 
 #[test]
@@ -180,8 +196,11 @@ out $ saw 440 * 0.5
     let rms = calculate_rms(&audio);
 
     // Saw wave should produce reasonable signal
-    assert!(rms > 0.2 && rms < 0.5,
-        "Saw wave RMS should be in reasonable range, got {}", rms);
+    assert!(
+        rms > 0.2 && rms < 0.5,
+        "Saw wave RMS should be in reasonable range, got {}",
+        rms
+    );
     println!("Saw RMS: {}", rms);
 }
 
@@ -195,8 +214,11 @@ out $ square 440
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
-    assert!((freq - 440.0).abs() < 10.0,
-        "Square 440Hz should have fundamental near 440Hz, got {}", freq);
+    assert!(
+        (freq - 440.0).abs() < 10.0,
+        "Square 440Hz should have fundamental near 440Hz, got {}",
+        freq
+    );
     println!("Square fundamental: {} Hz (expected 440Hz)", freq);
 }
 
@@ -224,18 +246,29 @@ out $ square 440 * 0.3
         }
     }
 
-    assert!(fundamental_mag > 0.1, "Square should have strong fundamental");
+    assert!(
+        fundamental_mag > 0.1,
+        "Square should have strong fundamental"
+    );
 
     // Even harmonic should be weak
     let even_ratio = second_harmonic_mag / fundamental_mag.max(0.001);
-    assert!(even_ratio < 0.1,
-        "Square should have weak even harmonics, got 2nd/1st ratio: {}", even_ratio);
+    assert!(
+        even_ratio < 0.1,
+        "Square should have weak even harmonics, got 2nd/1st ratio: {}",
+        even_ratio
+    );
 
     // Odd harmonic should be present
-    assert!(third_harmonic_mag > 0.01, "Square should have odd harmonics");
+    assert!(
+        third_harmonic_mag > 0.01,
+        "Square should have odd harmonics"
+    );
 
-    println!("Square harmonics - 1st: {}, 2nd: {}, 3rd: {}",
-        fundamental_mag, second_harmonic_mag, third_harmonic_mag);
+    println!(
+        "Square harmonics - 1st: {}, 2nd: {}, 3rd: {}",
+        fundamental_mag, second_harmonic_mag, third_harmonic_mag
+    );
 }
 
 #[test]
@@ -248,8 +281,11 @@ out $ square 440 * 0.5
     let rms = calculate_rms(&audio);
 
     // Square wave RMS should be approximately equal to amplitude
-    assert!(rms > 0.35 && rms < 0.65,
-        "Square wave RMS should be ~0.5, got {}", rms);
+    assert!(
+        rms > 0.35 && rms < 0.65,
+        "Square wave RMS should be ~0.5, got {}",
+        rms
+    );
     println!("Square RMS: {} (expected ~0.5)", rms);
 }
 
@@ -263,8 +299,11 @@ out $ triangle 440
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
-    assert!((freq - 440.0).abs() < 10.0,
-        "Triangle 440Hz should have fundamental near 440Hz, got {}", freq);
+    assert!(
+        (freq - 440.0).abs() < 10.0,
+        "Triangle 440Hz should have fundamental near 440Hz, got {}",
+        freq
+    );
     println!("Triangle fundamental: {} Hz (expected 440Hz)", freq);
 }
 
@@ -292,20 +331,31 @@ out $ triangle 440 * 0.3
         }
     }
 
-    assert!(fundamental_mag > 0.1, "Triangle should have strong fundamental");
+    assert!(
+        fundamental_mag > 0.1,
+        "Triangle should have strong fundamental"
+    );
 
     // Even harmonic should be very weak
     let even_ratio = second_harmonic_mag / fundamental_mag.max(0.001);
-    assert!(even_ratio < 0.1,
-        "Triangle should have weak even harmonics, got 2nd/1st ratio: {}", even_ratio);
+    assert!(
+        even_ratio < 0.1,
+        "Triangle should have weak even harmonics, got 2nd/1st ratio: {}",
+        even_ratio
+    );
 
     // Odd harmonics should be weaker than square (1/n² vs 1/n)
     let third_ratio = third_harmonic_mag / fundamental_mag.max(0.001);
-    assert!(third_ratio < 0.2,
-        "Triangle should have weak 3rd harmonic, got 3rd/1st ratio: {}", third_ratio);
+    assert!(
+        third_ratio < 0.2,
+        "Triangle should have weak 3rd harmonic, got 3rd/1st ratio: {}",
+        third_ratio
+    );
 
-    println!("Triangle harmonics - 1st: {}, 2nd: {}, 3rd: {}",
-        fundamental_mag, second_harmonic_mag, third_harmonic_mag);
+    println!(
+        "Triangle harmonics - 1st: {}, 2nd: {}, 3rd: {}",
+        fundamental_mag, second_harmonic_mag, third_harmonic_mag
+    );
 }
 
 #[test]
@@ -318,8 +368,11 @@ out $ triangle 440 * 0.5
     let rms = calculate_rms(&audio);
 
     // Triangle wave should produce reasonable signal
-    assert!(rms > 0.25 && rms < 0.45,
-        "Triangle wave RMS should be in reasonable range, got {}", rms);
+    assert!(
+        rms > 0.25 && rms < 0.45,
+        "Triangle wave RMS should be in reasonable range, got {}",
+        rms
+    );
     println!("Triangle RMS: {}", rms);
 }
 
@@ -341,8 +394,11 @@ out $ sine_trig "440 ~ 440 ~"
 
     // Should have distinct events, not continuous tone
     let onsets = detect_audio_events(&audio, 44100.0, 0.02);
-    assert!(onsets.len() >= 2,
-        "Sine_trig should produce distinct events, got {} onsets", onsets.len());
+    assert!(
+        onsets.len() >= 2,
+        "Sine_trig should produce distinct events, got {} onsets",
+        onsets.len()
+    );
     println!("Sine_trig onsets detected: {}", onsets.len());
 }
 
@@ -363,8 +419,12 @@ out $ sine 440 * 0.5
     let audio_continuous = render_dsl(code_continuous, 2.0);
     let rms_continuous = calculate_rms(&audio_continuous);
 
-    assert!(rms < rms_continuous * 0.6,
-        "Triggered oscillator should be quieter than continuous, got {} vs {}", rms, rms_continuous);
+    assert!(
+        rms < rms_continuous * 0.6,
+        "Triggered oscillator should be quieter than continuous, got {} vs {}",
+        rms,
+        rms_continuous
+    );
     println!("Sine_trig RMS: {}, continuous: {}", rms, rms_continuous);
 }
 
@@ -376,8 +436,11 @@ out $ sine_trig "440"
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
-    assert!((freq - 440.0).abs() < 20.0,
-        "Sine_trig 440Hz should have fundamental near 440Hz, got {}", freq);
+    assert!(
+        (freq - 440.0).abs() < 20.0,
+        "Sine_trig 440Hz should have fundamental near 440Hz, got {}",
+        freq
+    );
     println!("Sine_trig fundamental: {} Hz (expected 440Hz)", freq);
 }
 
@@ -390,8 +453,11 @@ out $ saw_trig "220 ~ 220 ~"
     let audio = render_dsl(code, 2.0);
 
     let onsets = detect_audio_events(&audio, 44100.0, 0.02);
-    assert!(onsets.len() >= 2,
-        "Saw_trig should produce distinct events, got {} onsets", onsets.len());
+    assert!(
+        onsets.len() >= 2,
+        "Saw_trig should produce distinct events, got {} onsets",
+        onsets.len()
+    );
     println!("Saw_trig onsets detected: {}", onsets.len());
 }
 
@@ -415,10 +481,19 @@ out $ saw_trig "440"
         }
     }
 
-    assert!(fundamental_mag > 0.05, "Saw_trig should have strong fundamental");
-    assert!(second_harmonic_mag > 0.005, "Saw_trig should have harmonics");
+    assert!(
+        fundamental_mag > 0.05,
+        "Saw_trig should have strong fundamental"
+    );
+    assert!(
+        second_harmonic_mag > 0.005,
+        "Saw_trig should have harmonics"
+    );
 
-    println!("Saw_trig harmonics - 1st: {}, 2nd: {}", fundamental_mag, second_harmonic_mag);
+    println!(
+        "Saw_trig harmonics - 1st: {}, 2nd: {}",
+        fundamental_mag, second_harmonic_mag
+    );
 }
 
 #[test]
@@ -429,8 +504,11 @@ out $ saw_trig "440"
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
-    assert!((freq - 440.0).abs() < 20.0,
-        "Saw_trig 440Hz should have fundamental near 440Hz, got {}", freq);
+    assert!(
+        (freq - 440.0).abs() < 20.0,
+        "Saw_trig 440Hz should have fundamental near 440Hz, got {}",
+        freq
+    );
     println!("Saw_trig fundamental: {} Hz (expected 440Hz)", freq);
 }
 
@@ -443,8 +521,11 @@ out $ square_trig "330 ~ 330 ~"
     let audio = render_dsl(code, 2.0);
 
     let onsets = detect_audio_events(&audio, 44100.0, 0.02);
-    assert!(onsets.len() >= 2,
-        "Square_trig should produce distinct events, got {} onsets", onsets.len());
+    assert!(
+        onsets.len() >= 2,
+        "Square_trig should produce distinct events, got {} onsets",
+        onsets.len()
+    );
     println!("Square_trig onsets detected: {}", onsets.len());
 }
 
@@ -471,15 +552,23 @@ out $ square_trig "440"
         }
     }
 
-    assert!(fundamental_mag > 0.05, "Square_trig should have strong fundamental");
+    assert!(
+        fundamental_mag > 0.05,
+        "Square_trig should have strong fundamental"
+    );
 
     // Even harmonic should be weak
     let even_ratio = second_harmonic_mag / fundamental_mag.max(0.001);
-    assert!(even_ratio < 0.15,
-        "Square_trig should have weak even harmonics, got 2nd/1st ratio: {}", even_ratio);
+    assert!(
+        even_ratio < 0.15,
+        "Square_trig should have weak even harmonics, got 2nd/1st ratio: {}",
+        even_ratio
+    );
 
-    println!("Square_trig harmonics - 1st: {}, 2nd: {}, 3rd: {}",
-        fundamental_mag, second_harmonic_mag, third_harmonic_mag);
+    println!(
+        "Square_trig harmonics - 1st: {}, 2nd: {}, 3rd: {}",
+        fundamental_mag, second_harmonic_mag, third_harmonic_mag
+    );
 }
 
 #[test]
@@ -490,8 +579,11 @@ out $ square_trig "440"
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
-    assert!((freq - 440.0).abs() < 20.0,
-        "Square_trig 440Hz should have fundamental near 440Hz, got {}", freq);
+    assert!(
+        (freq - 440.0).abs() < 20.0,
+        "Square_trig 440Hz should have fundamental near 440Hz, got {}",
+        freq
+    );
     println!("Square_trig fundamental: {} Hz (expected 440Hz)", freq);
 }
 
@@ -504,8 +596,11 @@ out $ tri_trig "440 ~ 440 ~"
     let audio = render_dsl(code, 2.0);
 
     let onsets = detect_audio_events(&audio, 44100.0, 0.02);
-    assert!(onsets.len() >= 2,
-        "Tri_trig should produce distinct events, got {} onsets", onsets.len());
+    assert!(
+        onsets.len() >= 2,
+        "Tri_trig should produce distinct events, got {} onsets",
+        onsets.len()
+    );
     println!("Tri_trig onsets detected: {}", onsets.len());
 }
 
@@ -532,20 +627,31 @@ out $ tri_trig "440"
         }
     }
 
-    assert!(fundamental_mag > 0.05, "Tri_trig should have strong fundamental");
+    assert!(
+        fundamental_mag > 0.05,
+        "Tri_trig should have strong fundamental"
+    );
 
     // Even harmonic should be weak
     let even_ratio = second_harmonic_mag / fundamental_mag.max(0.001);
-    assert!(even_ratio < 0.15,
-        "Tri_trig should have weak even harmonics, got 2nd/1st ratio: {}", even_ratio);
+    assert!(
+        even_ratio < 0.15,
+        "Tri_trig should have weak even harmonics, got 2nd/1st ratio: {}",
+        even_ratio
+    );
 
     // Third harmonic should be weaker than square
     let third_ratio = third_harmonic_mag / fundamental_mag.max(0.001);
-    assert!(third_ratio < 0.25,
-        "Tri_trig should have weak 3rd harmonic, got 3rd/1st ratio: {}", third_ratio);
+    assert!(
+        third_ratio < 0.25,
+        "Tri_trig should have weak 3rd harmonic, got 3rd/1st ratio: {}",
+        third_ratio
+    );
 
-    println!("Tri_trig harmonics - 1st: {}, 2nd: {}, 3rd: {}",
-        fundamental_mag, second_harmonic_mag, third_harmonic_mag);
+    println!(
+        "Tri_trig harmonics - 1st: {}, 2nd: {}, 3rd: {}",
+        fundamental_mag, second_harmonic_mag, third_harmonic_mag
+    );
 }
 
 #[test]
@@ -556,8 +662,11 @@ out $ tri_trig "440"
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
-    assert!((freq - 440.0).abs() < 20.0,
-        "Tri_trig 440Hz should have fundamental near 440Hz, got {}", freq);
+    assert!(
+        (freq - 440.0).abs() < 20.0,
+        "Tri_trig 440Hz should have fundamental near 440Hz, got {}",
+        freq
+    );
     println!("Tri_trig fundamental: {} Hz (expected 440Hz)", freq);
 }
 
@@ -578,7 +687,8 @@ fn test_harmonic_content_ordering() {
     // Measure high-frequency energy (above 1kHz) as proxy for harmonic richness
     fn high_freq_energy(audio: &[f32]) -> f32 {
         let (frequencies, magnitudes) = analyze_spectrum(audio, 44100.0);
-        frequencies.iter()
+        frequencies
+            .iter()
             .zip(magnitudes.iter())
             .filter(|(f, _)| **f > 1000.0 && **f < 5000.0)
             .map(|(_, m)| m * m)
@@ -591,31 +701,47 @@ fn test_harmonic_content_ordering() {
     let saw_hf = high_freq_energy(&saw_audio);
 
     // Sine should have minimal harmonics (fundamental only)
-    assert!(triangle_hf > sine_hf,
+    assert!(
+        triangle_hf > sine_hf,
         "Triangle should have more high-freq content than sine. Got Sine: {}, Triangle: {}",
-        sine_hf, triangle_hf);
+        sine_hf,
+        triangle_hf
+    );
 
     // Triangle should have weaker harmonics than square (1/n² vs 1/n)
-    assert!(square_hf > triangle_hf,
+    assert!(
+        square_hf > triangle_hf,
         "Square should have more high-freq content than triangle. Got Triangle: {}, Square: {}",
-        triangle_hf, square_hf);
+        triangle_hf,
+        square_hf
+    );
 
     // Saw and Square are close - both have strong harmonics
     // Saw has even+odd (1/n), Square has odd-only (1/n)
     // With band-limiting, the difference may be small, so just verify both have significant content
-    assert!(saw_hf > sine_hf * 2.0,
+    assert!(
+        saw_hf > sine_hf * 2.0,
         "Saw should have much more high-freq content than sine. Got Sine: {}, Saw: {}",
-        sine_hf, saw_hf);
-    assert!(square_hf > sine_hf * 2.0,
+        sine_hf,
+        saw_hf
+    );
+    assert!(
+        square_hf > sine_hf * 2.0,
         "Square should have much more high-freq content than sine. Got Sine: {}, Square: {}",
-        sine_hf, square_hf);
+        sine_hf,
+        square_hf
+    );
 
-    println!("High-freq energy - Sine: {:.4}, Triangle: {:.4}, Square: {:.4}, Saw: {:.4}",
-        sine_hf, triangle_hf, square_hf, saw_hf);
-    println!("Relative to sine: Triangle: {:.2}x, Square: {:.2}x, Saw: {:.2}x",
+    println!(
+        "High-freq energy - Sine: {:.4}, Triangle: {:.4}, Square: {:.4}, Saw: {:.4}",
+        sine_hf, triangle_hf, square_hf, saw_hf
+    );
+    println!(
+        "Relative to sine: Triangle: {:.2}x, Square: {:.2}x, Saw: {:.2}x",
         triangle_hf / sine_hf.max(0.0001),
         square_hf / sine_hf.max(0.0001),
-        saw_hf / sine_hf.max(0.0001));
+        saw_hf / sine_hf.max(0.0001)
+    );
 }
 
 #[test]

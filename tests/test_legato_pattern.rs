@@ -8,7 +8,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -23,7 +24,11 @@ fn test_legato_constant() {
 
     let buffer = render_dsl(code, 2.0); // 2 seconds = 4 cycles at tempo 2.0
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Legato with constant should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Legato with constant should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -36,7 +41,11 @@ fn test_legato_pattern() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Legato with pattern should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Legato with pattern should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]

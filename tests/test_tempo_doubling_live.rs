@@ -2,7 +2,6 @@
 ///
 /// This test actually runs the modal editor with real audio and detects
 /// tempo changes by checking CPS values after each C-x press.
-
 use phonon::modal_editor::test_harness::EditorTestHarness;
 use std::time::Duration;
 
@@ -36,7 +35,7 @@ fn test_tempo_stability_100_presses() {
 
         // Vary the timing between presses to catch edge cases
         let delay_ms = match i % 10 {
-            0 => 5,    // Very fast
+            0 => 5, // Very fast
             1 => 10,
             2 => 20,
             3 => 50,
@@ -45,7 +44,7 @@ fn test_tempo_stability_100_presses() {
             6 => 200,
             7 => 250,
             8 => 300,
-            _ => 500,  // Slow
+            _ => 500, // Slow
         };
         std::thread::sleep(Duration::from_millis(delay_ms));
     }
@@ -58,7 +57,11 @@ fn test_tempo_stability_100_presses() {
             let ratio = *cps as f64 / 0.5;
             eprintln!("   Press {}: CPS={:.3} (ratio={:.2}x)", i, cps, ratio);
         }
-        panic!("TEMPO INSTABILITY: {} errors out of {} presses", errors.len(), cps_values.len());
+        panic!(
+            "TEMPO INSTABILITY: {} errors out of {} presses",
+            errors.len(),
+            cps_values.len()
+        );
     }
 
     eprintln!("\n✅ All {} CPS values stable at 0.5", cps_values.len());
@@ -104,7 +107,11 @@ fn test_rapid_fire_c_x_200() {
         for (i, cps, ratio) in &errors {
             eprintln!("   Press {}: CPS={:.3} (ratio={:.2}x)", i, cps, ratio);
         }
-        panic!("TEMPO ERRORS: {} detected, {} doublings", errors.len(), doubled_count);
+        panic!(
+            "TEMPO ERRORS: {} detected, {} doublings",
+            errors.len(),
+            doubled_count
+        );
     }
 
     eprintln!("\n✅ All 200 presses maintained CPS=0.5");
@@ -159,10 +166,17 @@ fn test_wall_clock_stays_enabled() {
         }
     }
 
-    eprintln!("📊 Wall-clock checks: {}, CPS checks: {}", wall_clock_checks, cps_checks);
+    eprintln!(
+        "📊 Wall-clock checks: {}, CPS checks: {}",
+        wall_clock_checks, cps_checks
+    );
 
     // At least some checks should have succeeded
-    assert!(cps_checks > 10, "Should have successfully checked CPS at least 10 times, got {}", cps_checks);
+    assert!(
+        cps_checks > 10,
+        "Should have successfully checked CPS at least 10 times, got {}",
+        cps_checks
+    );
 
     eprintln!("\n✅ Wall-clock remained enabled through 50 presses");
 }
@@ -208,7 +222,8 @@ out $ s "bd sn""#;
     assert!(
         (ratio - 1.0).abs() < 0.2,
         "Cycle position rate wrong: measured={:.4}, expected=0.5, ratio={:.2}x",
-        measured_cps, ratio
+        measured_cps,
+        ratio
     );
 
     eprintln!("\n✅ Cycle position advances at correct rate");
@@ -225,8 +240,8 @@ o2 $ s "~synth" # note "c3'maj" + "0 3 7" # gain 0.3"#;
     eprintln!("Code:\n{}\n", code);
 
     // First test: does the parser handle this?
-    use phonon::compositional_parser::parse_program;
     use phonon::compositional_compiler::compile_program;
+    use phonon::compositional_parser::parse_program;
 
     let (rest, stmts) = match parse_program(code) {
         Ok((rest, stmts)) => {
@@ -280,7 +295,10 @@ o2 $ s "~synth" # note "c3'maj" + "0 3 7" # gain 0.3"#;
         eprintln!("❌ Could not get CPS - graph may not have loaded");
     }
 
-    assert!(has_graph, "note chord + offset syntax should parse and create graph");
+    assert!(
+        has_graph,
+        "note chord + offset syntax should parse and create graph"
+    );
     eprintln!("\n✅ Syntax parsed successfully!");
 }
 
@@ -336,7 +354,12 @@ fn test_stress_500_varied_timing() {
 
     if !errors.is_empty() {
         for (i, cps) in errors.iter().take(20) {
-            eprintln!("   ❌ Press {}: CPS={:.3} (ratio={:.2}x)", i, cps, *cps as f64 / 0.5);
+            eprintln!(
+                "   ❌ Press {}: CPS={:.3} (ratio={:.2}x)",
+                i,
+                cps,
+                *cps as f64 / 0.5
+            );
         }
         if errors.len() > 20 {
             eprintln!("   ... and {} more", errors.len() - 20);

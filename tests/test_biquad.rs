@@ -9,7 +9,6 @@
 /// - Efficient IIR implementation
 /// - Pattern-modulated parameters
 /// - Based on RBJ Audio EQ Cookbook
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -21,14 +20,15 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
 
 /// Perform FFT and analyze spectrum
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -68,7 +68,11 @@ fn test_biquad_lowpass_compiles() {
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
-    assert!(result.is_ok(), "Biquad lowpass should compile: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Biquad lowpass should compile: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -80,7 +84,11 @@ fn test_biquad_highpass_compiles() {
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
-    assert!(result.is_ok(), "Biquad highpass should compile: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Biquad highpass should compile: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -92,7 +100,11 @@ fn test_biquad_bandpass_compiles() {
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
-    assert!(result.is_ok(), "Biquad bandpass should compile: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Biquad bandpass should compile: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -104,7 +116,11 @@ fn test_biquad_notch_compiles() {
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
-    assert!(result.is_ok(), "Biquad notch should compile: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Biquad notch should compile: {:?}",
+        result.err()
+    );
 }
 
 // ========== Lowpass Mode Tests ==========
@@ -119,24 +135,31 @@ fn test_biquad_lowpass_attenuates_highs() {
     let buffer = render_dsl(code, 2.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let low_energy: f32 = frequencies.iter()
+    let low_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 800.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let high_energy: f32 = frequencies.iter()
+    let high_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 2000.0)
         .map(|(_, m)| m * m)
         .sum();
 
     let ratio = low_energy / high_energy;
-    assert!(ratio > 2.0,
+    assert!(
+        ratio > 2.0,
         "Biquad lowpass should attenuate high frequencies, low/high ratio: {}",
-        ratio);
+        ratio
+    );
 
-    println!("Biquad LP - Low energy: {}, High energy: {}, Ratio: {}", low_energy, high_energy, ratio);
+    println!(
+        "Biquad LP - Low energy: {}, High energy: {}, Ratio: {}",
+        low_energy, high_energy, ratio
+    );
 }
 
 #[test]
@@ -149,7 +172,11 @@ fn test_biquad_lowpass_generates_audio() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Biquad lowpass should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Biquad lowpass should produce audio, got RMS: {}",
+        rms
+    );
     println!("Biquad LP RMS: {}", rms);
 }
 
@@ -165,24 +192,31 @@ fn test_biquad_highpass_attenuates_lows() {
     let buffer = render_dsl(code, 2.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let low_energy: f32 = frequencies.iter()
+    let low_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 500.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let high_energy: f32 = frequencies.iter()
+    let high_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 2000.0)
         .map(|(_, m)| m * m)
         .sum();
 
     let ratio = high_energy / low_energy;
-    assert!(ratio > 2.0,
+    assert!(
+        ratio > 2.0,
         "Biquad highpass should attenuate low frequencies, high/low ratio: {}",
-        ratio);
+        ratio
+    );
 
-    println!("Biquad HP - Low energy: {}, High energy: {}, Ratio: {}", low_energy, high_energy, ratio);
+    println!(
+        "Biquad HP - Low energy: {}, High energy: {}, Ratio: {}",
+        low_energy, high_energy, ratio
+    );
 }
 
 #[test]
@@ -195,7 +229,11 @@ fn test_biquad_highpass_generates_audio() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Biquad highpass should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Biquad highpass should produce audio, got RMS: {}",
+        rms
+    );
     println!("Biquad HP RMS: {}", rms);
 }
 
@@ -211,23 +249,30 @@ fn test_biquad_bandpass_passes_band() {
     let buffer = render_dsl(code, 2.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let center_energy: f32 = frequencies.iter()
+    let center_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 800.0 && **f < 1200.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let side_energy: f32 = frequencies.iter()
+    let side_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 500.0 || **f > 2000.0)
         .map(|(_, m)| m * m)
         .sum();
 
     // With high Q, center should dominate
-    assert!(center_energy > side_energy * 0.5,
-        "Biquad bandpass should pass center frequencies");
+    assert!(
+        center_energy > side_energy * 0.5,
+        "Biquad bandpass should pass center frequencies"
+    );
 
-    println!("Biquad BP - Center: {}, Side: {}", center_energy, side_energy);
+    println!(
+        "Biquad BP - Center: {}, Side: {}",
+        center_energy, side_energy
+    );
 }
 
 #[test]
@@ -240,7 +285,11 @@ fn test_biquad_bandpass_generates_audio() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Biquad bandpass should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Biquad bandpass should produce audio, got RMS: {}",
+        rms
+    );
     println!("Biquad BP RMS: {}", rms);
 }
 
@@ -256,24 +305,31 @@ fn test_biquad_notch_rejects_center() {
     let buffer = render_dsl(code, 2.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let center_energy: f32 = frequencies.iter()
+    let center_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 900.0 && **f < 1100.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let side_energy: f32 = frequencies.iter()
+    let side_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| (**f > 400.0 && **f < 700.0) || (**f > 1500.0 && **f < 2000.0))
         .map(|(_, m)| m * m)
         .sum();
 
     let ratio = side_energy / center_energy.max(0.001);
-    assert!(ratio > 1.5,
+    assert!(
+        ratio > 1.5,
         "Biquad notch should reject center frequency, side/center ratio: {}",
-        ratio);
+        ratio
+    );
 
-    println!("Biquad Notch - Center: {}, Side: {}, Ratio: {}", center_energy, side_energy, ratio);
+    println!(
+        "Biquad Notch - Center: {}, Side: {}, Ratio: {}",
+        center_energy, side_energy, ratio
+    );
 }
 
 #[test]
@@ -286,7 +342,11 @@ fn test_biquad_notch_generates_audio() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Biquad notch should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Biquad notch should produce audio, got RMS: {}",
+        rms
+    );
     println!("Biquad Notch RMS: {}", rms);
 }
 
@@ -303,9 +363,11 @@ fn test_biquad_pattern_frequency() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1,
+    assert!(
+        rms > 0.1,
         "Biquad with pattern-modulated frequency should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Biquad pattern frequency RMS: {}", rms);
 }
@@ -321,9 +383,11 @@ fn test_biquad_pattern_q() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1,
+    assert!(
+        rms > 0.1,
         "Biquad with pattern-modulated Q should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Biquad pattern Q RMS: {}", rms);
 }
@@ -341,9 +405,11 @@ fn test_biquad_no_clipping() {
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
     // High Q can boost near cutoff
-    assert!(max_amplitude <= 5.0,
+    assert!(
+        max_amplitude <= 5.0,
         "Biquad should not excessively clip, max: {}",
-        max_amplitude);
+        max_amplitude
+    );
 
     println!("Biquad high Q peak: {}", max_amplitude);
 }
@@ -358,7 +424,11 @@ fn test_biquad_no_dc_offset() {
     let buffer = render_dsl(code, 2.0);
     let mean: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
 
-    assert!(mean.abs() < 0.02, "Biquad should have no DC offset, got {}", mean);
+    assert!(
+        mean.abs() < 0.02,
+        "Biquad should have no DC offset, got {}",
+        mean
+    );
     println!("Biquad DC offset: {}", mean);
 }
 
@@ -421,7 +491,11 @@ fn test_biquad_very_low_frequency() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.01, "Biquad should work at very low frequencies, RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Biquad should work at very low frequencies, RMS: {}",
+        rms
+    );
     println!("Biquad very low cutoff RMS: {}", rms);
 }
 
@@ -435,7 +509,11 @@ fn test_biquad_very_high_frequency() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Biquad should work at very high frequencies, RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Biquad should work at very high frequencies, RMS: {}",
+        rms
+    );
     println!("Biquad very high cutoff RMS: {}", rms);
 }
 

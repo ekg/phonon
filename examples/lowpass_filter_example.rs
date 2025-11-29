@@ -1,11 +1,10 @@
+use phonon::audio_node::{AudioNode, ProcessContext};
 /// Example: Using LowPassFilterNode in the DAW buffer passing architecture
 ///
 /// This demonstrates how to create a signal graph with oscillator → lowpass filter
 ///
 /// Run with: cargo run --example lowpass_filter_example
-
-use phonon::nodes::{ConstantNode, OscillatorNode, LowPassFilterNode, Waveform};
-use phonon::audio_node::{AudioNode, ProcessContext};
+use phonon::nodes::{ConstantNode, LowPassFilterNode, OscillatorNode, Waveform};
 use phonon::pattern::Fraction;
 
 fn main() {
@@ -41,8 +40,8 @@ fn main() {
         Fraction::from_float(0.0),
         0,
         512,
-        2.0,      // 2 cycles per second
-        44100.0,  // 44.1kHz sample rate
+        2.0,     // 2 cycles per second
+        44100.0, // 44.1kHz sample rate
     );
 
     // Allocate buffers
@@ -88,7 +87,10 @@ fn main() {
     println!("Results:");
     println!("  Input RMS:   {:.6}", input_rms);
     println!("  Output RMS:  {:.6}", output_rms);
-    println!("  Attenuation: {:.2}%", (1.0 - output_rms / input_rms) * 100.0);
+    println!(
+        "  Attenuation: {:.2}%",
+        (1.0 - output_rms / input_rms) * 100.0
+    );
     println!();
     println!("  Filter State:");
     println!("    Cutoff: {:.1} Hz", lpf_node.cutoff());

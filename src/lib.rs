@@ -1,4 +1,10 @@
-#![allow(unused_assignments, unused_mut, dead_code, unused_variables, unused_imports)]
+#![allow(
+    unused_assignments,
+    unused_mut,
+    dead_code,
+    unused_variables,
+    unused_imports
+)]
 //! # Phonon - Live Coding Audio System
 //!
 //! Phonon is a powerful live coding audio synthesis and pattern sequencing system,
@@ -267,21 +273,19 @@
 //!
 //! Phonon is open source. Check the repository for licensing details.
 
-
 // DAW-style buffer passing architecture (Phase 1 + 2 + 3 + 4 + 5)
 pub mod audio_node;
+pub mod audio_node_graph;
+pub mod block_processor; // Core execution loop
 pub mod buffer_manager;
-pub mod buffer_pool;  // Lock-free buffer pool for dataflow (Phase 5)
-pub mod node_task;    // Continuous async task wrapper for AudioNode (Phase 5)
-pub mod dataflow_graph;  // Dataflow graph coordinator (Phase 5)
+pub mod buffer_pool; // Lock-free buffer pool for dataflow (Phase 5)
+pub mod dataflow_graph; // Dataflow graph coordinator (Phase 5)
 pub mod dependency_graph;
-pub mod nodes;  // Concrete AudioNode implementations
-pub mod block_processor;  // Core execution loop
-pub mod audio_node_graph;  // High-level graph wrapper (Phase 3)
+pub mod node_task; // Continuous async task wrapper for AudioNode (Phase 5)
+pub mod nodes; // Concrete AudioNode implementations // High-level graph wrapper (Phase 3)
 
 pub mod audio;
 pub mod audio_analysis;
-pub mod ipc;
 pub mod compositional_compiler;
 pub mod compositional_parser;
 pub mod dsl_osc_handler;
@@ -295,6 +299,7 @@ pub mod glicol_dsp_v2;
 pub mod glicol_parser;
 pub mod glicol_parser_v2;
 pub mod glicol_pattern_bridge;
+pub mod ipc;
 pub mod live;
 pub mod live_engine;
 pub mod midi_input;

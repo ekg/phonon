@@ -1,3 +1,4 @@
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 /// Tests for VCO (Voltage-Controlled Oscillator) buffer-based evaluation
 ///
 /// VCO is an analog-style oscillator with PolyBLEP anti-aliasing, supporting:
@@ -6,9 +7,7 @@
 /// - Analog warmth characteristics
 ///
 /// These tests verify correct waveform generation, anti-aliasing, and phase continuity.
-
 use std::cell::RefCell;
-use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -25,7 +24,7 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 fn count_zero_crossings(buffer: &[f32]) -> usize {
     let mut count = 0;
     for i in 1..buffer.len() {
-        if (buffer[i-1] < 0.0 && buffer[i] >= 0.0) || (buffer[i-1] >= 0.0 && buffer[i] < 0.0) {
+        if (buffer[i - 1] < 0.0 && buffer[i] >= 0.0) || (buffer[i - 1] >= 0.0 && buffer[i] < 0.0) {
             count += 1;
         }
     }
@@ -48,7 +47,7 @@ fn test_vco_sawtooth_amplitude() {
     // VCO sawtooth at 220 Hz, waveform=0, pw=0.5 (not used for saw)
     let vco_id = graph.add_node(SignalNode::VCO {
         frequency: Signal::Value(220.0),
-        waveform: Signal::Value(0.0),  // Sawtooth
+        waveform: Signal::Value(0.0), // Sawtooth
         pulse_width: Signal::Value(0.5),
         phase: RefCell::new(0.0),
     });
@@ -58,13 +57,15 @@ fn test_vco_sawtooth_amplitude() {
 
     // Sawtooth should have peak amplitude ~1.0
     let peak = peak_amplitude(&output);
-    assert!(peak > 0.9 && peak <= 1.1,
-        "Sawtooth peak amplitude should be ~1.0, got {}", peak);
+    assert!(
+        peak > 0.9 && peak <= 1.1,
+        "Sawtooth peak amplitude should be ~1.0, got {}",
+        peak
+    );
 
     // RMS should be reasonable
     let rms = calculate_rms(&output);
-    assert!(rms > 0.3,
-        "Sawtooth RMS too low: {}", rms);
+    assert!(rms > 0.3, "Sawtooth RMS too low: {}", rms);
 }
 
 #[test]
@@ -75,7 +76,7 @@ fn test_vco_sawtooth_frequency_accuracy() {
 
     let vco_id = graph.add_vco_node(
         Signal::Value(frequency),
-        Signal::Value(0.0),  // Sawtooth
+        Signal::Value(0.0), // Sawtooth
         Signal::Value(0.5),
     );
 
@@ -92,9 +93,13 @@ fn test_vco_sawtooth_frequency_accuracy() {
 
     // Allow 5% tolerance
     let tolerance = frequency * 0.05;
-    assert!((measured_freq - frequency).abs() < tolerance,
+    assert!(
+        (measured_freq - frequency).abs() < tolerance,
         "Expected ~{} Hz, measured {} Hz (from {} zero crossings)",
-        frequency, measured_freq, zero_crossings);
+        frequency,
+        measured_freq,
+        zero_crossings
+    );
 }
 
 #[test]
@@ -102,8 +107,8 @@ fn test_vco_sawtooth_waveform_shape() {
     let mut graph = create_test_graph();
 
     let vco_id = graph.add_vco_node(
-        Signal::Value(110.0),  // Low frequency for clear shape
-        Signal::Value(0.0),    // Sawtooth
+        Signal::Value(110.0), // Low frequency for clear shape
+        Signal::Value(0.0),   // Sawtooth
         Signal::Value(0.5),
     );
 
@@ -116,9 +121,9 @@ fn test_vco_sawtooth_waveform_shape() {
     let mut falling_count = 0;
 
     for i in 1..output.len() {
-        if output[i] > output[i-1] {
+        if output[i] > output[i - 1] {
             rising_count += 1;
-        } else if output[i] < output[i-1] {
+        } else if output[i] < output[i - 1] {
             falling_count += 1;
         }
     }
@@ -128,9 +133,12 @@ fn test_vco_sawtooth_waveform_shape() {
     let total = rising_count + falling_count;
     let dominant = rising_count.max(falling_count);
 
-    assert!(dominant as f32 / total as f32 > 0.6,
+    assert!(
+        dominant as f32 / total as f32 > 0.6,
         "Sawtooth should have clear directional ramp, rising={}, falling={}",
-        rising_count, falling_count);
+        rising_count,
+        falling_count
+    );
 }
 
 // ============================================================================
@@ -144,8 +152,8 @@ fn test_vco_square_wave_50_percent_duty() {
     // Square wave at 50% duty cycle (pw = 0.5)
     let vco_id = graph.add_vco_node(
         Signal::Value(220.0),
-        Signal::Value(1.0),  // Square wave
-        Signal::Value(0.5),  // 50% duty cycle
+        Signal::Value(1.0), // Square wave
+        Signal::Value(0.5), // 50% duty cycle
     );
 
     let mut output = vec![0.0; 512];
@@ -157,14 +165,20 @@ fn test_vco_square_wave_50_percent_duty() {
     let total_near_extremes = near_one + near_neg_one;
 
     // At least 80% should be at extremes (allowing for PolyBLEP smoothing)
-    assert!(total_near_extremes > 512 * 80 / 100,
+    assert!(
+        total_near_extremes > 512 * 80 / 100,
         "Square wave should mostly be at ±1.0, got {}/{} samples",
-        total_near_extremes, 512);
+        total_near_extremes,
+        512
+    );
 
     // With 50% duty cycle, high and low should be roughly equal
     let ratio = near_one as f32 / near_neg_one as f32;
-    assert!(ratio > 0.8 && ratio < 1.2,
-        "50% duty cycle should have equal high/low time, ratio={}", ratio);
+    assert!(
+        ratio > 0.8 && ratio < 1.2,
+        "50% duty cycle should have equal high/low time, ratio={}",
+        ratio
+    );
 }
 
 #[test]
@@ -174,11 +188,11 @@ fn test_vco_square_wave_pwm_25_percent() {
     // Square wave at 25% duty cycle
     let vco_id = graph.add_vco_node(
         Signal::Value(220.0),
-        Signal::Value(1.0),   // Square wave
-        Signal::Value(0.25),  // 25% duty cycle
+        Signal::Value(1.0),  // Square wave
+        Signal::Value(0.25), // 25% duty cycle
     );
 
-    let mut output = vec![0.0; 2048];  // Larger buffer for better statistics
+    let mut output = vec![0.0; 2048]; // Larger buffer for better statistics
     graph.eval_node_buffer(&vco_id, &mut output);
 
     let near_one = output.iter().filter(|&&x| (x - 1.0).abs() < 0.1).count();
@@ -186,8 +200,11 @@ fn test_vco_square_wave_pwm_25_percent() {
 
     // With 25% duty cycle, low time should be ~3x high time
     let ratio = near_neg_one as f32 / near_one as f32;
-    assert!(ratio > 2.0 && ratio < 4.0,
-        "25% duty cycle should have 3:1 low:high ratio, got {}", ratio);
+    assert!(
+        ratio > 2.0 && ratio < 4.0,
+        "25% duty cycle should have 3:1 low:high ratio, got {}",
+        ratio
+    );
 }
 
 #[test]
@@ -197,11 +214,11 @@ fn test_vco_square_wave_pwm_75_percent() {
     // Square wave at 75% duty cycle
     let vco_id = graph.add_vco_node(
         Signal::Value(220.0),
-        Signal::Value(1.0),   // Square wave
-        Signal::Value(0.75),  // 75% duty cycle
+        Signal::Value(1.0),  // Square wave
+        Signal::Value(0.75), // 75% duty cycle
     );
 
-    let mut output = vec![0.0; 2048];  // Larger buffer for better statistics
+    let mut output = vec![0.0; 2048]; // Larger buffer for better statistics
     graph.eval_node_buffer(&vco_id, &mut output);
 
     let near_one = output.iter().filter(|&&x| (x - 1.0).abs() < 0.1).count();
@@ -209,8 +226,11 @@ fn test_vco_square_wave_pwm_75_percent() {
 
     // With 75% duty cycle, high time should be ~3x low time
     let ratio = near_one as f32 / near_neg_one as f32;
-    assert!(ratio > 2.0 && ratio < 4.0,
-        "75% duty cycle should have 3:1 high:low ratio, got {}", ratio);
+    assert!(
+        ratio > 2.0 && ratio < 4.0,
+        "75% duty cycle should have 3:1 high:low ratio, got {}",
+        ratio
+    );
 }
 
 // ============================================================================
@@ -223,7 +243,7 @@ fn test_vco_triangle_wave_amplitude() {
 
     let vco_id = graph.add_vco_node(
         Signal::Value(220.0),
-        Signal::Value(2.0),  // Triangle
+        Signal::Value(2.0), // Triangle
         Signal::Value(0.5),
     );
 
@@ -234,8 +254,16 @@ fn test_vco_triangle_wave_amplitude() {
     let max_val = output.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
     let min_val = output.iter().fold(f32::INFINITY, |a, &b| a.min(b));
 
-    assert!(max_val > 0.9 && max_val <= 1.1, "Triangle max should be ~1.0, got {}", max_val);
-    assert!(min_val < -0.9 && min_val >= -1.1, "Triangle min should be ~-1.0, got {}", min_val);
+    assert!(
+        max_val > 0.9 && max_val <= 1.1,
+        "Triangle max should be ~1.0, got {}",
+        max_val
+    );
+    assert!(
+        min_val < -0.9 && min_val >= -1.1,
+        "Triangle min should be ~-1.0, got {}",
+        min_val
+    );
 }
 
 #[test]
@@ -243,8 +271,8 @@ fn test_vco_triangle_wave_linearity() {
     let mut graph = create_test_graph();
 
     let vco_id = graph.add_vco_node(
-        Signal::Value(110.0),  // Low frequency for clear shape
-        Signal::Value(2.0),    // Triangle
+        Signal::Value(110.0), // Low frequency for clear shape
+        Signal::Value(2.0),   // Triangle
         Signal::Value(0.5),
     );
 
@@ -256,17 +284,20 @@ fn test_vco_triangle_wave_linearity() {
     let mut falling_count = 0;
 
     for i in 1..output.len() {
-        if output[i] > output[i-1] {
+        if output[i] > output[i - 1] {
             rising_count += 1;
-        } else if output[i] < output[i-1] {
+        } else if output[i] < output[i - 1] {
             falling_count += 1;
         }
     }
 
     // Should be roughly 50/50 rising and falling
     let ratio = rising_count as f32 / falling_count as f32;
-    assert!(ratio > 0.8 && ratio < 1.2,
-        "Triangle should have equal rising/falling time, ratio={}", ratio);
+    assert!(
+        ratio > 0.8 && ratio < 1.2,
+        "Triangle should have equal rising/falling time, ratio={}",
+        ratio
+    );
 }
 
 // ============================================================================
@@ -279,7 +310,7 @@ fn test_vco_sine_wave_amplitude() {
 
     let vco_id = graph.add_vco_node(
         Signal::Value(440.0),
-        Signal::Value(3.0),  // Sine
+        Signal::Value(3.0), // Sine
         Signal::Value(0.5),
     );
 
@@ -288,13 +319,19 @@ fn test_vco_sine_wave_amplitude() {
 
     // Sine wave peak should be ~1.0
     let peak = peak_amplitude(&output);
-    assert!(peak > 0.9 && peak <= 1.0,
-        "Sine wave peak should be ~1.0, got {}", peak);
+    assert!(
+        peak > 0.9 && peak <= 1.0,
+        "Sine wave peak should be ~1.0, got {}",
+        peak
+    );
 
     // Sine wave RMS = 1/sqrt(2) ≈ 0.707
     let rms = calculate_rms(&output);
-    assert!(rms > 0.6 && rms < 0.8,
-        "Sine wave RMS should be ~0.707, got {}", rms);
+    assert!(
+        rms > 0.6 && rms < 0.8,
+        "Sine wave RMS should be ~0.707, got {}",
+        rms
+    );
 }
 
 #[test]
@@ -305,7 +342,7 @@ fn test_vco_sine_wave_frequency() {
 
     let vco_id = graph.add_vco_node(
         Signal::Value(frequency),
-        Signal::Value(3.0),  // Sine
+        Signal::Value(3.0), // Sine
         Signal::Value(0.5),
     );
 
@@ -319,8 +356,12 @@ fn test_vco_sine_wave_frequency() {
     let measured_freq = cycles / duration_seconds;
 
     let tolerance = frequency * 0.05;
-    assert!((measured_freq - frequency).abs() < tolerance,
-        "Expected ~{} Hz, measured {} Hz", frequency, measured_freq);
+    assert!(
+        (measured_freq - frequency).abs() < tolerance,
+        "Expected ~{} Hz, measured {} Hz",
+        frequency,
+        measured_freq
+    );
 }
 
 // ============================================================================
@@ -333,7 +374,7 @@ fn test_vco_phase_continuity_saw() {
 
     let vco_id = graph.add_vco_node(
         Signal::Value(220.0),
-        Signal::Value(0.0),  // Sawtooth
+        Signal::Value(0.0), // Sawtooth
         Signal::Value(0.5),
     );
 
@@ -356,8 +397,11 @@ fn test_vco_phase_continuity_saw() {
     let is_continuous = diff < 0.1;
     let is_wrap = diff > 1.8; // Close to 2.0 (saw range is 2.0)
 
-    assert!(is_continuous || is_wrap,
-        "Phase should be continuous or wrap, diff={}", diff);
+    assert!(
+        is_continuous || is_wrap,
+        "Phase should be continuous or wrap, diff={}",
+        diff
+    );
 }
 
 #[test]
@@ -366,7 +410,7 @@ fn test_vco_phase_continuity_sine() {
 
     let vco_id = graph.add_vco_node(
         Signal::Value(440.0),
-        Signal::Value(3.0),  // Sine
+        Signal::Value(3.0), // Sine
         Signal::Value(0.5),
     );
 
@@ -382,8 +426,11 @@ fn test_vco_phase_continuity_sine() {
     let first = buffer2[0];
 
     let diff = (first - last).abs();
-    assert!(diff < 0.2,
-        "Sine phase should be smooth at buffer boundary, diff={}", diff);
+    assert!(
+        diff < 0.2,
+        "Sine phase should be smooth at buffer boundary, diff={}",
+        diff
+    );
 }
 
 // ============================================================================
@@ -396,24 +443,18 @@ fn test_vco_frequency_modulation() {
 
     // Create LFO for frequency modulation
     let lfo_id = graph.add_oscillator(
-        Signal::Value(5.0),  // 5 Hz LFO
-        phonon::unified_graph::Waveform::Sine
+        Signal::Value(5.0), // 5 Hz LFO
+        phonon::unified_graph::Waveform::Sine,
     );
 
     // VCO with modulated frequency: 220 + (lfo * 50)
-    let lfo_scaled_id = graph.add_multiply_node(
-        Signal::Node(lfo_id),
-        Signal::Value(50.0),
-    );
+    let lfo_scaled_id = graph.add_multiply_node(Signal::Node(lfo_id), Signal::Value(50.0));
 
-    let freq_mod_id = graph.add_add_node(
-        Signal::Value(220.0),
-        Signal::Node(lfo_scaled_id),
-    );
+    let freq_mod_id = graph.add_add_node(Signal::Value(220.0), Signal::Node(lfo_scaled_id));
 
     let vco_id = graph.add_vco_node(
         Signal::Node(freq_mod_id),
-        Signal::Value(0.0),  // Sawtooth
+        Signal::Value(0.0), // Sawtooth
         Signal::Value(0.5),
     );
 
@@ -441,24 +482,18 @@ fn test_vco_pulse_width_modulation() {
 
     // Create LFO for PWM
     let lfo_id = graph.add_oscillator(
-        Signal::Value(2.0),  // 2 Hz LFO
-        phonon::unified_graph::Waveform::Sine
+        Signal::Value(2.0), // 2 Hz LFO
+        phonon::unified_graph::Waveform::Sine,
     );
 
     // Scale LFO to 0.2-0.8 range: 0.5 + (lfo * 0.3)
-    let lfo_scaled_id = graph.add_multiply_node(
-        Signal::Node(lfo_id),
-        Signal::Value(0.3),
-    );
+    let lfo_scaled_id = graph.add_multiply_node(Signal::Node(lfo_id), Signal::Value(0.3));
 
-    let pw_mod_id = graph.add_add_node(
-        Signal::Value(0.5),
-        Signal::Node(lfo_scaled_id),
-    );
+    let pw_mod_id = graph.add_add_node(Signal::Value(0.5), Signal::Node(lfo_scaled_id));
 
     let vco_id = graph.add_vco_node(
         Signal::Value(220.0),
-        Signal::Value(1.0),  // Square wave
+        Signal::Value(1.0), // Square wave
         Signal::Node(pw_mod_id),
     );
 
@@ -468,12 +503,12 @@ fn test_vco_pulse_width_modulation() {
     graph.eval_node_buffer(&vco_id, &mut output);
 
     // PWM square should still produce square-ish output
-    let near_extremes = output.iter()
-        .filter(|&&x| x.abs() > 0.8)
-        .count();
+    let near_extremes = output.iter().filter(|&&x| x.abs() > 0.8).count();
 
-    assert!(near_extremes > buffer_size * 70 / 100,
-        "PWM square should still be mostly at extremes");
+    assert!(
+        near_extremes > buffer_size * 70 / 100,
+        "PWM square should still be mostly at extremes"
+    );
 }
 
 // ============================================================================
@@ -487,7 +522,7 @@ fn test_vco_polyblep_antialiasing() {
     // High frequency saw wave (near Nyquist)
     let vco_id = graph.add_vco_node(
         Signal::Value(5000.0),
-        Signal::Value(0.0),  // Sawtooth
+        Signal::Value(0.0), // Sawtooth
         Signal::Value(0.5),
     );
 
@@ -499,15 +534,18 @@ fn test_vco_polyblep_antialiasing() {
     // Check that no sample-to-sample jump exceeds a threshold
     let mut max_jump = 0.0f32;
     for i in 1..output.len() {
-        let jump = (output[i] - output[i-1]).abs();
+        let jump = (output[i] - output[i - 1]).abs();
         max_jump = max_jump.max(jump);
     }
 
     // Without PolyBLEP, sawtooth resets would cause jumps ~2.0
     // With PolyBLEP, even at phase reset, transition is smoothed
     // At 5kHz, phase increment is ~0.113, so max smooth jump ~0.23
-    assert!(max_jump < 0.5,
-        "PolyBLEP should reduce discontinuities, max_jump={}", max_jump);
+    assert!(
+        max_jump < 0.5,
+        "PolyBLEP should reduce discontinuities, max_jump={}",
+        max_jump
+    );
 }
 
 // ============================================================================
@@ -520,7 +558,7 @@ fn test_vco_zero_frequency() {
 
     let vco_id = graph.add_vco_node(
         Signal::Value(0.0),
-        Signal::Value(0.0),  // Sawtooth
+        Signal::Value(0.0), // Sawtooth
         Signal::Value(0.5),
     );
 
@@ -531,8 +569,10 @@ fn test_vco_zero_frequency() {
     // Zero frequency should produce constant DC
     let first = output[0];
     for &sample in &output {
-        assert!((sample - first).abs() < 0.01,
-            "Zero frequency should produce constant output");
+        assert!(
+            (sample - first).abs() < 0.01,
+            "Zero frequency should produce constant output"
+        );
     }
 }
 
@@ -543,7 +583,7 @@ fn test_vco_very_high_frequency() {
     // Very high frequency (near Nyquist)
     let vco_id = graph.add_vco_node(
         Signal::Value(20000.0),
-        Signal::Value(3.0),  // Sine (naturally band-limited)
+        Signal::Value(3.0), // Sine (naturally band-limited)
         Signal::Value(0.5),
     );
 
@@ -562,7 +602,7 @@ fn test_vco_multiple_buffers() {
 
     let vco_id = graph.add_vco_node(
         Signal::Value(220.0),
-        Signal::Value(0.0),  // Sawtooth
+        Signal::Value(0.0), // Sawtooth
         Signal::Value(0.5),
     );
 
@@ -574,8 +614,12 @@ fn test_vco_multiple_buffers() {
         graph.eval_node_buffer(&vco_id, &mut output);
 
         let rms = calculate_rms(&output);
-        assert!(rms > 0.3,
-            "Buffer {} should have reasonable RMS: {}", i, rms);
+        assert!(
+            rms > 0.3,
+            "Buffer {} should have reasonable RMS: {}",
+            i,
+            rms
+        );
     }
 }
 
@@ -589,7 +633,7 @@ fn test_vco_buffer_performance() {
 
     let vco_id = graph.add_vco_node(
         Signal::Value(440.0),
-        Signal::Value(0.0),  // Sawtooth
+        Signal::Value(0.0), // Sawtooth
         Signal::Value(0.5),
     );
 
@@ -603,10 +647,16 @@ fn test_vco_buffer_performance() {
     }
     let duration = start.elapsed();
 
-    println!("VCO buffer eval: {:?} for {} iterations", duration, iterations);
+    println!(
+        "VCO buffer eval: {:?} for {} iterations",
+        duration, iterations
+    );
     println!("Per iteration: {:?}", duration / iterations);
 
     // Should complete in reasonable time
-    assert!(duration.as_secs() < 2,
-        "VCO buffer evaluation too slow: {:?}", duration);
+    assert!(
+        duration.as_secs() < 2,
+        "VCO buffer evaluation too slow: {:?}",
+        duration
+    );
 }

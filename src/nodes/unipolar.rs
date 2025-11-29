@@ -2,7 +2,6 @@
 ///
 /// Converts bipolar signals (-1 to 1) to unipolar (0 to 1).
 /// Useful for using oscillators as control signals.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 pub struct UnipolarNode {
@@ -23,10 +22,7 @@ impl AudioNode for UnipolarNode {
         _sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(
-            inputs.len() >= 1,
-            "UnipolarNode requires 1 input"
-        );
+        debug_assert!(inputs.len() >= 1, "UnipolarNode requires 1 input");
 
         let input_buffer = inputs[0];
         debug_assert_eq!(
@@ -63,21 +59,15 @@ mod tests {
         let inputs = vec![input.as_slice()];
         let mut output = vec![0.0; 5];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         node.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Verify mapping: [-1, 1] -> [0, 1]
-        assert_eq!(output[0], 0.0);   // -1 -> 0
-        assert_eq!(output[1], 0.25);  // -0.5 -> 0.25
-        assert_eq!(output[2], 0.5);   // 0 -> 0.5
-        assert_eq!(output[3], 0.75);  // 0.5 -> 0.75
-        assert_eq!(output[4], 1.0);   // 1 -> 1
+        assert_eq!(output[0], 0.0); // -1 -> 0
+        assert_eq!(output[1], 0.25); // -0.5 -> 0.25
+        assert_eq!(output[2], 0.5); // 0 -> 0.5
+        assert_eq!(output[3], 0.75); // 0.5 -> 0.75
+        assert_eq!(output[4], 1.0); // 1 -> 1
     }
 }

@@ -43,8 +43,8 @@ tempo: 0.5
 out $ saw ~midi
 "#;
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0, Some(queue.clone()))
-        .expect("Failed to compile");
+    let mut graph =
+        compile_program(statements, 44100.0, Some(queue.clone())).expect("Failed to compile");
 
     // Send MIDI note-on for C4 (MIDI note 60 = 261.63 Hz)
     {
@@ -63,7 +63,11 @@ out $ saw ~midi
     let rms = rms.sqrt();
 
     println!("RMS level: {}", rms);
-    assert!(rms > 0.01, "Expected audio output from MIDI note, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Expected audio output from MIDI note, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -77,8 +81,8 @@ tempo: 0.5
 out $ saw ~midi
 "#;
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0, Some(queue.clone()))
-        .expect("Failed to compile");
+    let mut graph =
+        compile_program(statements, 44100.0, Some(queue.clone())).expect("Failed to compile");
 
     // Test 1: Send C4 (note 60)
     {
@@ -115,8 +119,8 @@ tempo: 0.5
 out $ saw ~midi1
 "#;
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0, Some(queue.clone()))
-        .expect("Failed to compile");
+    let mut graph =
+        compile_program(statements, 44100.0, Some(queue.clone())).expect("Failed to compile");
 
     // Send note on channel 0 (should be filtered out for ~midi1)
     {
@@ -134,12 +138,18 @@ out $ saw ~midi1
     let buffer_ch1 = graph.render(512);
     let rms_ch1: f32 = buffer_ch1.iter().map(|&s| s * s).sum::<f32>() / buffer_ch1.len() as f32;
 
-    println!("Channel 0 RMS: {}, Channel 1 RMS: {}", rms_ch0.sqrt(), rms_ch1.sqrt());
+    println!(
+        "Channel 0 RMS: {}, Channel 1 RMS: {}",
+        rms_ch0.sqrt(),
+        rms_ch1.sqrt()
+    );
 
     // Note: ~midi1 expects channel 0 (since we convert 1-indexed to 0-indexed)
     // So both should produce sound since they're both on channel 0
-    assert!(rms_ch0.sqrt() > 0.01 || rms_ch1.sqrt() > 0.01,
-        "Expected audio from at least one channel");
+    assert!(
+        rms_ch0.sqrt() > 0.01 || rms_ch1.sqrt() > 0.01,
+        "Expected audio from at least one channel"
+    );
 }
 
 #[test]
@@ -153,8 +163,8 @@ tempo: 0.5
 out $ saw ~midi
 "#;
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0, Some(queue.clone()))
-        .expect("Failed to compile");
+    let mut graph =
+        compile_program(statements, 44100.0, Some(queue.clone())).expect("Failed to compile");
 
     // Send chord: C4 + E4 + G4 (C major)
     {
@@ -185,8 +195,8 @@ tempo: 0.5
 out $ saw ~midi
 "#;
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0, Some(queue.clone()))
-        .expect("Failed to compile");
+    let mut graph =
+        compile_program(statements, 44100.0, Some(queue.clone())).expect("Failed to compile");
 
     // Send note-on
     {
@@ -204,7 +214,11 @@ out $ saw ~midi
     let buffer_off = graph.render(512);
     let rms_off: f32 = buffer_off.iter().map(|&s| s * s).sum::<f32>() / buffer_off.len() as f32;
 
-    println!("Note-on RMS: {}, Note-off RMS: {}", rms_on.sqrt(), rms_off.sqrt());
+    println!(
+        "Note-on RMS: {}, Note-off RMS: {}",
+        rms_on.sqrt(),
+        rms_off.sqrt()
+    );
 
     // Note-on should produce sound
     assert!(rms_on.sqrt() > 0.01, "Expected audio when note is on");
@@ -225,8 +239,8 @@ tempo: 0.5
 out $ saw ~freq
 "#;
     let (_, statements) = parse_program(code).expect("Failed to parse");
-    let mut graph = compile_program(statements, 44100.0, Some(queue.clone()))
-        .expect("Failed to compile");
+    let mut graph =
+        compile_program(statements, 44100.0, Some(queue.clone())).expect("Failed to compile");
 
     // Send A4 (note 69 = 440 Hz)
     {

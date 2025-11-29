@@ -6,7 +6,6 @@
 /// ```bash
 /// cargo run --example gain_node_example
 /// ```
-
 use phonon::audio_node::{AudioNode, ProcessContext};
 use phonon::nodes::{ConstantNode, GainNode, OscillatorNode, Waveform};
 use phonon::pattern::Fraction;
@@ -19,28 +18,22 @@ fn main() {
     let buffer_size = 512;
 
     // Create nodes
-    let mut freq_node = ConstantNode::new(440.0);       // Node 0: frequency
-    let mut osc_node = OscillatorNode::new(0, Waveform::Sine);  // Node 1: oscillator
+    let mut freq_node = ConstantNode::new(440.0); // Node 0: frequency
+    let mut osc_node = OscillatorNode::new(0, Waveform::Sine); // Node 1: oscillator
 
     // Create different gain amounts
-    let mut gain_unity = ConstantNode::new(1.0);        // Node 2: unity gain
-    let mut gain_half = ConstantNode::new(0.5);         // Node 3: half volume
-    let mut gain_double = ConstantNode::new(2.0);       // Node 4: double volume
-    let mut gain_invert = ConstantNode::new(-1.0);      // Node 5: phase invert
+    let mut gain_unity = ConstantNode::new(1.0); // Node 2: unity gain
+    let mut gain_half = ConstantNode::new(0.5); // Node 3: half volume
+    let mut gain_double = ConstantNode::new(2.0); // Node 4: double volume
+    let mut gain_invert = ConstantNode::new(-1.0); // Node 5: phase invert
 
     // Create gain nodes
-    let mut gain_unity_node = GainNode::new(1, 2);      // Node 6
-    let mut gain_half_node = GainNode::new(1, 3);       // Node 7
-    let mut gain_double_node = GainNode::new(1, 4);     // Node 8
-    let mut gain_invert_node = GainNode::new(1, 5);     // Node 9
+    let mut gain_unity_node = GainNode::new(1, 2); // Node 6
+    let mut gain_half_node = GainNode::new(1, 3); // Node 7
+    let mut gain_double_node = GainNode::new(1, 4); // Node 8
+    let mut gain_invert_node = GainNode::new(1, 5); // Node 9
 
-    let context = ProcessContext::new(
-        Fraction::from_float(0.0),
-        0,
-        buffer_size,
-        2.0,
-        sample_rate,
-    );
+    let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, sample_rate);
 
     // Process buffers
     let mut freq_buf = vec![0.0; buffer_size];
@@ -111,10 +104,26 @@ fn main() {
 
     println!("\nRMS Analysis:");
     println!("Original:      {:.6}", rms_original);
-    println!("Unity gain:    {:.6} (ratio: {:.2}x)", rms_unity, rms_unity / rms_original);
-    println!("Half gain:     {:.6} (ratio: {:.2}x)", rms_half, rms_half / rms_original);
-    println!("Double gain:   {:.6} (ratio: {:.2}x)", rms_double, rms_double / rms_original);
-    println!("Inverted:      {:.6} (ratio: {:.2}x)", rms_invert, rms_invert / rms_original);
+    println!(
+        "Unity gain:    {:.6} (ratio: {:.2}x)",
+        rms_unity,
+        rms_unity / rms_original
+    );
+    println!(
+        "Half gain:     {:.6} (ratio: {:.2}x)",
+        rms_half,
+        rms_half / rms_original
+    );
+    println!(
+        "Double gain:   {:.6} (ratio: {:.2}x)",
+        rms_double,
+        rms_double / rms_original
+    );
+    println!(
+        "Inverted:      {:.6} (ratio: {:.2}x)",
+        rms_invert,
+        rms_invert / rms_original
+    );
 
     println!("\n✅ GainNode working correctly!");
     println!("   - Unity gain preserves signal (1.00x)");

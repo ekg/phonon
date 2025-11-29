@@ -1,3 +1,4 @@
+use phonon::audio_node::{AudioNode, ProcessContext};
 /// Example: Using DelayNode in the DAW buffer passing architecture
 ///
 /// This demonstrates how to create a signal graph with:
@@ -6,9 +7,7 @@
 /// 3. Signal → delay with modulated delay time (chorus/flanger effect)
 ///
 /// Run with: cargo run --example delay_node_example
-
-use phonon::nodes::{ConstantNode, OscillatorNode, DelayNode, Waveform};
-use phonon::audio_node::{AudioNode, ProcessContext};
+use phonon::nodes::{ConstantNode, DelayNode, OscillatorNode, Waveform};
 use phonon::pattern::Fraction;
 
 fn main() {
@@ -30,7 +29,7 @@ fn example_1_impulse_delay() {
 
     let sample_rate = 44100.0;
     let delay_time = 0.01; // 10ms delay = 441 samples
-    let max_delay = 0.1;   // 100ms max
+    let max_delay = 0.1; // 100ms max
 
     // Node 0: Constant delay time (10ms)
     let mut delay_time_node = ConstantNode::new(delay_time);
@@ -38,16 +37,14 @@ fn example_1_impulse_delay() {
     // Node 1: Delay (input=impulse, delay_time=Node0)
     let mut delay_node = DelayNode::new(0, 0, max_delay, sample_rate);
 
-    let context = ProcessContext::new(
-        Fraction::from_float(0.0),
-        0,
-        512,
-        2.0,
-        sample_rate,
-    );
+    let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, sample_rate);
 
     println!("Signal Graph:");
-    println!("  Node 0: ConstantNode({} seconds = {} samples)", delay_time, delay_time * sample_rate);
+    println!(
+        "  Node 0: ConstantNode({} seconds = {} samples)",
+        delay_time,
+        delay_time * sample_rate
+    );
     println!("  Node 1: DelayNode(max_delay={} seconds)", max_delay);
     println!();
 
@@ -61,7 +58,10 @@ fn example_1_impulse_delay() {
     // Process enough blocks to see the delayed impulse
     let blocks_needed = ((delay_time * sample_rate) as usize / 512) + 2;
 
-    println!("Processing {} blocks to see delayed impulse...", blocks_needed);
+    println!(
+        "Processing {} blocks to see delayed impulse...",
+        blocks_needed
+    );
 
     for block_idx in 0..blocks_needed {
         // Generate delay time
@@ -76,9 +76,14 @@ fn example_1_impulse_delay() {
             if sample > 0.5 {
                 let sample_position = block_idx * 512 + i;
                 println!("\n✓ Impulse detected at sample {}!", sample_position);
-                println!("  Expected: {} samples", (delay_time * sample_rate) as usize);
-                println!("  Error:    {} samples",
-                    (sample_position as f32 - delay_time * sample_rate).abs() as usize);
+                println!(
+                    "  Expected: {} samples",
+                    (delay_time * sample_rate) as usize
+                );
+                println!(
+                    "  Error:    {} samples",
+                    (sample_position as f32 - delay_time * sample_rate).abs() as usize
+                );
                 return;
             }
         }
@@ -111,13 +116,7 @@ fn example_2_delayed_oscillator() {
     // Node 3: Delay
     let mut delay_node = DelayNode::new(1, 2, 0.5, sample_rate);
 
-    let context = ProcessContext::new(
-        Fraction::from_float(0.0),
-        0,
-        512,
-        2.0,
-        sample_rate,
-    );
+    let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, sample_rate);
 
     println!("Signal Graph:");
     println!("  Node 0: ConstantNode(440.0 Hz)");
@@ -156,7 +155,10 @@ fn example_2_delayed_oscillator() {
     println!("After {} warmup blocks:", warmup_blocks);
     println!("  Input RMS:  {:.6}", input_rms);
     println!("  Output RMS: {:.6}", output_rms);
-    println!("  Delay time: {} samples", (delay_time * sample_rate) as usize);
+    println!(
+        "  Delay time: {} samples",
+        (delay_time * sample_rate) as usize
+    );
     println!();
 
     println!("First 10 samples (after warmup):");
@@ -198,13 +200,7 @@ fn example_3_modulated_delay() {
     // Node 4: Delay with modulated delay time
     let mut delay_node = DelayNode::new(1, 3, 0.1, sample_rate);
 
-    let context = ProcessContext::new(
-        Fraction::from_float(0.0),
-        0,
-        512,
-        2.0,
-        sample_rate,
-    );
+    let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, sample_rate);
 
     println!("Signal Graph:");
     println!("  Node 0: ConstantNode(220.0 Hz)");
@@ -239,13 +235,30 @@ fn example_3_modulated_delay() {
     }
 
     // Show delay time modulation range
-    let min_delay = delay_time_buffer.iter().cloned().fold(f32::INFINITY, f32::min);
-    let max_delay = delay_time_buffer.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+    let min_delay = delay_time_buffer
+        .iter()
+        .cloned()
+        .fold(f32::INFINITY, f32::min);
+    let max_delay = delay_time_buffer
+        .iter()
+        .cloned()
+        .fold(f32::NEG_INFINITY, f32::max);
 
     println!("Modulated Delay Time Range:");
-    println!("  Min: {:.4} seconds ({} samples)", min_delay, (min_delay * sample_rate) as usize);
-    println!("  Max: {:.4} seconds ({} samples)", max_delay, (max_delay * sample_rate) as usize);
-    println!("  Range: {} samples", ((max_delay - min_delay) * sample_rate) as usize);
+    println!(
+        "  Min: {:.4} seconds ({} samples)",
+        min_delay,
+        (min_delay * sample_rate) as usize
+    );
+    println!(
+        "  Max: {:.4} seconds ({} samples)",
+        max_delay,
+        (max_delay * sample_rate) as usize
+    );
+    println!(
+        "  Range: {} samples",
+        ((max_delay - min_delay) * sample_rate) as usize
+    );
     println!();
 
     let calculate_rms = |buffer: &[f32]| -> f32 {
@@ -259,7 +272,8 @@ fn example_3_modulated_delay() {
 
     println!("Sample delay times (first 10 samples):");
     for i in 0..10 {
-        println!("  Sample {:3}: {:.6} seconds ({:4} samples)",
+        println!(
+            "  Sample {:3}: {:.6} seconds ({:4} samples)",
             i,
             delay_time_buffer[i],
             (delay_time_buffer[i] * sample_rate) as usize

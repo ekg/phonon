@@ -9,7 +9,6 @@
 /// - **Sine**: Smooth, natural sweeping motion (classic auto-pan)
 /// - **Triangle**: Linear movement with direction changes
 /// - **Square**: Hard switching between left and right (tremolo-like)
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -57,11 +56,11 @@ pub enum AutoPanWaveform {
 /// let auto_pan = AutoPanNode::new(0, 1, 2, AutoPanWaveform::Sine);  // NodeId 3
 /// ```
 pub struct AutoPanNode {
-    input: NodeId,           // Mono audio signal
-    rate_input: NodeId,      // LFO rate in Hz (can be modulated)
-    depth_input: NodeId,     // Modulation depth 0.0-1.0 (can be modulated)
+    input: NodeId,             // Mono audio signal
+    rate_input: NodeId,        // LFO rate in Hz (can be modulated)
+    depth_input: NodeId,       // Modulation depth 0.0-1.0 (can be modulated)
     waveform: AutoPanWaveform, // LFO waveform shape
-    phase: f32,              // LFO phase accumulator (0.0 to 1.0)
+    phase: f32,                // LFO phase accumulator (0.0 to 1.0)
 }
 
 impl AutoPanNode {
@@ -242,13 +241,7 @@ mod tests {
     use crate::pattern::Fraction;
 
     fn create_test_context(block_size: usize) -> ProcessContext {
-        ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            44100.0,
-        )
+        ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, 44100.0)
     }
 
     #[test]
@@ -269,7 +262,11 @@ mod tests {
         rate.process_block(&[], &mut rate_buf, 44100.0, &context);
         depth.process_block(&[], &mut depth_buf, 44100.0, &context);
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 512];
         auto_pan.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -306,7 +303,11 @@ mod tests {
         rate.process_block(&[], &mut rate_buf, 44100.0, &context);
         depth.process_block(&[], &mut depth_buf, 44100.0, &context);
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 44100];
         auto_pan.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -341,7 +342,11 @@ mod tests {
         rate_slow.process_block(&[], &mut rate_buf, 44100.0, &context);
         depth_slow.process_block(&[], &mut depth_buf, 44100.0, &context);
 
-        let inputs_slow = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs_slow = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output_slow = vec![0.0; 44100];
         auto_pan_slow.process_block(&inputs_slow, &mut output_slow, 44100.0, &context);
 
@@ -396,7 +401,11 @@ mod tests {
         rate.process_block(&[], &mut rate_buf, 44100.0, &context);
         depth.process_block(&[], &mut depth_buf, 44100.0, &context);
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 44100];
         auto_pan.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -435,7 +444,11 @@ mod tests {
         rate.process_block(&[], &mut rate_buf, 44100.0, &context);
         depth.process_block(&[], &mut depth_buf, 44100.0, &context);
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 44100];
         auto_pan.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -475,7 +488,11 @@ mod tests {
         rate.process_block(&[], &mut rate_buf, 44100.0, &context);
         depth.process_block(&[], &mut depth_buf, 44100.0, &context);
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 44100];
         auto_pan.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -514,7 +531,11 @@ mod tests {
         rate_low.process_block(&[], &mut rate_buf, 44100.0, &context);
         depth_low.process_block(&[], &mut depth_buf, 44100.0, &context);
 
-        let inputs_low = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs_low = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output_low = vec![0.0; 44100];
         auto_pan_low.process_block(&inputs_low, &mut output_low, 44100.0, &context);
 
@@ -540,7 +561,10 @@ mod tests {
         auto_pan_high.process_block(&inputs_high, &mut output_high, 44100.0, &context);
 
         let high_min = output_high.iter().cloned().fold(f32::INFINITY, f32::min);
-        let high_max = output_high.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let high_max = output_high
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
         let high_range = high_max - high_min;
 
         // Higher depth should produce wider range
@@ -586,7 +610,11 @@ mod tests {
         let rate_buf = vec![2.0; 512]; // 2 Hz
         let depth_buf = vec![1.0; 512];
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 512];
 
         auto_pan.process_block(&inputs, &mut output, 44100.0, &context);
@@ -650,7 +678,11 @@ mod tests {
             rate_buf[i] = 0.5 + (i as f32 / 44100.0) * 3.5; // Linear ramp
         }
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 44100];
         auto_pan.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -687,7 +719,11 @@ mod tests {
             depth_buf[i] = i as f32 / 44100.0; // Linear ramp
         }
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 44100];
         auto_pan.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -730,13 +766,21 @@ mod tests {
         depth.process_block(&[], &mut depth_buf, 44100.0, &context);
 
         // Apply auto-pan
-        let inputs = vec![audio_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            audio_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 44100];
         auto_pan.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Output should have audio energy (not silent)
         let rms = calc_rms(&output);
-        assert!(rms > 0.01, "Auto-panned audio should have energy: rms={}", rms);
+        assert!(
+            rms > 0.01,
+            "Auto-panned audio should have energy: rms={}",
+            rms
+        );
 
         // Output should vary (panning modulation)
         let range = calc_range(&output);

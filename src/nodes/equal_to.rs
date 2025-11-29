@@ -5,7 +5,6 @@
 /// Useful for creating triggers, gates, and conditional logic based on equality.
 ///
 /// Uses floating-point epsilon (default 1e-6) to handle numerical precision issues.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Equal To node: out = (|a - b| < tolerance) ? 1.0 : 0.0
@@ -41,7 +40,11 @@ impl EqualToNode {
     /// ~trigger: ~sig_a # equal_to 0.5 0.001
     /// ```
     pub fn new(input_a: NodeId, input_b: NodeId, tolerance: f32) -> Self {
-        Self { input_a, input_b, tolerance }
+        Self {
+            input_a,
+            input_b,
+            tolerance,
+        }
     }
 
     /// Create a new equal to node with default tolerance (1e-6)
@@ -82,20 +85,16 @@ impl AudioNode for EqualToNode {
         let buf_a = inputs[0];
         let buf_b = inputs[1];
 
-        debug_assert_eq!(
-            buf_a.len(),
-            output.len(),
-            "Input A length mismatch"
-        );
-        debug_assert_eq!(
-            buf_b.len(),
-            output.len(),
-            "Input B length mismatch"
-        );
+        debug_assert_eq!(buf_a.len(), output.len(), "Input A length mismatch");
+        debug_assert_eq!(buf_b.len(), output.len(), "Input B length mismatch");
 
         // Vectorized comparison: 1.0 if |a - b| < tolerance, else 0.0
         for i in 0..output.len() {
-            output[i] = if (buf_a[i] - buf_b[i]).abs() < self.tolerance { 1.0 } else { 0.0 };
+            output[i] = if (buf_a[i] - buf_b[i]).abs() < self.tolerance {
+                1.0
+            } else {
+                0.0
+            };
         }
     }
 
@@ -124,20 +123,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         eq.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // 5 == 5
-        assert_eq!(output[1], 1.0);  // 10 == 10
-        assert_eq!(output[2], 1.0);  // 0 == 0
-        assert_eq!(output[3], 1.0);  // -3 == -3
+        assert_eq!(output[0], 1.0); // 5 == 5
+        assert_eq!(output[1], 1.0); // 10 == 10
+        assert_eq!(output[2], 1.0); // 0 == 0
+        assert_eq!(output[3], 1.0); // -3 == -3
     }
 
     #[test]
@@ -150,20 +143,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         eq.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // 1 != 5
-        assert_eq!(output[1], 0.0);  // 5 != 10
-        assert_eq!(output[2], 0.0);  // 50 != 100
-        assert_eq!(output[3], 0.0);  // 1.5 != 2
+        assert_eq!(output[0], 0.0); // 1 != 5
+        assert_eq!(output[1], 0.0); // 5 != 10
+        assert_eq!(output[2], 0.0); // 50 != 100
+        assert_eq!(output[3], 0.0); // 1.5 != 2
     }
 
     #[test]
@@ -176,20 +163,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         eq.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // |5.0 - 5.0000005| < 1e-6 → true
-        assert_eq!(output[1], 1.0);  // |10.0 - 9.9999995| < 1e-6 → true
-        assert_eq!(output[2], 1.0);  // |0.0 - 0.0000005| < 1e-6 → true
-        assert_eq!(output[3], 1.0);  // |-3.0 - -3.0000005| < 1e-6 → true
+        assert_eq!(output[0], 1.0); // |5.0 - 5.0000005| < 1e-6 → true
+        assert_eq!(output[1], 1.0); // |10.0 - 9.9999995| < 1e-6 → true
+        assert_eq!(output[2], 1.0); // |0.0 - 0.0000005| < 1e-6 → true
+        assert_eq!(output[3], 1.0); // |-3.0 - -3.0000005| < 1e-6 → true
     }
 
     #[test]
@@ -202,20 +183,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         eq.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // |5.0 - 5.00001| >= 1e-6 → false
-        assert_eq!(output[1], 0.0);  // |10.0 - 9.99999| >= 1e-6 → false
-        assert_eq!(output[2], 0.0);  // |0.0 - 0.00001| >= 1e-6 → false
-        assert_eq!(output[3], 0.0);  // |-3.0 - -3.00001| >= 1e-6 → false
+        assert_eq!(output[0], 0.0); // |5.0 - 5.00001| >= 1e-6 → false
+        assert_eq!(output[1], 0.0); // |10.0 - 9.99999| >= 1e-6 → false
+        assert_eq!(output[2], 0.0); // |0.0 - 0.00001| >= 1e-6 → false
+        assert_eq!(output[3], 0.0); // |-3.0 - -3.00001| >= 1e-6 → false
     }
 
     #[test]
@@ -224,13 +199,7 @@ mod tests {
         let mut const_b = ConstantNode::new(75.0);
         let mut eq = EqualToNode::new(0, 1, 1e-6);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut buf_a = vec![0.0; 512];
@@ -261,20 +230,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         eq.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // -1 == -1 → true
-        assert_eq!(output[1], 1.0);  // -5 == -5 → true
-        assert_eq!(output[2], 1.0);  // 3 == 3 → true
-        assert_eq!(output[3], 1.0);  // -10 == -10 → true
+        assert_eq!(output[0], 1.0); // -1 == -1 → true
+        assert_eq!(output[1], 1.0); // -5 == -5 → true
+        assert_eq!(output[2], 1.0); // 3 == 3 → true
+        assert_eq!(output[3], 1.0); // -10 == -10 → true
     }
 
     #[test]
@@ -297,25 +260,19 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         eq.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // 10 == 10 → true
-        assert_eq!(output[1], 0.0);  // 5 != 10 → false
-        assert_eq!(output[2], 1.0);  // 8 == 8 → true
-        assert_eq!(output[3], 0.0);  // 3 != 7 → false
+        assert_eq!(output[0], 1.0); // 10 == 10 → true
+        assert_eq!(output[1], 0.0); // 5 != 10 → false
+        assert_eq!(output[2], 1.0); // 8 == 8 → true
+        assert_eq!(output[3], 0.0); // 3 != 7 → false
     }
 
     #[test]
     fn test_equal_to_custom_tolerance() {
-        let mut eq = EqualToNode::new(0, 1, 0.1);  // Larger tolerance
+        let mut eq = EqualToNode::new(0, 1, 0.1); // Larger tolerance
 
         // Values within 0.1 tolerance: should output 1.0
         let input_a = vec![5.0, 10.0, 0.0, -3.0];
@@ -323,20 +280,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         eq.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // |5.0 - 5.05| = 0.05 < 0.1 → true
-        assert_eq!(output[1], 1.0);  // |10.0 - 9.95| = 0.05 < 0.1 → true
-        assert_eq!(output[2], 1.0);  // |0.0 - 0.08| = 0.08 < 0.1 → true
-        assert_eq!(output[3], 1.0);  // |-3.0 - -2.92| = 0.08 < 0.1 → true
+        assert_eq!(output[0], 1.0); // |5.0 - 5.05| = 0.05 < 0.1 → true
+        assert_eq!(output[1], 1.0); // |10.0 - 9.95| = 0.05 < 0.1 → true
+        assert_eq!(output[2], 1.0); // |0.0 - 0.08| = 0.08 < 0.1 → true
+        assert_eq!(output[3], 1.0); // |-3.0 - -2.92| = 0.08 < 0.1 → true
     }
 
     #[test]
@@ -349,19 +300,13 @@ mod tests {
         let inputs = vec![signal.as_slice(), zero.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         eq.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // 0.0 == 0.0 → true
-        assert_eq!(output[1], 1.0);  // |1e-7 - 0| < 1e-6 → true
-        assert_eq!(output[2], 1.0);  // |-1e-7 - 0| < 1e-6 → true
-        assert_eq!(output[3], 0.0);  // |1e-5 - 0| >= 1e-6 → false
+        assert_eq!(output[0], 1.0); // 0.0 == 0.0 → true
+        assert_eq!(output[1], 1.0); // |1e-7 - 0| < 1e-6 → true
+        assert_eq!(output[2], 1.0); // |-1e-7 - 0| < 1e-6 → true
+        assert_eq!(output[3], 0.0); // |1e-5 - 0| >= 1e-6 → false
     }
 }

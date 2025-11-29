@@ -10,7 +10,6 @@
 /// - Stepped modulation effects
 /// - Rhythmic parameter automation
 /// - Emulating classic analog synth S&H circuits
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Sample-and-hold node: captures input when trigger crosses from negative to positive
@@ -184,7 +183,7 @@ mod tests {
 
         sh.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // Initial
+        assert_eq!(output[0], 0.0); // Initial
         assert_eq!(output[1], 20.0); // First crossing
         assert_eq!(output[2], 20.0); // Holding
         assert_eq!(output[3], 40.0); // Second crossing
@@ -225,8 +224,8 @@ mod tests {
 
         sh.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);   // Initial
-        assert_eq!(output[1], 0.0);   // Still holding (0.0 is not > 0.0)
+        assert_eq!(output[0], 0.0); // Initial
+        assert_eq!(output[1], 0.0); // Still holding (0.0 is not > 0.0)
         assert_eq!(output[2], 300.0); // Crosses here (0.0 <= 0.0 && 0.5 > 0.0)
     }
 

@@ -8,7 +8,7 @@
 //! 5. Audio characteristics analysis (RMS, peak, SNR, etc.)
 
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
-use rustfft::{FftPlanner, num_complex::Complex};
+use rustfft::{num_complex::Complex, FftPlanner};
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
@@ -342,7 +342,10 @@ pub fn assert_continuous_modulation(
     message: &str,
 ) {
     if audio.len() < window_size * 3 {
-        panic!("{}: Audio too short for continuous modulation analysis", message);
+        panic!(
+            "{}: Audio too short for continuous modulation analysis",
+            message
+        );
     }
 
     // Calculate spectral centroid for multiple windows
@@ -363,10 +366,8 @@ pub fn assert_continuous_modulation(
     }
 
     let mean = centroids.iter().sum::<f32>() / centroids.len() as f32;
-    let variance = centroids
-        .iter()
-        .map(|&c| (c - mean).powi(2))
-        .sum::<f32>() / centroids.len() as f32;
+    let variance =
+        centroids.iter().map(|&c| (c - mean).powi(2)).sum::<f32>() / centroids.len() as f32;
     let std_dev = variance.sqrt();
 
     assert!(
@@ -465,7 +466,12 @@ mod tests {
         let rms = calculate_rms(&audio);
         let expected = amplitude / 2.0_f32.sqrt();
 
-        assert!((rms - expected).abs() < 0.01, "RMS: {}, Expected: {}", rms, expected);
+        assert!(
+            (rms - expected).abs() < 0.01,
+            "RMS: {}, Expected: {}",
+            rms,
+            expected
+        );
     }
 
     #[test]
@@ -491,7 +497,8 @@ mod tests {
         assert!(
             high_centroid > low_centroid,
             "High freq centroid ({:.2}Hz) should be > low freq ({:.2}Hz)",
-            high_centroid, low_centroid
+            high_centroid,
+            low_centroid
         );
     }
 
@@ -510,7 +517,8 @@ mod tests {
         assert!(
             (estimated - frequency).abs() < 1.0,
             "Estimated freq: {:.2}Hz, Expected: {}Hz",
-            estimated, frequency
+            estimated,
+            frequency
         );
     }
 

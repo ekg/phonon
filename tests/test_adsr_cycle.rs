@@ -11,7 +11,6 @@
 /// - Release: falls from sustain_level to 0 over release_time
 /// - All parameters pattern-modulated
 /// - Used for shaping synthesizer sounds
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -22,7 +21,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -50,7 +50,7 @@ fn test_adsr_generates_envelope() {
         out $ ~env
     "#;
 
-    let buffer = render_dsl(code, 1.0);  // 1 cycle at tempo 1.0 = 1 second
+    let buffer = render_dsl(code, 1.0); // 1 cycle at tempo 1.0 = 1 second
     let rms = calculate_rms(&buffer);
 
     assert!(rms > 0.1, "ADSR should produce envelope, got RMS: {}", rms);
@@ -74,25 +74,36 @@ fn test_adsr_attack_phase() {
     // Start of cycle should be near 0
     let start_samples = &buffer[0..100];
     let start_avg: f32 = start_samples.iter().sum::<f32>() / start_samples.len() as f32;
-    assert!(start_avg < 0.1, "Attack should start near 0, got {}", start_avg);
+    assert!(
+        start_avg < 0.1,
+        "Attack should start near 0, got {}",
+        start_avg
+    );
 
     // Middle of attack (0.1s) should be around 0.5
     let mid_attack = (0.1 * sample_rate) as usize;
     let mid_samples = &buffer[mid_attack..mid_attack + 100];
     let mid_avg: f32 = mid_samples.iter().sum::<f32>() / mid_samples.len() as f32;
-    assert!(mid_avg > 0.4 && mid_avg < 0.6,
+    assert!(
+        mid_avg > 0.4 && mid_avg < 0.6,
         "Mid-attack should be ~0.5, got {}",
-        mid_avg);
+        mid_avg
+    );
 
     // End of attack (0.2s) should be near 1.0
     let end_attack = (0.2 * sample_rate) as usize;
     let end_samples = &buffer[end_attack..end_attack + 100];
     let end_avg: f32 = end_samples.iter().sum::<f32>() / end_samples.len() as f32;
-    assert!(end_avg > 0.9,
+    assert!(
+        end_avg > 0.9,
         "End of attack should be near 1.0, got {}",
-        end_avg);
+        end_avg
+    );
 
-    println!("Attack phase - start: {}, mid: {}, end: {}", start_avg, mid_avg, end_avg);
+    println!(
+        "Attack phase - start: {}, mid: {}, end: {}",
+        start_avg, mid_avg, end_avg
+    );
 }
 
 // ========== Decay Phase Tests ==========
@@ -114,28 +125,39 @@ fn test_adsr_decay_phase() {
     // Expected: 1.0 - (1.0-0.4)*0.163 ≈ 0.90
     let post_attack = (0.05 * sample_rate) as usize;
     let post_attack_samples = &buffer[post_attack..post_attack + 100];
-    let post_attack_avg: f32 = post_attack_samples.iter().sum::<f32>() / post_attack_samples.len() as f32;
-    assert!(post_attack_avg > 0.85 && post_attack_avg <= 1.0,
+    let post_attack_avg: f32 =
+        post_attack_samples.iter().sum::<f32>() / post_attack_samples.len() as f32;
+    assert!(
+        post_attack_avg > 0.85 && post_attack_avg <= 1.0,
         "Post-attack should be in early decay (0.85-1.0), got {}",
-        post_attack_avg);
+        post_attack_avg
+    );
 
     // Mid-decay (at 0.15s) should be between 1.0 and 0.4
     let mid_decay = (0.15 * sample_rate) as usize;
     let mid_samples = &buffer[mid_decay..mid_decay + 100];
     let mid_avg: f32 = mid_samples.iter().sum::<f32>() / mid_samples.len() as f32;
-    assert!(mid_avg > 0.5 && mid_avg < 0.9,
+    assert!(
+        mid_avg > 0.5 && mid_avg < 0.9,
         "Mid-decay should be between 0.5-0.9, got {}",
-        mid_avg);
+        mid_avg
+    );
 
     // After decay (at 0.35s) should be near sustain level (0.4)
     let post_decay = (0.35 * sample_rate) as usize;
     let post_decay_samples = &buffer[post_decay..post_decay + 100];
-    let post_decay_avg: f32 = post_decay_samples.iter().sum::<f32>() / post_decay_samples.len() as f32;
-    assert!((post_decay_avg - 0.4).abs() < 0.15,
+    let post_decay_avg: f32 =
+        post_decay_samples.iter().sum::<f32>() / post_decay_samples.len() as f32;
+    assert!(
+        (post_decay_avg - 0.4).abs() < 0.15,
         "Post-decay should be near sustain (0.4), got {}",
-        post_decay_avg);
+        post_decay_avg
+    );
 
-    println!("Decay phase - post-attack: {}, mid: {}, post-decay: {}", post_attack_avg, mid_avg, post_decay_avg);
+    println!(
+        "Decay phase - post-attack: {}, mid: {}, post-decay: {}",
+        post_attack_avg, mid_avg, post_decay_avg
+    );
 }
 
 // ========== Sustain Phase Tests ==========
@@ -167,27 +189,39 @@ fn test_adsr_sustain_phase() {
     let end_avg: f32 = end_samples.iter().sum::<f32>() / end_samples.len() as f32;
 
     // All three should be near sustain level (0.6)
-    assert!((start_avg - 0.6).abs() < 0.15,
+    assert!(
+        (start_avg - 0.6).abs() < 0.15,
         "Sustain start should be ~0.6, got {}",
-        start_avg);
-    assert!((mid_avg - 0.6).abs() < 0.15,
+        start_avg
+    );
+    assert!(
+        (mid_avg - 0.6).abs() < 0.15,
         "Sustain mid should be ~0.6, got {}",
-        mid_avg);
-    assert!((end_avg - 0.6).abs() < 0.15,
+        mid_avg
+    );
+    assert!(
+        (end_avg - 0.6).abs() < 0.15,
         "Sustain end should be ~0.6, got {}",
-        end_avg);
+        end_avg
+    );
 
-    println!("Sustain phase - start: {}, mid: {}, end: {}", start_avg, mid_avg, end_avg);
+    println!(
+        "Sustain phase - start: {}, mid: {}, end: {}",
+        start_avg, mid_avg, end_avg
+    );
 }
 
 #[test]
 fn test_adsr_different_sustain_levels() {
     for sustain_level in [0.2, 0.5, 0.8] {
-        let code = format!(r#"
+        let code = format!(
+            r#"
             tempo: 1.0
             ~env $ adsr 0.1 0.1 {} 0.2
             out $ ~env
-        "#, sustain_level);
+        "#,
+            sustain_level
+        );
 
         let sample_rate = 44100.0;
         let buffer = render_dsl(&code, 1.0);
@@ -197,9 +231,13 @@ fn test_adsr_different_sustain_levels() {
         let samples = &buffer[sustain_time..sustain_time + 1000];
         let avg: f32 = samples.iter().sum::<f32>() / samples.len() as f32;
 
-        assert!((avg - sustain_level).abs() < 0.15,
+        assert!(
+            (avg - sustain_level).abs() < 0.15,
             "Sustain level {} should measure ~{}, got {}",
-            sustain_level, sustain_level, avg);
+            sustain_level,
+            sustain_level,
+            avg
+        );
 
         println!("Sustain level {} - measured: {}", sustain_level, avg);
     }
@@ -225,29 +263,39 @@ fn test_adsr_release_phase() {
     let start_avg: f32 = start_samples.iter().sum::<f32>() / start_samples.len() as f32;
 
     // Should start from sustain level (0.7)
-    assert!(start_avg > 0.5,
+    assert!(
+        start_avg > 0.5,
         "Release should start from sustain level, got {}",
-        start_avg);
+        start_avg
+    );
 
     // Mid-release (at 0.85s) should be falling
     let mid_release = (0.85 * sample_rate) as usize;
     let mid_samples = &buffer[mid_release..mid_release + 100];
     let mid_avg: f32 = mid_samples.iter().sum::<f32>() / mid_samples.len() as f32;
 
-    assert!(mid_avg < start_avg && mid_avg > 0.1,
+    assert!(
+        mid_avg < start_avg && mid_avg > 0.1,
         "Mid-release should be falling, start: {}, mid: {}",
-        start_avg, mid_avg);
+        start_avg,
+        mid_avg
+    );
 
     // End of cycle should be near 0
     let end = buffer.len() - 1000;
     let end_samples = &buffer[end..];
     let end_avg: f32 = end_samples.iter().sum::<f32>() / end_samples.len() as f32;
 
-    assert!(end_avg < 0.2,
+    assert!(
+        end_avg < 0.2,
         "End of release should be near 0, got {}",
-        end_avg);
+        end_avg
+    );
 
-    println!("Release phase - start: {}, mid: {}, end: {}", start_avg, mid_avg, end_avg);
+    println!(
+        "Release phase - start: {}, mid: {}, end: {}",
+        start_avg, mid_avg, end_avg
+    );
 }
 
 // ========== Musical Applications ==========
@@ -261,10 +309,14 @@ fn test_adsr_shaping_tone() {
         out $ ~tone * ~env * 0.5
     "#;
 
-    let buffer = render_dsl(code, 1.0);  // 2 cycles
+    let buffer = render_dsl(code, 1.0); // 2 cycles
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "ADSR-shaped tone should be audible, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "ADSR-shaped tone should be audible, got RMS: {}",
+        rms
+    );
     println!("ADSR-shaped tone RMS: {}", rms);
 }
 
@@ -281,7 +333,11 @@ fn test_adsr_filter_modulation() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.03, "ADSR filter modulation should work, got RMS: {}", rms);
+    assert!(
+        rms > 0.03,
+        "ADSR filter modulation should work, got RMS: {}",
+        rms
+    );
     println!("ADSR filter mod RMS: {}", rms);
 }
 
@@ -295,7 +351,7 @@ fn test_adsr_percussive_sound() {
         out $ ~tone * ~env * 0.5
     "#;
 
-    let buffer = render_dsl(code, 1.0);  // 2 cycles
+    let buffer = render_dsl(code, 1.0); // 2 cycles
     let rms = calculate_rms(&buffer);
 
     // Percussive envelope (no sustain) produces lower RMS
@@ -335,9 +391,11 @@ fn test_adsr_pattern_attack() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1,
+    assert!(
+        rms > 0.1,
         "ADSR with pattern-modulated attack should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern-modulated attack RMS: {}", rms);
 }
@@ -354,9 +412,11 @@ fn test_adsr_pattern_sustain() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1,
+    assert!(
+        rms > 0.1,
         "ADSR with pattern-modulated sustain should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern-modulated sustain RMS: {}", rms);
 }
@@ -372,7 +432,7 @@ fn test_adsr_multiple_cycles() {
     "#;
 
     let sample_rate = 44100.0;
-    let buffer = render_dsl(code, 1.0);  // 4 cycles in 1 second
+    let buffer = render_dsl(code, 1.0); // 4 cycles in 1 second
 
     // Each cycle is 0.25s
     let cycle_length = (0.25 * sample_rate) as usize;
@@ -384,19 +444,25 @@ fn test_adsr_multiple_cycles() {
         let cycle_buffer = &buffer[start..end];
 
         // Check that envelope rises and falls
-        let first_quarter = &cycle_buffer[0..cycle_length/4];
-        let last_quarter = &cycle_buffer[3*cycle_length/4..];
+        let first_quarter = &cycle_buffer[0..cycle_length / 4];
+        let last_quarter = &cycle_buffer[3 * cycle_length / 4..];
 
         let start_avg: f32 = first_quarter.iter().sum::<f32>() / first_quarter.len() as f32;
         let end_avg: f32 = last_quarter.iter().sum::<f32>() / last_quarter.len() as f32;
 
         // Start should be rising (attack), end should be falling (release)
-        assert!(start_avg < 0.8,
+        assert!(
+            start_avg < 0.8,
             "Cycle {} start should be in attack phase, got {}",
-            cycle, start_avg);
-        assert!(end_avg < 0.5,
+            cycle,
+            start_avg
+        );
+        assert!(
+            end_avg < 0.5,
             "Cycle {} end should be in release phase, got {}",
-            cycle, end_avg);
+            cycle,
+            end_avg
+        );
 
         println!("Cycle {} - start: {}, end: {}", cycle, start_avg, end_avg);
     }
@@ -415,7 +481,11 @@ fn test_adsr_very_short_times() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "ADSR with very short times should work, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "ADSR with very short times should work, got RMS: {}",
+        rms
+    );
     println!("Very short times RMS: {}", rms);
 }
 
@@ -431,7 +501,11 @@ fn test_adsr_long_attack() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.15, "ADSR with long attack should work, got RMS: {}", rms);
+    assert!(
+        rms > 0.15,
+        "ADSR with long attack should work, got RMS: {}",
+        rms
+    );
     println!("Long attack RMS: {}", rms);
 }
 
@@ -447,7 +521,11 @@ fn test_adsr_zero_sustain() {
     let rms = calculate_rms(&buffer);
 
     // Zero sustain means envelope drops to 0 during decay
-    assert!(rms > 0.05, "ADSR with zero sustain should work, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "ADSR with zero sustain should work, got RMS: {}",
+        rms
+    );
     println!("Zero sustain RMS: {}", rms);
 }
 
@@ -463,6 +541,10 @@ fn test_adsr_full_sustain() {
     let rms = calculate_rms(&buffer);
 
     // Full sustain (1.0) means envelope stays at peak after attack
-    assert!(rms > 0.3, "ADSR with full sustain should work, got RMS: {}", rms);
+    assert!(
+        rms > 0.3,
+        "ADSR with full sustain should work, got RMS: {}",
+        rms
+    );
     println!("Full sustain RMS: {}", rms);
 }

@@ -28,7 +28,6 @@
 ///
 /// - Curtis Roads, "Microsound" (2001) - Comprehensive granular synthesis theory
 /// - Barry Truax, "Real-time Granular Synthesis" (1988) - Asynchronous grain scheduling
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use rand::{Rng, SeedableRng};
 use std::sync::Arc;
@@ -120,16 +119,16 @@ fn hann_window(age: f32, duration: f32) -> f32 {
 /// let granular = GranularNode::new(source, 0, 1, 2, 3, 4, 44100.0);
 /// ```
 pub struct GranularNode {
-    source: Arc<Vec<f32>>,       // Source buffer to granulate
-    position_input: NodeId,      // Position in buffer (0.0-1.0)
-    grain_size_input: NodeId,    // Grain size in ms (5-500)
-    density_input: NodeId,       // Grains per second (1-100)
-    pitch_input: NodeId,         // Pitch shift in semitones (-12 to +12)
-    spray_input: NodeId,         // Random position offset (0.0-1.0)
-    active_grains: Vec<Grain>,   // Currently playing grains
+    source: Arc<Vec<f32>>,         // Source buffer to granulate
+    position_input: NodeId,        // Position in buffer (0.0-1.0)
+    grain_size_input: NodeId,      // Grain size in ms (5-500)
+    density_input: NodeId,         // Grains per second (1-100)
+    pitch_input: NodeId,           // Pitch shift in semitones (-12 to +12)
+    spray_input: NodeId,           // Random position offset (0.0-1.0)
+    active_grains: Vec<Grain>,     // Currently playing grains
     samples_since_last_grain: f32, // Fractional sample counter
-    rng: rand::rngs::StdRng,     // Random number generator
-    sample_rate: f32,            // Sample rate for calculations
+    rng: rand::rngs::StdRng,       // Random number generator
+    sample_rate: f32,              // Sample rate for calculations
 }
 
 impl GranularNode {
@@ -339,19 +338,10 @@ mod tests {
         let mut pitch_node = ConstantNode::new(0.0);
         let mut spray_node = ConstantNode::new(0.0);
 
-        let mut granular = GranularNode::new(
-            source.clone(),
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular = GranularNode::new(source.clone(), 0, 1, 2, 3, 4, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Generate input buffers
         let mut position_buf = vec![0.0; block_size];
@@ -406,21 +396,12 @@ mod tests {
         let mut pitch_node = ConstantNode::new(0.0);
         let mut spray_node = ConstantNode::new(0.0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Test short grains (20ms)
         let mut grain_size_short = ConstantNode::new(20.0);
-        let mut granular_short = GranularNode::new(
-            source.clone(),
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular_short = GranularNode::new(source.clone(), 0, 1, 2, 3, 4, sample_rate);
 
         let mut position_buf = vec![0.5; block_size];
         let mut grain_size_buf_short = vec![20.0; block_size];
@@ -453,11 +434,7 @@ mod tests {
 
         // Test long grains (100ms)
         let mut grain_size_long = ConstantNode::new(100.0);
-        let mut granular_long = GranularNode::new(
-            source.clone(),
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular_long = GranularNode::new(source.clone(), 0, 1, 2, 3, 4, sample_rate);
 
         let mut grain_size_buf_long = vec![100.0; block_size];
         grain_size_long.process_block(&[], &mut grain_size_buf_long, sample_rate, &context);
@@ -510,21 +487,12 @@ mod tests {
         let mut pitch_node = ConstantNode::new(0.0);
         let mut spray_node = ConstantNode::new(0.0); // No spray
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Test position 0.25 (first half - low amplitude)
         let mut position_low = ConstantNode::new(0.25);
-        let mut granular_low = GranularNode::new(
-            source.clone(),
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular_low = GranularNode::new(source.clone(), 0, 1, 2, 3, 4, sample_rate);
 
         let mut position_buf_low = vec![0.25; block_size];
         let mut grain_size_buf = vec![50.0; block_size];
@@ -557,11 +525,7 @@ mod tests {
 
         // Test position 0.75 (second half - high amplitude)
         let mut position_high = ConstantNode::new(0.75);
-        let mut granular_high = GranularNode::new(
-            source.clone(),
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular_high = GranularNode::new(source.clone(), 0, 1, 2, 3, 4, sample_rate);
 
         let mut position_buf_high = vec![0.75; block_size];
         position_high.process_block(&[], &mut position_buf_high, sample_rate, &context);
@@ -605,21 +569,12 @@ mod tests {
         let mut density_node = ConstantNode::new(10.0);
         let mut spray_node = ConstantNode::new(0.0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Test normal pitch (0 semitones)
         let mut pitch_normal = ConstantNode::new(0.0);
-        let mut granular_normal = GranularNode::new(
-            source.clone(),
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular_normal = GranularNode::new(source.clone(), 0, 1, 2, 3, 4, sample_rate);
 
         let mut position_buf = vec![0.5; block_size];
         let mut grain_size_buf = vec![100.0; block_size];
@@ -650,11 +605,7 @@ mod tests {
 
         // Test octave up (+12 semitones)
         let mut pitch_up = ConstantNode::new(12.0);
-        let mut granular_up = GranularNode::new(
-            source.clone(),
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular_up = GranularNode::new(source.clone(), 0, 1, 2, 3, 4, sample_rate);
 
         let mut pitch_buf_up = vec![12.0; block_size];
         pitch_up.process_block(&[], &mut pitch_buf_up, sample_rate, &context);
@@ -699,21 +650,12 @@ mod tests {
         let mut density_node = ConstantNode::new(20.0);
         let mut pitch_node = ConstantNode::new(0.0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Test no spray
         let mut spray_none = ConstantNode::new(0.0);
-        let mut granular_none = GranularNode::new(
-            source.clone(),
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular_none = GranularNode::new(source.clone(), 0, 1, 2, 3, 4, sample_rate);
 
         let mut position_buf = vec![0.5; block_size];
         let mut grain_size_buf = vec![50.0; block_size];
@@ -744,11 +686,7 @@ mod tests {
 
         // Test with spray
         let mut spray_some = ConstantNode::new(0.5);
-        let mut granular_some = GranularNode::new(
-            source.clone(),
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular_some = GranularNode::new(source.clone(), 0, 1, 2, 3, 4, sample_rate);
 
         let mut spray_buf_some = vec![0.5; block_size];
         spray_some.process_block(&[], &mut spray_buf_some, sample_rate, &context);
@@ -792,21 +730,12 @@ mod tests {
         let mut pitch_node = ConstantNode::new(0.0);
         let mut spray_node = ConstantNode::new(0.0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Test low density (5 grains/sec)
         let mut density_low = ConstantNode::new(5.0);
-        let mut granular_low = GranularNode::new(
-            source.clone(),
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular_low = GranularNode::new(source.clone(), 0, 1, 2, 3, 4, sample_rate);
 
         let mut position_buf = vec![0.5; block_size];
         let mut grain_size_buf = vec![100.0; block_size];
@@ -837,11 +766,7 @@ mod tests {
 
         // Test high density (50 grains/sec)
         let mut density_high = ConstantNode::new(50.0);
-        let mut granular_high = GranularNode::new(
-            source.clone(),
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular_high = GranularNode::new(source.clone(), 0, 1, 2, 3, 4, sample_rate);
 
         let mut density_buf_high = vec![50.0; block_size];
         density_high.process_block(&[], &mut density_buf_high, sample_rate, &context);
@@ -878,19 +803,10 @@ mod tests {
         let block_size = 512;
         let source = create_test_source(sample_rate);
 
-        let mut granular = GranularNode::new(
-            source.clone(),
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular = GranularNode::new(source.clone(), 0, 1, 2, 3, 4, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Create modulating buffers
         let mut position_buf = vec![0.0; block_size];
@@ -928,7 +844,10 @@ mod tests {
         }
 
         // Should have spawned some grains
-        assert!(granular.active_grain_count() > 0, "Should have active grains");
+        assert!(
+            granular.active_grain_count() > 0,
+            "Should have active grains"
+        );
     }
 
     #[test]
@@ -945,19 +864,10 @@ mod tests {
         let mut pitch_node = ConstantNode::new(0.0);
         let mut spray_node = ConstantNode::new(0.2);
 
-        let mut granular = GranularNode::new(
-            source.clone(),
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular = GranularNode::new(source.clone(), 0, 1, 2, 3, 4, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut position_buf = vec![0.5; block_size];
         let mut grain_size_buf = vec![200.0; block_size];
@@ -1014,19 +924,10 @@ mod tests {
         let mut pitch_node = ConstantNode::new(0.0);
         let mut spray_node = ConstantNode::new(0.1);
 
-        let mut granular = GranularNode::new(
-            source,
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular = GranularNode::new(source, 0, 1, 2, 3, 4, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut position_buf = vec![0.5; block_size];
         let mut grain_size_buf = vec![50.0; block_size];
@@ -1071,19 +972,10 @@ mod tests {
         let mut pitch_node = ConstantNode::new(0.0);
         let mut spray_node = ConstantNode::new(0.1);
 
-        let mut granular = GranularNode::new(
-            source,
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular = GranularNode::new(source, 0, 1, 2, 3, 4, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut position_buf = vec![0.5; block_size];
         let mut grain_size_buf = vec![50.0; block_size];
@@ -1111,12 +1003,19 @@ mod tests {
             granular.process_block(&inputs, &mut output, sample_rate, &context);
         }
 
-        assert!(granular.active_grain_count() > 0, "Should have grains before clear");
+        assert!(
+            granular.active_grain_count() > 0,
+            "Should have grains before clear"
+        );
 
         // Clear grains
         granular.clear_grains();
 
-        assert_eq!(granular.active_grain_count(), 0, "Should have no grains after clear");
+        assert_eq!(
+            granular.active_grain_count(),
+            0,
+            "Should have no grains after clear"
+        );
     }
 
     #[test]
@@ -1124,11 +1023,7 @@ mod tests {
         // Test 11: Verify node reports correct dependencies
 
         let source = Arc::new(vec![0.0; 44100]);
-        let granular = GranularNode::new(
-            source,
-            10, 20, 30, 40, 50,
-            44100.0,
-        );
+        let granular = GranularNode::new(source, 10, 20, 30, 40, 50, 44100.0);
 
         let deps = granular.input_nodes();
 
@@ -1148,13 +1043,19 @@ mod tests {
         assert_eq!(hann_window(0.0, 100.0), 0.0); // Start: 0
 
         let quarter = hann_window(25.0, 100.0);
-        assert!(quarter > 0.2 && quarter < 0.6, "Quarter point should be rising");
+        assert!(
+            quarter > 0.2 && quarter < 0.6,
+            "Quarter point should be rising"
+        );
 
         let middle = hann_window(50.0, 100.0);
         assert!(middle > 0.9, "Middle should be peak (~1.0)");
 
         let three_quarter = hann_window(75.0, 100.0);
-        assert!(three_quarter > 0.2 && three_quarter < 0.6, "Three-quarter should be falling");
+        assert!(
+            three_quarter > 0.2 && three_quarter < 0.6,
+            "Three-quarter should be falling"
+        );
 
         assert_eq!(hann_window(100.0, 100.0), 0.0); // End: 0
     }
@@ -1167,19 +1068,10 @@ mod tests {
         let block_size = 512;
         let source = create_test_source(sample_rate);
 
-        let mut granular = GranularNode::new(
-            source,
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular = GranularNode::new(source, 0, 1, 2, 3, 4, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Invalid parameters (out of range)
         let position_buf = vec![-1.0; block_size]; // Invalid: < 0
@@ -1202,7 +1094,10 @@ mod tests {
             granular.process_block(&inputs, &mut output, sample_rate, &context);
 
             for &sample in output.iter() {
-                assert!(sample.is_finite(), "Clamped params should produce finite output");
+                assert!(
+                    sample.is_finite(),
+                    "Clamped params should produce finite output"
+                );
             }
         }
     }
@@ -1221,19 +1116,10 @@ mod tests {
         let mut pitch_node = ConstantNode::new(2.0);
         let mut spray_node = ConstantNode::new(0.3);
 
-        let mut granular = GranularNode::new(
-            source,
-            0, 1, 2, 3, 4,
-            sample_rate,
-        );
+        let mut granular = GranularNode::new(source, 0, 1, 2, 3, 4, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut position_buf = vec![0.5; block_size];
         let mut grain_size_buf = vec![80.0; block_size];
@@ -1263,7 +1149,11 @@ mod tests {
             // Check stability
             for &sample in output.iter() {
                 assert!(sample.is_finite(), "Output should remain finite");
-                assert!(sample.abs() < 100.0, "Output should not explode: {}", sample);
+                assert!(
+                    sample.abs() < 100.0,
+                    "Output should not explode: {}",
+                    sample
+                );
             }
 
             // Grain count should remain reasonable

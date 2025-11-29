@@ -34,7 +34,6 @@
 /// state = lowpass
 /// output = input - lowpass
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -251,7 +250,7 @@ mod tests {
         let mut cutoff = ConstantNode::new(1000.0);
         let mut lpf = OnePoleFilterNode::new(1, 2, OnePoleMode::LowPass);
 
-        let context = test_context(4410);  // 0.1 second to stabilize
+        let context = test_context(4410); // 0.1 second to stabilize
 
         let mut freq_buf = vec![0.0; 4410];
         let mut osc_buf = vec![0.0; 4410];
@@ -327,7 +326,7 @@ mod tests {
         let mut cutoff = ConstantNode::new(100.0);
         let mut hpf = OnePoleFilterNode::new(0, 1, OnePoleMode::HighPass);
 
-        let context = test_context(4410);  // 0.1 second to stabilize
+        let context = test_context(4410); // 0.1 second to stabilize
 
         let mut dc_buf = vec![0.0; 4410];
         let mut cutoff_buf = vec![0.0; 4410];
@@ -449,7 +448,12 @@ mod tests {
 
         let input_rms_at_cutoff = calculate_rms(&osc_buf);
         let mut output = vec![0.0; 4410];
-        lpf.process_block(&[osc_buf.as_slice(), cutoff_buf.as_slice()], &mut output, 44100.0, &context);
+        lpf.process_block(
+            &[osc_buf.as_slice(), cutoff_buf.as_slice()],
+            &mut output,
+            44100.0,
+            &context,
+        );
         let output_rms_at_cutoff = calculate_rms(&output);
 
         // Measure one octave above cutoff
@@ -461,7 +465,12 @@ mod tests {
         osc.process_block(&[freq_buf.as_slice()], &mut osc_buf, 44100.0, &context);
 
         let input_rms_octave = calculate_rms(&osc_buf);
-        lpf.process_block(&[osc_buf.as_slice(), cutoff_buf.as_slice()], &mut output, 44100.0, &context);
+        lpf.process_block(
+            &[osc_buf.as_slice(), cutoff_buf.as_slice()],
+            &mut output,
+            44100.0,
+            &context,
+        );
         let output_rms_octave = calculate_rms(&output);
 
         // Calculate attenuation at cutoff and one octave above
@@ -503,31 +512,56 @@ mod tests {
         osc.process_block(&[freq_buf.as_slice()], &mut osc_buf, 44100.0, &context);
 
         let mut output = vec![0.0; 512];
-        lpf.process_block(&[osc_buf.as_slice(), cutoff_buf.as_slice()], &mut output, 44100.0, &context);
+        lpf.process_block(
+            &[osc_buf.as_slice(), cutoff_buf.as_slice()],
+            &mut output,
+            44100.0,
+            &context,
+        );
 
         // Should produce output without crashing
         let output_rms = calculate_rms(&output);
-        assert!(output_rms > 0.0, "Pattern-modulated filter produced no output");
+        assert!(
+            output_rms > 0.0,
+            "Pattern-modulated filter produced no output"
+        );
     }
 
     #[test]
     fn test_smooth_control_signal() {
         // One-pole lowpass is excellent for smoothing step changes in control signals
         let step_input = vec![0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
-        let cutoff = vec![100.0; 10];  // Low cutoff for heavy smoothing
+        let cutoff = vec![100.0; 10]; // Low cutoff for heavy smoothing
 
         let mut lpf = OnePoleFilterNode::new(0, 1, OnePoleMode::LowPass);
 
         let context = test_context(10);
         let mut output = vec![0.0; 10];
 
-        lpf.process_block(&[step_input.as_slice(), cutoff.as_slice()], &mut output, 44100.0, &context);
+        lpf.process_block(
+            &[step_input.as_slice(), cutoff.as_slice()],
+            &mut output,
+            44100.0,
+            &context,
+        );
 
         // Output should gradually rise, not jump instantly
-        assert!(output[2] > 0.0, "Filter didn't respond to step: output[2] = {}", output[2]);
-        assert!(output[2] < 0.5, "Filter didn't smooth step: output[2] = {}", output[2]);
+        assert!(
+            output[2] > 0.0,
+            "Filter didn't respond to step: output[2] = {}",
+            output[2]
+        );
+        assert!(
+            output[2] < 0.5,
+            "Filter didn't smooth step: output[2] = {}",
+            output[2]
+        );
         assert!(output[3] > output[2], "Output not rising smoothly");
-        assert!(output[9] < 0.99, "Not enough smoothing: output[9] = {}", output[9]);
+        assert!(
+            output[9] < 0.99,
+            "Not enough smoothing: output[9] = {}",
+            output[9]
+        );
     }
 
     #[test]
@@ -538,7 +572,7 @@ mod tests {
         let mut cutoff = ConstantNode::new(1000.0);
         let mut lpf = OnePoleFilterNode::new(1, 2, OnePoleMode::LowPass);
 
-        let context = test_context(44100);  // 1 second at 44.1kHz
+        let context = test_context(44100); // 1 second at 44.1kHz
 
         let mut freq_buf = vec![0.0; 44100];
         let mut osc_buf = vec![0.0; 44100];
@@ -552,7 +586,12 @@ mod tests {
         let mut output = vec![0.0; 44100];
 
         let start = std::time::Instant::now();
-        lpf.process_block(&[osc_buf.as_slice(), cutoff_buf.as_slice()], &mut output, 44100.0, &context);
+        lpf.process_block(
+            &[osc_buf.as_slice(), cutoff_buf.as_slice()],
+            &mut output,
+            44100.0,
+            &context,
+        );
         let elapsed = start.elapsed();
 
         // Should complete in under 2ms on any modern CPU (1 second of audio)
@@ -575,7 +614,12 @@ mod tests {
         let context = test_context(10);
         let mut output1 = vec![0.0; 10];
 
-        lpf.process_block(&[input1.as_slice(), cutoff1.as_slice()], &mut output1, 44100.0, &context);
+        lpf.process_block(
+            &[input1.as_slice(), cutoff1.as_slice()],
+            &mut output1,
+            44100.0,
+            &context,
+        );
 
         let last_output = output1[9];
 
@@ -584,14 +628,20 @@ mod tests {
         let cutoff2 = vec![1000.0; 10];
         let mut output2 = vec![0.0; 10];
 
-        lpf.process_block(&[input2.as_slice(), cutoff2.as_slice()], &mut output2, 44100.0, &context);
+        lpf.process_block(
+            &[input2.as_slice(), cutoff2.as_slice()],
+            &mut output2,
+            44100.0,
+            &context,
+        );
 
         // First sample of second block should be close to last sample of first block
         // (continuing exponential approach - allow for one sample of advancement)
         assert!(
             (output2[0] - last_output).abs() < 0.05,
             "State not persisting: output1[9]={}, output2[0]={}",
-            last_output, output2[0]
+            last_output,
+            output2[0]
         );
     }
 
@@ -605,7 +655,12 @@ mod tests {
         let context = test_context(100);
         let mut output = vec![0.0; 100];
 
-        lpf.process_block(&[input.as_slice(), cutoff.as_slice()], &mut output, 44100.0, &context);
+        lpf.process_block(
+            &[input.as_slice(), cutoff.as_slice()],
+            &mut output,
+            44100.0,
+            &context,
+        );
 
         assert!(lpf.state() > 0.5, "State should have built up");
 

@@ -7,25 +7,24 @@
 /// - Release: Linear ramp to 0.0 when gate goes low
 ///
 /// All time parameters are in seconds, sustain is level (0.0 to 1.0).
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// ADSR envelope phase
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum ADSRPhase {
-    Idle,       // Gate is low, envelope is at 0.0
-    Attack,     // Ramping from 0.0 to 1.0
-    Decay,      // Ramping from 1.0 to sustain_level
-    Sustain,    // Holding at sustain_level
-    Release,    // Ramping to 0.0
+    Idle,    // Gate is low, envelope is at 0.0
+    Attack,  // Ramping from 0.0 to 1.0
+    Decay,   // Ramping from 1.0 to sustain_level
+    Sustain, // Holding at sustain_level
+    Release, // Ramping to 0.0
 }
 
 /// ADSR envelope state machine
 #[derive(Debug, Clone)]
 struct ADSRState {
-    phase: ADSRPhase,       // Current envelope phase
-    value: f32,             // Current envelope value (0.0 to 1.0)
-    gate_was_high: bool,    // Track gate transitions
+    phase: ADSRPhase,         // Current envelope phase
+    value: f32,               // Current envelope value (0.0 to 1.0)
+    gate_was_high: bool,      // Track gate transitions
     release_start_value: f32, // Value when release phase started
 }
 
@@ -60,12 +59,12 @@ impl Default for ADSRState {
 /// let adsr = ADSRNode::new(0, 1, 2, 3, 4);     // NodeId 5
 /// ```
 pub struct ADSRNode {
-    gate_input: NodeId,      // Trigger input (gate on/off)
-    attack_input: NodeId,    // Attack time in seconds
-    decay_input: NodeId,     // Decay time in seconds
-    sustain_input: NodeId,   // Sustain level (0.0 to 1.0)
-    release_input: NodeId,   // Release time in seconds
-    state: ADSRState,        // Internal state machine
+    gate_input: NodeId,    // Trigger input (gate on/off)
+    attack_input: NodeId,  // Attack time in seconds
+    decay_input: NodeId,   // Decay time in seconds
+    sustain_input: NodeId, // Sustain level (0.0 to 1.0)
+    release_input: NodeId, // Release time in seconds
+    state: ADSRState,      // Internal state machine
 }
 
 impl ADSRNode {
@@ -140,11 +139,31 @@ impl AudioNode for ADSRNode {
         let sustain_buffer = inputs[3];
         let release_buffer = inputs[4];
 
-        debug_assert_eq!(gate_buffer.len(), output.len(), "Gate buffer length mismatch");
-        debug_assert_eq!(attack_buffer.len(), output.len(), "Attack buffer length mismatch");
-        debug_assert_eq!(decay_buffer.len(), output.len(), "Decay buffer length mismatch");
-        debug_assert_eq!(sustain_buffer.len(), output.len(), "Sustain buffer length mismatch");
-        debug_assert_eq!(release_buffer.len(), output.len(), "Release buffer length mismatch");
+        debug_assert_eq!(
+            gate_buffer.len(),
+            output.len(),
+            "Gate buffer length mismatch"
+        );
+        debug_assert_eq!(
+            attack_buffer.len(),
+            output.len(),
+            "Attack buffer length mismatch"
+        );
+        debug_assert_eq!(
+            decay_buffer.len(),
+            output.len(),
+            "Decay buffer length mismatch"
+        );
+        debug_assert_eq!(
+            sustain_buffer.len(),
+            output.len(),
+            "Sustain buffer length mismatch"
+        );
+        debug_assert_eq!(
+            release_buffer.len(),
+            output.len(),
+            "Release buffer length mismatch"
+        );
 
         for i in 0..output.len() {
             let gate = gate_buffer[i];
@@ -257,7 +276,7 @@ mod tests {
     #[test]
     fn test_adsr_idle_when_gate_low() {
         // Test 1: When gate is low, envelope should be idle at 0.0
-        let mut gate = ConstantNode::new(0.0);  // Gate off
+        let mut gate = ConstantNode::new(0.0); // Gate off
         let mut attack = ConstantNode::new(0.01);
         let mut decay = ConstantNode::new(0.1);
         let mut sustain = ConstantNode::new(0.7);
@@ -265,13 +284,7 @@ mod tests {
 
         let mut adsr = ADSRNode::new(0, 1, 2, 3, 4);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Generate input buffers
         let mut gate_buf = vec![0.0; 512];
@@ -299,11 +312,7 @@ mod tests {
 
         // All samples should be 0.0 (idle)
         for (i, &sample) in output.iter().enumerate() {
-            assert_eq!(
-                sample, 0.0,
-                "Sample {} should be 0.0 when gate is low",
-                i
-            );
+            assert_eq!(sample, 0.0, "Sample {} should be 0.0 when gate is low", i);
         }
 
         assert_eq!(adsr.phase(), ADSRPhase::Idle);
@@ -316,7 +325,7 @@ mod tests {
         let attack_time = 0.01; // 10ms = 441 samples
         let block_size = 512;
 
-        let mut gate = ConstantNode::new(1.0);  // Gate on
+        let mut gate = ConstantNode::new(1.0); // Gate on
         let mut attack = ConstantNode::new(attack_time);
         let mut decay = ConstantNode::new(0.1);
         let mut sustain = ConstantNode::new(0.7);
@@ -324,13 +333,8 @@ mod tests {
 
         let mut adsr = ADSRNode::new(0, 1, 2, 3, 4);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut gate_buf = vec![1.0; block_size];
         let mut attack_buf = vec![attack_time; block_size];
@@ -375,19 +379,14 @@ mod tests {
         // Test 3: After attack, should decay to sustain level
         let sample_rate = 44100.0;
         let attack_time = 0.001; // 1ms
-        let decay_time = 0.01;   // 10ms
+        let decay_time = 0.01; // 10ms
         let sustain_level = 0.5;
         let block_size = 512;
 
         let mut adsr = ADSRNode::new(0, 1, 2, 3, 4);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let gate_buf = vec![1.0; block_size];
         let attack_buf = vec![attack_time; block_size];
@@ -435,13 +434,8 @@ mod tests {
         adsr.state.value = sustain_level;
         adsr.state.gate_was_high = true;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let gate_buf = vec![1.0; block_size];
         let attack_buf = vec![0.01; block_size];
@@ -488,13 +482,8 @@ mod tests {
         adsr.state.value = 0.7;
         adsr.state.gate_was_high = true;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Gate goes low
         let gate_buf = vec![0.0; block_size];
@@ -522,8 +511,14 @@ mod tests {
         );
 
         // Envelope should be falling
-        assert!(output[0] >= output[100], "Release should be falling or at zero");
-        assert!(output[100] >= output[200], "Release should continue falling or at zero");
+        assert!(
+            output[0] >= output[100],
+            "Release should be falling or at zero"
+        );
+        assert!(
+            output[100] >= output[200],
+            "Release should continue falling or at zero"
+        );
 
         // Process more blocks to reach idle
         for _ in 0..10 {
@@ -533,7 +528,11 @@ mod tests {
 
         // Should reach idle at 0.0
         assert_eq!(adsr.phase(), ADSRPhase::Idle);
-        assert!(adsr.value() < 0.01, "Should be at 0.0, got {}", adsr.value());
+        assert!(
+            adsr.value() < 0.01,
+            "Should be at 0.0, got {}",
+            adsr.value()
+        );
     }
 
     #[test]
@@ -544,13 +543,8 @@ mod tests {
 
         let mut adsr = ADSRNode::new(0, 1, 2, 3, 4);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let attack_buf = vec![0.05; block_size]; // Longer attack
         let decay_buf = vec![0.1; block_size];
@@ -611,7 +605,11 @@ mod tests {
         adsr.process_block(&inputs, &mut output, sample_rate, &context);
 
         // Should re-enter attack phase (first sample triggers on rising edge)
-        assert_eq!(adsr.phase(), ADSRPhase::Attack, "Should restart in Attack phase on retrigger");
+        assert_eq!(
+            adsr.phase(),
+            ADSRPhase::Attack,
+            "Should restart in Attack phase on retrigger"
+        );
     }
 
     #[test]
@@ -632,8 +630,8 @@ mod tests {
     fn test_adsr_with_constants() {
         // Test 8: Full envelope cycle with constant parameters
         let sample_rate = 44100.0;
-        let attack_time = 0.001;  // 1ms = 44 samples
-        let decay_time = 0.001;   // 1ms = 44 samples
+        let attack_time = 0.001; // 1ms = 44 samples
+        let decay_time = 0.001; // 1ms = 44 samples
         let sustain_level = 0.5;
         let release_time = 0.001; // 1ms = 44 samples
         let block_size = 64;
@@ -646,13 +644,8 @@ mod tests {
 
         let mut adsr = ADSRNode::new(0, 1, 2, 3, 4);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Generate constant buffers
         let mut gate_buf = vec![0.0; block_size];

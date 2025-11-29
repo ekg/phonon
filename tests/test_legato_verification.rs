@@ -4,7 +4,8 @@ use phonon::compositional_parser::parse_program;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
 
     // Render in chunks for synthesis voices
@@ -36,7 +37,11 @@ fn test_legato_parsing() {
     let rms = calculate_rms(&audio);
 
     println!("Legato test RMS: {:.3}", rms);
-    assert!(rms > 0.05, "Legato should produce audio, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.05,
+        "Legato should produce audio, got RMS: {:.3}",
+        rms
+    );
 }
 
 #[test]
@@ -52,7 +57,11 @@ fn test_staccato_parsing() {
     let rms = calculate_rms(&audio);
 
     println!("Staccato test RMS: {:.3}", rms);
-    assert!(rms > 0.01, "Staccato should produce audio, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.01,
+        "Staccato should produce audio, got RMS: {:.3}",
+        rms
+    );
 }
 
 #[test]
@@ -68,7 +77,11 @@ fn test_stretch_parsing() {
     let rms = calculate_rms(&audio);
 
     println!("Stretch test RMS: {:.3}", rms);
-    assert!(rms > 0.05, "Stretch should produce audio, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.05,
+        "Stretch should produce audio, got RMS: {:.3}",
+        rms
+    );
 }
 
 #[test]
@@ -92,7 +105,10 @@ fn test_legato_vs_staccato_rms() {
     let legato_rms = calculate_rms(&legato_audio);
     let staccato_rms = calculate_rms(&staccato_audio);
 
-    println!("Legato RMS: {:.3}, Staccato RMS: {:.3}", legato_rms, staccato_rms);
+    println!(
+        "Legato RMS: {:.3}, Staccato RMS: {:.3}",
+        legato_rms, staccato_rms
+    );
 
     assert!(legato_rms > staccato_rms,
         "Legato (longer notes) should have higher RMS than staccato (shorter notes). Legato: {:.3}, Staccato: {:.3}",

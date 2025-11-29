@@ -3,7 +3,6 @@
 /// This node implements a simple delay-based pitch shifter with crossfading.
 /// Unlike time-stretching algorithms, this maintains the duration while changing pitch.
 /// Uses two delay lines with variable read positions that advance at different rates.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::collections::VecDeque;
 
@@ -18,16 +17,16 @@ use std::collections::VecDeque;
 /// let shifter = PitchShifterNode::new(0, 1, 2, 44100.0);  // NodeId 3
 /// ```
 pub struct PitchShifterNode {
-    input: NodeId,               // Signal to pitch shift
+    input: NodeId,                 // Signal to pitch shift
     shift_semitones_input: NodeId, // Pitch shift in semitones (-12 to +12)
-    window_size_input: NodeId,    // Analysis window size in seconds (0.01 to 0.1)
-    delay_line1: VecDeque<f32>,  // First delay line
-    delay_line2: VecDeque<f32>,  // Second delay line
-    read_pos1: f32,              // Read position in delay line 1 (in samples)
-    read_pos2: f32,              // Read position in delay line 2 (in samples)
-    crossfade_pos: f32,          // Crossfade position (0.0 to window_size)
-    max_delay: usize,            // Maximum delay in samples (100ms @ 44.1kHz = 4410)
-    sample_rate: f32,            // Sample rate for calculations
+    window_size_input: NodeId,     // Analysis window size in seconds (0.01 to 0.1)
+    delay_line1: VecDeque<f32>,    // First delay line
+    delay_line2: VecDeque<f32>,    // Second delay line
+    read_pos1: f32,                // Read position in delay line 1 (in samples)
+    read_pos2: f32,                // Read position in delay line 2 (in samples)
+    crossfade_pos: f32,            // Crossfade position (0.0 to window_size)
+    max_delay: usize,              // Maximum delay in samples (100ms @ 44.1kHz = 4410)
+    sample_rate: f32,              // Sample rate for calculations
 }
 
 impl PitchShifterNode {
@@ -207,7 +206,11 @@ impl AudioNode for PitchShifterNode {
     }
 
     fn input_nodes(&self) -> Vec<NodeId> {
-        vec![self.input, self.shift_semitones_input, self.window_size_input]
+        vec![
+            self.input,
+            self.shift_semitones_input,
+            self.window_size_input,
+        ]
     }
 
     fn name(&self) -> &str {
@@ -237,13 +240,8 @@ mod tests {
         let mut window_node = ConstantNode::new(0.05); // 50ms window
         let mut shifter = PitchShifterNode::new(1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Generate sine wave input @ 110 Hz
         let mut freq_buf = vec![110.0; block_size];
@@ -252,7 +250,12 @@ mod tests {
         let mut window_buf = vec![0.05; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         shift_node.process_block(&[], &mut shift_buf, sample_rate, &context);
         window_node.process_block(&[], &mut window_buf, sample_rate, &context);
 
@@ -289,13 +292,8 @@ mod tests {
         let mut window_node = ConstantNode::new(0.05);
         let mut shifter = PitchShifterNode::new(1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut freq_buf = vec![440.0; block_size];
         let mut input_buf = vec![0.0; block_size];
@@ -303,7 +301,12 @@ mod tests {
         let mut window_buf = vec![0.05; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         shift_node.process_block(&[], &mut shift_buf, sample_rate, &context);
         window_node.process_block(&[], &mut window_buf, sample_rate, &context);
 
@@ -335,13 +338,8 @@ mod tests {
         let mut window_node = ConstantNode::new(0.05);
         let mut shifter = PitchShifterNode::new(1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut freq_buf = vec![440.0; block_size];
         let mut input_buf = vec![0.0; block_size];
@@ -349,7 +347,12 @@ mod tests {
         let mut window_buf = vec![0.05; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         shift_node.process_block(&[], &mut shift_buf, sample_rate, &context);
         window_node.process_block(&[], &mut window_buf, sample_rate, &context);
 
@@ -381,13 +384,8 @@ mod tests {
         let mut window_node = ConstantNode::new(0.05);
         let mut shifter = PitchShifterNode::new(1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut freq_buf = vec![440.0; block_size];
         let mut input_buf = vec![0.0; block_size];
@@ -395,7 +393,12 @@ mod tests {
         let mut window_buf = vec![0.05; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         shift_node.process_block(&[], &mut shift_buf, sample_rate, &context);
         window_node.process_block(&[], &mut window_buf, sample_rate, &context);
 
@@ -426,13 +429,8 @@ mod tests {
         let mut window_node = ConstantNode::new(0.05);
         let mut shifter = PitchShifterNode::new(1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut freq_buf = vec![440.0; block_size];
         let mut input_buf = vec![0.0; block_size];
@@ -440,7 +438,12 @@ mod tests {
         let mut window_buf = vec![0.05; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         shift_node.process_block(&[], &mut shift_buf, sample_rate, &context);
         window_node.process_block(&[], &mut window_buf, sample_rate, &context);
 
@@ -483,13 +486,8 @@ mod tests {
         let mut window_node = ConstantNode::new(0.01); // 10ms
         let mut shifter = PitchShifterNode::new(1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut freq_buf = vec![440.0; block_size];
         let mut input_buf = vec![0.0; block_size];
@@ -497,7 +495,12 @@ mod tests {
         let mut window_buf = vec![0.01; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         shift_node.process_block(&[], &mut shift_buf, sample_rate, &context);
         window_node.process_block(&[], &mut window_buf, sample_rate, &context);
 
@@ -529,13 +532,8 @@ mod tests {
         let mut window_node = ConstantNode::new(0.1); // 100ms
         let mut shifter = PitchShifterNode::new(1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut freq_buf = vec![440.0; block_size];
         let mut input_buf = vec![0.0; block_size];
@@ -543,7 +541,12 @@ mod tests {
         let mut window_buf = vec![0.1; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         shift_node.process_block(&[], &mut shift_buf, sample_rate, &context);
         window_node.process_block(&[], &mut window_buf, sample_rate, &context);
 
@@ -574,13 +577,8 @@ mod tests {
         let mut window_node = ConstantNode::new(0.05);
         let mut shifter = PitchShifterNode::new(1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut freq_buf = vec![440.0; block_size];
         let mut input_buf = vec![0.0; block_size];
@@ -593,7 +591,12 @@ mod tests {
         }
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         window_node.process_block(&[], &mut window_buf, sample_rate, &context);
 
         let inputs = vec![
@@ -612,10 +615,17 @@ mod tests {
 
         // Should produce varying output (modulation working)
         let min = all_outputs.iter().cloned().fold(f32::INFINITY, f32::min);
-        let max = all_outputs.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let max = all_outputs
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
         let range = max - min;
 
-        assert!(range > 0.1, "Modulated shift should vary output, range: {}", range);
+        assert!(
+            range > 0.1,
+            "Modulated shift should vary output, range: {}",
+            range
+        );
     }
 
     #[test]
@@ -631,13 +641,8 @@ mod tests {
         let mut window_node = ConstantNode::new(0.05);
         let mut shifter = PitchShifterNode::new(1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut freq_buf = vec![440.0; block_size];
         let mut input_buf = vec![0.0; block_size];
@@ -650,7 +655,12 @@ mod tests {
 
         // Process many blocks
         for _ in 0..1000 {
-            osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+            osc.process_block(
+                &[freq_buf.as_slice()],
+                &mut input_buf,
+                sample_rate,
+                &context,
+            );
 
             let inputs = vec![
                 input_buf.as_slice(),
@@ -682,13 +692,8 @@ mod tests {
         let mut window_node = ConstantNode::new(0.05);
         let mut shifter = PitchShifterNode::new(1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut freq_buf = vec![110.0; block_size];
         let mut input_buf = vec![0.0; block_size];
@@ -696,7 +701,12 @@ mod tests {
         let mut window_buf = vec![0.05; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         shift_node.process_block(&[], &mut shift_buf, sample_rate, &context);
         window_node.process_block(&[], &mut window_buf, sample_rate, &context);
 
@@ -752,13 +762,8 @@ mod tests {
         let mut window_node = ConstantNode::new(0.05);
         let mut shifter = PitchShifterNode::new(1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut freq_buf = vec![440.0; block_size];
         let mut input_buf = vec![0.0; block_size];
@@ -766,7 +771,12 @@ mod tests {
         let mut window_buf = vec![0.05; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         shift_node.process_block(&[], &mut shift_buf, sample_rate, &context);
         window_node.process_block(&[], &mut window_buf, sample_rate, &context);
 
@@ -799,13 +809,8 @@ mod tests {
         let mut window_node = ConstantNode::new(0.05);
         let mut shifter = PitchShifterNode::new(1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut freq_buf = vec![440.0; block_size];
         let mut input_buf = vec![0.0; block_size];
@@ -813,7 +818,12 @@ mod tests {
         let mut window_buf = vec![0.05; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         shift_node.process_block(&[], &mut shift_buf, sample_rate, &context);
         window_node.process_block(&[], &mut window_buf, sample_rate, &context);
 
@@ -854,13 +864,8 @@ mod tests {
         let mut window_node = ConstantNode::new(0.01); // Small window for faster wrapping
         let mut shifter = PitchShifterNode::new(1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut freq_buf = vec![440.0; block_size];
         let mut input_buf = vec![0.0; block_size];
@@ -868,7 +873,12 @@ mod tests {
         let mut window_buf = vec![0.01; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         shift_node.process_block(&[], &mut shift_buf, sample_rate, &context);
         window_node.process_block(&[], &mut window_buf, sample_rate, &context);
 

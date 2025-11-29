@@ -11,7 +11,6 @@
 /// - Cyclic value generation (repeating envelopes, patterns)
 /// - Quantization and grid snapping
 /// - Wave folding and wrapping effects
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Modulo node: out = a % b
@@ -90,16 +89,8 @@ impl AudioNode for ModNode {
         let buf_a = inputs[0];
         let buf_b = inputs[1];
 
-        debug_assert_eq!(
-            buf_a.len(),
-            output.len(),
-            "Input A length mismatch"
-        );
-        debug_assert_eq!(
-            buf_b.len(),
-            output.len(),
-            "Input B length mismatch"
-        );
+        debug_assert_eq!(buf_a.len(), output.len(), "Input A length mismatch");
+        debug_assert_eq!(buf_b.len(), output.len(), "Input B length mismatch");
 
         // Safe modulo with zero protection
         const EPSILON: f32 = 1e-10;
@@ -141,20 +132,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         mod_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);   // 10 % 3 = 1
-        assert_eq!(output[1], 2.0);   // 11 % 3 = 2
-        assert_eq!(output[2], 0.0);   // 12 % 3 = 0
-        assert_eq!(output[3], 1.0);   // 13 % 3 = 1
+        assert_eq!(output[0], 1.0); // 10 % 3 = 1
+        assert_eq!(output[1], 2.0); // 11 % 3 = 2
+        assert_eq!(output[2], 0.0); // 12 % 3 = 0
+        assert_eq!(output[3], 1.0); // 13 % 3 = 1
     }
 
     #[test]
@@ -167,21 +152,15 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         mod_node.process_block(&inputs, &mut output, 44100.0, &context);
 
         // rem_euclid ensures positive results
-        assert_eq!(output[0], 2.0);   // -10 % 3 = 2 (not -1)
-        assert_eq!(output[1], 2.0);   // -7 % 3 = 2 (not -1)
-        assert_eq!(output[2], 2.0);   // -4 % 3 = 2 (not -1)
-        assert_eq!(output[3], 2.0);   // -1 % 3 = 2 (not -1)
+        assert_eq!(output[0], 2.0); // -10 % 3 = 2 (not -1)
+        assert_eq!(output[1], 2.0); // -7 % 3 = 2 (not -1)
+        assert_eq!(output[2], 2.0); // -4 % 3 = 2 (not -1)
+        assert_eq!(output[3], 2.0); // -1 % 3 = 2 (not -1)
     }
 
     #[test]
@@ -194,21 +173,31 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         mod_node.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Use approximate equality for floating point
-        assert!((output[0] - 1.5).abs() < 0.0001, "Expected ~1.5, got {}", output[0]);
-        assert!((output[1] - 1.3).abs() < 0.0001, "Expected ~1.3, got {}", output[1]);
-        assert!((output[2] - 1.8).abs() < 0.0001, "Expected ~1.8, got {}", output[2]);
-        assert!((output[3] - 0.1).abs() < 0.0001, "Expected ~0.1, got {}", output[3]);
+        assert!(
+            (output[0] - 1.5).abs() < 0.0001,
+            "Expected ~1.5, got {}",
+            output[0]
+        );
+        assert!(
+            (output[1] - 1.3).abs() < 0.0001,
+            "Expected ~1.3, got {}",
+            output[1]
+        );
+        assert!(
+            (output[2] - 1.8).abs() < 0.0001,
+            "Expected ~1.8, got {}",
+            output[2]
+        );
+        assert!(
+            (output[3] - 0.1).abs() < 0.0001,
+            "Expected ~0.1, got {}",
+            output[3]
+        );
     }
 
     #[test]
@@ -217,25 +206,27 @@ mod tests {
 
         // Test division by zero and near-zero values
         let input_a = vec![10.0, 20.0, 30.0, 40.0];
-        let input_b = vec![0.0, 1e-11, -1e-11, 0.0];  // All below epsilon threshold
+        let input_b = vec![0.0, 1e-11, -1e-11, 0.0]; // All below epsilon threshold
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
-        let mut output = vec![999.0; 4];  // Initialize with non-zero to verify overwrite
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let mut output = vec![999.0; 4]; // Initialize with non-zero to verify overwrite
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         mod_node.process_block(&inputs, &mut output, 44100.0, &context);
 
         // All should use epsilon (1e-10) as divisor, results will be very small
         for sample in &output {
-            assert!(sample.is_finite(), "Output should be finite, got {}", sample);
+            assert!(
+                sample.is_finite(),
+                "Output should be finite, got {}",
+                sample
+            );
             assert!(!sample.is_nan(), "Output should not be NaN, got {}", sample);
-            assert!(*sample >= 0.0, "rem_euclid should give positive results, got {}", sample);
+            assert!(
+                *sample >= 0.0,
+                "rem_euclid should give positive results, got {}",
+                sample
+            );
         }
     }
 
@@ -245,32 +236,34 @@ mod tests {
 
         // Simulate phase wrapping 0 to 2π (approximately 6.28318)
         let twopi = 6.28318;
-        let input_a = vec![0.0, 3.14159, 6.28318, 9.42477, 12.56636];  // 0, π, 2π, 3π, 4π
+        let input_a = vec![0.0, 3.14159, 6.28318, 9.42477, 12.56636]; // 0, π, 2π, 3π, 4π
         let input_b = vec![twopi, twopi, twopi, twopi, twopi];
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         mod_node.process_block(&inputs, &mut output, 44100.0, &context);
 
         // All phases should wrap to [0, 2π)
-        assert!((output[0] - 0.0).abs() < 0.001);      // 0 % 2π = 0
-        assert!((output[1] - 3.14159).abs() < 0.001);  // π % 2π = π
-        assert!((output[2] - 0.0).abs() < 0.001);      // 2π % 2π = 0
-        assert!((output[3] - 3.14159).abs() < 0.001);  // 3π % 2π = π
-        assert!((output[4] - 0.0).abs() < 0.001);      // 4π % 2π = 0
+        assert!((output[0] - 0.0).abs() < 0.001); // 0 % 2π = 0
+        assert!((output[1] - 3.14159).abs() < 0.001); // π % 2π = π
+        assert!((output[2] - 0.0).abs() < 0.001); // 2π % 2π = 0
+        assert!((output[3] - 3.14159).abs() < 0.001); // 3π % 2π = π
+        assert!((output[4] - 0.0).abs() < 0.001); // 4π % 2π = 0
 
         // Verify all wrapped values are in valid range [0, 2π)
         for sample in &output {
-            assert!(*sample >= 0.0, "Wrapped phase should be >= 0, got {}", sample);
-            assert!(*sample < twopi, "Wrapped phase should be < 2π, got {}", sample);
+            assert!(
+                *sample >= 0.0,
+                "Wrapped phase should be >= 0, got {}",
+                sample
+            );
+            assert!(
+                *sample < twopi,
+                "Wrapped phase should be < 2π, got {}",
+                sample
+            );
         }
     }
 
@@ -290,13 +283,7 @@ mod tests {
         let mut const_b = ConstantNode::new(3.0);
         let mut mod_node = ModNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut buf_a = vec![0.0; 512];
@@ -327,20 +314,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         mod_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);   // 10 % 3 = 1
-        assert_eq!(output[1], 2.0);   // 10 % 4 = 2
-        assert_eq!(output[2], 0.0);   // 10 % 5 = 0
-        assert_eq!(output[3], 4.0);   // 10 % 6 = 4
+        assert_eq!(output[0], 1.0); // 10 % 3 = 1
+        assert_eq!(output[1], 2.0); // 10 % 4 = 2
+        assert_eq!(output[2], 0.0); // 10 % 5 = 0
+        assert_eq!(output[3], 4.0); // 10 % 6 = 4
     }
 
     #[test]
@@ -353,13 +334,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 8];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            8,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 8, 2.0, 44100.0);
 
         mod_node.process_block(&inputs, &mut output, 44100.0, &context);
 

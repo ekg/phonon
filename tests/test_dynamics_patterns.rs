@@ -2,7 +2,6 @@
 ///
 /// Tests compressor and bitcrush with pattern modulation.
 /// Verifies P0.0: ALL parameters accept patterns.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -13,7 +12,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -29,7 +29,11 @@ fn test_compressor_constant_parameters() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Compressor with constant params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Compressor with constant params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -42,7 +46,11 @@ fn test_compressor_pattern_threshold() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Compressor with pattern threshold should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Compressor with pattern threshold should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -55,7 +63,11 @@ fn test_compressor_pattern_ratio() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Compressor with pattern ratio should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Compressor with pattern ratio should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -68,7 +80,11 @@ fn test_compressor_pattern_attack() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Compressor with pattern attack should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Compressor with pattern attack should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -81,7 +97,11 @@ fn test_compressor_pattern_release() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Compressor with pattern release should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Compressor with pattern release should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -94,7 +114,11 @@ fn test_compressor_all_patterns() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Compressor with all pattern params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Compressor with all pattern params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Bitcrush Tests ==========
@@ -108,7 +132,11 @@ fn test_bitcrush_constant_bits() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Bitcrush with constant bits should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Bitcrush with constant bits should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -121,7 +149,11 @@ fn test_bitcrush_pattern_bits() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Bitcrush with pattern bits should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Bitcrush with pattern bits should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -133,7 +165,11 @@ fn test_bitcrush_constant_sample_rate() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Bitcrush with constant sample_rate should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Bitcrush with constant sample_rate should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -146,7 +182,11 @@ fn test_bitcrush_pattern_sample_rate() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Bitcrush with pattern sample_rate should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Bitcrush with pattern sample_rate should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -160,7 +200,11 @@ fn test_bitcrush_both_patterns() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Bitcrush with both pattern params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Bitcrush with both pattern params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Verification: Pattern vs Constant ==========

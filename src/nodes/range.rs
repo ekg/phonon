@@ -1,7 +1,6 @@
 /// Range mapper - maps input range to output range
 ///
 /// Linear mapping from [in_min, in_max] to [out_min, out_max]
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 pub struct RangeNode {
@@ -32,10 +31,7 @@ impl AudioNode for RangeNode {
         _sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(
-            inputs.len() >= 1,
-            "RangeNode requires 1 input"
-        );
+        debug_assert!(inputs.len() >= 1, "RangeNode requires 1 input");
 
         let input_buffer = inputs[0];
         debug_assert_eq!(
@@ -79,21 +75,15 @@ mod tests {
         let inputs = vec![input.as_slice()];
         let mut output = vec![0.0; 5];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         node.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Verify mapping [0, 1] -> [10, 20]
-        assert_eq!(output[0], 10.0);   // 0 -> 10
-        assert_eq!(output[1], 12.5);   // 0.25 -> 12.5
-        assert_eq!(output[2], 15.0);   // 0.5 -> 15
-        assert_eq!(output[3], 17.5);   // 0.75 -> 17.5
-        assert_eq!(output[4], 20.0);   // 1 -> 20
+        assert_eq!(output[0], 10.0); // 0 -> 10
+        assert_eq!(output[1], 12.5); // 0.25 -> 12.5
+        assert_eq!(output[2], 15.0); // 0.5 -> 15
+        assert_eq!(output[3], 17.5); // 0.75 -> 17.5
+        assert_eq!(output[4], 20.0); // 1 -> 20
     }
 }

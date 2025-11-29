@@ -21,13 +21,7 @@ fn main() {
         let mut max = ConstantNode::new(0.5);
         let mut clamp = ClampNode::new(1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process nodes
         let mut buf_freq = vec![0.0; 512];
@@ -61,13 +55,7 @@ fn main() {
         let mut max = ConstantNode::new(1.0);
         let mut clamp = ClampNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let input_sine = vec![0.0, 0.5, 1.0, -0.5, -1.0, 0.25];
         let mut buf_min = vec![0.0; 6];
@@ -76,7 +64,11 @@ fn main() {
         min.process_block(&[], &mut buf_min, 44100.0, &context);
         max.process_block(&[], &mut buf_max, 44100.0, &context);
 
-        let inputs = vec![input_sine.as_slice(), buf_min.as_slice(), buf_max.as_slice()];
+        let inputs = vec![
+            input_sine.as_slice(),
+            buf_min.as_slice(),
+            buf_max.as_slice(),
+        ];
         let mut output = vec![0.0; 6];
 
         clamp.process_block(&inputs, &mut output, 44100.0, &context);
@@ -100,19 +92,13 @@ fn main() {
 
         // Simulate pattern-modulated clamp ranges
         let input = vec![0.5, 0.5, 0.5, 0.5];
-        let min = vec![-1.0, -0.5, 0.0, 0.3];  // Variable min
-        let max = vec![1.0, 0.5, 0.2, 0.8];    // Variable max
+        let min = vec![-1.0, -0.5, 0.0, 0.3]; // Variable min
+        let max = vec![1.0, 0.5, 0.2, 0.8]; // Variable max
 
         let inputs = vec![input.as_slice(), min.as_slice(), max.as_slice()];
         let mut output = vec![0.0; 4];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         clamp.process_block(&inputs, &mut output, 44100.0, &context);
 

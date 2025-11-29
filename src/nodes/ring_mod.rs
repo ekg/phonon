@@ -19,7 +19,6 @@
 /// - **Tremolo**: Multiply audio with LFO (amplitude modulation with sidebands)
 /// - **Bell sounds**: Classic application, creates complex overtones
 /// - **Special effects**: Robots, lasers, sci-fi sounds
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Ring modulation node: out = carrier * modulator
@@ -33,8 +32,8 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 /// // Output: 660 Hz (440+220) and 220 Hz (440-220)
 /// ```
 pub struct RingModNode {
-    carrier_input: NodeId,    // Usually audio signal
-    modulator_input: NodeId,  // Usually LFO or audio signal
+    carrier_input: NodeId,   // Usually audio signal
+    modulator_input: NodeId, // Usually LFO or audio signal
 }
 
 impl RingModNode {
@@ -124,7 +123,7 @@ mod tests {
 
     /// Helper: Detect frequency peaks in FFT spectrum
     fn find_frequency_peaks(buffer: &[f32], sample_rate: f32, threshold: f32) -> Vec<f32> {
-        use rustfft::{FftPlanner, num_complex::Complex};
+        use rustfft::{num_complex::Complex, FftPlanner};
 
         let n = buffer.len();
         let mut planner = FftPlanner::new();
@@ -169,13 +168,8 @@ mod tests {
         let carrier_freq = 440.0;
         let modulator_freq = 100.0;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Create oscillators
         let mut carrier = OscillatorNode::new(0, Waveform::Sine);
@@ -189,7 +183,12 @@ mod tests {
         carrier_const.process_block(&inputs_freq, &mut carrier_freq_buf, sample_rate, &context);
 
         let mut carrier_buf = vec![0.0; block_size];
-        carrier.process_block(&[&carrier_freq_buf], &mut carrier_buf, sample_rate, &context);
+        carrier.process_block(
+            &[&carrier_freq_buf],
+            &mut carrier_buf,
+            sample_rate,
+            &context,
+        );
 
         // Generate modulator (100 Hz)
         let mut modulator_const = ConstantNode::new(modulator_freq);
@@ -197,7 +196,12 @@ mod tests {
         modulator_const.process_block(&inputs_freq, &mut modulator_freq_buf, sample_rate, &context);
 
         let mut modulator_buf = vec![0.0; block_size];
-        modulator.process_block(&[&modulator_freq_buf], &mut modulator_buf, sample_rate, &context);
+        modulator.process_block(
+            &[&modulator_freq_buf],
+            &mut modulator_buf,
+            sample_rate,
+            &context,
+        );
 
         // Apply ring modulation
         let mut output = vec![0.0; block_size];
@@ -264,13 +268,8 @@ mod tests {
         let inputs = vec![audio.as_slice(), lfo.as_slice()];
         let mut output = vec![0.0; block_size];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         ring_mod.process_block(&inputs, &mut output, sample_rate, &context);
 
@@ -316,13 +315,8 @@ mod tests {
         let inputs = vec![carrier.as_slice(), modulator.as_slice()];
         let mut output = vec![0.0; block_size];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         ring_mod.process_block(&inputs, &mut output, sample_rate, &context);
 
@@ -358,13 +352,8 @@ mod tests {
         let inputs = vec![carrier.as_slice(), modulator.as_slice()];
         let mut output = vec![0.0; block_size];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         ring_mod.process_block(&inputs, &mut output, sample_rate, &context);
 
@@ -398,13 +387,7 @@ mod tests {
         let mut output1 = vec![0.0; 4];
         let mut output2 = vec![0.0; 4];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            sample_rate,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, sample_rate);
 
         ring_mod1.process_block(&inputs1, &mut output1, sample_rate, &context);
         ring_mod2.process_block(&inputs2, &mut output2, sample_rate, &context);
@@ -441,13 +424,8 @@ mod tests {
         let sample_rate = 44100.0;
         let block_size = 512;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Process constants first
         let mut buf_a = vec![0.0; block_size];
@@ -489,13 +467,8 @@ mod tests {
         let inputs = vec![carrier.as_slice(), modulator.as_slice()];
         let mut output = vec![0.0; block_size];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         ring_mod.process_block(&inputs, &mut output, sample_rate, &context);
 

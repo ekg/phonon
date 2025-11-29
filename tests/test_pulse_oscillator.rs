@@ -10,7 +10,6 @@
 /// - Pulse width modulation (PWM) creates chorusing/detuning effect
 /// - All parameters pattern-modulated
 /// - Used for analog synth bass, pads, PWM effects
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -21,14 +20,15 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
 
 /// Perform FFT and analyze spectrum
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -106,9 +106,11 @@ fn test_pulse_width_50_is_square() {
         }
     }
 
-    assert!(fundamental_mag > 0.1,
+    assert!(
+        fundamental_mag > 0.1,
         "Square wave should have strong fundamental, got {}",
-        fundamental_mag);
+        fundamental_mag
+    );
 
     println!("Square wave fundamental: {}", fundamental_mag);
 }
@@ -241,9 +243,11 @@ fn test_pulse_pattern_frequency() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "Pulse with pattern-modulated frequency should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern frequency RMS: {}", rms);
 }
@@ -259,9 +263,11 @@ fn test_pulse_pattern_width() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "Pulse with pattern-modulated width should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern width RMS: {}", rms);
 }
@@ -298,7 +304,11 @@ fn test_pulse_resonant_filter() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.005, "Pulse with resonant filter should work, RMS: {}", rms);
+    assert!(
+        rms > 0.005,
+        "Pulse with resonant filter should work, RMS: {}",
+        rms
+    );
     println!("Pulse + resonant filter RMS: {}", rms);
 }
 

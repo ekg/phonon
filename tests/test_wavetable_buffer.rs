@@ -2,7 +2,6 @@
 ///
 /// These tests verify that wavetable buffer evaluation produces correct
 /// waveforms, handles interpolation properly, and maintains phase continuity.
-
 use phonon::unified_graph::{Signal, UnifiedSignalGraph};
 use std::f32::consts::PI;
 
@@ -21,7 +20,7 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 fn count_zero_crossings(buffer: &[f32]) -> usize {
     let mut count = 0;
     for i in 1..buffer.len() {
-        if (buffer[i-1] < 0.0 && buffer[i] >= 0.0) || (buffer[i-1] >= 0.0 && buffer[i] < 0.0) {
+        if (buffer[i - 1] < 0.0 && buffer[i] >= 0.0) || (buffer[i - 1] >= 0.0 && buffer[i] < 0.0) {
             count += 1;
         }
     }
@@ -74,18 +73,18 @@ fn test_wavetable_basic_playback() {
     // Create simple sine wavetable
     let table = create_sine_table(512);
 
-    let wt_id = graph.add_wavetable_node(
-        Signal::Value(440.0),
-        table,
-    );
+    let wt_id = graph.add_wavetable_node(Signal::Value(440.0), table);
 
     let mut output = vec![0.0; 512];
     graph.eval_node_buffer(&wt_id, &mut output);
 
     // Sine wave RMS should be ~0.707 (1/sqrt(2))
     let rms = calculate_rms(&output);
-    assert!((rms - 0.707).abs() < 0.1,
-        "Expected sine RMS ~0.707, got {}", rms);
+    assert!(
+        (rms - 0.707).abs() < 0.1,
+        "Expected sine RMS ~0.707, got {}",
+        rms
+    );
 }
 
 #[test]
@@ -100,8 +99,11 @@ fn test_wavetable_amplitude() {
 
     // Check amplitude is reasonable (sine wave peak is 1.0)
     let max_amplitude = output.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
-    assert!(max_amplitude > 0.9 && max_amplitude <= 1.0,
-        "Wavetable max amplitude should be ~1.0, got {}", max_amplitude);
+    assert!(
+        max_amplitude > 0.9 && max_amplitude <= 1.0,
+        "Wavetable max amplitude should be ~1.0, got {}",
+        max_amplitude
+    );
 }
 
 #[test]
@@ -126,8 +128,12 @@ fn test_wavetable_frequency_accuracy() {
 
     // Allow 5% tolerance
     let tolerance = frequency * 0.05;
-    assert!((measured_freq - frequency).abs() < tolerance,
-        "Expected ~{} Hz, measured {} Hz", frequency, measured_freq);
+    assert!(
+        (measured_freq - frequency).abs() < tolerance,
+        "Expected ~{} Hz, measured {} Hz",
+        frequency,
+        measured_freq
+    );
 }
 
 // ============================================================================
@@ -145,8 +151,11 @@ fn test_wavetable_size_256() {
     graph.eval_node_buffer(&wt_id, &mut output);
 
     let rms = calculate_rms(&output);
-    assert!((rms - 0.707).abs() < 0.15,
-        "256-sample table RMS should be ~0.707, got {}", rms);
+    assert!(
+        (rms - 0.707).abs() < 0.15,
+        "256-sample table RMS should be ~0.707, got {}",
+        rms
+    );
 }
 
 #[test]
@@ -160,8 +169,11 @@ fn test_wavetable_size_512() {
     graph.eval_node_buffer(&wt_id, &mut output);
 
     let rms = calculate_rms(&output);
-    assert!((rms - 0.707).abs() < 0.1,
-        "512-sample table RMS should be ~0.707, got {}", rms);
+    assert!(
+        (rms - 0.707).abs() < 0.1,
+        "512-sample table RMS should be ~0.707, got {}",
+        rms
+    );
 }
 
 #[test]
@@ -175,8 +187,11 @@ fn test_wavetable_size_1024() {
     graph.eval_node_buffer(&wt_id, &mut output);
 
     let rms = calculate_rms(&output);
-    assert!((rms - 0.707).abs() < 0.1,
-        "1024-sample table RMS should be ~0.707, got {}", rms);
+    assert!(
+        (rms - 0.707).abs() < 0.1,
+        "1024-sample table RMS should be ~0.707, got {}",
+        rms
+    );
 }
 
 #[test]
@@ -190,8 +205,11 @@ fn test_wavetable_size_2048() {
     graph.eval_node_buffer(&wt_id, &mut output);
 
     let rms = calculate_rms(&output);
-    assert!((rms - 0.707).abs() < 0.1,
-        "2048-sample table RMS should be ~0.707, got {}", rms);
+    assert!(
+        (rms - 0.707).abs() < 0.1,
+        "2048-sample table RMS should be ~0.707, got {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -212,8 +230,16 @@ fn test_wavetable_saw_wave() {
     let max_val = output.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
     let min_val = output.iter().fold(f32::INFINITY, |a, &b| a.min(b));
 
-    assert!(max_val > 0.8, "Saw max should be close to 1.0, got {}", max_val);
-    assert!(min_val < -0.8, "Saw min should be close to -1.0, got {}", min_val);
+    assert!(
+        max_val > 0.8,
+        "Saw max should be close to 1.0, got {}",
+        max_val
+    );
+    assert!(
+        min_val < -0.8,
+        "Saw min should be close to -1.0, got {}",
+        min_val
+    );
 }
 
 #[test]
@@ -232,8 +258,10 @@ fn test_wavetable_square_wave() {
     let total_near_extremes = near_one + near_neg_one;
 
     // Most samples should be at extremes
-    assert!(total_near_extremes > output.len() * 80 / 100,
-        "Square wave should mostly be at ±1.0");
+    assert!(
+        total_near_extremes > output.len() * 80 / 100,
+        "Square wave should mostly be at ±1.0"
+    );
 }
 
 #[test]
@@ -279,9 +307,12 @@ fn test_wavetable_phase_continuity() {
     let crossings2 = count_zero_crossings(&buffer2);
 
     // Both buffers should have similar number of zero crossings
-    assert!((crossings1 as i32 - crossings2 as i32).abs() <= 2,
+    assert!(
+        (crossings1 as i32 - crossings2 as i32).abs() <= 2,
         "Phase should be continuous, crossings differ too much: {} vs {}",
-        crossings1, crossings2);
+        crossings1,
+        crossings2
+    );
 }
 
 #[test]
@@ -301,8 +332,12 @@ fn test_wavetable_multiple_buffers() {
 
         // Each buffer should have reasonable audio
         let rms = calculate_rms(&output);
-        assert!(rms > 0.5 && rms < 0.9,
-            "Buffer {} has unexpected RMS: {}", i, rms);
+        assert!(
+            rms > 0.5 && rms < 0.9,
+            "Buffer {} has unexpected RMS: {}",
+            i,
+            rms
+        );
     }
 }
 
@@ -321,8 +356,11 @@ fn test_wavetable_low_frequency() {
     graph.eval_node_buffer(&wt_id, &mut output);
 
     let rms = calculate_rms(&output);
-    assert!(rms > 0.5,
-        "Low frequency should still produce good output, RMS: {}", rms);
+    assert!(
+        rms > 0.5,
+        "Low frequency should still produce good output, RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -336,8 +374,11 @@ fn test_wavetable_high_frequency() {
     graph.eval_node_buffer(&wt_id, &mut output);
 
     let rms = calculate_rms(&output);
-    assert!(rms > 0.5,
-        "High frequency should produce output, RMS: {}", rms);
+    assert!(
+        rms > 0.5,
+        "High frequency should produce output, RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -357,8 +398,10 @@ fn test_wavetable_zero_frequency() {
     // Zero frequency should produce constant value (DC at table[0])
     let first_val = output[0];
     for &sample in &output {
-        assert!((sample - first_val).abs() < 0.01,
-            "Zero frequency should produce constant output");
+        assert!(
+            (sample - first_val).abs() < 0.01,
+            "Zero frequency should produce constant output"
+        );
     }
 }
 
@@ -389,8 +432,10 @@ fn test_wavetable_single_sample_table() {
 
     // Should produce constant DC value
     for &sample in &output {
-        assert!((sample - 0.5).abs() < 0.01,
-            "Single-sample table should produce constant 0.5");
+        assert!(
+            (sample - 0.5).abs() < 0.01,
+            "Single-sample table should produce constant 0.5"
+        );
     }
 }
 
@@ -411,8 +456,11 @@ fn test_wavetable_interpolation() {
 
     // Even with coarse table, interpolation should smooth it out
     let rms = calculate_rms(&output);
-    assert!(rms > 0.5,
-        "Interpolation should smooth coarse table, RMS: {}", rms);
+    assert!(
+        rms > 0.5,
+        "Interpolation should smooth coarse table, RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -436,12 +484,18 @@ fn test_wavetable_performance() {
     }
     let duration = start.elapsed();
 
-    println!("Wavetable buffer eval: {:?} for {} iterations", duration, iterations);
+    println!(
+        "Wavetable buffer eval: {:?} for {} iterations",
+        duration, iterations
+    );
     println!("Per iteration: {:?}", duration / iterations);
 
     // Should complete in reasonable time (< 1 second for 1000 iterations)
-    assert!(duration.as_secs() < 1,
-        "Wavetable buffer evaluation too slow: {:?}", duration);
+    assert!(
+        duration.as_secs() < 1,
+        "Wavetable buffer evaluation too slow: {:?}",
+        duration
+    );
 }
 
 #[test]
@@ -462,9 +516,15 @@ fn test_wavetable_large_table_performance() {
     }
     let duration = start.elapsed();
 
-    println!("Large wavetable (4096) buffer eval: {:?} for {} iterations", duration, iterations);
+    println!(
+        "Large wavetable (4096) buffer eval: {:?} for {} iterations",
+        duration, iterations
+    );
 
     // Should still be fast even with large table
-    assert!(duration.as_secs() < 2,
-        "Large wavetable too slow: {:?}", duration);
+    assert!(
+        duration.as_secs() < 2,
+        "Large wavetable too slow: {:?}",
+        duration
+    );
 }

@@ -2,7 +2,6 @@
 ///
 /// Tests pitch modulation via LFO-controlled delay with comprehensive
 /// three-level verification approach.
-
 use phonon::unified_graph::{Signal, UnifiedSignalGraph, Waveform};
 
 // Helper functions
@@ -15,9 +14,7 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 fn count_zero_crossings(buffer: &[f32]) -> usize {
     let mut count = 0;
     for i in 1..buffer.len() {
-        if (buffer[i - 1] < 0.0 && buffer[i] >= 0.0)
-            || (buffer[i - 1] >= 0.0 && buffer[i] < 0.0)
-        {
+        if (buffer[i - 1] < 0.0 && buffer[i] >= 0.0) || (buffer[i - 1] >= 0.0 && buffer[i] < 0.0) {
             count += 1;
         }
     }
@@ -53,7 +50,7 @@ fn test_vibrato_creates_pitch_modulation() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -62,8 +59,8 @@ fn test_vibrato_creates_pitch_modulation() {
     // Add vibrato effect
     let vib_id = graph.add_node(phonon::unified_graph::SignalNode::Vibrato {
         input: Signal::Node(osc_id),
-        rate: Signal::Value(5.0),   // 5 Hz vibrato
-        depth: Signal::Value(0.5),   // Moderate depth (0.5 semitones)
+        rate: Signal::Value(5.0),  // 5 Hz vibrato
+        depth: Signal::Value(0.5), // Moderate depth (0.5 semitones)
         phase: 0.0,
         delay_buffer: Vec::new(),
         buffer_pos: 0,
@@ -126,7 +123,7 @@ fn test_vibrato_zero_depth_bypass() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -190,7 +187,7 @@ fn test_vibrato_rate_effect() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -216,7 +213,7 @@ fn test_vibrato_rate_effect() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -266,7 +263,7 @@ fn test_vibrato_depth_effect() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -292,7 +289,7 @@ fn test_vibrato_depth_effect() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -362,18 +359,15 @@ fn test_vibrato_produces_audio() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
     });
 
     // Use helper method instead of manual node construction
-    let vib_id = graph.add_vibrato_node(
-        Signal::Node(osc_id),
-        Signal::Value(5.0),
-        Signal::Value(0.5),
-    );
+    let vib_id =
+        graph.add_vibrato_node(Signal::Node(osc_id), Signal::Value(5.0), Signal::Value(0.5));
 
     let buffer_size = 4410;
     let mut output = vec![0.0; buffer_size];
@@ -401,7 +395,7 @@ fn test_vibrato_state_continuity() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -445,8 +439,8 @@ fn test_vibrato_multiple_buffer_sizes() {
         let osc_id = graph.add_node(phonon::unified_graph::SignalNode::Oscillator {
             freq: Signal::Value(440.0),
             waveform: Waveform::Sine,
-        semitone_offset: 0.0,
-        
+            semitone_offset: 0.0,
+
             phase: std::cell::RefCell::new(0.0),
             pending_freq: std::cell::RefCell::new(None),
             last_sample: std::cell::RefCell::new(0.0),
@@ -482,7 +476,7 @@ fn test_vibrato_parameter_clamping() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -491,8 +485,8 @@ fn test_vibrato_parameter_clamping() {
     // Test extreme parameters (should be clamped internally)
     let vib_id = graph.add_node(phonon::unified_graph::SignalNode::Vibrato {
         input: Signal::Node(osc_id),
-        rate: Signal::Value(100.0),  // Way too fast (should clamp to 20.0)
-        depth: Signal::Value(10.0),  // Way too deep (should clamp to 2.0)
+        rate: Signal::Value(100.0), // Way too fast (should clamp to 20.0)
+        depth: Signal::Value(10.0), // Way too deep (should clamp to 2.0)
         phase: 0.0,
         delay_buffer: Vec::new(),
         buffer_pos: 0,
@@ -513,12 +507,7 @@ fn test_vibrato_parameter_clamping() {
 
     // Check for NaN or Inf
     for (i, &sample) in output.iter().enumerate() {
-        assert!(
-            sample.is_finite(),
-            "Sample {} is not finite: {}",
-            i,
-            sample
-        );
+        assert!(sample.is_finite(), "Sample {} is not finite: {}", i, sample);
     }
 }
 
@@ -530,7 +519,7 @@ fn test_vibrato_compared_to_straight_delay() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -584,7 +573,7 @@ fn test_vibrato_with_dynamic_parameters() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),
@@ -595,7 +584,7 @@ fn test_vibrato_with_dynamic_parameters() {
         freq: Signal::Value(0.5), // 0.5 Hz LFO
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: std::cell::RefCell::new(0.0),
         pending_freq: std::cell::RefCell::new(None),
         last_sample: std::cell::RefCell::new(0.0),

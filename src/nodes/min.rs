@@ -2,7 +2,6 @@
 ///
 /// This node performs sample-by-sample minimum comparison.
 /// Output[i] = min(Input_A[i], Input_B[i]) for all samples.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Minimum node: out = min(a, b)
@@ -70,16 +69,8 @@ impl AudioNode for MinNode {
         let buf_a = inputs[0];
         let buf_b = inputs[1];
 
-        debug_assert_eq!(
-            buf_a.len(),
-            output.len(),
-            "Input A length mismatch"
-        );
-        debug_assert_eq!(
-            buf_b.len(),
-            output.len(),
-            "Input B length mismatch"
-        );
+        debug_assert_eq!(buf_a.len(), output.len(), "Input A length mismatch");
+        debug_assert_eq!(buf_b.len(), output.len(), "Input B length mismatch");
 
         // Vectorized minimum operation
         for i in 0..output.len() {
@@ -109,13 +100,7 @@ mod tests {
         let mut const_b = ConstantNode::new(5.0);
         let mut min = MinNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut buf_a = vec![0.0; 512];
@@ -143,13 +128,7 @@ mod tests {
         let mut const_b = ConstantNode::new(1.0);
         let mut min = MinNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut buf_a = vec![0.0; 512];
         let mut buf_b = vec![0.0; 512];
@@ -179,21 +158,15 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         min.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Verify each sample is the minimum
-        assert_eq!(output[0], 1.0);  // min(1.0, 2.0)
-        assert_eq!(output[1], 3.0);  // min(5.0, 3.0)
-        assert_eq!(output[2], 3.0);  // min(3.0, 7.0)
-        assert_eq!(output[3], 6.0);  // min(8.0, 6.0)
+        assert_eq!(output[0], 1.0); // min(1.0, 2.0)
+        assert_eq!(output[1], 3.0); // min(5.0, 3.0)
+        assert_eq!(output[2], 3.0); // min(3.0, 7.0)
+        assert_eq!(output[3], 6.0); // min(8.0, 6.0)
     }
 
     #[test]
@@ -205,13 +178,7 @@ mod tests {
         let input_a = vec![3.0, -1.0, 5.0, 0.0];
         let input_b = vec![1.0, 2.0, -3.0, 0.0];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         // Test min(a, b)
         let inputs_ab = vec![input_a.as_slice(), input_b.as_slice()];

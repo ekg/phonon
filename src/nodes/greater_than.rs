@@ -3,7 +3,6 @@
 /// This node implements sample-by-sample comparison: a > b.
 /// Returns 1.0 when a > b, otherwise 0.0.
 /// Useful for creating gates, triggers, and conditional logic.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Greater Than node: out = (a > b) ? 1.0 : 0.0
@@ -70,16 +69,8 @@ impl AudioNode for GreaterThanNode {
         let buf_a = inputs[0];
         let buf_b = inputs[1];
 
-        debug_assert_eq!(
-            buf_a.len(),
-            output.len(),
-            "Input A length mismatch"
-        );
-        debug_assert_eq!(
-            buf_b.len(),
-            output.len(),
-            "Input B length mismatch"
-        );
+        debug_assert_eq!(buf_a.len(), output.len(), "Input A length mismatch");
+        debug_assert_eq!(buf_b.len(), output.len(), "Input B length mismatch");
 
         // Vectorized comparison: 1.0 if a > b, else 0.0
         for i in 0..output.len() {
@@ -112,20 +103,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gt.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // 5 > 1
-        assert_eq!(output[1], 1.0);  // 10 > 5
-        assert_eq!(output[2], 1.0);  // 100 > 50
-        assert_eq!(output[3], 1.0);  // 2 > 1.5
+        assert_eq!(output[0], 1.0); // 5 > 1
+        assert_eq!(output[1], 1.0); // 10 > 5
+        assert_eq!(output[2], 1.0); // 100 > 50
+        assert_eq!(output[3], 1.0); // 2 > 1.5
     }
 
     #[test]
@@ -138,20 +123,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gt.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // 1 < 5
-        assert_eq!(output[1], 0.0);  // 5 < 10
-        assert_eq!(output[2], 0.0);  // 50 < 100
-        assert_eq!(output[3], 0.0);  // 1.5 < 2
+        assert_eq!(output[0], 0.0); // 1 < 5
+        assert_eq!(output[1], 0.0); // 5 < 10
+        assert_eq!(output[2], 0.0); // 50 < 100
+        assert_eq!(output[3], 0.0); // 1.5 < 2
     }
 
     #[test]
@@ -164,20 +143,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gt.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // 5 == 5
-        assert_eq!(output[1], 0.0);  // 10 == 10
-        assert_eq!(output[2], 0.0);  // 0 == 0
-        assert_eq!(output[3], 0.0);  // -3 == -3
+        assert_eq!(output[0], 0.0); // 5 == 5
+        assert_eq!(output[1], 0.0); // 10 == 10
+        assert_eq!(output[2], 0.0); // 0 == 0
+        assert_eq!(output[3], 0.0); // -3 == -3
     }
 
     #[test]
@@ -190,20 +163,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gt.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // 10 > 5 → true
-        assert_eq!(output[1], 0.0);  // 5 < 10 → false
-        assert_eq!(output[2], 0.0);  // 8 == 8 → false (not greater)
-        assert_eq!(output[3], 0.0);  // 3 < 7 → false
+        assert_eq!(output[0], 1.0); // 10 > 5 → true
+        assert_eq!(output[1], 0.0); // 5 < 10 → false
+        assert_eq!(output[2], 0.0); // 8 == 8 → false (not greater)
+        assert_eq!(output[3], 0.0); // 3 < 7 → false
     }
 
     #[test]
@@ -212,13 +179,7 @@ mod tests {
         let mut const_b = ConstantNode::new(50.0);
         let mut gt = GreaterThanNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut buf_a = vec![0.0; 512];
@@ -249,20 +210,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gt.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // -1 > -5 → true
-        assert_eq!(output[1], 0.0);  // -5 < -1 → false
-        assert_eq!(output[2], 1.0);  // 3 > -3 → true
-        assert_eq!(output[3], 0.0);  // -10 < -5 → false
+        assert_eq!(output[0], 1.0); // -1 > -5 → true
+        assert_eq!(output[1], 0.0); // -5 < -1 → false
+        assert_eq!(output[2], 1.0); // 3 > -3 → true
+        assert_eq!(output[3], 0.0); // -10 < -5 → false
     }
 
     #[test]
@@ -285,21 +240,15 @@ mod tests {
         let inputs = vec![signal.as_slice(), threshold.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         gt.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // 0.2 <= 0.5 → gate closed
-        assert_eq!(output[1], 1.0);  // 0.6 > 0.5 → gate open
-        assert_eq!(output[2], 1.0);  // 0.9 > 0.5 → gate open
-        assert_eq!(output[3], 0.0);  // 0.3 <= 0.5 → gate closed
-        assert_eq!(output[4], 1.0);  // 0.7 > 0.5 → gate open
-        assert_eq!(output[5], 0.0);  // 0.1 <= 0.5 → gate closed
+        assert_eq!(output[0], 0.0); // 0.2 <= 0.5 → gate closed
+        assert_eq!(output[1], 1.0); // 0.6 > 0.5 → gate open
+        assert_eq!(output[2], 1.0); // 0.9 > 0.5 → gate open
+        assert_eq!(output[3], 0.0); // 0.3 <= 0.5 → gate closed
+        assert_eq!(output[4], 1.0); // 0.7 > 0.5 → gate open
+        assert_eq!(output[5], 0.0); // 0.1 <= 0.5 → gate closed
     }
 }

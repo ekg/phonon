@@ -2,7 +2,6 @@
 ///
 /// This module implements the core execution loop for DAW-style buffer passing.
 /// It coordinates node processing in topological order with optional parallel execution.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use crate::buffer_manager::{BufferManager, NodeOutput};
 use crate::dependency_graph::DependencyGraph;
@@ -33,7 +32,7 @@ pub struct BlockProcessor {
     buffer_manager: BufferManager,
     output_node: NodeId,
     buffer_size: usize,
-    zero_buffer: Vec<f32>,  // Used for cyclic dependencies (first block)
+    zero_buffer: Vec<f32>, // Used for cyclic dependencies (first block)
 }
 
 impl BlockProcessor {
@@ -72,7 +71,7 @@ impl BlockProcessor {
 
         let node_outputs = HashMap::new();
         let buffer_manager = BufferManager::new(nodes.len() * 2, buffer_size);
-        let zero_buffer = vec![0.0; buffer_size];  // Silence for cyclic dependencies
+        let zero_buffer = vec![0.0; buffer_size]; // Silence for cyclic dependencies
 
         Ok(Self {
             nodes,
@@ -125,7 +124,7 @@ impl BlockProcessor {
                     self.node_outputs
                         .get(&id)
                         .map(|output| output.as_slice())
-                        .unwrap_or(&self.zero_buffer)  // Cyclic dependency: use silence
+                        .unwrap_or(&self.zero_buffer) // Cyclic dependency: use silence
                 })
                 .collect();
 
@@ -141,20 +140,15 @@ impl BlockProcessor {
             );
 
             // Store output for dependents (Arc for zero-copy sharing)
-            self.node_outputs.insert(
-                node_id,
-                NodeOutput::new(node_buffer),
-            );
+            self.node_outputs
+                .insert(node_id, NodeOutput::new(node_buffer));
         }
 
         // Phase 4: Copy final output
         if let Some(final_output) = self.node_outputs.get(&self.output_node) {
             output.copy_from_slice(&final_output.buffer);
         } else {
-            return Err(format!(
-                "Output node {} not processed",
-                self.output_node
-            ));
+            return Err(format!("Output node {} not processed", self.output_node));
         }
 
         // Phase 5: Return buffers to pool
@@ -191,25 +185,17 @@ impl BlockProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nodes::{ConstantNode, AdditionNode, OscillatorNode, Waveform};
+    use crate::nodes::{AdditionNode, ConstantNode, OscillatorNode, Waveform};
     use crate::pattern::Fraction;
 
     #[test]
     fn test_block_processor_simple_constant() {
         // Single constant node
-        let nodes: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(440.0)),
-        ];
+        let nodes: Vec<Box<dyn AudioNode>> = vec![Box::new(ConstantNode::new(440.0))];
 
         let mut processor = BlockProcessor::new(nodes, 0, 512).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut output = vec![0.0; 512];
         processor.process_block(&mut output, &context).unwrap();
@@ -224,20 +210,14 @@ mod tests {
     fn test_block_processor_addition() {
         // Two constants added together: 100 + 50 = 150
         let nodes: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(100.0)),  // Node 0
-            Box::new(ConstantNode::new(50.0)),   // Node 1
-            Box::new(AdditionNode::new(0, 1)),   // Node 2
+            Box::new(ConstantNode::new(100.0)), // Node 0
+            Box::new(ConstantNode::new(50.0)),  // Node 1
+            Box::new(AdditionNode::new(0, 1)),  // Node 2
         ];
 
         let mut processor = BlockProcessor::new(nodes, 2, 512).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut output = vec![0.0; 512];
         processor.process_block(&mut output, &context).unwrap();
@@ -251,19 +231,13 @@ mod tests {
     fn test_block_processor_oscillator() {
         // 440 Hz sine wave
         let nodes: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(440.0)),  // Node 0 (freq)
-            Box::new(OscillatorNode::new(0, Waveform::Sine)),  // Node 1
+            Box::new(ConstantNode::new(440.0)),               // Node 0 (freq)
+            Box::new(OscillatorNode::new(0, Waveform::Sine)), // Node 1
         ];
 
         let mut processor = BlockProcessor::new(nodes, 1, 512).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut output = vec![0.0; 512];
         processor.process_block(&mut output, &context).unwrap();
@@ -285,22 +259,16 @@ mod tests {
         // osc_a = sine(freq_a), osc_b = sine(freq_b)
         // output = osc_a + osc_b
         let nodes: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(220.0)),  // Node 0
-            Box::new(ConstantNode::new(440.0)),  // Node 1
-            Box::new(OscillatorNode::new(0, Waveform::Sine)),  // Node 2
-            Box::new(OscillatorNode::new(1, Waveform::Sine)),  // Node 3
-            Box::new(AdditionNode::new(2, 3)),   // Node 4
+            Box::new(ConstantNode::new(220.0)),               // Node 0
+            Box::new(ConstantNode::new(440.0)),               // Node 1
+            Box::new(OscillatorNode::new(0, Waveform::Sine)), // Node 2
+            Box::new(OscillatorNode::new(1, Waveform::Sine)), // Node 3
+            Box::new(AdditionNode::new(2, 3)),                // Node 4
         ];
 
         let mut processor = BlockProcessor::new(nodes, 4, 512).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut output = vec![0.0; 512];
         processor.process_block(&mut output, &context).unwrap();
@@ -318,9 +286,9 @@ mod tests {
     fn test_block_processor_execution_order() {
         // Verify topological order is correct
         let nodes: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(1.0)),   // Node 0 (no deps)
-            Box::new(ConstantNode::new(2.0)),   // Node 1 (no deps)
-            Box::new(AdditionNode::new(0, 1)),  // Node 2 (deps: 0, 1)
+            Box::new(ConstantNode::new(1.0)),  // Node 0 (no deps)
+            Box::new(ConstantNode::new(2.0)),  // Node 1 (no deps)
+            Box::new(AdditionNode::new(0, 1)), // Node 2 (deps: 0, 1)
         ];
 
         let processor = BlockProcessor::new(nodes, 2, 512).unwrap();
@@ -337,9 +305,7 @@ mod tests {
 
     #[test]
     fn test_block_processor_invalid_output_node() {
-        let nodes: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(1.0)),
-        ];
+        let nodes: Vec<Box<dyn AudioNode>> = vec![Box::new(ConstantNode::new(1.0))];
 
         // Output node 5 doesn't exist (only have node 0)
         let result = BlockProcessor::new(nodes, 5, 512);
@@ -348,19 +314,11 @@ mod tests {
 
     #[test]
     fn test_block_processor_buffer_reuse() {
-        let nodes: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(440.0)),
-        ];
+        let nodes: Vec<Box<dyn AudioNode>> = vec![Box::new(ConstantNode::new(440.0))];
 
         let mut processor = BlockProcessor::new(nodes, 0, 512).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut output = vec![0.0; 512];
 

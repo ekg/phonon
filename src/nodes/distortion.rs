@@ -26,7 +26,6 @@
 /// let mix = ConstantNode::new(0.8);                  // NodeId 3 (80% wet)
 /// let dist = DistortionNode::new(1, 2, 3);           // NodeId 4
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Distortion node: soft clipping waveshaper
@@ -36,8 +35,8 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 /// and the mix parameter blends between dry (0.0) and wet (1.0) signal.
 pub struct DistortionNode {
     input: NodeId,
-    drive_input: NodeId,  // Drive amount (1.0 to 100.0)
-    mix_input: NodeId,    // Wet/dry mix (0.0 = dry, 1.0 = wet)
+    drive_input: NodeId, // Drive amount (1.0 to 100.0)
+    mix_input: NodeId,   // Wet/dry mix (0.0 = dry, 1.0 = wet)
 }
 
 impl DistortionNode {
@@ -145,8 +144,8 @@ mod tests {
         let size = 512;
 
         let input = vec![0.5; size];
-        let drive = vec![10.0; size];  // High drive
-        let mix = vec![0.0; size];      // But 0% mix
+        let drive = vec![10.0; size]; // High drive
+        let mix = vec![0.0; size]; // But 0% mix
 
         let inputs: Vec<&[f32]> = vec![&input, &drive, &mix];
         let mut output = vec![0.0; size];
@@ -171,7 +170,7 @@ mod tests {
 
         let input = vec![0.5; size];
         let drive = vec![5.0; size];
-        let mix = vec![1.0; size];  // 100% wet
+        let mix = vec![1.0; size]; // 100% wet
 
         let inputs: Vec<&[f32]> = vec![&input, &drive, &mix];
         let mut output = vec![0.0; size];
@@ -244,7 +243,7 @@ mod tests {
 
         // Very loud input
         let input = vec![10.0; size];
-        let drive = vec![100.0; size];  // Extreme drive
+        let drive = vec![100.0; size]; // Extreme drive
         let mix = vec![1.0; size];
 
         let inputs: Vec<&[f32]> = vec![&input, &drive, &mix];
@@ -376,8 +375,8 @@ mod tests {
         let size = 512;
 
         let input = vec![0.5; size];
-        let drive_invalid = vec![1000.0; size];  // Should clamp to 100.0
-        let mix_invalid = vec![5.0; size];        // Should clamp to 1.0
+        let drive_invalid = vec![1000.0; size]; // Should clamp to 100.0
+        let mix_invalid = vec![5.0; size]; // Should clamp to 1.0
 
         let inputs: Vec<&[f32]> = vec![&input, &drive_invalid, &mix_invalid];
         let mut output = vec![0.0; size];

@@ -1,6 +1,6 @@
-use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
+use std::cell::RefCell;
 
 fn main() {
     println!("Debugging rhythm pattern '1 1 0 1'");

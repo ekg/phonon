@@ -11,10 +11,9 @@
 /// - Overlap-Add convolution (Oppenheim & Schafer)
 /// - Real-valued FFT for 2x speed improvement
 /// - Supports impulse responses up to 10 seconds @ 44.1kHz
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
-use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
 use num_complex::Complex;
+use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 use std::sync::Arc;
 
 /// Convolution node with FFT-based processing
@@ -54,14 +53,14 @@ pub struct ConvolutionNode {
     c2r: Arc<dyn ComplexToReal<f32>>,
 
     // Processing buffers
-    input_buffer: Vec<f32>,      // Accumulate input samples
-    overlap_buffer: Vec<f32>,    // For overlap-add
-    fft_buffer: Vec<Complex<f32>>, // FFT workspace
+    input_buffer: Vec<f32>,            // Accumulate input samples
+    overlap_buffer: Vec<f32>,          // For overlap-add
+    fft_buffer: Vec<Complex<f32>>,     // FFT workspace
     output_accumulator: Vec<Vec<f32>>, // Accumulate partition results
 
     // State
-    buffer_pos: usize,           // Position in input buffer
-    partition_index: usize,      // Current partition for round-robin processing
+    buffer_pos: usize,      // Position in input buffer
+    partition_index: usize, // Current partition for round-robin processing
 }
 
 impl ConvolutionNode {
@@ -165,7 +164,9 @@ impl ConvolutionNode {
 
         // Inverse FFT back to time domain
         let mut output_time = vec![0.0; self.fft_size];
-        self.c2r.process(&mut self.fft_buffer, &mut output_time).unwrap();
+        self.c2r
+            .process(&mut self.fft_buffer, &mut output_time)
+            .unwrap();
 
         // Normalize by FFT size (realfft convention)
         let scale = 1.0 / self.fft_size as f32;
@@ -199,11 +200,7 @@ impl AudioNode for ConvolutionNode {
             output.len(),
             "Input buffer length mismatch"
         );
-        debug_assert_eq!(
-            mix_buffer.len(),
-            output.len(),
-            "Mix buffer length mismatch"
-        );
+        debug_assert_eq!(mix_buffer.len(), output.len(), "Mix buffer length mismatch");
 
         // For simplicity, process in chunks of block_size
         // In a production system, this would handle arbitrary block sizes
@@ -286,12 +283,7 @@ pub fn create_simple_ir(sample_rate: f32, room_type: &str) -> Arc<Vec<f32>> {
             ir[0] = 1.0;
 
             // Early reflections
-            let reflections = [
-                (0.021, 0.6),
-                (0.043, 0.4),
-                (0.067, 0.3),
-                (0.089, 0.2),
-            ];
+            let reflections = [(0.021, 0.6), (0.043, 0.4), (0.067, 0.3), (0.089, 0.2)];
 
             for (delay_sec, gain) in reflections {
                 let idx = (delay_sec * sample_rate) as usize;
@@ -359,13 +351,7 @@ mod tests {
     const BLOCK_SIZE: usize = 512;
 
     fn create_context() -> ProcessContext {
-        ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            BLOCK_SIZE,
-            2.0,
-            SAMPLE_RATE,
-        )
+        ProcessContext::new(Fraction::from_float(0.0), 0, BLOCK_SIZE, 2.0, SAMPLE_RATE)
     }
 
     #[test]
@@ -475,7 +461,10 @@ mod tests {
         let late_energy: f32 = ir[44100..88200].iter().map(|x| x * x).sum();
 
         assert!(early_energy > 0.0, "Hall should have early energy");
-        assert!(late_energy > 0.0, "Hall should have late energy (long tail)");
+        assert!(
+            late_energy > 0.0,
+            "Hall should have late energy (long tail)"
+        );
     }
 
     #[test]
@@ -639,9 +628,9 @@ mod tests {
 
         // Various input patterns
         let test_inputs = vec![
-            vec![0.0; BLOCK_SIZE],      // Silence
-            vec![1.0; BLOCK_SIZE],      // Max signal
-            vec![-1.0; BLOCK_SIZE],     // Negative
+            vec![0.0; BLOCK_SIZE],  // Silence
+            vec![1.0; BLOCK_SIZE],  // Max signal
+            vec![-1.0; BLOCK_SIZE], // Negative
         ];
 
         for input in test_inputs {
@@ -652,12 +641,7 @@ mod tests {
             conv.process_block(&inputs, &mut output, SAMPLE_RATE, &context);
 
             for (i, &sample) in output.iter().enumerate() {
-                assert!(
-                    sample.is_finite(),
-                    "Sample {} is not finite: {}",
-                    i,
-                    sample
-                );
+                assert!(sample.is_finite(), "Sample {} is not finite: {}", i, sample);
             }
         }
     }

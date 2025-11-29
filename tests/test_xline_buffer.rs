@@ -16,7 +16,7 @@ fn test_xline_basic_exponential_descending() {
     let xline_id = graph.add_xline_node(
         Signal::Value(1.0),
         Signal::Value(0.1),
-        Signal::Value(1.0),  // 1 second
+        Signal::Value(1.0), // 1 second
     );
 
     let mut output = vec![0.0; 44100];
@@ -40,9 +40,12 @@ fn test_xline_basic_exponential_descending() {
     // Check that it's monotonically decreasing
     for i in 1..output.len() {
         assert!(
-            output[i] <= output[i-1] + 0.001, // Allow small tolerance for numerical precision
+            output[i] <= output[i - 1] + 0.001, // Allow small tolerance for numerical precision
             "XLine should be monotonically decreasing, but output[{}]={} > output[{}]={}",
-            i, output[i], i-1, output[i-1]
+            i,
+            output[i],
+            i - 1,
+            output[i - 1]
         );
     }
 
@@ -52,7 +55,8 @@ fn test_xline_basic_exponential_descending() {
     assert!(
         (mid_val - expected_mid).abs() < 0.1,
         "Exponential midpoint should be near {}, got {}",
-        expected_mid, mid_val
+        expected_mid,
+        mid_val
     );
 }
 
@@ -64,7 +68,7 @@ fn test_xline_basic_exponential_ascending() {
     let xline_id = graph.add_xline_node(
         Signal::Value(0.1),
         Signal::Value(1.0),
-        Signal::Value(1.0),  // 1 second
+        Signal::Value(1.0), // 1 second
     );
 
     let mut output = vec![0.0; 44100];
@@ -88,7 +92,7 @@ fn test_xline_basic_exponential_ascending() {
     // Check that it's monotonically increasing
     for i in 1..output.len() {
         assert!(
-            output[i] >= output[i-1] - 0.001,
+            output[i] >= output[i - 1] - 0.001,
             "XLine should be monotonically increasing"
         );
     }
@@ -100,11 +104,8 @@ fn test_xline_different_durations() {
     let mut graph = create_test_graph();
 
     // Short duration (0.5 seconds)
-    let xline_short = graph.add_xline_node(
-        Signal::Value(1.0),
-        Signal::Value(0.1),
-        Signal::Value(0.5),
-    );
+    let xline_short =
+        graph.add_xline_node(Signal::Value(1.0), Signal::Value(0.1), Signal::Value(0.5));
 
     let mut output_short = vec![0.0; 44100];
     graph.eval_node_buffer(&xline_short, &mut output_short);
@@ -131,11 +132,7 @@ fn test_xline_different_durations() {
 fn test_xline_zero_start() {
     let mut graph = create_test_graph();
 
-    let xline_id = graph.add_xline_node(
-        Signal::Value(0.0),
-        Signal::Value(1.0),
-        Signal::Value(1.0),
-    );
+    let xline_id = graph.add_xline_node(Signal::Value(0.0), Signal::Value(1.0), Signal::Value(1.0));
 
     let mut output = vec![0.0; 44100];
     graph.eval_node_buffer(&xline_id, &mut output);
@@ -168,11 +165,8 @@ fn test_xline_zero_start() {
 fn test_xline_different_signs() {
     let mut graph = create_test_graph();
 
-    let xline_id = graph.add_xline_node(
-        Signal::Value(-1.0),
-        Signal::Value(1.0),
-        Signal::Value(1.0),
-    );
+    let xline_id =
+        graph.add_xline_node(Signal::Value(-1.0), Signal::Value(1.0), Signal::Value(1.0));
 
     let mut output = vec![0.0; 44100];
     graph.eval_node_buffer(&xline_id, &mut output);
@@ -208,7 +202,7 @@ fn test_xline_very_short_duration() {
     let xline_id = graph.add_xline_node(
         Signal::Value(1.0),
         Signal::Value(0.1),
-        Signal::Value(0.00001),  // Very short
+        Signal::Value(0.00001), // Very short
     );
 
     let mut output = vec![0.0; 1000];
@@ -230,7 +224,7 @@ fn test_xline_state_continuity() {
     let xline_id = graph.add_xline_node(
         Signal::Value(1.0),
         Signal::Value(0.1),
-        Signal::Value(2.0),  // 2 seconds
+        Signal::Value(2.0), // 2 seconds
     );
 
     // First buffer (0.5s)
@@ -249,7 +243,8 @@ fn test_xline_state_continuity() {
     assert!(
         first_of_second <= last_of_first,
         "Second buffer should continue decreasing from first, got {} -> {}",
-        last_of_first, first_of_second
+        last_of_first,
+        first_of_second
     );
 
     // Both should be monotonically decreasing
@@ -263,11 +258,7 @@ fn test_xline_vs_line_shape() {
     let mut graph = create_test_graph();
 
     // XLine (exponential)
-    let xline_id = graph.add_xline_node(
-        Signal::Value(1.0),
-        Signal::Value(0.1),
-        Signal::Value(1.0),
-    );
+    let xline_id = graph.add_xline_node(Signal::Value(1.0), Signal::Value(0.1), Signal::Value(1.0));
 
     let mut xline_output = vec![0.0; 44100];
     graph.eval_node_buffer(&xline_id, &mut xline_output);
@@ -297,11 +288,8 @@ fn test_xline_vs_line_shape() {
 fn test_xline_large_range() {
     let mut graph = create_test_graph();
 
-    let xline_id = graph.add_xline_node(
-        Signal::Value(100.0),
-        Signal::Value(1.0),
-        Signal::Value(1.0),
-    );
+    let xline_id =
+        graph.add_xline_node(Signal::Value(100.0), Signal::Value(1.0), Signal::Value(1.0));
 
     let mut output = vec![0.0; 44100];
     graph.eval_node_buffer(&xline_id, &mut output);
@@ -334,11 +322,7 @@ fn test_xline_large_range() {
 fn test_xline_small_range() {
     let mut graph = create_test_graph();
 
-    let xline_id = graph.add_xline_node(
-        Signal::Value(1.0),
-        Signal::Value(0.9),
-        Signal::Value(1.0),
-    );
+    let xline_id = graph.add_xline_node(Signal::Value(1.0), Signal::Value(0.9), Signal::Value(1.0));
 
     let mut output = vec![0.0; 44100];
     graph.eval_node_buffer(&xline_id, &mut output);
@@ -359,7 +343,7 @@ fn test_xline_small_range() {
 
     // Should be smooth (small range)
     for i in 1..output.len() {
-        let delta = (output[i] - output[i-1]).abs();
+        let delta = (output[i] - output[i - 1]).abs();
         assert!(
             delta < 0.01,
             "Changes should be small and smooth, got delta={}",
@@ -373,11 +357,7 @@ fn test_xline_small_range() {
 fn test_xline_multiple_small_buffers() {
     let mut graph = create_test_graph();
 
-    let xline_id = graph.add_xline_node(
-        Signal::Value(1.0),
-        Signal::Value(0.1),
-        Signal::Value(1.0),
-    );
+    let xline_id = graph.add_xline_node(Signal::Value(1.0), Signal::Value(0.1), Signal::Value(1.0));
 
     // Process in small buffers (typical audio engine behavior)
     let num_buffers = 86; // 44100 samples / 512 samples per buffer ≈ 86
@@ -408,7 +388,7 @@ fn test_xline_multiple_small_buffers() {
     // Check for smooth transitions between buffers
     for i in 1..all_samples.len() {
         assert!(
-            all_samples[i] <= all_samples[i-1] + 0.001,
+            all_samples[i] <= all_samples[i - 1] + 0.001,
             "Should be smooth across buffer boundaries"
         );
     }
@@ -422,7 +402,7 @@ fn test_xline_holds_at_end() {
     let xline_id = graph.add_xline_node(
         Signal::Value(1.0),
         Signal::Value(0.1),
-        Signal::Value(0.5),  // Only 0.5 seconds
+        Signal::Value(0.5), // Only 0.5 seconds
     );
 
     let mut output = vec![0.0; 44100]; // Render 1 second

@@ -18,7 +18,6 @@
 /// // Mix with weights: 50% sine, 30% saw, 20% square
 /// let mix = MixNode::new(vec![1, 3, 5], vec![0.5, 0.3, 0.2]);
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Mix node: weighted sum of N inputs
@@ -130,21 +129,15 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         mix.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Expected: 1.0*0.5 + 10.0*0.5 = 5.5, etc.
-        assert_eq!(output[0], 5.5);   // 0.5 + 5.0
-        assert_eq!(output[1], 11.0);  // 1.0 + 10.0
-        assert_eq!(output[2], 16.5);  // 1.5 + 15.0
-        assert_eq!(output[3], 22.0);  // 2.0 + 20.0
+        assert_eq!(output[0], 5.5); // 0.5 + 5.0
+        assert_eq!(output[1], 11.0); // 1.0 + 10.0
+        assert_eq!(output[2], 16.5); // 1.5 + 15.0
+        assert_eq!(output[3], 22.0); // 2.0 + 20.0
     }
 
     #[test]
@@ -155,28 +148,18 @@ mod tests {
         let input_a = vec![10.0, 20.0, 30.0, 40.0];
         let input_b = vec![100.0, 200.0, 300.0, 400.0];
         let input_c = vec![1000.0, 2000.0, 3000.0, 4000.0];
-        let inputs = vec![
-            input_a.as_slice(),
-            input_b.as_slice(),
-            input_c.as_slice(),
-        ];
+        let inputs = vec![input_a.as_slice(), input_b.as_slice(), input_c.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         mix.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Expected: 10*0.5 + 100*0.3 + 1000*0.2 = 5 + 30 + 200 = 235
         assert_eq!(output[0], 235.0);
-        assert_eq!(output[1], 470.0);  // 20*0.5 + 200*0.3 + 2000*0.2
-        assert_eq!(output[2], 705.0);  // 30*0.5 + 300*0.3 + 3000*0.2
-        assert_eq!(output[3], 940.0);  // 40*0.5 + 400*0.3 + 4000*0.2
+        assert_eq!(output[1], 470.0); // 20*0.5 + 200*0.3 + 2000*0.2
+        assert_eq!(output[2], 705.0); // 30*0.5 + 300*0.3 + 3000*0.2
+        assert_eq!(output[3], 940.0); // 40*0.5 + 400*0.3 + 4000*0.2
     }
 
     #[test]
@@ -188,13 +171,7 @@ mod tests {
         let inputs = vec![input_a.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         mix.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -213,28 +190,18 @@ mod tests {
         let input_a = vec![10.0, 20.0, 30.0, 40.0];
         let input_b = vec![999.0, 999.0, 999.0, 999.0]; // Should be ignored
         let input_c = vec![100.0, 200.0, 300.0, 400.0];
-        let inputs = vec![
-            input_a.as_slice(),
-            input_b.as_slice(),
-            input_c.as_slice(),
-        ];
+        let inputs = vec![input_a.as_slice(), input_b.as_slice(), input_c.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         mix.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Expected: 10*1.0 + 999*0.0 + 100*0.5 = 10 + 0 + 50 = 60
         assert_eq!(output[0], 60.0);
-        assert_eq!(output[1], 120.0);  // 20*1.0 + 999*0.0 + 200*0.5
-        assert_eq!(output[2], 180.0);  // 30*1.0 + 999*0.0 + 300*0.5
-        assert_eq!(output[3], 240.0);  // 40*1.0 + 999*0.0 + 400*0.5
+        assert_eq!(output[1], 120.0); // 20*1.0 + 999*0.0 + 200*0.5
+        assert_eq!(output[2], 180.0); // 30*1.0 + 999*0.0 + 300*0.5
+        assert_eq!(output[3], 240.0); // 40*1.0 + 999*0.0 + 400*0.5
     }
 
     #[test]
@@ -258,21 +225,15 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         mix.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Expected: 10*1.0 + 4*(-0.5) = 10 - 2 = 8
         assert_eq!(output[0], 8.0);
-        assert_eq!(output[1], 16.0);  // 20*1.0 + 8*(-0.5) = 20 - 4
-        assert_eq!(output[2], 24.0);  // 30*1.0 + 12*(-0.5) = 30 - 6
-        assert_eq!(output[3], 32.0);  // 40*1.0 + 16*(-0.5) = 40 - 8
+        assert_eq!(output[1], 16.0); // 20*1.0 + 8*(-0.5) = 20 - 4
+        assert_eq!(output[2], 24.0); // 30*1.0 + 12*(-0.5) = 30 - 6
+        assert_eq!(output[3], 32.0); // 40*1.0 + 16*(-0.5) = 40 - 8
     }
 
     #[test]
@@ -283,13 +244,7 @@ mod tests {
         let mut const_c = ConstantNode::new(25.0);
         let mut mix = MixNode::new(vec![0, 1, 2], vec![0.5, 0.3, 0.2]);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut buf_a = vec![0.0; 512];

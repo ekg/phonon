@@ -455,7 +455,10 @@ impl DependencyGraph {
 
     /// Get all dependencies of a node (nodes it depends on)
     pub fn get_dependencies(&self, node_id: NodeId) -> &[NodeId] {
-        self.dependencies.get(&node_id).map(|v| v.as_slice()).unwrap_or(&[])
+        self.dependencies
+            .get(&node_id)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     /// Perform topological sort using Kahn's algorithm
@@ -464,7 +467,9 @@ impl DependencyGraph {
         use std::collections::VecDeque;
 
         let mut in_degree: HashMap<NodeId, usize> = HashMap::new();
-        let all_nodes: std::collections::HashSet<NodeId> = self.dependencies.keys()
+        let all_nodes: std::collections::HashSet<NodeId> = self
+            .dependencies
+            .keys()
             .chain(self.dependents.keys())
             .copied()
             .collect();
@@ -475,7 +480,8 @@ impl DependencyGraph {
         }
 
         let mut stages = Vec::new();
-        let mut queue: VecDeque<NodeId> = in_degree.iter()
+        let mut queue: VecDeque<NodeId> = in_degree
+            .iter()
             .filter(|(_, &degree)| degree == 0)
             .map(|(&node, _)| node)
             .collect();
@@ -504,7 +510,8 @@ impl DependencyGraph {
         // Check for cycles (feedback loops)
         let total_processed: usize = stages.iter().map(|s| s.len()).sum();
         if total_processed < all_nodes.len() {
-            let unprocessed: Vec<NodeId> = all_nodes.iter()
+            let unprocessed: Vec<NodeId> = all_nodes
+                .iter()
                 .filter(|n| !stages.iter().any(|stage| stage.contains(n)))
                 .copied()
                 .collect();
@@ -579,8 +586,8 @@ pub enum SignalNode {
     Oscillator {
         freq: Signal,
         waveform: Waveform,
-        semitone_offset: f32,                 // Semitone offset for note triggering (+0.5, -2.3, etc.)
-        phase: std::cell::RefCell<f32>,       // Interior mutability for parallel synthesis
+        semitone_offset: f32, // Semitone offset for note triggering (+0.5, -2.3, etc.)
+        phase: std::cell::RefCell<f32>, // Interior mutability for parallel synthesis
         pending_freq: std::cell::RefCell<Option<f32>>, // Frequency change waiting for zero-crossing
         last_sample: std::cell::RefCell<f32>, // For zero-crossing detection
     },
@@ -588,11 +595,11 @@ pub enum SignalNode {
     /// FM (Frequency Modulation) oscillator
     /// output = sin(2π * carrier * t + mod_index * sin(2π * modulator * t))
     FMOscillator {
-        carrier_freq: Signal,   // Carrier frequency in Hz
-        modulator_freq: Signal, // Modulator frequency in Hz
-        mod_index: Signal,      // Modulation index (depth)
-        carrier_phase: std::cell::RefCell<f32>,     // Carrier phase (0.0 to 1.0)
-        modulator_phase: std::cell::RefCell<f32>,   // Modulator phase (0.0 to 1.0)
+        carrier_freq: Signal,                     // Carrier frequency in Hz
+        modulator_freq: Signal,                   // Modulator frequency in Hz
+        mod_index: Signal,                        // Modulation index (depth)
+        carrier_phase: std::cell::RefCell<f32>,   // Carrier phase (0.0 to 1.0)
+        modulator_phase: std::cell::RefCell<f32>, // Modulator phase (0.0 to 1.0)
     },
 
     /// Phase Modulation (PM) oscillator
@@ -600,10 +607,10 @@ pub enum SignalNode {
     /// PM: output = sin(2π * carrier_phase + mod_index * modulation_signal)
     /// Unlike FM, modulator can be any signal (noise, envelope, audio, etc.)
     PMOscillator {
-        carrier_freq: Signal,   // Carrier frequency in Hz
-        modulation: Signal,     // External modulation signal
-        mod_index: Signal,      // Modulation index (depth)
-        carrier_phase: std::cell::RefCell<f32>,     // Carrier phase (0.0 to 1.0)
+        carrier_freq: Signal,                   // Carrier frequency in Hz
+        modulation: Signal,                     // External modulation signal
+        mod_index: Signal,                      // Modulation index (depth)
+        carrier_phase: std::cell::RefCell<f32>, // Carrier phase (0.0 to 1.0)
     },
 
     /// Blip oscillator (Band-Limited Impulse Train)
@@ -612,8 +619,8 @@ pub enum SignalNode {
     /// Rich harmonic content up to Nyquist frequency
     /// Useful for percussive sounds and as building block for other waveforms
     Blip {
-        frequency: Signal,  // Impulse train frequency in Hz
-        phase: std::cell::RefCell<f32>,         // Current phase (0.0 to 1.0)
+        frequency: Signal,              // Impulse train frequency in Hz
+        phase: std::cell::RefCell<f32>, // Current phase (0.0 to 1.0)
     },
 
     /// VCO (Voltage-Controlled Oscillator)
@@ -622,10 +629,10 @@ pub enum SignalNode {
     /// Waveforms: 0=saw, 1=square, 2=triangle, 3=sine
     /// Band-limited using PolyBLEP algorithm
     VCO {
-        frequency: Signal,    // Oscillator frequency in Hz
-        waveform: Signal,     // Waveform selection (0-3)
-        pulse_width: Signal,  // Pulse width for square wave (0.0-1.0, default 0.5)
-        phase: std::cell::RefCell<f32>,           // Current phase (0.0 to 1.0)
+        frequency: Signal,              // Oscillator frequency in Hz
+        waveform: Signal,               // Waveform selection (0-3)
+        pulse_width: Signal,            // Pulse width for square wave (0.0-1.0, default 0.5)
+        phase: std::cell::RefCell<f32>, // Current phase (0.0 to 1.0)
     },
 
     /// White noise generator
@@ -821,11 +828,11 @@ pub enum SignalNode {
     /// Multi-mode filter producing LP, HP, BP, and Notch outputs
     /// Mode: 0=lowpass, 1=highpass, 2=bandpass, 3=notch
     SVF {
-        input: Signal,      // Input signal
-        frequency: Signal,  // Cutoff/center frequency in Hz
-        resonance: Signal,  // Resonance/Q (0.0 to ~10.0)
-        mode: usize,        // Filter mode (0=LP, 1=HP, 2=BP, 3=Notch)
-        state: SVFState,    // Filter state (integrators)
+        input: Signal,     // Input signal
+        frequency: Signal, // Cutoff/center frequency in Hz
+        resonance: Signal, // Resonance/Q (0.0 to ~10.0)
+        mode: usize,       // Filter mode (0=LP, 1=HP, 2=BP, 3=Notch)
+        state: SVFState,   // Filter state (integrators)
     },
 
     /// Biquad Filter (high-quality second-order IIR)
@@ -1183,14 +1190,14 @@ pub enum SignalNode {
     /// Emulates vintage tape delay machines with realistic tape artifacts
     TapeDelay {
         input: Signal,
-        time: Signal,           // Delay time in seconds
-        feedback: Signal,       // Feedback amount (0.0 to 0.95)
-        wow_rate: Signal,       // Wow modulation rate (Hz, 0.1-2.0)
-        wow_depth: Signal,      // Wow modulation depth (0.0-1.0)
-        flutter_rate: Signal,   // Flutter modulation rate (Hz, 5.0-10.0)
-        flutter_depth: Signal,  // Flutter modulation depth (0.0-1.0)
-        saturation: Signal,     // Tape saturation (0.0-1.0)
-        mix: Signal,            // Dry/wet mix (0.0-1.0)
+        time: Signal,          // Delay time in seconds
+        feedback: Signal,      // Feedback amount (0.0 to 0.95)
+        wow_rate: Signal,      // Wow modulation rate (Hz, 0.1-2.0)
+        wow_depth: Signal,     // Wow modulation depth (0.0-1.0)
+        flutter_rate: Signal,  // Flutter modulation rate (Hz, 5.0-10.0)
+        flutter_depth: Signal, // Flutter modulation depth (0.0-1.0)
+        saturation: Signal,    // Tape saturation (0.0-1.0)
+        mix: Signal,           // Dry/wet mix (0.0-1.0)
         state: TapeDelayState,
     },
 
@@ -1210,13 +1217,13 @@ pub enum SignalNode {
     /// NOTE: Returns only one channel - use two nodes for stereo
     PingPongDelay {
         input: Signal,
-        time: Signal,       // Delay time per side
-        feedback: Signal,   // Feedback amount
+        time: Signal,         // Delay time per side
+        feedback: Signal,     // Feedback amount
         stereo_width: Signal, // Stereo spread (0.0-1.0)
-        channel: bool,      // false = left, true = right
-        mix: Signal,        // Dry/wet mix
-        buffer_l: Vec<f32>, // Left channel buffer
-        buffer_r: Vec<f32>, // Right channel buffer
+        channel: bool,        // false = left, true = right
+        mix: Signal,          // Dry/wet mix
+        buffer_l: Vec<f32>,   // Left channel buffer
+        buffer_r: Vec<f32>,   // Right channel buffer
         write_idx: usize,
     },
 
@@ -1297,11 +1304,11 @@ pub enum SignalNode {
     /// Useful for pitch tracking and triggering on transients
     ZeroCrossing {
         input: Signal,
-        last_sample: f32,        // Previous sample for detecting zero crossings
-        crossing_count: u32,     // Number of crossings in current window
-        sample_count: u32,       // Samples since last frequency update
-        window_samples: u32,     // Window size in samples for frequency calculation
-        last_frequency: f32,     // Last calculated frequency
+        last_sample: f32,    // Previous sample for detecting zero crossings
+        crossing_count: u32, // Number of crossings in current window
+        sample_count: u32,   // Samples since last frequency update
+        window_samples: u32, // Window size in samples for frequency calculation
+        last_frequency: f32, // Last calculated frequency
     },
 
     // === Math & Control ===
@@ -1316,7 +1323,11 @@ pub enum SignalNode {
 
     /// Wrap signal into [min, max] range using modulo
     /// Wraps values outside the range back into the range periodically
-    Wrap { input: Signal, min: Signal, max: Signal },
+    Wrap {
+        input: Signal,
+        min: Signal,
+        max: Signal,
+    },
 
     /// Sample-and-hold - captures input when trigger crosses from negative to positive
     /// Classic analog-style S&H: monitors trigger for zero crossings, samples input, holds value
@@ -1324,8 +1335,8 @@ pub enum SignalNode {
     SampleAndHold {
         input: Signal,
         trigger: Signal,
-        held_value: std::cell::RefCell<f32>,     // Currently held value
-        last_trigger: std::cell::RefCell<f32>,   // Previous trigger value for crossing detection
+        held_value: std::cell::RefCell<f32>, // Currently held value
+        last_trigger: std::cell::RefCell<f32>, // Previous trigger value for crossing detection
     },
 
     /// Decimator - sample rate reduction for lo-fi/retro effects
@@ -1333,11 +1344,11 @@ pub enum SignalNode {
     /// Creates classic bit-crushed/aliased sounds with optional smoothing
     Decimator {
         input: Signal,
-        factor: Signal,           // Decimation factor (1.0 = no effect, higher = more decimation)
-        smooth: Signal,           // Smoothing amount (0.0 = harsh, 1.0 = smooth)
-        sample_counter: std::cell::RefCell<f32>,   // Counter for decimation timing
-        held_value: std::cell::RefCell<f32>,       // Currently held value
-        smooth_state: std::cell::RefCell<f32>,     // Previous smoothed output for one-pole filter
+        factor: Signal, // Decimation factor (1.0 = no effect, higher = more decimation)
+        smooth: Signal, // Smoothing amount (0.0 = harsh, 1.0 = smooth)
+        sample_counter: std::cell::RefCell<f32>, // Counter for decimation timing
+        held_value: std::cell::RefCell<f32>, // Currently held value
+        smooth_state: std::cell::RefCell<f32>, // Previous smoothed output for one-pole filter
     },
 
     /// Crossfader between two signals
@@ -1376,9 +1387,9 @@ pub enum SignalNode {
     /// Enables dynamic signal routing and conditional effects
     /// Example: if ~envelope > 0.5 then ~wet else ~dry
     Conditional {
-        condition: Signal,    // Condition signal (> 0.5 = true)
-        then_signal: Signal,  // Signal when condition is true
-        else_signal: Signal,  // Signal when condition is false
+        condition: Signal,   // Condition signal (> 0.5 = true)
+        then_signal: Signal, // Signal when condition is true
+        else_signal: Signal, // Signal when condition is false
     },
 
     /// Select/Multiplex between multiple signals
@@ -1386,8 +1397,8 @@ pub enum SignalNode {
     /// Index is rounded and wrapped to valid range [0, N-1]
     /// Example: select "0 1 2 3" [~bus0, ~bus1, ~bus2, ~bus3]
     Select {
-        index: Signal,         // Which input to select (0, 1, 2, ...)
-        inputs: Vec<Signal>,   // Available signals to select from
+        index: Signal,       // Which input to select (0, 1, 2, ...)
+        inputs: Vec<Signal>, // Available signals to select from
     },
 
     // === Effects ===
@@ -1406,12 +1417,12 @@ pub enum SignalNode {
     /// Produces rich, dense, smooth reverb tails
     DattorroReverb {
         input: Signal,
-        pre_delay: Signal,  // Pre-delay time in ms (0-500)
-        decay: Signal,      // Decay time multiplier (0.1-10.0)
-        diffusion: Signal,  // Input diffusion (0.0-1.0)
-        damping: Signal,    // High-frequency damping (0.0-1.0)
-        mod_depth: Signal,  // Modulation depth (0.0-1.0) for lushness
-        mix: Signal,        // Dry/wet mix (0.0-1.0)
+        pre_delay: Signal, // Pre-delay time in ms (0-500)
+        decay: Signal,     // Decay time multiplier (0.1-10.0)
+        diffusion: Signal, // Input diffusion (0.0-1.0)
+        damping: Signal,   // High-frequency damping (0.0-1.0)
+        mod_depth: Signal, // Modulation depth (0.0-1.0) for lushness
+        mix: Signal,       // Dry/wet mix (0.0-1.0)
         state: DattorroState,
     },
 
@@ -1521,23 +1532,23 @@ pub enum SignalNode {
     /// Vibrato (pitch modulation)
     /// Classic effect that modulates pitch with an LFO using time-varying delay
     Vibrato {
-        input: Signal,           // Input signal
-        rate: Signal,            // LFO rate in Hz (0.1 to 20.0)
-        depth: Signal,           // Modulation depth in semitones (0.0 to 2.0)
-        phase: f32,              // LFO phase accumulator
-        delay_buffer: Vec<f32>,  // Circular delay buffer (50ms)
-        buffer_pos: usize,       // Current write position in buffer
+        input: Signal,          // Input signal
+        rate: Signal,           // LFO rate in Hz (0.1 to 20.0)
+        depth: Signal,          // Modulation depth in semitones (0.0 to 2.0)
+        phase: f32,             // LFO phase accumulator
+        delay_buffer: Vec<f32>, // Circular delay buffer (50ms)
+        buffer_pos: usize,      // Current write position in buffer
     },
 
     /// Phaser (spectral sweeping via allpass filter cascade)
     /// Classic effect that creates moving notches in the frequency spectrum
     Phaser {
-        input: Signal,    // Input signal
-        rate: Signal,     // LFO rate in Hz (0.05 to 5.0)
-        depth: Signal,    // Modulation depth (0.0 to 1.0)
-        feedback: Signal, // Feedback amount (0.0 to 0.95)
-        stages: usize,    // Number of allpass filter stages (2 to 12)
-        phase: f32,       // LFO phase accumulator
+        input: Signal,        // Input signal
+        rate: Signal,         // LFO rate in Hz (0.05 to 5.0)
+        depth: Signal,        // Modulation depth (0.0 to 1.0)
+        feedback: Signal,     // Feedback amount (0.0 to 0.95)
+        stages: usize,        // Number of allpass filter stages (2 to 12)
+        phase: f32,           // LFO phase accumulator
         allpass_z1: Vec<f32>, // Previous input per stage
         allpass_y1: Vec<f32>, // Previous output per stage
         feedback_sample: f32, // Feedback buffer
@@ -1557,9 +1568,9 @@ pub enum SignalNode {
     /// Formula: carrier * cos(2π * mod_depth * modulator)
     /// Use cases: drums modulating bass, LFO modulating pad, etc.
     FMCrossMod {
-        carrier: Signal,    // Carrier signal to be modulated
-        modulator: Signal,  // Modulator signal (any audio)
-        mod_depth: Signal,  // Modulation depth/intensity
+        carrier: Signal,   // Carrier signal to be modulated
+        modulator: Signal, // Modulator signal (any audio)
+        mod_depth: Signal, // Modulation depth/intensity
     },
 
     /// fundsp Unit Wrapper (wraps fundsp AudioUnit for pattern modulation)
@@ -1575,7 +1586,7 @@ pub enum SignalNode {
     /// Passes signal through unchanged while recording to file
     /// Useful for debugging signal flow and analyzing what's happening at different points
     Tap {
-        input: Signal,             // Input signal to record
+        input: Signal,               // Input signal to record
         state: Arc<Mutex<TapState>>, // Shared mutable state for recording
     },
 
@@ -1642,7 +1653,6 @@ pub struct FundspState {
 impl FundspState {
     /// Create a new organ_hz unit
     pub fn new_organ_hz(frequency: f32, sample_rate: f64) -> Self {
-
         let mut unit = fundsp::prelude::organ_hz(frequency);
         unit.reset();
         unit.set_sample_rate(sample_rate);
@@ -1665,7 +1675,6 @@ impl FundspState {
 
     /// Create a new moog_hz unit (Moog ladder filter)
     pub fn new_moog_hz(cutoff: f32, resonance: f32, sample_rate: f64) -> Self {
-
         let mut unit = fundsp::prelude::moog_hz(cutoff, resonance);
         unit.reset();
         unit.set_sample_rate(sample_rate);
@@ -1724,7 +1733,6 @@ impl FundspState {
         mod_frequency: f32,
         sample_rate: f64,
     ) -> Self {
-
         let mut unit = fundsp::prelude::chorus(seed, separation, variation, mod_frequency);
         unit.reset();
         unit.set_sample_rate(sample_rate);
@@ -1749,7 +1757,6 @@ impl FundspState {
 
     /// Create a new saw_hz unit (bandlimited sawtooth oscillator)
     pub fn new_saw_hz(frequency: f32, sample_rate: f64) -> Self {
-
         let mut unit = fundsp::prelude::saw_hz(frequency);
         unit.reset();
         unit.set_sample_rate(sample_rate);
@@ -1772,7 +1779,6 @@ impl FundspState {
 
     /// Create a new soft_saw_hz unit (softer sawtooth with fewer harmonics)
     pub fn new_soft_saw_hz(frequency: f32, sample_rate: f64) -> Self {
-
         let mut unit = fundsp::prelude::soft_saw_hz(frequency);
         unit.reset();
         unit.set_sample_rate(sample_rate);
@@ -1795,7 +1801,6 @@ impl FundspState {
 
     /// Create a new square_hz unit (bandlimited square wave oscillator)
     pub fn new_square_hz(frequency: f32, sample_rate: f64) -> Self {
-
         let mut unit = fundsp::prelude::square_hz(frequency);
         unit.reset();
         unit.set_sample_rate(sample_rate);
@@ -1817,7 +1822,6 @@ impl FundspState {
     }
 
     pub fn new_triangle_hz(frequency: f32, sample_rate: f64) -> Self {
-
         let mut unit = fundsp::prelude::triangle_hz(frequency);
         unit.reset();
         unit.set_sample_rate(sample_rate);
@@ -1839,7 +1843,6 @@ impl FundspState {
     }
 
     pub fn new_noise(sample_rate: f64) -> Self {
-
         let mut unit = fundsp::prelude::noise();
         unit.reset();
         unit.set_sample_rate(sample_rate);
@@ -1862,7 +1865,6 @@ impl FundspState {
 
     /// Create a new pink noise unit (1/f spectrum)
     pub fn new_pink(sample_rate: f64) -> Self {
-
         // pink::<f32>() requires type annotation
         let mut unit = fundsp::prelude::pink::<f32>();
         unit.reset();
@@ -1892,7 +1894,6 @@ impl FundspState {
     /// pulse() takes both frequency and pulse width as audio-rate inputs,
     /// enabling audio-rate pulse width modulation (PWM).
     pub fn new_pulse(sample_rate: f64) -> Self {
-
         // pulse() takes 2 audio-rate inputs
         let mut unit = fundsp::prelude::pulse();
         unit.reset();
@@ -2051,10 +2052,10 @@ pub struct FilterState {
     pub y1: f32,
     pub y2: f32,
     // Cached coefficients for SVF (Chamberlin) - avoid sin() every sample
-    pub cached_fc: f32,     // Last cutoff frequency used
-    pub cached_q: f32,      // Last Q value used
-    pub cached_f: f32,      // Cached frequency coefficient
-    pub cached_damp: f32,   // Cached damping coefficient
+    pub cached_fc: f32,   // Last cutoff frequency used
+    pub cached_q: f32,    // Last Q value used
+    pub cached_f: f32,    // Cached frequency coefficient
+    pub cached_damp: f32, // Cached damping coefficient
 }
 
 impl Default for FilterState {
@@ -2064,7 +2065,7 @@ impl Default for FilterState {
             x2: 0.0,
             y1: 0.0,
             y2: 0.0,
-            cached_fc: -1.0,    // Invalid value to force initial computation
+            cached_fc: -1.0, // Invalid value to force initial computation
             cached_q: -1.0,
             cached_f: 0.0,
             cached_damp: 1.0,
@@ -2095,7 +2096,10 @@ pub struct SVFState {
 
 impl Default for SVFState {
     fn default() -> Self {
-        Self { low: 0.0, band: 0.0 }
+        Self {
+            low: 0.0,
+            band: 0.0,
+        }
     }
 }
 
@@ -2621,7 +2625,7 @@ impl WavetableState {
         if self.table.is_empty() {
             return 0.0;
         }
-        
+
         let table_size = self.table.len() as f32;
         let index = (phase * table_size) % table_size;
         let i0 = index.floor() as usize % self.table.len();
@@ -3444,11 +3448,11 @@ impl Default for LagState {
 /// Tap State - Records signal to buffer for debugging
 #[derive(Debug, Clone)]
 pub struct TapState {
-    pub buffer: Vec<f32>,      // Recording buffer
-    pub filename: String,       // Output filename
-    pub max_samples: usize,     // Maximum samples to record
-    pub sample_rate: f32,       // Sample rate for WAV output
-    pub enabled: bool,          // Whether recording is active
+    pub buffer: Vec<f32>,   // Recording buffer
+    pub filename: String,   // Output filename
+    pub max_samples: usize, // Maximum samples to record
+    pub sample_rate: f32,   // Sample rate for WAV output
+    pub enabled: bool,      // Whether recording is active
 }
 
 impl TapState {
@@ -3596,10 +3600,10 @@ impl Default for ExpanderState {
 /// Tracks both envelope follower and RMS analysis for adaptive behavior
 #[derive(Debug, Clone)]
 pub struct AdaptiveCompressorState {
-    envelope: f32,      // Current envelope follower value
+    envelope: f32,        // Current envelope follower value
     rms_buffer: Vec<f32>, // Circular buffer for RMS calculation
     rms_write_idx: usize, // Write position in RMS buffer
-    current_rms: f32,   // Current RMS level for adaptive modulation
+    current_rms: f32,     // Current RMS level for adaptive modulation
 }
 
 impl AdaptiveCompressorState {
@@ -3980,8 +3984,12 @@ fn synthesize_bus_buffer_parallel(
     if std::env::var("DEBUG_BUS_SYNTHESIS").is_ok() {
         let rms: f32 = buffer.iter().map(|&s| s * s).sum::<f32>() / buffer.len() as f32;
         let rms = rms.sqrt();
-        eprintln!("  Synthesized buffer: {} samples, RMS={:.6}, first_10={:?}",
-            buffer.len(), rms, &buffer[..buffer.len().min(10)]);
+        eprintln!(
+            "  Synthesized buffer: {} samples, RMS={:.6}, first_10={:?}",
+            buffer.len(),
+            rms,
+            &buffer[..buffer.len().min(10)]
+        );
     }
 
     buffer
@@ -3989,7 +3997,11 @@ fn synthesize_bus_buffer_parallel(
 
 /// Simplified node evaluator for isolated bus synthesis
 /// No caching needed - stateful nodes use RefCell for state management
-fn eval_node_isolated(nodes: &mut Vec<Option<Rc<SignalNode>>>, node_id: &NodeId, sample_rate: f32) -> f32 {
+fn eval_node_isolated(
+    nodes: &mut Vec<Option<Rc<SignalNode>>>,
+    node_id: &NodeId,
+    sample_rate: f32,
+) -> f32 {
     let node = if let Some(Some(node_rc)) = nodes.get(node_id.0) {
         Rc::clone(node_rc)
     } else {
@@ -4066,7 +4078,8 @@ fn eval_node_isolated(nodes: &mut Vec<Option<Rc<SignalNode>>>, node_id: &NodeId,
         } => {
             // Biquad Filter (RBJ Audio EQ Cookbook)
             let input_val = eval_signal_isolated(nodes, &input, sample_rate);
-            let freq = eval_signal_isolated(nodes, &frequency, sample_rate).clamp(10.0, sample_rate * 0.45);
+            let freq = eval_signal_isolated(nodes, &frequency, sample_rate)
+                .clamp(10.0, sample_rate * 0.45);
             let q_val = eval_signal_isolated(nodes, &q, sample_rate).clamp(0.1, 20.0);
 
             // Calculate normalized frequency
@@ -4124,11 +4137,8 @@ fn eval_node_isolated(nodes: &mut Vec<Option<Rc<SignalNode>>>, node_id: &NodeId,
             let y2 = state.y2;
 
             // Apply biquad difference equation
-            let output = b0_norm * input_val
-                + b1_norm * x1
-                + b2_norm * x2
-                - a1_norm * y1
-                - a2_norm * y2;
+            let output =
+                b0_norm * input_val + b1_norm * x1 + b2_norm * x2 - a1_norm * y1 - a2_norm * y2;
 
             // Clamp and check for stability
             let output_clamped = output.clamp(-10.0, 10.0);
@@ -4163,46 +4173,50 @@ fn eval_node_isolated(nodes: &mut Vec<Option<Rc<SignalNode>>>, node_id: &NodeId,
 }
 
 /// Evaluate signal in isolated context
-fn eval_signal_isolated(nodes: &mut Vec<Option<Rc<SignalNode>>>, signal: &Signal, sample_rate: f32) -> f32 {
+fn eval_signal_isolated(
+    nodes: &mut Vec<Option<Rc<SignalNode>>>,
+    signal: &Signal,
+    sample_rate: f32,
+) -> f32 {
     match signal {
         Signal::Value(v) => *v,
         Signal::Node(id) => eval_node_isolated(nodes, id, sample_rate),
-        Signal::Expression(expr) => {
-            match &**expr {
-                SignalExpr::Add(left, right) => {
-                    eval_signal_isolated(nodes, left, sample_rate) + eval_signal_isolated(nodes, right, sample_rate)
-                }
-                SignalExpr::Subtract(left, right) => {
-                    eval_signal_isolated(nodes, left, sample_rate) - eval_signal_isolated(nodes, right, sample_rate)
-                }
-                SignalExpr::Multiply(left, right) => {
-                    eval_signal_isolated(nodes, left, sample_rate) * eval_signal_isolated(nodes, right, sample_rate)
-                }
-                SignalExpr::Divide(left, right) => {
-                    let r = eval_signal_isolated(nodes, right, sample_rate);
-                    if r != 0.0 {
-                        eval_signal_isolated(nodes, left, sample_rate) / r
-                    } else {
-                        0.0
-                    }
-                }
-                SignalExpr::Modulo(left, right) => {
-                    let r = eval_signal_isolated(nodes, right, sample_rate);
-                    if r != 0.0 {
-                        eval_signal_isolated(nodes, left, sample_rate) % r
-                    } else {
-                        0.0
-                    }
-                }
-                SignalExpr::Min(left, right) => {
-                    eval_signal_isolated(nodes, left, sample_rate).min(eval_signal_isolated(nodes, right, sample_rate))
-                }
-                SignalExpr::Scale { input, min, max } => {
-                    let val = eval_signal_isolated(nodes, input, sample_rate);
-                    min + val * (max - min)
+        Signal::Expression(expr) => match &**expr {
+            SignalExpr::Add(left, right) => {
+                eval_signal_isolated(nodes, left, sample_rate)
+                    + eval_signal_isolated(nodes, right, sample_rate)
+            }
+            SignalExpr::Subtract(left, right) => {
+                eval_signal_isolated(nodes, left, sample_rate)
+                    - eval_signal_isolated(nodes, right, sample_rate)
+            }
+            SignalExpr::Multiply(left, right) => {
+                eval_signal_isolated(nodes, left, sample_rate)
+                    * eval_signal_isolated(nodes, right, sample_rate)
+            }
+            SignalExpr::Divide(left, right) => {
+                let r = eval_signal_isolated(nodes, right, sample_rate);
+                if r != 0.0 {
+                    eval_signal_isolated(nodes, left, sample_rate) / r
+                } else {
+                    0.0
                 }
             }
-        }
+            SignalExpr::Modulo(left, right) => {
+                let r = eval_signal_isolated(nodes, right, sample_rate);
+                if r != 0.0 {
+                    eval_signal_isolated(nodes, left, sample_rate) % r
+                } else {
+                    0.0
+                }
+            }
+            SignalExpr::Min(left, right) => eval_signal_isolated(nodes, left, sample_rate)
+                .min(eval_signal_isolated(nodes, right, sample_rate)),
+            SignalExpr::Scale { input, min, max } => {
+                let val = eval_signal_isolated(nodes, input, sample_rate);
+                min + val * (max - min)
+            }
+        },
         _ => 0.0, // Simplified - buses, patterns not needed for basic synthesis
     }
 }
@@ -4402,9 +4416,11 @@ impl Clone for UnifiedSignalGraph {
         Self {
             // CRITICAL: Deep clone nodes, not just Rc wrappers
             // Each thread needs independent SignalNode instances with their own RefCells
-            nodes: self.nodes.iter().map(|opt| {
-                opt.as_ref().map(|rc| std::rc::Rc::new((**rc).clone()))
-            }).collect(),
+            nodes: self
+                .nodes
+                .iter()
+                .map(|opt| opt.as_ref().map(|rc| std::rc::Rc::new((**rc).clone())))
+                .collect(),
             buses: self.buses.clone(),
             output: self.output,
             outputs: self.outputs.clone(),
@@ -4457,7 +4473,7 @@ impl UnifiedSignalGraph {
             session_start_time: std::time::Instant::now(),
             cycle_offset: 0.0,
             use_wall_clock: false, // Default to sample-based for offline rendering
-            cps: 0.5, // Default 0.5 cycles per second
+            cps: 0.5,              // Default 0.5 cycles per second
             cached_cycle_position: 0.0,
             next_node_id: 0,
             value_cache: HashMap::new(),
@@ -4540,11 +4556,18 @@ impl UnifiedSignalGraph {
 
         // DEBUG: Log timing transfer details
         eprintln!("🔍 TIMING TRANSFER:");
-        eprintln!("   Old: elapsed={:.4}s, cps={:.2}, offset={:.4}, position={:.4}",
-            old_elapsed, old_graph.cps, old_graph.cycle_offset, old_cycle_pos);
-        eprintln!("   New: cps={:.2}, offset={:.4}, will continue from position={:.4}",
-            self.cps, self.cycle_offset, old_cycle_pos);
-        eprintln!("   Wall-clock mode: old={}, new={}", old_graph.use_wall_clock, self.use_wall_clock);
+        eprintln!(
+            "   Old: elapsed={:.4}s, cps={:.2}, offset={:.4}, position={:.4}",
+            old_elapsed, old_graph.cps, old_graph.cycle_offset, old_cycle_pos
+        );
+        eprintln!(
+            "   New: cps={:.2}, offset={:.4}, will continue from position={:.4}",
+            self.cps, self.cycle_offset, old_cycle_pos
+        );
+        eprintln!(
+            "   Wall-clock mode: old={}, new={}",
+            old_graph.use_wall_clock, self.use_wall_clock
+        );
 
         // NOTE: We keep self.cps as-is (from compile_program's tempo: statement)
         // This allows tempo changes to take effect immediately!
@@ -4566,14 +4589,20 @@ impl UnifiedSignalGraph {
                 // Use Rc::make_mut to get mutable access (will clone if needed)
                 let node = Rc::make_mut(node_rc);
                 match node {
-                    SignalNode::Sample { last_cycle, last_trigger_time, .. } => {
+                    SignalNode::Sample {
+                        last_cycle,
+                        last_trigger_time,
+                        ..
+                    } => {
                         *last_cycle = current_cycle;
                         *last_trigger_time = old_cycle_pos as f32;
                     }
                     SignalNode::CycleTrigger { last_cycle, .. } => {
                         *last_cycle = current_cycle;
                     }
-                    SignalNode::Pattern { last_trigger_time, .. } => {
+                    SignalNode::Pattern {
+                        last_trigger_time, ..
+                    } => {
                         *last_trigger_time = old_cycle_pos as f32;
                     }
                     _ => {}
@@ -4581,8 +4610,11 @@ impl UnifiedSignalGraph {
             }
         }
 
-        eprintln!("🔧 Updated {} nodes with cycle position {:.4}",
-            self.nodes.iter().filter(|n| n.is_some()).count(), old_cycle_pos);
+        eprintln!(
+            "🔧 Updated {} nodes with cycle position {:.4}",
+            self.nodes.iter().filter(|n| n.is_some()).count(),
+            old_cycle_pos
+        );
     }
 
     /// Extract all FX state from this graph for preservation across hot-swaps
@@ -4610,34 +4642,55 @@ impl UnifiedSignalGraph {
         // Now extract state from all FX nodes
         for (idx, node_opt) in self.nodes.iter().enumerate() {
             if let Some(node_rc) = node_opt {
-                let bus_name = node_to_bus.get(&idx).cloned().unwrap_or_else(|| "unknown".to_string());
+                let bus_name = node_to_bus
+                    .get(&idx)
+                    .cloned()
+                    .unwrap_or_else(|| "unknown".to_string());
 
                 match &**node_rc {
-                    SignalNode::Delay { buffer, write_idx, .. } => {
+                    SignalNode::Delay {
+                        buffer, write_idx, ..
+                    } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "delay");
-                        state_map.insert(key, ExtractedFxState::Delay {
-                            buffer: buffer.clone(),
-                            write_idx: *write_idx,
-                        });
+                        state_map.insert(
+                            key,
+                            ExtractedFxState::Delay {
+                                buffer: buffer.clone(),
+                                write_idx: *write_idx,
+                            },
+                        );
                     }
                     SignalNode::TapeDelay { state, .. } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "tapedelay");
                         state_map.insert(key, ExtractedFxState::TapeDelay(state.clone()));
                     }
-                    SignalNode::MultiTapDelay { buffer, write_idx, .. } => {
+                    SignalNode::MultiTapDelay {
+                        buffer, write_idx, ..
+                    } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "multitapdelay");
-                        state_map.insert(key, ExtractedFxState::MultiTapDelay {
-                            buffer: buffer.clone(),
-                            write_idx: *write_idx,
-                        });
+                        state_map.insert(
+                            key,
+                            ExtractedFxState::MultiTapDelay {
+                                buffer: buffer.clone(),
+                                write_idx: *write_idx,
+                            },
+                        );
                     }
-                    SignalNode::PingPongDelay { buffer_l, buffer_r, write_idx, .. } => {
+                    SignalNode::PingPongDelay {
+                        buffer_l,
+                        buffer_r,
+                        write_idx,
+                        ..
+                    } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "pingpongdelay");
-                        state_map.insert(key, ExtractedFxState::PingPongDelay {
-                            buffer_l: buffer_l.clone(),
-                            buffer_r: buffer_r.clone(),
-                            write_idx: *write_idx,
-                        });
+                        state_map.insert(
+                            key,
+                            ExtractedFxState::PingPongDelay {
+                                buffer_l: buffer_l.clone(),
+                                buffer_r: buffer_r.clone(),
+                                write_idx: *write_idx,
+                            },
+                        );
                     }
                     SignalNode::Reverb { state, .. } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "reverb");
@@ -4664,15 +4717,17 @@ impl UnifiedSignalGraph {
                         state_map.insert(key, ExtractedFxState::Compressor(state.clone()));
                     }
                     SignalNode::SidechainCompressor { state, .. } => {
-                        let key = self.make_fx_key(&mut fx_counters, &bus_name, "sidechaincompressor");
+                        let key =
+                            self.make_fx_key(&mut fx_counters, &bus_name, "sidechaincompressor");
                         state_map.insert(key, ExtractedFxState::Compressor(state.clone()));
                     }
                     SignalNode::Expander { state, .. } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "expander");
                         state_map.insert(key, ExtractedFxState::Expander(state.clone()));
                     }
-                    SignalNode::LowPass { state, .. } | SignalNode::HighPass { state, .. } |
-                    SignalNode::BandPass { state, .. } => {
+                    SignalNode::LowPass { state, .. }
+                    | SignalNode::HighPass { state, .. }
+                    | SignalNode::BandPass { state, .. } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "filter");
                         state_map.insert(key, ExtractedFxState::Filter(state.clone()));
                     }
@@ -4696,7 +4751,12 @@ impl UnifiedSignalGraph {
     }
 
     /// Helper: Create FX key and increment counter
-    fn make_fx_key(&self, counters: &mut HashMap<(String, String), usize>, bus: &str, fx_type: &str) -> FxStateKey {
+    fn make_fx_key(
+        &self,
+        counters: &mut HashMap<(String, String), usize>,
+        bus: &str,
+        fx_type: &str,
+    ) -> FxStateKey {
         let counter_key = (bus.to_string(), fx_type.to_string());
         let idx = *counters.get(&counter_key).unwrap_or(&0);
         counters.insert(counter_key, idx + 1);
@@ -4704,7 +4764,12 @@ impl UnifiedSignalGraph {
     }
 
     /// Helper: Mark nodes as belonging to a bus (iterative to avoid stack overflow on deep chains)
-    fn mark_nodes_for_bus(&self, node_to_bus: &mut HashMap<usize, String>, start_node_id: usize, bus_name: String) {
+    fn mark_nodes_for_bus(
+        &self,
+        node_to_bus: &mut HashMap<usize, String>,
+        start_node_id: usize,
+        bus_name: String,
+    ) {
         let mut stack = vec![start_node_id];
 
         while let Some(node_id) = stack.pop() {
@@ -4729,22 +4794,22 @@ impl UnifiedSignalGraph {
     fn get_node_input_ids(&self, node: &SignalNode) -> Vec<usize> {
         let mut inputs = Vec::new();
         match node {
-            SignalNode::Delay { input, .. } |
-            SignalNode::TapeDelay { input, .. } |
-            SignalNode::MultiTapDelay { input, .. } |
-            SignalNode::Reverb { input, .. } |
-            SignalNode::DattorroReverb { input, .. } |
-            SignalNode::Convolution { input, .. } |
-            SignalNode::Chorus { input, .. } |
-            SignalNode::Flanger { input, .. } |
-            SignalNode::Compressor { input, .. } |
-            SignalNode::Expander { input, .. } |
-            SignalNode::LowPass { input, .. } |
-            SignalNode::HighPass { input, .. } |
-            SignalNode::BandPass { input, .. } |
-            SignalNode::MoogLadder { input, .. } |
-            SignalNode::Distortion { input, .. } |
-            SignalNode::BitCrush { input, .. } => {
+            SignalNode::Delay { input, .. }
+            | SignalNode::TapeDelay { input, .. }
+            | SignalNode::MultiTapDelay { input, .. }
+            | SignalNode::Reverb { input, .. }
+            | SignalNode::DattorroReverb { input, .. }
+            | SignalNode::Convolution { input, .. }
+            | SignalNode::Chorus { input, .. }
+            | SignalNode::Flanger { input, .. }
+            | SignalNode::Compressor { input, .. }
+            | SignalNode::Expander { input, .. }
+            | SignalNode::LowPass { input, .. }
+            | SignalNode::HighPass { input, .. }
+            | SignalNode::BandPass { input, .. }
+            | SignalNode::MoogLadder { input, .. }
+            | SignalNode::Distortion { input, .. }
+            | SignalNode::BitCrush { input, .. } => {
                 if let Signal::Node(id) = input {
                     inputs.push(id.0);
                 }
@@ -4754,7 +4819,11 @@ impl UnifiedSignalGraph {
                     inputs.push(id.0);
                 }
             }
-            SignalNode::SidechainCompressor { main_input, sidechain_input, .. } => {
+            SignalNode::SidechainCompressor {
+                main_input,
+                sidechain_input,
+                ..
+            } => {
                 if let Signal::Node(id) = main_input {
                     inputs.push(id.0);
                 }
@@ -4795,12 +4864,23 @@ impl UnifiedSignalGraph {
         for idx in 0..self.nodes.len() {
             let node_opt = self.nodes[idx].clone();
             if let Some(node_rc) = node_opt {
-                let bus_name = node_to_bus.get(&idx).cloned().unwrap_or_else(|| "unknown".to_string());
+                let bus_name = node_to_bus
+                    .get(&idx)
+                    .cloned()
+                    .unwrap_or_else(|| "unknown".to_string());
 
                 let new_node: Option<SignalNode> = match &*node_rc {
-                    SignalNode::Delay { input, time, feedback, mix, .. } => {
+                    SignalNode::Delay {
+                        input,
+                        time,
+                        feedback,
+                        mix,
+                        ..
+                    } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "delay");
-                        if let Some(ExtractedFxState::Delay { buffer, write_idx }) = state_map.get(&key) {
+                        if let Some(ExtractedFxState::Delay { buffer, write_idx }) =
+                            state_map.get(&key)
+                        {
                             transferred += 1;
                             Some(SignalNode::Delay {
                                 input: input.clone(),
@@ -4810,9 +4890,17 @@ impl UnifiedSignalGraph {
                                 buffer: buffer.clone(),
                                 write_idx: *write_idx,
                             })
-                        } else { None }
+                        } else {
+                            None
+                        }
                     }
-                    SignalNode::Reverb { input, room_size, damping, mix, .. } => {
+                    SignalNode::Reverb {
+                        input,
+                        room_size,
+                        damping,
+                        mix,
+                        ..
+                    } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "reverb");
                         if let Some(ExtractedFxState::Reverb(state)) = state_map.get(&key) {
                             transferred += 1;
@@ -4823,9 +4911,17 @@ impl UnifiedSignalGraph {
                                 mix: mix.clone(),
                                 state: state.clone(),
                             })
-                        } else { None }
+                        } else {
+                            None
+                        }
                     }
-                    SignalNode::Chorus { input, rate, depth, mix, .. } => {
+                    SignalNode::Chorus {
+                        input,
+                        rate,
+                        depth,
+                        mix,
+                        ..
+                    } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "chorus");
                         if let Some(ExtractedFxState::Chorus(state)) = state_map.get(&key) {
                             transferred += 1;
@@ -4836,9 +4932,17 @@ impl UnifiedSignalGraph {
                                 mix: mix.clone(),
                                 state: state.clone(),
                             })
-                        } else { None }
+                        } else {
+                            None
+                        }
                     }
-                    SignalNode::Flanger { input, depth, rate, feedback, .. } => {
+                    SignalNode::Flanger {
+                        input,
+                        depth,
+                        rate,
+                        feedback,
+                        ..
+                    } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "flanger");
                         if let Some(ExtractedFxState::Flanger(state)) = state_map.get(&key) {
                             transferred += 1;
@@ -4849,9 +4953,19 @@ impl UnifiedSignalGraph {
                                 feedback: feedback.clone(),
                                 state: state.clone(),
                             })
-                        } else { None }
+                        } else {
+                            None
+                        }
                     }
-                    SignalNode::Compressor { input, threshold, ratio, attack, release, makeup_gain, .. } => {
+                    SignalNode::Compressor {
+                        input,
+                        threshold,
+                        ratio,
+                        attack,
+                        release,
+                        makeup_gain,
+                        ..
+                    } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "compressor");
                         if let Some(ExtractedFxState::Compressor(state)) = state_map.get(&key) {
                             transferred += 1;
@@ -4864,9 +4978,13 @@ impl UnifiedSignalGraph {
                                 makeup_gain: makeup_gain.clone(),
                                 state: state.clone(),
                             })
-                        } else { None }
+                        } else {
+                            None
+                        }
                     }
-                    SignalNode::LowPass { input, cutoff, q, .. } => {
+                    SignalNode::LowPass {
+                        input, cutoff, q, ..
+                    } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "filter");
                         if let Some(ExtractedFxState::Filter(state)) = state_map.get(&key) {
                             transferred += 1;
@@ -4876,9 +4994,13 @@ impl UnifiedSignalGraph {
                                 q: q.clone(),
                                 state: state.clone(),
                             })
-                        } else { None }
+                        } else {
+                            None
+                        }
                     }
-                    SignalNode::HighPass { input, cutoff, q, .. } => {
+                    SignalNode::HighPass {
+                        input, cutoff, q, ..
+                    } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "filter");
                         if let Some(ExtractedFxState::Filter(state)) = state_map.get(&key) {
                             transferred += 1;
@@ -4888,9 +5010,13 @@ impl UnifiedSignalGraph {
                                 q: q.clone(),
                                 state: state.clone(),
                             })
-                        } else { None }
+                        } else {
+                            None
+                        }
                     }
-                    SignalNode::BandPass { input, center, q, .. } => {
+                    SignalNode::BandPass {
+                        input, center, q, ..
+                    } => {
                         let key = self.make_fx_key(&mut fx_counters, &bus_name, "filter");
                         if let Some(ExtractedFxState::Filter(state)) = state_map.get(&key) {
                             transferred += 1;
@@ -4900,19 +5026,41 @@ impl UnifiedSignalGraph {
                                 q: q.clone(),
                                 state: state.clone(),
                             })
-                        } else { None }
+                        } else {
+                            None
+                        }
                     }
                     _ => {
                         // For other FX types, just count them
                         match &*node_rc {
-                            SignalNode::TapeDelay { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "tapedelay"); }
-                            SignalNode::MultiTapDelay { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "multitapdelay"); }
-                            SignalNode::PingPongDelay { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "pingpongdelay"); }
-                            SignalNode::DattorroReverb { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "dattorroreverb"); }
-                            SignalNode::Convolution { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "convolution"); }
-                            SignalNode::SidechainCompressor { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "sidechaincompressor"); }
-                            SignalNode::Expander { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "expander"); }
-                            SignalNode::MoogLadder { .. } => { self.make_fx_key(&mut fx_counters, &bus_name, "moogladder"); }
+                            SignalNode::TapeDelay { .. } => {
+                                self.make_fx_key(&mut fx_counters, &bus_name, "tapedelay");
+                            }
+                            SignalNode::MultiTapDelay { .. } => {
+                                self.make_fx_key(&mut fx_counters, &bus_name, "multitapdelay");
+                            }
+                            SignalNode::PingPongDelay { .. } => {
+                                self.make_fx_key(&mut fx_counters, &bus_name, "pingpongdelay");
+                            }
+                            SignalNode::DattorroReverb { .. } => {
+                                self.make_fx_key(&mut fx_counters, &bus_name, "dattorroreverb");
+                            }
+                            SignalNode::Convolution { .. } => {
+                                self.make_fx_key(&mut fx_counters, &bus_name, "convolution");
+                            }
+                            SignalNode::SidechainCompressor { .. } => {
+                                self.make_fx_key(
+                                    &mut fx_counters,
+                                    &bus_name,
+                                    "sidechaincompressor",
+                                );
+                            }
+                            SignalNode::Expander { .. } => {
+                                self.make_fx_key(&mut fx_counters, &bus_name, "expander");
+                            }
+                            SignalNode::MoogLadder { .. } => {
+                                self.make_fx_key(&mut fx_counters, &bus_name, "moogladder");
+                            }
                             _ => {}
                         }
                         None
@@ -5033,14 +5181,20 @@ impl UnifiedSignalGraph {
                 // Use Rc::make_mut to get mutable access (will clone if needed)
                 let node = Rc::make_mut(node_rc);
                 match node {
-                    SignalNode::Sample { last_cycle, last_trigger_time, .. } => {
+                    SignalNode::Sample {
+                        last_cycle,
+                        last_trigger_time,
+                        ..
+                    } => {
                         *last_cycle = current_cycle;
                         *last_trigger_time = position as f32;
                     }
                     SignalNode::CycleTrigger { last_cycle, .. } => {
                         *last_cycle = current_cycle;
                     }
-                    SignalNode::Pattern { last_trigger_time, .. } => {
+                    SignalNode::Pattern {
+                        last_trigger_time, ..
+                    } => {
                         *last_trigger_time = position as f32;
                     }
                     _ => {}
@@ -5075,7 +5229,10 @@ impl UnifiedSignalGraph {
                                 written_files.push(tap_state.filename.clone());
                             }
                             Err(e) => {
-                                eprintln!("⚠️  Failed to write tap file {}: {}", tap_state.filename, e);
+                                eprintln!(
+                                    "⚠️  Failed to write tap file {}: {}",
+                                    tap_state.filename, e
+                                );
                             }
                         }
                     }
@@ -5088,7 +5245,9 @@ impl UnifiedSignalGraph {
 
     /// Get a reference to a node by its ID
     pub fn get_node(&self, node_id: NodeId) -> Option<&SignalNode> {
-        self.nodes.get(node_id.0).and_then(|opt| opt.as_ref().map(|rc| &**rc))
+        self.nodes
+            .get(node_id.0)
+            .and_then(|opt| opt.as_ref().map(|rc| &**rc))
     }
 
     /// Add a node to the graph and return its ID
@@ -5211,7 +5370,13 @@ impl UnifiedSignalGraph {
     /// Add an SVF filter node (helper for testing)
     /// SVF (State Variable Filter) produces LP, HP, BP, and Notch outputs
     /// mode: 0=LP, 1=HP, 2=BP, 3=Notch
-    pub fn add_svf_node(&mut self, input: Signal, frequency: Signal, resonance: Signal, mode: usize) -> NodeId {
+    pub fn add_svf_node(
+        &mut self,
+        input: Signal,
+        frequency: Signal,
+        resonance: Signal,
+        mode: usize,
+    ) -> NodeId {
         let node_id = NodeId(self.nodes.len());
         let node = SignalNode::SVF {
             input,
@@ -5264,7 +5429,13 @@ impl UnifiedSignalGraph {
     }
 
     /// Add a chorus node (modulated delay for thickening/doubling effect)
-    pub fn add_chorus_node(&mut self, input: Signal, rate: Signal, depth: Signal, mix: Signal) -> NodeId {
+    pub fn add_chorus_node(
+        &mut self,
+        input: Signal,
+        rate: Signal,
+        depth: Signal,
+        mix: Signal,
+    ) -> NodeId {
         let node_id = NodeId(self.nodes.len());
         let node = SignalNode::Chorus {
             input,
@@ -5291,7 +5462,6 @@ impl UnifiedSignalGraph {
         self.nodes.push(Some(Rc::new(node)));
         node_id
     }
-
 
     /// Add a comb filter node (feedback delay line for resonant effects)
     pub fn add_comb_node(&mut self, input: Signal, frequency: Signal, feedback: Signal) -> NodeId {
@@ -5492,12 +5662,7 @@ impl UnifiedSignalGraph {
     }
 
     /// Add a tremolo node (amplitude modulation effect)
-    pub fn add_tremolo_node(
-        &mut self,
-        input: Signal,
-        rate: Signal,
-        depth: Signal,
-    ) -> NodeId {
+    pub fn add_tremolo_node(&mut self, input: Signal, rate: Signal, depth: Signal) -> NodeId {
         let node_id = NodeId(self.nodes.len());
         let node = SignalNode::Tremolo {
             input,
@@ -5617,12 +5782,7 @@ impl UnifiedSignalGraph {
     }
 
     /// Add a Resonz (resonant bandpass) filter node
-    pub fn add_resonz_node(
-        &mut self,
-        input: Signal,
-        frequency: Signal,
-        q: Signal,
-    ) -> NodeId {
+    pub fn add_resonz_node(&mut self, input: Signal, frequency: Signal, q: Signal) -> NodeId {
         let node_id = NodeId(self.nodes.len());
         let node = SignalNode::Resonz {
             input,
@@ -5672,12 +5832,7 @@ impl UnifiedSignalGraph {
     }
 
     /// Add an XLine (exponential envelope) node (helper for testing)
-    pub fn add_xline_node(
-        &mut self,
-        start: Signal,
-        end: Signal,
-        duration: Signal,
-    ) -> NodeId {
+    pub fn add_xline_node(&mut self, start: Signal, end: Signal, duration: Signal) -> NodeId {
         let node_id = NodeId(self.nodes.len());
         let node = SignalNode::XLine {
             start,
@@ -5759,7 +5914,11 @@ impl UnifiedSignalGraph {
     // ========================================================================
 
     /// Find all nodes that a given node depends on (recursive)
-    fn find_node_dependencies(&self, node_id: NodeId, visited: &mut std::collections::HashSet<NodeId>) {
+    fn find_node_dependencies(
+        &self,
+        node_id: NodeId,
+        visited: &mut std::collections::HashSet<NodeId>,
+    ) {
         if visited.contains(&node_id) {
             return; // Already visited (handles potential cycles)
         }
@@ -5801,7 +5960,11 @@ impl UnifiedSignalGraph {
     }
 
     /// Find dependencies within a Signal
-    fn find_signal_dependencies(&self, signal: &Signal, visited: &mut std::collections::HashSet<NodeId>) {
+    fn find_signal_dependencies(
+        &self,
+        signal: &Signal,
+        visited: &mut std::collections::HashSet<NodeId>,
+    ) {
         match signal {
             Signal::Node(node_id) => {
                 self.find_node_dependencies(*node_id, visited);
@@ -5821,11 +5984,18 @@ impl UnifiedSignalGraph {
     }
 
     /// Find dependencies within a SignalExpr
-    fn find_expr_dependencies(&self, expr: &SignalExpr, visited: &mut std::collections::HashSet<NodeId>) {
+    fn find_expr_dependencies(
+        &self,
+        expr: &SignalExpr,
+        visited: &mut std::collections::HashSet<NodeId>,
+    ) {
         match expr {
-            SignalExpr::Add(a, b) | SignalExpr::Multiply(a, b) |
-            SignalExpr::Subtract(a, b) | SignalExpr::Divide(a, b) |
-            SignalExpr::Modulo(a, b) | SignalExpr::Min(a, b) => {
+            SignalExpr::Add(a, b)
+            | SignalExpr::Multiply(a, b)
+            | SignalExpr::Subtract(a, b)
+            | SignalExpr::Divide(a, b)
+            | SignalExpr::Modulo(a, b)
+            | SignalExpr::Min(a, b) => {
                 self.find_signal_dependencies(a, visited);
                 self.find_signal_dependencies(b, visited);
             }
@@ -5860,7 +6030,10 @@ impl UnifiedSignalGraph {
 
             // IMPORTANT: Even if a node has no dependencies, we need it in the graph
             // Ensure it's in the dependencies map (with empty vec if needed)
-            dep_graph.dependencies.entry(output_id).or_insert_with(Vec::new);
+            dep_graph
+                .dependencies
+                .entry(output_id)
+                .or_insert_with(Vec::new);
         }
 
         // Also include bus dependencies
@@ -5875,7 +6048,10 @@ impl UnifiedSignalGraph {
             }
 
             // Ensure bus nodes are in the graph even if they have no dependencies
-            dep_graph.dependencies.entry(bus_id).or_insert_with(Vec::new);
+            dep_graph
+                .dependencies
+                .entry(bus_id)
+                .or_insert_with(Vec::new);
         }
 
         dep_graph
@@ -5930,13 +6106,16 @@ impl UnifiedSignalGraph {
     fn eval_signal_expr_from_buffers(&self, expr: &SignalExpr, sample_idx: usize) -> f32 {
         match expr {
             SignalExpr::Add(a, b) => {
-                self.eval_signal_from_buffers(a, sample_idx) + self.eval_signal_from_buffers(b, sample_idx)
+                self.eval_signal_from_buffers(a, sample_idx)
+                    + self.eval_signal_from_buffers(b, sample_idx)
             }
             SignalExpr::Subtract(a, b) => {
-                self.eval_signal_from_buffers(a, sample_idx) - self.eval_signal_from_buffers(b, sample_idx)
+                self.eval_signal_from_buffers(a, sample_idx)
+                    - self.eval_signal_from_buffers(b, sample_idx)
             }
             SignalExpr::Multiply(a, b) => {
-                self.eval_signal_from_buffers(a, sample_idx) * self.eval_signal_from_buffers(b, sample_idx)
+                self.eval_signal_from_buffers(a, sample_idx)
+                    * self.eval_signal_from_buffers(b, sample_idx)
             }
             SignalExpr::Divide(a, b) => {
                 let divisor = self.eval_signal_from_buffers(b, sample_idx);
@@ -5954,9 +6133,9 @@ impl UnifiedSignalGraph {
                     self.eval_signal_from_buffers(a, sample_idx) % divisor
                 }
             }
-            SignalExpr::Min(a, b) => {
-                self.eval_signal_from_buffers(a, sample_idx).min(self.eval_signal_from_buffers(b, sample_idx))
-            }
+            SignalExpr::Min(a, b) => self
+                .eval_signal_from_buffers(a, sample_idx)
+                .min(self.eval_signal_from_buffers(b, sample_idx)),
             SignalExpr::Scale { input, min, max } => {
                 let val = self.eval_signal_from_buffers(input, sample_idx);
                 // Scale from -1..1 to min..max
@@ -6157,49 +6336,49 @@ impl UnifiedSignalGraph {
             Signal::Node(id) => {
                 if let Some(Some(node)) = self.nodes.get(id.0) {
                     if let SignalNode::Pattern { pattern, .. } = &**node {
-                    let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-                    let state = State {
-                        span: TimeSpan::new(
-                            Fraction::from_float(cycle_pos),
-                            Fraction::from_float(cycle_pos + sample_width),
-                        ),
-                        controls: HashMap::new(),
-                    };
+                        let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                        let state = State {
+                            span: TimeSpan::new(
+                                Fraction::from_float(cycle_pos),
+                                Fraction::from_float(cycle_pos + sample_width),
+                            ),
+                            controls: HashMap::new(),
+                        };
 
-                    let events = pattern.query(&state);
+                        let events = pattern.query(&state);
 
-                    if let Some(event) = events.first() {
-                        let s = event.value.as_str();
-                        if s == "~" || s.is_empty() {
-                            0.0
-                        } else {
-                            use crate::pattern_tonal::note_to_midi;
+                        if let Some(event) = events.first() {
+                            let s = event.value.as_str();
+                            if s == "~" || s.is_empty() {
+                                0.0
+                            } else {
+                                use crate::pattern_tonal::note_to_midi;
 
-                            // Try parsing as number first (semitone offset)
-                            if let Ok(numeric_value) = s.parse::<f32>() {
-                                numeric_value
-                            }
-                            // Try parsing as note name (convert to semitone offset from C4)
-                            else if let Some(midi) = note_to_midi(s) {
-                                (midi as i32 - 60) as f32 // C4 (MIDI 60) = 0 semitones
-                            }
-                            // Check for solfège
-                            else {
-                                match s.to_lowercase().as_str() {
-                                    "do" => 0.0,
-                                    "re" => 2.0,
-                                    "mi" => 4.0,
-                                    "fa" => 5.0,
-                                    "sol" | "so" => 7.0,
-                                    "la" => 9.0,
-                                    "ti" | "si" => 11.0,
-                                    _ => 0.0, // Unknown, treat as 0
+                                // Try parsing as number first (semitone offset)
+                                if let Ok(numeric_value) = s.parse::<f32>() {
+                                    numeric_value
+                                }
+                                // Try parsing as note name (convert to semitone offset from C4)
+                                else if let Some(midi) = note_to_midi(s) {
+                                    (midi as i32 - 60) as f32 // C4 (MIDI 60) = 0 semitones
+                                }
+                                // Check for solfège
+                                else {
+                                    match s.to_lowercase().as_str() {
+                                        "do" => 0.0,
+                                        "re" => 2.0,
+                                        "mi" => 4.0,
+                                        "fa" => 5.0,
+                                        "sol" | "so" => 7.0,
+                                        "la" => 9.0,
+                                        "ti" | "si" => 11.0,
+                                        _ => 0.0, // Unknown, treat as 0
+                                    }
                                 }
                             }
+                        } else {
+                            0.0
                         }
-                    } else {
-                        0.0
-                    }
                     } else {
                         self.eval_node(id)
                     }
@@ -6279,88 +6458,91 @@ impl UnifiedSignalGraph {
             Signal::Node(id) => {
                 if let Some(Some(node)) = self.nodes.get(id.0) {
                     if let SignalNode::Pattern { pattern, .. } = &**node {
-                    let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-                    let state = State {
-                        span: TimeSpan::new(
-                            Fraction::from_float(cycle_pos),
-                            Fraction::from_float(cycle_pos + sample_width),
-                        ),
-                        controls: HashMap::new(),
-                    };
+                        let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                        let state = State {
+                            span: TimeSpan::new(
+                                Fraction::from_float(cycle_pos),
+                                Fraction::from_float(cycle_pos + sample_width),
+                            ),
+                            controls: HashMap::new(),
+                        };
 
-                    let events = pattern.query(&state);
+                        let events = pattern.query(&state);
 
-                    if events.is_empty() {
-                        vec![0.0]
-                    } else {
-                        use crate::pattern_tonal::{note_to_midi, CHORD_INTERVALS};
-
-                        // Process ALL events (for chord notation like [a3, g3] with comma for simultaneous)
-                        let mut all_notes = Vec::new();
-
-                        for event in &events {
-                            let s = event.value.as_str();
-
-                            if s == "~" || s.is_empty() {
-                                // Skip rests, don't add 0.0 (that would affect other notes)
-                                continue;
-                            }
-
-                            // Check if this is chord notation (contains apostrophe)
-                            if s.contains('\'') {
-                                // Parse chord: "c4'maj" -> root note + chord intervals
-                                // Return ABSOLUTE MIDI values (+ 1000 offset to distinguish from relative)
-                                if let Some(midi_root) = note_to_midi(s) {
-                                    // Extract chord type from notation (everything after ')
-                                    if let Some(apostrophe_pos) = s.find('\'') {
-                                        let chord_type = &s[apostrophe_pos + 1..];
-
-                                        // Look up chord intervals
-                                        if let Some(intervals) = CHORD_INTERVALS.get(chord_type) {
-                                            // Add root + all intervals as ABSOLUTE MIDI (+ 1000)
-                                            for &interval in intervals.iter() {
-                                                all_notes.push(1000.0 + midi_root as f32 + interval as f32);
-                                            }
-                                        } else {
-                                            // Unknown chord type, just play root
-                                            all_notes.push(1000.0 + midi_root as f32);
-                                        }
-                                    } else {
-                                        all_notes.push(1000.0 + midi_root as f32);
-                                    }
-                                }
-                            } else {
-                                // Single note or numeric offset
-                                let note_value = if let Ok(numeric_value) = s.parse::<f32>() {
-                                    // Numeric: direct semitone offset (RELATIVE)
-                                    numeric_value
-                                } else if let Some(midi) = note_to_midi(s) {
-                                    // Named note: ABSOLUTE MIDI (+ 1000)
-                                    1000.0 + midi as f32
-                                } else {
-                                    // Solfège: treat as relative semitones in current octave
-                                    match s.to_lowercase().as_str() {
-                                        "do" => 0.0,
-                                        "re" => 2.0,
-                                        "mi" => 4.0,
-                                        "fa" => 5.0,
-                                        "sol" | "so" => 7.0,
-                                        "la" => 9.0,
-                                        "ti" | "si" => 11.0,
-                                        _ => 0.0,
-                                    }
-                                };
-                                all_notes.push(note_value);
-                            }
-                        }
-
-                        // If no valid notes were found, return 0 (no pitch change)
-                        if all_notes.is_empty() {
+                        if events.is_empty() {
                             vec![0.0]
                         } else {
-                            all_notes
+                            use crate::pattern_tonal::{note_to_midi, CHORD_INTERVALS};
+
+                            // Process ALL events (for chord notation like [a3, g3] with comma for simultaneous)
+                            let mut all_notes = Vec::new();
+
+                            for event in &events {
+                                let s = event.value.as_str();
+
+                                if s == "~" || s.is_empty() {
+                                    // Skip rests, don't add 0.0 (that would affect other notes)
+                                    continue;
+                                }
+
+                                // Check if this is chord notation (contains apostrophe)
+                                if s.contains('\'') {
+                                    // Parse chord: "c4'maj" -> root note + chord intervals
+                                    // Return ABSOLUTE MIDI values (+ 1000 offset to distinguish from relative)
+                                    if let Some(midi_root) = note_to_midi(s) {
+                                        // Extract chord type from notation (everything after ')
+                                        if let Some(apostrophe_pos) = s.find('\'') {
+                                            let chord_type = &s[apostrophe_pos + 1..];
+
+                                            // Look up chord intervals
+                                            if let Some(intervals) = CHORD_INTERVALS.get(chord_type)
+                                            {
+                                                // Add root + all intervals as ABSOLUTE MIDI (+ 1000)
+                                                for &interval in intervals.iter() {
+                                                    all_notes.push(
+                                                        1000.0 + midi_root as f32 + interval as f32,
+                                                    );
+                                                }
+                                            } else {
+                                                // Unknown chord type, just play root
+                                                all_notes.push(1000.0 + midi_root as f32);
+                                            }
+                                        } else {
+                                            all_notes.push(1000.0 + midi_root as f32);
+                                        }
+                                    }
+                                } else {
+                                    // Single note or numeric offset
+                                    let note_value = if let Ok(numeric_value) = s.parse::<f32>() {
+                                        // Numeric: direct semitone offset (RELATIVE)
+                                        numeric_value
+                                    } else if let Some(midi) = note_to_midi(s) {
+                                        // Named note: ABSOLUTE MIDI (+ 1000)
+                                        1000.0 + midi as f32
+                                    } else {
+                                        // Solfège: treat as relative semitones in current octave
+                                        match s.to_lowercase().as_str() {
+                                            "do" => 0.0,
+                                            "re" => 2.0,
+                                            "mi" => 4.0,
+                                            "fa" => 5.0,
+                                            "sol" | "so" => 7.0,
+                                            "la" => 9.0,
+                                            "ti" | "si" => 11.0,
+                                            _ => 0.0,
+                                        }
+                                    };
+                                    all_notes.push(note_value);
+                                }
+                            }
+
+                            // If no valid notes were found, return 0 (no pitch change)
+                            if all_notes.is_empty() {
+                                vec![0.0]
+                            } else {
+                                all_notes
+                            }
                         }
-                    }
                     } else {
                         vec![self.eval_node(id)]
                     }
@@ -6405,56 +6587,56 @@ impl UnifiedSignalGraph {
                         ..
                     } = &**node
                     {
-                    let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-                    let state = State {
-                        span: TimeSpan::new(
-                            Fraction::from_float(cycle_pos),
-                            Fraction::from_float(cycle_pos + sample_width),
-                        ),
-                        controls: HashMap::new(),
-                    };
+                        let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                        let state = State {
+                            span: TimeSpan::new(
+                                Fraction::from_float(cycle_pos),
+                                Fraction::from_float(cycle_pos + sample_width),
+                            ),
+                            controls: HashMap::new(),
+                        };
 
-                    let events = pattern.query(&state);
+                        let events = pattern.query(&state);
 
-                    // DEBUG: Log pattern signal evaluation
-                    if std::env::var("DEBUG_PATTERN").is_ok()
-                        && self.sample_count < 44200
-                        && self.sample_count % 2200 == 0
-                    {
-                        eprintln!(
-                            "Signal Pattern '{}' at cycle {:.6}, sample {}: {} events",
-                            pattern_str,
-                            cycle_pos,
-                            self.sample_count,
-                            events.len()
-                        );
-                        if let Some(event) = events.first() {
+                        // DEBUG: Log pattern signal evaluation
+                        if std::env::var("DEBUG_PATTERN").is_ok()
+                            && self.sample_count < 44200
+                            && self.sample_count % 2200 == 0
+                        {
                             eprintln!(
-                                "  First event: '{}' at [{:.6}, {:.6})",
-                                event.value,
-                                event.part.begin.to_float(),
-                                event.part.end.to_float()
+                                "Signal Pattern '{}' at cycle {:.6}, sample {}: {} events",
+                                pattern_str,
+                                cycle_pos,
+                                self.sample_count,
+                                events.len()
                             );
-                        }
-                    }
-
-                    if let Some(event) = events.first() {
-                        let s = event.value.as_str();
-                        if s == "~" || s.is_empty() {
-                            0.0
-                        } else {
-                            use crate::pattern_tonal::{midi_to_freq, note_to_midi};
-                            if let Ok(numeric_value) = s.parse::<f32>() {
-                                numeric_value
-                            } else if let Some(midi) = note_to_midi(s) {
-                                midi_to_freq(midi) as f32
-                            } else {
-                                1.0
+                            if let Some(event) = events.first() {
+                                eprintln!(
+                                    "  First event: '{}' at [{:.6}, {:.6})",
+                                    event.value,
+                                    event.part.begin.to_float(),
+                                    event.part.end.to_float()
+                                );
                             }
                         }
-                    } else {
-                        0.0
-                    }
+
+                        if let Some(event) = events.first() {
+                            let s = event.value.as_str();
+                            if s == "~" || s.is_empty() {
+                                0.0
+                            } else {
+                                use crate::pattern_tonal::{midi_to_freq, note_to_midi};
+                                if let Ok(numeric_value) = s.parse::<f32>() {
+                                    numeric_value
+                                } else if let Some(midi) = note_to_midi(s) {
+                                    midi_to_freq(midi) as f32
+                                } else {
+                                    1.0
+                                }
+                            }
+                        } else {
+                            0.0
+                        }
                     } else {
                         // For non-Pattern nodes (oscillators, filters, etc.),
                         // use eval_node which evaluates at current cycle position
@@ -6561,7 +6743,8 @@ impl UnifiedSignalGraph {
     fn eval_node(&mut self, node_id: &NodeId) -> f32 {
         // Track cache stats if profiling
         static CACHE_HITS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        static CACHE_MISSES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        static CACHE_MISSES: std::sync::atomic::AtomicUsize =
+            std::sync::atomic::AtomicUsize::new(0);
 
         // Check cache first
         if let Some(&cached) = self.value_cache.get(node_id) {
@@ -6763,11 +6946,7 @@ impl UnifiedSignalGraph {
 
                 // Update carrier phase for next sample
                 if let Some(Some(node)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::PMOscillator {
-                        carrier_phase,
-                        ..
-                    } = &**node
-                    {
+                    if let SignalNode::PMOscillator { carrier_phase, .. } = &**node {
                         let mut cp = carrier_phase.borrow_mut();
                         *cp += carrier_f / self.sample_rate;
                         if *cp >= 1.0 {
@@ -6904,7 +7083,10 @@ impl UnifiedSignalGraph {
             SignalNode::UnitDelay { bus_name } => {
                 // Look up the previous sample's value for this bus
                 // Returns 0.0 on first sample (no history yet)
-                self.bus_previous_values.get(bus_name).copied().unwrap_or(0.0)
+                self.bus_previous_values
+                    .get(bus_name)
+                    .copied()
+                    .unwrap_or(0.0)
             }
 
             SignalNode::PinkNoise { state } => {
@@ -6967,7 +7149,13 @@ impl UnifiedSignalGraph {
                 new_accumulator * 0.7
             }
 
-            SignalNode::MidiInput { channel, active_notes, event_queue, last_freq, gate } => {
+            SignalNode::MidiInput {
+                channel,
+                active_notes,
+                event_queue,
+                last_freq,
+                gate,
+            } => {
                 use crate::midi_input::MidiMessageType;
 
                 // Process all pending MIDI events from the queue
@@ -6984,11 +7172,13 @@ impl UnifiedSignalGraph {
                         match event.message_type {
                             MidiMessageType::NoteOn { note, velocity } if velocity > 0 => {
                                 // Note on: add to active notes with normalized velocity
-                                active_notes.borrow_mut().insert(note, velocity as f32 / 127.0);
+                                active_notes
+                                    .borrow_mut()
+                                    .insert(note, velocity as f32 / 127.0);
                                 *gate.borrow_mut() = 1.0; // Gate on
                             }
-                            MidiMessageType::NoteOff { note, .. } |
-                            MidiMessageType::NoteOn { note, velocity: 0 } => {
+                            MidiMessageType::NoteOff { note, .. }
+                            | MidiMessageType::NoteOn { note, velocity: 0 } => {
                                 // Note off: remove from active notes
                                 active_notes.borrow_mut().remove(&note);
                                 // Gate off only if no notes are active
@@ -7300,58 +7490,58 @@ impl UnifiedSignalGraph {
                 0.0
             }
 
-                        SignalNode::KarplusStrong {
-                            freq,
-                            damping,
-                            trigger,
-                            state,
-                            last_freq,
-                            last_trigger,
-                        } => {
-                            // Evaluate pattern-modulatable parameters
-                            let f = self.eval_signal(&freq).max(20.0).min(10000.0);
-                            let damp = self.eval_signal(&damping).clamp(0.0, 1.0);
-                            let trig = self.eval_signal(&trigger);
-            
-                            // Calculate required delay line size for this frequency
-                            let required_size = (self.sample_rate / f) as usize;
-            
-                            // Check if frequency changed significantly (need to resize delay line)
-                            let freq_changed = (f - *last_freq).abs() > 1.0;
-            
-                            // Detect rising edge trigger (0 -> 1)
-                            let trigger_edge = trig > 0.5 && *last_trigger <= 0.5;
-            
-                            if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
-                                let node = Rc::make_mut(node_rc);
-                                if let SignalNode::KarplusStrong {
-                                    state: s,
-                                    last_freq: lf,
-                                    last_trigger: lt,
-                                    ..
-                                } = node
-                                {
-                                    // Resize delay line if frequency changed
-                                    if freq_changed {
-                                        s.resize(required_size);
-                                        *lf = f;
-                                    }
-            
-                                    // Re-initialize with noise on trigger
-                                    if trigger_edge {
-                                        s.initialize_with_noise();
-                                    }
-            
-                                    // Update last_trigger
-                                    *lt = trig;
-            
-                                    // Get sample from Karplus-Strong algorithm
-                                    return s.get_sample(damp);
-                                }
-                            }
-            
-                            0.0
+            SignalNode::KarplusStrong {
+                freq,
+                damping,
+                trigger,
+                state,
+                last_freq,
+                last_trigger,
+            } => {
+                // Evaluate pattern-modulatable parameters
+                let f = self.eval_signal(&freq).max(20.0).min(10000.0);
+                let damp = self.eval_signal(&damping).clamp(0.0, 1.0);
+                let trig = self.eval_signal(&trigger);
+
+                // Calculate required delay line size for this frequency
+                let required_size = (self.sample_rate / f) as usize;
+
+                // Check if frequency changed significantly (need to resize delay line)
+                let freq_changed = (f - *last_freq).abs() > 1.0;
+
+                // Detect rising edge trigger (0 -> 1)
+                let trigger_edge = trig > 0.5 && *last_trigger <= 0.5;
+
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::KarplusStrong {
+                        state: s,
+                        last_freq: lf,
+                        last_trigger: lt,
+                        ..
+                    } = node
+                    {
+                        // Resize delay line if frequency changed
+                        if freq_changed {
+                            s.resize(required_size);
+                            *lf = f;
                         }
+
+                        // Re-initialize with noise on trigger
+                        if trigger_edge {
+                            s.initialize_with_noise();
+                        }
+
+                        // Update last_trigger
+                        *lt = trig;
+
+                        // Get sample from Karplus-Strong algorithm
+                        return s.get_sample(damp);
+                    }
+                }
+
+                0.0
+            }
 
             SignalNode::Waveguide {
                 freq,
@@ -7528,7 +7718,9 @@ impl UnifiedSignalGraph {
                 0.0
             }
 
-            SignalNode::Limiter { input, threshold, .. } => {
+            SignalNode::Limiter {
+                input, threshold, ..
+            } => {
                 // Evaluate input signal and threshold
                 let input_val = self.eval_signal(&input);
                 let thresh = self.eval_signal(&threshold).max(0.0);
@@ -7548,13 +7740,17 @@ impl UnifiedSignalGraph {
                 // Produces LP, HP, BP, and Notch outputs simultaneously
 
                 let input_val = self.eval_signal(&input);
-                let freq = self.eval_signal(&frequency).clamp(10.0, self.sample_rate * 0.45);
+                let freq = self
+                    .eval_signal(&frequency)
+                    .clamp(10.0, self.sample_rate * 0.45);
                 let res = self.eval_signal(&resonance).max(0.1); // Prevent division by zero
 
                 // Calculate filter coefficients
                 // f = 2 * sin(π * cutoff / sampleRate)
                 // Prevent instability at high frequencies
-                let f = (std::f32::consts::PI * freq / self.sample_rate).sin().min(0.95);
+                let f = (std::f32::consts::PI * freq / self.sample_rate)
+                    .sin()
+                    .min(0.95);
                 let q = 1.0 / res.max(0.1); // Convert resonance to damping
 
                 // Get current state
@@ -7588,11 +7784,11 @@ impl UnifiedSignalGraph {
 
                 // Select output based on mode
                 match mode {
-                    0 => low,        // Lowpass
-                    1 => high,       // Highpass
-                    2 => band,       // Bandpass
-                    3 => notch,      // Notch
-                    _ => low,        // Default to lowpass
+                    0 => low,   // Lowpass
+                    1 => high,  // Highpass
+                    2 => band,  // Bandpass
+                    3 => notch, // Notch
+                    _ => low,   // Default to lowpass
                 }
             }
 
@@ -7607,7 +7803,9 @@ impl UnifiedSignalGraph {
                 // High-quality second-order IIR filter with multiple modes
 
                 let input_val = self.eval_signal(&input);
-                let freq = self.eval_signal(&frequency).clamp(10.0, self.sample_rate * 0.45);
+                let freq = self
+                    .eval_signal(&frequency)
+                    .clamp(10.0, self.sample_rate * 0.45);
                 let q_val = self.eval_signal(&q).clamp(0.1, 20.0); // Prevent instability
 
                 // Calculate normalized frequency
@@ -7685,7 +7883,8 @@ impl UnifiedSignalGraph {
 
                 // Apply biquad difference equation (Direct Form II)
                 // y[n] = b0*x[n] + b1*x[n-1] + b2*x[n-2] - a1*y[n-1] - a2*y[n-2]
-                let output = b0_norm * input_val + b1_norm * x1 + b2_norm * x2 - a1_norm * y1 - a2_norm * y2;
+                let output =
+                    b0_norm * input_val + b1_norm * x1 + b2_norm * x2 - a1_norm * y1 - a2_norm * y2;
 
                 // Clamp output to prevent runaway values
                 let output_clamped = output.clamp(-10.0, 10.0);
@@ -7727,7 +7926,9 @@ impl UnifiedSignalGraph {
                 // Similar to Biquad BP but optimized for high Q values
 
                 let input_val = self.eval_signal(&input);
-                let freq = self.eval_signal(&frequency).clamp(10.0, self.sample_rate * 0.45);
+                let freq = self
+                    .eval_signal(&frequency)
+                    .clamp(10.0, self.sample_rate * 0.45);
                 let q_val = self.eval_signal(&q).clamp(0.5, 100.0); // Allow higher Q for more resonance
 
                 // Calculate normalized frequency
@@ -7758,7 +7959,8 @@ impl UnifiedSignalGraph {
                 let y2 = state.y2;
 
                 // Apply biquad difference equation
-                let output = b0_norm * input_val + b1_norm * x1 + b2_norm * x2 - a1_norm * y1 - a2_norm * y2;
+                let output =
+                    b0_norm * input_val + b1_norm * x1 + b2_norm * x2 - a1_norm * y1 - a2_norm * y2;
 
                 // Clamp output to prevent runaway values
                 let output_clamped = output.clamp(-10.0, 10.0);
@@ -7800,7 +8002,9 @@ impl UnifiedSignalGraph {
                 // Implemented as biquad lowpass with Q parameter
 
                 let input_val = self.eval_signal(&input);
-                let freq = self.eval_signal(&cutoff).clamp(10.0, self.sample_rate * 0.45);
+                let freq = self
+                    .eval_signal(&cutoff)
+                    .clamp(10.0, self.sample_rate * 0.45);
                 let q_val = self.eval_signal(&resonance).clamp(0.1, 20.0);
 
                 // Calculate normalized frequency
@@ -7832,7 +8036,8 @@ impl UnifiedSignalGraph {
                 let y2 = state.y2;
 
                 // Apply biquad difference equation
-                let output = b0_norm * input_val + b1_norm * x1 + b2_norm * x2 - a1_norm * y1 - a2_norm * y2;
+                let output =
+                    b0_norm * input_val + b1_norm * x1 + b2_norm * x2 - a1_norm * y1 - a2_norm * y2;
 
                 // Clamp output to prevent runaway values
                 let output_clamped = output.clamp(-10.0, 10.0);
@@ -7874,7 +8079,9 @@ impl UnifiedSignalGraph {
                 // Implemented as biquad highpass with Q parameter
 
                 let input_val = self.eval_signal(&input);
-                let freq = self.eval_signal(&cutoff).clamp(10.0, self.sample_rate * 0.45);
+                let freq = self
+                    .eval_signal(&cutoff)
+                    .clamp(10.0, self.sample_rate * 0.45);
                 let q_val = self.eval_signal(&resonance).clamp(0.1, 20.0);
 
                 // Calculate normalized frequency
@@ -7905,7 +8112,8 @@ impl UnifiedSignalGraph {
                 let y2 = state.y2;
 
                 // Apply biquad difference equation
-                let output = b0_norm * input_val + b1_norm * x1 + b2_norm * x2 - a1_norm * y1 - a2_norm * y2;
+                let output =
+                    b0_norm * input_val + b1_norm * x1 + b2_norm * x2 - a1_norm * y1 - a2_norm * y2;
 
                 // Clamp output to prevent runaway values
                 let output_clamped = output.clamp(-10.0, 10.0);
@@ -7966,7 +8174,7 @@ impl UnifiedSignalGraph {
 
             SignalNode::PatternEvaluator { pattern } => {
                 // Evaluate the pattern at the current cycle position
-                use crate::pattern::{State, TimeSpan, Fraction};
+                use crate::pattern::{Fraction, State, TimeSpan};
                 use std::collections::HashMap;
 
                 let cycle_pos = self.get_cycle_position();
@@ -7996,7 +8204,11 @@ impl UnifiedSignalGraph {
                 }
             }
 
-            SignalNode::SometimesEffect { input, effect, prob } => {
+            SignalNode::SometimesEffect {
+                input,
+                effect,
+                prob,
+            } => {
                 // Apply effect with probability, based on cycle seed
                 use rand::{rngs::StdRng, Rng, SeedableRng};
                 let current_cycle = self.get_cycle_position().floor() as u64;
@@ -8009,7 +8221,12 @@ impl UnifiedSignalGraph {
                 }
             }
 
-            SignalNode::WhenmodEffect { input, effect, modulo, offset } => {
+            SignalNode::WhenmodEffect {
+                input,
+                effect,
+                modulo,
+                offset,
+            } => {
                 // Apply effect when (cycle - offset) % modulo == 0
                 let current_cycle = self.get_cycle_position().floor() as i32;
                 if (current_cycle - offset) % modulo == 0 {
@@ -8169,15 +8386,22 @@ impl UnifiedSignalGraph {
                 let q_val = self.eval_signal(&q).max(0.5).min(20.0);
 
                 // Get state and cached coefficients
-                let (mut low, mut band, mut high, mut f, mut damp) = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::LowPass { state, .. } = &**node_rc {
-                        (state.y1, state.x1, state.y2, state.cached_f, state.cached_damp)
+                let (mut low, mut band, mut high, mut f, mut damp) =
+                    if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                        if let SignalNode::LowPass { state, .. } = &**node_rc {
+                            (
+                                state.y1,
+                                state.x1,
+                                state.y2,
+                                state.cached_f,
+                                state.cached_damp,
+                            )
+                        } else {
+                            (0.0, 0.0, 0.0, 0.0, 1.0)
+                        }
                     } else {
                         (0.0, 0.0, 0.0, 0.0, 1.0)
-                    }
-                } else {
-                    (0.0, 0.0, 0.0, 0.0, 1.0)
-                };
+                    };
 
                 // Only recompute coefficients if parameters changed (OPTIMIZATION!)
                 let params_changed = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
@@ -8315,14 +8539,15 @@ impl UnifiedSignalGraph {
 
                 // Helper function for allpass filter
                 // y[n] = -x[n] + x[n-D] + g * (x[n] - y[n-D])
-                let allpass = |buffer: &mut Vec<f32>, idx: &mut usize, input: f32, gain: f32| -> f32 {
-                    let buffer_len = buffer.len();
-                    let delayed = buffer[*idx];
-                    let output = -input + delayed + gain * (input - delayed);
-                    buffer[*idx] = input + gain * delayed;
-                    *idx = (*idx + 1) % buffer_len;
-                    output
-                };
+                let allpass =
+                    |buffer: &mut Vec<f32>, idx: &mut usize, input: f32, gain: f32| -> f32 {
+                        let buffer_len = buffer.len();
+                        let delayed = buffer[*idx];
+                        let output = -input + delayed + gain * (input - delayed);
+                        buffer[*idx] = input + gain * delayed;
+                        *idx = (*idx + 1) % buffer_len;
+                        output
+                    };
 
                 // Helper function for simple delay
                 let delay = |buffer: &mut Vec<f32>, idx: &mut usize, input: f32| -> f32 {
@@ -8334,141 +8559,186 @@ impl UnifiedSignalGraph {
                 };
 
                 // Get mutable state
-                let (left_out, right_out) = if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                let (left_out, right_out) = if let Some(Some(node_rc)) =
+                    self.nodes.get_mut(node_id.0)
+                {
                     let node = Rc::make_mut(node_rc);
                     if let SignalNode::DattorroReverb { state: s, .. } = node {
-                    // 1. PRE-DELAY
-                    let pre_delay_samples = ((pre_delay_ms / 1000.0) * s.sample_rate) as usize;
-                    let pre_delay_samples = pre_delay_samples.min(s.predelay_buffer.len() - 1);
+                        // 1. PRE-DELAY
+                        let pre_delay_samples = ((pre_delay_ms / 1000.0) * s.sample_rate) as usize;
+                        let pre_delay_samples = pre_delay_samples.min(s.predelay_buffer.len() - 1);
 
-                    let predelay_out = if pre_delay_samples > 0 {
-                        let read_idx = (s.predelay_idx + s.predelay_buffer.len() - pre_delay_samples)
-                            % s.predelay_buffer.len();
-                        let output = s.predelay_buffer[read_idx];
-                        s.predelay_buffer[s.predelay_idx] = input_val;
-                        s.predelay_idx = (s.predelay_idx + 1) % s.predelay_buffer.len();
-                        output
-                    } else {
-                        input_val
-                    };
+                        let predelay_out = if pre_delay_samples > 0 {
+                            let read_idx = (s.predelay_idx + s.predelay_buffer.len()
+                                - pre_delay_samples)
+                                % s.predelay_buffer.len();
+                            let output = s.predelay_buffer[read_idx];
+                            s.predelay_buffer[s.predelay_idx] = input_val;
+                            s.predelay_idx = (s.predelay_idx + 1) % s.predelay_buffer.len();
+                            output
+                        } else {
+                            input_val
+                        };
 
-                    // 2. INPUT DIFFUSION (4 series allpass filters)
-                    let input_diffusion_gain = 0.75 * diffusion_val;
-                    let mut diffused = predelay_out;
+                        // 2. INPUT DIFFUSION (4 series allpass filters)
+                        let input_diffusion_gain = 0.75 * diffusion_val;
+                        let mut diffused = predelay_out;
 
-                    for i in 0..4 {
-                        diffused = allpass(
-                            &mut s.input_diffusion_buffers[i],
-                            &mut s.input_diffusion_indices[i],
-                            diffused,
-                            input_diffusion_gain,
+                        for i in 0..4 {
+                            diffused = allpass(
+                                &mut s.input_diffusion_buffers[i],
+                                &mut s.input_diffusion_indices[i],
+                                diffused,
+                                input_diffusion_gain,
+                            );
+                        }
+
+                        // Split into left and right for the figure-8 network
+                        let input_to_tanks = diffused;
+
+                        // 3. FIGURE-8 DECAY NETWORK
+                        // Coefficients from Dattorro paper
+                        let decay_diffusion1 = 0.7 * diffusion_val;
+                        let decay_diffusion2 = 0.5 * diffusion_val;
+                        let decay_gain = 0.4 + (decay_val - 0.1) / 9.9 * 0.55; // Map 0.1-10.0 to 0.4-0.95
+
+                        // Damping (one-pole lowpass coefficient)
+                        let damp_coef = 1.0 - damping_val * 0.7; // Higher damping = darker sound
+
+                        // Modulation (simple LFO for chorus effect)
+                        let lfo_rate = 0.8; // Hz
+                        let lfo = (s.lfo_phase * std::f32::consts::TAU).sin() * mod_depth_val * 8.0; // ±8 samples modulation
+                        s.lfo_phase = (s.lfo_phase + lfo_rate / s.sample_rate) % 1.0;
+
+                        // LEFT TANK
+                        // Read previous right tank output for cross-coupling
+                        let right_to_left = s.right_delay2_buffer[s.right_delay2_idx];
+
+                        // Input to left tank (with cross-coupling from right)
+                        let left_input = input_to_tanks + right_to_left * decay_gain;
+
+                        // Left APF1 (modulated)
+                        let left_apf1_out = {
+                            // Apply modulation by varying read position slightly
+                            let mod_offset = lfo as isize;
+                            let read_idx = ((s.left_apf1_idx as isize
+                                + s.left_apf1_buffer.len() as isize
+                                + mod_offset)
+                                % s.left_apf1_buffer.len() as isize)
+                                as usize;
+                            let delayed = s.left_apf1_buffer[read_idx];
+                            let output =
+                                -left_input + delayed + decay_diffusion1 * (left_input - delayed);
+                            s.left_apf1_buffer[s.left_apf1_idx] =
+                                left_input + decay_diffusion1 * delayed;
+                            s.left_apf1_idx = (s.left_apf1_idx + 1) % s.left_apf1_buffer.len();
+                            output
+                        };
+
+                        // Left Delay1
+                        let left_delay1_out = delay(
+                            &mut s.left_delay1_buffer,
+                            &mut s.left_delay1_idx,
+                            left_apf1_out,
                         );
-                    }
 
-                    // Split into left and right for the figure-8 network
-                    let input_to_tanks = diffused;
+                        // Left APF2 (modulated differently)
+                        let left_apf2_out = {
+                            let mod_offset = -lfo as isize;
+                            let read_idx = ((s.left_apf2_idx as isize
+                                + s.left_apf2_buffer.len() as isize
+                                + mod_offset)
+                                % s.left_apf2_buffer.len() as isize)
+                                as usize;
+                            let delayed = s.left_apf2_buffer[read_idx];
+                            let output = -left_delay1_out
+                                + delayed
+                                + decay_diffusion2 * (left_delay1_out - delayed);
+                            s.left_apf2_buffer[s.left_apf2_idx] =
+                                left_delay1_out + decay_diffusion2 * delayed;
+                            s.left_apf2_idx = (s.left_apf2_idx + 1) % s.left_apf2_buffer.len();
+                            output
+                        };
 
-                    // 3. FIGURE-8 DECAY NETWORK
-                    // Coefficients from Dattorro paper
-                    let decay_diffusion1 = 0.7 * diffusion_val;
-                    let decay_diffusion2 = 0.5 * diffusion_val;
-                    let decay_gain = 0.4 + (decay_val - 0.1) / 9.9 * 0.55; // Map 0.1-10.0 to 0.4-0.95
+                        // Damping LPF and Delay2
+                        let left_damped =
+                            s.left_lpf_state * damp_coef + left_apf2_out * (1.0 - damp_coef);
+                        s.left_lpf_state = left_damped;
 
-                    // Damping (one-pole lowpass coefficient)
-                    let damp_coef = 1.0 - damping_val * 0.7; // Higher damping = darker sound
+                        let left_delay2_out = delay(
+                            &mut s.left_delay2_buffer,
+                            &mut s.left_delay2_idx,
+                            left_damped * decay_gain,
+                        );
 
-                    // Modulation (simple LFO for chorus effect)
-                    let lfo_rate = 0.8; // Hz
-                    let lfo = (s.lfo_phase * std::f32::consts::TAU).sin() * mod_depth_val * 8.0; // ±8 samples modulation
-                    s.lfo_phase = (s.lfo_phase + lfo_rate / s.sample_rate) % 1.0;
+                        // RIGHT TANK
+                        // Read previous left tank output for cross-coupling
+                        let left_to_right = left_delay2_out;
 
-                    // LEFT TANK
-                    // Read previous right tank output for cross-coupling
-                    let right_to_left = s.right_delay2_buffer[s.right_delay2_idx];
+                        // Input to right tank (with cross-coupling from left)
+                        let right_input = input_to_tanks + left_to_right;
 
-                    // Input to left tank (with cross-coupling from right)
-                    let left_input = input_to_tanks + right_to_left * decay_gain;
+                        // Right APF1 (modulated)
+                        let right_apf1_out = {
+                            let mod_offset = -lfo as isize;
+                            let read_idx = ((s.right_apf1_idx as isize
+                                + s.right_apf1_buffer.len() as isize
+                                + mod_offset)
+                                % s.right_apf1_buffer.len() as isize)
+                                as usize;
+                            let delayed = s.right_apf1_buffer[read_idx];
+                            let output =
+                                -right_input + delayed + decay_diffusion1 * (right_input - delayed);
+                            s.right_apf1_buffer[s.right_apf1_idx] =
+                                right_input + decay_diffusion1 * delayed;
+                            s.right_apf1_idx = (s.right_apf1_idx + 1) % s.right_apf1_buffer.len();
+                            output
+                        };
 
-                    // Left APF1 (modulated)
-                    let left_apf1_out = {
-                        // Apply modulation by varying read position slightly
-                        let mod_offset = lfo as isize;
-                        let read_idx = ((s.left_apf1_idx as isize + s.left_apf1_buffer.len() as isize + mod_offset)
-                            % s.left_apf1_buffer.len() as isize) as usize;
-                        let delayed = s.left_apf1_buffer[read_idx];
-                        let output = -left_input + delayed + decay_diffusion1 * (left_input - delayed);
-                        s.left_apf1_buffer[s.left_apf1_idx] = left_input + decay_diffusion1 * delayed;
-                        s.left_apf1_idx = (s.left_apf1_idx + 1) % s.left_apf1_buffer.len();
-                        output
-                    };
+                        // Right Delay1
+                        let right_delay1_out = delay(
+                            &mut s.right_delay1_buffer,
+                            &mut s.right_delay1_idx,
+                            right_apf1_out,
+                        );
 
-                    // Left Delay1
-                    let left_delay1_out = delay(&mut s.left_delay1_buffer, &mut s.left_delay1_idx, left_apf1_out);
+                        // Right APF2 (modulated differently)
+                        let right_apf2_out = {
+                            let mod_offset = lfo as isize;
+                            let read_idx = ((s.right_apf2_idx as isize
+                                + s.right_apf2_buffer.len() as isize
+                                + mod_offset)
+                                % s.right_apf2_buffer.len() as isize)
+                                as usize;
+                            let delayed = s.right_apf2_buffer[read_idx];
+                            let output = -right_delay1_out
+                                + delayed
+                                + decay_diffusion2 * (right_delay1_out - delayed);
+                            s.right_apf2_buffer[s.right_apf2_idx] =
+                                right_delay1_out + decay_diffusion2 * delayed;
+                            s.right_apf2_idx = (s.right_apf2_idx + 1) % s.right_apf2_buffer.len();
+                            output
+                        };
 
-                    // Left APF2 (modulated differently)
-                    let left_apf2_out = {
-                        let mod_offset = -lfo as isize;
-                        let read_idx = ((s.left_apf2_idx as isize + s.left_apf2_buffer.len() as isize + mod_offset)
-                            % s.left_apf2_buffer.len() as isize) as usize;
-                        let delayed = s.left_apf2_buffer[read_idx];
-                        let output = -left_delay1_out + delayed + decay_diffusion2 * (left_delay1_out - delayed);
-                        s.left_apf2_buffer[s.left_apf2_idx] = left_delay1_out + decay_diffusion2 * delayed;
-                        s.left_apf2_idx = (s.left_apf2_idx + 1) % s.left_apf2_buffer.len();
-                        output
-                    };
+                        // Damping LPF and Delay2
+                        let right_damped =
+                            s.right_lpf_state * damp_coef + right_apf2_out * (1.0 - damp_coef);
+                        s.right_lpf_state = right_damped;
 
-                    // Damping LPF and Delay2
-                    let left_damped = s.left_lpf_state * damp_coef + left_apf2_out * (1.0 - damp_coef);
-                    s.left_lpf_state = left_damped;
+                        let right_delay2_out = delay(
+                            &mut s.right_delay2_buffer,
+                            &mut s.right_delay2_idx,
+                            right_damped * decay_gain,
+                        );
 
-                    let left_delay2_out = delay(&mut s.left_delay2_buffer, &mut s.left_delay2_idx, left_damped * decay_gain);
+                        // 4. OUTPUT TAPS (sum multiple points for density)
+                        // Using multiple tap points as suggested by Dattorro
+                        let left_output =
+                            (left_delay1_out + left_apf2_out + left_delay2_out) * 0.33;
+                        let right_output =
+                            (right_delay1_out + right_apf2_out + right_delay2_out) * 0.33;
 
-                    // RIGHT TANK
-                    // Read previous left tank output for cross-coupling
-                    let left_to_right = left_delay2_out;
-
-                    // Input to right tank (with cross-coupling from left)
-                    let right_input = input_to_tanks + left_to_right;
-
-                    // Right APF1 (modulated)
-                    let right_apf1_out = {
-                        let mod_offset = -lfo as isize;
-                        let read_idx = ((s.right_apf1_idx as isize + s.right_apf1_buffer.len() as isize + mod_offset)
-                            % s.right_apf1_buffer.len() as isize) as usize;
-                        let delayed = s.right_apf1_buffer[read_idx];
-                        let output = -right_input + delayed + decay_diffusion1 * (right_input - delayed);
-                        s.right_apf1_buffer[s.right_apf1_idx] = right_input + decay_diffusion1 * delayed;
-                        s.right_apf1_idx = (s.right_apf1_idx + 1) % s.right_apf1_buffer.len();
-                        output
-                    };
-
-                    // Right Delay1
-                    let right_delay1_out = delay(&mut s.right_delay1_buffer, &mut s.right_delay1_idx, right_apf1_out);
-
-                    // Right APF2 (modulated differently)
-                    let right_apf2_out = {
-                        let mod_offset = lfo as isize;
-                        let read_idx = ((s.right_apf2_idx as isize + s.right_apf2_buffer.len() as isize + mod_offset)
-                            % s.right_apf2_buffer.len() as isize) as usize;
-                        let delayed = s.right_apf2_buffer[read_idx];
-                        let output = -right_delay1_out + delayed + decay_diffusion2 * (right_delay1_out - delayed);
-                        s.right_apf2_buffer[s.right_apf2_idx] = right_delay1_out + decay_diffusion2 * delayed;
-                        s.right_apf2_idx = (s.right_apf2_idx + 1) % s.right_apf2_buffer.len();
-                        output
-                    };
-
-                    // Damping LPF and Delay2
-                    let right_damped = s.right_lpf_state * damp_coef + right_apf2_out * (1.0 - damp_coef);
-                    s.right_lpf_state = right_damped;
-
-                    let right_delay2_out = delay(&mut s.right_delay2_buffer, &mut s.right_delay2_idx, right_damped * decay_gain);
-
-                    // 4. OUTPUT TAPS (sum multiple points for density)
-                    // Using multiple tap points as suggested by Dattorro
-                    let left_output = (left_delay1_out + left_apf2_out + left_delay2_out) * 0.33;
-                    let right_output = (right_delay1_out + right_apf2_out + right_delay2_out) * 0.33;
-
-                    (left_output, right_output)
+                        (left_output, right_output)
                     } else {
                         (0.0, 0.0)
                     }
@@ -8964,24 +9234,24 @@ impl UnifiedSignalGraph {
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
                     let node = Rc::make_mut(node_rc);
                     if let SignalNode::Tremolo { phase: p, .. } = node {
-                    // Advance phase
-                    *p += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
+                        // Advance phase
+                        *p += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
 
-                    // Wrap phase to [0, 2π]
-                    if *p >= 2.0 * std::f32::consts::PI {
-                        *p -= 2.0 * std::f32::consts::PI;
-                    }
+                        // Wrap phase to [0, 2π]
+                        if *p >= 2.0 * std::f32::consts::PI {
+                            *p -= 2.0 * std::f32::consts::PI;
+                        }
 
-                    // Calculate LFO (sine wave, -1 to +1)
-                    let lfo = p.sin();
+                        // Calculate LFO (sine wave, -1 to +1)
+                        let lfo = p.sin();
 
-                    // Convert LFO to modulation amount
-                    // depth=0: mod=1 (no effect)
-                    // depth=1: mod oscillates 0 to 1
-                    let modulation = 1.0 - depth_val * 0.5 + depth_val * 0.5 * lfo;
+                        // Convert LFO to modulation amount
+                        // depth=0: mod=1 (no effect)
+                        // depth=1: mod oscillates 0 to 1
+                        let modulation = 1.0 - depth_val * 0.5 + depth_val * 0.5 * lfo;
 
-                    // Apply amplitude modulation
-                    output_val = input_val * modulation;
+                        // Apply amplitude modulation
+                        output_val = input_val * modulation;
                     }
                 }
 
@@ -9015,51 +9285,52 @@ impl UnifiedSignalGraph {
                         delay_buffer: buf,
                         buffer_pos: pos,
                         ..
-                    } = node {
-                    // Initialize buffer if empty (first call)
-                    let buffer_size = (self.sample_rate * 0.05) as usize; // 50ms buffer
-                    if buf.is_empty() {
-                        buf.resize(buffer_size, 0.0);
-                    }
+                    } = node
+                    {
+                        // Initialize buffer if empty (first call)
+                        let buffer_size = (self.sample_rate * 0.05) as usize; // 50ms buffer
+                        if buf.is_empty() {
+                            buf.resize(buffer_size, 0.0);
+                        }
 
-                    // Write input to delay buffer
-                    buf[*pos] = input_val;
+                        // Write input to delay buffer
+                        buf[*pos] = input_val;
 
-                    // Advance phase
-                    *phase += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
+                        // Advance phase
+                        *phase += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
 
-                    // Wrap phase to [0, 2π]
-                    if *phase >= 2.0 * std::f32::consts::PI {
-                        *phase -= 2.0 * std::f32::consts::PI;
-                    }
+                        // Wrap phase to [0, 2π]
+                        if *phase >= 2.0 * std::f32::consts::PI {
+                            *phase -= 2.0 * std::f32::consts::PI;
+                        }
 
-                    // Calculate LFO (sine wave, -1 to +1)
-                    let lfo = phase.sin();
+                        // Calculate LFO (sine wave, -1 to +1)
+                        let lfo = phase.sin();
 
-                    // Convert depth from semitones to delay time
-                    // depth in semitones -> frequency ratio -> time ratio
-                    // 1 semitone = 2^(1/12) ≈ 1.059 frequency ratio
-                    let max_delay_ms = 10.0; // Maximum 10ms delay
-                    let delay_ms = max_delay_ms * (depth_semitones / 2.0) * (1.0 + lfo);
-                    let delay_samples = (delay_ms * self.sample_rate / 1000.0).max(0.0);
+                        // Convert depth from semitones to delay time
+                        // depth in semitones -> frequency ratio -> time ratio
+                        // 1 semitone = 2^(1/12) ≈ 1.059 frequency ratio
+                        let max_delay_ms = 10.0; // Maximum 10ms delay
+                        let delay_ms = max_delay_ms * (depth_semitones / 2.0) * (1.0 + lfo);
+                        let delay_samples = (delay_ms * self.sample_rate / 1000.0).max(0.0);
 
-                    // Calculate read position (fractional)
-                    let read_pos_float = *pos as f32 - delay_samples;
-                    let read_pos_wrapped = if read_pos_float < 0.0 {
-                        read_pos_float + buf.len() as f32
-                    } else {
-                        read_pos_float
-                    };
+                        // Calculate read position (fractional)
+                        let read_pos_float = *pos as f32 - delay_samples;
+                        let read_pos_wrapped = if read_pos_float < 0.0 {
+                            read_pos_float + buf.len() as f32
+                        } else {
+                            read_pos_float
+                        };
 
-                    // Linear interpolation for fractional delay
-                    let read_pos_int = read_pos_wrapped as usize % buf.len();
-                    let read_pos_next = (read_pos_int + 1) % buf.len();
-                    let frac = read_pos_wrapped.fract();
+                        // Linear interpolation for fractional delay
+                        let read_pos_int = read_pos_wrapped as usize % buf.len();
+                        let read_pos_next = (read_pos_int + 1) % buf.len();
+                        let frac = read_pos_wrapped.fract();
 
-                    output_val = buf[read_pos_int] * (1.0 - frac) + buf[read_pos_next] * frac;
+                        output_val = buf[read_pos_int] * (1.0 - frac) + buf[read_pos_next] * frac;
 
-                    // Advance buffer position
-                    *pos = (*pos + 1) % buf.len();
+                        // Advance buffer position
+                        *pos = (*pos + 1) % buf.len();
                     }
                 }
 
@@ -9099,52 +9370,53 @@ impl UnifiedSignalGraph {
                         feedback_sample: fb_sample,
                         stages: num_stages,
                         ..
-                    } = node {
-                    // Initialize allpass filter states if needed
-                    if z1.is_empty() {
-                        z1.resize(*num_stages, 0.0);
-                        y1.resize(*num_stages, 0.0);
-                    }
+                    } = node
+                    {
+                        // Initialize allpass filter states if needed
+                        if z1.is_empty() {
+                            z1.resize(*num_stages, 0.0);
+                            y1.resize(*num_stages, 0.0);
+                        }
 
-                    // Advance LFO phase
-                    *phase += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
-                    if *phase >= 2.0 * std::f32::consts::PI {
-                        *phase -= 2.0 * std::f32::consts::PI;
-                    }
+                        // Advance LFO phase
+                        *phase += rate_hz * 2.0 * std::f32::consts::PI / self.sample_rate;
+                        if *phase >= 2.0 * std::f32::consts::PI {
+                            *phase -= 2.0 * std::f32::consts::PI;
+                        }
 
-                    // Calculate LFO (sine wave, 0 to 1)
-                    let lfo = (phase.sin() + 1.0) * 0.5;
+                        // Calculate LFO (sine wave, 0 to 1)
+                        let lfo = (phase.sin() + 1.0) * 0.5;
 
-                    // Map LFO to cutoff frequency (200 Hz to 2000 Hz sweep)
-                    let min_freq = 200.0;
-                    let max_freq = 2000.0;
-                    let cutoff = min_freq + (max_freq - min_freq) * lfo * depth_val;
+                        // Map LFO to cutoff frequency (200 Hz to 2000 Hz sweep)
+                        let min_freq = 200.0;
+                        let max_freq = 2000.0;
+                        let cutoff = min_freq + (max_freq - min_freq) * lfo * depth_val;
 
-                    // Calculate allpass coefficient
-                    // a = (tan(π*fc/fs) - 1) / (tan(π*fc/fs) + 1)
-                    let tan_val = (std::f32::consts::PI * cutoff / self.sample_rate).tan();
-                    let a = (tan_val - 1.0) / (tan_val + 1.0);
+                        // Calculate allpass coefficient
+                        // a = (tan(π*fc/fs) - 1) / (tan(π*fc/fs) + 1)
+                        let tan_val = (std::f32::consts::PI * cutoff / self.sample_rate).tan();
+                        let a = (tan_val - 1.0) / (tan_val + 1.0);
 
-                    // Apply feedback
-                    let mut signal = input_val + *fb_sample * feedback_val;
+                        // Apply feedback
+                        let mut signal = input_val + *fb_sample * feedback_val;
 
-                    // Apply allpass filter cascade
-                    for stage in 0..*num_stages {
-                        // First-order allpass: y[n] = a*x[n] + x[n-1] - a*y[n-1]
-                        let output = a * signal + z1[stage] - a * y1[stage];
+                        // Apply allpass filter cascade
+                        for stage in 0..*num_stages {
+                            // First-order allpass: y[n] = a*x[n] + x[n-1] - a*y[n-1]
+                            let output = a * signal + z1[stage] - a * y1[stage];
 
-                        // Update state
-                        z1[stage] = signal;
-                        y1[stage] = output;
+                            // Update state
+                            z1[stage] = signal;
+                            y1[stage] = output;
 
-                        signal = output;
-                    }
+                            signal = output;
+                        }
 
-                    // Store for feedback
-                    *fb_sample = signal;
+                        // Store for feedback
+                        *fb_sample = signal;
 
-                    // Mix filtered signal with dry signal (creates notches)
-                    output_val = (input_val + signal) * 0.5;
+                        // Mix filtered signal with dry signal (creates notches)
+                        output_val = (input_val + signal) * 0.5;
                     }
                 }
 
@@ -9172,7 +9444,11 @@ impl UnifiedSignalGraph {
                 output_val
             }
 
-            SignalNode::FMCrossMod { carrier, modulator, mod_depth } => {
+            SignalNode::FMCrossMod {
+                carrier,
+                modulator,
+                mod_depth,
+            } => {
                 let carrier_val = self.eval_signal(&carrier);
                 let modulator_val = self.eval_signal(&modulator);
                 let depth_val = self.eval_signal(&mod_depth);
@@ -9377,7 +9653,9 @@ impl UnifiedSignalGraph {
                         if std::env::var("DEBUG_PATTERN").is_ok() && *last_value != 0.0 {
                             eprintln!(
                                 "Pattern '{}' at cycle {:.4}: REST (was {})",
-                                pattern_str, self.get_cycle_position(), last_value
+                                pattern_str,
+                                self.get_cycle_position(),
+                                last_value
                             );
                         }
                     } else if !s.is_empty() {
@@ -9401,7 +9679,11 @@ impl UnifiedSignalGraph {
                         if std::env::var("DEBUG_PATTERN").is_ok() && current_value != *last_value {
                             eprintln!(
                                 "Pattern '{}' at cycle {:.4}: value changed {} -> {} (event: '{}')",
-                                pattern_str, self.get_cycle_position(), last_value, current_value, s
+                                pattern_str,
+                                self.get_cycle_position(),
+                                last_value,
+                                current_value,
+                                s
                             );
                         }
 
@@ -9496,9 +9778,14 @@ impl UnifiedSignalGraph {
 
                 // Set the default source node for all voice triggers in this Sample node
                 // This separates outputs so each output only hears its own samples
-                self.voice_manager.borrow_mut().set_default_source_node(node_id.0);
+                self.voice_manager
+                    .borrow_mut()
+                    .set_default_source_node(node_id.0);
                 if std::env::var("DEBUG_SOURCE_NODE").is_ok() {
-                    eprintln!("[SOURCE_NODE] Sample node {} set as default source", node_id.0);
+                    eprintln!(
+                        "[SOURCE_NODE] Sample node {} set as default source",
+                        node_id.0
+                    );
                 }
 
                 // OPTION B OPTIMIZATION: Use pre-computed events if available
@@ -9539,10 +9826,13 @@ impl UnifiedSignalGraph {
                     if let SignalNode::Sample {
                         last_trigger_time: lt,
                         ..
-                    } = &**node {
+                    } = &**node
+                    {
                         if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
-                            eprintln!("[DEDUP] Node {} reading last_trigger_time={:.6} from Sample node",
-                                node_id.0, *lt);
+                            eprintln!(
+                                "[DEDUP] Node {} reading last_trigger_time={:.6} from Sample node",
+                                node_id.0, *lt
+                            );
                         }
                         *lt as f64
                     } else {
@@ -9584,7 +9874,11 @@ impl UnifiedSignalGraph {
                 // Trigger voices for ALL new events
                 // An event should be triggered if its START is after the last event we triggered
                 if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() && !events.is_empty() {
-                    eprintln!("[SAMPLE_EVENTS] Node {} processing {} events", node_id.0, events.len());
+                    eprintln!(
+                        "[SAMPLE_EVENTS] Node {} processing {} events",
+                        node_id.0,
+                        events.len()
+                    );
                 }
                 for event in events.iter() {
                     let sample_name = event.value.trim();
@@ -9595,8 +9889,11 @@ impl UnifiedSignalGraph {
                     }
 
                     if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
-                        eprintln!("[SAMPLE_EVENTS] Processing event: sample_name='{}', is_bus_trigger={}",
-                            sample_name, sample_name.starts_with('~'));
+                        eprintln!(
+                            "[SAMPLE_EVENTS] Processing event: sample_name='{}', is_bus_trigger={}",
+                            sample_name,
+                            sample_name.starts_with('~')
+                        );
                     }
 
                     // Check for bus trigger prefix (~busname)
@@ -9662,7 +9959,8 @@ impl UnifiedSignalGraph {
                         let pan_val = if let Some(pan_str) = event.context.get("pan") {
                             pan_str.parse::<f32>().unwrap_or(0.0).clamp(-1.0, 1.0)
                         } else {
-                            self.eval_signal_at_time(&pan, event_start_abs).clamp(-1.0, 1.0)
+                            self.eval_signal_at_time(&pan, event_start_abs)
+                                .clamp(-1.0, 1.0)
                         };
 
                         // Check event context for speed override (set by transforms like loopAt, hurry)
@@ -9673,7 +9971,8 @@ impl UnifiedSignalGraph {
                             // speed parameter from loopAt or explicit speed control
                             speed_str.parse::<f32>().unwrap_or(1.0).clamp(-10.0, 10.0)
                         } else {
-                            self.eval_signal_at_time(&speed, event_start_abs).clamp(-10.0, 10.0)
+                            self.eval_signal_at_time(&speed, event_start_abs)
+                                .clamp(-10.0, 10.0)
                         };
                         let cut_group_val = self.eval_signal_at_time(&cut_group, event_start_abs);
                         let cut_group_opt = if cut_group_val > 0.0 {
@@ -9712,7 +10011,10 @@ impl UnifiedSignalGraph {
 
                         // DEBUG: Log chord notes
                         if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
-                            eprintln!("    Chord notes for '{}': {:?} (gain scaled by {:.3})", sample_name, chord_notes, chord_gain_scale);
+                            eprintln!(
+                                "    Chord notes for '{}': {:?} (gain scaled by {:.3})",
+                                sample_name, chord_notes, chord_gain_scale
+                            );
                         }
 
                         // Evaluate envelope parameters
@@ -9727,9 +10029,10 @@ impl UnifiedSignalGraph {
 
                         // Check if event has legato duration in context (from legato transform)
                         // Store for later use in auto-release calculation
-                        let legato_duration_opt = event.context.get("legato_duration")
+                        let legato_duration_opt = event
+                            .context
+                            .get("legato_duration")
                             .and_then(|s| s.parse::<f32>().ok());
-
 
                         // Legacy: Update release_val for old code paths (will be superseded by ADSR+auto-release)
                         if let Some(duration_cycles) = legato_duration_opt {
@@ -9772,12 +10075,14 @@ impl UnifiedSignalGraph {
                         let begin_val = if let Some(begin_str) = event.context.get("begin") {
                             begin_str.parse::<f32>().unwrap_or(0.0).clamp(0.0, 1.0)
                         } else {
-                            self.eval_signal_at_time(&begin, event_start_abs).clamp(0.0, 1.0)
+                            self.eval_signal_at_time(&begin, event_start_abs)
+                                .clamp(0.0, 1.0)
                         };
                         let end_val = if let Some(end_str) = event.context.get("end") {
                             end_str.parse::<f32>().unwrap_or(1.0).clamp(0.0, 1.0)
                         } else {
-                            self.eval_signal_at_time(&end, event_start_abs).clamp(0.0, 1.0)
+                            self.eval_signal_at_time(&end, event_start_abs)
+                                .clamp(0.0, 1.0)
                         };
 
                         // DEBUG: Print cut group info
@@ -9799,12 +10104,18 @@ impl UnifiedSignalGraph {
                             // Handle bus triggering vs regular sample loading
                             if is_bus_trigger {
                                 if std::env::var("DEBUG_BUS_LOOKUP").is_ok() {
-                                    eprintln!("[BUS] Looking up bus '{}', is_bus_trigger={}", actual_name, is_bus_trigger);
+                                    eprintln!(
+                                        "[BUS] Looking up bus '{}', is_bus_trigger={}",
+                                        actual_name, is_bus_trigger
+                                    );
                                 }
                                 // Look up the bus
                                 if let Some(bus_node_id) = self.buses.get(actual_name).copied() {
                                     if std::env::var("DEBUG_BUS_LOOKUP").is_ok() {
-                                        eprintln!("[BUS] Found bus '{}' -> node_id={}", actual_name, bus_node_id.0);
+                                        eprintln!(
+                                            "[BUS] Found bus '{}' -> node_id={}",
+                                            actual_name, bus_node_id.0
+                                        );
                                     }
                                     // CONTINUOUS SYNTHESIS ARCHITECTURE:
                                     // Instead of pre-rendering bus to a fixed-length buffer,
@@ -9814,14 +10125,15 @@ impl UnifiedSignalGraph {
                                     // Use envelope parameters - respect user settings or use defaults
                                     // If user set AR parameter explicitly, use those values
                                     // Otherwise use sensible defaults for synthesis (smooth onset + moderate release)
-                                    let (bus_attack, bus_release) = if attack_val > 0.0 || release_val > 0.0 {
-                                        // User explicitly set envelope: use their values
-                                        (final_attack, final_release)
-                                    } else {
-                                        // No explicit envelope: use defaults (10ms attack, 0.3s release)
-                                        // 0.3s allows natural decay without turning melodies into drones
-                                        (0.01, 0.3) // 10ms attack (anti-click), 300ms release (melodic)
-                                    };
+                                    let (bus_attack, bus_release) =
+                                        if attack_val > 0.0 || release_val > 0.0 {
+                                            // User explicitly set envelope: use their values
+                                            (final_attack, final_release)
+                                        } else {
+                                            // No explicit envelope: use defaults (10ms attack, 0.3s release)
+                                            // 0.3s allows natural decay without turning melodies into drones
+                                            (0.01, 0.3) // 10ms attack (anti-click), 300ms release (melodic)
+                                        };
 
                                     // DEBUG: Log synthesis voice triggering
                                     if std::env::var("DEBUG_VOICE_TRIGGER").is_ok() {
@@ -9832,17 +10144,15 @@ impl UnifiedSignalGraph {
                                     // Trigger continuous synthesis voice
                                     // TODO: Support other envelope types (ADSR, Segments, Curve) for synthesis voices
                                     // For now, use simple percussion envelope
-                                    self.voice_manager
-                                        .borrow_mut()
-                                        .trigger_synthesis_voice(
-                                            bus_node_id.0, // Pass raw NodeId (usize)
-                                            gain_val,
-                                            pan_val,
-                                            cut_group_opt,
-                                            bus_attack,
-                                            bus_release,
-                                            note_semitones, // Pitch offset for note parameter
-                                        );
+                                    self.voice_manager.borrow_mut().trigger_synthesis_voice(
+                                        bus_node_id.0, // Pass raw NodeId (usize)
+                                        gain_val,
+                                        pan_val,
+                                        cut_group_opt,
+                                        bus_attack,
+                                        bus_release,
+                                        note_semitones, // Pitch offset for note parameter
+                                    );
 
                                     // Note: unit mode and loop don't apply to synthesis voices
                                     // Synthesis continues until envelope finishes
@@ -9874,11 +10184,14 @@ impl UnifiedSignalGraph {
                                         let end_sample = (end_val * sample_len as f32) as usize;
 
                                         // Ensure valid range
-                                        let begin_sample = begin_sample.min(sample_len.saturating_sub(1));
-                                        let end_sample = end_sample.clamp(begin_sample + 1, sample_len);
+                                        let begin_sample =
+                                            begin_sample.min(sample_len.saturating_sub(1));
+                                        let end_sample =
+                                            end_sample.clamp(begin_sample + 1, sample_len);
 
                                         // Create sliced copy of the sample (preserves stereo)
-                                        let sliced_sample = sample_data.slice(begin_sample, end_sample);
+                                        let sliced_sample =
+                                            sample_data.slice(begin_sample, end_sample);
                                         std::sync::Arc::new(sliced_sample)
                                     } else {
                                         // No slicing needed, use original sample
@@ -9902,27 +10215,28 @@ impl UnifiedSignalGraph {
                                         let sharp_sustain = 1.0;
                                         let sharp_release = 0.003;
 
-                                        self.voice_manager
-                                            .borrow_mut()
-                                            .trigger_sample_with_adsr(
-                                                sliced_sample_data.clone(),
-                                                gain_val,
-                                                pan_val,
-                                                final_speed,
-                                                cut_group_opt,
-                                                sharp_attack,
-                                                sharp_decay,
-                                                sharp_sustain,
-                                                sharp_release,
-                                            );
+                                        self.voice_manager.borrow_mut().trigger_sample_with_adsr(
+                                            sliced_sample_data.clone(),
+                                            gain_val,
+                                            pan_val,
+                                            final_speed,
+                                            cut_group_opt,
+                                            sharp_attack,
+                                            sharp_decay,
+                                            sharp_sustain,
+                                            sharp_release,
+                                        );
 
                                         // Calculate auto-release time
                                         // Convert legato duration from cycles to seconds
                                         let duration_seconds = legato_cycles / self.cps;
                                         // Subtract attack and release times to get sustain duration
-                                        let sustain_seconds = (duration_seconds - sharp_attack - sharp_release).max(0.0);
+                                        let sustain_seconds =
+                                            (duration_seconds - sharp_attack - sharp_release)
+                                                .max(0.0);
                                         // Convert to samples
-                                        let auto_release_samples = (sustain_seconds * self.sample_rate as f32) as usize;
+                                        let auto_release_samples =
+                                            (sustain_seconds * self.sample_rate as f32) as usize;
 
                                         // Set auto-release on the last triggered voice
                                         self.voice_manager
@@ -9990,15 +10304,15 @@ impl UnifiedSignalGraph {
                                                 ref duration,
                                                 ref curve,
                                             }) => {
-                                                let start_val =
-                                                    self.eval_signal_at_time(start, event_start_abs);
+                                                let start_val = self
+                                                    .eval_signal_at_time(start, event_start_abs);
                                                 let end_val =
                                                     self.eval_signal_at_time(end, event_start_abs);
                                                 let duration_val = self
                                                     .eval_signal_at_time(duration, event_start_abs)
                                                     .max(0.001);
-                                                let curve_val =
-                                                    self.eval_signal_at_time(curve, event_start_abs);
+                                                let curve_val = self
+                                                    .eval_signal_at_time(curve, event_start_abs);
                                                 self.voice_manager
                                                     .borrow_mut()
                                                     .trigger_sample_with_curve(
@@ -10052,7 +10366,8 @@ impl UnifiedSignalGraph {
                             last_trigger_time: lt,
                             last_cycle: lc,
                             ..
-                        } = node {
+                        } = node
+                        {
                             *lt = latest_triggered_start as f32;
                             *lc = current_cycle;
                         }
@@ -10063,11 +10378,20 @@ impl UnifiedSignalGraph {
                 // The voice manager was processed ONCE at the start of process_sample()
                 // Each Sample node returns only its own voice mix (by node ID)
                 // This allows multiple outputs to have independent sample streams
-                let output = self.voice_output_cache.get(&node_id.0).copied().unwrap_or(0.0);
+                let output = self
+                    .voice_output_cache
+                    .get(&node_id.0)
+                    .copied()
+                    .unwrap_or(0.0);
                 // Debug for samples 520-530 (second buffer, after synthesis should be mixed)
-                if std::env::var("DEBUG_VOICE_CACHE").is_ok() && self.sample_count >= 520 && self.sample_count < 530 {
-                    eprintln!("[VOICE_CACHE] sample_count={}, Sample node {} reading: {:.6}",
-                        self.sample_count, node_id.0, output);
+                if std::env::var("DEBUG_VOICE_CACHE").is_ok()
+                    && self.sample_count >= 520
+                    && self.sample_count < 530
+                {
+                    eprintln!(
+                        "[VOICE_CACHE] sample_count={}, Sample node {} reading: {:.6}",
+                        self.sample_count, node_id.0, output
+                    );
                 }
                 output
             }
@@ -10107,7 +10431,8 @@ impl UnifiedSignalGraph {
                     if let SignalNode::SynthPattern {
                         last_trigger_time: lt,
                         ..
-                    } = &**node {
+                    } = &**node
+                    {
                         *lt as f64
                     } else {
                         -1.0
@@ -10199,7 +10524,8 @@ impl UnifiedSignalGraph {
                         if let SignalNode::SynthPattern {
                             last_trigger_time: lt,
                             ..
-                        } = node {
+                        } = node
+                        {
                             *lt = latest_triggered_start as f32;
                         }
                     }
@@ -10259,10 +10585,7 @@ impl UnifiedSignalGraph {
                                 // Update last_value for next time
                                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
                                     let node = Rc::make_mut(node_rc);
-                                    if let SignalNode::ScaleQuantize {
-                                        last_value: lv,
-                                        ..
-                                    } = node {
+                                    if let SignalNode::ScaleQuantize { last_value: lv, .. } = node {
                                         *lv = current_value;
                                     }
                                 }
@@ -10301,7 +10624,13 @@ impl UnifiedSignalGraph {
                 let (mut low, mut band, mut high, mut f, mut damp) =
                     if let Some(Some(node)) = self.nodes.get(node_id.0) {
                         if let SignalNode::HighPass { state, .. } = &**node {
-                            (state.y1, state.x1, state.y2, state.cached_f, state.cached_damp)
+                            (
+                                state.y1,
+                                state.x1,
+                                state.y2,
+                                state.cached_f,
+                                state.cached_damp,
+                            )
                         } else {
                             (0.0, 0.0, 0.0, 0.0, 1.0)
                         }
@@ -10361,7 +10690,13 @@ impl UnifiedSignalGraph {
                 let (mut low, mut band, mut high, mut f, mut damp) =
                     if let Some(Some(node)) = self.nodes.get(node_id.0) {
                         if let SignalNode::BandPass { state, .. } = &**node {
-                            (state.y1, state.x1, state.y2, state.cached_f, state.cached_damp)
+                            (
+                                state.y1,
+                                state.x1,
+                                state.y2,
+                                state.cached_f,
+                                state.cached_damp,
+                            )
                         } else {
                             (0.0, 0.0, 0.0, 0.0, 1.0)
                         }
@@ -10502,15 +10837,16 @@ impl UnifiedSignalGraph {
                 let damp = 1.0 / q_val;
 
                 // Get state
-                let (mut low, mut band, mut high) = if let Some(Some(node)) = self.nodes.get(node_id.0) {
-                    if let SignalNode::Notch { state, .. } = &**node {
-                        (state.y1, state.x1, state.y2)
+                let (mut low, mut band, mut high) =
+                    if let Some(Some(node)) = self.nodes.get(node_id.0) {
+                        if let SignalNode::Notch { state, .. } = &**node {
+                            (state.y1, state.x1, state.y2)
+                        } else {
+                            (0.0, 0.0, 0.0)
+                        }
                     } else {
                         (0.0, 0.0, 0.0)
-                    }
-                } else {
-                    (0.0, 0.0, 0.0)
-                };
+                    };
 
                 // Process
                 high = input_val - low - damp * band;
@@ -10559,7 +10895,8 @@ impl UnifiedSignalGraph {
                         buffer: buf,
                         write_pos: idx,
                         ..
-                    } = node {
+                    } = node
+                    {
                         buf[*idx] = output;
                         *idx = (*idx + 1) % buf.len();
                     }
@@ -10779,7 +11116,7 @@ impl UnifiedSignalGraph {
                         )
                     {
                         drop(phase); // Release borrow before mutable borrow
-                        // Store current level before entering release phase
+                                     // Store current level before entering release phase
                         *state.release_start_level.borrow_mut() = *state.level.borrow();
                         *state.phase.borrow_mut() = EnvPhase::Release;
                         *state.time_in_phase.borrow_mut() = 0.0;
@@ -10810,8 +11147,8 @@ impl UnifiedSignalGraph {
                     }
                     EnvPhase::Decay => {
                         if decay_val > 0.0 {
-                            let new_level =
-                                1.0 - (1.0 - sustain_val) * (*state.time_in_phase.borrow() / decay_val);
+                            let new_level = 1.0
+                                - (1.0 - sustain_val) * (*state.time_in_phase.borrow() / decay_val);
                             *state.level.borrow_mut() = new_level;
                             if new_level <= sustain_val {
                                 *state.level.borrow_mut() = sustain_val;
@@ -10831,7 +11168,8 @@ impl UnifiedSignalGraph {
                         if release_val > 0.0 {
                             // Linear decay from release_start_level to 0 over release time
                             let progress = (*state.time_in_phase.borrow() / release_val).min(1.0);
-                            *state.level.borrow_mut() = *state.release_start_level.borrow() * (1.0 - progress);
+                            *state.level.borrow_mut() =
+                                *state.release_start_level.borrow() * (1.0 - progress);
 
                             if progress >= 1.0 {
                                 *state.level.borrow_mut() = 0.0;
@@ -10997,30 +11335,31 @@ impl UnifiedSignalGraph {
                     if let SignalNode::Curve {
                         elapsed_time: elapsed,
                         ..
-                    } = node {
-                    // Increment elapsed time
-                    *elapsed += 1.0 / self.sample_rate;
+                    } = node
+                    {
+                        // Increment elapsed time
+                        *elapsed += 1.0 / self.sample_rate;
 
-                    // Calculate normalized time (0 to 1)
-                    let t = (*elapsed / duration_val).min(1.0);
+                        // Calculate normalized time (0 to 1)
+                        let t = (*elapsed / duration_val).min(1.0);
 
-                    // Apply curve formula
-                    // Based on SuperCollider's Env.curve
-                    // Negative curve = convex (fast start, slow end)
-                    // Positive curve = concave (slow start, fast end)
-                    let curved_t = if curve_val.abs() < 0.001 {
-                        // Linear (curve ≈ 0)
-                        t
-                    } else {
-                        // Exponential curve
-                        // Formula: (exp(curve * t) - 1) / (exp(curve) - 1)
-                        let exp_curve = curve_val.exp();
-                        let exp_curve_t = (curve_val * t).exp();
-                        (exp_curve_t - 1.0) / (exp_curve - 1.0)
-                    };
+                        // Apply curve formula
+                        // Based on SuperCollider's Env.curve
+                        // Negative curve = convex (fast start, slow end)
+                        // Positive curve = concave (slow start, fast end)
+                        let curved_t = if curve_val.abs() < 0.001 {
+                            // Linear (curve ≈ 0)
+                            t
+                        } else {
+                            // Exponential curve
+                            // Formula: (exp(curve * t) - 1) / (exp(curve) - 1)
+                            let exp_curve = curve_val.exp();
+                            let exp_curve_t = (curve_val * t).exp();
+                            (exp_curve_t - 1.0) / (exp_curve - 1.0)
+                        };
 
-                    // Interpolate between start and end
-                    output_val = start_val + (end_val - start_val) * curved_t;
+                        // Interpolate between start and end
+                        output_val = start_val + (end_val - start_val) * curved_t;
                     }
                 }
 
@@ -11045,43 +11384,44 @@ impl UnifiedSignalGraph {
                         current_segment: seg_idx,
                         segment_elapsed: seg_elapsed,
                         current_value: seg_value,
-                    } = node {
-                    // Advance time
-                    *seg_elapsed += 1.0 / self.sample_rate;
+                    } = node
+                    {
+                        // Advance time
+                        *seg_elapsed += 1.0 / self.sample_rate;
 
-                    // Check if we're beyond the last segment
-                    if *seg_idx >= seg_times.len() {
-                        // Hold final level
-                        output_val = if !seg_levels.is_empty() {
-                            seg_levels[seg_levels.len() - 1]
+                        // Check if we're beyond the last segment
+                        if *seg_idx >= seg_times.len() {
+                            // Hold final level
+                            output_val = if !seg_levels.is_empty() {
+                                seg_levels[seg_levels.len() - 1]
+                            } else {
+                                0.0
+                            };
+                            *seg_value = output_val;
                         } else {
-                            0.0
-                        };
-                        *seg_value = output_val;
-                    } else {
-                        // Get current segment info
-                        let segment_duration = seg_times[*seg_idx];
-                        let start_level = if *seg_idx == 0 {
-                            seg_levels[0]
-                        } else {
-                            seg_levels[*seg_idx]
-                        };
-                        let end_level = seg_levels[*seg_idx + 1];
+                            // Get current segment info
+                            let segment_duration = seg_times[*seg_idx];
+                            let start_level = if *seg_idx == 0 {
+                                seg_levels[0]
+                            } else {
+                                seg_levels[*seg_idx]
+                            };
+                            let end_level = seg_levels[*seg_idx + 1];
 
-                        // Calculate interpolation factor
-                        let t = (*seg_elapsed / segment_duration).min(1.0);
+                            // Calculate interpolation factor
+                            let t = (*seg_elapsed / segment_duration).min(1.0);
 
-                        // Linear interpolation
-                        output_val = start_level + (end_level - start_level) * t;
-                        *seg_value = output_val;
+                            // Linear interpolation
+                            output_val = start_level + (end_level - start_level) * t;
+                            *seg_value = output_val;
 
-                        // Check if segment is complete
-                        if *seg_elapsed >= segment_duration {
-                            // Move to next segment
-                            *seg_idx += 1;
-                            *seg_elapsed = 0.0;
+                            // Check if segment is complete
+                            if *seg_elapsed >= segment_duration {
+                                // Move to next segment
+                                *seg_idx += 1;
+                                *seg_elapsed = 0.0;
+                            }
                         }
-                    }
                     }
                 }
 
@@ -11122,7 +11462,8 @@ impl UnifiedSignalGraph {
                             last_trigger_time: lt,
                             last_cycle: lc,
                             ..
-                        } = &**node {
+                        } = &**node
+                        {
                             (*lt as f64, *lc)
                         } else {
                             (-1.0, -1)
@@ -11234,7 +11575,8 @@ impl UnifiedSignalGraph {
                     EnvPhase::Release => {
                         if *release > 0.0 {
                             let progress = (*state.time_in_phase.borrow() / *release).min(1.0);
-                            *state.level.borrow_mut() = *state.release_start_level.borrow() * (1.0 - progress);
+                            *state.level.borrow_mut() =
+                                *state.release_start_level.borrow() * (1.0 - progress);
 
                             if progress >= 1.0 {
                                 *state.level.borrow_mut() = 0.0;
@@ -11259,7 +11601,8 @@ impl UnifiedSignalGraph {
                         last_trigger_time: lt,
                         last_cycle: lc,
                         ..
-                    } = node {
+                    } = node
+                    {
                         *lt = latest_triggered_start as f32;
                         *lc = current_cycle;
                     }
@@ -11303,7 +11646,8 @@ impl UnifiedSignalGraph {
                             last_trigger_time: lt,
                             last_cycle: lc,
                             ..
-                        } = &**node {
+                        } = &**node
+                        {
                             (*lt as f64, *lc)
                         } else {
                             (-1.0, -1)
@@ -11412,7 +11756,8 @@ impl UnifiedSignalGraph {
                     EnvPhase::Release => {
                         if *release > 0.0 {
                             let progress = (*state.time_in_phase.borrow() / *release).min(1.0);
-                            *state.level.borrow_mut() = *state.release_start_level.borrow() * (1.0 - progress);
+                            *state.level.borrow_mut() =
+                                *state.release_start_level.borrow() * (1.0 - progress);
 
                             if progress >= 1.0 {
                                 *state.level.borrow_mut() = 0.0;
@@ -11437,7 +11782,8 @@ impl UnifiedSignalGraph {
                         last_trigger_time: lt,
                         last_cycle: lc,
                         ..
-                    } = node {
+                    } = node
+                    {
                         *lt = latest_triggered_start as f32;
                         *lc = current_cycle;
                     }
@@ -11478,7 +11824,8 @@ impl UnifiedSignalGraph {
                         buffer: buf,
                         write_idx: idx,
                         ..
-                    } = node {
+                    } = node
+                    {
                         buf[*idx] = to_write;
                         *idx = (*idx + 1) % buf.len();
                     }
@@ -11519,10 +11866,13 @@ impl UnifiedSignalGraph {
 
                 // Modulate delay time with wow (slow) and flutter (fast)
                 let wow = (state.wow_phase * std::f32::consts::TAU).sin() * wow_d * 0.001;
-                let flutter = (state.flutter_phase * std::f32::consts::TAU).sin() * flutter_d * 0.0001;
+                let flutter =
+                    (state.flutter_phase * std::f32::consts::TAU).sin() * flutter_d * 0.0001;
 
                 let modulated_time = delay_time + wow + flutter;
-                let delay_samples = (modulated_time * sample_rate).max(1.0).min(buffer_len as f32 - 1.0);
+                let delay_samples = (modulated_time * sample_rate)
+                    .max(1.0)
+                    .min(buffer_len as f32 - 1.0);
 
                 // Fractional delay using linear interpolation
                 let read_pos_f = (state.write_idx as f32) - delay_samples;
@@ -11611,7 +11961,8 @@ impl UnifiedSignalGraph {
                         buffer: buf,
                         write_idx: idx,
                         ..
-                    } = node {
+                    } = node
+                    {
                         buf[*idx] = to_write;
                         *idx = (*idx + 1) % buffer_len;
                     }
@@ -11642,7 +11993,8 @@ impl UnifiedSignalGraph {
                 let sample_rate = self.sample_rate();
                 let delay_samples = (delay_time * sample_rate) as usize;
 
-                let read_idx = (*write_idx + buffer_len - delay_samples.min(buffer_len - 1)) % buffer_len;
+                let read_idx =
+                    (*write_idx + buffer_len - delay_samples.min(buffer_len - 1)) % buffer_len;
 
                 // Read from opposite channel for ping-pong effect
                 let (delayed, opposite) = if *channel {
@@ -11655,8 +12007,16 @@ impl UnifiedSignalGraph {
                 let ping_ponged = delayed * (1.0 - width) + opposite * width;
 
                 // Write to both buffers
-                let to_write_l = if *channel { ping_ponged * fb } else { input_val + ping_ponged * fb };
-                let to_write_r = if *channel { input_val + ping_ponged * fb } else { ping_ponged * fb };
+                let to_write_l = if *channel {
+                    ping_ponged * fb
+                } else {
+                    input_val + ping_ponged * fb
+                };
+                let to_write_r = if *channel {
+                    input_val + ping_ponged * fb
+                } else {
+                    ping_ponged * fb
+                };
 
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
                     let node = Rc::make_mut(node_rc);
@@ -11665,7 +12025,8 @@ impl UnifiedSignalGraph {
                         buffer_r: buf_r,
                         write_idx: idx,
                         ..
-                    } = node {
+                    } = node
+                    {
                         buf_l[*idx] = to_write_l;
                         buf_r[*idx] = to_write_r;
                         *idx = (*idx + 1) % buffer_len;
@@ -11696,7 +12057,8 @@ impl UnifiedSignalGraph {
                         buffer: buf,
                         write_idx: idx,
                         ..
-                    } = node {
+                    } = node
+                    {
                         buf[*idx] = input_val * input_val;
                         *idx = (*idx + 1) % buf.len();
                     }
@@ -11732,7 +12094,8 @@ impl UnifiedSignalGraph {
                     if let SignalNode::Schmidt {
                         state: current_state,
                         ..
-                    } = node {
+                    } = node
+                    {
                         // If currently low and input exceeds high threshold, turn on
                         if !*current_state && input_val > high {
                             *current_state = true;
@@ -11775,7 +12138,8 @@ impl UnifiedSignalGraph {
                         held_value: stored_val,
                         last_gate: stored_gate,
                         ..
-                    } = node {
+                    } = node
+                    {
                         // Detect rising edge: last_gate < 0.5 and gate_val >= 0.5
                         if *stored_gate < 0.5 && gate_val >= 0.5 {
                             // Sample the input
@@ -11810,7 +12174,8 @@ impl UnifiedSignalGraph {
                         elapsed_time: stored_time,
                         last_trigger: stored_trigger,
                         ..
-                    } = node {
+                    } = node
+                    {
                         // Detect rising edge: last_trigger < 0.5 and trigger_val >= 0.5
                         if *stored_trigger < 0.5 && trigger_val >= 0.5 {
                             // Reset timer to 0
@@ -11918,7 +12283,8 @@ impl UnifiedSignalGraph {
                         sample_count: sc,
                         last_frequency: lf,
                         ..
-                    } = node {
+                    } = node
+                    {
                         *ls = input_val;
                         *cc = crossings;
                         *sc = samples;
@@ -11947,22 +12313,23 @@ impl UnifiedSignalGraph {
                     if let SignalNode::PeakFollower {
                         current_peak: stored_peak,
                         ..
-                    } = node {
-                    // Calculate attack and release coefficients
-                    // Coefficient determines how fast we approach target
-                    // coeff = 1 - exp(-1 / (time * sample_rate))
-                    let attack_coeff = 1.0 - (-1.0 / (attack_sec * self.sample_rate)).exp();
-                    let release_coeff = 1.0 - (-1.0 / (release_sec * self.sample_rate)).exp();
+                    } = node
+                    {
+                        // Calculate attack and release coefficients
+                        // Coefficient determines how fast we approach target
+                        // coeff = 1 - exp(-1 / (time * sample_rate))
+                        let attack_coeff = 1.0 - (-1.0 / (attack_sec * self.sample_rate)).exp();
+                        let release_coeff = 1.0 - (-1.0 / (release_sec * self.sample_rate)).exp();
 
-                    if input_val > *stored_peak {
-                        // Attack: quickly follow increases
-                        *stored_peak += (input_val - *stored_peak) * attack_coeff;
-                    } else {
-                        // Release: slowly decay
-                        *stored_peak += (input_val - *stored_peak) * release_coeff;
-                    }
+                        if input_val > *stored_peak {
+                            // Attack: quickly follow increases
+                            *stored_peak += (input_val - *stored_peak) * attack_coeff;
+                        } else {
+                            // Release: slowly decay
+                            *stored_peak += (input_val - *stored_peak) * release_coeff;
+                        }
 
-                    output_val = *stored_peak;
+                        output_val = *stored_peak;
                     }
                 }
 
@@ -11993,37 +12360,38 @@ impl UnifiedSignalGraph {
                         write_idx: idx,
                         current_envelope: env,
                         ..
-                    } = node {
-                    // Update buffer size if window changed
-                    let target_size = (window_sec * self.sample_rate) as usize;
-                    let target_size = target_size.max(1).min(88200); // Max 2 seconds
+                    } = node
+                    {
+                        // Update buffer size if window changed
+                        let target_size = (window_sec * self.sample_rate) as usize;
+                        let target_size = target_size.max(1).min(88200); // Max 2 seconds
 
-                    if buf.len() != target_size {
-                        buf.resize(target_size, 0.0);
-                        *idx = 0;
-                    }
+                        if buf.len() != target_size {
+                            buf.resize(target_size, 0.0);
+                            *idx = 0;
+                        }
 
-                    // Write new sample to circular buffer
-                    buf[*idx] = input_val * input_val; // Store squared value for RMS
-                    *idx = (*idx + 1) % buf.len();
+                        // Write new sample to circular buffer
+                        buf[*idx] = input_val * input_val; // Store squared value for RMS
+                        *idx = (*idx + 1) % buf.len();
 
-                    // Calculate RMS
-                    let sum: f32 = buf.iter().sum();
-                    let rms = (sum / buf.len() as f32).sqrt();
+                        // Calculate RMS
+                        let sum: f32 = buf.iter().sum();
+                        let rms = (sum / buf.len() as f32).sqrt();
 
-                    // Apply attack/release smoothing to RMS
-                    let attack_coeff = 1.0 - (-1.0 / (attack_sec * self.sample_rate)).exp();
-                    let release_coeff = 1.0 - (-1.0 / (release_sec * self.sample_rate)).exp();
+                        // Apply attack/release smoothing to RMS
+                        let attack_coeff = 1.0 - (-1.0 / (attack_sec * self.sample_rate)).exp();
+                        let release_coeff = 1.0 - (-1.0 / (release_sec * self.sample_rate)).exp();
 
-                    if rms > *env {
-                        // Attack: quickly follow increases
-                        *env += (rms - *env) * attack_coeff;
-                    } else {
-                        // Release: slowly decay
-                        *env += (rms - *env) * release_coeff;
-                    }
+                        if rms > *env {
+                            // Attack: quickly follow increases
+                            *env += (rms - *env) * attack_coeff;
+                        } else {
+                            // Release: slowly decay
+                            *env += (rms - *env) * release_coeff;
+                        }
 
-                    output_val = *env;
+                        output_val = *env;
                     }
                 }
 
@@ -12031,7 +12399,6 @@ impl UnifiedSignalGraph {
             }
 
             // NOTE: SignalNode::Wrap is already handled above (line 7879)
-
             SignalNode::Router {
                 input,
                 destinations: _,
@@ -12067,7 +12434,8 @@ impl UnifiedSignalGraph {
 
                 // Round index and wrap to valid range [0, N-1]
                 let num_inputs = inputs.len();
-                let selected_idx = ((index_value.round() as i32).rem_euclid(num_inputs as i32)) as usize;
+                let selected_idx =
+                    ((index_value.round() as i32).rem_euclid(num_inputs as i32)) as usize;
 
                 // Evaluate and return selected signal
                 self.eval_signal(&inputs[selected_idx])
@@ -12211,7 +12579,9 @@ impl UnifiedSignalGraph {
 
         // Also populate mono cache (from stereo by mixing down)
         // DSP nodes that process sample output need mono values
-        self.voice_output_cache = self.voice_output_cache_stereo.iter()
+        self.voice_output_cache = self
+            .voice_output_cache_stereo
+            .iter()
             .map(|(&node, &(l, r))| (node, (l + r) / std::f32::consts::SQRT_2))
             .collect();
 
@@ -12251,7 +12621,11 @@ impl UnifiedSignalGraph {
     /// Process a buffer of stereo samples
     /// Returns interleaved stereo: [L0, R0, L1, R1, ...]
     pub fn process_buffer_stereo(&mut self, left: &mut [f32], right: &mut [f32]) {
-        debug_assert_eq!(left.len(), right.len(), "Stereo buffers must be same length");
+        debug_assert_eq!(
+            left.len(),
+            right.len(),
+            "Stereo buffers must be same length"
+        );
 
         // CRITICAL: Clear buffer cache at start of each buffer render
         self.buffer_cache.borrow_mut().clear();
@@ -12276,7 +12650,8 @@ impl UnifiedSignalGraph {
 
         // Calculate buffer time span
         let start_cycle = self.get_cycle_position();
-        let buffer_duration_cycles = (buffer_len as f64 / self.sample_rate as f64) * self.cps as f64;
+        let buffer_duration_cycles =
+            (buffer_len as f64 / self.sample_rate as f64) * self.cps as f64;
         let end_cycle = start_cycle + buffer_duration_cycles;
 
         // Query each Pattern node AND Sample node once for the entire buffer span
@@ -12391,7 +12766,11 @@ impl UnifiedSignalGraph {
         // HUGE OPTIMIZATION: Process all voices for entire buffer ONCE
         // Instead of calling process_per_node() 512 times, we call process_buffer_per_node() ONCE
         // This eliminates 511 redundant Rayon thread spawns and HashMap allocations
-        let voice_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
+        let voice_start = if enable_profiling {
+            Some(std::time::Instant::now())
+        } else {
+            None
+        };
 
         // DEBUG: Check voice count before processing
         if std::env::var("DEBUG_VOICE_COUNT").is_ok() {
@@ -12401,7 +12780,10 @@ impl UnifiedSignalGraph {
             }
         }
 
-        let mut voice_buffers = self.voice_manager.borrow_mut().process_buffer_per_node(buffer.len());
+        let mut voice_buffers = self
+            .voice_manager
+            .borrow_mut()
+            .process_buffer_per_node(buffer.len());
         if let Some(start) = voice_start {
             voice_time_us = start.elapsed().as_micros();
         }
@@ -12413,11 +12795,15 @@ impl UnifiedSignalGraph {
         // BUFFER-BASED SYNTHESIS: Generate synthesis buffers ONCE per buffer (not per sample!)
         // This matches the voice buffer architecture and enables SIMD auto-vectorization
         {
-            let node_pitch_pairs: Vec<(usize, f32)> = self.voice_manager.borrow().get_active_synthesis_node_ids_with_pitch();
+            let node_pitch_pairs: Vec<(usize, f32)> = self
+                .voice_manager
+                .borrow()
+                .get_active_synthesis_node_ids_with_pitch();
             if !node_pitch_pairs.is_empty() {
                 // Generate buffers for each unique (node_id, semitone_offset) combination
                 // Use a HashMap with (node_id, rounded semitone) as key to deduplicate
-                let mut synthesis_buffers: std::collections::HashMap<(usize, i32), Vec<f32>> = std::collections::HashMap::new();
+                let mut synthesis_buffers: std::collections::HashMap<(usize, i32), Vec<f32>> =
+                    std::collections::HashMap::new();
 
                 for &(node_id, semitone_offset) in &node_pitch_pairs {
                     // Round semitone offset to avoid floating point precision issues
@@ -12435,14 +12821,22 @@ impl UnifiedSignalGraph {
 
                     // DEBUG: Log oscillator discovery
                     if std::env::var("DEBUG_SYNTH_BUFFERS").is_ok() {
-                        eprintln!("[SYNTH_BUF] node_id={}, found oscillators: {:?}", node_id, oscillator_ids);
+                        eprintln!(
+                            "[SYNTH_BUF] node_id={}, found oscillators: {:?}",
+                            node_id, oscillator_ids
+                        );
                     }
 
                     // Store original offsets AND phases for all oscillators
                     let mut original_state: Vec<(usize, f32, f32)> = Vec::new(); // (osc_id, offset, phase)
                     for &osc_id in &oscillator_ids {
                         if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
-                            if let SignalNode::Oscillator { semitone_offset: node_offset, phase, .. } = &**node_rc {
+                            if let SignalNode::Oscillator {
+                                semitone_offset: node_offset,
+                                phase,
+                                ..
+                            } = &**node_rc
+                            {
                                 original_state.push((osc_id, *node_offset, *phase.borrow()));
                             }
                         }
@@ -12453,11 +12847,20 @@ impl UnifiedSignalGraph {
                     for &osc_id in &oscillator_ids {
                         if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
                             let node = std::rc::Rc::make_mut(node_rc);
-                            if let SignalNode::Oscillator { semitone_offset: node_offset, phase, .. } = node {
+                            if let SignalNode::Oscillator {
+                                semitone_offset: node_offset,
+                                phase,
+                                ..
+                            } = node
+                            {
                                 // Get cached phase for this (osc, pitch) combination, or start from 0
                                 let phase_key = (osc_id, semitone_key);
-                                let cached_phase = self.synthesis_phase_cache.borrow()
-                                    .get(&phase_key).copied().unwrap_or(0.0);
+                                let cached_phase = self
+                                    .synthesis_phase_cache
+                                    .borrow()
+                                    .get(&phase_key)
+                                    .copied()
+                                    .unwrap_or(0.0);
 
                                 // DEBUG: Log the offset and phase being applied
                                 if std::env::var("DEBUG_SYNTH_BUFFERS").is_ok() {
@@ -12480,9 +12883,12 @@ impl UnifiedSignalGraph {
 
                     // DEBUG: Log buffer generation
                     if std::env::var("DEBUG_SYNTH_BUFFERS").is_ok() {
-                        let first_samples: Vec<f32> = synth_buffer.iter().take(10).cloned().collect();
-                        eprintln!("[SYNTH_BUF] Generated buffer key=({}, {}), first_10={:?}",
-                            node_id, semitone_key, first_samples);
+                        let first_samples: Vec<f32> =
+                            synth_buffer.iter().take(10).cloned().collect();
+                        eprintln!(
+                            "[SYNTH_BUF] Generated buffer key=({}, {}), first_10={:?}",
+                            node_id, semitone_key, first_samples
+                        );
                     }
 
                     synthesis_buffers.insert(buffer_key, synth_buffer);
@@ -12494,7 +12900,9 @@ impl UnifiedSignalGraph {
                             if let SignalNode::Oscillator { phase, .. } = &**node_rc {
                                 let phase_key = (osc_id, semitone_key);
                                 let new_phase = *phase.borrow();
-                                self.synthesis_phase_cache.borrow_mut().insert(phase_key, new_phase);
+                                self.synthesis_phase_cache
+                                    .borrow_mut()
+                                    .insert(phase_key, new_phase);
                             }
                         }
                     }
@@ -12504,7 +12912,12 @@ impl UnifiedSignalGraph {
                     for (osc_id, original_offset, original_phase) in original_state {
                         if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
                             let node = std::rc::Rc::make_mut(node_rc);
-                            if let SignalNode::Oscillator { semitone_offset: node_offset, phase, .. } = node {
+                            if let SignalNode::Oscillator {
+                                semitone_offset: node_offset,
+                                phase,
+                                ..
+                            } = node
+                            {
                                 *node_offset = original_offset;
                                 *phase.borrow_mut() = original_phase;
                             }
@@ -12513,13 +12926,18 @@ impl UnifiedSignalGraph {
                 }
 
                 // Process synthesis voices with envelopes and mix into voice_buffers
-                let synthesis_voice_buffers = self.voice_manager.borrow_mut()
+                let synthesis_voice_buffers = self
+                    .voice_manager
+                    .borrow_mut()
                     .process_synthesis_buffers(&synthesis_buffers, buffer.len());
 
                 // Mix synthesis outputs into voice_buffers
                 if std::env::var("DEBUG_SYNTH_MIX").is_ok() {
-                    eprintln!("[SYNTH_MIX] synthesis_voice_buffers.len()={}, voice_buffers.len()={}",
-                        synthesis_voice_buffers.len(), voice_buffers.len());
+                    eprintln!(
+                        "[SYNTH_MIX] synthesis_voice_buffers.len()={}, voice_buffers.len()={}",
+                        synthesis_voice_buffers.len(),
+                        voice_buffers.len()
+                    );
                     // Check samples 10 and 100 instead of 0 (sin(0)=0)
                     for idx in [10, 100] {
                         if let Some(sample) = synthesis_voice_buffers.get(idx) {
@@ -12540,8 +12958,10 @@ impl UnifiedSignalGraph {
                 // DEBUG: Check voice_buffers AFTER mixing
                 if std::env::var("DEBUG_SYNTH_MIX").is_ok() {
                     if let Some(sample_10) = voice_buffers.get(10) {
-                        eprintln!("[SYNTH_MIX] voice_buffers[10] AFTER mix: {:?}",
-                            sample_10.iter().collect::<Vec<_>>());
+                        eprintln!(
+                            "[SYNTH_MIX] voice_buffers[10] AFTER mix: {:?}",
+                            sample_10.iter().collect::<Vec<_>>()
+                        );
                     }
                 }
             }
@@ -12563,17 +12983,29 @@ impl UnifiedSignalGraph {
                 if let Some(node_rc) = node_opt {
                     let node = std::rc::Rc::make_mut(node_rc);
                     match node {
-                        SignalNode::Sample { last_cycle, last_trigger_time, .. } => {
+                        SignalNode::Sample {
+                            last_cycle,
+                            last_trigger_time,
+                            ..
+                        } => {
                             *last_cycle = current_cycle_i32;
                             *last_trigger_time = current_pos_f32;
                         }
-                        SignalNode::Pattern { last_trigger_time, .. } => {
+                        SignalNode::Pattern {
+                            last_trigger_time, ..
+                        } => {
                             *last_trigger_time = current_pos_f32;
                         }
-                        SignalNode::SynthPattern { last_trigger_time, .. } => {
+                        SignalNode::SynthPattern {
+                            last_trigger_time, ..
+                        } => {
                             *last_trigger_time = current_pos_f32;
                         }
-                        SignalNode::EnvelopePattern { last_cycle, last_trigger_time, .. } => {
+                        SignalNode::EnvelopePattern {
+                            last_cycle,
+                            last_trigger_time,
+                            ..
+                        } => {
                             *last_cycle = current_cycle_i32;
                             *last_trigger_time = current_pos_f32;
                         }
@@ -12636,8 +13068,11 @@ impl UnifiedSignalGraph {
             // Process newly triggered voices for this sample
             if !newly_triggered_voices.is_empty() {
                 for &voice_idx in &newly_triggered_voices {
-                    if let Some(((left, right), source_node)) =
-                        self.voice_manager.borrow_mut().process_voice_by_index(voice_idx) {
+                    if let Some(((left, right), source_node)) = self
+                        .voice_manager
+                        .borrow_mut()
+                        .process_voice_by_index(voice_idx)
+                    {
                         let mono = (left + right) / std::f32::consts::SQRT_2;
 
                         // Add to voice_output_cache
@@ -12653,7 +13088,11 @@ impl UnifiedSignalGraph {
             let mut num_active_channels = 0;
 
             // Start with single output (for backwards compatibility)
-            let eval_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
+            let eval_start = if enable_profiling {
+                Some(std::time::Instant::now())
+            } else {
+                None
+            };
             let mut mixed_output = if let Some(output_id) = self.output {
                 if self.hushed_channels.contains(&0) {
                     0.0 // Silenced
@@ -12679,7 +13118,11 @@ impl UnifiedSignalGraph {
             }
 
             // Apply output mixing strategy
-            let mix_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
+            let mix_start = if enable_profiling {
+                Some(std::time::Instant::now())
+            } else {
+                None
+            };
             mixed_output = match self.output_mix_mode {
                 OutputMixMode::Gain => {
                     if num_active_channels > 1 {
@@ -12724,9 +13167,24 @@ impl UnifiedSignalGraph {
             {
                 use std::io::Write;
                 let _ = writeln!(file, "=== BUFFER PROFILING ({}samples) ===", buffer.len());
-                let _ = writeln!(file, "Voice processing: {:.2}ms ({:.1}%)", voice_time_us as f64 / 1000.0, (voice_time_us as f64 / total_us as f64) * 100.0);
-                let _ = writeln!(file, "Graph evaluation: {:.2}ms ({:.1}%)", eval_time_us as f64 / 1000.0, (eval_time_us as f64 / total_us as f64) * 100.0);
-                let _ = writeln!(file, "Output mixing:    {:.2}ms ({:.1}%)", mix_time_us as f64 / 1000.0, (mix_time_us as f64 / total_us as f64) * 100.0);
+                let _ = writeln!(
+                    file,
+                    "Voice processing: {:.2}ms ({:.1}%)",
+                    voice_time_us as f64 / 1000.0,
+                    (voice_time_us as f64 / total_us as f64) * 100.0
+                );
+                let _ = writeln!(
+                    file,
+                    "Graph evaluation: {:.2}ms ({:.1}%)",
+                    eval_time_us as f64 / 1000.0,
+                    (eval_time_us as f64 / total_us as f64) * 100.0
+                );
+                let _ = writeln!(
+                    file,
+                    "Output mixing:    {:.2}ms ({:.1}%)",
+                    mix_time_us as f64 / 1000.0,
+                    (mix_time_us as f64 / total_us as f64) * 100.0
+                );
             }
             let total_ms = total_us as f64 / 1000.0;
             let voice_ms = voice_time_us as f64 / 1000.0;
@@ -12734,9 +13192,21 @@ impl UnifiedSignalGraph {
             let mix_ms = mix_time_us as f64 / 1000.0;
 
             eprintln!("=== BUFFER PROFILING ({}samples) ===", buffer.len());
-            eprintln!("Voice processing: {:.2}ms ({:.1}%)", voice_ms, 100.0 * voice_ms / total_ms);
-            eprintln!("Graph evaluation: {:.2}ms ({:.1}%)", eval_ms, 100.0 * eval_ms / total_ms);
-            eprintln!("Output mixing:    {:.2}ms ({:.1}%)", mix_ms, 100.0 * mix_ms / total_ms);
+            eprintln!(
+                "Voice processing: {:.2}ms ({:.1}%)",
+                voice_ms,
+                100.0 * voice_ms / total_ms
+            );
+            eprintln!(
+                "Graph evaluation: {:.2}ms ({:.1}%)",
+                eval_ms,
+                100.0 * eval_ms / total_ms
+            );
+            eprintln!(
+                "Output mixing:    {:.2}ms ({:.1}%)",
+                mix_ms,
+                100.0 * mix_ms / total_ms
+            );
             eprintln!("TOTAL:            {:.2}ms", total_ms);
             eprintln!();
         }
@@ -12761,7 +13231,11 @@ impl UnifiedSignalGraph {
         self.precompute_pattern_events(buffer_size);
 
         // PHASE 1: Pattern evaluation and voice triggering (sample-accurate)
-        let phase1_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
+        let phase1_start = if enable_profiling {
+            Some(std::time::Instant::now())
+        } else {
+            None
+        };
 
         for i in 0..buffer_size {
             // Update cycle position for this sample
@@ -12779,7 +13253,9 @@ impl UnifiedSignalGraph {
                         let _ = self.eval_node(&NodeId(node_id));
 
                         // Set trigger offset for the last triggered voice
-                        self.voice_manager.borrow_mut().set_last_voice_trigger_offset(current_buffer_pos);
+                        self.voice_manager
+                            .borrow_mut()
+                            .set_last_voice_trigger_offset(current_buffer_pos);
                     }
                 }
             }
@@ -12790,12 +13266,20 @@ impl UnifiedSignalGraph {
         let phase1_time_us = phase1_start.map(|t| t.elapsed().as_micros()).unwrap_or(0);
 
         // PHASE 2: Voice rendering (block-based)
-        let phase2_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
+        let phase2_start = if enable_profiling {
+            Some(std::time::Instant::now())
+        } else {
+            None
+        };
         let voice_buffers = self.voice_manager.borrow_mut().render_block(buffer_size);
         let phase2_time_us = phase2_start.map(|t| t.elapsed().as_micros()).unwrap_or(0);
 
         // PHASE 3: DSP evaluation from voice buffers
-        let phase3_start = if enable_profiling { Some(std::time::Instant::now()) } else { None };
+        let phase3_start = if enable_profiling {
+            Some(std::time::Instant::now())
+        } else {
+            None
+        };
 
         // Pre-collect outputs to avoid borrow checker issues
         let output_channels: Vec<(usize, NodeId)> =
@@ -12813,8 +13297,12 @@ impl UnifiedSignalGraph {
             let mut mixed_output = if let Some(output_id) = self.output {
                 if !self.hushed_channels.contains(&0) {
                     self.eval_node(&output_id)
-                } else { 0.0 }
-            } else { 0.0 };
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
 
             // Mix in numbered outputs
             for (ch, node_id) in &output_channels {
@@ -12832,9 +13320,21 @@ impl UnifiedSignalGraph {
             let total_us = phase1_time_us + phase2_time_us + phase3_time_us;
             let total_ms = total_us as f64 / 1000.0;
             eprintln!("=== HYBRID BUFFER PROFILING ({}samples) ===", buffer_size);
-            eprintln!("Phase 1 (Pattern eval): {:.2}ms ({:.1}%)", phase1_time_us as f64 / 1000.0, 100.0 * phase1_time_us as f64 / total_us as f64);
-            eprintln!("Phase 2 (Voice render): {:.2}ms ({:.1}%)", phase2_time_us as f64 / 1000.0, 100.0 * phase2_time_us as f64 / total_us as f64);
-            eprintln!("Phase 3 (DSP eval):     {:.2}ms ({:.1}%)", phase3_time_us as f64 / 1000.0, 100.0 * phase3_time_us as f64 / total_us as f64);
+            eprintln!(
+                "Phase 1 (Pattern eval): {:.2}ms ({:.1}%)",
+                phase1_time_us as f64 / 1000.0,
+                100.0 * phase1_time_us as f64 / total_us as f64
+            );
+            eprintln!(
+                "Phase 2 (Voice render): {:.2}ms ({:.1}%)",
+                phase2_time_us as f64 / 1000.0,
+                100.0 * phase2_time_us as f64 / total_us as f64
+            );
+            eprintln!(
+                "Phase 3 (DSP eval):     {:.2}ms ({:.1}%)",
+                phase3_time_us as f64 / 1000.0,
+                100.0 * phase3_time_us as f64 / total_us as f64
+            );
             eprintln!("TOTAL:                  {:.2}ms", total_ms);
             eprintln!();
         }
@@ -12917,40 +13417,72 @@ impl UnifiedSignalGraph {
                         oscillators.push(node_id);
                     }
                     // Traverse through common wrapper nodes - binary ops
-                    SignalNode::Multiply { a, b } | SignalNode::Add { a, b } | SignalNode::Min { a, b } => {
-                        if let Signal::Node(id) = a { stack.push(id.0); }
-                        if let Signal::Node(id) = b { stack.push(id.0); }
+                    SignalNode::Multiply { a, b }
+                    | SignalNode::Add { a, b }
+                    | SignalNode::Min { a, b } => {
+                        if let Signal::Node(id) = a {
+                            stack.push(id.0);
+                        }
+                        if let Signal::Node(id) = b {
+                            stack.push(id.0);
+                        }
                     }
                     // Filters
-                    SignalNode::LowPass { input, .. } | SignalNode::HighPass { input, .. } |
-                    SignalNode::BandPass { input, .. } | SignalNode::Notch { input, .. } |
-                    SignalNode::MoogLadder { input, .. } | SignalNode::SVF { input, .. } |
-                    SignalNode::DJFilter { input, .. } | SignalNode::Resonz { input, .. } => {
-                        if let Signal::Node(id) = input { stack.push(id.0); }
+                    SignalNode::LowPass { input, .. }
+                    | SignalNode::HighPass { input, .. }
+                    | SignalNode::BandPass { input, .. }
+                    | SignalNode::Notch { input, .. }
+                    | SignalNode::MoogLadder { input, .. }
+                    | SignalNode::SVF { input, .. }
+                    | SignalNode::DJFilter { input, .. }
+                    | SignalNode::Resonz { input, .. } => {
+                        if let Signal::Node(id) = input {
+                            stack.push(id.0);
+                        }
                     }
                     // Effects
-                    SignalNode::Reverb { input, .. } | SignalNode::DattorroReverb { input, .. } |
-                    SignalNode::Distortion { input, .. } | SignalNode::Compressor { input, .. } |
-                    SignalNode::BitCrush { input, .. } | SignalNode::Chorus { input, .. } |
-                    SignalNode::Vibrato { input, .. } | SignalNode::Tremolo { input, .. } |
-                    SignalNode::RingMod { input, .. } | SignalNode::Expander { input, .. } |
-                    SignalNode::Comb { input, .. } | SignalNode::TapeDelay { input, .. } |
-                    SignalNode::PingPongDelay { input, .. } | SignalNode::ParametricEQ { input, .. } => {
-                        if let Signal::Node(id) = input { stack.push(id.0); }
+                    SignalNode::Reverb { input, .. }
+                    | SignalNode::DattorroReverb { input, .. }
+                    | SignalNode::Distortion { input, .. }
+                    | SignalNode::Compressor { input, .. }
+                    | SignalNode::BitCrush { input, .. }
+                    | SignalNode::Chorus { input, .. }
+                    | SignalNode::Vibrato { input, .. }
+                    | SignalNode::Tremolo { input, .. }
+                    | SignalNode::RingMod { input, .. }
+                    | SignalNode::Expander { input, .. }
+                    | SignalNode::Comb { input, .. }
+                    | SignalNode::TapeDelay { input, .. }
+                    | SignalNode::PingPongDelay { input, .. }
+                    | SignalNode::ParametricEQ { input, .. } => {
+                        if let Signal::Node(id) = input {
+                            stack.push(id.0);
+                        }
                     }
                     // Formant has "source" not "input"
                     SignalNode::Formant { source, .. } => {
-                        if let Signal::Node(id) = source { stack.push(id.0); }
+                        if let Signal::Node(id) = source {
+                            stack.push(id.0);
+                        }
                     }
                     // Wrap and other utility nodes
-                    SignalNode::Wrap { input, .. } | SignalNode::Output { input } |
-                    SignalNode::Lag { input, .. } => {
-                        if let Signal::Node(id) = input { stack.push(id.0); }
+                    SignalNode::Wrap { input, .. }
+                    | SignalNode::Output { input }
+                    | SignalNode::Lag { input, .. } => {
+                        if let Signal::Node(id) = input {
+                            stack.push(id.0);
+                        }
                     }
                     // Crossfade
-                    SignalNode::XFade { signal_a, signal_b, .. } => {
-                        if let Signal::Node(id) = signal_a { stack.push(id.0); }
-                        if let Signal::Node(id) = signal_b { stack.push(id.0); }
+                    SignalNode::XFade {
+                        signal_a, signal_b, ..
+                    } => {
+                        if let Signal::Node(id) = signal_a {
+                            stack.push(id.0);
+                        }
+                        if let Signal::Node(id) = signal_b {
+                            stack.push(id.0);
+                        }
                     }
                     _ => {
                         // Other nodes - don't traverse (constants, patterns, noise, etc.)
@@ -13084,14 +13616,18 @@ impl UnifiedSignalGraph {
 
                     // DEBUG: Log frequency calculation (only for first sample)
                     if i == 0 && std::env::var("DEBUG_OSC_FREQ").is_ok() {
-                        eprintln!("[OSC_FREQ] semitone_offset={}, requested_freq={:.2}, final_freq={:.2}",
-                            *semitone_offset, requested_freq, final_freq);
+                        eprintln!(
+                            "[OSC_FREQ] semitone_offset={}, requested_freq={:.2}, final_freq={:.2}",
+                            *semitone_offset, requested_freq, final_freq
+                        );
                     }
                     if i == 0 && std::env::var("DEBUG_OSC_FREQ_OLD").is_ok() {
                         // Log when final_freq is close to 440 Hz (the base oscillator freq)
                         if (final_freq - 440.0).abs() < 5.0 {
-                            eprintln!("[OSC_FREQ] WARNING: 440Hz! semitone_offset={}, requested_freq={}",
-                                *semitone_offset, requested_freq);
+                            eprintln!(
+                                "[OSC_FREQ] WARNING: 440Hz! semitone_offset={}, requested_freq={}",
+                                *semitone_offset, requested_freq
+                            );
                         }
                     }
 
@@ -13468,7 +14004,6 @@ impl UnifiedSignalGraph {
                 }
             }
 
-
             SignalNode::Chorus {
                 input,
                 rate,
@@ -13583,7 +14118,8 @@ impl UnifiedSignalGraph {
                                 let delayed = s.comb_buffers[j][read_idx];
 
                                 // Lowpass filter for damping
-                                let filtered = s.comb_filter_stores[j] * damp + delayed * (1.0 - damp);
+                                let filtered =
+                                    s.comb_filter_stores[j] * damp + delayed * (1.0 - damp);
 
                                 // Feedback with room-size dependent gain
                                 let feedback = 0.84 * room;
@@ -13685,7 +14221,8 @@ impl UnifiedSignalGraph {
                         buffer: buf,
                         write_idx: idx,
                         ..
-                    } = node {
+                    } = node
+                    {
                         *buf = delay_buffer;
                         *idx = current_write_idx;
                     }
@@ -13748,7 +14285,8 @@ impl UnifiedSignalGraph {
                         buffer: buf,
                         write_pos: pos,
                         ..
-                    } = node {
+                    } = node
+                    {
                         *buf = comb_buffer;
                         *pos = current_write_pos;
                     }
@@ -13917,7 +14455,11 @@ impl UnifiedSignalGraph {
                 }
             }
 
-            SignalNode::FMCrossMod { carrier, modulator, mod_depth } => {
+            SignalNode::FMCrossMod {
+                carrier,
+                modulator,
+                mod_depth,
+            } => {
                 // Allocate buffers for carrier, modulator, and mod_depth
                 let mut carrier_buffer = vec![0.0; buffer_size];
                 let mut modulator_buffer = vec![0.0; buffer_size];
@@ -14054,7 +14596,11 @@ impl UnifiedSignalGraph {
                 }
             }
 
-            SignalNode::DJFilter { input, value, state } => {
+            SignalNode::DJFilter {
+                input,
+                value,
+                state,
+            } => {
                 // Allocate buffers for input and parameter
                 let mut input_buffer = vec![0.0; buffer_size];
                 let mut value_buffer = vec![0.0; buffer_size];
@@ -14093,7 +14639,8 @@ impl UnifiedSignalGraph {
                     // Compute SVF coefficients (Chamberlin)
                     // f = 2 * sin(π * fc / fs)
                     // Clamp f to prevent instability (must be < 2.0)
-                    let f = (2.0 * (std::f32::consts::PI * cutoff / self.sample_rate).sin()).min(1.9);
+                    let f =
+                        (2.0 * (std::f32::consts::PI * cutoff / self.sample_rate).sin()).min(1.9);
                     let damp = 1.0 / q_val;
 
                     // SVF tick (State Variable Filter)
@@ -14217,7 +14764,8 @@ impl UnifiedSignalGraph {
                     let frac = read_pos_wrapped.fract();
 
                     // Read delayed sample with interpolation
-                    output[i] = delay_buf[read_pos_int] * (1.0 - frac) + delay_buf[read_pos_next] * frac;
+                    output[i] =
+                        delay_buf[read_pos_int] * (1.0 - frac) + delay_buf[read_pos_next] * frac;
 
                     // Update phase and write index for next sample
                     lfo_phase += lfo_rate * 2.0 * std::f32::consts::PI / self.sample_rate;
@@ -14239,7 +14787,8 @@ impl UnifiedSignalGraph {
                         delay_buffer: buf,
                         buffer_pos: pos,
                         ..
-                    } = node {
+                    } = node
+                    {
                         *p = lfo_phase;
                         *buf = delay_buf;
                         *pos = write_idx;
@@ -14417,10 +14966,13 @@ impl UnifiedSignalGraph {
 
                     // Modulate delay time with wow (slow) and flutter (fast)
                     let wow = (wow_phase * std::f32::consts::TAU).sin() * wow_d * 0.001;
-                    let flutter = (flutter_phase * std::f32::consts::TAU).sin() * flutter_d * 0.0001;
+                    let flutter =
+                        (flutter_phase * std::f32::consts::TAU).sin() * flutter_d * 0.0001;
 
                     let modulated_time = delay_time + wow + flutter;
-                    let delay_samples = (modulated_time * self.sample_rate).max(1.0).min(buffer_len as f32 - 1.0);
+                    let delay_samples = (modulated_time * self.sample_rate)
+                        .max(1.0)
+                        .min(buffer_len as f32 - 1.0);
 
                     // Fractional delay using linear interpolation
                     let read_pos_f = (write_idx as f32) - delay_samples;
@@ -14434,7 +14986,8 @@ impl UnifiedSignalGraph {
                     let next_idx = (read_idx + 1) % buffer_len;
                     let frac = read_pos.fract();
 
-                    let delayed = delay_buffer[read_idx] * (1.0 - frac) + delay_buffer[next_idx] * frac;
+                    let delayed =
+                        delay_buffer[read_idx] * (1.0 - frac) + delay_buffer[next_idx] * frac;
 
                     // Tape saturation (soft clipping)
                     let saturated = if sat > 0.01 {
@@ -14473,8 +15026,6 @@ impl UnifiedSignalGraph {
                     }
                 }
             }
-
-
 
             SignalNode::ParametricEQ {
                 input,
@@ -14663,7 +15214,6 @@ impl UnifiedSignalGraph {
                 }
             }
 
-
             SignalNode::Convolution { input, state } => {
                 // Allocate buffer for input
                 let mut input_buffer = vec![0.0; buffer_size];
@@ -14715,7 +15265,6 @@ impl UnifiedSignalGraph {
                     }
                 }
             }
-
 
             SignalNode::DattorroReverb {
                 input,
@@ -14776,14 +15325,15 @@ impl UnifiedSignalGraph {
                 let sample_rate = state.sample_rate;
 
                 // Helper function for allpass filter
-                let allpass = |buffer: &mut Vec<f32>, idx: &mut usize, input: f32, gain: f32| -> f32 {
-                    let buffer_len = buffer.len();
-                    let delayed = buffer[*idx];
-                    let output = -input + delayed + gain * (input - delayed);
-                    buffer[*idx] = input + gain * delayed;
-                    *idx = (*idx + 1) % buffer_len;
-                    output
-                };
+                let allpass =
+                    |buffer: &mut Vec<f32>, idx: &mut usize, input: f32, gain: f32| -> f32 {
+                        let buffer_len = buffer.len();
+                        let delayed = buffer[*idx];
+                        let output = -input + delayed + gain * (input - delayed);
+                        buffer[*idx] = input + gain * delayed;
+                        *idx = (*idx + 1) % buffer_len;
+                        output
+                    };
 
                 // Helper function for simple delay
                 let delay = |buffer: &mut Vec<f32>, idx: &mut usize, input: f32| -> f32 {
@@ -14860,35 +15410,51 @@ impl UnifiedSignalGraph {
                     let left_apf1_out = {
                         // Apply modulation by varying read position slightly
                         let mod_offset = lfo as isize;
-                        let read_idx = ((left_apf1_idx as isize + left_apf1_buffer.len() as isize + mod_offset)
-                            % left_apf1_buffer.len() as isize) as usize;
+                        let read_idx = ((left_apf1_idx as isize
+                            + left_apf1_buffer.len() as isize
+                            + mod_offset)
+                            % left_apf1_buffer.len() as isize)
+                            as usize;
                         let delayed = left_apf1_buffer[read_idx];
-                        let output_apf = -left_input + delayed + decay_diffusion1 * (left_input - delayed);
+                        let output_apf =
+                            -left_input + delayed + decay_diffusion1 * (left_input - delayed);
                         left_apf1_buffer[left_apf1_idx] = left_input + decay_diffusion1 * delayed;
                         left_apf1_idx = (left_apf1_idx + 1) % left_apf1_buffer.len();
                         output_apf
                     };
 
                     // Left Delay1
-                    let left_delay1_out = delay(&mut left_delay1_buffer, &mut left_delay1_idx, left_apf1_out);
+                    let left_delay1_out =
+                        delay(&mut left_delay1_buffer, &mut left_delay1_idx, left_apf1_out);
 
                     // Left APF2 (modulated differently)
                     let left_apf2_out = {
                         let mod_offset = -lfo as isize;
-                        let read_idx = ((left_apf2_idx as isize + left_apf2_buffer.len() as isize + mod_offset)
-                            % left_apf2_buffer.len() as isize) as usize;
+                        let read_idx = ((left_apf2_idx as isize
+                            + left_apf2_buffer.len() as isize
+                            + mod_offset)
+                            % left_apf2_buffer.len() as isize)
+                            as usize;
                         let delayed = left_apf2_buffer[read_idx];
-                        let output_apf = -left_delay1_out + delayed + decay_diffusion2 * (left_delay1_out - delayed);
-                        left_apf2_buffer[left_apf2_idx] = left_delay1_out + decay_diffusion2 * delayed;
+                        let output_apf = -left_delay1_out
+                            + delayed
+                            + decay_diffusion2 * (left_delay1_out - delayed);
+                        left_apf2_buffer[left_apf2_idx] =
+                            left_delay1_out + decay_diffusion2 * delayed;
                         left_apf2_idx = (left_apf2_idx + 1) % left_apf2_buffer.len();
                         output_apf
                     };
 
                     // Damping LPF and Delay2
-                    let left_damped = left_lpf_state * damp_coef + left_apf2_out * (1.0 - damp_coef);
+                    let left_damped =
+                        left_lpf_state * damp_coef + left_apf2_out * (1.0 - damp_coef);
                     left_lpf_state = left_damped;
 
-                    let left_delay2_out = delay(&mut left_delay2_buffer, &mut left_delay2_idx, left_damped * decay_gain);
+                    let left_delay2_out = delay(
+                        &mut left_delay2_buffer,
+                        &mut left_delay2_idx,
+                        left_damped * decay_gain,
+                    );
 
                     // RIGHT TANK
                     // Read previous left tank output for cross-coupling
@@ -14900,40 +15466,61 @@ impl UnifiedSignalGraph {
                     // Right APF1 (modulated)
                     let right_apf1_out = {
                         let mod_offset = -lfo as isize;
-                        let read_idx = ((right_apf1_idx as isize + right_apf1_buffer.len() as isize + mod_offset)
-                            % right_apf1_buffer.len() as isize) as usize;
+                        let read_idx = ((right_apf1_idx as isize
+                            + right_apf1_buffer.len() as isize
+                            + mod_offset)
+                            % right_apf1_buffer.len() as isize)
+                            as usize;
                         let delayed = right_apf1_buffer[read_idx];
-                        let output_apf = -right_input + delayed + decay_diffusion1 * (right_input - delayed);
-                        right_apf1_buffer[right_apf1_idx] = right_input + decay_diffusion1 * delayed;
+                        let output_apf =
+                            -right_input + delayed + decay_diffusion1 * (right_input - delayed);
+                        right_apf1_buffer[right_apf1_idx] =
+                            right_input + decay_diffusion1 * delayed;
                         right_apf1_idx = (right_apf1_idx + 1) % right_apf1_buffer.len();
                         output_apf
                     };
 
                     // Right Delay1
-                    let right_delay1_out = delay(&mut right_delay1_buffer, &mut right_delay1_idx, right_apf1_out);
+                    let right_delay1_out = delay(
+                        &mut right_delay1_buffer,
+                        &mut right_delay1_idx,
+                        right_apf1_out,
+                    );
 
                     // Right APF2 (modulated differently)
                     let right_apf2_out = {
                         let mod_offset = lfo as isize;
-                        let read_idx = ((right_apf2_idx as isize + right_apf2_buffer.len() as isize + mod_offset)
-                            % right_apf2_buffer.len() as isize) as usize;
+                        let read_idx = ((right_apf2_idx as isize
+                            + right_apf2_buffer.len() as isize
+                            + mod_offset)
+                            % right_apf2_buffer.len() as isize)
+                            as usize;
                         let delayed = right_apf2_buffer[read_idx];
-                        let output_apf = -right_delay1_out + delayed + decay_diffusion2 * (right_delay1_out - delayed);
-                        right_apf2_buffer[right_apf2_idx] = right_delay1_out + decay_diffusion2 * delayed;
+                        let output_apf = -right_delay1_out
+                            + delayed
+                            + decay_diffusion2 * (right_delay1_out - delayed);
+                        right_apf2_buffer[right_apf2_idx] =
+                            right_delay1_out + decay_diffusion2 * delayed;
                         right_apf2_idx = (right_apf2_idx + 1) % right_apf2_buffer.len();
                         output_apf
                     };
 
                     // Damping LPF and Delay2
-                    let right_damped = right_lpf_state * damp_coef + right_apf2_out * (1.0 - damp_coef);
+                    let right_damped =
+                        right_lpf_state * damp_coef + right_apf2_out * (1.0 - damp_coef);
                     right_lpf_state = right_damped;
 
-                    let right_delay2_out = delay(&mut right_delay2_buffer, &mut right_delay2_idx, right_damped * decay_gain);
+                    let right_delay2_out = delay(
+                        &mut right_delay2_buffer,
+                        &mut right_delay2_idx,
+                        right_damped * decay_gain,
+                    );
 
                     // 4. OUTPUT TAPS (sum multiple points for density)
                     // Using multiple tap points as suggested by Dattorro
                     let left_output = (left_delay1_out + left_apf2_out + left_delay2_out) * 0.33;
-                    let right_output = (right_delay1_out + right_apf2_out + right_delay2_out) * 0.33;
+                    let right_output =
+                        (right_delay1_out + right_apf2_out + right_delay2_out) * 0.33;
 
                     // Mix stereo output (average L+R for mono)
                     let wet = (left_output + right_output) * 0.5;
@@ -15093,7 +15680,6 @@ impl UnifiedSignalGraph {
                 }
             }
 
-
             SignalNode::SVF {
                 input,
                 frequency,
@@ -15127,7 +15713,9 @@ impl UnifiedSignalGraph {
                     // Calculate filter coefficients
                     // f = 2 * sin(π * cutoff / sampleRate)
                     // Prevent instability at high frequencies
-                    let f = (std::f32::consts::PI * freq / self.sample_rate).sin().min(0.95);
+                    let f = (std::f32::consts::PI * freq / self.sample_rate)
+                        .sin()
+                        .min(0.95);
                     let q = 1.0 / res.max(0.1); // Convert resonance to damping
 
                     // Update filter (Chamberlin topology)
@@ -15148,11 +15736,11 @@ impl UnifiedSignalGraph {
 
                     // Select output based on mode
                     output[i] = match mode {
-                        0 => low,        // Lowpass
-                        1 => high,       // Highpass
-                        2 => band,       // Bandpass
-                        3 => notch,      // Notch
-                        _ => low,        // Default to lowpass
+                        0 => low,   // Lowpass
+                        1 => high,  // Highpass
+                        2 => band,  // Bandpass
+                        3 => notch, // Notch
+                        _ => low,   // Default to lowpass
                     };
                 }
 
@@ -15192,7 +15780,8 @@ impl UnifiedSignalGraph {
                         constant_freq
                     } else {
                         self.eval_signal(&freq_signal)
-                    }.max(0.0);
+                    }
+                    .max(0.0);
 
                     // Get interpolated sample at current phase
                     let sample = state.get_sample(current_phase);
@@ -15213,7 +15802,6 @@ impl UnifiedSignalGraph {
                     }
                 }
             }
-
 
             SignalNode::Curve {
                 start,
@@ -15274,8 +15862,7 @@ impl UnifiedSignalGraph {
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
                     let node = Rc::make_mut(node_rc);
                     if let SignalNode::Curve {
-                        elapsed_time: et,
-                        ..
+                        elapsed_time: et, ..
                     } = node
                     {
                         *et = current_elapsed;
@@ -15301,9 +15888,21 @@ impl UnifiedSignalGraph {
                     && matches!(pitch_signal, Signal::Value(_));
 
                 let (constant_grain_ms, constant_density, constant_pitch) = if is_constant_params {
-                    let gms = if let Signal::Value(v) = grain_ms_signal { v } else { 50.0 };
-                    let dens = if let Signal::Value(v) = density_signal { v } else { 0.5 };
-                    let ptch = if let Signal::Value(v) = pitch_signal { v } else { 1.0 };
+                    let gms = if let Signal::Value(v) = grain_ms_signal {
+                        v
+                    } else {
+                        50.0
+                    };
+                    let dens = if let Signal::Value(v) = density_signal {
+                        v
+                    } else {
+                        0.5
+                    };
+                    let ptch = if let Signal::Value(v) = pitch_signal {
+                        v
+                    } else {
+                        1.0
+                    };
                     (gms, dens, ptch)
                 } else {
                     (0.0, 0.0, 0.0) // Will be evaluated per-sample
@@ -15316,19 +15915,24 @@ impl UnifiedSignalGraph {
                         constant_grain_ms
                     } else {
                         self.eval_signal(&grain_ms_signal)
-                    }.max(5.0).min(500.0);
+                    }
+                    .max(5.0)
+                    .min(500.0);
 
                     let density_val = if is_constant_params {
                         constant_density
                     } else {
                         self.eval_signal(&density_signal)
-                    }.clamp(0.0, 1.0);
+                    }
+                    .clamp(0.0, 1.0);
 
                     let pitch_val = if is_constant_params {
                         constant_pitch
                     } else {
                         self.eval_signal(&pitch_signal)
-                    }.max(0.1).min(4.0);
+                    }
+                    .max(0.1)
+                    .min(4.0);
 
                     // Convert grain size from milliseconds to samples
                     let grain_size_samples = (grain_ms * self.sample_rate / 1000.0) as usize;
@@ -15666,7 +16270,7 @@ impl UnifiedSignalGraph {
                 // Pattern: query pattern for each sample in buffer
                 // TODO: This could be optimized further by batch querying
                 for i in 0..output.len() {
-                    output[i] = self.eval_signal(signal);  // Use old method for now
+                    output[i] = self.eval_signal(signal); // Use old method for now
                 }
             }
 
@@ -15839,5 +16443,4 @@ impl UnifiedSignalGraph {
         self.nodes.push(Some(Rc::new(node)));
         node_id
     }
-
 }

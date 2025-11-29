@@ -23,7 +23,6 @@
 /// - Natural-sounding resonance for filter sweeps
 /// - Works well for creating "ringing" tones from noise
 /// - Good for formant filtering and vowel sounds
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz};
 
@@ -171,11 +170,7 @@ impl AudioNode for ResonzNode {
             output.len(),
             "Frequency buffer length mismatch"
         );
-        debug_assert_eq!(
-            rq_buffer.len(),
-            output.len(),
-            "RQ buffer length mismatch"
-        );
+        debug_assert_eq!(rq_buffer.len(), output.len(), "RQ buffer length mismatch");
 
         for i in 0..output.len() {
             let input_sample = input_buffer[i];
@@ -188,7 +183,8 @@ impl AudioNode for ResonzNode {
             let rq = rq_buffer[i].max(0.001).min(1.0);
 
             // Update coefficients if parameters changed significantly
-            if (freq - self.state.last_freq).abs() > 0.5 || (rq - self.state.last_rq).abs() > 0.0001 {
+            if (freq - self.state.last_freq).abs() > 0.5 || (rq - self.state.last_rq).abs() > 0.0001
+            {
                 let q = ResonzState::rq_to_q(rq, freq);
                 let coeffs = Coefficients::<f32>::from_params(
                     biquad::Type::BandPass,
@@ -273,7 +269,11 @@ mod tests {
         osc.process_block(&osc_inputs, &mut unfiltered, sample_rate, &context);
 
         // Get filtered signal
-        let resonz_inputs = vec![unfiltered.as_slice(), center_buf.as_slice(), rq_buf.as_slice()];
+        let resonz_inputs = vec![
+            unfiltered.as_slice(),
+            center_buf.as_slice(),
+            rq_buf.as_slice(),
+        ];
 
         // Process multiple blocks to reach steady state
         for _ in 0..3 {
@@ -322,7 +322,11 @@ mod tests {
         let osc_inputs = vec![freq_buf.as_slice()];
         osc.process_block(&osc_inputs, &mut unfiltered, sample_rate, &context);
 
-        let resonz_inputs = vec![unfiltered.as_slice(), center_buf.as_slice(), rq_buf.as_slice()];
+        let resonz_inputs = vec![
+            unfiltered.as_slice(),
+            center_buf.as_slice(),
+            rq_buf.as_slice(),
+        ];
 
         for _ in 0..3 {
             resonz.process_block(&resonz_inputs, &mut filtered, sample_rate, &context);
@@ -370,7 +374,11 @@ mod tests {
         let osc_inputs = vec![freq_buf.as_slice()];
         osc.process_block(&osc_inputs, &mut unfiltered, sample_rate, &context);
 
-        let resonz_inputs = vec![unfiltered.as_slice(), center_buf.as_slice(), rq_buf.as_slice()];
+        let resonz_inputs = vec![
+            unfiltered.as_slice(),
+            center_buf.as_slice(),
+            rq_buf.as_slice(),
+        ];
 
         for _ in 0..3 {
             resonz.process_block(&resonz_inputs, &mut filtered, sample_rate, &context);
@@ -416,7 +424,11 @@ mod tests {
         rq_const.process_block(&[], &mut rq_buf, sample_rate, &context);
         noise.process_block(&[amp_buf.as_slice()], &mut noise_buf, sample_rate, &context);
 
-        let resonz_inputs = vec![noise_buf.as_slice(), center_buf.as_slice(), rq_buf.as_slice()];
+        let resonz_inputs = vec![
+            noise_buf.as_slice(),
+            center_buf.as_slice(),
+            rq_buf.as_slice(),
+        ];
 
         // Process multiple blocks to reach steady state
         for _ in 0..5 {
@@ -473,10 +485,19 @@ mod tests {
 
         let mut resonz_narrow = ResonzNode::new(0, 1, 2);
         let mut filtered_narrow = vec![0.0; block_size];
-        let inputs_narrow = vec![noise_buf.as_slice(), center_buf.as_slice(), rq_narrow_buf.as_slice()];
+        let inputs_narrow = vec![
+            noise_buf.as_slice(),
+            center_buf.as_slice(),
+            rq_narrow_buf.as_slice(),
+        ];
 
         for _ in 0..3 {
-            resonz_narrow.process_block(&inputs_narrow, &mut filtered_narrow, sample_rate, &context);
+            resonz_narrow.process_block(
+                &inputs_narrow,
+                &mut filtered_narrow,
+                sample_rate,
+                &context,
+            );
         }
 
         // Wide bandwidth (rq = 0.5)
@@ -486,7 +507,11 @@ mod tests {
 
         let mut resonz_wide = ResonzNode::new(0, 1, 2);
         let mut filtered_wide = vec![0.0; block_size];
-        let inputs_wide = vec![noise_buf.as_slice(), center_buf.as_slice(), rq_wide_buf.as_slice()];
+        let inputs_wide = vec![
+            noise_buf.as_slice(),
+            center_buf.as_slice(),
+            rq_wide_buf.as_slice(),
+        ];
 
         for _ in 0..3 {
             resonz_wide.process_block(&inputs_wide, &mut filtered_wide, sample_rate, &context);
@@ -534,7 +559,11 @@ mod tests {
 
         let mut resonz_low = ResonzNode::new(0, 1, 2);
         let mut filtered_low = vec![0.0; block_size];
-        let inputs_low = vec![noise_buf.as_slice(), freq_low_buf.as_slice(), rq_buf.as_slice()];
+        let inputs_low = vec![
+            noise_buf.as_slice(),
+            freq_low_buf.as_slice(),
+            rq_buf.as_slice(),
+        ];
 
         for _ in 0..5 {
             resonz_low.process_block(&inputs_low, &mut filtered_low, sample_rate, &context);
@@ -547,7 +576,11 @@ mod tests {
 
         let mut resonz_high = ResonzNode::new(0, 1, 2);
         let mut filtered_high = vec![0.0; block_size];
-        let inputs_high = vec![noise_buf.as_slice(), freq_high_buf.as_slice(), rq_buf.as_slice()];
+        let inputs_high = vec![
+            noise_buf.as_slice(),
+            freq_high_buf.as_slice(),
+            rq_buf.as_slice(),
+        ];
 
         for _ in 0..5 {
             resonz_high.process_block(&inputs_high, &mut filtered_high, sample_rate, &context);
@@ -557,8 +590,14 @@ mod tests {
         let rms_high = calculate_rms(&filtered_high);
 
         // Both should produce output
-        assert!(rms_low > 0.01, "Low frequency resonance should produce output");
-        assert!(rms_high > 0.01, "High frequency resonance should produce output");
+        assert!(
+            rms_low > 0.01,
+            "Low frequency resonance should produce output"
+        );
+        assert!(
+            rms_high > 0.01,
+            "High frequency resonance should produce output"
+        );
 
         // Outputs should differ (different center frequencies)
         assert!(
@@ -599,10 +638,19 @@ mod tests {
 
         let mut resonz_narrow = ResonzNode::new(0, 1, 2);
         let mut filtered_narrow = vec![0.0; block_size];
-        let inputs_narrow = vec![signal_buf.as_slice(), center_buf.as_slice(), rq_narrow_buf.as_slice()];
+        let inputs_narrow = vec![
+            signal_buf.as_slice(),
+            center_buf.as_slice(),
+            rq_narrow_buf.as_slice(),
+        ];
 
         for _ in 0..3 {
-            resonz_narrow.process_block(&inputs_narrow, &mut filtered_narrow, sample_rate, &context);
+            resonz_narrow.process_block(
+                &inputs_narrow,
+                &mut filtered_narrow,
+                sample_rate,
+                &context,
+            );
         }
 
         // Wide rq (broad resonance)
@@ -612,7 +660,11 @@ mod tests {
 
         let mut resonz_wide = ResonzNode::new(0, 1, 2);
         let mut filtered_wide = vec![0.0; block_size];
-        let inputs_wide = vec![signal_buf.as_slice(), center_buf.as_slice(), rq_wide_buf.as_slice()];
+        let inputs_wide = vec![
+            signal_buf.as_slice(),
+            center_buf.as_slice(),
+            rq_wide_buf.as_slice(),
+        ];
 
         for _ in 0..3 {
             resonz_wide.process_block(&inputs_wide, &mut filtered_wide, sample_rate, &context);
@@ -821,7 +873,11 @@ mod tests {
         let mut resonz = ResonzNode::new(0, 1, 2);
         let mut filtered = vec![0.0; block_size];
 
-        let inputs = vec![signal_buf.as_slice(), formant_buf.as_slice(), rq_buf.as_slice()];
+        let inputs = vec![
+            signal_buf.as_slice(),
+            formant_buf.as_slice(),
+            rq_buf.as_slice(),
+        ];
 
         for _ in 0..3 {
             resonz.process_block(&inputs, &mut filtered, sample_rate, &context);
@@ -939,7 +995,11 @@ mod tests {
 
         let mut resonz_high = ResonzNode::new(0, 1, 2);
         let mut filtered_high = vec![0.0; block_size];
-        let inputs_high = vec![signal_buf.as_slice(), center_buf.as_slice(), rq_high_buf.as_slice()];
+        let inputs_high = vec![
+            signal_buf.as_slice(),
+            center_buf.as_slice(),
+            rq_high_buf.as_slice(),
+        ];
 
         for _ in 0..5 {
             resonz_high.process_block(&inputs_high, &mut filtered_high, sample_rate, &context);

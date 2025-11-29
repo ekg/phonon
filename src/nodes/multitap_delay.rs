@@ -34,14 +34,13 @@
 /// let mix = ConstantNode::new(0.6);                 // NodeId 5 (60% wet)
 /// let delay = MultiTapDelayNode::new(1, 2, 3, 4, 5, 1.0, 44100.0);  // NodeId 6
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Multi-tap delay state
 #[derive(Debug, Clone)]
 struct MultiTapDelayState {
-    buffer: Vec<f32>,   // Circular delay buffer
-    write_pos: usize,   // Current write position
+    buffer: Vec<f32>, // Circular delay buffer
+    write_pos: usize, // Current write position
 }
 
 impl MultiTapDelayState {
@@ -64,14 +63,14 @@ impl MultiTapDelayState {
 /// Tap amplitudes decrease naturally (1.0, 0.5, 0.33, 0.25...) to create
 /// realistic decay patterns.
 pub struct MultiTapDelayNode {
-    input: NodeId,           // Signal to delay
-    time_input: NodeId,      // Base delay time in seconds
-    taps_input: NodeId,      // Number of taps (2-8)
-    feedback_input: NodeId,  // Feedback amount (0.0-0.95)
-    mix_input: NodeId,       // Dry/wet mix (0.0-1.0)
+    input: NodeId,          // Signal to delay
+    time_input: NodeId,     // Base delay time in seconds
+    taps_input: NodeId,     // Number of taps (2-8)
+    feedback_input: NodeId, // Feedback amount (0.0-0.95)
+    mix_input: NodeId,      // Dry/wet mix (0.0-1.0)
     state: MultiTapDelayState,
-    max_delay: f32,          // Maximum delay time (for buffer sizing)
-    sample_rate: f32,        // Sample rate for calculations
+    max_delay: f32,   // Maximum delay time (for buffer sizing)
+    sample_rate: f32, // Sample rate for calculations
 }
 
 impl MultiTapDelayNode {
@@ -248,7 +247,7 @@ impl AudioNode for MultiTapDelayNode {
     }
 
     fn provides_delay(&self) -> bool {
-        true  // MultiTapDelayNode has multiple taps, can safely break feedback cycles
+        true // MultiTapDelayNode has multiple taps, can safely break feedback cycles
     }
 }
 
@@ -268,10 +267,10 @@ mod tests {
         let sample_rate = 44100.0;
 
         let input = vec![0.5; size];
-        let time = vec![0.1; size];    // 100ms
-        let taps = vec![3.0; size];    // 3 taps
+        let time = vec![0.1; size]; // 100ms
+        let taps = vec![3.0; size]; // 3 taps
         let feedback = vec![0.5; size];
-        let mix = vec![0.0; size];      // Bypass
+        let mix = vec![0.0; size]; // Bypass
 
         let inputs: Vec<&[f32]> = vec![&input, &time, &taps, &feedback, &mix];
         let mut output = vec![0.0; size];
@@ -301,9 +300,9 @@ mod tests {
 
         let delay_time = 0.01; // 10ms = 441 samples at 44.1kHz
         let time = vec![delay_time; size];
-        let taps = vec![3.0; size];     // 3 taps
+        let taps = vec![3.0; size]; // 3 taps
         let feedback = vec![0.0; size]; // No feedback (cleaner test)
-        let mix = vec![1.0; size];       // Full wet
+        let mix = vec![1.0; size]; // Full wet
 
         let inputs: Vec<&[f32]> = vec![&input, &time, &taps, &feedback, &mix];
         let mut output = vec![0.0; size];
@@ -361,8 +360,8 @@ mod tests {
 
         let delay_time = 0.01; // 10ms
         let time = vec![delay_time; size];
-        let taps = vec![4.0; size];      // 4 taps
-        let feedback = vec![0.0; size];  // No feedback
+        let taps = vec![4.0; size]; // 4 taps
+        let feedback = vec![0.0; size]; // No feedback
         let mix = vec![1.0; size];
 
         let inputs: Vec<&[f32]> = vec![&input, &time, &taps, &feedback, &mix];
@@ -415,8 +414,8 @@ mod tests {
 
         let delay_time = 0.01; // 10ms
         let time = vec![delay_time; size];
-        let taps = vec![2.0; size];      // 2 taps
-        let feedback = vec![0.6; size];  // Significant feedback
+        let taps = vec![2.0; size]; // 2 taps
+        let feedback = vec![0.6; size]; // Significant feedback
         let mix = vec![1.0; size];
 
         let inputs: Vec<&[f32]> = vec![&input, &time, &taps, &feedback, &mix];
@@ -464,7 +463,10 @@ mod tests {
 
         // Should not panic, and should produce output
         let rms_low: f32 = output_low.iter().map(|x| x * x).sum::<f32>() / size as f32;
-        assert!(rms_low > 0.0, "Should produce output even with invalid tap count");
+        assert!(
+            rms_low > 0.0,
+            "Should produce output even with invalid tap count"
+        );
 
         // Test too many taps (should clamp to 8)
         let taps_high = vec![100.0; size];
@@ -476,7 +478,10 @@ mod tests {
 
         // Should not panic
         let rms_high: f32 = output_high.iter().map(|x| x * x).sum::<f32>() / size as f32;
-        assert!(rms_high > 0.0, "Should produce output with clamped tap count");
+        assert!(
+            rms_high > 0.0,
+            "Should produce output with clamped tap count"
+        );
     }
 
     #[test]
@@ -505,16 +510,10 @@ mod tests {
         delay.process_block(&inputs, &mut output, sample_rate, &context);
 
         // Output should vary as tap count changes
-        let early_rms: f32 = output[0..size / 4]
-            .iter()
-            .map(|x| x * x)
-            .sum::<f32>()
-            / (size / 4) as f32;
-        let late_rms: f32 = output[3 * size / 4..]
-            .iter()
-            .map(|x| x * x)
-            .sum::<f32>()
-            / (size / 4) as f32;
+        let early_rms: f32 =
+            output[0..size / 4].iter().map(|x| x * x).sum::<f32>() / (size / 4) as f32;
+        let late_rms: f32 =
+            output[3 * size / 4..].iter().map(|x| x * x).sum::<f32>() / (size / 4) as f32;
 
         // More taps should generally create different spectral content
         assert!(

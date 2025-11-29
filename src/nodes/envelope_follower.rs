@@ -60,7 +60,6 @@
 ///   - Fast release (10-50ms): Tight tracking, good for percussion
 ///   - Medium release (100-300ms): Natural compression feel
 ///   - Slow release (500ms-3s): Smooth pumping, ambient effects
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Envelope follower node: tracks signal amplitude with attack/release smoothing
@@ -184,12 +183,12 @@ impl AudioNode for EnvelopeFollowerNode {
             // Apply appropriate filter based on whether signal is rising or falling
             if rectified > self.envelope_state {
                 // Rising signal: use attack time
-                self.envelope_state = attack_coeff * self.envelope_state
-                    + (1.0 - attack_coeff) * rectified;
+                self.envelope_state =
+                    attack_coeff * self.envelope_state + (1.0 - attack_coeff) * rectified;
             } else {
                 // Falling signal: use release time
-                self.envelope_state = release_coeff * self.envelope_state
-                    + (1.0 - release_coeff) * rectified;
+                self.envelope_state =
+                    release_coeff * self.envelope_state + (1.0 - release_coeff) * rectified;
             }
 
             output[i] = self.envelope_state;
@@ -221,7 +220,7 @@ mod tests {
 
         let input = vec![0.0, 0.2, 0.4, 0.6, 0.8, 1.0];
         let attack = vec![0.001; 6]; // Very fast attack (1ms)
-        let release = vec![0.1; 6];   // 100ms release
+        let release = vec![0.1; 6]; // 100ms release
         let inputs = vec![input.as_slice(), attack.as_slice(), release.as_slice()];
 
         let mut output = vec![0.0; 6];
@@ -232,10 +231,30 @@ mod tests {
         // With 1ms attack at 44100 Hz: ~2.24% change per sample
         // Envelope should monotonically increase as input increases
         assert!(output[0] < 0.1, "output[0] = {}", output[0]);
-        assert!(output[1] < output[2], "output[1] = {}, output[2] = {}", output[1], output[2]);
-        assert!(output[2] < output[3], "output[2] = {}, output[3] = {}", output[2], output[3]);
-        assert!(output[3] < output[4], "output[3] = {}, output[4] = {}", output[3], output[4]);
-        assert!(output[4] < output[5], "output[4] = {}, output[5] = {}", output[4], output[5]);
+        assert!(
+            output[1] < output[2],
+            "output[1] = {}, output[2] = {}",
+            output[1],
+            output[2]
+        );
+        assert!(
+            output[2] < output[3],
+            "output[2] = {}, output[3] = {}",
+            output[2],
+            output[3]
+        );
+        assert!(
+            output[3] < output[4],
+            "output[3] = {}, output[4] = {}",
+            output[3],
+            output[4]
+        );
+        assert!(
+            output[4] < output[5],
+            "output[4] = {}, output[5] = {}",
+            output[4],
+            output[5]
+        );
 
         // Should rise but won't reach 0.5 in just 6 samples
         // At 2.24% per sample, max would be ~13.4% after 6 samples
@@ -249,8 +268,8 @@ mod tests {
 
         // Peak followed by silence
         let input = vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-        let attack = vec![0.001; 6];   // Fast attack
-        let release = vec![0.01; 6];   // Fast release (10ms)
+        let attack = vec![0.001; 6]; // Fast attack
+        let release = vec![0.01; 6]; // Fast release (10ms)
         let inputs = vec![input.as_slice(), attack.as_slice(), release.as_slice()];
 
         let mut output = vec![0.0; 6];
@@ -263,11 +282,36 @@ mod tests {
         assert!(output[0] > 0.01, "output[0] = {}", output[0]);
 
         // Should decay with each sample (though very slowly with 10ms release)
-        assert!(output[1] < output[0], "output[1] = {}, output[0] = {}", output[1], output[0]);
-        assert!(output[2] < output[1], "output[2] = {}, output[1] = {}", output[2], output[1]);
-        assert!(output[3] < output[2], "output[3] = {}, output[2] = {}", output[3], output[2]);
-        assert!(output[4] < output[3], "output[4] = {}, output[3] = {}", output[4], output[3]);
-        assert!(output[5] < output[4], "output[5] = {}, output[4] = {}", output[5], output[4]);
+        assert!(
+            output[1] < output[0],
+            "output[1] = {}, output[0] = {}",
+            output[1],
+            output[0]
+        );
+        assert!(
+            output[2] < output[1],
+            "output[2] = {}, output[1] = {}",
+            output[2],
+            output[1]
+        );
+        assert!(
+            output[3] < output[2],
+            "output[3] = {}, output[2] = {}",
+            output[3],
+            output[2]
+        );
+        assert!(
+            output[4] < output[3],
+            "output[4] = {}, output[3] = {}",
+            output[4],
+            output[3]
+        );
+        assert!(
+            output[5] < output[4],
+            "output[5] = {}, output[4] = {}",
+            output[5],
+            output[4]
+        );
     }
 
     #[test]
@@ -278,9 +322,9 @@ mod tests {
 
         // Impulse (single peak)
         let input = vec![1.0, 1.0, 1.0, 1.0];
-        let attack_fast = vec![0.001; 4];  // 1ms attack
-        let attack_slow = vec![0.05; 4];   // 50ms attack
-        let release = vec![0.5; 4];        // Same release for both
+        let attack_fast = vec![0.001; 4]; // 1ms attack
+        let attack_slow = vec![0.05; 4]; // 50ms attack
+        let release = vec![0.5; 4]; // Same release for both
 
         let inputs_fast = vec![input.as_slice(), attack_fast.as_slice(), release.as_slice()];
         let inputs_slow = vec![input.as_slice(), attack_slow.as_slice(), release.as_slice()];
@@ -293,15 +337,24 @@ mod tests {
         env_slow.process_block(&inputs_slow, &mut output_slow, 44100.0, &context);
 
         // Fast attack should reach higher value sooner
-        assert!(output_fast[1] > output_slow[1],
-                "Fast attack output[1] = {}, slow attack output[1] = {}",
-                output_fast[1], output_slow[1]);
-        assert!(output_fast[2] > output_slow[2],
-                "Fast attack output[2] = {}, slow attack output[2] = {}",
-                output_fast[2], output_slow[2]);
-        assert!(output_fast[3] > output_slow[3],
-                "Fast attack output[3] = {}, slow attack output[3] = {}",
-                output_fast[3], output_slow[3]);
+        assert!(
+            output_fast[1] > output_slow[1],
+            "Fast attack output[1] = {}, slow attack output[1] = {}",
+            output_fast[1],
+            output_slow[1]
+        );
+        assert!(
+            output_fast[2] > output_slow[2],
+            "Fast attack output[2] = {}, slow attack output[2] = {}",
+            output_fast[2],
+            output_slow[2]
+        );
+        assert!(
+            output_fast[3] > output_slow[3],
+            "Fast attack output[3] = {}, slow attack output[3] = {}",
+            output_fast[3],
+            output_slow[3]
+        );
     }
 
     #[test]
@@ -314,9 +367,9 @@ mod tests {
         let mut input = vec![0.0; 1000];
         input[0] = 1.0;
 
-        let attack = vec![0.001; 1000];      // Same fast attack for both
+        let attack = vec![0.001; 1000]; // Same fast attack for both
         let release_fast = vec![0.001; 1000]; // 1ms release (fast)
-        let release_slow = vec![0.5; 1000];   // 500ms release (slow)
+        let release_slow = vec![0.5; 1000]; // 500ms release (slow)
 
         let inputs_fast = vec![input.as_slice(), attack.as_slice(), release_fast.as_slice()];
         let inputs_slow = vec![input.as_slice(), attack.as_slice(), release_slow.as_slice()];
@@ -333,14 +386,20 @@ mod tests {
         // After 500 samples: ~0.0224 * 0.978^500 ≈ 0 (very small)
         // 500ms release: coeff ~0.99995, decay ~0.0046% per sample
         // After 500 samples: ~0.0224 * 0.99995^500 ≈ 0.022 (holds well)
-        assert!(output_fast[500] < output_slow[500],
-                "Fast release output[500] = {}, slow release output[500] = {}",
-                output_fast[500], output_slow[500]);
+        assert!(
+            output_fast[500] < output_slow[500],
+            "Fast release output[500] = {}, slow release output[500] = {}",
+            output_fast[500],
+            output_slow[500]
+        );
 
         // Verify huge difference
-        assert!(output_slow[500] > output_fast[500] * 10.0,
-                "Slow release should be much higher than fast release: {} vs {}",
-                output_slow[500], output_fast[500]);
+        assert!(
+            output_slow[500] > output_fast[500] * 10.0,
+            "Slow release should be much higher than fast release: {} vs {}",
+            output_slow[500],
+            output_fast[500]
+        );
     }
 
     #[test]
@@ -358,8 +417,8 @@ mod tests {
             input.push(amplitude * phase.sin());
         }
 
-        let attack = vec![0.001; 200];  // 1ms attack for faster buildup
-        let release = vec![0.05; 200];  // 50ms release
+        let attack = vec![0.001; 200]; // 1ms attack for faster buildup
+        let release = vec![0.05; 200]; // 50ms release
         let inputs = vec![input.as_slice(), attack.as_slice(), release.as_slice()];
 
         let mut output = vec![0.0; 200];
@@ -370,9 +429,12 @@ mod tests {
         // Envelope should converge toward peak amplitude
         // Over 200 samples with 1ms attack, should reach much higher
         let max_output = output.iter().cloned().fold(0.0_f32, f32::max);
-        assert!(max_output > 0.5 * amplitude,
-                "Envelope max ({}) should approach sine amplitude ({})",
-                max_output, amplitude);
+        assert!(
+            max_output > 0.5 * amplitude,
+            "Envelope max ({}) should approach sine amplitude ({})",
+            max_output,
+            amplitude
+        );
     }
 
     #[test]
@@ -385,8 +447,8 @@ mod tests {
             .map(|i| if i % 2 == 0 { 0.5 } else { -0.5 })
             .collect();
 
-        let attack = vec![0.001; 16];   // 1ms attack (~2.24% per sample)
-        let release = vec![0.001; 16];  // 1ms release (~2.24% per sample)
+        let attack = vec![0.001; 16]; // 1ms attack (~2.24% per sample)
+        let release = vec![0.001; 16]; // 1ms release (~2.24% per sample)
         let inputs = vec![input.as_slice(), attack.as_slice(), release.as_slice()];
 
         let mut output = vec![0.0; 16];
@@ -398,8 +460,11 @@ mod tests {
         // Over 16 samples: ~30% of target, so should reach ~0.15
         // (not stabilize around 0.5 in just 16 samples)
         let final_value = output[15];
-        assert!(final_value > 0.0 && final_value < 0.5,
-                "Envelope should be below 0.5, got {}", final_value);
+        assert!(
+            final_value > 0.0 && final_value < 0.5,
+            "Envelope should be below 0.5, got {}",
+            final_value
+        );
     }
 
     #[test]
@@ -410,8 +475,8 @@ mod tests {
         // Use a scenario that clearly shows decay after peak
         // Start with silence, then a strong peak, then back to silence
         let input = vec![-0.8, -0.9, -1.0, 0.0, 0.0, 0.0, 0.5, 0.5];
-        let attack = vec![0.001; 8];   // 1ms attack
-        let release = vec![0.01; 8];   // 10ms release
+        let attack = vec![0.001; 8]; // 1ms attack
+        let release = vec![0.01; 8]; // 10ms release
         let inputs = vec![input.as_slice(), attack.as_slice(), release.as_slice()];
 
         let mut output = vec![0.0; 8];
@@ -437,8 +502,8 @@ mod tests {
         let mut input = vec![0.0; 16];
         input[0] = 1.0;
 
-        let attack = vec![0.001; 16];  // 1ms attack (~2.24% per sample)
-        let release = vec![0.02; 16];  // 20ms release (~1.1% per sample)
+        let attack = vec![0.001; 16]; // 1ms attack (~2.24% per sample)
+        let release = vec![0.02; 16]; // 20ms release (~1.1% per sample)
         let inputs = vec![input.as_slice(), attack.as_slice(), release.as_slice()];
 
         let mut output = vec![0.0; 16];
@@ -452,9 +517,14 @@ mod tests {
 
         // Should decay smoothly (though slowly with 20ms release)
         for i in 1..16 {
-            assert!(output[i] < output[i-1],
-                    "output[{}] = {} should be less than output[{}] = {}",
-                    i, output[i], i-1, output[i-1]);
+            assert!(
+                output[i] < output[i - 1],
+                "output[{}] = {} should be less than output[{}] = {}",
+                i,
+                output[i],
+                i - 1,
+                output[i - 1]
+            );
         }
 
         // Should still have some energy after 15 samples of 1% decay
@@ -468,8 +538,8 @@ mod tests {
         let deps = env.input_nodes();
 
         assert_eq!(deps.len(), 3);
-        assert_eq!(deps[0], 3);  // input
-        assert_eq!(deps[1], 7);  // attack
+        assert_eq!(deps[0], 3); // input
+        assert_eq!(deps[1], 7); // attack
         assert_eq!(deps[2], 11); // release
     }
 
@@ -480,8 +550,8 @@ mod tests {
 
         // First block: establish envelope
         let input1 = vec![0.5, 0.8, 1.0];
-        let attack1 = vec![0.01; 3];       // 10ms attack (~0.11% per sample)
-        let release1 = vec![0.1; 3];       // 100ms release (~0.023% per sample)
+        let attack1 = vec![0.01; 3]; // 10ms attack (~0.11% per sample)
+        let release1 = vec![0.1; 3]; // 100ms release (~0.023% per sample)
         let inputs1 = vec![input1.as_slice(), attack1.as_slice(), release1.as_slice()];
         let mut output1 = vec![0.0; 3];
         let context = create_context(3);
@@ -489,7 +559,11 @@ mod tests {
         env.process_block(&inputs1, &mut output1, 44100.0, &context);
         let end_state_1 = output1[2];
         // With 10ms attack and rising input, should build up: 0, ~0.000555, ~0.00166
-        assert!(end_state_1 > 0.0, "Should have built up envelope: {}", end_state_1);
+        assert!(
+            end_state_1 > 0.0,
+            "Should have built up envelope: {}",
+            end_state_1
+        );
 
         // Second block: silence, should decay from previous state
         let input2 = vec![0.0, 0.0, 0.0];
@@ -501,9 +575,12 @@ mod tests {
         env.process_block(&inputs2, &mut output2, 44100.0, &context);
 
         // Should start from previous envelope state and decay slowly
-        assert!(output2[0] < end_state_1,
-                "output2[0] = {} should start decaying from end_state_1 = {}",
-                output2[0], end_state_1);
+        assert!(
+            output2[0] < end_state_1,
+            "output2[0] = {} should start decaying from end_state_1 = {}",
+            output2[0],
+            end_state_1
+        );
         assert!(output2[0] > 0.0, "Should not jump to zero");
     }
 
@@ -514,7 +591,7 @@ mod tests {
 
         // Build up some envelope with sustained signal
         let input = vec![1.0; 100];
-        let attack = vec![0.001; 100];   // Fast attack
+        let attack = vec![0.001; 100]; // Fast attack
         let release = vec![0.1; 100];
         let inputs = vec![input.as_slice(), attack.as_slice(), release.as_slice()];
         let mut output = vec![0.0; 100];
@@ -528,7 +605,11 @@ mod tests {
         env.reset();
 
         // State should be cleared
-        assert_eq!(env.envelope_state(), 0.0, "Reset should clear envelope state");
+        assert_eq!(
+            env.envelope_state(),
+            0.0,
+            "Reset should clear envelope state"
+        );
     }
 
     #[test]
@@ -542,7 +623,7 @@ mod tests {
             input[i] = 1.0;
         }
 
-        let attack = vec![0.0001; 100];  // 0.1ms attack (very fast: ~4.4% per sample)
+        let attack = vec![0.0001; 100]; // 0.1ms attack (very fast: ~4.4% per sample)
         let release = vec![0.5; 100];
         let inputs = vec![input.as_slice(), attack.as_slice(), release.as_slice()];
 
@@ -552,7 +633,11 @@ mod tests {
         env.process_block(&inputs, &mut output, 44100.0, &context);
 
         // With 0.1ms attack (4.4% per sample), after 50 samples should reach >0.9
-        assert!(output[51] > 0.8, "Very fast attack should reach high value: output[51] = {}", output[51]);
+        assert!(
+            output[51] > 0.8,
+            "Very fast attack should reach high value: output[51] = {}",
+            output[51]
+        );
     }
 
     #[test]
@@ -563,7 +648,7 @@ mod tests {
         // Peak followed by silence
         let input = vec![1.0, 0.0, 0.0, 0.0, 0.0];
         let attack = vec![0.001; 5];
-        let release = vec![10.0; 5];  // 10 second release (very slow)
+        let release = vec![10.0; 5]; // 10 second release (very slow)
         let inputs = vec![input.as_slice(), attack.as_slice(), release.as_slice()];
 
         let mut output = vec![0.0; 5];
@@ -572,9 +657,12 @@ mod tests {
         env.process_block(&inputs, &mut output, 44100.0, &context);
 
         // With very slow release, should barely decay over 4 samples
-        assert!(output[4] > 0.95 * output[0],
-                "Very slow release should hold envelope: output[4] = {}, output[0] = {}",
-                output[4], output[0]);
+        assert!(
+            output[4] > 0.95 * output[0],
+            "Very slow release should hold envelope: output[4] = {}, output[0] = {}",
+            output[4],
+            output[0]
+        );
     }
 
     #[test]
@@ -586,15 +674,15 @@ mod tests {
         // First part: impulse with fast (1ms) release - decays quickly
         // Second part: impulse with slow (100ms) release - holds longer
         let mut input = vec![0.0; 300];
-        input[0] = 1.0;    // First impulse
-        input[150] = 1.0;  // Second impulse
+        input[0] = 1.0; // First impulse
+        input[150] = 1.0; // Second impulse
 
         // First 150 samples: fast (1ms) release
         // Second 150 samples: slow (100ms) release
         let mut attack = vec![0.001; 300];
-        let mut release = vec![0.001; 300];  // Fast release
+        let mut release = vec![0.001; 300]; // Fast release
         for i in 150..300 {
-            release[i] = 0.1;  // Switch to slower release
+            release[i] = 0.1; // Switch to slower release
         }
 
         let inputs = vec![input.as_slice(), attack.as_slice(), release.as_slice()];
@@ -606,14 +694,20 @@ mod tests {
 
         // First impulse with fast (1ms) release should decay significantly by sample 75
         // At 1ms, coeff ~0.978, after 75 samples: ~0.0224 * 0.978^75 ≈ 0.0041 (18% of peak)
-        assert!(output[75] < output[0] * 0.2,
-                "Fast release should decay significantly: output[75] = {}, output[0] = {}",
-                output[75], output[0]);
+        assert!(
+            output[75] < output[0] * 0.2,
+            "Fast release should decay significantly: output[75] = {}, output[0] = {}",
+            output[75],
+            output[0]
+        );
 
         // Second impulse at [150] with slower (100ms) release should hold more
         // At 100ms, coeff ~0.99995, after 75 samples: ~0.0224 * 0.99995^75 ≈ 0.0223 (holds)
-        assert!(output[225] > output[150] * 0.8,
-                "Slow release should hold envelope: output[225] = {}, output[150] = {}",
-                output[225], output[150]);
+        assert!(
+            output[225] > output[150] * 0.8,
+            "Slow release should hold envelope: output[225] = {}, output[150] = {}",
+            output[225],
+            output[150]
+        );
     }
 }

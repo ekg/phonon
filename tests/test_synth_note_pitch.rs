@@ -10,7 +10,8 @@ use phonon::compositional_parser::parse_program;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
 
     let buffer_size = 128;
@@ -32,7 +33,7 @@ fn calculate_rms(samples: &[f32]) -> f32 {
 fn estimate_frequency(samples: &[f32], sample_rate: f32) -> f32 {
     let mut zero_crossings = 0;
     for i in 1..samples.len() {
-        if (samples[i-1] < 0.0) != (samples[i] < 0.0) {
+        if (samples[i - 1] < 0.0) != (samples[i] < 0.0) {
             zero_crossings += 1;
         }
     }

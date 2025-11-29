@@ -9,7 +9,10 @@ use crate::midi_input::MidiEventQueue;
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
 use crate::superdirt_synths::SynthLibrary;
-use crate::unified_graph::{DattorroState, NodeId, Signal, SignalExpr, SignalNode, TapeDelayState, UnifiedSignalGraph, Waveform};
+use crate::unified_graph::{
+    DattorroState, NodeId, Signal, SignalExpr, SignalNode, TapeDelayState, UnifiedSignalGraph,
+    Waveform,
+};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -116,12 +119,7 @@ impl ParamExtractor {
 
     /// Get an optional parameter with a default value
     /// Returns positional[index] if present, else kwargs[name], else default
-    fn get_optional(
-        &self,
-        index: usize,
-        name: &str,
-        default: f32,
-    ) -> Expr {
+    fn get_optional(&self, index: usize, name: &str, default: f32) -> Expr {
         // Try positional first
         if let Some(expr) = self.positional.get(index) {
             return expr.clone();
@@ -241,19 +239,40 @@ impl CompilerContext {
         matches!(
             name,
             // Effects that support effect bus routing
-            "reverb" | "convolve" | "convolution" | "freeze" |
-            "distort" | "distortion" | "dist" |
-            "delay" | "tapedelay" | "tape" | "multitap" | "pingpong" | "plate" |
-            "chorus" | "flanger" |
-            "compressor" | "comp" |
-            "sidechain_compressor" | "sidechain_comp" | "sc_comp" |
-            "expander" | "expand" |
-            "bitcrush" | "coarse" |
-            "djf" | "ring" |
-            "tremolo" | "trem" |
-            "vibrato" | "vib" |
-            "phaser" | "ph" |
-            "xfade" | "mix"
+            "reverb"
+                | "convolve"
+                | "convolution"
+                | "freeze"
+                | "distort"
+                | "distortion"
+                | "dist"
+                | "delay"
+                | "tapedelay"
+                | "tape"
+                | "multitap"
+                | "pingpong"
+                | "plate"
+                | "chorus"
+                | "flanger"
+                | "compressor"
+                | "comp"
+                | "sidechain_compressor"
+                | "sidechain_comp"
+                | "sc_comp"
+                | "expander"
+                | "expand"
+                | "bitcrush"
+                | "coarse"
+                | "djf"
+                | "ring"
+                | "tremolo"
+                | "trem"
+                | "vibrato"
+                | "vib"
+                | "phaser"
+                | "ph"
+                | "xfade"
+                | "mix"
         )
     }
 
@@ -385,7 +404,10 @@ pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Res
         Statement::BusAssignment { name, params, expr } => {
             // Check for reserved signal function names
             if RESERVED_SIGNAL_NAMES.contains(&name.as_str()) {
-                return Err(format!("'~{}' is a reserved signal function name and cannot be used as a bus name", name));
+                return Err(format!(
+                    "'~{}' is a reserved signal function name and cannot be used as a bus name",
+                    name
+                ));
             }
 
             if params.is_empty() {
@@ -446,13 +468,7 @@ pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Res
                 }
                 Expr::BusRef(bus_name) => {
                     // Audio signal as pattern: %speed: ~lfo
-                    create_signal_pattern_for_transform(
-                        ctx,
-                        &bus_name,
-                        0.0,
-                        1.0,
-                        &name,
-                    )?
+                    create_signal_pattern_for_transform(ctx, &bus_name, 0.0, 1.0, &name)?
                 }
                 _ => {
                     return Err(format!(
@@ -582,8 +598,13 @@ pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Res
 ///
 /// # Returns
 /// NodeId of the created MidiInput node
-fn create_midi_input_node(ctx: &mut CompilerContext, channel: Option<u8>) -> Result<NodeId, String> {
-    let queue = ctx.midi_event_queue.clone()
+fn create_midi_input_node(
+    ctx: &mut CompilerContext,
+    channel: Option<u8>,
+) -> Result<NodeId, String> {
+    let queue = ctx
+        .midi_event_queue
+        .clone()
         .ok_or("MIDI input not available - no MIDI device connected")?;
 
     Ok(ctx.graph.add_node(SignalNode::MidiInput {
@@ -926,7 +947,10 @@ fn compile_square_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resu
 ///
 /// Creates an OscillatorNode configured for triangle wave generation.
 /// The frequency is provided by another node (audio_node::NodeId).
-fn compile_triangle_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_triangle_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     use crate::nodes::oscillator::{OscillatorNode, Waveform};
 
     if args.is_empty() {
@@ -999,7 +1023,11 @@ fn compile_bpf_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<
 /// Compile addition to AudioNode (NEW architecture)
 ///
 /// Creates an AdditionNode that sums two input signals sample-by-sample.
-fn compile_add_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<usize, String> {
+fn compile_add_audio_node(
+    ctx: &mut CompilerContext,
+    left: Expr,
+    right: Expr,
+) -> Result<usize, String> {
     use crate::nodes::addition::AdditionNode;
 
     // Compile both operands to get audio_node::NodeIds (usize)
@@ -1014,7 +1042,11 @@ fn compile_add_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) ->
 /// Compile multiplication to AudioNode (NEW architecture)
 ///
 /// Creates a MultiplicationNode that multiplies two input signals sample-by-sample.
-fn compile_multiply_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<usize, String> {
+fn compile_multiply_audio_node(
+    ctx: &mut CompilerContext,
+    left: Expr,
+    right: Expr,
+) -> Result<usize, String> {
     use crate::nodes::multiplication::MultiplicationNode;
 
     // Compile both operands to get audio_node::NodeIds (usize)
@@ -1029,7 +1061,11 @@ fn compile_multiply_audio_node(ctx: &mut CompilerContext, left: Expr, right: Exp
 /// Compile subtraction to AudioNode (NEW architecture)
 ///
 /// Creates a SubtractionNode that subtracts the right signal from the left signal sample-by-sample.
-fn compile_subtract_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<usize, String> {
+fn compile_subtract_audio_node(
+    ctx: &mut CompilerContext,
+    left: Expr,
+    right: Expr,
+) -> Result<usize, String> {
     use crate::nodes::subtraction::SubtractionNode;
 
     // Compile both operands to get audio_node::NodeIds (usize)
@@ -1045,7 +1081,11 @@ fn compile_subtract_audio_node(ctx: &mut CompilerContext, left: Expr, right: Exp
 ///
 /// Creates a DivisionNode that divides the left signal by the right signal sample-by-sample.
 /// Includes protection against division by zero.
-fn compile_divide_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<usize, String> {
+fn compile_divide_audio_node(
+    ctx: &mut CompilerContext,
+    left: Expr,
+    right: Expr,
+) -> Result<usize, String> {
     use crate::nodes::division::DivisionNode;
 
     // Compile both operands to get audio_node::NodeIds (usize)
@@ -1075,7 +1115,12 @@ fn compile_delay_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resul
     let max_delay = 2.0;
     let sample_rate = ctx.sample_rate;
 
-    let node = Box::new(DelayNode::new(input_id, delay_time_id, max_delay, sample_rate));
+    let node = Box::new(DelayNode::new(
+        input_id,
+        delay_time_id,
+        max_delay,
+        sample_rate,
+    ));
     Ok(ctx.audio_node_graph.add_audio_node(node))
 }
 
@@ -1103,7 +1148,10 @@ fn compile_reverb_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resu
 ///
 /// Creates a DistortionNode that applies tanh waveshaping saturation.
 /// Parameters: drive (1.0 to 100.0), mix (0.0 = dry, 1.0 = wet).
-fn compile_distortion_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_distortion_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     use crate::nodes::DistortionNode;
 
     if args.len() < 3 {
@@ -1121,7 +1169,10 @@ fn compile_distortion_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> 
 /// Compile unipolar converter to AudioNode
 ///
 /// Maps bipolar (-1 to 1) signals to unipolar (0 to 1) range.
-fn compile_unipolar_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_unipolar_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     use crate::nodes::UnipolarNode;
 
     if args.len() != 1 {
@@ -1155,7 +1206,9 @@ fn compile_range_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resul
     use crate::nodes::RangeNode;
 
     if args.len() != 5 {
-        return Err("range expects 5 arguments: input, in_min, in_max, out_min, out_max".to_string());
+        return Err(
+            "range expects 5 arguments: input, in_min, in_max, out_min, out_max".to_string(),
+        );
     }
 
     let input_id = compile_expr_audio_node(ctx, args[0].clone())?;
@@ -1172,7 +1225,10 @@ fn compile_range_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resul
 ///
 /// Sets the sample start point for slicing (0.0 = start, 0.5 = middle, 1.0 = end).
 /// Currently not supported in AudioNode mode as sample playback uses SignalNode architecture.
-fn compile_begin_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_begin_modifier_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     let _ = (ctx, args); // Suppress unused warnings
     Err("Sample modifier 'begin' is not yet supported in AudioNode mode. Sample playback currently uses the SignalNode architecture. Use without AudioNode mode for now.".to_string())
 }
@@ -1181,7 +1237,10 @@ fn compile_begin_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>)
 ///
 /// Sets the sample end point for slicing (0.0 = start, 0.5 = middle, 1.0 = end).
 /// Currently not supported in AudioNode mode as sample playback uses SignalNode architecture.
-fn compile_end_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_end_modifier_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     let _ = (ctx, args); // Suppress unused warnings
     Err("Sample modifier 'end' is not yet supported in AudioNode mode. Sample playback currently uses the SignalNode architecture. Use without AudioNode mode for now.".to_string())
 }
@@ -1190,7 +1249,10 @@ fn compile_end_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -
 ///
 /// Sets whether the sample should loop (0 = play once, 1 = loop continuously).
 /// Currently not supported in AudioNode mode as sample playback uses SignalNode architecture.
-fn compile_loop_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_loop_modifier_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     let _ = (ctx, args); // Suppress unused warnings
     Err("Sample modifier 'loop' is not yet supported in AudioNode mode. Sample playback currently uses the SignalNode architecture. Use without AudioNode mode for now.".to_string())
 }
@@ -1199,7 +1261,10 @@ fn compile_loop_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) 
 ///
 /// Sets the cut group for voice stealing (samples in same group stop each other).
 /// Currently not supported in AudioNode mode as sample playback uses SignalNode architecture.
-fn compile_cut_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_cut_modifier_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     let _ = (ctx, args); // Suppress unused warnings
     Err("Sample modifier 'cut' is not yet supported in AudioNode mode. Sample playback currently uses the SignalNode architecture. Use without AudioNode mode for now.".to_string())
 }
@@ -1208,7 +1273,10 @@ fn compile_cut_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -
 ///
 /// Sets the playback unit mode ("r" = rate mode, "c" = cycle mode).
 /// Currently not supported in AudioNode mode as sample playback uses SignalNode architecture.
-fn compile_unit_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_unit_modifier_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     let _ = (ctx, args); // Suppress unused warnings
     Err("Sample modifier 'unit' is not yet supported in AudioNode mode. Sample playback currently uses the SignalNode architecture. Use without AudioNode mode for now.".to_string())
 }
@@ -1217,7 +1285,10 @@ fn compile_unit_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) 
 ///
 /// Sets the pitch offset in semitones for sample playback.
 /// Creates a new SamplePatternNode with the n parameter set.
-fn compile_n_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_n_modifier_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     if args.len() != 2 {
         return Err(format!(
             "n requires 2 arguments (sample_input, n_pattern), got {}",
@@ -1236,11 +1307,14 @@ fn compile_n_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> 
     };
 
     // Get the sample node metadata and clone the pattern
-    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+    let pattern = ctx
+        .sample_node_metadata
+        .get(&sample_node_id)
         .ok_or_else(|| {
             "n can only be used with sample (s) patterns, not other signals".to_string()
         })?
-        .pattern.clone();
+        .pattern
+        .clone();
 
     // Compile the n parameter expression to get its node ID
     let n_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
@@ -1250,11 +1324,10 @@ fn compile_n_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> 
     let sample_bank = ctx.audio_node_graph.sample_bank();
 
     // Create a new SamplePatternNode with the n parameter using builder pattern
-    let node = Box::new(crate::nodes::SamplePatternNode::new(
-        pattern.clone(),
-        voice_manager,
-        sample_bank,
-    ).with_n(n_node_id));
+    let node = Box::new(
+        crate::nodes::SamplePatternNode::new(pattern.clone(), voice_manager, sample_bank)
+            .with_n(n_node_id),
+    );
 
     // Add to graph and get node ID
     let new_node_id = ctx.audio_node_graph.add_audio_node(node);
@@ -1274,7 +1347,10 @@ fn compile_n_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> 
 ///
 /// Sets the volume for each sample trigger.
 /// Creates a new SamplePatternNode with the gain parameter set.
-fn compile_gain_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_gain_modifier_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     if args.len() != 2 {
         return Err(format!(
             "gain requires 2 arguments (sample_input, gain_pattern), got {}",
@@ -1293,11 +1369,14 @@ fn compile_gain_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) 
     };
 
     // Get the sample node metadata and clone the pattern
-    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+    let pattern = ctx
+        .sample_node_metadata
+        .get(&sample_node_id)
         .ok_or_else(|| {
             "gain can only be used with sample (s) patterns, not other signals".to_string()
         })?
-        .pattern.clone();
+        .pattern
+        .clone();
 
     // Compile the gain parameter expression to get its node ID
     let gain_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
@@ -1307,11 +1386,10 @@ fn compile_gain_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) 
     let sample_bank = ctx.audio_node_graph.sample_bank();
 
     // Create a new SamplePatternNode with the gain parameter using builder pattern
-    let node = Box::new(crate::nodes::SamplePatternNode::new(
-        pattern.clone(),
-        voice_manager,
-        sample_bank,
-    ).with_gain(gain_node_id));
+    let node = Box::new(
+        crate::nodes::SamplePatternNode::new(pattern.clone(), voice_manager, sample_bank)
+            .with_gain(gain_node_id),
+    );
 
     // Add to graph and get node ID
     let new_node_id = ctx.audio_node_graph.add_audio_node(node);
@@ -1331,7 +1409,10 @@ fn compile_gain_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) 
 ///
 /// Sets the stereo pan position (-1 = left, 0 = center, 1 = right).
 /// Creates a new SamplePatternNode with the pan parameter set.
-fn compile_pan_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_pan_modifier_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     if args.len() != 2 {
         return Err(format!(
             "pan requires 2 arguments (sample_input, pan_pattern), got {}",
@@ -1350,11 +1431,14 @@ fn compile_pan_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -
     };
 
     // Get the sample node metadata and clone the pattern
-    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+    let pattern = ctx
+        .sample_node_metadata
+        .get(&sample_node_id)
         .ok_or_else(|| {
             "pan can only be used with sample (s) patterns, not other signals".to_string()
         })?
-        .pattern.clone();
+        .pattern
+        .clone();
 
     // Compile the pan parameter expression to get its node ID
     let pan_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
@@ -1364,11 +1448,10 @@ fn compile_pan_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -
     let sample_bank = ctx.audio_node_graph.sample_bank();
 
     // Create a new SamplePatternNode with the pan parameter using builder pattern
-    let node = Box::new(crate::nodes::SamplePatternNode::new(
-        pattern.clone(),
-        voice_manager,
-        sample_bank,
-    ).with_pan(pan_node_id));
+    let node = Box::new(
+        crate::nodes::SamplePatternNode::new(pattern.clone(), voice_manager, sample_bank)
+            .with_pan(pan_node_id),
+    );
 
     // Add to graph and get node ID
     let new_node_id = ctx.audio_node_graph.add_audio_node(node);
@@ -1388,7 +1471,10 @@ fn compile_pan_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -
 ///
 /// Sets the playback speed (1.0 = normal, 0.5 = half speed, 2.0 = double speed).
 /// Creates a new SamplePatternNode with the speed parameter set.
-fn compile_speed_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_speed_modifier_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     if args.len() != 2 {
         return Err(format!(
             "speed requires 2 arguments (sample_input, speed_pattern), got {}",
@@ -1407,11 +1493,14 @@ fn compile_speed_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>)
     };
 
     // Get the sample node metadata and clone the pattern
-    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+    let pattern = ctx
+        .sample_node_metadata
+        .get(&sample_node_id)
         .ok_or_else(|| {
             "speed can only be used with sample (s) patterns, not other signals".to_string()
         })?
-        .pattern.clone();
+        .pattern
+        .clone();
 
     // Compile the speed parameter expression to get its node ID
     let speed_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
@@ -1421,11 +1510,10 @@ fn compile_speed_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>)
     let sample_bank = ctx.audio_node_graph.sample_bank();
 
     // Create a new SamplePatternNode with the speed parameter using builder pattern
-    let node = Box::new(crate::nodes::SamplePatternNode::new(
-        pattern.clone(),
-        voice_manager,
-        sample_bank,
-    ).with_speed(speed_node_id));
+    let node = Box::new(
+        crate::nodes::SamplePatternNode::new(pattern.clone(), voice_manager, sample_bank)
+            .with_speed(speed_node_id),
+    );
 
     // Add to graph and get node ID
     let new_node_id = ctx.audio_node_graph.add_audio_node(node);
@@ -1445,7 +1533,10 @@ fn compile_speed_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>)
 ///
 /// Sets the envelope attack time in seconds for sample playback.
 /// Creates a new SamplePatternNode with the attack parameter set.
-fn compile_attack_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_attack_modifier_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     if args.len() != 2 {
         return Err(format!(
             "attack requires 2 arguments (sample_input, attack_pattern), got {}",
@@ -1458,17 +1549,21 @@ fn compile_attack_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>
         Expr::ChainInput(node_id) => node_id.0,
         _ => {
             return Err(
-                "attack must be used with the chain operator: s \"bd\" # attack \"0.01\"".to_string(),
+                "attack must be used with the chain operator: s \"bd\" # attack \"0.01\""
+                    .to_string(),
             )
         }
     };
 
     // Get the sample node metadata and clone the pattern
-    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+    let pattern = ctx
+        .sample_node_metadata
+        .get(&sample_node_id)
         .ok_or_else(|| {
             "attack can only be used with sample (s) patterns, not other signals".to_string()
         })?
-        .pattern.clone();
+        .pattern
+        .clone();
 
     // Compile the attack parameter expression to get its node ID
     let attack_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
@@ -1478,11 +1573,10 @@ fn compile_attack_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>
     let sample_bank = ctx.audio_node_graph.sample_bank();
 
     // Create a new SamplePatternNode with the attack parameter using builder pattern
-    let node = Box::new(crate::nodes::SamplePatternNode::new(
-        pattern.clone(),
-        voice_manager,
-        sample_bank,
-    ).with_attack(attack_node_id));
+    let node = Box::new(
+        crate::nodes::SamplePatternNode::new(pattern.clone(), voice_manager, sample_bank)
+            .with_attack(attack_node_id),
+    );
 
     // Add to graph and get node ID
     let new_node_id = ctx.audio_node_graph.add_audio_node(node);
@@ -1502,7 +1596,10 @@ fn compile_attack_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>
 ///
 /// Sets the envelope release time in seconds for sample playback.
 /// Creates a new SamplePatternNode with the release parameter set.
-fn compile_release_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_release_modifier_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     if args.len() != 2 {
         return Err(format!(
             "release requires 2 arguments (sample_input, release_pattern), got {}",
@@ -1515,17 +1612,21 @@ fn compile_release_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr
         Expr::ChainInput(node_id) => node_id.0,
         _ => {
             return Err(
-                "release must be used with the chain operator: s \"bd\" # release \"0.1\"".to_string(),
+                "release must be used with the chain operator: s \"bd\" # release \"0.1\""
+                    .to_string(),
             )
         }
     };
 
     // Get the sample node metadata and clone the pattern
-    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+    let pattern = ctx
+        .sample_node_metadata
+        .get(&sample_node_id)
         .ok_or_else(|| {
             "release can only be used with sample (s) patterns, not other signals".to_string()
         })?
-        .pattern.clone();
+        .pattern
+        .clone();
 
     // Compile the release parameter expression to get its node ID
     let release_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
@@ -1535,11 +1636,10 @@ fn compile_release_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr
     let sample_bank = ctx.audio_node_graph.sample_bank();
 
     // Create a new SamplePatternNode with the release parameter using builder pattern
-    let node = Box::new(crate::nodes::SamplePatternNode::new(
-        pattern.clone(),
-        voice_manager,
-        sample_bank,
-    ).with_release(release_node_id));
+    let node = Box::new(
+        crate::nodes::SamplePatternNode::new(pattern.clone(), voice_manager, sample_bank)
+            .with_release(release_node_id),
+    );
 
     // Add to graph and get node ID
     let new_node_id = ctx.audio_node_graph.add_audio_node(node);
@@ -1559,7 +1659,10 @@ fn compile_release_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr
 ///
 /// Shorthand for setting both attack and release times.
 /// Creates a new SamplePatternNode with both attack and release parameters set.
-fn compile_ar_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<usize, String> {
+fn compile_ar_modifier_audio_node(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<usize, String> {
     if args.len() != 3 {
         return Err(format!(
             "ar requires 3 arguments (sample_input, attack_time, release_time), got {}",
@@ -1578,11 +1681,14 @@ fn compile_ar_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) ->
     };
 
     // Get the sample node metadata and clone the pattern
-    let pattern = ctx.sample_node_metadata.get(&sample_node_id)
+    let pattern = ctx
+        .sample_node_metadata
+        .get(&sample_node_id)
         .ok_or_else(|| {
             "ar can only be used with sample (s) patterns, not other signals".to_string()
         })?
-        .pattern.clone();
+        .pattern
+        .clone();
 
     // Compile both parameter expressions to get their node IDs
     let attack_node_id = compile_expr_audio_node(ctx, args[1].clone())?;
@@ -1593,11 +1699,11 @@ fn compile_ar_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) ->
     let sample_bank = ctx.audio_node_graph.sample_bank();
 
     // Create a new SamplePatternNode with both attack and release parameters using builder pattern
-    let node = Box::new(crate::nodes::SamplePatternNode::new(
-        pattern.clone(),
-        voice_manager,
-        sample_bank,
-    ).with_attack(attack_node_id).with_release(release_node_id));
+    let node = Box::new(
+        crate::nodes::SamplePatternNode::new(pattern.clone(), voice_manager, sample_bank)
+            .with_attack(attack_node_id)
+            .with_release(release_node_id),
+    );
 
     // Add to graph and get node ID
     let new_node_id = ctx.audio_node_graph.add_audio_node(node);
@@ -1617,7 +1723,11 @@ fn compile_ar_modifier_audio_node(ctx: &mut CompilerContext, args: Vec<Expr>) ->
 ///
 /// The chain operator passes the left expression as the first argument to the right expression.
 /// Example: `saw 110 # lpf 1000 0.8` becomes `lpf (saw 110) 1000 0.8`
-fn compile_chain_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<usize, String> {
+fn compile_chain_audio_node(
+    ctx: &mut CompilerContext,
+    left: Expr,
+    right: Expr,
+) -> Result<usize, String> {
     match right {
         Expr::Call { name, mut args } => {
             // Compile left expression to get input signal
@@ -1648,7 +1758,10 @@ fn compile_chain_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) 
                 "attack" => compile_attack_modifier_audio_node(ctx, args),
                 "release" => compile_release_modifier_audio_node(ctx, args),
                 "ar" => compile_ar_modifier_audio_node(ctx, args),
-                _ => Err(format!("Chain operator: function '{}' not yet supported in AudioNode mode", name)),
+                _ => Err(format!(
+                    "Chain operator: function '{}' not yet supported in AudioNode mode",
+                    name
+                )),
             }
         }
 
@@ -1667,26 +1780,39 @@ fn compile_chain_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) 
                             "delay" => compile_delay_audio_node(ctx, args),
                             "reverb" => compile_reverb_audio_node(ctx, args),
                             "distortion" | "dist" => compile_distortion_audio_node(ctx, args),
-                            _ => Err(format!("Transformer bus: function '{}' not yet supported", name)),
+                            _ => Err(format!(
+                                "Transformer bus: function '{}' not yet supported",
+                                name
+                            )),
                         }
                     }
                     Expr::Chain(chain_left, chain_right) => {
-                        let first_result = compile_chain_audio_node(ctx, Expr::ChainInput(NodeId(left_node)), *chain_left)?;
-                        compile_chain_audio_node(ctx, Expr::ChainInput(NodeId(first_result)), *chain_right)
+                        let first_result = compile_chain_audio_node(
+                            ctx,
+                            Expr::ChainInput(NodeId(left_node)),
+                            *chain_left,
+                        )?;
+                        compile_chain_audio_node(
+                            ctx,
+                            Expr::ChainInput(NodeId(first_result)),
+                            *chain_right,
+                        )
                     }
-                    _ => {
-                        compile_expr_audio_node(ctx, bus_expr)
-                    }
+                    _ => compile_expr_audio_node(ctx, bus_expr),
                 }
             } else {
-                eprintln!("⚠️  Warning: Bus '~{}' used in chain but has no stored expression", bus_name);
+                eprintln!(
+                    "⚠️  Warning: Bus '~{}' used in chain but has no stored expression",
+                    bus_name
+                );
                 compile_expr_audio_node(ctx, left)
             }
         }
 
-        _ => {
-            Err(format!("Chain operator: right side must be a function call or bus reference, got: {:?}", right))
-        }
+        _ => Err(format!(
+            "Chain operator: right side must be a function call or bus reference, got: {:?}",
+            right
+        )),
     }
 }
 
@@ -1698,9 +1824,7 @@ fn compile_chain_audio_node(ctx: &mut CompilerContext, left: Expr, right: Expr) 
 /// Returns an audio_node::NodeId (usize) that can be used as input to other nodes.
 fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usize, String> {
     match expr {
-        Expr::Number(n) => {
-            Ok(compile_constant_audio_node(ctx, n as f32))
-        }
+        Expr::Number(n) => Ok(compile_constant_audio_node(ctx, n as f32)),
 
         Expr::BusRef(name) => {
             // Look up bus in the buses HashMap
@@ -1718,87 +1842,74 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
             ))
         }
 
-        Expr::Call { name, args } if name == "sine" => {
-            compile_sine_audio_node(ctx, args)
-        }
+        Expr::Call { name, args } if name == "sine" => compile_sine_audio_node(ctx, args),
 
-        Expr::Call { name, args } if name == "saw" => {
-            compile_saw_audio_node(ctx, args)
-        }
+        Expr::Call { name, args } if name == "saw" => compile_saw_audio_node(ctx, args),
 
-        Expr::Call { name, args } if name == "square" => {
-            compile_square_audio_node(ctx, args)
-        }
+        Expr::Call { name, args } if name == "square" => compile_square_audio_node(ctx, args),
 
         Expr::Call { name, args } if name == "triangle" || name == "tri" => {
             compile_triangle_audio_node(ctx, args)
         }
 
-        Expr::Call { name, args } if name == "lpf" => {
-            compile_lpf_audio_node(ctx, args)
-        }
+        Expr::Call { name, args } if name == "lpf" => compile_lpf_audio_node(ctx, args),
 
-        Expr::Call { name, args } if name == "hpf" => {
-            compile_hpf_audio_node(ctx, args)
-        }
+        Expr::Call { name, args } if name == "hpf" => compile_hpf_audio_node(ctx, args),
 
-        Expr::Call { name, args } if name == "bpf" => {
-            compile_bpf_audio_node(ctx, args)
-        }
+        Expr::Call { name, args } if name == "bpf" => compile_bpf_audio_node(ctx, args),
 
-        Expr::Call { name, args } if name == "delay" => {
-            compile_delay_audio_node(ctx, args)
-        }
+        Expr::Call { name, args } if name == "delay" => compile_delay_audio_node(ctx, args),
 
-        Expr::Call { name, args } if name == "reverb" => {
-            compile_reverb_audio_node(ctx, args)
-        }
+        Expr::Call { name, args } if name == "reverb" => compile_reverb_audio_node(ctx, args),
 
         Expr::Call { name, args } if name == "distortion" || name == "dist" => {
             compile_distortion_audio_node(ctx, args)
         }
 
-        Expr::Call { name, args } if name == "unipolar" => {
-            compile_unipolar_audio_node(ctx, args)
-        }
+        Expr::Call { name, args } if name == "unipolar" => compile_unipolar_audio_node(ctx, args),
 
-        Expr::Call { name, args } if name == "bipolar" => {
-            compile_bipolar_audio_node(ctx, args)
-        }
+        Expr::Call { name, args } if name == "bipolar" => compile_bipolar_audio_node(ctx, args),
 
-        Expr::Call { name, args } if name == "range" => {
-            compile_range_audio_node(ctx, args)
-        }
+        Expr::Call { name, args } if name == "range" => compile_range_audio_node(ctx, args),
 
         Expr::Call { name, args } if name == "s" => {
             // Sample playback function: s "bd sn hh cp"
             if args.len() != 1 {
-                return Err(format!("s function expects 1 argument (pattern string), got {}", args.len()));
+                return Err(format!(
+                    "s function expects 1 argument (pattern string), got {}",
+                    args.len()
+                ));
             }
 
             // Extract the string argument and compile it as Expr::String
             compile_expr_audio_node(ctx, args[0].clone())
         }
 
-        Expr::BinOp { op: BinOp::Add, left, right } => {
-            compile_add_audio_node(ctx, *left, *right)
-        }
+        Expr::BinOp {
+            op: BinOp::Add,
+            left,
+            right,
+        } => compile_add_audio_node(ctx, *left, *right),
 
-        Expr::BinOp { op: BinOp::Mul, left, right } => {
-            compile_multiply_audio_node(ctx, *left, *right)
-        }
+        Expr::BinOp {
+            op: BinOp::Mul,
+            left,
+            right,
+        } => compile_multiply_audio_node(ctx, *left, *right),
 
-        Expr::BinOp { op: BinOp::Sub, left, right } => {
-            compile_subtract_audio_node(ctx, *left, *right)
-        }
+        Expr::BinOp {
+            op: BinOp::Sub,
+            left,
+            right,
+        } => compile_subtract_audio_node(ctx, *left, *right),
 
-        Expr::BinOp { op: BinOp::Div, left, right } => {
-            compile_divide_audio_node(ctx, *left, *right)
-        }
+        Expr::BinOp {
+            op: BinOp::Div,
+            left,
+            right,
+        } => compile_divide_audio_node(ctx, *left, *right),
 
-        Expr::Chain(left, right) => {
-            compile_chain_audio_node(ctx, *left, *right)
-        }
+        Expr::Chain(left, right) => compile_chain_audio_node(ctx, *left, *right),
 
         Expr::ChainInput(node_id) => {
             // ChainInput is used internally by chain operator
@@ -1887,7 +1998,10 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
                 _ => {
                     // For non-pattern expressions, compile without transform
                     // (transforms only apply to patterns)
-                    eprintln!("⚠️  Transform on non-pattern expression not yet supported: {:?}", transform);
+                    eprintln!(
+                        "⚠️  Transform on non-pattern expression not yet supported: {:?}",
+                        transform
+                    );
                     compile_expr_audio_node(ctx, *expr)
                 }
             }
@@ -1900,7 +2014,10 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
             Ok(node_id.0) // Convert NodeId to usize
         }
 
-        _ => Err(format!("AudioNode compilation not yet implemented for: {:?}", expr)),
+        _ => Err(format!(
+            "AudioNode compilation not yet implemented for: {:?}",
+            expr
+        )),
     }
 }
 
@@ -2090,12 +2207,10 @@ fn compile_function_call(
                                                 "early" if args.len() == 1 => {
                                                     Transform::Early(Box::new(args[0].clone()))
                                                 }
-                                                "slice" if args.len() == 2 => {
-                                                    Transform::Slice {
-                                                        n: Box::new(args[0].clone()),
-                                                        indices: Box::new(args[1].clone()),
-                                                    }
-                                                }
+                                                "slice" if args.len() == 2 => Transform::Slice {
+                                                    n: Box::new(args[0].clone()),
+                                                    indices: Box::new(args[1].clone()),
+                                                },
                                                 "late" if args.len() == 1 => {
                                                     Transform::Late(Box::new(args[0].clone()))
                                                 }
@@ -2146,12 +2261,10 @@ fn compile_function_call(
                                     "degradeBy" if args.len() == 1 => {
                                         Transform::DegradeBy(Box::new(args[0].clone()))
                                     }
-                                    "slice" if args.len() == 2 => {
-                                        Transform::Slice {
-                                            n: Box::new(args[0].clone()),
-                                            indices: Box::new(args[1].clone()),
-                                        }
-                                    }
+                                    "slice" if args.len() == 2 => Transform::Slice {
+                                        n: Box::new(args[0].clone()),
+                                        indices: Box::new(args[1].clone()),
+                                    },
                                     "stutter" if args.len() == 1 => {
                                         Transform::Stutter(Box::new(args[0].clone()))
                                     }
@@ -2164,7 +2277,11 @@ fn compile_function_call(
                             }
                             Expr::TemplateRef(name) => {
                                 // Handle template references (e.g., s "bd" $ @swing)
-                                pattern = apply_transform_to_pattern(ctx, pattern, Transform::TemplateRef(name.clone()))?;
+                                pattern = apply_transform_to_pattern(
+                                    ctx,
+                                    pattern,
+                                    Transform::TemplateRef(name.clone()),
+                                )?;
                             }
                             _ => {
                                 return Err(format!(
@@ -2212,7 +2329,10 @@ fn compile_function_call(
                                 let pattern = Pattern::choose(options_vec.clone());
                                 (format!("choose {:?}", options_vec), pattern)
                             }
-                            _ => return Err("choose requires a list argument: choose [\"bd\", \"sn\", \"hh\"]".to_string()),
+                            _ => return Err(
+                                "choose requires a list argument: choose [\"bd\", \"sn\", \"hh\"]"
+                                    .to_string(),
+                            ),
                         }
                     }
                     Expr::Call { name, args } if name == "wchoose" => {
@@ -2231,10 +2351,12 @@ fn compile_function_call(
                                                 (Expr::String(s), Expr::Number(w)) => {
                                                     Ok((s.clone(), *w))
                                                 }
-                                                _ => Err("wchoose pairs must be [string, number]".to_string()),
+                                                _ => Err("wchoose pairs must be [string, number]"
+                                                    .to_string()),
                                             }
                                         }
-                                        _ => Err("wchoose requires list of [value, weight] pairs".to_string()),
+                                        _ => Err("wchoose requires list of [value, weight] pairs"
+                                            .to_string()),
                                     })
                                     .collect();
 
@@ -2323,22 +2445,28 @@ fn compile_function_call(
                             Expr::Call { name, args } if name == "choose" => {
                                 // Handle choose: s (choose ["bd", "sn", "hh"])
                                 if args.len() != 1 {
-                                    return Err("choose requires exactly one list argument".to_string());
+                                    return Err(
+                                        "choose requires exactly one list argument".to_string()
+                                    );
                                 }
 
                                 match &args[0] {
                                     Expr::List(options) => {
-                                        let string_options: Result<Vec<String>, String> = options
-                                            .iter()
-                                            .map(|expr| match expr {
-                                                Expr::String(s) => Ok(s.clone()),
-                                                _ => Err("choose requires a list of strings".to_string()),
-                                            })
-                                            .collect();
+                                        let string_options: Result<Vec<String>, String> =
+                                            options
+                                                .iter()
+                                                .map(|expr| match expr {
+                                                    Expr::String(s) => Ok(s.clone()),
+                                                    _ => Err("choose requires a list of strings"
+                                                        .to_string()),
+                                                })
+                                                .collect();
 
                                         let options_vec = string_options?;
                                         if options_vec.is_empty() {
-                                            return Err("choose requires at least one option".to_string());
+                                            return Err(
+                                                "choose requires at least one option".to_string()
+                                            );
                                         }
 
                                         let pattern = Pattern::choose(options_vec.clone());
@@ -2350,7 +2478,9 @@ fn compile_function_call(
                             Expr::Call { name, args } if name == "wchoose" => {
                                 // Handle wchoose: s (wchoose [["bd", 3], ["sn", 1]])
                                 if args.len() != 1 {
-                                    return Err("wchoose requires exactly one list argument".to_string());
+                                    return Err(
+                                        "wchoose requires exactly one list argument".to_string()
+                                    );
                                 }
 
                                 match &args[0] {
@@ -2373,7 +2503,9 @@ fn compile_function_call(
 
                                         let options_vec = weighted_options?;
                                         if options_vec.is_empty() {
-                                            return Err("wchoose requires at least one option".to_string());
+                                            return Err(
+                                                "wchoose requires at least one option".to_string()
+                                            );
                                         }
 
                                         let pattern = Pattern::wchoose(options_vec.clone());
@@ -2442,7 +2574,7 @@ fn compile_function_call(
             let mut unit_mode = Signal::Value(0.0); // 0 = rate mode (default)
             let mut loop_enabled = Signal::Value(0.0); // 0 = no loop (default)
             let mut begin = Signal::Value(0.0); // 0.0 = start of sample
-            let mut end = Signal::Value(1.0);   // 1.0 = end of sample
+            let mut end = Signal::Value(1.0); // 1.0 = end of sample
 
             for kwarg in kwargs {
                 if let Expr::Kwarg { name, value } = kwarg {
@@ -2591,7 +2723,9 @@ fn compile_function_call(
         "chorus" => compile_chorus(ctx, args),
         "flanger" => compile_flanger(ctx, args),
         "compressor" | "comp" => compile_compressor(ctx, args),
-        "sidechain_compressor" | "sidechain_comp" | "sc_comp" => compile_sidechain_compressor(ctx, args),
+        "sidechain_compressor" | "sidechain_comp" | "sc_comp" => {
+            compile_sidechain_compressor(ctx, args)
+        }
         "expander" | "expand" => compile_expander(ctx, args),
         "bitcrush" => compile_bitcrush(ctx, args),
         "coarse" => compile_coarse(ctx, args),
@@ -2687,9 +2821,23 @@ fn compile_function_call(
         _ => {
             // Check if this is a common parameter modifier being used with $ instead of #
             let parameter_modifiers = [
-                "speed", "gain", "pan", "note", "ar", "attack", "release",
-                "begin", "end", "loop", "crush", "coarse", "cutoff", "resonance",
-                "room", "size", "dry"
+                "speed",
+                "gain",
+                "pan",
+                "note",
+                "ar",
+                "attack",
+                "release",
+                "begin",
+                "end",
+                "loop",
+                "crush",
+                "coarse",
+                "cutoff",
+                "resonance",
+                "room",
+                "size",
+                "dry",
             ];
 
             if parameter_modifiers.contains(&name) {
@@ -2880,11 +3028,7 @@ fn compile_slowcat(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
                 })
                 .collect::<Result<Vec<String>, String>>()?
         }
-        _ => {
-            return Err(
-                "slowcat requires a list as argument".to_string(),
-            )
-        }
+        _ => return Err("slowcat requires a list as argument".to_string()),
     };
 
     if pattern_strs.is_empty() {
@@ -2938,7 +3082,9 @@ fn compile_wedge(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
     // First argument is the ratio
     let ratio = match &args[0] {
         Expr::Number(n) => *n,
-        _ => return Err("wedge first argument must be a number (ratio between 0 and 1)".to_string()),
+        _ => {
+            return Err("wedge first argument must be a number (ratio between 0 and 1)".to_string())
+        }
     };
 
     if ratio < 0.0 || ratio > 1.0 {
@@ -2949,12 +3095,10 @@ fn compile_wedge(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
     let extract_pattern_str = |expr: &Expr| -> Result<String, String> {
         match expr {
             Expr::String(s) => Ok(s.clone()),
-            Expr::Call { name, args } if name == "s" && !args.is_empty() => {
-                match &args[0] {
-                    Expr::String(s) => Ok(s.clone()),
-                    _ => Err("s() call in wedge must have a string argument".to_string()),
-                }
-            }
+            Expr::Call { name, args } if name == "s" && !args.is_empty() => match &args[0] {
+                Expr::String(s) => Ok(s.clone()),
+                _ => Err("s() call in wedge must have a string argument".to_string()),
+            },
             _ => Err("wedge patterns must be strings or s calls".to_string()),
         }
     };
@@ -3007,12 +3151,10 @@ fn compile_sew(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
     let extract_pattern_str = |expr: &Expr| -> Result<String, String> {
         match expr {
             Expr::String(s) => Ok(s.clone()),
-            Expr::Call { name, args } if name == "s" && !args.is_empty() => {
-                match &args[0] {
-                    Expr::String(s) => Ok(s.clone()),
-                    _ => Err("s() call in sew must have a string argument".to_string()),
-                }
-            }
+            Expr::Call { name, args } if name == "s" && !args.is_empty() => match &args[0] {
+                Expr::String(s) => Ok(s.clone()),
+                _ => Err("s() call in sew must have a string argument".to_string()),
+            },
             _ => Err("sew patterns must be strings or s calls".to_string()),
         }
     };
@@ -3028,7 +3170,10 @@ fn compile_sew(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
 
     // Combine using Pattern::sew
     let combined_pattern = Pattern::sew(bool_pattern, pat_true, pat_false);
-    let combined_str = format!("sew \"{}\" \"{}\" \"{}\"", bool_str, pat_true_str, pat_false_str);
+    let combined_str = format!(
+        "sew \"{}\" \"{}\" \"{}\"",
+        bool_str, pat_true_str, pat_false_str
+    );
 
     // Create a Sample node with the combined pattern
     let node = SignalNode::Sample {
@@ -3080,7 +3225,10 @@ fn compile_oscillator(
         Expr::String(s) => {
             // Parse strings like "+0.5" or "-2.3"
             s.parse::<f32>().map_err(|_| {
-                format!("Invalid semitone offset '{}', expected number like +0.5 or -2.3", s)
+                format!(
+                    "Invalid semitone offset '{}', expected number like +0.5 or -2.3",
+                    s
+                )
             })?
         }
         _ => {
@@ -3293,7 +3441,7 @@ fn compile_karplus_strong(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<
         damping: damping_signal,
         trigger: Signal::Value(1.0), // Default: always triggered
         state: KarplusStrongState::new(initial_size),
-        last_freq: 440.0, // Will be updated on first sample
+        last_freq: 440.0,  // Will be updated on first sample
         last_trigger: 0.0, // For edge detection
     };
 
@@ -4473,7 +4621,10 @@ fn compile_distortion(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
 /// Formula: output = min + (signal + 1) * 0.5 * (max - min)
 fn compile_range(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 3 {
-        return Err(format!("range requires 3 arguments (min, max, signal), got {}", args.len()));
+        return Err(format!(
+            "range requires 3 arguments (min, max, signal), got {}",
+            args.len()
+        ));
     }
 
     // Compile min, max, and signal
@@ -4578,7 +4729,10 @@ fn compile_pan(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
 /// Example: min ~lfo ~env  (modulate with minimum of two signals)
 fn compile_min(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 2 {
-        return Err(format!("min requires exactly 2 arguments, got {}", args.len()));
+        return Err(format!(
+            "min requires exactly 2 arguments, got {}",
+            args.len()
+        ));
     }
 
     // Compile both input signals
@@ -4600,7 +4754,10 @@ fn compile_min(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
 /// Example: wrap ~lfo -1.0 1.0  (wrap LFO into bipolar range)
 fn compile_wrap(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 3 {
-        return Err(format!("wrap requires exactly 3 arguments (input, min, max), got {}", args.len()));
+        return Err(format!(
+            "wrap requires exactly 3 arguments (input, min, max), got {}",
+            args.len()
+        ));
     }
 
     // Compile all three input signals
@@ -4623,7 +4780,10 @@ fn compile_wrap(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
 /// Captures input when trigger crosses from negative/zero to positive
 fn compile_sample_hold(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 2 {
-        return Err(format!("sample_hold requires exactly 2 arguments (input, trigger), got {}", args.len()));
+        return Err(format!(
+            "sample_hold requires exactly 2 arguments (input, trigger), got {}",
+            args.len()
+        ));
     }
 
     // Compile input and trigger signals
@@ -4647,7 +4807,10 @@ fn compile_sample_hold(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
 /// - smooth: Smoothing amount (0.0 = harsh/stepped, 1.0 = smooth)
 fn compile_decimator(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 3 {
-        return Err(format!("decimator requires exactly 3 arguments (input, factor, smooth), got {}", args.len()));
+        return Err(format!(
+            "decimator requires exactly 3 arguments (input, factor, smooth), got {}",
+            args.len()
+        ));
     }
 
     // Compile input, factor, and smooth signals
@@ -4784,7 +4947,7 @@ fn compile_tapedelay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
     let wow_rate_node = if params.len() > 2 {
         compile_expr(ctx, params[2].clone())?
     } else {
-        ctx.graph.add_node(SignalNode::Constant { value: 0.5 })  // Default: subtle wobble
+        ctx.graph.add_node(SignalNode::Constant { value: 0.5 }) // Default: subtle wobble
     };
 
     let wow_depth_node = if params.len() > 3 {
@@ -4796,7 +4959,7 @@ fn compile_tapedelay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
     let flutter_rate_node = if params.len() > 4 {
         compile_expr(ctx, params[4].clone())?
     } else {
-        ctx.graph.add_node(SignalNode::Constant { value: 6.0 })  // Default: 6 Hz shimmer
+        ctx.graph.add_node(SignalNode::Constant { value: 6.0 }) // Default: 6 Hz shimmer
     };
 
     let flutter_depth_node = if params.len() > 5 {
@@ -4808,13 +4971,13 @@ fn compile_tapedelay(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
     let saturation_node = if params.len() > 6 {
         compile_expr(ctx, params[6].clone())?
     } else {
-        ctx.graph.add_node(SignalNode::Constant { value: 0.3 })  // Default: mild warmth
+        ctx.graph.add_node(SignalNode::Constant { value: 0.3 }) // Default: mild warmth
     };
 
     let mix_node = if params.len() > 7 {
         compile_expr(ctx, params[7].clone())?
     } else {
-        ctx.graph.add_node(SignalNode::Constant { value: 0.5 })  // Default: 50/50 mix
+        ctx.graph.add_node(SignalNode::Constant { value: 0.5 }) // Default: 50/50 mix
     };
 
     let node = SignalNode::TapeDelay {
@@ -4858,13 +5021,13 @@ fn compile_multitap(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
     let feedback_node = if params.len() > 2 {
         compile_expr(ctx, params[2].clone())?
     } else {
-        ctx.graph.add_node(SignalNode::Constant { value: 0.5 })  // Default: moderate feedback
+        ctx.graph.add_node(SignalNode::Constant { value: 0.5 }) // Default: moderate feedback
     };
 
     let mix_node = if params.len() > 3 {
         compile_expr(ctx, params[3].clone())?
     } else {
-        ctx.graph.add_node(SignalNode::Constant { value: 0.6 })  // Default: 60% wet
+        ctx.graph.add_node(SignalNode::Constant { value: 0.6 }) // Default: 60% wet
     };
 
     // Create delay buffer (1 second max)
@@ -4902,23 +5065,25 @@ fn compile_pingpong(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
     let stereo_width_node = if params.len() > 2 {
         compile_expr(ctx, params[2].clone())?
     } else {
-        ctx.graph.add_node(SignalNode::Constant { value: 0.8 })  // Default: strong ping-pong
+        ctx.graph.add_node(SignalNode::Constant { value: 0.8 }) // Default: strong ping-pong
     };
 
     let channel = if params.len() > 3 {
         if let Expr::Number(n) = params[3].clone() {
             n != 0.0
         } else {
-            return Err("pingpong 'channel' parameter must be a constant (0=left, 1=right)".to_string());
+            return Err(
+                "pingpong 'channel' parameter must be a constant (0=left, 1=right)".to_string(),
+            );
         }
     } else {
-        false  // Default: start on left
+        false // Default: start on left
     };
 
     let mix_node = if params.len() > 4 {
         compile_expr(ctx, params[4].clone())?
     } else {
-        ctx.graph.add_node(SignalNode::Constant { value: 0.7 })  // Default: 70% wet
+        ctx.graph.add_node(SignalNode::Constant { value: 0.7 }) // Default: 70% wet
     };
 
     // Create delay buffers (1 second max each)
@@ -4958,25 +5123,25 @@ fn compile_plate(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, S
     let diffusion_node = if params.len() > 2 {
         compile_expr(ctx, params[2].clone())?
     } else {
-        ctx.graph.add_node(SignalNode::Constant { value: 0.7 })  // Default: dense diffusion
+        ctx.graph.add_node(SignalNode::Constant { value: 0.7 }) // Default: dense diffusion
     };
 
     let damping_node = if params.len() > 3 {
         compile_expr(ctx, params[3].clone())?
     } else {
-        ctx.graph.add_node(SignalNode::Constant { value: 0.3 })  // Default: some HF rolloff
+        ctx.graph.add_node(SignalNode::Constant { value: 0.3 }) // Default: some HF rolloff
     };
 
     let mod_depth_node = if params.len() > 4 {
         compile_expr(ctx, params[4].clone())?
     } else {
-        ctx.graph.add_node(SignalNode::Constant { value: 0.3 })  // Default: subtle shimmer
+        ctx.graph.add_node(SignalNode::Constant { value: 0.3 }) // Default: subtle shimmer
     };
 
     let mix_node = if params.len() > 5 {
         compile_expr(ctx, params[5].clone())?
     } else {
-        ctx.graph.add_node(SignalNode::Constant { value: 0.5 })  // Default: 50/50 mix
+        ctx.graph.add_node(SignalNode::Constant { value: 0.5 }) // Default: 50/50 mix
     };
 
     let node = SignalNode::DattorroReverb {
@@ -5089,7 +5254,10 @@ fn compile_compressor(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
 }
 
 /// Compile sidechain compressor effect
-fn compile_sidechain_compressor(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+fn compile_sidechain_compressor(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+) -> Result<NodeId, String> {
     // Extract main input (handles both standalone and chained forms)
     let (main_input, params) = extract_chain_input(ctx, &args)?;
 
@@ -5313,9 +5481,9 @@ fn compile_vibrato(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId,
         input: input_signal,
         rate: Signal::Node(rate_node),
         depth: Signal::Node(depth_node),
-        phase: 0.0,              // Start at phase 0
+        phase: 0.0,               // Start at phase 0
         delay_buffer: Vec::new(), // Initialized on first use
-        buffer_pos: 0,           // Start at buffer position 0
+        buffer_pos: 0,            // Start at buffer position 0
     };
 
     Ok(ctx.graph.add_node(node))
@@ -5351,11 +5519,7 @@ fn compile_phaser(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
             }
             val
         }
-        _ => {
-            return Err(
-                "phaser stages parameter must be a constant number (2 to 12)".to_string()
-            )
-        }
+        _ => return Err("phaser stages parameter must be a constant number (2 to 12)".to_string()),
     };
 
     let node = SignalNode::Phaser {
@@ -5531,7 +5695,11 @@ fn compile_svf_notch(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
 }
 
 /// Helper function to compile SVF with specified mode
-fn compile_svf_mode(ctx: &mut CompilerContext, args: Vec<Expr>, mode: usize) -> Result<NodeId, String> {
+fn compile_svf_mode(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+    mode: usize,
+) -> Result<NodeId, String> {
     use crate::unified_graph::SVFState;
 
     // Extract input (handles both standalone and chained forms)
@@ -5583,7 +5751,11 @@ fn compile_bq_notch(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId
 }
 
 /// Helper function to compile Biquad with specified mode
-fn compile_biquad_mode(ctx: &mut CompilerContext, args: Vec<Expr>, mode: usize) -> Result<NodeId, String> {
+fn compile_biquad_mode(
+    ctx: &mut CompilerContext,
+    args: Vec<Expr>,
+    mode: usize,
+) -> Result<NodeId, String> {
     use crate::unified_graph::BiquadState;
 
     // Extract input (handles both standalone and chained forms)
@@ -5975,10 +6147,10 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
         let decay_node = compile_expr(ctx, decay_expr)?;
 
         // sustain and release are optional
-        let sustain_expr = extractor.get_optional(2, "sustain", 0.7);  // 70% sustain level
+        let sustain_expr = extractor.get_optional(2, "sustain", 0.7); // 70% sustain level
         let sustain_node = compile_expr(ctx, sustain_expr)?;
 
-        let release_expr = extractor.get_optional(3, "release", 0.2);  // 200ms release
+        let release_expr = extractor.get_optional(3, "release", 0.2); // 200ms release
         let release_node = compile_expr(ctx, release_expr)?;
 
         // Modify the Sample node to use ADSR envelope
@@ -6051,10 +6223,10 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
         let decay_node = compile_expr(ctx, decay_expr)?;
 
         // sustain and release are optional
-        let sustain_expr = extractor.get_optional(2, "sustain", 0.7);  // 70% sustain level
+        let sustain_expr = extractor.get_optional(2, "sustain", 0.7); // 70% sustain level
         let sustain_node = compile_expr(ctx, sustain_expr)?;
 
-        let release_expr = extractor.get_optional(3, "release", 0.2);  // 200ms release
+        let release_expr = extractor.get_optional(3, "release", 0.2); // 200ms release
         let release_node = compile_expr(ctx, release_expr)?;
 
         let node = SignalNode::ADSR {
@@ -6408,7 +6580,8 @@ fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<N
                         // The bus is a chain like `lpf 1000 # hpf 100`
                         // We need to inject left_node into the chain
                         // First compile: left_node # chain_left
-                        let first_result = compile_chain(ctx, Expr::ChainInput(left_node), *chain_left)?;
+                        let first_result =
+                            compile_chain(ctx, Expr::ChainInput(left_node), *chain_left)?;
                         // Then compile: first_result # chain_right
                         compile_chain(ctx, Expr::ChainInput(first_result), *chain_right)
                     }
@@ -6420,7 +6593,10 @@ fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<N
                 }
             } else {
                 // Bus not found or no stored expression - fall back to pass-through
-                eprintln!("⚠️  Warning: Bus '~{}' used in chain but has no stored expression", bus_name);
+                eprintln!(
+                    "⚠️  Warning: Bus '~{}' used in chain but has no stored expression",
+                    bus_name
+                );
                 compile_expr(ctx, left)
             }
         }
@@ -6656,7 +6832,8 @@ fn compile_mixed_conditional_transform(
         "Mixed pattern+effect transforms in same conditional not yet fully supported.\n\
          Workaround: Chain separate conditionals:\n\
          Instead of: every 3 (fast 2 $ # lpf 300)\n\
-         Use: every 3 (fast 2) $ every 3 (# lpf 300)".to_string()
+         Use: every 3 (fast 2) $ every 3 (# lpf 300)"
+            .to_string(),
     )
 }
 
@@ -6732,7 +6909,11 @@ fn compile_effect_transform(
             }
         }
 
-        Transform::Whenmod { modulo, offset, transform } => {
+        Transform::Whenmod {
+            modulo,
+            offset,
+            transform,
+        } => {
             let modulo_val = match *modulo {
                 Expr::Number(num) => num as i32,
                 _ => return Err("whenmod requires numeric modulo".to_string()),
@@ -6797,7 +6978,10 @@ fn compile_effect_transform(
             }
         }
 
-        _ => Err(format!("Unsupported transform for effects: {:?}", transform)),
+        _ => Err(format!(
+            "Unsupported transform for effects: {:?}",
+            transform
+        )),
     }
 }
 
@@ -6829,10 +7013,13 @@ fn compile_effect_chain(
 
         Expr::Call { name, mut args } => {
             // This is an effect function - inject the input as the first argument
-            args.insert(0, Expr::ChainInput(match input {
-                Signal::Node(id) => id,
-                _ => return Err("Expected node for effect input".to_string()),
-            }));
+            args.insert(
+                0,
+                Expr::ChainInput(match input {
+                    Signal::Node(id) => id,
+                    _ => return Err("Expected node for effect input".to_string()),
+                }),
+            );
             compile_function_call(ctx, &name, args)
         }
 
@@ -7011,11 +7198,11 @@ fn create_signal_pattern_for_transform(
     out_max: f32,
     _transform_name: &str,
 ) -> Result<Pattern<f64>, String> {
+    use crate::pattern::Hap;
+    use crate::unified_graph::{Signal, SignalNode};
+    use std::collections::HashMap;
     use std::sync::Arc;
     use std::sync::Mutex;
-    use crate::unified_graph::{SignalNode, Signal};
-    use crate::pattern::Hap;
-    use std::collections::HashMap;
 
     // Create shared state cells for thread-safe communication
     let midpoint = (out_min + out_max) / 2.0;
@@ -7079,14 +7266,19 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
         // Template reference: look up template and apply it
         Transform::TemplateRef(name) => {
             // Look up the template expression
-            let template_expr = ctx.templates
+            let template_expr = ctx
+                .templates
                 .get(&name)
                 .cloned()
                 .ok_or_else(|| format!("Undefined template: @{}", name))?;
 
             // The template should be a transform function call
             // Extract the transform from the expression
-            if let Expr::Call { name: fn_name, args } = template_expr {
+            if let Expr::Call {
+                name: fn_name,
+                args,
+            } = template_expr
+            {
                 // Match against known transform functions
                 let transform = match fn_name.as_str() {
                     "fast" if args.len() == 1 => Transform::Fast(Box::new(args[0].clone())),
@@ -7095,7 +7287,9 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                     "rev" if args.is_empty() => Transform::Rev,
                     "palindrome" if args.is_empty() => Transform::Palindrome,
                     "degrade" if args.is_empty() => Transform::Degrade,
-                    "degradeBy" if args.len() == 1 => Transform::DegradeBy(Box::new(args[0].clone())),
+                    "degradeBy" if args.len() == 1 => {
+                        Transform::DegradeBy(Box::new(args[0].clone()))
+                    }
                     "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
                     "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
                     "swing" if args.len() == 1 => Transform::Swing(Box::new(args[0].clone())),
@@ -7130,13 +7324,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 Expr::BusRef(bus_name) => {
                     // AUTO-MAGIC: Audio signal with sensible default range
                     // For 'fast', map to 0.25x - 4x speed range
-                    create_signal_pattern_for_transform(
-                        ctx,
-                        bus_name,
-                        0.25,
-                        4.0,
-                        "fast",
-                    )?
+                    create_signal_pattern_for_transform(ctx, bus_name, 0.25, 4.0, "fast")?
                 }
                 Expr::PatternRef(pattern_name) => {
                     // Pattern-to-pattern modulation: fast %speed
@@ -7165,13 +7353,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 Expr::BusRef(bus_name) => {
                     // AUTO-MAGIC: Audio signal with sensible default range
                     // For 'slow', map to 0.25x - 4x speed range (same as fast)
-                    create_signal_pattern_for_transform(
-                        ctx,
-                        bus_name,
-                        0.25,
-                        4.0,
-                        "slow",
-                    )?
+                    create_signal_pattern_for_transform(ctx, bus_name, 0.25, 4.0, "slow")?
                 }
                 Expr::PatternRef(pattern_name) => {
                     // Pattern-to-pattern modulation: slow %speed
@@ -7233,18 +7415,14 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 }
                 Expr::BusRef(bus_name) => {
                     // AUTO-MAGIC: Audio signal controls probability (0-1 range)
-                    let prob_pattern = create_signal_pattern_for_transform(
-                        ctx,
-                        bus_name,
-                        0.0,
-                        1.0,
-                        "degradeBy",
-                    )?;
+                    let prob_pattern =
+                        create_signal_pattern_for_transform(ctx, bus_name, 0.0, 1.0, "degradeBy")?;
                     Ok(pattern.degrade_by(prob_pattern))
                 }
                 Expr::PatternRef(pattern_name) => {
                     // Pattern-to-pattern modulation: degradeBy %prob
-                    let prob_pattern = ctx.pattern_registry
+                    let prob_pattern = ctx
+                        .pattern_registry
                         .get(pattern_name)
                         .cloned()
                         .ok_or_else(|| format!("Undefined pattern: %{}", pattern_name))?;
@@ -7273,7 +7451,8 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 }
                 Expr::PatternRef(pattern_name) => {
                     // Pattern-to-pattern modulation: shuffle %amount
-                    let amount_pattern = ctx.pattern_registry
+                    let amount_pattern = ctx
+                        .pattern_registry
                         .get(pattern_name)
                         .cloned()
                         .ok_or_else(|| format!("Undefined pattern: %{}", pattern_name))?;
@@ -7331,7 +7510,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                     // Single number - create a pattern with just that index
                     Pattern::from_string(&num.to_string())
                 }
-                _ => return Err("slice indices must be a string pattern (e.g., \"0 2 1 3\")".to_string()),
+                _ => {
+                    return Err(
+                        "slice indices must be a string pattern (e.g., \"0 2 1 3\")".to_string()
+                    )
+                }
             };
 
             Ok(pattern.slice_pattern(n_val, indices_pattern))
@@ -7362,7 +7545,12 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                             .collect()
                     })
                 }
-                _ => return Err("struct pattern must be a string (e.g., \"t ~ t ~\" or \"t(3,8)\")".to_string()),
+                _ => {
+                    return Err(
+                        "struct pattern must be a string (e.g., \"t ~ t ~\" or \"t(3,8)\")"
+                            .to_string(),
+                    )
+                }
             };
 
             Ok(pattern.struct_pattern(struct_pattern))
@@ -7427,7 +7615,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             let times_val = extract_number(&times)? as usize;
             let time_val = extract_number(&time)?;
             let feedback_val = extract_number(&feedback)?;
-            Ok(pattern.echo(times_val, Pattern::pure(time_val), Pattern::pure(feedback_val)))
+            Ok(pattern.echo(
+                times_val,
+                Pattern::pure(time_val),
+                Pattern::pure(feedback_val),
+            ))
         }
         Transform::Stut { n, time, decay } => {
             let n_val = extract_number(&n)?;
@@ -7472,13 +7664,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 }
                 Expr::BusRef(bus_name) => {
                     // AUTO-MAGIC: Audio signal controls timing offset (-0.5 to 0.5)
-                    create_signal_pattern_for_transform(
-                        ctx,
-                        bus_name,
-                        -0.5,
-                        0.5,
-                        "late",
-                    )?
+                    create_signal_pattern_for_transform(ctx, bus_name, -0.5, 0.5, "late")?
                 }
                 _ => {
                     // Constant amount: late 0.5 -> Pattern::pure(0.5)
@@ -7498,13 +7684,7 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 }
                 Expr::BusRef(bus_name) => {
                     // AUTO-MAGIC: Audio signal controls timing offset (-0.5 to 0.5)
-                    create_signal_pattern_for_transform(
-                        ctx,
-                        bus_name,
-                        -0.5,
-                        0.5,
-                        "early",
-                    )?
+                    create_signal_pattern_for_transform(ctx, bus_name, -0.5, 0.5, "early")?
                 }
                 _ => {
                     // Constant amount: early 0.5 -> Pattern::pure(0.5)
@@ -7537,8 +7717,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 let cycle = state.span.begin.to_float().floor() as i32;
                 if cycle % n_val == 0 {
                     // Apply the transform on cycles divisible by n
-                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
-                    {
+                    match apply_transform_to_pattern_simple(
+                        &templates_clone,
+                        pattern_clone.clone(),
+                        inner_transform.clone(),
+                    ) {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state), // Fallback to original on error
                     }
@@ -7548,7 +7731,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 }
             }))
         }
-        Transform::EveryPrime { n, offset, transform } => {
+        Transform::EveryPrime {
+            n,
+            offset,
+            transform,
+        } => {
             // every' n offset transform: apply transform when (cycle - offset) % n == 0
             let n_val = extract_number(&n)? as i32;
             let offset_val = extract_number(&offset)? as i32;
@@ -7563,8 +7750,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 let cycle = state.span.begin.to_float().floor() as i32;
                 if (cycle - offset_val) % n_val == 0 {
                     // Apply the transform on matching cycles
-                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
-                    {
+                    match apply_transform_to_pattern_simple(
+                        &templates_clone,
+                        pattern_clone.clone(),
+                        inner_transform.clone(),
+                    ) {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state), // Fallback to original on error
                     }
@@ -7598,8 +7788,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                     let selected_transform = transforms_clone[transform_index].clone();
 
                     // Apply the selected transform
-                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), selected_transform)
-                    {
+                    match apply_transform_to_pattern_simple(
+                        &templates_clone,
+                        pattern_clone.clone(),
+                        selected_transform,
+                    ) {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state), // Fallback to original on error
                     }
@@ -7625,8 +7818,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
 
                 if rng.gen::<f64>() < 0.5 {
                     // Apply the transform with 50% probability
-                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
-                    {
+                    match apply_transform_to_pattern_simple(
+                        &templates_clone,
+                        pattern_clone.clone(),
+                        inner_transform.clone(),
+                    ) {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state), // Fallback to original on error
                     }
@@ -7655,8 +7851,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
 
                 if rng.gen::<f64>() < prob_val {
                     // Apply the transform with specified probability
-                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
-                    {
+                    match apply_transform_to_pattern_simple(
+                        &templates_clone,
+                        pattern_clone.clone(),
+                        inner_transform.clone(),
+                    ) {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state), // Fallback to original on error
                     }
@@ -7816,8 +8015,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 let cycle_phase = state.span.begin.to_float() % 1.0;
                 if cycle_phase >= begin_val && cycle_phase < end_val {
                     // Inside the range: apply transform
-                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
-                    {
+                    match apply_transform_to_pattern_simple(
+                        &templates_clone,
+                        pattern_clone.clone(),
+                        inner_transform.clone(),
+                    ) {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state),
                     }
@@ -7843,8 +8045,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 let cycle_phase = state.span.begin.to_float() % 1.0;
                 if cycle_phase < begin_val || cycle_phase >= end_val {
                     // Outside the range: apply transform
-                    match apply_transform_to_pattern_simple(&templates_clone, pattern_clone.clone(), inner_transform.clone())
-                    {
+                    match apply_transform_to_pattern_simple(
+                        &templates_clone,
+                        pattern_clone.clone(),
+                        inner_transform.clone(),
+                    ) {
                         Ok(transformed) => transformed.query(state),
                         Err(_) => pattern_clone.query(state),
                     }
@@ -7860,7 +8065,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             let templates_clone = ctx.templates.clone();
 
             Ok(pattern.superimpose(move |p| {
-                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(
+                    &templates_clone,
+                    p,
+                    inner_transform.clone(),
+                ) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7874,7 +8083,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             let templates_clone = ctx.templates.clone();
 
             Ok(pattern.chunk(n_val, move |p| {
-                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(
+                    &templates_clone,
+                    p,
+                    inner_transform.clone(),
+                ) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7882,14 +8095,17 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
         }
 
         // NOTE: Transform::Sometimes is already handled above (line 7325)
-
         Transform::Often(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
             let templates_clone = ctx.templates.clone();
 
             Ok(pattern.often(move |p| {
-                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(
+                    &templates_clone,
+                    p,
+                    inner_transform.clone(),
+                ) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7902,7 +8118,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             let templates_clone = ctx.templates.clone();
 
             Ok(pattern.rarely(move |p| {
-                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(
+                    &templates_clone,
+                    p,
+                    inner_transform.clone(),
+                ) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7910,14 +8130,17 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
         }
 
         // NOTE: Transform::SometimesBy is already handled above (line 7352)
-
         Transform::AlmostAlways(transform) => {
             let inner_transform = (*transform).clone();
             let pattern_clone = pattern.clone();
             let templates_clone = ctx.templates.clone();
 
             Ok(pattern.sometimes_by(0.9, move |p| {
-                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(
+                    &templates_clone,
+                    p,
+                    inner_transform.clone(),
+                ) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7930,7 +8153,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             let templates_clone = ctx.templates.clone();
 
             Ok(pattern.sometimes_by(0.1, move |p| {
-                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(
+                    &templates_clone,
+                    p,
+                    inner_transform.clone(),
+                ) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 }
@@ -7942,7 +8169,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             let templates_clone = ctx.templates.clone();
 
             Ok(pattern.always(move |p| {
-                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(
+                    &templates_clone,
+                    p,
+                    inner_transform.clone(),
+                ) {
                     Ok(transformed) => transformed,
                     Err(e) => panic!("Transform error in always: {}", e),
                 }
@@ -7960,14 +8191,16 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             let pattern_clone = pattern.clone();
             let templates_clone = ctx.templates.clone();
 
-            Ok(pattern.when_mod(
-                modulo_val,
-                offset_val,
-                move |p| match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
+            Ok(pattern.when_mod(modulo_val, offset_val, move |p| {
+                match apply_transform_to_pattern_simple(
+                    &templates_clone,
+                    p,
+                    inner_transform.clone(),
+                ) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
-                },
-            ))
+                }
+            }))
         }
 
         Transform::Wait(cycles_expr) => {
@@ -8002,7 +8235,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             let templates_clone = ctx.templates.clone();
 
             Ok(pattern.jux_ctx(move |p| {
-                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(
+                    &templates_clone,
+                    p,
+                    inner_transform.clone(),
+                ) {
                     Ok(transformed) => transformed,
                     Err(e) => panic!("Transform error in jux: {}", e),
                 }
@@ -8015,7 +8252,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             let templates_clone = ctx.templates.clone();
 
             Ok(pattern.jux_by_ctx(Pattern::pure(amount_val), move |p| {
-                match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
+                match apply_transform_to_pattern_simple(
+                    &templates_clone,
+                    p,
+                    inner_transform.clone(),
+                ) {
                     Ok(transformed) => transformed,
                     Err(e) => panic!("Transform error in juxBy: {}", e),
                 }
@@ -8061,7 +8302,11 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
             Ok(pattern.within(
                 begin_val,
                 end_val,
-                move |p| match apply_transform_to_pattern_simple(&templates_clone, p, inner_transform.clone()) {
+                move |p| match apply_transform_to_pattern_simple(
+                    &templates_clone,
+                    p,
+                    inner_transform.clone(),
+                ) {
                     Ok(transformed) => transformed,
                     Err(_) => pattern_clone.clone(),
                 },
@@ -8069,7 +8314,6 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
         }
 
         // NOTE: Transform::Whenmod is already handled above (line 7665)
-
         Transform::Euclid { pulses, steps } => {
             let pulses_val = extract_number(&pulses)? as usize;
             let steps_val = extract_number(&steps)? as usize;
@@ -8160,9 +8404,10 @@ fn compile_binop(
     // For structure operators, try to combine patterns at the pattern level
     // This preserves Tidal-style structure semantics where one pattern determines event timing
     if is_structure_operator(&op) {
-        if let (Some((left_pattern, left_str)), Some((right_pattern, right_str))) =
-            (try_extract_numeric_pattern(&left), try_extract_numeric_pattern(&right))
-        {
+        if let (Some((left_pattern, left_str)), Some((right_pattern, right_str))) = (
+            try_extract_numeric_pattern(&left),
+            try_extract_numeric_pattern(&right),
+        ) {
             // Combine patterns using structure-aware methods
             let (combined_pattern, combined_str) = match op {
                 BinOp::AddLeft => (
@@ -8281,18 +8526,10 @@ fn compile_binop(
             SignalExpr::Add(Signal::Node(right_node), Signal::Value(0.0))
         }
         // Signal operators: sample-by-sample audio-rate arithmetic
-        BinOp::SignalAdd => {
-            SignalExpr::Add(Signal::Node(left_node), Signal::Node(right_node))
-        }
-        BinOp::SignalSub => {
-            SignalExpr::Subtract(Signal::Node(left_node), Signal::Node(right_node))
-        }
-        BinOp::SignalMul => {
-            SignalExpr::Multiply(Signal::Node(left_node), Signal::Node(right_node))
-        }
-        BinOp::SignalDiv => {
-            SignalExpr::Divide(Signal::Node(left_node), Signal::Node(right_node))
-        }
+        BinOp::SignalAdd => SignalExpr::Add(Signal::Node(left_node), Signal::Node(right_node)),
+        BinOp::SignalSub => SignalExpr::Subtract(Signal::Node(left_node), Signal::Node(right_node)),
+        BinOp::SignalMul => SignalExpr::Multiply(Signal::Node(left_node), Signal::Node(right_node)),
+        BinOp::SignalDiv => SignalExpr::Divide(Signal::Node(left_node), Signal::Node(right_node)),
     };
 
     // We need a node that outputs this expression
@@ -8652,19 +8889,24 @@ fn compile_ar_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
         Expr::ChainInput(node_id) => *node_id,
         _ => {
             return Err(
-                "ar must be used with the chain operator: s \"bd\" # ar 0.01 0.5"
-                    .to_string(),
+                "ar must be used with the chain operator: s \"bd\" # ar 0.01 0.5".to_string(),
             )
         }
     };
 
     // Set attack time
     let attack_value = compile_expr(ctx, args[1].clone())?;
-    let node_after_attack = modify_sample_param(ctx, sample_node_id, "attack", Signal::Node(attack_value))?;
+    let node_after_attack =
+        modify_sample_param(ctx, sample_node_id, "attack", Signal::Node(attack_value))?;
 
     // Set release time
     let release_value = compile_expr(ctx, args[2].clone())?;
-    modify_sample_param(ctx, node_after_attack, "release", Signal::Node(release_value))
+    modify_sample_param(
+        ctx,
+        node_after_attack,
+        "release",
+        Signal::Node(release_value),
+    )
 }
 
 /// Compile amp modifier: applies amplitude/gain to ANY signal
@@ -8868,7 +9110,10 @@ fn compile_square_wave(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Nod
 /// Conditional value generators for audio effects
 fn compile_every_val(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 3 {
-        return Err(format!("every_val requires 3 arguments (n, on_val, off_val), got {}", args.len()));
+        return Err(format!(
+            "every_val requires 3 arguments (n, on_val, off_val), got {}",
+            args.len()
+        ));
     }
 
     let n = extract_number(&args[0])? as i32;
@@ -8882,7 +9127,10 @@ fn compile_every_val(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeI
 
 fn compile_sometimes_val(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 2 {
-        return Err(format!("sometimes_val requires 2 arguments (on_val, off_val), got {}", args.len()));
+        return Err(format!(
+            "sometimes_val requires 2 arguments (on_val, off_val), got {}",
+            args.len()
+        ));
     }
 
     let on_val = extract_number(&args[0])?;
@@ -8895,7 +9143,10 @@ fn compile_sometimes_val(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
 
 fn compile_sometimes_by_val(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 3 {
-        return Err(format!("sometimes_by_val requires 3 arguments (prob, on_val, off_val), got {}", args.len()));
+        return Err(format!(
+            "sometimes_by_val requires 3 arguments (prob, on_val, off_val), got {}",
+            args.len()
+        ));
     }
 
     let prob = extract_number(&args[0])?;
@@ -8909,7 +9160,10 @@ fn compile_sometimes_by_val(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resul
 
 fn compile_whenmod_val(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
     if args.len() != 4 {
-        return Err(format!("whenmod_val requires 4 arguments (modulo, offset, on_val, off_val), got {}", args.len()));
+        return Err(format!(
+            "whenmod_val requires 4 arguments (modulo, offset, on_val, off_val), got {}",
+            args.len()
+        ));
     }
 
     let modulo = extract_number(&args[0])? as i32;
@@ -8933,7 +9187,10 @@ fn compile_every_effect(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<No
     // args[2] = effect expr (the effect to apply conditionally)
 
     if args.len() != 3 {
-        return Err(format!("every_effect requires 3 arguments (input, n, effect), got {}", args.len()));
+        return Err(format!(
+            "every_effect requires 3 arguments (input, n, effect), got {}",
+            args.len()
+        ));
     }
 
     // Extract the chained input
@@ -8960,7 +9217,10 @@ fn compile_sometimes_effect(ctx: &mut CompilerContext, args: Vec<Expr>) -> Resul
     // When used in chain: input # sometimes_effect (lpf 500 0.8)
 
     if args.len() != 2 {
-        return Err(format!("sometimes_effect requires 2 arguments (input, effect), got {}", args.len()));
+        return Err(format!(
+            "sometimes_effect requires 2 arguments (input, effect), got {}",
+            args.len()
+        ));
     }
 
     let input = compile_expr(ctx, args[0].clone())?;
@@ -8980,7 +9240,10 @@ fn compile_whenmod_effect(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<
     // When used in chain: input # whenmod_effect 3 1 (lpf 500 0.8)
 
     if args.len() != 4 {
-        return Err(format!("whenmod_effect requires 4 arguments (input, modulo, offset, effect), got {}", args.len()));
+        return Err(format!(
+            "whenmod_effect requires 4 arguments (input, modulo, offset, effect), got {}",
+            args.len()
+        ));
     }
 
     let input = compile_expr(ctx, args[0].clone())?;
@@ -9059,7 +9322,7 @@ mod tests {
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0, None);
         match result {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => panic!("Failed to compile fast transform: {}", e),
         }
     }
@@ -9289,7 +9552,7 @@ mod tests {
         let (_, statements) = parse_program(code).unwrap();
         let result = compile_program(statements, 44100.0, None);
         match result {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => panic!("Failed to compile sample bank selection: {}", e),
         }
     }

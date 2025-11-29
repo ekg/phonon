@@ -109,8 +109,7 @@ impl CommandConsole {
                     if let Some(metadata) = FUNCTION_METADATA.get(func_name) {
                         self.show_function_help(metadata);
                     } else {
-                        self.output
-                            .push(format!("Unknown function: {}", func_name));
+                        self.output.push(format!("Unknown function: {}", func_name));
                         self.output
                             .push("Type /functions to see all functions".to_string());
                     }
@@ -128,7 +127,10 @@ impl CommandConsole {
                     if funcs.is_empty() {
                         self.output
                             .push(format!("No functions in category: {}", category));
-                        self.output.push("Categories: Filters, Envelopes, Effects, Patterns, Transforms".to_string());
+                        self.output.push(
+                            "Categories: Filters, Envelopes, Effects, Patterns, Transforms"
+                                .to_string(),
+                        );
                     } else {
                         self.output
                             .push(format!("Functions in category '{}':", category));
@@ -150,8 +152,7 @@ impl CommandConsole {
                     if results.is_empty() {
                         self.output.push(format!("No results for: {}", query));
                     } else {
-                        self.output
-                            .push(format!("Search results for '{}':", query));
+                        self.output.push(format!("Search results for '{}':", query));
                         for func in results {
                             self.output.push(format!(
                                 "  {} ({}) - {}",
@@ -170,8 +171,7 @@ impl CommandConsole {
                     if let Some(metadata) = FUNCTION_METADATA.get(func_name) {
                         self.show_function_params(metadata);
                     } else {
-                        self.output
-                            .push(format!("Unknown function: {}", func_name));
+                        self.output.push(format!("Unknown function: {}", func_name));
                     }
                 } else {
                     self.output.push("Usage: /params <function>".to_string());
@@ -180,10 +180,13 @@ impl CommandConsole {
 
             "/categories" => {
                 self.output.push("Function categories:".to_string());
-                self.output.push("  Filters - lpf, hpf, bpf, notch".to_string());
+                self.output
+                    .push("  Filters - lpf, hpf, bpf, notch".to_string());
                 self.output.push("  Envelopes - adsr, ad, asr".to_string());
-                self.output.push("  Effects - reverb, chorus, delay, distort".to_string());
-                self.output.push("  Patterns - s (sample trigger)".to_string());
+                self.output
+                    .push("  Effects - reverb, chorus, delay, distort".to_string());
+                self.output
+                    .push("  Patterns - s (sample trigger)".to_string());
                 self.output
                     .push("  Transforms - fast, slow, every, rev".to_string());
                 self.output.push("".to_string());
@@ -191,8 +194,7 @@ impl CommandConsole {
             }
 
             _ => {
-                self.output
-                    .push(format!("Unknown command: {}", cmd));
+                self.output.push(format!("Unknown command: {}", cmd));
                 self.output.push("Available commands:".to_string());
                 self.output.push("  /help [function]".to_string());
                 self.output.push("  /functions [category]".to_string());
@@ -214,8 +216,9 @@ impl CommandConsole {
         self.output.push("Commands:".to_string());
         self.output
             .push("  /help [function]     - Show help for function".to_string());
-        self.output
-            .push("  /functions [cat]     - List all functions (optionally by category)".to_string());
+        self.output.push(
+            "  /functions [cat]     - List all functions (optionally by category)".to_string(),
+        );
         self.output
             .push("  /search <query>      - Search functions by name/description".to_string());
         self.output
@@ -230,14 +233,21 @@ impl CommandConsole {
         self.output.push("  /params adsr".to_string());
         self.output.push("".to_string());
         self.output.push("MIDI Input:".to_string());
-        self.output.push("  Alt+M     - Connect to MIDI device (cycle through)".to_string());
-        self.output.push("  Alt+Comma - Recording configuration (quantization, etc.)".to_string());
-        self.output.push("  Alt+R     - Start/stop MIDI recording".to_string());
+        self.output
+            .push("  Alt+M     - Connect to MIDI device (cycle through)".to_string());
+        self.output
+            .push("  Alt+Comma - Recording configuration (quantization, etc.)".to_string());
+        self.output
+            .push("  Alt+R     - Start/stop MIDI recording".to_string());
         self.output.push("  Alt+Shift+I - Smart paste: ~rec1: slow N $ n \"...\" # gain \"...\" # legato \"...\"".to_string());
-        self.output.push("  Alt+I  - Insert recorded pattern (note names)".to_string());
-        self.output.push("  Alt+N  - Insert recorded pattern (n-offsets from lowest)".to_string());
-        self.output.push("  Alt+V  - Insert recorded velocities (as gain pattern)".to_string());
-        self.output.push("  Alt+L  - Insert recorded legato (as articulation pattern)".to_string());
+        self.output
+            .push("  Alt+I  - Insert recorded pattern (note names)".to_string());
+        self.output
+            .push("  Alt+N  - Insert recorded pattern (n-offsets from lowest)".to_string());
+        self.output
+            .push("  Alt+V  - Insert recorded velocities (as gain pattern)".to_string());
+        self.output
+            .push("  Alt+L  - Insert recorded legato (as articulation pattern)".to_string());
         self.output.push("".to_string());
         self.output.push("Tip: Smart paste (Alt+Shift+I) auto-generates ~rec1, ~rec2, etc. with dynamics & legato".to_string());
         self.output.push("".to_string());
@@ -294,12 +304,10 @@ impl CommandConsole {
                 "required".to_string()
             };
 
-            self.output
-                .push(format!("  {} / {}", position, keyword));
+            self.output.push(format!("  {} / {}", position, keyword));
             self.output
                 .push(format!("    Type: {} ({})", param.param_type, optional_str));
-            self.output
-                .push(format!("    {}", param.description));
+            self.output.push(format!("    {}", param.description));
             self.output.push("".to_string());
         }
 

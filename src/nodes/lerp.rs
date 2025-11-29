@@ -27,7 +27,6 @@
 /// // Lerp between sine and saw using LFO as mix control
 /// let crossfade = LerpNode::new(1, 3, 5);
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Lerp node: linear interpolation between two signals
@@ -116,11 +115,7 @@ impl AudioNode for LerpNode {
             output.len(),
             "Input B buffer length mismatch"
         );
-        debug_assert_eq!(
-            mix.len(),
-            output.len(),
-            "Mix buffer length mismatch"
-        );
+        debug_assert_eq!(mix.len(), output.len(), "Mix buffer length mismatch");
 
         // Linear interpolation: output = a * (1 - mix) + b * mix
         for i in 0..output.len() {
@@ -155,13 +150,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), mix.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         lerp.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -183,13 +172,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), mix.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         lerp.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -211,13 +194,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), mix.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         lerp.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -241,13 +218,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), mix.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         lerp.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -277,13 +248,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), mix.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         lerp.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -307,9 +272,9 @@ mod tests {
         let deps = lerp.input_nodes();
 
         assert_eq!(deps.len(), 3);
-        assert_eq!(deps[0], 5);   // input_a
-        assert_eq!(deps[1], 10);  // input_b
-        assert_eq!(deps[2], 15);  // mix_input
+        assert_eq!(deps[0], 5); // input_a
+        assert_eq!(deps[1], 10); // input_b
+        assert_eq!(deps[2], 15); // mix_input
     }
 
     #[test]
@@ -320,13 +285,7 @@ mod tests {
         let mut const_mix = ConstantNode::new(0.3);
         let mut lerp = LerpNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut buf_a = vec![0.0; 512];
@@ -363,25 +322,19 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), mix.as_slice()];
 
         let mut output = vec![0.0; 8];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            8,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 8, 2.0, 44100.0);
 
         lerp.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Verify smooth crossfade
-        assert_eq!(output[0], 100.0);  // 100% A
-        assert!((output[1] - 112.5).abs() < 0.001);  // 87.5% A, 12.5% B
-        assert_eq!(output[2], 125.0);  // 75% A, 25% B
-        assert!((output[3] - 137.5).abs() < 0.001);  // 62.5% A, 37.5% B
-        assert_eq!(output[4], 150.0);  // 50% A, 50% B
-        assert!((output[5] - 162.5).abs() < 0.001);  // 37.5% A, 62.5% B
-        assert_eq!(output[6], 175.0);  // 25% A, 75% B
-        assert!((output[7] - 187.5).abs() < 0.001);  // 12.5% A, 87.5% B
+        assert_eq!(output[0], 100.0); // 100% A
+        assert!((output[1] - 112.5).abs() < 0.001); // 87.5% A, 12.5% B
+        assert_eq!(output[2], 125.0); // 75% A, 25% B
+        assert!((output[3] - 137.5).abs() < 0.001); // 62.5% A, 37.5% B
+        assert_eq!(output[4], 150.0); // 50% A, 50% B
+        assert!((output[5] - 162.5).abs() < 0.001); // 37.5% A, 62.5% B
+        assert_eq!(output[6], 175.0); // 25% A, 75% B
+        assert!((output[7] - 187.5).abs() < 0.001); // 12.5% A, 87.5% B
     }
 
     #[test]
@@ -395,13 +348,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), mix.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         lerp.process_block(&inputs, &mut output, 44100.0, &context);
 

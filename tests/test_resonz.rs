@@ -9,7 +9,6 @@
 /// - High Q produces ringing/singing quality
 /// - Pattern-modulated parameters
 /// - Used for formants, vocal synthesis, and resonant effects
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -21,14 +20,15 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
 
 /// Perform FFT and analyze spectrum
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -98,25 +98,32 @@ fn test_resonz_passes_center_frequency() {
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
     // Energy near center frequency (900-1100 Hz)
-    let center_energy: f32 = frequencies.iter()
+    let center_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 900.0 && **f < 1100.0)
         .map(|(_, m)| m * m)
         .sum();
 
     // Energy far from center (below 500 Hz or above 2000 Hz)
-    let side_energy: f32 = frequencies.iter()
+    let side_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 500.0 || **f > 2000.0)
         .map(|(_, m)| m * m)
         .sum();
 
     let ratio = center_energy / side_energy.max(0.001);
-    assert!(ratio > 5.0,
+    assert!(
+        ratio > 5.0,
         "Resonz should strongly pass center frequency, center/side ratio: {}",
-        ratio);
+        ratio
+    );
 
-    println!("Resonz - Center energy: {}, Side energy: {}, Ratio: {}", center_energy, side_energy, ratio);
+    println!(
+        "Resonz - Center energy: {}, Side energy: {}, Ratio: {}",
+        center_energy, side_energy, ratio
+    );
 }
 
 #[test]
@@ -131,25 +138,33 @@ fn test_resonz_high_q_narrow_band() {
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
     // Very narrow band around center (950-1050 Hz)
-    let narrow_center: f32 = frequencies.iter()
+    let narrow_center: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 950.0 && **f < 1050.0)
         .map(|(_, m)| m * m)
         .sum();
 
     // Slightly wider band (800-1200 Hz, excluding narrow center)
-    let wider_band: f32 = frequencies.iter()
+    let wider_band: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| (**f > 800.0 && **f < 950.0) || (**f > 1050.0 && **f < 1200.0))
         .map(|(_, m)| m * m)
         .sum();
 
     // With high Q, narrow center should dominate
-    assert!(narrow_center > wider_band,
+    assert!(
+        narrow_center > wider_band,
         "High Q resonz should have very narrow passband, narrow: {}, wider: {}",
-        narrow_center, wider_band);
+        narrow_center,
+        wider_band
+    );
 
-    println!("High Q - Narrow center: {}, Wider band: {}", narrow_center, wider_band);
+    println!(
+        "High Q - Narrow center: {}, Wider band: {}",
+        narrow_center, wider_band
+    );
 }
 
 #[test]
@@ -164,23 +179,28 @@ fn test_resonz_low_q_wider_band() {
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
     // Wide band around center (700-1400 Hz)
-    let wide_band: f32 = frequencies.iter()
+    let wide_band: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 700.0 && **f < 1400.0)
         .map(|(_, m)| m * m)
         .sum();
 
     // Far from center
-    let far_energy: f32 = frequencies.iter()
+    let far_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 400.0 || **f > 2000.0)
         .map(|(_, m)| m * m)
         .sum();
 
     // Even with low Q, should still favor center
-    assert!(wide_band > far_energy,
+    assert!(
+        wide_band > far_energy,
         "Low Q resonz should pass wider band, wide: {}, far: {}",
-        wide_band, far_energy);
+        wide_band,
+        far_energy
+    );
 
     println!("Low Q - Wide band: {}, Far: {}", wide_band, far_energy);
 }
@@ -198,9 +218,11 @@ fn test_resonz_pattern_frequency() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.01,
+    assert!(
+        rms > 0.01,
         "Resonz with pattern-modulated frequency should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Resonz pattern frequency RMS: {}", rms);
 }
@@ -216,9 +238,11 @@ fn test_resonz_pattern_q() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.01,
+    assert!(
+        rms > 0.01,
         "Resonz with pattern-modulated Q should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Resonz pattern Q RMS: {}", rms);
 }
@@ -236,9 +260,11 @@ fn test_resonz_no_clipping() {
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
     // High Q resonz can have significant gain at resonance
-    assert!(max_amplitude <= 5.0,
+    assert!(
+        max_amplitude <= 5.0,
         "Resonz should not excessively clip, max: {}",
-        max_amplitude);
+        max_amplitude
+    );
 
     println!("Resonz high Q peak: {}", max_amplitude);
 }
@@ -253,7 +279,11 @@ fn test_resonz_no_dc_offset() {
     let buffer = render_dsl(code, 2.0);
     let mean: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
 
-    assert!(mean.abs() < 0.02, "Resonz should have no DC offset, got {}", mean);
+    assert!(
+        mean.abs() < 0.02,
+        "Resonz should have no DC offset, got {}",
+        mean
+    );
     println!("Resonz DC offset: {}", mean);
 }
 
@@ -292,7 +322,11 @@ fn test_resonz_formant_synthesis() {
     let rms = calculate_rms(&buffer);
 
     // Multiple narrow bandpass filters produce lower output
-    assert!(rms > 0.02, "Resonz formant synthesis should work, RMS: {}", rms);
+    assert!(
+        rms > 0.02,
+        "Resonz formant synthesis should work, RMS: {}",
+        rms
+    );
     println!("Formant synthesis RMS: {}", rms);
 }
 
@@ -341,7 +375,11 @@ fn test_resonz_very_low_frequency() {
     let rms = calculate_rms(&buffer);
 
     // Low frequency bandpass on white noise = less energy
-    assert!(rms > 0.005, "Resonz should work at very low frequencies, RMS: {}", rms);
+    assert!(
+        rms > 0.005,
+        "Resonz should work at very low frequencies, RMS: {}",
+        rms
+    );
     println!("Resonz very low frequency RMS: {}", rms);
 }
 
@@ -355,7 +393,11 @@ fn test_resonz_very_high_frequency() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.01, "Resonz should work at very high frequencies, RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Resonz should work at very high frequencies, RMS: {}",
+        rms
+    );
     println!("Resonz very high frequency RMS: {}", rms);
 }
 
@@ -369,7 +411,11 @@ fn test_resonz_extreme_high_q() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.01, "Resonz should work with extreme Q, RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Resonz should work with extreme Q, RMS: {}",
+        rms
+    );
     println!("Resonz extreme Q RMS: {}", rms);
 }
 

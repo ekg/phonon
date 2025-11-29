@@ -22,7 +22,6 @@
 /// - Warm, fat bass sound characteristic of analog synthesizers
 /// - Slight resonance boost even at low settings
 /// - Natural-sounding filter movement when modulated
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -235,7 +234,12 @@ mod tests {
         let mut resonance_buf = vec![0.0; block_size];
 
         freq_low.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc_low.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc_low.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         cutoff.process_block(&[], &mut cutoff_buf, sample_rate, &context);
         resonance.process_block(&[], &mut resonance_buf, sample_rate, &context);
 
@@ -281,7 +285,12 @@ mod tests {
         let mut resonance_buf = vec![0.0; block_size];
 
         freq_high.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc_high.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc_high.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         cutoff.process_block(&[], &mut cutoff_buf, sample_rate, &context);
         resonance.process_block(&[], &mut resonance_buf, sample_rate, &context);
 
@@ -326,7 +335,12 @@ mod tests {
         let mut cutoff_buf = vec![0.0; block_size];
 
         freq.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         cutoff.process_block(&[], &mut cutoff_buf, sample_rate, &context);
 
         // Test with low resonance
@@ -398,7 +412,12 @@ mod tests {
         let mut cutoff_buf = vec![0.0; block_size];
 
         freq.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         cutoff.process_block(&[], &mut cutoff_buf, sample_rate, &context);
 
         // Test with moderate resonance
@@ -474,7 +493,12 @@ mod tests {
         let mut resonance_buf = vec![0.0; block_size];
 
         freq.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         resonance.process_block(&[], &mut resonance_buf, sample_rate, &context);
 
         // Test with low cutoff (200 Hz)
@@ -536,7 +560,12 @@ mod tests {
         let mut cutoff_buf = vec![0.0; block_size];
 
         freq.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         cutoff.process_block(&[], &mut cutoff_buf, sample_rate, &context);
 
         // Test different resonance values
@@ -608,7 +637,12 @@ mod tests {
         let mut signal_buf1 = vec![0.0; block_size];
 
         freq_node1.process_block(&[], &mut freq_buf1, sample_rate, &context);
-        osc1.process_block(&[freq_buf1.as_slice()], &mut signal_buf1, sample_rate, &context);
+        osc1.process_block(
+            &[freq_buf1.as_slice()],
+            &mut signal_buf1,
+            sample_rate,
+            &context,
+        );
 
         let mut moog1 = MoogLadderNode::new(1, 2, 3);
         let inputs1 = vec![
@@ -633,7 +667,12 @@ mod tests {
         let mut signal_buf2 = vec![0.0; block_size];
 
         freq_node2.process_block(&[], &mut freq_buf2, sample_rate, &context);
-        osc2.process_block(&[freq_buf2.as_slice()], &mut signal_buf2, sample_rate, &context);
+        osc2.process_block(
+            &[freq_buf2.as_slice()],
+            &mut signal_buf2,
+            sample_rate,
+            &context,
+        );
 
         let mut moog2 = MoogLadderNode::new(1, 2, 3);
         let inputs2 = vec![
@@ -703,11 +742,7 @@ mod tests {
 
             // Check stability
             for (i, &sample) in output.iter().enumerate() {
-                assert!(
-                    sample.is_finite(),
-                    "Sample {} became infinite/NaN",
-                    i
-                );
+                assert!(sample.is_finite(), "Sample {} became infinite/NaN", i);
                 assert!(
                     sample.abs() < 10.0,
                     "Sample {} has extreme value: {}",
@@ -941,7 +976,12 @@ mod tests {
         let mut resonance_buf = vec![0.0; block_size];
 
         freq.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         cutoff.process_block(&[], &mut cutoff_buf, sample_rate, &context);
         resonance.process_block(&[], &mut resonance_buf, sample_rate, &context);
 

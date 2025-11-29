@@ -32,10 +32,7 @@ impl EditorTestHarness {
     /// Send a string of characters to the editor
     pub fn type_text(&mut self, text: &str) -> &mut Self {
         for ch in text.chars() {
-            let event = KeyEvent::new(
-                KeyCode::Char(ch),
-                KeyModifiers::NONE,
-            );
+            let event = KeyEvent::new(KeyCode::Char(ch), KeyModifiers::NONE);
             self.editor.handle_key_event(event);
         }
         self
@@ -100,7 +97,9 @@ impl EditorTestHarness {
 
     /// Get completion options currently shown
     pub fn completion_options(&self) -> Vec<String> {
-        self.editor.completion_state.completions()
+        self.editor
+            .completion_state
+            .completions()
             .iter()
             .map(|c| c.text.clone())
             .collect()
@@ -108,7 +107,9 @@ impl EditorTestHarness {
 
     /// Get the selected completion (if any)
     pub fn selected_completion(&self) -> Option<String> {
-        self.editor.completion_state.selected_completion()
+        self.editor
+            .completion_state
+            .selected_completion()
             .map(|c| c.text.clone())
     }
 
@@ -147,7 +148,8 @@ impl EditorTestHarness {
         assert!(
             options.contains(&option.to_string()),
             "Expected completion to contain {:?}, but got: {:?}",
-            option, options
+            option,
+            options
         );
         self
     }
@@ -168,9 +170,11 @@ impl EditorTestHarness {
     pub fn assert_selected(&mut self, expected: &str) -> &mut Self {
         let selected = self.selected_completion();
         assert_eq!(
-            selected, Some(expected.to_string()),
+            selected,
+            Some(expected.to_string()),
             "\nExpected selected: {:?}\nActual selected: {:?}",
-            Some(expected), selected
+            Some(expected),
+            selected
         );
         self
     }
@@ -249,14 +253,14 @@ mod tests {
     #[test]
     fn test_harness_basic_typing() {
         let mut harness = EditorTestHarness::new().unwrap();
-        harness.type_text("hello")
-            .assert_line("hello");
+        harness.type_text("hello").assert_line("hello");
     }
 
     #[test]
     fn test_harness_multiline() {
         let mut harness = EditorTestHarness::new().unwrap();
-        harness.type_text("line1")
+        harness
+            .type_text("line1")
             .enter()
             .type_text("line2")
             .assert_line("line2");

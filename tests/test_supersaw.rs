@@ -20,7 +20,8 @@ fn calculate_spectral_richness(samples: &[f32]) -> f32 {
     // Measure variance as proxy for spectral richness
     // SuperSaw has more variance due to beating/chorusing
     let mean: f32 = samples.iter().sum::<f32>() / samples.len() as f32;
-    let variance: f32 = samples.iter().map(|s| (s - mean).powi(2)).sum::<f32>() / samples.len() as f32;
+    let variance: f32 =
+        samples.iter().map(|s| (s - mean).powi(2)).sum::<f32>() / samples.len() as f32;
     variance
 }
 
@@ -120,8 +121,16 @@ out $ ~synth * 0.2
     let rms_low = calculate_rms(&samples_low);
     let rms_high = calculate_rms(&samples_high);
 
-    assert!(rms_low > 0.01, "Low detune should be audible, got {}", rms_low);
-    assert!(rms_high > 0.01, "High detune should be audible, got {}", rms_high);
+    assert!(
+        rms_low > 0.01,
+        "Low detune should be audible, got {}",
+        rms_low
+    );
+    assert!(
+        rms_high > 0.01,
+        "High detune should be audible, got {}",
+        rms_high
+    );
 
     // Both produce sound with different detune settings
     // Note: Spectral richness comparison may not be reliable due to phase interactions

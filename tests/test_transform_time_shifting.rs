@@ -177,7 +177,11 @@ fn test_early_level1_event_count() {
         };
 
         base_total += pattern.query(&state).len();
-        early_total += pattern.clone().early(Pattern::pure(0.05)).query(&state).len();
+        early_total += pattern
+            .clone()
+            .early(Pattern::pure(0.05))
+            .query(&state)
+            .len();
     }
 
     assert_eq!(early_total, base_total, "early should preserve all events");
@@ -203,7 +207,11 @@ fn test_late_level1_event_count() {
         };
 
         base_total += pattern.query(&state).len();
-        late_total += pattern.clone().late(Pattern::pure(0.05)).query(&state).len();
+        late_total += pattern
+            .clone()
+            .late(Pattern::pure(0.05))
+            .query(&state)
+            .len();
     }
 
     assert_eq!(late_total, base_total, "late should preserve all events");
@@ -222,7 +230,11 @@ fn test_early_late_inverse() {
     };
 
     let base_haps = pattern.query(&state);
-    let shifted = pattern.clone().late(Pattern::pure(0.1)).early(Pattern::pure(0.1)).query(&state);
+    let shifted = pattern
+        .clone()
+        .late(Pattern::pure(0.1))
+        .early(Pattern::pure(0.1))
+        .query(&state);
 
     assert_eq!(base_haps.len(), shifted.len());
 

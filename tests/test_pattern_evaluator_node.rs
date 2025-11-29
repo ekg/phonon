@@ -4,7 +4,6 @@
 /// - Level 1: Pattern query verification (event counts, cycle boundaries)
 /// - Level 2: Audio verification (buffer output values, timing)
 /// - Level 3: Integration testing (with oscillators, filters, multi-block)
-
 use phonon::audio_node::{AudioNode, ProcessContext};
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::nodes::pattern_evaluator::PatternEvaluatorNode;
@@ -27,7 +26,7 @@ fn test_pattern_evaluator_basic_query() {
         Fraction::from_float(0.0),
         0,
         512,
-        2.0,  // 2 cycles per second
+        2.0, // 2 cycles per second
         44100.0,
     );
 
@@ -39,13 +38,21 @@ fn test_pattern_evaluator_basic_query() {
 
     // Check that all samples have the same value (sample-and-hold)
     let first_value = output[0];
-    assert!((first_value - 110.0).abs() < 0.1,
-        "Expected 110 Hz, got {}", first_value);
+    assert!(
+        (first_value - 110.0).abs() < 0.1,
+        "Expected 110 Hz, got {}",
+        first_value
+    );
 
     // All samples in the block should be the same (held)
     for (i, &sample) in output.iter().enumerate() {
-        assert!((sample - first_value).abs() < 0.001,
-            "Sample {} should be {}, got {}", i, first_value, sample);
+        assert!(
+            (sample - first_value).abs() < 0.001,
+            "Sample {} should be {}, got {}",
+            i,
+            first_value,
+            sample
+        );
     }
 }
 
@@ -59,16 +66,10 @@ fn test_pattern_evaluator_hold_behavior() {
     let mut output1 = vec![0.0; 512];
     let mut output2 = vec![0.0; 512];
 
-    let context1 = ProcessContext::new(
-        Fraction::from_float(0.0),
-        0,
-        512,
-        2.0,
-        44100.0,
-    );
+    let context1 = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
     let context2 = ProcessContext::new(
-        Fraction::from_float(0.02),  // Slightly later
+        Fraction::from_float(0.02), // Slightly later
         512,
         512,
         2.0,
@@ -95,14 +96,14 @@ fn test_pattern_evaluator_cycle_progression() {
 
     let sample_rate = 44100.0_f32;
     let cps = 2.0_f64;
-    let samples_per_cycle = (sample_rate as f64 / cps) as usize;  // 22050 samples
-    let _samples_per_event = samples_per_cycle / 3;  // 7350 samples
+    let samples_per_cycle = (sample_rate as f64 / cps) as usize; // 22050 samples
+    let _samples_per_event = samples_per_cycle / 3; // 7350 samples
 
     // Process first cycle worth of samples
     let mut values_seen = Vec::new();
     let mut last_value = 0.0;
 
-    let blocks_to_test = (samples_per_cycle / 512) + 1;  // ~43 blocks
+    let blocks_to_test = (samples_per_cycle / 512) + 1; // ~43 blocks
 
     for block_idx in 0..blocks_to_test {
         let mut output = vec![0.0; 512];
@@ -127,13 +128,26 @@ fn test_pattern_evaluator_cycle_progression() {
     }
 
     // Should see all three values: 110, 220, 440
-    assert!(values_seen.len() >= 3,
-        "Should see at least 3 values, saw {}: {:?}", values_seen.len(), values_seen);
+    assert!(
+        values_seen.len() >= 3,
+        "Should see at least 3 values, saw {}: {:?}",
+        values_seen.len(),
+        values_seen
+    );
 
     // Check that we saw the expected values
-    assert!(values_seen.iter().any(|&v| (v - 110.0).abs() < 1.0), "Should see 110 Hz");
-    assert!(values_seen.iter().any(|&v| (v - 220.0).abs() < 1.0), "Should see 220 Hz");
-    assert!(values_seen.iter().any(|&v| (v - 440.0).abs() < 1.0), "Should see 440 Hz");
+    assert!(
+        values_seen.iter().any(|&v| (v - 110.0).abs() < 1.0),
+        "Should see 110 Hz"
+    );
+    assert!(
+        values_seen.iter().any(|&v| (v - 220.0).abs() < 1.0),
+        "Should see 220 Hz"
+    );
+    assert!(
+        values_seen.iter().any(|&v| (v - 440.0).abs() < 1.0),
+        "Should see 440 Hz"
+    );
 }
 
 #[test]
@@ -176,9 +190,12 @@ fn test_pattern_evaluator_fast_transform() {
 
     // With fast 2, we should see the pattern repeat twice in one cycle
     // So we should see: 110, 220, 110, 220
-    assert!(values_seen.len() >= 4,
+    assert!(
+        values_seen.len() >= 4,
         "Fast 2 should produce at least 4 transitions, got {}: {:?}",
-        values_seen.len(), values_seen);
+        values_seen.len(),
+        values_seen
+    );
 }
 
 #[test]
@@ -221,9 +238,12 @@ fn test_pattern_evaluator_slow_transform() {
 
     // With slow 2, we should only see ~2 values in one cycle (110, 220)
     // The third value (440) would appear in the second cycle
-    assert!(values_seen.len() <= 3,
+    assert!(
+        values_seen.len() <= 3,
         "Slow 2 should produce at most 3 transitions in one cycle, got {}: {:?}",
-        values_seen.len(), values_seen);
+        values_seen.len(),
+        values_seen
+    );
 }
 
 #[test]
@@ -238,7 +258,7 @@ fn test_pattern_evaluator_different_cps() {
         Fraction::from_float(0.0),
         0,
         512,
-        1.0,  // 1 cycle per second
+        1.0, // 1 cycle per second
         44100.0,
     );
     node_slow.process_block(&[], &mut output_slow, 44100.0, &context_slow);
@@ -250,7 +270,7 @@ fn test_pattern_evaluator_different_cps() {
         Fraction::from_float(0.0),
         0,
         512,
-        4.0,  // 4 cycles per second
+        4.0, // 4 cycles per second
         44100.0,
     );
     node_fast.process_block(&[], &mut output_fast, 44100.0, &context_fast);
@@ -278,18 +298,16 @@ fn test_pattern_evaluator_numeric_values() {
     let mut node = PatternEvaluatorNode::new(Arc::new(pattern));
 
     let mut output = vec![0.0; 512];
-    let context = ProcessContext::new(
-        Fraction::from_float(0.0),
-        0,
-        512,
-        2.0,
-        44100.0,
-    );
+    let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
     node.process_block(&[], &mut output, 44100.0, &context);
 
     // Should output the first value (100)
-    assert!((output[0] - 100.0).abs() < 0.1, "Expected 100, got {}", output[0]);
+    assert!(
+        (output[0] - 100.0).abs() < 0.1,
+        "Expected 100, got {}",
+        output[0]
+    );
 
     // All samples should be the same (stepped/held output)
     for &sample in &output {
@@ -305,19 +323,16 @@ fn test_pattern_evaluator_note_names() {
     let mut node = PatternEvaluatorNode::new(Arc::new(pattern));
 
     let mut output = vec![0.0; 512];
-    let context = ProcessContext::new(
-        Fraction::from_float(0.0),
-        0,
-        512,
-        2.0,
-        44100.0,
-    );
+    let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
     node.process_block(&[], &mut output, 44100.0, &context);
 
     // Should output 440 Hz (a4)
-    assert!((output[0] - 440.0).abs() < 1.0,
-        "Expected ~440 Hz for a4, got {}", output[0]);
+    assert!(
+        (output[0] - 440.0).abs() < 1.0,
+        "Expected ~440 Hz for a4, got {}",
+        output[0]
+    );
 }
 
 #[test]
@@ -328,13 +343,7 @@ fn test_pattern_evaluator_rest_handling() {
     let mut node = PatternEvaluatorNode::new(Arc::new(pattern));
 
     let mut output = vec![0.0; 512];
-    let context = ProcessContext::new(
-        Fraction::from_float(0.0),
-        0,
-        512,
-        2.0_f64,
-        44100.0_f32,
-    );
+    let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0_f64, 44100.0_f32);
 
     node.process_block(&[], &mut output, 44100.0, &context);
 
@@ -344,9 +353,11 @@ fn test_pattern_evaluator_rest_handling() {
 
     // Either we see zero (from parsing "~") or we see zero (from no events)
     // Both behaviors are acceptable for a rest
-    assert!(max_value < 0.1,
+    assert!(
+        max_value < 0.1,
         "Pattern with rest should output near-zero values, got max={}",
-        max_value);
+        max_value
+    );
 
     // Also test pattern with mixed values and rest
     let pattern2 = parse_mini_notation("110 ~ 220");
@@ -358,7 +369,7 @@ fn test_pattern_evaluator_rest_handling() {
 
     for block_idx in 0..50 {
         let mut output2 = vec![0.0; 512];
-        let cycle_pos = (block_idx * 512) as f64 / 22050.0;  // CPS=2, so 22050 samples/cycle
+        let cycle_pos = (block_idx * 512) as f64 / 22050.0; // CPS=2, so 22050 samples/cycle
 
         let context2 = ProcessContext::new(
             Fraction::from_float(cycle_pos),
@@ -379,9 +390,12 @@ fn test_pattern_evaluator_rest_handling() {
     }
 
     // We should see both non-zero values from the pattern
-    assert!(saw_110 && saw_220,
+    assert!(
+        saw_110 && saw_220,
         "Should see both values from pattern (saw_110={}, saw_220={})",
-        saw_110, saw_220);
+        saw_110,
+        saw_220
+    );
 }
 
 // ============================================================================
@@ -394,25 +408,18 @@ fn test_pattern_evaluator_oscillator_integration() {
     // We'll create a pattern and use it to modulate oscillator frequency
 
     use phonon::nodes::{OscillatorNode, Waveform};
-    
 
     let pattern = parse_mini_notation("110 220 440");
     let mut pattern_node = PatternEvaluatorNode::new(Arc::new(pattern));
 
     // Process pattern to get frequency values
     let mut freq_buffer = vec![0.0; 512];
-    let context = ProcessContext::new(
-        Fraction::from_float(0.0),
-        0,
-        512,
-        2.0,
-        44100.0,
-    );
+    let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
     pattern_node.process_block(&[], &mut freq_buffer, 44100.0, &context);
 
     // Use pattern output as frequency input to oscillator
-    let mut osc = OscillatorNode::new(0, Waveform::Sine);  // NodeId 0 (dummy)
+    let mut osc = OscillatorNode::new(0, Waveform::Sine); // NodeId 0 (dummy)
     let mut audio_output = vec![0.0; 512];
 
     // Process oscillator with pattern-generated frequencies
@@ -420,30 +427,31 @@ fn test_pattern_evaluator_oscillator_integration() {
 
     // Verify oscillator produced audio
     let rms = calculate_rms(&audio_output);
-    assert!(rms > 0.1, "Oscillator should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.1,
+        "Oscillator should produce audio, got RMS={}",
+        rms
+    );
 
     // Verify oscillator output is within range [-1, 1]
     for &sample in &audio_output {
-        assert!(sample >= -1.1 && sample <= 1.1,
-            "Oscillator output should be in [-1, 1], got {}", sample);
+        assert!(
+            sample >= -1.1 && sample <= 1.1,
+            "Oscillator output should be in [-1, 1], got {}",
+            sample
+        );
     }
 }
 
 #[test]
 fn test_pattern_evaluator_filter_modulation() {
     // Test that pattern can modulate filter cutoff
-    use phonon::nodes::{OscillatorNode, LowPassFilterNode, Waveform};
+    use phonon::nodes::{LowPassFilterNode, OscillatorNode, Waveform};
 
     // Create a source oscillator
     let mut source_osc = OscillatorNode::new(0, Waveform::Saw);
     let mut source_buffer = vec![0.0; 512];
-    let context = ProcessContext::new(
-        Fraction::from_float(0.0),
-        0,
-        512,
-        2.0,
-        44100.0,
-    );
+    let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
     // Generate constant frequency (440 Hz) source
     let freq_buffer = vec![440.0; 512];
@@ -456,8 +464,8 @@ fn test_pattern_evaluator_filter_modulation() {
     cutoff_node.process_block(&[], &mut cutoff_buffer, 44100.0, &context);
 
     // Apply filter with pattern-modulated cutoff
-    let q_buffer = vec![0.7; 512];  // Constant Q
-    let mut filter = LowPassFilterNode::new(0, 1, 2);  // Dummy NodeIds
+    let q_buffer = vec![0.7; 512]; // Constant Q
+    let mut filter = LowPassFilterNode::new(0, 1, 2); // Dummy NodeIds
     let mut filtered_output = vec![0.0; 512];
 
     filter.process_block(
@@ -507,10 +515,11 @@ fn test_pattern_evaluator_multiple_blocks() {
     // Verify all values are reasonable (110, 220, or 440)
     for &sample in &all_outputs {
         assert!(
-            (sample - 110.0).abs() < 1.0 ||
-            (sample - 220.0).abs() < 1.0 ||
-            (sample - 440.0).abs() < 1.0,
-            "Sample value {} should be 110, 220, or 440", sample
+            (sample - 110.0).abs() < 1.0
+                || (sample - 220.0).abs() < 1.0
+                || (sample - 440.0).abs() < 1.0,
+            "Sample value {} should be 110, 220, or 440",
+            sample
         );
     }
 }
@@ -524,7 +533,7 @@ fn test_pattern_evaluator_phase_accuracy() {
     let sample_rate = 44100.0_f32;
     let cps = 2.0_f64;
     let samples_per_cycle = (sample_rate as f64 / cps) as usize;
-    let samples_per_event = samples_per_cycle / 2;  // 11025 samples per event
+    let samples_per_event = samples_per_cycle / 2; // 11025 samples per event
 
     // Process enough blocks to cover one complete cycle
     let blocks_needed = (samples_per_cycle / 512) + 1;
@@ -554,18 +563,24 @@ fn test_pattern_evaluator_phase_accuracy() {
     }
 
     // Should have at least one transition (100 -> 200)
-    assert!(!transition_points.is_empty(), "Should have at least one transition");
+    assert!(
+        !transition_points.is_empty(),
+        "Should have at least one transition"
+    );
 
     // The pattern starts with the first value (100), so the first transition is at sample 0
     // The second transition (100 -> 200) should be near samples_per_event (11025)
     if transition_points.len() >= 2 {
         let second_transition = transition_points[1];
         let expected = samples_per_event;
-        let tolerance = 512;  // Within one block
+        let tolerance = 512; // Within one block
         assert!(
             (second_transition as i64 - expected as i64).abs() < tolerance as i64,
             "Second transition at sample {} should be near {} (first={}, transitions={:?})",
-            second_transition, expected, transition_points[0], transition_points
+            second_transition,
+            expected,
+            transition_points[0],
+            transition_points
         );
     } else {
         // If we only see one transition, that's ok for this test
@@ -582,13 +597,7 @@ fn test_pattern_evaluator_performance() {
     let pattern = parse_mini_notation("110 220 440 880");
     let mut node = PatternEvaluatorNode::new(Arc::new(pattern));
 
-    let context = ProcessContext::new(
-        Fraction::from_float(0.0),
-        0,
-        512,
-        2.0,
-        44100.0,
-    );
+    let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
     // Process 1000 blocks and measure time
     let mut output = vec![0.0; 512];
@@ -605,15 +614,20 @@ fn test_pattern_evaluator_performance() {
     // Real-time requires: 44100 samples/sec / 512 samples/block = ~86 blocks/sec
     // Target: at least 10x real-time (860 blocks/sec)
     let realtime_requirement = 86.0;
-    let min_performance = realtime_requirement * 10.0;  // 10x real-time
+    let min_performance = realtime_requirement * 10.0; // 10x real-time
 
-    assert!(blocks_per_second > min_performance,
+    assert!(
+        blocks_per_second > min_performance,
         "Performance too slow: {:.0} blocks/sec (need >{:.0} blocks/sec for 10x real-time)",
-        blocks_per_second, min_performance);
-
-    println!("Performance: {:.0} blocks/sec ({:.1}x real-time)",
         blocks_per_second,
-        blocks_per_second / realtime_requirement);
+        min_performance
+    );
+
+    println!(
+        "Performance: {:.0} blocks/sec ({:.1}x real-time)",
+        blocks_per_second,
+        blocks_per_second / realtime_requirement
+    );
 }
 
 // ============================================================================

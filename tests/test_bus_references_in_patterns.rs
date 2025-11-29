@@ -3,7 +3,6 @@
 ///
 /// This is a CRITICAL feature that allows patterns to trigger any audio source,
 /// not just samples from disk. Enables powerful compositional patterns.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -11,7 +10,8 @@ use phonon::compositional_parser::parse_program;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
 
     // CRITICAL: Render in small chunks (128 samples) like continuous synthesis tests
@@ -48,7 +48,11 @@ out $ ~pattern
 
     // Should have audio output
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.01, "Bus reference should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Bus reference should produce audio, got RMS={}",
+        rms
+    );
 
     // Verify we have distinct events (not solid tone)
     // With *4, we should have 4 events per cycle = 8 events total over 2 seconds at 120 BPM
@@ -65,7 +69,11 @@ out $ ~pattern
     // Should NOT be 100% filled (that would indicate solid tone)
     // Should be < 50% filled (events with gaps between them)
     let fill_ratio = samples_above_threshold as f32 / audio.len() as f32;
-    assert!(fill_ratio < 0.5, "Audio should have gaps between events, got fill_ratio={}", fill_ratio);
+    assert!(
+        fill_ratio < 0.5,
+        "Audio should have gaps between events, got fill_ratio={}",
+        fill_ratio
+    );
 }
 
 #[test]
@@ -82,7 +90,11 @@ out $ ~drums
 
     // Should produce audio
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.01, "Euclidean bus reference should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Euclidean bus reference should produce audio, got RMS={}",
+        rms
+    );
 
     // With (3,8) we get 3 evenly-distributed events per cycle
     // Over 4 seconds at 120 BPM = 4 cycles, so 12 events total
@@ -96,7 +108,11 @@ out $ ~drums
     }
 
     let fill_ratio = samples_above_threshold as f32 / audio.len() as f32;
-    assert!(fill_ratio < 0.4, "Euclidean pattern should have sparse events, got fill_ratio={}", fill_ratio);
+    assert!(
+        fill_ratio < 0.4,
+        "Euclidean pattern should have sparse events, got fill_ratio={}",
+        fill_ratio
+    );
 }
 
 #[test]
@@ -114,7 +130,11 @@ out $ ~c
 
     // Should produce audio with note modulation
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.01, "Bus reference with note modifier should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Bus reference with note modifier should produce audio, got RMS={}",
+        rms
+    );
 
     // Verify we don't have a solid tone
     let mut samples_above_threshold = 0;
@@ -126,7 +146,11 @@ out $ ~c
     }
 
     let fill_ratio = samples_above_threshold as f32 / audio.len() as f32;
-    assert!(fill_ratio < 0.6, "Pattern with notes should have distinct events, got fill_ratio={}", fill_ratio);
+    assert!(
+        fill_ratio < 0.6,
+        "Pattern with notes should have distinct events, got fill_ratio={}",
+        fill_ratio
+    );
 }
 
 #[test]
@@ -143,7 +167,11 @@ out $ ~c
 
     // Should produce audio with chord notes (C, E, G)
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.05, "Bus reference with chord should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.05,
+        "Bus reference with chord should produce audio, got RMS={}",
+        rms
+    );
 
     // With chord triggering, each pattern event should trigger multiple notes
     // This creates denser harmonic content
@@ -157,7 +185,11 @@ out $ ~c
     }
 
     let fill_ratio = samples_above_threshold as f32 / audio.len() as f32;
-    assert!(fill_ratio < 0.8, "Chord pattern should have some dynamic range, got fill_ratio={}", fill_ratio);
+    assert!(
+        fill_ratio < 0.8,
+        "Chord pattern should have some dynamic range, got fill_ratio={}",
+        fill_ratio
+    );
 }
 
 #[test]
@@ -180,18 +212,37 @@ out $ s "bd*4"
     let audio_sample = render_dsl(code_sample, 2.0);
 
     // Both should produce non-zero audio
-    assert!(calculate_rms(&audio_bus) > 0.01, "Bus pattern should produce audio");
-    assert!(calculate_rms(&audio_sample) > 0.01, "Sample pattern should produce audio");
+    assert!(
+        calculate_rms(&audio_bus) > 0.01,
+        "Bus pattern should produce audio"
+    );
+    assert!(
+        calculate_rms(&audio_sample) > 0.01,
+        "Sample pattern should produce audio"
+    );
 
     // Both should have similar fill ratios (similar rhythmic density)
     let threshold = 0.1;
 
-    let fill_bus = audio_bus.iter().filter(|&&s| s.abs() > threshold).count() as f32 / audio_bus.len() as f32;
-    let fill_sample = audio_sample.iter().filter(|&&s| s.abs() > threshold).count() as f32 / audio_sample.len() as f32;
+    let fill_bus =
+        audio_bus.iter().filter(|&&s| s.abs() > threshold).count() as f32 / audio_bus.len() as f32;
+    let fill_sample = audio_sample
+        .iter()
+        .filter(|&&s| s.abs() > threshold)
+        .count() as f32
+        / audio_sample.len() as f32;
 
     // Both should be sparse (< 50% filled)
-    assert!(fill_bus < 0.5, "Bus pattern should be sparse, got {}", fill_bus);
-    assert!(fill_sample < 0.5, "Sample pattern should be sparse, got {}", fill_sample);
+    assert!(
+        fill_bus < 0.5,
+        "Bus pattern should be sparse, got {}",
+        fill_bus
+    );
+    assert!(
+        fill_sample < 0.5,
+        "Sample pattern should be sparse, got {}",
+        fill_sample
+    );
 }
 
 #[test]
@@ -219,8 +270,12 @@ out $ s "~sine*4" # gain 0.2
     let rms_loud = calculate_rms(&audio_loud);
     let rms_quiet = calculate_rms(&audio_quiet);
 
-    assert!(rms_loud > rms_quiet * 2.0,
-        "Gain modifier should affect amplitude: loud={}, quiet={}", rms_loud, rms_quiet);
+    assert!(
+        rms_loud > rms_quiet * 2.0,
+        "Gain modifier should affect amplitude: loud={}, quiet={}",
+        rms_loud,
+        rms_quiet
+    );
 }
 
 #[test]
@@ -238,7 +293,11 @@ out $ ~pattern
 
     // Should produce audio alternating between two frequencies
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.01, "Multi-bus pattern should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Multi-bus pattern should produce audio, got RMS={}",
+        rms
+    );
 
     // Should have 4 events per cycle
     let mut samples_above_threshold = 0;
@@ -250,7 +309,11 @@ out $ ~pattern
     }
 
     let fill_ratio = samples_above_threshold as f32 / audio.len() as f32;
-    assert!(fill_ratio < 0.6, "Alternating pattern should have gaps, got fill_ratio={}", fill_ratio);
+    assert!(
+        fill_ratio < 0.6,
+        "Alternating pattern should have gaps, got fill_ratio={}",
+        fill_ratio
+    );
 }
 
 #[test]
@@ -271,7 +334,11 @@ out $ ~outer
     let rms = calculate_rms(&audio);
     // This might not work as expected depending on implementation
     // At minimum it shouldn't crash and should produce some audio
-    assert!(rms > 0.001, "Nested bus reference should produce some audio, got RMS={}", rms);
+    assert!(
+        rms > 0.001,
+        "Nested bus reference should produce some audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -287,7 +354,11 @@ out $ s "~nonexistent*4"
 
     // Should be silent (bus not found)
     let rms = calculate_rms(&audio);
-    assert!(rms < 0.001, "Missing bus should produce silence, got RMS={}", rms);
+    assert!(
+        rms < 0.001,
+        "Missing bus should produce silence, got RMS={}",
+        rms
+    );
 
     // The code prints: "Warning: Bus 'nonexistent' not found for trigger"
     // But test output doesn't capture eprintln, so we can't verify the warning text
@@ -307,7 +378,11 @@ out $ ~c
 
     // Should produce audio with Euclidean pattern and chord notes
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.05, "User's exact code should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.05,
+        "User's exact code should produce audio, got RMS={}",
+        rms
+    );
 
     // Should NOT be a solid sine tone
     // Euclidean (<7 7 6 10>,11,2) creates sparse pattern
@@ -321,8 +396,11 @@ out $ ~c
     }
 
     let fill_ratio = samples_above_threshold as f32 / audio.len() as f32;
-    assert!(fill_ratio < 0.5,
-        "Euclidean pattern with sparse events should NOT be solid tone, got fill_ratio={}", fill_ratio);
+    assert!(
+        fill_ratio < 0.5,
+        "Euclidean pattern with sparse events should NOT be solid tone, got fill_ratio={}",
+        fill_ratio
+    );
 
     // Note: We removed the event counting assertion because threshold-based onset
     // detection doesn't work well with sine waves - a 440 Hz sine crosses any

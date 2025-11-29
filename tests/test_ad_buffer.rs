@@ -4,8 +4,7 @@
 /// envelope shapes and responds properly to parameter changes.
 ///
 /// AD envelope is simpler than ADSR: Attack → Decay → Silent (no sustain or release)
-
-use phonon::unified_graph::{ADState, ADSRState, Signal, SignalNode, UnifiedSignalGraph};
+use phonon::unified_graph::{ADSRState, ADState, Signal, SignalNode, UnifiedSignalGraph};
 
 /// Helper: Create a test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -40,8 +39,8 @@ fn test_ad_basic_envelope_shape() {
     // Attack: 0.01s, Decay: 0.1s
     let ad_id = graph.add_node(SignalNode::AD {
         state: ADState::default(),
-        attack: Signal::Value(0.01),  // 10ms attack
-        decay: Signal::Value(0.1),    // 100ms decay
+        attack: Signal::Value(0.01), // 10ms attack
+        decay: Signal::Value(0.1),   // 100ms decay
     });
 
     let buffer_size = 512;
@@ -50,11 +49,19 @@ fn test_ad_basic_envelope_shape() {
 
     // Envelope should have non-zero content
     let rms = calculate_rms(&output);
-    assert!(rms > 0.1, "AD envelope should produce non-zero output, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "AD envelope should produce non-zero output, got RMS: {}",
+        rms
+    );
 
     // Peak should be close to 1.0 (during attack phase)
     let max = find_max(&output);
-    assert!(max > 0.5, "AD should reach significant level, got max: {}", max);
+    assert!(
+        max > 0.5,
+        "AD should reach significant level, got max: {}",
+        max
+    );
 
     println!("AD basic shape - RMS: {}, Max: {}", rms, max);
 }
@@ -66,8 +73,8 @@ fn test_ad_attack_phase() {
     // Fast attack (10ms), longer decay to isolate attack
     let ad_id = graph.add_node(SignalNode::AD {
         state: ADState::default(),
-        attack: Signal::Value(0.01),   // 10ms attack
-        decay: Signal::Value(0.5),     // 500ms decay
+        attack: Signal::Value(0.01), // 10ms attack
+        decay: Signal::Value(0.5),   // 500ms decay
     });
 
     let buffer_size = 512;
@@ -79,8 +86,12 @@ fn test_ad_attack_phase() {
     let early_avg = output[0..100].iter().sum::<f32>() / 100.0;
     let mid_avg = output[200..300].iter().sum::<f32>() / 100.0;
 
-    assert!(mid_avg > early_avg,
-        "Envelope should rise during attack phase: early={}, mid={}", early_avg, mid_avg);
+    assert!(
+        mid_avg > early_avg,
+        "Envelope should rise during attack phase: early={}, mid={}",
+        early_avg,
+        mid_avg
+    );
 
     println!("AD attack phase - early: {}, mid: {}", early_avg, mid_avg);
 }
@@ -92,8 +103,8 @@ fn test_ad_decay_phase() {
     // Very fast attack, moderate decay
     let ad_id = graph.add_node(SignalNode::AD {
         state: ADState::default(),
-        attack: Signal::Value(0.001),  // 1ms attack (very fast)
-        decay: Signal::Value(0.05),    // 50ms decay
+        attack: Signal::Value(0.001), // 1ms attack (very fast)
+        decay: Signal::Value(0.05),   // 50ms decay
     });
 
     let buffer_size = 512;
@@ -105,8 +116,12 @@ fn test_ad_decay_phase() {
     let mid_avg = output[100..200].iter().sum::<f32>() / 100.0;
     let late_avg = output[400..512].iter().sum::<f32>() / 112.0;
 
-    assert!(mid_avg > late_avg,
-        "Envelope should decay after attack: mid={}, late={}", mid_avg, late_avg);
+    assert!(
+        mid_avg > late_avg,
+        "Envelope should decay after attack: mid={}, late={}",
+        mid_avg,
+        late_avg
+    );
 
     println!("AD decay phase - mid: {}, late: {}", mid_avg, late_avg);
 }
@@ -117,8 +132,8 @@ fn test_ad_reaches_zero() {
 
     // Short attack and decay, buffer should reach zero
     let ad_id = graph.add_node(SignalNode::AD {
-        attack: Signal::Value(0.001),  // 1ms attack
-        decay: Signal::Value(0.005),   // 5ms decay
+        attack: Signal::Value(0.001), // 1ms attack
+        decay: Signal::Value(0.005),  // 5ms decay
         state: ADState::default(),
     });
 
@@ -129,8 +144,11 @@ fn test_ad_reaches_zero() {
     // Last quarter should be near zero (after decay complete)
     let end_avg = output[384..512].iter().sum::<f32>() / 128.0;
 
-    assert!(end_avg < 0.1,
-        "AD should reach near zero after decay, got {}", end_avg);
+    assert!(
+        end_avg < 0.1,
+        "AD should reach near zero after decay, got {}",
+        end_avg
+    );
 
     println!("AD end average: {}", end_avg);
 }
@@ -145,14 +163,14 @@ fn test_ad_different_attack_times() {
 
     // Fast attack
     let fast_id = graph.add_node(SignalNode::AD {
-        attack: Signal::Value(0.001),  // 1ms
+        attack: Signal::Value(0.001), // 1ms
         decay: Signal::Value(0.05),
         state: ADState::default(),
     });
 
     // Slow attack
     let slow_id = graph.add_node(SignalNode::AD {
-        attack: Signal::Value(0.05),   // 50ms
+        attack: Signal::Value(0.05), // 50ms
         decay: Signal::Value(0.05),
         state: ADState::default(),
     });
@@ -168,10 +186,17 @@ fn test_ad_different_attack_times() {
     let fast_early = fast_out[100];
     let slow_early = slow_out[100];
 
-    assert!(fast_early > slow_early,
-        "Fast attack should reach higher level earlier: fast={}, slow={}", fast_early, slow_early);
+    assert!(
+        fast_early > slow_early,
+        "Fast attack should reach higher level earlier: fast={}, slow={}",
+        fast_early,
+        slow_early
+    );
 
-    println!("AD different attacks - fast@100: {}, slow@100: {}", fast_early, slow_early);
+    println!(
+        "AD different attacks - fast@100: {}, slow@100: {}",
+        fast_early, slow_early
+    );
 }
 
 #[test]
@@ -180,15 +205,15 @@ fn test_ad_different_decay_times() {
 
     // Fast decay
     let fast_id = graph.add_node(SignalNode::AD {
-        attack: Signal::Value(0.001),  // 1ms attack
-        decay: Signal::Value(0.01),    // 10ms decay
+        attack: Signal::Value(0.001), // 1ms attack
+        decay: Signal::Value(0.01),   // 10ms decay
         state: ADState::default(),
     });
 
     // Slow decay
     let slow_id = graph.add_node(SignalNode::AD {
-        attack: Signal::Value(0.001),  // 1ms attack
-        decay: Signal::Value(0.1),     // 100ms decay
+        attack: Signal::Value(0.001), // 1ms attack
+        decay: Signal::Value(0.1),    // 100ms decay
         state: ADState::default(),
     });
 
@@ -203,10 +228,17 @@ fn test_ad_different_decay_times() {
     let fast_end = fast_out[400];
     let slow_end = slow_out[400];
 
-    assert!(slow_end > fast_end,
-        "Slow decay should be higher later: fast={}, slow={}", fast_end, slow_end);
+    assert!(
+        slow_end > fast_end,
+        "Slow decay should be higher later: fast={}, slow={}",
+        fast_end,
+        slow_end
+    );
 
-    println!("AD different decays - fast@400: {}, slow@400: {}", fast_end, slow_end);
+    println!(
+        "AD different decays - fast@400: {}, slow@400: {}",
+        fast_end, slow_end
+    );
 }
 
 // ============================================================================
@@ -230,7 +262,11 @@ fn test_ad_zero_attack() {
 
     // Should still produce output (attack clamped to min 1ms)
     let rms = calculate_rms(&output);
-    assert!(rms > 0.01, "AD with zero attack should still work, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "AD with zero attack should still work, got RMS: {}",
+        rms
+    );
 
     println!("AD zero attack RMS: {}", rms);
 }
@@ -252,7 +288,11 @@ fn test_ad_zero_decay() {
 
     // Should still produce output (decay clamped to min 1ms)
     let rms = calculate_rms(&output);
-    assert!(rms > 0.01, "AD with zero decay should still work, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "AD with zero decay should still work, got RMS: {}",
+        rms
+    );
 
     println!("AD zero decay RMS: {}", rms);
 }
@@ -273,8 +313,12 @@ fn test_ad_amplitude_range() {
 
     // All samples should be in valid range [0, 1]
     for (i, &sample) in output.iter().enumerate() {
-        assert!(sample >= -0.01 && sample <= 1.01,
-            "Sample {} out of range [0, 1]: {}", i, sample);
+        assert!(
+            sample >= -0.01 && sample <= 1.01,
+            "Sample {} out of range [0, 1]: {}",
+            i,
+            sample
+        );
     }
 
     println!("AD amplitude range test passed");
@@ -287,7 +331,7 @@ fn test_ad_reaches_peak() {
     // Very fast attack to ensure we reach peak
     let ad_id = graph.add_node(SignalNode::AD {
         state: ADState::default(),
-        attack: Signal::Value(0.001),  // 1ms attack
+        attack: Signal::Value(0.001), // 1ms attack
         decay: Signal::Value(0.1),
     });
 
@@ -297,7 +341,11 @@ fn test_ad_reaches_peak() {
 
     // Should reach close to 1.0 during attack
     let max = find_max(&output);
-    assert!(max > 0.8, "AD should reach near peak (1.0), got max: {}", max);
+    assert!(
+        max > 0.8,
+        "AD should reach near peak (1.0), got max: {}",
+        max
+    );
 
     println!("AD peak: {}", max);
 }
@@ -326,8 +374,12 @@ fn test_ad_multiple_buffers() {
 
         // Each buffer should have reasonable audio
         let rms = calculate_rms(&output);
-        assert!(rms > 0.01,
-            "Buffer {} should have audio content, got RMS: {}", i, rms);
+        assert!(
+            rms > 0.01,
+            "Buffer {} should have audio content, got RMS: {}",
+            i,
+            rms
+        );
 
         println!("Buffer {} RMS: {}", i, rms);
     }
@@ -358,13 +410,21 @@ fn test_ad_continuity_across_buffers() {
     let diff = (first_sample - last_sample).abs();
     let avg = (first_sample + last_sample) / 2.0;
 
-    if avg > 0.01 {  // Only check continuity if not near zero
-        assert!(diff < avg * 0.2,
+    if avg > 0.01 {
+        // Only check continuity if not near zero
+        assert!(
+            diff < avg * 0.2,
             "AD should be continuous across buffers: last={}, first={}, diff={}",
-            last_sample, first_sample, diff);
+            last_sample,
+            first_sample,
+            diff
+        );
     }
 
-    println!("Buffer continuity - last: {}, first: {}", last_sample, first_sample);
+    println!(
+        "Buffer continuity - last: {}, first: {}",
+        last_sample, first_sample
+    );
 }
 
 // ============================================================================
@@ -391,12 +451,18 @@ fn test_ad_buffer_performance() {
     }
     let duration = start.elapsed();
 
-    println!("AD buffer eval: {:?} for {} iterations", duration, iterations);
+    println!(
+        "AD buffer eval: {:?} for {} iterations",
+        duration, iterations
+    );
     println!("Per iteration: {:?}", duration / iterations);
 
     // Should complete in reasonable time (< 2 seconds for 1000 iterations)
-    assert!(duration.as_secs() < 2,
-        "AD buffer evaluation too slow: {:?}", duration);
+    assert!(
+        duration.as_secs() < 2,
+        "AD buffer evaluation too slow: {:?}",
+        duration
+    );
 }
 
 // ============================================================================
@@ -447,12 +513,12 @@ fn test_ad_typical_percussive() {
 
     // Typical percussive envelope: fast attack, medium decay
     let ad_id = graph.add_node(SignalNode::AD {
-        attack: Signal::Value(0.001),  // 1ms attack (instant)
-        decay: Signal::Value(0.15),    // 150ms decay (natural decay)
+        attack: Signal::Value(0.001), // 1ms attack (instant)
+        decay: Signal::Value(0.15),   // 150ms decay (natural decay)
         state: ADState::default(),
     });
 
-    let buffer_size = 2048;  // Longer buffer to see full envelope
+    let buffer_size = 2048; // Longer buffer to see full envelope
     let mut output = vec![0.0; buffer_size];
     graph.eval_node_buffer(&ad_id, &mut output);
 
@@ -460,16 +526,26 @@ fn test_ad_typical_percussive() {
     let very_early = output[0..10].iter().sum::<f32>() / 10.0;
     let early = output[50..60].iter().sum::<f32>() / 10.0;
 
-    assert!(early > very_early * 2.0,
-        "Should have sharp attack: very_early={}, early={}", very_early, early);
+    assert!(
+        early > very_early * 2.0,
+        "Should have sharp attack: very_early={}, early={}",
+        very_early,
+        early
+    );
 
     // Should have smooth decay
     let mid = output[500..510].iter().sum::<f32>() / 10.0;
     let late = output[1500..1510].iter().sum::<f32>() / 10.0;
 
-    assert!(mid > late,
-        "Should decay smoothly: mid={}, late={}", mid, late);
+    assert!(
+        mid > late,
+        "Should decay smoothly: mid={}, late={}",
+        mid,
+        late
+    );
 
-    println!("Percussive AD - very_early: {}, early: {}, mid: {}, late: {}",
-        very_early, early, mid, late);
+    println!(
+        "Percussive AD - very_early: {}, early: {}, mid: {}, late: {}",
+        very_early, early, mid, late
+    );
 }

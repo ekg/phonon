@@ -48,7 +48,10 @@ fn main() {
     println!("\n7. Pattern speed transformations:");
     let base = parse_mini_notation("bd sn");
     println!("  Normal: {:?}", base.clone().first_cycle());
-    println!("  Fast 2x: {:?}", base.clone().fast(Pattern::pure(2.0)).first_cycle());
+    println!(
+        "  Fast 2x: {:?}",
+        base.clone().fast(Pattern::pure(2.0)).first_cycle()
+    );
     println!(
         "  Slow 2x: {:?}",
         base.clone().slow(Pattern::pure(2.0)).query_arc(0.0, 2.0)

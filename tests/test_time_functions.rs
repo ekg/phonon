@@ -12,7 +12,10 @@ use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 
 /// Helper to query events from a pattern in a given cycle
-fn query_cycle<T: Clone + Send + Sync + 'static>(pattern: &Pattern<T>, cycle: usize) -> Vec<phonon::pattern::Hap<T>> {
+fn query_cycle<T: Clone + Send + Sync + 'static>(
+    pattern: &Pattern<T>,
+    cycle: usize,
+) -> Vec<phonon::pattern::Hap<T>> {
     let state = State {
         span: TimeSpan::new(
             Fraction::from_float(cycle as f64),
@@ -25,12 +28,13 @@ fn query_cycle<T: Clone + Send + Sync + 'static>(pattern: &Pattern<T>, cycle: us
 
 /// Helper to query events in a fractional time span
 #[allow(dead_code)]
-fn query_span<T: Clone + Send + Sync + 'static>(pattern: &Pattern<T>, start: f64, end: f64) -> Vec<phonon::pattern::Hap<T>> {
+fn query_span<T: Clone + Send + Sync + 'static>(
+    pattern: &Pattern<T>,
+    start: f64,
+    end: f64,
+) -> Vec<phonon::pattern::Hap<T>> {
     let state = State {
-        span: TimeSpan::new(
-            Fraction::from_float(start),
-            Fraction::from_float(end),
-        ),
+        span: TimeSpan::new(Fraction::from_float(start), Fraction::from_float(end)),
         controls: HashMap::new(),
     };
     pattern.query(&state)
@@ -62,12 +66,16 @@ fn test_rotl_shifts_events_backward_in_time() {
     assert_eq!(original_events[0].value, "a");
 
     // First event of rotL 0.25 should be "b" (what was at 0.25 is now at 0.0)
-    assert_eq!(rotated_events[0].value, "b",
-        "rotL 0.25 should shift 'b' to the start");
+    assert_eq!(
+        rotated_events[0].value, "b",
+        "rotL 0.25 should shift 'b' to the start"
+    );
 
     // Last event should be "a" (wrapped around)
-    assert_eq!(rotated_events[3].value, "a",
-        "rotL 0.25 should wrap 'a' to the end");
+    assert_eq!(
+        rotated_events[3].value, "a",
+        "rotL 0.25 should wrap 'a' to the end"
+    );
 }
 
 #[test]
@@ -86,8 +94,10 @@ fn test_rotr_shifts_events_forward_in_time() {
     assert_eq!(rotated_events.len(), 4, "Rotated should have 4 events");
 
     // First event of rotR 0.25 should be "d" (what was at 0.75 is now at 0.0)
-    assert_eq!(rotated_events[0].value, "d",
-        "rotR 0.25 should shift 'd' to the start");
+    assert_eq!(
+        rotated_events[0].value, "d",
+        "rotR 0.25 should shift 'd' to the start"
+    );
 }
 
 #[test]
@@ -100,8 +110,10 @@ fn test_rotl_by_1_is_identity() {
     let rotated_events = query_cycle(&rotated, 0);
 
     for i in 0..4 {
-        assert_eq!(original_events[i].value, rotated_events[i].value,
-            "rotL 1 should be identity");
+        assert_eq!(
+            original_events[i].value, rotated_events[i].value,
+            "rotL 1 should be identity"
+        );
     }
 }
 
@@ -130,14 +142,20 @@ fn test_swing_delays_offbeat_events() {
 
     // Event 0 (a) should be at 0.0 (on-beat, unchanged)
     let a_start = swung_events[0].part.begin.to_float();
-    assert!((a_start - 0.0).abs() < 0.01,
-        "First event (on-beat) should stay at 0.0, got {}", a_start);
+    assert!(
+        (a_start - 0.0).abs() < 0.01,
+        "First event (on-beat) should stay at 0.0, got {}",
+        a_start
+    );
 
     // Event 1 (b) should be delayed from 0.25 to ~0.375
     // The exact amount depends on implementation
     let b_start = swung_events[1].part.begin.to_float();
-    assert!(b_start > 0.25,
-        "Second event (off-beat) should be delayed from 0.25, got {}", b_start);
+    assert!(
+        b_start > 0.25,
+        "Second event (off-beat) should be delayed from 0.25, got {}",
+        b_start
+    );
 }
 
 #[test]
@@ -152,9 +170,13 @@ fn test_swing_zero_is_no_change() {
     for i in 0..4 {
         let orig_start = original_events[i].part.begin.to_float();
         let swung_start = swung_events[i].part.begin.to_float();
-        assert!((orig_start - swung_start).abs() < 0.001,
+        assert!(
+            (orig_start - swung_start).abs() < 0.001,
             "swing 0 should not change timing, event {} moved from {} to {}",
-            i, orig_start, swung_start);
+            i,
+            orig_start,
+            swung_start
+        );
     }
 }
 
@@ -208,18 +230,27 @@ fn test_fast_gap_compresses_pattern() {
     // All events should be in first half of cycle (0.0 to 0.5)
     for (i, event) in events.iter().enumerate() {
         let start = event.part.begin.to_float();
-        assert!(start < 0.5,
-            "Event {} should be in first half (start={})", i, start);
+        assert!(
+            start < 0.5,
+            "Event {} should be in first half (start={})",
+            i,
+            start
+        );
     }
 
     // First event at 0.0
-    assert!((events[0].part.begin.to_float() - 0.0).abs() < 0.01,
-        "First event should be at 0.0");
+    assert!(
+        (events[0].part.begin.to_float() - 0.0).abs() < 0.01,
+        "First event should be at 0.0"
+    );
 
     // Last event should end at 0.5
     let last_end = events[3].part.end.to_float();
-    assert!((last_end - 0.5).abs() < 0.01,
-        "Last event should end at 0.5, got {}", last_end);
+    assert!(
+        (last_end - 0.5).abs() < 0.01,
+        "Last event should end at 0.5, got {}",
+        last_end
+    );
 }
 
 #[test]
@@ -255,7 +286,9 @@ fn test_zoom_plays_portion_stretched() {
     //   - c now spans 0.5-1.0
 
     let pattern: Pattern<String> = parse_mini_notation("a b c d");
-    let zoomed = pattern.clone().zoom(Pattern::pure(0.25), Pattern::pure(0.75));
+    let zoomed = pattern
+        .clone()
+        .zoom(Pattern::pure(0.25), Pattern::pure(0.75));
 
     let events = query_cycle(&zoomed, 0);
 
@@ -334,9 +367,14 @@ fn test_press_delays_by_half_slot() {
         let pressed_start = pressed_events[i].part.begin.to_float();
         let expected = orig_start + 0.125; // half of 0.25 duration
 
-        assert!((pressed_start - expected).abs() < 0.01,
+        assert!(
+            (pressed_start - expected).abs() < 0.01,
             "Event {} should move from {} to {}, got {}",
-            i, orig_start, expected, pressed_start);
+            i,
+            orig_start,
+            expected,
+            pressed_start
+        );
     }
 }
 
@@ -357,14 +395,22 @@ fn test_press_by_custom_amount() {
     // First event should move by 0.0625
     let expected_a = 0.0 + 0.0625;
     let actual_a = pressed_events[0].part.begin.to_float();
-    assert!((actual_a - expected_a).abs() < 0.01,
-        "pressBy 0.25: 'a' should be at {}, got {}", expected_a, actual_a);
+    assert!(
+        (actual_a - expected_a).abs() < 0.01,
+        "pressBy 0.25: 'a' should be at {}, got {}",
+        expected_a,
+        actual_a
+    );
 
     // Second event should move by 0.0625
     let expected_b = 0.25 + 0.0625;
     let actual_b = pressed_events[1].part.begin.to_float();
-    assert!((actual_b - expected_b).abs() < 0.01,
-        "pressBy 0.25: 'b' should be at {}, got {}", expected_b, actual_b);
+    assert!(
+        (actual_b - expected_b).abs() < 0.01,
+        "pressBy 0.25: 'b' should be at {}, got {}",
+        expected_b,
+        actual_b
+    );
 }
 
 // ============================================================================
@@ -387,7 +433,11 @@ fn test_ghost_adds_copies_after() {
     let events = query_cycle(&ghosted, 0);
 
     // Should have 3 events: 1 original + 2 ghosts
-    assert_eq!(events.len(), 3, "ghost should produce 3 events (1 + 2 ghosts)");
+    assert_eq!(
+        events.len(),
+        3,
+        "ghost should produce 3 events (1 + 2 ghosts)"
+    );
 
     // All events should have value "a"
     for event in &events {
@@ -395,12 +445,21 @@ fn test_ghost_adds_copies_after() {
     }
 
     // One event at 0.0 (original)
-    let at_zero = events.iter().filter(|e| e.part.begin.to_float().abs() < 0.01).count();
+    let at_zero = events
+        .iter()
+        .filter(|e| e.part.begin.to_float().abs() < 0.01)
+        .count();
     assert_eq!(at_zero, 1, "Should have 1 event at 0.0");
 
     // Events at 0.125 and 0.0625
-    let at_0125 = events.iter().filter(|e| (e.part.begin.to_float() - 0.125).abs() < 0.01).count();
-    let at_00625 = events.iter().filter(|e| (e.part.begin.to_float() - 0.0625).abs() < 0.01).count();
+    let at_0125 = events
+        .iter()
+        .filter(|e| (e.part.begin.to_float() - 0.125).abs() < 0.01)
+        .count();
+    let at_00625 = events
+        .iter()
+        .filter(|e| (e.part.begin.to_float() - 0.0625).abs() < 0.01)
+        .count();
     assert_eq!(at_0125, 1, "Should have 1 event at 0.125");
     assert_eq!(at_00625, 1, "Should have 1 event at 0.0625");
 }
@@ -415,8 +474,14 @@ fn test_ghost_with_custom_offsets() {
 
     assert_eq!(events.len(), 3, "ghost_with should produce 3 events");
 
-    let at_025 = events.iter().filter(|e| (e.part.begin.to_float() - 0.25).abs() < 0.01).count();
-    let at_01 = events.iter().filter(|e| (e.part.begin.to_float() - 0.1).abs() < 0.01).count();
+    let at_025 = events
+        .iter()
+        .filter(|e| (e.part.begin.to_float() - 0.25).abs() < 0.01)
+        .count();
+    let at_01 = events
+        .iter()
+        .filter(|e| (e.part.begin.to_float() - 0.1).abs() < 0.01)
+        .count();
     assert_eq!(at_025, 1, "Should have 1 event at 0.25");
     assert_eq!(at_01, 1, "Should have 1 event at 0.1");
 }
@@ -445,8 +510,8 @@ mod dsl_integration {
     use phonon::compositional_parser::parse_program;
 
     fn compile_dsl(code: &str) -> Result<phonon::unified_graph::UnifiedSignalGraph, String> {
-        let (_remaining, statements) = parse_program(code)
-            .map_err(|e| format!("Parse error: {:?}", e))?;
+        let (_remaining, statements) =
+            parse_program(code).map_err(|e| format!("Parse error: {:?}", e))?;
         compile_program(statements, 44100.0, None)
     }
 
@@ -496,6 +561,10 @@ mod dsl_integration {
         "#;
 
         let graph = compile_dsl(code);
-        assert!(graph.is_ok(), "swing with pattern should compile: {:?}", graph.err());
+        assert!(
+            graph.is_ok(),
+            "swing with pattern should compile: {:?}",
+            graph.err()
+        );
     }
 }

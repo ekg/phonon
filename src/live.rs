@@ -57,8 +57,7 @@ impl LiveSession {
         // Create config - use default buffer size (ring buffer handles buffering)
         let config: cpal::StreamConfig = default_config.into();
 
-        println!("🎵 Audio: {} Hz, {} channels",
-                 sample_rate as u32, channels);
+        println!("🎵 Audio: {} Hz, {} channels", sample_rate as u32, channels);
         println!("🔧 Using ring buffer architecture for parallel synthesis");
 
         // Graph for background synthesis thread (lock-free swap)
@@ -93,7 +92,11 @@ impl LiveSession {
 
                     if let Some(ref graph_cell) = **graph_snapshot {
                         // Synthesize samples using optimized buffer processing
-                        let start = if profile { Some(std::time::Instant::now()) } else { None };
+                        let start = if profile {
+                            Some(std::time::Instant::now())
+                        } else {
+                            None
+                        };
                         graph_cell.0.borrow_mut().process_buffer(&mut buffer);
 
                         if let Some(start) = start {
@@ -102,7 +105,8 @@ impl LiveSession {
                             total_buffers += 1;
 
                             if total_buffers % 10 == 0 || elapsed.as_millis() > 15 {
-                                let avg_ms = total_time.as_secs_f64() * 1000.0 / total_buffers as f64;
+                                let avg_ms =
+                                    total_time.as_secs_f64() * 1000.0 / total_buffers as f64;
                                 let target_ms = 512.0 / 44.1; // 11.61ms
                                 let this_ms = elapsed.as_secs_f64() * 1000.0;
                                 eprintln!("🎵 Live #{}: {:.2}ms (avg: {:.2}ms, target: {:.2}ms, {:.0}% CPU) {}",
@@ -114,7 +118,10 @@ impl LiveSession {
                         // Write to ring buffer
                         let written = ring_producer.push_slice(&buffer);
                         if written < buffer.len() {
-                            eprintln!("⚠️  Ring buffer full, dropped {} samples", buffer.len() - written);
+                            eprintln!(
+                                "⚠️  Ring buffer full, dropped {} samples",
+                                buffer.len() - written
+                            );
                         }
                     } else {
                         // No graph yet, write silence
@@ -136,12 +143,15 @@ impl LiveSession {
                 .append(true)
                 .open("/tmp/phonon_audio_errors.log")
             {
-                let _ = writeln!(file, "[{}] Audio stream error: {}",
+                let _ = writeln!(
+                    file,
+                    "[{}] Audio stream error: {}",
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
                         .as_secs(),
-                    err);
+                    err
+                );
             }
         };
 
@@ -218,7 +228,9 @@ impl LiveSession {
         }
         .map_err(|e| format!("Failed to build stream: {}", e))?;
 
-        stream.play().map_err(|e| format!("Failed to play stream: {}", e))?;
+        stream
+            .play()
+            .map_err(|e| format!("Failed to play stream: {}", e))?;
 
         // Get initial file modification time
         let metadata = fs::metadata(file_path)
@@ -245,8 +257,8 @@ impl LiveSession {
             .map_err(|e| format!("Failed to read file: {e}"))?;
 
         // Parse and compile
-        let (rest, statements) = parse_program(&dsl_code)
-            .map_err(|e| format!("Parse error: {}", e))?;
+        let (rest, statements) =
+            parse_program(&dsl_code).map_err(|e| format!("Parse error: {}", e))?;
 
         if !rest.trim().is_empty() {
             return Err(format!("Failed to parse entire file, remaining: {}", rest));
@@ -274,7 +286,8 @@ impl LiveSession {
 
         // Hot-swap the graph atomically using lock-free ArcSwap
         // Background synthesis thread will pick up new graph on next render
-        self.graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
+        self.graph
+            .store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
 
         // Update modification time
         let metadata = fs::metadata(&self.current_file)

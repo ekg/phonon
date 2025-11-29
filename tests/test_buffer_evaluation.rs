@@ -3,7 +3,6 @@
 /// These tests verify that buffer-based evaluation produces correct
 /// output, ensuring correctness during the gradual migration from
 /// sample-by-sample to buffer-based processing.
-
 use phonon::unified_graph::{Signal, SignalExpr, UnifiedSignalGraph};
 
 /// Helper: Create a test graph with basic setup
@@ -20,7 +19,10 @@ fn assert_buffers_match(actual: &[f32], expected: &[f32], tolerance: f32) {
         assert!(
             diff < tolerance,
             "Sample {} differs: actual={}, expected={}, diff={}",
-            i, a, e, diff
+            i,
+            a,
+            e,
+            diff
         );
     }
 }
@@ -55,10 +57,7 @@ fn test_add_expression_buffer() {
     let mut graph = create_test_graph();
 
     // Create expression: 0.3 + 0.4 = 0.7
-    let expr = SignalExpr::Add(
-        Signal::Value(0.3),
-        Signal::Value(0.4),
-    );
+    let expr = SignalExpr::Add(Signal::Value(0.3), Signal::Value(0.4));
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -66,7 +65,11 @@ fn test_add_expression_buffer() {
 
     // All samples should equal 0.7
     for &sample in &output {
-        assert!((sample - 0.7_f32).abs() < 1e-6, "Expected 0.7, got {}", sample);
+        assert!(
+            (sample - 0.7_f32).abs() < 1e-6,
+            "Expected 0.7, got {}",
+            sample
+        );
     }
 }
 
@@ -75,10 +78,7 @@ fn test_multiply_expression_buffer() {
     let mut graph = create_test_graph();
 
     // Create expression: 0.5 * 0.8 = 0.4
-    let expr = SignalExpr::Multiply(
-        Signal::Value(0.5),
-        Signal::Value(0.8),
-    );
+    let expr = SignalExpr::Multiply(Signal::Value(0.5), Signal::Value(0.8));
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -86,7 +86,11 @@ fn test_multiply_expression_buffer() {
 
     // All samples should equal 0.4
     for &sample in &output {
-        assert!((sample - 0.4_f32).abs() < 1e-6, "Expected 0.4, got {}", sample);
+        assert!(
+            (sample - 0.4_f32).abs() < 1e-6,
+            "Expected 0.4, got {}",
+            sample
+        );
     }
 }
 
@@ -95,10 +99,7 @@ fn test_subtract_expression_buffer() {
     let mut graph = create_test_graph();
 
     // Create expression: 0.8 - 0.3 = 0.5
-    let expr = SignalExpr::Subtract(
-        Signal::Value(0.8),
-        Signal::Value(0.3),
-    );
+    let expr = SignalExpr::Subtract(Signal::Value(0.8), Signal::Value(0.3));
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -106,7 +107,11 @@ fn test_subtract_expression_buffer() {
 
     // All samples should equal 0.5
     for &sample in &output {
-        assert!((sample - 0.5_f32).abs() < 1e-6, "Expected 0.5, got {}", sample);
+        assert!(
+            (sample - 0.5_f32).abs() < 1e-6,
+            "Expected 0.5, got {}",
+            sample
+        );
     }
 }
 
@@ -115,10 +120,7 @@ fn test_divide_expression_buffer() {
     let mut graph = create_test_graph();
 
     // Create expression: 0.8 / 0.4 = 2.0
-    let expr = SignalExpr::Divide(
-        Signal::Value(0.8),
-        Signal::Value(0.4),
-    );
+    let expr = SignalExpr::Divide(Signal::Value(0.8), Signal::Value(0.4));
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -126,7 +128,11 @@ fn test_divide_expression_buffer() {
 
     // All samples should equal 2.0
     for &sample in &output {
-        assert!((sample - 2.0_f32).abs() < 1e-6, "Expected 2.0, got {}", sample);
+        assert!(
+            (sample - 2.0_f32).abs() < 1e-6,
+            "Expected 2.0, got {}",
+            sample
+        );
     }
 }
 
@@ -135,10 +141,7 @@ fn test_divide_by_zero_buffer() {
     let mut graph = create_test_graph();
 
     // Create expression: 1.0 / 0.0 = 0.0 (safe handling)
-    let expr = SignalExpr::Divide(
-        Signal::Value(1.0),
-        Signal::Value(0.0),
-    );
+    let expr = SignalExpr::Divide(Signal::Value(1.0), Signal::Value(0.0));
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -146,7 +149,11 @@ fn test_divide_by_zero_buffer() {
 
     // All samples should equal 0.0 (divide by zero returns 0)
     for &sample in &output {
-        assert!((sample - 0.0_f32).abs() < 1e-6, "Expected 0.0, got {}", sample);
+        assert!(
+            (sample - 0.0_f32).abs() < 1e-6,
+            "Expected 0.0, got {}",
+            sample
+        );
     }
 }
 
@@ -167,7 +174,11 @@ fn test_scale_expression_buffer() {
 
     // All samples should equal 4.0
     for &sample in &output {
-        assert!((sample - 4.0_f32).abs() < 1e-6, "Expected 4.0, got {}", sample);
+        assert!(
+            (sample - 4.0_f32).abs() < 1e-6,
+            "Expected 4.0, got {}",
+            sample
+        );
     }
 }
 
@@ -180,15 +191,10 @@ fn test_nested_arithmetic_buffer() {
     let mut graph = create_test_graph();
 
     // Create expression: (0.5 + 0.3) * 2.0 = 0.8 * 2.0 = 1.6
-    let add_expr = SignalExpr::Add(
-        Signal::Value(0.5),
-        Signal::Value(0.3),
-    );
+    let add_expr = SignalExpr::Add(Signal::Value(0.5), Signal::Value(0.3));
 
-    let multiply_expr = SignalExpr::Multiply(
-        Signal::Expression(Box::new(add_expr)),
-        Signal::Value(2.0),
-    );
+    let multiply_expr =
+        SignalExpr::Multiply(Signal::Expression(Box::new(add_expr)), Signal::Value(2.0));
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -196,7 +202,11 @@ fn test_nested_arithmetic_buffer() {
 
     // All samples should equal 1.6
     for &sample in &output {
-        assert!((sample - 1.6_f32).abs() < 1e-5, "Expected 1.6, got {}", sample);
+        assert!(
+            (sample - 1.6_f32).abs() < 1e-5,
+            "Expected 1.6, got {}",
+            sample
+        );
     }
 }
 
@@ -205,20 +215,11 @@ fn test_complex_nested_expression() {
     let mut graph = create_test_graph();
 
     // Create expression: ((2 + 3) * 4) - 1 = (5 * 4) - 1 = 20 - 1 = 19
-    let add = SignalExpr::Add(
-        Signal::Value(2.0),
-        Signal::Value(3.0),
-    );
+    let add = SignalExpr::Add(Signal::Value(2.0), Signal::Value(3.0));
 
-    let multiply = SignalExpr::Multiply(
-        Signal::Expression(Box::new(add)),
-        Signal::Value(4.0),
-    );
+    let multiply = SignalExpr::Multiply(Signal::Expression(Box::new(add)), Signal::Value(4.0));
 
-    let subtract = SignalExpr::Subtract(
-        Signal::Expression(Box::new(multiply)),
-        Signal::Value(1.0),
-    );
+    let subtract = SignalExpr::Subtract(Signal::Expression(Box::new(multiply)), Signal::Value(1.0));
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -226,7 +227,11 @@ fn test_complex_nested_expression() {
 
     // All samples should equal 19.0
     for &sample in &output {
-        assert!((sample - 19.0_f32).abs() < 1e-5, "Expected 19.0, got {}", sample);
+        assert!(
+            (sample - 19.0_f32).abs() < 1e-5,
+            "Expected 19.0, got {}",
+            sample
+        );
     }
 }
 
@@ -246,7 +251,11 @@ fn test_various_buffer_sizes() {
         graph.eval_signal_buffer(&signal, &mut output);
 
         for &sample in &output {
-            assert!((sample - 0.123_f32).abs() < 1e-6, "Failed for buffer size {}", size);
+            assert!(
+                (sample - 0.123_f32).abs() < 1e-6,
+                "Failed for buffer size {}",
+                size
+            );
         }
     }
 }
@@ -279,11 +288,18 @@ fn test_buffer_eval_performance_sanity() {
     }
     let buffer_duration = start.elapsed();
 
-    println!("Buffer evaluation: {:?} for {} iterations", buffer_duration, iterations);
+    println!(
+        "Buffer evaluation: {:?} for {} iterations",
+        buffer_duration, iterations
+    );
     println!("Per iteration: {:?}", buffer_duration / iterations);
 
     // Sanity check: Should complete in reasonable time (< 1 second for 1000 iterations)
-    assert!(buffer_duration.as_secs() < 1, "Buffer evaluation too slow: {:?}", buffer_duration);
+    assert!(
+        buffer_duration.as_secs() < 1,
+        "Buffer evaluation too slow: {:?}",
+        buffer_duration
+    );
 }
 
 // ============================================================================
@@ -307,10 +323,7 @@ fn test_large_values() {
     let mut graph = create_test_graph();
 
     // Test with very large values
-    let expr = SignalExpr::Multiply(
-        Signal::Value(1000.0),
-        Signal::Value(1000.0),
-    );
+    let expr = SignalExpr::Multiply(Signal::Value(1000.0), Signal::Value(1000.0));
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];
@@ -326,10 +339,7 @@ fn test_very_small_values() {
     let mut graph = create_test_graph();
 
     // Test with very small values
-    let expr = SignalExpr::Multiply(
-        Signal::Value(0.0001),
-        Signal::Value(0.0001),
-    );
+    let expr = SignalExpr::Multiply(Signal::Value(0.0001), Signal::Value(0.0001));
 
     let buffer_size = 512;
     let mut output = vec![0.0; buffer_size];

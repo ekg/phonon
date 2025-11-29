@@ -6,13 +6,12 @@
 ///
 /// Unlike a compressor which reduces loud signals, an expander BOOSTS loud signals,
 /// increasing dynamic range.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Expander state for envelope follower
 #[derive(Debug, Clone)]
 struct ExpanderState {
-    envelope: f32,  // Current envelope level (linear amplitude)
+    envelope: f32, // Current envelope level (linear amplitude)
 }
 
 impl Default for ExpanderState {
@@ -54,11 +53,11 @@ impl Default for ExpanderState {
 /// ```
 pub struct ExpanderNode {
     input: NodeId,
-    threshold_input: NodeId,  // Threshold in dB (e.g., -10.0)
-    ratio_input: NodeId,      // Expansion ratio (1.0 to 10.0)
-    attack_input: NodeId,     // Attack time in seconds (0.001 to 1.0)
-    release_input: NodeId,    // Release time in seconds (0.01 to 3.0)
-    state: ExpanderState,     // Envelope follower state
+    threshold_input: NodeId, // Threshold in dB (e.g., -10.0)
+    ratio_input: NodeId,     // Expansion ratio (1.0 to 10.0)
+    attack_input: NodeId,    // Attack time in seconds (0.001 to 1.0)
+    release_input: NodeId,   // Release time in seconds (0.01 to 3.0)
+    state: ExpanderState,    // Envelope follower state
 }
 
 impl ExpanderNode {
@@ -170,9 +169,9 @@ impl AudioNode for ExpanderNode {
 
             // Update envelope with attack/release
             let coeff = if input_level > self.state.envelope {
-                attack_coeff  // Fast response to increasing levels
+                attack_coeff // Fast response to increasing levels
             } else {
-                release_coeff  // Slow response to decreasing levels
+                release_coeff // Slow response to decreasing levels
             };
 
             self.state.envelope = coeff * self.state.envelope + (1.0 - coeff) * input_level;
@@ -187,7 +186,7 @@ impl AudioNode for ExpanderNode {
                 // ratio=1.0 means no expansion, ratio=2.0 doubles the over amount
                 over_db * (ratio - 1.0)
             } else {
-                0.0  // No boost below threshold
+                0.0 // No boost below threshold
             };
 
             // Apply positive gain boost
@@ -229,7 +228,7 @@ mod tests {
 
         // Create a quiet input signal (-30 dB)
         let mut input = vec![0.0316_f32; size]; // ~-30 dB
-        let mut threshold = vec![-10.0; size];   // Threshold at -10 dB
+        let mut threshold = vec![-10.0; size]; // Threshold at -10 dB
         let mut ratio = vec![2.0; size];
         let mut attack = vec![0.001; size];
         let mut release = vec![0.1; size];
@@ -246,11 +245,17 @@ mod tests {
         }
 
         // Output should be approximately equal to input (no expansion below threshold)
-        let max_diff = input.iter().zip(output.iter())
+        let max_diff = input
+            .iter()
+            .zip(output.iter())
             .map(|(i, o)| (i - o).abs())
             .fold(0.0_f32, f32::max);
 
-        assert!(max_diff < 0.01, "Below threshold should pass through, max_diff: {}", max_diff);
+        assert!(
+            max_diff < 0.01,
+            "Below threshold should pass through, max_diff: {}",
+            max_diff
+        );
     }
 
     #[test]
@@ -262,8 +267,8 @@ mod tests {
         // Create a loud input signal (-5 dB)
         let input_level = 0.562; // ~-5 dB
         let input = vec![input_level; size];
-        let threshold = vec![-10.0; size];   // Threshold at -10 dB
-        let ratio = vec![2.0; size];         // 2:1 expansion
+        let threshold = vec![-10.0; size]; // Threshold at -10 dB
+        let ratio = vec![2.0; size]; // 2:1 expansion
         let attack = vec![0.001; size];
         let release = vec![0.1; size];
 
@@ -282,9 +287,12 @@ mod tests {
         let avg_output: f32 = output.iter().sum::<f32>() / output.len() as f32;
         let avg_input: f32 = input.iter().sum::<f32>() / input.len() as f32;
 
-        assert!(avg_output > avg_input,
+        assert!(
+            avg_output > avg_input,
             "Above threshold should be boosted: output {} > input {}",
-            avg_output, avg_input);
+            avg_output,
+            avg_input
+        );
 
         // With 2:1 ratio and 5dB over threshold, expect boost
         // over = -5 - (-10) = 5 dB
@@ -294,8 +302,11 @@ mod tests {
         let input_db = 20.0 * avg_input.log10();
         let boost_applied = output_db - input_db;
 
-        assert!(boost_applied > 3.0 && boost_applied < 7.0,
-            "Expected ~5dB boost, got {:.1}dB", boost_applied);
+        assert!(
+            boost_applied > 3.0 && boost_applied < 7.0,
+            "Expected ~5dB boost, got {:.1}dB",
+            boost_applied
+        );
     }
 
     #[test]
@@ -304,7 +315,7 @@ mod tests {
         let size = 512;
         let sample_rate = 44100.0;
 
-        let input = vec![0.562; size];  // ~-5 dB
+        let input = vec![0.562; size]; // ~-5 dB
         let threshold = vec![-10.0; size];
         let attack = vec![0.001; size];
         let release = vec![0.1; size];
@@ -331,9 +342,12 @@ mod tests {
         let avg1: f32 = output1.iter().sum::<f32>() / output1.len() as f32;
         let avg3: f32 = output3.iter().sum::<f32>() / output3.len() as f32;
 
-        assert!(avg3 > avg1 * 1.5,
+        assert!(
+            avg3 > avg1 * 1.5,
             "Higher ratio should produce more boost: ratio3 {} > ratio1 {}",
-            avg3, avg1);
+            avg3,
+            avg1
+        );
     }
 
     #[test]
@@ -344,10 +358,10 @@ mod tests {
 
         // Create signal that goes from quiet to loud
         let mut input = vec![0.0; size];
-        for i in 0..size/2 {
+        for i in 0..size / 2 {
             input[i] = 0.01; // Quiet
         }
-        for i in size/2..size {
+        for i in size / 2..size {
             input[i] = 0.5; // Loud
         }
 
@@ -357,7 +371,8 @@ mod tests {
         // Fast attack
         let fast_attack = vec![0.001; size];
         let slow_release = vec![0.5; size];
-        let inputs_fast: Vec<&[f32]> = vec![&input, &threshold, &ratio, &fast_attack, &slow_release];
+        let inputs_fast: Vec<&[f32]> =
+            vec![&input, &threshold, &ratio, &fast_attack, &slow_release];
         let mut output_fast = vec![0.0; size];
         let mut exp_fast = ExpanderNode::new(0, 1, 2, 3, 4);
         let context = create_context(size);
@@ -365,11 +380,14 @@ mod tests {
         exp_fast.process_block(&inputs_fast, &mut output_fast, sample_rate, &context);
 
         // Check that envelope responds to level change
-        let first_half_avg: f32 = output_fast[..size/4].iter().sum::<f32>() / (size/4) as f32;
-        let second_half_avg: f32 = output_fast[3*size/4..].iter().sum::<f32>() / (size/4) as f32;
+        let first_half_avg: f32 = output_fast[..size / 4].iter().sum::<f32>() / (size / 4) as f32;
+        let second_half_avg: f32 =
+            output_fast[3 * size / 4..].iter().sum::<f32>() / (size / 4) as f32;
 
-        assert!(second_half_avg > first_half_avg,
-            "Loud section should have higher output than quiet section");
+        assert!(
+            second_half_avg > first_half_avg,
+            "Loud section should have higher output than quiet section"
+        );
     }
 
     #[test]
@@ -417,6 +435,9 @@ mod tests {
 
         // Reset
         exp.reset();
-        assert_eq!(exp.state.envelope, 0.0, "Envelope should be cleared after reset");
+        assert_eq!(
+            exp.state.envelope, 0.0,
+            "Envelope should be cleared after reset"
+        );
     }
 }

@@ -4,7 +4,6 @@
 /// The filter passes frequencies near the center frequency and attenuates
 /// frequencies both below and above it. The Q parameter controls the bandwidth
 /// of the passband.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz};
 
@@ -123,11 +122,7 @@ impl AudioNode for BandPassFilterNode {
             output.len(),
             "Center buffer length mismatch"
         );
-        debug_assert_eq!(
-            q_buffer.len(),
-            output.len(),
-            "Q buffer length mismatch"
-        );
+        debug_assert_eq!(q_buffer.len(), output.len(), "Q buffer length mismatch");
 
         for i in 0..output.len() {
             let center = center_buffer[i].max(20.0).min(20000.0); // Clamp to valid range
@@ -186,13 +181,7 @@ mod tests {
         let mut const_q = ConstantNode::new(1.0);
         let mut bpf = BandPassFilterNode::new(1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Generate buffers
         let mut freq_buf = vec![0.0; 512];
@@ -210,7 +199,11 @@ mod tests {
         osc.process_block(&osc_inputs, &mut unfiltered, 44100.0, &context);
 
         // Get filtered signal
-        let bpf_inputs = vec![unfiltered.as_slice(), center_buf.as_slice(), q_buf.as_slice()];
+        let bpf_inputs = vec![
+            unfiltered.as_slice(),
+            center_buf.as_slice(),
+            q_buf.as_slice(),
+        ];
         bpf.process_block(&bpf_inputs, &mut filtered, 44100.0, &context);
 
         let unfiltered_rms = calculate_rms(&unfiltered);
@@ -236,13 +229,7 @@ mod tests {
         let mut const_q = ConstantNode::new(1.0);
         let mut bpf = BandPassFilterNode::new(1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Generate buffers
         let mut freq_buf = vec![0.0; 512];
@@ -260,7 +247,11 @@ mod tests {
         osc.process_block(&osc_inputs, &mut unfiltered, 44100.0, &context);
 
         // Get filtered signal
-        let bpf_inputs = vec![unfiltered.as_slice(), center_buf.as_slice(), q_buf.as_slice()];
+        let bpf_inputs = vec![
+            unfiltered.as_slice(),
+            center_buf.as_slice(),
+            q_buf.as_slice(),
+        ];
         bpf.process_block(&bpf_inputs, &mut filtered, 44100.0, &context);
 
         let unfiltered_rms = calculate_rms(&unfiltered);
@@ -286,13 +277,7 @@ mod tests {
         let mut const_q = ConstantNode::new(1.0);
         let mut bpf = BandPassFilterNode::new(1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Generate buffers
         let mut freq_buf = vec![0.0; 512];
@@ -310,7 +295,11 @@ mod tests {
         osc.process_block(&osc_inputs, &mut unfiltered, 44100.0, &context);
 
         // Get filtered signal
-        let bpf_inputs = vec![unfiltered.as_slice(), center_buf.as_slice(), q_buf.as_slice()];
+        let bpf_inputs = vec![
+            unfiltered.as_slice(),
+            center_buf.as_slice(),
+            q_buf.as_slice(),
+        ];
         bpf.process_block(&bpf_inputs, &mut filtered, 44100.0, &context);
 
         let unfiltered_rms = calculate_rms(&unfiltered);
@@ -347,13 +336,7 @@ mod tests {
         let mut const_q = ConstantNode::new(1.0);
         let mut bpf = BandPassFilterNode::new(1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // First pass
         let mut freq_buf = vec![0.0; 512];
@@ -410,15 +393,13 @@ mod tests {
         let q_buf = vec![1.0; 512];
         let mut output = vec![0.0; 512];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
-        let inputs = vec![signal_buffer.as_slice(), center_buf.as_slice(), q_buf.as_slice()];
+        let inputs = vec![
+            signal_buffer.as_slice(),
+            center_buf.as_slice(),
+            q_buf.as_slice(),
+        ];
         bpf.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Should produce valid output

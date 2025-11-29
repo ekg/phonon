@@ -1,7 +1,7 @@
-use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 /// Debug why pattern parameters produce zero audio
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
+use std::cell::RefCell;
 
 #[test]
 fn test_pattern_signal_directly() {

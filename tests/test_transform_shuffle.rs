@@ -85,7 +85,11 @@ fn test_shuffle_level1_event_count() {
         };
 
         base_total += pattern.query(&state).len();
-        shuffle_total += pattern.clone().shuffle(Pattern::pure(0.05)).query(&state).len();
+        shuffle_total += pattern
+            .clone()
+            .shuffle(Pattern::pure(0.05))
+            .query(&state)
+            .len();
     }
 
     assert_eq!(

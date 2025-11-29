@@ -13,9 +13,11 @@ mod matching;
 mod parameter;
 mod state;
 
-pub use context::{CompletionContext, get_completion_context, get_token_at_cursor};
+pub use context::{get_completion_context, get_token_at_cursor, CompletionContext};
 pub use discovery::{discover_samples, extract_bus_names};
-pub use function_metadata::{FunctionMetadata, FUNCTION_METADATA, search_functions, functions_by_category};
+pub use function_metadata::{
+    functions_by_category, search_functions, FunctionMetadata, FUNCTION_METADATA,
+};
 pub use matching::filter_completions;
 pub use parameter::generate_kwargs_template;
 pub use state::CompletionState;

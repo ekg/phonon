@@ -3,7 +3,6 @@
 /// This is a dynamics processing node that acts as a gate. It passes the signal
 /// when the absolute value is above the threshold, otherwise outputs 0.0.
 /// Output[i] = if |Input[i]| > Threshold[i] { Input[i] } else { 0.0 }
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Gate node: out = if |input| > threshold { input } else { 0.0 }
@@ -37,7 +36,10 @@ impl GateNode {
     /// ~clean: ~noisy # gate 0.5
     /// ```
     pub fn new(input: NodeId, threshold_input: NodeId) -> Self {
-        Self { input, threshold_input }
+        Self {
+            input,
+            threshold_input,
+        }
     }
 
     /// Get the input node ID
@@ -68,11 +70,7 @@ impl AudioNode for GateNode {
         let signal = inputs[0];
         let threshold = inputs[1];
 
-        debug_assert_eq!(
-            signal.len(),
-            output.len(),
-            "Signal input length mismatch"
-        );
+        debug_assert_eq!(signal.len(), output.len(), "Signal input length mismatch");
         debug_assert_eq!(
             threshold.len(),
             output.len(),
@@ -114,13 +112,7 @@ mod tests {
         let inputs = vec![input_signal.as_slice(), threshold_value.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gate.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -140,14 +132,8 @@ mod tests {
         let threshold_value = vec![0.5, 0.5, 0.5, 0.5];
         let inputs = vec![input_signal.as_slice(), threshold_value.as_slice()];
 
-        let mut output = vec![999.0; 4];  // Initialize with non-zero to verify zeroing
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let mut output = vec![999.0; 4]; // Initialize with non-zero to verify zeroing
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gate.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -168,13 +154,7 @@ mod tests {
         let inputs = vec![input_signal.as_slice(), threshold_value.as_slice()];
 
         let mut output = vec![999.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gate.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -194,13 +174,7 @@ mod tests {
         let inputs = vec![input_signal.as_slice(), threshold_value.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gate.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -223,17 +197,11 @@ mod tests {
         let mut gate = GateNode::new(0, 1);
 
         let input_signal = vec![0.5, 0.5, 0.5, 0.5];
-        let threshold_value = vec![0.3, 0.5, 0.6, 0.1];  // Varying threshold
+        let threshold_value = vec![0.3, 0.5, 0.6, 0.1]; // Varying threshold
         let inputs = vec![input_signal.as_slice(), threshold_value.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gate.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -268,13 +236,7 @@ mod tests {
         let mut threshold_node = ConstantNode::new(0.5);
         let mut gate = GateNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut signal_buf = vec![0.0; 512];
@@ -305,25 +267,19 @@ mod tests {
         let inputs = vec![input_signal.as_slice(), threshold_value.as_slice()];
 
         let mut output = vec![0.0; 8];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            8,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 8, 2.0, 44100.0);
 
         gate.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Check each sample
-        assert_eq!(output[0], 0.9);   // 0.9 > 0.5: pass
-        assert_eq!(output[1], 0.0);   // 0.2 < 0.5: block
-        assert_eq!(output[2], -0.8);  // |-0.8| = 0.8 > 0.5: pass
-        assert_eq!(output[3], 0.0);   // 0.1 < 0.5: block
-        assert_eq!(output[4], 0.6);   // 0.6 > 0.5: pass
-        assert_eq!(output[5], 0.0);   // |-0.3| = 0.3 < 0.5: block
-        assert_eq!(output[6], 0.7);   // 0.7 > 0.5: pass
-        assert_eq!(output[7], 0.0);   // |-0.05| = 0.05 < 0.5: block
+        assert_eq!(output[0], 0.9); // 0.9 > 0.5: pass
+        assert_eq!(output[1], 0.0); // 0.2 < 0.5: block
+        assert_eq!(output[2], -0.8); // |-0.8| = 0.8 > 0.5: pass
+        assert_eq!(output[3], 0.0); // 0.1 < 0.5: block
+        assert_eq!(output[4], 0.6); // 0.6 > 0.5: pass
+        assert_eq!(output[5], 0.0); // |-0.3| = 0.3 < 0.5: block
+        assert_eq!(output[6], 0.7); // 0.7 > 0.5: pass
+        assert_eq!(output[7], 0.0); // |-0.05| = 0.05 < 0.5: block
     }
 
     #[test]
@@ -336,13 +292,7 @@ mod tests {
         let inputs = vec![input_signal.as_slice(), threshold_value.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gate.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -363,13 +313,7 @@ mod tests {
         let inputs = vec![input_signal.as_slice(), threshold_value.as_slice()];
 
         let mut output = vec![999.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gate.process_block(&inputs, &mut output, 44100.0, &context);
 

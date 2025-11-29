@@ -55,19 +55,18 @@
 /// let mix = ConstantNode::new(0.5);                 // NodeId 9 (50%)
 /// let delay = TapeDelayNode::new(1, 2, 3, 4, 5, 6, 7, 8, 9, 1.0, 44100.0);
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::TAU;
 
 /// Tape delay state
 #[derive(Debug, Clone)]
 struct TapeDelayState {
-    buffer: Vec<f32>,       // Circular delay buffer
-    write_pos: usize,       // Current write position
-    wow_phase: f32,         // Wow LFO phase (0.0 to 1.0)
-    flutter_phase: f32,     // Flutter LFO phase (0.0 to 1.0)
-    lpf_state: f32,         // One-pole lowpass filter state
-    sample_rate: f32,       // Sample rate for calculations
+    buffer: Vec<f32>,   // Circular delay buffer
+    write_pos: usize,   // Current write position
+    wow_phase: f32,     // Wow LFO phase (0.0 to 1.0)
+    flutter_phase: f32, // Flutter LFO phase (0.0 to 1.0)
+    lpf_state: f32,     // One-pole lowpass filter state
+    sample_rate: f32,   // Sample rate for calculations
 }
 
 impl TapeDelayState {
@@ -88,17 +87,17 @@ impl TapeDelayState {
 /// Simulates analog tape delay machines with realistic tape artifacts.
 /// Pitch modulation (wow/flutter) uses fractional delay with linear interpolation.
 pub struct TapeDelayNode {
-    input: NodeId,              // Signal to delay
-    time_input: NodeId,         // Delay time in seconds
-    feedback_input: NodeId,     // Feedback amount (0.0-0.95)
-    wow_rate_input: NodeId,     // Wow modulation rate in Hz (0.1-2.0)
-    wow_depth_input: NodeId,    // Wow modulation depth (0.0-1.0)
-    flutter_rate_input: NodeId, // Flutter modulation rate in Hz (5.0-10.0)
-    flutter_depth_input: NodeId,// Flutter modulation depth (0.0-1.0)
-    saturation_input: NodeId,   // Tape saturation (0.0-1.0)
-    mix_input: NodeId,          // Dry/wet mix (0.0-1.0)
+    input: NodeId,               // Signal to delay
+    time_input: NodeId,          // Delay time in seconds
+    feedback_input: NodeId,      // Feedback amount (0.0-0.95)
+    wow_rate_input: NodeId,      // Wow modulation rate in Hz (0.1-2.0)
+    wow_depth_input: NodeId,     // Wow modulation depth (0.0-1.0)
+    flutter_rate_input: NodeId,  // Flutter modulation rate in Hz (5.0-10.0)
+    flutter_depth_input: NodeId, // Flutter modulation depth (0.0-1.0)
+    saturation_input: NodeId,    // Tape saturation (0.0-1.0)
+    mix_input: NodeId,           // Dry/wet mix (0.0-1.0)
     state: TapeDelayState,
-    max_delay: f32,             // Maximum delay time (for buffer sizing)
+    max_delay: f32, // Maximum delay time (for buffer sizing)
 }
 
 impl TapeDelayNode {
@@ -277,7 +276,9 @@ impl AudioNode for TapeDelayNode {
 
             // Modulate delay time
             let modulated_time = delay_time + wow + flutter;
-            let delay_samples = (modulated_time * sample_rate).max(1.0).min(buffer_len as f32 - 1.0);
+            let delay_samples = (modulated_time * sample_rate)
+                .max(1.0)
+                .min(buffer_len as f32 - 1.0);
 
             // Fractional delay with linear interpolation
             let read_pos_f = (self.state.write_pos as f32) - delay_samples;
@@ -292,8 +293,8 @@ impl AudioNode for TapeDelayNode {
             let frac = read_pos.fract();
 
             // Linear interpolation between two samples
-            let delayed = self.state.buffer[read_idx] * (1.0 - frac)
-                + self.state.buffer[next_idx] * frac;
+            let delayed =
+                self.state.buffer[read_idx] * (1.0 - frac) + self.state.buffer[next_idx] * frac;
 
             // Tape saturation (soft clipping with tanh)
             let saturated = if saturation > 0.01 {
@@ -346,7 +347,7 @@ impl AudioNode for TapeDelayNode {
     }
 
     fn provides_delay(&self) -> bool {
-        true  // TapeDelayNode has internal delay buffer, can safely break feedback cycles
+        true // TapeDelayNode has internal delay buffer, can safely break feedback cycles
     }
 }
 
@@ -369,11 +370,11 @@ mod tests {
         let time = vec![0.1; size];
         let feedback = vec![0.5; size];
         let wow_rate = vec![0.5; size];
-        let wow_depth = vec![0.0; size];     // No wow
+        let wow_depth = vec![0.0; size]; // No wow
         let flutter_rate = vec![7.0; size];
         let flutter_depth = vec![0.0; size]; // No flutter
         let saturation = vec![0.0; size];
-        let mix = vec![0.0; size];            // Bypass
+        let mix = vec![0.0; size]; // Bypass
 
         let inputs: Vec<&[f32]> = vec![
             &input,
@@ -463,8 +464,8 @@ mod tests {
         let delay_time = 0.02; // 20ms
         let time = vec![delay_time; size];
         let feedback = vec![0.0; size];
-        let wow_rate = vec![1.0; size];    // 1 Hz wow
-        let wow_depth = vec![1.0; size];   // Full wow
+        let wow_rate = vec![1.0; size]; // 1 Hz wow
+        let wow_depth = vec![1.0; size]; // Full wow
         let flutter_rate = vec![7.0; size];
         let flutter_depth = vec![0.0; size];
         let saturation = vec![0.0; size];
@@ -651,14 +652,14 @@ mod tests {
         let sample_rate = 44100.0;
 
         let input = vec![0.5; size];
-        let time = vec![10.0; size];        // Way too long
-        let feedback = vec![2.0; size];     // Invalid
-        let wow_rate = vec![100.0; size];   // Invalid
-        let wow_depth = vec![5.0; size];    // Invalid
+        let time = vec![10.0; size]; // Way too long
+        let feedback = vec![2.0; size]; // Invalid
+        let wow_rate = vec![100.0; size]; // Invalid
+        let wow_depth = vec![5.0; size]; // Invalid
         let flutter_rate = vec![0.1; size]; // Invalid
         let flutter_depth = vec![-1.0; size]; // Invalid
-        let saturation = vec![10.0; size];  // Invalid
-        let mix = vec![-5.0; size];         // Invalid
+        let saturation = vec![10.0; size]; // Invalid
+        let mix = vec![-5.0; size]; // Invalid
 
         let inputs: Vec<&[f32]> = vec![
             &input,
@@ -679,7 +680,10 @@ mod tests {
 
         // Should not panic, and should produce valid output
         for &val in &output {
-            assert!(val.is_finite(), "Output should be finite with clamped params");
+            assert!(
+                val.is_finite(),
+                "Output should be finite with clamped params"
+            );
         }
     }
 

@@ -10,7 +10,6 @@
 ///   Analog Synthesis" (2006)
 /// - Stilson/Smith "Antialiasing Oscillators in Subtractive Synthesis" (1996)
 /// - Classic Moog/ARP/Buchla VCO designs
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -33,10 +32,10 @@ pub enum VCOWaveform {
 /// let vco = VCONode::new(0, VCOWaveform::Saw, 1);  // NodeId 2
 /// ```
 pub struct VCONode {
-    freq_input: NodeId,      // NodeId providing frequency values (Hz)
-    waveform: VCOWaveform,   // Waveform type
-    pulse_width: NodeId,     // NodeId providing pulse width (0.0 to 1.0, only for Pulse)
-    phase: f32,              // Internal state (0.0 to 1.0)
+    freq_input: NodeId,    // NodeId providing frequency values (Hz)
+    waveform: VCOWaveform, // Waveform type
+    pulse_width: NodeId,   // NodeId providing pulse width (0.0 to 1.0, only for Pulse)
+    phase: f32,            // Internal state (0.0 to 1.0)
 }
 
 impl VCONode {
@@ -226,13 +225,7 @@ mod tests {
         let mut const_pw = ConstantNode::new(0.5);
         let mut vco = VCONode::new(0, VCOWaveform::Saw, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -250,11 +243,7 @@ mod tests {
 
         // Should be roughly in [-1, 1] range (polyBLEP may cause slight overshoot)
         for sample in &output {
-            assert!(
-                sample.abs() <= 1.5,
-                "Saw sample out of range: {}",
-                sample
-            );
+            assert!(sample.abs() <= 1.5, "Saw sample out of range: {}", sample);
         }
     }
 
@@ -265,13 +254,7 @@ mod tests {
         let mut const_pw = ConstantNode::new(0.5);
         let mut vco = VCONode::new(0, VCOWaveform::Pulse, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -307,13 +290,7 @@ mod tests {
         let mut const_pw = ConstantNode::new(0.1);
         let mut vco = VCONode::new(0, VCOWaveform::Pulse, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -345,13 +322,7 @@ mod tests {
         let mut const_pw = ConstantNode::new(0.9);
         let mut vco = VCONode::new(0, VCOWaveform::Pulse, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -383,13 +354,7 @@ mod tests {
         let mut const_pw = ConstantNode::new(0.5);
         let mut vco = VCONode::new(0, VCOWaveform::Triangle, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -427,13 +392,7 @@ mod tests {
         let mut const_pw = ConstantNode::new(0.5);
         let mut vco = VCONode::new(0, VCOWaveform::Sine, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -451,11 +410,7 @@ mod tests {
 
         // Should be in [-1, 1] range
         for sample in &output {
-            assert!(
-                sample.abs() <= 1.0,
-                "Sine sample out of range: {}",
-                sample
-            );
+            assert!(sample.abs() <= 1.0, "Sine sample out of range: {}", sample);
         }
 
         // Sine should have near-zero DC offset
@@ -470,13 +425,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut vco = VCONode::new(0, VCOWaveform::Pulse, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -507,13 +456,7 @@ mod tests {
         // Test that frequency can be modulated
         let mut vco = VCONode::new(0, VCOWaveform::Sine, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut const_pw = ConstantNode::new(0.5);
         let mut pw_buf = vec![0.0; 512];
@@ -552,13 +495,7 @@ mod tests {
         let inputs = vec![freq_buf.as_slice(), pw_buf.as_slice()];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         let mut vco = vco;
         vco.process_block(&inputs, &mut output, 44100.0, &context);
@@ -581,18 +518,12 @@ mod tests {
         vco.phase = 0.99;
 
         // Process one sample at high frequency
-        let freq_buf = vec![4410.0];  // 10% of sample rate
+        let freq_buf = vec![4410.0]; // 10% of sample rate
         let pw_buf = vec![0.5];
         let inputs = vec![freq_buf.as_slice(), pw_buf.as_slice()];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         vco.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -618,13 +549,7 @@ mod tests {
             let mut const_pw = ConstantNode::new(0.5);
             let mut vco = VCONode::new(0, waveform, 1);
 
-            let context = ProcessContext::new(
-                Fraction::from_float(0.0),
-                0,
-                512,
-                2.0,
-                44100.0,
-            );
+            let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
             let mut freq_buf = vec![0.0; 512];
             const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -638,11 +563,7 @@ mod tests {
 
             // All waveforms should produce signal
             let has_signal = output.iter().any(|&x| x.abs() > 0.1);
-            assert!(
-                has_signal,
-                "Waveform {:?} produced no signal",
-                waveform
-            );
+            assert!(has_signal, "Waveform {:?} produced no signal", waveform);
 
             // All samples should be in valid range (allow overshoot for polyBLEP)
             // PolyBLEP can cause transient overshoots up to ~2x during edge corrections
@@ -697,14 +618,14 @@ mod tests {
     fn test_vco_polyblep_reduces_aliasing() {
         // Compare saw wave at high frequency with and without polyBLEP
         // This is a qualitative test - polyBLEP should produce smoother spectrum
-        let mut const_freq = ConstantNode::new(8000.0);  // High frequency
+        let mut const_freq = ConstantNode::new(8000.0); // High frequency
         let mut const_pw = ConstantNode::new(0.5);
         let mut vco = VCONode::new(0, VCOWaveform::Saw, 1);
 
         let context = ProcessContext::new(
             Fraction::from_float(0.0),
             0,
-            4410,  // 0.1 second
+            4410, // 0.1 second
             2.0,
             44100.0,
         );

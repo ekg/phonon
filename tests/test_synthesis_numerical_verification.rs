@@ -2,7 +2,6 @@
 ///
 /// These tests verify that synthesis generates the EXACT expected waveforms
 /// by comparing sample-by-sample with mathematically generated reference signals.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -20,7 +19,11 @@ fn generate_expected_sine(frequency: f32, sample_rate: f32, num_samples: usize) 
 
 /// Calculate root mean square error between two signals
 fn calculate_rmse(signal_a: &[f32], signal_b: &[f32]) -> f32 {
-    assert_eq!(signal_a.len(), signal_b.len(), "Signals must be same length");
+    assert_eq!(
+        signal_a.len(),
+        signal_b.len(),
+        "Signals must be same length"
+    );
 
     let sum_squared_error: f32 = signal_a
         .iter()
@@ -36,7 +39,11 @@ fn calculate_rmse(signal_a: &[f32], signal_b: &[f32]) -> f32 {
 
 /// Calculate correlation coefficient between two signals
 fn calculate_correlation(signal_a: &[f32], signal_b: &[f32]) -> f32 {
-    assert_eq!(signal_a.len(), signal_b.len(), "Signals must be same length");
+    assert_eq!(
+        signal_a.len(),
+        signal_b.len(),
+        "Signals must be same length"
+    );
 
     let mean_a: f32 = signal_a.iter().sum::<f32>() / signal_a.len() as f32;
     let mean_b: f32 = signal_b.iter().sum::<f32>() / signal_b.len() as f32;
@@ -125,7 +132,9 @@ fn test_sine_phase_continuity_numerical() {
     assert!(
         boundary_diff < 0.1,
         "Buffer boundary discontinuity: {:.6} (last={:.6}, first={:.6})",
-        boundary_diff, last_sample_buf1, first_sample_buf2
+        boundary_diff,
+        last_sample_buf1,
+        first_sample_buf2
     );
 
     // Overall waveform should match expected
@@ -198,12 +207,16 @@ out $ ~trig
     assert!(
         max_discontinuity < 0.1,
         "Discontinuity at sample {}: {} (indicates clicking)",
-        max_location, max_discontinuity
+        max_location,
+        max_discontinuity
     );
 
     println!("✓ Bus-triggered synthesis numerical verification:");
     println!("  RMS: {:.6}", rms);
-    println!("  Max discontinuity: {:.6} at sample {}", max_discontinuity, max_location);
+    println!(
+        "  Max discontinuity: {:.6} at sample {}",
+        max_discontinuity, max_location
+    );
 }
 
 #[test]
@@ -214,7 +227,8 @@ fn test_static_vs_live_synthesis() {
     // STATIC: Direct sine oscillator (no pattern triggering)
     let code_static = "out $ sine 440";
     let (_, statements_static) = parse_program(code_static).expect("Parse failed");
-    let mut graph_static = compile_program(statements_static, sample_rate, None).expect("Compilation failed");
+    let mut graph_static =
+        compile_program(statements_static, sample_rate, None).expect("Compilation failed");
     let static_audio = graph_static.render(44100); // 1 second
 
     // LIVE: Bus-triggered continuous synthesis
@@ -225,7 +239,8 @@ tempo: 10.0
 out $ ~trig
 "#;
     let (_, statements_live) = parse_program(code_live).expect("Parse failed");
-    let mut graph_live = compile_program(statements_live, sample_rate, None).expect("Compilation failed");
+    let mut graph_live =
+        compile_program(statements_live, sample_rate, None).expect("Compilation failed");
 
     // Render in multiple buffers to test live mode
     let buffer_size = 512;
@@ -242,14 +257,19 @@ out $ ~trig
     let live_audio = &live_audio[0..min_len];
 
     // Both should have similar RMS (accounting for envelope)
-    let rms_static: f32 = static_audio.iter().map(|s| s * s).sum::<f32>() / static_audio.len() as f32;
+    let rms_static: f32 =
+        static_audio.iter().map(|s| s * s).sum::<f32>() / static_audio.len() as f32;
     let rms_static = rms_static.sqrt();
 
     let rms_live: f32 = live_audio.iter().map(|s| s * s).sum::<f32>() / live_audio.len() as f32;
     let rms_live = rms_live.sqrt();
 
     // Live synthesis should generate audio
-    assert!(rms_live > 0.01, "Live synthesis generated no audio (RMS = {})", rms_live);
+    assert!(
+        rms_live > 0.01,
+        "Live synthesis generated no audio (RMS = {})",
+        rms_live
+    );
 
     // Static should be louder (no envelope), but both should have significant energy
     assert!(
@@ -286,15 +306,20 @@ fn test_multiple_frequencies_numerical() {
         assert!(
             rmse < 0.01,
             "{}Hz: RMSE too high: {} (expected < 0.01)",
-            frequency, rmse
+            frequency,
+            rmse
         );
 
         assert!(
             correlation > 0.99,
             "{}Hz: Correlation too low: {} (expected > 0.99)",
-            frequency, correlation
+            frequency,
+            correlation
         );
 
-        println!("✓ {}Hz: RMSE={:.6}, Correlation={:.6}", frequency, rmse, correlation);
+        println!(
+            "✓ {}Hz: RMSE={:.6}, Correlation={:.6}",
+            frequency, rmse, correlation
+        );
     }
 }

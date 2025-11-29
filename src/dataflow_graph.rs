@@ -18,7 +18,6 @@
 ///                      ↓
 ///                  Return to audio callback
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use crate::buffer_pool::BufferPool;
 use crate::dependency_graph::DependencyGraph;
@@ -215,7 +214,11 @@ impl DataflowGraph {
     /// - Trigger sent: Source nodes start processing
     /// - Blocks on receive: Waits for final node to complete
     /// - Returns: Output buffer filled with processed audio
-    pub fn process_block(&mut self, output: &mut [f32], context: &ProcessContext) -> Result<(), String> {
+    pub fn process_block(
+        &mut self,
+        output: &mut [f32],
+        context: &ProcessContext,
+    ) -> Result<(), String> {
         // Update internal context
         self.context = context.clone();
 
@@ -310,13 +313,7 @@ mod tests {
 
     #[test]
     fn test_dataflow_graph_creation() {
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Single constant node
         let nodes: Vec<Box<dyn AudioNode>> = vec![Box::new(ConstantNode::new(0.5))];
@@ -333,13 +330,7 @@ mod tests {
 
     #[test]
     fn test_dataflow_graph_single_block() {
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            0.5,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 0.5, 44100.0);
 
         // Constant node outputting 0.5
         let nodes: Vec<Box<dyn AudioNode>> = vec![Box::new(ConstantNode::new(0.5))];
@@ -361,8 +352,16 @@ mod tests {
         eprintln!("First 10 values: {:?}", &output[0..10]);
 
         // Should be filled with 0.5
-        assert!((output[0] - 0.5).abs() < 0.001, "Expected 0.5, got {}", output[0]);
-        assert!((output[511] - 0.5).abs() < 0.001, "Expected 0.5, got {}", output[511]);
+        assert!(
+            (output[0] - 0.5).abs() < 0.001,
+            "Expected 0.5, got {}",
+            output[0]
+        );
+        assert!(
+            (output[511] - 0.5).abs() < 0.001,
+            "Expected 0.5, got {}",
+            output[511]
+        );
 
         // Shutdown
         graph.shutdown().unwrap();
@@ -371,13 +370,7 @@ mod tests {
     #[test]
     #[ignore] // Flaky: passes sometimes, fails/times out intermittently. Needs better synchronization.
     fn test_dataflow_graph_pipeline() {
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            0.5,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 0.5, 44100.0);
 
         // Node 0: Constant (440 Hz)
         // Node 1: Oscillator (uses constant as frequency)
@@ -405,13 +398,7 @@ mod tests {
 
     #[test]
     fn test_dataflow_graph_multiple_blocks() {
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            0.5,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 0.5, 44100.0);
 
         let nodes: Vec<Box<dyn AudioNode>> = vec![Box::new(ConstantNode::new(0.75))];
 
@@ -440,13 +427,7 @@ mod tests {
 
     #[test]
     fn test_dataflow_graph_shutdown() {
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            0.5,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 0.5, 44100.0);
 
         let nodes: Vec<Box<dyn AudioNode>> = vec![Box::new(ConstantNode::new(1.0))];
 

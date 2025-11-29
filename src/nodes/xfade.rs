@@ -45,7 +45,6 @@
 /// // Equal-power crossfade (maintains constant loudness)
 /// let xfade = XFadeNode::new(1, 3, 5, XFadeCurve::EqualPower);
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -180,8 +179,8 @@ impl AudioNode for XFadeNode {
                 for i in 0..output.len() {
                     let pos = position[i].clamp(0.0, 1.0);
                     let angle = pos * PI * 0.5; // Map [0, 1] to [0, π/2]
-                    let gain_a = angle.cos();   // Starts at 1.0, ends at 0.0
-                    let gain_b = angle.sin();   // Starts at 0.0, ends at 1.0
+                    let gain_a = angle.cos(); // Starts at 1.0, ends at 0.0
+                    let gain_b = angle.sin(); // Starts at 0.0, ends at 1.0
                     output[i] = input_a[i] * gain_a + input_b[i] * gain_b;
                 }
             }
@@ -216,13 +215,7 @@ mod tests {
 
         let mut output_linear = vec![0.0; 4];
         let mut output_power = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         xfade_linear.process_block(&inputs, &mut output_linear, 44100.0, &context);
         xfade_power.process_block(&inputs, &mut output_power, 44100.0, &context);
@@ -247,13 +240,7 @@ mod tests {
 
         let mut output_linear = vec![0.0; 4];
         let mut output_power = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         xfade_linear.process_block(&inputs, &mut output_linear, 44100.0, &context);
         xfade_power.process_block(&inputs, &mut output_power, 44100.0, &context);
@@ -276,13 +263,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), position.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         xfade.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -305,13 +286,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), position.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         xfade.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -336,21 +311,15 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), position.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         xfade.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Linear interpolation from 0 to 100
-        assert_eq!(output[0], 0.0);    // pos=0.0: 100% A
-        assert_eq!(output[1], 25.0);   // pos=0.25: 75% A, 25% B
-        assert_eq!(output[2], 50.0);   // pos=0.5: 50% A, 50% B
-        assert_eq!(output[3], 100.0);  // pos=1.0: 100% B
+        assert_eq!(output[0], 0.0); // pos=0.0: 100% A
+        assert_eq!(output[1], 25.0); // pos=0.25: 75% A, 25% B
+        assert_eq!(output[2], 50.0); // pos=0.5: 50% A, 50% B
+        assert_eq!(output[3], 100.0); // pos=1.0: 100% B
     }
 
     #[test]
@@ -364,13 +333,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), position.as_slice()];
 
         let mut output = vec![0.0; 3];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            3,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 3, 2.0, 44100.0);
 
         xfade.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -398,13 +361,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), position.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         xfade.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -428,22 +385,16 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), position.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         xfade.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Smooth transition from A to B
-        assert_eq!(output[0], 10.0);   // 100% A
-        assert_eq!(output[1], 12.5);   // 75% A, 25% B
-        assert_eq!(output[2], 15.0);   // 50% A, 50% B
-        assert_eq!(output[3], 17.5);   // 25% A, 75% B
-        assert_eq!(output[4], 20.0);   // 100% B
+        assert_eq!(output[0], 10.0); // 100% A
+        assert_eq!(output[1], 12.5); // 75% A, 25% B
+        assert_eq!(output[2], 15.0); // 50% A, 50% B
+        assert_eq!(output[3], 17.5); // 25% A, 75% B
+        assert_eq!(output[4], 20.0); // 100% B
     }
 
     #[test]
@@ -453,9 +404,9 @@ mod tests {
         let deps = xfade.input_nodes();
 
         assert_eq!(deps.len(), 3);
-        assert_eq!(deps[0], 5);   // input_a
-        assert_eq!(deps[1], 10);  // input_b
-        assert_eq!(deps[2], 15);  // position
+        assert_eq!(deps[0], 5); // input_a
+        assert_eq!(deps[1], 10); // input_b
+        assert_eq!(deps[2], 15); // position
     }
 
     #[test]
@@ -472,13 +423,7 @@ mod tests {
 
         let mut output_linear = vec![0.0; 4];
         let mut output_power = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         xfade_linear.process_block(&inputs, &mut output_linear, 44100.0, &context);
         xfade_power.process_block(&inputs, &mut output_power, 44100.0, &context);
@@ -503,13 +448,7 @@ mod tests {
         let mut const_pos = ConstantNode::new(0.3);
         let mut xfade = XFadeNode::new(0, 1, 2, XFadeCurve::Linear);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut buf_a = vec![0.0; 512];
@@ -546,13 +485,7 @@ mod tests {
         let inputs = vec![track_a.as_slice(), track_b.as_slice(), position.as_slice()];
 
         let mut output = vec![0.0; 8];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            8,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 8, 2.0, 44100.0);
 
         xfade.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -592,13 +525,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice(), position.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         xfade.process_block(&inputs, &mut output, 44100.0, &context);
 

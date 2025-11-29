@@ -28,7 +28,6 @@
 /// // Create node
 /// let node = SamplePatternNode::new(pattern, voice_manager, sample_bank);
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use crate::pattern::{Fraction, Pattern, State, TimeSpan};
 use crate::sample_loader::SampleBank;
@@ -56,11 +55,11 @@ pub struct SamplePatternNode {
     gain_id: Option<usize>,
     pan_id: Option<usize>,
     speed_id: Option<usize>,
-    n_id: Option<usize>,  // pitch offset in semitones (converted to speed)
+    n_id: Option<usize>, // pitch offset in semitones (converted to speed)
     attack_id: Option<usize>,
     release_id: Option<usize>,
-    begin_id: Option<usize>,  // Future: sample start position (0.0-1.0)
-    end_id: Option<usize>,    // Future: sample end position (0.0-1.0)
+    begin_id: Option<usize>, // Future: sample start position (0.0-1.0)
+    end_id: Option<usize>,   // Future: sample end position (0.0-1.0)
 
     /// Cached parameter values (read from inputs during process_block)
     cached_gain: f32,
@@ -190,7 +189,12 @@ impl SamplePatternNode {
     /// Helper to read parameter value from inputs by node ID
     ///
     /// Returns the first sample of the corresponding input buffer, or default if not connected
-    fn read_param_from_inputs(&self, inputs: &[&[f32]], node_id: Option<usize>, default: f32) -> f32 {
+    fn read_param_from_inputs(
+        &self,
+        inputs: &[&[f32]],
+        node_id: Option<usize>,
+        default: f32,
+    ) -> f32 {
         if let Some(id) = node_id {
             // Find the index of this node_id in our input_nodes list
             let input_nodes = self.input_nodes();

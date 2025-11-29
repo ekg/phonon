@@ -116,12 +116,18 @@ pub struct StereoSample {
 impl StereoSample {
     /// Create a mono sample
     pub fn mono(data: Vec<f32>) -> Self {
-        Self { left: data, right: None }
+        Self {
+            left: data,
+            right: None,
+        }
     }
 
     /// Create a stereo sample from left and right channels
     pub fn stereo(left: Vec<f32>, right: Vec<f32>) -> Self {
-        Self { left, right: Some(right) }
+        Self {
+            left,
+            right: Some(right),
+        }
     }
 
     /// Check if this sample is stereo

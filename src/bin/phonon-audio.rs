@@ -172,23 +172,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     config.buffer_size = cpal::BufferSize::Fixed(buffer_size as u32);
 
     eprintln!("🎵 Audio: {} Hz, {} channels", sample_rate as u32, channels);
-    eprintln!("🔧 Buffer size: {} samples ({:.1}ms latency)", buffer_size, latency_ms);
+    eprintln!(
+        "🔧 Buffer size: {} samples ({:.1}ms latency)",
+        buffer_size, latency_ms
+    );
     eprintln!("🔧 Using ring buffer architecture for parallel synthesis");
 
     // Create WAV writer for recording (if requested)
-    let wav_writer: Arc<Mutex<Option<WavWriter<BufWriter<File>>>>> = if let Some(ref record_path) = args.record {
-        let spec = WavSpec {
-            channels: channels as u16,
-            sample_rate: sample_rate as u32,
-            bits_per_sample: 32,
-            sample_format: hound::SampleFormat::Float,
+    let wav_writer: Arc<Mutex<Option<WavWriter<BufWriter<File>>>>> =
+        if let Some(ref record_path) = args.record {
+            let spec = WavSpec {
+                channels: channels as u16,
+                sample_rate: sample_rate as u32,
+                bits_per_sample: 32,
+                sample_format: hound::SampleFormat::Float,
+            };
+            let writer = WavWriter::create(record_path, spec)?;
+            eprintln!("✅ WAV writer created for recording");
+            Arc::new(Mutex::new(Some(writer)))
+        } else {
+            Arc::new(Mutex::new(None))
         };
-        let writer = WavWriter::create(record_path, spec)?;
-        eprintln!("✅ WAV writer created for recording");
-        Arc::new(Mutex::new(Some(writer)))
-    } else {
-        Arc::new(Mutex::new(None))
-    };
 
     // GLOBAL CLOCK - THE SINGLE SOURCE OF TIMING TRUTH
     // This is the ONLY thing that tracks timing. Graphs don't own timing.
@@ -241,7 +245,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     // Write to ring buffer
                     let written = ring_producer.push_slice(&buffer);
                     if written < buffer.len() {
-                        eprintln!("⚠️  Ring buffer full, dropped {} samples", buffer.len() - written);
+                        eprintln!(
+                            "⚠️  Ring buffer full, dropped {} samples",
+                            buffer.len() - written
+                        );
                     }
                 } else {
                     // No graph (hushed/panic) - write silence
@@ -387,8 +394,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => return Err("Unsupported sample format".into()),
     };
 
-    let audio_stream = stream_result
-        .map_err(|e| format!("Failed to build stream: {}", e))?;
+    let audio_stream = stream_result.map_err(|e| format!("Failed to build stream: {}", e))?;
 
     audio_stream
         .play()

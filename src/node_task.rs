@@ -10,7 +10,6 @@
 /// - Processes block (512 samples)
 /// - Sends output buffers to downstream nodes (flows immediately)
 /// - Returns buffers to pool for recycling
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use crate::buffer_pool::BufferPool;
 use crossbeam::channel::{Receiver, Sender};
@@ -130,19 +129,18 @@ impl NodeTask {
             let mut output = self.buffer_pool.acquire();
 
             // 3. Process the block
-            let input_slices: Vec<&[f32]> = inputs.iter()
-                .map(|buf| buf.as_slice())
-                .collect();
+            let input_slices: Vec<&[f32]> = inputs.iter().map(|buf| buf.as_slice()).collect();
 
             let sample_rate = self.context.sample_rate;
-            self.node.process_block(&input_slices, &mut output, sample_rate, &self.context);
+            self.node
+                .process_block(&input_slices, &mut output, sample_rate, &self.context);
 
             // 4. Wrap in Arc and send to all downstream nodes
             let output_arc = Arc::new(output);
             for tx in &self.output_tx {
                 // Send fails if channel closed (downstream shutdown)
                 if tx.send(output_arc.clone()).is_err() {
-                    return Ok(());  // Graceful shutdown
+                    return Ok(()); // Graceful shutdown
                 }
             }
 
@@ -223,7 +221,7 @@ impl SourceNodeTask {
             inner: NodeTask::new(
                 id,
                 node,
-                vec![trigger_rx],  // Trigger as input
+                vec![trigger_rx], // Trigger as input
                 output_tx,
                 context_rx,
                 buffer_pool,
@@ -251,13 +249,7 @@ mod tests {
     #[test]
     fn test_node_task_creation() {
         let pool = Arc::new(BufferPool::new(512, 16));
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
         let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
         let node = Box::new(ConstantNode::new(0.5));
@@ -267,7 +259,7 @@ mod tests {
         let task = NodeTask::new(
             0,
             node,
-            vec![],  // No inputs (source node)
+            vec![], // No inputs (source node)
             vec![tx],
             ctx_rx,
             pool,
@@ -285,13 +277,7 @@ mod tests {
         let pool = Arc::new(BufferPool::new(512, 16));
         pool.prefill(4);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
         let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
         // Create constant node (outputs 0.5)
@@ -314,9 +300,7 @@ mod tests {
         );
 
         // Run task in background
-        std::thread::spawn(move || {
-            task.run()
-        });
+        std::thread::spawn(move || task.run());
 
         // Send context update first (NodeTask expects this before processing)
         ctx_tx.send(context).unwrap();
@@ -342,13 +326,7 @@ mod tests {
         let pool = Arc::new(BufferPool::new(512, 16));
         pool.prefill(8);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
         let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
         // Node 0: Constant (440 Hz)
@@ -397,7 +375,9 @@ mod tests {
         trigger_tx.send(trigger).unwrap();
 
         // Receive final output
-        let output = osc_out_rx.recv_timeout(std::time::Duration::from_secs(1)).unwrap();
+        let output = osc_out_rx
+            .recv_timeout(std::time::Duration::from_secs(1))
+            .unwrap();
 
         // Should be a sine wave
         assert_eq!(output.len(), 512);

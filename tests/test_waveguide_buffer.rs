@@ -8,7 +8,7 @@
 //! 3. Pattern-modulated parameters work correctly
 //! 4. Physical behavior (resonance, damping, decay) is correct
 
-use phonon::unified_graph::{UnifiedSignalGraph, Signal};
+use phonon::unified_graph::{Signal, UnifiedSignalGraph};
 
 // Helper to create test graph
 fn create_test_graph() -> UnifiedSignalGraph {
@@ -61,7 +61,7 @@ fn peak_amplitude(buffer: &[f32]) -> f32 {
 /// Simple FFT helper to find dominant frequency
 /// Returns (frequency, magnitude) of the strongest peak
 fn find_dominant_frequency(buffer: &[f32], sample_rate: f32) -> Option<(f32, f32)> {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     if buffer.len() < 2 {
         return None;
@@ -71,10 +71,8 @@ fn find_dominant_frequency(buffer: &[f32], sample_rate: f32) -> Option<(f32, f32
     let fft = planner.plan_fft_forward(buffer.len());
 
     // Convert to complex numbers
-    let mut complex_buffer: Vec<Complex<f32>> = buffer
-        .iter()
-        .map(|&x| Complex::new(x, 0.0))
-        .collect();
+    let mut complex_buffer: Vec<Complex<f32>> =
+        buffer.iter().map(|&x| Complex::new(x, 0.0)).collect();
 
     // Perform FFT
     fft.process(&mut complex_buffer);
@@ -108,9 +106,9 @@ fn test_waveguide_buffer_produces_sound() {
 
     // Create simple waveguide node
     let wg_id = graph.add_waveguide_node(
-        Signal::Value(440.0),  // freq
-        Signal::Value(0.5),    // damping
-        Signal::Value(0.5),    // pickup_position
+        Signal::Value(440.0), // freq
+        Signal::Value(0.5),   // damping
+        Signal::Value(0.5),   // pickup_position
     );
 
     let mut output = vec![0.0; 44100]; // 1 second
@@ -130,17 +128,11 @@ fn test_waveguide_buffer_vs_sample() {
     let mut graph1 = create_test_graph();
     let mut graph2 = create_test_graph();
 
-    let wg1 = graph1.add_waveguide_node(
-        Signal::Value(220.0),
-        Signal::Value(0.3),
-        Signal::Value(0.5),
-    );
+    let wg1 =
+        graph1.add_waveguide_node(Signal::Value(220.0), Signal::Value(0.3), Signal::Value(0.5));
 
-    let wg2 = graph2.add_waveguide_node(
-        Signal::Value(220.0),
-        Signal::Value(0.3),
-        Signal::Value(0.5),
-    );
+    let wg2 =
+        graph2.add_waveguide_node(Signal::Value(220.0), Signal::Value(0.3), Signal::Value(0.5));
 
     let buffer_size = 1024;
     let mut buffer_output = vec![0.0; buffer_size];
@@ -207,11 +199,8 @@ fn test_waveguide_buffer_decay() {
     let mut graph = create_test_graph();
 
     // Waveguide should decay over time (energy loss)
-    let wg_id = graph.add_waveguide_node(
-        Signal::Value(440.0),
-        Signal::Value(0.5),
-        Signal::Value(0.5),
-    );
+    let wg_id =
+        graph.add_waveguide_node(Signal::Value(440.0), Signal::Value(0.5), Signal::Value(0.5));
 
     let mut output = vec![0.0; 88200]; // 2 seconds
     graph.eval_node_buffer(&wg_id, &mut output);
@@ -318,11 +307,8 @@ fn test_waveguide_buffer_frequency_range() {
     for freq in &frequencies {
         let mut graph = create_test_graph();
 
-        let wg_id = graph.add_waveguide_node(
-            Signal::Value(*freq),
-            Signal::Value(0.5),
-            Signal::Value(0.5),
-        );
+        let wg_id =
+            graph.add_waveguide_node(Signal::Value(*freq), Signal::Value(0.5), Signal::Value(0.5));
 
         let mut output = vec![0.0; 44100];
         graph.eval_node_buffer(&wg_id, &mut output);
@@ -344,11 +330,8 @@ fn test_waveguide_buffer_state_continuity() {
     // Verify state is maintained across multiple buffer evaluations
     let mut graph = create_test_graph();
 
-    let wg_id = graph.add_waveguide_node(
-        Signal::Value(440.0),
-        Signal::Value(0.3),
-        Signal::Value(0.5),
-    );
+    let wg_id =
+        graph.add_waveguide_node(Signal::Value(440.0), Signal::Value(0.3), Signal::Value(0.5));
 
     // Render in chunks
     let chunk_size = 1024;
@@ -383,11 +366,8 @@ fn test_waveguide_buffer_long_sequence() {
     // Test that waveguide maintains coherent state over long sequences
     let mut graph = create_test_graph();
 
-    let wg_id = graph.add_waveguide_node(
-        Signal::Value(220.0),
-        Signal::Value(0.2),
-        Signal::Value(0.5),
-    );
+    let wg_id =
+        graph.add_waveguide_node(Signal::Value(220.0), Signal::Value(0.2), Signal::Value(0.5));
 
     // Render 5 seconds in 1-second chunks
     for _ in 0..5 {
@@ -410,11 +390,8 @@ fn test_waveguide_buffer_impulse_response() {
     let mut graph = create_test_graph();
 
     // Create waveguide
-    let wg_id = graph.add_waveguide_node(
-        Signal::Value(440.0),
-        Signal::Value(0.5),
-        Signal::Value(0.5),
-    );
+    let wg_id =
+        graph.add_waveguide_node(Signal::Value(440.0), Signal::Value(0.5), Signal::Value(0.5));
 
     // Render impulse response
     let mut output = vec![0.0; 8192];
@@ -443,11 +420,8 @@ fn test_waveguide_vs_simple_delay() {
     let mut graph_delay = create_test_graph();
 
     // Waveguide
-    let wg_id = graph_wg.add_waveguide_node(
-        Signal::Value(220.0),
-        Signal::Value(0.3),
-        Signal::Value(0.5),
-    );
+    let wg_id =
+        graph_wg.add_waveguide_node(Signal::Value(220.0), Signal::Value(0.3), Signal::Value(0.5));
 
     // Simple comb filter (for comparison)
     let noise_id = graph_delay.add_whitenoise_node();
@@ -490,11 +464,8 @@ fn test_waveguide_buffer_size_independence() {
     for &buffer_size in &buffer_sizes {
         let mut graph = create_test_graph();
 
-        let wg_id = graph.add_waveguide_node(
-            Signal::Value(440.0),
-            Signal::Value(0.4),
-            Signal::Value(0.5),
-        );
+        let wg_id =
+            graph.add_waveguide_node(Signal::Value(440.0), Signal::Value(0.4), Signal::Value(0.5));
 
         let mut full_output = Vec::new();
         let num_buffers = total_samples / buffer_size;
@@ -535,11 +506,8 @@ fn test_waveguide_buffer_performance() {
 
     let mut graph = create_test_graph();
 
-    let wg_id = graph.add_waveguide_node(
-        Signal::Value(440.0),
-        Signal::Value(0.5),
-        Signal::Value(0.5),
-    );
+    let wg_id =
+        graph.add_waveguide_node(Signal::Value(440.0), Signal::Value(0.5), Signal::Value(0.5));
 
     let buffer_size = 44100; // 1 second at 44.1kHz
     let mut output = vec![0.0; buffer_size];

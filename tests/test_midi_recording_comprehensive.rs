@@ -16,8 +16,8 @@ fn test_velocity_capture_soft_to_loud() {
     recorder.set_quantize(4); // Quarter notes
 
     // Crescendo: gradually increasing velocity
-    recorder.record_event_at(60, 30, 0);         // Beat 0: ppp
-    recorder.record_event_at(62, 60, 500_000);   // Beat 1: mp
+    recorder.record_event_at(60, 30, 0); // Beat 0: ppp
+    recorder.record_event_at(62, 60, 500_000); // Beat 1: mp
     recorder.record_event_at(64, 90, 1_000_000); // Beat 2: mf
     recorder.record_event_at(65, 127, 1_500_000); // Beat 3: fff
 
@@ -27,7 +27,8 @@ fn test_velocity_capture_soft_to_loud() {
     assert_eq!(recorded.notes, "c4 d4 e4 f4");
 
     // Verify velocities are normalized (0-127 -> 0.0-1.0)
-    let velocities: Vec<f32> = recorded.velocities
+    let velocities: Vec<f32> = recorded
+        .velocities
         .split_whitespace()
         .map(|v| v.parse::<f32>().unwrap())
         .collect();
@@ -38,8 +39,16 @@ fn test_velocity_capture_soft_to_loud() {
     assert!(velocities[2] < velocities[3], "Velocity should increase");
 
     // Check approximate values (30/127 ≈ 0.24, 127/127 = 1.0)
-    assert!(velocities[0] < 0.3, "First note should be soft: {}", velocities[0]);
-    assert!(velocities[3] > 0.95, "Last note should be loud: {}", velocities[3]);
+    assert!(
+        velocities[0] < 0.3,
+        "First note should be soft: {}",
+        velocities[0]
+    );
+    assert!(
+        velocities[3] > 0.95,
+        "Last note should be loud: {}",
+        velocities[3]
+    );
 }
 
 /// Test velocity with chords - each note can have different velocity
@@ -52,8 +61,8 @@ fn test_velocity_chord_different_dynamics() {
 
     // Chord with bass note loud, treble soft (common piano technique)
     recorder.record_event_at(48, 127, 0); // C3 - loud bass
-    recorder.record_event_at(60, 80, 0);  // C4 - medium
-    recorder.record_event_at(64, 50, 0);  // E4 - soft
+    recorder.record_event_at(60, 80, 0); // C4 - medium
+    recorder.record_event_at(64, 50, 0); // E4 - soft
 
     let recorded = recorder.to_recorded_pattern(4.0).unwrap();
 
@@ -62,18 +71,32 @@ fn test_velocity_chord_different_dynamics() {
     assert!(recorded.notes.contains(']'), "Should have chord notation");
 
     // Velocities should also be in chord bracket
-    assert!(recorded.velocities.contains('['), "Velocities should have chord notation");
+    assert!(
+        recorded.velocities.contains('['),
+        "Velocities should have chord notation"
+    );
 
     // Parse velocities from chord
-    let vel_str = recorded.velocities.trim_start_matches('[').trim_end_matches(']');
+    let vel_str = recorded
+        .velocities
+        .trim_start_matches('[')
+        .trim_end_matches(']');
     let velocities: Vec<f32> = vel_str
         .split(',')
         .map(|v| v.trim().parse::<f32>().unwrap())
         .collect();
 
     assert_eq!(velocities.len(), 3, "Should have 3 velocities for chord");
-    assert!(velocities[0] > 0.95, "Bass should be loud: {}", velocities[0]);
-    assert!(velocities[2] < 0.5, "Treble should be soft: {}", velocities[2]);
+    assert!(
+        velocities[0] > 0.95,
+        "Bass should be loud: {}",
+        velocities[0]
+    );
+    assert!(
+        velocities[2] < 0.5,
+        "Treble should be soft: {}",
+        velocities[2]
+    );
 }
 
 /// Test velocity pattern with rests maintains alignment
@@ -83,8 +106,8 @@ fn test_velocity_pattern_with_rests() {
     recorder.set_quantize(4);
 
     // Pattern: note, rest, note, rest
-    recorder.record_event_at(60, 100, 0);         // Beat 0: C4
-    recorder.record_event_at(67, 80, 1_000_000);  // Beat 2: G4 (beat 1 is rest)
+    recorder.record_event_at(60, 100, 0); // Beat 0: C4
+    recorder.record_event_at(67, 80, 1_000_000); // Beat 2: G4 (beat 1 is rest)
 
     let recorded = recorder.to_recorded_pattern(4.0).unwrap();
 
@@ -95,8 +118,11 @@ fn test_velocity_pattern_with_rests() {
     let vel_parts: Vec<&str> = recorded.velocities.split_whitespace().collect();
     let note_parts: Vec<&str> = recorded.notes.split_whitespace().collect();
 
-    assert_eq!(vel_parts.len(), note_parts.len(),
-        "Velocity pattern should have same structure as note pattern");
+    assert_eq!(
+        vel_parts.len(),
+        note_parts.len(),
+        "Velocity pattern should have same structure as note pattern"
+    );
 
     // Rests should be rests in both patterns
     assert_eq!(note_parts[1], "~");
@@ -110,8 +136,8 @@ fn test_n_offset_with_velocity() {
     recorder.set_quantize(4);
 
     // C major triad with different velocities
-    recorder.record_event_at(60, 100, 0);        // C4 - loud
-    recorder.record_event_at(64, 70, 500_000);   // E4 - medium
+    recorder.record_event_at(60, 100, 0); // C4 - loud
+    recorder.record_event_at(64, 70, 500_000); // E4 - medium
     recorder.record_event_at(67, 50, 1_000_000); // G4 - soft
 
     let recorded = recorder.to_recorded_pattern(4.0).unwrap();
@@ -122,14 +148,21 @@ fn test_n_offset_with_velocity() {
     assert_eq!(recorded.base_note_name, "c4");
 
     // Velocities should match the dynamics
-    let velocities: Vec<f32> = recorded.velocities
+    let velocities: Vec<f32> = recorded
+        .velocities
         .split_whitespace()
         .map(|v| v.parse::<f32>().unwrap())
         .collect();
 
     assert_eq!(velocities.len(), 3);
-    assert!(velocities[0] > velocities[1], "First note louder than second");
-    assert!(velocities[1] > velocities[2], "Second note louder than third");
+    assert!(
+        velocities[0] > velocities[1],
+        "First note louder than second"
+    );
+    assert!(
+        velocities[1] > velocities[2],
+        "Second note louder than third"
+    );
 }
 
 /// Test multi-cycle recording with velocity
@@ -160,15 +193,19 @@ fn test_multi_cycle_velocity_recording() {
     assert_eq!(recorded.notes, "c4 e4 g4 c5 c4 e4 g4 c5");
 
     // Second cycle should be louder than first
-    let velocities: Vec<f32> = recorded.velocities
+    let velocities: Vec<f32> = recorded
+        .velocities
         .split_whitespace()
         .map(|v| v.parse::<f32>().unwrap())
         .collect();
 
     assert_eq!(velocities.len(), 8);
     for i in 0..4 {
-        assert!(velocities[i + 4] > velocities[i],
-            "Second cycle note {} should be louder than first cycle", i);
+        assert!(
+            velocities[i + 4] > velocities[i],
+            "Second cycle note {} should be louder than first cycle",
+            i
+        );
     }
 }
 
@@ -187,14 +224,19 @@ fn test_uniform_velocity() {
     let recorded = recorder.to_recorded_pattern(4.0).unwrap();
 
     // All velocities should be 1.0
-    let velocities: Vec<f32> = recorded.velocities
+    let velocities: Vec<f32> = recorded
+        .velocities
         .split_whitespace()
         .map(|v| v.parse::<f32>().unwrap())
         .collect();
 
     for (i, vel) in velocities.iter().enumerate() {
-        assert!((*vel - 1.0).abs() < 0.01,
-            "Velocity {} should be ~1.0, got {}", i, vel);
+        assert!(
+            (*vel - 1.0).abs() < 0.01,
+            "Velocity {} should be ~1.0, got {}",
+            i,
+            vel
+        );
     }
 }
 
@@ -210,7 +252,8 @@ fn test_very_soft_velocity() {
 
     let recorded = recorder.to_recorded_pattern(4.0).unwrap();
 
-    let velocities: Vec<f32> = recorded.velocities
+    let velocities: Vec<f32> = recorded
+        .velocities
         .split_whitespace()
         .map(|v| v.parse::<f32>().unwrap())
         .collect();
@@ -234,9 +277,16 @@ fn test_recording_summary() {
     let summary = recorder.get_recording_summary(4.0);
 
     // Summary should mention note count and cycles
-    assert!(summary.contains("3 notes"), "Summary should mention note count: {}", summary);
-    assert!(summary.contains("1 cycle") || summary.contains("cycles"),
-        "Summary should mention cycle count: {}", summary);
+    assert!(
+        summary.contains("3 notes"),
+        "Summary should mention note count: {}",
+        summary
+    );
+    assert!(
+        summary.contains("1 cycle") || summary.contains("cycles"),
+        "Summary should mention cycle count: {}",
+        summary
+    );
 }
 
 /// Test high-resolution timing (16th notes)
@@ -257,7 +307,8 @@ fn test_16th_note_velocity_patterns() {
     let recorded = recorder.to_recorded_pattern(1.0).unwrap();
 
     // Parse velocities, skipping rests
-    let vel_values: Vec<f32> = recorded.velocities
+    let vel_values: Vec<f32> = recorded
+        .velocities
         .split_whitespace()
         .filter(|v| !v.starts_with('~')) // Skip rests
         .map(|v| v.parse::<f32>().unwrap())
@@ -266,10 +317,26 @@ fn test_16th_note_velocity_patterns() {
     assert_eq!(vel_values.len(), 8, "Should have 8 velocity values");
 
     // Accents should be louder
-    assert!(vel_values[0] > 0.9, "First accent should be loud: {}", vel_values[0]);
-    assert!(vel_values[4] > 0.7, "Second accent should be loud: {}", vel_values[4]);
+    assert!(
+        vel_values[0] > 0.9,
+        "First accent should be loud: {}",
+        vel_values[0]
+    );
+    assert!(
+        vel_values[4] > 0.7,
+        "Second accent should be loud: {}",
+        vel_values[4]
+    );
 
     // Non-accents should be softer
-    assert!(vel_values[1] < 0.6, "Non-accent should be soft: {}", vel_values[1]);
-    assert!(vel_values[2] < 0.6, "Non-accent should be soft: {}", vel_values[2]);
+    assert!(
+        vel_values[1] < 0.6,
+        "Non-accent should be soft: {}",
+        vel_values[1]
+    );
+    assert!(
+        vel_values[2] < 0.6,
+        "Non-accent should be soft: {}",
+        vel_values[2]
+    );
 }

@@ -8,7 +8,6 @@
 /// - Cutoff frequency (-3dB point)
 /// - Rolloff slope (dB per octave)
 /// - Used for bass enhancement, removing harshness, mellowing sounds
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -19,14 +18,15 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
 
 /// Perform FFT and analyze spectrum
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -108,10 +108,12 @@ fn test_lpf_passes_low_frequencies() {
     let rms_unfiltered = calculate_rms(&buffer_unfiltered);
 
     let attenuation = rms_filtered / rms_unfiltered;
-    
-    assert!(attenuation > 0.8,
+
+    assert!(
+        attenuation > 0.8,
         "LPF should pass low frequencies mostly unaffected, attenuation: {}",
-        attenuation);
+        attenuation
+    );
 
     println!("Low frequency attenuation: {}", attenuation);
 }
@@ -137,10 +139,12 @@ fn test_lpf_attenuates_high_frequencies() {
     let rms_unfiltered = calculate_rms(&buffer_unfiltered);
 
     let attenuation = rms_filtered / rms_unfiltered;
-    
-    assert!(attenuation < 0.5,
+
+    assert!(
+        attenuation < 0.5,
         "LPF should attenuate high frequencies, attenuation: {}",
-        attenuation);
+        attenuation
+    );
 
     println!("High frequency attenuation: {}", attenuation);
 }
@@ -166,23 +170,27 @@ fn test_lpf_frequency_response_curve() {
     let (_, _magnitudes_unfiltered) = analyze_spectrum(&buffer_unfiltered, 44100.0);
 
     // Calculate energy in frequency bands
-    let below_cutoff: f32 = frequencies.iter()
+    let below_cutoff: f32 = frequencies
+        .iter()
         .zip(magnitudes_filtered.iter())
         .filter(|(f, _)| **f < 800.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let above_cutoff: f32 = frequencies.iter()
+    let above_cutoff: f32 = frequencies
+        .iter()
         .zip(magnitudes_filtered.iter())
         .filter(|(f, _)| **f > 2000.0 && **f < 10000.0)
         .map(|(_, m)| m * m)
         .sum();
 
     let ratio = below_cutoff / above_cutoff.max(0.001);
-    
-    assert!(ratio > 2.0,
+
+    assert!(
+        ratio > 2.0,
         "LPF should favor frequencies below cutoff, ratio: {}",
-        ratio);
+        ratio
+    );
 
     println!("Below/above cutoff energy ratio: {}", ratio);
 }
@@ -200,21 +208,26 @@ fn test_lpf_cutoff_500() {
     let buffer = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let low: f32 = frequencies.iter()
+    let low: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 400.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let high: f32 = frequencies.iter()
+    let high: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 1000.0 && **f < 8000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    assert!(low > high * 2.0,
+    assert!(
+        low > high * 2.0,
         "LPF 500Hz should favor low frequencies, low: {}, high: {}",
-        low, high);
+        low,
+        high
+    );
 
     println!("LPF 500Hz - Low: {}, High: {}", low, high);
 }
@@ -230,21 +243,26 @@ fn test_lpf_cutoff_2000() {
     let buffer = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let mid: f32 = frequencies.iter()
+    let mid: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 500.0 && **f < 1800.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let high: f32 = frequencies.iter()
+    let high: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 5000.0 && **f < 12000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    assert!(mid > high,
+    assert!(
+        mid > high,
         "LPF 2000Hz should favor mid over high frequencies, mid: {}, high: {}",
-        mid, high);
+        mid,
+        high
+    );
 
     println!("LPF 2000Hz - Mid: {}, High: {}", mid, high);
 }
@@ -261,9 +279,11 @@ fn test_lpf_cutoff_8000() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "LPF 8000Hz should pass most audio, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("LPF 8000Hz RMS: {}", rms);
 }
@@ -299,15 +319,18 @@ fn test_lpf_removing_harshness() {
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
     // Calculate high frequency content
-    let high_content: f32 = frequencies.iter()
+    let high_content: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 2000.0 && **f < 8000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    assert!(high_content < 2000.0,
+    assert!(
+        high_content < 2000.0,
         "Filtered square should have reduced high frequencies, got: {}",
-        high_content);
+        high_content
+    );
 
     println!("High frequency content: {}", high_content);
 }
@@ -359,9 +382,11 @@ fn test_lpf_swept_cutoff() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "LPF with swept cutoff should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Swept cutoff RMS: {}", rms);
 }
@@ -380,9 +405,11 @@ fn test_lpf_envelope_controlled_cutoff() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.02,
+    assert!(
+        rms > 0.02,
         "LPF with envelope-controlled cutoff should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Envelope-controlled cutoff RMS: {}", rms);
 }
@@ -401,23 +428,27 @@ fn test_lpf_cascade() {
     let buffer = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let below: f32 = frequencies.iter()
+    let below: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 800.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let above: f32 = frequencies.iter()
+    let above: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 3000.0 && **f < 10000.0)
         .map(|(_, m)| m * m)
         .sum();
 
     let ratio = below / above.max(0.001);
-    
-    assert!(ratio > 5.0,
+
+    assert!(
+        ratio > 5.0,
         "Cascaded LPFs should have steeper rolloff, ratio: {}",
-        ratio);
+        ratio
+    );
 
     println!("Cascaded LPF below/above ratio: {}", ratio);
 }
@@ -435,9 +466,11 @@ fn test_lpf_no_clipping() {
     let buffer = render_dsl(code, 1.0);
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
-    assert!(max_amplitude <= 0.7,
+    assert!(
+        max_amplitude <= 0.7,
         "LPF should not cause clipping, max: {}",
-        max_amplitude);
+        max_amplitude
+    );
 
     println!("LPF max amplitude: {}", max_amplitude);
 }
@@ -462,9 +495,11 @@ fn test_lpf_consistent_output() {
     }
 
     let identity_ratio = identical as f32 / buffer1.len() as f32;
-    assert!(identity_ratio > 0.99,
+    assert!(
+        identity_ratio > 0.99,
         "LPF should produce consistent output, identity: {}",
-        identity_ratio);
+        identity_ratio
+    );
 
     println!("LPF identity ratio: {}", identity_ratio);
 }
@@ -484,13 +519,10 @@ fn test_lpf_very_low_cutoff() {
     let rms = calculate_rms(&buffer);
 
     // Should be very quiet
-    assert!(rms < 0.3,
-        "LPF 50Hz should heavily attenuate, RMS: {}",
-        rms);
+    assert!(rms < 0.3, "LPF 50Hz should heavily attenuate, RMS: {}", rms);
 
     println!("LPF 50Hz RMS: {}", rms);
 }
 
 #[test]
-fn test_lpf_nyquist_cutoff() {
-}
+fn test_lpf_nyquist_cutoff() {}

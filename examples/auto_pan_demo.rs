@@ -4,7 +4,6 @@
 /// stereo movement with different LFO waveforms.
 ///
 /// Run with: cargo run --example auto_pan_demo
-
 use phonon::audio_node::AudioNode;
 use phonon::audio_node::ProcessContext;
 use phonon::nodes::{AutoPanNode, AutoPanWaveform, ConstantNode, OscillatorNode, Waveform};
@@ -32,8 +31,8 @@ fn main() {
         buffer_size,
         &context,
         AutoPanWaveform::Sine,
-        0.5,  // 0.5 Hz panning rate
-        1.0,  // Full depth (L-R)
+        0.5,   // 0.5 Hz panning rate
+        1.0,   // Full depth (L-R)
         440.0, // 440 Hz audio
     );
 
@@ -43,8 +42,8 @@ fn main() {
         buffer_size,
         &context,
         AutoPanWaveform::Triangle,
-        1.0,  // 1 Hz panning rate
-        1.0,  // Full depth
+        1.0,   // 1 Hz panning rate
+        1.0,   // Full depth
         220.0, // 220 Hz audio
     );
 
@@ -54,8 +53,8 @@ fn main() {
         buffer_size,
         &context,
         AutoPanWaveform::Square,
-        2.0,  // 2 Hz panning rate
-        1.0,  // Full depth
+        2.0,   // 2 Hz panning rate
+        1.0,   // Full depth
         880.0, // 880 Hz audio
     );
 
@@ -65,8 +64,8 @@ fn main() {
         buffer_size,
         &context,
         AutoPanWaveform::Sine,
-        0.25, // Very slow (0.25 Hz)
-        0.5,  // Half depth (subtle panning)
+        0.25,  // Very slow (0.25 Hz)
+        0.5,   // Half depth (subtle panning)
         330.0, // 330 Hz audio
     );
 
@@ -109,7 +108,11 @@ fn demo_autopan(
     depth_node.process_block(&[], &mut depth_buf, sample_rate, context);
 
     // Apply auto-pan
-    let inputs = vec![audio_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+    let inputs = vec![
+        audio_buf.as_slice(),
+        rate_buf.as_slice(),
+        depth_buf.as_slice(),
+    ];
     let mut output = vec![0.0; buffer_size];
     auto_pan_node.process_block(&inputs, &mut output, sample_rate, context);
 
@@ -124,7 +127,10 @@ fn demo_autopan(
     println!("  Depth: {}", depth);
     println!("  Audio Frequency: {} Hz", audio_freq);
     println!("  RMS Level: {:.4}", rms);
-    println!("  Output Range: {:.4} (min: {:.4}, max: {:.4})", range, min, max);
+    println!(
+        "  Output Range: {:.4} (min: {:.4}, max: {:.4})",
+        range, min, max
+    );
 }
 
 fn calculate_rms(buffer: &[f32]) -> f32 {

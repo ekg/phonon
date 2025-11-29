@@ -22,7 +22,6 @@
 /// - Code compiles without error
 /// - Audio is produced (RMS > threshold)
 /// - Pattern modulation differs from constant
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -33,7 +32,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -52,7 +52,11 @@ fn test_lpf_cutoff_constant() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "LPF with constant cutoff should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "LPF with constant cutoff should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -65,7 +69,11 @@ fn test_lpf_cutoff_pattern_modulation() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "LPF with pattern cutoff should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "LPF with pattern cutoff should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -79,7 +87,11 @@ fn test_lpf_cutoff_bus_reference() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "LPF with bus reference cutoff should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "LPF with bus reference cutoff should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -92,7 +104,11 @@ fn test_lpf_q_constant() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "LPF with constant Q should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "LPF with constant Q should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -105,7 +121,11 @@ fn test_lpf_q_pattern_modulation() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "LPF with pattern Q should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "LPF with pattern Q should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -122,7 +142,11 @@ fn test_reverb_room_size_constant() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Reverb with constant room_size should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Reverb with constant room_size should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -135,7 +159,11 @@ fn test_reverb_room_size_pattern_modulation() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Reverb with pattern room_size should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Reverb with pattern room_size should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -148,7 +176,11 @@ fn test_reverb_damping_pattern_modulation() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Reverb with pattern damping should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Reverb with pattern damping should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -161,7 +193,11 @@ fn test_reverb_mix_pattern_modulation() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Reverb with pattern mix should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Reverb with pattern mix should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -178,7 +214,11 @@ fn test_sine_frequency_constant() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Sine with constant frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Sine with constant frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -191,7 +231,11 @@ fn test_sine_frequency_pattern_modulation() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.05, "Sine with pattern frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Sine with pattern frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -205,7 +249,11 @@ fn test_sine_frequency_bus_reference() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.05, "Sine with bus reference frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Sine with bus reference frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -222,7 +270,11 @@ fn test_gain_constant() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Gain with constant amount should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Gain with constant amount should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -236,7 +288,11 @@ fn test_gain_pattern_modulation() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.05, "Gain with pattern modulation should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Gain with pattern modulation should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -251,7 +307,11 @@ fn test_gain_arithmetic_expression() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.05, "Gain with arithmetic expression should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Gain with arithmetic expression should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================

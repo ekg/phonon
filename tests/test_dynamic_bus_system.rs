@@ -302,7 +302,10 @@ out $ ~output * 0.3
     }
     writer.finalize().unwrap();
 
-    println!("Conditional effect routing test audio written to: {}", filename);
+    println!(
+        "Conditional effect routing test audio written to: {}",
+        filename
+    );
 }
 
 /// Musical Example: Pattern-Based Bus Selection

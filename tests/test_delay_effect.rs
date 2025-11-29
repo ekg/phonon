@@ -8,7 +8,6 @@
 /// - Feedback controls number of repetitions and decay
 /// - Creates space, depth, and rhythmic effects
 /// - Used for slapback, echo, doubling, rhythmic delays
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -19,14 +18,15 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
 
 /// Perform FFT and analyze spectrum
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -155,9 +155,11 @@ fn test_delay_no_feedback() {
     let rms = calculate_rms(&buffer);
 
     // Should have minimal RMS (no repeating echoes)
-    assert!(rms > 0.0,
+    assert!(
+        rms > 0.0,
         "Zero feedback should still have audio, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("No feedback RMS: {}", rms);
 }
@@ -220,9 +222,12 @@ fn test_delay_feedback_comparison() {
     let rms_high = calculate_rms(&buffer_high);
 
     // High feedback should have more overall energy
-    assert!(rms_high > rms_low * 1.2,
+    assert!(
+        rms_high > rms_low * 1.2,
         "High feedback should have more energy, low: {}, high: {}",
-        rms_low, rms_high);
+        rms_low,
+        rms_high
+    );
 
     println!("Feedback comparison - Low: {}, High: {}", rms_low, rms_high);
 }
@@ -330,9 +335,11 @@ fn test_delay_pattern_delay_time() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.01,
+    assert!(
+        rms > 0.01,
         "Delay with pattern-modulated time should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern delay time RMS: {}", rms);
 }
@@ -351,9 +358,11 @@ fn test_delay_pattern_feedback() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.01,
+    assert!(
+        rms > 0.01,
         "Delay with pattern-modulated feedback should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern feedback RMS: {}", rms);
 }
@@ -381,13 +390,15 @@ fn test_delay_preserves_frequency() {
     let (_, mags_delayed) = analyze_spectrum(&buffer_delayed, 44100.0);
 
     // Find dominant frequency in both
-    let max_idx_dry = mags_dry.iter()
+    let max_idx_dry = mags_dry
+        .iter()
         .enumerate()
         .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
         .map(|(idx, _)| idx)
         .unwrap();
 
-    let max_idx_delayed = mags_delayed.iter()
+    let max_idx_delayed = mags_delayed
+        .iter()
         .enumerate()
         .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
         .map(|(idx, _)| idx)
@@ -397,11 +408,17 @@ fn test_delay_preserves_frequency() {
     let freq_delayed = frequencies[max_idx_delayed];
 
     // Frequencies should be very close (within 20Hz)
-    assert!((freq_dry - freq_delayed).abs() < 20.0,
+    assert!(
+        (freq_dry - freq_delayed).abs() < 20.0,
         "Delay should preserve frequency, dry: {}Hz, delayed: {}Hz",
-        freq_dry, freq_delayed);
+        freq_dry,
+        freq_delayed
+    );
 
-    println!("Frequency preservation - Dry: {}Hz, Delayed: {}Hz", freq_dry, freq_delayed);
+    println!(
+        "Frequency preservation - Dry: {}Hz, Delayed: {}Hz",
+        freq_dry, freq_delayed
+    );
 }
 
 // ========== Cascaded Delays ==========
@@ -438,9 +455,11 @@ fn test_delay_no_excessive_clipping() {
     let buffer = render_dsl(code, 1.0);
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
-    assert!(max_amplitude <= 1.2,
+    assert!(
+        max_amplitude <= 1.2,
         "Delay should not cause excessive clipping, max: {}",
-        max_amplitude);
+        max_amplitude
+    );
 
     println!("Delay max amplitude: {}", max_amplitude);
 }
@@ -465,9 +484,11 @@ fn test_delay_consistent_output() {
     }
 
     let identity_ratio = identical as f32 / buffer1.len() as f32;
-    assert!(identity_ratio > 0.99,
+    assert!(
+        identity_ratio > 0.99,
         "Delay should produce consistent output, identity: {}",
-        identity_ratio);
+        identity_ratio
+    );
 
     println!("Delay identity ratio: {}", identity_ratio);
 }
@@ -484,9 +505,11 @@ fn test_delay_no_dc_offset() {
     let buffer = render_dsl(code, 1.0);
     let mean: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
 
-    assert!(mean.abs() < 0.01,
+    assert!(
+        mean.abs() < 0.01,
         "Delay should not introduce DC offset, mean: {}",
-        mean);
+        mean
+    );
 
     println!("Delay DC offset: {}", mean);
 }
@@ -506,9 +529,7 @@ fn test_delay_very_short_time() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
-        "Very short delay should work, RMS: {}",
-        rms);
+    assert!(rms > 0.05, "Very short delay should work, RMS: {}", rms);
 
     println!("Very short delay RMS: {}", rms);
 }
@@ -525,9 +546,7 @@ fn test_delay_zero_feedback() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
-        "Zero feedback should work, RMS: {}",
-        rms);
+    assert!(rms > 0.05, "Zero feedback should work, RMS: {}", rms);
 
     println!("Zero feedback RMS: {}", rms);
 }
@@ -546,9 +565,11 @@ fn test_delay_max_feedback() {
     let rms = calculate_rms(&buffer);
 
     // Should have sustained energy from long feedback
-    assert!(rms > 0.01,
+    assert!(
+        rms > 0.01,
         "Max feedback should create long sustain, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Max feedback RMS: {}", rms);
 }

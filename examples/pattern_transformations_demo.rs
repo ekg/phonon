@@ -49,7 +49,9 @@ fn main() {
 
     // Show echo effect (would need audio to hear properly)
     println!("echo(3, 0.125, 0.5) - adds echoes with decay");
-    let echo_pattern = base.clone().echo(3, Pattern::pure(0.125), Pattern::pure(0.5));
+    let echo_pattern = base
+        .clone()
+        .echo(3, Pattern::pure(0.125), Pattern::pure(0.5));
     let echo_events = query_cycle(echo_pattern, 0);
     println!("  Original + {} echo events\n", echo_events.len() - 4);
 
@@ -102,7 +104,11 @@ fn main() {
     println!("CHAINING TRANSFORMATIONS");
     println!("{}", "-".repeat(40));
 
-    let _chained = base.clone().fast(Pattern::pure(2.0)).rev().every(3, |p| p.slow(Pattern::pure(1.5)));
+    let _chained = base
+        .clone()
+        .fast(Pattern::pure(2.0))
+        .rev()
+        .every(3, |p| p.slow(Pattern::pure(1.5)));
 
     println!("Pattern: base.fast(Pattern::pure(2)).rev().every(3, slow(1.5))");
     println!("This chains multiple transformations together\n");

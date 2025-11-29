@@ -25,18 +25,27 @@ fn test_harness_basic() {
 fn test_tab_key_detection() {
     // Test that tab key is being processed
     let mut harness = EditorTestHarness::new().unwrap();
-    harness.type_text("ga");  // Partial function name
+    harness.type_text("ga"); // Partial function name
 
     eprintln!("Before tab - Content: {:?}", harness.content());
     eprintln!("Before tab - Cursor: {}", harness.cursor_pos());
-    eprintln!("Before tab - Completion visible: {}", harness.is_completion_shown());
+    eprintln!(
+        "Before tab - Completion visible: {}",
+        harness.is_completion_shown()
+    );
 
     harness.tab();
 
     eprintln!("After tab - Content: {:?}", harness.content());
     eprintln!("After tab - Cursor: {}", harness.cursor_pos());
-    eprintln!("After tab - Completion visible: {}", harness.is_completion_shown());
-    eprintln!("After tab - Completion options: {:?}", harness.completion_options());
+    eprintln!(
+        "After tab - Completion visible: {}",
+        harness.is_completion_shown()
+    );
+    eprintln!(
+        "After tab - Completion options: {:?}",
+        harness.completion_options()
+    );
 
     // Just check if completion was triggered at all
     if !harness.is_completion_shown() {
@@ -49,7 +58,8 @@ fn test_function_completion_basic() {
     let mut harness = EditorTestHarness::new().unwrap();
 
     // Type "gai" and press tab - should show "gain" as option
-    harness.type_text("gai")
+    harness
+        .type_text("gai")
         .tab()
         .assert_completion_shown()
         .assert_completion_contains("gain");
@@ -61,7 +71,8 @@ fn test_kwargs_completion_with_space() {
 
     // Type "gain " (with space) and press tab
     // Should show kwargs with colon prefix: ":amount"
-    harness.type_text("gain ")
+    harness
+        .type_text("gain ")
         .debug_state()
         .tab()
         .debug_state()
@@ -75,7 +86,8 @@ fn test_kwargs_completion_with_colon_only() {
 
     // Type "gain :" and press tab
     // Should show kwargs with colon prefix: ":amount"
-    harness.type_text("gain :")
+    harness
+        .type_text("gain :")
         .tab()
         .assert_completion_shown()
         .assert_completion_contains(":amount");
@@ -87,7 +99,8 @@ fn test_kwargs_completion_with_partial() {
 
     // Type "gain :am" and press tab
     // Should show "amount" (without colon since we already typed it)
-    harness.type_text("gain :am")
+    harness
+        .type_text("gain :am")
         .tab()
         .assert_completion_shown()
         .assert_completion_contains("amount");
@@ -98,7 +111,8 @@ fn test_kwargs_accept_completion() {
     let mut harness = EditorTestHarness::new().unwrap();
 
     // Type "gain ", tab to show completions, then tab again to accept first
-    harness.type_text("gain ")
+    harness
+        .type_text("gain ")
         .tab()
         .assert_completion_shown()
         .tab(); // Accept first completion
@@ -117,7 +131,8 @@ fn test_lpf_kwargs_multiple_params() {
     let mut harness = EditorTestHarness::new().unwrap();
 
     // LPF has two kwargs: :cutoff and :q
-    harness.type_text("lpf ")
+    harness
+        .type_text("lpf ")
         .tab()
         .assert_completion_shown()
         .assert_completion_contains(":cutoff")
@@ -129,7 +144,8 @@ fn test_reverb_kwargs() {
     let mut harness = EditorTestHarness::new().unwrap();
 
     // Reverb has positional args but also :mix kwarg
-    harness.type_text("reverb 0.8 0.5 :")
+    harness
+        .type_text("reverb 0.8 0.5 :")
         .tab()
         .assert_completion_shown()
         .assert_completion_contains(":mix");
@@ -140,7 +156,8 @@ fn test_plate_kwargs_many_params() {
     let mut harness = EditorTestHarness::new().unwrap();
 
     // Plate has many kwargs
-    harness.type_text("plate ")
+    harness
+        .type_text("plate ")
         .tab()
         .assert_completion_shown()
         .assert_completion_contains(":pre_delay")
@@ -156,7 +173,8 @@ fn test_completion_in_chain() {
 
     // Test kwargs completion works in chain context
     // "saw 55 # lpf :" should show lpf kwargs, not saw
-    harness.type_text("saw 55 # lpf ")
+    harness
+        .type_text("saw 55 # lpf ")
         .tab()
         .assert_completion_shown()
         .assert_completion_contains(":cutoff")
@@ -169,7 +187,8 @@ fn test_no_double_colon_bug() {
 
     // The bug was: "gain :a<tab>" -> "gain ::amount"
     // Should be: "gain :a<tab>" -> "gain :amount"
-    harness.type_text("gain :a")
+    harness
+        .type_text("gain :a")
         .tab() // Show completions
         .tab(); // Accept first
 
@@ -195,12 +214,11 @@ fn test_completion_navigation_with_arrows() {
     let mut harness = EditorTestHarness::new().unwrap();
 
     // Show completions for plate (has multiple kwargs)
-    harness.type_text("plate ")
-        .tab()
-        .assert_completion_shown();
+    harness.type_text("plate ").tab().assert_completion_shown();
 
     // Navigate with up/down shouldn't crash
-    harness.send_key(crossterm::event::KeyCode::Down)
+    harness
+        .send_key(crossterm::event::KeyCode::Down)
         .send_key(crossterm::event::KeyCode::Down)
         .send_key(crossterm::event::KeyCode::Up);
 
@@ -213,12 +231,11 @@ fn test_completion_cancel_with_esc() {
     let mut harness = EditorTestHarness::new().unwrap();
 
     // Show completions
-    harness.type_text("gain ")
-        .tab()
-        .assert_completion_shown();
+    harness.type_text("gain ").tab().assert_completion_shown();
 
     // Press Esc to cancel
-    harness.send_key(crossterm::event::KeyCode::Esc)
+    harness
+        .send_key(crossterm::event::KeyCode::Esc)
         .assert_completion_hidden();
 }
 
@@ -227,9 +244,7 @@ fn test_completion_filter_as_typing() {
     let mut harness = EditorTestHarness::new().unwrap();
 
     // Show completions for plate
-    harness.type_text("plate ")
-        .tab()
-        .assert_completion_shown();
+    harness.type_text("plate ").tab().assert_completion_shown();
 
     // Start typing to filter
     harness.type_text(":d");
@@ -244,8 +259,7 @@ fn test_sample_completion() {
     let mut harness = EditorTestHarness::new().unwrap();
 
     // Type 's "' to trigger sample completion context
-    harness.type_text("s \"")
-        .tab();
+    harness.type_text("s \"").tab();
 
     // If dirt-samples are available, should show completions
     // (This might not show anything if samples aren't installed, but shouldn't crash)
@@ -257,12 +271,10 @@ fn test_bus_completion() {
     let mut harness = EditorTestHarness::new().unwrap();
 
     // Define a bus first
-    harness.type_text("~bass: sine 110")
-        .enter();
+    harness.type_text("~bass: sine 110").enter();
 
     // Now try to reference it
-    harness.type_text("out $ ~")
-        .tab();
+    harness.type_text("out $ ~").tab();
 
     // Should show completions including ~bass
     // (Might be empty if bus extraction isn't working yet)
@@ -273,11 +285,11 @@ fn test_multiline_completion() {
     let mut harness = EditorTestHarness::new().unwrap();
 
     // Type on first line
-    harness.type_text("tempo: 0.5")
-        .enter();
+    harness.type_text("tempo: 0.5").enter();
 
     // Type on second line
-    harness.type_text("gain ")
+    harness
+        .type_text("gain ")
         .tab()
         .assert_completion_shown()
         .assert_completion_contains(":amount");
@@ -285,12 +297,12 @@ fn test_multiline_completion() {
 
 #[test]
 fn test_completion_with_existing_code() {
-    let mut harness = EditorTestHarness::with_content(
-        "tempo: 0.5\n~drums: s \"bd sn\"\nout $ ~drums"
-    ).unwrap();
+    let mut harness =
+        EditorTestHarness::with_content("tempo: 0.5\n~drums: s \"bd sn\"\nout $ ~drums").unwrap();
 
     // Move to end and add new line
-    harness.send_key(crossterm::event::KeyCode::End)
+    harness
+        .send_key(crossterm::event::KeyCode::End)
         .enter()
         .type_text("gain ")
         .tab()
@@ -304,7 +316,8 @@ fn test_kwargs_after_positional_args() {
 
     // LPF can take: lpf <input> <cutoff> <q>
     // Or with kwargs: lpf 800 :q 2.0
-    harness.type_text("lpf 800 :")
+    harness
+        .type_text("lpf 800 :")
         .tab()
         .assert_completion_shown()
         .assert_completion_contains(":cutoff")
@@ -316,8 +329,7 @@ fn test_completion_preserves_cursor_position() {
     let mut harness = EditorTestHarness::new().unwrap();
 
     // Type and show completion
-    harness.type_text("gain ")
-        .tab();
+    harness.type_text("gain ").tab();
 
     let cursor_before_accept = harness.cursor_pos();
 
@@ -445,8 +457,5 @@ fn test_ctrl_space_no_function() {
     let line = harness.current_line();
 
     // Should not modify content if no function found
-    assert_eq!(
-        line, "hello world",
-        "Should not modify non-function text"
-    );
+    assert_eq!(line, "hello world", "Should not modify non-function text");
 }

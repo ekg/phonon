@@ -3,13 +3,12 @@
 /// This node provides smooth dynamic range compression. It reduces the level
 /// of loud signals above the threshold according to the specified ratio.
 /// The gain reduction envelope follows the input signal with attack and release times.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Compressor state for envelope follower
 #[derive(Debug, Clone)]
 struct CompressorState {
-    envelope: f32,  // Current gain reduction envelope in dB
+    envelope: f32, // Current gain reduction envelope in dB
 }
 
 impl Default for CompressorState {
@@ -57,11 +56,11 @@ impl Default for CompressorState {
 /// ```
 pub struct CompressorNode {
     input: NodeId,
-    threshold_input: NodeId,  // Threshold in dB (e.g., -10.0)
-    ratio_input: NodeId,      // Compression ratio (1.0 to 20.0)
-    attack_input: NodeId,     // Attack time in seconds (0.001 to 1.0)
-    release_input: NodeId,    // Release time in seconds (0.01 to 3.0)
-    state: CompressorState,   // Envelope follower state
+    threshold_input: NodeId, // Threshold in dB (e.g., -10.0)
+    ratio_input: NodeId,     // Compression ratio (1.0 to 20.0)
+    attack_input: NodeId,    // Attack time in seconds (0.001 to 1.0)
+    release_input: NodeId,   // Release time in seconds (0.01 to 3.0)
+    state: CompressorState,  // Envelope follower state
 }
 
 impl CompressorNode {
@@ -389,7 +388,7 @@ mod tests {
         let threshold = vec![-20.0; 512];
         let ratio = vec![4.0; 512];
         let attack = vec![0.001; 512]; // Fast attack
-        let release = vec![0.1; 512];   // Slow release
+        let release = vec![0.1; 512]; // Slow release
         let inputs = vec![
             input.as_slice(),
             threshold.as_slice(),
@@ -571,7 +570,7 @@ mod tests {
         let deps = comp.input_nodes();
 
         assert_eq!(deps.len(), 5);
-        assert_eq!(deps[0], 5);  // input
+        assert_eq!(deps[0], 5); // input
         assert_eq!(deps[1], 10); // threshold
         assert_eq!(deps[2], 15); // ratio
         assert_eq!(deps[3], 20); // attack
@@ -636,12 +635,25 @@ mod tests {
         // Output ≈ 10^(-19/20) ≈ 0.112
         // But attack smoothing means it builds up, so later samples are more compressed
         let late_avg: f32 = output.iter().skip(400).take(100).sum::<f32>() / 100.0;
-        assert!(late_avg < 0.3, "Late average was {}, expected < 0.3", late_avg);
-        assert!(late_avg > 0.0, "Late average was {}, expected > 0.0", late_avg);
+        assert!(
+            late_avg < 0.3,
+            "Late average was {}, expected < 0.3",
+            late_avg
+        );
+        assert!(
+            late_avg > 0.0,
+            "Late average was {}, expected > 0.0",
+            late_avg
+        );
 
         // Early samples should be less compressed (attack not yet fully engaged)
         let early_avg: f32 = output.iter().skip(0).take(10).sum::<f32>() / 10.0;
-        assert!(early_avg > late_avg, "Early avg {} should be > late avg {}", early_avg, late_avg);
+        assert!(
+            early_avg > late_avg,
+            "Early avg {} should be > late avg {}",
+            early_avg,
+            late_avg
+        );
     }
 
     #[test]

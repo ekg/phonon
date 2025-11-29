@@ -2,8 +2,9 @@
 ///
 /// Verifies that the completion system can correctly detect and suggest
 /// parameter names for function kwargs.
-
-use phonon::modal_editor::completion::{get_completion_context, CompletionContext, filter_completions};
+use phonon::modal_editor::completion::{
+    filter_completions, get_completion_context, CompletionContext,
+};
 
 #[test]
 fn test_gain_kwarg_completion_detection() {
@@ -17,10 +18,7 @@ fn test_gain_kwarg_completion_detection() {
     if let CompletionContext::Keyword(func_name) = context {
         assert_eq!(func_name, "gain", "Should detect gain as the function");
     } else {
-        panic!(
-            "Expected Keyword(\"gain\") context, got {:?}",
-            context
-        );
+        panic!("Expected Keyword(\"gain\") context, got {:?}", context);
     }
 }
 
@@ -239,14 +237,8 @@ fn test_kwarg_in_chain() {
     let context = get_completion_context(line, cursor_pos);
 
     if let CompletionContext::Keyword(func_name) = context {
-        assert_eq!(
-            func_name, "lpf",
-            "Should detect lpf in chain, not saw"
-        );
+        assert_eq!(func_name, "lpf", "Should detect lpf in chain, not saw");
     } else {
-        panic!(
-            "Expected Keyword(\"lpf\") in chain, got {:?}",
-            context
-        );
+        panic!("Expected Keyword(\"lpf\") in chain, got {:?}", context);
     }
 }

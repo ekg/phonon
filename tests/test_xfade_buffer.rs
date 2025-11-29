@@ -96,7 +96,11 @@ fn test_xfade_quarter_mix() {
 
     // Should output 0.75 * 1.0 + 0.25 * 0.0 = 0.75
     for &sample in &output {
-        assert!((sample - 0.75).abs() < 0.001, "Expected 0.75, got {}", sample);
+        assert!(
+            (sample - 0.75).abs() < 0.001,
+            "Expected 0.75, got {}",
+            sample
+        );
     }
 }
 
@@ -118,7 +122,11 @@ fn test_xfade_three_quarter_mix() {
 
     // Should output 0.25 * 1.0 + 0.75 * 0.0 = 0.25
     for &sample in &output {
-        assert!((sample - 0.25).abs() < 0.001, "Expected 0.25, got {}", sample);
+        assert!(
+            (sample - 0.25).abs() < 0.001,
+            "Expected 0.25, got {}",
+            sample
+        );
     }
 }
 
@@ -179,7 +187,10 @@ fn test_xfade_oscillators_constant_mix() {
         assert!(
             rms > expected_rms_range.0 && rms < expected_rms_range.1,
             "Mix {}: RMS {} not in expected range ({}, {})",
-            mix, rms, expected_rms_range.0, expected_rms_range.1
+            mix,
+            rms,
+            expected_rms_range.0,
+            expected_rms_range.1
         );
     }
 }
@@ -312,7 +323,11 @@ fn test_xfade_silence_to_sound() {
     graph.eval_node_buffer(&xfade_0, &mut output_0);
 
     let rms_0 = calculate_rms(&output_0);
-    assert!(rms_0 < 0.001, "Should be silent at position 0.0, got RMS: {}", rms_0);
+    assert!(
+        rms_0 < 0.001,
+        "Should be silent at position 0.0, got RMS: {}",
+        rms_0
+    );
 
     // At position 1.0: should be loud
     let xfade_1 = graph.add_node(SignalNode::XFade {
@@ -325,7 +340,11 @@ fn test_xfade_silence_to_sound() {
     graph.eval_node_buffer(&xfade_1, &mut output_1);
 
     let rms_1 = calculate_rms(&output_1);
-    assert!(rms_1 > 0.6, "Should be loud at position 1.0, got RMS: {}", rms_1);
+    assert!(
+        rms_1 > 0.6,
+        "Should be loud at position 1.0, got RMS: {}",
+        rms_1
+    );
 }
 
 #[test]
@@ -350,7 +369,11 @@ fn test_xfade_inverted_signals() {
 
     // Should be near silence (signals cancel)
     let rms = calculate_rms(&output);
-    assert!(rms < 0.01, "Inverted signals should cancel at 0.5 mix, got RMS: {}", rms);
+    assert!(
+        rms < 0.01,
+        "Inverted signals should cancel at 0.5 mix, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -384,12 +407,14 @@ fn test_xfade_dynamic_position() {
     assert!(rms > 0.3, "RMS too low for dynamic crossfade: {}", rms);
 
     // Check that the output actually varies
-    let first_half_rms = calculate_rms(&output[0..buffer_size/2]);
-    let second_half_rms = calculate_rms(&output[buffer_size/2..]);
+    let first_half_rms = calculate_rms(&output[0..buffer_size / 2]);
+    let second_half_rms = calculate_rms(&output[buffer_size / 2..]);
 
     // Both halves should have sound
-    assert!(first_half_rms > 0.2 && second_half_rms > 0.2,
-        "Both halves should have significant energy");
+    assert!(
+        first_half_rms > 0.2 && second_half_rms > 0.2,
+        "Both halves should have significant energy"
+    );
 }
 
 #[test]
@@ -454,5 +479,9 @@ fn test_xfade_large_buffer() {
     graph.eval_node_buffer(&xfade_id, &mut output);
 
     let rms = calculate_rms(&output);
-    assert!(rms > 0.3 && rms < 1.0, "Large buffer RMS out of range: {}", rms);
+    assert!(
+        rms > 0.3 && rms < 1.0,
+        "Large buffer RMS out of range: {}",
+        rms
+    );
 }

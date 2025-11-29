@@ -57,11 +57,7 @@ fn test_struct_level1_simple_pattern() {
     let events = structured.query(&state);
 
     // Should have 2 events per cycle (matching structure)
-    assert_eq!(
-        events.len(),
-        2,
-        "struct should produce 2 events per cycle"
-    );
+    assert_eq!(events.len(), 2, "struct should produce 2 events per cycle");
 
     // First event should be "bd" (first value)
     assert_eq!(events[0].value, "bd", "First event should be bd");
@@ -112,11 +108,7 @@ fn test_struct_level1_euclidean_pattern() {
     let events = structured.query(&state);
 
     // Should have 3 events (matching euclidean structure)
-    assert_eq!(
-        events.len(),
-        3,
-        "Euclidean struct should produce 3 events"
-    );
+    assert_eq!(events.len(), 3, "Euclidean struct should produce 3 events");
 
     // Values should cycle: bd, sn, hh
     assert_eq!(events[0].value, "bd");

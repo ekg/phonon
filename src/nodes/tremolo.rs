@@ -3,7 +3,6 @@
 /// This node applies tremolo (amplitude modulation) to an input signal using an
 /// internal LFO (Low Frequency Oscillator). The LFO is a sine wave that ranges
 /// from 0.0 to 1.0, which modulates the amplitude of the input signal.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -158,13 +157,7 @@ mod tests {
     use crate::pattern::Fraction;
 
     fn create_test_context(block_size: usize) -> ProcessContext {
-        ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            44100.0,
-        )
+        ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, 44100.0)
     }
 
     #[test]
@@ -172,7 +165,7 @@ mod tests {
         // When depth=0, output should equal input (no modulation)
         let mut input_osc = OscillatorNode::new(0, Waveform::Sine);
         let mut rate = ConstantNode::new(4.0);
-        let mut depth = ConstantNode::new(0.0);  // Zero depth
+        let mut depth = ConstantNode::new(0.0); // Zero depth
         let mut tremolo = TremoloNode::new(0, 1, 2);
 
         let context = create_test_context(512);
@@ -193,7 +186,11 @@ mod tests {
         depth.process_block(&[], &mut depth_buf, 44100.0, &context);
 
         // Apply tremolo
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 512];
         tremolo.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -212,12 +209,12 @@ mod tests {
     #[test]
     fn test_tremolo_full_depth_modulation() {
         // When depth=1, gain should range from 0.0 to 1.0
-        let mut input = ConstantNode::new(1.0);  // Constant signal
+        let mut input = ConstantNode::new(1.0); // Constant signal
         let mut rate = ConstantNode::new(4.0);
-        let mut depth = ConstantNode::new(1.0);  // Full depth
+        let mut depth = ConstantNode::new(1.0); // Full depth
         let mut tremolo = TremoloNode::new(0, 1, 2);
 
-        let context = create_test_context(44100);  // 1 second at 44.1kHz
+        let context = create_test_context(44100); // 1 second at 44.1kHz
 
         let mut input_buf = vec![0.0; 44100];
         let mut rate_buf = vec![0.0; 44100];
@@ -227,7 +224,11 @@ mod tests {
         rate.process_block(&[], &mut rate_buf, 44100.0, &context);
         depth.process_block(&[], &mut depth_buf, 44100.0, &context);
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 44100];
         tremolo.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -244,7 +245,7 @@ mod tests {
     #[test]
     fn test_tremolo_rate_affects_speed() {
         // Higher rate should produce more cycles in same time period
-        let context = create_test_context(44100);  // 1 second
+        let context = create_test_context(44100); // 1 second
 
         // Test with 2 Hz
         let mut input_2hz = ConstantNode::new(1.0);
@@ -260,7 +261,11 @@ mod tests {
         rate_2hz.process_block(&[], &mut rate_buf, 44100.0, &context);
         depth_2hz.process_block(&[], &mut depth_buf, 44100.0, &context);
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output_2hz = vec![0.0; 44100];
         tremolo_2hz.process_block(&inputs, &mut output_2hz, 44100.0, &context);
 
@@ -274,7 +279,11 @@ mod tests {
         rate_8hz.process_block(&[], &mut rate_buf, 44100.0, &context);
         depth_8hz.process_block(&[], &mut depth_buf, 44100.0, &context);
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output_8hz = vec![0.0; 44100];
         tremolo_8hz.process_block(&inputs, &mut output_8hz, 44100.0, &context);
 
@@ -310,7 +319,11 @@ mod tests {
         rate.process_block(&[], &mut rate_buf, 44100.0, &context);
         depth.process_block(&[], &mut depth_buf, 44100.0, &context);
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 44100];
         tremolo.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -337,7 +350,11 @@ mod tests {
         let rate_buf = vec![4.0];
         let depth_buf = vec![0.5];
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 1];
 
         let context = create_test_context(1);
@@ -383,7 +400,11 @@ mod tests {
         rate.process_block(&[], &mut rate_buf, 44100.0, &context);
         depth.process_block(&[], &mut depth_buf, 44100.0, &context);
 
-        let inputs = vec![input_buf.as_slice(), rate_buf.as_slice(), depth_buf.as_slice()];
+        let inputs = vec![
+            input_buf.as_slice(),
+            rate_buf.as_slice(),
+            depth_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 44100];
         tremolo.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -391,7 +412,12 @@ mod tests {
         let min = output.iter().cloned().fold(f32::INFINITY, f32::min);
         let max = output.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
 
-        assert!(max - min > 0.2, "Not enough modulation: min={}, max={}", min, max);
+        assert!(
+            max - min > 0.2,
+            "Not enough modulation: min={}, max={}",
+            min,
+            max
+        );
     }
 
     #[test]

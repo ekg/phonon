@@ -1,4 +1,4 @@
-use phonon::unified_graph::{UnifiedSignalGraph, Signal, Waveform};
+use phonon::unified_graph::{Signal, UnifiedSignalGraph, Waveform};
 
 /// Calculate RMS (Root Mean Square) energy of a buffer
 fn calculate_rms(buffer: &[f32]) -> f32 {
@@ -24,14 +24,14 @@ fn test_tapedelay_basic_delay() {
     // Add tape delay with no modulation (clean delay)
     let tape_id = graph.add_tapedelay_node(
         Signal::Node(osc),
-        Signal::Value(0.25),      // 250ms delay
-        Signal::Value(0.5),       // 50% feedback
-        Signal::Value(0.0),       // No wow rate
-        Signal::Value(0.0),       // No wow depth
-        Signal::Value(0.0),       // No flutter rate
-        Signal::Value(0.0),       // No flutter depth
-        Signal::Value(0.0),       // No saturation
-        Signal::Value(0.5),       // 50% mix
+        Signal::Value(0.25), // 250ms delay
+        Signal::Value(0.5),  // 50% feedback
+        Signal::Value(0.0),  // No wow rate
+        Signal::Value(0.0),  // No wow depth
+        Signal::Value(0.0),  // No flutter rate
+        Signal::Value(0.0),  // No flutter depth
+        Signal::Value(0.0),  // No saturation
+        Signal::Value(0.5),  // 50% mix
     );
 
     let buffer_size = 512;
@@ -40,7 +40,11 @@ fn test_tapedelay_basic_delay() {
     graph.eval_node_buffer(&tape_id, &mut output);
 
     let rms = calculate_rms(&output);
-    assert!(rms > 0.2, "Tape delay should produce audible sound: RMS={}", rms);
+    assert!(
+        rms > 0.2,
+        "Tape delay should produce audible sound: RMS={}",
+        rms
+    );
     assert!(rms < 1.0, "Output should not clip: RMS={}", rms);
 }
 
@@ -54,14 +58,14 @@ fn test_tapedelay_with_flutter() {
     // Tape delay with flutter
     let tape_id = graph.add_tapedelay_node(
         Signal::Node(osc),
-        Signal::Value(0.25),      // 250ms delay
-        Signal::Value(0.5),       // 50% feedback
-        Signal::Value(0.0),       // No wow
+        Signal::Value(0.25), // 250ms delay
+        Signal::Value(0.5),  // 50% feedback
+        Signal::Value(0.0),  // No wow
         Signal::Value(0.0),
-        Signal::Value(8.0),       // 8 Hz flutter rate
-        Signal::Value(0.5),       // 50% flutter depth
-        Signal::Value(0.0),       // No saturation
-        Signal::Value(0.7),       // 70% wet
+        Signal::Value(8.0), // 8 Hz flutter rate
+        Signal::Value(0.5), // 50% flutter depth
+        Signal::Value(0.0), // No saturation
+        Signal::Value(0.7), // 70% wet
     );
 
     let buffer_size = 1024;
@@ -70,7 +74,11 @@ fn test_tapedelay_with_flutter() {
     graph.eval_node_buffer(&tape_id, &mut output);
 
     let rms = calculate_rms(&output);
-    assert!(rms > 0.2, "Flutter tape delay should produce audible sound: RMS={}", rms);
+    assert!(
+        rms > 0.2,
+        "Flutter tape delay should produce audible sound: RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -83,14 +91,14 @@ fn test_tapedelay_with_wow() {
     // Tape delay with wow
     let tape_id = graph.add_tapedelay_node(
         Signal::Node(osc),
-        Signal::Value(0.25),      // 250ms delay
-        Signal::Value(0.6),       // 60% feedback
-        Signal::Value(1.5),       // 1.5 Hz wow rate
-        Signal::Value(0.7),       // 70% wow depth
-        Signal::Value(0.0),       // No flutter
+        Signal::Value(0.25), // 250ms delay
+        Signal::Value(0.6),  // 60% feedback
+        Signal::Value(1.5),  // 1.5 Hz wow rate
+        Signal::Value(0.7),  // 70% wow depth
+        Signal::Value(0.0),  // No flutter
         Signal::Value(0.0),
-        Signal::Value(0.0),       // No saturation
-        Signal::Value(0.8),       // 80% wet
+        Signal::Value(0.0), // No saturation
+        Signal::Value(0.8), // 80% wet
     );
 
     let buffer_size = 1024;
@@ -99,7 +107,11 @@ fn test_tapedelay_with_wow() {
     graph.eval_node_buffer(&tape_id, &mut output);
 
     let rms = calculate_rms(&output);
-    assert!(rms > 0.1, "Wow tape delay should produce audible sound: RMS={}", rms);
+    assert!(
+        rms > 0.1,
+        "Wow tape delay should produce audible sound: RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -112,14 +124,14 @@ fn test_tapedelay_with_saturation() {
     // Tape delay with saturation
     let tape_id = graph.add_tapedelay_node(
         Signal::Node(osc),
-        Signal::Value(0.2),       // 200ms delay
-        Signal::Value(0.7),       // 70% feedback (more tape warmth)
-        Signal::Value(0.0),       // No wow
+        Signal::Value(0.2), // 200ms delay
+        Signal::Value(0.7), // 70% feedback (more tape warmth)
+        Signal::Value(0.0), // No wow
         Signal::Value(0.0),
-        Signal::Value(0.0),       // No flutter
+        Signal::Value(0.0), // No flutter
         Signal::Value(0.0),
-        Signal::Value(0.8),       // 80% saturation
-        Signal::Value(0.6),       // 60% wet
+        Signal::Value(0.8), // 80% saturation
+        Signal::Value(0.6), // 60% wet
     );
 
     let buffer_size = 1024;
@@ -128,7 +140,11 @@ fn test_tapedelay_with_saturation() {
     graph.eval_node_buffer(&tape_id, &mut output);
 
     let rms = calculate_rms(&output);
-    assert!(rms > 0.2, "Saturated tape delay should produce audible sound: RMS={}", rms);
+    assert!(
+        rms > 0.2,
+        "Saturated tape delay should produce audible sound: RMS={}",
+        rms
+    );
 
     // Saturation should affect the waveform
     // Check that some samples are different (not all the same)
@@ -137,7 +153,10 @@ fn test_tapedelay_with_saturation() {
         .filter(|&&x| x.abs() > 0.001)
         .map(|&x| (x * 1000.0) as i32)
         .collect();
-    assert!(unique_values.len() > 10, "Saturated delay should produce varied output");
+    assert!(
+        unique_values.len() > 10,
+        "Saturated delay should produce varied output"
+    );
 }
 
 #[test]
@@ -150,14 +169,14 @@ fn test_tapedelay_full_features() {
     // Full vintage tape echo
     let tape_id = graph.add_tapedelay_node(
         Signal::Node(osc),
-        Signal::Value(0.3),       // 300ms delay
-        Signal::Value(0.6),       // 60% feedback
-        Signal::Value(1.0),       // 1 Hz wow
-        Signal::Value(0.5),       // 50% wow depth
-        Signal::Value(7.0),       // 7 Hz flutter
-        Signal::Value(0.3),       // 30% flutter depth
-        Signal::Value(0.6),       // 60% saturation
-        Signal::Value(0.7),       // 70% wet
+        Signal::Value(0.3), // 300ms delay
+        Signal::Value(0.6), // 60% feedback
+        Signal::Value(1.0), // 1 Hz wow
+        Signal::Value(0.5), // 50% wow depth
+        Signal::Value(7.0), // 7 Hz flutter
+        Signal::Value(0.3), // 30% flutter depth
+        Signal::Value(0.6), // 60% saturation
+        Signal::Value(0.7), // 70% wet
     );
 
     let buffer_size = 2048;
@@ -166,7 +185,11 @@ fn test_tapedelay_full_features() {
     graph.eval_node_buffer(&tape_id, &mut output);
 
     let rms = calculate_rms(&output);
-    assert!(rms > 0.2, "Full tape delay should produce audible sound: RMS={}", rms);
+    assert!(
+        rms > 0.2,
+        "Full tape delay should produce audible sound: RMS={}",
+        rms
+    );
     assert!(rms < 1.0, "Output should not clip: RMS={}", rms);
 }
 
@@ -179,13 +202,13 @@ fn test_tapedelay_state_continuity() {
 
     let tape_id = graph.add_tapedelay_node(
         Signal::Node(osc),
-        Signal::Value(0.1),       // 100ms delay
-        Signal::Value(0.7),       // 70% feedback
-        Signal::Value(1.0),       // Wow
+        Signal::Value(0.1), // 100ms delay
+        Signal::Value(0.7), // 70% feedback
+        Signal::Value(1.0), // Wow
         Signal::Value(0.3),
-        Signal::Value(7.0),       // Flutter
+        Signal::Value(7.0), // Flutter
         Signal::Value(0.2),
-        Signal::Value(0.4),       // Saturation
+        Signal::Value(0.4), // Saturation
         Signal::Value(0.6),
     );
 
@@ -209,8 +232,14 @@ fn test_tapedelay_state_continuity() {
     assert!(rms3 > 0.1, "Third buffer should have sound: RMS={}", rms3);
 
     // Buffers should be different (state is evolving)
-    assert_ne!(output1, output2, "Consecutive buffers should differ due to state evolution");
-    assert_ne!(output2, output3, "Consecutive buffers should differ due to state evolution");
+    assert_ne!(
+        output1, output2,
+        "Consecutive buffers should differ due to state evolution"
+    );
+    assert_ne!(
+        output2, output3,
+        "Consecutive buffers should differ due to state evolution"
+    );
 }
 
 #[test]
@@ -225,11 +254,11 @@ fn test_tapedelay_vs_clean_delay() {
         Signal::Node(osc),
         Signal::Value(0.2),
         Signal::Value(0.5),
-        Signal::Value(0.0),       // No wow
+        Signal::Value(0.0), // No wow
         Signal::Value(0.0),
-        Signal::Value(0.0),       // No flutter
+        Signal::Value(0.0), // No flutter
         Signal::Value(0.0),
-        Signal::Value(0.0),       // No saturation
+        Signal::Value(0.0), // No saturation
         Signal::Value(0.5),
     );
 
@@ -241,11 +270,11 @@ fn test_tapedelay_vs_clean_delay() {
         Signal::Node(osc2),
         Signal::Value(0.2),
         Signal::Value(0.5),
-        Signal::Value(1.5),       // Wow
+        Signal::Value(1.5), // Wow
         Signal::Value(0.6),
-        Signal::Value(8.0),       // Flutter
+        Signal::Value(8.0), // Flutter
         Signal::Value(0.4),
-        Signal::Value(0.7),       // Saturation
+        Signal::Value(0.7), // Saturation
         Signal::Value(0.5),
     );
 
@@ -265,8 +294,10 @@ fn test_tapedelay_vs_clean_delay() {
 
     // The vintage delay should have different character
     // (this is a loose check - just verifying they're both working)
-    assert!(clean_rms > 0.0 && vintage_rms > 0.0,
-           "Both delays should be active");
+    assert!(
+        clean_rms > 0.0 && vintage_rms > 0.0,
+        "Both delays should be active"
+    );
 }
 
 #[test]
@@ -279,14 +310,14 @@ fn test_tapedelay_parameter_clamping() {
     // Extreme parameter values (should be clamped internally)
     let tape_id = graph.add_tapedelay_node(
         Signal::Node(osc),
-        Signal::Value(0.1),       // Short delay so we hear it quickly
-        Signal::Value(1.5),       // Too much feedback (should clamp to 0.95)
-        Signal::Value(10.0),      // High wow rate (should clamp to 2.0)
-        Signal::Value(2.0),       // Too much wow depth (should clamp to 1.0)
-        Signal::Value(20.0),      // High flutter rate (should clamp to 10.0)
-        Signal::Value(5.0),       // Too much flutter depth (should clamp to 1.0)
-        Signal::Value(3.0),       // Too much saturation (should clamp to 1.0)
-        Signal::Value(0.5),       // 50% wet so we hear dry signal immediately
+        Signal::Value(0.1),  // Short delay so we hear it quickly
+        Signal::Value(1.5),  // Too much feedback (should clamp to 0.95)
+        Signal::Value(10.0), // High wow rate (should clamp to 2.0)
+        Signal::Value(2.0),  // Too much wow depth (should clamp to 1.0)
+        Signal::Value(20.0), // High flutter rate (should clamp to 10.0)
+        Signal::Value(5.0),  // Too much flutter depth (should clamp to 1.0)
+        Signal::Value(3.0),  // Too much saturation (should clamp to 1.0)
+        Signal::Value(0.5),  // 50% wet so we hear dry signal immediately
     );
 
     let buffer_size = 512;
@@ -300,11 +331,19 @@ fn test_tapedelay_parameter_clamping() {
 
     // Verify output is valid (no NaN, no Inf)
     for (i, &sample) in output.iter().enumerate() {
-        assert!(sample.is_finite(), "Sample {} should be finite: {}", i, sample);
+        assert!(
+            sample.is_finite(),
+            "Sample {} should be finite: {}",
+            i,
+            sample
+        );
     }
 
     let rms = calculate_rms(&output);
-    assert!(rms > 0.0, "Should produce sound even with clamped parameters");
+    assert!(
+        rms > 0.0,
+        "Should produce sound even with clamped parameters"
+    );
     assert!(rms < 2.0, "Should not produce excessive output");
 }
 
@@ -319,12 +358,12 @@ fn test_tapedelay_feedback_stability() {
     let tape_id = graph.add_tapedelay_node(
         Signal::Node(osc),
         Signal::Value(0.15),
-        Signal::Value(0.9),       // 90% feedback
+        Signal::Value(0.9), // 90% feedback
         Signal::Value(0.0),
         Signal::Value(0.0),
         Signal::Value(0.0),
         Signal::Value(0.0),
-        Signal::Value(0.5),       // Some saturation to control
+        Signal::Value(0.5), // Some saturation to control
         Signal::Value(0.8),
     );
 
@@ -337,11 +376,20 @@ fn test_tapedelay_feedback_stability() {
 
         // Check for stability
         let rms = calculate_rms(&output);
-        assert!(rms < 2.0, "Iteration {}: RMS should remain stable: {}", iteration, rms);
+        assert!(
+            rms < 2.0,
+            "Iteration {}: RMS should remain stable: {}",
+            iteration,
+            rms
+        );
 
         // Check no NaN or Inf
         for &sample in output.iter() {
-            assert!(sample.is_finite(), "Iteration {}: Sample should be finite", iteration);
+            assert!(
+                sample.is_finite(),
+                "Iteration {}: Sample should be finite",
+                iteration
+            );
         }
     }
 }
@@ -363,7 +411,7 @@ fn test_tapedelay_dry_wet_mix() {
         Signal::Value(7.0),
         Signal::Value(0.2),
         Signal::Value(0.4),
-        Signal::Value(0.0),       // 100% dry
+        Signal::Value(0.0), // 100% dry
     );
 
     let osc2 = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
@@ -378,7 +426,7 @@ fn test_tapedelay_dry_wet_mix() {
         Signal::Value(7.0),
         Signal::Value(0.2),
         Signal::Value(0.4),
-        Signal::Value(1.0),       // 100% wet
+        Signal::Value(1.0), // 100% wet
     );
 
     let buffer_size = 512;
@@ -397,7 +445,10 @@ fn test_tapedelay_dry_wet_mix() {
     // Both should produce sound
     assert!(dry_rms > 0.1, "Dry signal should be audible");
     // Wet signal may be quieter initially as delay buffer builds up
-    assert!(wet_rms >= 0.0, "Wet signal test should complete without error");
+    assert!(
+        wet_rms >= 0.0,
+        "Wet signal test should complete without error"
+    );
 }
 
 #[test]
@@ -410,7 +461,7 @@ fn test_tapedelay_short_vs_long_delay() {
     // Short delay (50ms)
     let short_id = graph.add_tapedelay_node(
         Signal::Node(osc),
-        Signal::Value(0.05),      // 50ms
+        Signal::Value(0.05), // 50ms
         Signal::Value(0.5),
         Signal::Value(0.0),
         Signal::Value(0.0),
@@ -425,7 +476,7 @@ fn test_tapedelay_short_vs_long_delay() {
     // Long delay (500ms)
     let long_id = graph.add_tapedelay_node(
         Signal::Node(osc2),
-        Signal::Value(0.5),       // 500ms
+        Signal::Value(0.5), // 500ms
         Signal::Value(0.5),
         Signal::Value(0.0),
         Signal::Value(0.0),

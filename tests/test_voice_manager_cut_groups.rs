@@ -47,10 +47,7 @@ fn test_voice_manager_cut_group_stops_previous() {
         let _ = vm.process();
     }
 
-    println!(
-        "After fade-out period: {} voices",
-        vm.active_voice_count()
-    );
+    println!("After fade-out period: {} voices", vm.active_voice_count());
     assert_eq!(
         vm.active_voice_count(),
         1,

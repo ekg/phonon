@@ -131,19 +131,28 @@ out $ ~osc # flanger 2.0 0.5 0.3
     let deep = render_dsl(code_deep, 2.0);
 
     // Deeper flanger should have more pronounced spectral changes
-    let shallow_var = shallow.iter().zip(&shallow[1..])
+    let shallow_var = shallow
+        .iter()
+        .zip(&shallow[1..])
         .map(|(a, b)| (a - b).abs())
-        .sum::<f32>() / shallow.len() as f32;
+        .sum::<f32>()
+        / shallow.len() as f32;
 
-    let deep_var = deep.iter().zip(&deep[1..])
+    let deep_var = deep
+        .iter()
+        .zip(&deep[1..])
         .map(|(a, b)| (a - b).abs())
-        .sum::<f32>() / deep.len() as f32;
+        .sum::<f32>()
+        / deep.len() as f32;
 
     println!("Shallow flanger variation: {:.6}", shallow_var);
     println!("Deep flanger variation: {:.6}", deep_var);
 
     // Note: This test might need adjustment based on actual implementation behavior
-    assert!(shallow_var > 0.0 && deep_var > 0.0, "Both should produce variation");
+    assert!(
+        shallow_var > 0.0 && deep_var > 0.0,
+        "Both should produce variation"
+    );
 }
 
 #[test]
@@ -188,5 +197,8 @@ out $ ~osc # flanger 1.0 0.5 1.0
     println!("Wet mix (mix=1.0) RMS: {:.6}", rms_wet);
 
     // Both should produce sound
-    assert!(rms_dry > 0.01 && rms_wet > 0.01, "Both mix settings should produce audio");
+    assert!(
+        rms_dry > 0.01 && rms_wet > 0.01,
+        "Both mix settings should produce audio"
+    );
 }

@@ -9,7 +9,6 @@
 ///
 /// Unlike a low-pass filter, slew limiting preserves the target value
 /// eventually - it just controls HOW FAST you get there.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Slew limiter node: limits rate of change in a signal
@@ -258,7 +257,7 @@ mod tests {
         // Fast rise (0.1ms), slow fall (10ms)
         let input = vec![1.0, 1.0, 1.0, 0.0, 0.0, 0.0];
         let rise_time = vec![0.0001; 6]; // 0.1ms rise (10x faster)
-        let fall_time = vec![0.01; 6];   // 10ms fall
+        let fall_time = vec![0.01; 6]; // 10ms fall
         let inputs = vec![input.as_slice(), rise_time.as_slice(), fall_time.as_slice()];
 
         let mut output = vec![0.0; 6];
@@ -276,9 +275,12 @@ mod tests {
         let fall_delta_3_4 = output[3] - output[4];
 
         // Rise should be much faster than fall
-        assert!(rise_delta_0_1 > fall_delta_3_4 * 5.0,
-                "rise_delta = {}, fall_delta = {}",
-                rise_delta_0_1, fall_delta_3_4);
+        assert!(
+            rise_delta_0_1 > fall_delta_3_4 * 5.0,
+            "rise_delta = {}, fall_delta = {}",
+            rise_delta_0_1,
+            fall_delta_3_4
+        );
     }
 
     #[test]
@@ -354,7 +356,7 @@ mod tests {
         // Constant rise/fall times
         let input = vec![1.0; 10];
         let rise_time = vec![0.0001; 10]; // Very fast rise (0.1ms)
-        let fall_time = vec![0.01; 10];   // Slower fall (10ms)
+        let fall_time = vec![0.01; 10]; // Slower fall (10ms)
         let inputs = vec![input.as_slice(), rise_time.as_slice(), fall_time.as_slice()];
 
         let mut output = vec![0.0; 10];
@@ -369,9 +371,14 @@ mod tests {
 
         // Each sample should be higher than the last
         for i in 1..10 {
-            assert!(output[i] >= output[i-1],
-                    "output[{}] = {}, output[{}] = {}",
-                    i, output[i], i-1, output[i-1]);
+            assert!(
+                output[i] >= output[i - 1],
+                "output[{}] = {}, output[{}] = {}",
+                i,
+                output[i],
+                i - 1,
+                output[i - 1]
+            );
         }
     }
 
@@ -394,7 +401,11 @@ mod tests {
         // Rise rate: 1.0 / (0.001 * 44100) ≈ 0.02267 per sample
         // To reach 1.0: 1.0 / 0.02267 ≈ 44.1 samples
         // After 100 samples, should definitely reach 1.0
-        assert!((output[99] - 1.0).abs() < 0.001, "output[99] = {}", output[99]);
+        assert!(
+            (output[99] - 1.0).abs() < 0.001,
+            "output[99] = {}",
+            output[99]
+        );
     }
 
     #[test]
@@ -426,9 +437,12 @@ mod tests {
         slew.process_block(&inputs2, &mut output2, 44100.0, &context);
 
         // Should start where previous block ended and continue rising
-        assert!((output2[0] - end_of_block1).abs() < 0.03,
-                "output2[0] = {}, end_of_block1 = {}",
-                output2[0], end_of_block1);
+        assert!(
+            (output2[0] - end_of_block1).abs() < 0.03,
+            "output2[0] = {}, end_of_block1 = {}",
+            output2[0],
+            end_of_block1
+        );
         assert!(output2[4] > output2[0]);
     }
 

@@ -36,7 +36,6 @@
 /// - Smooth tracking with exponential smoothing
 /// - Works well with oscillators, samples, voice
 /// - Can be used to track melody, create harmonizers, or analyze content
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Minimum frequency to detect (Hz)
@@ -224,11 +223,7 @@ impl AudioNode for PitchNode {
         sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert_eq!(
-            inputs.len(),
-            1,
-            "PitchNode requires 1 input: signal"
-        );
+        debug_assert_eq!(inputs.len(), 1, "PitchNode requires 1 input: signal");
 
         let input_buffer = inputs[0];
 

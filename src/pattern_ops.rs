@@ -106,7 +106,11 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 controls: state.controls.clone(),
             };
 
-            let prob_val = probability.query(&prob_state).first().map(|h| h.value).unwrap_or(0.5);
+            let prob_val = probability
+                .query(&prob_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(0.5);
 
             self.query(state)
                 .into_iter()
@@ -262,12 +266,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// Stut - Tidal's classic stutter/echo with decay
     /// Creates n echoes of each event, delayed by time cycles, with volume decay
     /// Example: stut 3 0.125 0.7 creates original + 2 echoes at 70%, 49% volume
-    pub fn stut(
-        self,
-        n: Pattern<f64>,
-        time: Pattern<f64>,
-        decay: Pattern<f64>,
-    ) -> Self
+    pub fn stut(self, n: Pattern<f64>, time: Pattern<f64>, decay: Pattern<f64>) -> Self
     where
         T: Clone + 'static,
     {
@@ -329,7 +328,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
                         // Add gain multiplier to context
                         // The compiler/voice manager will read this and apply it
-                        hap.context.insert("stut_gain".to_string(), gain_mult.to_string());
+                        hap.context
+                            .insert("stut_gain".to_string(), gain_mult.to_string());
 
                         hap
                     })

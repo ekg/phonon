@@ -2,7 +2,6 @@
 ///
 /// Tests wavetable and granular synthesis with pattern modulation.
 /// Verifies P0.0: ALL parameters accept patterns.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -13,7 +12,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -29,7 +29,11 @@ fn test_wavetable_constant_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Wavetable with constant frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Wavetable with constant frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -42,7 +46,11 @@ fn test_wavetable_pattern_frequency_lfo() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Wavetable with LFO frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Wavetable with LFO frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -55,7 +63,11 @@ fn test_wavetable_pattern_frequency_sweep() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Wavetable with sweep should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Wavetable with sweep should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -104,7 +116,11 @@ fn test_granular_constant_parameters() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Granular with constant params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Granular with constant params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -117,7 +133,11 @@ fn test_granular_pattern_grain_size() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Granular with pattern grain_size should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Granular with pattern grain_size should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -130,7 +150,11 @@ fn test_granular_pattern_density() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Granular with pattern density should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Granular with pattern density should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -143,7 +167,11 @@ fn test_granular_pattern_pitch() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Granular with pattern pitch should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Granular with pattern pitch should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -156,7 +184,11 @@ fn test_granular_all_patterns() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Granular with all pattern params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Granular with all pattern params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]

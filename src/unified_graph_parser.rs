@@ -143,7 +143,6 @@
 //! let graph = compiler.compile(statements);
 //! ```
 
-use std::cell::RefCell;
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
 use crate::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
@@ -157,6 +156,7 @@ use nom::{
     sequence::{delimited, pair, preceded, tuple},
     IResult,
 };
+use std::cell::RefCell;
 
 /// DSL statement types
 #[derive(Debug, Clone)]
@@ -1508,19 +1508,25 @@ fn preprocess_multiline(input: &str) -> String {
         let is_definition = if let Some(dollar_pos) = trimmed.find('$') {
             let before_dollar = trimmed[..dollar_pos].trim();
             // Check if what's before $ looks like an identifier (bus/output)
-            let is_valid_identifier = before_dollar.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
+            let is_valid_identifier = before_dollar
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '~' || c == '_')
                 && !before_dollar.is_empty();
             is_valid_identifier
         } else if let Some(hash_pos) = trimmed.find('#') {
             let before_hash = trimmed[..hash_pos].trim();
             // Check if what's before # looks like an identifier (bus/output with chaining)
-            let is_valid_identifier = before_hash.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
+            let is_valid_identifier = before_hash
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '~' || c == '_')
                 && !before_hash.is_empty();
             is_valid_identifier
         } else if let Some(colon_pos) = trimmed.find(':') {
             let before_colon = &trimmed[..colon_pos];
             // Check if what's before : looks like an identifier (tempo, bpm, outmix)
-            let is_valid_identifier = before_colon.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
+            let is_valid_identifier = before_colon
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '~' || c == '_')
                 && !before_colon.is_empty();
             is_valid_identifier
         } else if trimmed.starts_with("fn ") {
@@ -1774,7 +1780,7 @@ impl DslCompiler {
                 let freq_signal = self.compile_expression_to_signal(*freq);
                 self.graph.add_node(SignalNode::Oscillator {
                     freq: freq_signal,
-        semitone_offset: 0.0,
+                    semitone_offset: 0.0,
                     waveform,
                     phase: RefCell::new(0.0),
                     pending_freq: RefCell::new(None),

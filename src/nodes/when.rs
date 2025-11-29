@@ -76,7 +76,6 @@
 /// - Sample-accurate switching (no interpolation)
 /// - Hard transitions may cause clicks (use XFadeNode for smooth transitions)
 /// - Consider adding slew limiting to condition signal if clicks are undesirable
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// When node: conditional signal router
@@ -503,11 +502,7 @@ mod tests {
         // Zero signal
         let zero = vec![0.0; 8];
 
-        let inputs = vec![
-            is_positive.as_slice(),
-            waveform.as_slice(),
-            zero.as_slice(),
-        ];
+        let inputs = vec![is_positive.as_slice(), waveform.as_slice(), zero.as_slice()];
 
         let mut output = vec![0.0; 8];
         let context = ProcessContext::new(Fraction::from_float(0.0), 0, 8, 2.0, 44100.0);

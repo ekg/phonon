@@ -218,18 +218,10 @@ impl AudioNodeGraph {
                 self.sample_rate,
             );
 
-            self.dataflow_graph = Some(DataflowGraph::new(
-                nodes,
-                output_node,
-                context,
-            )?);
+            self.dataflow_graph = Some(DataflowGraph::new(nodes, output_node, context)?);
         } else {
             // Create BlockProcessor - batch-synchronous architecture
-            self.block_processor = Some(BlockProcessor::new(
-                nodes,
-                output_node,
-                self.buffer_size,
-            )?);
+            self.block_processor = Some(BlockProcessor::new(nodes, output_node, self.buffer_size)?);
         }
 
         Ok(())
@@ -251,7 +243,9 @@ impl AudioNodeGraph {
     pub fn process_buffer(&mut self, buffer: &mut [f32]) -> Result<(), String> {
         if USE_DATAFLOW {
             // Dataflow architecture - continuous message passing
-            let dataflow_graph = self.dataflow_graph.as_mut()
+            let dataflow_graph = self
+                .dataflow_graph
+                .as_mut()
                 .ok_or("build_processor() must be called before process_buffer()")?;
 
             // Create processing context with updated cycle position
@@ -267,7 +261,9 @@ impl AudioNodeGraph {
             dataflow_graph.process_block(buffer, &context)?;
         } else {
             // Block processor architecture - batch synchronous
-            let block_processor = self.block_processor.as_mut()
+            let block_processor = self
+                .block_processor
+                .as_mut()
                 .ok_or("build_processor() must be called before process_buffer()")?;
 
             // Create processing context
@@ -292,7 +288,10 @@ impl AudioNodeGraph {
     /// Process buffer with multi-output support
     ///
     /// Returns a HashMap of channel → buffer for mixing
-    pub fn process_buffer_multi_output(&mut self, buffer_size: usize) -> Result<HashMap<usize, Vec<f32>>, String> {
+    pub fn process_buffer_multi_output(
+        &mut self,
+        buffer_size: usize,
+    ) -> Result<HashMap<usize, Vec<f32>>, String> {
         // Check that processor has been built
         if USE_DATAFLOW && self.dataflow_graph.is_none() {
             return Err("build_processor() must be called before processing".to_string());
@@ -394,7 +393,9 @@ impl AudioNodeGraph {
     /// Returns a vector of (channel, node_id) pairs sorted by channel.
     /// Used for mixing multiple outputs together.
     pub fn get_numbered_outputs(&self) -> Vec<(usize, NodeId)> {
-        let mut outputs: Vec<_> = self.outputs.iter()
+        let mut outputs: Vec<_> = self
+            .outputs
+            .iter()
             .map(|(&channel, &node_id)| (channel, node_id))
             .collect();
         outputs.sort_by_key(|(channel, _)| *channel);

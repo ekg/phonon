@@ -6,13 +6,9 @@
 /// 2. LFO-based gating/muting
 /// 3. Audio-rate conditional processing
 /// 4. Musical gate sequencing
-
 use phonon::{
     audio_node::{AudioNode, ProcessContext},
-    nodes::{
-        constant::ConstantNode, oscillator::OscillatorNode,
-        when::WhenNode, Waveform,
-    },
+    nodes::{constant::ConstantNode, oscillator::OscillatorNode, when::WhenNode, Waveform},
     pattern::Fraction,
 };
 
@@ -109,9 +105,10 @@ fn example_2_lfo_gating() {
     when.process_block(&inputs, &mut output, 44100.0, &context);
 
     println!("  LFO pattern: [1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0]");
-    println!("  Output:      [{:.1}, {:.1}, {:.1}, {:.1}, {:.1}, {:.1}, {:.1}, {:.1}]",
-        output[0], output[1], output[2], output[3],
-        output[4], output[5], output[6], output[7]);
+    println!(
+        "  Output:      [{:.1}, {:.1}, {:.1}, {:.1}, {:.1}, {:.1}, {:.1}, {:.1}]",
+        output[0], output[1], output[2], output[3], output[4], output[5], output[6], output[7]
+    );
 
     // First half: signal passes through
     assert_eq!(output[0], 1.0);
@@ -149,21 +146,26 @@ fn example_3_half_wave_rectifier() {
     let mut when = WhenNode::new(0, 1, 2);
     let context = ProcessContext::new(Fraction::from_float(0.0), 0, 8, 2.0, 44100.0);
 
-    let inputs = vec![
-        is_positive.as_slice(),
-        waveform.as_slice(),
-        zero.as_slice(),
-    ];
+    let inputs = vec![is_positive.as_slice(), waveform.as_slice(), zero.as_slice()];
     let mut output = vec![0.0; 8];
 
     when.process_block(&inputs, &mut output, 44100.0, &context);
 
-    println!("  Input:  [{:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}]",
-        waveform[0], waveform[1], waveform[2], waveform[3],
-        waveform[4], waveform[5], waveform[6], waveform[7]);
-    println!("  Output: [{:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}]",
-        output[0], output[1], output[2], output[3],
-        output[4], output[5], output[6], output[7]);
+    println!(
+        "  Input:  [{:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}]",
+        waveform[0],
+        waveform[1],
+        waveform[2],
+        waveform[3],
+        waveform[4],
+        waveform[5],
+        waveform[6],
+        waveform[7]
+    );
+    println!(
+        "  Output: [{:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}, {:5.1}]",
+        output[0], output[1], output[2], output[3], output[4], output[5], output[6], output[7]
+    );
 
     // Verify positive values pass through
     assert_eq!(output[3], 0.5);
@@ -200,12 +202,21 @@ fn example_4_threshold_routing() {
     when.process_block(&inputs, &mut output, 44100.0, &context);
 
     println!("  Threshold: 0.8");
-    println!("  Amplitude: [{:.2}, {:.2}, {:.2}, {:.2}, {:.2}, {:.2}, {:.2}, {:.2}]",
-        amplitude[0], amplitude[1], amplitude[2], amplitude[3],
-        amplitude[4], amplitude[5], amplitude[6], amplitude[7]);
-    println!("  Output:    [{:5.0}, {:5.0}, {:5.0}, {:5.0}, {:5.0}, {:5.0}, {:5.0}, {:5.0}]",
-        output[0], output[1], output[2], output[3],
-        output[4], output[5], output[6], output[7]);
+    println!(
+        "  Amplitude: [{:.2}, {:.2}, {:.2}, {:.2}, {:.2}, {:.2}, {:.2}, {:.2}]",
+        amplitude[0],
+        amplitude[1],
+        amplitude[2],
+        amplitude[3],
+        amplitude[4],
+        amplitude[5],
+        amplitude[6],
+        amplitude[7]
+    );
+    println!(
+        "  Output:    [{:5.0}, {:5.0}, {:5.0}, {:5.0}, {:5.0}, {:5.0}, {:5.0}, {:5.0}]",
+        output[0], output[1], output[2], output[3], output[4], output[5], output[6], output[7]
+    );
 
     // Values <= 0.8 should route to quiet
     assert_eq!(output[0], 10.0); // 0.5 <= 0.8

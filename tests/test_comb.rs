@@ -10,7 +10,6 @@
 /// - Feedback controls resonance depth
 /// - Used for reverb, metallic sounds, Karplus-Strong synthesis
 /// - Pattern-modulated parameters
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -22,14 +21,15 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
 
 /// Perform FFT and analyze spectrum
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -108,9 +108,11 @@ fn test_comb_creates_harmonics() {
     variance /= magnitudes.len() as f32;
 
     // Comb filter should create spectral variation
-    assert!(variance > 0.1,
+    assert!(
+        variance > 0.1,
         "Comb should create harmonic peaks, got variance: {}",
-        variance);
+        variance
+    );
 
     println!("Comb spectral variance: {}", variance);
 }
@@ -160,7 +162,11 @@ fn test_comb_zero_feedback() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Comb with zero feedback should work, RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Comb with zero feedback should work, RMS: {}",
+        rms
+    );
     println!("Zero feedback comb RMS: {}", rms);
 }
 
@@ -175,7 +181,11 @@ fn test_comb_high_feedback() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Comb with high feedback should work, RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Comb with high feedback should work, RMS: {}",
+        rms
+    );
     println!("High feedback comb RMS: {}", rms);
 }
 
@@ -190,7 +200,11 @@ fn test_comb_negative_feedback() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Comb with negative feedback should work, RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Comb with negative feedback should work, RMS: {}",
+        rms
+    );
     println!("Negative feedback comb RMS: {}", rms);
 }
 
@@ -207,9 +221,11 @@ fn test_comb_pattern_delay() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "Comb with pattern-modulated delay should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Comb pattern delay RMS: {}", rms);
 }
@@ -225,9 +241,11 @@ fn test_comb_pattern_feedback() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "Comb with pattern-modulated feedback should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Comb pattern feedback RMS: {}", rms);
 }
@@ -245,9 +263,11 @@ fn test_comb_no_clipping() {
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
     // High feedback (0.95) can cause resonance buildup
-    assert!(max_amplitude <= 10.0,
+    assert!(
+        max_amplitude <= 10.0,
         "Comb should not excessively clip, max: {}",
-        max_amplitude);
+        max_amplitude
+    );
 
     println!("Comb high feedback peak: {}", max_amplitude);
 }
@@ -262,7 +282,11 @@ fn test_comb_no_dc_offset() {
     let buffer = render_dsl(code, 2.0);
     let mean: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
 
-    assert!(mean.abs() < 0.02, "Comb should have no DC offset, got {}", mean);
+    assert!(
+        mean.abs() < 0.02,
+        "Comb should have no DC offset, got {}",
+        mean
+    );
     println!("Comb DC offset: {}", mean);
 }
 
@@ -363,7 +387,11 @@ fn test_comb_very_short_delay() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Comb with very short delay should work, RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Comb with very short delay should work, RMS: {}",
+        rms
+    );
     println!("Very short delay comb RMS: {}", rms);
 }
 
@@ -378,6 +406,10 @@ fn test_comb_maximum_delay() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Comb with maximum delay should work, RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Comb with maximum delay should work, RMS: {}",
+        rms
+    );
     println!("Maximum delay comb RMS: {}", rms);
 }

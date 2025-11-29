@@ -2,8 +2,8 @@
 // This file contains stub metadata for functions that don't yet have hand-written metadata.
 // These stubs will be merged with the hand-written metadata in function_metadata.rs
 
-use std::collections::HashMap;
 use super::function_metadata::{FunctionMetadata, ParamMetadata};
+use std::collections::HashMap;
 
 lazy_static::lazy_static! {
     /// Auto-generated stub metadata for functions missing hand-written metadata

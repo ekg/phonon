@@ -2,7 +2,6 @@
 ///
 /// This module defines the AudioNode trait, which replaces sample-by-sample
 /// SignalNode evaluation with efficient block-based buffer passing.
-
 use crate::pattern::Fraction;
 use std::collections::HashMap;
 
@@ -153,7 +152,7 @@ mod tests {
             Fraction::from_float(0.0),
             0,
             512,
-            2.0,  // 2 cycles per second
+            2.0, // 2 cycles per second
             44100.0,
         );
 
@@ -163,7 +162,7 @@ mod tests {
 
         // At offset 256 (half block), should advance by fraction of cycle
         let pos_256 = ctx.cycle_position_at_offset(256);
-        let expected = 256.0 / (44100.0 / 2.0);  // samples / samples_per_cycle
+        let expected = 256.0 / (44100.0 / 2.0); // samples / samples_per_cycle
         assert!((pos_256.to_float() - expected).abs() < 0.0001);
     }
 }

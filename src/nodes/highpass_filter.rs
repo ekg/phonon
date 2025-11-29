@@ -3,7 +3,6 @@
 /// This node implements a resonant highpass filter using the `biquad` crate.
 /// The filter attenuates frequencies below the cutoff and passes higher frequencies.
 /// The Q parameter controls resonance at the cutoff frequency.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz};
 
@@ -124,11 +123,7 @@ impl AudioNode for HighPassFilterNode {
             output.len(),
             "Cutoff buffer length mismatch"
         );
-        debug_assert_eq!(
-            q_buffer.len(),
-            output.len(),
-            "Q buffer length mismatch"
-        );
+        debug_assert_eq!(q_buffer.len(), output.len(), "Q buffer length mismatch");
 
         for i in 0..output.len() {
             let cutoff = cutoff_buffer[i].max(20.0).min(20000.0); // Clamp to valid range
@@ -187,13 +182,7 @@ mod tests {
         let mut const_q = ConstantNode::new(1.0);
         let mut hpf = HighPassFilterNode::new(1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Generate buffers
         let mut freq_buf = vec![0.0; 512];
@@ -211,7 +200,11 @@ mod tests {
         osc.process_block(&osc_inputs, &mut unfiltered, 44100.0, &context);
 
         // Get filtered signal
-        let hpf_inputs = vec![unfiltered.as_slice(), cutoff_buf.as_slice(), q_buf.as_slice()];
+        let hpf_inputs = vec![
+            unfiltered.as_slice(),
+            cutoff_buf.as_slice(),
+            q_buf.as_slice(),
+        ];
         hpf.process_block(&hpf_inputs, &mut filtered, 44100.0, &context);
 
         let unfiltered_rms = calculate_rms(&unfiltered);
@@ -237,13 +230,7 @@ mod tests {
         let mut const_q = ConstantNode::new(1.0);
         let mut hpf = HighPassFilterNode::new(1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Generate buffers
         let mut freq_buf = vec![0.0; 512];
@@ -261,7 +248,11 @@ mod tests {
         osc.process_block(&osc_inputs, &mut unfiltered, 44100.0, &context);
 
         // Get filtered signal
-        let hpf_inputs = vec![unfiltered.as_slice(), cutoff_buf.as_slice(), q_buf.as_slice()];
+        let hpf_inputs = vec![
+            unfiltered.as_slice(),
+            cutoff_buf.as_slice(),
+            q_buf.as_slice(),
+        ];
         hpf.process_block(&hpf_inputs, &mut filtered, 44100.0, &context);
 
         let unfiltered_rms = calculate_rms(&unfiltered);
@@ -286,13 +277,7 @@ mod tests {
         let mut const_q = ConstantNode::new(1.0);
         let mut hpf = HighPassFilterNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Generate cutoff and Q buffers
         let mut cutoff_buf = vec![0.0; 512];
@@ -303,7 +288,11 @@ mod tests {
         const_q.process_block(&[], &mut q_buf, 44100.0, &context);
 
         // Filter DC signal
-        let hpf_inputs = vec![dc_buffer.as_slice(), cutoff_buf.as_slice(), q_buf.as_slice()];
+        let hpf_inputs = vec![
+            dc_buffer.as_slice(),
+            cutoff_buf.as_slice(),
+            q_buf.as_slice(),
+        ];
         hpf.process_block(&hpf_inputs, &mut filtered, 44100.0, &context);
 
         // DC should be heavily attenuated compared to input
@@ -339,13 +328,7 @@ mod tests {
         let mut const_q = ConstantNode::new(1.0);
         let mut hpf = HighPassFilterNode::new(1, 2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // First pass
         let mut freq_buf = vec![0.0; 512];
@@ -402,15 +385,13 @@ mod tests {
         let q_buf = vec![1.0; 512];
         let mut output = vec![0.0; 512];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
-        let inputs = vec![dc_buffer.as_slice(), cutoff_buf.as_slice(), q_buf.as_slice()];
+        let inputs = vec![
+            dc_buffer.as_slice(),
+            cutoff_buf.as_slice(),
+            q_buf.as_slice(),
+        ];
         hpf.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Should produce valid output

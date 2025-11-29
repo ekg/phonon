@@ -25,7 +25,6 @@
 /// - 12 dB/octave rolloff on both sides (2-pole)
 /// - Neutral position allows clean mixing
 /// - Perfect for live DJ performance and mixing
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz};
 
@@ -160,21 +159,13 @@ impl DJFilterNode {
         let q = Self::resonance_to_q(self.last_resonance);
         let (lp_freq, hp_freq, _, _) = Self::calculate_filter_params(self.last_position);
 
-        let lp_coeffs = Coefficients::<f32>::from_params(
-            biquad::Type::LowPass,
-            44100.0.hz(),
-            lp_freq.hz(),
-            q,
-        )
-        .unwrap();
+        let lp_coeffs =
+            Coefficients::<f32>::from_params(biquad::Type::LowPass, 44100.0.hz(), lp_freq.hz(), q)
+                .unwrap();
 
-        let hp_coeffs = Coefficients::<f32>::from_params(
-            biquad::Type::HighPass,
-            44100.0.hz(),
-            hp_freq.hz(),
-            q,
-        )
-        .unwrap();
+        let hp_coeffs =
+            Coefficients::<f32>::from_params(biquad::Type::HighPass, 44100.0.hz(), hp_freq.hz(), q)
+                .unwrap();
 
         self.lowpass = DirectForm2Transposed::<f32>::new(lp_coeffs);
         self.highpass = DirectForm2Transposed::<f32>::new(hp_coeffs);
@@ -320,7 +311,12 @@ mod tests {
         let mut res_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         position.process_block(&[], &mut pos_buf, sample_rate, &context);
         res.process_block(&[], &mut res_buf, sample_rate, &context);
 
@@ -373,7 +369,12 @@ mod tests {
         let mut res_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         position.process_block(&[], &mut pos_buf, sample_rate, &context);
         res.process_block(&[], &mut res_buf, sample_rate, &context);
 
@@ -426,7 +427,12 @@ mod tests {
         let mut res_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         position.process_block(&[], &mut pos_buf, sample_rate, &context);
         res.process_block(&[], &mut res_buf, sample_rate, &context);
 
@@ -473,7 +479,12 @@ mod tests {
         let mut res_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         res.process_block(&[], &mut res_buf, sample_rate, &context);
 
         // Test sweep from -1.0 to +1.0
@@ -533,7 +544,12 @@ mod tests {
         let mut pos_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         position.process_block(&[], &mut pos_buf, sample_rate, &context);
 
         // Test with low resonance
@@ -601,7 +617,12 @@ mod tests {
         let mut res_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         res.process_block(&[], &mut res_buf, sample_rate, &context);
 
         // Sweep through many positions
@@ -662,7 +683,12 @@ mod tests {
         let mut signal_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
 
         // Modulate position and resonance
         let mut pos_buf = vec![0.0; block_size];
@@ -696,7 +722,11 @@ mod tests {
         }
 
         let rms = calculate_rms(&output);
-        assert!(rms > 0.01, "Modulated filter should produce output: {}", rms);
+        assert!(
+            rms > 0.01,
+            "Modulated filter should produce output: {}",
+            rms
+        );
     }
 
     // ========================================================================
@@ -719,7 +749,12 @@ mod tests {
         let mut res_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         res.process_block(&[], &mut res_buf, sample_rate, &context);
 
         // Test at lowpass extreme with high resonance
@@ -865,7 +900,12 @@ mod tests {
         let mut res_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         res.process_block(&[], &mut res_buf, sample_rate, &context);
 
         // Test various out-of-range positions
@@ -926,7 +966,12 @@ mod tests {
         let mut pos_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         position.process_block(&[], &mut pos_buf, sample_rate, &context);
 
         // Test out-of-range resonance values
@@ -985,7 +1030,12 @@ mod tests {
         let mut signal_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
 
         // Create two filters with different settings
         let mut pos1 = ConstantNode::new(-0.8);

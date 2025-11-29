@@ -3,10 +3,9 @@
 /// Generates random values in the range [-amplitude, amplitude] using a
 /// deterministic random number generator. White noise has equal energy
 /// across all frequencies.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 /// White noise node: generates random values scaled by amplitude
 ///
@@ -115,20 +114,17 @@ mod tests {
         let inputs = vec![amplitude.as_slice()];
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         noise.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Every sample should be in [-0.5, 0.5]
         for sample in &output {
-            assert!(*sample >= -0.5 && *sample <= 0.5,
-                "Sample {} out of range [-0.5, 0.5]", sample);
+            assert!(
+                *sample >= -0.5 && *sample <= 0.5,
+                "Sample {} out of range [-0.5, 0.5]",
+                sample
+            );
         }
     }
 
@@ -137,17 +133,11 @@ mod tests {
         // White noise should average to approximately zero
         let mut noise = NoiseNode::new_with_seed(0, 42);
 
-        let amplitude = vec![1.0; 44100];  // 1 second at 44.1kHz
+        let amplitude = vec![1.0; 44100]; // 1 second at 44.1kHz
         let inputs = vec![amplitude.as_slice()];
 
         let mut output = vec![0.0; 44100];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            44100,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 44100, 2.0, 44100.0);
 
         noise.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -156,8 +146,11 @@ mod tests {
         let mean = sum / output.len() as f32;
 
         // Mean should be close to zero (within 0.05 for white noise)
-        assert!(mean.abs() < 0.05,
-            "Mean {} not close to zero (white noise should have zero mean)", mean);
+        assert!(
+            mean.abs() < 0.05,
+            "Mean {} not close to zero (white noise should have zero mean)",
+            mean
+        );
     }
 
     #[test]
@@ -169,13 +162,7 @@ mod tests {
         let inputs = vec![amplitude.as_slice()];
 
         let mut output = vec![0.0; 100];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            100,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 100, 2.0, 44100.0);
 
         noise.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -204,21 +191,24 @@ mod tests {
         let inputs = vec![amplitude.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         noise.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Check ranges based on amplitude
-        assert_eq!(output[0], 0.0);  // Zero amplitude = silence
-        assert!(output[1].abs() <= 0.25, "Sample with 0.25 amplitude out of range");
-        assert!(output[2].abs() <= 0.5, "Sample with 0.5 amplitude out of range");
-        assert!(output[3].abs() <= 1.0, "Sample with 1.0 amplitude out of range");
+        assert_eq!(output[0], 0.0); // Zero amplitude = silence
+        assert!(
+            output[1].abs() <= 0.25,
+            "Sample with 0.25 amplitude out of range"
+        );
+        assert!(
+            output[2].abs() <= 0.5,
+            "Sample with 0.5 amplitude out of range"
+        );
+        assert!(
+            output[3].abs() <= 1.0,
+            "Sample with 1.0 amplitude out of range"
+        );
     }
 
     #[test]
@@ -232,21 +222,17 @@ mod tests {
 
         let mut output1 = vec![0.0; 100];
         let mut output2 = vec![0.0; 100];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            100,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 100, 2.0, 44100.0);
 
         noise1.process_block(&inputs, &mut output1, 44100.0, &context);
         noise2.process_block(&inputs, &mut output2, 44100.0, &context);
 
         // Outputs should be identical
         for i in 0..100 {
-            assert_eq!(output1[i], output2[i],
-                "Deterministic noise with same seed should produce identical output");
+            assert_eq!(
+                output1[i], output2[i],
+                "Deterministic noise with same seed should produce identical output"
+            );
         }
     }
 
@@ -261,13 +247,7 @@ mod tests {
 
         let mut output1 = vec![0.0; 100];
         let mut output2 = vec![0.0; 100];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            100,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 100, 2.0, 44100.0);
 
         noise1.process_block(&inputs, &mut output1, 44100.0, &context);
         noise2.process_block(&inputs, &mut output2, 44100.0, &context);
@@ -283,13 +263,7 @@ mod tests {
         let mut amplitude_node = ConstantNode::new(0.3);
         let mut noise = NoiseNode::new_with_seed(0, 42);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process amplitude constant
         let mut amplitude_buf = vec![0.0; 512];
@@ -303,8 +277,11 @@ mod tests {
 
         // Every sample should be in range [-0.3, 0.3]
         for sample in &output {
-            assert!(*sample >= -0.3 && *sample <= 0.3,
-                "Sample {} out of range [-0.3, 0.3]", sample);
+            assert!(
+                *sample >= -0.3 && *sample <= 0.3,
+                "Sample {} out of range [-0.3, 0.3]",
+                sample
+            );
         }
 
         // Should not all be the same value
@@ -321,14 +298,8 @@ mod tests {
         let amplitude = vec![0.0; 100];
         let inputs = vec![amplitude.as_slice()];
 
-        let mut output = vec![999.0; 100];  // Initialize with non-zero
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            100,
-            2.0,
-            44100.0,
-        );
+        let mut output = vec![999.0; 100]; // Initialize with non-zero
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 100, 2.0, 44100.0);
 
         noise.process_block(&inputs, &mut output, 44100.0, &context);
 

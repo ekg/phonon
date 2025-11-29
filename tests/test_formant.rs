@@ -130,11 +130,13 @@ out $ formant ~source 730 1090 2440 200 300 400
 "#;
 
     let (_, statements_narrow) = parse_program(code_narrow).expect("Failed to parse");
-    let mut graph_narrow = compile_program(statements_narrow, 44100.0, None).expect("Failed to compile");
+    let mut graph_narrow =
+        compile_program(statements_narrow, 44100.0, None).expect("Failed to compile");
     let buffer_narrow = graph_narrow.render(44100);
 
     let (_, statements_wide) = parse_program(code_wide).expect("Failed to parse");
-    let mut graph_wide = compile_program(statements_wide, 44100.0, None).expect("Failed to compile");
+    let mut graph_wide =
+        compile_program(statements_wide, 44100.0, None).expect("Failed to compile");
     let buffer_wide = graph_wide.render(44100);
 
     let rms_narrow = calculate_rms(&buffer_narrow);

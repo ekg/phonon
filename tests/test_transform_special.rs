@@ -567,8 +567,14 @@ fn test_focus_is_alias_for_zoom() {
         controls: HashMap::new(),
     };
 
-    let focused = pattern.clone().focus(Pattern::pure(0.25), Pattern::pure(0.75)).query(&state);
-    let zoomed = pattern.clone().zoom(Pattern::pure(0.25), Pattern::pure(0.75)).query(&state);
+    let focused = pattern
+        .clone()
+        .focus(Pattern::pure(0.25), Pattern::pure(0.75))
+        .query(&state);
+    let zoomed = pattern
+        .clone()
+        .zoom(Pattern::pure(0.25), Pattern::pure(0.75))
+        .query(&state);
 
     assert_eq!(
         focused.len(),
@@ -588,8 +594,14 @@ fn test_trim_is_alias_for_zoom() {
         controls: HashMap::new(),
     };
 
-    let trimmed = pattern.clone().trim(Pattern::pure(0.0), Pattern::pure(0.5)).query(&state);
-    let zoomed = pattern.clone().zoom(Pattern::pure(0.0), Pattern::pure(0.5)).query(&state);
+    let trimmed = pattern
+        .clone()
+        .trim(Pattern::pure(0.0), Pattern::pure(0.5))
+        .query(&state);
+    let zoomed = pattern
+        .clone()
+        .zoom(Pattern::pure(0.0), Pattern::pure(0.5))
+        .query(&state);
 
     assert_eq!(trimmed.len(), zoomed.len(), "trim should be alias for zoom");
 
@@ -626,7 +638,10 @@ fn test_humanize_is_alias_for_shuffle() {
         controls: HashMap::new(),
     };
 
-    let humanized = pattern.clone().humanize(Pattern::pure(0.1), Pattern::pure(0.0)).query(&state);
+    let humanized = pattern
+        .clone()
+        .humanize(Pattern::pure(0.1), Pattern::pure(0.0))
+        .query(&state);
     let shuffled = pattern.clone().shuffle(Pattern::pure(0.1)).query(&state);
 
     // Both should have same event count (just different timing)

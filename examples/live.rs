@@ -3,10 +3,10 @@
 //! Run with: cargo run --example live
 //! Then modify this file and recompile to hear changes
 
-use std::cell::RefCell;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
+use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

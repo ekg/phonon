@@ -18,7 +18,6 @@
 /// let quantized = ScaleQuantizeNode::major(lfo_id, root_id);
 /// // Output will only contain frequencies from C major scale
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::sync::Arc;
 
@@ -366,14 +365,14 @@ mod tests {
         let c5 = 523.25;
 
         let input = vec![
-            c4 + 10.0,  // Should snap to C4
-            d4 - 5.0,   // Should snap to D4
-            e4 + 3.0,   // Should snap to E4
-            f4 - 2.0,   // Should snap to F4
-            g4 + 8.0,   // Should snap to G4
-            a4 - 4.0,   // Should snap to A4
-            b4 + 6.0,   // Should snap to B4
-            c5 + 1.0,   // Should snap to C5
+            c4 + 10.0, // Should snap to C4
+            d4 - 5.0,  // Should snap to D4
+            e4 + 3.0,  // Should snap to E4
+            f4 - 2.0,  // Should snap to F4
+            g4 + 8.0,  // Should snap to G4
+            a4 - 4.0,  // Should snap to A4
+            b4 + 6.0,  // Should snap to B4
+            c5 + 1.0,  // Should snap to C5
         ];
 
         let inputs = vec![input.as_slice(), root.as_slice()];
@@ -384,14 +383,46 @@ mod tests {
 
         // Verify each frequency is quantized to major scale
         // Allow 0.5 Hz tolerance for floating point errors
-        assert!((output[0] - c4).abs() < 0.5, "Expected C4, got {}", output[0]);
-        assert!((output[1] - d4).abs() < 0.5, "Expected D4, got {}", output[1]);
-        assert!((output[2] - e4).abs() < 0.5, "Expected E4, got {}", output[2]);
-        assert!((output[3] - f4).abs() < 0.5, "Expected F4, got {}", output[3]);
-        assert!((output[4] - g4).abs() < 0.5, "Expected G4, got {}", output[4]);
-        assert!((output[5] - a4).abs() < 0.5, "Expected A4, got {}", output[5]);
-        assert!((output[6] - b4).abs() < 0.5, "Expected B4, got {}", output[6]);
-        assert!((output[7] - c5).abs() < 0.5, "Expected C5, got {}", output[7]);
+        assert!(
+            (output[0] - c4).abs() < 0.5,
+            "Expected C4, got {}",
+            output[0]
+        );
+        assert!(
+            (output[1] - d4).abs() < 0.5,
+            "Expected D4, got {}",
+            output[1]
+        );
+        assert!(
+            (output[2] - e4).abs() < 0.5,
+            "Expected E4, got {}",
+            output[2]
+        );
+        assert!(
+            (output[3] - f4).abs() < 0.5,
+            "Expected F4, got {}",
+            output[3]
+        );
+        assert!(
+            (output[4] - g4).abs() < 0.5,
+            "Expected G4, got {}",
+            output[4]
+        );
+        assert!(
+            (output[5] - a4).abs() < 0.5,
+            "Expected A4, got {}",
+            output[5]
+        );
+        assert!(
+            (output[6] - b4).abs() < 0.5,
+            "Expected B4, got {}",
+            output[6]
+        );
+        assert!(
+            (output[7] - c5).abs() < 0.5,
+            "Expected C5, got {}",
+            output[7]
+        );
     }
 
     #[test]
@@ -405,12 +436,12 @@ mod tests {
 
         // A minor scale: A B C D E F G
         // Semitones: 0, 2, 3, 5, 7, 8, 10
-        let b4 = a4 * 2.0_f32.powf(2.0 / 12.0);   // +2 semitones
-        let c5 = a4 * 2.0_f32.powf(3.0 / 12.0);   // +3 semitones
-        let d5 = a4 * 2.0_f32.powf(5.0 / 12.0);   // +5 semitones
-        let e5 = a4 * 2.0_f32.powf(7.0 / 12.0);   // +7 semitones
-        let f5 = a4 * 2.0_f32.powf(8.0 / 12.0);   // +8 semitones
-        let g5 = a4 * 2.0_f32.powf(10.0 / 12.0);  // +10 semitones
+        let b4 = a4 * 2.0_f32.powf(2.0 / 12.0); // +2 semitones
+        let c5 = a4 * 2.0_f32.powf(3.0 / 12.0); // +3 semitones
+        let d5 = a4 * 2.0_f32.powf(5.0 / 12.0); // +5 semitones
+        let e5 = a4 * 2.0_f32.powf(7.0 / 12.0); // +7 semitones
+        let f5 = a4 * 2.0_f32.powf(8.0 / 12.0); // +8 semitones
+        let g5 = a4 * 2.0_f32.powf(10.0 / 12.0); // +10 semitones
 
         let input = vec![
             a4 + 2.0,
@@ -476,7 +507,7 @@ mod tests {
 
         // Test frequencies between semitones
         let input = vec![
-            c4 + 5.0,   // ~0.3 semitones above C4, should snap to C4
+            c4 + 5.0,                       // ~0.3 semitones above C4, should snap to C4
             c4 * 2.0_f32.powf(1.3 / 12.0),  // 1.3 semitones, should snap to 1 semitone (C#4)
             c4 * 2.0_f32.powf(2.6 / 12.0),  // 2.6 semitones, should snap to 3 semitones (D#4)
             c4 * 2.0_f32.powf(11.7 / 12.0), // 11.7 semitones, should snap to 12 semitones (C5)
@@ -490,10 +521,10 @@ mod tests {
 
         // Verify chromatic quantization
         let expected = vec![
-            c4,                                 // 0 semitones
-            c4 * 2.0_f32.powf(1.0 / 12.0),     // 1 semitone (C#4)
-            c4 * 2.0_f32.powf(3.0 / 12.0),     // 3 semitones (D#4)
-            c4 * 2.0_f32.powf(12.0 / 12.0),    // 12 semitones (C5)
+            c4,                             // 0 semitones
+            c4 * 2.0_f32.powf(1.0 / 12.0),  // 1 semitone (C#4)
+            c4 * 2.0_f32.powf(3.0 / 12.0),  // 3 semitones (D#4)
+            c4 * 2.0_f32.powf(12.0 / 12.0), // 12 semitones (C5)
         ];
 
         for i in 0..4 {
@@ -513,9 +544,9 @@ mod tests {
         let mut quantizer = ScaleQuantizeNode::major(0, 1);
 
         let c4 = 261.63;
-        let c3 = c4 / 2.0;  // One octave below
-        let c5 = c4 * 2.0;  // One octave above
-        let c6 = c4 * 4.0;  // Two octaves above
+        let c3 = c4 / 2.0; // One octave below
+        let c5 = c4 * 2.0; // One octave above
+        let c6 = c4 * 4.0; // Two octaves above
 
         let root = vec![c4; 4];
         let input = vec![c3 + 2.0, c4 + 3.0, c5 + 4.0, c6 + 5.0];
@@ -543,12 +574,12 @@ mod tests {
 
         // Whole-tone scale: C D E F# G# A# (semitones: 0, 2, 4, 6, 8, 10)
         let expected = vec![
-            c4,                                // 0 semitones
-            c4 * 2.0_f32.powf(2.0 / 12.0),    // 2 semitones
-            c4 * 2.0_f32.powf(4.0 / 12.0),    // 4 semitones
-            c4 * 2.0_f32.powf(6.0 / 12.0),    // 6 semitones
-            c4 * 2.0_f32.powf(8.0 / 12.0),    // 8 semitones
-            c4 * 2.0_f32.powf(10.0 / 12.0),   // 10 semitones
+            c4,                             // 0 semitones
+            c4 * 2.0_f32.powf(2.0 / 12.0),  // 2 semitones
+            c4 * 2.0_f32.powf(4.0 / 12.0),  // 4 semitones
+            c4 * 2.0_f32.powf(6.0 / 12.0),  // 6 semitones
+            c4 * 2.0_f32.powf(8.0 / 12.0),  // 8 semitones
+            c4 * 2.0_f32.powf(10.0 / 12.0), // 10 semitones
         ];
 
         let input = vec![
@@ -645,11 +676,11 @@ mod tests {
         let root = vec![a4; 7];
 
         // A major scale frequencies (calculated precisely)
-        let b4 = a4 * 2.0_f32.powf(2.0 / 12.0);   // 493.88 Hz
-        let cs5 = a4 * 2.0_f32.powf(4.0 / 12.0);  // 554.37 Hz (C#5)
-        let d5 = a4 * 2.0_f32.powf(5.0 / 12.0);   // 587.33 Hz
-        let e5 = a4 * 2.0_f32.powf(7.0 / 12.0);   // 659.26 Hz
-        let fs5 = a4 * 2.0_f32.powf(9.0 / 12.0);  // 739.99 Hz (F#5)
+        let b4 = a4 * 2.0_f32.powf(2.0 / 12.0); // 493.88 Hz
+        let cs5 = a4 * 2.0_f32.powf(4.0 / 12.0); // 554.37 Hz (C#5)
+        let d5 = a4 * 2.0_f32.powf(5.0 / 12.0); // 587.33 Hz
+        let e5 = a4 * 2.0_f32.powf(7.0 / 12.0); // 659.26 Hz
+        let fs5 = a4 * 2.0_f32.powf(9.0 / 12.0); // 739.99 Hz (F#5)
         let gs5 = a4 * 2.0_f32.powf(11.0 / 12.0); // 830.61 Hz (G#5)
 
         let input = vec![a4, b4, cs5, d5, e5, fs5, gs5];
@@ -679,12 +710,12 @@ mod tests {
 
         // C blues scale: C Eb F F# G Bb (semitones: 0, 3, 5, 6, 7, 10)
         let expected = vec![
-            c4,                                // 0 semitones
-            c4 * 2.0_f32.powf(3.0 / 12.0),    // 3 semitones (Eb)
-            c4 * 2.0_f32.powf(5.0 / 12.0),    // 5 semitones (F)
-            c4 * 2.0_f32.powf(6.0 / 12.0),    // 6 semitones (F#)
-            c4 * 2.0_f32.powf(7.0 / 12.0),    // 7 semitones (G)
-            c4 * 2.0_f32.powf(10.0 / 12.0),   // 10 semitones (Bb)
+            c4,                             // 0 semitones
+            c4 * 2.0_f32.powf(3.0 / 12.0),  // 3 semitones (Eb)
+            c4 * 2.0_f32.powf(5.0 / 12.0),  // 5 semitones (F)
+            c4 * 2.0_f32.powf(6.0 / 12.0),  // 6 semitones (F#)
+            c4 * 2.0_f32.powf(7.0 / 12.0),  // 7 semitones (G)
+            c4 * 2.0_f32.powf(10.0 / 12.0), // 10 semitones (Bb)
         ];
 
         let input = vec![
@@ -723,13 +754,13 @@ mod tests {
 
         // A harmonic minor: A B C D E F G# (semitones: 0, 2, 3, 5, 7, 8, 11)
         let expected = vec![
-            a4,                                // 0 semitones
-            a4 * 2.0_f32.powf(2.0 / 12.0),    // 2 semitones (B)
-            a4 * 2.0_f32.powf(3.0 / 12.0),    // 3 semitones (C)
-            a4 * 2.0_f32.powf(5.0 / 12.0),    // 5 semitones (D)
-            a4 * 2.0_f32.powf(7.0 / 12.0),    // 7 semitones (E)
-            a4 * 2.0_f32.powf(8.0 / 12.0),    // 8 semitones (F)
-            a4 * 2.0_f32.powf(11.0 / 12.0),   // 11 semitones (G#)
+            a4,                             // 0 semitones
+            a4 * 2.0_f32.powf(2.0 / 12.0),  // 2 semitones (B)
+            a4 * 2.0_f32.powf(3.0 / 12.0),  // 3 semitones (C)
+            a4 * 2.0_f32.powf(5.0 / 12.0),  // 5 semitones (D)
+            a4 * 2.0_f32.powf(7.0 / 12.0),  // 7 semitones (E)
+            a4 * 2.0_f32.powf(8.0 / 12.0),  // 8 semitones (F)
+            a4 * 2.0_f32.powf(11.0 / 12.0), // 11 semitones (G#)
         ];
 
         let input = vec![
@@ -797,15 +828,15 @@ mod tests {
         let deps = quantizer.input_nodes();
 
         assert_eq!(deps.len(), 2);
-        assert_eq!(deps[0], 5);  // input
+        assert_eq!(deps[0], 5); // input
         assert_eq!(deps[1], 10); // root
     }
 
     #[test]
     fn test_with_constants() {
         // Integration test with ConstantNode
-        let mut const_input = ConstantNode::new(450.0);  // Slightly above A4 (440 Hz)
-        let mut const_root = ConstantNode::new(440.0);   // A4
+        let mut const_input = ConstantNode::new(450.0); // Slightly above A4 (440 Hz)
+        let mut const_root = ConstantNode::new(440.0); // A4
         let mut quantizer = ScaleQuantizeNode::major(0, 1);
 
         let context = create_context(512);
@@ -827,7 +858,12 @@ mod tests {
         // Should quantize to A4 (440 Hz) since it's closest
         let a4 = 440.0;
         for &sample in &output {
-            assert!((sample - a4).abs() < 1.0, "Expected ~{}, got {}", a4, sample);
+            assert!(
+                (sample - a4).abs() < 1.0,
+                "Expected ~{}, got {}",
+                a4,
+                sample
+            );
         }
     }
 
@@ -840,10 +876,10 @@ mod tests {
         let root = vec![c4; 4];
 
         let input = vec![
-            -100.0,           // Negative frequency
-            0.0,              // Zero frequency
-            f32::NAN,         // NaN
-            f32::INFINITY,    // Infinity
+            -100.0,        // Negative frequency
+            0.0,           // Zero frequency
+            f32::NAN,      // NaN
+            f32::INFINITY, // Infinity
         ];
 
         let inputs = vec![input.as_slice(), root.as_slice()];

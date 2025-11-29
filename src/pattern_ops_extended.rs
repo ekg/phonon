@@ -33,8 +33,16 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 controls: state.controls.clone(),
             };
 
-            let begin_val = begin.query(&param_state).first().map(|h| h.value).unwrap_or(0.0);
-            let end_val = end.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+            let begin_val = begin
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(0.0);
+            let end_val = end
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(1.0);
             let duration = end_val - begin_val;
 
             if duration <= 0.0 {
@@ -80,8 +88,12 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                         let w_cycle = w_begin.floor();
 
                         hap.whole = Some(TimeSpan::new(
-                            Fraction::from_float(w_cycle + (w_begin - w_cycle - begin_val) / duration),
-                            Fraction::from_float(w_cycle + (w_end - w_cycle - begin_val) / duration),
+                            Fraction::from_float(
+                                w_cycle + (w_begin - w_cycle - begin_val) / duration,
+                            ),
+                            Fraction::from_float(
+                                w_cycle + (w_end - w_cycle - begin_val) / duration,
+                            ),
                         ));
                     }
 
@@ -137,8 +149,16 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 controls: state.controls.clone(),
             };
 
-            let begin_val = begin.query(&param_state).first().map(|h| h.value).unwrap_or(0.0);
-            let end_val = end.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+            let begin_val = begin
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(0.0);
+            let end_val = end
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(1.0);
 
             let b = Fraction::from_float(begin_val);
             let e = Fraction::from_float(end_val);
@@ -188,11 +208,22 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 controls: state.controls.clone(),
             };
 
-            let begin_val = begin.query(&param_state).first().map(|h| h.value).unwrap_or(0.0);
-            let end_val = end.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+            let begin_val = begin
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(0.0);
+            let end_val = end
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(1.0);
 
             let duration = end_val - begin_val;
-            self.clone().fast(Pattern::pure(1.0 / duration)).late(Pattern::pure(begin_val)).query(state)
+            self.clone()
+                .fast(Pattern::pure(1.0 / duration))
+                .late(Pattern::pure(begin_val))
+                .query(state)
         })
     }
 
@@ -224,7 +255,10 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
                     // Add legato duration to context (in cycles) for sample playback
                     // This will be converted to release time in seconds at render time
-                    hap.context.insert("legato_duration".to_string(), new_duration.to_float().to_string());
+                    hap.context.insert(
+                        "legato_duration".to_string(),
+                        new_duration.to_float().to_string(),
+                    );
                     hap
                 })
                 .collect()
@@ -343,8 +377,16 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 controls: state.controls.clone(),
             };
 
-            let time_val = time.query(&param_state).first().map(|h| h.value).unwrap_or(0.25);
-            let feedback_val = feedback.query(&param_state).first().map(|h| h.value).unwrap_or(0.7);
+            let time_val = time
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(0.25);
+            let feedback_val = feedback
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(0.7);
 
             let patterns: Vec<Pattern<T>> = (0..times)
                 .map(|i| {
@@ -364,12 +406,15 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             for i in 0..n {
                 let slice_begin = i as f64 / n as f64;
                 let slice_end = (i + 1) as f64 / n as f64;
-                let sliced = self.clone().zoom(Pattern::pure(slice_begin), Pattern::pure(slice_end));
+                let sliced = self
+                    .clone()
+                    .zoom(Pattern::pure(slice_begin), Pattern::pure(slice_end));
                 let mut sliced_haps = sliced.query(state);
 
                 // Add begin/end to context for sample slicing
                 for hap in &mut sliced_haps {
-                    hap.context.insert("begin".to_string(), slice_begin.to_string());
+                    hap.context
+                        .insert("begin".to_string(), slice_begin.to_string());
                     hap.context.insert("end".to_string(), slice_end.to_string());
                 }
 
@@ -462,10 +507,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             let struct_haps = struct_pat.query(state);
 
             // Filter to only true triggers
-            let triggers: Vec<_> = struct_haps
-                .into_iter()
-                .filter(|hap| hap.value)
-                .collect();
+            let triggers: Vec<_> = struct_haps.into_iter().filter(|hap| hap.value).collect();
 
             if triggers.is_empty() {
                 return vec![];
@@ -598,7 +640,11 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 controls: state.controls.clone(),
             };
 
-            let at_val = at.query(&param_state).first().map(|h| h.value).unwrap_or(0.5);
+            let at_val = at
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(0.5);
 
             let cycle_pos = state.span.begin.to_float() - state.span.begin.to_float().floor();
             if cycle_pos < at_val {
@@ -679,7 +725,11 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                     ),
                     controls: state.controls.clone(),
                 };
-                let pan_left = -amount_clone.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+                let pan_left = -amount_clone
+                    .query(&param_state)
+                    .first()
+                    .map(|h| h.value)
+                    .unwrap_or(1.0);
 
                 let mut haps = pattern.query(state);
                 for hap in &mut haps {
@@ -703,7 +753,11 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                     ),
                     controls: state.controls.clone(),
                 };
-                let pan_right = amount_clone.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+                let pan_right = amount_clone
+                    .query(&param_state)
+                    .first()
+                    .map(|h| h.value)
+                    .unwrap_or(1.0);
 
                 let mut haps = pattern.query(state);
                 for hap in &mut haps {
@@ -743,8 +797,16 @@ impl Pattern<f64> {
                 controls: state.controls.clone(),
             };
 
-            let min_val = min.query(&param_state).first().map(|h| h.value).unwrap_or(0.0);
-            let max_val = max.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+            let min_val = min
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(0.0);
+            let max_val = max
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(1.0);
 
             let haps = self.query(state);
             haps.into_iter()
@@ -769,7 +831,11 @@ impl Pattern<f64> {
                 controls: state.controls.clone(),
             };
 
-            let steps_val = steps.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+            let steps_val = steps
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(1.0);
 
             let haps = self.query(state);
             haps.into_iter()
@@ -794,7 +860,11 @@ impl Pattern<f64> {
                 controls: state.controls.clone(),
             };
 
-            let amount_val = amount.query(&param_state).first().map(|h| h.value).unwrap_or(0.5);
+            let amount_val = amount
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(0.5);
 
             let haps = self.query(state);
             if haps.is_empty() {
@@ -824,7 +894,11 @@ impl Pattern<f64> {
                 controls: state.controls.clone(),
             };
 
-            let base_val = base.query(&param_state).first().map(|h| h.value).unwrap_or(2.0);
+            let base_val = base
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(2.0);
 
             let haps = self.query(state);
             haps.into_iter()
@@ -849,7 +923,11 @@ impl Pattern<f64> {
                 controls: state.controls.clone(),
             };
 
-            let base_val = base.query(&param_state).first().map(|h| h.value).unwrap_or(2.0);
+            let base_val = base
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(2.0);
 
             let haps = self.query(state);
             haps.into_iter()
@@ -944,7 +1022,11 @@ impl Pattern<f64> {
                 controls: state.controls.clone(),
             };
 
-            let step_size_val = step_size.query(&param_state).first().map(|h| h.value).unwrap_or(0.1);
+            let step_size_val = step_size
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(0.1);
 
             let haps = self.query(state);
             let cycle = state.span.begin.to_float().floor() as u64;
@@ -1091,7 +1173,11 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 controls: state.controls.clone(),
             };
 
-            let rate_val = rate.query(&param_state).first().map(|h| h.value).unwrap_or(0.0);
+            let rate_val = rate
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(0.0);
 
             let haps = self.query(state);
             haps.into_iter()
@@ -1163,7 +1249,11 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 ),
                 controls: state.controls.clone(),
             };
-            let cycles_val = cycles.query(&param_state).first().map(|h| h.value).unwrap_or(1.0);
+            let cycles_val = cycles
+                .query(&param_state)
+                .first()
+                .map(|h| h.value)
+                .unwrap_or(1.0);
             let speed_factor = 1.0 / cycles_val.max(0.001);
 
             slowed
@@ -1171,7 +1261,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 .into_iter()
                 .map(|mut hap| {
                     // Add speed control to context
-                    hap.context.insert("speed".to_string(), speed_factor.to_string());
+                    hap.context
+                        .insert("speed".to_string(), speed_factor.to_string());
                     hap
                 })
                 .collect()
@@ -1203,11 +1294,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             let duration_haps = duration_pattern.query(&point_state);
             let cycles = if let Some(first_hap) = duration_haps.first() {
                 // Parse the duration string to f64
-                first_hap
-                    .value
-                    .parse::<f64>()
-                    .unwrap_or(1.0)
-                    .max(0.001) // Minimum duration to avoid division by zero
+                first_hap.value.parse::<f64>().unwrap_or(1.0).max(0.001) // Minimum duration to avoid division by zero
             } else {
                 1.0 // Default to 1 cycle if no value
             };

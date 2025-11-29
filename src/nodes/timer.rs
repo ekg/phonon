@@ -28,14 +28,13 @@
 /// let timer = TimerNode::new(1);         // NodeId 2
 /// // Output: ramps from 0.0 to 1.0 every second
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Timer state for time tracking
 #[derive(Debug, Clone)]
 struct TimerState {
-    elapsed_time: f32,  // Current elapsed time in seconds
-    last_trigger: f32,  // Previous trigger value (for edge detection)
+    elapsed_time: f32, // Current elapsed time in seconds
+    last_trigger: f32, // Previous trigger value (for edge detection)
 }
 
 impl Default for TimerState {
@@ -267,10 +266,7 @@ mod tests {
         let dt = 1.0 / sample_rate;
 
         // After first pulse (index 0), timer resets
-        assert!(
-            output[0] < dt * 2.0,
-            "Timer should reset at first pulse"
-        );
+        assert!(output[0] < dt * 2.0, "Timer should reset at first pulse");
 
         // Before second pulse (index 128), timer should have counted up
         assert!(
@@ -413,11 +409,7 @@ mod tests {
 
         // Reset
         timer.reset();
-        assert_eq!(
-            timer.elapsed_time(),
-            0.0,
-            "Timer should be 0 after reset"
-        );
+        assert_eq!(timer.elapsed_time(), 0.0, "Timer should be 0 after reset");
         assert_eq!(
             timer.state.last_trigger, 0.0,
             "Last trigger should be 0 after reset"

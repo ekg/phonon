@@ -1,11 +1,10 @@
+use phonon::audio_node::AudioNode;
+use phonon::audio_node::ProcessContext;
 /// Test program to demonstrate QuantizeNode functionality
 ///
 /// This verifies the bit depth reduction works correctly
-
 use phonon::nodes::{ConstantNode, OscillatorNode, QuantizeNode, Waveform};
-use phonon::audio_node::AudioNode;
 use phonon::pattern::Fraction;
-use phonon::audio_node::ProcessContext;
 
 fn main() {
     println!("Testing QuantizeNode - Bit Depth Reduction");
@@ -13,13 +12,7 @@ fn main() {
 
     let sample_rate = 44100.0;
     let block_size = 128;
-    let context = ProcessContext::new(
-        Fraction::from_float(0.0),
-        0,
-        block_size,
-        2.0,
-        sample_rate,
-    );
+    let context = ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
     // Test 1: 8-bit quantization
     {
@@ -43,15 +36,16 @@ fn main() {
         quantize.process_block(&[&osc_buf, &bits_buf], &mut output, sample_rate, &context);
 
         // Count unique values
-        let mut unique: Vec<i32> = output.iter()
-            .map(|&v| (v * 1000.0) as i32)
-            .collect();
+        let mut unique: Vec<i32> = output.iter().map(|&v| (v * 1000.0) as i32).collect();
         unique.sort();
         unique.dedup();
 
         println!("  Unique quantization levels: {}", unique.len());
         println!("  First few samples: {:?}", &output[0..8]);
-        assert!(unique.len() >= 50 && unique.len() <= 256, "Should have roughly 256 levels");
+        assert!(
+            unique.len() >= 50 && unique.len() <= 256,
+            "Should have roughly 256 levels"
+        );
         println!("  ✓ PASSED\n");
     }
 
@@ -74,9 +68,7 @@ fn main() {
         bits.process_block(&[], &mut bits_buf, sample_rate, &context);
         quantize.process_block(&[&osc_buf, &bits_buf], &mut output, sample_rate, &context);
 
-        let mut unique: Vec<i32> = output.iter()
-            .map(|&v| (v * 100.0) as i32)
-            .collect();
+        let mut unique: Vec<i32> = output.iter().map(|&v| (v * 100.0) as i32).collect();
         unique.sort();
         unique.dedup();
 
@@ -106,7 +98,8 @@ fn main() {
         quantize.process_block(&[&osc_buf, &bits_buf], &mut output, sample_rate, &context);
 
         // Compare to original
-        let max_diff = osc_buf.iter()
+        let max_diff = osc_buf
+            .iter()
             .zip(output.iter())
             .map(|(a, b)| (a - b).abs())
             .fold(0.0f32, f32::max);

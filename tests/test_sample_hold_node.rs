@@ -5,10 +5,9 @@
 /// 2. Updates on each trigger crossing
 /// 3. Doesn't update without crossing
 /// 4. Dependencies are correctly tracked
-
 use phonon::audio_node::{AudioNode, ProcessContext};
-use phonon::nodes::sample_hold::SampleAndHoldNode;
 use phonon::nodes::constant::ConstantNode;
+use phonon::nodes::sample_hold::SampleAndHoldNode;
 use phonon::pattern::Fraction;
 
 fn create_context(block_size: usize) -> ProcessContext {
@@ -50,14 +49,14 @@ fn test_sample_hold_updates_on_each_trigger_crossing() {
 
     // Trigger has two zero crossings: at index 1 and index 5
     let trigger = vec![
-        -1.0,  // neg
-        0.5,   // CROSS - capture input[1] = 2.0
-        0.3,   // pos
-        -0.2,  // neg (no cross from pos to neg)
-        -0.5,  // neg
-        0.8,   // CROSS - capture input[5] = 6.0
-        0.6,   // pos
-        0.4,   // pos
+        -1.0, // neg
+        0.5,  // CROSS - capture input[1] = 2.0
+        0.3,  // pos
+        -0.2, // neg (no cross from pos to neg)
+        -0.5, // neg
+        0.8,  // CROSS - capture input[5] = 6.0
+        0.6,  // pos
+        0.4,  // pos
     ];
     let inputs = vec![input.as_slice(), trigger.as_slice()];
 
@@ -205,11 +204,11 @@ fn test_sample_hold_negative_input_values() {
 
     sample_hold.process_block(&inputs, &mut output, 44100.0, &context);
 
-    assert_eq!(output[0], 0.0);   // Initial
-    assert_eq!(output[1], -3.0);  // Captured negative value
-    assert_eq!(output[2], -3.0);  // Holding
-    assert_eq!(output[3], -3.0);  // Holding
-    assert_eq!(output[4], 4.0);   // Captured new value
+    assert_eq!(output[0], 0.0); // Initial
+    assert_eq!(output[1], -3.0); // Captured negative value
+    assert_eq!(output[2], -3.0); // Holding
+    assert_eq!(output[3], -3.0); // Holding
+    assert_eq!(output[4], 4.0); // Captured new value
 }
 
 #[test]
@@ -221,9 +220,7 @@ fn test_sample_hold_full_block_512() {
     let input: Vec<f32> = (0..512).map(|i| i as f32 * 0.01).collect();
 
     // Create trigger that crosses at sample 100
-    let trigger: Vec<f32> = (0..512)
-        .map(|i| if i < 100 { -0.5 } else { 0.5 })
-        .collect();
+    let trigger: Vec<f32> = (0..512).map(|i| if i < 100 { -0.5 } else { 0.5 }).collect();
 
     let inputs = vec![input.as_slice(), trigger.as_slice()];
     let mut output = vec![0.0; 512];

@@ -11,7 +11,6 @@
 /// This is NOT the same as phase inversion (InvertNode)!
 /// - NotNode: Boolean logic (true→false, false→true)
 /// - InvertNode: Audio phase inversion (multiply by -1)
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Logical NOT node: out = (input > threshold) ? 0.0 : 1.0
@@ -125,11 +124,7 @@ impl AudioNode for NotNode {
 
         let input_buf = inputs[0];
 
-        debug_assert_eq!(
-            input_buf.len(),
-            output.len(),
-            "Input length mismatch"
-        );
+        debug_assert_eq!(input_buf.len(), output.len(), "Input length mismatch");
 
         // Logical NOT: invert boolean value
         for i in 0..output.len() {
@@ -162,13 +157,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         not_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -188,13 +177,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         not_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -214,20 +197,14 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         not_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // 0.5 <= 0.5 (false) → 1.0
-        assert_eq!(output[1], 0.0);  // 0.50001 > 0.5 (true) → 0.0
-        assert_eq!(output[2], 1.0);  // 0.49999 <= 0.5 (false) → 1.0
-        assert_eq!(output[3], 0.0);  // 0.5000001 > 0.5 (true) → 0.0
+        assert_eq!(output[0], 1.0); // 0.5 <= 0.5 (false) → 1.0
+        assert_eq!(output[1], 0.0); // 0.50001 > 0.5 (true) → 0.0
+        assert_eq!(output[2], 1.0); // 0.49999 <= 0.5 (false) → 1.0
+        assert_eq!(output[3], 0.0); // 0.5000001 > 0.5 (true) → 0.0
     }
 
     #[test]
@@ -239,21 +216,15 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         not_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // 0.8 > 0.75 (true) → 0.0
-        assert_eq!(output[1], 1.0);  // 0.7 <= 0.75 (false) → 1.0
-        assert_eq!(output[2], 0.0);  // 0.9 > 0.75 (true) → 0.0
-        assert_eq!(output[3], 1.0);  // 0.75 <= 0.75 (false) → 1.0
-        assert_eq!(output[4], 0.0);  // 0.76 > 0.75 (true) → 0.0
+        assert_eq!(output[0], 0.0); // 0.8 > 0.75 (true) → 0.0
+        assert_eq!(output[1], 1.0); // 0.7 <= 0.75 (false) → 1.0
+        assert_eq!(output[2], 0.0); // 0.9 > 0.75 (true) → 0.0
+        assert_eq!(output[3], 1.0); // 0.75 <= 0.75 (false) → 1.0
+        assert_eq!(output[4], 0.0); // 0.76 > 0.75 (true) → 0.0
     }
 
     #[test]
@@ -270,13 +241,7 @@ mod tests {
 
         let inputs = vec![input.as_slice()];
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         not_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -293,13 +258,7 @@ mod tests {
         let mut const_false = ConstantNode::new(0.3);
         let mut not_node = NotNode::new(0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Test with true constant (0.8)
         let mut buf_true = vec![0.0; 512];
@@ -346,13 +305,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         not_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -373,13 +326,7 @@ mod tests {
         let inputs1 = vec![input.as_slice()];
 
         let mut buf1 = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         // First NOT
         not1.process_block(&inputs1, &mut buf1, 44100.0, &context);
@@ -417,23 +364,17 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 8];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            8,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 8, 2.0, 44100.0);
 
         not_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // 1.0 > 0.5 (true) → 0.0
-        assert_eq!(output[1], 1.0);  // 0.1 <= 0.5 (false) → 1.0
-        assert_eq!(output[2], 0.0);  // 0.9 > 0.5 (true) → 0.0
-        assert_eq!(output[3], 1.0);  // 0.0 <= 0.5 (false) → 1.0
-        assert_eq!(output[4], 1.0);  // 0.5 <= 0.5 (false) → 1.0
-        assert_eq!(output[5], 0.0);  // 0.6 > 0.5 (true) → 0.0
-        assert_eq!(output[6], 1.0);  // 0.49 <= 0.5 (false) → 1.0
-        assert_eq!(output[7], 0.0);  // 0.51 > 0.5 (true) → 0.0
+        assert_eq!(output[0], 0.0); // 1.0 > 0.5 (true) → 0.0
+        assert_eq!(output[1], 1.0); // 0.1 <= 0.5 (false) → 1.0
+        assert_eq!(output[2], 0.0); // 0.9 > 0.5 (true) → 0.0
+        assert_eq!(output[3], 1.0); // 0.0 <= 0.5 (false) → 1.0
+        assert_eq!(output[4], 1.0); // 0.5 <= 0.5 (false) → 1.0
+        assert_eq!(output[5], 0.0); // 0.6 > 0.5 (true) → 0.0
+        assert_eq!(output[6], 1.0); // 0.49 <= 0.5 (false) → 1.0
+        assert_eq!(output[7], 0.0); // 0.51 > 0.5 (true) → 0.0
     }
 }

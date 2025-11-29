@@ -4,7 +4,6 @@
 /// Output[i] = e^(Input[i]) for all samples.
 ///
 /// The clamping protection prevents f32 overflow (e^88 ≈ 3e38, approaching f32::MAX).
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Exponential node: out = e^input
@@ -52,18 +51,11 @@ impl AudioNode for ExpNode {
         _sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(
-            !inputs.is_empty(),
-            "ExpNode requires 1 input, got 0"
-        );
+        debug_assert!(!inputs.is_empty(), "ExpNode requires 1 input, got 0");
 
         let buf = inputs[0];
 
-        debug_assert_eq!(
-            buf.len(),
-            output.len(),
-            "Input length mismatch"
-        );
+        debug_assert_eq!(buf.len(), output.len(), "Input length mismatch");
 
         // Apply exp(clamp(x)) to each sample to prevent overflow
         // e^87 ≈ 6e37 (safe), e^88 ≈ 3e38 (near f32::MAX ≈ 3.4e38)
@@ -96,13 +88,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![99.9; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         exp_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -120,13 +106,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         exp_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -144,13 +124,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         exp_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -181,13 +155,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         exp_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -202,7 +170,10 @@ mod tests {
 
         // Ensure no infinity or NaN
         for sample in &output {
-            assert!(sample.is_finite(), "exp should not produce infinity or NaN with clamping");
+            assert!(
+                sample.is_finite(),
+                "exp should not produce infinity or NaN with clamping"
+            );
         }
     }
 
@@ -215,13 +186,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![999.9; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         exp_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -258,13 +223,7 @@ mod tests {
         let mut const_node = ConstantNode::new(2.0);
         let mut exp_node = ExpNode::new(0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constant first
         let mut buf = vec![0.0; 512];
@@ -290,13 +249,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         exp_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -328,13 +281,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 7];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            7,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 7, 2.0, 44100.0);
 
         exp_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -345,7 +292,10 @@ mod tests {
 
         // Should be monotonically increasing (since input is sorted)
         for i in 1..output.len() {
-            assert!(output[i] > output[i-1], "exp should be monotonically increasing");
+            assert!(
+                output[i] > output[i - 1],
+                "exp should be monotonically increasing"
+            );
         }
 
         // Ensure no NaN or infinity
@@ -364,26 +314,20 @@ mod tests {
         let inputs = vec![time_values.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         exp_node.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Should decay from 1.0 toward 0.0
-        assert!((output[0] - 1.0).abs() < 0.001);  // e^0 = 1.0
-        assert!(output[1] < output[0]);             // e^-1 < e^0
-        assert!(output[2] < output[1]);             // e^-2 < e^-1
-        assert!(output[3] < output[2]);             // Monotonic decay
+        assert!((output[0] - 1.0).abs() < 0.001); // e^0 = 1.0
+        assert!(output[1] < output[0]); // e^-1 < e^0
+        assert!(output[2] < output[1]); // e^-2 < e^-1
+        assert!(output[3] < output[2]); // Monotonic decay
         assert!(output[4] < output[3]);
         assert!(output[5] < output[4]);
 
         // Last value should be very small but not zero
         assert!(output[5] > 0.0);
-        assert!(output[5] < 0.01);  // e^-5 ≈ 0.0067
+        assert!(output[5] < 0.01); // e^-5 ≈ 0.0067
     }
 }

@@ -10,7 +10,6 @@
 /// - Harmonic detune: Frequency offset in cents per harmonic
 /// - Classic waveforms: Saw, square, triangle via harmonic series
 /// - Musical applications: Organ drawbars, bells, evolving pads
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -20,7 +19,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -36,7 +36,11 @@ fn test_additive_compiles() {
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
-    assert!(result.is_ok(), "Additive should compile: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Additive should compile: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -49,7 +53,11 @@ fn test_additive_generates_audio() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Additive should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Additive should produce audio, got RMS: {}",
+        rms
+    );
     println!("Additive RMS: {}", rms);
 }
 
@@ -66,7 +74,11 @@ fn test_additive_single_harmonic() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.15, "Single harmonic should produce strong signal, RMS: {}", rms);
+    assert!(
+        rms > 0.15,
+        "Single harmonic should produce strong signal, RMS: {}",
+        rms
+    );
     println!("Single harmonic RMS: {}", rms);
 }
 
@@ -94,7 +106,10 @@ fn test_additive_multiple_harmonics() {
     assert!(rms_many > 0.05, "Many harmonics RMS: {}", rms_many);
 
     // More harmonics typically more energy
-    println!("Few harmonics RMS: {}, Many harmonics RMS: {}", rms_few, rms_many);
+    println!(
+        "Few harmonics RMS: {}, Many harmonics RMS: {}",
+        rms_few, rms_many
+    );
 }
 
 // ========== Waveform Approximation Tests ==========
@@ -111,7 +126,11 @@ fn test_additive_sawtooth_approx() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Sawtooth approximation should work, RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Sawtooth approximation should work, RMS: {}",
+        rms
+    );
     println!("Sawtooth approximation RMS: {}", rms);
 }
 
@@ -140,10 +159,14 @@ fn test_additive_low_frequency() {
         out $ additive 55 8 * 0.3
     "#;
 
-    let buffer = render_dsl(code, 2.0);  // Longer duration for low freq
+    let buffer = render_dsl(code, 2.0); // Longer duration for low freq
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Low frequency additive should work, RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Low frequency additive should work, RMS: {}",
+        rms
+    );
     println!("Low frequency RMS: {}", rms);
 }
 
@@ -157,7 +180,11 @@ fn test_additive_high_frequency() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "High frequency additive should work, RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "High frequency additive should work, RMS: {}",
+        rms
+    );
     println!("High frequency RMS: {}", rms);
 }
 
@@ -174,9 +201,11 @@ fn test_additive_pattern_frequency() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "Additive with pattern-modulated frequency should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern frequency RMS: {}", rms);
 }
@@ -193,9 +222,11 @@ fn test_additive_pattern_harmonics() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "Additive with multiple harmonics should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern harmonics RMS: {}", rms);
 }
@@ -285,7 +316,11 @@ fn test_additive_excessive_harmonics_clamped() {
     let rms = calculate_rms(&buffer);
 
     // Should still work (clamped to 32)
-    assert!(rms > 0.05, "Excessive harmonics (clamped to 32) should work, RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Excessive harmonics (clamped to 32) should work, RMS: {}",
+        rms
+    );
     println!("Excessive harmonics (clamped) RMS: {}", rms);
 }
 
@@ -305,7 +340,11 @@ fn test_additive_nyquist_protection() {
 
     // Should not clip excessively
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-    assert!(max_amplitude <= 2.0, "Should not clip excessively: {}", max_amplitude);
+    assert!(
+        max_amplitude <= 2.0,
+        "Should not clip excessively: {}",
+        max_amplitude
+    );
 
     println!("Nyquist protection RMS: {}, max: {}", rms, max_amplitude);
 }
@@ -323,7 +362,12 @@ fn test_additive_no_nan() {
 
     for (i, &sample) in buffer.iter().enumerate() {
         assert!(!sample.is_nan(), "NaN detected at sample {}: {}", i, sample);
-        assert!(!sample.is_infinite(), "Infinite detected at sample {}: {}", i, sample);
+        assert!(
+            !sample.is_infinite(),
+            "Infinite detected at sample {}: {}",
+            i,
+            sample
+        );
     }
 }
 
@@ -337,7 +381,11 @@ fn test_additive_reasonable_amplitude() {
     let buffer = render_dsl(code, 1.0);
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
-    assert!(max_amplitude <= 2.0, "Amplitude should be reasonable: {}", max_amplitude);
+    assert!(
+        max_amplitude <= 2.0,
+        "Amplitude should be reasonable: {}",
+        max_amplitude
+    );
     println!("Max amplitude: {}", max_amplitude);
 }
 
@@ -351,9 +399,13 @@ fn test_additive_long_duration() {
         out $ additive 110 8 * 0.3
     "#;
 
-    let buffer = render_dsl(code, 5.0);  // 5 seconds
+    let buffer = render_dsl(code, 5.0); // 5 seconds
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Long duration additive should work, RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Long duration additive should work, RMS: {}",
+        rms
+    );
     println!("Long duration RMS: {}", rms);
 }

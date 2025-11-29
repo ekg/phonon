@@ -59,7 +59,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
                         // Map to the selector event's time span
                         let event_duration = selector_hap.part.duration().to_float();
-                        let new_begin = selector_hap.part.begin.to_float() + rel_begin * event_duration;
+                        let new_begin =
+                            selector_hap.part.begin.to_float() + rel_begin * event_duration;
                         let new_end = selector_hap.part.begin.to_float() + rel_end * event_duration;
 
                         event.part = TimeSpan::new(
@@ -68,11 +69,14 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                         );
 
                         if let Some(whole) = event.whole {
-                            let rel_whole_begin = (whole.begin.to_float() - query_begin) / segment_size;
+                            let rel_whole_begin =
+                                (whole.begin.to_float() - query_begin) / segment_size;
                             let rel_whole_end = (whole.end.to_float() - query_begin) / segment_size;
 
-                            let new_whole_begin = selector_hap.part.begin.to_float() + rel_whole_begin * event_duration;
-                            let new_whole_end = selector_hap.part.begin.to_float() + rel_whole_end * event_duration;
+                            let new_whole_begin = selector_hap.part.begin.to_float()
+                                + rel_whole_begin * event_duration;
+                            let new_whole_end =
+                                selector_hap.part.begin.to_float() + rel_whole_end * event_duration;
 
                             event.whole = Some(TimeSpan::new(
                                 Fraction::from_float(new_whole_begin),
@@ -274,7 +278,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             // If we're at position 0.25 in a factor=2 (compress_ratio=0.5),
             // we want to query position 0.5 in the original pattern
             let mapped_begin = cycle + (cycle_pos / compress_ratio);
-            let mapped_end = cycle + ((state.span.end.to_float() - cycle) / compress_ratio).min(1.0);
+            let mapped_end =
+                cycle + ((state.span.end.to_float() - cycle) / compress_ratio).min(1.0);
 
             let mapped_state = State {
                 span: TimeSpan::new(

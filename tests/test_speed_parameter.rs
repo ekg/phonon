@@ -1,14 +1,15 @@
-use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Pattern, State, TimeSpan, Fraction};
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
+use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 
 /// Render DSL code to audio buffer using compositional compiler
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -61,8 +62,16 @@ out $ s "bd"
     let rms = calculate_rms(&buffer);
     let peak = calculate_peak(&buffer);
 
-    assert!(rms > 0.01, "Normal speed should produce audible audio, got RMS={}", rms);
-    assert!(peak > 0.3, "Normal speed should have significant peak, got peak={}", peak);
+    assert!(
+        rms > 0.01,
+        "Normal speed should produce audible audio, got RMS={}",
+        rms
+    );
+    assert!(
+        peak > 0.3,
+        "Normal speed should have significant peak, got peak={}",
+        peak
+    );
 }
 
 #[test]
@@ -79,8 +88,16 @@ out $ s "bd" # speed 2.0
     let rms = calculate_rms(&buffer);
     let peak = calculate_peak(&buffer);
 
-    assert!(rms > 0.01, "Double speed should produce audible audio, got RMS={}", rms);
-    assert!(peak > 0.3, "Double speed should have significant peak, got peak={}", peak);
+    assert!(
+        rms > 0.01,
+        "Double speed should produce audible audio, got RMS={}",
+        rms
+    );
+    assert!(
+        peak > 0.3,
+        "Double speed should have significant peak, got peak={}",
+        peak
+    );
 
     // Double speed means the sample finishes in half the time
     // The sample should be audible but shorter duration
@@ -100,8 +117,16 @@ out $ s "bd" # speed -1.0
     let rms = calculate_rms(&buffer);
     let peak = calculate_peak(&buffer);
 
-    assert!(rms > 0.01, "Reverse playback should produce audible audio, got RMS={}", rms);
-    assert!(peak > 0.3, "Reverse playback should have significant peak, got peak={}", peak);
+    assert!(
+        rms > 0.01,
+        "Reverse playback should produce audible audio, got RMS={}",
+        rms
+    );
+    assert!(
+        peak > 0.3,
+        "Reverse playback should have significant peak, got peak={}",
+        peak
+    );
 
     // Reverse playback should have similar amplitude to forward playback
     // (The envelope is disabled for reverse playback)
@@ -134,15 +159,26 @@ out $ s "bd" # speed -1.0
     let reverse_peak = calculate_peak(&reverse);
 
     // All should produce significant audio
-    assert!(normal_peak > 0.3, "Normal playback peak too low: {}", normal_peak);
+    assert!(
+        normal_peak > 0.3,
+        "Normal playback peak too low: {}",
+        normal_peak
+    );
     assert!(fast_peak > 0.3, "Fast playback peak too low: {}", fast_peak);
-    assert!(reverse_peak > 0.3, "Reverse playback peak too low: {}", reverse_peak);
+    assert!(
+        reverse_peak > 0.3,
+        "Reverse playback peak too low: {}",
+        reverse_peak
+    );
 
     // Peak levels should be similar (within reasonable range)
     // Reverse may be slightly louder due to no envelope
-    assert!(reverse_peak > normal_peak * 0.5,
+    assert!(
+        reverse_peak > normal_peak * 0.5,
         "Reverse peak ({}) should be comparable to normal peak ({})",
-        reverse_peak, normal_peak);
+        reverse_peak,
+        normal_peak
+    );
 }
 
 #[test]
@@ -158,8 +194,16 @@ out $ s "bd" # speed 0.5
     let rms = calculate_rms(&buffer);
     let peak = calculate_peak(&buffer);
 
-    assert!(rms > 0.01, "Half speed should produce audible audio, got RMS={}", rms);
-    assert!(peak > 0.3, "Half speed should have significant peak, got peak={}", peak);
+    assert!(
+        rms > 0.01,
+        "Half speed should produce audible audio, got RMS={}",
+        rms
+    );
+    assert!(
+        peak > 0.3,
+        "Half speed should have significant peak, got peak={}",
+        peak
+    );
 }
 
 #[test]
@@ -175,6 +219,14 @@ out $ s "bd*4" # speed "1 2 0.5 -1"
     let rms = calculate_rms(&buffer);
     let peak = calculate_peak(&buffer);
 
-    assert!(rms > 0.01, "Pattern-based speed should produce audio, got RMS={}", rms);
-    assert!(peak > 0.3, "Pattern-based speed should have significant peak, got peak={}", peak);
+    assert!(
+        rms > 0.01,
+        "Pattern-based speed should produce audio, got RMS={}",
+        rms
+    );
+    assert!(
+        peak > 0.3,
+        "Pattern-based speed should have significant peak, got peak={}",
+        peak
+    );
 }

@@ -32,7 +32,6 @@
 /// let q = ConstantNode::new(0.707);                 // NodeId 3
 /// let filt = BiquadNode::new(1, 2, 3, FilterMode::Lowpass); // NodeId 4
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Biquad filter modes
@@ -94,12 +93,7 @@ impl BiquadNode {
     /// ~signal: saw 220
     /// ~filtered: ~signal # biquad 1000 0.707 lowpass
     /// ```
-    pub fn new(
-        input: NodeId,
-        frequency_input: NodeId,
-        q_input: NodeId,
-        mode: FilterMode,
-    ) -> Self {
+    pub fn new(input: NodeId, frequency_input: NodeId, q_input: NodeId, mode: FilterMode) -> Self {
         Self {
             input,
             frequency_input,
@@ -223,9 +217,7 @@ impl AudioNode for BiquadNode {
             let a2_norm = a2 / a0;
 
             // Apply biquad difference equation
-            let y = b0_norm * sample
-                + b1_norm * self.state.x1
-                + b2_norm * self.state.x2
+            let y = b0_norm * sample + b1_norm * self.state.x1 + b2_norm * self.state.x2
                 - a1_norm * self.state.y1
                 - a2_norm * self.state.y2;
 
@@ -290,8 +282,10 @@ mod tests {
         filter.process_block(&inputs, &mut output, sample_rate, &context);
 
         // Calculate RMS of input and output
-        let input_rms: f32 = input.iter().skip(100).map(|x| x * x).sum::<f32>() / (size - 100) as f32;
-        let output_rms: f32 = output.iter().skip(100).map(|x| x * x).sum::<f32>() / (size - 100) as f32;
+        let input_rms: f32 =
+            input.iter().skip(100).map(|x| x * x).sum::<f32>() / (size - 100) as f32;
+        let output_rms: f32 =
+            output.iter().skip(100).map(|x| x * x).sum::<f32>() / (size - 100) as f32;
 
         // Output should be significantly attenuated
         assert!(
@@ -326,8 +320,10 @@ mod tests {
         let mut filter = BiquadNode::new(0, 1, 2, FilterMode::Highpass);
         filter.process_block(&inputs, &mut output, sample_rate, &context);
 
-        let input_rms: f32 = input.iter().skip(100).map(|x| x * x).sum::<f32>() / (size - 100) as f32;
-        let output_rms: f32 = output.iter().skip(100).map(|x| x * x).sum::<f32>() / (size - 100) as f32;
+        let input_rms: f32 =
+            input.iter().skip(100).map(|x| x * x).sum::<f32>() / (size - 100) as f32;
+        let output_rms: f32 =
+            output.iter().skip(100).map(|x| x * x).sum::<f32>() / (size - 100) as f32;
 
         assert!(
             output_rms < input_rms * 0.1,
@@ -429,7 +425,7 @@ mod tests {
 
         // Test frequency close to cutoff to see Q resonance effect
         let cutoff_freq = 1000.0;
-        let test_freq = 900.0;  // Below cutoff, resonance peak raises this
+        let test_freq = 900.0; // Below cutoff, resonance peak raises this
 
         let mut input = vec![0.0; size];
         for i in 0..size {
@@ -477,7 +473,7 @@ mod tests {
 
         let input = vec![1.0; size];
         let freq = vec![20000.0; size]; // Very high frequency
-        let q = vec![20.0; size];        // Very high Q
+        let q = vec![20.0; size]; // Very high Q
 
         let inputs: Vec<&[f32]> = vec![&input, &freq, &q];
         let mut output = vec![0.0; size];
@@ -488,8 +484,16 @@ mod tests {
 
         // All outputs should be finite
         for &val in &output {
-            assert!(val.is_finite(), "Filter should remain stable, got non-finite: {}", val);
-            assert!(val.abs() <= 10.0, "Filter should clamp output, got: {}", val);
+            assert!(
+                val.is_finite(),
+                "Filter should remain stable, got non-finite: {}",
+                val
+            );
+            assert!(
+                val.abs() <= 10.0,
+                "Filter should clamp output, got: {}",
+                val
+            );
         }
     }
 
@@ -504,7 +508,7 @@ mod tests {
         let mut input = vec![0.0; size];
         input[0] = 1.0; // Impulse
 
-        let freq = vec![10.0; size];  // Very low frequency for visible state
+        let freq = vec![10.0; size]; // Very low frequency for visible state
         let q = vec![0.707; size];
 
         let inputs: Vec<&[f32]> = vec![&input, &freq, &q];
@@ -547,7 +551,7 @@ mod tests {
         let mut input = vec![0.0; size];
         input[0] = 1.0;
 
-        let freq = vec![100.0; size];  // Lower frequency for longer state duration
+        let freq = vec![100.0; size]; // Lower frequency for longer state duration
         let q = vec![0.707; size];
         let inputs: Vec<&[f32]> = vec![&input, &freq, &q];
         let mut output = vec![0.0; size];
@@ -557,7 +561,10 @@ mod tests {
         filter.process_block(&inputs, &mut output, sample_rate, &context);
 
         // State should be non-zero
-        assert!(filter.state.y1.abs() > 0.00001, "State should be non-zero after processing");
+        assert!(
+            filter.state.y1.abs() > 0.00001,
+            "State should be non-zero after processing"
+        );
 
         // Reset
         filter.reset();

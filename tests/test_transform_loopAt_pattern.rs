@@ -59,7 +59,10 @@ fn test_loopAt_level1_constant_value() {
 
     // loopAt 2 slows pattern by 2x, so 4 events/cycle becomes 2 events/cycle
     // Over 4 cycles: 2 * 4 = 8 events
-    assert_eq!(total_events, 8, "loopAt 2 should produce 8 events over 4 cycles");
+    assert_eq!(
+        total_events, 8,
+        "loopAt 2 should produce 8 events over 4 cycles"
+    );
 }
 
 #[test]

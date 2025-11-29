@@ -35,8 +35,16 @@ fn test_voice_center_pan() {
     );
 
     // Both should be positive (sample is playing)
-    assert!(left > 0.5, "Left should have significant level, got {}", left);
-    assert!(right > 0.5, "Right should have significant level, got {}", right);
+    assert!(
+        left > 0.5,
+        "Left should have significant level, got {}",
+        left
+    );
+    assert!(
+        right > 0.5,
+        "Right should have significant level, got {}",
+        right
+    );
 }
 
 #[test]
@@ -115,7 +123,10 @@ fn test_voice_partial_pan() {
 
     // Both channels should have some signal
     assert!(left > 0.1, "Left should have some signal at pan=0.5");
-    assert!(right > 0.5, "Right should have significant signal at pan=0.5");
+    assert!(
+        right > 0.5,
+        "Right should have significant signal at pan=0.5"
+    );
 
     // Equal-power panning preserves total energy (approximately)
     let total_power = left * left + right * right;

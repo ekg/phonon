@@ -6,8 +6,7 @@
 /// 3. Multi-stage feedback networks (3-5 stages)
 /// 4. Stability under complex feedback
 /// 5. Real-time performance with multiple feedback loops
-
-use phonon::unified_graph::{UnifiedSignalGraph, SignalNode, Signal};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 use std::collections::HashMap;
 
 #[test]
@@ -137,12 +136,20 @@ fn test_multi_stage_feedback_3_stages() {
 
     // Check for reasonable audio levels
     let max_val = buffer.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
-    assert!(max_val < 2.0, "3-stage feedback should stay within reasonable bounds, got max: {}", max_val);
+    assert!(
+        max_val < 2.0,
+        "3-stage feedback should stay within reasonable bounds, got max: {}",
+        max_val
+    );
 
     // Check that we get some output
     let rms: f32 = buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32;
     let rms = rms.sqrt();
-    assert!(rms > 0.001, "3-stage feedback should produce audible output, got RMS: {}", rms);
+    assert!(
+        rms > 0.001,
+        "3-stage feedback should produce audible output, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -200,10 +207,10 @@ fn test_adaptive_compressor_basic() {
     let compressed = graph.add_node(SignalNode::AdaptiveCompressor {
         main_input: Signal::Node(main_signal),
         sidechain_input: Signal::Node(sidechain_signal),
-        threshold: Signal::Value(-20.0), // -20dB threshold
-        ratio: Signal::Value(4.0),        // 4:1 ratio
-        attack: Signal::Value(0.01),      // 10ms attack
-        release: Signal::Value(0.1),      // 100ms release
+        threshold: Signal::Value(-20.0),     // -20dB threshold
+        ratio: Signal::Value(4.0),           // 4:1 ratio
+        attack: Signal::Value(0.01),         // 10ms attack
+        release: Signal::Value(0.1),         // 100ms release
         adaptive_factor: Signal::Value(0.5), // 50% adaptation
         state: phonon::unified_graph::AdaptiveCompressorState::new(),
     });
@@ -215,7 +222,10 @@ fn test_adaptive_compressor_basic() {
 
     // Check for stability
     let has_inf_or_nan = buffer.iter().any(|&x| !x.is_finite());
-    assert!(!has_inf_or_nan, "AdaptiveCompressor should not produce inf/nan");
+    assert!(
+        !has_inf_or_nan,
+        "AdaptiveCompressor should not produce inf/nan"
+    );
 
     // Check for output
     let rms: f32 = buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32;
@@ -319,14 +329,25 @@ fn test_5_stage_feedback_network() {
 
     // Verify reasonable levels
     let max_val = buffer.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
-    assert!(max_val < 3.0, "5-stage feedback should stay bounded, got max: {}", max_val);
+    assert!(
+        max_val < 3.0,
+        "5-stage feedback should stay bounded, got max: {}",
+        max_val
+    );
 
     // Verify output
     let rms: f32 = buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32;
     let rms = rms.sqrt();
-    assert!(rms > 0.001, "5-stage feedback should produce output, got RMS: {}", rms);
+    assert!(
+        rms > 0.001,
+        "5-stage feedback should produce output, got RMS: {}",
+        rms
+    );
 
-    println!("5-stage feedback network: max={:.3}, rms={:.3}", max_val, rms);
+    println!(
+        "5-stage feedback network: max={:.3}, rms={:.3}",
+        max_val, rms
+    );
 }
 
 #[test]
@@ -356,12 +377,12 @@ fn test_feedback_performance_multiple_loops() {
             n: Signal::Value(0.0),
             note: Signal::Value(0.0),
             attack: Signal::Value(0.0),
-        release: Signal::Value(0.0),
-        envelope_type: None,
-        unit_mode: Signal::Value(0.0),
-        loop_enabled: Signal::Value(0.0),
-        begin: Signal::Value(0.0),
-        end: Signal::Value(1.0),
+            release: Signal::Value(0.0),
+            envelope_type: None,
+            unit_mode: Signal::Value(0.0),
+            loop_enabled: Signal::Value(0.0),
+            begin: Signal::Value(0.0),
+            end: Signal::Value(1.0),
         });
 
         // Each loop: Input → Filter → Delay → RMS → Back to Filter
@@ -399,7 +420,10 @@ fn test_feedback_performance_multiple_loops() {
 
     // Verify stability
     let has_inf_or_nan = buffer.iter().any(|&x| !x.is_finite());
-    assert!(!has_inf_or_nan, "8 parallel feedback loops should be stable");
+    assert!(
+        !has_inf_or_nan,
+        "8 parallel feedback loops should be stable"
+    );
 
     // Verify output
     let rms: f32 = buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32;
@@ -414,5 +438,8 @@ fn test_feedback_performance_multiple_loops() {
     println!("  RMS: {:.4}", rms);
 
     // Real-time check (with generous margin)
-    assert!(elapsed.as_secs_f64() < 4.0, "Should render faster than 0.5x real-time");
+    assert!(
+        elapsed.as_secs_f64() < 4.0,
+        "Should render faster than 0.5x real-time"
+    );
 }

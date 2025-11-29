@@ -19,7 +19,6 @@
 /// - **Audio-rate vibrato**: LFO modulating pad for deep modulation
 /// - **Vocoder-like effects**: Voice modulating synth for talking instruments
 /// - **Experimental sound design**: Any signal modulating any other signal
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -57,11 +56,7 @@ impl FMCrossModNode {
     /// ~bass: saw 55
     /// ~modulated: fmcrossmod ~bass ~kick 2.0
     /// ```
-    pub fn new(
-        carrier_input: NodeId,
-        modulator_input: NodeId,
-        mod_depth_input: NodeId,
-    ) -> Self {
+    pub fn new(carrier_input: NodeId, modulator_input: NodeId, mod_depth_input: NodeId) -> Self {
         Self {
             carrier_input,
             modulator_input,
@@ -199,13 +194,8 @@ mod tests {
         let sample_rate = 44100.0;
         let block_size = 512;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Create carrier (440 Hz sine)
         let mut carrier_osc = OscillatorNode::new(0, Waveform::Sine);
@@ -214,7 +204,12 @@ mod tests {
         carrier_freq.process_block(&[], &mut carrier_freq_buf, sample_rate, &context);
 
         let mut carrier_buf = vec![0.0; block_size];
-        carrier_osc.process_block(&[&carrier_freq_buf], &mut carrier_buf, sample_rate, &context);
+        carrier_osc.process_block(
+            &[&carrier_freq_buf],
+            &mut carrier_buf,
+            sample_rate,
+            &context,
+        );
 
         // Create modulator (any signal - doesn't matter with zero depth)
         let mut modulator_osc = OscillatorNode::new(1, Waveform::Sine);
@@ -264,13 +259,8 @@ mod tests {
         let modulator_freq = 100.0;
         let mod_depth = 1.0;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Create carrier oscillator
         let mut carrier_osc = OscillatorNode::new(0, Waveform::Sine);
@@ -279,7 +269,12 @@ mod tests {
         carrier_freq_const.process_block(&[], &mut carrier_freq_buf, sample_rate, &context);
 
         let mut carrier_buf = vec![0.0; block_size];
-        carrier_osc.process_block(&[&carrier_freq_buf], &mut carrier_buf, sample_rate, &context);
+        carrier_osc.process_block(
+            &[&carrier_freq_buf],
+            &mut carrier_buf,
+            sample_rate,
+            &context,
+        );
 
         // Create modulator oscillator
         let mut modulator_osc = OscillatorNode::new(1, Waveform::Sine);
@@ -343,13 +338,8 @@ mod tests {
         let sample_rate = 44100.0;
         let block_size = 2048;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Setup carrier and modulator
         let mut carrier_osc = OscillatorNode::new(0, Waveform::Sine);
@@ -358,7 +348,12 @@ mod tests {
         carrier_freq.process_block(&[], &mut carrier_freq_buf, sample_rate, &context);
 
         let mut carrier_buf = vec![0.0; block_size];
-        carrier_osc.process_block(&[&carrier_freq_buf], &mut carrier_buf, sample_rate, &context);
+        carrier_osc.process_block(
+            &[&carrier_freq_buf],
+            &mut carrier_buf,
+            sample_rate,
+            &context,
+        );
 
         let mut modulator_osc = OscillatorNode::new(1, Waveform::Sine);
         let mut modulator_freq = ConstantNode::new(100.0);
@@ -432,13 +427,8 @@ mod tests {
         let sample_rate = 44100.0;
         let block_size = 4410; // 100ms
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Carrier: constant sine at 440 Hz
         let mut carrier_osc = OscillatorNode::new(0, Waveform::Sine);
@@ -447,7 +437,12 @@ mod tests {
         carrier_freq.process_block(&[], &mut carrier_freq_buf, sample_rate, &context);
 
         let mut carrier_buf = vec![0.0; block_size];
-        carrier_osc.process_block(&[&carrier_freq_buf], &mut carrier_buf, sample_rate, &context);
+        carrier_osc.process_block(
+            &[&carrier_freq_buf],
+            &mut carrier_buf,
+            sample_rate,
+            &context,
+        );
 
         // Modulator: 5 Hz LFO
         let mut lfo = Vec::with_capacity(block_size);
@@ -497,13 +492,8 @@ mod tests {
         let sample_rate = 44100.0;
         let block_size = 512;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Carrier
         let mut carrier_osc = OscillatorNode::new(0, Waveform::Sine);
@@ -512,7 +502,12 @@ mod tests {
         carrier_freq.process_block(&[], &mut carrier_freq_buf, sample_rate, &context);
 
         let mut carrier_buf = vec![0.0; block_size];
-        carrier_osc.process_block(&[&carrier_freq_buf], &mut carrier_buf, sample_rate, &context);
+        carrier_osc.process_block(
+            &[&carrier_freq_buf],
+            &mut carrier_buf,
+            sample_rate,
+            &context,
+        );
 
         // Constant modulator (0.5)
         let modulator_buf = vec![0.5; block_size];
@@ -552,13 +547,8 @@ mod tests {
         let sample_rate = 44100.0;
         let block_size = 512;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Carrier
         let mut carrier_osc = OscillatorNode::new(0, Waveform::Sine);
@@ -567,7 +557,12 @@ mod tests {
         carrier_freq.process_block(&[], &mut carrier_freq_buf, sample_rate, &context);
 
         let mut carrier_buf = vec![0.0; block_size];
-        carrier_osc.process_block(&[&carrier_freq_buf], &mut carrier_buf, sample_rate, &context);
+        carrier_osc.process_block(
+            &[&carrier_freq_buf],
+            &mut carrier_buf,
+            sample_rate,
+            &context,
+        );
 
         // Zero modulator
         let modulator_buf = vec![0.0; block_size];
@@ -614,13 +609,8 @@ mod tests {
         let sample_rate = 44100.0;
         let block_size = 1024;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Carrier: 220 Hz sine
         let mut carrier_osc = OscillatorNode::new(0, Waveform::Sine);
@@ -629,7 +619,12 @@ mod tests {
         carrier_freq.process_block(&[], &mut carrier_freq_buf, sample_rate, &context);
 
         let mut carrier_buf = vec![0.0; block_size];
-        carrier_osc.process_block(&[&carrier_freq_buf], &mut carrier_buf, sample_rate, &context);
+        carrier_osc.process_block(
+            &[&carrier_freq_buf],
+            &mut carrier_buf,
+            sample_rate,
+            &context,
+        );
 
         // Modulator: 50 Hz sine
         let mut modulator_osc = OscillatorNode::new(1, Waveform::Sine);

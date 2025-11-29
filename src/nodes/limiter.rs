@@ -2,7 +2,6 @@
 ///
 /// This node provides transparent peak limiting to prevent clipping.
 /// Signals above threshold are hard limited to the ceiling value.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Limiter node: hard limiting dynamics processor
@@ -35,8 +34,8 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 /// ```
 pub struct LimiterNode {
     input: NodeId,
-    threshold_input: NodeId,  // Threshold in dB (e.g., -3.0)
-    ceiling_input: NodeId,    // Output ceiling in dB (e.g., 0.0)
+    threshold_input: NodeId, // Threshold in dB (e.g., -3.0)
+    ceiling_input: NodeId,   // Output ceiling in dB (e.g., 0.0)
 }
 
 impl LimiterNode {
@@ -228,8 +227,8 @@ mod tests {
         let mut limiter = LimiterNode::new(0, 1, 2);
 
         let input = vec![2.0, -2.0, 1.5, -1.5];
-        let threshold = vec![-3.0; 4];  // ≈0.708
-        let ceiling = vec![0.0; 4];      // 1.0
+        let threshold = vec![-3.0; 4]; // ≈0.708
+        let ceiling = vec![0.0; 4]; // 1.0
         let inputs = vec![input.as_slice(), threshold.as_slice(), ceiling.as_slice()];
 
         let mut output = vec![0.0; 4];
@@ -238,9 +237,9 @@ mod tests {
         limiter.process_block(&inputs, &mut output, 44100.0, &context);
 
         // All inputs exceed threshold, so limited to ±1.0
-        assert!((output[0] - 1.0).abs() < 0.001);   // Positive → positive
+        assert!((output[0] - 1.0).abs() < 0.001); // Positive → positive
         assert!((output[1] - (-1.0)).abs() < 0.001); // Negative → negative
-        assert!((output[2] - 1.0).abs() < 0.001);   // Positive → positive
+        assert!((output[2] - 1.0).abs() < 0.001); // Positive → positive
         assert!((output[3] - (-1.0)).abs() < 0.001); // Negative → negative
     }
 
@@ -251,7 +250,7 @@ mod tests {
 
         let input = vec![1.5, 2.0, 5.0, 10.0];
         let threshold = vec![-6.0; 4];
-        let ceiling = vec![0.0; 4];  // 0 dB = 1.0 linear
+        let ceiling = vec![0.0; 4]; // 0 dB = 1.0 linear
         let inputs = vec![input.as_slice(), threshold.as_slice(), ceiling.as_slice()];
 
         let mut output = vec![0.0; 4];
@@ -284,7 +283,7 @@ mod tests {
         // Hot signal that would clip
         let input = vec![1.2, 1.5, 2.0, 3.0];
         let threshold = vec![-3.0; 4];
-        let ceiling = vec![-0.1; 4];  // Safety headroom
+        let ceiling = vec![-0.1; 4]; // Safety headroom
         let inputs = vec![input.as_slice(), threshold.as_slice(), ceiling.as_slice()];
 
         let mut output = vec![0.0; 4];
@@ -292,7 +291,7 @@ mod tests {
 
         limiter.process_block(&inputs, &mut output, 44100.0, &context);
 
-        let max_allowed = 10.0_f32.powf(-0.1 / 20.0);  // ≈0.989
+        let max_allowed = 10.0_f32.powf(-0.1 / 20.0); // ≈0.989
 
         // All outputs should be at or below ceiling
         for sample in &output {
@@ -313,8 +312,8 @@ mod tests {
         let mut limiter = LimiterNode::new(0, 1, 2);
 
         let input = vec![0.3, 0.9, -0.4, -1.2];
-        let threshold = vec![-3.0; 4];  // ≈0.708
-        let ceiling = vec![0.0; 4];      // 1.0
+        let threshold = vec![-3.0; 4]; // ≈0.708
+        let ceiling = vec![0.0; 4]; // 1.0
         let inputs = vec![input.as_slice(), threshold.as_slice(), ceiling.as_slice()];
 
         let mut output = vec![0.0; 4];

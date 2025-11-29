@@ -3,7 +3,6 @@
 /// These tests verify that patterns like:
 ///   s "bd" # note "c3'maj" + "0 3 7"
 /// compile correctly, where the + operator is applied to the modifier argument.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::unified_graph::UnifiedSignalGraph;
@@ -117,8 +116,7 @@ out $ ~synth # gain 0.5"#;
             // Use the render method which handles output correctly
             let output = graph.render(4410); // 0.1 second at 44100 Hz
 
-            let rms: f32 =
-                (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
+            let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
             assert!(rms > 0.01, "Output should have signal, got RMS={}", rms);
         }
         Err(e) => panic!("Should compile: {}", e),

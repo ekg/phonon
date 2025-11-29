@@ -9,7 +9,6 @@
 /// - Adaptive gain control
 /// - Peak normalization
 /// - Audio analysis and visualization
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Peak detector node: tracks peak values with decay
@@ -219,9 +218,24 @@ mod tests {
         // Decay per sample = 1.0 / (0.0001 * 44100) = 0.2267
         // Should decay significantly each sample
         assert!(output[1] < 0.9, "output[1] = {}", output[1]);
-        assert!(output[2] < output[1], "output[2] = {}, output[1] = {}", output[2], output[1]);
-        assert!(output[3] < output[2], "output[3] = {}, output[2] = {}", output[3], output[2]);
-        assert!(output[4] < output[3], "output[4] = {}, output[3] = {}", output[4], output[3]);
+        assert!(
+            output[2] < output[1],
+            "output[2] = {}, output[1] = {}",
+            output[2],
+            output[1]
+        );
+        assert!(
+            output[3] < output[2],
+            "output[3] = {}, output[2] = {}",
+            output[3],
+            output[2]
+        );
+        assert!(
+            output[4] < output[3],
+            "output[4] = {}, output[3] = {}",
+            output[4],
+            output[3]
+        );
     }
 
     #[test]
@@ -319,9 +333,12 @@ mod tests {
         assert!(max_output > 0.95, "max_output = {}", max_output);
 
         // During silence (samples 24-31), should decay
-        assert!(output[31] < output[24],
-                "output[31] = {}, output[24] = {}",
-                output[31], output[24]);
+        assert!(
+            output[31] < output[24],
+            "output[31] = {}, output[24] = {}",
+            output[31],
+            output[24]
+        );
     }
 
     #[test]

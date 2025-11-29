@@ -35,8 +35,11 @@ fn test_whitenoise_range() {
 
     // All samples should be in [-1, 1]
     for &sample in &output {
-        assert!(sample >= -1.0 && sample <= 1.0,
-            "Sample out of range: {}", sample);
+        assert!(
+            sample >= -1.0 && sample <= 1.0,
+            "Sample out of range: {}",
+            sample
+        );
     }
 }
 
@@ -83,8 +86,11 @@ fn test_whitenoise_randomness() {
     }
 
     // Very unlikely to have many identical samples
-    assert!(same_count < buffer_size / 10,
-        "Too many identical samples: {}", same_count);
+    assert!(
+        same_count < buffer_size / 10,
+        "Too many identical samples: {}",
+        same_count
+    );
 }
 
 #[test]
@@ -129,8 +135,11 @@ fn test_whitenoise_independence() {
     let correlation = sum_products / ((sum_squares_1 * sum_squares_2).sqrt());
 
     // Correlation should be close to 0 for independent samples
-    assert!(correlation.abs() < 0.15,
-        "Autocorrelation too high: {}", correlation);
+    assert!(
+        correlation.abs() < 0.15,
+        "Autocorrelation too high: {}",
+        correlation
+    );
 }
 
 #[test]
@@ -175,8 +184,13 @@ fn test_whitenoise_multiple_buffers() {
                     same_count += 1;
                 }
             }
-            assert!(same_count < buffer_size / 10,
-                "Buffers {} and {} too similar: {} same samples", i, j, same_count);
+            assert!(
+                same_count < buffer_size / 10,
+                "Buffers {} and {} too similar: {} same samples",
+                i,
+                j,
+                same_count
+            );
         }
     }
 }
@@ -201,8 +215,12 @@ fn test_whitenoise_long_term_stats() {
 
     // Standard deviation for uniform distribution on [-1, 1] is √(1/3) ≈ 0.577
     let expected_std_dev = (1.0 / 3.0_f32).sqrt();
-    assert!((std_dev - expected_std_dev).abs() < 0.05,
-        "Std dev {} too far from expected {}", std_dev, expected_std_dev);
+    assert!(
+        (std_dev - expected_std_dev).abs() < 0.05,
+        "Std dev {} too far from expected {}",
+        std_dev,
+        expected_std_dev
+    );
 }
 
 #[test]
@@ -211,10 +229,7 @@ fn test_whitenoise_amplitude_scaling() {
 
     let noise_id = graph.add_whitenoise_node();
     let scale = 0.5;
-    let scaled_id = graph.add_multiply_node(
-        Signal::Node(noise_id),
-        Signal::Value(scale)
-    );
+    let scaled_id = graph.add_multiply_node(Signal::Node(noise_id), Signal::Value(scale));
 
     let buffer_size = 1024;
     let mut output = vec![0.0; buffer_size];
@@ -223,15 +238,22 @@ fn test_whitenoise_amplitude_scaling() {
 
     // Scaled samples should be in [-0.5, 0.5]
     for &sample in &output {
-        assert!(sample >= -0.5 && sample <= 0.5,
-            "Scaled sample out of range: {}", sample);
+        assert!(
+            sample >= -0.5 && sample <= 0.5,
+            "Scaled sample out of range: {}",
+            sample
+        );
     }
 
     // RMS should scale proportionally
     let rms = calculate_rms(&output);
     let expected_rms = 0.577 * scale;
-    assert!((rms - expected_rms).abs() < 0.05,
-        "Scaled RMS {} not close to expected {}", rms, expected_rms);
+    assert!(
+        (rms - expected_rms).abs() < 0.05,
+        "Scaled RMS {} not close to expected {}",
+        rms,
+        expected_rms
+    );
 }
 
 #[test]
@@ -241,8 +263,8 @@ fn test_whitenoise_through_lowpass() {
     let noise_id = graph.add_whitenoise_node();
     let filtered_id = graph.add_lowpass_node(
         Signal::Node(noise_id),
-        Signal::Value(1000.0),  // 1kHz cutoff
-        Signal::Value(0.707)     // Q = 1/√2
+        Signal::Value(1000.0), // 1kHz cutoff
+        Signal::Value(0.707),  // Q = 1/√2
     );
 
     let buffer_size = 1024;
@@ -253,8 +275,11 @@ fn test_whitenoise_through_lowpass() {
     // Should still be in valid range
     for &sample in &output {
         assert!(sample.is_finite(), "Non-finite filtered value: {}", sample);
-        assert!(sample >= -2.0 && sample <= 2.0,
-            "Filtered sample out of reasonable range: {}", sample);
+        assert!(
+            sample >= -2.0 && sample <= 2.0,
+            "Filtered sample out of reasonable range: {}",
+            sample
+        );
     }
 
     // Should have some energy
@@ -269,8 +294,8 @@ fn test_whitenoise_through_highpass() {
     let noise_id = graph.add_whitenoise_node();
     let filtered_id = graph.add_highpass_node(
         Signal::Node(noise_id),
-        Signal::Value(100.0),    // 100Hz cutoff
-        Signal::Value(0.707)     // Q = 1/√2
+        Signal::Value(100.0), // 100Hz cutoff
+        Signal::Value(0.707), // Q = 1/√2
     );
 
     let buffer_size = 1024;
@@ -281,8 +306,11 @@ fn test_whitenoise_through_highpass() {
     // Should still be in valid range
     for &sample in &output {
         assert!(sample.is_finite(), "Non-finite filtered value: {}", sample);
-        assert!(sample >= -2.0 && sample <= 2.0,
-            "Filtered sample out of reasonable range: {}", sample);
+        assert!(
+            sample >= -2.0 && sample <= 2.0,
+            "Filtered sample out of reasonable range: {}",
+            sample
+        );
     }
 
     // Should have some energy
@@ -305,13 +333,22 @@ fn test_whitenoise_buffer_sizes() {
 
         // Verify range for all buffer sizes
         for &sample in &output {
-            assert!(sample >= -1.0 && sample <= 1.0,
-                "Sample out of range for buffer size {}: {}", size, sample);
+            assert!(
+                sample >= -1.0 && sample <= 1.0,
+                "Sample out of range for buffer size {}: {}",
+                size,
+                sample
+            );
         }
 
         // Verify some randomness
         let mean = calculate_mean(&output);
-        assert!(mean.abs() < 0.2, "Mean too far from 0 for size {}: {}", size, mean);
+        assert!(
+            mean.abs() < 0.2,
+            "Mean too far from 0 for size {}: {}",
+            size,
+            mean
+        );
     }
 }
 
@@ -321,10 +358,7 @@ fn test_whitenoise_mixed_with_silence() {
 
     let noise_id = graph.add_whitenoise_node();
     let silence_id = graph.add_node(phonon::unified_graph::SignalNode::Constant { value: 0.0 });
-    let mixed_id = graph.add_add_node(
-        Signal::Node(noise_id),
-        Signal::Node(silence_id)
-    );
+    let mixed_id = graph.add_add_node(Signal::Node(noise_id), Signal::Node(silence_id));
 
     let buffer_size = 512;
     let mut noise_buffer = vec![0.0; buffer_size];
@@ -335,8 +369,11 @@ fn test_whitenoise_mixed_with_silence() {
 
     // Mixed should be same as noise (adding 0 doesn't change it)
     for i in 0..buffer_size {
-        assert!((noise_buffer[i] - mixed_buffer[i]).abs() < 0.0001,
-            "Mixed signal differs from noise at index {}", i);
+        assert!(
+            (noise_buffer[i] - mixed_buffer[i]).abs() < 0.0001,
+            "Mixed signal differs from noise at index {}",
+            i
+        );
     }
 }
 
@@ -363,8 +400,11 @@ fn test_whitenoise_two_instances() {
         }
     }
 
-    assert!(same_count < buffer_size / 10,
-        "Two noise instances too similar: {} same samples", same_count);
+    assert!(
+        same_count < buffer_size / 10,
+        "Two noise instances too similar: {} same samples",
+        same_count
+    );
 }
 
 #[test]
@@ -384,8 +424,11 @@ fn test_whitenoise_coverage_positive_negative() {
 
     // Should have roughly equal positive and negative samples
     let ratio = positive_count as f32 / buffer_size as f32;
-    assert!(ratio > 0.3 && ratio < 0.7,
-        "Imbalanced positive/negative ratio: {}", ratio);
+    assert!(
+        ratio > 0.3 && ratio < 0.7,
+        "Imbalanced positive/negative ratio: {}",
+        ratio
+    );
 
     // Should have both positive and negative samples
     assert!(positive_count > 0, "No positive samples!");

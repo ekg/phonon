@@ -9,7 +9,6 @@
 /// - Delay time = base_delay + (depth * lfo * sample_rate)
 /// - Linear interpolation for smooth delay reads
 /// - Output = delayed input signal
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -216,13 +215,7 @@ mod tests {
     use crate::pattern::Fraction;
 
     fn create_test_context(block_size: usize) -> ProcessContext {
-        ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            44100.0,
-        )
+        ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, 44100.0)
     }
 
     #[test]
@@ -473,12 +466,7 @@ mod tests {
 
         // Output should be interpolated values (smooth, no NaN)
         for (i, &sample) in output.iter().enumerate() {
-            assert!(
-                sample.is_finite(),
-                "Sample {} is not finite: {}",
-                i,
-                sample
-            );
+            assert!(sample.is_finite(), "Sample {} is not finite: {}", i, sample);
         }
     }
 
@@ -533,12 +521,7 @@ mod tests {
 
         // Output should contain valid samples
         for (i, &sample) in output.iter().enumerate() {
-            assert!(
-                sample.is_finite(),
-                "Sample {} is not finite: {}",
-                i,
-                sample
-            );
+            assert!(sample.is_finite(), "Sample {} is not finite: {}", i, sample);
             assert!(
                 sample.abs() <= 2.0,
                 "Sample {} has extreme value: {}",

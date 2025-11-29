@@ -34,7 +34,6 @@
 /// - Hammond organ (1935) - popularized additive synthesis via drawbars
 /// - Julius O. Smith III "Spectral Audio Signal Processing"
 /// - Kawai K5 (1987) - digital additive synthesizer
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 use std::sync::Arc;
@@ -98,9 +97,7 @@ impl AdditiveNode {
     ///
     /// Sawtooth = Σ (1/n) × sin(2πnft) for n = 1, 2, 3, ...
     pub fn sawtooth(frequency_input: NodeId, num_harmonics_input: NodeId) -> Self {
-        let weights: Vec<f32> = (1..=MAX_HARMONICS)
-            .map(|i| 1.0 / i as f32)
-            .collect();
+        let weights: Vec<f32> = (1..=MAX_HARMONICS).map(|i| 1.0 / i as f32).collect();
         let detune = vec![0.0; MAX_HARMONICS];
 
         Self::new(
@@ -224,10 +221,7 @@ impl AudioNode for AdditiveNode {
             let num_harms_raw = num_harmonics_buffer[i];
 
             // Clamp num_harmonics to [1, MAX_HARMONICS]
-            let num_harms = num_harms_raw
-                .max(1.0)
-                .min(MAX_HARMONICS as f32)
-                .round() as usize;
+            let num_harms = num_harms_raw.max(1.0).min(MAX_HARMONICS as f32).round() as usize;
 
             // Clamp to actual weights length
             let num_harms = num_harms.min(self.harmonic_weights.len());
@@ -297,20 +291,9 @@ mod tests {
     ) -> Vec<f32> {
         let mut freq_node = ConstantNode::new(fundamental);
         let mut num_node = ConstantNode::new(num_harmonics);
-        let mut additive = AdditiveNode::new(
-            0,
-            1,
-            Arc::new(weights),
-            Arc::new(detune),
-        );
+        let mut additive = AdditiveNode::new(0, 1, Arc::new(weights), Arc::new(detune));
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            buffer_size,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, 44100.0);
 
         // Generate input buffers
         let mut freq_buf = vec![0.0; buffer_size];
@@ -341,7 +324,11 @@ mod tests {
         let output = process_additive(440.0, 1.0, weights, detune, 512);
 
         let rms = calculate_rms(&output);
-        assert!(rms > 0.5, "Single harmonic should produce strong signal, RMS: {}", rms);
+        assert!(
+            rms > 0.5,
+            "Single harmonic should produce strong signal, RMS: {}",
+            rms
+        );
 
         // Check output is in valid range
         for &sample in &output {
@@ -357,7 +344,11 @@ mod tests {
         let output = process_additive(220.0, 4.0, weights, detune, 1024);
 
         let rms = calculate_rms(&output);
-        assert!(rms > 0.5, "Multiple harmonics should produce signal, RMS: {}", rms);
+        assert!(
+            rms > 0.5,
+            "Multiple harmonics should produce signal, RMS: {}",
+            rms
+        );
     }
 
     #[test]
@@ -375,7 +366,13 @@ mod tests {
     fn test_additive_square() {
         // Square approximation (odd harmonics only)
         let weights: Vec<f32> = (0..8)
-            .map(|i| if i % 2 == 0 { 1.0 / (i * 2 + 1) as f32 } else { 0.0 })
+            .map(|i| {
+                if i % 2 == 0 {
+                    1.0 / (i * 2 + 1) as f32
+                } else {
+                    0.0
+                }
+            })
             .collect();
         let detune = vec![0.0; 8];
         let output = process_additive(110.0, 8.0, weights, detune, 2048);
@@ -415,7 +412,9 @@ mod tests {
         let output_detuned = process_additive(220.0, 2.0, weights, detune_some, 4096);
 
         // Should produce different waveforms
-        let different = output_normal.iter().zip(&output_detuned)
+        let different = output_normal
+            .iter()
+            .zip(&output_detuned)
             .any(|(a, b)| (a - b).abs() > 0.01);
 
         assert!(different, "Detuning should change the waveform");
@@ -435,9 +434,12 @@ mod tests {
         let rms_many = calculate_rms(&output_many);
 
         // More harmonics should add energy
-        assert!(rms_many > rms_few * 0.8,
+        assert!(
+            rms_many > rms_few * 0.8,
             "More harmonics should produce more energy: few={}, many={}",
-            rms_few, rms_many);
+            rms_few,
+            rms_many
+        );
     }
 
     #[test]
@@ -453,7 +455,11 @@ mod tests {
 
         // Should still produce sound (from lower harmonics)
         let rms = calculate_rms(&output);
-        assert!(rms > 0.3, "Should produce sound despite high frequency, RMS: {}", rms);
+        assert!(
+            rms > 0.3,
+            "Should produce sound despite high frequency, RMS: {}",
+            rms
+        );
 
         // Should not clip or blow up
         for &sample in &output {
@@ -467,13 +473,7 @@ mod tests {
         let mut num_node = ConstantNode::new(8.0);
         let mut additive = AdditiveNode::sawtooth(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            2048,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 2048, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 2048];
         let mut num_buf = vec![0.0; 2048];
@@ -494,13 +494,7 @@ mod tests {
         let mut num_node = ConstantNode::new(8.0);
         let mut additive = AdditiveNode::square(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            2048,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 2048, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 2048];
         let mut num_buf = vec![0.0; 2048];
@@ -521,13 +515,7 @@ mod tests {
         let mut num_node = ConstantNode::new(1.0);
         let mut additive = AdditiveNode::sine(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         let mut num_buf = vec![0.0; 512];
@@ -565,13 +553,7 @@ mod tests {
         let inputs = vec![freq_buf.as_slice(), num_buf.as_slice()];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         additive.process_block(&inputs, &mut output, 44100.0, &context);
 

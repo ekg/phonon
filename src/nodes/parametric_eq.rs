@@ -40,7 +40,6 @@
 /// let high_gain = ConstantNode::new(2.0);    // Boost +2 dB (air)
 /// let peq = ParametricEQNode::new(1, 2, 3, 4, 5, 6, 7, 8);
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz};
 
@@ -368,7 +367,12 @@ mod tests {
         let mut high_gain_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         low_freq.process_block(&[], &mut low_freq_buf, sample_rate, &context);
         low_gain.process_block(&[], &mut low_gain_buf, sample_rate, &context);
         mid_freq.process_block(&[], &mut mid_freq_buf, sample_rate, &context);
@@ -425,7 +429,12 @@ mod tests {
         let mut signal_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
 
         let input_rms = calculate_rms(&signal_buf);
 
@@ -499,7 +508,12 @@ mod tests {
         let mut signal_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
 
         let input_rms = calculate_rms(&signal_buf);
 
@@ -574,7 +588,12 @@ mod tests {
         let mut signal_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
 
         let input_rms = calculate_rms(&signal_buf);
 
@@ -648,7 +667,12 @@ mod tests {
         let mut signal_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
 
         let input_rms = calculate_rms(&signal_buf);
 
@@ -723,7 +747,12 @@ mod tests {
         let mut signal_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
 
         let input_rms = calculate_rms(&signal_buf);
 
@@ -797,7 +826,12 @@ mod tests {
         let mut signal_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
 
         let input_rms = calculate_rms(&signal_buf);
 
@@ -872,7 +906,12 @@ mod tests {
         let mut signal_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
 
         let input_rms = calculate_rms(&signal_buf);
 
@@ -947,7 +986,12 @@ mod tests {
         let mut signal_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
 
         // Test with low Q (wide bandwidth)
         let mut low_q_peq = ParametricEQNode::new(1, 2, 3, 4, 5, 6, 7, 8);
@@ -1044,7 +1088,12 @@ mod tests {
         let mut signal_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
 
         let mut low_freq = ConstantNode::new(100.0);
         let mut low_gain = ConstantNode::new(0.0);
@@ -1181,11 +1230,7 @@ mod tests {
 
             // Check stability
             for (i, &sample) in output.iter().enumerate() {
-                assert!(
-                    sample.is_finite(),
-                    "Sample {} became infinite/NaN",
-                    i
-                );
+                assert!(sample.is_finite(), "Sample {} became infinite/NaN", i);
                 assert!(
                     sample.abs() < 100.0,
                     "Sample {} has extreme value: {}",
@@ -1211,7 +1256,12 @@ mod tests {
         let mut signal_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
 
         // Create modulating gain buffer (0 to 6 dB)
         let mut mid_gain_buf = vec![0.0; block_size];

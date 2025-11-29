@@ -1,7 +1,7 @@
-use std::cell::RefCell;
 use hound::{SampleFormat, WavSpec, WavWriter};
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
+use std::cell::RefCell;
 use std::process::Command;
 
 #[test]
@@ -34,7 +34,7 @@ fn render_simple_sine(output_path: &str) {
         freq: freq_signal,
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -72,7 +72,7 @@ fn render_pattern_modulation(output_path: &str) {
         freq: Signal::Node(pattern_node),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -103,7 +103,7 @@ fn render_filter_modulation(output_path: &str) {
         freq: freq_signal,
         waveform: Waveform::Saw,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),

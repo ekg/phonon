@@ -3,13 +3,12 @@
 /// This node provides sidechain compression where the gain reduction is triggered
 /// by an external sidechain signal rather than the input itself. Classic use case
 /// is "ducking" where a kick drum causes bass/pads to reduce in level.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Sidechain compressor state for envelope follower
 #[derive(Debug, Clone)]
 struct SidechainCompressorState {
-    envelope: f32,  // Current gain reduction envelope in dB
+    envelope: f32, // Current gain reduction envelope in dB
 }
 
 impl Default for SidechainCompressorState {
@@ -49,12 +48,12 @@ impl Default for SidechainCompressorState {
 /// );
 /// ```
 pub struct SidechainCompressorNode {
-    main_input: NodeId,        // Signal to compress (e.g., bass)
-    sidechain_input: NodeId,   // Signal controlling compression (e.g., kick)
-    threshold_input: NodeId,   // Threshold in dB
-    ratio_input: NodeId,       // Compression ratio
-    attack_input: NodeId,      // Attack time in seconds
-    release_input: NodeId,     // Release time in seconds
+    main_input: NodeId,      // Signal to compress (e.g., bass)
+    sidechain_input: NodeId, // Signal controlling compression (e.g., kick)
+    threshold_input: NodeId, // Threshold in dB
+    ratio_input: NodeId,     // Compression ratio
+    attack_input: NodeId,    // Attack time in seconds
+    release_input: NodeId,   // Release time in seconds
     state: SidechainCompressorState,
 }
 
@@ -147,18 +146,14 @@ impl AudioNode for SidechainCompressorNode {
             inputs.len()
         );
 
-        let main_buf = inputs[0];      // Signal to compress
+        let main_buf = inputs[0]; // Signal to compress
         let sidechain_buf = inputs[1]; // Signal controlling compression
         let threshold_buf = inputs[2];
         let ratio_buf = inputs[3];
         let attack_buf = inputs[4];
         let release_buf = inputs[5];
 
-        debug_assert_eq!(
-            main_buf.len(),
-            output.len(),
-            "Main buffer length mismatch"
-        );
+        debug_assert_eq!(main_buf.len(), output.len(), "Main buffer length mismatch");
         debug_assert_eq!(
             sidechain_buf.len(),
             output.len(),
@@ -238,8 +233,8 @@ mod tests {
         // When sidechain is quiet, main signal should pass unchanged
         let mut comp = SidechainCompressorNode::new(0, 1, 2, 3, 4, 5);
 
-        let main_input = vec![0.5; 512];        // Loud main signal
-        let sidechain = vec![0.01; 512];       // Quiet sidechain (below threshold)
+        let main_input = vec![0.5; 512]; // Loud main signal
+        let sidechain = vec![0.01; 512]; // Quiet sidechain (below threshold)
         let threshold = vec![-10.0; 512];
         let ratio = vec![4.0; 512];
         let attack = vec![0.01; 512];
@@ -270,11 +265,11 @@ mod tests {
         // When sidechain is loud, main signal should be compressed
         let mut comp = SidechainCompressorNode::new(0, 1, 2, 3, 4, 5);
 
-        let main_input = vec![0.5; 512];        // Main signal stays constant
-        let sidechain = vec![1.0; 512];         // Loud sidechain (above threshold)
+        let main_input = vec![0.5; 512]; // Main signal stays constant
+        let sidechain = vec![1.0; 512]; // Loud sidechain (above threshold)
         let threshold = vec![-20.0; 512];
         let ratio = vec![4.0; 512];
-        let attack = vec![0.001; 512];          // Fast attack
+        let attack = vec![0.001; 512]; // Fast attack
         let release = vec![0.1; 512];
 
         let inputs = vec![
@@ -296,9 +291,21 @@ mod tests {
         // Gain reduction = 20dB * (1 - 1/4) = 15dB
         // Expected: 0.5 * 10^(-15/20) ≈ 0.089
         let avg_output: f32 = output.iter().skip(100).take(400).sum::<f32>() / 400.0;
-        assert!(avg_output < 0.5, "Output {} should be less than input 0.5", avg_output);
-        assert!(avg_output > 0.05, "Output {} should not be completely crushed", avg_output);
-        assert!(avg_output < 0.15, "Output {} should be compressed (< 0.15)", avg_output);
+        assert!(
+            avg_output < 0.5,
+            "Output {} should be less than input 0.5",
+            avg_output
+        );
+        assert!(
+            avg_output > 0.05,
+            "Output {} should not be completely crushed",
+            avg_output
+        );
+        assert!(
+            avg_output < 0.15,
+            "Output {} should be compressed (< 0.15)",
+            avg_output
+        );
     }
 
     #[test]
@@ -317,9 +324,9 @@ mod tests {
         // Rest is quiet (bass recovers)
 
         let threshold = vec![-20.0; 512];
-        let ratio = vec![8.0; 512];             // Heavy compression for obvious ducking
-        let attack = vec![0.001; 512];          // Fast attack (kick is percussive)
-        let release = vec![0.02; 512];          // Fast release (20ms) for quick recovery
+        let ratio = vec![8.0; 512]; // Heavy compression for obvious ducking
+        let attack = vec![0.001; 512]; // Fast attack (kick is percussive)
+        let release = vec![0.02; 512]; // Fast release (20ms) for quick recovery
 
         let inputs = vec![
             main_input.as_slice(),
@@ -346,13 +353,24 @@ mod tests {
         let after_kick_avg: f32 = output.iter().skip(450).take(50).sum::<f32>() / 50.0;
 
         // Verify ducking behavior
-        assert!(during_kick_avg < 0.15, "Bass during kick {} should be ducked < 0.15", during_kick_avg);
-        assert!(after_kick_avg > during_kick_avg,
+        assert!(
+            during_kick_avg < 0.15,
+            "Bass during kick {} should be ducked < 0.15",
+            during_kick_avg
+        );
+        assert!(
+            after_kick_avg > during_kick_avg,
             "Bass after kick {} should be higher than during kick {}",
-            after_kick_avg, during_kick_avg);
+            after_kick_avg,
+            during_kick_avg
+        );
         // With heavy compression (8:1) and relatively fast release (20ms),
         // expect partial but not full recovery in 512 samples (~11.6ms after transition)
-        assert!(after_kick_avg > 0.12, "Bass after kick {} should partially recover > 0.12", after_kick_avg);
+        assert!(
+            after_kick_avg > 0.12,
+            "Bass after kick {} should partially recover > 0.12",
+            after_kick_avg
+        );
     }
 
     #[test]
@@ -398,9 +416,12 @@ mod tests {
         let avg_light: f32 = output_light.iter().skip(100).take(400).sum::<f32>() / 400.0;
         let avg_heavy: f32 = output_heavy.iter().skip(100).take(400).sum::<f32>() / 400.0;
 
-        assert!(avg_heavy < avg_light,
+        assert!(
+            avg_heavy < avg_light,
             "Heavy compression {} should be less than light {}",
-            avg_heavy, avg_light);
+            avg_heavy,
+            avg_light
+        );
     }
 
     #[test]
@@ -412,7 +433,7 @@ mod tests {
         let sidechain = vec![1.0; 512];
         let threshold = vec![-20.0; 512];
         let ratio = vec![4.0; 512];
-        let attack = vec![0.1; 512];          // Slow attack
+        let attack = vec![0.1; 512]; // Slow attack
         let release = vec![0.1; 512];
 
         let inputs = vec![
@@ -430,12 +451,18 @@ mod tests {
         comp.process_block(&inputs, &mut output, 44100.0, &context);
 
         // First sample should be less compressed than later samples
-        assert!(output[0] > output[100],
+        assert!(
+            output[0] > output[100],
             "Sample 0 {} should be greater than sample 100 {}",
-            output[0], output[100]);
-        assert!(output[100] > output[400],
+            output[0],
+            output[100]
+        );
+        assert!(
+            output[100] > output[400],
             "Sample 100 {} should be greater than sample 400 {}",
-            output[100], output[400]);
+            output[100],
+            output[400]
+        );
     }
 
     #[test]
@@ -453,8 +480,8 @@ mod tests {
 
         let threshold = vec![-20.0; 512];
         let ratio = vec![4.0; 512];
-        let attack = vec![0.001; 512];         // Fast attack
-        let release = vec![0.1; 512];          // Slow release
+        let attack = vec![0.001; 512]; // Fast attack
+        let release = vec![0.1; 512]; // Slow release
 
         let inputs = vec![
             main_input.as_slice(),
@@ -471,12 +498,18 @@ mod tests {
         comp.process_block(&inputs, &mut output, 44100.0, &context);
 
         // After sidechain goes quiet, should gradually release
-        assert!(output[260] < output[300],
+        assert!(
+            output[260] < output[300],
             "Sample 260 {} should be less than sample 300 {}",
-            output[260], output[300]);
-        assert!(output[300] < output[400],
+            output[260],
+            output[300]
+        );
+        assert!(
+            output[300] < output[400],
             "Sample 300 {} should be less than sample 400 {}",
-            output[300], output[400]);
+            output[300],
+            output[400]
+        );
     }
 
     #[test]
@@ -485,7 +518,7 @@ mod tests {
         let mut comp = SidechainCompressorNode::new(0, 1, 2, 3, 4, 5);
 
         let main_input = vec![0.5; 512];
-        let sidechain = vec![0.316; 512];     // Exactly -10 dB
+        let sidechain = vec![0.316; 512]; // Exactly -10 dB
         let threshold = vec![-10.0; 512];
         let ratio = vec![4.0; 512];
         let attack = vec![0.01; 512];
@@ -507,9 +540,11 @@ mod tests {
 
         // At threshold, minimal compression
         let avg_output: f32 = output.iter().skip(100).take(400).sum::<f32>() / 400.0;
-        assert!((avg_output - 0.5).abs() < 0.1,
+        assert!(
+            (avg_output - 0.5).abs() < 0.1,
             "At threshold, output {} should be close to input 0.5",
-            avg_output);
+            avg_output
+        );
     }
 
     #[test]
@@ -551,7 +586,7 @@ mod tests {
         let deps = comp.input_nodes();
 
         assert_eq!(deps.len(), 6);
-        assert_eq!(deps[0], 5);  // main_input
+        assert_eq!(deps[0], 5); // main_input
         assert_eq!(deps[1], 10); // sidechain_input
         assert_eq!(deps[2], 15); // threshold
         assert_eq!(deps[3], 20); // ratio
@@ -599,7 +634,7 @@ mod tests {
         let main_input = vec![0.5; 512];
         let sidechain = vec![1.0; 512];
         let threshold = vec![-20.0; 512];
-        let ratio = vec![1.0; 512];          // No compression
+        let ratio = vec![1.0; 512]; // No compression
         let attack = vec![0.01; 512];
         let release = vec![0.1; 512];
 
@@ -639,7 +674,7 @@ mod tests {
         let threshold = vec![-20.0; 512];
         let ratio = vec![8.0; 512];
         let attack = vec![0.001; 512];
-        let release = vec![0.001; 512];      // Fast release to show change
+        let release = vec![0.001; 512]; // Fast release to show change
 
         let inputs = vec![
             main_input.as_slice(),
@@ -664,7 +699,17 @@ mod tests {
         // After loud section: less compression again
         let after: f32 = output.iter().skip(450).take(50).sum::<f32>() / 50.0;
 
-        assert!(before > during, "Before {} should be greater than during {}", before, during);
-        assert!(after > during, "After {} should be greater than during {}", after, during);
+        assert!(
+            before > during,
+            "Before {} should be greater than during {}",
+            before,
+            during
+        );
+        assert!(
+            after > during,
+            "After {} should be greater than during {}",
+            after,
+            during
+        );
     }
 }

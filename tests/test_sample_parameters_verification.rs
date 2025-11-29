@@ -37,12 +37,19 @@ fn test_gain_doubles_amplitude() {
     let rms_normal = calculate_rms(&normal);
     let rms_loud = calculate_rms(&loud);
 
-    println!("gain test: normal={:.4}, loud={:.4}, ratio={:.2}",
-        rms_normal, rms_loud, rms_loud / rms_normal);
+    println!(
+        "gain test: normal={:.4}, loud={:.4}, ratio={:.2}",
+        rms_normal,
+        rms_loud,
+        rms_loud / rms_normal
+    );
 
-    assert!(rms_loud > rms_normal * 1.5,
+    assert!(
+        rms_loud > rms_normal * 1.5,
         "gain 2.0 should increase amplitude, got normal={:.4}, loud={:.4}",
-        rms_normal, rms_loud);
+        rms_normal,
+        rms_loud
+    );
 }
 
 #[test]
@@ -63,12 +70,19 @@ fn test_gain_halves_amplitude() {
     let rms_normal = calculate_rms(&normal);
     let rms_quiet = calculate_rms(&quiet);
 
-    println!("gain halve test: normal={:.4}, quiet={:.4}, ratio={:.2}",
-        rms_normal, rms_quiet, rms_quiet / rms_normal);
+    println!(
+        "gain halve test: normal={:.4}, quiet={:.4}, ratio={:.2}",
+        rms_normal,
+        rms_quiet,
+        rms_quiet / rms_normal
+    );
 
-    assert!(rms_quiet < rms_normal * 0.7,
+    assert!(
+        rms_quiet < rms_normal * 0.7,
         "gain 0.5 should decrease amplitude, got normal={:.4}, quiet={:.4}",
-        rms_normal, rms_quiet);
+        rms_normal,
+        rms_quiet
+    );
 }
 
 #[test]
@@ -88,9 +102,18 @@ fn test_gain_pattern_varies_per_event() {
     println!("gain pattern RMS: {:?}", rms_values);
 
     // Each event should have progressively less amplitude
-    assert!(rms_values[0] > rms_values[1], "Event 0 should be louder than 1");
-    assert!(rms_values[1] > rms_values[2], "Event 1 should be louder than 2");
-    assert!(rms_values[2] > rms_values[3], "Event 2 should be louder than 3");
+    assert!(
+        rms_values[0] > rms_values[1],
+        "Event 0 should be louder than 1"
+    );
+    assert!(
+        rms_values[1] > rms_values[2],
+        "Event 1 should be louder than 2"
+    );
+    assert!(
+        rms_values[2] > rms_values[3],
+        "Event 2 should be louder than 3"
+    );
 }
 
 // ====================
@@ -184,12 +207,18 @@ fn test_speed_double_plays_faster() {
     let duration_normal = find_audio_duration(&buffer_normal, 0.001);
     let duration_fast = find_audio_duration(&buffer_fast, 0.001);
 
-    println!("speed test: normal={} samples, fast={} samples", duration_normal, duration_fast);
+    println!(
+        "speed test: normal={} samples, fast={} samples",
+        duration_normal, duration_fast
+    );
 
     // Double speed should finish in roughly half the time
-    assert!(duration_fast < (duration_normal as f32 * 0.8) as usize,
+    assert!(
+        duration_fast < (duration_normal as f32 * 0.8) as usize,
         "speed 2.0 should finish faster: normal={}, fast={}",
-        duration_normal, duration_fast);
+        duration_normal,
+        duration_fast
+    );
 }
 
 #[test]
@@ -210,12 +239,18 @@ fn test_speed_half_plays_slower() {
     let duration_normal = find_audio_duration(&buffer_normal, 0.001);
     let duration_slow = find_audio_duration(&buffer_slow, 0.001);
 
-    println!("speed slow test: normal={} samples, slow={} samples", duration_normal, duration_slow);
+    println!(
+        "speed slow test: normal={} samples, slow={} samples",
+        duration_normal, duration_slow
+    );
 
     // Half speed should last at least 1.5x longer
-    assert!(duration_slow > (duration_normal as f32 * 1.2) as usize,
+    assert!(
+        duration_slow > (duration_normal as f32 * 1.2) as usize,
         "speed 0.5 should last longer: normal={}, slow={}",
-        duration_normal, duration_slow);
+        duration_normal,
+        duration_slow
+    );
 }
 
 #[test]
@@ -447,12 +482,18 @@ fn test_end_half_stops_at_midpoint() {
     let duration_full = find_audio_duration(&buffer_full, 0.001);
     let duration_half = find_audio_duration(&buffer_half, 0.001);
 
-    println!("end test: full={} samples, half={} samples", duration_full, duration_half);
+    println!(
+        "end test: full={} samples, half={} samples",
+        duration_full, duration_half
+    );
 
     // Half end should finish earlier
-    assert!(duration_half < duration_full,
+    assert!(
+        duration_half < duration_full,
         "end 0.5 should finish earlier: full={}, half={}",
-        duration_full, duration_half);
+        duration_full,
+        duration_half
+    );
 }
 
 #[test]
@@ -501,13 +542,20 @@ fn test_loop_true_continues_playing() {
     let total_samples = buffer.len();
     let fill_ratio = active_samples as f32 / total_samples as f32;
 
-    println!("loop 1: active={}/{} samples ({:.1}% fill)",
-        active_samples, total_samples, fill_ratio * 100.0);
+    println!(
+        "loop 1: active={}/{} samples ({:.1}% fill)",
+        active_samples,
+        total_samples,
+        fill_ratio * 100.0
+    );
 
     // Looping should fill at least 30% of the buffer
     // (BD sample might have long tail, so we're lenient)
-    assert!(fill_ratio > 0.3,
-        "loop 1 should continue playing, got {:.1}% fill", fill_ratio * 100.0);
+    assert!(
+        fill_ratio > 0.3,
+        "loop 1 should continue playing, got {:.1}% fill",
+        fill_ratio * 100.0
+    );
 }
 
 #[test]
@@ -523,7 +571,10 @@ fn test_loop_pattern_varies_per_event() {
     let rms_first = calculate_rms(&buffer[0..half]);
     let rms_second = calculate_rms(&buffer[half..]);
 
-    println!("loop pattern: first={:.4}, second={:.4}", rms_first, rms_second);
+    println!(
+        "loop pattern: first={:.4}, second={:.4}",
+        rms_first, rms_second
+    );
 
     // Both events should produce audio
     assert!(rms_first > 0.01, "First event should produce audio");
@@ -575,7 +626,10 @@ fn test_unit_pattern_varies_mode() {
     let rms_first = calculate_rms(&buffer[0..half]);
     let rms_second = calculate_rms(&buffer[half..]);
 
-    println!("unit pattern: rate={:.4}, cycle={:.4}", rms_first, rms_second);
+    println!(
+        "unit pattern: rate={:.4}, cycle={:.4}",
+        rms_first, rms_second
+    );
 
     // Both events should produce audio
     assert!(rms_first > 0.01, "Rate mode event should produce audio");
@@ -621,12 +675,18 @@ fn test_cut_group_stops_previous() {
     let first_quarter = calculate_rms(&buffer[0..buffer.len() / 4]);
     let last_quarter = calculate_rms(&buffer[3 * buffer.len() / 4..]);
 
-    println!("cut 1: first_quarter={:.4}, last_quarter={:.4}", first_quarter, last_quarter);
+    println!(
+        "cut 1: first_quarter={:.4}, last_quarter={:.4}",
+        first_quarter, last_quarter
+    );
 
     // Last quarter shouldn't be much louder than first (no excessive buildup)
     let ratio = last_quarter / first_quarter.max(0.001);
-    assert!(ratio < 3.0,
-        "cut group should prevent massive buildup, ratio={:.2}", ratio);
+    assert!(
+        ratio < 3.0,
+        "cut group should prevent massive buildup, ratio={:.2}",
+        ratio
+    );
 }
 
 #[test]

@@ -7,23 +7,22 @@
 /// Unlike AR envelope (gate-based), AD is trigger-based (one-shot).
 /// Ideal for percussion, drums, plucks - short transient sounds.
 /// All time parameters are in seconds.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// AD envelope phase
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ADPhase {
-    Idle,       // No trigger, envelope is at 0.0
-    Attack,     // Ramping from 0.0 to 1.0
-    Decay,      // Ramping from 1.0 to 0.0
+    Idle,   // No trigger, envelope is at 0.0
+    Attack, // Ramping from 0.0 to 1.0
+    Decay,  // Ramping from 1.0 to 0.0
 }
 
 /// AD envelope state machine
 #[derive(Debug, Clone)]
 struct ADState {
-    phase: ADPhase,         // Current envelope phase
-    value: f32,             // Current envelope value (0.0 to 1.0)
-    last_trigger: f32,      // Track trigger transitions (rising edge)
+    phase: ADPhase,    // Current envelope phase
+    value: f32,        // Current envelope value (0.0 to 1.0)
+    last_trigger: f32, // Track trigger transitions (rising edge)
 }
 
 impl Default for ADState {
@@ -52,10 +51,10 @@ impl Default for ADState {
 /// let ad = ADEnvelopeNode::new(0, 1, 2);       // NodeId 3
 /// ```
 pub struct ADEnvelopeNode {
-    trigger_input: NodeId,   // Trigger input (rising edge detection)
-    attack_input: NodeId,    // Attack time in seconds
-    decay_input: NodeId,     // Decay time in seconds
-    state: ADState,          // Internal state machine
+    trigger_input: NodeId, // Trigger input (rising edge detection)
+    attack_input: NodeId,  // Attack time in seconds
+    decay_input: NodeId,   // Decay time in seconds
+    state: ADState,        // Internal state machine
 }
 
 impl ADEnvelopeNode {
@@ -75,11 +74,7 @@ impl ADEnvelopeNode {
     /// ~envelope: ~trigger # ad_envelope 0.001 0.2
     /// ~sound: sine 440 * ~envelope
     /// ```
-    pub fn new(
-        trigger_input: NodeId,
-        attack_input: NodeId,
-        decay_input: NodeId,
-    ) -> Self {
+    pub fn new(trigger_input: NodeId, attack_input: NodeId, decay_input: NodeId) -> Self {
         Self {
             trigger_input,
             attack_input,
@@ -121,9 +116,21 @@ impl AudioNode for ADEnvelopeNode {
         let attack_buffer = inputs[1];
         let decay_buffer = inputs[2];
 
-        debug_assert_eq!(trigger_buffer.len(), output.len(), "Trigger buffer length mismatch");
-        debug_assert_eq!(attack_buffer.len(), output.len(), "Attack buffer length mismatch");
-        debug_assert_eq!(decay_buffer.len(), output.len(), "Decay buffer length mismatch");
+        debug_assert_eq!(
+            trigger_buffer.len(),
+            output.len(),
+            "Trigger buffer length mismatch"
+        );
+        debug_assert_eq!(
+            attack_buffer.len(),
+            output.len(),
+            "Attack buffer length mismatch"
+        );
+        debug_assert_eq!(
+            decay_buffer.len(),
+            output.len(),
+            "Decay buffer length mismatch"
+        );
 
         for i in 0..output.len() {
             let trigger = trigger_buffer[i];
@@ -177,11 +184,7 @@ impl AudioNode for ADEnvelopeNode {
     }
 
     fn input_nodes(&self) -> Vec<NodeId> {
-        vec![
-            self.trigger_input,
-            self.attack_input,
-            self.decay_input,
-        ]
+        vec![self.trigger_input, self.attack_input, self.decay_input]
     }
 
     fn name(&self) -> &str {
@@ -198,19 +201,13 @@ mod tests {
     #[test]
     fn test_ad_idle_when_no_trigger() {
         // Test 1: When no trigger, envelope should be idle at 0.0
-        let mut trigger = ConstantNode::new(0.0);  // No trigger
+        let mut trigger = ConstantNode::new(0.0); // No trigger
         let mut attack = ConstantNode::new(0.01);
         let mut decay = ConstantNode::new(0.2);
 
         let mut ad = ADEnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Generate input buffers
         let mut trigger_buf = vec![0.0; 512];
@@ -232,11 +229,7 @@ mod tests {
 
         // All samples should be 0.0 (idle)
         for (i, &sample) in output.iter().enumerate() {
-            assert_eq!(
-                sample, 0.0,
-                "Sample {} should be 0.0 when no trigger",
-                i
-            );
+            assert_eq!(sample, 0.0, "Sample {} should be 0.0 when no trigger", i);
         }
 
         assert_eq!(ad.phase(), ADPhase::Idle);
@@ -252,13 +245,8 @@ mod tests {
 
         let mut ad = ADEnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Trigger on first sample
         let mut trigger_buf = vec![0.0; block_size];
@@ -302,18 +290,13 @@ mod tests {
         // Test 3: After attack completes, decay phase should fall to 0.0
         let sample_rate = 44100.0;
         let attack_time = 0.001; // 1ms (very fast)
-        let decay_time = 0.01;   // 10ms = 441 samples
-        let block_size = 1024;   // Large enough to observe full envelope
+        let decay_time = 0.01; // 10ms = 441 samples
+        let block_size = 1024; // Large enough to observe full envelope
 
         let mut ad = ADEnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Trigger
         let mut trigger_buf = vec![0.0; block_size];
@@ -361,19 +344,14 @@ mod tests {
         // Test 4: Total envelope duration should equal attack + decay
         let sample_rate = 44100.0;
         let attack_time = 0.002; // 2ms = 88 samples
-        let decay_time = 0.003;  // 3ms = 132 samples
+        let decay_time = 0.003; // 3ms = 132 samples
         let total_time = attack_time + decay_time; // 5ms = 220 samples
         let block_size = 512;
 
         let mut ad = ADEnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Trigger
         let mut trigger_buf = vec![0.0; block_size];
@@ -418,16 +396,11 @@ mod tests {
 
         let mut ad = ADEnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let attack_buf = vec![0.005; block_size]; // 5ms
-        let decay_buf = vec![0.01; block_size];   // 10ms
+        let decay_buf = vec![0.01; block_size]; // 10ms
 
         // First trigger
         let mut trigger_buf = vec![0.0; block_size];
@@ -467,7 +440,11 @@ mod tests {
         ad.process_block(&inputs, &mut output, sample_rate, &context);
 
         // Should restart in attack phase
-        assert_eq!(ad.phase(), ADPhase::Attack, "Should restart in Attack phase on retrigger");
+        assert_eq!(
+            ad.phase(),
+            ADPhase::Attack,
+            "Should restart in Attack phase on retrigger"
+        );
 
         // Value at sample 1 should be reset (close to 0, just starting)
         assert!(
@@ -483,13 +460,8 @@ mod tests {
         let sample_rate = 44100.0;
         let block_size = 256;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Fast attack
         let mut ad_fast = ADEnvelopeNode::new(0, 1, 2);
@@ -536,13 +508,8 @@ mod tests {
         let attack_time = 0.0001; // Very fast attack
         let block_size = 1024;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Fast decay
         let mut ad_fast = ADEnvelopeNode::new(0, 1, 2);
@@ -590,18 +557,13 @@ mod tests {
         // Test 8: Envelope should stay at 0.0 after decay completes
         let sample_rate = 44100.0;
         let attack_time = 0.001; // 1ms
-        let decay_time = 0.002;  // 2ms
+        let decay_time = 0.002; // 2ms
         let block_size = 512;
 
         let mut ad = ADEnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Trigger
         let mut trigger_buf = vec![0.0; block_size];
@@ -641,11 +603,7 @@ mod tests {
         ad.process_block(&inputs, &mut output, sample_rate, &context);
 
         for (i, &sample) in output.iter().enumerate() {
-            assert_eq!(
-                sample, 0.0,
-                "Sample {} should be 0.0 after completion",
-                i
-            );
+            assert_eq!(sample, 0.0, "Sample {} should be 0.0 after completion", i);
         }
     }
 
@@ -657,13 +615,8 @@ mod tests {
 
         let mut ad = ADEnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Trigger
         let mut trigger_buf = vec![0.0; block_size];
@@ -708,8 +661,8 @@ mod tests {
     fn test_ad_with_constants() {
         // Test 11: Full envelope cycle with constant parameters
         let sample_rate = 44100.0;
-        let attack_time = 0.002;  // 2ms = 88 samples
-        let decay_time = 0.003;   // 3ms = 132 samples
+        let attack_time = 0.002; // 2ms = 88 samples
+        let decay_time = 0.003; // 3ms = 132 samples
         let block_size = 512;
 
         let mut attack_node = ConstantNode::new(attack_time);
@@ -717,13 +670,8 @@ mod tests {
 
         let mut ad = ADEnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Create trigger buffer with rising edge
         let mut trigger_buf = vec![0.0; block_size];
@@ -748,10 +696,15 @@ mod tests {
 
         // Should be in attack or decay (envelope completes in 220 samples)
         assert!(
-            ad.phase() == ADPhase::Attack || ad.phase() == ADPhase::Decay || ad.phase() == ADPhase::Idle,
+            ad.phase() == ADPhase::Attack
+                || ad.phase() == ADPhase::Decay
+                || ad.phase() == ADPhase::Idle,
             "Should be in Attack, Decay, or Idle (envelope might complete)"
         );
-        assert!(output[block_size - 1] >= 0.0, "Envelope should have valid output");
+        assert!(
+            output[block_size - 1] >= 0.0,
+            "Envelope should have valid output"
+        );
 
         // Process more blocks to complete
         trigger_buf.fill(0.0); // No more triggers
@@ -775,19 +728,14 @@ mod tests {
     fn test_ad_percussion_use_case() {
         // Test 12: Typical percussion envelope (very short attack, medium decay)
         let sample_rate = 44100.0;
-        let attack_time = 0.0005;  // 0.5ms (percussive strike)
-        let decay_time = 0.15;     // 150ms (resonance)
+        let attack_time = 0.0005; // 0.5ms (percussive strike)
+        let decay_time = 0.15; // 150ms (resonance)
         let block_size = 512;
 
         let mut ad = ADEnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Trigger
         let mut trigger_buf = vec![0.0; block_size];
@@ -831,19 +779,14 @@ mod tests {
     fn test_ad_pluck_use_case() {
         // Test 13: Plucked string envelope (very short attack, long decay)
         let sample_rate = 44100.0;
-        let attack_time = 0.0001;  // 0.1ms (instant pluck)
-        let decay_time = 1.0;      // 1 second (string resonance)
+        let attack_time = 0.0001; // 0.1ms (instant pluck)
+        let decay_time = 1.0; // 1 second (string resonance)
         let block_size = 512;
 
         let mut ad = ADEnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Trigger
         let mut trigger_buf = vec![0.0; block_size];
@@ -887,13 +830,8 @@ mod tests {
         let mut ad1 = ADEnvelopeNode::new(0, 1, 2);
         let mut ad2 = ADEnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Trigger ad1
         let mut trigger_buf = vec![0.0; block_size];

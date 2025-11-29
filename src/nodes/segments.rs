@@ -13,7 +13,6 @@
 /// - Retriggerable: can restart during envelope
 /// - Multiple curve types: Linear, Exponential
 /// - Pattern-controllable trigger input
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Interpolation curve type for a segment
@@ -106,9 +105,9 @@ impl Default for SegmentsState {
 /// let env = SegmentsNode::new(0, segments);
 /// ```
 pub struct SegmentsNode {
-    trigger_input: NodeId,    // Trigger to restart envelope
-    segments: Vec<Segment>,   // Breakpoint sequence
-    state: SegmentsState,     // Internal state machine
+    trigger_input: NodeId,  // Trigger to restart envelope
+    segments: Vec<Segment>, // Breakpoint sequence
+    state: SegmentsState,   // Internal state machine
 }
 
 impl SegmentsNode {
@@ -176,10 +175,7 @@ impl AudioNode for SegmentsNode {
         sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(
-            inputs.len() >= 1,
-            "SegmentsNode requires 1 input: trigger"
-        );
+        debug_assert!(inputs.len() >= 1, "SegmentsNode requires 1 input: trigger");
 
         let trigger_buffer = inputs[0];
 
@@ -290,13 +286,8 @@ mod tests {
         let mut trigger = ConstantNode::new(1.0); // Trigger on
         let mut env = SegmentsNode::new(0, segments);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut trigger_buf = vec![0.0; block_size];
         trigger.process_block(&[], &mut trigger_buf, sample_rate, &context);
@@ -320,21 +311,16 @@ mod tests {
         let block_size = 512;
 
         let segments = vec![
-            Segment::linear(1.0, 0.001),   // Fast attack (1ms)
-            Segment::linear(0.7, 0.001),   // Fast decay (1ms)
-            Segment::linear(0.7, 0.01),    // Sustain hold (10ms)
-            Segment::linear(0.0, 0.001),   // Fast release (1ms)
+            Segment::linear(1.0, 0.001), // Fast attack (1ms)
+            Segment::linear(0.7, 0.001), // Fast decay (1ms)
+            Segment::linear(0.7, 0.01),  // Sustain hold (10ms)
+            Segment::linear(0.0, 0.001), // Fast release (1ms)
         ];
 
         let mut env = SegmentsNode::new(0, segments);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let trigger_buf = vec![1.0; block_size];
         let inputs = vec![trigger_buf.as_slice()];
@@ -371,13 +357,8 @@ mod tests {
         env_exp.state.current_value = 0.1;
         env_exp.state.start_value = 0.1;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let trigger_buf = vec![1.0; block_size];
         let inputs = vec![trigger_buf.as_slice()];
@@ -412,13 +393,8 @@ mod tests {
 
         let mut env = SegmentsNode::new(0, segments);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let trigger_buf = vec![1.0; block_size];
         let inputs = vec![trigger_buf.as_slice()];
@@ -452,13 +428,8 @@ mod tests {
 
         let mut env = SegmentsNode::new(0, segments);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // First trigger
         let trigger_buf = vec![1.0; block_size];
@@ -500,13 +471,8 @@ mod tests {
 
         let mut env = SegmentsNode::new(0, segments);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let trigger_buf = vec![1.0; block_size];
         let inputs = vec![trigger_buf.as_slice()];
@@ -544,13 +510,8 @@ mod tests {
 
         let mut env = SegmentsNode::new(0, segments);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // First trigger
         let trigger_buf = vec![1.0; block_size];
@@ -570,7 +531,11 @@ mod tests {
         let mut output = vec![0.0; block_size];
         env.process_block(&inputs, &mut output, sample_rate, &context);
 
-        assert_eq!(env.current_segment(), 0, "Should restart at segment 0 on second trigger");
+        assert_eq!(
+            env.current_segment(),
+            0,
+            "Should restart at segment 0 on second trigger"
+        );
 
         // Trigger off
         let trigger_buf = vec![0.0; block_size];
@@ -584,7 +549,11 @@ mod tests {
         let mut output = vec![0.0; block_size];
         env.process_block(&inputs, &mut output, sample_rate, &context);
 
-        assert_eq!(env.current_segment(), 0, "Should restart at segment 0 on third trigger");
+        assert_eq!(
+            env.current_segment(),
+            0,
+            "Should restart at segment 0 on third trigger"
+        );
     }
 
     #[test]
@@ -598,13 +567,8 @@ mod tests {
 
         let mut env = SegmentsNode::new(0, segments);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let trigger_buf = vec![1.0; block_size];
         let inputs = vec![trigger_buf.as_slice()];
@@ -639,13 +603,8 @@ mod tests {
 
         let mut env = SegmentsNode::new(0, segments);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let trigger_buf = vec![1.0; block_size];
         let inputs = vec![trigger_buf.as_slice()];
@@ -671,13 +630,8 @@ mod tests {
 
         let mut env = SegmentsNode::new(0, segments);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let trigger_buf = vec![1.0; block_size];
         let inputs = vec![trigger_buf.as_slice()];
@@ -709,13 +663,8 @@ mod tests {
 
         let mut env = SegmentsNode::new(0, segments);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let trigger_buf = vec![1.0; block_size];
         let inputs = vec![trigger_buf.as_slice()];
@@ -738,13 +687,8 @@ mod tests {
 
         let mut env = SegmentsNode::new(0, segments);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let trigger_buf = vec![1.0; block_size];
         let inputs = vec![trigger_buf.as_slice()];
@@ -754,7 +698,11 @@ mod tests {
 
         // All output should be 0.0
         for (i, &sample) in output.iter().enumerate() {
-            assert_eq!(sample, 0.0, "Sample {} should be 0.0 with empty segments", i);
+            assert_eq!(
+                sample, 0.0,
+                "Sample {} should be 0.0 with empty segments",
+                i
+            );
         }
 
         assert!(!env.is_active(), "Should not be active with empty segments");
@@ -782,13 +730,8 @@ mod tests {
 
         let mut env = SegmentsNode::linear_segments(0, targets);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let trigger_buf = vec![1.0; block_size];
         let inputs = vec![trigger_buf.as_slice()];

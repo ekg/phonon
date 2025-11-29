@@ -2,7 +2,6 @@
 ///
 /// This node demonstrates comparison logic and boolean signal generation.
 /// Output[i] = 1.0 if Input_A[i] < Input_B[i], otherwise 0.0.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Less-than comparison node: out = (a < b) ? 1.0 : 0.0
@@ -69,16 +68,8 @@ impl AudioNode for LessThanNode {
         let buf_a = inputs[0];
         let buf_b = inputs[1];
 
-        debug_assert_eq!(
-            buf_a.len(),
-            output.len(),
-            "Input A length mismatch"
-        );
-        debug_assert_eq!(
-            buf_b.len(),
-            output.len(),
-            "Input B length mismatch"
-        );
+        debug_assert_eq!(buf_a.len(), output.len(), "Input A length mismatch");
+        debug_assert_eq!(buf_b.len(), output.len(), "Input B length mismatch");
 
         // Vectorized comparison
         for i in 0..output.len() {
@@ -111,21 +102,15 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         lt.process_block(&inputs, &mut output, 44100.0, &context);
 
         // All comparisons should be true (1.0)
-        assert_eq!(output[0], 1.0);  // 1 < 2
-        assert_eq!(output[1], 1.0);  // 2 < 3
-        assert_eq!(output[2], 1.0);  // 3 < 4
-        assert_eq!(output[3], 1.0);  // 4 < 5
+        assert_eq!(output[0], 1.0); // 1 < 2
+        assert_eq!(output[1], 1.0); // 2 < 3
+        assert_eq!(output[2], 1.0); // 3 < 4
+        assert_eq!(output[3], 1.0); // 4 < 5
     }
 
     #[test]
@@ -138,21 +123,15 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         lt.process_block(&inputs, &mut output, 44100.0, &context);
 
         // All comparisons should be false (0.0)
-        assert_eq!(output[0], 0.0);  // 10 >= 5
-        assert_eq!(output[1], 0.0);  // 20 >= 10
-        assert_eq!(output[2], 0.0);  // 30 >= 15
-        assert_eq!(output[3], 0.0);  // 40 >= 20
+        assert_eq!(output[0], 0.0); // 10 >= 5
+        assert_eq!(output[1], 0.0); // 20 >= 10
+        assert_eq!(output[2], 0.0); // 30 >= 15
+        assert_eq!(output[3], 0.0); // 40 >= 20
     }
 
     #[test]
@@ -165,21 +144,15 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         lt.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Equal values should return false (0.0)
-        assert_eq!(output[0], 0.0);  // 5 == 5
-        assert_eq!(output[1], 0.0);  // 10 == 10
-        assert_eq!(output[2], 0.0);  // 15 == 15
-        assert_eq!(output[3], 0.0);  // 20 == 20
+        assert_eq!(output[0], 0.0); // 5 == 5
+        assert_eq!(output[1], 0.0); // 10 == 10
+        assert_eq!(output[2], 0.0); // 15 == 15
+        assert_eq!(output[3], 0.0); // 20 == 20
     }
 
     #[test]
@@ -192,20 +165,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         lt.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // 1 < 5 → true
-        assert_eq!(output[1], 0.0);  // 10 >= 5 → false
-        assert_eq!(output[2], 0.0);  // 5 == 5 → false
-        assert_eq!(output[3], 0.0);  // 20 >= 10 → false
+        assert_eq!(output[0], 1.0); // 1 < 5 → true
+        assert_eq!(output[1], 0.0); // 10 >= 5 → false
+        assert_eq!(output[2], 0.0); // 5 == 5 → false
+        assert_eq!(output[3], 0.0); // 20 >= 10 → false
     }
 
     #[test]
@@ -214,13 +181,7 @@ mod tests {
         let mut const_b = ConstantNode::new(200.0);
         let mut lt = LessThanNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut buf_a = vec![0.0; 512];
@@ -251,20 +212,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         lt.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // -10 < -5 → true
-        assert_eq!(output[1], 0.0);  // -5 >= -10 → false
-        assert_eq!(output[2], 0.0);  // 0 == 0 → false
-        assert_eq!(output[3], 1.0);  // 5 < 10 → true
+        assert_eq!(output[0], 1.0); // -10 < -5 → true
+        assert_eq!(output[1], 0.0); // -5 >= -10 → false
+        assert_eq!(output[2], 0.0); // 0 == 0 → false
+        assert_eq!(output[3], 1.0); // 5 < 10 → true
     }
 
     #[test]

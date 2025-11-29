@@ -7,7 +7,6 @@
 ///
 /// Pulse width modulation (PWM) creates rich harmonic content and is
 /// fundamental to many classic synthesizer sounds.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Pulse wave oscillator with pattern-controlled frequency and width
@@ -20,9 +19,9 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 /// let pulse = PulseNode::new(0, 1);           // NodeId 2
 /// ```
 pub struct PulseNode {
-    freq_input: NodeId,      // NodeId providing frequency values (Hz)
-    width_input: NodeId,     // NodeId providing pulse width (0.0 to 1.0)
-    phase: f32,              // Internal state (0.0 to 1.0)
+    freq_input: NodeId,  // NodeId providing frequency values (Hz)
+    width_input: NodeId, // NodeId providing pulse width (0.0 to 1.0)
+    phase: f32,          // Internal state (0.0 to 1.0)
 }
 
 impl PulseNode {
@@ -129,13 +128,7 @@ mod tests {
         let mut const_width = ConstantNode::new(0.5);
         let mut pulse = PulseNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Generate frequency buffer
         let mut freq_buf = vec![0.0; 512];
@@ -179,13 +172,7 @@ mod tests {
         let mut const_width = ConstantNode::new(0.1);
         let mut pulse = PulseNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -217,13 +204,7 @@ mod tests {
         let mut const_width = ConstantNode::new(0.9);
         let mut pulse = PulseNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -260,13 +241,7 @@ mod tests {
         let inputs = vec![freq_buf.as_slice(), width_buf.as_slice()];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         let mut pulse = pulse;
         pulse.process_block(&inputs, &mut output, 44100.0, &context);
@@ -289,18 +264,12 @@ mod tests {
         pulse.phase = 0.99;
 
         // Process one sample at high frequency
-        let freq_buf = vec![4410.0];  // 10% of sample rate
+        let freq_buf = vec![4410.0]; // 10% of sample rate
         let width_buf = vec![0.5];
         let inputs = vec![freq_buf.as_slice(), width_buf.as_slice()];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         pulse.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -332,7 +301,7 @@ mod tests {
         let context = ProcessContext::new(
             Fraction::from_float(0.0),
             0,
-            4410,  // Process multiple complete cycles
+            4410, // Process multiple complete cycles
             2.0,
             44100.0,
         );
@@ -351,11 +320,7 @@ mod tests {
         let sum: f32 = output.iter().sum();
         let avg = sum / output.len() as f32;
 
-        assert!(
-            avg.abs() < 0.1,
-            "Pulse wave DC offset too high: {}",
-            avg
-        );
+        assert!(avg.abs() < 0.1, "Pulse wave DC offset too high: {}", avg);
     }
 
     #[test]
@@ -364,13 +329,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut pulse = PulseNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);

@@ -20,7 +20,6 @@
 /// - 256 samples: Good for most uses (default)
 /// - 1024 samples: High quality
 /// - 4096 samples: Ultra-high quality (diminishing returns)
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 use std::sync::Arc;
@@ -34,9 +33,9 @@ use std::sync::Arc;
 /// let osc = WavetableNode::sine(0, 256);       // NodeId 1
 /// ```
 pub struct WavetableNode {
-    freq_input: NodeId,              // NodeId providing frequency values
-    wavetable: Arc<Vec<f32>>,        // Shared waveform data
-    phase: f32,                      // Current phase (0.0 to 1.0)
+    freq_input: NodeId,       // NodeId providing frequency values
+    wavetable: Arc<Vec<f32>>, // Shared waveform data
+    phase: f32,               // Current phase (0.0 to 1.0)
 }
 
 impl WavetableNode {
@@ -161,10 +160,7 @@ impl AudioNode for WavetableNode {
         sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(
-            !inputs.is_empty(),
-            "WavetableNode requires frequency input"
-        );
+        debug_assert!(!inputs.is_empty(), "WavetableNode requires frequency input");
 
         let freq_buffer = inputs[0];
 
@@ -234,7 +230,7 @@ mod tests {
     #[test]
     fn test_wavetable_sine_matches_sin_function() {
         // Sine wavetable should closely match std::f32::sin()
-        let table_size = 1024;  // High resolution for accuracy
+        let table_size = 1024; // High resolution for accuracy
         let table = generate_sine_table(table_size);
 
         // Check multiple points around the table
@@ -258,7 +254,9 @@ mod tests {
             assert!(
                 (table_value - expected).abs() < 0.01,
                 "Sine table mismatch at phase {}: got {}, expected {}",
-                phase, table_value, expected
+                phase,
+                table_value,
+                expected
             );
         }
     }
@@ -269,7 +267,10 @@ mod tests {
 
         // Saw should be linear ramp from -1.0 to ~1.0
         assert!((table[0] - (-1.0)).abs() < 0.01, "Saw should start at -1.0");
-        assert!((table[127] - 0.0).abs() < 0.1, "Saw middle should be near 0.0");
+        assert!(
+            (table[127] - 0.0).abs() < 0.1,
+            "Saw middle should be near 0.0"
+        );
         assert!(table[255] > 0.9, "Saw end should be near 1.0");
 
         // Should be monotonically increasing
@@ -300,13 +301,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut osc = WavetableNode::sine(0, 256);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Generate frequency buffer
         let mut freq_buf = vec![0.0; 512];
@@ -321,9 +316,11 @@ mod tests {
         for i in 1..output.len() {
             let diff = (output[i] - output[i - 1]).abs();
             assert!(
-                diff < 0.5,  // Sine at 440Hz shouldn't jump more than 0.5 between samples
+                diff < 0.5, // Sine at 440Hz shouldn't jump more than 0.5 between samples
                 "Large discontinuity detected at sample {}: {} to {}",
-                i, output[i - 1], output[i]
+                i,
+                output[i - 1],
+                output[i]
             );
         }
     }
@@ -334,13 +331,7 @@ mod tests {
         let table_size = 256;
         let mut osc = WavetableNode::sine(0, table_size);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Create frequency ramp from 220 Hz to 880 Hz
         let mut freq_buf = vec![0.0; 512];
@@ -358,11 +349,7 @@ mod tests {
 
         // All samples should be in valid range
         for sample in &output {
-            assert!(
-                sample.abs() <= 1.1,
-                "Sample out of range: {}",
-                sample
-            );
+            assert!(sample.abs() <= 1.1, "Sample out of range: {}", sample);
         }
     }
 
@@ -374,17 +361,11 @@ mod tests {
         osc.phase = 0.99;
 
         // Process one sample at high frequency
-        let freq_buf = vec![4410.0];  // 10% of sample rate
+        let freq_buf = vec![4410.0]; // 10% of sample rate
         let inputs = vec![freq_buf.as_slice()];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -405,13 +386,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut osc = WavetableNode::new(0, custom_table.clone());
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            256,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 256, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 256];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -437,13 +412,7 @@ mod tests {
             let mut const_freq = ConstantNode::new(440.0);
             let mut osc = WavetableNode::sine(0, size);
 
-            let context = ProcessContext::new(
-                Fraction::from_float(0.0),
-                0,
-                512,
-                2.0,
-                44100.0,
-            );
+            let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
             let mut freq_buf = vec![0.0; 512];
             const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -454,11 +423,7 @@ mod tests {
 
             // All sizes should produce valid sine output
             let has_signal = output.iter().any(|&x| x.abs() > 0.1);
-            assert!(
-                has_signal,
-                "Table size {} should produce signal",
-                size
-            );
+            assert!(has_signal, "Table size {} should produce signal", size);
 
             // Check DC offset (sine should average to ~0)
             let sum: f32 = output.iter().sum();
@@ -466,7 +431,8 @@ mod tests {
             assert!(
                 avg.abs() < 0.2,
                 "Table size {} has DC offset: {}",
-                size, avg
+                size,
+                avg
             );
         }
     }
@@ -474,23 +440,17 @@ mod tests {
     #[test]
     fn test_wavetable_interpolation_at_fractional_positions() {
         // Test that interpolation works correctly at specific fractional positions
-        let table = Arc::new(vec![0.0, 1.0, 0.0, -1.0]);  // Simple 4-sample table
+        let table = Arc::new(vec![0.0, 1.0, 0.0, -1.0]); // Simple 4-sample table
         let mut osc = WavetableNode::new(0, table);
 
         // Manually set phase to 0.5 (halfway between samples 1 and 2)
-        osc.phase = 0.5 / 3.0;  // Position 1.5 in table
+        osc.phase = 0.5 / 3.0; // Position 1.5 in table
 
-        let freq_buf = vec![0.0];  // Don't advance phase
+        let freq_buf = vec![0.0]; // Don't advance phase
         let inputs = vec![freq_buf.as_slice()];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -523,7 +483,7 @@ mod tests {
         // Both should reference the same Arc
         assert_eq!(
             Arc::strong_count(osc1.wavetable()),
-            3,  // shared_table + osc1 + osc2
+            3, // shared_table + osc1 + osc2
             "Arc should be shared between instances"
         );
 
@@ -553,15 +513,9 @@ mod tests {
 
         let freq_buf = vec![440.0; 512];
         let inputs = vec![freq_buf.as_slice()];
-        let mut output = vec![1.0; 512];  // Pre-fill with non-zero
+        let mut output = vec![1.0; 512]; // Pre-fill with non-zero
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -581,13 +535,7 @@ mod tests {
         let inputs = vec![freq_buf.as_slice()];
         let mut output = vec![0.0; 512];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -606,7 +554,7 @@ mod tests {
         let context = ProcessContext::new(
             Fraction::from_float(0.0),
             0,
-            4410,  // 0.1 seconds = ~44 cycles at 440 Hz
+            4410, // 0.1 seconds = ~44 cycles at 440 Hz
             2.0,
             44100.0,
         );

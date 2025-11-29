@@ -1,9 +1,9 @@
 //! Tests that verify audio is actually modulating over time
 //! Writes audio to buffers and performs spectral/temporal analysis
 
-use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
+use std::cell::RefCell;
 use std::fs::File;
 use std::io::Write;
 

@@ -1,12 +1,11 @@
+use super::function_metadata::{FunctionMetadata, FUNCTION_METADATA};
 /// Parameter completion and template insertion logic
 ///
 /// Provides utilities for:
 /// - Generating parameter templates with _ placeholders
 /// - Showing parameter suggestions
 /// - Inserting complete parameter templates
-
-use super::generated_metadata::{GeneratedNodeMetadata, get_all_nodes};
-use super::function_metadata::{FunctionMetadata, FUNCTION_METADATA};
+use super::generated_metadata::{get_all_nodes, GeneratedNodeMetadata};
 
 /// Generate parameter template for a function
 ///
@@ -145,8 +144,7 @@ pub fn get_param_hints(function_name: &str) -> Option<String> {
 
 /// Check if a function exists in either metadata source
 pub fn function_exists(function_name: &str) -> bool {
-    FUNCTION_METADATA.contains_key(function_name)
-        || get_all_nodes().contains_key(function_name)
+    FUNCTION_METADATA.contains_key(function_name) || get_all_nodes().contains_key(function_name)
 }
 
 /// Get list of all available functions (both curated and generated)
@@ -206,7 +204,11 @@ mod tests {
         let names = get_all_function_names();
 
         // Should have many functions
-        assert!(names.len() > 50, "Should have at least 50 functions (got {})", names.len());
+        assert!(
+            names.len() > 50,
+            "Should have at least 50 functions (got {})",
+            names.len()
+        );
 
         // Should be sorted
         let mut sorted = names.clone();
@@ -217,7 +219,11 @@ mod tests {
         let original_len = names.len();
         let mut deduped = names.clone();
         deduped.dedup();
-        assert_eq!(original_len, deduped.len(), "Should have no duplicate function names");
+        assert_eq!(
+            original_len,
+            deduped.len(),
+            "Should have no duplicate function names"
+        );
     }
 
     #[test]
@@ -236,8 +242,14 @@ mod tests {
         if let Some(metadata) = FUNCTION_METADATA.get("lpf") {
             let template = generate_kwargs_template(metadata);
             // Should have both cutoff (type-based default) and q (explicit default)
-            assert!(template.contains(":cutoff 1.0"), "Should have cutoff with type-based default");
-            assert!(template.contains(":q 1.0"), "Should have q with explicit default");
+            assert!(
+                template.contains(":cutoff 1.0"),
+                "Should have cutoff with type-based default"
+            );
+            assert!(
+                template.contains(":q 1.0"),
+                "Should have q with explicit default"
+            );
         }
     }
 

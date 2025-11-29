@@ -10,7 +10,6 @@
 /// - C:M ratio determines harmonic/inharmonic spectrum
 /// - All parameters pattern-modulated
 /// - Used for bells, brass, electric piano, complex pads
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -21,14 +20,15 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
 
 /// Perform FFT and analyze spectrum
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -110,9 +110,11 @@ fn test_fm_zero_index_is_sine() {
         }
     }
 
-    assert!((peak_freq - 440.0).abs() < 20.0,
+    assert!(
+        (peak_freq - 440.0).abs() < 20.0,
         "FM with index=0 should peak near 440Hz, got {}Hz",
-        peak_freq);
+        peak_freq
+    );
 
     println!("Zero index peak: {}Hz", peak_freq);
 }
@@ -145,9 +147,11 @@ fn test_fm_high_index_complex() {
 
     // High index should create spectral energy across wide range
     let total_energy: f32 = magnitudes.iter().map(|m| m * m).sum();
-    assert!(total_energy > 0.01,
+    assert!(
+        total_energy > 0.01,
         "FM with high index should have spectral energy, got {}",
-        total_energy);
+        total_energy
+    );
 
     println!("High index total energy: {}", total_energy);
 }
@@ -280,9 +284,11 @@ fn test_fm_pattern_carrier() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "FM with pattern-modulated carrier should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern carrier RMS: {}", rms);
 }
@@ -298,9 +304,11 @@ fn test_fm_pattern_modulator() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "FM with pattern-modulated modulator should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern modulator RMS: {}", rms);
 }
@@ -316,9 +324,11 @@ fn test_fm_pattern_index() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "FM with pattern-modulated index should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern index RMS: {}", rms);
 }
@@ -335,7 +345,11 @@ fn test_fm_very_low_frequencies() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "FM with very low frequencies should work, RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "FM with very low frequencies should work, RMS: {}",
+        rms
+    );
     println!("Very low frequencies RMS: {}", rms);
 }
 
@@ -364,7 +378,11 @@ fn test_fm_extreme_index() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.01, "FM with extreme index should work, RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "FM with extreme index should work, RMS: {}",
+        rms
+    );
     println!("Extreme index RMS: {}", rms);
 }
 
@@ -380,9 +398,11 @@ fn test_fm_no_clipping() {
     let buffer = render_dsl(code, 1.0);
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
-    assert!(max_amplitude <= 1.5,
+    assert!(
+        max_amplitude <= 1.5,
         "FM should not excessively clip, max: {}",
-        max_amplitude);
+        max_amplitude
+    );
 
     println!("FM max amplitude: {}", max_amplitude);
 }

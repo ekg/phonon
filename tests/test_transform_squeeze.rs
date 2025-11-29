@@ -3,7 +3,7 @@
 /// squeeze n - squeezes pattern to 1/n of cycle and speeds up by n
 /// Similar to fast but compresses time window
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 
 #[test]

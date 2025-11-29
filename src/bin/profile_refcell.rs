@@ -10,8 +10,8 @@
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::fs;
-use std::time::Instant;
 use std::sync::atomic::AtomicUsize;
+use std::time::Instant;
 
 static BORROW_COUNT: AtomicUsize = AtomicUsize::new(0);
 static BORROW_MUT_COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -27,8 +27,7 @@ fn main() {
     let cycles: usize = args[2].parse().expect("cycles must be a number");
 
     // Read and parse DSL
-    let dsl_code = fs::read_to_string(file_path)
-        .expect("Failed to read file");
+    let dsl_code = fs::read_to_string(file_path).expect("Failed to read file");
 
     println!("📊 RefCell Performance Profiler");
     println!("================================");
@@ -45,8 +44,7 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let mut graph = compile_program(statements, 44100.0, None)
-        .expect("Failed to compile DSL");
+    let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile DSL");
     let compile_time = compile_start.elapsed();
 
     println!("✅ Compilation: {:?}", compile_time);
@@ -57,7 +55,11 @@ fn main() {
     let samples_per_cycle = sample_rate / 2.0; // tempo = 2.0
     let total_samples = (cycles as f32 * samples_per_cycle) as usize;
 
-    println!("🔊 Rendering {} samples ({} seconds)...", total_samples, total_samples as f32 / sample_rate);
+    println!(
+        "🔊 Rendering {} samples ({} seconds)...",
+        total_samples,
+        total_samples as f32 / sample_rate
+    );
 
     let render_start = Instant::now();
     let mut buffer = vec![0.0f32; total_samples];
@@ -78,7 +80,10 @@ fn main() {
     println!("Total time:        {:?}", render_time);
     println!("Audio duration:    {:.3}s", audio_secs);
     println!("Realtime factor:   {:.2}x", realtime_factor);
-    println!("Time per sample:   {:.2}µs", render_secs * 1_000_000.0 / total_samples as f64);
+    println!(
+        "Time per sample:   {:.2}µs",
+        render_secs * 1_000_000.0 / total_samples as f64
+    );
     println!();
 
     if realtime_factor < 1.0 {

@@ -17,7 +17,6 @@
 /// - The node automatically protects against log(0) by clamping to minimum 0.0001
 /// - Trigger input (> 0.5) restarts the ramp from the beginning
 /// - Once ramp completes, output holds at end value until retriggered
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Exponential line generator node
@@ -170,10 +169,22 @@ impl AudioNode for XLineNode {
         let duration_buffer = inputs[2];
         let trigger_buffer = inputs[3];
 
-        debug_assert_eq!(start_buffer.len(), output.len(), "Start buffer length mismatch");
+        debug_assert_eq!(
+            start_buffer.len(),
+            output.len(),
+            "Start buffer length mismatch"
+        );
         debug_assert_eq!(end_buffer.len(), output.len(), "End buffer length mismatch");
-        debug_assert_eq!(duration_buffer.len(), output.len(), "Duration buffer length mismatch");
-        debug_assert_eq!(trigger_buffer.len(), output.len(), "Trigger buffer length mismatch");
+        debug_assert_eq!(
+            duration_buffer.len(),
+            output.len(),
+            "Duration buffer length mismatch"
+        );
+        debug_assert_eq!(
+            trigger_buffer.len(),
+            output.len(),
+            "Trigger buffer length mismatch"
+        );
 
         for i in 0..output.len() {
             // Read inputs with safety protections
@@ -262,7 +273,11 @@ mod tests {
         let mid_value = output[mid_sample];
 
         // Exponential should be closer to start value at midpoint
-        assert!(mid_value < 550.0, "Exponential curve should be < 550 at midpoint, got {}", mid_value);
+        assert!(
+            mid_value < 550.0,
+            "Exponential curve should be < 550 at midpoint, got {}",
+            mid_value
+        );
         assert!(mid_value > 100.0, "Should be rising, got {}", mid_value);
 
         // Verify it's exponential not linear by checking ratio
@@ -273,7 +288,11 @@ mod tests {
 
         // Ratios should be approximately equal (within tolerance)
         let ratio_diff = (ratio_early - ratio_late).abs();
-        assert!(ratio_diff < 0.01, "Exponential should have constant ratio, got diff = {}", ratio_diff);
+        assert!(
+            ratio_diff < 0.01,
+            "Exponential should have constant ratio, got diff = {}",
+            ratio_diff
+        );
     }
 
     #[test]
@@ -313,7 +332,11 @@ mod tests {
             );
 
             // Should hold at end value after ramp completes
-            assert_eq!(xline.is_active(), false, "Should be inactive after completion");
+            assert_eq!(
+                xline.is_active(),
+                false,
+                "Should be inactive after completion"
+            );
             let held_value = output[expected_samples + 10];
             assert!(
                 (held_value - 1000.0).abs() < 0.1,
@@ -405,7 +428,10 @@ mod tests {
         xline.process_block(&inputs, &mut output1, sample_rate, &context);
 
         let value_before_retrigger = xline.value();
-        assert!(value_before_retrigger > 100.0, "Should have started ramping");
+        assert!(
+            value_before_retrigger > 100.0,
+            "Should have started ramping"
+        );
 
         // Retrigger: trigger goes low then high again
         trigger.fill(0.0); // Low
@@ -598,7 +624,8 @@ mod tests {
         let start = vec![100.0; block_size];
         let end = vec![200.0; block_size];
         let duration = vec![duration_seconds; block_size];
-        let trigger = vec![1.0; 1].into_iter()
+        let trigger = vec![1.0; 1]
+            .into_iter()
             .chain(vec![0.0; block_size - 1]) // Trigger only first sample
             .collect::<Vec<_>>();
 
@@ -627,6 +654,10 @@ mod tests {
             );
         }
 
-        assert_eq!(xline.is_active(), false, "Should be inactive after completion");
+        assert_eq!(
+            xline.is_active(),
+            false,
+            "Should be inactive after completion"
+        );
     }
 }

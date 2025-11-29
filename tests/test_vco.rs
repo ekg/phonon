@@ -9,7 +9,6 @@
 /// - Pulse width modulation (PWM) for square wave
 /// - Analog-style behavior with smooth transitions
 /// - Essential for vintage synth emulation
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -21,7 +20,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -29,7 +29,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 /// Perform FFT and analyze spectrum
 /// Returns (frequency_bins, magnitudes)
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -89,7 +89,11 @@ fn test_vco_saw_constant_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "VCO saw with constant frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "VCO saw with constant frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -102,7 +106,11 @@ fn test_vco_saw_pattern_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "VCO saw with LFO frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "VCO saw with LFO frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Square Wave Tests ==========
@@ -116,7 +124,11 @@ fn test_vco_square_constant_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "VCO square should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "VCO square should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -128,7 +140,11 @@ fn test_vco_square_pattern_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "VCO square with pattern frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "VCO square with pattern frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Triangle Wave Tests ==========
@@ -142,7 +158,11 @@ fn test_vco_triangle_constant_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "VCO triangle should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "VCO triangle should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -154,7 +174,11 @@ fn test_vco_triangle_pattern_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "VCO triangle with pattern frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "VCO triangle with pattern frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Sine Wave Tests ==========
@@ -180,7 +204,11 @@ fn test_vco_sine_pattern_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "VCO sine with pattern frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "VCO sine with pattern frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Pulse Width Modulation (PWM) Tests ==========
@@ -195,7 +223,11 @@ fn test_vco_pwm_constant() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.05, "VCO with PWM should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "VCO with PWM should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -209,7 +241,11 @@ fn test_vco_pwm_pattern_modulated() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.05, "VCO with modulated PWM should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "VCO with modulated PWM should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -239,11 +275,20 @@ fn test_vco_pwm_affects_spectrum() {
 
     // Narrow pulse should have more even harmonics
     // Both should have multiple harmonics
-    assert!(narrow_peaks.len() >= 5, "Narrow pulse should have harmonics");
-    assert!(wide_peaks.len() >= 3, "Wide pulse (50% duty) should have harmonics");
+    assert!(
+        narrow_peaks.len() >= 5,
+        "Narrow pulse should have harmonics"
+    );
+    assert!(
+        wide_peaks.len() >= 3,
+        "Wide pulse (50% duty) should have harmonics"
+    );
 
-    println!("Narrow pulse (10%) peaks: {}, Wide pulse (50%) peaks: {}",
-        narrow_peaks.len(), wide_peaks.len());
+    println!(
+        "Narrow pulse (10%) peaks: {}, Wide pulse (50%) peaks: {}",
+        narrow_peaks.len(),
+        wide_peaks.len()
+    );
 }
 
 // ========== Spectral Analysis Tests ==========
@@ -264,8 +309,11 @@ fn test_vco_saw_rich_harmonics() {
     let peaks = find_spectral_peaks(&frequencies, &magnitudes, threshold);
 
     // Saw should have many harmonics (10+ for 110 Hz)
-    assert!(peaks.len() >= 10,
-        "VCO saw should have rich harmonics, found {} peaks", peaks.len());
+    assert!(
+        peaks.len() >= 10,
+        "VCO saw should have rich harmonics, found {} peaks",
+        peaks.len()
+    );
 
     // Verify fundamental is present
     let has_fundamental = peaks.iter().any(|(f, _)| (*f - 110.0).abs() < 15.0);
@@ -290,8 +338,11 @@ fn test_vco_square_odd_harmonics() {
     let peaks = find_spectral_peaks(&frequencies, &magnitudes, threshold);
 
     // Square should have multiple odd harmonics
-    assert!(peaks.len() >= 5,
-        "VCO square should have odd harmonics, found {} peaks", peaks.len());
+    assert!(
+        peaks.len() >= 5,
+        "VCO square should have odd harmonics, found {} peaks",
+        peaks.len()
+    );
 
     println!("VCO square spectral peaks: {}", peaks.len());
 }
@@ -310,12 +361,15 @@ fn test_vco_triangle_soft_harmonics() {
     let max_magnitude = magnitudes.iter().cloned().fold(0.0f32, f32::max);
     // Triangle harmonics fall off as 1/n², so use lower threshold
     // Fundamental=1.0, 3rd=1/9≈0.11, 5th=1/25=0.04
-    let threshold = max_magnitude * 0.03;  // Lower threshold to catch weaker harmonics
+    let threshold = max_magnitude * 0.03; // Lower threshold to catch weaker harmonics
     let peaks = find_spectral_peaks(&frequencies, &magnitudes, threshold);
 
     // Triangle should have fewer prominent harmonics than saw/square
-    assert!(peaks.len() >= 3,
-        "VCO triangle should have harmonics, found {} peaks", peaks.len());
+    assert!(
+        peaks.len() >= 3,
+        "VCO triangle should have harmonics, found {} peaks",
+        peaks.len()
+    );
 
     println!("VCO triangle spectral peaks: {}", peaks.len());
 }
@@ -336,7 +390,12 @@ fn test_vco_sine_pure_tone() {
     let peaks = find_spectral_peaks(&frequencies, &magnitudes, threshold);
 
     // Sine should have primarily 1 peak (fundamental)
-    assert_eq!(peaks.len(), 1, "VCO sine should have single spectral peak, found {}", peaks.len());
+    assert_eq!(
+        peaks.len(),
+        1,
+        "VCO sine should have single spectral peak, found {}",
+        peaks.len()
+    );
 
     // Verify it's at 440 Hz
     let has_fundamental = peaks.iter().any(|(f, _)| (*f - 440.0).abs() < 15.0);
@@ -357,24 +416,31 @@ fn test_vco_band_limited() {
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
     // Check energy in upper frequency range (18kHz - 22kHz)
-    let low_energy: f32 = frequencies.iter()
+    let low_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 5000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let high_energy: f32 = frequencies.iter()
+    let high_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 18000.0)
         .map(|(_, m)| m * m)
         .sum();
 
     let energy_ratio = high_energy / low_energy;
-    assert!(energy_ratio < 0.1,
+    assert!(
+        energy_ratio < 0.1,
         "VCO should be band-limited (low aliasing), high/low energy ratio: {}",
-        energy_ratio);
+        energy_ratio
+    );
 
-    println!("VCO band-limiting: high/low energy ratio = {:.4}", energy_ratio);
+    println!(
+        "VCO band-limiting: high/low energy ratio = {:.4}",
+        energy_ratio
+    );
 }
 
 // ========== Audio Quality Tests ==========
@@ -389,7 +455,11 @@ fn test_vco_no_dc_offset() {
     let buffer = render_dsl(code, 2.0);
     let dc_offset: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
 
-    assert!(dc_offset.abs() < 0.01, "VCO should have no DC offset, got {}", dc_offset);
+    assert!(
+        dc_offset.abs() < 0.01,
+        "VCO should have no DC offset, got {}",
+        dc_offset
+    );
 }
 
 #[test]
@@ -402,7 +472,11 @@ fn test_vco_no_clipping() {
     let buffer = render_dsl(code, 2.0);
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
-    assert!(max_amplitude <= 1.0, "VCO should not clip, max amplitude: {}", max_amplitude);
+    assert!(
+        max_amplitude <= 1.0,
+        "VCO should not clip, max amplitude: {}",
+        max_amplitude
+    );
 }
 
 #[test]
@@ -428,7 +502,11 @@ fn test_vco_continuous_output() {
     }
 
     // Allow up to 10 consecutive near-zero samples (phase crossings)
-    assert!(max_zero_run < 10, "VCO should not have silence gaps, max zero run: {}", max_zero_run);
+    assert!(
+        max_zero_run < 10,
+        "VCO should not have silence gaps, max zero run: {}",
+        max_zero_run
+    );
 }
 
 // ========== Comparison Tests ==========
@@ -458,11 +536,18 @@ fn test_vco_saw_vs_basic_saw() {
 
     // RMS should be similar (both produce saw waves)
     let diff_ratio = (vco_rms - basic_rms).abs() / basic_rms;
-    assert!(diff_ratio < 0.3,
+    assert!(
+        diff_ratio < 0.3,
         "VCO saw and basic saw should have similar RMS, VCO: {}, Basic: {}, diff: {}",
-        vco_rms, basic_rms, diff_ratio);
+        vco_rms,
+        basic_rms,
+        diff_ratio
+    );
 
-    println!("VCO saw RMS: {:.4}, Basic saw RMS: {:.4}", vco_rms, basic_rms);
+    println!(
+        "VCO saw RMS: {:.4}, Basic saw RMS: {:.4}",
+        vco_rms, basic_rms
+    );
 }
 
 #[test]
@@ -488,9 +573,18 @@ fn test_vco_waveform_selection() {
     let triangle_buffer = render_dsl(triangle_code, 1.0);
 
     // All should have audio
-    assert!(calculate_rms(&saw_buffer) > 0.1, "VCO saw should have audio");
-    assert!(calculate_rms(&square_buffer) > 0.1, "VCO square should have audio");
-    assert!(calculate_rms(&triangle_buffer) > 0.1, "VCO triangle should have audio");
+    assert!(
+        calculate_rms(&saw_buffer) > 0.1,
+        "VCO saw should have audio"
+    );
+    assert!(
+        calculate_rms(&square_buffer) > 0.1,
+        "VCO square should have audio"
+    );
+    assert!(
+        calculate_rms(&triangle_buffer) > 0.1,
+        "VCO triangle should have audio"
+    );
 
     // Verify they're different by checking spectral content
     let (_, saw_mags) = analyze_spectrum(&saw_buffer, 44100.0);
@@ -502,11 +596,15 @@ fn test_vco_waveform_selection() {
     let triangle_max = triangle_mags.iter().cloned().fold(0.0f32, f32::max);
 
     // Different waveforms should have different spectral characteristics
-    assert!(saw_max > 0.0 && square_max > 0.0 && triangle_max > 0.0,
-        "All waveforms should have spectral content");
+    assert!(
+        saw_max > 0.0 && square_max > 0.0 && triangle_max > 0.0,
+        "All waveforms should have spectral content"
+    );
 
-    println!("VCO waveforms - Saw RMS: {:.4}, Square RMS: {:.4}, Triangle RMS: {:.4}",
+    println!(
+        "VCO waveforms - Saw RMS: {:.4}, Square RMS: {:.4}, Triangle RMS: {:.4}",
         calculate_rms(&saw_buffer),
         calculate_rms(&square_buffer),
-        calculate_rms(&triangle_buffer));
+        calculate_rms(&triangle_buffer)
+    );
 }

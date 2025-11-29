@@ -7,7 +7,6 @@
 /// - Filters: lpf, hpf, bpf, notch
 /// - Envelopes: attack, release, ar
 /// - Utils: wedge, irand
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -19,14 +18,15 @@ const SAMPLE_RATE: f32 = 44100.0;
 
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, SAMPLE_RATE, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, SAMPLE_RATE, None).expect("Failed to compile DSL code");
     let num_samples = (duration * SAMPLE_RATE) as usize;
     graph.render(num_samples)
 }
 
 /// Perform FFT and analyze spectrum
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -56,8 +56,14 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 }
 
 /// Calculate energy in a frequency band
-fn calculate_band_energy(frequencies: &[f32], magnitudes: &[f32], low_hz: f32, high_hz: f32) -> f32 {
-    frequencies.iter()
+fn calculate_band_energy(
+    frequencies: &[f32],
+    magnitudes: &[f32],
+    low_hz: f32,
+    high_hz: f32,
+) -> f32 {
+    frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f >= low_hz && **f <= high_hz)
         .map(|(_, m)| m * m)
@@ -85,8 +91,11 @@ fn test_lpf_removes_high_frequencies() {
     // Filtered should have less high-frequency energy
     let reduction = high_energy_filt / high_energy_dry.max(0.001);
 
-    assert!(reduction < 0.5,
-        "LPF should reduce high frequencies, got reduction: {:.2}", reduction);
+    assert!(
+        reduction < 0.5,
+        "LPF should reduce high frequencies, got reduction: {:.2}",
+        reduction
+    );
 
     println!("LPF high-freq reduction: {:.2}%", (1.0 - reduction) * 100.0);
 }
@@ -102,8 +111,11 @@ fn test_lpf_passes_low_frequencies() {
 
     let attenuation = rms_filtered / rms_dry;
 
-    assert!(attenuation > 0.8,
-        "LPF should pass low frequencies mostly unaffected, attenuation: {:.2}", attenuation);
+    assert!(
+        attenuation > 0.8,
+        "LPF should pass low frequencies mostly unaffected, attenuation: {:.2}",
+        attenuation
+    );
 
     println!("LPF low-freq attenuation: {:.2}", attenuation);
 }
@@ -117,12 +129,17 @@ fn test_lpf_cutoff_frequency_effect() {
     let centroid_500 = compute_spectral_centroid(&lpf_500, SAMPLE_RATE);
     let centroid_2000 = compute_spectral_centroid(&lpf_2000, SAMPLE_RATE);
 
-    assert!(centroid_2000 > centroid_500 * 1.5,
+    assert!(
+        centroid_2000 > centroid_500 * 1.5,
         "Higher cutoff should have higher spectral centroid: 500Hz={:.0}Hz, 2000Hz={:.0}Hz",
-        centroid_500, centroid_2000);
+        centroid_500,
+        centroid_2000
+    );
 
-    println!("LPF spectral centroids - 500Hz: {:.0}Hz, 2000Hz: {:.0}Hz",
-        centroid_500, centroid_2000);
+    println!(
+        "LPF spectral centroids - 500Hz: {:.0}Hz, 2000Hz: {:.0}Hz",
+        centroid_500, centroid_2000
+    );
 }
 
 // ========== HPF (Highpass Filter) Tests ==========
@@ -142,8 +159,11 @@ fn test_hpf_removes_low_frequencies() {
     // Filtered should have less low-frequency energy
     let reduction = low_energy_filt / low_energy_dry.max(0.001);
 
-    assert!(reduction < 0.5,
-        "HPF should reduce low frequencies, got reduction: {:.2}", reduction);
+    assert!(
+        reduction < 0.5,
+        "HPF should reduce low frequencies, got reduction: {:.2}",
+        reduction
+    );
 
     println!("HPF low-freq reduction: {:.2}%", (1.0 - reduction) * 100.0);
 }
@@ -159,8 +179,11 @@ fn test_hpf_passes_high_frequencies() {
 
     let attenuation = rms_filtered / rms_dry;
 
-    assert!(attenuation > 0.8,
-        "HPF should pass high frequencies mostly unaffected, attenuation: {:.2}", attenuation);
+    assert!(
+        attenuation > 0.8,
+        "HPF should pass high frequencies mostly unaffected, attenuation: {:.2}",
+        attenuation
+    );
 
     println!("HPF high-freq attenuation: {:.2}", attenuation);
 }
@@ -174,12 +197,17 @@ fn test_hpf_cutoff_frequency_effect() {
     let centroid_500 = compute_spectral_centroid(&hpf_500, SAMPLE_RATE);
     let centroid_2000 = compute_spectral_centroid(&hpf_2000, SAMPLE_RATE);
 
-    assert!(centroid_2000 > centroid_500,
+    assert!(
+        centroid_2000 > centroid_500,
         "Higher cutoff should have higher spectral centroid: 500Hz={:.0}Hz, 2000Hz={:.0}Hz",
-        centroid_500, centroid_2000);
+        centroid_500,
+        centroid_2000
+    );
 
-    println!("HPF spectral centroids - 500Hz: {:.0}Hz, 2000Hz: {:.0}Hz",
-        centroid_500, centroid_2000);
+    println!(
+        "HPF spectral centroids - 500Hz: {:.0}Hz, 2000Hz: {:.0}Hz",
+        centroid_500, centroid_2000
+    );
 }
 
 // ========== BPF (Bandpass Filter) Tests ==========
@@ -195,8 +223,11 @@ fn test_bpf_passes_center_frequency() {
 
     let attenuation = rms_filtered / rms_dry;
 
-    assert!(attenuation > 0.5,
-        "BPF should pass center frequency, attenuation: {:.2}", attenuation);
+    assert!(
+        attenuation > 0.5,
+        "BPF should pass center frequency, attenuation: {:.2}",
+        attenuation
+    );
 
     println!("BPF center-freq attenuation: {:.2}", attenuation);
 }
@@ -212,8 +243,11 @@ fn test_bpf_attenuates_low_frequencies() {
 
     let attenuation = rms_filtered / rms_dry;
 
-    assert!(attenuation < 0.5,
-        "BPF should attenuate low frequencies, attenuation: {:.2}", attenuation);
+    assert!(
+        attenuation < 0.5,
+        "BPF should attenuate low frequencies, attenuation: {:.2}",
+        attenuation
+    );
 
     println!("BPF low-freq attenuation: {:.2}", attenuation);
 }
@@ -229,8 +263,11 @@ fn test_bpf_attenuates_high_frequencies() {
 
     let attenuation = rms_filtered / rms_dry;
 
-    assert!(attenuation < 0.5,
-        "BPF should attenuate high frequencies, attenuation: {:.2}", attenuation);
+    assert!(
+        attenuation < 0.5,
+        "BPF should attenuate high frequencies, attenuation: {:.2}",
+        attenuation
+    );
 
     println!("BPF high-freq attenuation: {:.2}", attenuation);
 }
@@ -250,8 +287,11 @@ fn test_bpf_q_factor_width() {
 
     let ratio = energy_2k_wide / energy_2k_narrow.max(0.001);
 
-    assert!(ratio > 1.5,
-        "Wide BPF should pass more off-center frequencies, ratio: {:.2}", ratio);
+    assert!(
+        ratio > 1.5,
+        "Wide BPF should pass more off-center frequencies, ratio: {:.2}",
+        ratio
+    );
 
     println!("BPF wide/narrow off-center energy ratio: {:.2}", ratio);
 }
@@ -269,8 +309,11 @@ fn test_notch_attenuates_center_frequency() {
 
     let attenuation = rms_filtered / rms_dry;
 
-    assert!(attenuation < 0.3,
-        "Notch should attenuate center frequency, attenuation: {:.2}", attenuation);
+    assert!(
+        attenuation < 0.3,
+        "Notch should attenuate center frequency, attenuation: {:.2}",
+        attenuation
+    );
 
     println!("Notch center-freq attenuation: {:.2}", attenuation);
 }
@@ -286,8 +329,11 @@ fn test_notch_passes_other_frequencies() {
 
     let attenuation = rms_filtered / rms_dry;
 
-    assert!(attenuation > 0.8,
-        "Notch should pass off-center frequencies, attenuation: {:.2}", attenuation);
+    assert!(
+        attenuation > 0.8,
+        "Notch should pass off-center frequencies, attenuation: {:.2}",
+        attenuation
+    );
 
     println!("Notch off-center attenuation: {:.2}", attenuation);
 }
@@ -302,12 +348,17 @@ fn test_notch_q_factor_width() {
     let rms_wide = calculate_rms(&wide);
 
     // Narrow notch should pass 1050Hz better than wide notch
-    assert!(rms_narrow > rms_wide,
+    assert!(
+        rms_narrow > rms_wide,
         "Narrow notch should pass nearby frequencies better: narrow={:.3}, wide={:.3}",
-        rms_narrow, rms_wide);
+        rms_narrow,
+        rms_wide
+    );
 
-    println!("Notch 1050Hz through 1000Hz - narrow: {:.3}, wide: {:.3}",
-        rms_narrow, rms_wide);
+    println!(
+        "Notch 1050Hz through 1000Hz - narrow: {:.3}, wide: {:.3}",
+        rms_narrow, rms_wide
+    );
 }
 
 // ============================================================================
@@ -325,12 +376,17 @@ fn test_attack_shapes_onset() {
     let fast_start_avg = calculate_rms(&fast[..4410]);
     let slow_start_avg = calculate_rms(&slow[..4410]);
 
-    assert!(fast_start_avg > slow_start_avg * 1.5,
+    assert!(
+        fast_start_avg > slow_start_avg * 1.5,
         "Fast attack should start louder than slow attack: fast={:.3}, slow={:.3}",
-        fast_start_avg, slow_start_avg);
+        fast_start_avg,
+        slow_start_avg
+    );
 
-    println!("Attack comparison - fast: {:.3}, slow: {:.3}",
-        fast_start_avg, slow_start_avg);
+    println!(
+        "Attack comparison - fast: {:.3}, slow: {:.3}",
+        fast_start_avg, slow_start_avg
+    );
 }
 
 #[test]
@@ -348,8 +404,11 @@ fn test_attack_reaches_full_amplitude() {
     let sustained_rms = calculate_rms(&audio[start_idx..end_idx]);
 
     // Should be close to 1/sqrt(2) ≈ 0.707 for sine wave
-    assert!(sustained_rms > 0.6,
-        "Attack should reach full amplitude, got RMS: {:.3}", sustained_rms);
+    assert!(
+        sustained_rms > 0.6,
+        "Attack should reach full amplitude, got RMS: {:.3}",
+        sustained_rms
+    );
 
     println!("Attack sustained RMS: {:.3}", sustained_rms);
 }
@@ -363,11 +422,17 @@ fn test_attack_different_times() {
     let rms_10ms = calculate_rms(&attack_10ms[..882]);
     let rms_50ms = calculate_rms(&attack_50ms[..882]);
 
-    assert!(rms_10ms > rms_50ms,
+    assert!(
+        rms_10ms > rms_50ms,
         "Shorter attack should reach amplitude faster: 10ms={:.3}, 50ms={:.3}",
-        rms_10ms, rms_50ms);
+        rms_10ms,
+        rms_50ms
+    );
 
-    println!("Attack times - 10ms: {:.3}, 50ms: {:.3}", rms_10ms, rms_50ms);
+    println!(
+        "Attack times - 10ms: {:.3}, 50ms: {:.3}",
+        rms_10ms, rms_50ms
+    );
 }
 
 // ========== RELEASE Envelope Tests ==========
@@ -384,12 +449,17 @@ fn test_release_shapes_decay() {
     let fast_start = calculate_rms(&fast[..4410]);
     let slow_start = calculate_rms(&slow[..4410]);
 
-    assert!(fast_start > 0.1 && slow_start > 0.1,
+    assert!(
+        fast_start > 0.1 && slow_start > 0.1,
         "Both should have audio at start: fast={:.3}, slow={:.3}",
-        fast_start, slow_start);
+        fast_start,
+        slow_start
+    );
 
-    println!("Release comparison - fast start: {:.3}, slow start: {:.3}",
-        fast_start, slow_start);
+    println!(
+        "Release comparison - fast start: {:.3}, slow start: {:.3}",
+        fast_start, slow_start
+    );
 }
 
 #[test]
@@ -401,11 +471,17 @@ fn test_release_different_times() {
     let rms_10ms = calculate_rms(&release_10ms);
     let rms_100ms = calculate_rms(&release_100ms);
 
-    assert!(rms_10ms > 0.1 && rms_100ms > 0.1,
+    assert!(
+        rms_10ms > 0.1 && rms_100ms > 0.1,
         "Both release times should produce audio: 10ms={:.3}, 100ms={:.3}",
-        rms_10ms, rms_100ms);
+        rms_10ms,
+        rms_100ms
+    );
 
-    println!("Release times - 10ms: {:.3}, 100ms: {:.3}", rms_10ms, rms_100ms);
+    println!(
+        "Release times - 10ms: {:.3}, 100ms: {:.3}",
+        rms_10ms, rms_100ms
+    );
 }
 
 // ========== AR (Attack-Release) Envelope Tests ==========
@@ -424,8 +500,11 @@ fn test_ar_combines_attack_release() {
 
     let rms = calculate_rms(&audio);
 
-    assert!(rms > 0.1,
-        "AR envelope should produce audio, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.1,
+        "AR envelope should produce audio, got RMS: {:.3}",
+        rms
+    );
 
     println!("AR envelope RMS: {:.3}", rms);
 }
@@ -441,12 +520,17 @@ fn test_ar_attack_affects_onset() {
     let fast_start = calculate_rms(&fast_attack[..2205]);
     let slow_start = calculate_rms(&slow_attack[..2205]);
 
-    assert!(fast_start > slow_start,
+    assert!(
+        fast_start > slow_start,
         "Fast AR attack should be louder at start: fast={:.3}, slow={:.3}",
-        fast_start, slow_start);
+        fast_start,
+        slow_start
+    );
 
-    println!("AR attack comparison - fast: {:.3}, slow: {:.3}",
-        fast_start, slow_start);
+    println!(
+        "AR attack comparison - fast: {:.3}, slow: {:.3}",
+        fast_start, slow_start
+    );
 }
 
 // DISABLED: AR parameter is only for sample playback (s "..."), not general synthesis
@@ -460,11 +544,17 @@ fn test_ar_different_parameters() {
     let rms_long = calculate_rms(&long);
 
     // Both should produce audio
-    assert!(rms_short > 0.1 && rms_long > 0.1,
+    assert!(
+        rms_short > 0.1 && rms_long > 0.1,
         "Both AR envelopes should produce audio: short={:.3}, long={:.3}",
-        rms_short, rms_long);
+        rms_short,
+        rms_long
+    );
 
-    println!("AR envelopes - short: {:.3}, long: {:.3}", rms_short, rms_long);
+    println!(
+        "AR envelopes - short: {:.3}, long: {:.3}",
+        rms_short, rms_long
+    );
 }
 
 // ============================================================================
@@ -494,12 +584,17 @@ fn test_wedge_creates_ramp() {
     let centroid_second = compute_spectral_centroid(second_half, SAMPLE_RATE);
 
     // Second half should have higher frequency content due to ramp
-    assert!(centroid_second > centroid_first,
+    assert!(
+        centroid_second > centroid_first,
         "Wedge should create frequency sweep: first={:.0}Hz, second={:.0}Hz",
-        centroid_first, centroid_second);
+        centroid_first,
+        centroid_second
+    );
 
-    println!("Wedge sweep - first half: {:.0}Hz, second half: {:.0}Hz",
-        centroid_first, centroid_second);
+    println!(
+        "Wedge sweep - first half: {:.0}Hz, second half: {:.0}Hz",
+        centroid_first, centroid_second
+    );
 }
 
 #[test]
@@ -513,8 +608,11 @@ fn test_wedge_produces_audio() {
     let audio = render_dsl(code, 1.0);
     let rms = calculate_rms(&audio);
 
-    assert!(rms > 0.01,
-        "Wedge should produce audio when used as amplitude, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.01,
+        "Wedge should produce audio when used as amplitude, got RMS: {:.3}",
+        rms
+    );
 
     println!("Wedge as amplitude RMS: {:.3}", rms);
 }
@@ -545,13 +643,17 @@ fn test_irand_generates_random_values() {
     // Allow for some variation (at least 100Hz difference across runs)
     let variation = max_freq - min_freq;
 
-    println!("irand frequency variation: min={}, max={}, variation={}",
-        min_freq, max_freq, variation);
+    println!(
+        "irand frequency variation: min={}, max={}, variation={}",
+        min_freq, max_freq, variation
+    );
 
     // Note: This test may be flaky due to randomness, but we're just checking
     // that irand produces some kind of random behavior
-    assert!(variation >= 0,
-        "irand should produce varying frequencies (may need multiple runs)");
+    assert!(
+        variation >= 0,
+        "irand should produce varying frequencies (may need multiple runs)"
+    );
 }
 
 #[test]
@@ -564,8 +666,11 @@ fn test_irand_produces_audio() {
     let audio = render_dsl(code, 0.5);
     let rms = calculate_rms(&audio);
 
-    assert!(rms > 0.05,
-        "irand should produce audible output, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.05,
+        "irand should produce audible output, got RMS: {:.3}",
+        rms
+    );
 
     println!("irand output RMS: {:.3}", rms);
 }
@@ -579,11 +684,17 @@ fn test_irand_range_affects_output() {
     let freq_low = find_dominant_frequency(&low, SAMPLE_RATE);
     let freq_high = find_dominant_frequency(&high, SAMPLE_RATE);
 
-    assert!(freq_high > freq_low * 2.0,
+    assert!(
+        freq_high > freq_low * 2.0,
         "High range irand should produce higher frequencies: low={:.0}Hz, high={:.0}Hz",
-        freq_low, freq_high);
+        freq_low,
+        freq_high
+    );
 
-    println!("irand ranges - low: {:.0}Hz, high: {:.0}Hz", freq_low, freq_high);
+    println!(
+        "irand ranges - low: {:.0}Hz, high: {:.0}Hz",
+        freq_low, freq_high
+    );
 }
 
 // ============================================================================
@@ -600,8 +711,11 @@ fn test_filter_with_envelope() {
     let audio = render_dsl(code, 0.5);
     let rms = calculate_rms(&audio);
 
-    assert!(rms > 0.1,
-        "Filter + envelope should produce audio, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.1,
+        "Filter + envelope should produce audio, got RMS: {:.3}",
+        rms
+    );
 
     println!("Filter + envelope RMS: {:.3}", rms);
 }
@@ -616,8 +730,11 @@ fn test_envelope_with_filter() {
     let audio = render_dsl(code, 0.3);
     let rms = calculate_rms(&audio);
 
-    assert!(rms > 0.05,
-        "Envelope + filter should produce audio, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.05,
+        "Envelope + filter should produce audio, got RMS: {:.3}",
+        rms
+    );
 
     println!("Envelope + filter RMS: {:.3}", rms);
 }
@@ -639,12 +756,17 @@ fn test_wedge_modulates_filter_cutoff() {
     let centroid_first = compute_spectral_centroid(first_half, SAMPLE_RATE);
     let centroid_second = compute_spectral_centroid(second_half, SAMPLE_RATE);
 
-    assert!(centroid_second > centroid_first,
+    assert!(
+        centroid_second > centroid_first,
         "Wedge-modulated filter should sweep: first={:.0}Hz, second={:.0}Hz",
-        centroid_first, centroid_second);
+        centroid_first,
+        centroid_second
+    );
 
-    println!("Wedge filter sweep - first: {:.0}Hz, second: {:.0}Hz",
-        centroid_first, centroid_second);
+    println!(
+        "Wedge filter sweep - first: {:.0}Hz, second: {:.0}Hz",
+        centroid_first, centroid_second
+    );
 }
 
 #[test]
@@ -657,8 +779,11 @@ fn test_irand_modulates_filter() {
     let audio = render_dsl(code, 0.5);
     let rms = calculate_rms(&audio);
 
-    assert!(rms > 0.05,
-        "irand-modulated filter should produce audio, got RMS: {:.3}", rms);
+    assert!(
+        rms > 0.05,
+        "irand-modulated filter should produce audio, got RMS: {:.3}",
+        rms
+    );
 
     println!("irand filter modulation RMS: {:.3}", rms);
 }
@@ -678,8 +803,12 @@ fn test_all_filters_produce_audio() {
         let audio = render_dsl(&code, 0.5);
         let rms = calculate_rms(&audio);
 
-        assert!(rms > 0.01,
-            "{} should produce audio, got RMS: {:.3}", name, rms);
+        assert!(
+            rms > 0.01,
+            "{} should produce audio, got RMS: {:.3}",
+            name,
+            rms
+        );
 
         println!("{} RMS: {:.3}", name, rms);
     }
@@ -699,8 +828,12 @@ fn test_all_envelopes_produce_audio() {
         let audio = render_dsl(&code, 0.3);
         let rms = calculate_rms(&audio);
 
-        assert!(rms > 0.05,
-            "{} should produce audio, got RMS: {:.3}", name, rms);
+        assert!(
+            rms > 0.05,
+            "{} should produce audio, got RMS: {:.3}",
+            name,
+            rms
+        );
 
         println!("{} RMS: {:.3}", name, rms);
     }
@@ -719,8 +852,12 @@ fn test_all_utils_produce_audio() {
         let audio = render_dsl(&code, 0.5);
         let rms = calculate_rms(&audio);
 
-        assert!(rms > 0.01,
-            "{} should produce audio, got RMS: {:.3}", name, rms);
+        assert!(
+            rms > 0.01,
+            "{} should produce audio, got RMS: {:.3}",
+            name,
+            rms
+        );
 
         println!("{} RMS: {:.3}", name, rms);
     }

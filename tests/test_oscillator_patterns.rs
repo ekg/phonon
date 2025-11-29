@@ -2,7 +2,6 @@
 ///
 /// Tests sine, saw, square, triangle with pattern modulation.
 /// Verifies P0.0: ALL parameters accept patterns.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -13,7 +12,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -29,7 +29,11 @@ fn test_sine_constant_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Sine with constant frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Sine with constant frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -42,7 +46,11 @@ fn test_sine_pattern_frequency_lfo() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Sine with LFO frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Sine with LFO frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -55,7 +63,11 @@ fn test_sine_pattern_frequency_slow_sweep() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Sine with slow sweep should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Sine with slow sweep should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Saw Oscillator Tests ==========
@@ -69,7 +81,11 @@ fn test_saw_constant_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Saw with constant frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Saw with constant frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -82,7 +98,11 @@ fn test_saw_pattern_frequency_lfo() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Saw with LFO frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Saw with LFO frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -95,7 +115,11 @@ fn test_saw_pattern_frequency_fm() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Saw with FM should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Saw with FM should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Square Oscillator Tests ==========
@@ -109,7 +133,11 @@ fn test_square_constant_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Square with constant frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Square with constant frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -122,7 +150,11 @@ fn test_square_pattern_frequency_lfo() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Square with LFO frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Square with LFO frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -135,7 +167,11 @@ fn test_square_pattern_frequency_stepped() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Square with stepped frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Square with stepped frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Triangle Oscillator Tests ==========
@@ -149,7 +185,11 @@ fn test_triangle_constant_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Triangle with constant frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Triangle with constant frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -162,7 +202,11 @@ fn test_triangle_pattern_frequency_lfo() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Triangle with LFO frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Triangle with LFO frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -175,7 +219,11 @@ fn test_triangle_pattern_frequency_sweep() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Triangle with sweep should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Triangle with sweep should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Complex Modulation Tests ==========
@@ -190,7 +238,11 @@ fn test_oscillator_meta_modulation() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Meta-modulation should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Meta-modulation should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -203,7 +255,11 @@ fn test_oscillator_fm_synthesis() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "FM synthesis should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "FM synthesis should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -220,7 +276,11 @@ fn test_oscillator_additive_with_modulation() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Additive with modulation should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Additive with modulation should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Verification: Pattern vs Constant ==========

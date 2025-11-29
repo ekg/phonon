@@ -9,7 +9,6 @@
 ///
 /// Unlike linear slew limiting, lag uses exponential approach to the target,
 /// which sounds more natural for musical portamento effects.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Lag node: exponential smoothing with time constant control
@@ -240,9 +239,12 @@ mod tests {
         lag_slow.process_block(&inputs_slow, &mut output_slow, 44100.0, &context);
 
         // After same number of samples, fast lag should be much closer to target
-        assert!(output_fast[99] > output_slow[99] * 5.0,
-                "fast = {}, slow = {}",
-                output_fast[99], output_slow[99]);
+        assert!(
+            output_fast[99] > output_slow[99] * 5.0,
+            "fast = {}, slow = {}",
+            output_fast[99],
+            output_slow[99]
+        );
     }
 
     #[test]
@@ -291,14 +293,24 @@ mod tests {
         // Output should lag behind input
         for i in 1..10 {
             // Output should be less than input (lagging)
-            assert!(output[i] < input[i],
-                    "output[{}] = {}, input[{}] = {}",
-                    i, output[i], i, input[i]);
+            assert!(
+                output[i] < input[i],
+                "output[{}] = {}, input[{}] = {}",
+                i,
+                output[i],
+                i,
+                input[i]
+            );
 
             // Output should be increasing
-            assert!(output[i] > output[i-1],
-                    "output[{}] = {}, output[{}] = {}",
-                    i, output[i], i-1, output[i-1]);
+            assert!(
+                output[i] > output[i - 1],
+                "output[{}] = {}, output[{}] = {}",
+                i,
+                output[i],
+                i - 1,
+                output[i - 1]
+            );
         }
     }
 
@@ -330,9 +342,12 @@ mod tests {
 
         // Should start where previous block ended and continue rising
         // Due to exponential approach, there will be a small step
-        assert!((output2[0] - end_of_block1).abs() < 0.001,
-                "output2[0] = {}, end_of_block1 = {}",
-                output2[0], end_of_block1);
+        assert!(
+            (output2[0] - end_of_block1).abs() < 0.001,
+            "output2[0] = {}, end_of_block1 = {}",
+            output2[0],
+            end_of_block1
+        );
         assert!(output2[4] > output2[0]);
     }
 
@@ -363,9 +378,14 @@ mod tests {
         // Should exponentially approach 1.0
         // Each sample should be higher than the last
         for i in 1..20 {
-            assert!(output[i] >= output[i-1],
-                    "output[{}] = {}, output[{}] = {}",
-                    i, output[i], i-1, output[i-1]);
+            assert!(
+                output[i] >= output[i - 1],
+                "output[{}] = {}, output[{}] = {}",
+                i,
+                output[i],
+                i - 1,
+                output[i - 1]
+            );
         }
 
         // Should be getting closer to target
@@ -391,7 +411,11 @@ mod tests {
 
         // After 5 time constants (~50ms = 2205 samples), should reach ~99.3% of target
         // After 5000 samples, should be very close to 1.0
-        assert!((output[4999] - 1.0).abs() < 0.001, "output[4999] = {}", output[4999]);
+        assert!(
+            (output[4999] - 1.0).abs() < 0.001,
+            "output[4999] = {}",
+            output[4999]
+        );
     }
 
     #[test]

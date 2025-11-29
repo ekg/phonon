@@ -221,7 +221,10 @@ pub fn note_to_midi_chord(note: &str) -> Vec<MidiNote> {
                     .map(|&interval| (root_midi as i32 + interval) as MidiNote)
                     .collect();
             } else {
-                eprintln!("⚠️  Unknown chord type '{}' in '{}', using root note only", chord_type, note);
+                eprintln!(
+                    "⚠️  Unknown chord type '{}' in '{}', using root note only",
+                    chord_type, note
+                );
                 return vec![root_midi];
             }
         }

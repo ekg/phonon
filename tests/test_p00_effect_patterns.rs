@@ -3,7 +3,6 @@
 /// This test verifies that ALL effect parameters accept pattern modulation,
 /// not just bare numbers. This is a fundamental design principle:
 /// "Patterns ARE control signals" - they can modulate any parameter at sample rate.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -14,7 +13,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -29,7 +29,11 @@ fn test_lpf_pattern_cutoff() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "LPF with pattern cutoff should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "LPF with pattern cutoff should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -42,7 +46,11 @@ fn test_hpf_pattern_cutoff() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "HPF with pattern cutoff should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "HPF with pattern cutoff should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -55,7 +63,11 @@ fn test_bpf_pattern_center() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "BPF with pattern center should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "BPF with pattern center should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -68,7 +80,11 @@ fn test_delay_pattern_time() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Delay with pattern time should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Delay with pattern time should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -81,7 +97,11 @@ fn test_reverb_pattern_room_size() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Reverb with pattern room_size should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Reverb with pattern room_size should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -94,7 +114,11 @@ fn test_distortion_pattern_drive() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Distortion with pattern drive should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Distortion with pattern drive should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -107,7 +131,11 @@ fn test_multiple_pattern_parameters() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Multiple pattern effects should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Multiple pattern effects should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]

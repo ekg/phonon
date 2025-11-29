@@ -18,7 +18,6 @@
 /// - Phase relationship between frequencies is altered
 /// - Higher Q values create more pronounced phase shift at the center frequency
 /// - Useful for creating stereo width, flanging, and frequency-dependent delays
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz};
 
@@ -135,11 +134,7 @@ impl AudioNode for AllPassFilterNode {
             output.len(),
             "Frequency buffer length mismatch"
         );
-        debug_assert_eq!(
-            q_buffer.len(),
-            output.len(),
-            "Q buffer length mismatch"
-        );
+        debug_assert_eq!(q_buffer.len(), output.len(), "Q buffer length mismatch");
 
         for i in 0..output.len() {
             let freq = freq_buffer[i].max(10.0).min(sample_rate * 0.49); // Clamp to valid range
@@ -247,7 +242,11 @@ mod tests {
             let input_rms = calculate_rms(&osc_buf);
 
             // Apply all-pass filter
-            let inputs_apf = vec![osc_buf.as_slice(), apf_freq_buf.as_slice(), q_buf.as_slice()];
+            let inputs_apf = vec![
+                osc_buf.as_slice(),
+                apf_freq_buf.as_slice(),
+                q_buf.as_slice(),
+            ];
             let mut output = vec![0.0; 512];
             apf.process_block(&inputs_apf, &mut output, 44100.0, &context);
 
@@ -308,11 +307,19 @@ mod tests {
         let mut apf1 = AllPassFilterNode::new(1, 2, 3);
         let mut apf2 = AllPassFilterNode::new(4, 5, 6);
 
-        let inputs_apf1 = vec![osc1_buf.as_slice(), apf_freq_buf.as_slice(), q_buf.as_slice()];
+        let inputs_apf1 = vec![
+            osc1_buf.as_slice(),
+            apf_freq_buf.as_slice(),
+            q_buf.as_slice(),
+        ];
         let mut output1 = vec![0.0; 512];
         apf1.process_block(&inputs_apf1, &mut output1, 44100.0, &context);
 
-        let inputs_apf2 = vec![osc2_buf.as_slice(), apf_freq_buf.as_slice(), q_buf.as_slice()];
+        let inputs_apf2 = vec![
+            osc2_buf.as_slice(),
+            apf_freq_buf.as_slice(),
+            q_buf.as_slice(),
+        ];
         let mut output2 = vec![0.0; 512];
         apf2.process_block(&inputs_apf2, &mut output2, 44100.0, &context);
 
@@ -357,7 +364,11 @@ mod tests {
             let mut apf_freq_buf = vec![0.0; 512];
             apf_freq_node.process_block(&[], &mut apf_freq_buf, 44100.0, &context);
 
-            let inputs_apf = vec![osc_buf.as_slice(), apf_freq_buf.as_slice(), q_buf.as_slice()];
+            let inputs_apf = vec![
+                osc_buf.as_slice(),
+                apf_freq_buf.as_slice(),
+                q_buf.as_slice(),
+            ];
             let mut output = vec![0.0; 512];
             apf.process_block(&inputs_apf, &mut output, 44100.0, &context);
 
@@ -410,7 +421,11 @@ mod tests {
             let mut q_buf = vec![0.0; 512];
             q_node.process_block(&[], &mut q_buf, 44100.0, &context);
 
-            let inputs_apf = vec![osc_buf.as_slice(), apf_freq_buf.as_slice(), q_buf.as_slice()];
+            let inputs_apf = vec![
+                osc_buf.as_slice(),
+                apf_freq_buf.as_slice(),
+                q_buf.as_slice(),
+            ];
             let mut output = vec![0.0; 512];
             apf.process_block(&inputs_apf, &mut output, 44100.0, &context);
 
@@ -504,11 +519,7 @@ mod tests {
         freq.process_block(&[], &mut freq_buf, 44100.0, &context);
         q.process_block(&[], &mut q_buf, 44100.0, &context);
 
-        let inputs = vec![
-            signal_buf.as_slice(),
-            freq_buf.as_slice(),
-            q_buf.as_slice(),
-        ];
+        let inputs = vec![signal_buf.as_slice(), freq_buf.as_slice(), q_buf.as_slice()];
         let mut output = vec![0.0; 512];
         apf.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -516,11 +527,7 @@ mod tests {
         freq.set_value(2000.0);
         freq.process_block(&[], &mut freq_buf, 44100.0, &context);
 
-        let inputs = vec![
-            signal_buf.as_slice(),
-            freq_buf.as_slice(),
-            q_buf.as_slice(),
-        ];
+        let inputs = vec![signal_buf.as_slice(), freq_buf.as_slice(), q_buf.as_slice()];
         apf.process_block(&inputs, &mut output, 44100.0, &context);
 
         // State should update
@@ -561,11 +568,7 @@ mod tests {
         freq.process_block(&[], &mut freq_buf, 44100.0, &context);
         q.process_block(&[], &mut q_buf, 44100.0, &context);
 
-        let inputs = vec![
-            signal_buf.as_slice(),
-            freq_buf.as_slice(),
-            q_buf.as_slice(),
-        ];
+        let inputs = vec![signal_buf.as_slice(), freq_buf.as_slice(), q_buf.as_slice()];
         let mut output = vec![0.0; 512];
 
         // Should not panic despite extreme values

@@ -24,7 +24,6 @@
 /// - Piano-like tones (with appropriate tuning)
 /// - Percussive plucked sounds
 /// - Natural harmonic decay characteristics
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use rand::Rng;
 
@@ -50,7 +49,7 @@ struct KSState {
     delay_line: Vec<f32>,
     write_pos: usize,
     last_trigger: f32,
-    filter_state: f32,   // One-pole lowpass filter state
+    filter_state: f32, // One-pole lowpass filter state
 }
 
 impl KarplusStrongNode {
@@ -222,13 +221,7 @@ mod tests {
     use crate::pattern::Fraction;
 
     fn create_context(block_size: usize, sample_rate: f32) -> ProcessContext {
-        ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        )
+        ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate)
     }
 
     #[test]
@@ -240,8 +233,8 @@ mod tests {
 
         let mut ks = KarplusStrongNode::new(0, 1, 2, sample_rate);
         let mut trigger_node = ConstantNode::new(1.0); // Trigger on
-        let mut freq_node = ConstantNode::new(220.0);  // A3
-        let mut decay_node = ConstantNode::new(0.95);  // High decay
+        let mut freq_node = ConstantNode::new(220.0); // A3
+        let mut decay_node = ConstantNode::new(0.95); // High decay
 
         let context = create_context(block_size, sample_rate);
 
@@ -253,7 +246,11 @@ mod tests {
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
         decay_node.process_block(&[], &mut decay_buf, sample_rate, &context);
 
-        let inputs = vec![trigger_buf.as_slice(), freq_buf.as_slice(), decay_buf.as_slice()];
+        let inputs = vec![
+            trigger_buf.as_slice(),
+            freq_buf.as_slice(),
+            decay_buf.as_slice(),
+        ];
         let mut output = vec![0.0; block_size];
         ks.process_block(&inputs, &mut output, sample_rate, &context);
 
@@ -261,11 +258,7 @@ mod tests {
         let rms: f32 = output.iter().map(|&x| x * x).sum::<f32>() / output.len() as f32;
         let rms = rms.sqrt();
 
-        assert!(
-            rms > 0.01,
-            "Expected sound with RMS > 0.01, got {}",
-            rms
-        );
+        assert!(rms > 0.01, "Expected sound with RMS > 0.01, got {}", rms);
     }
 
     #[test]
@@ -289,7 +282,11 @@ mod tests {
 
         let context = create_context(block_size, sample_rate);
 
-        let inputs = vec![trigger_buf.as_slice(), freq_buf.as_slice(), decay_buf.as_slice()];
+        let inputs = vec![
+            trigger_buf.as_slice(),
+            freq_buf.as_slice(),
+            decay_buf.as_slice(),
+        ];
         let mut output = vec![0.0; block_size];
 
         // First block: trigger and initial transient
@@ -297,7 +294,11 @@ mod tests {
 
         // Process a few more blocks to let feedback loop stabilize
         trigger_buf.fill(0.0);
-        let inputs_notrig = vec![trigger_buf.as_slice(), freq_buf.as_slice(), decay_buf.as_slice()];
+        let inputs_notrig = vec![
+            trigger_buf.as_slice(),
+            freq_buf.as_slice(),
+            decay_buf.as_slice(),
+        ];
 
         for _ in 0..5 {
             ks.process_block(&inputs_notrig, &mut output, sample_rate, &context);
@@ -385,8 +386,10 @@ mod tests {
             ks_low_decay.process_block(&inputs_low, &mut output_low, sample_rate, &context);
 
             // Calculate RMS for each block
-            let rms_h: f32 = output_high.iter().map(|&x| x * x).sum::<f32>() / output_high.len() as f32;
-            let rms_l: f32 = output_low.iter().map(|&x| x * x).sum::<f32>() / output_low.len() as f32;
+            let rms_h: f32 =
+                output_high.iter().map(|&x| x * x).sum::<f32>() / output_high.len() as f32;
+            let rms_l: f32 =
+                output_low.iter().map(|&x| x * x).sum::<f32>() / output_low.len() as f32;
 
             rms_high.push(rms_h.sqrt());
             rms_low.push(rms_l.sqrt());
@@ -425,7 +428,11 @@ mod tests {
                 trigger_buf[0] = 1.0;
             }
 
-            let inputs = vec![trigger_buf.as_slice(), freq_buf.as_slice(), decay_buf.as_slice()];
+            let inputs = vec![
+                trigger_buf.as_slice(),
+                freq_buf.as_slice(),
+                decay_buf.as_slice(),
+            ];
             let mut output = vec![0.0; block_size];
             ks.process_block(&inputs, &mut output, sample_rate, &context);
 
@@ -463,7 +470,11 @@ mod tests {
         let freq_buf1 = vec![220.0; block_size];
         let decay_buf = vec![0.95; block_size];
 
-        let inputs1 = vec![trigger_buf.as_slice(), freq_buf1.as_slice(), decay_buf.as_slice()];
+        let inputs1 = vec![
+            trigger_buf.as_slice(),
+            freq_buf1.as_slice(),
+            decay_buf.as_slice(),
+        ];
         let mut output1 = vec![0.0; block_size];
         ks.process_block(&inputs1, &mut output1, sample_rate, &context);
 
@@ -471,7 +482,11 @@ mod tests {
         trigger_buf.fill(0.0);
         let freq_buf2 = vec![440.0; block_size];
 
-        let inputs2 = vec![trigger_buf.as_slice(), freq_buf2.as_slice(), decay_buf.as_slice()];
+        let inputs2 = vec![
+            trigger_buf.as_slice(),
+            freq_buf2.as_slice(),
+            decay_buf.as_slice(),
+        ];
         let mut output2 = vec![0.0; block_size];
         ks.process_block(&inputs2, &mut output2, sample_rate, &context);
 
@@ -507,7 +522,11 @@ mod tests {
         let freq_buf = vec![220.0; block_size];
         let decay_buf = vec![0.95; block_size];
 
-        let inputs = vec![trigger_buf.as_slice(), freq_buf.as_slice(), decay_buf.as_slice()];
+        let inputs = vec![
+            trigger_buf.as_slice(),
+            freq_buf.as_slice(),
+            decay_buf.as_slice(),
+        ];
         let mut output = vec![0.0; block_size];
         ks.process_block(&inputs, &mut output, sample_rate, &context);
 
@@ -546,7 +565,11 @@ mod tests {
                 trigger_buf.fill(0.0);
             }
 
-            let inputs = vec![trigger_buf.as_slice(), freq_buf.as_slice(), decay_buf.as_slice()];
+            let inputs = vec![
+                trigger_buf.as_slice(),
+                freq_buf.as_slice(),
+                decay_buf.as_slice(),
+            ];
             let mut output = vec![0.0; block_size];
             ks.process_block(&inputs, &mut output, sample_rate, &context);
 
@@ -589,7 +612,11 @@ mod tests {
         let freq_buf = vec![110.0; block_size]; // A2
         let decay_buf = vec![0.95; block_size];
 
-        let inputs = vec![trigger_buf.as_slice(), freq_buf.as_slice(), decay_buf.as_slice()];
+        let inputs = vec![
+            trigger_buf.as_slice(),
+            freq_buf.as_slice(),
+            decay_buf.as_slice(),
+        ];
         let mut output = vec![0.0; block_size];
         ks.process_block(&inputs, &mut output, sample_rate, &context);
 
@@ -665,7 +692,11 @@ mod tests {
         let freq_buf = vec![55.0; block_size];
         let decay_buf = vec![0.9; block_size];
 
-        let inputs = vec![trigger_buf.as_slice(), freq_buf.as_slice(), decay_buf.as_slice()];
+        let inputs = vec![
+            trigger_buf.as_slice(),
+            freq_buf.as_slice(),
+            decay_buf.as_slice(),
+        ];
         let mut output = vec![0.0; block_size];
         ks.process_block(&inputs, &mut output, sample_rate, &context);
 
@@ -698,7 +729,11 @@ mod tests {
         let freq_buf = vec![1760.0; block_size];
         let decay_buf = vec![0.8; block_size];
 
-        let inputs = vec![trigger_buf.as_slice(), freq_buf.as_slice(), decay_buf.as_slice()];
+        let inputs = vec![
+            trigger_buf.as_slice(),
+            freq_buf.as_slice(),
+            decay_buf.as_slice(),
+        ];
         let mut output = vec![0.0; block_size];
         ks.process_block(&inputs, &mut output, sample_rate, &context);
 
@@ -730,7 +765,11 @@ mod tests {
         // Trigger stays high (should only trigger once at rising edge)
         let trigger_buf = vec![1.0; block_size];
 
-        let inputs = vec![trigger_buf.as_slice(), freq_buf.as_slice(), decay_buf.as_slice()];
+        let inputs = vec![
+            trigger_buf.as_slice(),
+            freq_buf.as_slice(),
+            decay_buf.as_slice(),
+        ];
         let mut output1 = vec![0.0; block_size];
         ks.process_block(&inputs, &mut output1, sample_rate, &context);
 
@@ -745,7 +784,10 @@ mod tests {
         let rms2 = rms2.sqrt();
 
         // First block should have initial burst (high RMS)
-        assert!(rms1 > 0.1, "First block should have high RMS from initial burst");
+        assert!(
+            rms1 > 0.1,
+            "First block should have high RMS from initial burst"
+        );
 
         // Second block should have decayed (lower RMS, no retrigger)
         assert!(
@@ -777,7 +819,11 @@ mod tests {
         let freq_buf = vec![110.0; block_size];
         let decay_buf = vec![0.93; block_size]; // Realistic guitar decay
 
-        let inputs = vec![trigger_buf.as_slice(), freq_buf.as_slice(), decay_buf.as_slice()];
+        let inputs = vec![
+            trigger_buf.as_slice(),
+            freq_buf.as_slice(),
+            decay_buf.as_slice(),
+        ];
         let mut output = vec![0.0; block_size];
         ks.process_block(&inputs, &mut output, sample_rate, &context);
 

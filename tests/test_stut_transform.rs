@@ -23,7 +23,8 @@ use pattern_verification_utils::detect_audio_events;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -60,11 +61,7 @@ fn test_stut_creates_echoes() {
     let rms = calculate_rms(&buffer);
 
     // Should have audio output from stut layers
-    assert!(
-        rms > 0.01,
-        "stut should produce audio, got RMS: {}",
-        rms
-    );
+    assert!(rms > 0.01, "stut should produce audio, got RMS: {}", rms);
 }
 
 #[test]
@@ -145,7 +142,12 @@ fn test_stut_increases_density() {
         rms_stut
     );
 
-    println!("RMS - normal: {}, stut: {}, ratio: {}", rms_normal, rms_stut, rms_stut / rms_normal);
+    println!(
+        "RMS - normal: {}, stut: {}, ratio: {}",
+        rms_normal,
+        rms_stut,
+        rms_stut / rms_normal
+    );
 }
 
 #[test]
@@ -175,7 +177,10 @@ fn test_stut_decay_reduces_energy() {
         rms_low
     );
 
-    println!("RMS - high decay (0.9): {}, low decay (0.3): {}", rms_high, rms_low);
+    println!(
+        "RMS - high decay (0.9): {}, low decay (0.3): {}",
+        rms_high, rms_low
+    );
 }
 
 #[test]
@@ -234,7 +239,11 @@ fn test_stut_with_pattern_parameters() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.01, "stut with pattern time should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "stut with pattern time should produce audio, got RMS: {}",
+        rms
+    );
     println!("stut with pattern timing RMS: {}", rms);
 }
 
@@ -251,7 +260,11 @@ fn test_stut_with_other_transforms() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "stut + fast should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "stut + fast should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -265,6 +278,10 @@ fn test_stut_classic_tidal_example() {
     let buffer = render_dsl(code, 4.0); // 4 cycles
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Classic stut pattern should produce rich audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Classic stut pattern should produce rich audio, got RMS: {}",
+        rms
+    );
     println!("Classic stut example RMS: {}", rms);
 }

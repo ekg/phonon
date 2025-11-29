@@ -2,7 +2,6 @@
 ///
 /// This node performs sample-by-sample clamping.
 /// Output[i] = Input[i].clamp(Min[i], Max[i]) for all samples.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Clamp node: out = input.clamp(min, max)
@@ -85,16 +84,8 @@ impl AudioNode for ClampNode {
             output.len(),
             "Input buffer length mismatch"
         );
-        debug_assert_eq!(
-            buf_min.len(),
-            output.len(),
-            "Min buffer length mismatch"
-        );
-        debug_assert_eq!(
-            buf_max.len(),
-            output.len(),
-            "Max buffer length mismatch"
-        );
+        debug_assert_eq!(buf_min.len(), output.len(), "Min buffer length mismatch");
+        debug_assert_eq!(buf_max.len(), output.len(), "Max buffer length mismatch");
 
         // Sample-wise clamp operation
         for i in 0..output.len() {
@@ -125,13 +116,7 @@ mod tests {
         let mut max_node = ConstantNode::new(1.0);
         let mut clamp = ClampNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process inputs
         let mut buf_input = vec![0.0; 512];
@@ -165,13 +150,7 @@ mod tests {
         let inputs = vec![input.as_slice(), min.as_slice(), max.as_slice()];
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         clamp.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -192,13 +171,7 @@ mod tests {
         let inputs = vec![input.as_slice(), min.as_slice(), max.as_slice()];
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         clamp.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -220,13 +193,7 @@ mod tests {
         let inputs = vec![input.as_slice(), min.as_slice(), max.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         clamp.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -247,22 +214,16 @@ mod tests {
         let inputs = vec![input.as_slice(), min.as_slice(), max.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         clamp.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], -1.0);  // -5.0 clamped to -1.0
-        assert_eq!(output[1], -0.5);  // -0.5 unchanged
-        assert_eq!(output[2], 0.0);   // 0.0 unchanged
-        assert_eq!(output[3], 0.5);   // 0.5 unchanged
-        assert_eq!(output[4], 1.0);   // 2.0 clamped to 1.0
-        assert_eq!(output[5], 1.0);   // 10.0 clamped to 1.0
+        assert_eq!(output[0], -1.0); // -5.0 clamped to -1.0
+        assert_eq!(output[1], -0.5); // -0.5 unchanged
+        assert_eq!(output[2], 0.0); // 0.0 unchanged
+        assert_eq!(output[3], 0.5); // 0.5 unchanged
+        assert_eq!(output[4], 1.0); // 2.0 clamped to 1.0
+        assert_eq!(output[5], 1.0); // 10.0 clamped to 1.0
     }
 
     #[test]

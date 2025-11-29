@@ -13,7 +13,6 @@
 /// let time = TapNode::new(0, 1);                // NodeId 2
 /// // Output will be 1.0 second (60.0/120.0 * 2.0 = 1.0)
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Tap tempo converter: converts beats to seconds
@@ -77,22 +76,14 @@ impl AudioNode for TapNode {
         let beats = inputs[0];
         let bpm = inputs[1];
 
-        debug_assert_eq!(
-            beats.len(),
-            output.len(),
-            "Beats input length mismatch"
-        );
-        debug_assert_eq!(
-            bpm.len(),
-            output.len(),
-            "BPM input length mismatch"
-        );
+        debug_assert_eq!(beats.len(), output.len(), "Beats input length mismatch");
+        debug_assert_eq!(bpm.len(), output.len(), "BPM input length mismatch");
 
         // Formula: time = (60.0 / bpm) * beats
         // Clamp BPM to reasonable range to avoid division issues
         for i in 0..output.len() {
-            let b = beats[i].max(0.0);  // Non-negative beats
-            let tempo = bpm[i].clamp(20.0, 300.0);  // Reasonable BPM range
+            let b = beats[i].max(0.0); // Non-negative beats
+            let tempo = bpm[i].clamp(20.0, 300.0); // Reasonable BPM range
 
             output[i] = (60.0 / tempo) * b;
         }
@@ -123,13 +114,7 @@ mod tests {
         let inputs = vec![beats.as_slice(), bpm.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         tap.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -149,13 +134,7 @@ mod tests {
         let inputs = vec![beats.as_slice(), bpm.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         tap.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -175,13 +154,7 @@ mod tests {
         let inputs = vec![beats.as_slice(), bpm.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         tap.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -201,13 +174,7 @@ mod tests {
         let inputs = vec![beats.as_slice(), bpm.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         tap.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -227,13 +194,7 @@ mod tests {
         let inputs = vec![beats.as_slice(), bpm.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         tap.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -253,21 +214,15 @@ mod tests {
         let inputs = vec![beats.as_slice(), bpm.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         tap.process_block(&inputs, &mut output, 44100.0, &context);
 
         // 60.0 / 120.0 = 0.5 (beat duration)
-        assert_eq!(output[0], 0.5);   // 1.0 beats
-        assert_eq!(output[1], 1.0);   // 2.0 beats
-        assert_eq!(output[2], 0.25);  // 0.5 beats
-        assert_eq!(output[3], 2.0);   // 4.0 beats
+        assert_eq!(output[0], 0.5); // 1.0 beats
+        assert_eq!(output[1], 1.0); // 2.0 beats
+        assert_eq!(output[2], 0.25); // 0.5 beats
+        assert_eq!(output[3], 2.0); // 4.0 beats
     }
 
     #[test]
@@ -280,21 +235,15 @@ mod tests {
         let inputs = vec![beats.as_slice(), bpm.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         tap.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Different tempos produce different times
-        assert_eq!(output[0], 1.0);         // 60.0 / 60.0
-        assert_eq!(output[1], 0.5);         // 60.0 / 120.0
-        assert_eq!(output[2], 0.25);        // 60.0 / 240.0
-        assert!((output[3] - 0.3333333).abs() < 0.0001);  // 60.0 / 180.0
+        assert_eq!(output[0], 1.0); // 60.0 / 60.0
+        assert_eq!(output[1], 0.5); // 60.0 / 120.0
+        assert_eq!(output[2], 0.25); // 60.0 / 240.0
+        assert!((output[3] - 0.3333333).abs() < 0.0001); // 60.0 / 180.0
     }
 
     #[test]
@@ -303,17 +252,11 @@ mod tests {
         let mut tap = TapNode::new(0, 1);
 
         let beats = vec![1.0; 4];
-        let bpm = vec![10.0; 4];  // Below minimum
+        let bpm = vec![10.0; 4]; // Below minimum
         let inputs = vec![beats.as_slice(), bpm.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         tap.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -330,17 +273,11 @@ mod tests {
         let mut tap = TapNode::new(0, 1);
 
         let beats = vec![1.0; 4];
-        let bpm = vec![500.0; 4];  // Above maximum
+        let bpm = vec![500.0; 4]; // Above maximum
         let inputs = vec![beats.as_slice(), bpm.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         tap.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -361,21 +298,15 @@ mod tests {
         let inputs = vec![beats.as_slice(), bpm.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         tap.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Negative beats become 0
-        assert_eq!(output[0], 0.0);   // -1.0 clamped to 0.0
-        assert_eq!(output[1], 0.0);   // -2.5 clamped to 0.0
-        assert_eq!(output[2], 0.0);   // 0.0 * 0.5 = 0.0
-        assert_eq!(output[3], 0.5);   // 1.0 * 0.5 = 0.5
+        assert_eq!(output[0], 0.0); // -1.0 clamped to 0.0
+        assert_eq!(output[1], 0.0); // -2.5 clamped to 0.0
+        assert_eq!(output[2], 0.0); // 0.0 * 0.5 = 0.0
+        assert_eq!(output[3], 0.5); // 1.0 * 0.5 = 0.5
     }
 
     #[test]
@@ -385,13 +316,7 @@ mod tests {
         let mut bpm_node = ConstantNode::new(120.0);
         let mut tap = TapNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut beats_buf = vec![0.0; 512];

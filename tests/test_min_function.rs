@@ -2,7 +2,6 @@
 ///
 /// Tests the min function in the Phonon DSL to ensure it correctly
 /// computes the minimum of two signals sample-by-sample.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -59,7 +58,11 @@ out $ min 1.0
     let result = compile_program(statements, SAMPLE_RATE, None);
     assert!(result.is_err(), "Should fail with only one argument");
     if let Err(err_msg) = result {
-        assert!(err_msg.contains("min requires exactly 2 arguments"), "Error was: {}", err_msg);
+        assert!(
+            err_msg.contains("min requires exactly 2 arguments"),
+            "Error was: {}",
+            err_msg
+        );
     }
 }
 
@@ -75,7 +78,11 @@ out $ min 1.0 2.0 3.0
     let result = compile_program(statements, SAMPLE_RATE, None);
     assert!(result.is_err(), "Should fail with three arguments");
     if let Err(err_msg) = result {
-        assert!(err_msg.contains("min requires exactly 2 arguments"), "Error was: {}", err_msg);
+        assert!(
+            err_msg.contains("min requires exactly 2 arguments"),
+            "Error was: {}",
+            err_msg
+        );
     }
 }
 

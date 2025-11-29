@@ -1,6 +1,6 @@
 // Tests for Tidal Cycles parity functions
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{State, TimeSpan, Fraction};
+use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 #[test]

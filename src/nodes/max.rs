@@ -2,7 +2,6 @@
 ///
 /// This node demonstrates sample-wise comparison operations.
 /// Output[i] = max(Input_A[i], Input_B[i]) for all samples.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Max node: out = max(a, b)
@@ -69,16 +68,8 @@ impl AudioNode for MaxNode {
         let buf_a = inputs[0];
         let buf_b = inputs[1];
 
-        debug_assert_eq!(
-            buf_a.len(),
-            output.len(),
-            "Input A length mismatch"
-        );
-        debug_assert_eq!(
-            buf_b.len(),
-            output.len(),
-            "Input B length mismatch"
-        );
+        debug_assert_eq!(buf_a.len(), output.len(), "Input A length mismatch");
+        debug_assert_eq!(buf_b.len(), output.len(), "Input B length mismatch");
 
         // Sample-wise maximum
         for i in 0..output.len() {
@@ -109,13 +100,7 @@ mod tests {
         let mut const_b = ConstantNode::new(5.0);
         let mut max = MaxNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut buf_a = vec![0.0; 512];
@@ -146,13 +131,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         max.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -172,20 +151,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         max.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 3.0);   // max(1, 3) = 3
-        assert_eq!(output[1], 5.0);   // max(5, 2) = 5
-        assert_eq!(output[2], -1.0);  // max(-3, -1) = -1
-        assert_eq!(output[3], 10.0);  // max(7, 10) = 10
+        assert_eq!(output[0], 3.0); // max(1, 3) = 3
+        assert_eq!(output[1], 5.0); // max(5, 2) = 5
+        assert_eq!(output[2], -1.0); // max(-3, -1) = -1
+        assert_eq!(output[3], 10.0); // max(7, 10) = 10
     }
 
     #[test]
@@ -203,13 +176,7 @@ mod tests {
         let mut output_ab = vec![0.0; 4];
         let mut output_ba = vec![0.0; 4];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         max_ab.process_block(&inputs_ab, &mut output_ab, 44100.0, &context);
         max_ba.process_block(&inputs_ba, &mut output_ba, 44100.0, &context);
@@ -230,13 +197,7 @@ mod tests {
         let mut osc_b = OscillatorNode::new(1, Waveform::Sine);
         let mut max = MaxNode::new(2, 3);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            128,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 128, 2.0, 44100.0);
 
         // Process frequency constants
         let mut buf_freq_a = vec![0.0; 128];

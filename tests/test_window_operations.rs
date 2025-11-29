@@ -72,7 +72,7 @@ fn test_within_transform() {
 fn test_zoom_at_pattern_level() {
     // Test zoom directly at pattern level
     use phonon::mini_notation_v3::parse_mini_notation;
-    use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
+    use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
     use std::collections::HashMap;
 
     let pattern = parse_mini_notation("bd sn hh cp");
@@ -110,7 +110,7 @@ fn test_zoom_at_pattern_level() {
 fn test_focus_at_pattern_level() {
     // Test focus directly at pattern level
     use phonon::mini_notation_v3::parse_mini_notation;
-    use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
+    use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
     use std::collections::HashMap;
 
     let pattern = parse_mini_notation("bd sn hh cp");
@@ -146,7 +146,7 @@ fn test_focus_at_pattern_level() {
 fn test_within_at_pattern_level() {
     // Test within directly at pattern level
     use phonon::mini_notation_v3::parse_mini_notation;
-    use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
+    use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
     use std::collections::HashMap;
 
     let pattern = parse_mini_notation("bd sn hh cp");

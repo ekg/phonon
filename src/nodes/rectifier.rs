@@ -5,7 +5,6 @@
 /// - Half-wave: Output[i] = max(Input[i], 0.0) (negative values become zero)
 ///
 /// Useful for envelope following, distortion effects, and signal conditioning.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Rectification mode
@@ -73,18 +72,11 @@ impl AudioNode for RectifierNode {
         _sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(
-            !inputs.is_empty(),
-            "RectifierNode requires 1 input, got 0"
-        );
+        debug_assert!(!inputs.is_empty(), "RectifierNode requires 1 input, got 0");
 
         let buf = inputs[0];
 
-        debug_assert_eq!(
-            buf.len(),
-            output.len(),
-            "Input length mismatch"
-        );
+        debug_assert_eq!(buf.len(), output.len(), "Input length mismatch");
 
         // Apply rectification to each sample
         match self.mode {
@@ -127,13 +119,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         rect_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -153,13 +139,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         rect_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -179,13 +159,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         rect_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -205,13 +179,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         rect_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -238,13 +206,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 16];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            16,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 16, 2.0, 44100.0);
 
         rect_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -292,13 +254,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 16];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            16,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 16, 2.0, 44100.0);
 
         rect_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -346,13 +302,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         rect_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -372,22 +322,16 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         rect_node.process_block(&inputs, &mut output, 44100.0, &context);
 
         assert_eq!(output[0], 1.0);
-        assert_eq!(output[1], 0.0);  // Negative becomes zero
+        assert_eq!(output[1], 0.0); // Negative becomes zero
         assert_eq!(output[2], 3.0);
-        assert_eq!(output[3], 0.0);  // Negative becomes zero
+        assert_eq!(output[3], 0.0); // Negative becomes zero
         assert_eq!(output[4], 0.0);
-        assert_eq!(output[5], 0.0);  // Negative becomes zero
+        assert_eq!(output[5], 0.0); // Negative becomes zero
     }
 
     #[test]
@@ -396,13 +340,7 @@ mod tests {
         let mut rect_full = RectifierNode::new(0, RectifierMode::FullWave);
         let mut rect_half = RectifierNode::new(0, RectifierMode::HalfWave);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constant first
         let mut buf = vec![0.0; 512];
@@ -437,13 +375,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         // Test full-wave
         rect_full.process_block(&inputs, &mut output, 44100.0, &context);

@@ -3,13 +3,12 @@
 /// This node provides smooth noise gating. It silences signals below the threshold
 /// using an envelope follower with attack and release times. Unlike the hard GateNode,
 /// this provides smooth transitions to prevent clicks and artifacts.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Noise gate state for envelope follower
 #[derive(Debug, Clone)]
 struct NoiseGateState {
-    envelope: f32,  // Current gate envelope (0.0 = closed, 1.0 = open)
+    envelope: f32, // Current gate envelope (0.0 = closed, 1.0 = open)
 }
 
 impl Default for NoiseGateState {
@@ -54,10 +53,10 @@ impl Default for NoiseGateState {
 /// ```
 pub struct NoiseGateNode {
     input: NodeId,
-    threshold_input: NodeId,  // Threshold in dB (e.g., -30.0)
-    attack_input: NodeId,     // Attack time in seconds (0.001 to 0.1)
-    release_input: NodeId,    // Release time in seconds (0.01 to 1.0)
-    state: NoiseGateState,    // Envelope follower state
+    threshold_input: NodeId, // Threshold in dB (e.g., -30.0)
+    attack_input: NodeId,    // Attack time in seconds (0.001 to 0.1)
+    release_input: NodeId,   // Release time in seconds (0.01 to 1.0)
+    state: NoiseGateState,   // Envelope follower state
 }
 
 impl NoiseGateNode {
@@ -184,12 +183,12 @@ impl AudioNode for NoiseGateNode {
             // Smooth envelope with attack/release
             if target > self.state.envelope {
                 // Attack: gate opening (signal above threshold)
-                self.state.envelope = attack_coeff * self.state.envelope
-                    + (1.0 - attack_coeff) * target;
+                self.state.envelope =
+                    attack_coeff * self.state.envelope + (1.0 - attack_coeff) * target;
             } else {
                 // Release: gate closing (signal below threshold)
-                self.state.envelope = release_coeff * self.state.envelope
-                    + (1.0 - release_coeff) * target;
+                self.state.envelope =
+                    release_coeff * self.state.envelope + (1.0 - release_coeff) * target;
             }
 
             // Apply envelope to gate the signal
@@ -228,7 +227,7 @@ mod tests {
         // Input: 0.5 (-6 dB), Threshold: -20 dB
         let input = vec![0.5; 512];
         let threshold = vec![-20.0; 512];
-        let attack = vec![0.001; 512];   // Fast attack
+        let attack = vec![0.001; 512]; // Fast attack
         let release = vec![0.1; 512];
         let inputs = vec![
             input.as_slice(),
@@ -244,7 +243,11 @@ mod tests {
 
         // Signal well above threshold should pass with minimal attenuation
         let avg_output: f32 = output.iter().skip(100).take(400).sum::<f32>() / 400.0;
-        assert!(avg_output > 0.4, "Average output was {}, expected > 0.4", avg_output);
+        assert!(
+            avg_output > 0.4,
+            "Average output was {}, expected > 0.4",
+            avg_output
+        );
     }
 
     #[test]
@@ -256,7 +259,7 @@ mod tests {
         let input = vec![0.01; 512];
         let threshold = vec![-20.0; 512];
         let attack = vec![0.01; 512];
-        let release = vec![0.001; 512];  // Fast release
+        let release = vec![0.001; 512]; // Fast release
         let inputs = vec![
             input.as_slice(),
             threshold.as_slice(),
@@ -271,7 +274,11 @@ mod tests {
 
         // Signal below threshold should be heavily attenuated
         let avg_output: f32 = output.iter().skip(100).take(400).sum::<f32>() / 400.0;
-        assert!(avg_output < 0.005, "Average output was {}, expected < 0.005", avg_output);
+        assert!(
+            avg_output < 0.005,
+            "Average output was {}, expected < 0.005",
+            avg_output
+        );
     }
 
     #[test]
@@ -280,9 +287,9 @@ mod tests {
         let deps = gate.input_nodes();
 
         assert_eq!(deps.len(), 4);
-        assert_eq!(deps[0], 5);   // input
-        assert_eq!(deps[1], 10);  // threshold
-        assert_eq!(deps[2], 15);  // attack
-        assert_eq!(deps[3], 20);  // release
+        assert_eq!(deps[0], 5); // input
+        assert_eq!(deps[1], 10); // threshold
+        assert_eq!(deps[2], 15); // attack
+        assert_eq!(deps[3], 20); // release
     }
 }

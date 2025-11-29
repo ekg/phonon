@@ -154,11 +154,7 @@ pub fn filter_completions(
                         .map(|meta| meta.description.to_string());
 
                     completions.push((
-                        Completion::new(
-                            func.to_string(),
-                            CompletionType::Function,
-                            description,
-                        ),
+                        Completion::new(func.to_string(), CompletionType::Function, description),
                         name_score,
                     ));
                 } else if let Some(metadata) = FUNCTION_METADATA.get(func) {
@@ -254,9 +250,9 @@ pub fn filter_completions(
                         // "gain <tab>" → show ":amount"
                         // "gain :a<tab>" → show "amount" (: already typed)
                         let completion_text = if partial.starts_with(':') {
-                            param.name.to_string()  // Just "amount"
+                            param.name.to_string() // Just "amount"
                         } else {
-                            format!(":{}", param.name)  // ":amount"
+                            format!(":{}", param.name) // ":amount"
                         };
 
                         completions.push((
@@ -529,8 +525,14 @@ mod tests {
         assert!(sample_completions.iter().any(|c| c.text == "bend"));
 
         // Check that they appear in alphabetical order when scores are equal
-        let bass_idx = sample_completions.iter().position(|c| c.text == "bass").unwrap();
-        let bend_idx = sample_completions.iter().position(|c| c.text == "bend").unwrap();
+        let bass_idx = sample_completions
+            .iter()
+            .position(|c| c.text == "bass")
+            .unwrap();
+        let bend_idx = sample_completions
+            .iter()
+            .position(|c| c.text == "bend")
+            .unwrap();
         assert!(bass_idx < bend_idx);
     }
 
@@ -679,11 +681,7 @@ mod tests {
 
     #[test]
     fn test_fuzzy_matching_samples() {
-        let samples = vec![
-            "bass".to_string(),
-            "bass3".to_string(),
-            "casio".to_string(),
-        ];
+        let samples = vec!["bass".to_string(), "bass3".to_string(), "casio".to_string()];
         let buses = make_buses();
         let context = CompletionContext::Sample;
 
@@ -729,7 +727,11 @@ mod tests {
 
         // Should have a description
         assert!(cutoff.description.is_some());
-        assert!(cutoff.description.as_ref().unwrap().contains("cutoff frequency"));
+        assert!(cutoff
+            .description
+            .as_ref()
+            .unwrap()
+            .contains("cutoff frequency"));
     }
 
     #[test]
@@ -749,6 +751,10 @@ mod tests {
         assert!(bd.description.as_ref().unwrap().contains("Sample:"));
 
         assert!(drums.description.is_some());
-        assert!(drums.description.as_ref().unwrap().contains("Bus reference:"));
+        assert!(drums
+            .description
+            .as_ref()
+            .unwrap()
+            .contains("Bus reference:"));
     }
 }

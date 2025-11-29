@@ -40,7 +40,6 @@
 ///   Frequency Modulation" - applies equally to PM
 /// - Casio CZ series synthesizers - used phase distortion (related to PM)
 /// - Yamaha DX7 - technically used PM, not FM (though marketed as FM)
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -55,11 +54,11 @@ use std::f32::consts::PI;
 /// let pm_osc = PMOscillatorNode::new(0, 1, 2);  // NodeId 3
 /// ```
 pub struct PMOscillatorNode {
-    carrier_freq_input: NodeId,    // Carrier frequency in Hz
-    modulator_freq_input: NodeId,  // Modulator frequency in Hz
-    mod_index_input: NodeId,       // Modulation index (depth)
-    carrier_phase: f32,             // Carrier phase (0.0 to 1.0)
-    modulator_phase: f32,           // Modulator phase (0.0 to 1.0)
+    carrier_freq_input: NodeId,   // Carrier frequency in Hz
+    modulator_freq_input: NodeId, // Modulator frequency in Hz
+    mod_index_input: NodeId,      // Modulation index (depth)
+    carrier_phase: f32,           // Carrier phase (0.0 to 1.0)
+    modulator_phase: f32,         // Modulator phase (0.0 to 1.0)
 }
 
 impl PMOscillatorNode {
@@ -220,13 +219,7 @@ mod tests {
         let mut index_node = ConstantNode::new(mod_index);
         let mut pm_osc = PMOscillatorNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            buffer_size,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, 44100.0);
 
         // Generate input buffers
         let mut carrier_buf = vec![0.0; buffer_size];
@@ -238,7 +231,11 @@ mod tests {
         index_node.process_block(&[], &mut index_buf, 44100.0, &context);
 
         // Generate PM output
-        let inputs = vec![carrier_buf.as_slice(), mod_buf.as_slice(), index_buf.as_slice()];
+        let inputs = vec![
+            carrier_buf.as_slice(),
+            mod_buf.as_slice(),
+            index_buf.as_slice(),
+        ];
         let mut output = vec![0.0; buffer_size];
         pm_osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -306,16 +303,14 @@ mod tests {
         let carrier_buf = vec![440.0];
         let mod_buf = vec![440.0];
         let index_buf = vec![0.0];
-        let inputs = vec![carrier_buf.as_slice(), mod_buf.as_slice(), index_buf.as_slice()];
+        let inputs = vec![
+            carrier_buf.as_slice(),
+            mod_buf.as_slice(),
+            index_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         pm_osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -338,16 +333,14 @@ mod tests {
         let carrier_buf = vec![440.0];
         let mod_buf = vec![220.0];
         let index_buf = vec![1.0];
-        let inputs = vec![carrier_buf.as_slice(), mod_buf.as_slice(), index_buf.as_slice()];
+        let inputs = vec![
+            carrier_buf.as_slice(),
+            mod_buf.as_slice(),
+            index_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         pm_osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -385,10 +378,15 @@ mod tests {
 
         // Should be different from 1:1 ratio
         let ratio_1_1 = process_pm(440.0, 440.0, 2.0, 2048);
-        let same = output.iter().zip(&ratio_1_1)
+        let same = output
+            .iter()
+            .zip(&ratio_1_1)
             .all(|(a, b)| (a - b).abs() < 0.001);
 
-        assert!(!same, "Different C:M ratios should produce different waveforms");
+        assert!(
+            !same,
+            "Different C:M ratios should produce different waveforms"
+        );
     }
 
     #[test]
@@ -401,10 +399,15 @@ mod tests {
 
         // Should be different from 1:1 ratio
         let ratio_1_1 = process_pm(440.0, 440.0, 2.0, 2048);
-        let same = output.iter().zip(&ratio_1_1)
+        let same = output
+            .iter()
+            .zip(&ratio_1_1)
             .all(|(a, b)| (a - b).abs() < 0.001);
 
-        assert!(!same, "Different C:M ratios should produce different waveforms");
+        assert!(
+            !same,
+            "Different C:M ratios should produce different waveforms"
+        );
     }
 
     #[test]
@@ -426,10 +429,15 @@ mod tests {
         assert!(calculate_rms(&ratio_1_2) > 0.3);
 
         // Waveforms should be different (simple check: not identical)
-        let same_as_1_1 = ratio_2_1.iter().zip(&ratio_1_1)
+        let same_as_1_1 = ratio_2_1
+            .iter()
+            .zip(&ratio_1_1)
             .all(|(a, b)| (a - b).abs() < 0.001);
 
-        assert!(!same_as_1_1, "Different C:M ratios should produce different waveforms");
+        assert!(
+            !same_as_1_1,
+            "Different C:M ratios should produce different waveforms"
+        );
     }
 
     #[test]
@@ -442,7 +450,9 @@ mod tests {
 
         // Should be different from harmonic ratio
         let harmonic = process_pm(440.0, 880.0, 2.0, 2048);
-        let same = output.iter().zip(&harmonic)
+        let same = output
+            .iter()
+            .zip(&harmonic)
             .all(|(a, b)| (a - b).abs() < 0.001);
 
         assert!(!same, "Inharmonic and harmonic ratios should differ");
@@ -496,9 +506,9 @@ mod tests {
         let deps = pm_osc.input_nodes();
 
         assert_eq!(deps.len(), 3);
-        assert_eq!(deps[0], 10);  // carrier_freq
-        assert_eq!(deps[1], 20);  // modulator_freq
-        assert_eq!(deps[2], 30);  // mod_index
+        assert_eq!(deps[0], 10); // carrier_freq
+        assert_eq!(deps[1], 20); // modulator_freq
+        assert_eq!(deps[2], 30); // mod_index
     }
 
     #[test]
@@ -538,19 +548,17 @@ mod tests {
         pm_osc.modulator_phase = 0.99;
 
         // Process one sample at high frequency
-        let carrier_buf = vec![4410.0];  // 10% of sample rate
+        let carrier_buf = vec![4410.0]; // 10% of sample rate
         let mod_buf = vec![4410.0];
         let index_buf = vec![1.0];
-        let inputs = vec![carrier_buf.as_slice(), mod_buf.as_slice(), index_buf.as_slice()];
+        let inputs = vec![
+            carrier_buf.as_slice(),
+            mod_buf.as_slice(),
+            index_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         pm_osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -590,7 +598,7 @@ mod tests {
 
         pm_osc.reset_carrier_phase();
         assert_eq!(pm_osc.carrier_phase(), 0.0);
-        assert_eq!(pm_osc.modulator_phase(), 0.7);  // Unchanged
+        assert_eq!(pm_osc.modulator_phase(), 0.7); // Unchanged
     }
 
     #[test]
@@ -601,7 +609,7 @@ mod tests {
         pm_osc.modulator_phase = 0.7;
 
         pm_osc.reset_modulator_phase();
-        assert_eq!(pm_osc.carrier_phase(), 0.5);  // Unchanged
+        assert_eq!(pm_osc.carrier_phase(), 0.5); // Unchanged
         assert_eq!(pm_osc.modulator_phase(), 0.0);
     }
 
@@ -633,16 +641,14 @@ mod tests {
         let mod_buf = vec![440.0, 550.0, 660.0, 770.0, 880.0];
         let index_buf = vec![2.0; 5];
 
-        let inputs = vec![carrier_buf.as_slice(), mod_buf.as_slice(), index_buf.as_slice()];
+        let inputs = vec![
+            carrier_buf.as_slice(),
+            mod_buf.as_slice(),
+            index_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 5];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         pm_osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -662,16 +668,14 @@ mod tests {
         // Mod index varying from 0 to 4
         let index_buf = vec![0.0, 1.0, 2.0, 3.0, 4.0];
 
-        let inputs = vec![carrier_buf.as_slice(), mod_buf.as_slice(), index_buf.as_slice()];
+        let inputs = vec![
+            carrier_buf.as_slice(),
+            mod_buf.as_slice(),
+            index_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 5];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         pm_osc.process_block(&inputs, &mut output, 44100.0, &context);
 

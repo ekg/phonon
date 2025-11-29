@@ -1,6 +1,5 @@
 /// Test bus-triggered synthesis with various patterns
 /// Isolating the issue with Euclidean patterns + parameters
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -9,7 +8,11 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
     (sum_squares / buffer.len() as f32).sqrt()
 }
 
-fn render_in_chunks(graph: &mut phonon::unified_graph::UnifiedSignalGraph, total_samples: usize, chunk_size: usize) -> Vec<f32> {
+fn render_in_chunks(
+    graph: &mut phonon::unified_graph::UnifiedSignalGraph,
+    total_samples: usize,
+    chunk_size: usize,
+) -> Vec<f32> {
     let mut result = Vec::with_capacity(total_samples);
     let num_chunks = total_samples / chunk_size;
     for _ in 0..num_chunks {
@@ -132,6 +135,10 @@ out $ ~c
     let buffer = render_in_chunks(&mut graph, 44100, 128);
 
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Bus with Euclidean+note+gain failed: RMS = {}", rms);
+    assert!(
+        rms > 0.01,
+        "Bus with Euclidean+note+gain failed: RMS = {}",
+        rms
+    );
     println!("✓ Bus trigger with Euclidean+note+gain: RMS = {:.6}", rms);
 }

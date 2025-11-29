@@ -25,8 +25,12 @@ out $ ~trig
     for i in 0..num_buffers {
         // Add debug logging BEFORE render
         if i <= 2 {
-            eprintln!("\n=== Rendering buffer {} (samples {}-{}) ===",
-                i, i * buffer_size, (i + 1) * buffer_size - 1);
+            eprintln!(
+                "\n=== Rendering buffer {} (samples {}-{}) ===",
+                i,
+                i * buffer_size,
+                (i + 1) * buffer_size - 1
+            );
         }
 
         std::env::set_var("DEBUG_SAMPLE_EVENTS", "1");
@@ -43,8 +47,10 @@ out $ ~trig
             let first_sample: f32 = buffer[0];
             let diff: f32 = (first_sample - last_sample).abs();
             if diff > 0.05 {
-                eprintln!("\n!!! DISCONTINUITY at buffer {} boundary: {:.6} -> {:.6} (diff: {:.6}) !!!",
-                    i, last_sample, first_sample, diff);
+                eprintln!(
+                    "\n!!! DISCONTINUITY at buffer {} boundary: {:.6} -> {:.6} (diff: {:.6}) !!!",
+                    i, last_sample, first_sample, diff
+                );
             }
         }
 
@@ -78,12 +84,18 @@ out $ ~trig
         }
     }
 
-    eprintln!("Max discontinuity: {} at sample {}", max_discontinuity, max_location);
+    eprintln!(
+        "Max discontinuity: {} at sample {}",
+        max_discontinuity, max_location
+    );
     eprintln!("Audio around discontinuity:");
     for i in (max_location.saturating_sub(5))..=(max_location + 5).min(full_audio.len() - 1) {
         eprintln!("  Sample {}: {:.6}", i, full_audio[i]);
     }
 
     // Don't assert, just report
-    eprintln!("RMS: {}", (full_audio.iter().map(|s| s * s).sum::<f32>() / full_audio.len() as f32).sqrt());
+    eprintln!(
+        "RMS: {}",
+        (full_audio.iter().map(|s| s * s).sum::<f32>() / full_audio.len() as f32).sqrt()
+    );
 }

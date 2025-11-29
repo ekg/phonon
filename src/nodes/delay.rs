@@ -2,7 +2,6 @@
 ///
 /// This node implements a basic delay effect with pattern-controlled delay time.
 /// Uses a circular buffer for efficient memory usage.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Delay node with pattern-controlled delay time
@@ -15,12 +14,12 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 /// let delay = DelayNode::new(0, 1, 1.0, 44100.0);  // NodeId 2, max_delay = 1.0s
 /// ```
 pub struct DelayNode {
-    input: NodeId,           // Signal to delay
+    input: NodeId,            // Signal to delay
     delay_time_input: NodeId, // Delay time in seconds (can be modulated)
-    buffer: Vec<f32>,        // Circular buffer
-    write_pos: usize,        // Current write position
-    max_delay: f32,          // Maximum delay time in seconds
-    sample_rate: f32,        // Sample rate for calculations
+    buffer: Vec<f32>,         // Circular buffer
+    write_pos: usize,         // Current write position
+    max_delay: f32,           // Maximum delay time in seconds
+    sample_rate: f32,         // Sample rate for calculations
 }
 
 impl DelayNode {
@@ -133,7 +132,7 @@ impl AudioNode for DelayNode {
     }
 
     fn provides_delay(&self) -> bool {
-        true  // DelayNode has internal buffer, can safely break feedback cycles
+        true // DelayNode has internal buffer, can safely break feedback cycles
     }
 }
 
@@ -158,13 +157,8 @@ mod tests {
         let mut delay_time_node = ConstantNode::new(0.0); // 0 second delay
         let mut delay = DelayNode::new(0, 1, max_delay, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let buffer_size = delay.buffer_size(); // Should be 441
 
@@ -214,13 +208,8 @@ mod tests {
         let mut delay_time_node = ConstantNode::new(delay_time);
         let mut delay = DelayNode::new(0, 1, 1.0, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Create input signal: impulse at sample 0
         let mut input_buf = vec![0.0; block_size];
@@ -282,13 +271,8 @@ mod tests {
         let mut delay_time_node = ConstantNode::new(delay_time);
         let mut delay = DelayNode::new(0, 1, max_delay, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Verify buffer was allocated correctly
         let expected_buffer_size = (max_delay * sample_rate).ceil() as usize;
@@ -344,13 +328,8 @@ mod tests {
 
         let mut delay = DelayNode::new(0, 1, 1.0, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Input: constant signal
         let input_buf = vec![1.0; block_size];
@@ -376,12 +355,7 @@ mod tests {
 
         // Output should contain valid samples (no NaN or extreme values)
         for (i, &sample) in output.iter().enumerate() {
-            assert!(
-                sample.is_finite(),
-                "Sample {} is not finite: {}",
-                i,
-                sample
-            );
+            assert!(sample.is_finite(), "Sample {} is not finite: {}", i, sample);
             assert!(
                 sample.abs() <= 2.0,
                 "Sample {} has extreme value: {}",

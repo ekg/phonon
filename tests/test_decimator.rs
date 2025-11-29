@@ -8,7 +8,6 @@
 /// 4. Pattern modulation of parameters
 /// 5. Musical examples (8-bit drums, chiptune leads)
 /// 6. Nyquist aliasing behavior
-
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 use std::cell::RefCell;
 
@@ -64,7 +63,7 @@ fn test_decimator_factor_1_no_effect() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -89,11 +88,19 @@ fn test_decimator_factor_1_no_effect() {
     let rms = calculate_rms(&buffer);
 
     // Sine wave RMS should be ~0.707 (1.0 / sqrt(2))
-    assert!(rms > 0.6 && rms < 0.8, "RMS should be ~0.707 for sine, got {}", rms);
+    assert!(
+        rms > 0.6 && rms < 0.8,
+        "RMS should be ~0.707 for sine, got {}",
+        rms
+    );
 
     // Should have many unique values (smooth sine wave)
     let unique = count_unique_values(&buffer, 0.01);
-    assert!(unique > 500, "Should have many unique values for smooth sine, got {}", unique);
+    assert!(
+        unique > 500,
+        "Should have many unique values for smooth sine, got {}",
+        unique
+    );
 }
 
 #[test]
@@ -105,7 +112,7 @@ fn test_decimator_factor_2_half_rate() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -127,11 +134,19 @@ fn test_decimator_factor_2_half_rate() {
 
     // Should have significant sample holding
     let held = count_held_samples(&buffer);
-    assert!(held > 400, "Should have many held samples with factor=2, got {}", held);
+    assert!(
+        held > 400,
+        "Should have many held samples with factor=2, got {}",
+        held
+    );
 
     // Should have fewer unique values than original
     let unique = count_unique_values(&buffer, 0.01);
-    assert!(unique < 600, "Should have fewer unique values, got {}", unique);
+    assert!(
+        unique < 600,
+        "Should have fewer unique values, got {}",
+        unique
+    );
 }
 
 #[test]
@@ -143,7 +158,7 @@ fn test_decimator_factor_4_quarter_rate() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -164,11 +179,19 @@ fn test_decimator_factor_4_quarter_rate() {
 
     // Should have even more sample holding
     let held = count_held_samples(&buffer);
-    assert!(held > 700, "Should have extensive holding with factor=4, got {}", held);
+    assert!(
+        held > 700,
+        "Should have extensive holding with factor=4, got {}",
+        held
+    );
 
     // Should have very few unique values
     let unique = count_unique_values(&buffer, 0.01);
-    assert!(unique < 300, "Should have very few unique values, got {}", unique);
+    assert!(
+        unique < 300,
+        "Should have very few unique values, got {}",
+        unique
+    );
 }
 
 #[test]
@@ -180,7 +203,7 @@ fn test_decimator_factor_8_severe() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -201,11 +224,19 @@ fn test_decimator_factor_8_severe() {
 
     // Should be extremely stepped
     let held = count_held_samples(&buffer);
-    assert!(held > 850, "Should have very extensive holding with factor=8, got {}", held);
+    assert!(
+        held > 850,
+        "Should have very extensive holding with factor=8, got {}",
+        held
+    );
 
     // Should have minimal unique values (extreme quantization)
     let unique = count_unique_values(&buffer, 0.01);
-    assert!(unique < 150, "Should have minimal unique values, got {}", unique);
+    assert!(
+        unique < 150,
+        "Should have minimal unique values, got {}",
+        unique
+    );
 }
 
 #[test]
@@ -219,7 +250,7 @@ fn test_decimator_smooth_reduces_steps() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -228,7 +259,7 @@ fn test_decimator_smooth_reduces_steps() {
     let decimated_harsh = graph_harsh.add_node(SignalNode::Decimator {
         input: Signal::Node(sine_harsh),
         factor: Signal::Value(4.0),
-        smooth: Signal::Value(0.0),  // Harsh
+        smooth: Signal::Value(0.0), // Harsh
         sample_counter: RefCell::new(0.0),
         held_value: RefCell::new(0.0),
         smooth_state: RefCell::new(0.0),
@@ -241,7 +272,7 @@ fn test_decimator_smooth_reduces_steps() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -250,7 +281,7 @@ fn test_decimator_smooth_reduces_steps() {
     let decimated_smooth = graph_smooth.add_node(SignalNode::Decimator {
         input: Signal::Node(sine_smooth),
         factor: Signal::Value(4.0),
-        smooth: Signal::Value(0.8),  // Smooth
+        smooth: Signal::Value(0.8), // Smooth
         sample_counter: RefCell::new(0.0),
         held_value: RefCell::new(0.0),
         smooth_state: RefCell::new(0.0),
@@ -265,17 +296,23 @@ fn test_decimator_smooth_reduces_steps() {
     let held_harsh = count_held_samples(&buffer_harsh);
     let held_smooth = count_held_samples(&buffer_smooth);
 
-    assert!(held_smooth < held_harsh,
+    assert!(
+        held_smooth < held_harsh,
         "Smooth version should have fewer held samples: harsh={}, smooth={}",
-        held_harsh, held_smooth);
+        held_harsh,
+        held_smooth
+    );
 
     // Smooth version should have more unique values (less stepped)
     let unique_harsh = count_unique_values(&buffer_harsh, 0.01);
     let unique_smooth = count_unique_values(&buffer_smooth, 0.01);
 
-    assert!(unique_smooth > unique_harsh,
+    assert!(
+        unique_smooth > unique_harsh,
         "Smooth version should have more unique values: harsh={}, smooth={}",
-        unique_harsh, unique_smooth);
+        unique_harsh,
+        unique_smooth
+    );
 }
 
 #[test]
@@ -288,7 +325,7 @@ fn test_decimator_creates_aliasing() {
         freq: Signal::Value(5000.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -314,7 +351,11 @@ fn test_decimator_creates_aliasing() {
 
     // Should be heavily stepped
     let held = count_held_samples(&buffer);
-    assert!(held > 700, "Should have extensive stepping (aliasing), got {}", held);
+    assert!(
+        held > 700,
+        "Should have extensive stepping (aliasing), got {}",
+        held
+    );
 }
 
 #[test]
@@ -326,7 +367,7 @@ fn test_decimator_factor_below_1_clamped() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -348,7 +389,11 @@ fn test_decimator_factor_below_1_clamped() {
 
     // Should behave like factor=1.0 (no decimation)
     let unique = count_unique_values(&buffer, 0.01);
-    assert!(unique > 500, "Should act like factor=1 (no decimation), got {} unique", unique);
+    assert!(
+        unique > 500,
+        "Should act like factor=1 (no decimation), got {} unique",
+        unique
+    );
 }
 
 #[test]
@@ -360,7 +405,7 @@ fn test_decimator_smooth_clamp() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -370,7 +415,7 @@ fn test_decimator_smooth_clamp() {
     let decimated = graph.add_node(SignalNode::Decimator {
         input: Signal::Node(sine),
         factor: Signal::Value(4.0),
-        smooth: Signal::Value(2.0),  // Out of range
+        smooth: Signal::Value(2.0), // Out of range
         sample_counter: RefCell::new(0.0),
         held_value: RefCell::new(0.0),
         smooth_state: RefCell::new(0.0),
@@ -382,11 +427,19 @@ fn test_decimator_smooth_clamp() {
 
     // Should not crash, should produce valid audio
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.0 && rms < 2.0, "Should produce valid audio with clamped smooth");
+    assert!(
+        rms > 0.0 && rms < 2.0,
+        "Should produce valid audio with clamped smooth"
+    );
 
     // All samples should be finite
     for (i, &sample) in buffer.iter().enumerate() {
-        assert!(sample.is_finite(), "Sample {} should be finite, got {}", i, sample);
+        assert!(
+            sample.is_finite(),
+            "Sample {} should be finite, got {}",
+            i,
+            sample
+        );
     }
 }
 
@@ -396,7 +449,7 @@ fn test_decimator_dc_signal() {
     let mut graph = UnifiedSignalGraph::new(44100.0);
 
     let decimated = graph.add_node(SignalNode::Decimator {
-        input: Signal::Value(0.5),  // DC signal
+        input: Signal::Value(0.5), // DC signal
         factor: Signal::Value(4.0),
         smooth: Signal::Value(0.0),
         sample_counter: RefCell::new(0.0),
@@ -412,7 +465,11 @@ fn test_decimator_dc_signal() {
     let last_100: Vec<f32> = buffer.iter().skip(buffer.len() - 100).copied().collect();
     let avg = last_100.iter().sum::<f32>() / last_100.len() as f32;
 
-    assert!((avg - 0.5).abs() < 0.01, "DC signal should settle to 0.5, got {}", avg);
+    assert!(
+        (avg - 0.5).abs() < 0.01,
+        "DC signal should settle to 0.5, got {}",
+        avg
+    );
 }
 
 #[test]
@@ -424,7 +481,7 @@ fn test_decimator_square_wave() {
         freq: Signal::Value(100.0),
         waveform: Waveform::Square,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -445,11 +502,19 @@ fn test_decimator_square_wave() {
 
     // Should be heavily stepped
     let held = count_held_samples(&buffer);
-    assert!(held > 800, "Square wave should be heavily decimated, got {} held", held);
+    assert!(
+        held > 800,
+        "Square wave should be heavily decimated, got {} held",
+        held
+    );
 
     // Should preserve energy
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.5, "Should maintain square wave energy, got RMS={}", rms);
+    assert!(
+        rms > 0.5,
+        "Should maintain square wave energy, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -474,11 +539,19 @@ fn test_decimator_noise() {
 
     // Should have significant holding
     let held = count_held_samples(&buffer);
-    assert!(held > 600, "Noise should be decimated (stepped), got {} held", held);
+    assert!(
+        held > 600,
+        "Noise should be decimated (stepped), got {} held",
+        held
+    );
 
     // Should still have noise-like RMS
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.2 && rms < 0.8, "Should maintain noise energy, got RMS={}", rms);
+    assert!(
+        rms > 0.2 && rms < 0.8,
+        "Should maintain noise energy, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -492,7 +565,7 @@ fn test_decimator_preserves_amplitude() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -504,7 +577,7 @@ fn test_decimator_preserves_amplitude() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -528,9 +601,13 @@ fn test_decimator_preserves_amplitude() {
 
     // Amplitude should be similar (within 20%)
     let ratio = rms_dec / rms_orig;
-    assert!(ratio > 0.8 && ratio < 1.2,
+    assert!(
+        ratio > 0.8 && ratio < 1.2,
         "Decimation should preserve amplitude: orig={}, dec={}, ratio={}",
-        rms_orig, rms_dec, ratio);
+        rms_orig,
+        rms_dec,
+        ratio
+    );
 }
 
 #[test]
@@ -545,7 +622,7 @@ fn test_decimator_increasing_factors() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -565,7 +642,7 @@ fn test_decimator_increasing_factors() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -585,7 +662,7 @@ fn test_decimator_increasing_factors() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -609,12 +686,27 @@ fn test_decimator_increasing_factors() {
     let held8 = count_held_samples(&buffer8);
 
     // Higher factors should produce more held samples
-    assert!(held4 > held2, "Factor 4 should have more holds than factor 2: {}vs{}", held4, held2);
-    assert!(held8 > held4, "Factor 8 should have more holds than factor 4: {}vs{}", held8, held4);
+    assert!(
+        held4 > held2,
+        "Factor 4 should have more holds than factor 2: {}vs{}",
+        held4,
+        held2
+    );
+    assert!(
+        held8 > held4,
+        "Factor 8 should have more holds than factor 4: {}vs{}",
+        held8,
+        held4
+    );
 
     // Verify monotonic increase in stepping
-    assert!(held2 > 200 && held4 > 500 && held8 > 700,
-        "Held counts should increase: 2={}, 4={}, 8={}", held2, held4, held8);
+    assert!(
+        held2 > 200 && held4 > 500 && held8 > 700,
+        "Held counts should increase: 2={}, 4={}, 8={}",
+        held2,
+        held4,
+        held8
+    );
 }
 
 #[test]
@@ -628,7 +720,7 @@ fn test_decimator_chained_with_filter() {
         freq: Signal::Value(110.0),
         waveform: Waveform::Saw,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -658,11 +750,19 @@ fn test_decimator_chained_with_filter() {
 
     // Should produce valid audio
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1 && rms < 1.0, "Chained effect should produce valid audio, got RMS={}", rms);
+    assert!(
+        rms > 0.1 && rms < 1.0,
+        "Chained effect should produce valid audio, got RMS={}",
+        rms
+    );
 
     // Should still have some stepping (decimation) but filtered
     let held = count_held_samples(&buffer);
-    assert!(held > 100, "Should still show decimation effect (some holds), got {}", held);
+    assert!(
+        held > 100,
+        "Should still show decimation effect (some holds), got {}",
+        held
+    );
 
     // All samples finite
     for &sample in &buffer {

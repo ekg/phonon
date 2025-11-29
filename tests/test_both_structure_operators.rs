@@ -6,7 +6,6 @@
 /// - + (bare) takes structure from BOTH (union of events)
 ///
 /// For "both", events occur at times from BOTH patterns, with values combined.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
@@ -28,10 +27,7 @@ fn test_add_both_produces_union_of_events() {
     // "1 2" + "10 20 30" should produce 5 events (2 + 3)
     // At each event time, values are combined
 
-    let left = Pattern::fastcat(vec![
-        Pattern::pure(1.0),
-        Pattern::pure(2.0),
-    ]);
+    let left = Pattern::fastcat(vec![Pattern::pure(1.0), Pattern::pure(2.0)]);
     let right = Pattern::fastcat(vec![
         Pattern::pure(10.0),
         Pattern::pure(20.0),
@@ -49,8 +45,11 @@ fn test_add_both_produces_union_of_events() {
 
     // Should have events from BOTH patterns
     // Left has 2 events, right has 3 events = 5 total event times
-    assert!(events.len() >= 5,
-        "add_both should produce events from both patterns, got {} events", events.len());
+    assert!(
+        events.len() >= 5,
+        "add_both should produce events from both patterns, got {} events",
+        events.len()
+    );
 }
 
 #[test]
@@ -75,9 +74,11 @@ fn test_add_both_combines_values_at_overlap() {
 
     // The combined value should be 110
     let has_combined = events.iter().any(|e| (e.value - 110.0).abs() < 0.01);
-    assert!(has_combined,
+    assert!(
+        has_combined,
         "Should have combined value 100 + 10 = 110, got values: {:?}",
-        events.iter().map(|e| e.value).collect::<Vec<_>>());
+        events.iter().map(|e| e.value).collect::<Vec<_>>()
+    );
 }
 
 #[test]
@@ -205,10 +206,7 @@ fn test_both_vs_left_event_count() {
     // "1 2" |+ "10 20 30" = 2 events (left structure)
     // "1 2" + "10 20 30" = 5 events (both structure)
 
-    let left = Pattern::fastcat(vec![
-        Pattern::pure(1.0),
-        Pattern::pure(2.0),
-    ]);
+    let left = Pattern::fastcat(vec![Pattern::pure(1.0), Pattern::pure(2.0)]);
     let right = Pattern::fastcat(vec![
         Pattern::pure(10.0),
         Pattern::pure(20.0),
@@ -228,13 +226,20 @@ fn test_both_vs_left_event_count() {
     // Right structure: 3 events
     let right_result = left.clone().add_right(right.clone());
     let right_events = right_result.query(&state);
-    assert_eq!(right_events.len(), 3, "Right structure should have 3 events");
+    assert_eq!(
+        right_events.len(),
+        3,
+        "Right structure should have 3 events"
+    );
 
     // Both structure: 5 events (2 + 3)
     let both_result = left.add_both(right);
     let both_events = both_result.query(&state);
-    assert!(both_events.len() >= 5,
-        "Both structure should have at least 5 events (2 + 3), got {}", both_events.len());
+    assert!(
+        both_events.len() >= 5,
+        "Both structure should have at least 5 events (2 + 3), got {}",
+        both_events.len()
+    );
 }
 
 // ============================================================================

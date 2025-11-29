@@ -9,20 +9,26 @@
 ///
 /// These tests verify that the new block-based AudioNode architecture
 /// works correctly for compiling and rendering DSL code.
-
 use phonon::compositional_compiler::CompilerContext;
 use phonon::compositional_parser::parse_program;
 
 /// Helper: Compile DSL code and get AudioNodeGraph
-fn compile_to_audio_nodes(code: &str, sample_rate: f32) -> Result<phonon::audio_node_graph::AudioNodeGraph, String> {
+fn compile_to_audio_nodes(
+    code: &str,
+    sample_rate: f32,
+) -> Result<phonon::audio_node_graph::AudioNodeGraph, String> {
     // AudioNode mode is now the default (USE_AUDIO_NODES = true)
     let mut ctx = CompilerContext::new(sample_rate);
 
     // Parse the code
-    let (remaining, statements) = parse_program(code).map_err(|e| format!("Parse error: {:?}", e))?;
+    let (remaining, statements) =
+        parse_program(code).map_err(|e| format!("Parse error: {:?}", e))?;
 
     if !remaining.trim().is_empty() {
-        return Err(format!("Failed to parse entire program, remaining: {}", remaining));
+        return Err(format!(
+            "Failed to parse entire program, remaining: {}",
+            remaining
+        ));
     }
 
     // Compile statements
@@ -47,8 +53,7 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 fn test_audio_node_simple_constant() {
     let code = "out $ 0.5";
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile");
+    let mut graph = compile_to_audio_nodes(code, 44100.0).expect("Should compile");
 
     // Render 512 samples
     let audio = graph.render(512).expect("Should render");
@@ -66,8 +71,7 @@ fn test_audio_node_sine_440hz() {
         out $ sine 440
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile sine wave");
+    let mut graph = compile_to_audio_nodes(code, 44100.0).expect("Should compile sine wave");
 
     // Render 1 second
     let audio = graph.render(44100).expect("Should render");
@@ -91,8 +95,7 @@ fn test_audio_node_addition() {
         out $ 0.3 + 0.2
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile addition");
+    let mut graph = compile_to_audio_nodes(code, 44100.0).expect("Should compile addition");
 
     // Render 512 samples
     let audio = graph.render(512).expect("Should render");
@@ -112,8 +115,8 @@ fn test_audio_node_complex_expression() {
         out $ ~osc
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile complex expression");
+    let mut graph =
+        compile_to_audio_nodes(code, 44100.0).expect("Should compile complex expression");
 
     // Render 1 second
     let audio = graph.render(44100).expect("Should render");
@@ -134,8 +137,7 @@ fn test_audio_node_tempo_setting() {
         out $ sine 440
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile with tempo");
+    let mut graph = compile_to_audio_nodes(code, 44100.0).expect("Should compile with tempo");
 
     // Verify tempo was set
     assert_eq!(graph.tempo(), 3.0, "Tempo should be 3.0");
@@ -156,8 +158,7 @@ fn test_audio_node_graph_traversed_once() {
         out $ ~e
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile deep graph");
+    let mut graph = compile_to_audio_nodes(code, 44100.0).expect("Should compile deep graph");
 
     // Render
     let audio = graph.render(512).expect("Should render");
@@ -172,7 +173,10 @@ fn test_audio_node_graph_traversed_once() {
 fn test_audio_node_is_default() {
     // Test that AudioNode architecture is the default (USE_AUDIO_NODES = true)
     let ctx = CompilerContext::new(44100.0);
-    assert!(ctx.is_using_audio_nodes(), "AudioNode should be the default architecture");
+    assert!(
+        ctx.is_using_audio_nodes(),
+        "AudioNode should be the default architecture"
+    );
 }
 
 #[test]
@@ -184,8 +188,7 @@ fn test_audio_node_signal_chain() {
         out $ saw 110 # lpf 1000 0.8
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile signal chain");
+    let mut graph = compile_to_audio_nodes(code, 44100.0).expect("Should compile signal chain");
 
     // Render 1 second
     let audio = graph.render(44100).expect("Should render");
@@ -201,7 +204,11 @@ fn test_audio_node_signal_chain() {
 
     // Check it's not silence
     let max = audio.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
-    assert!(max > 0.5, "Filtered saw wave should have reasonable amplitude, got {}", max);
+    assert!(
+        max > 0.5,
+        "Filtered saw wave should have reasonable amplitude, got {}",
+        max
+    );
 }
 
 #[test]
@@ -213,8 +220,7 @@ fn test_audio_node_chain_with_bus() {
         out $ ~osc # lpf 500 0.9
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile chain with bus");
+    let mut graph = compile_to_audio_nodes(code, 44100.0).expect("Should compile chain with bus");
 
     // Render audio
     let audio = graph.render(44100).expect("Should render");
@@ -232,15 +238,18 @@ fn test_audio_node_delay_effect() {
         out $ sine 440 # delay 0.1
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile delay effect");
+    let mut graph = compile_to_audio_nodes(code, 44100.0).expect("Should compile delay effect");
 
     // Render audio
     let audio = graph.render(44100).expect("Should render");
 
     // Should have delayed sine wave
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.1, "Delayed signal should have audio, got RMS {}", rms);
+    assert!(
+        rms > 0.1,
+        "Delayed signal should have audio, got RMS {}",
+        rms
+    );
 }
 
 #[test]
@@ -251,15 +260,18 @@ fn test_audio_node_reverb_effect() {
         out $ sine 440 # reverb 0.7 0.5 0.3
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile reverb effect");
+    let mut graph = compile_to_audio_nodes(code, 44100.0).expect("Should compile reverb effect");
 
     // Render audio
     let audio = graph.render(44100).expect("Should render");
 
     // Should have reverb'd sine wave
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.1, "Reverb'd signal should have audio, got RMS {}", rms);
+    assert!(
+        rms > 0.1,
+        "Reverb'd signal should have audio, got RMS {}",
+        rms
+    );
 }
 
 #[test]
@@ -270,19 +282,27 @@ fn test_audio_node_distortion_effect() {
         out $ sine 440 # distortion 5.0 0.8
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile distortion effect");
+    let mut graph =
+        compile_to_audio_nodes(code, 44100.0).expect("Should compile distortion effect");
 
     // Render audio
     let audio = graph.render(44100).expect("Should render");
 
     // Should have distorted sine wave
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.1, "Distorted signal should have audio, got RMS {}", rms);
+    assert!(
+        rms > 0.1,
+        "Distorted signal should have audio, got RMS {}",
+        rms
+    );
 
     // Distortion should clip the signal, so max should be near 1.0
     let max = audio.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
-    assert!(max > 0.8, "Distorted signal should clip near 1.0, got max {}", max);
+    assert!(
+        max > 0.8,
+        "Distorted signal should clip near 1.0, got max {}",
+        max
+    );
 }
 
 #[test]
@@ -296,15 +316,18 @@ fn test_audio_node_effect_chain() {
         out $ ~delayed # distortion 3.0 0.5
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile effect chain");
+    let mut graph = compile_to_audio_nodes(code, 44100.0).expect("Should compile effect chain");
 
     // Render audio
     let audio = graph.render(44100).expect("Should render");
 
     // Should have processed audio through full chain
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.1, "Effect chain should produce audio, got RMS {}", rms);
+    assert!(
+        rms > 0.1,
+        "Effect chain should produce audio, got RMS {}",
+        rms
+    );
 }
 
 #[test]
@@ -327,8 +350,8 @@ fn test_audio_node_complex_synthesis() {
         out $ ~effected
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile complex synthesis");
+    let mut graph =
+        compile_to_audio_nodes(code, 44100.0).expect("Should compile complex synthesis");
 
     // Render 1 second
     let audio = graph.render(44100).expect("Should render");
@@ -343,7 +366,11 @@ fn test_audio_node_complex_synthesis() {
 
     // Check it's not silence
     let max = audio.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
-    assert!(max > 0.3, "FM synthesis should have decent amplitude, got {}", max);
+    assert!(
+        max > 0.3,
+        "FM synthesis should have decent amplitude, got {}",
+        max
+    );
 }
 
 #[test]
@@ -368,8 +395,7 @@ fn test_audio_node_multi_voice_mix() {
         out $ ~mix # reverb 0.5 0.6 0.2
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile multi-voice mix");
+    let mut graph = compile_to_audio_nodes(code, 44100.0).expect("Should compile multi-voice mix");
 
     // Render audio
     let audio = graph.render(44100).expect("Should render");
@@ -398,8 +424,8 @@ fn test_audio_node_modulated_parameters() {
         out $ ~osc # lpf ~cutoff 0.7
     "#;
 
-    let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile modulated parameters");
+    let mut graph =
+        compile_to_audio_nodes(code, 44100.0).expect("Should compile modulated parameters");
 
     // Render audio
     let audio = graph.render(44100).expect("Should render");

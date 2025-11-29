@@ -9,7 +9,6 @@
 /// Unlike PitchShifterNode which uses dual delay lines with crossfading,
 /// ResampleNode uses a single buffer with fractional read position for
 /// simpler, cleaner resampling.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::collections::VecDeque;
 
@@ -204,13 +203,7 @@ mod tests {
     use std::f32::consts::PI;
 
     fn create_context(block_size: usize) -> ProcessContext {
-        ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            44100.0,
-        )
+        ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, 44100.0)
     }
 
     #[test]
@@ -234,7 +227,12 @@ mod tests {
         let mut ratio_buf = vec![0.5; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         ratio_node.process_block(&[], &mut ratio_buf, sample_rate, &context);
 
         let inputs = vec![input_buf.as_slice(), ratio_buf.as_slice()];
@@ -269,7 +267,12 @@ mod tests {
         let mut ratio_buf = vec![2.0; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         ratio_node.process_block(&[], &mut ratio_buf, sample_rate, &context);
 
         let inputs = vec![input_buf.as_slice(), ratio_buf.as_slice()];
@@ -303,7 +306,12 @@ mod tests {
         let mut ratio_buf = vec![1.0; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         ratio_node.process_block(&[], &mut ratio_buf, sample_rate, &context);
 
         // Calculate input RMS for comparison
@@ -347,7 +355,12 @@ mod tests {
         let mut ratio_buf = vec![1.5; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         ratio_node.process_block(&[], &mut ratio_buf, sample_rate, &context);
 
         let inputs = vec![input_buf.as_slice(), ratio_buf.as_slice()];
@@ -393,7 +406,12 @@ mod tests {
         }
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
 
         let inputs = vec![input_buf.as_slice(), ratio_buf.as_slice()];
 
@@ -407,10 +425,17 @@ mod tests {
 
         // Should produce varying output (modulation working)
         let min = all_outputs.iter().cloned().fold(f32::INFINITY, f32::min);
-        let max = all_outputs.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let max = all_outputs
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
         let range = max - min;
 
-        assert!(range > 0.1, "Modulated ratio should vary output, range: {}", range);
+        assert!(
+            range > 0.1,
+            "Modulated ratio should vary output, range: {}",
+            range
+        );
     }
 
     #[test]
@@ -436,7 +461,12 @@ mod tests {
 
         // Process many blocks
         for _ in 0..1000 {
-            osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+            osc.process_block(
+                &[freq_buf.as_slice()],
+                &mut input_buf,
+                sample_rate,
+                &context,
+            );
 
             let inputs = vec![input_buf.as_slice(), ratio_buf.as_slice()];
 
@@ -470,7 +500,12 @@ mod tests {
         let mut ratio_buf = vec![3.0; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         ratio_node.process_block(&[], &mut ratio_buf, sample_rate, &context);
 
         let inputs = vec![input_buf.as_slice(), ratio_buf.as_slice()];
@@ -508,7 +543,12 @@ mod tests {
         let mut ratio_buf = vec![1.5; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         ratio_node.process_block(&[], &mut ratio_buf, sample_rate, &context);
 
         let inputs = vec![input_buf.as_slice(), ratio_buf.as_slice()];
@@ -560,7 +600,12 @@ mod tests {
         let mut ratio_buf = vec![0.1; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         ratio_node.process_block(&[], &mut ratio_buf, sample_rate, &context);
 
         let inputs = vec![input_buf.as_slice(), ratio_buf.as_slice()];
@@ -593,7 +638,12 @@ mod tests {
         let mut ratio_buf = vec![4.0; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         ratio_node.process_block(&[], &mut ratio_buf, sample_rate, &context);
 
         let inputs = vec![input_buf.as_slice(), ratio_buf.as_slice()];
@@ -626,7 +676,12 @@ mod tests {
         let mut ratio_buf = vec![1.234; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         ratio_node.process_block(&[], &mut ratio_buf, sample_rate, &context);
 
         let inputs = vec![input_buf.as_slice(), ratio_buf.as_slice()];
@@ -641,7 +696,11 @@ mod tests {
 
         // Verify reasonable amplitude
         let max_abs = output.iter().map(|x| x.abs()).fold(0.0_f32, f32::max);
-        assert!(max_abs < 5.0, "Output amplitude should be reasonable, got: {}", max_abs);
+        assert!(
+            max_abs < 5.0,
+            "Output amplitude should be reasonable, got: {}",
+            max_abs
+        );
     }
 
     #[test]
@@ -663,7 +722,12 @@ mod tests {
         let mut ratio_buf = vec![0.0; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         ratio_node.process_block(&[], &mut ratio_buf, sample_rate, &context);
 
         let inputs = vec![input_buf.as_slice(), ratio_buf.as_slice()];
@@ -674,7 +738,10 @@ mod tests {
 
         // All outputs should be finite (clamping working)
         for &sample in output.iter() {
-            assert!(sample.is_finite(), "Output should be finite with clamped ratio");
+            assert!(
+                sample.is_finite(),
+                "Output should be finite with clamped ratio"
+            );
         }
     }
 
@@ -697,7 +764,12 @@ mod tests {
         let mut ratio_buf = vec![1.0; block_size];
 
         input_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut input_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut input_buf,
+            sample_rate,
+            &context,
+        );
         ratio_node.process_block(&[], &mut ratio_buf, sample_rate, &context);
 
         let inputs = vec![input_buf.as_slice(), ratio_buf.as_slice()];

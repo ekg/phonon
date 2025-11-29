@@ -3,7 +3,6 @@
 /// This is a simplified multiplication node optimized for the common use case
 /// of applying a gain/volume control to a signal.
 /// Output[i] = Input[i] * Gain[i] for all samples.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Gain node: out = input * gain
@@ -68,16 +67,8 @@ impl AudioNode for GainNode {
         let signal = inputs[0];
         let gain = inputs[1];
 
-        debug_assert_eq!(
-            signal.len(),
-            output.len(),
-            "Signal input length mismatch"
-        );
-        debug_assert_eq!(
-            gain.len(),
-            output.len(),
-            "Gain input length mismatch"
-        );
+        debug_assert_eq!(signal.len(), output.len(), "Signal input length mismatch");
+        debug_assert_eq!(gain.len(), output.len(), "Gain input length mismatch");
 
         // Vectorized multiplication: output = signal * gain
         for i in 0..output.len() {
@@ -110,13 +101,7 @@ mod tests {
         let inputs = vec![input_signal.as_slice(), gain_value.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gain.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -137,21 +122,15 @@ mod tests {
         let inputs = vec![input_signal.as_slice(), gain_value.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gain.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Amplitude should be halved
-        assert_eq!(output[0], 0.5);   // 1.0 * 0.5
-        assert_eq!(output[1], -0.5);  // -1.0 * 0.5
-        assert_eq!(output[2], 0.4);   // 0.8 * 0.5
-        assert_eq!(output[3], -0.3);  // -0.6 * 0.5
+        assert_eq!(output[0], 0.5); // 1.0 * 0.5
+        assert_eq!(output[1], -0.5); // -1.0 * 0.5
+        assert_eq!(output[2], 0.4); // 0.8 * 0.5
+        assert_eq!(output[3], -0.3); // -0.6 * 0.5
     }
 
     #[test]
@@ -164,21 +143,15 @@ mod tests {
         let inputs = vec![input_signal.as_slice(), gain_value.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gain.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Amplitude should be doubled
-        assert_eq!(output[0], 0.5);   // 0.25 * 2.0
-        assert_eq!(output[1], -1.0);  // -0.5 * 2.0
-        assert_eq!(output[2], 0.6);   // 0.3 * 2.0
-        assert_eq!(output[3], -0.8);  // -0.4 * 2.0
+        assert_eq!(output[0], 0.5); // 0.25 * 2.0
+        assert_eq!(output[1], -1.0); // -0.5 * 2.0
+        assert_eq!(output[2], 0.6); // 0.3 * 2.0
+        assert_eq!(output[3], -0.8); // -0.4 * 2.0
     }
 
     #[test]
@@ -191,21 +164,15 @@ mod tests {
         let inputs = vec![input_signal.as_slice(), gain_value.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gain.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Signal should be inverted
-        assert_eq!(output[0], -0.5);  // 0.5 * -1.0
-        assert_eq!(output[1], 0.3);   // -0.3 * -1.0
-        assert_eq!(output[2], -0.8);  // 0.8 * -1.0
-        assert_eq!(output[3], 0.2);   // -0.2 * -1.0
+        assert_eq!(output[0], -0.5); // 0.5 * -1.0
+        assert_eq!(output[1], 0.3); // -0.3 * -1.0
+        assert_eq!(output[2], -0.8); // 0.8 * -1.0
+        assert_eq!(output[3], 0.2); // -0.2 * -1.0
     }
 
     #[test]
@@ -215,13 +182,7 @@ mod tests {
         let mut gain_node = ConstantNode::new(3.0);
         let mut gain = GainNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut signal_buf = vec![0.0; 512];
@@ -248,25 +209,19 @@ mod tests {
         let mut gain = GainNode::new(0, 1);
 
         let input_signal = vec![1.0, 1.0, 1.0, 1.0];
-        let gain_value = vec![0.0, 0.5, 1.0, 2.0];  // Varying gain
+        let gain_value = vec![0.0, 0.5, 1.0, 2.0]; // Varying gain
         let inputs = vec![input_signal.as_slice(), gain_value.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gain.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Output should follow gain curve
-        assert_eq!(output[0], 0.0);  // 1.0 * 0.0
-        assert_eq!(output[1], 0.5);  // 1.0 * 0.5
-        assert_eq!(output[2], 1.0);  // 1.0 * 1.0
-        assert_eq!(output[3], 2.0);  // 1.0 * 2.0
+        assert_eq!(output[0], 0.0); // 1.0 * 0.0
+        assert_eq!(output[1], 0.5); // 1.0 * 0.5
+        assert_eq!(output[2], 1.0); // 1.0 * 1.0
+        assert_eq!(output[3], 2.0); // 1.0 * 2.0
     }
 
     #[test]
@@ -288,14 +243,8 @@ mod tests {
         let gain_value = vec![0.0, 0.0, 0.0, 0.0];
         let inputs = vec![input_signal.as_slice(), gain_value.as_slice()];
 
-        let mut output = vec![999.0; 4];  // Initialize with non-zero to verify it gets zeroed
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let mut output = vec![999.0; 4]; // Initialize with non-zero to verify it gets zeroed
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         gain.process_block(&inputs, &mut output, 44100.0, &context);
 

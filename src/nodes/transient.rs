@@ -28,13 +28,12 @@
 /// let detector = TransientNode::new(1, 2);       // NodeId 3
 /// // Output: pulses on drum hits
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Transient detector state
 #[derive(Debug, Clone)]
 struct TransientState {
-    last_value: f32,  // Previous sample value for difference calculation
+    last_value: f32, // Previous sample value for difference calculation
 }
 
 impl Default for TransientState {
@@ -50,7 +49,7 @@ impl Default for TransientState {
 /// percussive transients.
 pub struct TransientNode {
     input: NodeId,
-    threshold_input: NodeId,  // Threshold for transient detection (0.0 to 1.0)
+    threshold_input: NodeId, // Threshold for transient detection (0.0 to 1.0)
     state: TransientState,
 }
 
@@ -399,7 +398,11 @@ mod tests {
 
         // Reset
         detector.reset();
-        assert_eq!(detector.last_value(), 0.0, "State should be cleared after reset");
+        assert_eq!(
+            detector.last_value(),
+            0.0,
+            "State should be cleared after reset"
+        );
     }
 
     #[test]

@@ -22,7 +22,6 @@
 /// - Julius O. Smith "Spectral Audio Signal Processing" (2011)
 /// - Stilson/Smith "Antialiasing Oscillators" (1996)
 /// - PolyBLEP: polynomial bandlimited step function
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Band-limited impulse train generator
@@ -38,9 +37,9 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 /// let blip = BlipNode::new(0);              // NodeId 1
 /// ```
 pub struct BlipNode {
-    freq_input: NodeId,  // NodeId providing frequency values
-    phase: f32,          // Internal state (0.0 to 1.0)
-    last_saw: f32,       // Previous saw sample for differentiation
+    freq_input: NodeId, // NodeId providing frequency values
+    phase: f32,         // Internal state (0.0 to 1.0)
+    last_saw: f32,      // Previous saw sample for differentiation
 }
 
 impl BlipNode {
@@ -112,10 +111,7 @@ impl AudioNode for BlipNode {
         sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(
-            !inputs.is_empty(),
-            "BlipNode requires frequency input"
-        );
+        debug_assert!(!inputs.is_empty(), "BlipNode requires frequency input");
 
         let freq_buffer = inputs[0];
 
@@ -130,7 +126,7 @@ impl AudioNode for BlipNode {
             let phase_increment = freq / sample_rate;
 
             // Generate band-limited saw wave using PolyBLEP
-            let saw = 2.0 * self.phase - 1.0;  // Naive saw: -1 to +1
+            let saw = 2.0 * self.phase - 1.0; // Naive saw: -1 to +1
             let saw_corrected = saw - poly_blep(self.phase, phase_increment);
 
             // Differentiate to get band-limited impulse
@@ -176,17 +172,11 @@ mod tests {
     #[test]
     fn test_blip_generates_impulses() {
         // Blip should generate periodic impulses
-        let mut const_freq = ConstantNode::new(1.0);  // 1 Hz
+        let mut const_freq = ConstantNode::new(1.0); // 1 Hz
         let mut blip = BlipNode::new(0);
 
-        let buffer_size = 48510;  // 1.1 seconds at 44100 Hz
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            buffer_size,
-            2.0,
-            44100.0,
-        );
+        let buffer_size = 48510; // 1.1 seconds at 44100 Hz
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, 44100.0);
 
         // Generate frequency buffer
         let mut freq_buf = vec![0.0; buffer_size];
@@ -208,14 +198,8 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut blip = BlipNode::new(0);
 
-        let buffer_size = 44100;  // 1 second
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            buffer_size,
-            2.0,
-            44100.0,
-        );
+        let buffer_size = 44100; // 1 second
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; buffer_size];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -235,19 +219,13 @@ mod tests {
         let mut blip = BlipNode::new(0);
 
         let buffer_size = 1024;
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            buffer_size,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, 44100.0);
 
         // Create frequency sweep from 100 Hz to 1000 Hz
         let mut freq_buf = vec![0.0; buffer_size];
         for i in 0..buffer_size {
             let t = i as f32 / buffer_size as f32;
-            freq_buf[i] = 100.0 + 900.0 * t;  // Linear sweep
+            freq_buf[i] = 100.0 + 900.0 * t; // Linear sweep
         }
 
         let inputs = vec![freq_buf.as_slice()];
@@ -265,14 +243,8 @@ mod tests {
         let mut const_freq = ConstantNode::new(100.0);
         let mut blip = BlipNode::new(0);
 
-        let buffer_size = 44100;  // 1 second
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            buffer_size,
-            2.0,
-            44100.0,
-        );
+        let buffer_size = 44100; // 1 second
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; buffer_size];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -299,14 +271,8 @@ mod tests {
         let mut const_freq = ConstantNode::new(10.0);
         let mut blip = BlipNode::new(0);
 
-        let buffer_size = 44100;  // 1 second
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            buffer_size,
-            2.0,
-            44100.0,
-        );
+        let buffer_size = 44100; // 1 second
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; buffer_size];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -347,13 +313,7 @@ mod tests {
         let mut blip = BlipNode::new(0);
 
         let buffer_size = 44100;
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            buffer_size,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; buffer_size];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -386,17 +346,11 @@ mod tests {
         // Set phase close to 1.0
         blip.phase = 0.99;
 
-        let freq_buf = vec![441.0];  // ~1% of sample rate
+        let freq_buf = vec![441.0]; // ~1% of sample rate
         let inputs = vec![freq_buf.as_slice()];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         blip.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -425,13 +379,7 @@ mod tests {
 
         // Generate with first blip (advances phase)
         let mut const_freq = ConstantNode::new(440.0);
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1024,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1024, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 1024];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -472,14 +420,8 @@ mod tests {
         let mut const_freq = ConstantNode::new(0.5);
         let mut blip = BlipNode::new(0);
 
-        let buffer_size = 44100;  // 1 second
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            buffer_size,
-            2.0,
-            44100.0,
-        );
+        let buffer_size = 44100; // 1 second
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; buffer_size];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -497,17 +439,11 @@ mod tests {
     fn test_blip_polyblep_reduces_aliasing() {
         // This test verifies that PolyBLEP is being applied
         // by checking that the output is smoother than a naive impulse
-        let mut const_freq = ConstantNode::new(8000.0);  // High frequency
+        let mut const_freq = ConstantNode::new(8000.0); // High frequency
         let mut blip = BlipNode::new(0);
 
         let buffer_size = 1024;
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            buffer_size,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; buffer_size];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);

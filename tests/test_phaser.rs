@@ -20,7 +20,8 @@ fn calculate_spectral_variance(samples: &[f32]) -> f32 {
     // Simple measure: variance in amplitude over time
     // Phaser creates moving notches which increase variance
     let mean: f32 = samples.iter().sum::<f32>() / samples.len() as f32;
-    let variance: f32 = samples.iter().map(|s| (s - mean).powi(2)).sum::<f32>() / samples.len() as f32;
+    let variance: f32 =
+        samples.iter().map(|s| (s - mean).powi(2)).sum::<f32>() / samples.len() as f32;
     variance
 }
 
@@ -316,9 +317,5 @@ out $ ~deep_phase * 0.3
 
     // Should produce deep, dramatic phaser
     let rms = calculate_rms(&samples);
-    assert!(
-        rms > 0.05,
-        "Deep phaser should be audible, got RMS {}",
-        rms
-    );
+    assert!(rms > 0.05, "Deep phaser should be audible, got RMS {}", rms);
 }

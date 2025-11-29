@@ -18,7 +18,6 @@
 /// - factor=4: Quarter rate (5.5 kHz) - noticeable aliasing
 /// - factor=8: Eighth rate (2.7 kHz) - severe lo-fi
 /// - factor=16+: Extreme degradation, near-square wave
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Decimator node: Reduces effective sample rate
@@ -224,7 +223,11 @@ mod tests {
 
         // With factor=1.0, output should match input exactly
         for i in 0..8 {
-            assert_eq!(output[i], input[i], "Sample {} should pass through unchanged", i);
+            assert_eq!(
+                output[i], input[i],
+                "Sample {} should pass through unchanged",
+                i
+            );
         }
     }
 
@@ -330,7 +333,7 @@ mod tests {
 
         let input = vec![0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0];
         let factor = vec![2.0; 8];
-        let smooth = vec![0.5; 8];  // 50% smoothing
+        let smooth = vec![0.5; 8]; // 50% smoothing
         let inputs = vec![input.as_slice(), factor.as_slice(), smooth.as_slice()];
 
         let mut output = vec![0.0; 8];
@@ -340,10 +343,14 @@ mod tests {
 
         // With smoothing, output should be less stepped
         // First few samples will ramp up rather than jump immediately
-        assert!(output[0] < output[1] || output[0] == output[1],
-            "Smooth output should increase or stay same");
-        assert!(output[2] >= output[1],
-            "Smooth output should continue to increase or plateau");
+        assert!(
+            output[0] < output[1] || output[0] == output[1],
+            "Smooth output should increase or stay same"
+        );
+        assert!(
+            output[2] >= output[1],
+            "Smooth output should continue to increase or plateau"
+        );
     }
 
     #[test]
@@ -374,7 +381,7 @@ mod tests {
         let mut decimator = DecimatorNode::new(0, 1, 2);
 
         let input = vec![0.1, 0.2, 0.3, 0.4];
-        let factor = vec![0.5, 0.0, -1.0, 0.9];  // All below 1.0
+        let factor = vec![0.5, 0.0, -1.0, 0.9]; // All below 1.0
         let smooth = vec![0.0; 4];
         let inputs = vec![input.as_slice(), factor.as_slice(), smooth.as_slice()];
 
@@ -397,7 +404,7 @@ mod tests {
 
         let input = vec![1.0, 1.0, 1.0, 1.0];
         let factor = vec![2.0; 4];
-        let smooth = vec![-0.5, 0.5, 1.5, 2.0];  // Outside [0, 1]
+        let smooth = vec![-0.5, 0.5, 1.5, 2.0]; // Outside [0, 1]
         let inputs = vec![input.as_slice(), factor.as_slice(), smooth.as_slice()];
 
         let mut output = vec![0.0; 4];
@@ -407,7 +414,10 @@ mod tests {
 
         // Should not crash, smooth values clamped internally
         for sample in &output {
-            assert!(sample.is_finite(), "Output should be finite even with out-of-range smooth");
+            assert!(
+                sample.is_finite(),
+                "Output should be finite even with out-of-range smooth"
+            );
         }
     }
 
@@ -423,7 +433,7 @@ mod tests {
             input.push((t * 2.0 * std::f32::consts::PI * 8.0).sin());
         }
 
-        let factor = vec![4.0; 128];  // Quarter sample rate
+        let factor = vec![4.0; 128]; // Quarter sample rate
         let smooth = vec![0.0; 128];
         let inputs = vec![input.as_slice(), factor.as_slice(), smooth.as_slice()];
 
@@ -436,13 +446,17 @@ mod tests {
         // Multiple consecutive samples should have identical values
         let mut hold_count = 0;
         for i in 1..128 {
-            if (output[i] - output[i-1]).abs() < 0.0001 {
+            if (output[i] - output[i - 1]).abs() < 0.0001 {
                 hold_count += 1;
             }
         }
 
         // With factor=4, we expect significant holding (~75% of samples held)
-        assert!(hold_count > 64, "Should have many held samples (got {})", hold_count);
+        assert!(
+            hold_count > 64,
+            "Should have many held samples (got {})",
+            hold_count
+        );
     }
 
     #[test]
@@ -475,7 +489,10 @@ mod tests {
         // First samples should continue holding 4.0 from previous block
         // Then sample new value at appropriate time
         // Counter was 0, so: 1, 2, 3, 4 -> sample at index 3
-        assert_eq!(output2[0], 4.0, "Should continue holding from previous block");
+        assert_eq!(
+            output2[0], 4.0,
+            "Should continue holding from previous block"
+        );
         assert_eq!(output2[1], 4.0, "Should continue holding");
         assert_eq!(output2[2], 4.0, "Should continue holding");
         assert_eq!(output2[3], 8.0, "Should sample new value");
@@ -518,7 +535,11 @@ mod tests {
         let smooth_smooth = vec![0.9; 8];
 
         let inputs_harsh = vec![input.as_slice(), factor.as_slice(), smooth_harsh.as_slice()];
-        let inputs_smooth = vec![input.as_slice(), factor.as_slice(), smooth_smooth.as_slice()];
+        let inputs_smooth = vec![
+            input.as_slice(),
+            factor.as_slice(),
+            smooth_smooth.as_slice(),
+        ];
 
         let mut output_harsh = vec![0.0; 8];
         let mut output_smooth = vec![0.0; 8];
@@ -531,11 +552,16 @@ mod tests {
         // Smooth output should have gradual transitions
         // Check that smooth output has intermediate values
         let harsh_unique: Vec<f32> = output_harsh.iter().copied().collect();
-        let smooth_range = output_smooth.iter().copied()
+        let smooth_range = output_smooth
+            .iter()
+            .copied()
             .filter(|&v| v > -1.0 && v < 1.0)
             .count();
 
         // Smooth version should have more intermediate values
-        assert!(smooth_range >= 0, "Smooth output should have intermediate values during transitions");
+        assert!(
+            smooth_range >= 0,
+            "Smooth output should have intermediate values during transitions"
+        );
     }
 }

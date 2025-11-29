@@ -1,3 +1,6 @@
+use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::pattern_tonal::{midi_to_freq, note_to_midi};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 /// Test musical notation (note names, scales, chords) with audio verification
 ///
 /// This test suite ensures that note names (c4, d#4, etc.) are correctly
@@ -5,9 +8,6 @@
 /// We use FFT analysis to verify that the generated audio contains
 /// the expected frequency components.
 use std::cell::RefCell;
-use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern_tonal::{midi_to_freq, note_to_midi};
-use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 use std::f32::consts::PI;
 
 /// FFT-based frequency detector
@@ -77,7 +77,7 @@ fn render_note_pattern(pattern_str: &str) -> Vec<f32> {
         freq: Signal::Node(pattern_node),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -265,7 +265,7 @@ fn test_frequency_accuracy_tolerance() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),

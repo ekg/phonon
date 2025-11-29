@@ -8,7 +8,6 @@
 /// - Cutoff frequency (-3dB point)
 /// - Rolloff slope (dB per octave)
 /// - Used for removing rumble, thinning bass, brightening sounds
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -19,14 +18,15 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
 
 /// Perform FFT and analyze spectrum
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -108,10 +108,12 @@ fn test_hpf_passes_high_frequencies() {
     let rms_unfiltered = calculate_rms(&buffer_unfiltered);
 
     let attenuation = rms_filtered / rms_unfiltered;
-    
-    assert!(attenuation > 0.7,
+
+    assert!(
+        attenuation > 0.7,
         "HPF should pass high frequencies mostly unaffected, attenuation: {}",
-        attenuation);
+        attenuation
+    );
 
     println!("High frequency attenuation: {}", attenuation);
 }
@@ -137,10 +139,12 @@ fn test_hpf_attenuates_low_frequencies() {
     let rms_unfiltered = calculate_rms(&buffer_unfiltered);
 
     let attenuation = rms_filtered / rms_unfiltered;
-    
-    assert!(attenuation < 0.5,
+
+    assert!(
+        attenuation < 0.5,
         "HPF should attenuate low frequencies, attenuation: {}",
-        attenuation);
+        attenuation
+    );
 
     println!("Low frequency attenuation: {}", attenuation);
 }
@@ -166,23 +170,27 @@ fn test_hpf_frequency_response_curve() {
     let (_, _magnitudes_unfiltered) = analyze_spectrum(&buffer_unfiltered, 44100.0);
 
     // Calculate energy in frequency bands
-    let below_cutoff: f32 = frequencies.iter()
+    let below_cutoff: f32 = frequencies
+        .iter()
         .zip(magnitudes_filtered.iter())
         .filter(|(f, _)| **f < 1000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let above_cutoff: f32 = frequencies.iter()
+    let above_cutoff: f32 = frequencies
+        .iter()
         .zip(magnitudes_filtered.iter())
         .filter(|(f, _)| **f > 4000.0 && **f < 12000.0)
         .map(|(_, m)| m * m)
         .sum();
 
     let ratio = above_cutoff / below_cutoff.max(0.001);
-    
-    assert!(ratio > 2.0,
+
+    assert!(
+        ratio > 2.0,
         "HPF should favor frequencies above cutoff, ratio: {}",
-        ratio);
+        ratio
+    );
 
     println!("Above/below cutoff energy ratio: {}", ratio);
 }
@@ -201,21 +209,26 @@ fn test_hpf_cutoff_200() {
     let buffer = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let low: f32 = frequencies.iter()
+    let low: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 150.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let mid: f32 = frequencies.iter()
+    let mid: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 500.0 && **f < 2000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    assert!(mid > low * 2.0,
+    assert!(
+        mid > low * 2.0,
         "HPF 200Hz should favor mid over low frequencies, mid: {}, low: {}",
-        mid, low);
+        mid,
+        low
+    );
 
     println!("HPF 200Hz - Mid: {}, Low: {}", mid, low);
 }
@@ -231,21 +244,26 @@ fn test_hpf_cutoff_1000() {
     let buffer = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let low: f32 = frequencies.iter()
+    let low: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 800.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let high: f32 = frequencies.iter()
+    let high: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 2000.0 && **f < 8000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    assert!(high > low,
+    assert!(
+        high > low,
         "HPF 1000Hz should favor high over low frequencies, high: {}, low: {}",
-        high, low);
+        high,
+        low
+    );
 
     println!("HPF 1000Hz - High: {}, Low: {}", high, low);
 }
@@ -262,21 +280,26 @@ fn test_hpf_cutoff_5000() {
     let buffer = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let below: f32 = frequencies.iter()
+    let below: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 4000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let above: f32 = frequencies.iter()
+    let above: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 6000.0 && **f < 15000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    assert!(above > below,
+    assert!(
+        above > below,
         "HPF 5000Hz should strongly favor high frequencies, above: {}, below: {}",
-        above, below);
+        above,
+        below
+    );
 
     println!("HPF 5000Hz - Above: {}, Below: {}", above, below);
 }
@@ -329,15 +352,18 @@ fn test_hpf_air_and_sparkle() {
     let buffer = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let very_high: f32 = frequencies.iter()
+    let very_high: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 8000.0 && **f < 16000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    assert!(very_high > 0.01,
+    assert!(
+        very_high > 0.01,
         "HPF air effect should have high-frequency content: {}",
-        very_high);
+        very_high
+    );
 
     println!("Very high frequency content: {}", very_high);
 }
@@ -355,9 +381,11 @@ fn test_hpf_telephone_voice() {
     let rms = calculate_rms(&buffer);
 
     // Should be attenuated since 250Hz is below 300Hz cutoff
-    assert!(rms < 0.25,
+    assert!(
+        rms < 0.25,
         "HPF telephone effect should attenuate, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Telephone voice RMS: {}", rms);
 }
@@ -377,9 +405,11 @@ fn test_hpf_swept_cutoff() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.03,
+    assert!(
+        rms > 0.03,
         "HPF with swept cutoff should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Swept cutoff RMS: {}", rms);
 }
@@ -398,9 +428,11 @@ fn test_hpf_envelope_controlled_cutoff() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.02,
+    assert!(
+        rms > 0.02,
         "HPF with envelope-controlled cutoff should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Envelope-controlled cutoff RMS: {}", rms);
 }
@@ -419,23 +451,27 @@ fn test_hpf_cascade() {
     let buffer = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let below: f32 = frequencies.iter()
+    let below: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 1000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let above: f32 = frequencies.iter()
+    let above: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 5000.0 && **f < 12000.0)
         .map(|(_, m)| m * m)
         .sum();
 
     let ratio = above / below.max(0.001);
-    
-    assert!(ratio > 5.0,
+
+    assert!(
+        ratio > 5.0,
         "Cascaded HPFs should have steeper rolloff, ratio: {}",
-        ratio);
+        ratio
+    );
 
     println!("Cascaded HPF above/below ratio: {}", ratio);
 }
@@ -452,23 +488,27 @@ fn test_hpf_lpf_bandpass() {
     let buffer = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let passband: f32 = frequencies.iter()
+    let passband: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 800.0 && **f < 1800.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let stopband: f32 = frequencies.iter()
+    let stopband: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 300.0 || (**f > 3000.0 && **f < 10000.0))
         .map(|(_, m)| m * m)
         .sum();
 
     let ratio = passband / stopband.max(0.001);
-    
-    assert!(ratio > 1.5,
+
+    assert!(
+        ratio > 1.5,
         "HPF+LPF should favor passband, ratio: {}",
-        ratio);
+        ratio
+    );
 
     println!("HPF+LPF passband/stopband ratio: {}", ratio);
 }
@@ -486,9 +526,11 @@ fn test_hpf_no_clipping() {
     let buffer = render_dsl(code, 1.0);
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
-    assert!(max_amplitude <= 0.7,
+    assert!(
+        max_amplitude <= 0.7,
         "HPF should not cause clipping, max: {}",
-        max_amplitude);
+        max_amplitude
+    );
 
     println!("HPF max amplitude: {}", max_amplitude);
 }
@@ -513,9 +555,11 @@ fn test_hpf_consistent_output() {
     }
 
     let identity_ratio = identical as f32 / buffer1.len() as f32;
-    assert!(identity_ratio > 0.99,
+    assert!(
+        identity_ratio > 0.99,
         "HPF should produce consistent output, identity: {}",
-        identity_ratio);
+        identity_ratio
+    );
 
     println!("HPF identity ratio: {}", identity_ratio);
 }
@@ -534,9 +578,7 @@ fn test_hpf_very_low_cutoff() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
-        "HPF 20Hz should pass most audio, RMS: {}",
-        rms);
+    assert!(rms > 0.05, "HPF 20Hz should pass most audio, RMS: {}", rms);
 
     println!("HPF 20Hz RMS: {}", rms);
 }

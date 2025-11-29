@@ -147,10 +147,7 @@ out $ ~trig
     // 440Hz at 44100Hz sample rate = ~100.2 samples per cycle
     // Check that zero crossing intervals are consistent
     if zero_crossings.len() >= 3 {
-        let intervals: Vec<usize> = zero_crossings
-            .windows(2)
-            .map(|w| w[1] - w[0])
-            .collect();
+        let intervals: Vec<usize> = zero_crossings.windows(2).map(|w| w[1] - w[0]).collect();
 
         // Calculate variance in intervals
         let mean = intervals.iter().sum::<usize>() as f32 / intervals.len() as f32;

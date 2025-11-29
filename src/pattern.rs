@@ -563,9 +563,9 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             let phase = state.span.begin.to_float() % 1.0;
             // Triangle: ramp up 0->1 in first half, then 1->0 in second half
             let value = if phase < 0.5 {
-                phase * 2.0  // 0->1 in first half
+                phase * 2.0 // 0->1 in first half
             } else {
-                2.0 - (phase * 2.0)  // 1->0 in second half
+                2.0 - (phase * 2.0) // 1->0 in second half
             };
 
             vec![Hap::new(
@@ -623,7 +623,11 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
         Pattern::new(move |state| {
             let cycle = state.span.begin.to_float().floor() as u64;
             let mut rng = StdRng::seed_from_u64(cycle);
-            let value = if rng.gen::<f64>() < prob { on_val } else { off_val };
+            let value = if rng.gen::<f64>() < prob {
+                on_val
+            } else {
+                off_val
+            };
 
             vec![Hap::new(
                 Some(state.span.clone()),
@@ -638,7 +642,11 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     pub fn whenmod_val(modulo: i32, offset: i32, on_val: f64, off_val: f64) -> Pattern<f64> {
         Pattern::new(move |state| {
             let cycle = state.span.begin.to_float().floor() as i32;
-            let value = if (cycle - offset) % modulo == 0 { on_val } else { off_val };
+            let value = if (cycle - offset) % modulo == 0 {
+                on_val
+            } else {
+                off_val
+            };
 
             vec![Hap::new(
                 Some(state.span.clone()),
@@ -746,7 +754,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 .into_iter()
                 .map(|mut hap| {
                     // Add hurry_speed to context for voice manager to read
-                    hap.context.insert("hurry_speed".to_string(), factor_val.to_string());
+                    hap.context
+                        .insert("hurry_speed".to_string(), factor_val.to_string());
                     hap
                 })
                 .collect()
@@ -930,7 +939,9 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                             let whole_rel_begin = whole.begin.to_float() - cycle_f;
                             let whole_rel_end = whole.end.to_float() - cycle_f;
                             hap.whole = Some(TimeSpan::new(
-                                Fraction::from_float(cycle_f + whole_rel_begin * compressed_duration),
+                                Fraction::from_float(
+                                    cycle_f + whole_rel_begin * compressed_duration,
+                                ),
                                 Fraction::from_float(cycle_f + whole_rel_end * compressed_duration),
                             ));
                         }
@@ -1084,22 +1095,18 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 .into_iter()
                 .map(|mut hap| {
                     // Calculate slot duration from whole span (or part if no whole)
-                    let slot_duration = hap.whole.as_ref()
+                    let slot_duration = hap
+                        .whole
+                        .as_ref()
                         .map(|w| w.duration().to_float())
                         .unwrap_or_else(|| hap.part.duration().to_float());
 
                     let delay = Fraction::from_float(slot_duration * amount);
 
                     // Shift both part and whole forward by the delay
-                    hap.part = TimeSpan::new(
-                        hap.part.begin + delay,
-                        hap.part.end + delay,
-                    );
+                    hap.part = TimeSpan::new(hap.part.begin + delay, hap.part.end + delay);
                     if let Some(whole) = hap.whole {
-                        hap.whole = Some(TimeSpan::new(
-                            whole.begin + delay,
-                            whole.end + delay,
-                        ));
+                        hap.whole = Some(TimeSpan::new(whole.begin + delay, whole.end + delay));
                     }
                     hap
                 })
@@ -1132,30 +1139,18 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                 // Ghost 1 (further offset)
                 let mut ghost1 = hap.clone();
                 let delay1 = Fraction::from_float(offset1);
-                ghost1.part = TimeSpan::new(
-                    ghost1.part.begin + delay1,
-                    ghost1.part.end + delay1,
-                );
+                ghost1.part = TimeSpan::new(ghost1.part.begin + delay1, ghost1.part.end + delay1);
                 if let Some(whole) = ghost1.whole {
-                    ghost1.whole = Some(TimeSpan::new(
-                        whole.begin + delay1,
-                        whole.end + delay1,
-                    ));
+                    ghost1.whole = Some(TimeSpan::new(whole.begin + delay1, whole.end + delay1));
                 }
                 all_events.push(ghost1);
 
                 // Ghost 2 (closer offset)
                 let mut ghost2 = hap.clone();
                 let delay2 = Fraction::from_float(offset2);
-                ghost2.part = TimeSpan::new(
-                    ghost2.part.begin + delay2,
-                    ghost2.part.end + delay2,
-                );
+                ghost2.part = TimeSpan::new(ghost2.part.begin + delay2, ghost2.part.end + delay2);
                 if let Some(whole) = ghost2.whole {
-                    ghost2.whole = Some(TimeSpan::new(
-                        whole.begin + delay2,
-                        whole.end + delay2,
-                    ));
+                    ghost2.whole = Some(TimeSpan::new(whole.begin + delay2, whole.end + delay2));
                 }
                 all_events.push(ghost2);
             }
@@ -1284,7 +1279,11 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
     /// Sew - switch between two patterns based on boolean pattern
     /// Structure comes from the source patterns, not the boolean control
     /// Example: sew(bool_pat, pat1, pat2) plays pat1 when bool is true, pat2 when false
-    pub fn sew(bool_pattern: Pattern<String>, pat_true: Pattern<T>, pat_false: Pattern<T>) -> Pattern<T> {
+    pub fn sew(
+        bool_pattern: Pattern<String>,
+        pat_true: Pattern<T>,
+        pat_false: Pattern<T>,
+    ) -> Pattern<T> {
         Pattern::new(move |state| {
             let mut result = Vec::new();
 
@@ -1431,7 +1430,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
                         // Query pattern 2 and rescale results
                         for mut hap in pat2.query(&scaled_state) {
-                            let hap_start = hap.part.begin.to_float() * (1.0 - ratio) + ratio + cycle_f;
+                            let hap_start =
+                                hap.part.begin.to_float() * (1.0 - ratio) + ratio + cycle_f;
                             let hap_end = hap.part.end.to_float() * (1.0 - ratio) + ratio + cycle_f;
 
                             hap.part = TimeSpan::new(
@@ -1440,8 +1440,10 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                             );
 
                             if let Some(whole) = hap.whole {
-                                let whole_start = whole.begin.to_float() * (1.0 - ratio) + ratio + cycle_f;
-                                let whole_end = whole.end.to_float() * (1.0 - ratio) + ratio + cycle_f;
+                                let whole_start =
+                                    whole.begin.to_float() * (1.0 - ratio) + ratio + cycle_f;
+                                let whole_end =
+                                    whole.end.to_float() * (1.0 - ratio) + ratio + cycle_f;
                                 hap.whole = Some(TimeSpan::new(
                                     Fraction::from_float(whole_start),
                                     Fraction::from_float(whole_end),
@@ -1686,7 +1688,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                         let norm_end = (hap_end - slice_begin) / slice_duration;
 
                         // Map to event window
-                        let new_begin = event_begin + event_duration * Fraction::from_float(norm_begin);
+                        let new_begin =
+                            event_begin + event_duration * Fraction::from_float(norm_begin);
                         let new_end = event_begin + event_duration * Fraction::from_float(norm_end);
 
                         hap.part = TimeSpan::new(new_begin, new_end);
@@ -1702,7 +1705,8 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
                         });
 
                         // Add begin/end to context for sample slicing
-                        hap.context.insert("begin".to_string(), slice_begin.to_string());
+                        hap.context
+                            .insert("begin".to_string(), slice_begin.to_string());
                         hap.context.insert("end".to_string(), slice_end.to_string());
 
                         result.push(hap);
@@ -1802,7 +1806,11 @@ impl Pattern<f64> {
     fn onset_query_state(hap: &Hap<f64>, controls: HashMap<String, f64>) -> State {
         // Use the event's whole timespan if available, otherwise use part
         // Create a tiny span at the onset (start) of the event
-        let onset = hap.whole.as_ref().map(|w| w.begin).unwrap_or(hap.part.begin);
+        let onset = hap
+            .whole
+            .as_ref()
+            .map(|w| w.begin)
+            .unwrap_or(hap.part.begin);
         let epsilon = Fraction::new(1, 1000000); // Tiny span
         State {
             span: TimeSpan::new(onset, onset + epsilon),
@@ -1818,19 +1826,22 @@ impl Pattern<f64> {
             // Query self to get structure (events)
             let structure_events = self.query(state);
 
-            structure_events.into_iter().map(|mut hap| {
-                // Query 'other' at this event's ONSET to get the value
-                // This ensures consistent values regardless of query time
-                let query_state = Self::onset_query_state(&hap, state.controls.clone());
-                let other_haps = other.query(&query_state);
+            structure_events
+                .into_iter()
+                .map(|mut hap| {
+                    // Query 'other' at this event's ONSET to get the value
+                    // This ensures consistent values regardless of query time
+                    let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                    let other_haps = other.query(&query_state);
 
-                // Get the value from other at this point (use first match, or 0.0)
-                let other_value = other_haps.first().map(|h| h.value).unwrap_or(0.0);
+                    // Get the value from other at this point (use first match, or 0.0)
+                    let other_value = other_haps.first().map(|h| h.value).unwrap_or(0.0);
 
-                // Combine: self's value + other's value
-                hap.value = hap.value + other_value;
-                hap
-            }).collect()
+                    // Combine: self's value + other's value
+                    hap.value = hap.value + other_value;
+                    hap
+                })
+                .collect()
         })
     }
 
@@ -1841,15 +1852,18 @@ impl Pattern<f64> {
         Pattern::new(move |state| {
             let structure_events = other.query(state);
 
-            structure_events.into_iter().map(|mut hap| {
-                let query_state = Self::onset_query_state(&hap, state.controls.clone());
-                let self_haps = self.query(&query_state);
-                let self_value = self_haps.first().map(|h| h.value).unwrap_or(0.0);
+            structure_events
+                .into_iter()
+                .map(|mut hap| {
+                    let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                    let self_haps = self.query(&query_state);
+                    let self_value = self_haps.first().map(|h| h.value).unwrap_or(0.0);
 
-                // Combine: self's value + other's (structure) value
-                hap.value = self_value + hap.value;
-                hap
-            }).collect()
+                    // Combine: self's value + other's (structure) value
+                    hap.value = self_value + hap.value;
+                    hap
+                })
+                .collect()
         })
     }
 
@@ -1858,14 +1872,17 @@ impl Pattern<f64> {
         Pattern::new(move |state| {
             let structure_events = self.query(state);
 
-            structure_events.into_iter().map(|mut hap| {
-                let query_state = Self::onset_query_state(&hap, state.controls.clone());
-                let other_haps = other.query(&query_state);
-                let other_value = other_haps.first().map(|h| h.value).unwrap_or(0.0);
+            structure_events
+                .into_iter()
+                .map(|mut hap| {
+                    let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                    let other_haps = other.query(&query_state);
+                    let other_value = other_haps.first().map(|h| h.value).unwrap_or(0.0);
 
-                hap.value = hap.value - other_value;
-                hap
-            }).collect()
+                    hap.value = hap.value - other_value;
+                    hap
+                })
+                .collect()
         })
     }
 
@@ -1875,15 +1892,18 @@ impl Pattern<f64> {
         Pattern::new(move |state| {
             let structure_events = other.query(state);
 
-            structure_events.into_iter().map(|mut hap| {
-                let query_state = Self::onset_query_state(&hap, state.controls.clone());
-                let self_haps = self.query(&query_state);
-                let self_value = self_haps.first().map(|h| h.value).unwrap_or(0.0);
+            structure_events
+                .into_iter()
+                .map(|mut hap| {
+                    let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                    let self_haps = self.query(&query_state);
+                    let self_value = self_haps.first().map(|h| h.value).unwrap_or(0.0);
 
-                // self - other (structure value)
-                hap.value = self_value - hap.value;
-                hap
-            }).collect()
+                    // self - other (structure value)
+                    hap.value = self_value - hap.value;
+                    hap
+                })
+                .collect()
         })
     }
 
@@ -1892,14 +1912,17 @@ impl Pattern<f64> {
         Pattern::new(move |state| {
             let structure_events = self.query(state);
 
-            structure_events.into_iter().map(|mut hap| {
-                let query_state = Self::onset_query_state(&hap, state.controls.clone());
-                let other_haps = other.query(&query_state);
-                let other_value = other_haps.first().map(|h| h.value).unwrap_or(1.0);
+            structure_events
+                .into_iter()
+                .map(|mut hap| {
+                    let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                    let other_haps = other.query(&query_state);
+                    let other_value = other_haps.first().map(|h| h.value).unwrap_or(1.0);
 
-                hap.value = hap.value * other_value;
-                hap
-            }).collect()
+                    hap.value = hap.value * other_value;
+                    hap
+                })
+                .collect()
         })
     }
 
@@ -1908,14 +1931,17 @@ impl Pattern<f64> {
         Pattern::new(move |state| {
             let structure_events = other.query(state);
 
-            structure_events.into_iter().map(|mut hap| {
-                let query_state = Self::onset_query_state(&hap, state.controls.clone());
-                let self_haps = self.query(&query_state);
-                let self_value = self_haps.first().map(|h| h.value).unwrap_or(1.0);
+            structure_events
+                .into_iter()
+                .map(|mut hap| {
+                    let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                    let self_haps = self.query(&query_state);
+                    let self_value = self_haps.first().map(|h| h.value).unwrap_or(1.0);
 
-                hap.value = self_value * hap.value;
-                hap
-            }).collect()
+                    hap.value = self_value * hap.value;
+                    hap
+                })
+                .collect()
         })
     }
 
@@ -1924,19 +1950,22 @@ impl Pattern<f64> {
         Pattern::new(move |state| {
             let structure_events = self.query(state);
 
-            structure_events.into_iter().map(|mut hap| {
-                let query_state = Self::onset_query_state(&hap, state.controls.clone());
-                let other_haps = other.query(&query_state);
-                let other_value = other_haps.first().map(|h| h.value).unwrap_or(1.0);
+            structure_events
+                .into_iter()
+                .map(|mut hap| {
+                    let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                    let other_haps = other.query(&query_state);
+                    let other_value = other_haps.first().map(|h| h.value).unwrap_or(1.0);
 
-                // Avoid division by zero
-                hap.value = if other_value.abs() > f64::EPSILON {
-                    hap.value / other_value
-                } else {
-                    hap.value
-                };
-                hap
-            }).collect()
+                    // Avoid division by zero
+                    hap.value = if other_value.abs() > f64::EPSILON {
+                        hap.value / other_value
+                    } else {
+                        hap.value
+                    };
+                    hap
+                })
+                .collect()
         })
     }
 
@@ -1945,19 +1974,22 @@ impl Pattern<f64> {
         Pattern::new(move |state| {
             let structure_events = other.query(state);
 
-            structure_events.into_iter().map(|mut hap| {
-                let query_state = Self::onset_query_state(&hap, state.controls.clone());
-                let self_haps = self.query(&query_state);
-                let self_value = self_haps.first().map(|h| h.value).unwrap_or(1.0);
+            structure_events
+                .into_iter()
+                .map(|mut hap| {
+                    let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                    let self_haps = self.query(&query_state);
+                    let self_value = self_haps.first().map(|h| h.value).unwrap_or(1.0);
 
-                // self / other (structure value)
-                hap.value = if hap.value.abs() > f64::EPSILON {
-                    self_value / hap.value
-                } else {
-                    self_value
-                };
-                hap
-            }).collect()
+                    // self / other (structure value)
+                    hap.value = if hap.value.abs() > f64::EPSILON {
+                        self_value / hap.value
+                    } else {
+                        self_value
+                    };
+                    hap
+                })
+                .collect()
         })
     }
 
@@ -1968,16 +2000,19 @@ impl Pattern<f64> {
         Pattern::new(move |state| {
             let structure_events = self.query(state);
 
-            structure_events.into_iter().map(|mut hap| {
-                let query_state = Self::onset_query_state(&hap, state.controls.clone());
-                let other_haps = other.query(&query_state);
+            structure_events
+                .into_iter()
+                .map(|mut hap| {
+                    let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                    let other_haps = other.query(&query_state);
 
-                // Take value from other, keep self's timing
-                if let Some(other_hap) = other_haps.first() {
-                    hap.value = other_hap.value;
-                }
-                hap
-            }).collect()
+                    // Take value from other, keep self's timing
+                    if let Some(other_hap) = other_haps.first() {
+                        hap.value = other_hap.value;
+                    }
+                    hap
+                })
+                .collect()
         })
     }
 
@@ -1987,16 +2022,19 @@ impl Pattern<f64> {
         Pattern::new(move |state| {
             let structure_events = other.query(state);
 
-            structure_events.into_iter().map(|mut hap| {
-                let query_state = Self::onset_query_state(&hap, state.controls.clone());
-                let self_haps = self.query(&query_state);
+            structure_events
+                .into_iter()
+                .map(|mut hap| {
+                    let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                    let self_haps = self.query(&query_state);
 
-                // Take value from self, keep other's timing
-                if let Some(self_hap) = self_haps.first() {
-                    hap.value = self_hap.value;
-                }
-                hap
-            }).collect()
+                    // Take value from self, keep other's timing
+                    if let Some(self_hap) = self_haps.first() {
+                        hap.value = self_hap.value;
+                    }
+                    hap
+                })
+                .collect()
         })
     }
 
@@ -2246,16 +2284,32 @@ mod tests {
         let haps = result.query(&state);
 
         // Should have 3 events (left structure)
-        assert_eq!(haps.len(), 3, "add_left should produce 3 events from left structure");
+        assert_eq!(
+            haps.len(),
+            3,
+            "add_left should produce 3 events from left structure"
+        );
 
         // First event: 1 + 10 = 11 (at time 0-0.33, which samples from "10")
-        assert!((haps[0].value - 11.0).abs() < 0.01, "First event: 1 + 10 = 11, got {}", haps[0].value);
+        assert!(
+            (haps[0].value - 11.0).abs() < 0.01,
+            "First event: 1 + 10 = 11, got {}",
+            haps[0].value
+        );
 
         // Second event: 2 + 10 = 12 (at time 0.33-0.66, which samples from "10")
-        assert!((haps[1].value - 12.0).abs() < 0.01, "Second event: 2 + 10 = 12, got {}", haps[1].value);
+        assert!(
+            (haps[1].value - 12.0).abs() < 0.01,
+            "Second event: 2 + 10 = 12, got {}",
+            haps[1].value
+        );
 
         // Third event: 3 + 20 = 23 (at time 0.66-1.0, which samples from "20")
-        assert!((haps[2].value - 23.0).abs() < 0.01, "Third event: 3 + 20 = 23, got {}", haps[2].value);
+        assert!(
+            (haps[2].value - 23.0).abs() < 0.01,
+            "Third event: 3 + 20 = 23, got {}",
+            haps[2].value
+        );
     }
 
     #[test]
@@ -2277,13 +2331,25 @@ mod tests {
         let haps = result.query(&state);
 
         // Should have 2 events (right structure)
-        assert_eq!(haps.len(), 2, "add_right should produce 2 events from right structure");
+        assert_eq!(
+            haps.len(),
+            2,
+            "add_right should produce 2 events from right structure"
+        );
 
         // First event: 10 + 1 = 11
-        assert!((haps[0].value - 11.0).abs() < 0.01, "First event: 10 + 1 = 11, got {}", haps[0].value);
+        assert!(
+            (haps[0].value - 11.0).abs() < 0.01,
+            "First event: 10 + 1 = 11, got {}",
+            haps[0].value
+        );
 
         // Second event: 20 + 2 = 22
-        assert!((haps[1].value - 22.0).abs() < 0.01, "Second event: 20 + 2 = 22, got {}", haps[1].value);
+        assert!(
+            (haps[1].value - 22.0).abs() < 0.01,
+            "Second event: 20 + 2 = 22, got {}",
+            haps[1].value
+        );
     }
 
     #[test]
@@ -2303,9 +2369,21 @@ mod tests {
         let haps = result.query(&state);
 
         assert_eq!(haps.len(), 3, "mul_left should produce 3 events");
-        assert!((haps[0].value - 20.0).abs() < 0.01, "2 * 10 = 20, got {}", haps[0].value);
-        assert!((haps[1].value - 30.0).abs() < 0.01, "3 * 10 = 30, got {}", haps[1].value);
-        assert!((haps[2].value - 400.0).abs() < 0.01, "4 * 100 = 400, got {}", haps[2].value);
+        assert!(
+            (haps[0].value - 20.0).abs() < 0.01,
+            "2 * 10 = 20, got {}",
+            haps[0].value
+        );
+        assert!(
+            (haps[1].value - 30.0).abs() < 0.01,
+            "3 * 10 = 30, got {}",
+            haps[1].value
+        );
+        assert!(
+            (haps[2].value - 400.0).abs() < 0.01,
+            "4 * 100 = 400, got {}",
+            haps[2].value
+        );
     }
 
     #[test]
@@ -2325,9 +2403,21 @@ mod tests {
         let haps = result.query(&state);
 
         assert_eq!(haps.len(), 3, "sub_left should produce 3 events");
-        assert!((haps[0].value - 90.0).abs() < 0.01, "100 - 10 = 90, got {}", haps[0].value);
-        assert!((haps[1].value - 190.0).abs() < 0.01, "200 - 10 = 190, got {}", haps[1].value);
-        assert!((haps[2].value - 280.0).abs() < 0.01, "300 - 20 = 280, got {}", haps[2].value);
+        assert!(
+            (haps[0].value - 90.0).abs() < 0.01,
+            "100 - 10 = 90, got {}",
+            haps[0].value
+        );
+        assert!(
+            (haps[1].value - 190.0).abs() < 0.01,
+            "200 - 10 = 190, got {}",
+            haps[1].value
+        );
+        assert!(
+            (haps[2].value - 280.0).abs() < 0.01,
+            "300 - 20 = 280, got {}",
+            haps[2].value
+        );
     }
 
     #[test]
@@ -2347,9 +2437,21 @@ mod tests {
         let haps = result.query(&state);
 
         assert_eq!(haps.len(), 3, "div_left should produce 3 events");
-        assert!((haps[0].value - 10.0).abs() < 0.01, "100 / 10 = 10, got {}", haps[0].value);
-        assert!((haps[1].value - 20.0).abs() < 0.01, "200 / 10 = 20, got {}", haps[1].value);
-        assert!((haps[2].value - 15.0).abs() < 0.01, "300 / 20 = 15, got {}", haps[2].value);
+        assert!(
+            (haps[0].value - 10.0).abs() < 0.01,
+            "100 / 10 = 10, got {}",
+            haps[0].value
+        );
+        assert!(
+            (haps[1].value - 20.0).abs() < 0.01,
+            "200 / 10 = 20, got {}",
+            haps[1].value
+        );
+        assert!(
+            (haps[2].value - 15.0).abs() < 0.01,
+            "300 / 20 = 15, got {}",
+            haps[2].value
+        );
     }
 
     #[test]
@@ -2370,9 +2472,21 @@ mod tests {
 
         assert_eq!(haps.len(), 3, "union_left should produce 3 events");
         // First two events sample from "10" (0-0.5), third from "20" (0.5-1.0)
-        assert!((haps[0].value - 10.0).abs() < 0.01, "First event should be 10, got {}", haps[0].value);
-        assert!((haps[1].value - 10.0).abs() < 0.01, "Second event should be 10, got {}", haps[1].value);
-        assert!((haps[2].value - 20.0).abs() < 0.01, "Third event should be 20, got {}", haps[2].value);
+        assert!(
+            (haps[0].value - 10.0).abs() < 0.01,
+            "First event should be 10, got {}",
+            haps[0].value
+        );
+        assert!(
+            (haps[1].value - 10.0).abs() < 0.01,
+            "Second event should be 10, got {}",
+            haps[1].value
+        );
+        assert!(
+            (haps[2].value - 20.0).abs() < 0.01,
+            "Third event should be 20, got {}",
+            haps[2].value
+        );
     }
 
     #[test]
@@ -2391,11 +2505,27 @@ mod tests {
         let haps = result.query(&state);
 
         // Right has 3 events, so result has 3 events
-        assert_eq!(haps.len(), 3, "union_right should produce 3 events from right structure");
+        assert_eq!(
+            haps.len(),
+            3,
+            "union_right should produce 3 events from right structure"
+        );
         // Values come from left pattern sampled at right's event times
-        assert!((haps[0].value - 10.0).abs() < 0.01, "First event samples 10, got {}", haps[0].value);
-        assert!((haps[1].value - 10.0).abs() < 0.01, "Second event samples 10, got {}", haps[1].value);
-        assert!((haps[2].value - 20.0).abs() < 0.01, "Third event samples 20, got {}", haps[2].value);
+        assert!(
+            (haps[0].value - 10.0).abs() < 0.01,
+            "First event samples 10, got {}",
+            haps[0].value
+        );
+        assert!(
+            (haps[1].value - 10.0).abs() < 0.01,
+            "Second event samples 10, got {}",
+            haps[1].value
+        );
+        assert!(
+            (haps[2].value - 20.0).abs() < 0.01,
+            "Third event samples 20, got {}",
+            haps[2].value
+        );
     }
 
     #[test]
@@ -2415,7 +2545,12 @@ mod tests {
         let haps = result.query(&state);
 
         // 4 events per cycle * 4 cycles = 16 events
-        assert_eq!(haps.len(), 16, "Should have 16 events over 4 cycles, got {}", haps.len());
+        assert_eq!(
+            haps.len(),
+            16,
+            "Should have 16 events over 4 cycles, got {}",
+            haps.len()
+        );
 
         // Each cycle should have 4 events with values 101, 102, 103, 104
         for cycle in 0..4 {
@@ -2425,7 +2560,10 @@ mod tests {
                 assert!(
                     (haps[idx].value - expected).abs() < 0.01,
                     "Cycle {} event {}: expected {}, got {}",
-                    cycle, i, expected, haps[idx].value
+                    cycle,
+                    i,
+                    expected,
+                    haps[idx].value
                 );
             }
         }

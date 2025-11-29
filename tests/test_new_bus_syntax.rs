@@ -4,7 +4,6 @@
 /// - ~bass $ saw 55 # lpf 1000 0.8    ($ assigns source, # chains effects)
 /// - ~drums $ s "bd sn" $ fast 2      ($ for pattern source and transforms)
 /// - out $ ~bass + ~drums             ($ for output assignment)
-
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]
@@ -24,7 +23,11 @@ fn test_new_bus_syntax_dollar() {
     let buffer = graph.render(4410); // 0.1 seconds
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "New $ syntax should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "New $ syntax should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -43,7 +46,11 @@ fn test_new_bus_syntax_hash_chain() {
     let buffer = graph.render(4410);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "$ with # chain should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "$ with # chain should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -63,7 +70,11 @@ fn test_new_bus_syntax_pattern_transform() {
     let buffer = graph.render(44100);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Pattern transforms with $ should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Pattern transforms with $ should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -83,7 +94,11 @@ fn test_new_bus_syntax_multiple_buses() {
     let buffer = graph.render(44100);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Multiple buses should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Multiple buses should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -101,7 +116,11 @@ fn test_new_output_syntax_dollar() {
     let buffer = graph.render(4410);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "out $ syntax should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "out $ syntax should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -120,7 +139,11 @@ fn test_new_output_syntax_hash() {
     let buffer = graph.render(4410);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "out # syntax should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "out # syntax should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -139,7 +162,11 @@ fn test_backward_compatibility_colon() {
     let buffer = graph.render(4410);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Colon syntax should still work, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Colon syntax should still work, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -159,7 +186,11 @@ fn test_parentheses_in_new_syntax() {
     let buffer = graph.render(44100);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Parenthesized expressions should work, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Parenthesized expressions should work, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -201,7 +232,11 @@ fn test_modifier_bus_with_hash_lfo() {
     let buffer = graph.render(44100); // 1 second
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Modifier bus (LFO) should produce modulated audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Modifier bus (LFO) should produce modulated audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -222,7 +257,11 @@ fn test_modifier_bus_with_hash_pattern() {
     let buffer = graph.render(44100); // 1 second = 2 cycles
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Pattern modifier bus should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Pattern modifier bus should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -243,7 +282,11 @@ fn test_multiple_modifier_buses() {
     let buffer = graph.render(44100);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "Multiple modifier buses should work, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Multiple modifier buses should work, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -265,5 +308,9 @@ fn test_dollar_vs_hash_semantic_distinction() {
     let buffer = graph.render(44100);
 
     let rms: f32 = (buffer.iter().map(|x| x * x).sum::<f32>() / buffer.len() as f32).sqrt();
-    assert!(rms > 0.01, "$ and # should work together semantically, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "$ and # should work together semantically, got RMS={}",
+        rms
+    );
 }

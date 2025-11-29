@@ -2,7 +2,6 @@
 ///
 /// Signal operators perform sample-by-sample audio-rate arithmetic.
 /// They use the ~ prefix to distinguish from pattern operators.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -154,7 +153,11 @@ fn test_signal_add_produces_output() {
     let output = render_code(code, 4410); // 0.1 second
 
     let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
-    assert!(rms > 0.01, "Signal add should produce output, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Signal add should produce output, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -167,8 +170,10 @@ fn test_signal_mul_scales_amplitude() {
     let output_full = render_code(code_full, 4410);
     let output_half = render_code(code_half, 4410);
 
-    let rms_full: f32 = (output_full.iter().map(|s| s * s).sum::<f32>() / output_full.len() as f32).sqrt();
-    let rms_half: f32 = (output_half.iter().map(|s| s * s).sum::<f32>() / output_half.len() as f32).sqrt();
+    let rms_full: f32 =
+        (output_full.iter().map(|s| s * s).sum::<f32>() / output_full.len() as f32).sqrt();
+    let rms_half: f32 =
+        (output_half.iter().map(|s| s * s).sum::<f32>() / output_half.len() as f32).sqrt();
 
     let ratio = rms_half / rms_full;
     assert!(
@@ -191,7 +196,8 @@ fn test_reserved_name_add_rejected() {
         Err(e) => {
             assert!(
                 e.contains("reserved") || e.contains("~add"),
-                "Error should mention reserved name: {}", e
+                "Error should mention reserved name: {}",
+                e
             );
         }
     }
@@ -205,7 +211,8 @@ fn test_reserved_name_mul_rejected() {
         Err(e) => {
             assert!(
                 e.contains("reserved") || e.contains("~mul"),
-                "Error should mention reserved name: {}", e
+                "Error should mention reserved name: {}",
+                e
             );
         }
     }

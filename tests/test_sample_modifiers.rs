@@ -1,10 +1,9 @@
+use phonon::compositional_compiler::compile_program;
 /// Tests for sample modifier compilation and functionality
 ///
 /// These tests verify that sample modifiers (n, gain, pan, speed, attack, release, ar)
 /// are properly implemented in the AudioNode architecture.
-
 use phonon::compositional_parser::parse_program;
-use phonon::compositional_compiler::compile_program;
 
 // LEVEL 1: Compilation Tests - Do modifiers compile without errors?
 
@@ -18,7 +17,7 @@ out $ s "bd sn" # n 2
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("n modifier failed to compile: {}", e),
     }
 }
@@ -33,7 +32,7 @@ out $ s "bd sn" # gain 0.5
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("gain modifier failed to compile: {}", e),
     }
 }
@@ -48,7 +47,7 @@ out $ s "bd sn" # pan 0.5
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("pan modifier failed to compile: {}", e),
     }
 }
@@ -63,7 +62,7 @@ out $ s "bd sn" # speed 2.0
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("speed modifier failed to compile: {}", e),
     }
 }
@@ -78,7 +77,7 @@ out $ s "bd sn" # attack 0.01
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("attack modifier failed to compile: {}", e),
     }
 }
@@ -93,7 +92,7 @@ out $ s "bd sn" # release 0.5
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("release modifier failed to compile: {}", e),
     }
 }
@@ -108,7 +107,7 @@ out $ s "bd sn" # ar 0.01 0.5
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("ar modifier failed to compile: {}", e),
     }
 }
@@ -125,7 +124,7 @@ out $ s "bd sn" # gain 0.8 # pan 0.5
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("Chained modifiers failed to compile: {}", e),
     }
 }
@@ -140,7 +139,7 @@ out $ s "bd sn" # gain 0.8 # pan 0.5 # speed 1.5 # attack 0.01
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("Multiple chained modifiers failed to compile: {}", e),
     }
 }
@@ -155,7 +154,7 @@ out $ s "bd" # gain 0.8 # pan 0.5 # speed 1.5 # n 2 # attack 0.01 # release 0.3
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("All modifiers chained failed to compile: {}", e),
     }
 }
@@ -172,7 +171,7 @@ out $ s "bd*4" # gain "0.5 0.8 1.0 0.6"
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("Pattern-controlled gain failed to compile: {}", e),
     }
 }
@@ -187,7 +186,7 @@ out $ s "hh*4" # pan "-1 0 1 0.5"
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("Pattern-controlled pan failed to compile: {}", e),
     }
 }
@@ -202,7 +201,7 @@ out $ s "bd*4" # n "0 5 7 12"
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("Pattern-controlled n failed to compile: {}", e),
     }
 }
@@ -217,7 +216,7 @@ out $ s "bd*4" # speed "1 2 0.5 1.5"
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("Pattern-controlled speed failed to compile: {}", e),
     }
 }
@@ -234,7 +233,7 @@ out $ s "bd sn" $ fast 2 # gain 0.8 # pan 0.5
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("Modifiers with pattern transforms failed to compile: {}", e),
     }
 }
@@ -250,7 +249,7 @@ out $ s "808bd(3,8)" # n 2
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("Complex real-world pattern (m.ph) failed to compile: {}", e),
     }
 }
@@ -265,7 +264,7 @@ out $ s "rave(3,8,1)" # ar 0.1 0.5
     let result = compile_program(statements, 44100.0, None);
 
     match result {
-        Ok(_) => {}, // Success
+        Ok(_) => {} // Success
         Err(e) => panic!("Envelope with Euclidean pattern failed to compile: {}", e),
     }
 }
@@ -283,8 +282,11 @@ out $ s "bd" # n 2 3
 
     match result {
         Err(e) => {
-            assert!(e.contains("2 arguments"),
-                "Error should mention argument count, got: {}", e);
+            assert!(
+                e.contains("2 arguments"),
+                "Error should mention argument count, got: {}",
+                e
+            );
         }
         Ok(_) => panic!("Expected error for wrong argument count"),
     }
@@ -301,8 +303,11 @@ out $ s "bd" # ar 0.1
 
     match result {
         Err(e) => {
-            assert!(e.contains("3 arguments"),
-                "Error should mention argument count, got: {}", e);
+            assert!(
+                e.contains("3 arguments"),
+                "Error should mention argument count, got: {}",
+                e
+            );
         }
         Ok(_) => panic!("Expected error for wrong argument count"),
     }

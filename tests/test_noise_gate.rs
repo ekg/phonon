@@ -7,7 +7,6 @@
 /// - Release time controls how fast the gate closes
 /// - Threshold variations affect gating behavior
 /// - Edge cases (zero input, boundary conditions)
-
 use phonon::audio_node::{AudioNode, ProcessContext};
 use phonon::nodes::NoiseGateNode;
 use phonon::pattern::Fraction;
@@ -24,7 +23,7 @@ fn test_noise_gate_above_threshold_passes() {
     // Input: 0.5 (-6 dB), Threshold: -20 dB
     let input = vec![0.5; 512];
     let threshold = vec![-20.0; 512];
-    let attack = vec![0.001; 512];   // Fast attack
+    let attack = vec![0.001; 512]; // Fast attack
     let release = vec![0.1; 512];
     let inputs = vec![
         input.as_slice(),
@@ -40,7 +39,11 @@ fn test_noise_gate_above_threshold_passes() {
 
     // Signal well above threshold should pass with minimal attenuation
     let avg_output: f32 = output.iter().skip(100).take(400).sum::<f32>() / 400.0;
-    assert!(avg_output > 0.4, "Average output was {}, expected > 0.4", avg_output);
+    assert!(
+        avg_output > 0.4,
+        "Average output was {}, expected > 0.4",
+        avg_output
+    );
 }
 
 #[test]
@@ -52,7 +55,7 @@ fn test_noise_gate_below_threshold_silenced() {
     let input = vec![0.01; 512];
     let threshold = vec![-20.0; 512];
     let attack = vec![0.01; 512];
-    let release = vec![0.001; 512];  // Fast release
+    let release = vec![0.001; 512]; // Fast release
     let inputs = vec![
         input.as_slice(),
         threshold.as_slice(),
@@ -67,7 +70,11 @@ fn test_noise_gate_below_threshold_silenced() {
 
     // Signal below threshold should be heavily attenuated
     let avg_output: f32 = output.iter().skip(100).take(400).sum::<f32>() / 400.0;
-    assert!(avg_output < 0.005, "Average output was {}, expected < 0.005", avg_output);
+    assert!(
+        avg_output < 0.005,
+        "Average output was {}, expected < 0.005",
+        avg_output
+    );
 }
 
 #[test]
@@ -82,7 +89,7 @@ fn test_noise_gate_attack_controls_opening_speed() {
     let release = vec![0.1; 512];
 
     // Slow attack
-    let attack_slow = vec![0.02; 512];  // 20ms (realistic)
+    let attack_slow = vec![0.02; 512]; // 20ms (realistic)
     let inputs_slow = vec![
         input.as_slice(),
         threshold.as_slice(),
@@ -95,7 +102,7 @@ fn test_noise_gate_attack_controls_opening_speed() {
     gate_slow.process_block(&inputs_slow, &mut output_slow, 44100.0, &context);
 
     // Fast attack
-    let attack_fast = vec![0.001; 512];  // 1ms
+    let attack_fast = vec![0.001; 512]; // 1ms
     let inputs_fast = vec![
         input.as_slice(),
         threshold.as_slice(),
@@ -111,16 +118,24 @@ fn test_noise_gate_attack_controls_opening_speed() {
     let early_slow: f32 = output_slow.iter().skip(10).take(20).sum::<f32>() / 20.0;
     let early_fast: f32 = output_fast.iter().skip(10).take(20).sum::<f32>() / 20.0;
 
-    assert!(early_fast > early_slow * 1.2,
-        "Fast attack {} should be significantly > slow attack {}", early_fast, early_slow);
+    assert!(
+        early_fast > early_slow * 1.2,
+        "Fast attack {} should be significantly > slow attack {}",
+        early_fast,
+        early_slow
+    );
 
     // Slow attack hasn't fully opened yet in 512 samples (~11.6ms), but should be getting there
     let late_slow: f32 = output_slow.iter().skip(400).take(100).sum::<f32>() / 100.0;
     let late_fast: f32 = output_fast.iter().skip(400).take(100).sum::<f32>() / 100.0;
 
     // Slow attack should be at least 30% of fast attack by end of buffer
-    assert!(late_slow > late_fast * 0.3,
-        "Slow attack should be opening: slow={}, fast={}", late_slow, late_fast);
+    assert!(
+        late_slow > late_fast * 0.3,
+        "Slow attack should be opening: slow={}, fast={}",
+        late_slow,
+        late_fast
+    );
 }
 
 #[test]
@@ -135,8 +150,8 @@ fn test_noise_gate_release_controls_closing_speed() {
     }
 
     let threshold = vec![-20.0; 512];
-    let attack = vec![0.001; 512];  // Fast attack
-    let release = vec![0.1; 512];   // Slow release
+    let attack = vec![0.001; 512]; // Fast attack
+    let release = vec![0.1; 512]; // Slow release
     let inputs = vec![
         input.as_slice(),
         threshold.as_slice(),
@@ -154,7 +169,12 @@ fn test_noise_gate_release_controls_closing_speed() {
     let just_after: f32 = output.iter().skip(260).take(20).sum::<f32>() / 20.0;
     let much_later: f32 = output.iter().skip(400).take(50).sum::<f32>() / 50.0;
 
-    assert!(just_after > much_later, "Just after {} should be > much later {}", just_after, much_later);
+    assert!(
+        just_after > much_later,
+        "Just after {} should be > much later {}",
+        just_after,
+        much_later
+    );
 }
 
 #[test]
@@ -166,7 +186,7 @@ fn test_noise_gate_threshold_boundary() {
     // Threshold: -10 dB = 0.316, Input: -9 dB = 0.355
     let input = vec![0.355; 512];
     let threshold = vec![-10.0; 512];
-    let attack = vec![0.005; 512];  // Medium attack
+    let attack = vec![0.005; 512]; // Medium attack
     let release = vec![0.1; 512];
     let inputs = vec![
         input.as_slice(),
@@ -182,8 +202,16 @@ fn test_noise_gate_threshold_boundary() {
 
     // Slightly above threshold, should open and pass signal
     let avg_output: f32 = output.iter().skip(100).take(400).sum::<f32>() / 400.0;
-    assert!(avg_output > 0.2, "Should have significant signal through, got {}", avg_output);
-    assert!(avg_output < 0.4, "Should not be fully open due to attack time, got {}", avg_output);
+    assert!(
+        avg_output > 0.2,
+        "Should have significant signal through, got {}",
+        avg_output
+    );
+    assert!(
+        avg_output < 0.4,
+        "Should not be fully open due to attack time, got {}",
+        avg_output
+    );
 }
 
 #[test]
@@ -243,9 +271,12 @@ fn test_noise_gate_varying_threshold() {
     // High threshold = gate closed = lower level
     let avg_high_thresh: f32 = output.iter().skip(300).take(100).sum::<f32>() / 100.0;
 
-    assert!(avg_low_thresh > avg_high_thresh,
+    assert!(
+        avg_low_thresh > avg_high_thresh,
         "Low threshold {} should pass more signal than high threshold {}",
-        avg_low_thresh, avg_high_thresh);
+        avg_low_thresh,
+        avg_high_thresh
+    );
 }
 
 #[test]
@@ -281,12 +312,12 @@ fn test_noise_gate_removes_noise_floor() {
     let mut gate = NoiseGateNode::new(0, 1, 2, 3);
 
     // Loud signal with quiet noise floor
-    let mut input = vec![0.5; 256];      // Loud part
-    input.extend(vec![0.01; 256]);       // Noise floor
+    let mut input = vec![0.5; 256]; // Loud part
+    input.extend(vec![0.01; 256]); // Noise floor
 
-    let threshold = vec![-30.0; 512];    // Between signal and noise
-    let attack = vec![0.001; 512];       // Fast attack
-    let release = vec![0.05; 512];       // Medium release
+    let threshold = vec![-30.0; 512]; // Between signal and noise
+    let attack = vec![0.001; 512]; // Fast attack
+    let release = vec![0.05; 512]; // Medium release
     let inputs = vec![
         input.as_slice(),
         threshold.as_slice(),
@@ -305,10 +336,17 @@ fn test_noise_gate_removes_noise_floor() {
 
     // Noise floor should be suppressed
     let avg_noise: f32 = output.iter().skip(400).take(100).sum::<f32>() / 100.0;
-    assert!(avg_noise < 0.01, "Noise floor should be suppressed, got {}", avg_noise);
+    assert!(
+        avg_noise < 0.01,
+        "Noise floor should be suppressed, got {}",
+        avg_noise
+    );
 
     // Signal should be much louder than noise
-    assert!(avg_loud > avg_noise * 20.0, "Signal/noise ratio should be high");
+    assert!(
+        avg_loud > avg_noise * 20.0,
+        "Signal/noise ratio should be high"
+    );
 }
 
 #[test]
@@ -317,12 +355,12 @@ fn test_noise_gate_fast_attack_slow_release() {
     let mut gate = NoiseGateNode::new(0, 1, 2, 3);
 
     // Constant loud signal followed by quiet signal
-    let mut input = vec![0.8; 256];      // Loud part
-    input.extend(vec![0.001; 256]);      // Very quiet part (below threshold)
+    let mut input = vec![0.8; 256]; // Loud part
+    input.extend(vec![0.001; 256]); // Very quiet part (below threshold)
 
     let threshold = vec![-20.0; 512];
-    let attack = vec![0.001; 512];       // Very fast attack (1ms)
-    let release = vec![0.05; 512];       // Medium release (50ms)
+    let attack = vec![0.001; 512]; // Very fast attack (1ms)
+    let release = vec![0.05; 512]; // Medium release (50ms)
     let inputs = vec![
         input.as_slice(),
         threshold.as_slice(),
@@ -346,8 +384,12 @@ fn test_noise_gate_fast_attack_slow_release() {
     let much_later: f32 = output.iter().skip(400).take(50).sum::<f32>() / 50.0;
 
     // Gate should be closing: much_later should be less than right_after
-    assert!(much_later < right_after,
-        "Gate should be closing: right_after={}, much_later={}", right_after, much_later);
+    assert!(
+        much_later < right_after,
+        "Gate should be closing: right_after={}, much_later={}",
+        right_after,
+        much_later
+    );
 }
 
 #[test]
@@ -356,10 +398,10 @@ fn test_noise_gate_dependencies() {
     let deps = gate.input_nodes();
 
     assert_eq!(deps.len(), 4);
-    assert_eq!(deps[0], 5);   // input
-    assert_eq!(deps[1], 10);  // threshold
-    assert_eq!(deps[2], 15);  // attack
-    assert_eq!(deps[3], 20);  // release
+    assert_eq!(deps[0], 5); // input
+    assert_eq!(deps[1], 10); // threshold
+    assert_eq!(deps[2], 15); // attack
+    assert_eq!(deps[3], 20); // release
 }
 
 #[test]
@@ -403,7 +445,7 @@ fn test_noise_gate_extreme_threshold_high() {
     let mut gate = NoiseGateNode::new(0, 1, 2, 3);
 
     let input = vec![0.9; 512];
-    let threshold = vec![10.0; 512];  // Very high (above 0 dB)
+    let threshold = vec![10.0; 512]; // Very high (above 0 dB)
     let attack = vec![0.01; 512];
     let release = vec![0.01; 512];
     let inputs = vec![
@@ -420,7 +462,11 @@ fn test_noise_gate_extreme_threshold_high() {
 
     // Everything should be gated
     let avg_output: f32 = output.iter().sum::<f32>() / 512.0;
-    assert!(avg_output < 0.1, "High threshold should gate everything, got {}", avg_output);
+    assert!(
+        avg_output < 0.1,
+        "High threshold should gate everything, got {}",
+        avg_output
+    );
 }
 
 #[test]
@@ -428,8 +474,8 @@ fn test_noise_gate_extreme_threshold_low() {
     // Very low threshold should pass everything
     let mut gate = NoiseGateNode::new(0, 1, 2, 3);
 
-    let input = vec![0.01; 512];  // Very quiet
-    let threshold = vec![-80.0; 512];  // Very low
+    let input = vec![0.01; 512]; // Very quiet
+    let threshold = vec![-80.0; 512]; // Very low
     let attack = vec![0.001; 512];
     let release = vec![0.1; 512];
     let inputs = vec![
@@ -446,5 +492,9 @@ fn test_noise_gate_extreme_threshold_low() {
 
     // Quiet signal should pass
     let avg_output: f32 = output.iter().skip(100).take(400).sum::<f32>() / 400.0;
-    assert!(avg_output > 0.008, "Low threshold should pass signal, got {}", avg_output);
+    assert!(
+        avg_output > 0.008,
+        "Low threshold should pass signal, got {}",
+        avg_output
+    );
 }

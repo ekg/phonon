@@ -4,7 +4,6 @@
 /// - Execution order (topological sort)
 /// - Parallel execution opportunities (independent nodes)
 /// - Cycle detection (invalid graphs)
-
 use crate::audio_node::{AudioNode, NodeId};
 use petgraph::algo::toposort;
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -129,7 +128,7 @@ impl DependencyGraph {
     pub fn parallel_batches(&self) -> Vec<Vec<NodeId>> {
         let order = match self.execution_order() {
             Ok(order) => order,
-            Err(_) => return vec![],  // Invalid graph, return empty
+            Err(_) => return vec![], // Invalid graph, return empty
         };
 
         // Track which batch level each node belongs to
@@ -151,7 +150,12 @@ impl DependencyGraph {
                 .unwrap_or(0);
 
             // This node goes in the batch AFTER its dependencies
-            let this_batch = if self.graph.neighbors_directed(node_idx, Direction::Incoming).count() == 0 {
+            let this_batch = if self
+                .graph
+                .neighbors_directed(node_idx, Direction::Incoming)
+                .count()
+                == 0
+            {
                 // No dependencies → batch 0
                 0
             } else {
@@ -386,7 +390,7 @@ mod tests {
         let nodes: Vec<Box<dyn AudioNode>> = vec![
             Box::new(MockNode {
                 id: 0,
-                inputs: vec![2],  // Cycle!
+                inputs: vec![2], // Cycle!
             }),
             Box::new(MockNode {
                 id: 1,
@@ -401,11 +405,11 @@ mod tests {
         let graph = DependencyGraph::build(&nodes).unwrap();
 
         // Cycles are now ALLOWED! They enable feedback loops.
-        assert!(!graph.is_acyclic());  // Still detected as cyclic
+        assert!(!graph.is_acyclic()); // Still detected as cyclic
 
         // But execution_order() now succeeds and returns all nodes in ID order
         let order = graph.execution_order().unwrap();
-        assert_eq!(order, vec![0, 1, 2]);  // Simple ID order for cyclic graphs
+        assert_eq!(order, vec![0, 1, 2]); // Simple ID order for cyclic graphs
     }
 
     #[test]
@@ -418,7 +422,7 @@ mod tests {
             }),
             Box::new(MockNode {
                 id: 1,
-                inputs: vec![99],  // Invalid!
+                inputs: vec![99], // Invalid!
             }),
         ];
 

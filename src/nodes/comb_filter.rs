@@ -6,7 +6,6 @@
 ///
 /// Algorithm: output = input + feedback * delayed_output
 /// The feedback creates resonant peaks at frequencies: sample_rate / delay_samples
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Comb filter node with pattern-controlled delay time and feedback
@@ -26,13 +25,13 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 /// - Karplus-Strong string synthesis (noise + comb filter)
 /// - Flanging effects (modulated delay time)
 pub struct CombFilterNode {
-    input: NodeId,                // Signal to filter
-    delay_time_input: NodeId,     // Delay time in seconds (can be modulated)
-    feedback_input: NodeId,       // Feedback amount (-0.99 to 0.99)
-    buffer: Vec<f32>,             // Circular delay buffer
-    write_pos: usize,             // Current write position
-    max_delay_samples: usize,     // Maximum delay in samples
-    sample_rate: f32,             // Sample rate for calculations
+    input: NodeId,            // Signal to filter
+    delay_time_input: NodeId, // Delay time in seconds (can be modulated)
+    feedback_input: NodeId,   // Feedback amount (-0.99 to 0.99)
+    buffer: Vec<f32>,         // Circular delay buffer
+    write_pos: usize,         // Current write position
+    max_delay_samples: usize, // Maximum delay in samples
+    sample_rate: f32,         // Sample rate for calculations
 }
 
 impl CombFilterNode {
@@ -165,7 +164,7 @@ impl AudioNode for CombFilterNode {
     }
 
     fn provides_delay(&self) -> bool {
-        true  // CombFilterNode has internal delay buffer, can safely break feedback cycles
+        true // CombFilterNode has internal delay buffer, can safely break feedback cycles
     }
 }
 
@@ -190,13 +189,8 @@ mod tests {
         let mut delay_time_node = ConstantNode::new(delay_time);
         let mut feedback_node = ConstantNode::new(feedback);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Create impulse input (simplest excitation)
         let mut input_buf = vec![0.0; block_size];
@@ -252,13 +246,8 @@ mod tests {
         let mut delay_time_node = ConstantNode::new(delay_time);
         let mut feedback_node = ConstantNode::new(feedback);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Impulse excitation
         let mut input_buf = vec![0.0; block_size];
@@ -316,13 +305,8 @@ mod tests {
         let mut feedback_positive_node = ConstantNode::new(0.7);
         let mut feedback_negative_node = ConstantNode::new(-0.7);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Impulse input
         let mut input_buf = vec![0.0; block_size];
@@ -373,10 +357,12 @@ mod tests {
         comb_negative.process_block(&inputs_neg, &mut output_neg_2, sample_rate, &context);
 
         // Calculate RMS for both - should both have sustained resonance
-        let rms_pos: f32 = output_pos_2.iter().map(|&x| x * x).sum::<f32>() / output_pos_2.len() as f32;
+        let rms_pos: f32 =
+            output_pos_2.iter().map(|&x| x * x).sum::<f32>() / output_pos_2.len() as f32;
         let rms_pos = rms_pos.sqrt();
 
-        let rms_neg: f32 = output_neg_2.iter().map(|&x| x * x).sum::<f32>() / output_neg_2.len() as f32;
+        let rms_neg: f32 =
+            output_neg_2.iter().map(|&x| x * x).sum::<f32>() / output_neg_2.len() as f32;
         let rms_neg = rms_neg.sqrt();
 
         // Both should have sustained resonance (negative feedback still creates resonance)
@@ -401,13 +387,8 @@ mod tests {
         let mut delay_time_node = ConstantNode::new(delay_time);
         let mut feedback_node = ConstantNode::new(feedback);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Create test signal
         let mut input_buf = vec![0.0; block_size];
@@ -461,13 +442,8 @@ mod tests {
         let mut delay_long_node = ConstantNode::new(delay_long);
         let mut feedback_node = ConstantNode::new(feedback);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Impulse input
         let mut input_buf = vec![0.0; block_size];
@@ -568,13 +544,8 @@ mod tests {
         let mut delay_time_node = ConstantNode::new(delay_time);
         let mut feedback_node = ConstantNode::new(feedback);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Constant input of 1.0
         let input_buf = vec![1.0; block_size];
@@ -597,12 +568,7 @@ mod tests {
 
         // Output should be finite and not extreme
         for (i, &sample) in output.iter().enumerate() {
-            assert!(
-                sample.is_finite(),
-                "Sample {} is not finite: {}",
-                i,
-                sample
-            );
+            assert!(sample.is_finite(), "Sample {} is not finite: {}", i, sample);
             assert!(
                 sample.abs() < 10.0,
                 "Sample {} has extreme value: {}",

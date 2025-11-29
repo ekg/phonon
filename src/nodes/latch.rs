@@ -10,7 +10,6 @@
 /// - Stepped modulation effects
 /// - Rhythmic parameter automation
 /// - Latching control values on specific events
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Latch node: captures input when trigger rises above 0.5 threshold
@@ -206,7 +205,7 @@ mod tests {
 
         latch.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // Initial
+        assert_eq!(output[0], 0.0); // Initial
         assert_eq!(output[1], 20.0); // Latched on rising edge
         assert_eq!(output[2], 20.0); // Holding (trigger still high, no edge)
         assert_eq!(output[3], 20.0); // Still holding
@@ -225,7 +224,7 @@ mod tests {
 
         latch.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);   // Initial
+        assert_eq!(output[0], 0.0); // Initial
         assert_eq!(output[1], 200.0); // Latched on rising edge
         assert_eq!(output[2], 200.0); // Holding (trigger went low)
         assert_eq!(output[3], 200.0); // Still holding
@@ -245,7 +244,7 @@ mod tests {
 
         latch.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // Initial
+        assert_eq!(output[0], 0.0); // Initial
         assert_eq!(output[1], 20.0); // First rising edge
         assert_eq!(output[2], 20.0); // Holding
         assert_eq!(output[3], 40.0); // Second rising edge
@@ -277,7 +276,7 @@ mod tests {
 
         latch.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // Initial
+        assert_eq!(output[0], 0.0); // Initial
         assert_eq!(output[1], 42.0); // Latched
         assert_eq!(output[2], 42.0); // Holding
         assert_eq!(output[3], 42.0); // Re-latched same value

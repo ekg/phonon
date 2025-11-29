@@ -31,7 +31,6 @@
 /// // Pattern-controlled slice positions (dynamic slicing)
 /// slice(input, trigger, "0 0.25 0.5 0.75", "0.25 0.5 0.75 1.0")
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Maximum buffer size (10 seconds at 44100 Hz)
@@ -39,19 +38,19 @@ const MAX_BUFFER_SIZE: usize = 441000;
 
 /// Slice node with trigger and position control
 pub struct SliceNode {
-    input: NodeId,              // Audio input to accumulate
-    trigger_input: NodeId,      // Trigger signal input (>0.5 = start)
-    slice_start_input: NodeId,  // Slice start position (0.0-1.0)
-    slice_end_input: NodeId,    // Slice end position (0.0-1.0)
+    input: NodeId,             // Audio input to accumulate
+    trigger_input: NodeId,     // Trigger signal input (>0.5 = start)
+    slice_start_input: NodeId, // Slice start position (0.0-1.0)
+    slice_end_input: NodeId,   // Slice end position (0.0-1.0)
 
     // Internal buffer state
-    buffer: Vec<f32>,           // Accumulated audio buffer
-    write_position: usize,      // Current write position in buffer
+    buffer: Vec<f32>,      // Accumulated audio buffer
+    write_position: usize, // Current write position in buffer
 
     // Playback state
-    playback_position: f32,     // Current read position (fractional samples)
-    is_playing: bool,           // Whether slice playback is active
-    last_trigger: f32,          // Last trigger value (for edge detection)
+    playback_position: f32, // Current read position (fractional samples)
+    is_playing: bool,       // Whether slice playback is active
+    last_trigger: f32,      // Last trigger value (for edge detection)
 
     // Current slice bounds (in samples)
     slice_start_samples: usize,
@@ -282,13 +281,7 @@ mod tests {
         slice_start: &[f32],
         slice_end: &[f32],
     ) -> Vec<f32> {
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            input.len(),
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, input.len(), 2.0, 44100.0);
 
         let inputs = vec![input, trigger, slice_start, slice_end];
         let mut output = vec![0.0; input.len()];
@@ -302,7 +295,7 @@ mod tests {
         let mut slice = SliceNode::new(0, 1, 2, 3);
 
         let input = create_ramp(100);
-        let trigger = vec![0.0; 100];  // No trigger
+        let trigger = vec![0.0; 100]; // No trigger
         let slice_start = vec![0.0; 100];
         let slice_end = vec![1.0; 100];
 
@@ -333,9 +326,15 @@ mod tests {
         assert_eq!(slice.buffer_length(), 100);
 
         // Now trigger playback
-        let silence_input = vec![0.0; 100];  // No new input
-        let trigger = vec![1.0; 100];  // High trigger
-        let output = process_slice(&mut slice, &silence_input, &trigger, &slice_start, &slice_end);
+        let silence_input = vec![0.0; 100]; // No new input
+        let trigger = vec![1.0; 100]; // High trigger
+        let output = process_slice(
+            &mut slice,
+            &silence_input,
+            &trigger,
+            &slice_start,
+            &slice_end,
+        );
 
         // Should be playing
         assert!(slice.is_playing(), "Should start playing on trigger");
@@ -368,15 +367,27 @@ mod tests {
             trigger[i] = 1.0;
         }
 
-        let output = process_slice(&mut slice, &silence_input, &trigger, &slice_start, &slice_end);
+        let output = process_slice(
+            &mut slice,
+            &silence_input,
+            &trigger,
+            &slice_start,
+            &slice_end,
+        );
 
         // First 50 samples should be silent (trigger low)
         let first_half_silent = output.iter().take(50).all(|&x| x == 0.0);
-        assert!(first_half_silent, "First half should be silent (trigger low)");
+        assert!(
+            first_half_silent,
+            "First half should be silent (trigger low)"
+        );
 
         // After sample 50, should start playing
         let second_half_has_signal = output.iter().skip(51).take(20).any(|&x| x > 0.01);
-        assert!(second_half_has_signal, "Should start playing on rising edge");
+        assert!(
+            second_half_has_signal,
+            "Should start playing on rising edge"
+        );
     }
 
     #[test]
@@ -388,13 +399,19 @@ mod tests {
         let input = create_ramp(100);
         let trigger = vec![0.0; 100];
         let slice_start = vec![0.0; 100];
-        let slice_end = vec![0.25; 100];  // First quarter
+        let slice_end = vec![0.25; 100]; // First quarter
         let _ = process_slice(&mut slice, &input, &trigger, &slice_start, &slice_end);
 
         // Trigger playback
         let silence_input = vec![0.0; 100];
         let trigger = vec![1.0; 100];
-        let output = process_slice(&mut slice, &silence_input, &trigger, &slice_start, &slice_end);
+        let output = process_slice(
+            &mut slice,
+            &silence_input,
+            &trigger,
+            &slice_start,
+            &slice_end,
+        );
 
         // Should play only first quarter (samples 0-25)
         // Values should be in range 0.0 to 0.25
@@ -418,14 +435,20 @@ mod tests {
         // Accumulate 100 sample ramp
         let input = create_ramp(100);
         let trigger = vec![0.0; 100];
-        let slice_start = vec![0.25; 100];  // Start at 25%
-        let slice_end = vec![0.75; 100];    // End at 75%
+        let slice_start = vec![0.25; 100]; // Start at 25%
+        let slice_end = vec![0.75; 100]; // End at 75%
         let _ = process_slice(&mut slice, &input, &trigger, &slice_start, &slice_end);
 
         // Trigger playback
         let silence_input = vec![0.0; 100];
         let trigger = vec![1.0; 100];
-        let output = process_slice(&mut slice, &silence_input, &trigger, &slice_start, &slice_end);
+        let output = process_slice(
+            &mut slice,
+            &silence_input,
+            &trigger,
+            &slice_start,
+            &slice_end,
+        );
 
         // First value should be ~0.25 (start of slice)
         assert!(
@@ -451,14 +474,20 @@ mod tests {
         // Accumulate 100 sample ramp
         let input = create_ramp(100);
         let trigger = vec![0.0; 100];
-        let slice_start = vec![0.875; 100];  // Start at 87.5%
-        let slice_end = vec![1.0; 100];      // End at 100%
+        let slice_start = vec![0.875; 100]; // Start at 87.5%
+        let slice_end = vec![1.0; 100]; // End at 100%
         let _ = process_slice(&mut slice, &input, &trigger, &slice_start, &slice_end);
 
         // Trigger playback
         let silence_input = vec![0.0; 100];
         let trigger = vec![1.0; 100];
-        let output = process_slice(&mut slice, &silence_input, &trigger, &slice_start, &slice_end);
+        let output = process_slice(
+            &mut slice,
+            &silence_input,
+            &trigger,
+            &slice_start,
+            &slice_end,
+        );
 
         // First value should be ~0.875
         assert!(
@@ -491,19 +520,31 @@ mod tests {
         // First trigger
         let silence_input = vec![0.0; 100];
         let trigger = vec![1.0; 100];
-        let _ = process_slice(&mut slice, &silence_input, &trigger, &slice_start, &slice_end);
+        let _ = process_slice(
+            &mut slice,
+            &silence_input,
+            &trigger,
+            &slice_start,
+            &slice_end,
+        );
 
         // Should be playing and advanced
         assert!(slice.is_playing() || slice.position() > 0.0);
 
         // Retrigger: go low then high again
         let mut trigger = vec![0.0; 100];
-        trigger[50] = 1.0;  // Rising edge at 50
+        trigger[50] = 1.0; // Rising edge at 50
         for i in 51..100 {
             trigger[i] = 1.0;
         }
 
-        let output = process_slice(&mut slice, &silence_input, &trigger, &slice_start, &slice_end);
+        let output = process_slice(
+            &mut slice,
+            &silence_input,
+            &trigger,
+            &slice_start,
+            &slice_end,
+        );
 
         // At sample 51 (after retrigger), should restart from beginning
         let value_after_retrigger = output[51];
@@ -539,14 +580,20 @@ mod tests {
         // Accumulate buffer
         let input = create_ramp(100);
         let trigger = vec![0.0; 100];
-        let slice_start = vec![0.75; 100];  // Start > End (swapped)
+        let slice_start = vec![0.75; 100]; // Start > End (swapped)
         let slice_end = vec![0.25; 100];
         let _ = process_slice(&mut slice, &input, &trigger, &slice_start, &slice_end);
 
         // Trigger playback
         let silence_input = vec![0.0; 100];
         let trigger = vec![1.0; 100];
-        let output = process_slice(&mut slice, &silence_input, &trigger, &slice_start, &slice_end);
+        let output = process_slice(
+            &mut slice,
+            &silence_input,
+            &trigger,
+            &slice_start,
+            &slice_end,
+        );
 
         // Should play from 0.25 to 0.75 (corrected order)
         let first_value = output[0];
@@ -566,13 +613,19 @@ mod tests {
         let input = create_ramp(100);
         let trigger = vec![0.0; 100];
         let slice_start = vec![0.5; 100];
-        let slice_end = vec![0.5; 100];  // Same as start
+        let slice_end = vec![0.5; 100]; // Same as start
         let _ = process_slice(&mut slice, &input, &trigger, &slice_start, &slice_end);
 
         // Trigger playback
         let silence_input = vec![0.0; 100];
         let trigger = vec![1.0; 100];
-        let output = process_slice(&mut slice, &silence_input, &trigger, &slice_start, &slice_end);
+        let output = process_slice(
+            &mut slice,
+            &silence_input,
+            &trigger,
+            &slice_start,
+            &slice_end,
+        );
 
         // Should output single sample then stop
         let signal_count = output.iter().filter(|&&x| x > 0.0).count();
@@ -598,9 +651,7 @@ mod tests {
         assert_eq!(slice.buffer_length(), 50);
 
         // Block 2: Accumulate 0.5 to 1.0
-        let input2: Vec<f32> = (50..100)
-            .map(|i| i as f32 / 99.0)
-            .collect();
+        let input2: Vec<f32> = (50..100).map(|i| i as f32 / 99.0).collect();
         let _ = process_slice(&mut slice, &input2, &trigger, &slice_start, &slice_end);
         assert_eq!(slice.buffer_length(), 100);
 
@@ -613,7 +664,10 @@ mod tests {
 
         // Should play entire 100 samples
         let has_high_values = output.iter().any(|&x| x > 0.8);
-        assert!(has_high_values, "Should contain high values from second block");
+        assert!(
+            has_high_values,
+            "Should contain high values from second block"
+        );
     }
 
     #[test]
@@ -658,7 +712,13 @@ mod tests {
         let trigger_high = vec![1.0; 1];
         let slice_start_1 = vec![0.0; 1];
         let slice_end_1 = vec![1.0; 1];
-        let _ = process_slice(&mut slice, &silence, &trigger_high, &slice_start_1, &slice_end_1);
+        let _ = process_slice(
+            &mut slice,
+            &silence,
+            &trigger_high,
+            &slice_start_1,
+            &slice_end_1,
+        );
 
         // Manually set playback position to 0.5 for interpolation test
         slice.playback_position = 0.5;
@@ -666,7 +726,13 @@ mod tests {
 
         // Process one sample with low trigger (no retrigger)
         let trigger_low = vec![0.0; 1];
-        let output = process_slice(&mut slice, &silence, &trigger_low, &slice_start_1, &slice_end_1);
+        let output = process_slice(
+            &mut slice,
+            &silence,
+            &trigger_low,
+            &slice_start_1,
+            &slice_end_1,
+        );
 
         // At position 0.5, should interpolate: 0.0 * 0.5 + 1.0 * 0.5 = 0.5
         assert!(
@@ -683,10 +749,10 @@ mod tests {
         let deps = slice.input_nodes();
 
         assert_eq!(deps.len(), 4);
-        assert_eq!(deps[0], 10);  // input
-        assert_eq!(deps[1], 20);  // trigger_input
-        assert_eq!(deps[2], 30);  // slice_start_input
-        assert_eq!(deps[3], 40);  // slice_end_input
+        assert_eq!(deps[0], 10); // input
+        assert_eq!(deps[1], 20); // trigger_input
+        assert_eq!(deps[2], 30); // slice_start_input
+        assert_eq!(deps[3], 40); // slice_end_input
     }
 
     #[test]

@@ -2,7 +2,6 @@
 ///
 /// This node implements a classic phaser effect using cascaded all-pass filters.
 /// An LFO sweeps the all-pass frequencies, creating notches that move through the spectrum.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -36,14 +35,14 @@ impl AllPassState {
 /// let phaser = PhaserNode::new(0, 1, 2, 3, 6, 44100.0);  // 6 stages, NodeId 4
 /// ```
 pub struct PhaserNode {
-    input: NodeId,           // Signal to phase
-    rate_input: NodeId,      // LFO rate in Hz (can be modulated)
-    depth_input: NodeId,     // Modulation depth 0.0 to 1.0 (can be modulated)
-    feedback_input: NodeId,  // Feedback amount (can be modulated)
-    stages: usize,           // Number of all-pass stages (usually 4-8)
+    input: NodeId,                     // Signal to phase
+    rate_input: NodeId,                // LFO rate in Hz (can be modulated)
+    depth_input: NodeId,               // Modulation depth 0.0 to 1.0 (can be modulated)
+    feedback_input: NodeId,            // Feedback amount (can be modulated)
+    stages: usize,                     // Number of all-pass stages (usually 4-8)
     allpass_states: Vec<AllPassState>, // State for each stage
-    phase: f32,              // LFO phase (0.0 to 1.0)
-    sample_rate: f32,        // Sample rate for calculations
+    phase: f32,                        // LFO phase (0.0 to 1.0)
+    sample_rate: f32,                  // Sample rate for calculations
 }
 
 impl PhaserNode {
@@ -181,7 +180,12 @@ impl AudioNode for PhaserNode {
     }
 
     fn input_nodes(&self) -> Vec<NodeId> {
-        vec![self.input, self.rate_input, self.depth_input, self.feedback_input]
+        vec![
+            self.input,
+            self.rate_input,
+            self.depth_input,
+            self.feedback_input,
+        ]
     }
 
     fn name(&self) -> &str {
@@ -208,13 +212,8 @@ mod tests {
         let mut feedback_node = ConstantNode::new(0.5); // 50% feedback
         let mut phaser = PhaserNode::new(0, 1, 2, 3, 6, sample_rate); // 6 stages
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Generate input buffers
         let mut input_buf = vec![1.0; block_size];
@@ -246,7 +245,11 @@ mod tests {
 
         // Output should be non-zero (phaser processes signal)
         let avg = output.iter().sum::<f32>() / output.len() as f32;
-        assert!(avg.abs() > 0.1, "Phaser should produce non-zero output, got {}", avg);
+        assert!(
+            avg.abs() > 0.1,
+            "Phaser should produce non-zero output, got {}",
+            avg
+        );
 
         // All samples should be finite
         for (i, &sample) in output.iter().enumerate() {
@@ -265,13 +268,8 @@ mod tests {
         let mut depth_node = ConstantNode::new(0.8);
         let mut feedback_node = ConstantNode::new(0.5);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Test with slow LFO (0.5 Hz)
         let mut rate_node_slow = ConstantNode::new(0.5);
@@ -346,13 +344,8 @@ mod tests {
         let mut rate_node = ConstantNode::new(0.5);
         let mut feedback_node = ConstantNode::new(0.5);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Test with low depth
         let mut depth_node_low = ConstantNode::new(0.1);
@@ -385,7 +378,10 @@ mod tests {
 
         let low_range = {
             let min = low_outputs.iter().cloned().fold(f32::INFINITY, f32::min);
-            let max = low_outputs.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+            let max = low_outputs
+                .iter()
+                .cloned()
+                .fold(f32::NEG_INFINITY, f32::max);
             max - min
         };
 
@@ -412,7 +408,10 @@ mod tests {
 
         let high_range = {
             let min = high_outputs.iter().cloned().fold(f32::INFINITY, f32::min);
-            let max = high_outputs.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+            let max = high_outputs
+                .iter()
+                .cloned()
+                .fold(f32::NEG_INFINITY, f32::max);
             max - min
         };
 
@@ -436,13 +435,8 @@ mod tests {
         let mut rate_node = ConstantNode::new(0.5);
         let mut depth_node = ConstantNode::new(0.8);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Test with low feedback
         let mut feedback_node_low = ConstantNode::new(0.1);
@@ -473,7 +467,10 @@ mod tests {
             low_outputs.extend_from_slice(&output);
         }
 
-        let low_max = low_outputs.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let low_max = low_outputs
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
 
         // Test with high feedback
         let mut feedback_node_high = ConstantNode::new(0.9);
@@ -496,7 +493,10 @@ mod tests {
             high_outputs.extend_from_slice(&output);
         }
 
-        let high_max = high_outputs.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let high_max = high_outputs
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
 
         // Higher feedback should produce higher peaks (resonance)
         assert!(
@@ -557,13 +557,8 @@ mod tests {
         let mut feedback_node = ConstantNode::new(0.6); // 60% feedback
         let mut phaser = PhaserNode::new(0, 1, 2, 3, 6, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut input_buf = vec![0.0; block_size];
         let mut rate_buf = vec![0.0; block_size];
@@ -591,18 +586,16 @@ mod tests {
 
             // All outputs should be finite
             for (i, &sample) in output.iter().enumerate() {
-                assert!(
-                    sample.is_finite(),
-                    "Sample {} is not finite: {}",
-                    i,
-                    sample
-                );
+                assert!(sample.is_finite(), "Sample {} is not finite: {}", i, sample);
             }
         }
 
         // Output should have variation (LFO modulation)
         let min = all_outputs.iter().cloned().fold(f32::INFINITY, f32::min);
-        let max = all_outputs.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let max = all_outputs
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
         let range = max - min;
 
         assert!(range > 0.05, "Output should vary, range: {}", range);
@@ -617,13 +610,8 @@ mod tests {
 
         let mut phaser = PhaserNode::new(0, 1, 2, 3, 6, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let input_buf = vec![1.0; block_size];
         let rate_buf = vec![1.0; block_size]; // 1 Hz
@@ -667,13 +655,8 @@ mod tests {
 
         let mut phaser = PhaserNode::new(0, 1, 2, 3, 6, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let input_buf = vec![1.0; block_size];
         let rate_buf = vec![1.0; block_size];

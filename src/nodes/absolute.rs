@@ -2,7 +2,6 @@
 ///
 /// This node performs full-wave rectification on the input signal.
 /// Output[i] = |Input[i]| for all samples.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Absolute value node: out = |input|
@@ -50,18 +49,11 @@ impl AudioNode for AbsoluteNode {
         _sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(
-            !inputs.is_empty(),
-            "AbsoluteNode requires 1 input, got 0"
-        );
+        debug_assert!(!inputs.is_empty(), "AbsoluteNode requires 1 input, got 0");
 
         let buf = inputs[0];
 
-        debug_assert_eq!(
-            buf.len(),
-            output.len(),
-            "Input length mismatch"
-        );
+        debug_assert_eq!(buf.len(), output.len(), "Input length mismatch");
 
         // Apply absolute value to each sample
         for i in 0..output.len() {
@@ -92,13 +84,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         abs_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -117,13 +103,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         abs_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -142,13 +122,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         abs_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -165,13 +139,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         abs_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -198,13 +166,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 16];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            16,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 16, 2.0, 44100.0);
 
         abs_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -251,13 +213,7 @@ mod tests {
         let mut const_node = ConstantNode::new(-5.0);
         let mut abs_node = AbsoluteNode::new(0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constant first
         let mut buf = vec![0.0; 512];

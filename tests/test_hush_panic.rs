@@ -15,7 +15,12 @@ fn test_parse_hush_all() {
     assert!(result.is_ok(), "Should parse hush statement: {:?}", result);
 
     if let Ok((_, statements)) = result {
-        assert_eq!(statements.len(), 1, "Expected 1 statement, got {:?}", statements);
+        assert_eq!(
+            statements.len(),
+            1,
+            "Expected 1 statement, got {:?}",
+            statements
+        );
         match &statements[0] {
             DslStatement::Hush { channel } => {
                 assert!(

@@ -4,12 +4,11 @@
 /// 1. Compiles without errors
 /// 2. Thread-safely shares state with pattern closures
 /// 3. Provides infrastructure for dynamic audio→pattern coupling
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::pattern::Pattern;
-use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 const SAMPLE_RATE: f32 = 44100.0;
 

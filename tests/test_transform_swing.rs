@@ -88,7 +88,11 @@ fn test_swing_level1_event_count() {
         };
 
         base_total += pattern.query(&state).len();
-        swing_total += pattern.clone().swing(Pattern::pure(0.1)).query(&state).len();
+        swing_total += pattern
+            .clone()
+            .swing(Pattern::pure(0.1))
+            .query(&state)
+            .len();
     }
 
     assert_eq!(swing_total, base_total, "swing should preserve all events");

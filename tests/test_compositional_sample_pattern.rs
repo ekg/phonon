@@ -4,7 +4,6 @@
 /// 1. String patterns compile to SamplePatternNode
 /// 2. Pattern transforms are applied before compilation
 /// 3. The s function extracts and compiles string arguments
-
 use phonon::compositional_parser::parse_program;
 
 #[test]
@@ -121,8 +120,11 @@ out $ s "bd" "sn"
         Err(e) => {
             // The error message says "Expected transform as second argument to s()"
             // which is a clear indication that s() shouldn't have multiple string args
-            assert!(e.contains("s()") || e.contains("Expected transform"),
-                "Error message should mention s() or argument issue: {}", e);
+            assert!(
+                e.contains("s()") || e.contains("Expected transform"),
+                "Error message should mention s() or argument issue: {}",
+                e
+            );
         }
     }
 }

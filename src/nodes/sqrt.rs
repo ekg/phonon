@@ -4,7 +4,6 @@
 /// Output[i] = sqrt(|Input[i]|) for all samples.
 ///
 /// The abs() protection ensures no NaN values from negative inputs.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Square root node: out = sqrt(|input|)
@@ -52,18 +51,11 @@ impl AudioNode for SquareRootNode {
         _sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(
-            !inputs.is_empty(),
-            "SquareRootNode requires 1 input, got 0"
-        );
+        debug_assert!(!inputs.is_empty(), "SquareRootNode requires 1 input, got 0");
 
         let buf = inputs[0];
 
-        debug_assert_eq!(
-            buf.len(),
-            output.len(),
-            "Input length mismatch"
-        );
+        debug_assert_eq!(buf.len(), output.len(), "Input length mismatch");
 
         // Apply sqrt(abs(x)) to each sample to avoid NaN from negative inputs
         for i in 0..output.len() {
@@ -94,13 +86,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         sqrt_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -117,13 +103,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         sqrt_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -141,24 +121,21 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         sqrt_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 2.0);  // sqrt(|-4|) = sqrt(4) = 2
-        assert_eq!(output[1], 3.0);  // sqrt(|-9|) = sqrt(9) = 3
-        assert_eq!(output[2], 4.0);  // sqrt(|-16|) = sqrt(16) = 4
-        assert_eq!(output[3], 5.0);  // sqrt(|-25|) = sqrt(25) = 5
+        assert_eq!(output[0], 2.0); // sqrt(|-4|) = sqrt(4) = 2
+        assert_eq!(output[1], 3.0); // sqrt(|-9|) = sqrt(9) = 3
+        assert_eq!(output[2], 4.0); // sqrt(|-16|) = sqrt(16) = 4
+        assert_eq!(output[3], 5.0); // sqrt(|-25|) = sqrt(25) = 5
 
         // Ensure no NaN values
         for sample in &output {
-            assert!(!sample.is_nan(), "sqrt should not produce NaN with abs() protection");
+            assert!(
+                !sample.is_nan(),
+                "sqrt should not produce NaN with abs() protection"
+            );
         }
     }
 
@@ -179,13 +156,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![99.9; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         sqrt_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -202,13 +173,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         sqrt_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -225,13 +190,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 7];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            7,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 7, 2.0, 44100.0);
 
         sqrt_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -253,23 +212,17 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 7];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            7,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 7, 2.0, 44100.0);
 
         sqrt_node.process_block(&inputs, &mut output, 44100.0, &context);
 
         assert_eq!(output[0], 2.0);
-        assert_eq!(output[1], 2.0);  // sqrt(abs(-4)) = 2
+        assert_eq!(output[1], 2.0); // sqrt(abs(-4)) = 2
         assert_eq!(output[2], 3.0);
-        assert_eq!(output[3], 3.0);  // sqrt(abs(-9)) = 3
+        assert_eq!(output[3], 3.0); // sqrt(abs(-9)) = 3
         assert_eq!(output[4], 0.0);
         assert_eq!(output[5], 4.0);
-        assert_eq!(output[6], 4.0);  // sqrt(abs(-16)) = 4
+        assert_eq!(output[6], 4.0); // sqrt(abs(-16)) = 4
 
         // Ensure no NaN values
         for sample in &output {
@@ -282,13 +235,7 @@ mod tests {
         let mut const_node = ConstantNode::new(25.0);
         let mut sqrt_node = SquareRootNode::new(0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constant first
         let mut buf = vec![0.0; 512];
@@ -314,18 +261,12 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 3];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            3,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 3, 2.0, 44100.0);
 
         sqrt_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert!((output[0] - 0.5).abs() < 0.0001);  // sqrt(0.25) ≈ 0.5
-        assert!((output[1] - 0.707107).abs() < 0.001);  // sqrt(0.5) ≈ 0.707
-        assert!((output[2] - 1.414214).abs() < 0.001);  // sqrt(2) ≈ 1.414
+        assert!((output[0] - 0.5).abs() < 0.0001); // sqrt(0.25) ≈ 0.5
+        assert!((output[1] - 0.707107).abs() < 0.001); // sqrt(0.5) ≈ 0.707
+        assert!((output[2] - 1.414214).abs() < 0.001); // sqrt(2) ≈ 1.414
     }
 }

@@ -37,7 +37,6 @@
 /// - Cross-synthesis effects (carrier = pad, modulator = drums)
 /// - More bands = higher quality, more CPU
 /// - Bandwidth controls clarity vs smoothness
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz};
 

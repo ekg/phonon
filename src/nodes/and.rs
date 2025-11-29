@@ -7,7 +7,6 @@
 /// Values greater than threshold are considered "true"
 /// Values less than or equal to threshold are considered "false"
 /// Only returns 1.0 when BOTH inputs are true
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Logical AND node: out = (a > threshold && b > threshold) ? 1.0 : 0.0
@@ -125,16 +124,8 @@ impl AudioNode for AndNode {
         let buf_a = inputs[0];
         let buf_b = inputs[1];
 
-        debug_assert_eq!(
-            buf_a.len(),
-            output.len(),
-            "Input A length mismatch"
-        );
-        debug_assert_eq!(
-            buf_b.len(),
-            output.len(),
-            "Input B length mismatch"
-        );
+        debug_assert_eq!(buf_a.len(), output.len(), "Input A length mismatch");
+        debug_assert_eq!(buf_b.len(), output.len(), "Input B length mismatch");
 
         // Vectorized logical AND
         for i in 0..output.len() {
@@ -170,13 +161,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         and_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -197,13 +182,7 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         and_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -224,21 +203,15 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         and_node.process_block(&inputs, &mut output, 44100.0, &context);
 
         // (1.0 && 0.2) = false, (0.8 && 0.1) = false, (0.2 && 0.9) = false, (0.6 && 0.3) = false
-        assert_eq!(output[0], 0.0);  // true && false
-        assert_eq!(output[1], 0.0);  // true && false
-        assert_eq!(output[2], 0.0);  // false && true
-        assert_eq!(output[3], 0.0);  // true && false
+        assert_eq!(output[0], 0.0); // true && false
+        assert_eq!(output[1], 0.0); // true && false
+        assert_eq!(output[2], 0.0); // false && true
+        assert_eq!(output[3], 0.0); // true && false
     }
 
     #[test]
@@ -251,20 +224,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         and_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // 0.5 <= 0.5 (false) && 0.6 > 0.5 (true) = false
-        assert_eq!(output[1], 1.0);  // 0.50001 > 0.5 (true) && 0.7 > 0.5 (true) = true
-        assert_eq!(output[2], 0.0);  // 0.49999 <= 0.5 (false) && 0.8 > 0.5 (true) = false
-        assert_eq!(output[3], 0.0);  // 0.6 > 0.5 (true) && 0.5 <= 0.5 (false) = false
+        assert_eq!(output[0], 0.0); // 0.5 <= 0.5 (false) && 0.6 > 0.5 (true) = false
+        assert_eq!(output[1], 1.0); // 0.50001 > 0.5 (true) && 0.7 > 0.5 (true) = true
+        assert_eq!(output[2], 0.0); // 0.49999 <= 0.5 (false) && 0.8 > 0.5 (true) = false
+        assert_eq!(output[3], 0.0); // 0.6 > 0.5 (true) && 0.5 <= 0.5 (false) = false
     }
 
     #[test]
@@ -277,20 +244,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         and_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // -1.0 <= 0.5 (false) && -0.5 <= 0.5 (false) = false
-        assert_eq!(output[1], 0.0);  // -0.5 <= 0.5 (false) && 1.0 > 0.5 (true) = false
-        assert_eq!(output[2], 0.0);  // -0.1 <= 0.5 (false) && 0.6 > 0.5 (true) = false
-        assert_eq!(output[3], 0.0);  // 0.2 <= 0.5 (false) && -0.3 <= 0.5 (false) = false
+        assert_eq!(output[0], 0.0); // -1.0 <= 0.5 (false) && -0.5 <= 0.5 (false) = false
+        assert_eq!(output[1], 0.0); // -0.5 <= 0.5 (false) && 1.0 > 0.5 (true) = false
+        assert_eq!(output[2], 0.0); // -0.1 <= 0.5 (false) && 0.6 > 0.5 (true) = false
+        assert_eq!(output[3], 0.0); // 0.2 <= 0.5 (false) && -0.3 <= 0.5 (false) = false
     }
 
     #[test]
@@ -303,20 +264,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         and_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // 0.8 > 0.75 && 0.9 > 0.75 = true
-        assert_eq!(output[1], 0.0);  // 0.7 <= 0.75 (false) && 0.8 > 0.75 (true) = false
-        assert_eq!(output[2], 1.0);  // 0.9 > 0.75 && 0.76 > 0.75 = true
-        assert_eq!(output[3], 0.0);  // 0.75 <= 0.75 (false) && 0.8 > 0.75 (true) = false
+        assert_eq!(output[0], 1.0); // 0.8 > 0.75 && 0.9 > 0.75 = true
+        assert_eq!(output[1], 0.0); // 0.7 <= 0.75 (false) && 0.8 > 0.75 (true) = false
+        assert_eq!(output[2], 1.0); // 0.9 > 0.75 && 0.76 > 0.75 = true
+        assert_eq!(output[3], 0.0); // 0.75 <= 0.75 (false) && 0.8 > 0.75 (true) = false
     }
 
     #[test]
@@ -325,13 +280,7 @@ mod tests {
         let mut const_b = ConstantNode::new(0.9);
         let mut and_node = AndNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut buf_a = vec![0.0; 512];
@@ -368,13 +317,7 @@ mod tests {
 
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         and_node.process_block(&inputs, &mut output, 44100.0, &context);
 

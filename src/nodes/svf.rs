@@ -24,7 +24,6 @@
 ///
 /// The filter uses carefully designed coefficient calculations with
 /// clamping to prevent instability at extreme parameter values.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -169,19 +168,11 @@ impl AudioNode for SVFNode {
             output.len(),
             "Cutoff buffer length mismatch"
         );
-        debug_assert_eq!(
-            q_buffer.len(),
-            output.len(),
-            "Q buffer length mismatch"
-        );
+        debug_assert_eq!(q_buffer.len(), output.len(), "Q buffer length mismatch");
 
         for i in 0..output.len() {
-            output[i] = self.process_sample(
-                input_buffer[i],
-                cutoff_buffer[i],
-                q_buffer[i],
-                sample_rate,
-            );
+            output[i] =
+                self.process_sample(input_buffer[i], cutoff_buffer[i], q_buffer[i], sample_rate);
         }
     }
 
@@ -568,13 +559,21 @@ mod tests {
         let input_rms = calculate_rms(&osc_buf);
 
         // Process with low Q
-        let inputs_low = vec![osc_buf.as_slice(), cutoff_buf.as_slice(), q_low_buf.as_slice()];
+        let inputs_low = vec![
+            osc_buf.as_slice(),
+            cutoff_buf.as_slice(),
+            q_low_buf.as_slice(),
+        ];
         let mut output_low = vec![0.0; 512];
         svf_low.process_block(&inputs_low, &mut output_low, 44100.0, &context);
         let rms_low = calculate_rms(&output_low);
 
         // Process with high Q
-        let inputs_high = vec![osc_buf.as_slice(), cutoff_buf.as_slice(), q_high_buf.as_slice()];
+        let inputs_high = vec![
+            osc_buf.as_slice(),
+            cutoff_buf.as_slice(),
+            q_high_buf.as_slice(),
+        ];
         let mut output_high = vec![0.0; 512];
         svf_high.process_block(&inputs_high, &mut output_high, 44100.0, &context);
         let rms_high = calculate_rms(&output_high);

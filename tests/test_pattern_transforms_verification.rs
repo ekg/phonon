@@ -116,12 +116,11 @@
 /// 4. Un-ignore the 9 disabled tests
 /// 5. Verify all tests pass
 /// 6. Add musical examples demonstrating conditional effects
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
+use rustfft::{num_complex::Complex, FftPlanner};
 use std::collections::HashMap;
-use rustfft::{FftPlanner, num_complex::Complex};
 
 mod audio_test_utils;
 mod pattern_verification_utils;
@@ -141,10 +140,7 @@ fn calculate_high_freq_energy(audio: &[f32], sample_rate: f32, cutoff_freq: f32)
     let mut planner = FftPlanner::new();
     let fft = planner.plan_fft_forward(audio.len());
 
-    let mut buffer: Vec<Complex<f32>> = audio
-        .iter()
-        .map(|&x| Complex { re: x, im: 0.0 })
-        .collect();
+    let mut buffer: Vec<Complex<f32>> = audio.iter().map(|&x| Complex { re: x, im: 0.0 }).collect();
 
     fft.process(&mut buffer);
 
@@ -214,8 +210,9 @@ out $ sine (every_val 2 440 880)
         // Count zero crossings to estimate frequency
         let mut crossings = 0;
         for i in 1..cycle_audio.len() {
-            if (cycle_audio[i-1] < 0.0 && cycle_audio[i] >= 0.0) ||
-               (cycle_audio[i-1] >= 0.0 && cycle_audio[i] < 0.0) {
+            if (cycle_audio[i - 1] < 0.0 && cycle_audio[i] >= 0.0)
+                || (cycle_audio[i - 1] >= 0.0 && cycle_audio[i] < 0.0)
+            {
                 crossings += 1;
             }
         }
@@ -227,14 +224,16 @@ out $ sine (every_val 2 440 880)
             assert!(
                 (estimated_freq - 440.0).abs() < 50.0,
                 "Cycle {} should have ~440Hz, got {:.1}Hz",
-                cycle, estimated_freq
+                cycle,
+                estimated_freq
             );
         } else {
             // Odd cycles should have 880 Hz
             assert!(
                 (estimated_freq - 880.0).abs() < 100.0,
                 "Cycle {} should have ~880Hz, got {:.1}Hz",
-                cycle, estimated_freq
+                cycle,
+                estimated_freq
             );
         }
     }
@@ -260,7 +259,10 @@ fn test_every_val_different_intervals() {
     }
 
     // Pattern: 100 on cycles 0,3,6; 50 on all others
-    assert_eq!(values, vec![100.0, 50.0, 50.0, 100.0, 50.0, 50.0, 100.0, 50.0, 50.0]);
+    assert_eq!(
+        values,
+        vec![100.0, 50.0, 50.0, 100.0, 50.0, 50.0, 100.0, 50.0, 50.0]
+    );
 }
 
 // ============================================================================
@@ -460,7 +462,10 @@ fn test_whenmod_val_level1_pattern_query() {
     }
 
     // Pattern: 1000 on cycles 0,3,6; 500 on all others
-    assert_eq!(values, vec![1000.0, 500.0, 500.0, 1000.0, 500.0, 500.0, 1000.0, 500.0, 500.0]);
+    assert_eq!(
+        values,
+        vec![1000.0, 500.0, 500.0, 1000.0, 500.0, 500.0, 1000.0, 500.0, 500.0]
+    );
 }
 
 #[test]
@@ -483,7 +488,10 @@ fn test_whenmod_val_with_offset() {
     }
 
     // (cycle - 1) % 3 == 0 when cycle = 1,4,7
-    assert_eq!(values, vec![500.0, 1000.0, 500.0, 500.0, 1000.0, 500.0, 500.0, 1000.0, 500.0]);
+    assert_eq!(
+        values,
+        vec![500.0, 1000.0, 500.0, 500.0, 1000.0, 500.0, 500.0, 1000.0, 500.0]
+    );
 }
 
 #[test]
@@ -506,9 +514,7 @@ fn test_whenmod_val_different_modulos() {
 
     // (cycle - 2) % 4 == 0 when cycle = 2,6,10
     let expected = vec![
-        500.0, 500.0, 1000.0, 500.0,
-        500.0, 500.0, 1000.0, 500.0,
-        500.0, 500.0, 1000.0, 500.0
+        500.0, 500.0, 1000.0, 500.0, 500.0, 500.0, 1000.0, 500.0, 500.0, 500.0, 1000.0, 500.0,
     ];
     assert_eq!(values, expected);
 }
@@ -551,19 +557,29 @@ out $ sine 440 # every_effect 2 (lpf 500 0.8)
     // Cycles 1,3,5,7 should NOT have filter (high high-freq energy)
 
     // Compare filtered vs unfiltered cycles
-    let filtered_avg = (high_freq_energies[0] + high_freq_energies[2] +
-                        high_freq_energies[4] + high_freq_energies[6]) / 4.0;
-    let unfiltered_avg = (high_freq_energies[1] + high_freq_energies[3] +
-                          high_freq_energies[5] + high_freq_energies[7]) / 4.0;
+    let filtered_avg = (high_freq_energies[0]
+        + high_freq_energies[2]
+        + high_freq_energies[4]
+        + high_freq_energies[6])
+        / 4.0;
+    let unfiltered_avg = (high_freq_energies[1]
+        + high_freq_energies[3]
+        + high_freq_energies[5]
+        + high_freq_energies[7])
+        / 4.0;
 
     println!("Filtered cycles avg high-freq energy: {:.6}", filtered_avg);
-    println!("Unfiltered cycles avg high-freq energy: {:.6}", unfiltered_avg);
+    println!(
+        "Unfiltered cycles avg high-freq energy: {:.6}",
+        unfiltered_avg
+    );
 
     // Unfiltered should have significantly more high-frequency energy
     assert!(
         unfiltered_avg > filtered_avg * 2.0,
         "Unfiltered cycles should have more high-freq energy. Filtered: {:.6}, Unfiltered: {:.6}",
-        filtered_avg, unfiltered_avg
+        filtered_avg,
+        unfiltered_avg
     );
 }
 
@@ -597,10 +613,21 @@ out $ sine 880 # every_effect 3 (lpf 400 0.8)
     let filtered_cycles = vec![0, 3, 6];
     let unfiltered_cycles = vec![1, 2, 4, 5, 7, 8];
 
-    let filtered_avg: f32 = filtered_cycles.iter().map(|&i| high_freq_energies[i]).sum::<f32>() / 3.0;
-    let unfiltered_avg: f32 = unfiltered_cycles.iter().map(|&i| high_freq_energies[i]).sum::<f32>() / 6.0;
+    let filtered_avg: f32 = filtered_cycles
+        .iter()
+        .map(|&i| high_freq_energies[i])
+        .sum::<f32>()
+        / 3.0;
+    let unfiltered_avg: f32 = unfiltered_cycles
+        .iter()
+        .map(|&i| high_freq_energies[i])
+        .sum::<f32>()
+        / 6.0;
 
-    println!("Every 3 - Filtered avg: {:.6}, Unfiltered avg: {:.6}", filtered_avg, unfiltered_avg);
+    println!(
+        "Every 3 - Filtered avg: {:.6}, Unfiltered avg: {:.6}",
+        filtered_avg, unfiltered_avg
+    );
 
     assert!(
         unfiltered_avg > filtered_avg * 1.5,
@@ -628,7 +655,10 @@ out $ sine 440 # every_effect 2 (lpf 500 0.8)
     let rms_normal = calculate_rms(&audio_normal);
     let rms_every = calculate_rms(&audio_every);
 
-    println!("RMS normal: {:.6}, RMS every_effect: {:.6}", rms_normal, rms_every);
+    println!(
+        "RMS normal: {:.6}, RMS every_effect: {:.6}",
+        rms_normal, rms_every
+    );
 
     // Should be similar amplitude (within 50% since half cycles are filtered)
     assert!(
@@ -686,7 +716,10 @@ out $ sine 880 # sometimes_effect (lpf 400 0.8)
     let total = filtered_count + unfiltered_count;
     let filtered_percentage = (filtered_count as f64 / total as f64) * 100.0;
 
-    println!("Filtered cycles: {}, Unfiltered cycles: {}", filtered_count, unfiltered_count);
+    println!(
+        "Filtered cycles: {}, Unfiltered cycles: {}",
+        filtered_count, unfiltered_count
+    );
     println!("Filtered percentage: {:.1}%", filtered_percentage);
 
     // Should be approximately 50%, allow 30-70% range
@@ -716,7 +749,10 @@ out $ sine 440 # sometimes_effect (lpf 300 0.8)
     let rms1 = calculate_rms(&audio1);
     let rms2 = calculate_rms(&audio2);
 
-    assert_eq!(rms1, rms2, "sometimes_effect should be deterministic across renders");
+    assert_eq!(
+        rms1, rms2,
+        "sometimes_effect should be deterministic across renders"
+    );
 
     // Check sample-by-sample for first 1000 samples
     for i in 0..1000.min(audio1.len()) {
@@ -764,10 +800,21 @@ out $ sine 880 # whenmod_effect 3 0 (lpf 400 0.8)
     let filtered_cycles = vec![0, 3, 6];
     let unfiltered_cycles = vec![1, 2, 4, 5, 7, 8];
 
-    let filtered_avg: f32 = filtered_cycles.iter().map(|&i| high_freq_energies[i]).sum::<f32>() / 3.0;
-    let unfiltered_avg: f32 = unfiltered_cycles.iter().map(|&i| high_freq_energies[i]).sum::<f32>() / 6.0;
+    let filtered_avg: f32 = filtered_cycles
+        .iter()
+        .map(|&i| high_freq_energies[i])
+        .sum::<f32>()
+        / 3.0;
+    let unfiltered_avg: f32 = unfiltered_cycles
+        .iter()
+        .map(|&i| high_freq_energies[i])
+        .sum::<f32>()
+        / 6.0;
 
-    println!("Whenmod 3,0 - Filtered avg: {:.6}, Unfiltered avg: {:.6}", filtered_avg, unfiltered_avg);
+    println!(
+        "Whenmod 3,0 - Filtered avg: {:.6}, Unfiltered avg: {:.6}",
+        filtered_avg, unfiltered_avg
+    );
 
     assert!(
         unfiltered_avg > filtered_avg * 1.5,
@@ -803,10 +850,21 @@ out $ sine 880 # whenmod_effect 3 1 (lpf 400 0.8)
     let filtered_cycles = vec![1, 4, 7];
     let unfiltered_cycles = vec![0, 2, 3, 5, 6, 8];
 
-    let filtered_avg: f32 = filtered_cycles.iter().map(|&i| high_freq_energies[i]).sum::<f32>() / 3.0;
-    let unfiltered_avg: f32 = unfiltered_cycles.iter().map(|&i| high_freq_energies[i]).sum::<f32>() / 6.0;
+    let filtered_avg: f32 = filtered_cycles
+        .iter()
+        .map(|&i| high_freq_energies[i])
+        .sum::<f32>()
+        / 3.0;
+    let unfiltered_avg: f32 = unfiltered_cycles
+        .iter()
+        .map(|&i| high_freq_energies[i])
+        .sum::<f32>()
+        / 6.0;
 
-    println!("Whenmod 3,1 - Filtered avg: {:.6}, Unfiltered avg: {:.6}", filtered_avg, unfiltered_avg);
+    println!(
+        "Whenmod 3,1 - Filtered avg: {:.6}, Unfiltered avg: {:.6}",
+        filtered_avg, unfiltered_avg
+    );
 
     assert!(
         unfiltered_avg > filtered_avg * 1.5,
@@ -842,10 +900,21 @@ out $ sine 880 # whenmod_effect 4 0 (lpf 400 0.8)
     let filtered_cycles = vec![0, 4, 8];
     let unfiltered_cycles = vec![1, 2, 3, 5, 6, 7, 9, 10, 11];
 
-    let filtered_avg: f32 = filtered_cycles.iter().map(|&i| high_freq_energies[i]).sum::<f32>() / 3.0;
-    let unfiltered_avg: f32 = unfiltered_cycles.iter().map(|&i| high_freq_energies[i]).sum::<f32>() / 9.0;
+    let filtered_avg: f32 = filtered_cycles
+        .iter()
+        .map(|&i| high_freq_energies[i])
+        .sum::<f32>()
+        / 3.0;
+    let unfiltered_avg: f32 = unfiltered_cycles
+        .iter()
+        .map(|&i| high_freq_energies[i])
+        .sum::<f32>()
+        / 9.0;
 
-    println!("Whenmod 4,0 - Filtered avg: {:.6}, Unfiltered avg: {:.6}", filtered_avg, unfiltered_avg);
+    println!(
+        "Whenmod 4,0 - Filtered avg: {:.6}, Unfiltered avg: {:.6}",
+        filtered_avg, unfiltered_avg
+    );
 
     assert!(
         unfiltered_avg > filtered_avg * 1.5,
@@ -909,17 +978,22 @@ fn test_all_seven_functions_exist() {
 
     // 1. every_val
     let ev = Pattern::<f64>::every_val(2, 100.0, 50.0);
-    assert!(ev.query(&State {
-        span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),
-        controls: HashMap::new(),
-    })[0].value == 100.0);
+    assert!(
+        ev.query(&State {
+            span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),
+            controls: HashMap::new(),
+        })[0]
+            .value
+            == 100.0
+    );
 
     // 2. sometimes_val
     let sv = Pattern::<f64>::sometimes_val(100.0, 50.0);
     let sv_val = sv.query(&State {
         span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),
         controls: HashMap::new(),
-    })[0].value;
+    })[0]
+        .value;
     assert!(sv_val == 100.0 || sv_val == 50.0);
 
     // 3. sometimes_by_val
@@ -927,15 +1001,20 @@ fn test_all_seven_functions_exist() {
     let sbv_val = sbv.query(&State {
         span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),
         controls: HashMap::new(),
-    })[0].value;
+    })[0]
+        .value;
     assert!(sbv_val == 100.0 || sbv_val == 50.0);
 
     // 4. whenmod_val
     let wmv = Pattern::<f64>::whenmod_val(3, 0, 100.0, 50.0);
-    assert!(wmv.query(&State {
-        span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),
-        controls: HashMap::new(),
-    })[0].value == 100.0);
+    assert!(
+        wmv.query(&State {
+            span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),
+            controls: HashMap::new(),
+        })[0]
+            .value
+            == 100.0
+    );
 
     // 5-7. every_effect, sometimes_effect, whenmod_effect
     // These exist in the compiler but have a bug where ChainInput is not properly extracted

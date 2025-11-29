@@ -2,7 +2,6 @@
 ///
 /// Tests chorus, flanger, phaser, tremolo, vibrato with pattern modulation.
 /// Verifies P0.0: ALL parameters accept patterns.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -13,7 +12,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -29,7 +29,11 @@ fn test_chorus_constant_parameters() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Chorus with constant params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Chorus with constant params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -42,7 +46,11 @@ fn test_chorus_pattern_rate() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Chorus with pattern rate should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Chorus with pattern rate should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -55,7 +63,11 @@ fn test_chorus_pattern_depth() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Chorus with pattern depth should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Chorus with pattern depth should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -68,7 +80,11 @@ fn test_chorus_both_patterns() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Chorus with both pattern params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Chorus with both pattern params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Flanger Tests ==========
@@ -82,7 +98,11 @@ fn test_flanger_constant_parameters() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Flanger with constant params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Flanger with constant params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -95,7 +115,11 @@ fn test_flanger_pattern_rate() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Flanger with pattern depth should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Flanger with pattern depth should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -108,7 +132,11 @@ fn test_flanger_pattern_depth() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Flanger with pattern rate should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Flanger with pattern rate should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -121,7 +149,11 @@ fn test_flanger_both_patterns() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Flanger with pattern params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Flanger with pattern params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Phaser Tests ==========
@@ -135,7 +167,11 @@ fn test_phaser_constant_parameters() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Phaser with constant params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Phaser with constant params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -148,7 +184,11 @@ fn test_phaser_pattern_rate() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Phaser with pattern rate should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Phaser with pattern rate should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -161,7 +201,11 @@ fn test_phaser_pattern_feedback() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Phaser with pattern depth should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Phaser with pattern depth should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -174,7 +218,11 @@ fn test_phaser_both_patterns() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Phaser with pattern params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Phaser with pattern params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Tremolo Tests ==========
@@ -188,7 +236,11 @@ fn test_tremolo_constant_parameters() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Tremolo with constant params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Tremolo with constant params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -201,7 +253,11 @@ fn test_tremolo_pattern_rate() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Tremolo with pattern rate should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Tremolo with pattern rate should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -214,7 +270,11 @@ fn test_tremolo_pattern_depth() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Tremolo with pattern depth should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Tremolo with pattern depth should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -227,7 +287,11 @@ fn test_tremolo_both_patterns() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Tremolo with both pattern params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Tremolo with both pattern params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Vibrato Tests ==========
@@ -241,7 +305,11 @@ fn test_vibrato_constant_parameters() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Vibrato with constant params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Vibrato with constant params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -254,7 +322,11 @@ fn test_vibrato_pattern_rate() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Vibrato with pattern rate should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Vibrato with pattern rate should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -267,7 +339,11 @@ fn test_vibrato_pattern_depth() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Vibrato with pattern depth should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Vibrato with pattern depth should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -280,5 +356,9 @@ fn test_vibrato_both_patterns() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Vibrato with both pattern params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Vibrato with both pattern params should produce audio, got RMS: {}",
+        rms
+    );
 }

@@ -2,7 +2,6 @@
 ///
 /// This node computes output[i] = input[i].powf(exponent[i])
 /// with protection against NaN for negative bases with fractional exponents.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Power node: out = input ^ exponent
@@ -77,16 +76,8 @@ impl AudioNode for PowerNode {
         let input_buf = inputs[0];
         let exponent_buf = inputs[1];
 
-        debug_assert_eq!(
-            input_buf.len(),
-            output.len(),
-            "Input length mismatch"
-        );
-        debug_assert_eq!(
-            exponent_buf.len(),
-            output.len(),
-            "Exponent length mismatch"
-        );
+        debug_assert_eq!(input_buf.len(), output.len(), "Input length mismatch");
+        debug_assert_eq!(exponent_buf.len(), output.len(), "Exponent length mismatch");
 
         // Compute power with NaN protection
         for i in 0..output.len() {
@@ -129,21 +120,15 @@ mod tests {
         let inputs = vec![input.as_slice(), exponent.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         power_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);   // 0^2 = 0
-        assert_eq!(output[1], 1.0);   // 1^2 = 1
-        assert_eq!(output[2], 4.0);   // 2^2 = 4
-        assert_eq!(output[3], 9.0);   // 3^2 = 9
-        assert_eq!(output[4], 16.0);  // (-4)^2 = 16
+        assert_eq!(output[0], 0.0); // 0^2 = 0
+        assert_eq!(output[1], 1.0); // 1^2 = 1
+        assert_eq!(output[2], 4.0); // 2^2 = 4
+        assert_eq!(output[3], 9.0); // 3^2 = 9
+        assert_eq!(output[4], 16.0); // (-4)^2 = 16
     }
 
     #[test]
@@ -157,21 +142,15 @@ mod tests {
         let inputs = vec![input.as_slice(), exponent.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         power_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);  // 0^0.5 = 0
-        assert_eq!(output[1], 1.0);  // 1^0.5 = 1
-        assert_eq!(output[2], 2.0);  // 4^0.5 = 2
-        assert_eq!(output[3], 3.0);  // 9^0.5 = 3
-        assert_eq!(output[4], 4.0);  // |-16|^0.5 = 16^0.5 = 4 (uses abs to avoid NaN)
+        assert_eq!(output[0], 0.0); // 0^0.5 = 0
+        assert_eq!(output[1], 1.0); // 1^0.5 = 1
+        assert_eq!(output[2], 2.0); // 4^0.5 = 2
+        assert_eq!(output[3], 3.0); // 9^0.5 = 3
+        assert_eq!(output[4], 4.0); // |-16|^0.5 = 16^0.5 = 4 (uses abs to avoid NaN)
     }
 
     #[test]
@@ -185,21 +164,15 @@ mod tests {
         let inputs = vec![input.as_slice(), exponent.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         power_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.0);    // 0^3 = 0
-        assert_eq!(output[1], 1.0);    // 1^3 = 1
-        assert_eq!(output[2], 8.0);    // 2^3 = 8
-        assert_eq!(output[3], 27.0);   // 3^3 = 27
-        assert_eq!(output[4], -8.0);   // (-2)^3 = -8
+        assert_eq!(output[0], 0.0); // 0^3 = 0
+        assert_eq!(output[1], 1.0); // 1^3 = 1
+        assert_eq!(output[2], 8.0); // 2^3 = 8
+        assert_eq!(output[3], 27.0); // 3^3 = 27
+        assert_eq!(output[4], -8.0); // (-2)^3 = -8
     }
 
     #[test]
@@ -212,21 +185,15 @@ mod tests {
         let inputs = vec![input.as_slice(), exponent.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         power_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // 0^0 = 1 (by Rust's powf convention)
-        assert_eq!(output[1], 0.0);  // 0^1 = 0
-        assert_eq!(output[2], 0.0);  // 0^2 = 0
-        assert_eq!(output[3], 0.0);  // 0^0.5 = 0
-        assert_eq!(output[4], 0.0);  // 0^3 = 0
+        assert_eq!(output[0], 1.0); // 0^0 = 1 (by Rust's powf convention)
+        assert_eq!(output[1], 0.0); // 0^1 = 0
+        assert_eq!(output[2], 0.0); // 0^2 = 0
+        assert_eq!(output[3], 0.0); // 0^0.5 = 0
+        assert_eq!(output[4], 0.0); // 0^3 = 0
     }
 
     #[test]
@@ -235,8 +202,8 @@ mod tests {
         let deps = power_node.input_nodes();
 
         assert_eq!(deps.len(), 2);
-        assert_eq!(deps[0], 3);  // input
-        assert_eq!(deps[1], 7);  // exponent
+        assert_eq!(deps[0], 3); // input
+        assert_eq!(deps[1], 7); // exponent
     }
 
     #[test]
@@ -249,21 +216,15 @@ mod tests {
         let inputs = vec![input.as_slice(), exponent.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         power_node.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 1.0);  // 2^0 = 1
-        assert_eq!(output[1], 2.0);  // 2^1 = 2
-        assert_eq!(output[2], 4.0);  // 2^2 = 4
-        assert_eq!(output[3], 8.0);  // 2^3 = 8
-        assert!((output[4] - 1.414213562).abs() < 0.0001);  // 2^0.5 ≈ 1.414
+        assert_eq!(output[0], 1.0); // 2^0 = 1
+        assert_eq!(output[1], 2.0); // 2^1 = 2
+        assert_eq!(output[2], 4.0); // 2^2 = 4
+        assert_eq!(output[3], 8.0); // 2^3 = 8
+        assert!((output[4] - 1.414213562).abs() < 0.0001); // 2^0.5 ≈ 1.414
     }
 
     #[test]
@@ -276,20 +237,14 @@ mod tests {
         let inputs = vec![input.as_slice(), exponent.as_slice()];
 
         let mut output = vec![0.0; 3];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            3,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 3, 2.0, 44100.0);
 
         power_node.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Should compute as abs(base)^exp to avoid NaN
-        assert_eq!(output[0], 2.0);  // |-4|^0.5 = 2
-        assert_eq!(output[1], 3.0);  // |-9|^0.5 = 3
-        assert_eq!(output[2], 4.0);  // |-16|^0.5 = 4
+        assert_eq!(output[0], 2.0); // |-4|^0.5 = 2
+        assert_eq!(output[1], 3.0); // |-9|^0.5 = 3
+        assert_eq!(output[2], 4.0); // |-16|^0.5 = 4
 
         // Verify no NaN values
         for sample in &output {
@@ -303,13 +258,7 @@ mod tests {
         let mut const_exp = ConstantNode::new(2.0);
         let mut power_node = PowerNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut base_buf = vec![0.0; 512];

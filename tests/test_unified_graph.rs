@@ -1,6 +1,6 @@
-use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform};
+use std::cell::RefCell;
 
 #[test]
 fn test_basic_oscillator() {
@@ -13,7 +13,7 @@ fn test_basic_oscillator() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -62,7 +62,7 @@ fn test_pattern_as_signal() {
         freq: Signal::Value(220.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -103,7 +103,7 @@ fn test_bus_system() {
         freq: Signal::Value(2.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -125,7 +125,7 @@ fn test_bus_system() {
         freq: Signal::Node(modulated_freq),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -207,7 +207,7 @@ fn test_envelope_generator() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -263,7 +263,7 @@ fn test_signal_expressions() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -273,7 +273,7 @@ fn test_signal_expressions() {
         freq: Signal::Value(550.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -321,7 +321,7 @@ fn test_delay_effect() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -402,7 +402,7 @@ fn test_audio_analysis_nodes() {
         freq: Signal::Value(100.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -466,7 +466,7 @@ fn test_conditional_processing() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -528,7 +528,7 @@ fn test_pattern_driven_synthesis() {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Saw,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),

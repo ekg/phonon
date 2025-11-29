@@ -124,7 +124,11 @@ pub fn get_completion_context(line: &str, cursor_pos: usize) -> CompletionContex
         if let Some(last_char) = trimmed_before.chars().last() {
             // Check if cursor position is past the operator (whitespace after it)
             let at_word_boundary = line_before_cursor.ends_with(' ')
-                || (cursor_pos < line.len() && line.chars().nth(cursor_pos).map_or(false, |c| c.is_whitespace()));
+                || (cursor_pos < line.len()
+                    && line
+                        .chars()
+                        .nth(cursor_pos)
+                        .map_or(false, |c| c.is_whitespace()));
 
             if at_word_boundary {
                 match last_char {
@@ -228,7 +232,11 @@ fn detect_keyword_context(line: &str, cursor_pos: usize) -> Option<&'static str>
     // Only consider this a keyword context if:
     // 1. We're right after `:` (nothing after it, possibly with whitespace)
     // 2. Or we're typing something that looks like a parameter name (alphanumeric + _)
-    if !after_colon_trimmed.is_empty() && !after_colon_trimmed.chars().all(|c| c.is_alphanumeric() || c == '_') {
+    if !after_colon_trimmed.is_empty()
+        && !after_colon_trimmed
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_')
+    {
         return None;
     }
 

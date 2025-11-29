@@ -29,10 +29,10 @@
 //! - **Expected speedup**: 2-6× additional on top of SIMD (3×)
 //! - **Combined SIMD + Threading**: 6-20× total speedup
 
-use crossbeam::channel::{bounded, Sender, Receiver, RecvError};
+use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::thread::{self, JoinHandle};
-use std::collections::HashMap;
 
 #[cfg(target_arch = "x86_64")]
 use crate::voice_simd::is_avx2_supported;
@@ -41,10 +41,7 @@ use crate::voice_simd::is_avx2_supported;
 #[derive(Clone)]
 pub enum WorkItem {
     /// Process a SIMD batch (8 voices)
-    ProcessBatch {
-        batch_id: usize,
-        buffer_size: usize,
-    },
+    ProcessBatch { batch_id: usize, buffer_size: usize },
     /// Shutdown signal
     Shutdown,
 }
@@ -100,7 +97,10 @@ impl Worker {
     ) {
         loop {
             match work_rx.recv() {
-                Ok(WorkItem::ProcessBatch { batch_id, buffer_size }) => {
+                Ok(WorkItem::ProcessBatch {
+                    batch_id,
+                    buffer_size,
+                }) => {
                     // Lock voices for reading (RwLock allows multiple readers)
                     let voices_guard = voices.read().unwrap();
 
@@ -123,7 +123,8 @@ impl Worker {
                     };
 
                     #[cfg(not(target_arch = "x86_64"))]
-                    let outputs = Self::process_batch_scalar(&voices_guard[start..end], buffer_size);
+                    let outputs =
+                        Self::process_batch_scalar(&voices_guard[start..end], buffer_size);
 
                     // Send result
                     if result_tx.send(WorkResult { batch_id, outputs }).is_err() {
@@ -180,10 +181,7 @@ impl VoiceThreadPool {
     ///
     /// * `num_workers` - Number of worker threads (typically num_cpus - 1 to reserve one for audio)
     /// * `voices` - Shared voice data
-    pub fn new(
-        num_workers: usize,
-        voices: Arc<RwLock<Vec<crate::voice_manager::Voice>>>,
-    ) -> Self {
+    pub fn new(num_workers: usize, voices: Arc<RwLock<Vec<crate::voice_manager::Voice>>>) -> Self {
         assert!(num_workers > 0, "Need at least 1 worker");
 
         // Create bounded channels (size = num_workers for optimal throughput)
@@ -193,12 +191,7 @@ impl VoiceThreadPool {
         // Spawn worker threads
         let mut workers = Vec::with_capacity(num_workers);
         for id in 0..num_workers {
-            let worker = Worker::new(
-                id,
-                work_rx.clone(),
-                result_tx.clone(),
-                Arc::clone(&voices),
-            );
+            let worker = Worker::new(id, work_rx.clone(), result_tx.clone(), Arc::clone(&voices));
             workers.push(worker);
         }
 

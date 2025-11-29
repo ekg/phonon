@@ -79,7 +79,7 @@ use rayon::prelude::*;
 use std::sync::Arc;
 
 #[cfg(target_arch = "x86_64")]
-use crate::voice_simd::{interpolate_samples_simd_x8, apply_panning_simd_x8, is_avx2_supported};
+use crate::voice_simd::{apply_panning_simd_x8, interpolate_samples_simd_x8, is_avx2_supported};
 
 /// Default initial voice pool size (preallocated to avoid growth underruns)
 const DEFAULT_INITIAL_VOICES: usize = 256;
@@ -196,8 +196,8 @@ impl Voice {
     pub fn new() -> Self {
         Self {
             sample_data: None,
-            synthesis_node_id: None,   // No synthesis node by default
-            synthesis_sample_cache: 0.0, // No cached sample yet
+            synthesis_node_id: None,        // No synthesis node by default
+            synthesis_sample_cache: 0.0,    // No cached sample yet
             synthesis_semitone_offset: 0.0, // No pitch offset by default
             position: 0.0,
             state: VoiceState::Free,
@@ -206,13 +206,13 @@ impl Voice {
             speed: 1.0,
             age: 0,
             cut_group: None,
-            source_node: 0,            // Default source node (will be set on trigger)
+            source_node: 0, // Default source node (will be set on trigger)
             envelope: VoiceEnvelope::new_percussion(SAMPLE_RATE, 0.001, 0.1),
             buffer_trigger_offset: None,  // No offset by default
-            attack: 0.001,             // 1ms default attack
-            release: 0.1,              // 100ms default release
-            unit_mode: UnitMode::Rate, // Default to rate mode
-            loop_enabled: false,       // Default to no looping
+            attack: 0.001,                // 1ms default attack
+            release: 0.1,                 // 100ms default release
+            unit_mode: UnitMode::Rate,    // Default to rate mode
+            loop_enabled: false,          // Default to no looping
             auto_release_at_sample: None, // No auto-release by default
         }
     }
@@ -223,7 +223,13 @@ impl Voice {
     }
 
     /// Start playing a sample with gain, pan, and speed control (no cut group)
-    pub fn trigger_with_speed(&mut self, sample: Arc<StereoSample>, gain: f32, pan: f32, speed: f32) {
+    pub fn trigger_with_speed(
+        &mut self,
+        sample: Arc<StereoSample>,
+        gain: f32,
+        pan: f32,
+        speed: f32,
+    ) {
         self.trigger_with_cut_group(sample, gain, pan, speed, None);
     }
 
@@ -418,7 +424,7 @@ impl Voice {
         // Process envelope
         // For reverse playback, skip envelope (sample plays backwards, envelope would sound wrong)
         let env_value = if self.speed < 0.0 {
-            1.0  // Full gain for reverse playback
+            1.0 // Full gain for reverse playback
         } else {
             self.envelope.process()
         };
@@ -427,7 +433,8 @@ impl Voice {
         if std::env::var("DEBUG_VOICE_PROCESS").is_ok() && self.age < 10 {
             eprintln!(
                 "[VOICE] envelope processed, env_value={:.6}, is_active={}",
-                env_value, self.envelope.is_active()
+                env_value,
+                self.envelope.is_active()
             );
         }
 
@@ -516,8 +523,10 @@ impl Voice {
                     let center_factor = 1.0 - self.pan.abs();
                     let mono_sum = (gained_left + gained_right) * 0.5;
 
-                    let left_out = gained_left * center_factor * pan_left + mono_sum * (1.0 - center_factor) * pan_left;
-                    let right_out = gained_right * center_factor * pan_right + mono_sum * (1.0 - center_factor) * pan_right;
+                    let left_out = gained_left * center_factor * pan_left
+                        + mono_sum * (1.0 - center_factor) * pan_left;
+                    let right_out = gained_right * center_factor * pan_right
+                        + mono_sum * (1.0 - center_factor) * pan_right;
 
                     (left_out, right_out)
                 } else {
@@ -733,7 +742,9 @@ impl VoiceManager {
                 "⚠️  Absolute voice limit reached: {} voices (hard cap: {})",
                 current_count, ABSOLUTE_MAX_VOICES
             );
-            eprintln!("    Consider using 'cut groups' or longer envelopes to reduce overlapping samples");
+            eprintln!(
+                "    Consider using 'cut groups' or longer envelopes to reduce overlapping samples"
+            );
             return false;
         }
 
@@ -836,8 +847,12 @@ impl VoiceManager {
 
                 // DEBUG: Verify voice state after triggering
                 if std::env::var("DEBUG_VOICE_TRIGGERS").is_ok() {
-                    eprintln!("[VOICE_MGR] Voice {} triggered, state={:?}, envelope_active={}",
-                        idx, self.voices[idx].state, self.voices[idx].envelope.is_active());
+                    eprintln!(
+                        "[VOICE_MGR] Voice {} triggered, state={:?}, envelope_active={}",
+                        idx,
+                        self.voices[idx].state,
+                        self.voices[idx].envelope.is_active()
+                    );
                 }
                 return;
             }
@@ -1042,8 +1057,10 @@ impl VoiceManager {
     ) {
         // DEBUG: Log synthesis voice triggers
         if std::env::var("DEBUG_VOICE_TRIGGERS").is_ok() {
-            eprintln!("[VOICE_MGR] trigger_synthesis_voice: node_id={}, semitone_offset={:.1}",
-                synthesis_node_id, semitone_offset);
+            eprintln!(
+                "[VOICE_MGR] trigger_synthesis_voice: node_id={}, semitone_offset={:.1}",
+                synthesis_node_id, semitone_offset
+            );
         }
 
         // If this has a cut group, fade out all other voices in the same cut group
@@ -1073,8 +1090,9 @@ impl VoiceManager {
                 self.voices[idx].age = 0;
                 self.voices[idx].cut_group = cut_group;
                 self.voices[idx].source_node = self.default_source_node;
-                self.voices[idx].envelope = VoiceEnvelope::new_percussion(SAMPLE_RATE, attack, release);
-                self.voices[idx].envelope.trigger();  // CRITICAL: Start the envelope!
+                self.voices[idx].envelope =
+                    VoiceEnvelope::new_percussion(SAMPLE_RATE, attack, release);
+                self.voices[idx].envelope.trigger(); // CRITICAL: Start the envelope!
                 self.voices[idx].attack = attack;
                 self.voices[idx].release = release;
 
@@ -1083,8 +1101,10 @@ impl VoiceManager {
 
                 // DEBUG: Verify voice state
                 if std::env::var("DEBUG_VOICE_TRIGGERS").is_ok() {
-                    eprintln!("[VOICE_MGR] Synthesis voice {} triggered, state={:?}",
-                        idx, self.voices[idx].state);
+                    eprintln!(
+                        "[VOICE_MGR] Synthesis voice {} triggered, state={:?}",
+                        idx, self.voices[idx].state
+                    );
                 }
                 return;
             }
@@ -1106,7 +1126,7 @@ impl VoiceManager {
             self.voices[idx].cut_group = cut_group;
             self.voices[idx].source_node = self.default_source_node;
             self.voices[idx].envelope = VoiceEnvelope::new_percussion(SAMPLE_RATE, attack, release);
-            self.voices[idx].envelope.trigger();  // CRITICAL: Start the envelope!
+            self.voices[idx].envelope.trigger(); // CRITICAL: Start the envelope!
             self.voices[idx].attack = attack;
             self.voices[idx].release = release;
 
@@ -1137,8 +1157,9 @@ impl VoiceManager {
         self.voices[oldest_idx].age = 0;
         self.voices[oldest_idx].cut_group = cut_group;
         self.voices[oldest_idx].source_node = self.default_source_node;
-        self.voices[oldest_idx].envelope = VoiceEnvelope::new_percussion(SAMPLE_RATE, attack, release);
-        self.voices[oldest_idx].envelope.trigger();  // CRITICAL: Start the envelope!
+        self.voices[oldest_idx].envelope =
+            VoiceEnvelope::new_percussion(SAMPLE_RATE, attack, release);
+        self.voices[oldest_idx].envelope.trigger(); // CRITICAL: Start the envelope!
         self.voices[oldest_idx].attack = attack;
         self.voices[oldest_idx].release = release;
 
@@ -1154,7 +1175,8 @@ impl VoiceManager {
             .iter()
             .filter_map(|v| {
                 if v.synthesis_node_id.is_some() && v.state != VoiceState::Free {
-                    v.synthesis_node_id.map(|node_id| (node_id, v.synthesis_semitone_offset))
+                    v.synthesis_node_id
+                        .map(|node_id| (node_id, v.synthesis_semitone_offset))
                 } else {
                     None
                 }
@@ -1164,14 +1186,20 @@ impl VoiceManager {
 
     /// Update synthesis sample cache with pre-computed samples
     /// Takes a HashMap of node_id -> sample_value
-    pub fn update_synthesis_cache_with_samples(&mut self, samples: &std::collections::HashMap<usize, f32>) {
+    pub fn update_synthesis_cache_with_samples(
+        &mut self,
+        samples: &std::collections::HashMap<usize, f32>,
+    ) {
         for voice in &mut self.voices {
             if let Some(node_id) = voice.synthesis_node_id {
                 if voice.state != VoiceState::Free {
                     if let Some(&sample) = samples.get(&node_id) {
                         voice.synthesis_sample_cache = sample;
                         if std::env::var("DEBUG_SYNTHESIS_CACHE").is_ok() && sample.abs() > 0.001 {
-                            eprintln!("[CACHE] Updated voice with node_id={} to cache={:.6}", node_id, sample);
+                            eprintln!(
+                                "[CACHE] Updated voice with node_id={} to cache={:.6}",
+                                node_id, sample
+                            );
                         }
                     }
                 }
@@ -1216,25 +1244,26 @@ impl VoiceManager {
         use std::collections::HashMap;
 
         // PERFORMANCE: Use parallel processing for high voice counts
-        let voice_outputs: Vec<((f32, f32), usize)> = if self.voices.len() >= self.parallel_threshold {
-            // Parallel voice processing (huge win for 243 voices on 16 cores!)
-            self.voices
-                .par_iter_mut()
-                .map(|voice| {
-                    let (l, r) = voice.process_stereo();
-                    ((l, r), voice.source_node)
-                })
-                .collect()
-        } else {
-            // Sequential for low voice counts (avoid Rayon overhead)
-            self.voices
-                .iter_mut()
-                .map(|voice| {
-                    let (l, r) = voice.process_stereo();
-                    ((l, r), voice.source_node)
-                })
-                .collect()
-        };
+        let voice_outputs: Vec<((f32, f32), usize)> =
+            if self.voices.len() >= self.parallel_threshold {
+                // Parallel voice processing (huge win for 243 voices on 16 cores!)
+                self.voices
+                    .par_iter_mut()
+                    .map(|voice| {
+                        let (l, r) = voice.process_stereo();
+                        ((l, r), voice.source_node)
+                    })
+                    .collect()
+            } else {
+                // Sequential for low voice counts (avoid Rayon overhead)
+                self.voices
+                    .iter_mut()
+                    .map(|voice| {
+                        let (l, r) = voice.process_stereo();
+                        ((l, r), voice.source_node)
+                    })
+                    .collect()
+            };
 
         // Accumulate by source_node (sequential - fast HashMap ops)
         let mut node_sums: HashMap<usize, (f32, f32)> = HashMap::new();
@@ -1269,15 +1298,16 @@ impl VoiceManager {
     /// Using AVX2 intrinsics for 3× speedup on interpolation and panning
     #[cfg(target_arch = "x86_64")]
     fn process_voice_batch_simd(
-        voices: &mut [Voice],  // Exactly 8 voices
+        voices: &mut [Voice], // Exactly 8 voices
         output: &mut Vec<std::collections::HashMap<usize, f32>>,
         buffer_size: usize,
     ) {
-        
-
         // Defensive check instead of assertion to prevent crashes during live reload
         if voices.len() != 8 {
-            eprintln!("⚠️  SIMD batch size mismatch: expected 8 voices, got {}. Skipping batch.", voices.len());
+            eprintln!(
+                "⚠️  SIMD batch size mismatch: expected 8 voices, got {}. Skipping batch.",
+                voices.len()
+            );
             return;
         }
 
@@ -1300,7 +1330,7 @@ impl VoiceManager {
 
                 // Process envelope (scalar - complex state machine)
                 let env_value = if voice.speed < 0.0 {
-                    1.0  // Full gain for reverse playback
+                    1.0 // Full gain for reverse playback
                 } else {
                     voice.envelope.process()
                 };
@@ -1375,7 +1405,8 @@ impl VoiceManager {
             // SIMD processing for voices that can use it
             unsafe {
                 // Interpolate all 8 samples simultaneously
-                let interpolated = interpolate_samples_simd_x8(&positions, &samples_curr, &samples_next);
+                let interpolated =
+                    interpolate_samples_simd_x8(&positions, &samples_curr, &samples_next);
 
                 // Apply gains/envelopes (element-wise multiply)
                 let mut gained = [0.0f32; 8];
@@ -1415,9 +1446,12 @@ impl VoiceManager {
     /// Uses crossbeam::scope to safely pass mutable voice slices to parallel threads.
     /// Each thread processes a batch of 8 voices with SIMD, then results are merged.
     #[cfg(target_arch = "x86_64")]
-    fn process_buffer_parallel_simd(&mut self, buffer_size: usize) -> Vec<std::collections::HashMap<usize, f32>> {
-        use std::collections::HashMap;
+    fn process_buffer_parallel_simd(
+        &mut self,
+        buffer_size: usize,
+    ) -> Vec<std::collections::HashMap<usize, f32>> {
         use crossbeam::thread;
+        use std::collections::HashMap;
 
         let num_full_batches = self.voices.len() / 8;
         let remainder_start = num_full_batches * 8;
@@ -1456,7 +1490,10 @@ impl VoiceManager {
 
         // Handle scope panic gracefully
         if let Err(e) = scope_result {
-            eprintln!("⚠️  Thread scope panicked: {:?}. Returning silent output.", e);
+            eprintln!(
+                "⚠️  Thread scope panicked: {:?}. Returning silent output.",
+                e
+            );
             return vec![HashMap::new(); buffer_size];
         }
 
@@ -1513,7 +1550,10 @@ impl VoiceManager {
     ///
     /// PARALLEL SIMD: When ≥16 voices, processes multiple SIMD batches in parallel
     /// using scoped threads for additional 2-4× speedup (6-12× total with SIMD)
-    pub fn process_buffer_per_node(&mut self, buffer_size: usize) -> Vec<std::collections::HashMap<usize, f32>> {
+    pub fn process_buffer_per_node(
+        &mut self,
+        buffer_size: usize,
+    ) -> Vec<std::collections::HashMap<usize, f32>> {
         use std::collections::HashMap;
 
         // Pre-allocate output: one HashMap per sample in buffer
@@ -1569,7 +1609,8 @@ impl VoiceManager {
         // because synthesis_sample_cache is updated per-sample in the main loop
         if self.voices.len() >= self.parallel_threshold {
             // Parallel: process voices in parallel, each generating full buffer
-            let voice_buffers: Vec<(Vec<(f32, f32)>, usize)> = self.voices
+            let voice_buffers: Vec<(Vec<(f32, f32)>, usize)> = self
+                .voices
                 .par_iter_mut()
                 .filter(|v| v.synthesis_node_id.is_none()) // Skip synthesis voices
                 .map(|voice| {
@@ -1709,8 +1750,10 @@ impl VoiceManager {
                         }
                     }
                 } else if std::env::var("DEBUG_SYNTH_LOOKUP").is_ok() {
-                    eprintln!("[SYNTH_LOOKUP] WARNING: No buffer for key=({}, {}), voice semitone={}",
-                        synthesis_node_id, semitone_key, voice.synthesis_semitone_offset);
+                    eprintln!(
+                        "[SYNTH_LOOKUP] WARNING: No buffer for key=({}, {}), voice semitone={}",
+                        synthesis_node_id, semitone_key, voice.synthesis_semitone_offset
+                    );
                 }
             }
         }
@@ -1730,8 +1773,11 @@ impl VoiceManager {
                 .iter()
                 .filter(|v| v.state != VoiceState::Free)
                 .count();
-            eprintln!("[VOICE_MGR] process_stereo: total_voices={}, active_voices={}",
-                self.voices.len(), active_count);
+            eprintln!(
+                "[VOICE_MGR] process_stereo: total_voices={}, active_voices={}",
+                self.voices.len(),
+                active_count
+            );
             if active_count > 0 {
                 eprintln!("[VOICE_MGR] {} active voices", active_count);
             }
@@ -1843,7 +1889,10 @@ impl VoiceManager {
     /// Returns HashMap where:
     /// - Key: source_node_id (from set_default_source_node)
     /// - Value: Vec<f32> buffer of block_size samples
-    pub fn render_block(&mut self, block_size: usize) -> std::collections::HashMap<usize, Vec<f32>> {
+    pub fn render_block(
+        &mut self,
+        block_size: usize,
+    ) -> std::collections::HashMap<usize, Vec<f32>> {
         use std::collections::HashMap;
 
         if self.voices.is_empty() {
@@ -1856,7 +1905,8 @@ impl VoiceManager {
         // PARALLEL: Process voices in parallel when count is high
         if self.voices.len() >= self.parallel_threshold {
             // Each voice renders its full buffer independently
-            let voice_buffers: Vec<(Vec<f32>, usize)> = self.voices
+            let voice_buffers: Vec<(Vec<f32>, usize)> = self
+                .voices
                 .par_iter_mut()
                 .map(|voice| {
                     let source_node = voice.source_node;
@@ -1994,7 +2044,12 @@ impl VoiceManager {
     /// Used for immediate playback of newly triggered voices within a buffer
     pub fn process_last_voice_stereo(&mut self) -> (f32, f32) {
         // Find the last active voice (most recently triggered)
-        if let Some(last_voice) = self.voices.iter_mut().rev().find(|v| v.state != VoiceState::Free) {
+        if let Some(last_voice) = self
+            .voices
+            .iter_mut()
+            .rev()
+            .find(|v| v.state != VoiceState::Free)
+        {
             last_voice.process_stereo()
         } else {
             (0.0, 0.0)
@@ -2053,8 +2108,8 @@ impl VoiceManager {
         }
 
         // Calculate average processing time over last period
-        let avg_time_us: f32 = self.processing_times.iter().sum::<f32>()
-            / self.processing_times.len() as f32;
+        let avg_time_us: f32 =
+            self.processing_times.iter().sum::<f32>() / self.processing_times.len() as f32;
 
         // Calculate underrun rate (% of samples that exceeded budget)
         let total_samples = self.processing_times.len() as f32;

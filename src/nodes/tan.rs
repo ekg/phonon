@@ -2,7 +2,6 @@
 ///
 /// This node performs tangent transformation with clamping to avoid asymptotes.
 /// Useful for soft saturation and waveshaping.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Tangent node: out = tan(input)
@@ -54,18 +53,11 @@ impl AudioNode for TanNode {
         _sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(
-            !inputs.is_empty(),
-            "TanNode requires 1 input, got 0"
-        );
+        debug_assert!(!inputs.is_empty(), "TanNode requires 1 input, got 0");
 
         let buf = inputs[0];
 
-        debug_assert_eq!(
-            buf.len(),
-            output.len(),
-            "Input length mismatch"
-        );
+        debug_assert_eq!(buf.len(), output.len(), "Input length mismatch");
 
         // Apply tangent with clamping to avoid asymptotes
         for i in 0..output.len() {
@@ -99,13 +91,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         tan_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -123,13 +109,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 3];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            3,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 3, 2.0, 44100.0);
 
         tan_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -151,13 +131,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 3];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            3,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 3, 2.0, 44100.0);
 
         tan_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -168,7 +142,11 @@ mod tests {
 
         // All should be negative
         for sample in &output {
-            assert!(*sample < 0.0, "tan(negative) should be negative, got {}", sample);
+            assert!(
+                *sample < 0.0,
+                "tan(negative) should be negative, got {}",
+                sample
+            );
         }
     }
 
@@ -179,35 +157,43 @@ mod tests {
         // Values near ±π/2 where tan() would go to infinity
         // Without clamping, these would produce very large values
         let input = vec![
-            1.57,   // Close to π/2
-            -1.57,  // Close to -π/2
-            2.0,    // Beyond π/2 (will be clamped to 1.5)
-            -2.0,   // Beyond -π/2 (will be clamped to -1.5)
-            100.0,  // Very large (will be clamped to 1.5)
+            1.57,  // Close to π/2
+            -1.57, // Close to -π/2
+            2.0,   // Beyond π/2 (will be clamped to 1.5)
+            -2.0,  // Beyond -π/2 (will be clamped to -1.5)
+            100.0, // Very large (will be clamped to 1.5)
         ];
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         tan_node.process_block(&inputs, &mut output, 44100.0, &context);
 
         // All outputs should be finite (no infinity)
         for sample in &output {
-            assert!(sample.is_finite(), "Output should be finite, got {}", sample);
-            assert!(sample.abs() < 100.0, "Output should be bounded due to clamping, got {}", sample);
+            assert!(
+                sample.is_finite(),
+                "Output should be finite, got {}",
+                sample
+            );
+            assert!(
+                sample.abs() < 100.0,
+                "Output should be bounded due to clamping, got {}",
+                sample
+            );
         }
 
         // Clamped values should produce tan(1.5) ≈ 14.1
         let expected_max = 1.5_f32.tan();
-        assert!((output[3] - (-expected_max)).abs() < 0.1, "Clamped -2.0 should give tan(-1.5)");
-        assert!((output[4] - expected_max).abs() < 0.1, "Clamped 100.0 should give tan(1.5)");
+        assert!(
+            (output[3] - (-expected_max)).abs() < 0.1,
+            "Clamped -2.0 should give tan(-1.5)"
+        );
+        assert!(
+            (output[4] - expected_max).abs() < 0.1,
+            "Clamped 100.0 should give tan(1.5)"
+        );
     }
 
     #[test]
@@ -218,19 +204,13 @@ mod tests {
         // Create a signal that goes from -1.0 to 1.0
         let mut input = Vec::new();
         for i in 0..16 {
-            let x = -1.0 + (i as f32 / 15.0) * 2.0;  // -1.0 to 1.0
+            let x = -1.0 + (i as f32 / 15.0) * 2.0; // -1.0 to 1.0
             input.push(x);
         }
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 16];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            16,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 16, 2.0, 44100.0);
 
         tan_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -240,7 +220,8 @@ mod tests {
             assert!(
                 output[i] > output[i - 1],
                 "tan should be monotonically increasing, but {} <= {}",
-                output[i], output[i - 1]
+                output[i],
+                output[i - 1]
             );
         }
 
@@ -266,13 +247,7 @@ mod tests {
         let mut const_node = ConstantNode::new(0.5);
         let mut tan_node = TanNode::new(0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constant first
         let mut buf = vec![0.0; 512];

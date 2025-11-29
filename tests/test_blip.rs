@@ -8,7 +8,6 @@
 /// - Band-limited (no aliasing above Nyquist frequency)
 /// - Rich harmonic content up to Nyquist
 /// - Useful for percussive sounds and synthesis building blocks
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -20,7 +19,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -28,7 +28,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 /// Perform FFT and analyze spectrum
 /// Returns (frequency_bins, magnitudes)
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -89,7 +89,11 @@ fn test_blip_constant_frequency() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
     // 440 Hz impulse train with peak=1.0 has RMS ≈ 0.095-0.10
-    assert!(rms > 0.095, "Blip with constant frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.095,
+        "Blip with constant frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -104,7 +108,11 @@ fn test_blip_low_frequency() {
     let rms = calculate_rms(&buffer);
     // Low frequency impulse trains have naturally low RMS due to sparse impulses
     // For 110 Hz with peak=1.0: RMS ≈ sqrt(110/44100) ≈ 0.05
-    assert!(rms > 0.04, "Blip at low frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.04,
+        "Blip at low frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -117,7 +125,11 @@ fn test_blip_high_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Blip at high frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Blip at high frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -130,7 +142,11 @@ fn test_blip_pattern_frequency_lfo() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Blip with LFO frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Blip with LFO frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -143,7 +159,11 @@ fn test_blip_pattern_frequency_sweep() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "Blip with sweep should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Blip with sweep should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Spectral Analysis Tests ==========
@@ -165,19 +185,29 @@ fn test_blip_rich_harmonic_content() {
     let peaks = find_spectral_peaks(&frequencies, &magnitudes, threshold);
 
     // Blip should have multiple harmonics (at least 10 for 110 Hz)
-    assert!(peaks.len() >= 10,
-        "Blip should have rich harmonic content, found {} peaks", peaks.len());
+    assert!(
+        peaks.len() >= 10,
+        "Blip should have rich harmonic content, found {} peaks",
+        peaks.len()
+    );
 
     // Verify harmonics are at multiples of fundamental (110 Hz ± tolerance)
     let fundamental = 110.0;
     let tolerance = 15.0;
 
-    let has_fundamental = peaks.iter().any(|(f, _)| (*f - fundamental).abs() < tolerance);
-    assert!(has_fundamental,
+    let has_fundamental = peaks
+        .iter()
+        .any(|(f, _)| (*f - fundamental).abs() < tolerance);
+    assert!(
+        has_fundamental,
         "Blip should have fundamental at 110 Hz, peaks: {:?}",
-        peaks.iter().take(5).collect::<Vec<_>>());
+        peaks.iter().take(5).collect::<Vec<_>>()
+    );
 
-    println!("Blip spectral peaks (top 10): {:?}", peaks.iter().take(10).collect::<Vec<_>>());
+    println!(
+        "Blip spectral peaks (top 10): {:?}",
+        peaks.iter().take(10).collect::<Vec<_>>()
+    );
 }
 
 #[test]
@@ -193,13 +223,15 @@ fn test_blip_band_limited_no_aliasing() {
 
     // Check energy in upper frequency range (18kHz - 22kHz)
     // Should be much lower than lower frequencies due to band-limiting
-    let low_energy: f32 = frequencies.iter()
+    let low_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 5000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let high_energy: f32 = frequencies.iter()
+    let high_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 18000.0)
         .map(|(_, m)| m * m)
@@ -209,11 +241,16 @@ fn test_blip_band_limited_no_aliasing() {
     // Impulse trains have equal amplitude in all harmonics up to Nyquist
     // For 110 Hz: ~45 harmonics <5kHz, ~37 harmonics >18kHz
     // Expected ratio: 37/45 ≈ 0.82, which is correct for band-limited impulse trains
-    assert!(energy_ratio < 0.9,
+    assert!(
+        energy_ratio < 0.9,
         "Blip should be band-limited (low aliasing), high/low energy ratio: {}",
-        energy_ratio);
+        energy_ratio
+    );
 
-    println!("Low energy: {}, High energy: {}, Ratio: {}", low_energy, high_energy, energy_ratio);
+    println!(
+        "Low energy: {}, High energy: {}, Ratio: {}",
+        low_energy, high_energy, energy_ratio
+    );
 }
 
 #[test]
@@ -243,9 +280,17 @@ fn test_blip_vs_sine_spectral_difference() {
 
     // Sine should have ~1 peak, Blip should have many harmonics
     assert_eq!(sine_peaks.len(), 1, "Pure sine should have 1 spectral peak");
-    assert!(blip_peaks.len() >= 10, "Blip should have many harmonics, found {}", blip_peaks.len());
+    assert!(
+        blip_peaks.len() >= 10,
+        "Blip should have many harmonics, found {}",
+        blip_peaks.len()
+    );
 
-    println!("Sine peaks: {}, Blip peaks: {}", sine_peaks.len(), blip_peaks.len());
+    println!(
+        "Sine peaks: {}, Blip peaks: {}",
+        sine_peaks.len(),
+        blip_peaks.len()
+    );
 }
 
 #[test]
@@ -274,12 +319,18 @@ fn test_blip_frequency_affects_harmonic_count() {
     let high_peaks = find_spectral_peaks(&high_frequencies, &high_magnitudes, high_max * 0.05);
 
     // Lower frequency should have more harmonics before Nyquist
-    assert!(low_peaks.len() > high_peaks.len(),
+    assert!(
+        low_peaks.len() > high_peaks.len(),
         "Lower frequency should have more harmonics: low={}, high={}",
-        low_peaks.len(), high_peaks.len());
+        low_peaks.len(),
+        high_peaks.len()
+    );
 
-    println!("Low freq (110 Hz) peaks: {}, High freq (2200 Hz) peaks: {}",
-        low_peaks.len(), high_peaks.len());
+    println!(
+        "Low freq (110 Hz) peaks: {}, High freq (2200 Hz) peaks: {}",
+        low_peaks.len(),
+        high_peaks.len()
+    );
 }
 
 // ========== Audio Quality Tests ==========
@@ -295,7 +346,11 @@ fn test_blip_no_dc_offset() {
     let buffer = render_dsl(code, 2.0);
     let dc_offset: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
 
-    assert!(dc_offset.abs() < 0.01, "Blip should have no DC offset, got {}", dc_offset);
+    assert!(
+        dc_offset.abs() < 0.01,
+        "Blip should have no DC offset, got {}",
+        dc_offset
+    );
 }
 
 #[test]
@@ -309,7 +364,11 @@ fn test_blip_no_clipping() {
     let buffer = render_dsl(code, 2.0);
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
-    assert!(max_amplitude <= 1.0, "Blip should not clip, max amplitude: {}", max_amplitude);
+    assert!(
+        max_amplitude <= 1.0,
+        "Blip should not clip, max amplitude: {}",
+        max_amplitude
+    );
 }
 
 #[test]
@@ -325,7 +384,11 @@ fn test_blip_continuous_output() {
 
     // Blip is impulsive, so RMS will be lower than continuous waveforms
     // But should still have consistent energy
-    assert!(rms > 0.05, "Blip should have consistent energy, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Blip should have consistent energy, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -342,9 +405,11 @@ fn test_blip_impulsive_characteristic() {
     let crest_factor = peak / rms;
 
     // Impulse train should have high crest factor (> 3)
-    assert!(crest_factor > 3.0,
+    assert!(
+        crest_factor > 3.0,
         "Blip should be impulsive (high crest factor), got {:.2}",
-        crest_factor);
+        crest_factor
+    );
 
     println!("Blip crest factor (peak/RMS): {:.2}", crest_factor);
 }
@@ -371,13 +436,15 @@ fn test_blip_vs_saw_brightness() {
     let (blip_frequencies, blip_magnitudes) = analyze_spectrum(&blip_buffer, 44100.0);
 
     // Calculate high frequency energy (above 2kHz)
-    let saw_high: f32 = saw_frequencies.iter()
+    let saw_high: f32 = saw_frequencies
+        .iter()
         .zip(saw_magnitudes.iter())
         .filter(|(f, _)| **f > 2000.0 && **f < 15000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let blip_high: f32 = blip_frequencies.iter()
+    let blip_high: f32 = blip_frequencies
+        .iter()
         .zip(blip_magnitudes.iter())
         .filter(|(f, _)| **f > 2000.0 && **f < 15000.0)
         .map(|(_, m)| m * m)
@@ -391,5 +458,8 @@ fn test_blip_vs_saw_brightness() {
         "Saw should have more energy due to different normalization: blip_high={:.2}, saw_high={:.2}",
         blip_high, saw_high);
 
-    println!("Saw high energy: {:.2}, Blip high energy: {:.2}", saw_high, blip_high);
+    println!(
+        "Saw high energy: {:.2}, Blip high energy: {:.2}",
+        saw_high, blip_high
+    );
 }

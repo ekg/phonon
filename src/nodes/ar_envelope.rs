@@ -6,23 +6,22 @@
 ///
 /// Simpler than ADSR - no decay or sustain phases.
 /// All time parameters are in seconds.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// AR envelope phase
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ARPhase {
-    Idle,       // Gate is low, envelope is at 0.0
-    Attack,     // Ramping from 0.0 to 1.0
-    Release,    // Ramping to 0.0
+    Idle,    // Gate is low, envelope is at 0.0
+    Attack,  // Ramping from 0.0 to 1.0
+    Release, // Ramping to 0.0
 }
 
 /// AR envelope state machine
 #[derive(Debug, Clone)]
 struct ARState {
-    phase: ARPhase,         // Current envelope phase
-    value: f32,             // Current envelope value (0.0 to 1.0)
-    gate_was_high: bool,    // Track gate transitions
+    phase: ARPhase,      // Current envelope phase
+    value: f32,          // Current envelope value (0.0 to 1.0)
+    gate_was_high: bool, // Track gate transitions
 }
 
 impl Default for ARState {
@@ -51,10 +50,10 @@ impl Default for ARState {
 /// let ar = AREnvelopeNode::new(0, 1, 2);       // NodeId 3
 /// ```
 pub struct AREnvelopeNode {
-    gate_input: NodeId,      // Trigger input (gate on/off)
-    attack_input: NodeId,    // Attack time in seconds
-    release_input: NodeId,   // Release time in seconds
-    state: ARState,          // Internal state machine
+    gate_input: NodeId,    // Trigger input (gate on/off)
+    attack_input: NodeId,  // Attack time in seconds
+    release_input: NodeId, // Release time in seconds
+    state: ARState,        // Internal state machine
 }
 
 impl AREnvelopeNode {
@@ -74,11 +73,7 @@ impl AREnvelopeNode {
     /// ~envelope: ~gate # ar_envelope 0.01 0.2
     /// ~synth: sine 440 * ~envelope
     /// ```
-    pub fn new(
-        gate_input: NodeId,
-        attack_input: NodeId,
-        release_input: NodeId,
-    ) -> Self {
+    pub fn new(gate_input: NodeId, attack_input: NodeId, release_input: NodeId) -> Self {
         Self {
             gate_input,
             attack_input,
@@ -120,9 +115,21 @@ impl AudioNode for AREnvelopeNode {
         let attack_buffer = inputs[1];
         let release_buffer = inputs[2];
 
-        debug_assert_eq!(gate_buffer.len(), output.len(), "Gate buffer length mismatch");
-        debug_assert_eq!(attack_buffer.len(), output.len(), "Attack buffer length mismatch");
-        debug_assert_eq!(release_buffer.len(), output.len(), "Release buffer length mismatch");
+        debug_assert_eq!(
+            gate_buffer.len(),
+            output.len(),
+            "Gate buffer length mismatch"
+        );
+        debug_assert_eq!(
+            attack_buffer.len(),
+            output.len(),
+            "Attack buffer length mismatch"
+        );
+        debug_assert_eq!(
+            release_buffer.len(),
+            output.len(),
+            "Release buffer length mismatch"
+        );
 
         for i in 0..output.len() {
             let gate = gate_buffer[i];
@@ -187,11 +194,7 @@ impl AudioNode for AREnvelopeNode {
     }
 
     fn input_nodes(&self) -> Vec<NodeId> {
-        vec![
-            self.gate_input,
-            self.attack_input,
-            self.release_input,
-        ]
+        vec![self.gate_input, self.attack_input, self.release_input]
     }
 
     fn name(&self) -> &str {
@@ -208,19 +211,13 @@ mod tests {
     #[test]
     fn test_ar_idle_when_gate_low() {
         // Test 1: When gate is low, envelope should be idle at 0.0
-        let mut gate = ConstantNode::new(0.0);  // Gate off
+        let mut gate = ConstantNode::new(0.0); // Gate off
         let mut attack = ConstantNode::new(0.01);
         let mut release = ConstantNode::new(0.2);
 
         let mut ar = AREnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Generate input buffers
         let mut gate_buf = vec![0.0; 512];
@@ -242,11 +239,7 @@ mod tests {
 
         // All samples should be 0.0 (idle)
         for (i, &sample) in output.iter().enumerate() {
-            assert_eq!(
-                sample, 0.0,
-                "Sample {} should be 0.0 when gate is low",
-                i
-            );
+            assert_eq!(sample, 0.0, "Sample {} should be 0.0 when gate is low", i);
         }
 
         assert_eq!(ar.phase(), ARPhase::Idle);
@@ -259,19 +252,14 @@ mod tests {
         let attack_time = 0.01; // 10ms = 441 samples
         let block_size = 512;
 
-        let mut gate = ConstantNode::new(1.0);  // Gate on
+        let mut gate = ConstantNode::new(1.0); // Gate on
         let mut attack = ConstantNode::new(attack_time);
         let mut release = ConstantNode::new(0.2);
 
         let mut ar = AREnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut gate_buf = vec![1.0; block_size];
         let mut attack_buf = vec![attack_time; block_size];
@@ -319,13 +307,8 @@ mod tests {
         ar.state.value = 1.0;
         ar.state.gate_was_high = true;
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Gate goes low
         let gate_buf = vec![0.0; block_size];
@@ -349,8 +332,14 @@ mod tests {
         );
 
         // Envelope should be falling
-        assert!(output[0] >= output[100], "Release should be falling or at zero");
-        assert!(output[100] >= output[200], "Release should continue falling or at zero");
+        assert!(
+            output[0] >= output[100],
+            "Release should be falling or at zero"
+        );
+        assert!(
+            output[100] >= output[200],
+            "Release should continue falling or at zero"
+        );
 
         // Process more blocks to reach idle
         for _ in 0..10 {
@@ -371,13 +360,8 @@ mod tests {
 
         let mut ar = AREnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let attack_buf = vec![0.05; block_size]; // Longer attack
         let release_buf = vec![0.2; block_size];
@@ -426,7 +410,11 @@ mod tests {
         ar.process_block(&inputs, &mut output, sample_rate, &context);
 
         // Should re-enter attack phase (first sample triggers on rising edge)
-        assert_eq!(ar.phase(), ARPhase::Attack, "Should restart in Attack phase on retrigger");
+        assert_eq!(
+            ar.phase(),
+            ARPhase::Attack,
+            "Should restart in Attack phase on retrigger"
+        );
     }
 
     #[test]
@@ -434,18 +422,13 @@ mod tests {
         // Test 5: Fast attack, slow release characteristics
         let sample_rate = 44100.0;
         let attack_time = 0.001; // 1ms = 44 samples
-        let release_time = 0.1;  // 100ms = 4410 samples
+        let release_time = 0.1; // 100ms = 4410 samples
         let block_size = 512;
 
         let mut ar = AREnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Gate on
         let gate_buf = vec![1.0; block_size];
@@ -463,10 +446,7 @@ mod tests {
 
         // Attack should complete quickly
         let attack_samples = (attack_time * sample_rate) as usize;
-        assert!(
-            attack_samples < 100,
-            "Attack should be very fast"
-        );
+        assert!(attack_samples < 100, "Attack should be very fast");
         assert!(
             output[attack_samples + 10] >= 0.95,
             "Should reach peak quickly"
@@ -488,7 +468,10 @@ mod tests {
 
         // Release should be slow (not complete in one block)
         assert_eq!(ar.phase(), ARPhase::Release);
-        assert!(output[block_size - 1] > 0.5, "Release should be slow, still above 0.5");
+        assert!(
+            output[block_size - 1] > 0.5,
+            "Release should be slow, still above 0.5"
+        );
     }
 
     #[test]
@@ -507,7 +490,7 @@ mod tests {
     fn test_ar_with_constants() {
         // Test 7: Full envelope cycle with constant parameters
         let sample_rate = 44100.0;
-        let attack_time = 0.002;  // 2ms = 88 samples
+        let attack_time = 0.002; // 2ms = 88 samples
         let release_time = 0.002; // 2ms = 88 samples
         let block_size = 128;
 
@@ -517,13 +500,8 @@ mod tests {
 
         let mut ar = AREnvelopeNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Generate constant buffers
         let mut gate_buf = vec![0.0; block_size];

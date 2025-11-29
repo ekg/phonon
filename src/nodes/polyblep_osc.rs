@@ -8,7 +8,6 @@
 /// - Välimäki and Huovilainen "Oscillator and Filter Algorithms for Virtual
 ///   Analog Synthesis" (2006)
 /// - Stilson/Smith "Antialiasing Oscillators in Subtractive Synthesis" (1996)
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Waveform types for PolyBLEP oscillator
@@ -202,13 +201,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut osc = PolyBLEPOscNode::new(0, PolyBLEPWaveform::Saw);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -228,13 +221,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut osc = PolyBLEPOscNode::new(0, PolyBLEPWaveform::Saw);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -244,11 +231,7 @@ mod tests {
         osc.process_block(&inputs, &mut output, 44100.0, &context);
 
         for sample in &output {
-            assert!(
-                sample.abs() <= 1.5,
-                "Saw sample out of range: {}",
-                sample
-            );
+            assert!(sample.abs() <= 1.5, "Saw sample out of range: {}", sample);
         }
     }
 
@@ -261,7 +244,7 @@ mod tests {
         let context = ProcessContext::new(
             Fraction::from_float(0.0),
             0,
-            4410,  // 0.1 second
+            4410, // 0.1 second
             2.0,
             44100.0,
         );
@@ -295,13 +278,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut osc = PolyBLEPOscNode::new(0, PolyBLEPWaveform::Square);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -321,13 +298,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut osc = PolyBLEPOscNode::new(0, PolyBLEPWaveform::Square);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -355,13 +326,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut osc = PolyBLEPOscNode::new(0, PolyBLEPWaveform::Triangle);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -381,13 +346,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut osc = PolyBLEPOscNode::new(0, PolyBLEPWaveform::Triangle);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -411,13 +370,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut osc = PolyBLEPOscNode::new(0, PolyBLEPWaveform::Triangle);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -436,13 +389,7 @@ mod tests {
         // Test frequency modulation across a range
         let mut osc = PolyBLEPOscNode::new(0, PolyBLEPWaveform::Saw);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         for freq_value in [110.0, 220.0, 440.0, 880.0, 1760.0, 3520.0] {
             let mut const_freq = ConstantNode::new(freq_value);
@@ -476,13 +423,7 @@ mod tests {
         let inputs = vec![freq_buf.as_slice()];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -505,17 +446,11 @@ mod tests {
         osc.phase = 0.99;
 
         // Process one sample at high frequency
-        let freq_buf = vec![4410.0];  // 10% of sample rate
+        let freq_buf = vec![4410.0]; // 10% of sample rate
         let inputs = vec![freq_buf.as_slice()];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -540,13 +475,7 @@ mod tests {
             let mut const_freq = ConstantNode::new(440.0);
             let mut osc = PolyBLEPOscNode::new(0, waveform);
 
-            let context = ProcessContext::new(
-                Fraction::from_float(0.0),
-                0,
-                512,
-                2.0,
-                44100.0,
-            );
+            let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
             let mut freq_buf = vec![0.0; 512];
             const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -557,11 +486,7 @@ mod tests {
 
             // All waveforms should produce signal
             let has_signal = output.iter().any(|&x| x.abs() > 0.1);
-            assert!(
-                has_signal,
-                "Waveform {:?} produced no signal",
-                waveform
-            );
+            assert!(has_signal, "Waveform {:?} produced no signal", waveform);
         }
     }
 
@@ -612,7 +537,7 @@ mod tests {
         let context = ProcessContext::new(
             Fraction::from_float(0.0),
             0,
-            4410,  // 0.1 second for more accurate average
+            4410, // 0.1 second for more accurate average
             2.0,
             44100.0,
         );
@@ -638,7 +563,7 @@ mod tests {
         let context = ProcessContext::new(
             Fraction::from_float(0.0),
             0,
-            4410,  // 0.1 second for more accurate average
+            4410, // 0.1 second for more accurate average
             2.0,
             44100.0,
         );

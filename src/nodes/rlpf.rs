@@ -24,7 +24,6 @@
 /// - Classic analog synth filter sound
 /// - Self-oscillation at high resonance (becomes sine oscillator)
 /// - Warm, musical character suitable for subtractive synthesis
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz};
 
@@ -103,13 +102,9 @@ impl RLPFNode {
     pub fn new(input: NodeId, freq: NodeId, res: NodeId) -> Self {
         // Initialize with 1000 Hz cutoff, no resonance (Butterworth)
         let q = 0.707; // Butterworth Q
-        let coeffs = Coefficients::<f32>::from_params(
-            biquad::Type::LowPass,
-            44100.0.hz(),
-            1000.0.hz(),
-            q,
-        )
-        .unwrap();
+        let coeffs =
+            Coefficients::<f32>::from_params(biquad::Type::LowPass, 44100.0.hz(), 1000.0.hz(), q)
+                .unwrap();
 
         Self {
             input,
@@ -187,11 +182,7 @@ impl AudioNode for RLPFNode {
             output.len(),
             "Freq buffer length mismatch"
         );
-        debug_assert_eq!(
-            res_buffer.len(),
-            output.len(),
-            "Res buffer length mismatch"
-        );
+        debug_assert_eq!(res_buffer.len(), output.len(), "Res buffer length mismatch");
 
         for i in 0..output.len() {
             // Clamp cutoff to valid range (20 Hz to Nyquist)
@@ -266,7 +257,12 @@ mod tests {
         let mut res_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         cutoff.process_block(&[], &mut cutoff_buf, sample_rate, &context);
         res.process_block(&[], &mut res_buf, sample_rate, &context);
 
@@ -312,7 +308,12 @@ mod tests {
         let mut res_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         cutoff.process_block(&[], &mut cutoff_buf, sample_rate, &context);
         res.process_block(&[], &mut res_buf, sample_rate, &context);
 
@@ -357,7 +358,12 @@ mod tests {
         let mut cutoff_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         cutoff.process_block(&[], &mut cutoff_buf, sample_rate, &context);
 
         // Test with no resonance
@@ -430,7 +436,12 @@ mod tests {
         let mut res_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         cutoff.process_block(&[], &mut cutoff_buf, sample_rate, &context);
         res.process_block(&[], &mut res_buf, sample_rate, &context);
 
@@ -474,7 +485,12 @@ mod tests {
         let mut res_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         cutoff.process_block(&[], &mut cutoff_buf, sample_rate, &context);
         res.process_block(&[], &mut res_buf, sample_rate, &context);
 
@@ -532,7 +548,12 @@ mod tests {
         let mut res_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         res.process_block(&[], &mut res_buf, sample_rate, &context);
 
         // Test with low cutoff (300 Hz)
@@ -600,7 +621,12 @@ mod tests {
         let mut cutoff_buf = vec![0.0; block_size];
 
         freq_node.process_block(&[], &mut freq_buf, sample_rate, &context);
-        osc.process_block(&[freq_buf.as_slice()], &mut signal_buf, sample_rate, &context);
+        osc.process_block(
+            &[freq_buf.as_slice()],
+            &mut signal_buf,
+            sample_rate,
+            &context,
+        );
         cutoff.process_block(&[], &mut cutoff_buf, sample_rate, &context);
 
         // Test different resonance values
@@ -680,11 +706,7 @@ mod tests {
 
             // Check stability
             for (i, &sample) in output.iter().enumerate() {
-                assert!(
-                    sample.is_finite(),
-                    "Sample {} became infinite/NaN",
-                    i
-                );
+                assert!(sample.is_finite(), "Sample {} became infinite/NaN", i);
                 assert!(
                     sample.abs() < 100.0,
                     "Sample {} has extreme value: {}",
@@ -906,7 +928,12 @@ mod tests {
         let mut signal_buf1 = vec![0.0; block_size];
 
         freq_node1.process_block(&[], &mut freq_buf1, sample_rate, &context);
-        osc1.process_block(&[freq_buf1.as_slice()], &mut signal_buf1, sample_rate, &context);
+        osc1.process_block(
+            &[freq_buf1.as_slice()],
+            &mut signal_buf1,
+            sample_rate,
+            &context,
+        );
 
         let mut rlpf1 = RLPFNode::new(1, 2, 3);
         let inputs1 = vec![
@@ -931,7 +958,12 @@ mod tests {
         let mut signal_buf2 = vec![0.0; block_size];
 
         freq_node2.process_block(&[], &mut freq_buf2, sample_rate, &context);
-        osc2.process_block(&[freq_buf2.as_slice()], &mut signal_buf2, sample_rate, &context);
+        osc2.process_block(
+            &[freq_buf2.as_slice()],
+            &mut signal_buf2,
+            sample_rate,
+            &context,
+        );
 
         let mut rlpf2 = RLPFNode::new(1, 2, 3);
         let inputs2 = vec![

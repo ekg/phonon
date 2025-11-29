@@ -11,7 +11,6 @@
 /// Filter coefficients are updated when cutoff or Q change significantly
 /// (> 0.1 Hz for cutoff, > 0.01 for Q) to avoid unnecessary recomputation
 /// while still tracking parameter changes.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz, Q_BUTTERWORTH_F32};
 
@@ -130,11 +129,7 @@ impl AudioNode for LowPassFilterNode {
             output.len(),
             "Cutoff buffer length mismatch"
         );
-        debug_assert_eq!(
-            q_buffer.len(),
-            output.len(),
-            "Q buffer length mismatch"
-        );
+        debug_assert_eq!(q_buffer.len(), output.len(), "Q buffer length mismatch");
 
         for i in 0..output.len() {
             let cutoff = cutoff_buffer[i].max(10.0).min(sample_rate * 0.49); // Clamp to valid range

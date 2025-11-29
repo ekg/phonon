@@ -2,7 +2,6 @@
 ///
 /// Tests the buffer-based evaluation API for the tremolo effect
 /// to ensure it produces correct amplitude modulation.
-
 use phonon::unified_graph::{NodeId, Signal, UnifiedSignalGraph, Waveform};
 
 const SAMPLE_RATE: f32 = 44100.0;
@@ -15,10 +14,7 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 
 /// Helper to find min and max amplitude in buffer
 fn calculate_amplitude_range(buffer: &[f32]) -> (f32, f32) {
-    let min = buffer
-        .iter()
-        .map(|s| s.abs())
-        .fold(f32::INFINITY, f32::min);
+    let min = buffer.iter().map(|s| s.abs()).fold(f32::INFINITY, f32::min);
     let max = buffer
         .iter()
         .map(|s| s.abs())
@@ -82,8 +78,8 @@ fn test_tremolo_full_depth() {
     // Strong tremolo with full depth
     let trem_id = graph.add_tremolo_node(
         Signal::Node(osc),
-        Signal::Value(5.0),  // 5 Hz
-        Signal::Value(1.0),  // Full depth
+        Signal::Value(5.0), // 5 Hz
+        Signal::Value(1.0), // Full depth
     );
 
     // Generate multiple buffers to capture full LFO cycle
@@ -127,8 +123,8 @@ fn test_tremolo_amplitude_modulation() {
     // Strong tremolo
     let trem_id = graph.add_tremolo_node(
         Signal::Node(osc),
-        Signal::Value(5.0),  // 5 Hz
-        Signal::Value(0.8),  // Deep modulation
+        Signal::Value(5.0), // 5 Hz
+        Signal::Value(0.8), // Deep modulation
     );
 
     // Generate multiple buffers to capture LFO cycles
@@ -152,14 +148,8 @@ fn test_tremolo_amplitude_modulation() {
     }
 
     // Find min and max amplitude
-    let min_amp = amplitudes
-        .iter()
-        .cloned()
-        .fold(f32::INFINITY, f32::min);
-    let max_amp = amplitudes
-        .iter()
-        .cloned()
-        .fold(f32::NEG_INFINITY, f32::max);
+    let min_amp = amplitudes.iter().cloned().fold(f32::INFINITY, f32::min);
+    let max_amp = amplitudes.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
 
     println!(
         "Amplitude modulation test: min={:.4}, max={:.4}, ratio={:.2}",
@@ -190,7 +180,7 @@ fn test_tremolo_rate_effect() {
     // Slow tremolo
     let trem_slow = graph_slow.add_tremolo_node(
         Signal::Node(osc_slow),
-        Signal::Value(2.0),  // 2 Hz
+        Signal::Value(2.0), // 2 Hz
         Signal::Value(0.8),
     );
 
@@ -255,11 +245,7 @@ fn test_tremolo_state_continuity() {
     let mut graph = UnifiedSignalGraph::new(SAMPLE_RATE);
 
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Sine);
-    let trem_id = graph.add_tremolo_node(
-        Signal::Node(osc),
-        Signal::Value(5.0),
-        Signal::Value(0.9),
-    );
+    let trem_id = graph.add_tremolo_node(Signal::Node(osc), Signal::Value(5.0), Signal::Value(0.9));
 
     // Render multiple buffers
     let buffer_size = 512;
@@ -342,14 +328,8 @@ fn test_tremolo_depth_parameter() {
         }
 
         // Find min and max RMS
-        let min_rms = rms_values
-            .iter()
-            .cloned()
-            .fold(f32::INFINITY, f32::min);
-        let max_rms = rms_values
-            .iter()
-            .cloned()
-            .fold(f32::NEG_INFINITY, f32::max);
+        let min_rms = rms_values.iter().cloned().fold(f32::INFINITY, f32::min);
+        let max_rms = rms_values.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
 
         max_rms / min_rms.max(0.001)
     };
@@ -429,11 +409,8 @@ fn test_tremolo_stability() {
     let mut graph = UnifiedSignalGraph::new(SAMPLE_RATE);
 
     let osc = graph.add_oscillator(Signal::Value(440.0), Waveform::Saw);
-    let trem_id = graph.add_tremolo_node(
-        Signal::Node(osc),
-        Signal::Value(7.0),
-        Signal::Value(0.95),
-    );
+    let trem_id =
+        graph.add_tremolo_node(Signal::Node(osc), Signal::Value(7.0), Signal::Value(0.95));
 
     let buffer_size = 2048;
 
@@ -465,15 +442,17 @@ fn test_tremolo_stability() {
 /// Tests tremolo with different carrier waveforms
 #[test]
 fn test_tremolo_different_waveforms() {
-    for waveform in [Waveform::Sine, Waveform::Saw, Waveform::Square, Waveform::Triangle] {
+    for waveform in [
+        Waveform::Sine,
+        Waveform::Saw,
+        Waveform::Square,
+        Waveform::Triangle,
+    ] {
         let mut graph = UnifiedSignalGraph::new(SAMPLE_RATE);
 
         let osc = graph.add_oscillator(Signal::Value(220.0), waveform);
-        let trem_id = graph.add_tremolo_node(
-            Signal::Node(osc),
-            Signal::Value(6.0),
-            Signal::Value(0.7),
-        );
+        let trem_id =
+            graph.add_tremolo_node(Signal::Node(osc), Signal::Value(6.0), Signal::Value(0.7));
 
         let buffer_size = 2048;
         let mut output = vec![0.0; buffer_size];

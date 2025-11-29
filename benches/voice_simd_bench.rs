@@ -4,7 +4,7 @@
 //!
 //! Run with: cargo bench --bench voice_simd_bench
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 #[cfg(target_arch = "x86_64")]
 use phonon::voice_simd::*;
@@ -24,10 +24,7 @@ fn interpolate_samples_scalar(
 }
 
 /// Scalar reference implementation: Equal-power panning
-fn apply_panning_scalar(
-    samples: &[f32; 8],
-    pans: &[f32; 8],
-) -> ([f32; 8], [f32; 8]) {
+fn apply_panning_scalar(samples: &[f32; 8], pans: &[f32; 8]) -> ([f32; 8], [f32; 8]) {
     let mut left = [0.0f32; 8];
     let mut right = [0.0f32; 8];
 
@@ -70,14 +67,12 @@ fn bench_interpolation(c: &mut Criterion) {
     #[cfg(target_arch = "x86_64")]
     if is_avx2_supported() {
         group.bench_function("simd_avx2", |b| {
-            b.iter(|| {
-                unsafe {
-                    black_box(interpolate_samples_simd_x8(
-                        black_box(&positions),
-                        black_box(&samples_curr),
-                        black_box(&samples_next),
-                    ))
-                }
+            b.iter(|| unsafe {
+                black_box(interpolate_samples_simd_x8(
+                    black_box(&positions),
+                    black_box(&samples_curr),
+                    black_box(&samples_next),
+                ))
             })
         });
     }
@@ -95,25 +90,15 @@ fn bench_panning(c: &mut Criterion) {
 
     // Scalar baseline
     group.bench_function("scalar", |b| {
-        b.iter(|| {
-            black_box(apply_panning_scalar(
-                black_box(&samples),
-                black_box(&pans),
-            ))
-        })
+        b.iter(|| black_box(apply_panning_scalar(black_box(&samples), black_box(&pans))))
     });
 
     // SIMD implementation
     #[cfg(target_arch = "x86_64")]
     if is_avx2_supported() {
         group.bench_function("simd_avx2", |b| {
-            b.iter(|| {
-                unsafe {
-                    black_box(apply_panning_simd_x8(
-                        black_box(&samples),
-                        black_box(&pans),
-                    ))
-                }
+            b.iter(|| unsafe {
+                black_box(apply_panning_simd_x8(black_box(&samples), black_box(&pans)))
             })
         });
     }
@@ -154,7 +139,8 @@ fn bench_voice_pipeline(c: &mut Criterion) {
                 for _ in 0..batch_count {
                     unsafe {
                         // Interpolate
-                        let samples = interpolate_samples_simd_x8(&positions, &samples_curr, &samples_next);
+                        let samples =
+                            interpolate_samples_simd_x8(&positions, &samples_curr, &samples_next);
                         // Pan
                         let _stereo = apply_panning_simd_x8(&samples, &pans);
                     }
@@ -227,7 +213,11 @@ fn bench_buffer_processing(c: &mut Criterion) {
                             let pans = [0.3; 8];
 
                             // SIMD operations
-                            let samples = interpolate_samples_simd_x8(&positions, &samples_curr, &samples_next);
+                            let samples = interpolate_samples_simd_x8(
+                                &positions,
+                                &samples_curr,
+                                &samples_next,
+                            );
                             let (left_batch, right_batch) = apply_panning_simd_x8(&samples, &pans);
 
                             // Sum results

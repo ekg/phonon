@@ -2,7 +2,6 @@
 ///
 /// This node inverts the phase of an audio signal by multiplying all samples by -1.
 /// Useful for phase cancellation effects and signal processing.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Invert node: out = -input
@@ -59,11 +58,7 @@ impl AudioNode for InvertNode {
 
         let input_buf = inputs[0];
 
-        debug_assert_eq!(
-            input_buf.len(),
-            output.len(),
-            "Input length mismatch"
-        );
+        debug_assert_eq!(input_buf.len(), output.len(), "Input length mismatch");
 
         // Phase inversion: multiply by -1
         for i in 0..output.len() {
@@ -95,13 +90,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         invert.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -121,13 +110,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         invert.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -147,13 +130,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![99.9; 4]; // Initialize with non-zero to ensure zeros are written
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         invert.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -174,13 +151,7 @@ mod tests {
         let inputs1 = vec![input.as_slice()];
 
         let mut buf1 = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         // First inversion
         invert1.process_block(&inputs1, &mut buf1, 44100.0, &context);
@@ -202,13 +173,7 @@ mod tests {
         let mut constant = ConstantNode::new(5.0);
         let mut invert = InvertNode::new(0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constant first
         let mut const_buf = vec![0.0; 512];
@@ -243,13 +208,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         invert.process_block(&inputs, &mut output, 44100.0, &context);
 

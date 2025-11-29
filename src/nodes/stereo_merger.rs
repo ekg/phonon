@@ -24,7 +24,6 @@
 /// StereoSplitter - where splitter extracts L/R from stereo, merger combines
 /// L/R into stereo. Once the AudioNode trait supports multi-channel outputs,
 /// both nodes will perform true stereo operations.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Merge two mono signals into stereo (currently outputs mono mix)
@@ -37,8 +36,8 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 /// let stereo = StereoMergerNode::new(1, 2);                // NodeId 3
 /// ```
 pub struct StereoMergerNode {
-    left: NodeId,   // Left channel input
-    right: NodeId,  // Right channel input
+    left: NodeId,  // Left channel input
+    right: NodeId, // Right channel input
 }
 
 impl StereoMergerNode {
@@ -89,11 +88,7 @@ impl AudioNode for StereoMergerNode {
         let left_buf = inputs[0];
         let right_buf = inputs[1];
 
-        debug_assert_eq!(
-            left_buf.len(),
-            output.len(),
-            "Left buffer length mismatch"
-        );
+        debug_assert_eq!(left_buf.len(), output.len(), "Left buffer length mismatch");
         debug_assert_eq!(
             right_buf.len(),
             output.len(),
@@ -129,13 +124,7 @@ mod tests {
     use crate::pattern::Fraction;
 
     fn make_context(block_size: usize) -> ProcessContext {
-        ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            44100.0,
-        )
+        ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, 44100.0)
     }
 
     #[test]
@@ -181,7 +170,8 @@ mod tests {
             assert!(
                 output[i].abs() < 0.0001,
                 "Opposite signals sample {} should cancel: got {}",
-                i, output[i]
+                i,
+                output[i]
             );
         }
     }
@@ -206,7 +196,9 @@ mod tests {
             assert!(
                 (output[i] - expected).abs() < 0.0001,
                 "Left-only sample {} mismatch: got {}, expected {}",
-                i, output[i], expected
+                i,
+                output[i],
+                expected
             );
         }
     }
@@ -231,7 +223,9 @@ mod tests {
             assert!(
                 (output[i] - expected).abs() < 0.0001,
                 "Right-only sample {} mismatch: got {}, expected {}",
-                i, output[i], expected
+                i,
+                output[i],
+                expected
             );
         }
     }
@@ -256,7 +250,9 @@ mod tests {
             assert!(
                 (output[i] - expected).abs() < 0.0001,
                 "Different signals sample {} mismatch: got {}, expected {}",
-                i, output[i], expected
+                i,
+                output[i],
+                expected
             );
         }
     }
@@ -320,7 +316,9 @@ mod tests {
             assert!(
                 (output[i] - expected).abs() < 0.0001,
                 "Full block sample {} mismatch: got {}, expected {}",
-                i, output[i], expected
+                i,
+                output[i],
+                expected
             );
         }
     }
@@ -368,7 +366,8 @@ mod tests {
         assert!(
             (actual_power - expected_power).abs() < 0.0001,
             "Power mismatch: actual={:.4}, expected={:.4}",
-            actual_power, expected_power
+            actual_power,
+            expected_power
         );
 
         // Also verify output power is reasonable (not zero, not clipping)
@@ -382,8 +381,8 @@ mod tests {
         // Tests the case where one channel is much louder than the other
         let mut merger = StereoMergerNode::new(0, 1);
 
-        let left = vec![1.0, 1.0, 1.0, 1.0];    // Full amplitude
-        let right = vec![0.1, 0.1, 0.1, 0.1];  // Much quieter
+        let left = vec![1.0, 1.0, 1.0, 1.0]; // Full amplitude
+        let right = vec![0.1, 0.1, 0.1, 0.1]; // Much quieter
         let inputs = vec![left.as_slice(), right.as_slice()];
 
         let mut output = vec![0.0; 4];
@@ -398,7 +397,8 @@ mod tests {
             assert!(
                 (*sample - expected).abs() < 0.0001,
                 "Asymmetric amplitude mismatch: got {}, expected {}",
-                sample, expected
+                sample,
+                expected
             );
         }
 

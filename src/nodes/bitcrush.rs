@@ -31,7 +31,6 @@
 /// let rate = ConstantNode::new(4.0);                // NodeId 3 (1/4 sample rate)
 /// let crush = BitCrushNode::new(1, 2, 3);           // NodeId 4
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Bitcrusher state
@@ -195,8 +194,8 @@ mod tests {
         let size = 512;
 
         let input = vec![0.5; size];
-        let bits = vec![16.0; size];  // Full bit depth
-        let rate = vec![1.0; size];    // No sample rate reduction
+        let bits = vec![16.0; size]; // Full bit depth
+        let rate = vec![1.0; size]; // No sample rate reduction
 
         let inputs: Vec<&[f32]> = vec![&input, &bits, &rate];
         let mut output = vec![0.0; size];
@@ -226,8 +225,8 @@ mod tests {
             input[i] = i as f32 / size as f32;
         }
 
-        let bits = vec![2.0; size];   // 2-bit (only 4 levels: 0, 0.33, 0.67, 1.0)
-        let rate = vec![1.0; size];    // No sample rate reduction
+        let bits = vec![2.0; size]; // 2-bit (only 4 levels: 0, 0.33, 0.67, 1.0)
+        let rate = vec![1.0; size]; // No sample rate reduction
 
         let inputs: Vec<&[f32]> = vec![&input, &bits, &rate];
         let mut output = vec![0.0; size];
@@ -259,8 +258,8 @@ mod tests {
             input[i] = i as f32 / size as f32;
         }
 
-        let bits = vec![16.0; size];  // Full bit depth
-        let rate = vec![4.0; size];    // 1/4 sample rate
+        let bits = vec![16.0; size]; // Full bit depth
+        let rate = vec![4.0; size]; // 1/4 sample rate
 
         let inputs: Vec<&[f32]> = vec![&input, &bits, &rate];
         let mut output = vec![0.0; size];
@@ -295,8 +294,8 @@ mod tests {
             input[i] = 0.5 * ((i as f32 * 0.1).sin());
         }
 
-        let bits = vec![4.0; size];   // 4-bit (game boy)
-        let rate = vec![8.0; size];    // 1/8 sample rate
+        let bits = vec![4.0; size]; // 4-bit (game boy)
+        let rate = vec![8.0; size]; // 1/8 sample rate
 
         let inputs: Vec<&[f32]> = vec![&input, &bits, &rate];
         let mut output = vec![0.0; size];
@@ -324,8 +323,8 @@ mod tests {
         let size = 512;
 
         let input = vec![0.5; size];
-        let bits = vec![1.0; size];    // 1-bit (only 0 and 1)
-        let rate = vec![64.0; size];   // 1/64 sample rate
+        let bits = vec![1.0; size]; // 1-bit (only 0 and 1)
+        let rate = vec![64.0; size]; // 1/64 sample rate
 
         let inputs: Vec<&[f32]> = vec![&input, &bits, &rate];
         let mut output = vec![0.0; size];
@@ -356,7 +355,7 @@ mod tests {
         }
 
         let bits = vec![16.0; size];
-        let rate = vec![2.0; size];  // Phase increments by 1/2.0 = 0.5 per sample
+        let rate = vec![2.0; size]; // Phase increments by 1/2.0 = 0.5 per sample
 
         let inputs: Vec<&[f32]> = vec![&input, &bits, &rate];
         let mut output = vec![0.0; size];
@@ -411,14 +410,8 @@ mod tests {
 
         // Output should vary as bit depth changes
         // Early samples (low bits) should be more quantized
-        let early_vals: Vec<f32> = output[0..size / 4]
-            .iter()
-            .copied()
-            .collect();
-        let late_vals: Vec<f32> = output[3 * size / 4..]
-            .iter()
-            .copied()
-            .collect();
+        let early_vals: Vec<f32> = output[0..size / 4].iter().copied().collect();
+        let late_vals: Vec<f32> = output[3 * size / 4..].iter().copied().collect();
 
         let mut early_unique = early_vals.clone();
         early_unique.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -477,7 +470,10 @@ mod tests {
 
         let phase_before = crush.phase();
         let sample_before = crush.last_sample();
-        assert!(phase_before > 0.0, "Phase should be non-zero after processing");
+        assert!(
+            phase_before > 0.0,
+            "Phase should be non-zero after processing"
+        );
         assert!(sample_before.abs() > 0.0, "Last sample should be non-zero");
 
         // Reset

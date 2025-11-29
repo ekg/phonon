@@ -144,7 +144,8 @@ out $ waveguide 440 0.9 0.5
     let buffer_low = graph_low.render(88200); // 2 seconds
 
     let (_, statements_high) = parse_program(code_high_damp).expect("Failed to parse");
-    let mut graph_high = compile_program(statements_high, 44100.0, None).expect("Failed to compile");
+    let mut graph_high =
+        compile_program(statements_high, 44100.0, None).expect("Failed to compile");
     let buffer_high = graph_high.render(88200);
 
     // Measure RMS in second half (after initial excitation)
@@ -175,7 +176,8 @@ out $ waveguide 220 0.3 0.25
 "#;
 
     let (_, statements_center) = parse_program(code_center).expect("Failed to parse");
-    let mut graph_center = compile_program(statements_center, 44100.0, None).expect("Failed to compile");
+    let mut graph_center =
+        compile_program(statements_center, 44100.0, None).expect("Failed to compile");
     let buffer_center = graph_center.render(44100);
 
     let (_, statements_off) = parse_program(code_off_center).expect("Failed to parse");

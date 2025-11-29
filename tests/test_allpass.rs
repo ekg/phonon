@@ -9,7 +9,6 @@
 /// - Delay time controls phase shift amount
 /// - No amplitude change (unity gain)
 /// - Used in reverb, phasers, and delay networks
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -21,7 +20,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -29,7 +29,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 /// Perform FFT and analyze spectrum
 /// Returns (frequency_bins, magnitudes)
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -100,7 +100,11 @@ fn test_allpass_no_clipping() {
     let buffer = render_dsl(code, 2.0);
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
-    assert!(max_amplitude <= 1.0, "Allpass should not clip, max amplitude: {}", max_amplitude);
+    assert!(
+        max_amplitude <= 1.0,
+        "Allpass should not clip, max amplitude: {}",
+        max_amplitude
+    );
 
     println!("Allpass peak: {}", max_amplitude);
 }
@@ -115,7 +119,11 @@ fn test_allpass_no_dc_offset() {
     let buffer = render_dsl(code, 2.0);
     let mean: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
 
-    assert!(mean.abs() < 0.02, "Allpass should have no DC offset, got {}", mean);
+    assert!(
+        mean.abs() < 0.02,
+        "Allpass should have no DC offset, got {}",
+        mean
+    );
 
     println!("Allpass DC offset: {}", mean);
 }
@@ -143,11 +151,18 @@ fn test_allpass_unity_gain() {
 
     // RMS should be similar (within 10%)
     let ratio = wet_rms / dry_rms;
-    assert!((0.9..=1.1).contains(&ratio),
+    assert!(
+        (0.9..=1.1).contains(&ratio),
         "Allpass should preserve amplitude (unity gain), dry RMS: {}, wet RMS: {}, ratio: {}",
-        dry_rms, wet_rms, ratio);
+        dry_rms,
+        wet_rms,
+        ratio
+    );
 
-    println!("Unity gain test - Dry RMS: {}, Wet RMS: {}, Ratio: {}", dry_rms, wet_rms, ratio);
+    println!(
+        "Unity gain test - Dry RMS: {}, Wet RMS: {}, Ratio: {}",
+        dry_rms, wet_rms, ratio
+    );
 }
 
 #[test]
@@ -186,9 +201,11 @@ fn test_allpass_flat_magnitude_response() {
 
     // Average ratio should be close to 1.0 (unity gain)
     // Allow wider range due to white noise randomness and filter ringing
-    assert!((0.7..=1.6).contains(&avg_ratio),
+    assert!(
+        (0.7..=1.6).contains(&avg_ratio),
         "Allpass should have flat magnitude response, avg ratio: {}",
-        avg_ratio);
+        avg_ratio
+    );
 
     println!("Flat magnitude response - Avg ratio: {}", avg_ratio);
 }
@@ -219,9 +236,11 @@ fn test_allpass_changes_phase() {
     let avg_diff = diff / dry_buffer.len() as f32;
 
     // Should have noticeable difference due to phase shift
-    assert!(avg_diff > 0.01,
+    assert!(
+        avg_diff > 0.01,
         "Allpass should change phase, avg difference: {}",
-        avg_diff);
+        avg_diff
+    );
 
     println!("Phase shift - Avg sample difference: {}", avg_diff);
 }
@@ -249,9 +268,11 @@ fn test_allpass_different_coefficients() {
     }
     let avg_diff = diff / buffer1.len() as f32;
 
-    assert!(avg_diff > 0.01,
+    assert!(
+        avg_diff > 0.01,
         "Different coefficients should produce different phase shifts, avg diff: {}",
-        avg_diff);
+        avg_diff
+    );
 
     println!("Different coefficients - Avg difference: {}", avg_diff);
 }
@@ -271,9 +292,11 @@ fn test_allpass_pattern_coefficient() {
     let rms = calculate_rms(&buffer);
 
     // Should produce audio
-    assert!(rms > 0.1,
+    assert!(
+        rms > 0.1,
         "Allpass with pattern coefficient should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern-modulated allpass RMS: {}", rms);
 }
@@ -292,9 +315,11 @@ fn test_allpass_cascade() {
     let rms = calculate_rms(&buffer);
 
     // Should still preserve amplitude (unity gain)
-    assert!(rms > 0.2,
+    assert!(
+        rms > 0.2,
         "Cascaded allpass should preserve amplitude, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Cascaded allpass RMS: {}", rms);
 }
@@ -317,9 +342,7 @@ fn test_allpass_for_reverb() {
     let rms = calculate_rms(&buffer);
 
     // Should produce smooth output
-    assert!(rms > 0.1,
-        "Allpass reverb chain should work, RMS: {}",
-        rms);
+    assert!(rms > 0.1, "Allpass reverb chain should work, RMS: {}", rms);
 
     println!("Allpass reverb chain RMS: {}", rms);
 }
@@ -338,9 +361,7 @@ fn test_allpass_for_phaser() {
     let rms = calculate_rms(&buffer);
 
     // Should create phasing effect
-    assert!(rms > 0.1,
-        "Allpass phaser should work, RMS: {}",
-        rms);
+    assert!(rms > 0.1, "Allpass phaser should work, RMS: {}", rms);
 
     println!("Allpass phaser RMS: {}", rms);
 }
@@ -367,8 +388,10 @@ fn test_allpass_zero_coefficient() {
     let wet_rms = calculate_rms(&wet_buffer);
 
     // Should be very similar
-    assert!((wet_rms / dry_rms - 1.0).abs() < 0.1,
-        "Allpass(0) should be nearly transparent");
+    assert!(
+        (wet_rms / dry_rms - 1.0).abs() < 0.1,
+        "Allpass(0) should be nearly transparent"
+    );
 
     println!("Zero coefficient - Dry: {}, Wet: {}", dry_rms, wet_rms);
 }
@@ -384,9 +407,11 @@ fn test_allpass_with_noise() {
     let rms = calculate_rms(&buffer);
 
     // Noise should pass through with preserved energy
-    assert!(rms > 0.2,
+    assert!(
+        rms > 0.2,
         "Allpass should preserve noise energy, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Allpass with noise RMS: {}", rms);
 }

@@ -3,7 +3,6 @@
 /// Transformer buses: effect chains that can be applied via #
 /// Function buses: parameterized buses with explicit parameters
 /// Higher-order buses: buses that take other buses as parameters
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -86,7 +85,11 @@ out $ saw 110 # ~fx
 "#;
     let output = render_code(code, 4410);
     let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
-    assert!(rms > 0.01, "Transformer bus should produce output, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Transformer bus should produce output, got RMS={}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -143,7 +146,11 @@ out $ ~amplify ~osc
 "#;
     let output = render_code(code, 4410);
     let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
-    assert!(rms > 0.01, "Function bus should produce output, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Function bus should produce output, got RMS={}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -202,5 +209,9 @@ out $ ~loud
 "#;
     let output = render_code(code, 4410);
     let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
-    assert!(rms > 0.01, "Higher-order bus should produce output, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Higher-order bus should produce output, got RMS={}",
+        rms
+    );
 }

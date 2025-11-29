@@ -144,7 +144,8 @@ out $ pluck 440 0.9
     let buffer_low = graph_low.render(88200); // 2 seconds
 
     let (_, statements_high) = parse_program(code_high_damp).expect("Failed to parse");
-    let mut graph_high = compile_program(statements_high, 44100.0, None).expect("Failed to compile");
+    let mut graph_high =
+        compile_program(statements_high, 44100.0, None).expect("Failed to compile");
     let buffer_high = graph_high.render(88200);
 
     // Measure RMS in second half (after initial pluck)

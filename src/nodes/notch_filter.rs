@@ -4,7 +4,6 @@
 /// The filter attenuates frequencies near the center frequency and passes
 /// frequencies both below and above it. The Q parameter controls the width
 /// of the rejection band (higher Q = narrower notch).
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz};
 
@@ -50,13 +49,9 @@ impl NotchFilterNode {
     /// ```
     pub fn new(input: NodeId, center_freq_input: NodeId, q_input: NodeId) -> Self {
         // Initialize with default coefficients (will be updated on first process)
-        let coeffs = Coefficients::<f32>::from_params(
-            biquad::Type::Notch,
-            44100.0.hz(),
-            1000.0.hz(),
-            1.0,
-        )
-        .unwrap();
+        let coeffs =
+            Coefficients::<f32>::from_params(biquad::Type::Notch, 44100.0.hz(), 1000.0.hz(), 1.0)
+                .unwrap();
 
         Self {
             input,
@@ -124,20 +119,14 @@ impl AudioNode for NotchFilterNode {
             output.len(),
             "Center frequency buffer length mismatch"
         );
-        debug_assert_eq!(
-            q_buffer.len(),
-            output.len(),
-            "Q buffer length mismatch"
-        );
+        debug_assert_eq!(q_buffer.len(), output.len(), "Q buffer length mismatch");
 
         for i in 0..output.len() {
             let center_freq = center_freq_buffer[i].max(20.0).min(20000.0); // Clamp to valid range
             let q = q_buffer[i].max(0.1).min(20.0); // Clamp to valid range
 
             // Update coefficients if parameters changed
-            if (center_freq - self.last_center_freq).abs() > 0.1
-                || (q - self.last_q).abs() > 0.01
-            {
+            if (center_freq - self.last_center_freq).abs() > 0.1 || (q - self.last_q).abs() > 0.01 {
                 let coeffs = Coefficients::<f32>::from_params(
                     biquad::Type::Notch,
                     sample_rate.hz(),
@@ -420,7 +409,11 @@ mod tests {
         center.process_block(&[], &mut center_buf, 44100.0, &context);
         q.process_block(&[], &mut q_buf, 44100.0, &context);
 
-        let inputs = vec![signal_buf.as_slice(), center_buf.as_slice(), q_buf.as_slice()];
+        let inputs = vec![
+            signal_buf.as_slice(),
+            center_buf.as_slice(),
+            q_buf.as_slice(),
+        ];
         notch.process_block(&inputs, &mut output, 44100.0, &context);
 
         // DC signal should pass through notch filter (center is 1000 Hz, not DC)
@@ -502,7 +495,11 @@ mod tests {
 
         let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
-        let inputs = vec![signal_buffer.as_slice(), center_buf.as_slice(), q_buf.as_slice()];
+        let inputs = vec![
+            signal_buffer.as_slice(),
+            center_buf.as_slice(),
+            q_buf.as_slice(),
+        ];
         notch.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Should produce valid output

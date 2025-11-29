@@ -7,9 +7,8 @@
 /// 1. Pattern query - verify pattern generates correct events
 /// 2. Onset detection - verify audio has correct number of onsets
 /// 3. Expected timing - verify onsets occur at correct times (from first principles)
-
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{State, TimeSpan, Fraction};
+use phonon::pattern::{Fraction, State, TimeSpan};
 use std::collections::HashMap;
 
 /// Generate expected onset times for cp(2,4) from Euclidean algorithm
@@ -52,7 +51,8 @@ fn test_euclidean_pattern_query_consistency() {
         };
 
         let events = pattern.query(&state);
-        let non_rest_events: Vec<_> = events.iter()
+        let non_rest_events: Vec<_> = events
+            .iter()
             .filter(|e| e.value != "~" && !e.value.is_empty())
             .collect();
 
@@ -86,8 +86,8 @@ fn test_euclidean_pattern_query_consistency() {
 #[cfg(test)]
 mod render_tests {
     use super::*;
-    use std::process::Command;
     use std::fs;
+    use std::process::Command;
 
     fn render_dsl(code: &str, cycles: u32, tempo: f64) -> Vec<f32> {
         let test_file = "/tmp/test_euclidean_unit.ph";
@@ -138,7 +138,8 @@ mod render_tests {
             let energy: f32 = audio[i..i + window_size]
                 .iter()
                 .map(|&s| s * s)
-                .sum::<f32>() / window_size as f32;
+                .sum::<f32>()
+                / window_size as f32;
 
             // Detect onset as energy spike
             if energy > threshold && energy > prev_energy * 2.0 {
@@ -196,7 +197,7 @@ mod render_tests {
     fn test_euclidean_timing_from_first_principles() {
         // LEVEL 3: Verify timing matches expected from Euclidean algorithm
         // Use clicks for cleaner onset detection
-        let cycles = 8;  // Reduced for easier analysis
+        let cycles = 8; // Reduced for easier analysis
         let tempo = 0.4;
 
         let audio = render_dsl("out $ s \"click(2,4)\" # gain 0.8", cycles as u32, tempo);
@@ -212,7 +213,10 @@ mod render_tests {
         for (i, &time) in detected_onsets.iter().enumerate() {
             let cycle_num = (time * tempo) as usize;
             let pos_in_cycle = (time * tempo) - cycle_num as f64;
-            println!("  {:3}: {:.6}s (cycle {}, pos {:.3})", i, time, cycle_num, pos_in_cycle);
+            println!(
+                "  {:3}: {:.6}s (cycle {}, pos {:.3})",
+                i, time, cycle_num, pos_in_cycle
+            );
         }
 
         // Check count matches (with tolerance for detection variability)
@@ -227,7 +231,9 @@ mod render_tests {
 
         // Verify timing of first few onsets
         // Note: Skip the first expected onset if missed (common in onset detection - no prior silence)
-        let offset = if detected_onsets.is_empty() || (detected_onsets[0] - expected_onsets[0]).abs() > 0.5 {
+        let offset = if detected_onsets.is_empty()
+            || (detected_onsets[0] - expected_onsets[0]).abs() > 0.5
+        {
             println!("\n⚠️  First onset missed (at t=0, no prior silence for detection)");
             1 // Skip first expected onset
         } else {
@@ -238,7 +244,10 @@ mod render_tests {
         println!("Expected    | Detected  | Δ");
         println!("------------|-----------|--------");
 
-        for i in 0..std::cmp::min(10, std::cmp::min(expected_onsets.len() - offset, detected_onsets.len())) {
+        for i in 0..std::cmp::min(
+            10,
+            std::cmp::min(expected_onsets.len() - offset, detected_onsets.len()),
+        ) {
             let delta = (detected_onsets[i] - expected_onsets[i + offset]).abs();
             println!(
                 "{:10.6} | {:9.6} | {:6.3}",
@@ -258,10 +267,7 @@ mod render_tests {
 
         // Check for alternating pattern in inter-onset intervals
         if detected_onsets.len() >= 4 {
-            let intervals: Vec<f64> = detected_onsets
-                .windows(2)
-                .map(|w| w[1] - w[0])
-                .collect();
+            let intervals: Vec<f64> = detected_onsets.windows(2).map(|w| w[1] - w[0]).collect();
 
             println!("\nInter-onset intervals:");
             for (i, &interval) in intervals.iter().take(10).enumerate() {

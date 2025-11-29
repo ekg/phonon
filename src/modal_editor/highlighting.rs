@@ -4,31 +4,107 @@ use ratatui::text::Span;
 /// All function names recognized by the Phonon language
 pub const FUNCTIONS: &[&str] = &[
     // Pattern sources
-    "s", "euclid", "stack", "cat",
+    "s",
+    "euclid",
+    "stack",
+    "cat",
     // Pattern transforms
-    "fast", "slow", "rev", "every", "degrade", "degradeBy", "stutter",
-    "palindrome", "iter", "jux", "chunk", "scramble", "spread", "spreadr",
-    "when", "whenmod", "off", "superimpose",
+    "fast",
+    "slow",
+    "rev",
+    "every",
+    "degrade",
+    "degradeBy",
+    "stutter",
+    "palindrome",
+    "iter",
+    "jux",
+    "chunk",
+    "scramble",
+    "spread",
+    "spreadr",
+    "when",
+    "whenmod",
+    "off",
+    "superimpose",
     // Oscillators
-    "sine", "saw", "square", "tri", "triangle", "noise", "pulse",
+    "sine",
+    "saw",
+    "square",
+    "tri",
+    "triangle",
+    "noise",
+    "pulse",
     // Filters
-    "lpf", "hpf", "bpf", "notch",
+    "lpf",
+    "hpf",
+    "bpf",
+    "notch",
     // Effects
-    "reverb", "plate", "delay", "tapedelay", "tape", "multitap", "pingpong",
-    "chorus", "bitcrush", "dist", "distort", "distortion",
-    "comp", "compressor", "expand", "expander", "coarse", "djf", "vowel",
+    "reverb",
+    "plate",
+    "delay",
+    "tapedelay",
+    "tape",
+    "multitap",
+    "pingpong",
+    "chorus",
+    "bitcrush",
+    "dist",
+    "distort",
+    "distortion",
+    "comp",
+    "compressor",
+    "expand",
+    "expander",
+    "coarse",
+    "djf",
+    "vowel",
     // Envelopes
-    "adsr", "ad", "ar",
+    "adsr",
+    "ad",
+    "ar",
     // DSP modifiers
-    "gain", "pan", "speed", "cut", "note", "n",
+    "gain",
+    "pan",
+    "speed",
+    "cut",
+    "note",
+    "n",
     // Structure
-    "tempo", "cps", "bpm", "outmix",
+    "tempo",
+    "cps",
+    "bpm",
+    "outmix",
     // Outputs
-    "out", "o1", "o2", "o3", "o4", "o5", "o6", "o7", "o8",
-    "out1", "out2", "out3", "out4", "out5", "out6", "out7", "out8",
-    "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+    "out",
+    "o1",
+    "o2",
+    "o3",
+    "o4",
+    "o5",
+    "o6",
+    "o7",
+    "o8",
+    "out1",
+    "out2",
+    "out3",
+    "out4",
+    "out5",
+    "out6",
+    "out7",
+    "out8",
+    "d1",
+    "d2",
+    "d3",
+    "d4",
+    "d5",
+    "d6",
+    "d7",
+    "d8",
     // Commands
-    "hush", "panic",
+    "hush",
+    "panic",
 ];
 
 /// Syntax highlight a single line of Phonon code
@@ -259,12 +335,24 @@ mod tests {
 
         // Check specific tokens
         assert!(spans.iter().any(|s| s.content == "out"));
-        assert!(spans.iter().any(|s| s.content == "s" && s.style.fg == Some(Color::Blue)));
-        assert!(spans.iter().any(|s| s.content == "\"bd sn\"" && s.style.fg == Some(Color::White)));
-        assert!(spans.iter().any(|s| s.content == "#" && s.style.fg == Some(Color::Rgb(255, 20, 147))));
-        assert!(spans.iter().any(|s| s.content == "lpf" && s.style.fg == Some(Color::Blue)));
-        assert!(spans.iter().any(|s| s.content == "1000" && s.style.fg == Some(Color::Rgb(255, 165, 0))));
-        assert!(spans.iter().any(|s| s.content == "0.8" && s.style.fg == Some(Color::Rgb(255, 165, 0))));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "s" && s.style.fg == Some(Color::Blue)));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "\"bd sn\"" && s.style.fg == Some(Color::White)));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "#" && s.style.fg == Some(Color::Rgb(255, 20, 147))));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "lpf" && s.style.fg == Some(Color::Blue)));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "1000" && s.style.fg == Some(Color::Rgb(255, 165, 0))));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "0.8" && s.style.fg == Some(Color::Rgb(255, 165, 0))));
     }
 
     #[test]
@@ -275,9 +363,15 @@ mod tests {
         assert_eq!(span_text(&spans), line);
 
         // Check that ~bass is highlighted as a bus
-        assert!(spans.iter().any(|s| s.content == "~bass" && s.style.fg == Some(Color::Magenta)));
-        assert!(spans.iter().any(|s| s.content == "saw" && s.style.fg == Some(Color::Blue)));
-        assert!(spans.iter().any(|s| s.content == "55" && s.style.fg == Some(Color::Rgb(255, 165, 0))));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "~bass" && s.style.fg == Some(Color::Magenta)));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "saw" && s.style.fg == Some(Color::Blue)));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "55" && s.style.fg == Some(Color::Rgb(255, 165, 0))));
     }
 
     #[test]
@@ -288,11 +382,17 @@ mod tests {
         assert_eq!(span_text(&spans), line);
 
         // Check that $ is hot pink
-        assert!(spans.iter().any(|s| s.content == "$" && s.style.fg == Some(Color::Rgb(255, 20, 147))));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "$" && s.style.fg == Some(Color::Rgb(255, 20, 147))));
         // Check that fast is blue
-        assert!(spans.iter().any(|s| s.content == "fast" && s.style.fg == Some(Color::Blue)));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "fast" && s.style.fg == Some(Color::Blue)));
         // Check that 2 is orange
-        assert!(spans.iter().any(|s| s.content == "2" && s.style.fg == Some(Color::Rgb(255, 165, 0))));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "2" && s.style.fg == Some(Color::Rgb(255, 165, 0))));
     }
 
     #[test]
@@ -303,8 +403,12 @@ mod tests {
         assert_eq!(span_text(&spans), line);
 
         // Check that o1 is recognized as a function (output)
-        assert!(spans.iter().any(|s| s.content == "o1" && s.style.fg == Some(Color::Blue)));
-        assert!(spans.iter().any(|s| s.content == "s" && s.style.fg == Some(Color::Blue)));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "o1" && s.style.fg == Some(Color::Blue)));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "s" && s.style.fg == Some(Color::Blue)));
     }
 
     #[test]
@@ -315,15 +419,19 @@ mod tests {
         assert_eq!(span_text(&spans), line);
 
         // Check all # operators are hot pink
-        let chain_ops: Vec<_> = spans.iter()
-            .filter(|s| s.content == "#")
-            .collect();
+        let chain_ops: Vec<_> = spans.iter().filter(|s| s.content == "#").collect();
         assert_eq!(chain_ops.len(), 2);
-        assert!(chain_ops.iter().all(|s| s.style.fg == Some(Color::Rgb(255, 20, 147))));
+        assert!(chain_ops
+            .iter()
+            .all(|s| s.style.fg == Some(Color::Rgb(255, 20, 147))));
 
         // Check effects are blue
-        assert!(spans.iter().any(|s| s.content == "reverb" && s.style.fg == Some(Color::Blue)));
-        assert!(spans.iter().any(|s| s.content == "delay" && s.style.fg == Some(Color::Blue)));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "reverb" && s.style.fg == Some(Color::Blue)));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "delay" && s.style.fg == Some(Color::Blue)));
     }
 
     #[test]
@@ -342,10 +450,17 @@ mod tests {
 
         for (func, expected_color) in test_cases {
             let spans = highlight_line(func);
-            let func_span = spans.iter().find(|s| s.content == func)
+            let func_span = spans
+                .iter()
+                .find(|s| s.content == func)
                 .unwrap_or_else(|| panic!("Function {} not found in spans", func));
-            assert_eq!(func_span.style.fg, Some(expected_color),
-                "Function {} should be colored {:?}", func, expected_color);
+            assert_eq!(
+                func_span.style.fg,
+                Some(expected_color),
+                "Function {} should be colored {:?}",
+                func,
+                expected_color
+            );
         }
     }
 
@@ -357,9 +472,13 @@ mod tests {
         assert_eq!(span_text(&spans), line);
 
         // tempo is a function
-        assert!(spans.iter().any(|s| s.content == "tempo" && s.style.fg == Some(Color::Blue)));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "tempo" && s.style.fg == Some(Color::Blue)));
         // 0.5 is a number
-        assert!(spans.iter().any(|s| s.content == "0.5" && s.style.fg == Some(Color::Rgb(255, 165, 0))));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "0.5" && s.style.fg == Some(Color::Rgb(255, 165, 0))));
     }
 
     #[test]
@@ -377,6 +496,8 @@ mod tests {
         let spans = highlight_line(line);
 
         // Unknown identifiers should be white (default)
-        assert!(spans.iter().any(|s| s.content == "unknown_thing" && s.style.fg == Some(Color::White)));
+        assert!(spans
+            .iter()
+            .any(|s| s.content == "unknown_thing" && s.style.fg == Some(Color::White)));
     }
 }

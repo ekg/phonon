@@ -28,19 +28,23 @@ fn test_punch_in_at_cycle_2_point_5() {
     recorder.start_at_cycle(punch_in_cycle);
 
     // USER ACTION: Play C4 immediately (at cycle ~2.5)
-    recorder.record_event_at(60, 100, 0);        // Note-on
-    recorder.record_event_at(60, 0, 400_000);    // Note-off after 400ms
+    recorder.record_event_at(60, 100, 0); // Note-on
+    recorder.record_event_at(60, 0, 400_000); // Note-off after 400ms
 
     // USER ACTION: Play D4 after 500ms (at cycle ~3.0)
-    recorder.record_event_at(62, 100, 500_000);  // Note-on
-    recorder.record_event_at(62, 0, 900_000);    // Note-off
+    recorder.record_event_at(62, 100, 500_000); // Note-on
+    recorder.record_event_at(62, 0, 900_000); // Note-off
 
     // USER ACTION: Press Alt+R (punch-out / stop recording)
     let pattern = recorder.to_recorded_pattern(4.0).unwrap();
 
     // VERIFICATION: Pattern should have 2 notes
     let note_parts: Vec<&str> = pattern.notes.split_whitespace().collect();
-    assert!(note_parts.len() >= 2, "Should have at least 2 notes, got: {}", pattern.notes);
+    assert!(
+        note_parts.len() >= 2,
+        "Should have at least 2 notes, got: {}",
+        pattern.notes
+    );
 
     // VERIFICATION: Notes should be c4 and d4
     assert!(pattern.notes.contains("c4"), "Should contain c4");
@@ -79,10 +83,18 @@ fn test_punch_in_multi_cycle_recording() {
 
     // VERIFICATION: Should have 8 notes
     let note_parts: Vec<&str> = pattern.notes.split_whitespace().collect();
-    assert!(note_parts.len() >= 8, "Should have 8 notes, got: {}", pattern.notes);
+    assert!(
+        note_parts.len() >= 8,
+        "Should have 8 notes, got: {}",
+        pattern.notes
+    );
 
     // VERIFICATION: Pattern spans 1 cycle (8 notes at 250ms = 2000ms = 1 cycle at 120 BPM)
-    assert!(pattern.cycle_count >= 1, "Should span at least 1 cycle, got: {}", pattern.cycle_count);
+    assert!(
+        pattern.cycle_count >= 1,
+        "Should span at least 1 cycle, got: {}",
+        pattern.cycle_count
+    );
 
     println!("Punch-in at cycle {}", punch_in_cycle);
     println!("Recorded {} notes: {}", note_parts.len(), pattern.notes);
@@ -176,12 +188,20 @@ fn test_punch_in_with_rests() {
     let pattern = recorder.to_recorded_pattern(4.0).unwrap();
 
     // VERIFICATION: Pattern should include rests
-    assert!(pattern.notes.contains("~"), "Pattern should contain rests: {}", pattern.notes);
+    assert!(
+        pattern.notes.contains("~"),
+        "Pattern should contain rests: {}",
+        pattern.notes
+    );
 
     // VERIFICATION: Legato pattern should also have rests in same positions
     let note_parts: Vec<&str> = pattern.notes.split_whitespace().collect();
     let legato_parts: Vec<&str> = pattern.legato.split_whitespace().collect();
-    assert_eq!(note_parts.len(), legato_parts.len(), "Note and legato patterns should align");
+    assert_eq!(
+        note_parts.len(),
+        legato_parts.len(),
+        "Note and legato patterns should align"
+    );
 
     println!("Punch-in with rests:");
     println!("Notes: {}", pattern.notes);
@@ -283,8 +303,8 @@ fn test_complete_punch_in_workflow() {
     // STEP 4: User plays melody on MIDI keyboard
     println!("🎹 USER: Playing melody...");
     let melody = vec![
-        (60, 0, 400_000),      // C4
-        (62, 500_000, 900_000), // D4
+        (60, 0, 400_000),           // C4
+        (62, 500_000, 900_000),     // D4
         (64, 1_000_000, 1_400_000), // E4
         (65, 1_500_000, 1_900_000), // F4
     ];
@@ -314,10 +334,7 @@ fn test_complete_punch_in_workflow() {
     // VERIFICATION: Smart paste would produce
     let smart_paste_output = format!(
         "~rec1: slow {} $ n \"{}\" # gain \"{}\" # legato \"{}\"",
-        pattern.cycle_count,
-        pattern.notes,
-        pattern.velocities,
-        pattern.legato
+        pattern.cycle_count, pattern.notes, pattern.velocities, pattern.legato
     );
 
     println!("\n📝 SMART PASTE OUTPUT:");

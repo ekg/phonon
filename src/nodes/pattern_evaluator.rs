@@ -30,7 +30,6 @@
 /// let freq_node_id = 0;  // PatternEvaluator as NodeId 0
 /// let osc = OscillatorNode::new(freq_node_id, Waveform::Sine);
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use crate::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;

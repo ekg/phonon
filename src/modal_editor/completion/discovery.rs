@@ -29,9 +29,7 @@ pub fn discover_samples() -> Vec<String> {
         PathBuf::from(".").join("dirt-samples"),
     ];
 
-    let dirt_samples = search_paths.iter()
-        .find(|path| path.exists())
-        .cloned();
+    let dirt_samples = search_paths.iter().find(|path| path.exists()).cloned();
 
     let dirt_samples = match dirt_samples {
         Some(path) => path,
@@ -114,7 +112,10 @@ mod tests {
             assert_eq!(samples, sorted);
 
             // Verify no duplicates
-            let unique_count = samples.iter().collect::<std::collections::HashSet<_>>().len();
+            let unique_count = samples
+                .iter()
+                .collect::<std::collections::HashSet<_>>()
+                .len();
             assert_eq!(samples.len(), unique_count);
         }
     }

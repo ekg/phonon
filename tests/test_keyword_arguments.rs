@@ -2,7 +2,6 @@
 ///
 /// This test verifies that the :param value syntax works correctly
 /// for filter parameters and other functions.
-
 use phonon::unified_graph::UnifiedSignalGraph;
 
 #[test]

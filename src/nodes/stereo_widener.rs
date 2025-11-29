@@ -35,7 +35,6 @@
 /// filter to create a phase-shifted version of the signal, simulating width.
 ///
 /// When true stereo support is added, this will be upgraded to full M/S processing.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz};
 

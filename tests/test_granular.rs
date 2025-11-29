@@ -86,12 +86,14 @@ out $ granular ~source 50 0.9 1.0
 "#;
 
     let (_, statements_sparse) = parse_program(code_sparse).expect("Failed to parse");
-    let mut graph_sparse = compile_program(statements_sparse, 44100.0, None).expect("Failed to compile");
+    let mut graph_sparse =
+        compile_program(statements_sparse, 44100.0, None).expect("Failed to compile");
     let buffer_sparse = graph_sparse.render(44100);
     let rms_sparse = calculate_rms(&buffer_sparse);
 
     let (_, statements_dense) = parse_program(code_dense).expect("Failed to parse");
-    let mut graph_dense = compile_program(statements_dense, 44100.0, None).expect("Failed to compile");
+    let mut graph_dense =
+        compile_program(statements_dense, 44100.0, None).expect("Failed to compile");
     let buffer_dense = graph_dense.render(44100);
     let rms_dense = calculate_rms(&buffer_dense);
 

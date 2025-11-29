@@ -39,7 +39,10 @@ out $ s "bd sn hh cp" $ chop 8 $ scramble 8
     let rms = calculate_rms(&buffer);
 
     println!("Chop + scramble RMS: {:.6}", rms);
-    assert!(rms > 0.05, "Chopped and scrambled pattern should produce sound");
+    assert!(
+        rms > 0.05,
+        "Chopped and scrambled pattern should produce sound"
+    );
 }
 
 #[test]
@@ -54,7 +57,10 @@ out $ s "bd sn hh cp" $ chop 8 $ shuffle 0.2
     let rms = calculate_rms(&buffer);
 
     println!("Chop + shuffle RMS: {:.6}", rms);
-    assert!(rms > 0.05, "Chopped and time-shuffled pattern should produce sound");
+    assert!(
+        rms > 0.05,
+        "Chopped and time-shuffled pattern should produce sound"
+    );
 }
 
 #[test]
@@ -84,7 +90,10 @@ out $ s "bd sn hh cp" $ chop 16 $ scramble 16 # lpf 2000 0.8
     let rms = calculate_rms(&buffer);
 
     println!("Chop + scramble + filter RMS: {:.6}", rms);
-    assert!(rms > 0.03, "Chopped pattern with filter should produce sound");
+    assert!(
+        rms > 0.03,
+        "Chopped pattern with filter should produce sound"
+    );
 }
 
 #[test]
@@ -168,7 +177,10 @@ out $ s "bd sn hh cp" $ chop 8 $ scramble 8
     let normal_rms = calculate_rms(&normal);
     let chopped_rms = calculate_rms(&chopped);
 
-    println!("Normal RMS: {:.6}, Chopped RMS: {:.6}", normal_rms, chopped_rms);
+    println!(
+        "Normal RMS: {:.6}, Chopped RMS: {:.6}",
+        normal_rms, chopped_rms
+    );
 
     // Chopped version should have similar energy (within 50%)
     let ratio = chopped_rms / normal_rms;

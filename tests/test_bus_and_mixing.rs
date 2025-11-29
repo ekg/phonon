@@ -1,6 +1,6 @@
-use std::cell::RefCell;
 use hound::{SampleFormat, WavSpec, WavWriter};
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::process::Command;
 
@@ -20,7 +20,7 @@ fn test_bus_assignment_produces_audio() {
         freq: Signal::Value(110.0),
         waveform: Waveform::Saw,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -88,7 +88,7 @@ fn test_signal_addition_mixes_correctly() {
         freq: Signal::Value(100.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -98,7 +98,7 @@ fn test_signal_addition_mixes_correctly() {
         freq: Signal::Value(1000.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -183,7 +183,7 @@ fn test_multiple_signal_addition() {
         freq: Signal::Value(110.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -193,7 +193,7 @@ fn test_multiple_signal_addition() {
         freq: Signal::Value(220.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -203,7 +203,7 @@ fn test_multiple_signal_addition() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -284,7 +284,7 @@ fn test_parser_bus_and_mixing() {
     println!("Testing parser handles buses and mixing...");
 
     // This simulates what the phonon render command does
-    
+
     use std::process::Command;
 
     let phonon_code = r#"

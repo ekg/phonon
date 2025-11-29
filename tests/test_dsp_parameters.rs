@@ -181,11 +181,13 @@ out $ s "bd*4" # gain 0.3
 "#;
 
     let (_rest, statements_normal) = parse_program(code_normal).expect("Failed to parse");
-    let mut graph_normal = compile_program(statements_normal, 44100.0, None).expect("Failed to compile");
+    let mut graph_normal =
+        compile_program(statements_normal, 44100.0, None).expect("Failed to compile");
     graph_normal.set_cps(2.0);
 
     let (_rest, statements_quiet) = parse_program(code_quiet).expect("Failed to parse");
-    let mut graph_quiet = compile_program(statements_quiet, 44100.0, None).expect("Failed to compile");
+    let mut graph_quiet =
+        compile_program(statements_quiet, 44100.0, None).expect("Failed to compile");
     graph_quiet.set_cps(2.0);
 
     // Render 2 cycles

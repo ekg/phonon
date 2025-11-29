@@ -3,7 +3,6 @@
 /// This node implements a classic chorus effect using a modulated delay line.
 /// Unlike flanger (which uses short delays and feedback), chorus uses longer delays
 /// and no feedback to create the illusion of multiple voices playing together.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -19,14 +18,14 @@ use std::f32::consts::PI;
 /// let chorus = ChorusNode::new(0, 1, 2, 3, 44100.0);  // NodeId 4
 /// ```
 pub struct ChorusNode {
-    input: NodeId,           // Signal to chorus
-    rate_input: NodeId,      // LFO rate in Hz (can be modulated)
-    depth_input: NodeId,     // Delay time modulation depth in seconds (can be modulated)
-    mix_input: NodeId,       // Wet/dry mix 0.0-1.0 (can be modulated)
-    buffer: Vec<f32>,        // Delay buffer
-    write_pos: usize,        // Current write position
-    phase: f32,              // LFO phase (0.0 to 1.0)
-    sample_rate: f32,        // Sample rate for calculations
+    input: NodeId,       // Signal to chorus
+    rate_input: NodeId,  // LFO rate in Hz (can be modulated)
+    depth_input: NodeId, // Delay time modulation depth in seconds (can be modulated)
+    mix_input: NodeId,   // Wet/dry mix 0.0-1.0 (can be modulated)
+    buffer: Vec<f32>,    // Delay buffer
+    write_pos: usize,    // Current write position
+    phase: f32,          // LFO phase (0.0 to 1.0)
+    sample_rate: f32,    // Sample rate for calculations
 }
 
 impl ChorusNode {
@@ -127,11 +126,7 @@ impl AudioNode for ChorusNode {
             output.len(),
             "Depth buffer length mismatch"
         );
-        debug_assert_eq!(
-            mix_buffer.len(),
-            output.len(),
-            "Mix buffer length mismatch"
-        );
+        debug_assert_eq!(mix_buffer.len(), output.len(), "Mix buffer length mismatch");
 
         let buffer_len = self.buffer.len();
 
@@ -173,7 +168,12 @@ impl AudioNode for ChorusNode {
     }
 
     fn input_nodes(&self) -> Vec<NodeId> {
-        vec![self.input, self.rate_input, self.depth_input, self.mix_input]
+        vec![
+            self.input,
+            self.rate_input,
+            self.depth_input,
+            self.mix_input,
+        ]
     }
 
     fn name(&self) -> &str {
@@ -181,7 +181,7 @@ impl AudioNode for ChorusNode {
     }
 
     fn provides_delay(&self) -> bool {
-        true  // ChorusNode has multiple delays, can safely break feedback cycles
+        true // ChorusNode has multiple delays, can safely break feedback cycles
     }
 }
 
@@ -204,13 +204,8 @@ mod tests {
         let mut mix_node = ConstantNode::new(0.0); // Zero mix (all dry)
         let mut chorus = ChorusNode::new(0, 1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Generate input buffers
         let mut input_buf = vec![1.0; block_size];
@@ -256,13 +251,8 @@ mod tests {
         let mut mix_node = ConstantNode::new(0.5); // 50% mix
         let mut chorus = ChorusNode::new(0, 1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Generate input buffers
         let mut input_buf = vec![1.0; block_size];
@@ -313,13 +303,8 @@ mod tests {
         let mut depth_node = ConstantNode::new(0.01);
         let mut mix_node = ConstantNode::new(0.5);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Test with slow LFO (0.5 Hz)
         let mut rate_node_slow = ConstantNode::new(0.5);
@@ -394,13 +379,8 @@ mod tests {
         let mut rate_node = ConstantNode::new(1.0);
         let mut mix_node = ConstantNode::new(0.5);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Create varying input signal (sine-like variation)
         let mut input_buf = vec![0.0; block_size];
@@ -437,7 +417,10 @@ mod tests {
         }
 
         let low_min = low_outputs.iter().cloned().fold(f32::INFINITY, f32::min);
-        let low_max = low_outputs.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let low_max = low_outputs
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
         let low_range = low_max - low_min;
 
         // Test with high depth
@@ -462,7 +445,10 @@ mod tests {
         }
 
         let high_min = high_outputs.iter().cloned().fold(f32::INFINITY, f32::min);
-        let high_max = high_outputs.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let high_max = high_outputs
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
         let high_range = high_max - high_min;
 
         // Higher depth should produce wider range (more modulation)
@@ -486,13 +472,8 @@ mod tests {
         let mut rate_node = ConstantNode::new(1.0);
         let mut depth_node = ConstantNode::new(0.01);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Create impulse-like input (spike at start, then zero)
         let mut input_buf = vec![0.0; block_size];
@@ -589,13 +570,8 @@ mod tests {
 
         let mut chorus = ChorusNode::new(0, 1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let input_buf = vec![1.0; block_size];
         let rate_buf = vec![1.0; block_size]; // 1 Hz
@@ -657,13 +633,8 @@ mod tests {
         let mut mix_node = ConstantNode::new(0.6); // 60% wet
         let mut chorus = ChorusNode::new(0, 1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut input_buf = vec![0.0; block_size];
         let mut rate_buf = vec![0.0; block_size];
@@ -691,18 +662,16 @@ mod tests {
 
             // All outputs should be finite
             for (i, &sample) in output.iter().enumerate() {
-                assert!(
-                    sample.is_finite(),
-                    "Sample {} is not finite: {}",
-                    i,
-                    sample
-                );
+                assert!(sample.is_finite(), "Sample {} is not finite: {}", i, sample);
             }
         }
 
         // Output should have variation (LFO modulation)
         let min = all_outputs.iter().cloned().fold(f32::INFINITY, f32::min);
-        let max = all_outputs.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let max = all_outputs
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
         let range = max - min;
 
         assert!(range > 0.05, "Output should vary, range: {}", range);
@@ -722,13 +691,8 @@ mod tests {
         let mut mix_node = ConstantNode::new(1.0); // 100% wet
         let mut chorus = ChorusNode::new(0, 1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut input_buf = vec![1.0; block_size];
         let mut rate_buf = vec![0.1; block_size];
@@ -794,13 +758,8 @@ mod tests {
         let mut mix_node = ConstantNode::new(0.5);
         let mut chorus = ChorusNode::new(0, 1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Test with invalid rate (negative)
         let mut rate_node_invalid = ConstantNode::new(-1.0);
@@ -844,13 +803,8 @@ mod tests {
         let mut mix_node = ConstantNode::new(0.5);
         let mut chorus = ChorusNode::new(0, 1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Test with invalid depth (too large)
         let mut depth_node_invalid = ConstantNode::new(0.1); // 100ms - too large
@@ -897,13 +851,8 @@ mod tests {
         let mut mix_node = ConstantNode::new(0.5);
         let mut chorus = ChorusNode::new(0, 1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut input_buf = vec![0.8; block_size];
         let mut rate_buf = vec![0.7; block_size];
@@ -948,13 +897,8 @@ mod tests {
         let mut mix_node = ConstantNode::new(0.5);
         let mut chorus = ChorusNode::new(0, 1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut input_buf = vec![1.0; block_size];
         let mut rate_buf = vec![1.0; block_size];

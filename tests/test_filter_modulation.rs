@@ -1,8 +1,8 @@
 //! Test that pattern-modulated filters actually affect the audio output
 
-use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
+use std::cell::RefCell;
 
 /// Compute the spectral centroid of a signal to detect filter changes
 fn compute_spectral_centroid(samples: &[f32], _sample_rate: f32) -> f32 {
@@ -51,7 +51,7 @@ fn test_pattern_modulated_filter_changes_audio() {
         freq: Signal::Value(110.0),
         waveform: Waveform::Saw,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -160,7 +160,7 @@ fn test_static_filter_consistent_output() {
         freq: Signal::Value(110.0),
         waveform: Waveform::Saw,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),

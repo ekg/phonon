@@ -14,7 +14,10 @@ fn test_audio_node_graph_has_voice_manager_and_sample_bank() {
 
     // Verify we can access voice_manager
     let voice_manager = graph.voice_manager();
-    assert!(voice_manager.lock().is_ok(), "Voice manager should be accessible");
+    assert!(
+        voice_manager.lock().is_ok(),
+        "Voice manager should be accessible"
+    );
 
     // Verify we can access sample_bank
     let sample_bank = graph.sample_bank();
@@ -31,14 +34,16 @@ fn test_voice_manager_can_be_used() {
     let vm = voice_manager.lock().unwrap();
 
     // Verify initial state
-    assert_eq!(vm.active_voice_count(), 0, "No voices should be active initially");
+    assert_eq!(
+        vm.active_voice_count(),
+        0,
+        "No voices should be active initially"
+    );
     assert!(vm.pool_size() > 0, "Voice pool should be initialized");
 }
 
 #[test]
 fn test_sample_bank_can_load_samples() {
-    
-
     let graph = AudioNodeGraph::new(44100.0);
 
     // Get sample bank
@@ -84,7 +89,11 @@ fn test_voice_manager_sample_bank_integration() {
     vm.trigger_sample(test_sample, 1.0);
 
     // Verify a voice was allocated
-    assert_eq!(vm.active_voice_count(), 1, "Should have 1 active voice after trigger");
+    assert_eq!(
+        vm.active_voice_count(),
+        1,
+        "Should have 1 active voice after trigger"
+    );
 
     // Process a few samples to advance the voice
     for _ in 0..10 {
@@ -122,7 +131,10 @@ fn test_multiple_sample_triggers() {
     }
 
     // Voices should still be active
-    assert!(vm.active_voice_count() > 0, "At least some voices should still be active");
+    assert!(
+        vm.active_voice_count() > 0,
+        "At least some voices should still be active"
+    );
 }
 
 #[test]
@@ -143,7 +155,11 @@ fn test_voice_manager_reset() {
     vm.reset();
 
     // Should have no active voices
-    assert_eq!(vm.active_voice_count(), 0, "Reset should clear all active voices");
+    assert_eq!(
+        vm.active_voice_count(),
+        0,
+        "Reset should clear all active voices"
+    );
 }
 
 #[test]
@@ -157,13 +173,16 @@ fn test_voice_manager_stereo_output() {
 
     // Trigger with different pan positions
     vm.trigger_sample_with_pan(sample.clone(), 1.0, -1.0); // Hard left
-    vm.trigger_sample_with_pan(sample.clone(), 1.0, 0.0);  // Center
-    vm.trigger_sample_with_pan(sample, 1.0, 1.0);          // Hard right
+    vm.trigger_sample_with_pan(sample.clone(), 1.0, 0.0); // Center
+    vm.trigger_sample_with_pan(sample, 1.0, 1.0); // Hard right
 
     // Process stereo output
     let (left, right) = vm.process_stereo();
 
     // Just verify we get output
     // Exact values depend on envelope and panning calculations
-    assert!(left.abs() > 0.0 || right.abs() > 0.0, "Should produce stereo output");
+    assert!(
+        left.abs() > 0.0 || right.abs() > 0.0,
+        "Should produce stereo output"
+    );
 }

@@ -8,7 +8,6 @@
 /// Algorithm based on:
 /// - Manfred Schroeder (1962) "Natural Sounding Artificial Reverberation"
 /// - Freeverb implementation (public domain)
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::collections::VecDeque;
 
@@ -165,11 +164,7 @@ impl AudioNode for ReverbNode {
         let damping = inputs[2];
         let wet = inputs[3];
 
-        debug_assert_eq!(
-            input.len(),
-            output.len(),
-            "Input buffer length mismatch"
-        );
+        debug_assert_eq!(input.len(), output.len(), "Input buffer length mismatch");
 
         for i in 0..output.len() {
             let in_sample = input[i];
@@ -185,17 +180,14 @@ impl AudioNode for ReverbNode {
             self.comb4.feedback = feedback_scale;
 
             // Process parallel combs and mix
-            let comb_out = (
-                self.comb1.process(in_sample, damp) +
-                self.comb2.process(in_sample, damp) +
-                self.comb3.process(in_sample, damp) +
-                self.comb4.process(in_sample, damp)
-            ) * 0.25;
+            let comb_out = (self.comb1.process(in_sample, damp)
+                + self.comb2.process(in_sample, damp)
+                + self.comb3.process(in_sample, damp)
+                + self.comb4.process(in_sample, damp))
+                * 0.25;
 
             // Process series allpass filters
-            let reverb_out = self.allpass2.process(
-                self.allpass1.process(comb_out)
-            );
+            let reverb_out = self.allpass2.process(self.allpass1.process(comb_out));
 
             // Wet/dry mix
             output[i] = in_sample * (1.0 - wet_amount) + reverb_out * wet_amount;
@@ -210,8 +202,8 @@ impl AudioNode for ReverbNode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nodes::ConstantNode;
     use crate::block_processor::BlockProcessor;
+    use crate::nodes::ConstantNode;
     use crate::pattern::Fraction;
 
     fn calculate_rms(buffer: &[f32]) -> f32 {
@@ -227,24 +219,19 @@ mod tests {
         let sample_rate = 44100.0;
 
         let nodes: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(0.0)),  // 0: Input (impulse)
-            Box::new(ConstantNode::new(0.7)),  // 1: room_size
-            Box::new(ConstantNode::new(0.5)),  // 2: damping
-            Box::new(ConstantNode::new(1.0)),  // 3: wet (100%)
-            Box::new(ReverbNode::new(0, 1, 2, 3)),  // 4: reverb
+            Box::new(ConstantNode::new(0.0)),      // 0: Input (impulse)
+            Box::new(ConstantNode::new(0.7)),      // 1: room_size
+            Box::new(ConstantNode::new(0.5)),      // 2: damping
+            Box::new(ConstantNode::new(1.0)),      // 3: wet (100%)
+            Box::new(ReverbNode::new(0, 1, 2, 3)), // 4: reverb
         ];
 
         let mut processor = BlockProcessor::new(nodes, 4, block_size).unwrap();
 
         // Process impulse block (would need to modify ConstantNode for impulse)
         // For this test, we'll just verify it doesn't crash
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut output = vec![0.0; block_size];
         processor.process_block(&mut output, &context).unwrap();
@@ -265,28 +252,27 @@ mod tests {
 
         // Small room (low feedback)
         let nodes_small: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(0.5)),  // Constant input
-            Box::new(ConstantNode::new(0.2)),  // Small room = low feedback
-            Box::new(ConstantNode::new(0.5)),  // damping
-            Box::new(ConstantNode::new(1.0)),  // 100% wet
+            Box::new(ConstantNode::new(0.5)), // Constant input
+            Box::new(ConstantNode::new(0.2)), // Small room = low feedback
+            Box::new(ConstantNode::new(0.5)), // damping
+            Box::new(ConstantNode::new(1.0)), // 100% wet
             Box::new(ReverbNode::new(0, 1, 2, 3)),
         ];
 
         // Large room (high feedback)
         let nodes_large: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(0.5)),  // Same constant input
-            Box::new(ConstantNode::new(0.9)),  // Large room = high feedback
-            Box::new(ConstantNode::new(0.5)),  // damping
-            Box::new(ConstantNode::new(1.0)),  // 100% wet
+            Box::new(ConstantNode::new(0.5)), // Same constant input
+            Box::new(ConstantNode::new(0.9)), // Large room = high feedback
+            Box::new(ConstantNode::new(0.5)), // damping
+            Box::new(ConstantNode::new(1.0)), // 100% wet
             Box::new(ReverbNode::new(0, 1, 2, 3)),
         ];
 
         let mut proc_small = BlockProcessor::new(nodes_small, 4, block_size).unwrap();
         let mut proc_large = BlockProcessor::new(nodes_large, 4, block_size).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Process many blocks to reach steady state
         for _ in 0..50 {
@@ -299,8 +285,12 @@ mod tests {
         let mut output_small = vec![0.0; block_size];
         let mut output_large = vec![0.0; block_size];
 
-        proc_small.process_block(&mut output_small, &context).unwrap();
-        proc_large.process_block(&mut output_large, &context).unwrap();
+        proc_small
+            .process_block(&mut output_small, &context)
+            .unwrap();
+        proc_large
+            .process_block(&mut output_large, &context)
+            .unwrap();
 
         let rms_small = calculate_rms(&output_small);
         let rms_large = calculate_rms(&output_large);
@@ -311,9 +301,12 @@ mod tests {
         assert!(rms_large > 0.01, "Large room should have output");
 
         // Large room (high feedback) should have more sustained energy
-        assert!(rms_large > rms_small,
+        assert!(
+            rms_large > rms_small,
             "Large room RMS ({}) should be > small room RMS ({}) due to higher feedback",
-            rms_large, rms_small);
+            rms_large,
+            rms_small
+        );
     }
 
     #[test]
@@ -326,27 +319,26 @@ mod tests {
         // Low damping (bright)
         let nodes_bright: Vec<Box<dyn AudioNode>> = vec![
             Box::new(ConstantNode::new(1.0)),
-            Box::new(ConstantNode::new(0.7)),  // room_size
-            Box::new(ConstantNode::new(0.1)),  // Low damping
-            Box::new(ConstantNode::new(1.0)),  // wet
+            Box::new(ConstantNode::new(0.7)), // room_size
+            Box::new(ConstantNode::new(0.1)), // Low damping
+            Box::new(ConstantNode::new(1.0)), // wet
             Box::new(ReverbNode::new(0, 1, 2, 3)),
         ];
 
         // High damping (dark)
         let nodes_dark: Vec<Box<dyn AudioNode>> = vec![
             Box::new(ConstantNode::new(1.0)),
-            Box::new(ConstantNode::new(0.7)),  // room_size
-            Box::new(ConstantNode::new(0.9)),  // High damping
-            Box::new(ConstantNode::new(1.0)),  // wet
+            Box::new(ConstantNode::new(0.7)), // room_size
+            Box::new(ConstantNode::new(0.9)), // High damping
+            Box::new(ConstantNode::new(1.0)), // wet
             Box::new(ReverbNode::new(0, 1, 2, 3)),
         ];
 
         let mut proc_bright = BlockProcessor::new(nodes_bright, 4, block_size).unwrap();
         let mut proc_dark = BlockProcessor::new(nodes_dark, 4, block_size).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Process blocks
         for _ in 0..5 {
@@ -358,7 +350,9 @@ mod tests {
         let mut output_bright = vec![0.0; block_size];
         let mut output_dark = vec![0.0; block_size];
 
-        proc_bright.process_block(&mut output_bright, &context).unwrap();
+        proc_bright
+            .process_block(&mut output_bright, &context)
+            .unwrap();
         proc_dark.process_block(&mut output_dark, &context).unwrap();
 
         // Both should have valid output
@@ -378,7 +372,7 @@ mod tests {
             Box::new(ConstantNode::new(1.0)),
             Box::new(ConstantNode::new(0.7)),
             Box::new(ConstantNode::new(0.5)),
-            Box::new(ConstantNode::new(0.0)),  // 0% wet = 100% dry
+            Box::new(ConstantNode::new(0.0)), // 0% wet = 100% dry
             Box::new(ReverbNode::new(0, 1, 2, 3)),
         ];
 
@@ -387,16 +381,15 @@ mod tests {
             Box::new(ConstantNode::new(1.0)),
             Box::new(ConstantNode::new(0.7)),
             Box::new(ConstantNode::new(0.5)),
-            Box::new(ConstantNode::new(1.0)),  // 100% wet
+            Box::new(ConstantNode::new(1.0)), // 100% wet
             Box::new(ReverbNode::new(0, 1, 2, 3)),
         ];
 
         let mut proc_dry = BlockProcessor::new(nodes_dry, 4, block_size).unwrap();
         let mut proc_wet = BlockProcessor::new(nodes_wet, 4, block_size).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut output_dry = vec![0.0; block_size];
         let mut output_wet = vec![0.0; block_size];
@@ -406,7 +399,11 @@ mod tests {
 
         // Dry should equal input (1.0)
         for &sample in &output_dry {
-            assert!((sample - 1.0).abs() < 0.001, "Dry output should be 1.0, got {}", sample);
+            assert!(
+                (sample - 1.0).abs() < 0.001,
+                "Dry output should be 1.0, got {}",
+                sample
+            );
         }
 
         // Wet should have reverb processing (different from input)
@@ -423,7 +420,7 @@ mod tests {
 
         let nodes: Vec<Box<dyn AudioNode>> = vec![
             Box::new(ConstantNode::new(1.0)),
-            Box::new(ConstantNode::new(0.9)),  // Large room
+            Box::new(ConstantNode::new(0.9)), // Large room
             Box::new(ConstantNode::new(0.5)),
             Box::new(ConstantNode::new(1.0)),
             Box::new(ReverbNode::new(0, 1, 2, 3)),
@@ -431,9 +428,8 @@ mod tests {
 
         let mut processor = BlockProcessor::new(nodes, 4, block_size).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Process many blocks
         for _ in 0..100 {
@@ -464,18 +460,17 @@ mod tests {
         let sample_rate = 44100.0;
 
         let nodes: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(0.5)),  // input
-            Box::new(ConstantNode::new(0.5)),  // room_size (could be pattern)
-            Box::new(ConstantNode::new(0.5)),  // damping
-            Box::new(ConstantNode::new(0.5)),  // wet
+            Box::new(ConstantNode::new(0.5)), // input
+            Box::new(ConstantNode::new(0.5)), // room_size (could be pattern)
+            Box::new(ConstantNode::new(0.5)), // damping
+            Box::new(ConstantNode::new(0.5)), // wet
             Box::new(ReverbNode::new(0, 1, 2, 3)),
         ];
 
         let mut processor = BlockProcessor::new(nodes, 4, block_size).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut output = vec![0.0; block_size];
         processor.process_block(&mut output, &context).unwrap();
@@ -494,16 +489,15 @@ mod tests {
         let nodes: Vec<Box<dyn AudioNode>> = vec![
             Box::new(ConstantNode::new(0.5)),
             Box::new(ConstantNode::new(0.7)),
-            Box::new(ConstantNode::new(0.3)),  // damping (could be pattern)
+            Box::new(ConstantNode::new(0.3)), // damping (could be pattern)
             Box::new(ConstantNode::new(0.5)),
             Box::new(ReverbNode::new(0, 1, 2, 3)),
         ];
 
         let mut processor = BlockProcessor::new(nodes, 4, block_size).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut output = vec![0.0; block_size];
         processor.process_block(&mut output, &context).unwrap();
@@ -522,15 +516,14 @@ mod tests {
             Box::new(ConstantNode::new(1.0)),
             Box::new(ConstantNode::new(0.7)),
             Box::new(ConstantNode::new(0.5)),
-            Box::new(ConstantNode::new(0.25)),  // wet (could be pattern)
+            Box::new(ConstantNode::new(0.25)), // wet (could be pattern)
             Box::new(ReverbNode::new(0, 1, 2, 3)),
         ];
 
         let mut processor = BlockProcessor::new(nodes, 4, block_size).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut output = vec![0.0; block_size];
         processor.process_block(&mut output, &context).unwrap();
@@ -548,7 +541,7 @@ mod tests {
         let sample_rate = 44100.0;
 
         let nodes: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(0.0)),  // Zero input
+            Box::new(ConstantNode::new(0.0)), // Zero input
             Box::new(ConstantNode::new(0.7)),
             Box::new(ConstantNode::new(0.5)),
             Box::new(ConstantNode::new(0.5)),
@@ -557,15 +550,17 @@ mod tests {
 
         let mut processor = BlockProcessor::new(nodes, 4, block_size).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut output = vec![0.0; block_size];
         processor.process_block(&mut output, &context).unwrap();
 
         // Should be silent (or very close to zero)
-        assert!(calculate_rms(&output) < 0.001, "Zero input should produce ~zero output");
+        assert!(
+            calculate_rms(&output) < 0.001,
+            "Zero input should produce ~zero output"
+        );
     }
 
     #[test]
@@ -596,9 +591,8 @@ mod tests {
         let mut proc_min = BlockProcessor::new(nodes_min, 4, block_size).unwrap();
         let mut proc_max = BlockProcessor::new(nodes_max, 4, block_size).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut output_min = vec![0.0; block_size];
         let mut output_max = vec![0.0; block_size];
@@ -644,15 +638,18 @@ mod tests {
         let mut proc_no_damp = BlockProcessor::new(nodes_no_damp, 4, block_size).unwrap();
         let mut proc_full_damp = BlockProcessor::new(nodes_full_damp, 4, block_size).unwrap();
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut output_no_damp = vec![0.0; block_size];
         let mut output_full_damp = vec![0.0; block_size];
 
-        proc_no_damp.process_block(&mut output_no_damp, &context).unwrap();
-        proc_full_damp.process_block(&mut output_full_damp, &context).unwrap();
+        proc_no_damp
+            .process_block(&mut output_no_damp, &context)
+            .unwrap();
+        proc_full_damp
+            .process_block(&mut output_full_damp, &context)
+            .unwrap();
 
         // Both should be stable
         for &sample in &output_no_damp {
@@ -671,10 +668,10 @@ mod tests {
         let deps = reverb.input_nodes();
 
         assert_eq!(deps.len(), 4);
-        assert_eq!(deps[0], 10);  // input
-        assert_eq!(deps[1], 20);  // room_size
-        assert_eq!(deps[2], 30);  // damping
-        assert_eq!(deps[3], 40);  // wet
+        assert_eq!(deps[0], 10); // input
+        assert_eq!(deps[1], 20); // room_size
+        assert_eq!(deps[2], 30); // damping
+        assert_eq!(deps[3], 40); // wet
     }
 
     #[test]

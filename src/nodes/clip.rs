@@ -2,7 +2,6 @@
 ///
 /// This node provides smooth, musical distortion by clipping signals
 /// above a threshold using a hyperbolic tangent transfer function.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Clip node: soft clipping with configurable threshold

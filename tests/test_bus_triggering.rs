@@ -8,7 +8,6 @@
 /// 3. Output the triggered bus: out $ ~triggered
 ///
 /// This creates envelope-gated synthesis voices that play the bus content at pattern times.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -51,7 +50,11 @@ out $ ~triggered
     let peak = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
 
     println!("Bus trigger simple: RMS={:.6}, Peak={:.6}", rms, peak);
-    assert!(rms > 0.01, "Bus trigger should produce audio, RMS = {}", rms);
+    assert!(
+        rms > 0.01,
+        "Bus trigger should produce audio, RMS = {}",
+        rms
+    );
     assert!(peak > 0.1, "Bus trigger should have peaks, Peak = {}", peak);
 }
 
@@ -73,7 +76,11 @@ out $ ~triggered
 
     let rms = calculate_rms(&buffer);
     println!("Bus trigger pattern: RMS={:.6}", rms);
-    assert!(rms > 0.01, "Bus trigger pattern should produce audio, RMS = {}", rms);
+    assert!(
+        rms > 0.01,
+        "Bus trigger pattern should produce audio, RMS = {}",
+        rms
+    );
 }
 
 #[test]
@@ -93,7 +100,11 @@ out $ ~triggered
 
     let rms = calculate_rms(&buffer);
     println!("Bus trigger mixed: RMS={:.6}", rms);
-    assert!(rms > 0.01, "Bus trigger mixed should produce audio, RMS = {}", rms);
+    assert!(
+        rms > 0.01,
+        "Bus trigger mixed should produce audio, RMS = {}",
+        rms
+    );
 }
 
 #[test]
@@ -113,7 +124,11 @@ out $ ~triggered
 
     let rms = calculate_rms(&buffer);
     println!("Bus trigger fast subdivision: RMS={:.6}", rms);
-    assert!(rms > 0.01, "Bus trigger fast should produce audio, RMS = {}", rms);
+    assert!(
+        rms > 0.01,
+        "Bus trigger fast should produce audio, RMS = {}",
+        rms
+    );
 }
 
 #[test]
@@ -133,5 +148,9 @@ out $ ~triggered
     let rms = calculate_rms(&buffer);
     println!("Nonexistent bus + bd: RMS={:.6}", rms);
     // Should complete without crashing and produce some audio from bd sample
-    assert!(rms > 0.001, "Should produce some audio from bd sample, RMS = {}", rms);
+    assert!(
+        rms > 0.001,
+        "Should produce some audio from bd sample, RMS = {}",
+        rms
+    );
 }

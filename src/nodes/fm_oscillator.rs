@@ -28,7 +28,6 @@
 ///   Frequency Modulation"
 /// - Yamaha DX7 (1983) - popularized FM synthesis
 /// - SuperCollider PMOsc.ar - similar implementation
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -43,11 +42,11 @@ use std::f32::consts::PI;
 /// let fm_osc = FMOscillatorNode::new(0, 1, 2);  // NodeId 3
 /// ```
 pub struct FMOscillatorNode {
-    carrier_freq_input: NodeId,    // Carrier frequency in Hz
-    modulator_freq_input: NodeId,  // Modulator frequency in Hz
-    mod_index_input: NodeId,       // Modulation index (depth)
-    carrier_phase: f32,             // Carrier phase (0.0 to 1.0)
-    modulator_phase: f32,           // Modulator phase (0.0 to 1.0)
+    carrier_freq_input: NodeId,   // Carrier frequency in Hz
+    modulator_freq_input: NodeId, // Modulator frequency in Hz
+    mod_index_input: NodeId,      // Modulation index (depth)
+    carrier_phase: f32,           // Carrier phase (0.0 to 1.0)
+    modulator_phase: f32,         // Modulator phase (0.0 to 1.0)
 }
 
 impl FMOscillatorNode {
@@ -207,13 +206,7 @@ mod tests {
         let mut index_node = ConstantNode::new(mod_index);
         let mut fm_osc = FMOscillatorNode::new(0, 1, 2);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            buffer_size,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, 44100.0);
 
         // Generate input buffers
         let mut carrier_buf = vec![0.0; buffer_size];
@@ -225,7 +218,11 @@ mod tests {
         index_node.process_block(&[], &mut index_buf, 44100.0, &context);
 
         // Generate FM output
-        let inputs = vec![carrier_buf.as_slice(), mod_buf.as_slice(), index_buf.as_slice()];
+        let inputs = vec![
+            carrier_buf.as_slice(),
+            mod_buf.as_slice(),
+            index_buf.as_slice(),
+        ];
         let mut output = vec![0.0; buffer_size];
         fm_osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -293,16 +290,14 @@ mod tests {
         let carrier_buf = vec![440.0];
         let mod_buf = vec![440.0];
         let index_buf = vec![0.0];
-        let inputs = vec![carrier_buf.as_slice(), mod_buf.as_slice(), index_buf.as_slice()];
+        let inputs = vec![
+            carrier_buf.as_slice(),
+            mod_buf.as_slice(),
+            index_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         fm_osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -325,16 +320,14 @@ mod tests {
         let carrier_buf = vec![440.0];
         let mod_buf = vec![220.0];
         let index_buf = vec![1.0];
-        let inputs = vec![carrier_buf.as_slice(), mod_buf.as_slice(), index_buf.as_slice()];
+        let inputs = vec![
+            carrier_buf.as_slice(),
+            mod_buf.as_slice(),
+            index_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         fm_osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -367,10 +360,15 @@ mod tests {
         assert!(calculate_rms(&ratio_1_2) > 0.3);
 
         // Waveforms should be different (simple check: not identical)
-        let same_as_1_1 = ratio_2_1.iter().zip(&ratio_1_1)
+        let same_as_1_1 = ratio_2_1
+            .iter()
+            .zip(&ratio_1_1)
             .all(|(a, b)| (a - b).abs() < 0.001);
 
-        assert!(!same_as_1_1, "Different C:M ratios should produce different waveforms");
+        assert!(
+            !same_as_1_1,
+            "Different C:M ratios should produce different waveforms"
+        );
     }
 
     #[test]
@@ -379,9 +377,9 @@ mod tests {
         let deps = fm_osc.input_nodes();
 
         assert_eq!(deps.len(), 3);
-        assert_eq!(deps[0], 10);  // carrier_freq
-        assert_eq!(deps[1], 20);  // modulator_freq
-        assert_eq!(deps[2], 30);  // mod_index
+        assert_eq!(deps[0], 10); // carrier_freq
+        assert_eq!(deps[1], 20); // modulator_freq
+        assert_eq!(deps[2], 30); // mod_index
     }
 
     #[test]
@@ -421,19 +419,17 @@ mod tests {
         fm_osc.modulator_phase = 0.99;
 
         // Process one sample at high frequency
-        let carrier_buf = vec![4410.0];  // 10% of sample rate
+        let carrier_buf = vec![4410.0]; // 10% of sample rate
         let mod_buf = vec![4410.0];
         let index_buf = vec![1.0];
-        let inputs = vec![carrier_buf.as_slice(), mod_buf.as_slice(), index_buf.as_slice()];
+        let inputs = vec![
+            carrier_buf.as_slice(),
+            mod_buf.as_slice(),
+            index_buf.as_slice(),
+        ];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         fm_osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -473,7 +469,7 @@ mod tests {
 
         fm_osc.reset_carrier_phase();
         assert_eq!(fm_osc.carrier_phase(), 0.0);
-        assert_eq!(fm_osc.modulator_phase(), 0.7);  // Unchanged
+        assert_eq!(fm_osc.modulator_phase(), 0.7); // Unchanged
     }
 
     #[test]
@@ -484,7 +480,7 @@ mod tests {
         fm_osc.modulator_phase = 0.7;
 
         fm_osc.reset_modulator_phase();
-        assert_eq!(fm_osc.carrier_phase(), 0.5);  // Unchanged
+        assert_eq!(fm_osc.carrier_phase(), 0.5); // Unchanged
         assert_eq!(fm_osc.modulator_phase(), 0.0);
     }
 
@@ -512,7 +508,9 @@ mod tests {
 
         // Should be different from harmonic ratio
         let harmonic = process_fm(440.0, 880.0, 2.0, 2048);
-        let same = output.iter().zip(&harmonic)
+        let same = output
+            .iter()
+            .zip(&harmonic)
             .all(|(a, b)| (a - b).abs() < 0.001);
 
         assert!(!same, "Inharmonic and harmonic ratios should differ");

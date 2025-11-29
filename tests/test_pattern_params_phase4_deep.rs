@@ -13,7 +13,7 @@ use phonon::compositional_parser::parse_program;
 
 mod pattern_verification_utils;
 use pattern_verification_utils::{
-    calculate_rms, calculate_spectral_centroid, assert_spectral_difference, calculate_peak,
+    assert_spectral_difference, calculate_peak, calculate_rms, calculate_spectral_centroid,
 };
 
 // Test duration in seconds
@@ -73,7 +73,11 @@ out $ ~fm
 
     // Should have reasonable energy
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.3, "FM synthesis should produce audible signal, RMS: {}", rms);
+    assert!(
+        rms > 0.3,
+        "FM synthesis should produce audible signal, RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -89,7 +93,7 @@ tempo: 1.0
 out $ ~filtered
 "#;
 
-    let audio = render_dsl(code, 4.0);  // Longer duration for more LFO cycles
+    let audio = render_dsl(code, 4.0); // Longer duration for more LFO cycles
 
     // Filter sweep at 10 Hz should create spectral variation
     // Use small windows (50ms) to catch spectral changes as LFO sweeps
@@ -196,7 +200,11 @@ out $ ~ring
 
     // Should have reasonable energy
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.3, "Ring modulation should produce audible signal, RMS: {}", rms);
+    assert!(
+        rms > 0.3,
+        "Ring modulation should produce audible signal, RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -290,9 +298,9 @@ out $ ~swept
     // Split into 4 quarters to see spectral movement
     let quarter = audio.len() / 4;
     let q1 = &audio[0..quarter];
-    let q2 = &audio[quarter..quarter*2];
-    let q3 = &audio[quarter*2..quarter*3];
-    let q4 = &audio[quarter*3..];
+    let q2 = &audio[quarter..quarter * 2];
+    let q3 = &audio[quarter * 2..quarter * 3];
+    let q4 = &audio[quarter * 3..];
 
     let c1 = calculate_spectral_centroid(q1, SAMPLE_RATE);
     let c2 = calculate_spectral_centroid(q2, SAMPLE_RATE);
@@ -514,7 +522,11 @@ out $ ~modulated
 
     // Should have reasonable energy (not attenuated by aliasing)
     let rms = calculate_rms(&audio);
-    assert!(rms > 0.3, "Continuous modulation should preserve energy, RMS: {}", rms);
+    assert!(
+        rms > 0.3,
+        "Continuous modulation should preserve energy, RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -595,8 +607,14 @@ out $ ~filtered
     // Check that output is clean (no NaN, no excessive peaks)
     for &sample in audio.iter() {
         let sample: f32 = sample;
-        assert!(sample.is_finite(), "Fast pattern modulation should not produce NaN");
-        assert!(sample.abs() < 2.0, "Fast pattern modulation should not create extreme peaks");
+        assert!(
+            sample.is_finite(),
+            "Fast pattern modulation should not produce NaN"
+        );
+        assert!(
+            sample.abs() < 2.0,
+            "Fast pattern modulation should not create extreme peaks"
+        );
     }
 
     // Should maintain reasonable spectral content

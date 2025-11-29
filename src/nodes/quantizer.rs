@@ -16,7 +16,6 @@
 /// let quantized = QuantizerNode::new(1, 2);               // NodeId 3
 /// // Output will be stepped sine wave (semitone steps)
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Quantizer node: snap values to nearest step
@@ -128,25 +127,19 @@ mod tests {
         let inputs = vec![input.as_slice(), step_size.as_slice()];
 
         let mut output = vec![0.0; 8];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            8,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 8, 2.0, 44100.0);
 
         quantizer.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Verify rounding to nearest integer
-        assert_eq!(output[0], 0.0);   // 0.1 -> 0.0
-        assert_eq!(output[1], 1.0);   // 0.5 -> 1.0 (rounds up)
-        assert_eq!(output[2], 1.0);   // 0.9 -> 1.0
-        assert_eq!(output[3], 1.0);   // 1.4 -> 1.0
-        assert_eq!(output[4], 2.0);   // 1.6 -> 2.0
-        assert_eq!(output[5], 2.0);   // 2.3 -> 2.0
-        assert_eq!(output[6], -1.0);  // -0.5 -> -1.0 (rounds down for negative)
-        assert_eq!(output[7], -2.0);  // -1.7 -> -2.0
+        assert_eq!(output[0], 0.0); // 0.1 -> 0.0
+        assert_eq!(output[1], 1.0); // 0.5 -> 1.0 (rounds up)
+        assert_eq!(output[2], 1.0); // 0.9 -> 1.0
+        assert_eq!(output[3], 1.0); // 1.4 -> 1.0
+        assert_eq!(output[4], 2.0); // 1.6 -> 2.0
+        assert_eq!(output[5], 2.0); // 2.3 -> 2.0
+        assert_eq!(output[6], -1.0); // -0.5 -> -1.0 (rounds down for negative)
+        assert_eq!(output[7], -2.0); // -1.7 -> -2.0
     }
 
     #[test]
@@ -159,25 +152,19 @@ mod tests {
         let inputs = vec![input.as_slice(), step_size.as_slice()];
 
         let mut output = vec![0.0; 8];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            8,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 8, 2.0, 44100.0);
 
         quantizer.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Verify rounding to nearest 0.5
-        assert_eq!(output[0], 0.0);   // 0.0 -> 0.0
-        assert_eq!(output[1], 0.0);   // 0.2 -> 0.0
-        assert_eq!(output[2], 0.5);   // 0.3 -> 0.5
-        assert_eq!(output[3], 0.5);   // 0.7 -> 0.5
-        assert_eq!(output[4], 1.0);   // 1.0 -> 1.0
-        assert_eq!(output[5], 1.0);   // 1.1 -> 1.0
-        assert_eq!(output[6], 1.5);   // 1.4 -> 1.5
-        assert_eq!(output[7], 1.5);   // 1.6 -> 1.5
+        assert_eq!(output[0], 0.0); // 0.0 -> 0.0
+        assert_eq!(output[1], 0.0); // 0.2 -> 0.0
+        assert_eq!(output[2], 0.5); // 0.3 -> 0.5
+        assert_eq!(output[3], 0.5); // 0.7 -> 0.5
+        assert_eq!(output[4], 1.0); // 1.0 -> 1.0
+        assert_eq!(output[5], 1.0); // 1.1 -> 1.0
+        assert_eq!(output[6], 1.5); // 1.4 -> 1.5
+        assert_eq!(output[7], 1.5); // 1.6 -> 1.5
     }
 
     #[test]
@@ -190,23 +177,17 @@ mod tests {
         let inputs = vec![input.as_slice(), step_size.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         quantizer.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Verify rounding to nearest 0.1
-        assert!((output[0] - 0.1).abs() < 0.001);   // 0.14 -> 0.1
-        assert!((output[1] - 0.2).abs() < 0.001);   // 0.16 -> 0.2
-        assert!((output[2] - 0.2).abs() < 0.001);   // 0.24 -> 0.2
-        assert!((output[3] - 0.3).abs() < 0.001);   // 0.26 -> 0.3
-        assert!((output[4] - 1.0).abs() < 0.001);   // 1.03 -> 1.0
-        assert!((output[5] - 1.1).abs() < 0.001);   // 1.07 -> 1.1
+        assert!((output[0] - 0.1).abs() < 0.001); // 0.14 -> 0.1
+        assert!((output[1] - 0.2).abs() < 0.001); // 0.16 -> 0.2
+        assert!((output[2] - 0.2).abs() < 0.001); // 0.24 -> 0.2
+        assert!((output[3] - 0.3).abs() < 0.001); // 0.26 -> 0.3
+        assert!((output[4] - 1.0).abs() < 0.001); // 1.03 -> 1.0
+        assert!((output[5] - 1.1).abs() < 0.001); // 1.07 -> 1.1
     }
 
     #[test]
@@ -219,25 +200,19 @@ mod tests {
         let inputs = vec![input.as_slice(), step_size.as_slice()];
 
         let mut output = vec![0.0; 8];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            8,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 8, 2.0, 44100.0);
 
         quantizer.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Verify rounding to nearest 10.0
-        assert_eq!(output[0], 0.0);    // 3.0 -> 0.0
-        assert_eq!(output[1], 10.0);   // 7.0 -> 10.0
-        assert_eq!(output[2], 10.0);   // 14.0 -> 10.0
-        assert_eq!(output[3], 20.0);   // 16.0 -> 20.0
-        assert_eq!(output[4], 20.0);   // 23.0 -> 20.0
-        assert_eq!(output[5], 30.0);   // 27.0 -> 30.0
-        assert_eq!(output[6], -10.0);  // -7.0 -> -10.0
-        assert_eq!(output[7], -10.0);  // -13.0 -> -10.0
+        assert_eq!(output[0], 0.0); // 3.0 -> 0.0
+        assert_eq!(output[1], 10.0); // 7.0 -> 10.0
+        assert_eq!(output[2], 10.0); // 14.0 -> 10.0
+        assert_eq!(output[3], 20.0); // 16.0 -> 20.0
+        assert_eq!(output[4], 20.0); // 23.0 -> 20.0
+        assert_eq!(output[5], 30.0); // 27.0 -> 30.0
+        assert_eq!(output[6], -10.0); // -7.0 -> -10.0
+        assert_eq!(output[7], -10.0); // -13.0 -> -10.0
     }
 
     #[test]
@@ -250,23 +225,17 @@ mod tests {
         let inputs = vec![input.as_slice(), step_size.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         quantizer.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Verify correct rounding for negative values
-        assert_eq!(output[0], -0.0);  // -0.3 -> 0.0
-        assert_eq!(output[1], -1.0);  // -0.7 -> -1.0
-        assert_eq!(output[2], -1.0);  // -1.2 -> -1.0
-        assert_eq!(output[3], -2.0);  // -1.8 -> -2.0
-        assert_eq!(output[4], -2.0);  // -2.4 -> -2.0
-        assert_eq!(output[5], -3.0);  // -2.6 -> -3.0
+        assert_eq!(output[0], -0.0); // -0.3 -> 0.0
+        assert_eq!(output[1], -1.0); // -0.7 -> -1.0
+        assert_eq!(output[2], -1.0); // -1.2 -> -1.0
+        assert_eq!(output[3], -2.0); // -1.8 -> -2.0
+        assert_eq!(output[4], -2.0); // -2.4 -> -2.0
+        assert_eq!(output[5], -3.0); // -2.6 -> -3.0
     }
 
     #[test]
@@ -276,8 +245,8 @@ mod tests {
         let deps = quantizer.input_nodes();
 
         assert_eq!(deps.len(), 2);
-        assert_eq!(deps[0], 5);   // input
-        assert_eq!(deps[1], 10);  // step_size_input
+        assert_eq!(deps[0], 5); // input
+        assert_eq!(deps[1], 10); // step_size_input
     }
 
     #[test]
@@ -293,25 +262,19 @@ mod tests {
         let inputs = vec![input.as_slice(), step_size.as_slice()];
 
         let mut output = vec![0.0; 8];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            8,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 8, 2.0, 44100.0);
 
         quantizer.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Verify chromatic quantization
-        assert_eq!(output[0], 60.0);  // 60.2 -> 60 (C)
-        assert_eq!(output[1], 61.0);  // 60.5 -> 61 (C#) - rounds up at .5
-        assert_eq!(output[2], 61.0);  // 60.8 -> 61 (C#)
-        assert_eq!(output[3], 61.0);  // 61.3 -> 61 (C#)
-        assert_eq!(output[4], 62.0);  // 61.6 -> 62 (D)
-        assert_eq!(output[5], 62.0);  // 62.1 -> 62 (D)
-        assert_eq!(output[6], 62.0);  // 62.4 -> 62 (D)
-        assert_eq!(output[7], 63.0);  // 62.9 -> 63 (D#)
+        assert_eq!(output[0], 60.0); // 60.2 -> 60 (C)
+        assert_eq!(output[1], 61.0); // 60.5 -> 61 (C#) - rounds up at .5
+        assert_eq!(output[2], 61.0); // 60.8 -> 61 (C#)
+        assert_eq!(output[3], 61.0); // 61.3 -> 61 (C#)
+        assert_eq!(output[4], 62.0); // 61.6 -> 62 (D)
+        assert_eq!(output[5], 62.0); // 62.1 -> 62 (D)
+        assert_eq!(output[6], 62.0); // 62.4 -> 62 (D)
+        assert_eq!(output[7], 63.0); // 62.9 -> 63 (D#)
     }
 
     #[test]
@@ -325,21 +288,15 @@ mod tests {
         let inputs = vec![input.as_slice(), step_size.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         quantizer.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Same input, different steps, different outputs
-        assert_eq!(output[0], 1.0);   // 1.4 quantized to step 1.0 -> 1.0
-        assert_eq!(output[1], 1.5);   // 1.4 quantized to step 0.5 -> 1.5
-        assert_eq!(output[2], 1.5);   // 1.4 quantized to step 0.25 -> 1.5
-        assert_eq!(output[3], 2.0);   // 1.4 quantized to step 2.0 -> 2.0
+        assert_eq!(output[0], 1.0); // 1.4 quantized to step 1.0 -> 1.0
+        assert_eq!(output[1], 1.5); // 1.4 quantized to step 0.5 -> 1.5
+        assert_eq!(output[2], 1.5); // 1.4 quantized to step 0.25 -> 1.5
+        assert_eq!(output[3], 2.0); // 1.4 quantized to step 2.0 -> 2.0
     }
 
     #[test]
@@ -353,13 +310,7 @@ mod tests {
         let inputs = vec![input.as_slice(), step_size.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         quantizer.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -367,7 +318,7 @@ mod tests {
         for &sample in &output {
             // With step = 0.0001, 5.0 quantizes to 5.0
             assert!((sample - 5.0).abs() < 0.01);
-            assert!(sample.is_finite());  // No infinities or NaN
+            assert!(sample.is_finite()); // No infinities or NaN
         }
     }
 
@@ -378,13 +329,7 @@ mod tests {
         let mut const_step = ConstantNode::new(1.0);
         let mut quantizer = QuantizerNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut buf_input = vec![0.0; 512];

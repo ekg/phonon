@@ -163,8 +163,7 @@ impl ModalEditor {
         // Use default buffer size (ring buffer handles buffering)
         let config: cpal::StreamConfig = default_config.into();
 
-        eprintln!("🎵 Audio: {} Hz, {} channels",
-                 sample_rate as u32, channels);
+        eprintln!("🎵 Audio: {} Hz, {} channels", sample_rate as u32, channels);
         eprintln!("🔧 Using ring buffer architecture for parallel synthesis");
 
         // Graph for background synthesis thread (lock-free swap)
@@ -204,8 +203,10 @@ impl ModalEditor {
 
                 // Log stats every second to diagnose blocking
                 if last_log.elapsed().as_secs() >= 1 {
-                    eprintln!("🔧 Synth thread: {} iters/s, {} renders/s, {} sleeps/s",
-                        iterations, renders, sleeps);
+                    eprintln!(
+                        "🔧 Synth thread: {} iters/s, {} renders/s, {} sleeps/s",
+                        iterations, renders, sleeps
+                    );
                     iterations = 0;
                     renders = 0;
                     sleeps = 0;
@@ -239,7 +240,10 @@ impl ModalEditor {
                                 // Write to ring buffer
                                 let written = ring_producer.push_slice(&buffer);
                                 if written < buffer.len() {
-                                    eprintln!("⚠️  Ring buffer full, dropped {} samples", buffer.len() - written);
+                                    eprintln!(
+                                        "⚠️  Ring buffer full, dropped {} samples",
+                                        buffer.len() - written
+                                    );
                                 }
                             }
                             Err(_) => {
@@ -288,12 +292,15 @@ impl ModalEditor {
                 .append(true)
                 .open("/tmp/phonon_audio_errors.log")
             {
-                let _ = writeln!(file, "[{}] Audio stream error: {}",
+                let _ = writeln!(
+                    file,
+                    "[{}] Audio stream error: {}",
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
                         .as_secs(),
-                    err);
+                    err
+                );
             }
         };
 
@@ -384,7 +391,9 @@ impl ModalEditor {
         }
         .map_err(|e| format!("Failed to build stream: {}", e))?;
 
-        stream.play().map_err(|e| format!("Failed to play stream: {}", e))?;
+        stream
+            .play()
+            .map_err(|e| format!("Failed to play stream: {}", e))?;
 
         // Load initial content
         let content = if let Some(ref path) = file_path {
@@ -407,8 +416,9 @@ impl ModalEditor {
             cursor_pos,
             content,
             file_path,
-            status_message: "🎵 Ready - C-x: eval | C-u: undo | C-r: redo | Tab: complete | Alt-/: help"
-                .to_string(),
+            status_message:
+                "🎵 Ready - C-x: eval | C-u: undo | C-r: redo | Tab: complete | Alt-/: help"
+                    .to_string(),
             is_playing: false,
             error_message: None,
             graph,
@@ -454,11 +464,10 @@ impl ModalEditor {
         eprintln!("🔧 load_code() called with {} bytes", code.len());
 
         // Parse the DSL code
-        let (rest, statements) = parse_program(code)
-            .map_err(|e| {
-                eprintln!("❌ Parse error: {}", e);
-                format!("Parse error: {}", e)
-            })?;
+        let (rest, statements) = parse_program(code).map_err(|e| {
+            eprintln!("❌ Parse error: {}", e);
+            format!("Parse error: {}", e)
+        })?;
 
         if !rest.trim().is_empty() {
             let err = format!("Failed to parse entire code, remaining: {}", rest);
@@ -472,11 +481,13 @@ impl ModalEditor {
         // Note: compile_program sets CPS from tempo:/bpm: statements in the code
         // Default is 0.5 CPS if not specified
         // Pass MIDI event queue for real-time monitoring (~midi buses)
-        let midi_queue = self.midi_input.as_ref()
+        let midi_queue = self
+            .midi_input
+            .as_ref()
             .map(|handler| handler.get_monitoring_queue());
 
-        let mut new_graph = compile_program(statements, self.sample_rate, midi_queue)
-            .map_err(|e| {
+        let mut new_graph =
+            compile_program(statements, self.sample_rate, midi_queue).map_err(|e| {
                 eprintln!("❌ Compile error: {}", e);
                 format!("Compile error: {}", e)
             })?;
@@ -519,14 +530,23 @@ impl ModalEditor {
                 match old_graph_cell.0.try_borrow_mut() {
                     Ok(mut old_graph) => {
                         eprintln!("📊 Transfer succeeded on attempt {}", attempt);
-                        eprintln!("📊 Before transfer - old graph cycle position: {}", old_graph.get_cycle_position());
-                        eprintln!("📊 Before transfer - old graph CPS: {}", old_graph.get_cps());
+                        eprintln!(
+                            "📊 Before transfer - old graph cycle position: {}",
+                            old_graph.get_cycle_position()
+                        );
+                        eprintln!(
+                            "📊 Before transfer - old graph CPS: {}",
+                            old_graph.get_cps()
+                        );
 
                         // CRITICAL: Transfer session timing (wall-clock based)
                         // This preserves the global clock - beat NEVER drops!
                         new_graph.transfer_session_timing(&old_graph);
 
-                        eprintln!("📊 After transfer - new graph cycle position: {}", new_graph.get_cycle_position());
+                        eprintln!(
+                            "📊 After transfer - new graph cycle position: {}",
+                            new_graph.get_cycle_position()
+                        );
                         eprintln!("📊 After transfer - new graph CPS: {}", new_graph.get_cps());
 
                         // CRITICAL: Transfer FX state (delay buffers, reverb tails, etc.)
@@ -556,13 +576,18 @@ impl ModalEditor {
                 // which may cause a beat jump, but at least tempo won't double.
                 eprintln!("⚠️  Could not transfer state after retries!");
                 eprintln!("   New graph starting with fresh timing (beat may jump)");
-                eprintln!("   New graph CPS: {}, wall-clock: {}", new_graph.get_cps(), new_graph.use_wall_clock);
+                eprintln!(
+                    "   New graph CPS: {}, wall-clock: {}",
+                    new_graph.get_cps(),
+                    new_graph.use_wall_clock
+                );
             }
         }
 
         // Hot-swap the graph atomically using lock-free ArcSwap
         // Background synthesis thread will pick up new graph on next render
-        self.graph.store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
+        self.graph
+            .store(Arc::new(Some(GraphCell(RefCell::new(new_graph)))));
 
         // DON'T clear the ring buffer for live coding!
         // Let it play out smoothly - the new graph will naturally take over.
@@ -715,7 +740,8 @@ impl ModalEditor {
             KeyCode::Char(',') if key.modifiers.contains(KeyModifiers::ALT) => {
                 self.show_config_panel = !self.show_config_panel;
                 if self.show_config_panel {
-                    self.status_message = "⚙️  Configuration Panel (Q: quantize, Esc: close)".to_string();
+                    self.status_message =
+                        "⚙️  Configuration Panel (Q: quantize, Esc: close)".to_string();
                 } else {
                     self.status_message = "Configuration closed".to_string();
                 }
@@ -729,7 +755,10 @@ impl ModalEditor {
             }
 
             // Alt+Shift+I: Smart paste complete pattern (~rec1: slow N $ n "..." # gain "...")
-            KeyCode::Char('I') if key.modifiers.contains(KeyModifiers::ALT) && key.modifiers.contains(KeyModifiers::SHIFT) => {
+            KeyCode::Char('I')
+                if key.modifiers.contains(KeyModifiers::ALT)
+                    && key.modifiers.contains(KeyModifiers::SHIFT) =>
+            {
                 self.insert_midi_smart_paste();
                 KeyResult::Continue
             }
@@ -1005,13 +1034,11 @@ impl ModalEditor {
             if scroll_offset > 0 {
                 popup_lines.push(Line::from(Span::styled(
                     "  ▲ more above ▲",
-                    Style::default().fg(Color::DarkGray)
+                    Style::default().fg(Color::DarkGray),
                 )));
             }
 
-            let visible_completions = completions.iter()
-                .skip(scroll_offset)
-                .take(visible_items);
+            let visible_completions = completions.iter().skip(scroll_offset).take(visible_items);
 
             for (displayed_idx, completion) in visible_completions.enumerate() {
                 let actual_idx = scroll_offset + displayed_idx;
@@ -1024,11 +1051,7 @@ impl ModalEditor {
                 };
 
                 // Format: "  completion_text     [type]"
-                let line_text = format!("{}{:20} {}",
-                    prefix,
-                    completion.text,
-                    completion.label()
-                );
+                let line_text = format!("{}{:20} {}", prefix, completion.text, completion.label());
 
                 popup_lines.push(Line::from(Span::styled(line_text, style)));
             }
@@ -1037,7 +1060,7 @@ impl ModalEditor {
             if scroll_offset + visible_items < completions.len() {
                 popup_lines.push(Line::from(Span::styled(
                     "  ▼ more below ▼",
-                    Style::default().fg(Color::DarkGray)
+                    Style::default().fg(Color::DarkGray),
                 )));
             }
 
@@ -1143,20 +1166,31 @@ impl ModalEditor {
 
         let status_text = if let Some(ref error) = self.error_message {
             if underrun_count > 0 {
-                format!("❌ Error: {error} | Underruns: {} (total) | Synth: {}% | Buf: {}%",
-                    underrun_count, synth_percent, ring_fill)
+                format!(
+                    "❌ Error: {error} | Underruns: {} (total) | Synth: {}% | Buf: {}%",
+                    underrun_count, synth_percent, ring_fill
+                )
             } else {
                 format!("❌ Error: {error}")
             }
         } else if synth_time_us > 0 {
             // Show detailed performance info with underrun history (not alarming)
-            let perf_status = if is_too_slow { "⚠️ TOO SLOW!" } else { "✓" };
-            format!("🔊 {} Synth: {}% ({}/{}µs) | Buf: {}% | Underruns: {} (total)",
-                perf_status, synth_percent, synth_time_us, budget_us, ring_fill, underrun_count)
+            let perf_status = if is_too_slow {
+                "⚠️ TOO SLOW!"
+            } else {
+                "✓"
+            };
+            format!(
+                "🔊 {} Synth: {}% ({}/{}µs) | Buf: {}% | Underruns: {} (total)",
+                perf_status, synth_percent, synth_time_us, budget_us, ring_fill, underrun_count
+            )
         } else if self.is_playing {
             format!("🔊 Playing... | Underruns: {} (total)", underrun_count)
         } else {
-            format!("{} | Underruns: {} (total)", self.status_message, underrun_count)
+            format!(
+                "{} | Underruns: {} (total)",
+                self.status_message, underrun_count
+            )
         };
 
         let help_text = "C-x: Eval | C-u: Undo | C-r: Redo | C-k: Kill | C-y: Yank | C-h: Hush | C-s: Save | Alt-q: Quit";
@@ -1914,10 +1948,8 @@ impl ModalEditor {
                         String::new()
                     };
 
-                    self.status_message = format!(
-                        "⏹️ {} - Alt+I/N/V to insert{}",
-                        summary, slow_hint
-                    );
+                    self.status_message =
+                        format!("⏹️ {} - Alt+I/N/V to insert{}", summary, slow_hint);
                 } else {
                     self.status_message = "⏹️ Recording stopped (no notes)".to_string();
                 }
@@ -2006,8 +2038,7 @@ impl ModalEditor {
 
             self.status_message = format!(
                 "⏺️ Recording MIDI... Cycle {:.2} (elapsed: {:.2}) - Alt+R to stop",
-                current_cycle,
-                elapsed_cycles
+                current_cycle, elapsed_cycles
             );
         }
     }
@@ -2035,7 +2066,10 @@ impl ModalEditor {
                 self.insert_char(c);
             }
             let base_info = self.midi_recorded_base_note.as_deref().unwrap_or("?");
-            self.status_message = format!("📝 Inserted n-offsets: {} (base: {})", pattern_str, base_info);
+            self.status_message = format!(
+                "📝 Inserted n-offsets: {} (base: {})",
+                pattern_str, base_info
+            );
         } else {
             self.status_message = "🎹 No recorded pattern (Alt+R to record)".to_string();
         }
@@ -2096,11 +2130,7 @@ impl ModalEditor {
                     // Format: ~rec1: slow 4 $ n "c4 e4 g4" # gain "0.8 1.0 0.6" # legato "0.9 0.5 1.0"
                     let full_pattern = format!(
                         "{}: {}n \"{}\" # gain \"{}\" # legato \"{}\"",
-                        rec_name,
-                        slow_wrapper,
-                        pattern,
-                        velocity,
-                        legato
+                        rec_name, slow_wrapper, pattern, velocity, legato
                     );
 
                     // Insert at cursor
@@ -2108,9 +2138,11 @@ impl ModalEditor {
                         self.insert_char(c);
                     }
 
-                    self.status_message = format!("📝 Inserted {} with dynamics & legato", rec_name);
+                    self.status_message =
+                        format!("📝 Inserted {} with dynamics & legato", rec_name);
                 } else {
-                    self.status_message = "🎹 No legato data (recording may have failed)".to_string();
+                    self.status_message =
+                        "🎹 No legato data (recording may have failed)".to_string();
                 }
             } else {
                 self.status_message = "🎹 No velocity data (recording may have failed)".to_string();
@@ -2343,11 +2375,8 @@ impl ModalEditor {
             .map(|i| i + 1)
             .unwrap_or(0);
 
-        self.completion_state.show(
-            completions.clone(),
-            partial_text,
-            line_start + token_start,
-        );
+        self.completion_state
+            .show(completions.clone(), partial_text, line_start + token_start);
 
         self.status_message = format!(
             "{} completions | Tab/↑↓: navigate | Enter: accept | Esc: cancel",
@@ -2449,7 +2478,9 @@ impl ModalEditor {
 
             // Check if this is a known function
             if completion::FUNCTION_METADATA.contains_key(token) {
-                return completion::FUNCTION_METADATA.get(token).map(|meta| meta.name);
+                return completion::FUNCTION_METADATA
+                    .get(token)
+                    .map(|meta| meta.name);
             }
         }
 
@@ -2516,11 +2547,8 @@ impl ModalEditor {
             .map(|i| i + 1)
             .unwrap_or(0);
 
-        self.completion_state.show(
-            completions.clone(),
-            partial_text,
-            line_start + token_start,
-        );
+        self.completion_state
+            .show(completions.clone(), partial_text, line_start + token_start);
 
         self.status_message = format!(
             "{} completions | Tab/↑↓: navigate | Enter: accept | Esc: cancel",

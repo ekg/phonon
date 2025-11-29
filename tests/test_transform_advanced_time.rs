@@ -10,7 +10,7 @@
 ///
 /// All transforms use 3-level verification
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 
 // ============= Level 1: Pattern Query Tests =============
@@ -347,7 +347,11 @@ fn test_gap_with_fast() {
     };
 
     // gap(1) with fast(2) should work
-    let composed = pattern.clone().fast(Pattern::pure(2.0)).gap(1).query(&state);
+    let composed = pattern
+        .clone()
+        .fast(Pattern::pure(2.0))
+        .gap(1)
+        .query(&state);
     assert!(composed.len() > 0, "gap should work with fast");
 
     println!("✅ gap composes with fast");
@@ -363,7 +367,11 @@ fn test_linger_with_fast() {
     };
 
     // linger should work with fast
-    let composed = pattern.clone().fast(Pattern::pure(2.0)).linger(2.0).query(&state);
+    let composed = pattern
+        .clone()
+        .fast(Pattern::pure(2.0))
+        .linger(2.0)
+        .query(&state);
     assert!(composed.len() > 0, "linger should work with fast");
 
     println!("✅ linger composes with fast");
@@ -379,7 +387,11 @@ fn test_loop_with_slow() {
     };
 
     // loop with slow
-    let composed = pattern.clone().slow(Pattern::pure(2.0)).loop_pattern(2).query(&state);
+    let composed = pattern
+        .clone()
+        .slow(Pattern::pure(2.0))
+        .loop_pattern(2)
+        .query(&state);
     assert!(composed.len() > 0, "loop should work with slow");
 
     println!("✅ loop composes with slow");

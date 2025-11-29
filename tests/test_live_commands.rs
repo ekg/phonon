@@ -1,5 +1,5 @@
-use std::cell::RefCell;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
+use std::cell::RefCell;
 
 #[test]
 fn test_hush_command_silences_outputs() {
@@ -11,7 +11,7 @@ fn test_hush_command_silences_outputs() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -21,7 +21,7 @@ fn test_hush_command_silences_outputs() {
         freq: Signal::Value(880.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -115,7 +115,7 @@ fn test_hush_specific_channel() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -125,7 +125,7 @@ fn test_hush_specific_channel() {
         freq: Signal::Value(880.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),

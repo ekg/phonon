@@ -7,7 +7,6 @@
 /// - Envelope following
 /// - Compression/limiting (RMS-based dynamics)
 /// - Audio analysis
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// RMS calculation node with pattern-controlled window size
@@ -29,12 +28,12 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 ///
 /// This approach is O(1) per sample (constant time) regardless of window size.
 pub struct RMSNode {
-    input: NodeId,                // Signal to analyze
-    window_time_input: NodeId,    // RMS window time in seconds (can be modulated)
-    buffer: Vec<f32>,             // Circular buffer for windowing
-    write_pos: usize,             // Write position in circular buffer
-    sum_of_squares: f32,          // Running sum of squares for efficiency
-    sample_rate: f32,             // Sample rate for calculations
+    input: NodeId,             // Signal to analyze
+    window_time_input: NodeId, // RMS window time in seconds (can be modulated)
+    buffer: Vec<f32>,          // Circular buffer for windowing
+    write_pos: usize,          // Write position in circular buffer
+    sum_of_squares: f32,       // Running sum of squares for efficiency
+    sample_rate: f32,          // Sample rate for calculations
 }
 
 impl RMSNode {
@@ -163,13 +162,7 @@ mod tests {
     use std::f32::consts::PI;
 
     fn create_test_context(block_size: usize) -> ProcessContext {
-        ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            44100.0,
-        )
+        ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, 44100.0)
     }
 
     #[test]
@@ -328,7 +321,7 @@ mod tests {
         let mut rms_long = RMSNode::new(0, 1, sample_rate);
 
         let mut short_window_node = ConstantNode::new(0.01); // 10ms
-        let mut long_window_node = ConstantNode::new(0.2);   // 200ms
+        let mut long_window_node = ConstantNode::new(0.2); // 200ms
 
         let context = create_test_context(block_size);
 
@@ -397,11 +390,7 @@ mod tests {
 
         // All samples should be zero
         for (i, &sample) in output.iter().enumerate() {
-            assert_eq!(
-                sample, 0.0,
-                "Sample {} should be 0.0 for zero input",
-                i
-            );
+            assert_eq!(sample, 0.0, "Sample {} should be 0.0 for zero input", i);
         }
     }
 

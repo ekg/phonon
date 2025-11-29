@@ -2,7 +2,6 @@
 ///
 /// This node implements a classic flanger effect using a modulated delay line.
 /// The LFO sweeps the delay time, creating the characteristic "swooshing" comb filter sound.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -18,14 +17,14 @@ use std::f32::consts::PI;
 /// let flanger = FlangerNode::new(0, 1, 2, 3, 44100.0);  // NodeId 4
 /// ```
 pub struct FlangerNode {
-    input: NodeId,           // Signal to flange
-    rate_input: NodeId,      // LFO rate in Hz (can be modulated)
-    depth_input: NodeId,     // Delay time modulation depth in seconds (can be modulated)
-    feedback_input: NodeId,  // Feedback amount (can be modulated)
-    buffer: Vec<f32>,        // Delay buffer
-    write_pos: usize,        // Current write position
-    phase: f32,              // LFO phase (0.0 to 1.0)
-    sample_rate: f32,        // Sample rate for calculations
+    input: NodeId,          // Signal to flange
+    rate_input: NodeId,     // LFO rate in Hz (can be modulated)
+    depth_input: NodeId,    // Delay time modulation depth in seconds (can be modulated)
+    feedback_input: NodeId, // Feedback amount (can be modulated)
+    buffer: Vec<f32>,       // Delay buffer
+    write_pos: usize,       // Current write position
+    phase: f32,             // LFO phase (0.0 to 1.0)
+    sample_rate: f32,       // Sample rate for calculations
 }
 
 impl FlangerNode {
@@ -170,7 +169,12 @@ impl AudioNode for FlangerNode {
     }
 
     fn input_nodes(&self) -> Vec<NodeId> {
-        vec![self.input, self.rate_input, self.depth_input, self.feedback_input]
+        vec![
+            self.input,
+            self.rate_input,
+            self.depth_input,
+            self.feedback_input,
+        ]
     }
 
     fn name(&self) -> &str {
@@ -178,7 +182,7 @@ impl AudioNode for FlangerNode {
     }
 
     fn provides_delay(&self) -> bool {
-        true  // FlangerNode has modulated delay buffer, can safely break feedback cycles
+        true // FlangerNode has modulated delay buffer, can safely break feedback cycles
     }
 }
 
@@ -201,13 +205,8 @@ mod tests {
         let mut feedback_node = ConstantNode::new(0.0); // Zero feedback
         let mut flanger = FlangerNode::new(0, 1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Generate input buffers
         let mut input_buf = vec![1.0; block_size];
@@ -240,7 +239,11 @@ mod tests {
         // With zero depth and feedback, output should be input + 1ms delayed signal
         // After buffer fills, should approach 2.0 (dry + wet both at 1.0)
         let avg = output.iter().sum::<f32>() / output.len() as f32;
-        assert!(avg > 1.8 && avg < 2.2, "Average should be ~2.0, got {}", avg);
+        assert!(
+            avg > 1.8 && avg < 2.2,
+            "Average should be ~2.0, got {}",
+            avg
+        );
     }
 
     #[test]
@@ -256,13 +259,8 @@ mod tests {
         let mut feedback_node = ConstantNode::new(0.5); // 50% feedback
         let mut flanger = FlangerNode::new(0, 1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Generate input buffers
         let mut input_buf = vec![1.0; block_size];
@@ -313,13 +311,8 @@ mod tests {
         let mut depth_node = ConstantNode::new(0.005);
         let mut feedback_node = ConstantNode::new(0.5);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Test with slow LFO (0.5 Hz)
         let mut rate_node_slow = ConstantNode::new(0.5);
@@ -394,13 +387,8 @@ mod tests {
         let mut rate_node = ConstantNode::new(0.5);
         let mut depth_node = ConstantNode::new(0.005);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         // Test with low feedback
         let mut feedback_node_low = ConstantNode::new(0.1);
@@ -431,7 +419,10 @@ mod tests {
             low_outputs.extend_from_slice(&output);
         }
 
-        let low_max = low_outputs.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let low_max = low_outputs
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
 
         // Test with high feedback
         let mut feedback_node_high = ConstantNode::new(0.8);
@@ -454,7 +445,10 @@ mod tests {
             high_outputs.extend_from_slice(&output);
         }
 
-        let high_max = high_outputs.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let high_max = high_outputs
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
 
         // Higher feedback should produce higher peaks (resonance)
         assert!(
@@ -474,13 +468,8 @@ mod tests {
 
         let mut flanger = FlangerNode::new(0, 1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let input_buf = vec![1.0; block_size];
         let rate_buf = vec![1.0; block_size]; // 1 Hz
@@ -542,13 +531,8 @@ mod tests {
         let mut feedback_node = ConstantNode::new(0.6); // 60%
         let mut flanger = FlangerNode::new(0, 1, 2, 3, sample_rate);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        );
+        let context =
+            ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate);
 
         let mut input_buf = vec![0.0; block_size];
         let mut rate_buf = vec![0.0; block_size];
@@ -576,18 +560,16 @@ mod tests {
 
             // All outputs should be finite
             for (i, &sample) in output.iter().enumerate() {
-                assert!(
-                    sample.is_finite(),
-                    "Sample {} is not finite: {}",
-                    i,
-                    sample
-                );
+                assert!(sample.is_finite(), "Sample {} is not finite: {}", i, sample);
             }
         }
 
         // Output should have variation (LFO modulation)
         let min = all_outputs.iter().cloned().fold(f32::INFINITY, f32::min);
-        let max = all_outputs.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let max = all_outputs
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
         let range = max - min;
 
         assert!(range > 0.1, "Output should vary, range: {}", range);

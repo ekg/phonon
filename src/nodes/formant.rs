@@ -30,7 +30,6 @@
 /// - Works well with saw/pulse waves (vocal cord simulation)
 /// - Intensity controls formant prominence vs dry signal
 /// - Classic vocal synthesis technique
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz};
 
@@ -38,20 +37,20 @@ use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz};
 ///
 /// Based on averaged male speaker formants from acoustic phonetics research.
 const FORMANT_FREQS: [[f32; 3]; 5] = [
-    [730.0, 1090.0, 2440.0],  // A (as in "father")
-    [270.0, 2290.0, 3010.0],  // E (as in "bet")
-    [390.0, 1990.0, 2550.0],  // I (as in "bit")
-    [570.0, 840.0, 2410.0],   // O (as in "bought")
-    [440.0, 1020.0, 2240.0],  // U (as in "book")
+    [730.0, 1090.0, 2440.0], // A (as in "father")
+    [270.0, 2290.0, 3010.0], // E (as in "bet")
+    [390.0, 1990.0, 2550.0], // I (as in "bit")
+    [570.0, 840.0, 2410.0],  // O (as in "bought")
+    [440.0, 1020.0, 2240.0], // U (as in "book")
 ];
 
 /// Formant bandwidths (Hz) - approximate Q values for natural vowel sounds
 ///
 /// Wider bandwidth for F1 (lower frequency), narrower for F2/F3.
 const FORMANT_BANDWIDTHS: [f32; 3] = [
-    90.0,   // F1 bandwidth
-    110.0,  // F2 bandwidth
-    170.0,  // F3 bandwidth
+    90.0,  // F1 bandwidth
+    110.0, // F2 bandwidth
+    170.0, // F3 bandwidth
 ];
 
 /// Internal state for formant filter
@@ -99,7 +98,11 @@ impl FormantState {
     }
 
     /// Create a bandpass filter for a formant
-    fn create_formant_filter(sample_rate: f32, freq: f32, bandwidth: f32) -> DirectForm2Transposed<f32> {
+    fn create_formant_filter(
+        sample_rate: f32,
+        freq: f32,
+        bandwidth: f32,
+    ) -> DirectForm2Transposed<f32> {
         // Convert bandwidth to Q factor: Q = freq / bandwidth
         let q = freq / bandwidth;
         let q = q.max(0.5).min(50.0); // Clamp to safe range
@@ -332,15 +335,13 @@ mod tests {
 
     /// Helper: Calculate spectral centroid (rough brightness measure)
     fn calculate_spectral_centroid(buffer: &[f32], sample_rate: f32) -> f32 {
-        use rustfft::{FftPlanner, num_complex::Complex};
+        use rustfft::{num_complex::Complex, FftPlanner};
 
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(buffer.len());
 
-        let mut spectrum: Vec<Complex<f32>> = buffer
-            .iter()
-            .map(|&x| Complex::new(x, 0.0))
-            .collect();
+        let mut spectrum: Vec<Complex<f32>> =
+            buffer.iter().map(|&x| Complex::new(x, 0.0)).collect();
 
         fft.process(&mut spectrum);
 
@@ -463,10 +464,7 @@ mod tests {
 
         let filtered_rms = calculate_rms(&filtered);
 
-        assert!(
-            filtered_rms > 0.01,
-            "Vowel E should produce audible output"
-        );
+        assert!(filtered_rms > 0.01, "Vowel E should produce audible output");
     }
 
     #[test]
@@ -508,10 +506,7 @@ mod tests {
 
         let filtered_rms = calculate_rms(&filtered);
 
-        assert!(
-            filtered_rms > 0.01,
-            "Vowel I should produce audible output"
-        );
+        assert!(filtered_rms > 0.01, "Vowel I should produce audible output");
     }
 
     #[test]
@@ -553,10 +548,7 @@ mod tests {
 
         let filtered_rms = calculate_rms(&filtered);
 
-        assert!(
-            filtered_rms > 0.01,
-            "Vowel O should produce audible output"
-        );
+        assert!(filtered_rms > 0.01, "Vowel O should produce audible output");
     }
 
     #[test]
@@ -598,10 +590,7 @@ mod tests {
 
         let filtered_rms = calculate_rms(&filtered);
 
-        assert!(
-            filtered_rms > 0.01,
-            "Vowel U should produce audible output"
-        );
+        assert!(filtered_rms > 0.01, "Vowel U should produce audible output");
     }
 
     #[test]

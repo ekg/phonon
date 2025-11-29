@@ -1,16 +1,15 @@
+use arc_swap::ArcSwap;
 /// Test for tempo doubling bug during C-x (graph swap)
 ///
 /// Bug report: Occasionally (~1/8 times), after C-x the tempo/cps DOUBLES.
 /// This test systematically explores different timing scenarios to reproduce.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use phonon::unified_graph::UnifiedSignalGraph;
+use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use arc_swap::ArcSwap;
-use std::cell::RefCell;
 
 /// Helper to compile DSL code into a graph
 fn compile_dsl(code: &str, sample_rate: f32) -> UnifiedSignalGraph {
@@ -47,7 +46,11 @@ out $ ~drums
     graph.enable_wall_clock_timing();
 
     let initial_cps = graph.get_cps();
-    assert!((initial_cps - 0.5).abs() < 0.001, "Initial CPS should be 0.5, got {}", initial_cps);
+    assert!(
+        (initial_cps - 0.5).abs() < 0.001,
+        "Initial CPS should be 0.5, got {}",
+        initial_cps
+    );
 
     // Swap immediately
     let (_, new_cps) = simulate_graph_swap(&graph, code, 44100.0);
@@ -253,12 +256,15 @@ out $ ~drums
     assert!(
         pos_after >= pos_before - 0.001, // Allow tiny floating point error
         "Cycle position went backwards: before={:.4}, after={:.4}",
-        pos_before, pos_after
+        pos_before,
+        pos_after
     );
     assert!(
         pos_diff < expected_max_advance,
         "Cycle position jumped too much: before={:.4}, after={:.4}, diff={:.4}",
-        pos_before, pos_after, pos_diff
+        pos_before,
+        pos_after,
+        pos_diff
     );
 }
 
@@ -298,7 +304,8 @@ fn test_timing_transfer_math() {
     assert!(
         (calculated_pos - old_cycle_pos).abs() < 0.0001,
         "Math error: calculated_pos={:.4}, old_cycle_pos={:.4}",
-        calculated_pos, old_cycle_pos
+        calculated_pos,
+        old_cycle_pos
     );
 }
 
@@ -339,7 +346,9 @@ out $ ~drums
     assert!(
         (ratio - 1.0).abs() < 0.2, // Within 20%
         "Wall-clock timing not working: expected={:.4}, actual={:.4}, ratio={:.2}",
-        expected_advance, actual_advance, ratio
+        expected_advance,
+        actual_advance,
+        ratio
     );
 }
 
@@ -455,8 +464,9 @@ out $ ~drums
     let mut initial_graph = compile_dsl(code, sample_rate);
     initial_graph.enable_wall_clock_timing();
 
-    let graph: Arc<ArcSwap<Option<GraphCell>>> =
-        Arc::new(ArcSwap::from_pointee(Some(GraphCell(RefCell::new(initial_graph)))));
+    let graph: Arc<ArcSwap<Option<GraphCell>>> = Arc::new(ArcSwap::from_pointee(Some(GraphCell(
+        RefCell::new(initial_graph),
+    ))));
 
     let stop_flag = Arc::new(AtomicBool::new(false));
 
@@ -542,7 +552,10 @@ out $ ~drums
     for (i, &cps) in tempo_samples.iter().enumerate() {
         let ratio = cps as f64 / expected_cps;
         if (ratio - 1.0).abs() > 0.01 {
-            eprintln!("   ❌ Audio sample {}: CPS={} (ratio={:.2}x)", i, cps, ratio);
+            eprintln!(
+                "   ❌ Audio sample {}: CPS={} (ratio={:.2}x)",
+                i, cps, ratio
+            );
             errors += 1;
         }
     }
@@ -567,8 +580,9 @@ out $ ~drums
     let mut initial_graph = compile_dsl(code, sample_rate);
     initial_graph.enable_wall_clock_timing();
 
-    let graph: Arc<ArcSwap<Option<GraphCell>>> =
-        Arc::new(ArcSwap::from_pointee(Some(GraphCell(RefCell::new(initial_graph)))));
+    let graph: Arc<ArcSwap<Option<GraphCell>>> = Arc::new(ArcSwap::from_pointee(Some(GraphCell(
+        RefCell::new(initial_graph),
+    ))));
 
     let stop_flag = Arc::new(AtomicBool::new(false));
 
@@ -602,7 +616,7 @@ out $ ~drums
     for i in 0..swap_count {
         // Vary timing - sometimes very fast, sometimes slower
         let delay_ms = match i % 10 {
-            0 => 1,   // Very fast
+            0 => 1, // Very fast
             1 => 2,
             2 => 5,
             3 => 10,

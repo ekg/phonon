@@ -1,14 +1,15 @@
-use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Pattern, State, TimeSpan, Fraction};
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
+use phonon::mini_notation_v3::parse_mini_notation;
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 
 /// Render DSL code to audio buffer using compositional compiler
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -60,7 +61,11 @@ out $ s "bd" # pan 0.0
     let rms = calculate_rms(&buffer);
 
     // Center pan should produce audible audio
-    assert!(rms > 0.01, "Center pan should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Center pan should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -76,7 +81,11 @@ out $ s "bd" # pan -1.0
     let rms = calculate_rms(&buffer);
 
     // Full left should still produce audible audio (mixed to mono)
-    assert!(rms > 0.01, "Full left pan should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Full left pan should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -92,7 +101,11 @@ out $ s "bd" # pan 1.0
     let rms = calculate_rms(&buffer);
 
     // Full right should still produce audible audio (mixed to mono)
-    assert!(rms > 0.01, "Full right pan should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Full right pan should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -124,18 +137,35 @@ out $ s "bd" # pan 1.0
 
     // All pan positions should produce similar RMS when mixed to mono
     // Equal-power panning ensures energy is preserved across the stereo field
-    assert!(left_rms > 0.01, "Pan left should produce audio, got {}", left_rms);
-    assert!(center_rms > 0.01, "Pan center should produce audio, got {}", center_rms);
-    assert!(right_rms > 0.01, "Pan right should produce audio, got {}", right_rms);
+    assert!(
+        left_rms > 0.01,
+        "Pan left should produce audio, got {}",
+        left_rms
+    );
+    assert!(
+        center_rms > 0.01,
+        "Pan center should produce audio, got {}",
+        center_rms
+    );
+    assert!(
+        right_rms > 0.01,
+        "Pan right should produce audio, got {}",
+        right_rms
+    );
 
     // RMS values should be within reasonable range (factor of 2)
     // Due to equal-power panning, they should actually be very similar
     let max_rms = left_rms.max(center_rms).max(right_rms);
     let min_rms = left_rms.min(center_rms).min(right_rms);
 
-    assert!(max_rms / min_rms < 2.0,
+    assert!(
+        max_rms / min_rms < 2.0,
         "Pan values should preserve energy: left={}, center={}, right={}, ratio={}",
-        left_rms, center_rms, right_rms, max_rms / min_rms);
+        left_rms,
+        center_rms,
+        right_rms,
+        max_rms / min_rms
+    );
 }
 
 #[test]
@@ -151,7 +181,11 @@ out $ s "bd*4" # pan "-1 -0.5 0.5 1"
     let rms = calculate_rms(&buffer);
 
     // Pattern-based pan should produce audio
-    assert!(rms > 0.01, "Pattern-based pan should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Pattern-based pan should produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -167,7 +201,11 @@ out $ s "bd*3" # pan "-5 0 5"
     let rms = calculate_rms(&buffer);
 
     // Extreme pan values should be clamped and still produce audio
-    assert!(rms > 0.01, "Extreme pan values should be clamped and produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Extreme pan values should be clamped and produce audio, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -183,6 +221,10 @@ out $ s "bd" # gain 0.5 # pan -1.0
     let rms = calculate_rms(&buffer);
 
     // Pan with gain should produce audio
-    assert!(rms > 0.01, "Pan with gain should produce audio, got RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Pan with gain should produce audio, got RMS={}",
+        rms
+    );
     assert!(rms < 0.5, "Gain 0.5 should reduce RMS, got RMS={}", rms);
 }

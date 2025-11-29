@@ -2,7 +2,6 @@
 ///
 /// This is the simplest possible AudioNode. It fills the output buffer
 /// with a constant value (e.g., 440.0 for frequency, 0.5 for gain).
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Constant value node
@@ -46,7 +45,7 @@ impl AudioNode for ConstantNode {
     }
 
     fn input_nodes(&self) -> Vec<NodeId> {
-        vec![]  // No dependencies (source node)
+        vec![] // No dependencies (source node)
     }
 
     fn name(&self) -> &str {
@@ -64,13 +63,7 @@ mod tests {
         let mut node = ConstantNode::new(440.0);
         let mut output = vec![0.0; 512];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         node.process_block(&[], &mut output, 44100.0, &context);
 
@@ -89,13 +82,7 @@ mod tests {
         assert_eq!(node.value(), 200.0);
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         node.process_block(&[], &mut output, 44100.0, &context);
 

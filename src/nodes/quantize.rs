@@ -20,7 +20,6 @@
 /// - bits=4: Severe degradation, heavily stepped
 /// - bits=2: Extreme distortion, near-square wave
 /// - bits=1: Sign only (-1 or +1)
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Quantize node: Reduces bit depth
@@ -71,10 +70,7 @@ impl QuantizeNode {
     /// ~8bit: ~signal # quantize 8.0
     /// ```
     pub fn new(input: NodeId, bits_input: NodeId) -> Self {
-        Self {
-            input,
-            bits_input,
-        }
+        Self { input, bits_input }
     }
 
     /// Get the input node ID
@@ -128,11 +124,7 @@ impl AudioNode for QuantizeNode {
             output.len(),
             "Input buffer length mismatch"
         );
-        debug_assert_eq!(
-            bits_buf.len(),
-            output.len(),
-            "Bits buffer length mismatch"
-        );
+        debug_assert_eq!(bits_buf.len(), output.len(), "Bits buffer length mismatch");
 
         // Process each sample
         for i in 0..output.len() {
@@ -196,7 +188,9 @@ mod tests {
         let mut quantize = QuantizeNode::new(0, 1);
 
         // Generate smooth ramp from -1.0 to 1.0
-        let input: Vec<f32> = (0..256).map(|i| -1.0 + (i as f32 / 127.5) - 1.0/256.0).collect();
+        let input: Vec<f32> = (0..256)
+            .map(|i| -1.0 + (i as f32 / 127.5) - 1.0 / 256.0)
+            .collect();
         let bits = vec![8.0; 256];
         let inputs = vec![input.as_slice(), bits.as_slice()];
 
@@ -206,8 +200,9 @@ mod tests {
         quantize.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Count unique values - should be close to 256
-        let mut unique_values: Vec<i32> = output.iter()
-            .map(|&v| (v * 1000.0) as i32)  // Round to avoid floating point issues
+        let mut unique_values: Vec<i32> = output
+            .iter()
+            .map(|&v| (v * 1000.0) as i32) // Round to avoid floating point issues
             .collect();
         unique_values.sort();
         unique_values.dedup();
@@ -265,9 +260,7 @@ mod tests {
         quantize.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Count unique values - should be ~16 for 4-bit
-        let mut unique_values: Vec<i32> = output.iter()
-            .map(|&v| (v * 1000.0) as i32)
-            .collect();
+        let mut unique_values: Vec<i32> = output.iter().map(|&v| (v * 1000.0) as i32).collect();
         unique_values.sort();
         unique_values.dedup();
 
@@ -294,9 +287,7 @@ mod tests {
 
         // 2-bit = 4 levels
         // Count unique values
-        let mut unique_values: Vec<i32> = output.iter()
-            .map(|&v| (v * 100.0) as i32)
-            .collect();
+        let mut unique_values: Vec<i32> = output.iter().map(|&v| (v * 100.0) as i32).collect();
         unique_values.sort();
         unique_values.dedup();
 
@@ -346,7 +337,10 @@ mod tests {
 
         // Should not crash, values clamped internally
         for &val in &output {
-            assert!(val.is_finite(), "Output should be finite even with out-of-range bits");
+            assert!(
+                val.is_finite(),
+                "Output should be finite even with out-of-range bits"
+            );
             assert!(val >= -1.0 && val <= 1.0, "Output should be in [-1, 1]");
         }
     }
@@ -411,9 +405,18 @@ mod tests {
 
         // Higher bit depth = more unique values (at least show some difference)
         // Due to the smooth signal, we expect: 1-bit has very few, 8-bit more, 16-bit most
-        assert!(unique_1 > 0, "1-bit quantization should produce some output");
-        assert!(unique_8 > unique_1 || unique_8 > 5, "8-bit should allow more variations");
-        assert!(unique_16 > unique_8 || unique_16 > 10, "16-bit should allow more variations");
+        assert!(
+            unique_1 > 0,
+            "1-bit quantization should produce some output"
+        );
+        assert!(
+            unique_8 > unique_1 || unique_8 > 5,
+            "8-bit should allow more variations"
+        );
+        assert!(
+            unique_16 > unique_8 || unique_16 > 10,
+            "16-bit should allow more variations"
+        );
     }
 
     #[test]
@@ -457,7 +460,11 @@ mod tests {
 
         // All outputs should be clamped to [-1, 1]
         for &val in &output {
-            assert!(val >= -1.0 && val <= 1.0, "Output {} should be in [-1, 1]", val);
+            assert!(
+                val >= -1.0 && val <= 1.0,
+                "Output {} should be in [-1, 1]",
+                val
+            );
         }
     }
 

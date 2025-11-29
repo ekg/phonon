@@ -7,8 +7,7 @@
 /// 4. State continuity across buffer boundaries
 /// 5. Modulated delay time works correctly
 /// 6. Edge cases (extreme parameters) are handled properly
-
-use phonon::unified_graph::{Signal, UnifiedSignalGraph, SignalNode};
+use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph};
 
 const SAMPLE_RATE: f32 = 44100.0;
 const BUFFER_SIZE: usize = 512;
@@ -27,7 +26,11 @@ fn eval_buffer(graph: &mut UnifiedSignalGraph, node_id: usize) -> Vec<f32> {
 }
 
 /// Helper: Evaluate a node for multiple buffers
-fn eval_multiple_buffers(graph: &mut UnifiedSignalGraph, node_id: usize, num_buffers: usize) -> Vec<f32> {
+fn eval_multiple_buffers(
+    graph: &mut UnifiedSignalGraph,
+    node_id: usize,
+    num_buffers: usize,
+) -> Vec<f32> {
     let mut output = Vec::new();
     for _ in 0..num_buffers {
         let buffer = eval_buffer(graph, node_id);
@@ -81,14 +84,21 @@ fn test_delay_basic() {
 
     // Later samples in first buffer should have signal
     let later_samples_have_signal = buffer[450..512].iter().any(|&x| x.abs() > 0.5);
-    assert!(later_samples_have_signal, "Later samples in first buffer should have delayed signal");
+    assert!(
+        later_samples_have_signal,
+        "Later samples in first buffer should have delayed signal"
+    );
 
     // Evaluate second buffer - should be mostly full signal now
     let buffer2 = eval_buffer(&mut graph, delay_node.0);
 
     // Second buffer should have strong signal throughout
     let rms2 = calculate_rms(&buffer2);
-    assert!(rms2 > 0.7, "Second buffer should have strong delayed signal, got RMS: {}", rms2);
+    assert!(
+        rms2 > 0.7,
+        "Second buffer should have strong delayed signal, got RMS: {}",
+        rms2
+    );
 }
 
 #[test]
@@ -116,7 +126,10 @@ fn test_delay_zero() {
     // With zero delay and 100% wet, should get delayed signal (1 sample delay minimum)
     // The implementation clamps delay_samples to min 1
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "Zero delay should still produce output due to minimum 1 sample delay");
+    assert!(
+        rms > 0.01,
+        "Zero delay should still produce output due to minimum 1 sample delay"
+    );
 }
 
 #[test]
@@ -144,7 +157,11 @@ fn test_delay_dry_wet_mix() {
     // With constant input and 50% mix, should get 50% of input immediately
     // (dry signal)
     let first_sample = buffer[0];
-    assert!((first_sample - 0.5).abs() < 0.01, "First sample should be ~0.5 (50% dry), got {}", first_sample);
+    assert!(
+        (first_sample - 0.5).abs() < 0.01,
+        "First sample should be ~0.5 (50% dry), got {}",
+        first_sample
+    );
 }
 
 #[test]
@@ -214,15 +231,25 @@ fn test_delay_state_continuity() {
 
     // Second buffer should have strong signal (delay line is now filled with 1.0)
     let rms2 = calculate_rms(&buffer2);
-    assert!(rms2 > 0.7, "Second buffer should contain strong delayed signal, got RMS: {}", rms2);
+    assert!(
+        rms2 > 0.7,
+        "Second buffer should contain strong delayed signal, got RMS: {}",
+        rms2
+    );
 
     // Evaluate third buffer
     let buffer3 = eval_buffer(&mut graph, delay_node.0);
     let rms3 = calculate_rms(&buffer3);
-    assert!(rms3 > 0.7, "Third buffer should also contain strong delayed signal");
+    assert!(
+        rms3 > 0.7,
+        "Third buffer should also contain strong delayed signal"
+    );
 
     // Buffers 2 and 3 should have similar energy (steady state reached)
-    assert!((rms2 - rms3).abs() < 0.1, "Subsequent buffers should have similar energy in steady state");
+    assert!(
+        (rms2 - rms3).abs() < 0.1,
+        "Subsequent buffers should have similar energy in steady state"
+    );
 }
 
 #[test]
@@ -254,7 +281,11 @@ fn test_delay_long_time() {
         // - 3 buffers = 1536 samples = ~34ms
         // With 1.5s delay, should still be silent
         if i < 2 {
-            assert!(rms < 0.01, "Buffer {} should be mostly silent with long delay", i);
+            assert!(
+                rms < 0.01,
+                "Buffer {} should be mostly silent with long delay",
+                i
+            );
         }
     }
 }
@@ -284,7 +315,11 @@ fn test_delay_extreme_feedback() {
 
     // With high feedback, signal should build up but not explode (due to tanh clipping)
     let peak = find_peak(&output);
-    assert!(peak < 2.0, "High feedback should not cause runaway (tanh clipping), peak: {}", peak);
+    assert!(
+        peak < 2.0,
+        "High feedback should not cause runaway (tanh clipping), peak: {}",
+        peak
+    );
     assert!(peak > 0.01, "High feedback should produce audible signal");
 }
 
@@ -346,7 +381,10 @@ fn test_delay_negative_time_clamped() {
     let rms = calculate_rms(&buffer);
 
     // Should produce output (clamped to min delay)
-    assert!(rms > 0.01, "Negative delay should be clamped and produce output");
+    assert!(
+        rms > 0.01,
+        "Negative delay should be clamped and produce output"
+    );
 }
 
 #[test]
@@ -374,7 +412,10 @@ fn test_delay_excessive_time_clamped() {
 
     // With 2s max delay and 512 sample buffer, first buffer should be silent
     let rms = calculate_rms(&buffer);
-    assert!(rms < 0.1, "First buffer with clamped long delay should be mostly silent");
+    assert!(
+        rms < 0.1,
+        "First buffer with clamped long delay should be mostly silent"
+    );
 }
 
 #[test]
@@ -402,10 +443,17 @@ fn test_delay_multiple_buffers_performance() {
     let output = eval_multiple_buffers(&mut graph, delay_node.0, 100);
     let duration = start.elapsed();
 
-    println!("Evaluated 100 buffers ({} samples) in {:?}", output.len(), duration);
+    println!(
+        "Evaluated 100 buffers ({} samples) in {:?}",
+        output.len(),
+        duration
+    );
 
     // Should complete in reasonable time (less than 1 second for 100 buffers)
-    assert!(duration.as_millis() < 1000, "Performance test should complete quickly");
+    assert!(
+        duration.as_millis() < 1000,
+        "Performance test should complete quickly"
+    );
 
     // Should produce valid output
     let rms = calculate_rms(&output);
@@ -440,5 +488,8 @@ fn test_delay_write_index_wraps() {
     assert!(rms > 0.5, "Write index wrapping should not cause silence");
 
     // Check for no NaN or infinite values
-    assert!(output.iter().all(|x| x.is_finite()), "Output should contain no NaN/infinite values");
+    assert!(
+        output.iter().all(|x| x.is_finite()),
+        "Output should contain no NaN/infinite values"
+    );
 }

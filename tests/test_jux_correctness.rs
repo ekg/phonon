@@ -56,7 +56,11 @@ fn test_jux_fast2_rev_pattern_structure() {
     for event in &events {
         let pan = event.context.get("pan").map(|s| s.as_str()).unwrap_or("0");
         let value = &event.value;
-        let start = event.whole.as_ref().map(|w| w.begin.to_float()).unwrap_or(0.0);
+        let start = event
+            .whole
+            .as_ref()
+            .map(|w| w.begin.to_float())
+            .unwrap_or(0.0);
 
         if pan == "-1" {
             left_events.push((start, value.clone()));
@@ -159,18 +163,18 @@ fn test_jux_rev_fast2_pattern_structure() {
         let pan = event.context.get("pan").map(|s| s.as_str()).unwrap_or("0");
         if pan == "1" {
             let value = &event.value;
-            let start = event.whole.as_ref().map(|w| w.begin.to_float()).unwrap_or(0.0);
+            let start = event
+                .whole
+                .as_ref()
+                .map(|w| w.begin.to_float())
+                .unwrap_or(0.0);
             right_events.push((start, value.clone()));
         }
     }
 
     right_events.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-    assert_eq!(
-        right_events.len(),
-        8,
-        "Right channel should have 8 events"
-    );
+    assert_eq!(right_events.len(), 8, "Right channel should have 8 events");
 
     // Verify right channel order (rev then fast 2)
     // Original: bd sn hh cp

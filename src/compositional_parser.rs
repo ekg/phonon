@@ -25,7 +25,11 @@ use nom::{
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     /// Bus assignment: ~name $ expr OR ~name param1 param2 $ expr (function bus)
-    BusAssignment { name: String, params: Vec<String>, expr: Expr },
+    BusAssignment {
+        name: String,
+        params: Vec<String>,
+        expr: Expr,
+    },
     /// Template assignment: @name: expr
     TemplateAssignment { name: String, expr: Expr },
     /// Pattern assignment: %name: expr (for pattern-to-pattern modulation)
@@ -472,19 +476,25 @@ fn preprocess_multiline(input: &str) -> String {
             let before_dollar = trimmed[..dollar_pos].trim();
             // Check if what's before $ looks like an identifier (bus/output)
             // It should be alphanumeric, possibly starting with ~ or o/d followed by digits
-            let is_valid_identifier = before_dollar.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
+            let is_valid_identifier = before_dollar
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '~' || c == '_')
                 && !before_dollar.is_empty();
             is_valid_identifier
         } else if let Some(hash_pos) = trimmed.find('#') {
             let before_hash = trimmed[..hash_pos].trim();
             // Check if what's before # looks like an identifier (bus/output with chaining)
-            let is_valid_identifier = before_hash.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
+            let is_valid_identifier = before_hash
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '~' || c == '_')
                 && !before_hash.is_empty();
             is_valid_identifier
         } else if let Some(colon_pos) = trimmed.find(':') {
             let before_colon = &trimmed[..colon_pos];
             // Check if what's before : looks like an identifier (tempo, bpm, outmix)
-            let is_valid_identifier = before_colon.chars().all(|c| c.is_alphanumeric() || c == '~' || c == '_')
+            let is_valid_identifier = before_colon
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '~' || c == '_')
                 && !before_colon.is_empty();
             is_valid_identifier
         } else if trimmed.starts_with("fn ") {
@@ -555,19 +565,19 @@ pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
 fn parse_statement(input: &str) -> IResult<&str, Statement> {
     // Try to parse each statement type
     alt((
-        parse_function_def,    // Try function definitions first
-        parse_reset_cycles,    // Try resetCycles command
-        parse_set_cycle,       // Try setCycle command
-        parse_nudge,           // Try nudge command
-        parse_hush,            // Try hush command
-        parse_panic,           // Try panic command
+        parse_function_def, // Try function definitions first
+        parse_reset_cycles, // Try resetCycles command
+        parse_set_cycle,    // Try setCycle command
+        parse_nudge,        // Try nudge command
+        parse_hush,         // Try hush command
+        parse_panic,        // Try panic command
         parse_bus_assignment,
         parse_template_assignment,
         parse_pattern_assignment,
-        parse_output_or_channel,  // Try output (combines channel + single)
-        parse_bpm,             // Try BPM before tempo (bpm: vs tempo:)
+        parse_output_or_channel, // Try output (combines channel + single)
+        parse_bpm,               // Try BPM before tempo (bpm: vs tempo:)
         parse_tempo,
-        parse_outmix,          // Output mixing mode
+        parse_outmix, // Output mixing mode
     ))(input)
 }
 
@@ -617,7 +627,9 @@ fn parse_bus_assignment(input: &str) -> IResult<&str, Statement> {
     // Keep parsing identifiers until we hit $ or #
     loop {
         // Try to match $ or #
-        if let Ok((after_op, _)) = alt::<_, _, nom::error::Error<&str>, _>((char('$'), char('#')))(current_input) {
+        if let Ok((after_op, _)) =
+            alt::<_, _, nom::error::Error<&str>, _>((char('$'), char('#')))(current_input)
+        {
             // Found the operator, done parsing params
             let (input, _) = space0(after_op)?;
             let (input, expr) = parse_expr(input)?;
@@ -709,7 +721,10 @@ fn parse_output_or_channel(input: &str) -> IResult<&str, Statement> {
             // Only "out" without a number is valid for single output
             // "o" or "d" without number should be rejected
             if prefix == "o" || prefix == "d" {
-                return Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Digit)));
+                return Err(nom::Err::Error(nom::error::Error::new(
+                    input,
+                    nom::error::ErrorKind::Digit,
+                )));
             }
             Ok((input, Statement::Output(expr)))
         }
@@ -1215,12 +1230,7 @@ fn parse_signal_function_call(input: &str) -> IResult<&str, Expr> {
     let (input, _) = char('~')(input)?;
 
     // Try each signal function name
-    let (input, func_name) = alt((
-        tag("add"),
-        tag("sub"),
-        tag("mul"),
-        tag("div"),
-    ))(input)?;
+    let (input, func_name) = alt((tag("add"), tag("sub"), tag("mul"), tag("div")))(input)?;
 
     // Require at least one space followed by arguments
     let (input, _) = hspace1(input)?;
@@ -1239,11 +1249,14 @@ fn parse_signal_function_call(input: &str) -> IResult<&str, Expr> {
         _ => unreachable!(),
     };
 
-    Ok((input, Expr::BinOp {
-        op,
-        left: Box::new(arg1),
-        right: Box::new(arg2),
-    }))
+    Ok((
+        input,
+        Expr::BinOp {
+            op,
+            left: Box::new(arg1),
+            right: Box::new(arg2),
+        },
+    ))
 }
 
 /// Parse a signal function argument - can be parenthesized expr, number, or bus ref
@@ -1713,10 +1726,7 @@ fn parse_conditional_transforms(input: &str) -> IResult<&str, Transform> {
 fn parse_transform_list(input: &str) -> IResult<&str, Vec<Transform>> {
     delimited(
         terminated(char('['), space0),
-        separated_list0(
-            delimited(space0, char(','), space0),
-            parse_transform,
-        ),
+        separated_list0(delimited(space0, char(','), space0), parse_transform),
         preceded(space0, char(']')),
     )(input)
 }
@@ -3121,7 +3131,11 @@ o2 $ s "cp(2,4)"
 "#;
 
         let result = parse_program(code);
-        assert!(result.is_ok(), "Multi-line stack should parse: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Multi-line stack should parse: {:?}",
+            result
+        );
 
         if let Ok((rest, statements)) = result {
             assert_eq!(rest.trim(), "", "Should consume entire program");
@@ -3155,7 +3169,13 @@ o2 $ s "cp(2,4)"
         // |+ operator: left structure
         let result = parse_expr("\"1 2 3\" |+ \"10\"");
         assert!(result.is_ok(), "Failed to parse |+ operator");
-        if let Ok((_, Expr::BinOp { op: BinOp::AddLeft, .. })) = result {
+        if let Ok((
+            _,
+            Expr::BinOp {
+                op: BinOp::AddLeft, ..
+            },
+        )) = result
+        {
             // Success
         } else {
             panic!("Expected BinOp::AddLeft, got {:?}", result);
@@ -3167,7 +3187,14 @@ o2 $ s "cp(2,4)"
         // +| operator: right structure
         let result = parse_expr("\"1 2 3\" +| \"10 20\"");
         assert!(result.is_ok(), "Failed to parse +| operator");
-        if let Ok((_, Expr::BinOp { op: BinOp::AddRight, .. })) = result {
+        if let Ok((
+            _,
+            Expr::BinOp {
+                op: BinOp::AddRight,
+                ..
+            },
+        )) = result
+        {
             // Success
         } else {
             panic!("Expected BinOp::AddRight, got {:?}", result);
@@ -3179,7 +3206,13 @@ o2 $ s "cp(2,4)"
         // |- operator
         let result = parse_expr("x |- y");
         assert!(result.is_ok(), "Failed to parse |- operator");
-        if let Ok((_, Expr::BinOp { op: BinOp::SubLeft, .. })) = result {
+        if let Ok((
+            _,
+            Expr::BinOp {
+                op: BinOp::SubLeft, ..
+            },
+        )) = result
+        {
             // Success
         } else {
             panic!("Expected BinOp::SubLeft, got {:?}", result);
@@ -3191,7 +3224,14 @@ o2 $ s "cp(2,4)"
         // -| operator
         let result = parse_expr("x -| y");
         assert!(result.is_ok(), "Failed to parse -| operator");
-        if let Ok((_, Expr::BinOp { op: BinOp::SubRight, .. })) = result {
+        if let Ok((
+            _,
+            Expr::BinOp {
+                op: BinOp::SubRight,
+                ..
+            },
+        )) = result
+        {
             // Success
         } else {
             panic!("Expected BinOp::SubRight, got {:?}", result);
@@ -3203,7 +3243,13 @@ o2 $ s "cp(2,4)"
         // |* operator
         let result = parse_expr("a |* b");
         assert!(result.is_ok(), "Failed to parse |* operator");
-        if let Ok((_, Expr::BinOp { op: BinOp::MulLeft, .. })) = result {
+        if let Ok((
+            _,
+            Expr::BinOp {
+                op: BinOp::MulLeft, ..
+            },
+        )) = result
+        {
             // Success
         } else {
             panic!("Expected BinOp::MulLeft, got {:?}", result);
@@ -3215,7 +3261,14 @@ o2 $ s "cp(2,4)"
         // *| operator
         let result = parse_expr("a *| b");
         assert!(result.is_ok(), "Failed to parse *| operator");
-        if let Ok((_, Expr::BinOp { op: BinOp::MulRight, .. })) = result {
+        if let Ok((
+            _,
+            Expr::BinOp {
+                op: BinOp::MulRight,
+                ..
+            },
+        )) = result
+        {
             // Success
         } else {
             panic!("Expected BinOp::MulRight, got {:?}", result);
@@ -3227,7 +3280,13 @@ o2 $ s "cp(2,4)"
         // |/ operator
         let result = parse_expr("a |/ b");
         assert!(result.is_ok(), "Failed to parse |/ operator");
-        if let Ok((_, Expr::BinOp { op: BinOp::DivLeft, .. })) = result {
+        if let Ok((
+            _,
+            Expr::BinOp {
+                op: BinOp::DivLeft, ..
+            },
+        )) = result
+        {
             // Success
         } else {
             panic!("Expected BinOp::DivLeft, got {:?}", result);
@@ -3239,7 +3298,14 @@ o2 $ s "cp(2,4)"
         // /| operator
         let result = parse_expr("a /| b");
         assert!(result.is_ok(), "Failed to parse /| operator");
-        if let Ok((_, Expr::BinOp { op: BinOp::DivRight, .. })) = result {
+        if let Ok((
+            _,
+            Expr::BinOp {
+                op: BinOp::DivRight,
+                ..
+            },
+        )) = result
+        {
             // Success
         } else {
             panic!("Expected BinOp::DivRight, got {:?}", result);
@@ -3251,7 +3317,14 @@ o2 $ s "cp(2,4)"
         // |> operator: structure from left, values from right (like #)
         let result = parse_expr("a |> b");
         assert!(result.is_ok(), "Failed to parse |> operator");
-        if let Ok((_, Expr::BinOp { op: BinOp::UnionLeft, .. })) = result {
+        if let Ok((
+            _,
+            Expr::BinOp {
+                op: BinOp::UnionLeft,
+                ..
+            },
+        )) = result
+        {
             // Success
         } else {
             panic!("Expected BinOp::UnionLeft, got {:?}", result);
@@ -3263,7 +3336,14 @@ o2 $ s "cp(2,4)"
         // <| operator: structure from right, values from left
         let result = parse_expr("a <| b");
         assert!(result.is_ok(), "Failed to parse <| operator");
-        if let Ok((_, Expr::BinOp { op: BinOp::UnionRight, .. })) = result {
+        if let Ok((
+            _,
+            Expr::BinOp {
+                op: BinOp::UnionRight,
+                ..
+            },
+        )) = result
+        {
             // Success
         } else {
             panic!("Expected BinOp::UnionRight, got {:?}", result);
@@ -3280,6 +3360,10 @@ tempo: 0.5
 out $ sine ~shifted
 "#;
         let result = parse_program(code);
-        assert!(result.is_ok(), "Failed to parse program with |+ operator: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Failed to parse program with |+ operator: {:?}",
+            result
+        );
     }
 }

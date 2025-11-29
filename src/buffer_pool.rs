@@ -8,7 +8,6 @@
 /// - Pre-allocated buffers to avoid runtime allocation
 /// - Automatic size enforcement (all buffers same size)
 /// - Graceful degradation (allocates new if pool empty)
-
 use crossbeam_queue::ArrayQueue;
 use std::sync::Arc;
 
@@ -90,10 +89,9 @@ impl BufferPool {
             let buffer = vec![0.0; self.buffer_size];
             let _ = self.free_buffers.push(buffer);
         }
-        self.stats.current_size.store(
-            count,
-            std::sync::atomic::Ordering::Relaxed,
-        );
+        self.stats
+            .current_size
+            .store(count, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// Acquire a buffer from the pool
@@ -108,13 +106,19 @@ impl BufferPool {
             Some(mut buffer) => {
                 // Got buffer from pool - clear and return
                 buffer.fill(0.0);
-                self.stats.reuses.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                self.stats.current_size.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                self.stats
+                    .reuses
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                self.stats
+                    .current_size
+                    .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
                 buffer
             }
             None => {
                 // Pool empty - allocate new
-                self.stats.allocations.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                self.stats
+                    .allocations
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 vec![0.0; self.buffer_size]
             }
         }
@@ -137,7 +141,9 @@ impl BufferPool {
 
         // Try to return to pool (ignore if full)
         if self.free_buffers.push(buffer).is_ok() {
-            self.stats.current_size.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            self.stats
+                .current_size
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         }
     }
 
@@ -146,9 +152,13 @@ impl BufferPool {
     /// Returns (allocations, reuses, current_pool_size, max_pool_size)
     pub fn stats(&self) -> (usize, usize, usize, usize) {
         (
-            self.stats.allocations.load(std::sync::atomic::Ordering::Relaxed),
+            self.stats
+                .allocations
+                .load(std::sync::atomic::Ordering::Relaxed),
             self.stats.reuses.load(std::sync::atomic::Ordering::Relaxed),
-            self.stats.current_size.load(std::sync::atomic::Ordering::Relaxed),
+            self.stats
+                .current_size
+                .load(std::sync::atomic::Ordering::Relaxed),
             self.max_buffers,
         )
     }
@@ -158,7 +168,10 @@ impl BufferPool {
     /// Returns the ratio of reuses to total acquisitions.
     /// Higher is better (fewer allocations).
     pub fn efficiency(&self) -> f64 {
-        let allocs = self.stats.allocations.load(std::sync::atomic::Ordering::Relaxed);
+        let allocs = self
+            .stats
+            .allocations
+            .load(std::sync::atomic::Ordering::Relaxed);
         let reuses = self.stats.reuses.load(std::sync::atomic::Ordering::Relaxed);
         let total = allocs + reuses;
 
@@ -190,7 +203,9 @@ impl Clone for BufferPool {
                 allocations: std::sync::atomic::AtomicUsize::new(0),
                 reuses: std::sync::atomic::AtomicUsize::new(0),
                 current_size: std::sync::atomic::AtomicUsize::new(
-                    self.stats.current_size.load(std::sync::atomic::Ordering::Relaxed)
+                    self.stats
+                        .current_size
+                        .load(std::sync::atomic::Ordering::Relaxed),
                 ),
             },
         }
@@ -228,8 +243,8 @@ mod tests {
         let _buffer2 = pool.acquire();
 
         let (allocs, reuses, _, _) = pool.stats();
-        assert_eq!(allocs, 1);  // First acquire
-        assert_eq!(reuses, 1);  // Second acquire (reused)
+        assert_eq!(allocs, 1); // First acquire
+        assert_eq!(reuses, 1); // Second acquire (reused)
     }
 
     #[test]
@@ -264,7 +279,7 @@ mod tests {
         }
 
         let efficiency = pool.efficiency();
-        assert!((efficiency - 0.666).abs() < 0.01);  // 4/6 ≈ 0.666
+        assert!((efficiency - 0.666).abs() < 0.01); // 4/6 ≈ 0.666
     }
 
     #[test]

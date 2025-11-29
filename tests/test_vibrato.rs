@@ -249,9 +249,5 @@ out $ ~vibrato * 0.3
 
     // Should produce slow, expressive vibrato
     let rms = calculate_rms(&samples);
-    assert!(
-        rms > 0.1,
-        "Slow vibrato should be audible, got RMS {}",
-        rms
-    );
+    assert!(rms > 0.1, "Slow vibrato should be audible, got RMS {}", rms);
 }

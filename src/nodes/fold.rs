@@ -6,7 +6,6 @@
 /// Wave folding reflects the signal when it exceeds the boundaries, creating
 /// harmonic distortion. Unlike wrap (which uses modulo), fold reflects the
 /// signal back into the range, producing different harmonic content.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Fold node: out = fold(input, min, max)
@@ -127,16 +126,8 @@ impl AudioNode for FoldNode {
             output.len(),
             "Input buffer length mismatch"
         );
-        debug_assert_eq!(
-            buf_min.len(),
-            output.len(),
-            "Min buffer length mismatch"
-        );
-        debug_assert_eq!(
-            buf_max.len(),
-            output.len(),
-            "Max buffer length mismatch"
-        );
+        debug_assert_eq!(buf_min.len(), output.len(), "Min buffer length mismatch");
+        debug_assert_eq!(buf_max.len(), output.len(), "Max buffer length mismatch");
 
         // Sample-wise fold operation
         for i in 0..output.len() {
@@ -169,19 +160,17 @@ mod tests {
         let inputs = vec![input.as_slice(), min.as_slice(), max.as_slice()];
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         fold.process_block(&inputs, &mut output, 44100.0, &context);
 
         // 0.5 stays 0.5 (already in range)
         for sample in &output {
-            assert!((*sample - 0.5).abs() < 1e-6, "Expected ~0.5, got {}", sample);
+            assert!(
+                (*sample - 0.5).abs() < 1e-6,
+                "Expected ~0.5, got {}",
+                sample
+            );
         }
     }
 
@@ -196,19 +185,17 @@ mod tests {
         let inputs = vec![input.as_slice(), min.as_slice(), max.as_slice()];
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         fold.process_block(&inputs, &mut output, 44100.0, &context);
 
         // 1.3 reflects to 0.7 (max - (1.3 - max) = 1.0 - 0.3 = 0.7)
         for sample in &output {
-            assert!((*sample - 0.7).abs() < 1e-6, "Expected ~0.7, got {}", sample);
+            assert!(
+                (*sample - 0.7).abs() < 1e-6,
+                "Expected ~0.7, got {}",
+                sample
+            );
         }
     }
 
@@ -223,19 +210,17 @@ mod tests {
         let inputs = vec![input.as_slice(), min.as_slice(), max.as_slice()];
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         fold.process_block(&inputs, &mut output, 44100.0, &context);
 
         // -0.3 reflects to 0.3 (min + (min - (-0.3)) = 0.0 + 0.3 = 0.3)
         for sample in &output {
-            assert!((*sample - 0.3).abs() < 1e-6, "Expected ~0.3, got {}", sample);
+            assert!(
+                (*sample - 0.3).abs() < 1e-6,
+                "Expected ~0.3, got {}",
+                sample
+            );
         }
     }
 
@@ -250,13 +235,7 @@ mod tests {
         let inputs = vec![input.as_slice(), min.as_slice(), max.as_slice()];
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         fold.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -264,7 +243,11 @@ mod tests {
         // Step 1: 2.5 > 1.0, so: 1.0 - (2.5 - 1.0) = -0.5
         // Step 2: -0.5 < 0.0, so: 0.0 + (0.0 - (-0.5)) = 0.5
         for sample in &output {
-            assert!((*sample - 0.5).abs() < 1e-6, "Expected ~0.5, got {}", sample);
+            assert!(
+                (*sample - 0.5).abs() < 1e-6,
+                "Expected ~0.5, got {}",
+                sample
+            );
         }
     }
 
@@ -280,28 +263,46 @@ mod tests {
         let inputs = vec![input.as_slice(), min.as_slice(), max.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         fold.process_block(&inputs, &mut output, 44100.0, &context);
 
         // -0.5: reflects to 0.5
-        assert!((output[0] - 0.5).abs() < 1e-6, "Expected ~0.5, got {}", output[0]);
+        assert!(
+            (output[0] - 0.5).abs() < 1e-6,
+            "Expected ~0.5, got {}",
+            output[0]
+        );
         // 0.0: stays 0.0
-        assert!((output[1] - 0.0).abs() < 1e-6, "Expected ~0.0, got {}", output[1]);
+        assert!(
+            (output[1] - 0.0).abs() < 1e-6,
+            "Expected ~0.0, got {}",
+            output[1]
+        );
         // 0.5: stays 0.5
-        assert!((output[2] - 0.5).abs() < 1e-6, "Expected ~0.5, got {}", output[2]);
+        assert!(
+            (output[2] - 0.5).abs() < 1e-6,
+            "Expected ~0.5, got {}",
+            output[2]
+        );
         // 1.0: stays 1.0
-        assert!((output[3] - 1.0).abs() < 1e-6, "Expected ~1.0, got {}", output[3]);
+        assert!(
+            (output[3] - 1.0).abs() < 1e-6,
+            "Expected ~1.0, got {}",
+            output[3]
+        );
         // 1.5: reflects to 0.5
-        assert!((output[4] - 0.5).abs() < 1e-6, "Expected ~0.5, got {}", output[4]);
+        assert!(
+            (output[4] - 0.5).abs() < 1e-6,
+            "Expected ~0.5, got {}",
+            output[4]
+        );
         // 2.0: multiple reflections to 0.0
-        assert!((output[5] - 0.0).abs() < 1e-6, "Expected ~0.0, got {}", output[5]);
+        assert!(
+            (output[5] - 0.0).abs() < 1e-6,
+            "Expected ~0.0, got {}",
+            output[5]
+        );
     }
 
     #[test]
@@ -326,29 +327,43 @@ mod tests {
         let inputs = vec![input.as_slice(), min.as_slice(), max.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         fold.process_block(&inputs, &mut output, 44100.0, &context);
 
         // -1.0: reflects to -0.0 (0.5 - (0.5 - (-1.0)) = -1.0, then -0.5 + (-0.5 - (-1.0)) = 0.0)
         // Detailed: -1.0 < -0.5, so: -0.5 + (-0.5 - (-1.0)) = -0.5 + 0.5 = 0.0
-        assert!((output[0] - 0.0).abs() < 1e-6, "Expected ~0.0, got {}", output[0]);
+        assert!(
+            (output[0] - 0.0).abs() < 1e-6,
+            "Expected ~0.0, got {}",
+            output[0]
+        );
         // -0.2: stays -0.2
-        assert!((output[1] - (-0.2)).abs() < 1e-6, "Expected ~-0.2, got {}", output[1]);
+        assert!(
+            (output[1] - (-0.2)).abs() < 1e-6,
+            "Expected ~-0.2, got {}",
+            output[1]
+        );
         // 0.3: stays 0.3
-        assert!((output[2] - 0.3).abs() < 1e-6, "Expected ~0.3, got {}", output[2]);
+        assert!(
+            (output[2] - 0.3).abs() < 1e-6,
+            "Expected ~0.3, got {}",
+            output[2]
+        );
         // 1.2: reflects to -0.2 (0.5 - (1.2 - 0.5) = -0.2)
-        assert!((output[3] - (-0.2)).abs() < 1e-6, "Expected ~-0.2, got {}", output[3]);
+        assert!(
+            (output[3] - (-0.2)).abs() < 1e-6,
+            "Expected ~-0.2, got {}",
+            output[3]
+        );
         // 2.5: multiple reflections
         // Step 1: 0.5 - (2.5 - 0.5) = -1.5
         // Step 2: -0.5 + (-0.5 - (-1.5)) = 0.5
-        assert!((output[4] - 0.5).abs() < 1e-6, "Expected ~0.5, got {}", output[4]);
+        assert!(
+            (output[4] - 0.5).abs() < 1e-6,
+            "Expected ~0.5, got {}",
+            output[4]
+        );
     }
 
     #[test]
@@ -363,13 +378,7 @@ mod tests {
         let inputs = vec![input.as_slice(), min.as_slice(), max.as_slice()];
 
         let mut output = vec![0.0; 6];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            6,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 6, 2.0, 44100.0);
 
         fold.process_block(&inputs, &mut output, 44100.0, &context);
 

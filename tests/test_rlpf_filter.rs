@@ -8,7 +8,6 @@
 /// - Resonance creates peak at cutoff frequency
 /// - Q/resonance parameter controls peak sharpness
 /// - Used for synth bass, resonant sweeps, classic analog sounds
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -19,14 +18,15 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
 
 /// Perform FFT and analyze spectrum
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -109,9 +109,11 @@ fn test_rlpf_passes_low_frequencies() {
 
     let attenuation = rms_filtered / rms_unfiltered;
 
-    assert!(attenuation > 0.7,
+    assert!(
+        attenuation > 0.7,
         "RLPF should pass low frequencies mostly unaffected, attenuation: {}",
-        attenuation);
+        attenuation
+    );
 
     println!("Low frequency attenuation: {}", attenuation);
 }
@@ -138,9 +140,11 @@ fn test_rlpf_attenuates_high_frequencies() {
 
     let attenuation = rms_filtered / rms_unfiltered;
 
-    assert!(attenuation < 0.5,
+    assert!(
+        attenuation < 0.5,
         "RLPF should attenuate high frequencies, attenuation: {}",
-        attenuation);
+        attenuation
+    );
 
     println!("High frequency attenuation: {}", attenuation);
 }
@@ -158,13 +162,15 @@ fn test_rlpf_frequency_response_curve() {
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
     // Calculate energy in frequency bands
-    let below_cutoff: f32 = frequencies.iter()
+    let below_cutoff: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 800.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let above_cutoff: f32 = frequencies.iter()
+    let above_cutoff: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 2000.0 && **f < 10000.0)
         .map(|(_, m)| m * m)
@@ -172,9 +178,11 @@ fn test_rlpf_frequency_response_curve() {
 
     let ratio = below_cutoff / above_cutoff.max(0.001);
 
-    assert!(ratio > 2.0,
+    assert!(
+        ratio > 2.0,
         "RLPF should favor frequencies below cutoff, ratio: {}",
-        ratio);
+        ratio
+    );
 
     println!("Below/above cutoff energy ratio: {}", ratio);
 }
@@ -210,23 +218,30 @@ fn test_rlpf_high_resonance() {
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
     // Find peak near cutoff
-    let peak_energy: f32 = frequencies.iter()
+    let peak_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 800.0 && **f < 1200.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let other_energy: f32 = frequencies.iter()
+    let other_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 500.0 || **f > 2000.0)
         .map(|(_, m)| m * m)
         .sum();
 
     // High resonance should create prominent peak
-    assert!(peak_energy > other_energy * 0.5,
-        "High resonance should create peak at cutoff");
+    assert!(
+        peak_energy > other_energy * 0.5,
+        "High resonance should create peak at cutoff"
+    );
 
-    println!("High resonance - Peak: {}, Other: {}", peak_energy, other_energy);
+    println!(
+        "High resonance - Peak: {}, Other: {}",
+        peak_energy, other_energy
+    );
 }
 
 #[test]
@@ -251,24 +266,32 @@ fn test_rlpf_resonance_comparison() {
     let (_, mags_high) = analyze_spectrum(&buffer_high, 44100.0);
 
     // Find energy at cutoff frequency
-    let low_peak: f32 = frequencies.iter()
+    let low_peak: f32 = frequencies
+        .iter()
         .zip(mags_low.iter())
         .filter(|(f, _)| (**f - 1000.0).abs() < 100.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let high_peak: f32 = frequencies.iter()
+    let high_peak: f32 = frequencies
+        .iter()
         .zip(mags_high.iter())
         .filter(|(f, _)| (**f - 1000.0).abs() < 100.0)
         .map(|(_, m)| m * m)
         .sum();
 
     // High resonance should have more energy at cutoff
-    assert!(high_peak > low_peak * 0.8,
+    assert!(
+        high_peak > low_peak * 0.8,
         "High resonance should emphasize cutoff more, low: {}, high: {}",
-        low_peak, high_peak);
+        low_peak,
+        high_peak
+    );
 
-    println!("Resonance comparison - Low: {}, High: {}", low_peak, high_peak);
+    println!(
+        "Resonance comparison - Low: {}, High: {}",
+        low_peak, high_peak
+    );
 }
 
 // ========== Cutoff Frequency Tests ==========
@@ -284,21 +307,26 @@ fn test_rlpf_cutoff_500() {
     let buffer = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let low: f32 = frequencies.iter()
+    let low: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 400.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let high: f32 = frequencies.iter()
+    let high: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 1000.0 && **f < 8000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    assert!(low > high * 2.0,
+    assert!(
+        low > high * 2.0,
         "RLPF 500Hz should favor low frequencies, low: {}, high: {}",
-        low, high);
+        low,
+        high
+    );
 
     println!("RLPF 500Hz - Low: {}, High: {}", low, high);
 }
@@ -314,21 +342,26 @@ fn test_rlpf_cutoff_2000() {
     let buffer = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let mid: f32 = frequencies.iter()
+    let mid: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 500.0 && **f < 1800.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let high: f32 = frequencies.iter()
+    let high: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 5000.0 && **f < 12000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    assert!(mid > high,
+    assert!(
+        mid > high,
         "RLPF 2000Hz should favor mid over high frequencies, mid: {}, high: {}",
-        mid, high);
+        mid,
+        high
+    );
 
     println!("RLPF 2000Hz - Mid: {}, High: {}", mid, high);
 }
@@ -345,9 +378,11 @@ fn test_rlpf_cutoff_8000() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.10,
+    assert!(
+        rms > 0.10,
         "RLPF 8000Hz should pass most audio, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("RLPF 8000Hz RMS: {}", rms);
 }
@@ -455,9 +490,11 @@ fn test_rlpf_pattern_cutoff() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "RLPF with pattern-modulated cutoff should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern cutoff RMS: {}", rms);
 }
@@ -476,9 +513,11 @@ fn test_rlpf_pattern_resonance() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.02,
+    assert!(
+        rms > 0.02,
         "RLPF with pattern-modulated resonance should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern resonance RMS: {}", rms);
 }
@@ -497,13 +536,15 @@ fn test_rlpf_cascade() {
     let buffer = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
-    let below: f32 = frequencies.iter()
+    let below: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 800.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let above: f32 = frequencies.iter()
+    let above: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 3000.0 && **f < 10000.0)
         .map(|(_, m)| m * m)
@@ -511,9 +552,11 @@ fn test_rlpf_cascade() {
 
     let ratio = below / above.max(0.001);
 
-    assert!(ratio > 5.0,
+    assert!(
+        ratio > 5.0,
         "Cascaded RLPFs should have steeper rolloff, ratio: {}",
-        ratio);
+        ratio
+    );
 
     println!("Cascaded RLPF below/above ratio: {}", ratio);
 }
@@ -531,9 +574,11 @@ fn test_rlpf_no_excessive_clipping() {
     let buffer = render_dsl(code, 1.0);
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
-    assert!(max_amplitude <= 0.7,
+    assert!(
+        max_amplitude <= 0.7,
         "RLPF should not cause excessive clipping, max: {}",
-        max_amplitude);
+        max_amplitude
+    );
 
     println!("RLPF max amplitude: {}", max_amplitude);
 }
@@ -558,9 +603,11 @@ fn test_rlpf_consistent_output() {
     }
 
     let identity_ratio = identical as f32 / buffer1.len() as f32;
-    assert!(identity_ratio > 0.99,
+    assert!(
+        identity_ratio > 0.99,
         "RLPF should produce consistent output, identity: {}",
-        identity_ratio);
+        identity_ratio
+    );
 
     println!("RLPF identity ratio: {}", identity_ratio);
 }
@@ -577,9 +624,11 @@ fn test_rlpf_no_dc_offset() {
     let buffer = render_dsl(code, 1.0);
     let mean: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
 
-    assert!(mean.abs() < 0.01,
+    assert!(
+        mean.abs() < 0.01,
         "RLPF should not introduce DC offset, mean: {}",
-        mean);
+        mean
+    );
 
     println!("RLPF DC offset: {}", mean);
 }
@@ -599,9 +648,11 @@ fn test_rlpf_very_low_cutoff() {
     let rms = calculate_rms(&buffer);
 
     // Should be very quiet
-    assert!(rms < 0.3,
+    assert!(
+        rms < 0.3,
         "RLPF 50Hz should heavily attenuate, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("RLPF 50Hz RMS: {}", rms);
 }
@@ -619,9 +670,11 @@ fn test_rlpf_self_oscillation() {
     let rms = calculate_rms(&buffer);
 
     // Should still produce audio (possibly self-oscillating)
-    assert!(rms > 0.0,
+    assert!(
+        rms > 0.0,
         "RLPF with very high resonance should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Self-oscillation test RMS: {}", rms);
 }

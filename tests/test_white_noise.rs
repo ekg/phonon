@@ -9,7 +9,6 @@
 /// - Mean value near zero
 /// - No parameters (just generates noise)
 /// - Used for percussion, hi-hats, synthesis building block
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -20,14 +19,15 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
 
 /// Perform FFT and analyze spectrum
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -67,7 +67,11 @@ fn test_white_noise_compiles() {
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
-    assert!(result.is_ok(), "White noise should compile: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "White noise should compile: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -80,7 +84,11 @@ fn test_white_noise_generates_audio() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "White noise should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "White noise should produce audio, got RMS: {}",
+        rms
+    );
     println!("White noise RMS: {}", rms);
 }
 
@@ -96,9 +104,11 @@ fn test_white_noise_mean_near_zero() {
     let buffer = render_dsl(code, 2.0);
     let mean: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
 
-    assert!(mean.abs() < 0.05,
+    assert!(
+        mean.abs() < 0.05,
         "White noise mean should be near 0, got {}",
-        mean);
+        mean
+    );
 
     println!("White noise mean: {}", mean);
 }
@@ -112,13 +122,14 @@ fn test_white_noise_has_variance() {
 
     let buffer = render_dsl(code, 2.0);
     let mean: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
-    let variance: f32 = buffer.iter()
-        .map(|&x| (x - mean) * (x - mean))
-        .sum::<f32>() / buffer.len() as f32;
+    let variance: f32 =
+        buffer.iter().map(|&x| (x - mean) * (x - mean)).sum::<f32>() / buffer.len() as f32;
 
-    assert!(variance > 0.05,
+    assert!(
+        variance > 0.05,
         "White noise should have variance, got {}",
-        variance);
+        variance
+    );
 
     println!("White noise variance: {}", variance);
 }
@@ -138,16 +149,20 @@ fn test_white_noise_flat_spectrum() {
     // White noise should have relatively flat spectrum
     // Calculate variance of magnitudes (should be low for flat spectrum)
     let mean_mag: f32 = magnitudes.iter().sum::<f32>() / magnitudes.len() as f32;
-    let variance: f32 = magnitudes.iter()
+    let variance: f32 = magnitudes
+        .iter()
         .map(|&m| (m - mean_mag) * (m - mean_mag))
-        .sum::<f32>() / magnitudes.len() as f32;
+        .sum::<f32>()
+        / magnitudes.len() as f32;
     let std_dev = variance.sqrt();
     let coefficient_of_variation = std_dev / mean_mag;
 
     // White noise should have relatively consistent energy across frequencies
-    assert!(coefficient_of_variation < 2.0,
+    assert!(
+        coefficient_of_variation < 2.0,
         "White noise spectrum should be relatively flat, CV: {}",
-        coefficient_of_variation);
+        coefficient_of_variation
+    );
 
     println!("Spectral flatness CV: {}", coefficient_of_variation);
 }
@@ -163,19 +178,22 @@ fn test_white_noise_full_bandwidth() {
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
     // Check energy in different frequency bands
-    let low_energy: f32 = frequencies.iter()
+    let low_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 1000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let mid_energy: f32 = frequencies.iter()
+    let mid_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f >= 1000.0 && **f < 5000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let high_energy: f32 = frequencies.iter()
+    let high_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f >= 5000.0 && **f < 15000.0)
         .map(|(_, m)| m * m)
@@ -186,7 +204,10 @@ fn test_white_noise_full_bandwidth() {
     assert!(mid_energy > 0.01, "Mid frequencies should have energy");
     assert!(high_energy > 0.01, "High frequencies should have energy");
 
-    println!("Energy - Low: {}, Mid: {}, High: {}", low_energy, mid_energy, high_energy);
+    println!(
+        "Energy - Low: {}, Mid: {}, High: {}",
+        low_energy, mid_energy, high_energy
+    );
 }
 
 // ========== Musical Applications ==========
@@ -274,22 +295,26 @@ fn test_white_noise_lowpass_filter() {
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
     // Low frequencies should have more energy than high
-    let low_energy: f32 = frequencies.iter()
+    let low_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 800.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let high_energy: f32 = frequencies.iter()
+    let high_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 3000.0 && **f < 10000.0)
         .map(|(_, m)| m * m)
         .sum();
 
     let ratio = low_energy / high_energy.max(0.001);
-    assert!(ratio > 2.0,
+    assert!(
+        ratio > 2.0,
         "Lowpassed white noise should favor low frequencies, ratio: {}",
-        ratio);
+        ratio
+    );
 
     println!("Lowpass - Low/High ratio: {}", ratio);
 }
@@ -306,22 +331,26 @@ fn test_white_noise_highpass_filter() {
     let (frequencies, magnitudes) = analyze_spectrum(&buffer, 44100.0);
 
     // High frequencies should have more energy than low
-    let low_energy: f32 = frequencies.iter()
+    let low_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f < 1000.0)
         .map(|(_, m)| m * m)
         .sum();
 
-    let high_energy: f32 = frequencies.iter()
+    let high_energy: f32 = frequencies
+        .iter()
         .zip(magnitudes.iter())
         .filter(|(f, _)| **f > 7000.0 && **f < 15000.0)
         .map(|(_, m)| m * m)
         .sum();
 
     let ratio = high_energy / low_energy.max(0.001);
-    assert!(ratio > 2.0,
+    assert!(
+        ratio > 2.0,
         "Highpassed white noise should favor high frequencies, ratio: {}",
-        ratio);
+        ratio
+    );
 
     println!("Highpass - High/Low ratio: {}", ratio);
 }
@@ -339,9 +368,11 @@ fn test_white_noise_amplitude_scaling() {
     let rms = calculate_rms(&buffer);
 
     // Scaled down noise should have lower RMS
-    assert!(rms < 0.15 && rms > 0.01,
+    assert!(
+        rms < 0.15 && rms > 0.01,
         "Scaled white noise should have appropriate RMS, got {}",
-        rms);
+        rms
+    );
 
     println!("Scaled noise RMS: {}", rms);
 }
@@ -358,9 +389,11 @@ fn test_white_noise_envelope_shaping() {
     let rms = calculate_rms(&buffer);
 
     // Envelope should shape the noise
-    assert!(rms > 0.01,
+    assert!(
+        rms > 0.01,
         "Envelope-shaped white noise should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Envelope-shaped noise RMS: {}", rms);
 }

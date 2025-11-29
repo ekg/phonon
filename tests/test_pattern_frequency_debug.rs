@@ -6,9 +6,9 @@
 //! 2. Sine wave is pure (single FFT peak, no harmonics)
 //! 3. Pattern actually alternates between frequencies
 
-use std::cell::RefCell;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
+use std::cell::RefCell;
 
 mod audio_test_utils;
 use audio_test_utils::{find_dominant_frequency, find_frequency_peaks};
@@ -63,7 +63,7 @@ fn test_manual_sine_synthesis_reference() {
         freq: Signal::Value(110.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -140,7 +140,7 @@ fn test_pattern_controlled_frequency_with_alternation() {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -240,7 +240,7 @@ fn test_pattern_frequency_both_notes_gated() {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -348,7 +348,7 @@ fn test_diagnose_4700hz_problem() {
         freq: Signal::Node(freq_node),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),

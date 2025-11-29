@@ -69,10 +69,9 @@ impl NodeProcessor {
         match node {
             DspNode::Sin { freq } => {
                 let f = self.eval_param(freq, cycle_pos, references);
-                let osc = self
-                    .osc_states
-                    .entry(node_id)
-                    .or_insert(OscState { phase: RefCell::new(0.0) });
+                let osc = self.osc_states.entry(node_id).or_insert(OscState {
+                    phase: RefCell::new(0.0),
+                });
                 let sample = (2.0 * PI * *osc.phase.borrow()).sin();
                 {
                     let mut p = osc.phase.borrow_mut();
@@ -86,10 +85,9 @@ impl NodeProcessor {
 
             DspNode::Saw { freq } => {
                 let f = self.eval_param(freq, cycle_pos, references);
-                let osc = self
-                    .osc_states
-                    .entry(node_id)
-                    .or_insert(OscState { phase: RefCell::new(0.0) });
+                let osc = self.osc_states.entry(node_id).or_insert(OscState {
+                    phase: RefCell::new(0.0),
+                });
                 let sample = 2.0 * *osc.phase.borrow() - 1.0;
                 {
                     let mut p = osc.phase.borrow_mut();
@@ -104,10 +102,9 @@ impl NodeProcessor {
             DspNode::Square { freq, duty } => {
                 let f = self.eval_param(freq, cycle_pos, references);
                 let d = self.eval_param(duty, cycle_pos, references);
-                let osc = self
-                    .osc_states
-                    .entry(node_id)
-                    .or_insert(OscState { phase: RefCell::new(0.0) });
+                let osc = self.osc_states.entry(node_id).or_insert(OscState {
+                    phase: RefCell::new(0.0),
+                });
                 let sample = if *osc.phase.borrow() < d { 1.0 } else { -1.0 };
                 {
                     let mut p = osc.phase.borrow_mut();
@@ -121,10 +118,9 @@ impl NodeProcessor {
 
             DspNode::Triangle { freq } => {
                 let f = self.eval_param(freq, cycle_pos, references);
-                let osc = self
-                    .osc_states
-                    .entry(node_id)
-                    .or_insert(OscState { phase: RefCell::new(0.0) });
+                let osc = self.osc_states.entry(node_id).or_insert(OscState {
+                    phase: RefCell::new(0.0),
+                });
                 let phase_val = *osc.phase.borrow();
                 let sample = if phase_val < 0.5 {
                     4.0 * phase_val - 1.0

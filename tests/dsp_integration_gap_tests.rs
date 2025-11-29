@@ -1,6 +1,5 @@
 //! Tests for DSP and cross-feature integration gaps
 
-
 #[test]
 #[should_panic(expected = "not yet implemented")]
 fn test_pattern_to_control_rate() {

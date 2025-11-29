@@ -28,7 +28,12 @@ fn render_dsl(code: &str, duration_seconds: f64) -> Vec<f32> {
 }
 
 /// Improved onset detection that filters out rapid retriggering
-fn detect_musical_onsets(audio: &[f32], sample_rate: f32, threshold: f32, min_interval_ms: f64) -> Vec<Event> {
+fn detect_musical_onsets(
+    audio: &[f32],
+    sample_rate: f32,
+    threshold: f32,
+    min_interval_ms: f64,
+) -> Vec<Event> {
     let mut events = Vec::new();
 
     // Simple onset detection: look for sudden increases in RMS
@@ -312,7 +317,12 @@ fn test_bpm_with_multiple_events_per_cycle() {
     println!("  Expected total events: {}", expected_events);
     println!("  Detected onsets: {}", onsets.len());
     for (i, onset) in onsets.iter().enumerate() {
-        println!("    Onset {}: {:.3}s (amp: {:.3})", i + 1, onset.time, onset.amplitude);
+        println!(
+            "    Onset {}: {:.3}s (amp: {:.3})",
+            i + 1,
+            onset.time,
+            onset.amplitude
+        );
     }
 
     // Verify onset count (allow ±2 for boundary effects and detection variance)
@@ -334,7 +344,10 @@ fn test_bpm_with_multiple_events_per_cycle() {
         // Expected: 1 cycle = 2 seconds, 4 events per cycle → 0.5 seconds per event
         let expected_interval = 1.0 / (expected_cps * events_per_cycle as f64);
 
-        println!("  Average interval: {:.3}s (expected: {:.3}s)", avg_interval, expected_interval);
+        println!(
+            "  Average interval: {:.3}s (expected: {:.3}s)",
+            avg_interval, expected_interval
+        );
 
         assert!(
             (avg_interval - expected_interval).abs() < 0.1,

@@ -1,7 +1,6 @@
 /// Integration test for sample_hold compiler support
 ///
 /// Verifies that sample_hold can be compiled and renders correctly in the DSL
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -9,7 +8,8 @@ use phonon::compositional_parser::parse_program;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -27,7 +27,10 @@ fn test_sample_hold_compiles() {
 
     let buffer = render_dsl(code, 0.5);
     assert!(buffer.len() > 0, "Should produce audio");
-    assert!(buffer.iter().any(|&x| x != 0.0), "Should produce non-zero audio");
+    assert!(
+        buffer.iter().any(|&x| x != 0.0),
+        "Should produce non-zero audio"
+    );
 }
 
 #[test]
@@ -64,7 +67,10 @@ fn test_sample_hold_stepped_modulation() {
     for &sample in &buffer {
         assert!(sample.is_finite(), "Output should be finite");
     }
-    assert!(buffer.iter().any(|&x| x.abs() > 0.001), "Should produce audible signal");
+    assert!(
+        buffer.iter().any(|&x| x.abs() > 0.001),
+        "Should produce audible signal"
+    );
 }
 
 #[test]

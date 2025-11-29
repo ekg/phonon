@@ -61,11 +61,13 @@ out $ pitch_shift ~source 0
 "#;
 
     let (_, statements_orig) = parse_program(code_original).expect("Failed to parse");
-    let mut graph_orig = compile_program(statements_orig, 44100.0, None).expect("Failed to compile");
+    let mut graph_orig =
+        compile_program(statements_orig, 44100.0, None).expect("Failed to compile");
     let buffer_orig = graph_orig.render(44100);
 
     let (_, statements_shift) = parse_program(code_shifted).expect("Failed to parse");
-    let mut graph_shift = compile_program(statements_shift, 44100.0, None).expect("Failed to compile");
+    let mut graph_shift =
+        compile_program(statements_shift, 44100.0, None).expect("Failed to compile");
     let buffer_shift = graph_shift.render(44100);
 
     let rms_orig = calculate_rms(&buffer_orig);

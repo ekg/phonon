@@ -167,7 +167,10 @@ impl IpcMessage {
                         // It's a different message type - we should process it
                         // But for now, prioritize the UpdateGraph
                         // TODO: Consider queuing non-UpdateGraph messages
-                        eprintln!("⚠️  Draining UpdateGraph, but received {:?} - ignoring for now", msg);
+                        eprintln!(
+                            "⚠️  Draining UpdateGraph, but received {:?} - ignoring for now",
+                            msg
+                        );
                     }
                 }
                 None => {
@@ -178,7 +181,10 @@ impl IpcMessage {
         }
 
         if drained_count > 0 {
-            eprintln!("🔄 Drained {} stale UpdateGraph message(s), processing most recent", drained_count);
+            eprintln!(
+                "🔄 Drained {} stale UpdateGraph message(s), processing most recent",
+                drained_count
+            );
         }
 
         Ok(latest_update)
@@ -206,8 +212,8 @@ impl AudioServer {
         // Remove old socket if it exists
         let _ = std::fs::remove_file(&path);
 
-        let listener = UnixListener::bind(&path)
-            .map_err(|e| format!("Failed to bind socket: {}", e))?;
+        let listener =
+            UnixListener::bind(&path).map_err(|e| format!("Failed to bind socket: {}", e))?;
 
         eprintln!("🎵 Audio server listening on: {}", path.display());
 
@@ -289,7 +295,7 @@ mod tests {
         let decoded = IpcMessage::from_bytes(&bytes).unwrap();
 
         match decoded {
-            IpcMessage::Hush => {},
+            IpcMessage::Hush => {}
             _ => panic!("Wrong message type"),
         }
     }

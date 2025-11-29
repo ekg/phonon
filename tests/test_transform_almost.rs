@@ -6,7 +6,7 @@
 ///
 /// All transforms use pattern API testing (not DSL-based)
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 
 // ============= Level 1: almostAlways (90% Probability) =============
@@ -28,7 +28,10 @@ fn test_almost_always_level1_high_probability() {
         };
 
         let base = pattern.query(&state);
-        let transformed = pattern.clone().almost_always(|p| p.fast(Pattern::pure(2.0))).query(&state);
+        let transformed = pattern
+            .clone()
+            .almost_always(|p| p.fast(Pattern::pure(2.0)))
+            .query(&state);
 
         // If transformed, should have 2x events
         if transformed.len() > base.len() {
@@ -60,8 +63,14 @@ fn test_almost_always_deterministic() {
     };
 
     // Same cycle should give same result
-    let result1 = pattern.clone().almost_always(|p| p.fast(Pattern::pure(2.0))).query(&state);
-    let result2 = pattern.clone().almost_always(|p| p.fast(Pattern::pure(2.0))).query(&state);
+    let result1 = pattern
+        .clone()
+        .almost_always(|p| p.fast(Pattern::pure(2.0)))
+        .query(&state);
+    let result2 = pattern
+        .clone()
+        .almost_always(|p| p.fast(Pattern::pure(2.0)))
+        .query(&state);
 
     assert_eq!(
         result1.len(),
@@ -91,12 +100,18 @@ fn test_almost_always_vs_often() {
 
         let base = pattern.query(&state);
 
-        let almost_always = pattern.clone().almost_always(|p| p.fast(Pattern::pure(2.0))).query(&state);
+        let almost_always = pattern
+            .clone()
+            .almost_always(|p| p.fast(Pattern::pure(2.0)))
+            .query(&state);
         if almost_always.len() > base.len() {
             almost_always_count += 1;
         }
 
-        let often = pattern.clone().often(|p| p.fast(Pattern::pure(2.0))).query(&state);
+        let often = pattern
+            .clone()
+            .often(|p| p.fast(Pattern::pure(2.0)))
+            .query(&state);
         if often.len() > base.len() {
             often_count += 1;
         }
@@ -139,7 +154,10 @@ fn test_almost_never_level1_low_probability() {
         };
 
         let base = pattern.query(&state);
-        let transformed = pattern.clone().almost_never(|p| p.fast(Pattern::pure(2.0))).query(&state);
+        let transformed = pattern
+            .clone()
+            .almost_never(|p| p.fast(Pattern::pure(2.0)))
+            .query(&state);
 
         // If transformed, should have 2x events
         if transformed.len() > base.len() {
@@ -180,12 +198,18 @@ fn test_almost_never_same_as_rarely() {
 
         let base = pattern.query(&state);
 
-        let almost_never = pattern.clone().almost_never(|p| p.fast(Pattern::pure(2.0))).query(&state);
+        let almost_never = pattern
+            .clone()
+            .almost_never(|p| p.fast(Pattern::pure(2.0)))
+            .query(&state);
         if almost_never.len() > base.len() {
             almost_never_count += 1;
         }
 
-        let rarely = pattern.clone().rarely(|p| p.fast(Pattern::pure(2.0))).query(&state);
+        let rarely = pattern
+            .clone()
+            .rarely(|p| p.fast(Pattern::pure(2.0)))
+            .query(&state);
         if rarely.len() > base.len() {
             rarely_count += 1;
         }
@@ -219,8 +243,14 @@ fn test_almost_never_deterministic() {
     };
 
     // Same cycle should give same result
-    let result1 = pattern.clone().almost_never(|p| p.fast(Pattern::pure(2.0))).query(&state);
-    let result2 = pattern.clone().almost_never(|p| p.fast(Pattern::pure(2.0))).query(&state);
+    let result1 = pattern
+        .clone()
+        .almost_never(|p| p.fast(Pattern::pure(2.0)))
+        .query(&state);
+    let result2 = pattern
+        .clone()
+        .almost_never(|p| p.fast(Pattern::pure(2.0)))
+        .query(&state);
 
     assert_eq!(
         result1.len(),
@@ -247,7 +277,10 @@ fn test_almost_always_multi_cycle_consistency() {
             controls: HashMap::new(),
         };
 
-        let haps = pattern.clone().almost_always(|p| p.fast(Pattern::pure(2.0))).query(&state);
+        let haps = pattern
+            .clone()
+            .almost_always(|p| p.fast(Pattern::pure(2.0)))
+            .query(&state);
         // Should produce events (either base or transformed)
         assert!(
             haps.len() >= 2,
@@ -273,7 +306,10 @@ fn test_almost_never_multi_cycle_consistency() {
             controls: HashMap::new(),
         };
 
-        let haps = pattern.clone().almost_never(|p| p.fast(Pattern::pure(2.0))).query(&state);
+        let haps = pattern
+            .clone()
+            .almost_never(|p| p.fast(Pattern::pure(2.0)))
+            .query(&state);
         // Should produce events (either base or transformed)
         assert!(
             haps.len() >= 2,
@@ -297,7 +333,10 @@ fn test_almost_always_composition() {
     };
 
     // almostAlways composed with fast
-    let composed = pattern.clone().fast(Pattern::pure(2.0)).almost_always(|p| p.rev());
+    let composed = pattern
+        .clone()
+        .fast(Pattern::pure(2.0))
+        .almost_always(|p| p.rev());
     let haps = composed.query(&state);
 
     assert!(haps.len() > 0, "Composed almostAlways should work");
@@ -315,7 +354,10 @@ fn test_almost_never_composition() {
     };
 
     // almostNever composed with slow
-    let composed = pattern.clone().slow(Pattern::pure(2.0)).almost_never(|p| p.fast(Pattern::pure(4.0)));
+    let composed = pattern
+        .clone()
+        .slow(Pattern::pure(2.0))
+        .almost_never(|p| p.fast(Pattern::pure(4.0)));
     let haps = composed.query(&state);
 
     assert!(haps.len() > 0, "Composed almostNever should work");
@@ -411,7 +453,13 @@ fn test_probability_spectrum() {
 
         let base = pattern.query(&state);
 
-        if pattern.clone().rarely(|p| p.fast(Pattern::pure(2.0))).query(&state).len() > base.len() {
+        if pattern
+            .clone()
+            .rarely(|p| p.fast(Pattern::pure(2.0)))
+            .query(&state)
+            .len()
+            > base.len()
+        {
             rarely_count += 1;
         }
         if pattern
@@ -432,7 +480,13 @@ fn test_probability_spectrum() {
         {
             sometimes_count += 1;
         }
-        if pattern.clone().often(|p| p.fast(Pattern::pure(2.0))).query(&state).len() > base.len() {
+        if pattern
+            .clone()
+            .often(|p| p.fast(Pattern::pure(2.0)))
+            .query(&state)
+            .len()
+            > base.len()
+        {
             often_count += 1;
         }
         if pattern

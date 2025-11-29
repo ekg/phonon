@@ -118,7 +118,11 @@ fn test_legato_level1_event_count() {
         };
 
         base_total += pattern.query(&state).len();
-        legato_total += pattern.clone().legato(Pattern::pure(1.5)).query(&state).len();
+        legato_total += pattern
+            .clone()
+            .legato(Pattern::pure(1.5))
+            .query(&state)
+            .len();
     }
 
     assert_eq!(

@@ -39,15 +39,14 @@
 /// let left = PingPongDelayNode::new(1, 2, 3, 4, 5, false, 1.0, 44100.0);  // Left channel
 /// let right = PingPongDelayNode::new(1, 2, 3, 4, 5, true, 1.0, 44100.0);  // Right channel
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Ping-pong delay state
 #[derive(Debug, Clone)]
 struct PingPongDelayState {
-    buffer_l: Vec<f32>,  // Left channel buffer
-    buffer_r: Vec<f32>,  // Right channel buffer
-    write_pos: usize,    // Shared write position
+    buffer_l: Vec<f32>, // Left channel buffer
+    buffer_r: Vec<f32>, // Right channel buffer
+    write_pos: usize,   // Shared write position
 }
 
 impl PingPongDelayState {
@@ -76,8 +75,8 @@ pub struct PingPongDelayNode {
     mix_input: NodeId,          // Dry/wet mix (0.0-1.0)
     channel: bool,              // false = left, true = right
     state: PingPongDelayState,
-    max_delay: f32,             // Maximum delay time (for buffer sizing)
-    sample_rate: f32,           // Sample rate for calculations
+    max_delay: f32,   // Maximum delay time (for buffer sizing)
+    sample_rate: f32, // Sample rate for calculations
 }
 
 impl PingPongDelayNode {
@@ -231,16 +230,10 @@ impl AudioNode for PingPongDelayNode {
             // - Opposite channel gets only feedback
             let (to_write_l, to_write_r) = if self.channel {
                 // Right channel active: left gets feedback only, right gets input+feedback
-                (
-                    ping_ponged * feedback,
-                    sample + ping_ponged * feedback,
-                )
+                (ping_ponged * feedback, sample + ping_ponged * feedback)
             } else {
                 // Left channel active: left gets input+feedback, right gets feedback only
-                (
-                    sample + ping_ponged * feedback,
-                    ping_ponged * feedback,
-                )
+                (sample + ping_ponged * feedback, ping_ponged * feedback)
             };
 
             self.state.buffer_l[self.state.write_pos] = to_write_l;
@@ -269,7 +262,7 @@ impl AudioNode for PingPongDelayNode {
     }
 
     fn provides_delay(&self) -> bool {
-        true  // PingPongDelayNode has internal delay buffers, can safely break feedback cycles
+        true // PingPongDelayNode has internal delay buffers, can safely break feedback cycles
     }
 }
 
@@ -289,10 +282,10 @@ mod tests {
         let sample_rate = 44100.0;
 
         let input = vec![0.5; size];
-        let time = vec![0.1; size];    // 100ms
+        let time = vec![0.1; size]; // 100ms
         let feedback = vec![0.5; size];
         let width = vec![1.0; size];
-        let mix = vec![0.0; size];      // Bypass
+        let mix = vec![0.0; size]; // Bypass
 
         let inputs: Vec<&[f32]> = vec![&input, &time, &feedback, &width, &mix];
         let mut output = vec![0.0; size];
@@ -323,8 +316,8 @@ mod tests {
         let delay_time = 0.01; // 10ms = 441 samples
         let time = vec![delay_time; size];
         let feedback = vec![0.0; size]; // No feedback (cleaner test)
-        let width = vec![0.0; size];     // Mono (no ping-pong yet)
-        let mix = vec![1.0; size];       // Full wet
+        let width = vec![0.0; size]; // Mono (no ping-pong yet)
+        let mix = vec![1.0; size]; // Full wet
 
         let inputs: Vec<&[f32]> = vec![&input, &time, &feedback, &width, &mix];
         let mut output = vec![0.0; size];
@@ -359,8 +352,8 @@ mod tests {
 
         let delay_time = 0.01; // 10ms
         let time = vec![delay_time; size];
-        let feedback = vec![0.6; size];  // Moderate feedback
-        let width = vec![1.0; size];      // Full stereo separation
+        let feedback = vec![0.6; size]; // Moderate feedback
+        let width = vec![1.0; size]; // Full stereo separation
         let mix = vec![1.0; size];
 
         let inputs: Vec<&[f32]> = vec![&input, &time, &feedback, &width, &mix];
@@ -384,14 +377,8 @@ mod tests {
 
         // With full stereo width, left and right should eventually differ
         // Just verify the nodes processed without error (may not have delay output yet)
-        assert!(
-            output_l.len() == size,
-            "Output buffer should be filled"
-        );
-        assert!(
-            output_r.len() == size,
-            "Output buffer should be filled"
-        );
+        assert!(output_l.len() == size, "Output buffer should be filled");
+        assert!(output_r.len() == size, "Output buffer should be filled");
     }
 
     #[test]
@@ -407,7 +394,7 @@ mod tests {
         let delay_time = 0.01;
         let time = vec![delay_time; size];
         let feedback = vec![0.5; size];
-        let width = vec![0.0; size];     // Mono
+        let width = vec![0.0; size]; // Mono
         let mix = vec![1.0; size];
 
         let inputs: Vec<&[f32]> = vec![&input, &time, &feedback, &width, &mix];
@@ -448,7 +435,7 @@ mod tests {
 
         let delay_time = 0.01;
         let time = vec![delay_time; size];
-        let feedback = vec![0.7; size];  // High feedback
+        let feedback = vec![0.7; size]; // High feedback
         let width = vec![0.5; size];
         let mix = vec![1.0; size];
 
@@ -481,10 +468,10 @@ mod tests {
         let sample_rate = 44100.0;
 
         let input = vec![0.5; size];
-        let time = vec![10.0; size];      // Way too long (should clamp to max_delay)
-        let feedback = vec![2.0; size];   // Invalid (should clamp to 0.95)
-        let width = vec![5.0; size];      // Invalid (should clamp to 1.0)
-        let mix = vec![-1.0; size];       // Invalid (should clamp to 0.0)
+        let time = vec![10.0; size]; // Way too long (should clamp to max_delay)
+        let feedback = vec![2.0; size]; // Invalid (should clamp to 0.95)
+        let width = vec![5.0; size]; // Invalid (should clamp to 1.0)
+        let mix = vec![-1.0; size]; // Invalid (should clamp to 0.0)
 
         let inputs: Vec<&[f32]> = vec![&input, &time, &feedback, &width, &mix];
         let mut output = vec![0.0; size];
@@ -495,7 +482,10 @@ mod tests {
 
         // Should not panic, and should produce valid output
         for &val in &output {
-            assert!(val.is_finite(), "Output should be finite with clamped params");
+            assert!(
+                val.is_finite(),
+                "Output should be finite with clamped params"
+            );
         }
     }
 

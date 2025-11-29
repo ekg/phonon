@@ -42,9 +42,8 @@ fn measure_amplitude_variation(buffer: &[f32], window_size: usize) -> f32 {
 
     // Calculate standard deviation of RMS values
     let mean = variations.iter().sum::<f32>() / variations.len() as f32;
-    let variance = variations.iter()
-        .map(|v| (v - mean).powi(2))
-        .sum::<f32>() / variations.len() as f32;
+    let variance =
+        variations.iter().map(|v| (v - mean).powi(2)).sum::<f32>() / variations.len() as f32;
 
     variance.sqrt()
 }
@@ -145,8 +144,14 @@ out $ sine 440 * 0.3 # tremolo 10.0 0.8
     println!("Slow tremolo variation: {:.6}", slow_var);
     println!("Fast tremolo variation: {:.6}", fast_var);
 
-    assert!(slow_var > 0.001, "Slow tremolo should have amplitude variation");
-    assert!(fast_var > 0.001, "Fast tremolo should have amplitude variation");
+    assert!(
+        slow_var > 0.001,
+        "Slow tremolo should have amplitude variation"
+    );
+    assert!(
+        fast_var > 0.001,
+        "Fast tremolo should have amplitude variation"
+    );
 }
 
 #[test]

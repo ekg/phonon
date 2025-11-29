@@ -2,7 +2,6 @@
 ///
 /// This node demonstrates stateful processing (phase tracking) and
 /// pattern-controlled parameters (frequency can be modulated).
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -24,9 +23,9 @@ pub enum Waveform {
 /// let osc = OscillatorNode::new(0, Waveform::Sine);  // NodeId 1
 /// ```
 pub struct OscillatorNode {
-    freq_input: NodeId,     // NodeId providing frequency values
+    freq_input: NodeId, // NodeId providing frequency values
     waveform: Waveform,
-    phase: f32,             // Internal state (0.0 to 1.0)
+    phase: f32, // Internal state (0.0 to 1.0)
 }
 
 impl OscillatorNode {
@@ -154,13 +153,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut osc = OscillatorNode::new(0, Waveform::Sine);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Generate frequency buffer
         let mut freq_buf = vec![0.0; 512];
@@ -184,13 +177,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(440.0);
         let mut osc = OscillatorNode::new(0, Waveform::Sine);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 512];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -219,13 +206,7 @@ mod tests {
         let inputs = vec![freq_buf.as_slice()];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -247,17 +228,11 @@ mod tests {
         osc.phase = 0.99;
 
         // Process one sample at high frequency
-        let freq_buf = vec![4410.0];  // 10% of sample rate
+        let freq_buf = vec![4410.0]; // 10% of sample rate
         let inputs = vec![freq_buf.as_slice()];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         osc.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -282,13 +257,7 @@ mod tests {
             let mut const_freq = ConstantNode::new(440.0);
             let mut osc = OscillatorNode::new(0, waveform);
 
-            let context = ProcessContext::new(
-                Fraction::from_float(0.0),
-                0,
-                512,
-                2.0,
-                44100.0,
-            );
+            let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
             let mut freq_buf = vec![0.0; 512];
             const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -299,16 +268,12 @@ mod tests {
 
             // All waveforms should produce some non-zero output
             let has_signal = output.iter().any(|&x| x.abs() > 0.1);
-            assert!(
-                has_signal,
-                "Waveform {:?} produced no signal",
-                waveform
-            );
+            assert!(has_signal, "Waveform {:?} produced no signal", waveform);
 
             // All samples should be in valid range
             for sample in &output {
                 assert!(
-                    sample.abs() <= 1.1,  // Allow slight overshoot for rounding
+                    sample.abs() <= 1.1, // Allow slight overshoot for rounding
                     "Waveform {:?} sample out of range: {}",
                     waveform,
                     sample

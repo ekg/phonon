@@ -9,10 +9,9 @@
 /// The Voss-McCartney algorithm maintains 7 octave bins, updating different
 /// octaves at different rates based on bit patterns in a counter. This creates
 /// a 1/f spectrum through averaging.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 /// Pink noise node: generates 1/f spectrum noise scaled by amplitude
 ///
@@ -163,13 +162,7 @@ mod tests {
         let inputs = vec![amplitude.as_slice()];
 
         let mut output = vec![0.0; 100];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            100,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 100, 2.0, 44100.0);
 
         pink.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -192,13 +185,7 @@ mod tests {
         let inputs = vec![amplitude.as_slice()];
 
         let mut output = vec![0.0; 8192];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            8192,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 8192, 2.0, 44100.0);
 
         pink.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -212,9 +199,11 @@ mod tests {
         // Pink noise should have positive autocorrelation (smoother than white)
         // White noise has autocorr ≈ 0, pink noise should be significantly > 0
         // Voss-McCartney algorithm produces modest correlation (~0.02-0.03)
-        assert!(autocorr > 0.01,
+        assert!(
+            autocorr > 0.01,
             "Pink noise autocorrelation {} should be > 0.01 (indicating low-freq bias)",
-            autocorr);
+            autocorr
+        );
     }
 
     #[test]
@@ -222,17 +211,11 @@ mod tests {
         // Pink noise should average to approximately zero
         let mut pink = PinkNoiseNode::new_with_seed(0, 42);
 
-        let amplitude = vec![1.0; 44100];  // 1 second at 44.1kHz
+        let amplitude = vec![1.0; 44100]; // 1 second at 44.1kHz
         let inputs = vec![amplitude.as_slice()];
 
         let mut output = vec![0.0; 44100];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            44100,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 44100, 2.0, 44100.0);
 
         pink.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -241,8 +224,11 @@ mod tests {
         let mean = sum / output.len() as f32;
 
         // Mean should be close to zero
-        assert!(mean.abs() < 0.05,
-            "Mean {} not close to zero (pink noise should have zero mean)", mean);
+        assert!(
+            mean.abs() < 0.05,
+            "Mean {} not close to zero (pink noise should have zero mean)",
+            mean
+        );
     }
 
     #[test]
@@ -256,21 +242,17 @@ mod tests {
 
         let mut output1 = vec![0.0; 200];
         let mut output2 = vec![0.0; 200];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            200,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 200, 2.0, 44100.0);
 
         pink1.process_block(&inputs, &mut output1, 44100.0, &context);
         pink2.process_block(&inputs, &mut output2, 44100.0, &context);
 
         // Outputs should be identical
         for i in 0..200 {
-            assert_eq!(output1[i], output2[i],
-                "Deterministic pink noise with same seed should produce identical output");
+            assert_eq!(
+                output1[i], output2[i],
+                "Deterministic pink noise with same seed should produce identical output"
+            );
         }
     }
 
@@ -283,20 +265,17 @@ mod tests {
         let inputs = vec![amplitude.as_slice()];
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         pink.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Every sample should be in range [-0.3, 0.3]
         for sample in &output {
-            assert!(*sample >= -0.3 && *sample <= 0.3,
-                "Sample {} out of range [-0.3, 0.3]", sample);
+            assert!(
+                *sample >= -0.3 && *sample <= 0.3,
+                "Sample {} out of range [-0.3, 0.3]",
+                sample
+            );
         }
     }
 
@@ -316,13 +295,7 @@ mod tests {
         let mut amplitude_node = ConstantNode::new(0.4);
         let mut pink = PinkNoiseNode::new_with_seed(0, 42);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process amplitude constant
         let mut amplitude_buf = vec![0.0; 512];
@@ -336,8 +309,11 @@ mod tests {
 
         // Every sample should be in range [-0.4, 0.4]
         for sample in &output {
-            assert!(*sample >= -0.4 && *sample <= 0.4,
-                "Sample {} out of range [-0.4, 0.4]", sample);
+            assert!(
+                *sample >= -0.4 && *sample <= 0.4,
+                "Sample {} out of range [-0.4, 0.4]",
+                sample
+            );
         }
 
         // Should not all be the same value
@@ -354,14 +330,8 @@ mod tests {
         let amplitude = vec![0.0; 100];
         let inputs = vec![amplitude.as_slice()];
 
-        let mut output = vec![999.0; 100];  // Initialize with non-zero
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            100,
-            2.0,
-            44100.0,
-        );
+        let mut output = vec![999.0; 100]; // Initialize with non-zero
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 100, 2.0, 44100.0);
 
         pink.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -382,20 +352,17 @@ mod tests {
 
         let mut output1 = vec![0.0; 100];
         let mut output2 = vec![0.0; 100];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            100,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 100, 2.0, 44100.0);
 
         pink1.process_block(&inputs, &mut output1, 44100.0, &context);
         pink2.process_block(&inputs, &mut output2, 44100.0, &context);
 
         // Outputs should be different
         let all_same = output1.iter().zip(output2.iter()).all(|(a, b)| a == b);
-        assert!(!all_same, "Different seeds should produce different pink noise");
+        assert!(
+            !all_same,
+            "Different seeds should produce different pink noise"
+        );
     }
 
     #[test]
@@ -407,20 +374,17 @@ mod tests {
         let inputs = vec![amplitude.as_slice()];
 
         let mut output = vec![0.0; 512];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         pink.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Every sample should be in [-0.5, 0.5]
         for sample in &output {
-            assert!(*sample >= -0.5 && *sample <= 0.5,
-                "Sample {} out of range [-0.5, 0.5]", sample);
+            assert!(
+                *sample >= -0.5 && *sample <= 0.5,
+                "Sample {} out of range [-0.5, 0.5]",
+                sample
+            );
         }
     }
 
@@ -433,20 +397,23 @@ mod tests {
         let inputs = vec![amplitude.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         pink.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Check ranges based on amplitude
-        assert_eq!(output[0], 0.0);  // Zero amplitude = silence
-        assert!(output[1].abs() <= 0.25, "Sample with 0.25 amplitude out of range");
-        assert!(output[2].abs() <= 0.5, "Sample with 0.5 amplitude out of range");
-        assert!(output[3].abs() <= 1.0, "Sample with 1.0 amplitude out of range");
+        assert_eq!(output[0], 0.0); // Zero amplitude = silence
+        assert!(
+            output[1].abs() <= 0.25,
+            "Sample with 0.25 amplitude out of range"
+        );
+        assert!(
+            output[2].abs() <= 0.5,
+            "Sample with 0.5 amplitude out of range"
+        );
+        assert!(
+            output[3].abs() <= 1.0,
+            "Sample with 1.0 amplitude out of range"
+        );
     }
 }

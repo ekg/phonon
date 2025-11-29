@@ -24,7 +24,6 @@
 /// - Resonant pipes and tubes
 /// - Membrane percussion (timbales, tabla)
 /// - Realistic natural decay and harmonics
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::collections::VecDeque;
 
@@ -49,11 +48,11 @@ pub struct WaveguideNode {
 }
 
 struct WaveguideState {
-    forward_line: VecDeque<f32>,   // Forward traveling wave delay line
-    backward_line: VecDeque<f32>,  // Backward traveling wave delay line
-    filter_state_fwd: f32,          // Lowpass filter state for forward path
-    filter_state_bwd: f32,          // Lowpass filter state for backward path
-    max_delay: usize,               // Maximum delay line length
+    forward_line: VecDeque<f32>,  // Forward traveling wave delay line
+    backward_line: VecDeque<f32>, // Backward traveling wave delay line
+    filter_state_fwd: f32,        // Lowpass filter state for forward path
+    filter_state_bwd: f32,        // Lowpass filter state for backward path
+    max_delay: usize,             // Maximum delay line length
 }
 
 impl WaveguideNode {
@@ -288,13 +287,7 @@ mod tests {
     use crate::pattern::Fraction;
 
     fn create_context(block_size: usize, sample_rate: f32) -> ProcessContext {
-        ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            sample_rate,
-        )
+        ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, sample_rate)
     }
 
     #[test]
@@ -312,8 +305,8 @@ mod tests {
         let mut excitation_buf = vec![0.0; block_size];
         excitation_buf[0] = 1.0; // Impulse at start
 
-        let freq_buf = vec![220.0; block_size];  // A3
-        let decay_buf = vec![0.95; block_size];  // High decay
+        let freq_buf = vec![220.0; block_size]; // A3
+        let decay_buf = vec![0.95; block_size]; // High decay
         let brightness_buf = vec![0.7; block_size]; // Moderate brightness
 
         let inputs = vec![
@@ -354,7 +347,7 @@ mod tests {
         let mut excitation_buf = vec![0.0; block_size];
         excitation_buf[0] = 1.0;
 
-        let freq_low = vec![110.0; block_size];  // A2
+        let freq_low = vec![110.0; block_size]; // A2
         let freq_high = vec![440.0; block_size]; // A4 (4x higher)
         let decay_buf = vec![0.95; block_size];
         let brightness_buf = vec![0.8; block_size];
@@ -497,8 +490,10 @@ mod tests {
             waveguide_low.process_block(&inputs_low, &mut output_low, sample_rate, &context);
 
             // Calculate RMS for each block
-            let rms_h: f32 = output_high.iter().map(|&x| x * x).sum::<f32>() / output_high.len() as f32;
-            let rms_l: f32 = output_low.iter().map(|&x| x * x).sum::<f32>() / output_low.len() as f32;
+            let rms_h: f32 =
+                output_high.iter().map(|&x| x * x).sum::<f32>() / output_high.len() as f32;
+            let rms_l: f32 =
+                output_low.iter().map(|&x| x * x).sum::<f32>() / output_low.len() as f32;
 
             rms_high.push(rms_h.sqrt());
             rms_low.push(rms_l.sqrt());
@@ -532,10 +527,10 @@ mod tests {
         let mut excitation_buf = vec![0.0; block_size];
         excitation_buf[0] = 1.0;
 
-        let freq_buf = vec![110.0; block_size];  // A2
+        let freq_buf = vec![110.0; block_size]; // A2
         let decay_buf = vec![0.95; block_size];
         let brightness_bright = vec![0.95; block_size]; // Very bright
-        let brightness_dark = vec![0.1; block_size];   // Very dark
+        let brightness_dark = vec![0.1; block_size]; // Very dark
 
         // Process a few blocks to build up signal
         for block_idx in 0..5 {
@@ -550,7 +545,12 @@ mod tests {
                 brightness_bright.as_slice(),
             ];
             let mut output_bright = vec![0.0; block_size];
-            waveguide_bright.process_block(&inputs_bright, &mut output_bright, sample_rate, &context);
+            waveguide_bright.process_block(
+                &inputs_bright,
+                &mut output_bright,
+                sample_rate,
+                &context,
+            );
 
             let inputs_dark = vec![
                 excitation_buf.as_slice(),
@@ -619,9 +619,9 @@ mod tests {
 
         // Test various parameter combinations
         let test_cases = vec![
-            (55.0, 0.99, 0.0),    // Low freq, high decay, dark
-            (2000.0, 0.5, 1.0),   // High freq, low decay, bright
-            (440.0, 0.8, 0.5),    // Mid freq, mid decay, mid brightness
+            (55.0, 0.99, 0.0),  // Low freq, high decay, dark
+            (2000.0, 0.5, 1.0), // High freq, low decay, bright
+            (440.0, 0.8, 0.5),  // Mid freq, mid decay, mid brightness
         ];
 
         for (freq, decay, brightness) in test_cases {
@@ -654,12 +654,20 @@ mod tests {
                     assert!(
                         sample.is_finite(),
                         "Sample {} is not finite for params (freq={}, decay={}, brightness={}): {}",
-                        i, freq, decay, brightness, sample
+                        i,
+                        freq,
+                        decay,
+                        brightness,
+                        sample
                     );
                     assert!(
                         sample.abs() <= 2.0,
                         "Sample {} exceeds range for params (freq={}, decay={}, brightness={}): {}",
-                        i, freq, decay, brightness, sample
+                        i,
+                        freq,
+                        decay,
+                        brightness,
+                        sample
                     );
                 }
             }
@@ -895,7 +903,7 @@ mod tests {
         let mut excitation_buf = vec![0.0; block_size];
         excitation_buf[0] = 1.0;
 
-        let freq_buf = vec![110.0; block_size];  // A2
+        let freq_buf = vec![110.0; block_size]; // A2
         let decay_buf = vec![0.95; block_size];
         let brightness_buf = vec![0.5; block_size]; // Moderate damping
 
@@ -960,8 +968,14 @@ mod tests {
         waveguide.process_block(&inputs, &mut output, sample_rate, &context);
 
         // After processing, both delay lines should have data
-        assert!(waveguide.forward_line_len() > 0, "Forward delay line should be active");
-        assert!(waveguide.backward_line_len() > 0, "Backward delay line should be active");
+        assert!(
+            waveguide.forward_line_len() > 0,
+            "Forward delay line should be active"
+        );
+        assert!(
+            waveguide.backward_line_len() > 0,
+            "Backward delay line should be active"
+        );
     }
 
     #[test]

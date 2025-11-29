@@ -23,12 +23,11 @@
 /// - Overlap-add synthesis with Hann windowing
 /// - Phase randomization creates natural movement while frozen
 /// - Blur creates smoother, more diffuse frozen textures
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
-use realfft::{RealFftPlanner, num_complex::Complex32};
-use std::f32::consts::PI;
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use realfft::{num_complex::Complex32, RealFftPlanner};
+use std::f32::consts::PI;
 
 /// Spectral freeze node with pattern-controlled freeze trigger and blur
 ///
@@ -41,9 +40,9 @@ use rand::rngs::StdRng;
 /// let spectral_freeze = SpectralFreezeNode::new(0, 1, 2, 44100.0);  // NodeId 3
 /// ```
 pub struct SpectralFreezeNode {
-    input: NodeId,           // Signal to freeze
-    freeze_input: NodeId,    // Freeze trigger (>0.5 = frozen, ≤0.5 = passthrough)
-    blur_input: NodeId,      // Spectral blur amount 0.0-1.0
+    input: NodeId,        // Signal to freeze
+    freeze_input: NodeId, // Freeze trigger (>0.5 = frozen, ≤0.5 = passthrough)
+    blur_input: NodeId,   // Spectral blur amount 0.0-1.0
 
     // FFT state
     fft_size: usize,
@@ -87,12 +86,7 @@ impl SpectralFreezeNode {
     /// ~signal: sine 440
     /// ~frozen: ~signal # spectral_freeze 1.0 0.5
     /// ```
-    pub fn new(
-        input: NodeId,
-        freeze_input: NodeId,
-        blur_input: NodeId,
-        sample_rate: f32,
-    ) -> Self {
+    pub fn new(input: NodeId, freeze_input: NodeId, blur_input: NodeId, sample_rate: f32) -> Self {
         let fft_size = 1024;
         let hop_size = 256; // 75% overlap
 
@@ -136,7 +130,8 @@ impl SpectralFreezeNode {
     /// Process a single FFT frame
     fn process_frame(&mut self, freeze: f32, blur: f32) -> f32 {
         // Apply window to input
-        let mut windowed_input: Vec<f32> = self.input_buffer
+        let mut windowed_input: Vec<f32> = self
+            .input_buffer
             .iter()
             .zip(self.window.iter())
             .map(|(x, w)| x * w)
@@ -144,7 +139,9 @@ impl SpectralFreezeNode {
 
         // Forward FFT
         let mut spectrum = self.r2c.make_output_vec();
-        self.r2c.process(&mut windowed_input, &mut spectrum).unwrap();
+        self.r2c
+            .process(&mut windowed_input, &mut spectrum)
+            .unwrap();
 
         // Check freeze state transition
         let should_freeze = freeze > 0.5;
@@ -186,7 +183,9 @@ impl SpectralFreezeNode {
         }
 
         // Inverse FFT
-        self.c2r.process(&mut output_spectrum, &mut self.output_buffer).unwrap();
+        self.c2r
+            .process(&mut output_spectrum, &mut self.output_buffer)
+            .unwrap();
 
         // Apply window again for overlap-add
         for (i, sample) in self.output_buffer.iter_mut().enumerate() {
@@ -232,9 +231,8 @@ impl SpectralFreezeNode {
                 let curr = spectrum[i];
                 let next = spectrum[i + 1];
 
-                let blurred_bin = prev * (blur * 0.25)
-                    + curr * (1.0 - blur * 0.5)
-                    + next * (blur * 0.25);
+                let blurred_bin =
+                    prev * (blur * 0.25) + curr * (1.0 - blur * 0.5) + next * (blur * 0.25);
 
                 blurred.push(blurred_bin);
             }
@@ -318,7 +316,6 @@ impl AudioNode for SpectralFreezeNode {
             }
         }
     }
-
 }
 
 #[cfg(test)]
@@ -520,7 +517,10 @@ mod tests {
         }
 
         // At least some samples should differ
-        assert!(different_samples > 0, "Phase randomization should create different outputs");
+        assert!(
+            different_samples > 0,
+            "Phase randomization should create different outputs"
+        );
     }
 
     #[test]
@@ -562,8 +562,8 @@ mod tests {
         let mut input = vec![0.0f32; block_size];
         for i in 0..block_size {
             input[i] = (2.0 * PI * 440.0 * i as f32 / 44100.0).sin() * 0.3
-                     + (2.0 * PI * 880.0 * i as f32 / 44100.0).sin() * 0.2
-                     + (2.0 * PI * 1320.0 * i as f32 / 44100.0).sin() * 0.1;
+                + (2.0 * PI * 880.0 * i as f32 / 44100.0).sin() * 0.2
+                + (2.0 * PI * 1320.0 * i as f32 / 44100.0).sin() * 0.1;
         }
 
         let freeze_trigger = vec![1.0f32; block_size];
@@ -599,7 +599,11 @@ mod tests {
         }
 
         // At least some samples should differ due to blur
-        assert!(differences > 10, "Blur should affect the output (found {} differences)", differences);
+        assert!(
+            differences > 10,
+            "Blur should affect the output (found {} differences)",
+            differences
+        );
     }
 
     #[test]
@@ -612,7 +616,7 @@ mod tests {
 
         // Modulate freeze: first half off, second half on
         let mut freeze_trigger = vec![0.0f32; block_size];
-        for i in block_size/2..block_size {
+        for i in block_size / 2..block_size {
             freeze_trigger[i] = 1.0;
         }
 
@@ -663,7 +667,10 @@ mod tests {
 
         // Output should be mostly silent (allowing for numerical noise)
         let max_output = output.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
-        assert!(max_output < 0.1, "Frozen silence should output near-silence");
+        assert!(
+            max_output < 0.1,
+            "Frozen silence should output near-silence"
+        );
     }
 
     #[test]

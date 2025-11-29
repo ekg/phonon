@@ -2,8 +2,8 @@
 //!
 //! Templates allow defining reusable transforms and effect chains once and applying them multiple times.
 
-use phonon::compositional_parser::parse_program;
 use phonon::compositional_compiler::compile_program;
+use phonon::compositional_parser::parse_program;
 
 #[test]
 fn test_template_simple_constant() {

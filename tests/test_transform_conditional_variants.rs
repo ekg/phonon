@@ -8,7 +8,7 @@
 ///
 /// All transforms use 3-level verification but adapted for probabilistic behavior
 use phonon::mini_notation_v3::parse_mini_notation;
-use phonon::pattern::{Pattern, Fraction, State, TimeSpan};
+use phonon::pattern::{Fraction, Pattern, State, TimeSpan};
 use std::collections::HashMap;
 
 // ============= Level 1: Pattern Query Tests =============
@@ -224,7 +224,9 @@ fn test_when_mod_with_every() {
 
     // when_mod(2, 0, f) should apply on even cycles
     // This should be similar to every(2, f)
-    let when_mod_pattern = pattern.clone().when_mod(2, 0, |p| p.fast(Pattern::pure(2.0)));
+    let when_mod_pattern = pattern
+        .clone()
+        .when_mod(2, 0, |p| p.fast(Pattern::pure(2.0)));
     let every_pattern = pattern.clone().every(2, |p| p.fast(Pattern::pure(2.0)));
 
     for cycle in 0..8 {
@@ -361,7 +363,9 @@ fn test_sometimes_by_nested() {
     // Effective probability = 0.5 * 0.5 = 0.25
     let _nested = pattern
         .clone()
-        .sometimes_by(0.5, |p| p.sometimes_by(0.5, |p2| p2.fast(Pattern::pure(2.0))))
+        .sometimes_by(0.5, |p| {
+            p.sometimes_by(0.5, |p2| p2.fast(Pattern::pure(2.0)))
+        })
         .query(&state);
 
     println!("✅ sometimes_by can be nested (effective prob = product)");

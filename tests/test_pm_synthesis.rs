@@ -8,7 +8,6 @@
 /// - Sideband spacing = modulator frequency
 /// - Sideband amplitude controlled by modulation index
 /// - Can use any waveform as modulator (not just sine)
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -20,7 +19,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -28,7 +28,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 /// Perform FFT and analyze spectrum
 /// Returns (frequency_bins, magnitudes)
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -89,7 +89,11 @@ fn test_pm_constant_parameters() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "PM with constant params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "PM with constant params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -103,7 +107,11 @@ fn test_pm_pattern_carrier_frequency() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "PM with pattern carrier frequency should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "PM with pattern carrier frequency should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -117,7 +125,11 @@ fn test_pm_pattern_modulation_index() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "PM with pattern mod_index should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "PM with pattern mod_index should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -131,7 +143,11 @@ fn test_pm_all_patterns() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "PM with all pattern params should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "PM with all pattern params should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Different Modulator Sources ==========
@@ -147,7 +163,11 @@ fn test_pm_sine_modulator() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "PM with sine modulator should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "PM with sine modulator should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -161,7 +181,11 @@ fn test_pm_saw_modulator() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "PM with saw modulator should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "PM with saw modulator should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -175,7 +199,11 @@ fn test_pm_square_modulator() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "PM with square modulator should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "PM with square modulator should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -189,7 +217,11 @@ fn test_pm_noise_modulator() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.1, "PM with noise modulator should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "PM with noise modulator should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ========== Spectral Analysis Tests ==========
@@ -214,14 +246,24 @@ fn test_pm_produces_sidebands() {
     let peaks = find_spectral_peaks(&frequencies, &magnitudes, threshold);
 
     // Should have multiple peaks (carrier + sidebands)
-    assert!(peaks.len() >= 3, "PM should produce carrier and sidebands, found {} peaks", peaks.len());
+    assert!(
+        peaks.len() >= 3,
+        "PM should produce carrier and sidebands, found {} peaks",
+        peaks.len()
+    );
 
     // Verify carrier frequency is present (440 Hz ± 10 Hz tolerance)
     let has_carrier = peaks.iter().any(|(f, _)| (*f - 440.0).abs() < 10.0);
-    assert!(has_carrier, "PM should have carrier frequency at 440 Hz, peaks: {:?}",
-        peaks.iter().take(5).collect::<Vec<_>>());
+    assert!(
+        has_carrier,
+        "PM should have carrier frequency at 440 Hz, peaks: {:?}",
+        peaks.iter().take(5).collect::<Vec<_>>()
+    );
 
-    println!("PM spectral peaks (top 10): {:?}", peaks.iter().take(10).collect::<Vec<_>>());
+    println!(
+        "PM spectral peaks (top 10): {:?}",
+        peaks.iter().take(10).collect::<Vec<_>>()
+    );
 }
 
 #[test]
@@ -252,11 +294,18 @@ fn test_pm_modulation_index_affects_sidebands() {
     let high_peaks = find_spectral_peaks(&high_frequencies, &high_magnitudes, high_max * 0.1);
 
     // Higher index should produce more sidebands
-    assert!(high_peaks.len() > low_peaks.len(),
+    assert!(
+        high_peaks.len() > low_peaks.len(),
         "Higher mod_index should produce more sidebands: low={}, high={}",
-        low_peaks.len(), high_peaks.len());
+        low_peaks.len(),
+        high_peaks.len()
+    );
 
-    println!("Low index peaks: {}, High index peaks: {}", low_peaks.len(), high_peaks.len());
+    println!(
+        "Low index peaks: {}, High index peaks: {}",
+        low_peaks.len(),
+        high_peaks.len()
+    );
 }
 
 #[test]
@@ -287,9 +336,17 @@ fn test_pm_vs_sine_spectral_difference() {
 
     // Sine should have ~1 peak, PM should have many
     assert_eq!(sine_peaks.len(), 1, "Pure sine should have 1 spectral peak");
-    assert!(pm_peaks.len() >= 5, "PM should have multiple sidebands, found {}", pm_peaks.len());
+    assert!(
+        pm_peaks.len() >= 5,
+        "PM should have multiple sidebands, found {}",
+        pm_peaks.len()
+    );
 
-    println!("Sine peaks: {}, PM peaks: {}", sine_peaks.len(), pm_peaks.len());
+    println!(
+        "Sine peaks: {}, PM peaks: {}",
+        sine_peaks.len(),
+        pm_peaks.len()
+    );
 }
 
 // ========== Audio Quality Tests ==========
@@ -306,7 +363,11 @@ fn test_pm_no_dc_offset() {
     let buffer = render_dsl(code, 2.0);
     let dc_offset: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
 
-    assert!(dc_offset.abs() < 0.01, "PM should have no DC offset, got {}", dc_offset);
+    assert!(
+        dc_offset.abs() < 0.01,
+        "PM should have no DC offset, got {}",
+        dc_offset
+    );
 }
 
 #[test]
@@ -321,7 +382,11 @@ fn test_pm_no_clipping() {
     let buffer = render_dsl(code, 2.0);
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
-    assert!(max_amplitude <= 1.0, "PM should not clip, max amplitude: {}", max_amplitude);
+    assert!(
+        max_amplitude <= 1.0,
+        "PM should not clip, max amplitude: {}",
+        max_amplitude
+    );
 }
 
 #[test]
@@ -349,5 +414,9 @@ fn test_pm_continuous_output() {
     }
 
     // Allow up to 10 consecutive near-zero samples (phase crossings)
-    assert!(max_zero_run < 10, "PM should not have silence gaps, max zero run: {}", max_zero_run);
+    assert!(
+        max_zero_run < 10,
+        "PM should not have silence gaps, max zero run: {}",
+        max_zero_run
+    );
 }

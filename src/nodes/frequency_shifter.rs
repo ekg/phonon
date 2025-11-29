@@ -47,7 +47,6 @@
 /// Uses a cascade of allpass filters to approximate Hilbert transform
 /// (90° phase shift across wide frequency range). This is more efficient
 /// than FFT-based approaches for real-time processing.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::f32::consts::PI;
 
@@ -61,7 +60,7 @@ use std::f32::consts::PI;
 /// let shifter = FrequencyShifterNode::new(0, 1);        // NodeId 2
 /// ```
 pub struct FrequencyShifterNode {
-    input: NodeId,       // Audio signal to frequency shift
+    input: NodeId,          // Audio signal to frequency shift
     shift_hz_input: NodeId, // Frequency shift in Hz (-1000 to +1000)
 
     // Hilbert transform using allpass filter cascade
@@ -279,18 +278,12 @@ mod tests {
     use std::f32::consts::PI;
 
     fn create_test_context(block_size: usize) -> ProcessContext {
-        ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            44100.0,
-        )
+        ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, 44100.0)
     }
 
     /// Helper: Find frequency peaks in FFT spectrum
     fn find_frequency_peaks(buffer: &[f32], sample_rate: f32, threshold: f32) -> Vec<f32> {
-        use rustfft::{FftPlanner, num_complex::Complex};
+        use rustfft::{num_complex::Complex, FftPlanner};
 
         let n = buffer.len();
         let mut planner = FftPlanner::new();
@@ -485,9 +478,7 @@ mod tests {
         let mut input = vec![0.0; block_size];
         for i in 0..block_size {
             let t = i as f32 / sample_rate;
-            input[i] =
-                0.5 * (2.0 * PI * 440.0 * t).sin() +
-                0.5 * (2.0 * PI * 880.0 * t).sin();
+            input[i] = 0.5 * (2.0 * PI * 440.0 * t).sin() + 0.5 * (2.0 * PI * 880.0 * t).sin();
         }
 
         let shift_hz = 100.0;
@@ -497,12 +488,7 @@ mod tests {
 
         let mut shifter = FrequencyShifterNode::new(0, 1);
         let mut output = vec![0.0; block_size];
-        shifter.process_block(
-            &[&input, &shift_buf],
-            &mut output,
-            sample_rate,
-            &context,
-        );
+        shifter.process_block(&[&input, &shift_buf], &mut output, sample_rate, &context);
 
         let peaks = find_frequency_peaks(&output, sample_rate, 0.05);
 
@@ -516,7 +502,9 @@ mod tests {
         assert!(
             has_expected1 || has_expected2,
             "Expected inharmonic frequencies ~{} Hz and ~{} Hz. Peaks: {:?}",
-            expected1, expected2, peaks
+            expected1,
+            expected2,
+            peaks
         );
     }
 
@@ -564,7 +552,9 @@ mod tests {
         let upper_sideband = input_freq + shift_hz;
         let lower_sideband = input_freq - shift_hz;
 
-        let has_upper = shifter_peaks.iter().any(|&f| (f - upper_sideband).abs() < 30.0);
+        let has_upper = shifter_peaks
+            .iter()
+            .any(|&f| (f - upper_sideband).abs() < 30.0);
 
         assert!(
             has_upper,
@@ -595,12 +585,7 @@ mod tests {
 
         let mut shifter = FrequencyShifterNode::new(0, 1);
         let mut output = vec![0.0; block_size];
-        shifter.process_block(
-            &[&input, &shift_buf],
-            &mut output,
-            sample_rate,
-            &context,
-        );
+        shifter.process_block(&[&input, &shift_buf], &mut output, sample_rate, &context);
 
         // Output should have variation
         let min = output.iter().copied().fold(f32::INFINITY, f32::min);
@@ -609,7 +594,8 @@ mod tests {
         assert!(
             max - min > 0.1,
             "Output should vary with changing shift. Range: {} to {}",
-            min, max
+            min,
+            max
         );
     }
 
@@ -625,10 +611,9 @@ mod tests {
         let mut input = vec![0.0; block_size];
         for i in 0..block_size {
             let t = i as f32 / sample_rate;
-            input[i] =
-                0.5 * (2.0 * PI * 200.0 * t).sin() +  // Fundamental
+            input[i] = 0.5 * (2.0 * PI * 200.0 * t).sin() +  // Fundamental
                 0.3 * (2.0 * PI * 400.0 * t).sin() +  // 2nd harmonic
-                0.2 * (2.0 * PI * 600.0 * t).sin();   // 3rd harmonic
+                0.2 * (2.0 * PI * 600.0 * t).sin(); // 3rd harmonic
         }
 
         // Large shift
@@ -639,12 +624,7 @@ mod tests {
 
         let mut shifter = FrequencyShifterNode::new(0, 1);
         let mut output = vec![0.0; block_size];
-        shifter.process_block(
-            &[&input, &shift_buf],
-            &mut output,
-            sample_rate,
-            &context,
-        );
+        shifter.process_block(&[&input, &shift_buf], &mut output, sample_rate, &context);
 
         // Should produce audible output
         let rms: f32 = output.iter().map(|x| x * x).sum::<f32>() / block_size as f32;
@@ -733,19 +713,15 @@ mod tests {
         let mut output = vec![0.0; block_size];
 
         // Should not panic or produce invalid output
-        shifter.process_block(
-            &[&input, &shift_buf],
-            &mut output,
-            sample_rate,
-            &context,
-        );
+        shifter.process_block(&[&input, &shift_buf], &mut output, sample_rate, &context);
 
         // All samples should be finite
         for (i, &sample) in output.iter().enumerate() {
             assert!(
                 sample.is_finite(),
                 "Sample {} should be finite: {}",
-                i, sample
+                i,
+                sample
             );
         }
     }
@@ -796,12 +772,7 @@ mod tests {
 
         let mut shifter = FrequencyShifterNode::new(0, 1);
         let mut output = vec![0.0; block_size];
-        shifter.process_block(
-            &[&input, &shift_buf],
-            &mut output,
-            sample_rate,
-            &context,
-        );
+        shifter.process_block(&[&input, &shift_buf], &mut output, sample_rate, &context);
 
         // Phase should be in [0, 1) range
         let phase = shifter.oscillator_phase();

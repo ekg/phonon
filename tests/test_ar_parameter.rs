@@ -2,7 +2,6 @@
 ///
 /// The `ar` parameter should be a shorthand for setting both attack and release.
 /// This is common in Tidal Cycles and SuperCollider for quick envelope shaping.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -13,7 +12,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
 
     // Render in chunks to avoid buffer size issues
@@ -35,7 +35,11 @@ fn test_ar_constant_values() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "ar with constant values should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "ar with constant values should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -59,7 +63,10 @@ fn test_ar_vs_separate_attack_release() {
 
     // Both should produce audio
     assert!(ar_rms > 0.01, "ar shorthand should have audio");
-    assert!(separate_rms > 0.01, "separate attack/release should have audio");
+    assert!(
+        separate_rms > 0.01,
+        "separate attack/release should have audio"
+    );
 
     // They should be very similar (within 5% due to floating point differences)
     let diff_ratio = (ar_rms - separate_rms).abs() / separate_rms;
@@ -82,7 +89,11 @@ fn test_ar_pattern_values() {
 
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
-    assert!(rms > 0.01, "ar with pattern values should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "ar with pattern values should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]

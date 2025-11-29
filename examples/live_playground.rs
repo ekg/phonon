@@ -3,9 +3,9 @@
 //! Run with: cargo run --example live_playground
 //! Then edit live.phonon in your editor and save to hear changes
 
-use std::cell::RefCell;
 use phonon::unified_graph::{Signal, SignalNode, UnifiedSignalGraph, Waveform};
 use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+use std::cell::RefCell;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use notify::{Event, EventKind, RecursiveMode, Result as NotifyResult, Watcher};

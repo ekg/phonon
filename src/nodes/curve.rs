@@ -32,7 +32,6 @@
 /// - SuperCollider Line.kr with curve parameter
 /// - Max/MSP curve~
 /// - Exponential/logarithmic interpolation in audio DSP
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Curve Generator Node
@@ -62,15 +61,15 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 /// let curve = CurveNode::new(0, 1, 2, 3, 4); // NodeId 5
 /// ```
 pub struct CurveNode {
-    trigger_input: NodeId,    // Trigger to restart ramp
-    start_input: NodeId,      // Starting value
-    end_input: NodeId,        // Ending value
-    duration_input: NodeId,   // Duration in seconds
-    curve_input: NodeId,      // Curve amount (-10 to +10)
-    current_value: f32,       // Current output value
-    elapsed_time: f32,        // Time elapsed in current ramp (seconds)
-    is_active: bool,          // Is ramp currently active?
-    last_trigger: f32,        // Previous trigger value (for edge detection)
+    trigger_input: NodeId,  // Trigger to restart ramp
+    start_input: NodeId,    // Starting value
+    end_input: NodeId,      // Ending value
+    duration_input: NodeId, // Duration in seconds
+    curve_input: NodeId,    // Curve amount (-10 to +10)
+    current_value: f32,     // Current output value
+    elapsed_time: f32,      // Time elapsed in current ramp (seconds)
+    is_active: bool,        // Is ramp currently active?
+    last_trigger: f32,      // Previous trigger value (for edge detection)
 }
 
 impl CurveNode {
@@ -175,11 +174,27 @@ impl AudioNode for CurveNode {
         let duration_buffer = inputs[3];
         let curve_buffer = inputs[4];
 
-        debug_assert_eq!(trigger_buffer.len(), output.len(), "Trigger buffer length mismatch");
-        debug_assert_eq!(start_buffer.len(), output.len(), "Start buffer length mismatch");
+        debug_assert_eq!(
+            trigger_buffer.len(),
+            output.len(),
+            "Trigger buffer length mismatch"
+        );
+        debug_assert_eq!(
+            start_buffer.len(),
+            output.len(),
+            "Start buffer length mismatch"
+        );
         debug_assert_eq!(end_buffer.len(), output.len(), "End buffer length mismatch");
-        debug_assert_eq!(duration_buffer.len(), output.len(), "Duration buffer length mismatch");
-        debug_assert_eq!(curve_buffer.len(), output.len(), "Curve buffer length mismatch");
+        debug_assert_eq!(
+            duration_buffer.len(),
+            output.len(),
+            "Duration buffer length mismatch"
+        );
+        debug_assert_eq!(
+            curve_buffer.len(),
+            output.len(),
+            "Curve buffer length mismatch"
+        );
 
         for i in 0..output.len() {
             let trigger = trigger_buffer[i];
@@ -279,7 +294,10 @@ mod tests {
         curve.process_block(&inputs, &mut output, sample_rate, &context);
 
         // First sample should be at start value
-        assert_eq!(output[0], start_value, "First sample should be at start value");
+        assert_eq!(
+            output[0], start_value,
+            "First sample should be at start value"
+        );
 
         // Values should be increasing linearly
         assert!(output[100] > output[0], "Curve should be rising");
@@ -347,7 +365,7 @@ mod tests {
         let q3 = output[samples * 3 / 4];
         let q4 = output[samples - 1];
 
-        let delta_first_half = q2 - q1;  // Change in first half
+        let delta_first_half = q2 - q1; // Change in first half
         let delta_second_half = q4 - q3; // Change in second half
 
         assert!(
@@ -511,7 +529,10 @@ mod tests {
 
         // Should be active and ramping
         assert!(curve.is_active(), "Curve should be active after trigger");
-        assert!(output[block_size - 1] > start_value, "Curve should have progressed");
+        assert!(
+            output[block_size - 1] > start_value,
+            "Curve should have progressed"
+        );
 
         // Trigger off (low)
         let trigger_buf = vec![0.0; block_size];
@@ -597,7 +618,8 @@ mod tests {
 
             // Should hold at end value
             assert_eq!(
-                output[block_size - 1], end_value,
+                output[block_size - 1],
+                end_value,
                 "Should hold at end value"
             );
 
@@ -644,10 +666,14 @@ mod tests {
                 "Should hold at end value after completion"
             );
             assert_eq!(
-                output[block_size - 1], end_value,
+                output[block_size - 1],
+                end_value,
                 "Should still hold at end value"
             );
-            assert!(!curve.is_active(), "Curve should be inactive after completion");
+            assert!(
+                !curve.is_active(),
+                "Curve should be inactive after completion"
+            );
         }
     }
 
@@ -771,7 +797,10 @@ mod tests {
         // Should be rising slowly
         assert!(output[0] == start_value, "Should start at start value");
         assert!(output[block_size - 1] > start_value, "Should be rising");
-        assert!(output[block_size - 1] < end_value, "Should not reach end yet");
+        assert!(
+            output[block_size - 1] < end_value,
+            "Should not reach end yet"
+        );
         assert!(curve.is_active(), "Should still be active");
     }
 
@@ -859,7 +888,8 @@ mod tests {
 
         // Should reach and hold at end_value
         assert_eq!(
-            output[block_size - 1], end_value,
+            output[block_size - 1],
+            end_value,
             "Should hold at end value in second block"
         );
         assert!(!curve.is_active(), "Should be inactive after completion");
@@ -901,7 +931,10 @@ mod tests {
 
         // Should be descending
         assert!(output[100] < output[0], "Curve should be descending");
-        assert!(output[200] < output[100], "Curve should continue descending");
+        assert!(
+            output[200] < output[100],
+            "Curve should continue descending"
+        );
 
         // Should reach 0.0
         let completion_sample = (duration * sample_rate) as usize;
@@ -919,8 +952,8 @@ mod tests {
         // Test 14: Musical pitch sweep use case
         let sample_rate = 44100.0;
         let start_freq = 110.0; // A2
-        let end_freq = 880.0;   // A5 (3 octaves up)
-        let duration = 0.02;    // 20ms sweep
+        let end_freq = 880.0; // A5 (3 octaves up)
+        let duration = 0.02; // 20ms sweep
         let curve_amount = 5.0; // Exponential for musical pitch
         let block_size = 1024;
 

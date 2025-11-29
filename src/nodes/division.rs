@@ -4,7 +4,6 @@
 /// Output[i] = Input_A[i] / Input_B[i] for all samples, with safeguards.
 ///
 /// Division by zero protection: If |B[i]| < 1e-10, output is 0.0 to prevent NaN/infinity.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Division node: out = a / b
@@ -76,23 +75,15 @@ impl AudioNode for DivisionNode {
         let buf_a = inputs[0];
         let buf_b = inputs[1];
 
-        debug_assert_eq!(
-            buf_a.len(),
-            output.len(),
-            "Input A length mismatch"
-        );
-        debug_assert_eq!(
-            buf_b.len(),
-            output.len(),
-            "Input B length mismatch"
-        );
+        debug_assert_eq!(buf_a.len(), output.len(), "Input A length mismatch");
+        debug_assert_eq!(buf_b.len(), output.len(), "Input B length mismatch");
 
         // Safe division with zero protection
         const EPSILON: f32 = 1e-10;
 
         for i in 0..output.len() {
             if buf_b[i].abs() < EPSILON {
-                output[i] = 0.0;  // Division by zero protection
+                output[i] = 0.0; // Division by zero protection
             } else {
                 output[i] = buf_a[i] / buf_b[i];
             }
@@ -124,20 +115,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         div.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 5.0);   // 10 / 2
-        assert_eq!(output[1], 5.0);   // 20 / 4
-        assert_eq!(output[2], 6.0);   // 30 / 5
-        assert_eq!(output[3], 5.0);   // 40 / 8
+        assert_eq!(output[0], 5.0); // 10 / 2
+        assert_eq!(output[1], 5.0); // 20 / 4
+        assert_eq!(output[2], 6.0); // 30 / 5
+        assert_eq!(output[3], 5.0); // 40 / 8
     }
 
     #[test]
@@ -146,13 +131,7 @@ mod tests {
         let mut const_b = ConstantNode::new(2.0);
         let mut div = DivisionNode::new(0, 1);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constants first
         let mut buf_a = vec![0.0; 512];
@@ -183,25 +162,39 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         div.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Use approximate equality for floating point division
-        assert!((output[0] - 10.0).abs() < 0.01, "Expected ~10.0, got {}", output[0]);
-        assert!((output[1] - 200.0).abs() < 0.01, "Expected ~200.0, got {}", output[1]);
-        assert!((output[2] - 3000.0).abs() < 0.01, "Expected ~3000.0, got {}", output[2]);
-        assert!((output[3] - 40000.0).abs() < 0.01, "Expected ~40000.0, got {}", output[3]);
+        assert!(
+            (output[0] - 10.0).abs() < 0.01,
+            "Expected ~10.0, got {}",
+            output[0]
+        );
+        assert!(
+            (output[1] - 200.0).abs() < 0.01,
+            "Expected ~200.0, got {}",
+            output[1]
+        );
+        assert!(
+            (output[2] - 3000.0).abs() < 0.01,
+            "Expected ~3000.0, got {}",
+            output[2]
+        );
+        assert!(
+            (output[3] - 40000.0).abs() < 0.01,
+            "Expected ~40000.0, got {}",
+            output[3]
+        );
 
         // Verify none are NaN or infinity
         for sample in &output {
-            assert!(sample.is_finite(), "Output should be finite, got {}", sample);
+            assert!(
+                sample.is_finite(),
+                "Output should be finite, got {}",
+                sample
+            );
         }
     }
 
@@ -211,29 +204,30 @@ mod tests {
 
         // Test division by zero and near-zero values
         let input_a = vec![10.0, 20.0, 30.0, 40.0];
-        let input_b = vec![0.0, 1e-11, -1e-11, 0.0];  // All below epsilon threshold
+        let input_b = vec![0.0, 1e-11, -1e-11, 0.0]; // All below epsilon threshold
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
-        let mut output = vec![999.0; 4];  // Initialize with non-zero to verify overwrite
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let mut output = vec![999.0; 4]; // Initialize with non-zero to verify overwrite
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         div.process_block(&inputs, &mut output, 44100.0, &context);
 
         // All should be 0.0 due to division by zero protection
         assert_eq!(output[0], 0.0, "Division by zero should yield 0.0");
         assert_eq!(output[1], 0.0, "Division by near-zero should yield 0.0");
-        assert_eq!(output[2], 0.0, "Division by negative near-zero should yield 0.0");
+        assert_eq!(
+            output[2], 0.0,
+            "Division by negative near-zero should yield 0.0"
+        );
         assert_eq!(output[3], 0.0, "Division by zero should yield 0.0");
 
         // Verify no NaN or infinity
         for sample in &output {
-            assert!(sample.is_finite(), "Output should be finite, got {}", sample);
+            assert!(
+                sample.is_finite(),
+                "Output should be finite, got {}",
+                sample
+            );
             assert!(!sample.is_nan(), "Output should not be NaN, got {}", sample);
         }
     }
@@ -248,20 +242,14 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         div.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 5.0);    // 10 / 2 = 5
-        assert_eq!(output[1], -5.0);   // -20 / 4 = -5
-        assert_eq!(output[2], -6.0);   // 30 / -5 = -6
-        assert_eq!(output[3], 5.0);    // -40 / -8 = 5
+        assert_eq!(output[0], 5.0); // 10 / 2 = 5
+        assert_eq!(output[1], -5.0); // -20 / 4 = -5
+        assert_eq!(output[2], -6.0); // 30 / -5 = -6
+        assert_eq!(output[3], 5.0); // -40 / -8 = 5
     }
 
     #[test]
@@ -284,19 +272,13 @@ mod tests {
         let inputs = vec![input_a.as_slice(), input_b.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         div.process_block(&inputs, &mut output, 44100.0, &context);
 
-        assert_eq!(output[0], 0.5);   // 1 / 2
-        assert_eq!(output[1], 1.5);   // 3 / 2
-        assert_eq!(output[2], 3.5);   // 7 / 2
-        assert_eq!(output[3], 4.5);   // 9 / 2
+        assert_eq!(output[0], 0.5); // 1 / 2
+        assert_eq!(output[1], 1.5); // 3 / 2
+        assert_eq!(output[2], 3.5); // 7 / 2
+        assert_eq!(output[3], 4.5); // 9 / 2
     }
 }

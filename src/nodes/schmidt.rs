@@ -31,13 +31,12 @@
 /// let gate = SchmidtNode::new(1, 2, 3);             // NodeId 4
 /// // Output: 1.0 when input > 0.5, 0.0 when input < 0.3, held otherwise
 /// ```
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Schmidt trigger state
 #[derive(Debug, Clone)]
 struct SchmidtState {
-    gate_high: bool,  // Current gate state (true = high/1.0, false = low/0.0)
+    gate_high: bool, // Current gate state (true = high/1.0, false = low/0.0)
 }
 
 impl Default for SchmidtState {
@@ -54,9 +53,9 @@ impl Default for SchmidtState {
 /// - Maintains state when between thresholds
 pub struct SchmidtNode {
     input: NodeId,
-    high_threshold_input: NodeId,  // Threshold to turn gate ON
-    low_threshold_input: NodeId,   // Threshold to turn gate OFF
-    state: SchmidtState,            // Current gate state
+    high_threshold_input: NodeId, // Threshold to turn gate ON
+    low_threshold_input: NodeId,  // Threshold to turn gate OFF
+    state: SchmidtState,          // Current gate state
 }
 
 impl SchmidtNode {
@@ -70,11 +69,7 @@ impl SchmidtNode {
     /// # Note
     /// For proper hysteresis, high_threshold should be greater than low_threshold.
     /// If they're equal, it behaves like a simple comparator.
-    pub fn new(
-        input: NodeId,
-        high_threshold_input: NodeId,
-        low_threshold_input: NodeId,
-    ) -> Self {
+    pub fn new(input: NodeId, high_threshold_input: NodeId, low_threshold_input: NodeId) -> Self {
         Self {
             input,
             high_threshold_input,
@@ -203,8 +198,8 @@ mod tests {
 
         // Output should be 0.0 before threshold, 1.0 after
         // Find transition point
-        let first_half = &output[0..size / 2];  // Input 0.0-0.5
-        let second_half = &output[size / 2..];  // Input 0.5-1.0
+        let first_half = &output[0..size / 2]; // Input 0.0-0.5
+        let second_half = &output[size / 2..]; // Input 0.5-1.0
 
         // First half should be mostly 0.0 (before threshold)
         let low_count = first_half.iter().filter(|&&x| x < 0.5).count();
@@ -258,7 +253,7 @@ mod tests {
         schmidt.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Output should be 1.0 at start (above low threshold), 0.0 at end (below)
-        let first_quarter = &output[0..size / 4];  // Input 1.0-0.75 (above 0.3)
+        let first_quarter = &output[0..size / 4]; // Input 1.0-0.75 (above 0.3)
         let last_quarter = &output[3 * size / 4..]; // Input 0.25-0.0 (below 0.3)
 
         // First quarter should be mostly 1.0
@@ -288,8 +283,8 @@ mod tests {
         // Create input that oscillates between low and high thresholds
         // Input: 0.4 (between thresholds)
         let input = vec![0.4; size];
-        let high_thresh = vec![0.5; size];  // Turn on at 0.5
-        let low_thresh = vec![0.3; size];   // Turn off at 0.3
+        let high_thresh = vec![0.5; size]; // Turn on at 0.5
+        let low_thresh = vec![0.3; size]; // Turn off at 0.3
 
         let inputs: Vec<&[f32]> = vec![&input, &high_thresh, &low_thresh];
         let mut output = vec![0.0; size];
@@ -403,14 +398,14 @@ mod tests {
 
         // Turn gate ON
         schmidt.process_block(&inputs, &mut output, 44100.0, &context);
-        assert!(schmidt.gate_state(), "Gate should be ON after processing high input");
+        assert!(
+            schmidt.gate_state(),
+            "Gate should be ON after processing high input"
+        );
 
         // Reset
         schmidt.reset();
-        assert!(
-            !schmidt.gate_state(),
-            "Gate should be OFF after reset"
-        );
+        assert!(!schmidt.gate_state(), "Gate should be OFF after reset");
     }
 
     #[test]

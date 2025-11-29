@@ -3,7 +3,6 @@
 /// This node generates a 1.0 spike for a single sample at each phase wrap,
 /// producing 0.0 for all other samples. Useful for triggering envelopes,
 /// sequencing, or creating rhythmic gates.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Impulse generator node with pattern-controlled frequency
@@ -19,8 +18,8 @@ use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 /// let impulse = ImpulseNode::new(0);  // NodeId 1
 /// ```
 pub struct ImpulseNode {
-    frequency_input: NodeId,  // NodeId providing frequency values
-    phase: f32,               // Internal state (0.0 to 1.0)
+    frequency_input: NodeId, // NodeId providing frequency values
+    phase: f32,              // Internal state (0.0 to 1.0)
 }
 
 impl ImpulseNode {
@@ -64,10 +63,7 @@ impl AudioNode for ImpulseNode {
         sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(
-            !inputs.is_empty(),
-            "ImpulseNode requires frequency input"
-        );
+        debug_assert!(!inputs.is_empty(), "ImpulseNode requires frequency input");
 
         let freq_buffer = inputs[0];
 
@@ -85,14 +81,14 @@ impl AudioNode for ImpulseNode {
 
             // Detect phase wrap and generate impulse
             if self.phase >= 1.0 {
-                output[i] = 1.0;  // Impulse!
+                output[i] = 1.0; // Impulse!
 
                 // Wrap phase to [0.0, 1.0)
                 while self.phase >= 1.0 {
                     self.phase -= 1.0;
                 }
             } else {
-                output[i] = 0.0;  // Silence between impulses
+                output[i] = 0.0; // Silence between impulses
             }
 
             // Handle negative frequencies (wrap backwards)
@@ -121,17 +117,11 @@ mod tests {
     fn test_impulse_generates_spikes() {
         // Impulse should generate periodic spikes
         // Use 1.1 seconds to ensure we get at least one spike (floating point safety)
-        let mut const_freq = ConstantNode::new(1.0);  // 1 Hz
+        let mut const_freq = ConstantNode::new(1.0); // 1 Hz
         let mut impulse = ImpulseNode::new(0);
 
-        let buffer_size = 48510;  // 1.1 seconds at 44100 Hz
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            buffer_size,
-            2.0,
-            44100.0,
-        );
+        let buffer_size = 48510; // 1.1 seconds at 44100 Hz
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, 44100.0);
 
         // Generate frequency buffer (ConstantNode takes empty inputs array)
         let mut freq_buf = vec![0.0; buffer_size];
@@ -152,7 +142,10 @@ mod tests {
         // Count spikes (values > 0.5)
         let spike_count = output.iter().filter(|&&x| x > 0.5).count();
         assert!(spike_count >= 1, "Should have at least 1 spike at 1 Hz");
-        assert!(spike_count <= 2, "Should have at most 2 spikes at 1 Hz over 1.1 seconds");
+        assert!(
+            spike_count <= 2,
+            "Should have at most 2 spikes at 1 Hz over 1.1 seconds"
+        );
     }
 
     #[test]
@@ -162,14 +155,8 @@ mod tests {
         let mut const_freq = ConstantNode::new(1.0);
         let mut impulse = ImpulseNode::new(0);
 
-        let buffer_size = 88200;  // 2 seconds
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            buffer_size,
-            2.0,
-            44100.0,
-        );
+        let buffer_size = 88200; // 2 seconds
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, buffer_size, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; buffer_size];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -198,17 +185,11 @@ mod tests {
         impulse.phase = 0.99;
 
         // Process one sample at moderate frequency
-        let freq_buf = vec![441.0];  // ~1% of sample rate
+        let freq_buf = vec![441.0]; // ~1% of sample rate
         let inputs = vec![freq_buf.as_slice()];
         let mut output = vec![0.0; 1];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1, 2.0, 44100.0);
 
         impulse.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -232,7 +213,7 @@ mod tests {
         let context = ProcessContext::new(
             Fraction::from_float(0.0),
             0,
-            44100,  // 1 second
+            44100, // 1 second
             2.0,
             44100.0,
         );
@@ -261,13 +242,7 @@ mod tests {
         let mut const_freq = ConstantNode::new(10.0);
         let mut impulse = ImpulseNode::new(0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            44100,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 44100, 2.0, 44100.0);
 
         let mut freq_buf = vec![0.0; 44100];
         const_freq.process_block(&[], &mut freq_buf, 44100.0, &context);
@@ -301,13 +276,13 @@ mod tests {
     #[test]
     fn test_impulse_with_constant() {
         // Integration test: constant frequency source
-        let mut const_freq = ConstantNode::new(2.0);  // 2 Hz
+        let mut const_freq = ConstantNode::new(2.0); // 2 Hz
         let mut impulse = ImpulseNode::new(0);
 
         let context = ProcessContext::new(
             Fraction::from_float(0.0),
             0,
-            88200,  // 2 seconds
+            88200, // 2 seconds
             2.0,
             44100.0,
         );

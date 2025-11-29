@@ -10,7 +10,6 @@
 /// NOTE: Circular bus dependencies (~a $ ~b, ~b $ ~a) are NOT supported by the DSL compiler.
 /// Feedback must be achieved through effect parameters (delay feedback, reverb feedback, etc.)
 /// or through the audio graph structure itself.
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -21,7 +20,8 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
@@ -43,7 +43,11 @@ fn test_delay_with_high_feedback() {
     let buffer = render_dsl(code, 4.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Delay with feedback should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Delay with feedback should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -61,7 +65,11 @@ fn test_cascaded_delays() {
     let buffer = render_dsl(code, 4.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Cascaded delays should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Cascaded delays should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -88,9 +96,12 @@ fn test_delay_feedback_builds_density() {
     let high_rms = calculate_rms(&high_buffer);
 
     // High feedback should have more sustained energy
-    assert!(high_rms > low_rms * 1.3,
+    assert!(
+        high_rms > low_rms * 1.3,
         "High feedback should have more energy (low: {}, high: {})",
-        low_rms, high_rms);
+        low_rms,
+        high_rms
+    );
 }
 
 // ============================================================================
@@ -110,7 +121,11 @@ fn test_reverb_with_large_room() {
     let buffer = render_dsl(code, 4.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Large reverb should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Large reverb should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -127,7 +142,11 @@ fn test_cascaded_reverbs() {
     let buffer = render_dsl(code, 4.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.01, "Cascaded reverbs should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Cascaded reverbs should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -148,7 +167,11 @@ fn test_two_path_mixing() {
     let buffer = render_dsl(code, 4.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Two-path mixing should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Two-path mixing should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -165,7 +188,11 @@ fn test_parallel_effect_chains() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Parallel effects should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Parallel effects should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -184,7 +211,11 @@ fn test_multi_tap_delay() {
     let buffer = render_dsl(code, 3.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Multi-tap delay should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Multi-tap delay should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -204,7 +235,11 @@ fn test_fm_synthesis() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "FM synthesis should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "FM synthesis should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -221,7 +256,11 @@ fn test_complex_fm_with_multiple_modulators() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Complex FM should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Complex FM should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -237,7 +276,11 @@ fn test_fm_with_audio_rate_modulation() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Audio-rate FM should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Audio-rate FM should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -259,7 +302,11 @@ fn test_mix_function_basic() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Mix function should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Mix function should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -276,7 +323,11 @@ fn test_bus_arithmetic_mixing() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.15, "Bus arithmetic mixing should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.15,
+        "Bus arithmetic mixing should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -293,7 +344,11 @@ fn test_complex_bus_arithmetic() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Complex bus arithmetic should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Complex bus arithmetic should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -313,7 +368,11 @@ fn test_dub_delay_chain() {
     let buffer = render_dsl(code, 4.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Dub delay chain should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Dub delay chain should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -330,7 +389,11 @@ fn test_reverb_with_modulation() {
     let buffer = render_dsl(code, 4.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Reverb with modulation should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Reverb with modulation should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -347,7 +410,11 @@ fn test_multi_stage_delay_reverb() {
     let buffer = render_dsl(code, 4.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Multi-stage processing should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Multi-stage processing should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -364,7 +431,11 @@ fn test_parallel_compression_mixing() {
     let buffer = render_dsl(code, 2.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1, "Parallel compression should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.1,
+        "Parallel compression should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -382,7 +453,11 @@ fn test_send_return_style_reverb() {
     let buffer = render_dsl(code, 4.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Send/return style should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Send/return style should produce audio, got RMS: {}",
+        rms
+    );
 }
 
 #[test]
@@ -399,5 +474,9 @@ fn test_filter_feedback_sweep() {
     let buffer = render_dsl(code, 4.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05, "Filter sweep with delay should produce audio, got RMS: {}", rms);
+    assert!(
+        rms > 0.05,
+        "Filter sweep with delay should produce audio, got RMS: {}",
+        rms
+    );
 }

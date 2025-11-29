@@ -8,7 +8,6 @@
 /// - Modulation synthesis
 /// - Phase manipulation
 /// - Creating circular/cyclical modulation patterns
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Cosine function node: out = cos(input)
@@ -56,18 +55,11 @@ impl AudioNode for CosNode {
         _sample_rate: f32,
         _context: &ProcessContext,
     ) {
-        debug_assert!(
-            !inputs.is_empty(),
-            "CosNode requires 1 input, got 0"
-        );
+        debug_assert!(!inputs.is_empty(), "CosNode requires 1 input, got 0");
 
         let buf = inputs[0];
 
-        debug_assert_eq!(
-            buf.len(),
-            output.len(),
-            "Input length mismatch"
-        );
+        debug_assert_eq!(buf.len(), output.len(), "Input length mismatch");
 
         // Apply cosine function to each sample
         for i in 0..output.len() {
@@ -99,13 +91,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 5];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            5,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 5, 2.0, 44100.0);
 
         cos_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -123,19 +109,17 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 3];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            3,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 3, 2.0, 44100.0);
 
         cos_node.process_block(&inputs, &mut output, 44100.0, &context);
 
         // cos(π/2) ≈ 0.0
         for sample in &output {
-            assert!(sample.abs() < 0.0001, "cos(π/2) should be close to 0, got {}", sample);
+            assert!(
+                sample.abs() < 0.0001,
+                "cos(π/2) should be close to 0, got {}",
+                sample
+            );
         }
     }
 
@@ -147,19 +131,17 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         cos_node.process_block(&inputs, &mut output, 44100.0, &context);
 
         // cos(π) = -1.0
         for sample in &output {
-            assert!((*sample - (-1.0)).abs() < 0.0001, "cos(π) should be -1.0, got {}", sample);
+            assert!(
+                (*sample - (-1.0)).abs() < 0.0001,
+                "cos(π) should be -1.0, got {}",
+                sample
+            );
         }
     }
 
@@ -177,13 +159,7 @@ mod tests {
         let mut positive_output = vec![0.0; 4];
         let mut negative_output = vec![0.0; 4];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         cos_node.process_block(&positive_inputs, &mut positive_output, 44100.0, &context);
         cos_node.process_block(&negative_inputs, &mut negative_output, 44100.0, &context);
@@ -211,13 +187,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 100];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            100,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 100, 2.0, 44100.0);
 
         cos_node.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -245,13 +215,7 @@ mod tests {
         let mut const_node = ConstantNode::new(PI);
         let mut cos_node = CosNode::new(0);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process constant first
         let mut buf = vec![0.0; 512];
@@ -286,13 +250,7 @@ mod tests {
         let inputs = vec![input.as_slice()];
 
         let mut output = vec![0.0; 32];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            32,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 32, 2.0, 44100.0);
 
         cos_node.process_block(&inputs, &mut output, 44100.0, &context);
 

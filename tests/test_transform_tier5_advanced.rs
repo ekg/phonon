@@ -544,7 +544,10 @@ fn test_run_multi_cycle() {
 fn test_weave_with_composition() {
     let pattern = parse_mini_notation("bd");
 
-    let weaved = pattern.clone().weave_with(|p| p.fast(Pattern::pure(2.0))).fast(Pattern::pure(2.0));
+    let weaved = pattern
+        .clone()
+        .weave_with(|p| p.fast(Pattern::pure(2.0)))
+        .fast(Pattern::pure(2.0));
 
     let state = State {
         span: TimeSpan::new(Fraction::new(0, 1), Fraction::new(1, 1)),

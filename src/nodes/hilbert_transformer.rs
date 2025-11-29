@@ -38,7 +38,6 @@
 ///
 /// ## Quadrature Modulation
 /// Creating complex-valued signals for advanced audio processing.
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 
 /// Allpass filter stage with single delay element
@@ -158,18 +157,18 @@ impl HilbertTransformerNode {
         // These coefficients are for 44.1kHz sample rate
         // I-channel uses cascade of allpass sections with these coefficients
         let i_coeffs = [
-            0.47940086f32,  // Stage 1
-            0.87628379f32,  // Stage 2
-            0.97633966f32,  // Stage 3
-            0.99740714f32,  // Stage 4
+            0.47940086f32, // Stage 1
+            0.87628379f32, // Stage 2
+            0.97633966f32, // Stage 3
+            0.99740714f32, // Stage 4
         ];
 
         // Q-channel uses different coefficients offset to create 90° phase difference
         let q_coeffs = [
-            0.16101007f32,  // Stage 1
-            0.73391782f32,  // Stage 2
-            0.94597948f32,  // Stage 3
-            0.99285793f32,  // Stage 4
+            0.16101007f32, // Stage 1
+            0.73391782f32, // Stage 2
+            0.94597948f32, // Stage 3
+            0.99285793f32, // Stage 4
         ];
 
         let allpass_i: Vec<AllpassStage> = i_coeffs
@@ -388,8 +387,10 @@ mod tests {
         let best_lag = find_best_lag(i_steady, q_steady, max_lag);
         let phase_shift = phase_shift_from_lag(best_lag, test_freq, sample_rate);
 
-        println!("Phase shift at {} Hz: {:.1}° (lag: {} samples)",
-                 test_freq, phase_shift, best_lag);
+        println!(
+            "Phase shift at {} Hz: {:.1}° (lag: {} samples)",
+            test_freq, phase_shift, best_lag
+        );
 
         // Note: This is a practical FIR approximation of Hilbert transform
         // Perfect 90° phase shift across all frequencies is impossible
@@ -443,8 +444,10 @@ mod tests {
             let i_ratio = i_rms / input_rms;
             let q_ratio = q_rms / input_rms;
 
-            println!("Amplitude preservation at {} Hz: I={:.3}, Q={:.3}",
-                     test_freq, i_ratio, q_ratio);
+            println!(
+                "Amplitude preservation at {} Hz: I={:.3}, Q={:.3}",
+                test_freq, i_ratio, q_ratio
+            );
 
             // Both channels should preserve amplitude (within 10% tolerance)
             assert!(
@@ -506,8 +509,8 @@ mod tests {
             // The key test is that we're producing output, not that the phase is exactly 90°
 
             // Just verify the node is processing (not outputting zero)
-            let has_output = i_steady.iter().any(|&x| x.abs() > 0.001) &&
-                            q_steady.iter().any(|&x| x.abs() > 0.001);
+            let has_output = i_steady.iter().any(|&x| x.abs() > 0.001)
+                && q_steady.iter().any(|&x| x.abs() > 0.001);
 
             assert!(
                 has_output,
@@ -550,14 +553,18 @@ mod tests {
         let i_rms = calculate_rms(i_steady);
         let q_rms = calculate_rms(q_steady);
 
-        let dot_product: f32 = i_steady.iter()
+        let dot_product: f32 = i_steady
+            .iter()
             .zip(q_steady.iter())
             .map(|(i, q)| i * q)
             .sum();
 
         let normalized_dot = dot_product / (i_steady.len() as f32 * i_rms * q_rms);
 
-        println!("I/Q orthogonality: normalized dot product = {:.4}", normalized_dot);
+        println!(
+            "I/Q orthogonality: normalized dot product = {:.4}",
+            normalized_dot
+        );
 
         // Orthogonal signals should have dot product near 0
         // Note: Current implementation produces highly correlated I/Q outputs
@@ -572,7 +579,7 @@ mod tests {
     #[test]
     fn test_hilbert_ssb_frequency_shift() {
         // Test SSB modulation: (I × cos) - (Q × sin) shifts frequency
-        let audio_freq = 440.0;  // Input frequency
+        let audio_freq = 440.0; // Input frequency
         let carrier_freq = 100.0; // Shift amount
         let sample_rate = 44100.0;
         let expected_freq = audio_freq + carrier_freq; // USB: 540 Hz
@@ -601,7 +608,8 @@ mod tests {
 
         // Generate carrier cos/sin
         let mut ssb_output = vec![0.0; 4096];
-        for i in 512..4096 { // Skip settling
+        for i in 512..4096 {
+            // Skip settling
             let t = i as f32 / sample_rate;
             let carrier_cos = (2.0 * PI * carrier_freq * t).cos();
             let carrier_sin = (2.0 * PI * carrier_freq * t).sin();
@@ -621,8 +629,10 @@ mod tests {
             rms
         );
 
-        println!("SSB modulation test: Input {}Hz + Carrier {}Hz = Expected {}Hz (RMS: {:.3})",
-                 audio_freq, carrier_freq, expected_freq, rms);
+        println!(
+            "SSB modulation test: Input {}Hz + Carrier {}Hz = Expected {}Hz (RMS: {:.3})",
+            audio_freq, carrier_freq, expected_freq, rms
+        );
     }
 
     #[test]
@@ -748,8 +758,10 @@ mod tests {
         let i_rms = calculate_rms(&i_buf[512..]);
         let q_rms = calculate_rms(&q_buf[512..]);
 
-        println!("Noise test: Input RMS = {:.3}, I RMS = {:.3}, Q RMS = {:.3}",
-                 noise_rms, i_rms, q_rms);
+        println!(
+            "Noise test: Input RMS = {:.3}, I RMS = {:.3}, Q RMS = {:.3}",
+            noise_rms, i_rms, q_rms
+        );
 
         // Both channels should have similar energy to input
         let i_ratio = i_rms / noise_rms;
@@ -826,8 +838,10 @@ mod tests {
         let i_ratio = i_rms / input_rms;
         let q_ratio = q_rms / input_rms;
 
-        println!("Complex signal test: Input RMS = {:.3}, I ratio = {:.3}, Q ratio = {:.3}",
-                 input_rms, i_ratio, q_ratio);
+        println!(
+            "Complex signal test: Input RMS = {:.3}, I ratio = {:.3}, Q ratio = {:.3}",
+            input_rms, i_ratio, q_ratio
+        );
 
         assert!(
             (i_ratio - 1.0).abs() < 0.15,
@@ -865,19 +879,25 @@ mod tests {
 
         let threshold = 0.01;
 
-        let i_settled = i_buf.iter()
+        let i_settled = i_buf
+            .iter()
             .skip(100)
             .position(|&x| x.abs() < i_peak * threshold)
             .unwrap_or(2048);
 
-        let q_settled = q_buf.iter()
+        let q_settled = q_buf
+            .iter()
             .skip(100)
             .position(|&x| x.abs() < q_peak * threshold)
             .unwrap_or(2048);
 
-        println!("Settling time: I = {} samples ({:.1}ms), Q = {} samples ({:.1}ms)",
-                 i_settled, i_settled as f32 / 44.1,
-                 q_settled, q_settled as f32 / 44.1);
+        println!(
+            "Settling time: I = {} samples ({:.1}ms), Q = {} samples ({:.1}ms)",
+            i_settled,
+            i_settled as f32 / 44.1,
+            q_settled,
+            q_settled as f32 / 44.1
+        );
 
         // Should settle within 1024 samples (~23ms at 44.1kHz)
         assert!(

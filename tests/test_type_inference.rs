@@ -5,7 +5,6 @@
 /// - Bus references -> signal context (when bus contains signal)
 /// - Oscillators -> signal context
 /// - Bare operators (+, -, *, /) adapt to context
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
@@ -95,7 +94,11 @@ fn test_constant_pattern_single_value() {
     let code = r#"out $ sine "440""#;
     let output = render_code(code, 4410);
     let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
-    assert!(rms > 0.3, "Constant pattern should produce signal, got RMS={}", rms);
+    assert!(
+        rms > 0.3,
+        "Constant pattern should produce signal, got RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -129,7 +132,11 @@ fn test_pattern_controls_signal_param() {
     let code = r#"out $ saw "55 110 220""#;
     let output = render_code(code, 44100);
     let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
-    assert!(rms > 0.01, "Pattern-controlled saw should produce output, RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Pattern-controlled saw should produce output, RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -142,7 +149,11 @@ out $ ~bass ~* ~env
 "#;
     let output = render_code(code, 44100);
     let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
-    assert!(rms > 0.01, "Signal ops on pattern source should work, RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Signal ops on pattern source should work, RMS={}",
+        rms
+    );
 }
 
 // ============================================================================
@@ -176,7 +187,10 @@ out $ ~mix ~osc1
         Ok(_) => panic!("Should fail for wrong arity"),
         Err(e) => {
             assert!(
-                e.contains("argument") || e.contains("parameter") || e.contains("expected") || e.contains("arity"),
+                e.contains("argument")
+                    || e.contains("parameter")
+                    || e.contains("expected")
+                    || e.contains("arity"),
                 "Error should mention argument/parameter count: {}",
                 e
             );
@@ -198,7 +212,11 @@ out $ ~bass ~* (~lfo ~* 0.3 ~+ 0.7)
 "#;
     let output = render_code(code, 44100);
     let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
-    assert!(rms > 0.01, "Inferred context should produce audio, RMS={}", rms);
+    assert!(
+        rms > 0.01,
+        "Inferred context should produce audio, RMS={}",
+        rms
+    );
 }
 
 #[test]
@@ -214,8 +232,14 @@ out $ ~a ~+ ~b
     let output_double = render_code(code_double, 4410);
 
     // Compare peak values - doubled should be ~2x amplitude
-    let peak_single = output_single.iter().map(|x| x.abs()).fold(0.0f32, |a, b| a.max(b));
-    let peak_double = output_double.iter().map(|x| x.abs()).fold(0.0f32, |a, b| a.max(b));
+    let peak_single = output_single
+        .iter()
+        .map(|x| x.abs())
+        .fold(0.0f32, |a, b| a.max(b));
+    let peak_double = output_double
+        .iter()
+        .map(|x| x.abs())
+        .fold(0.0f32, |a, b| a.max(b));
 
     let ratio = peak_double / peak_single;
     assert!(
@@ -234,8 +258,14 @@ fn test_signal_mul_produces_correct_product() {
     let output_full = render_code(code_full, 4410);
     let output_half = render_code(code_half, 4410);
 
-    let peak_full = output_full.iter().map(|x| x.abs()).fold(0.0f32, |a, b| a.max(b));
-    let peak_half = output_half.iter().map(|x| x.abs()).fold(0.0f32, |a, b| a.max(b));
+    let peak_full = output_full
+        .iter()
+        .map(|x| x.abs())
+        .fold(0.0f32, |a, b| a.max(b));
+    let peak_half = output_half
+        .iter()
+        .map(|x| x.abs())
+        .fold(0.0f32, |a, b| a.max(b));
 
     let ratio = peak_half / peak_full;
     assert!(
@@ -275,8 +305,14 @@ out $ ~double ~osc
     let output_single = render_code(code_single, 4410);
     let output_doubled = render_code(code_doubled, 4410);
 
-    let peak_single = output_single.iter().map(|x| x.abs()).fold(0.0f32, |a, b| a.max(b));
-    let peak_doubled = output_doubled.iter().map(|x| x.abs()).fold(0.0f32, |a, b| a.max(b));
+    let peak_single = output_single
+        .iter()
+        .map(|x| x.abs())
+        .fold(0.0f32, |a, b| a.max(b));
+    let peak_doubled = output_doubled
+        .iter()
+        .map(|x| x.abs())
+        .fold(0.0f32, |a, b| a.max(b));
 
     let ratio = peak_doubled / peak_single;
     assert!(
@@ -301,8 +337,14 @@ out $ ~mix ~a ~b
     let code_single = r#"out $ sine 440"#;
     let output_single = render_code(code_single, 4410);
 
-    let peak_mix = output_mix.iter().map(|x| x.abs()).fold(0.0f32, |a, b| a.max(b));
-    let peak_single = output_single.iter().map(|x| x.abs()).fold(0.0f32, |a, b| a.max(b));
+    let peak_mix = output_mix
+        .iter()
+        .map(|x| x.abs())
+        .fold(0.0f32, |a, b| a.max(b));
+    let peak_single = output_single
+        .iter()
+        .map(|x| x.abs())
+        .fold(0.0f32, |a, b| a.max(b));
 
     let ratio = peak_mix / peak_single;
     assert!(
@@ -342,8 +384,11 @@ fn test_direct_effect_applies() {
     let output_filtered = render_code(code_filtered, 4410);
 
     // Filtered signal should have lower RMS (less high-frequency energy)
-    let rms_unfiltered: f32 = (output_unfiltered.iter().map(|s| s * s).sum::<f32>() / output_unfiltered.len() as f32).sqrt();
-    let rms_filtered: f32 = (output_filtered.iter().map(|s| s * s).sum::<f32>() / output_filtered.len() as f32).sqrt();
+    let rms_unfiltered: f32 = (output_unfiltered.iter().map(|s| s * s).sum::<f32>()
+        / output_unfiltered.len() as f32)
+        .sqrt();
+    let rms_filtered: f32 =
+        (output_filtered.iter().map(|s| s * s).sum::<f32>() / output_filtered.len() as f32).sqrt();
 
     // Low-pass filter should reduce RMS
     assert!(
@@ -365,8 +410,11 @@ out $ saw 110 # ~fx
     let output_unfiltered = render_code(code_unfiltered, 4410);
     let output_filtered = render_code(code_filtered, 4410);
 
-    let rms_unfiltered: f32 = (output_unfiltered.iter().map(|s| s * s).sum::<f32>() / output_unfiltered.len() as f32).sqrt();
-    let rms_filtered: f32 = (output_filtered.iter().map(|s| s * s).sum::<f32>() / output_filtered.len() as f32).sqrt();
+    let rms_unfiltered: f32 = (output_unfiltered.iter().map(|s| s * s).sum::<f32>()
+        / output_unfiltered.len() as f32)
+        .sqrt();
+    let rms_filtered: f32 =
+        (output_filtered.iter().map(|s| s * s).sum::<f32>() / output_filtered.len() as f32).sqrt();
 
     assert!(
         rms_filtered < rms_unfiltered,
@@ -409,7 +457,8 @@ fn test_pattern_frequency_changes_pitch() {
     let output_440 = render_code(code_440, 22050);
 
     fn count_zero_crossings(samples: &[f32]) -> usize {
-        samples.windows(2)
+        samples
+            .windows(2)
             .filter(|w| (w[0] >= 0.0 && w[1] < 0.0) || (w[0] < 0.0 && w[1] >= 0.0))
             .count()
     }
@@ -440,11 +489,16 @@ out $ sine "220 440"
 
     // Should produce audio
     let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
-    assert!(rms > 0.3, "Pattern-modulated sine should produce audio, RMS={}", rms);
+    assert!(
+        rms > 0.3,
+        "Pattern-modulated sine should produce audio, RMS={}",
+        rms
+    );
 
     // The overall zero crossing count should be between 220 and 440 Hz
     fn count_zero_crossings(samples: &[f32]) -> usize {
-        samples.windows(2)
+        samples
+            .windows(2)
             .filter(|w| (w[0] >= 0.0 && w[1] < 0.0) || (w[0] < 0.0 && w[1] >= 0.0))
             .count()
     }

@@ -1,4 +1,3 @@
-
 fn main() {
     // Test parsing individual lines
     let lines = vec![

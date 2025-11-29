@@ -27,7 +27,6 @@
 /// - Ambient soundscapes
 /// - Vocal processing
 /// - Superior to Schroeder reverb for dense, smooth tails
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
 use std::collections::VecDeque;
 
@@ -135,13 +134,7 @@ impl DattorroReverbNode {
     /// ~signal: saw 110
     /// ~reverb: ~signal # dattorro_reverb 0.8 0.7 0.5 0.3
     /// ```
-    pub fn new(
-        input: NodeId,
-        size: NodeId,
-        decay: NodeId,
-        damping: NodeId,
-        mix: NodeId,
-    ) -> Self {
+    pub fn new(input: NodeId, size: NodeId, decay: NodeId, damping: NodeId, mix: NodeId) -> Self {
         // Scale factor from Dattorro's 29.7kHz to 44.1kHz
         let scale = 44100.0 / 29761.0;
 
@@ -228,11 +221,7 @@ impl AudioNode for DattorroReverbNode {
         let damping = inputs[3];
         let mix = inputs[4];
 
-        debug_assert_eq!(
-            input.len(),
-            output.len(),
-            "Input buffer length mismatch"
-        );
+        debug_assert_eq!(input.len(), output.len(), "Input buffer length mismatch");
 
         // Modulation parameters
         let lfo_rate = 0.8; // Hz
@@ -297,7 +286,9 @@ impl AudioNode for DattorroReverbNode {
             self.left_delay1.push_back(left_ap1_out);
 
             // Left APF2 (with opposite phase modulation)
-            let left_ap2_out = self.left_ap2.process_modulated(left_delay1_out, -lfo as isize);
+            let left_ap2_out = self
+                .left_ap2
+                .process_modulated(left_delay1_out, -lfo as isize);
 
             // Left damping filter + Delay2
             let left_damped = self.left_lpf_state * damp_coef + left_ap2_out * (1.0 - damp_coef);
@@ -321,7 +312,9 @@ impl AudioNode for DattorroReverbNode {
             self.right_delay1.push_back(right_ap1_out);
 
             // Right APF2 (with modulation)
-            let right_ap2_out = self.right_ap2.process_modulated(right_delay1_out, lfo as isize);
+            let right_ap2_out = self
+                .right_ap2
+                .process_modulated(right_delay1_out, lfo as isize);
 
             // Right damping filter + Delay2
             let right_damped = self.right_lpf_state * damp_coef + right_ap2_out * (1.0 - damp_coef);
@@ -350,8 +343,8 @@ impl AudioNode for DattorroReverbNode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nodes::{ConstantNode, OscillatorNode, Waveform, ImpulseNode};
     use crate::block_processor::BlockProcessor;
+    use crate::nodes::{ConstantNode, ImpulseNode, OscillatorNode, Waveform};
     use crate::pattern::Fraction;
 
     fn calculate_rms(buffer: &[f32]) -> f32 {
@@ -359,13 +352,7 @@ mod tests {
     }
 
     fn test_context(block_size: usize) -> ProcessContext {
-        ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            block_size,
-            2.0,
-            44100.0,
-        )
+        ProcessContext::new(Fraction::from_float(0.0), 0, block_size, 2.0, 44100.0)
     }
 
     #[test]
@@ -375,13 +362,13 @@ mod tests {
         let sample_rate = 44100.0;
 
         let nodes: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(10.0)),          // 0: freq
-            Box::new(ImpulseNode::new(0)),              // 1: impulse at 10Hz
-            Box::new(ConstantNode::new(0.7)),           // 2: size
-            Box::new(ConstantNode::new(0.8)),           // 3: decay
-            Box::new(ConstantNode::new(0.5)),           // 4: damping
-            Box::new(ConstantNode::new(1.0)),           // 5: 100% wet
-            Box::new(DattorroReverbNode::new(1, 2, 3, 4, 5)),  // 6: reverb
+            Box::new(ConstantNode::new(10.0)),                // 0: freq
+            Box::new(ImpulseNode::new(0)),                    // 1: impulse at 10Hz
+            Box::new(ConstantNode::new(0.7)),                 // 2: size
+            Box::new(ConstantNode::new(0.8)),                 // 3: decay
+            Box::new(ConstantNode::new(0.5)),                 // 4: damping
+            Box::new(ConstantNode::new(1.0)),                 // 5: 100% wet
+            Box::new(DattorroReverbNode::new(1, 2, 3, 4, 5)), // 6: reverb
         ];
 
         let mut processor = BlockProcessor::new(nodes, 6, block_size).unwrap();
@@ -411,21 +398,21 @@ mod tests {
 
         // Small size
         let nodes_small: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(1.0)),           // 0: constant input
-            Box::new(ConstantNode::new(0.2)),           // 1: small size
-            Box::new(ConstantNode::new(0.8)),           // 2: decay
-            Box::new(ConstantNode::new(0.5)),           // 3: damping
-            Box::new(ConstantNode::new(1.0)),           // 4: wet
+            Box::new(ConstantNode::new(1.0)), // 0: constant input
+            Box::new(ConstantNode::new(0.2)), // 1: small size
+            Box::new(ConstantNode::new(0.8)), // 2: decay
+            Box::new(ConstantNode::new(0.5)), // 3: damping
+            Box::new(ConstantNode::new(1.0)), // 4: wet
             Box::new(DattorroReverbNode::new(0, 1, 2, 3, 4)),
         ];
 
         // Large size
         let nodes_large: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(1.0)),           // 0: constant input
-            Box::new(ConstantNode::new(0.9)),           // 1: large size
-            Box::new(ConstantNode::new(0.8)),           // 2: decay
-            Box::new(ConstantNode::new(0.5)),           // 3: damping
-            Box::new(ConstantNode::new(1.0)),           // 4: wet
+            Box::new(ConstantNode::new(1.0)), // 0: constant input
+            Box::new(ConstantNode::new(0.9)), // 1: large size
+            Box::new(ConstantNode::new(0.8)), // 2: decay
+            Box::new(ConstantNode::new(0.5)), // 3: damping
+            Box::new(ConstantNode::new(1.0)), // 4: wet
             Box::new(DattorroReverbNode::new(0, 1, 2, 3, 4)),
         ];
 
@@ -442,8 +429,12 @@ mod tests {
 
         let mut output_small = vec![0.0; block_size];
         let mut output_large = vec![0.0; block_size];
-        proc_small.process_block(&mut output_small, &context).unwrap();
-        proc_large.process_block(&mut output_large, &context).unwrap();
+        proc_small
+            .process_block(&mut output_small, &context)
+            .unwrap();
+        proc_large
+            .process_block(&mut output_large, &context)
+            .unwrap();
 
         let rms_small = calculate_rms(&output_small);
         let rms_large = calculate_rms(&output_large);
@@ -465,20 +456,20 @@ mod tests {
         // Low decay
         let nodes_short: Vec<Box<dyn AudioNode>> = vec![
             Box::new(ConstantNode::new(1.0)),
-            Box::new(ConstantNode::new(0.5)),           // size
-            Box::new(ConstantNode::new(0.2)),           // short decay
-            Box::new(ConstantNode::new(0.5)),           // damping
-            Box::new(ConstantNode::new(1.0)),           // wet
+            Box::new(ConstantNode::new(0.5)), // size
+            Box::new(ConstantNode::new(0.2)), // short decay
+            Box::new(ConstantNode::new(0.5)), // damping
+            Box::new(ConstantNode::new(1.0)), // wet
             Box::new(DattorroReverbNode::new(0, 1, 2, 3, 4)),
         ];
 
         // High decay
         let nodes_long: Vec<Box<dyn AudioNode>> = vec![
             Box::new(ConstantNode::new(1.0)),
-            Box::new(ConstantNode::new(0.5)),           // size
-            Box::new(ConstantNode::new(0.95)),          // long decay
-            Box::new(ConstantNode::new(0.5)),           // damping
-            Box::new(ConstantNode::new(1.0)),           // wet
+            Box::new(ConstantNode::new(0.5)),  // size
+            Box::new(ConstantNode::new(0.95)), // long decay
+            Box::new(ConstantNode::new(0.5)),  // damping
+            Box::new(ConstantNode::new(1.0)),  // wet
             Box::new(DattorroReverbNode::new(0, 1, 2, 3, 4)),
         ];
 
@@ -495,7 +486,9 @@ mod tests {
 
         let mut output_short = vec![0.0; block_size];
         let mut output_long = vec![0.0; block_size];
-        proc_short.process_block(&mut output_short, &context).unwrap();
+        proc_short
+            .process_block(&mut output_short, &context)
+            .unwrap();
         proc_long.process_block(&mut output_long, &context).unwrap();
 
         let rms_short = calculate_rms(&output_short);
@@ -521,7 +514,7 @@ mod tests {
             Box::new(ConstantNode::new(1.0)),
             Box::new(ConstantNode::new(0.5)),
             Box::new(ConstantNode::new(0.8)),
-            Box::new(ConstantNode::new(0.1)),           // low damping
+            Box::new(ConstantNode::new(0.1)), // low damping
             Box::new(ConstantNode::new(1.0)),
             Box::new(DattorroReverbNode::new(0, 1, 2, 3, 4)),
         ];
@@ -531,7 +524,7 @@ mod tests {
             Box::new(ConstantNode::new(1.0)),
             Box::new(ConstantNode::new(0.5)),
             Box::new(ConstantNode::new(0.8)),
-            Box::new(ConstantNode::new(0.9)),           // high damping
+            Box::new(ConstantNode::new(0.9)), // high damping
             Box::new(ConstantNode::new(1.0)),
             Box::new(DattorroReverbNode::new(0, 1, 2, 3, 4)),
         ];
@@ -548,7 +541,9 @@ mod tests {
 
         let mut output_bright = vec![0.0; block_size];
         let mut output_dark = vec![0.0; block_size];
-        proc_bright.process_block(&mut output_bright, &context).unwrap();
+        proc_bright
+            .process_block(&mut output_bright, &context)
+            .unwrap();
         proc_dark.process_block(&mut output_dark, &context).unwrap();
 
         // Both should have sound
@@ -568,7 +563,7 @@ mod tests {
             Box::new(ConstantNode::new(0.5)),
             Box::new(ConstantNode::new(0.8)),
             Box::new(ConstantNode::new(0.5)),
-            Box::new(ConstantNode::new(0.0)),           // 100% dry
+            Box::new(ConstantNode::new(0.0)), // 100% dry
             Box::new(DattorroReverbNode::new(0, 1, 2, 3, 4)),
         ];
 
@@ -578,7 +573,7 @@ mod tests {
             Box::new(ConstantNode::new(0.5)),
             Box::new(ConstantNode::new(0.8)),
             Box::new(ConstantNode::new(0.5)),
-            Box::new(ConstantNode::new(1.0)),           // 100% wet
+            Box::new(ConstantNode::new(1.0)), // 100% wet
             Box::new(DattorroReverbNode::new(0, 1, 2, 3, 4)),
         ];
 
@@ -610,7 +605,7 @@ mod tests {
         let nodes: Vec<Box<dyn AudioNode>> = vec![
             Box::new(ConstantNode::new(1.0)),
             Box::new(ConstantNode::new(0.7)),
-            Box::new(ConstantNode::new(0.9)),           // high decay
+            Box::new(ConstantNode::new(0.9)), // high decay
             Box::new(ConstantNode::new(0.5)),
             Box::new(ConstantNode::new(1.0)),
             Box::new(DattorroReverbNode::new(0, 1, 2, 3, 4)),
@@ -626,18 +621,8 @@ mod tests {
 
             // Check for explosions or NaN
             for (i, &sample) in output.iter().enumerate() {
-                assert!(
-                    sample.is_finite(),
-                    "Sample {} is not finite: {}",
-                    i,
-                    sample
-                );
-                assert!(
-                    sample.abs() < 100.0,
-                    "Sample {} exploded: {}",
-                    i,
-                    sample
-                );
+                assert!(sample.is_finite(), "Sample {} is not finite: {}", i, sample);
+                assert!(sample.abs() < 100.0, "Sample {} exploded: {}", i, sample);
             }
         }
     }
@@ -650,10 +635,10 @@ mod tests {
 
         let nodes: Vec<Box<dyn AudioNode>> = vec![
             Box::new(ConstantNode::new(0.5)),
-            Box::new(ConstantNode::new(0.5)),           // size (could be pattern)
-            Box::new(ConstantNode::new(0.5)),           // decay
-            Box::new(ConstantNode::new(0.5)),           // damping
-            Box::new(ConstantNode::new(0.5)),           // mix
+            Box::new(ConstantNode::new(0.5)), // size (could be pattern)
+            Box::new(ConstantNode::new(0.5)), // decay
+            Box::new(ConstantNode::new(0.5)), // damping
+            Box::new(ConstantNode::new(0.5)), // mix
             Box::new(DattorroReverbNode::new(0, 1, 2, 3, 4)),
         ];
 
@@ -676,9 +661,9 @@ mod tests {
         let sample_rate = 44100.0;
 
         let nodes: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(0.5)),  // Lower input to avoid saturation
+            Box::new(ConstantNode::new(0.5)), // Lower input to avoid saturation
             Box::new(ConstantNode::new(0.7)),
-            Box::new(ConstantNode::new(0.7)),  // Moderate decay
+            Box::new(ConstantNode::new(0.7)), // Moderate decay
             Box::new(ConstantNode::new(0.5)),
             Box::new(ConstantNode::new(1.0)),
             Box::new(DattorroReverbNode::new(0, 1, 2, 3, 4)),
@@ -739,7 +724,7 @@ mod tests {
         let sample_rate = 44100.0;
 
         let nodes: Vec<Box<dyn AudioNode>> = vec![
-            Box::new(ConstantNode::new(0.0)),           // zero input
+            Box::new(ConstantNode::new(0.0)), // zero input
             Box::new(ConstantNode::new(0.5)),
             Box::new(ConstantNode::new(0.8)),
             Box::new(ConstantNode::new(0.5)),
@@ -765,10 +750,10 @@ mod tests {
 
         let nodes: Vec<Box<dyn AudioNode>> = vec![
             Box::new(ConstantNode::new(1.0)),
-            Box::new(ConstantNode::new(1.0)),           // max size
-            Box::new(ConstantNode::new(1.0)),           // max decay
-            Box::new(ConstantNode::new(1.0)),           // max damping
-            Box::new(ConstantNode::new(1.0)),           // max wet
+            Box::new(ConstantNode::new(1.0)), // max size
+            Box::new(ConstantNode::new(1.0)), // max decay
+            Box::new(ConstantNode::new(1.0)), // max damping
+            Box::new(ConstantNode::new(1.0)), // max wet
             Box::new(DattorroReverbNode::new(0, 1, 2, 3, 4)),
         ];
 
@@ -794,10 +779,10 @@ mod tests {
 
         let nodes: Vec<Box<dyn AudioNode>> = vec![
             Box::new(ConstantNode::new(1.0)),
-            Box::new(ConstantNode::new(0.0)),           // min size
-            Box::new(ConstantNode::new(0.0)),           // min decay
-            Box::new(ConstantNode::new(0.0)),           // min damping
-            Box::new(ConstantNode::new(0.5)),           // 50% mix
+            Box::new(ConstantNode::new(0.0)), // min size
+            Box::new(ConstantNode::new(0.0)), // min decay
+            Box::new(ConstantNode::new(0.0)), // min damping
+            Box::new(ConstantNode::new(0.5)), // 50% mix
             Box::new(DattorroReverbNode::new(0, 1, 2, 3, 4)),
         ];
 

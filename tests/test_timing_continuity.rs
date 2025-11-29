@@ -4,8 +4,7 @@
 /// does NOT cause beat drops, timing jumps, or cycle resets.
 ///
 /// TIME IS IMMUTABLE - the cycle position must never jump.
-
-use phonon::ipc::{PatternClient, IpcMessage};
+use phonon::ipc::{IpcMessage, PatternClient};
 use std::process::{Child, Command};
 use std::thread;
 use std::time::Duration;
@@ -18,12 +17,9 @@ fn read_wav_samples(path: &str) -> (Vec<f32>, f32) {
     let mut reader = hound::WavReader::open(path).expect("Failed to open WAV file");
     let spec = reader.spec();
     let sample_rate = spec.sample_rate as f32;
-    
-    let samples: Vec<f32> = reader
-        .samples::<f32>()
-        .map(|s| s.unwrap_or(0.0))
-        .collect();
-    
+
+    let samples: Vec<f32> = reader.samples::<f32>().map(|s| s.unwrap_or(0.0)).collect();
+
     (samples, sample_rate)
 }
 
@@ -31,10 +27,7 @@ fn read_wav_samples(path: &str) -> (Vec<f32>, f32) {
 fn start_phonon_audio(output_path: &str) -> Child {
     // Use pre-built binary directly to avoid recompilation during test
     Command::new("./target/release/phonon-audio")
-        .args(&[
-            "--record",
-            output_path,
-        ])
+        .args(&["--record", output_path])
         .env("DEBUG_SAMPLE_EVENTS", "1")
         .spawn()
         .expect("Failed to start phonon-audio")
@@ -143,7 +136,10 @@ o1 $ s "bd bd bd bd"
     // Simulate rapid Ctrl-X presses by sending UpdateGraph multiple times
     // This is the critical test: does timing stay continuous?
     let num_reloads = 10;
-    println!("🔄 Simulating {} rapid code reloads (Ctrl-X spam)...", num_reloads);
+    println!(
+        "🔄 Simulating {} rapid code reloads (Ctrl-X spam)...",
+        num_reloads
+    );
 
     for i in 0..num_reloads {
         // Send the same code repeatedly (simulating Ctrl-X)
@@ -218,7 +214,10 @@ o1 $ s "bd bd bd bd"
     println!("⏱️  Expected timing:");
     println!("   Tempo: {} CPS", tempo);
     println!("   Cycle duration: {:.3}s", cycle_duration);
-    println!("   Expected interval between kicks: {:.3}s", expected_interval);
+    println!(
+        "   Expected interval between kicks: {:.3}s",
+        expected_interval
+    );
     println!();
 
     // Tolerance: allow 5ms deviation (very tight for 125ms intervals)
@@ -242,7 +241,11 @@ o1 $ s "bd bd bd bd"
         println!("   Min interval: {:.4}s", min_interval);
         println!("   Max interval: {:.4}s", max_interval);
         println!("   Expected interval: {:.4}s", expected_interval);
-        println!("   Tolerance: {:.4}s (±{:.1}%)", tolerance, tolerance / expected_interval as f32 * 100.0);
+        println!(
+            "   Tolerance: {:.4}s (±{:.1}%)",
+            tolerance,
+            tolerance / expected_interval as f32 * 100.0
+        );
         println!();
     }
 
@@ -255,16 +258,25 @@ o1 $ s "bd bd bd bd"
 
     // The critical test: NO timing discontinuities
     if discontinuities > 0 {
-        println!("❌ FAILED: {} timing discontinuities detected", discontinuities);
+        println!(
+            "❌ FAILED: {} timing discontinuities detected",
+            discontinuities
+        );
         println!();
         println!("This means the beat drops / cycle resets during code reloads.");
         println!("TIME IS IMMUTABLE - cycle position must never jump!");
         println!();
-        panic!("Timing continuity test FAILED: {} discontinuities", discontinuities);
+        panic!(
+            "Timing continuity test FAILED: {} discontinuities",
+            discontinuities
+        );
     }
 
     println!("✅ SUCCESS: No timing discontinuities detected!");
-    println!("✅ Timing remains continuous during {} rapid reloads", num_reloads);
+    println!(
+        "✅ Timing remains continuous during {} rapid reloads",
+        num_reloads
+    );
     println!();
     println!("TIME IS IMMUTABLE ✨");
 }
@@ -287,8 +299,8 @@ fn test_detect_timing_discontinuities_function() {
 
     // Place regular kicks every 0.125 seconds
     let kicks = vec![
-        0,                   // t=0.000s
-        interval_samples,    // t=0.125s
+        0,                    // t=0.000s
+        interval_samples,     // t=0.125s
         interval_samples * 2, // t=0.250s
         interval_samples * 3, // t=0.375s
         // DISCONTINUITY: skip one kick, simulate cycle reset

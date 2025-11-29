@@ -6,10 +6,9 @@
 ///
 /// The algorithm uses a random walk (Brownian motion) where each sample is a
 /// small random step from the previous sample, bounded to stay within [-1, 1].
-
 use crate::audio_node::{AudioNode, NodeId, ProcessContext};
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 /// Brown noise node: generates random walk values scaled by amplitude
 ///
@@ -23,7 +22,7 @@ use rand::rngs::StdRng;
 pub struct BrownNoiseNode {
     amplitude_input: NodeId,
     rng: StdRng,
-    last_value: f32,  // Random walk accumulator
+    last_value: f32, // Random walk accumulator
 }
 
 impl BrownNoiseNode {
@@ -130,13 +129,7 @@ mod tests {
         let inputs = vec![amplitude.as_slice()];
 
         let mut output = vec![0.0; 1000];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1000,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1000, 2.0, 44100.0);
 
         noise.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -148,8 +141,11 @@ mod tests {
         let avg_step = total_step / (output.len() - 1) as f32;
 
         // Average step should be small (around 0.02 or less)
-        assert!(avg_step < 0.03,
-            "Average step size {} too large for brown noise (should be ~0.02)", avg_step);
+        assert!(
+            avg_step < 0.03,
+            "Average step size {} too large for brown noise (should be ~0.02)",
+            avg_step
+        );
     }
 
     #[test]
@@ -161,13 +157,7 @@ mod tests {
         let amplitude = vec![1.0; 1000];
         let inputs = vec![amplitude.as_slice()];
         let mut brown_output = vec![0.0; 1000];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            1000,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 1000, 2.0, 44100.0);
 
         brown.process_block(&inputs, &mut brown_output, 44100.0, &context);
 
@@ -180,8 +170,11 @@ mod tests {
 
         // White noise would have average diff around 1.15 (random [-1,1] to random [-1,1])
         // Brown noise should be much smaller (around 0.02)
-        assert!(brown_diff < 0.1,
-            "Brown noise average diff {} should be much smaller than white noise (~1.15)", brown_diff);
+        assert!(
+            brown_diff < 0.1,
+            "Brown noise average diff {} should be much smaller than white noise (~1.15)",
+            brown_diff
+        );
     }
 
     #[test]
@@ -189,24 +182,22 @@ mod tests {
         // Output should stay bounded in [-amplitude, amplitude]
         let mut noise = BrownNoiseNode::new_with_seed(0, 42);
 
-        let amplitude = vec![0.5; 10000];  // Long run to test bounds
+        let amplitude = vec![0.5; 10000]; // Long run to test bounds
         let inputs = vec![amplitude.as_slice()];
 
         let mut output = vec![0.0; 10000];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            10000,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 10000, 2.0, 44100.0);
 
         noise.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Every sample should be in [-0.5, 0.5]
         for (i, sample) in output.iter().enumerate() {
-            assert!(*sample >= -0.5 && *sample <= 0.5,
-                "Sample {} at index {} out of range [-0.5, 0.5]", sample, i);
+            assert!(
+                *sample >= -0.5 && *sample <= 0.5,
+                "Sample {} at index {} out of range [-0.5, 0.5]",
+                sample,
+                i
+            );
         }
     }
 
@@ -221,21 +212,17 @@ mod tests {
 
         let mut output1 = vec![0.0; 100];
         let mut output2 = vec![0.0; 100];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            100,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 100, 2.0, 44100.0);
 
         noise1.process_block(&inputs, &mut output1, 44100.0, &context);
         noise2.process_block(&inputs, &mut output2, 44100.0, &context);
 
         // Outputs should be identical
         for i in 0..100 {
-            assert_eq!(output1[i], output2[i],
-                "Deterministic brown noise with same seed should produce identical output");
+            assert_eq!(
+                output1[i], output2[i],
+                "Deterministic brown noise with same seed should produce identical output"
+            );
         }
     }
 
@@ -248,21 +235,24 @@ mod tests {
         let inputs = vec![amplitude.as_slice()];
 
         let mut output = vec![0.0; 4];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            4,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 4, 2.0, 44100.0);
 
         noise.process_block(&inputs, &mut output, 44100.0, &context);
 
         // Check ranges based on amplitude
-        assert_eq!(output[0], 0.0);  // Zero amplitude = silence
-        assert!(output[1].abs() <= 0.25, "Sample with 0.25 amplitude out of range");
-        assert!(output[2].abs() <= 0.5, "Sample with 0.5 amplitude out of range");
-        assert!(output[3].abs() <= 1.0, "Sample with 1.0 amplitude out of range");
+        assert_eq!(output[0], 0.0); // Zero amplitude = silence
+        assert!(
+            output[1].abs() <= 0.25,
+            "Sample with 0.25 amplitude out of range"
+        );
+        assert!(
+            output[2].abs() <= 0.5,
+            "Sample with 0.5 amplitude out of range"
+        );
+        assert!(
+            output[3].abs() <= 1.0,
+            "Sample with 1.0 amplitude out of range"
+        );
     }
 
     #[test]
@@ -280,13 +270,7 @@ mod tests {
         let mut amplitude_node = ConstantNode::new(0.3);
         let mut noise = BrownNoiseNode::new_with_seed(0, 42);
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            512,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 512, 2.0, 44100.0);
 
         // Process amplitude constant
         let mut amplitude_buf = vec![0.0; 512];
@@ -300,8 +284,11 @@ mod tests {
 
         // Every sample should be in range [-0.3, 0.3]
         for sample in &output {
-            assert!(*sample >= -0.3 && *sample <= 0.3,
-                "Sample {} out of range [-0.3, 0.3]", sample);
+            assert!(
+                *sample >= -0.3 && *sample <= 0.3,
+                "Sample {} out of range [-0.3, 0.3]",
+                sample
+            );
         }
 
         // Should vary (random walk)
@@ -318,14 +305,8 @@ mod tests {
         let amplitude = vec![0.0; 100];
         let inputs = vec![amplitude.as_slice()];
 
-        let mut output = vec![999.0; 100];  // Initialize with non-zero
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            100,
-            2.0,
-            44100.0,
-        );
+        let mut output = vec![999.0; 100]; // Initialize with non-zero
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 100, 2.0, 44100.0);
 
         noise.process_block(&inputs, &mut output, 44100.0, &context);
 
@@ -346,20 +327,17 @@ mod tests {
 
         let mut output1 = vec![0.0; 100];
         let mut output2 = vec![0.0; 100];
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            100,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 100, 2.0, 44100.0);
 
         noise1.process_block(&inputs, &mut output1, 44100.0, &context);
         noise2.process_block(&inputs, &mut output2, 44100.0, &context);
 
         // Outputs should be different
         let all_same = output1.iter().zip(output2.iter()).all(|(a, b)| a == b);
-        assert!(!all_same, "Different seeds should produce different brown noise");
+        assert!(
+            !all_same,
+            "Different seeds should produce different brown noise"
+        );
     }
 
     #[test]
@@ -370,13 +348,7 @@ mod tests {
         let amplitude = vec![1.0; 100];
         let inputs = vec![amplitude.as_slice()];
 
-        let context = ProcessContext::new(
-            Fraction::from_float(0.0),
-            0,
-            100,
-            2.0,
-            44100.0,
-        );
+        let context = ProcessContext::new(Fraction::from_float(0.0), 0, 100, 2.0, 44100.0);
 
         // First block
         let mut output1 = vec![0.0; 100];
@@ -392,7 +364,10 @@ mod tests {
 
         // The step between blocks should be small (continuous random walk)
         let step = (first_of_second_block - last_of_first_block).abs();
-        assert!(step < 0.05,
-            "Step between blocks {} too large, should maintain continuity", step);
+        assert!(
+            step < 0.05,
+            "Step between blocks {} too large, should maintain continuity",
+            step
+        );
     }
 }

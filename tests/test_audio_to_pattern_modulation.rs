@@ -1,10 +1,10 @@
-use std::cell::RefCell;
-use std::collections::HashMap;
 use phonon::mini_notation_v3::parse_mini_notation;
 use phonon::pattern::Pattern;
 use phonon::unified_graph::{
-    Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform, FilterState,
+    FilterState, Signal, SignalExpr, SignalNode, UnifiedSignalGraph, Waveform,
 };
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 /// Helper function to create a Sample node with default values
 fn make_sample_node(pattern_str: &str, pattern: Pattern<String>) -> SignalNode {
@@ -23,7 +23,7 @@ fn make_sample_node(pattern_str: &str, pattern: Pattern<String>) -> SignalNode {
         attack: Signal::Value(0.0),
         release: Signal::Value(0.0),
         envelope_type: None,
-        unit_mode: Signal::Value(0.0), // rate mode
+        unit_mode: Signal::Value(0.0),    // rate mode
         loop_enabled: Signal::Value(0.0), // play once
         begin: Signal::Value(0.0),
         end: Signal::Value(1.0),
@@ -67,10 +67,7 @@ fn test_range_signal_node() {
     let buffer = graph.render(1);
 
     // The Scale node in SignalExpr should produce output in the range [10, 20]
-    assert!(
-        buffer.len() > 0,
-        "Output buffer should have samples"
-    );
+    assert!(buffer.len() > 0, "Output buffer should have samples");
 
     println!("✓ Range-like scaling works");
 }
@@ -93,7 +90,7 @@ fn test_unipolar_signal_node() {
         freq: Signal::Value(1.0), // 1 Hz for easy testing
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -136,7 +133,10 @@ fn test_unipolar_signal_node() {
         max_val
     );
 
-    println!("✓ Unipolar conversion works: [{:.3}, {:.3}]", min_val, max_val);
+    println!(
+        "✓ Unipolar conversion works: [{:.3}, {:.3}]",
+        min_val, max_val
+    );
 }
 
 /// Test Bipolar clamps input to [-1, 1]
@@ -158,7 +158,7 @@ fn test_bipolar_signal_node() {
         freq: Signal::Value(1.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -229,7 +229,7 @@ fn test_signal_as_pattern_node() {
         freq: Signal::Value(1.0), // 1 Hz = 0.5 cycle per second of sweep
         waveform: Waveform::Saw,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -277,7 +277,7 @@ fn test_helper_functions_compile() {
         freq: Signal::Value(440.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -336,7 +336,7 @@ fn test_auto_magic_fast() {
         freq: Signal::Value(0.25),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -410,7 +410,7 @@ fn test_explicit_range_fast() {
         freq: Signal::Value(0.25),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -475,7 +475,7 @@ fn test_arithmetic_scaling() {
         freq: Signal::Value(1.0),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -545,7 +545,7 @@ fn test_chained_signal_modulation() {
         freq: Signal::Value(0.25),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -556,7 +556,7 @@ fn test_chained_signal_modulation() {
         freq: Signal::Value(0.5),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -676,7 +676,7 @@ fn test_full_audio_to_pattern_pipeline() {
         freq: Signal::Value(0.25),
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -706,7 +706,7 @@ fn test_full_audio_to_pattern_pipeline() {
         freq: Signal::Value(440.0), // A4
         waveform: Waveform::Sine,
         semitone_offset: 0.0,
-        
+
         phase: RefCell::new(0.0),
         pending_freq: RefCell::new(None),
         last_sample: RefCell::new(0.0),
@@ -746,15 +746,24 @@ fn test_full_audio_to_pattern_pipeline() {
     }
 
     // RMS should vary (indicating modulation is happening)
-    let min_rms = chunk_rms_values.iter().copied().fold(f32::INFINITY, f32::min);
-    let max_rms = chunk_rms_values.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let min_rms = chunk_rms_values
+        .iter()
+        .copied()
+        .fold(f32::INFINITY, f32::min);
+    let max_rms = chunk_rms_values
+        .iter()
+        .copied()
+        .fold(f32::NEG_INFINITY, f32::max);
 
     println!("  RMS values across 4 chunks: {:?}", chunk_rms_values);
     println!("  Min RMS: {:.6}, Max RMS: {:.6}", min_rms, max_rms);
 
     // Modulation should create some variation (not constant amplitude)
     // If LFO varies from 0.5 to 2.0, signal should vary
-    assert!(max_rms > min_rms * 1.2, "Modulation should vary signal amplitude");
+    assert!(
+        max_rms > min_rms * 1.2,
+        "Modulation should vary signal amplitude"
+    );
 
     println!("✓ Full audio-to-pattern pipeline works - signal modulation detected");
 }

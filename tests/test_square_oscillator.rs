@@ -10,7 +10,6 @@
 /// - 50% duty cycle pulse wave
 /// - Frequency pattern-modulated
 /// - Used for leads, bass, retro game sounds, clarinet-like tones
-
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 use std::f32::consts::PI;
@@ -21,14 +20,15 @@ use audio_test_utils::calculate_rms;
 fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
     let sample_rate = 44100.0;
     let (_, statements) = parse_program(code).expect("Failed to parse DSL code");
-    let mut graph = compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
+    let mut graph =
+        compile_program(statements, sample_rate, None).expect("Failed to compile DSL code");
     let num_samples = (duration * sample_rate) as usize;
     graph.render(num_samples)
 }
 
 /// Perform FFT and analyze spectrum
 fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::{FftPlanner, num_complex::Complex};
+    use rustfft::{num_complex::Complex, FftPlanner};
 
     let fft_size = 8192.min(buffer.len());
     let mut planner = FftPlanner::new();
@@ -122,21 +122,29 @@ fn test_square_odd_harmonics_only() {
         }
     }
 
-    assert!(fundamental_mag > 0.1,
+    assert!(
+        fundamental_mag > 0.1,
         "Square should have strong fundamental, got {}",
-        fundamental_mag);
+        fundamental_mag
+    );
 
     let even_to_odd_ratio = second_harmonic_mag / fundamental_mag.max(0.001);
-    assert!(even_to_odd_ratio < 0.1,
+    assert!(
+        even_to_odd_ratio < 0.1,
         "Square should have weak even harmonics, 2nd/1st ratio: {}",
-        even_to_odd_ratio);
+        even_to_odd_ratio
+    );
 
-    assert!(third_harmonic_mag > 0.01,
+    assert!(
+        third_harmonic_mag > 0.01,
         "Square should have third harmonic, got {}",
-        third_harmonic_mag);
+        third_harmonic_mag
+    );
 
-    println!("Harmonics - 1st: {}, 2nd: {}, 3rd: {}, even/odd ratio: {}",
-        fundamental_mag, second_harmonic_mag, third_harmonic_mag, even_to_odd_ratio);
+    println!(
+        "Harmonics - 1st: {}, 2nd: {}, 3rd: {}, even/odd ratio: {}",
+        fundamental_mag, second_harmonic_mag, third_harmonic_mag, even_to_odd_ratio
+    );
 }
 
 #[test]
@@ -159,33 +167,41 @@ fn test_square_vs_saw_spectrum() {
     let (_, magnitudes_saw) = analyze_spectrum(&buffer_saw, 44100.0);
 
     // Calculate even harmonic energy (around 880, 1760, 2640 Hz)
-    let even_energy_square: f32 = frequencies.iter()
+    let even_energy_square: f32 = frequencies
+        .iter()
         .zip(magnitudes_square.iter())
         .filter(|(f, _)| {
             let harmonic = **f / 440.0;
             harmonic > 1.8 && harmonic < 2.2 || // 2nd
             harmonic > 3.8 && harmonic < 4.2 || // 4th
-            harmonic > 5.8 && harmonic < 6.2    // 6th
+            harmonic > 5.8 && harmonic < 6.2 // 6th
         })
         .map(|(_, m)| m * m)
         .sum();
 
-    let even_energy_saw: f32 = frequencies.iter()
+    let even_energy_saw: f32 = frequencies
+        .iter()
         .zip(magnitudes_saw.iter())
         .filter(|(f, _)| {
             let harmonic = **f / 440.0;
             harmonic > 1.8 && harmonic < 2.2 || // 2nd
             harmonic > 3.8 && harmonic < 4.2 || // 4th
-            harmonic > 5.8 && harmonic < 6.2    // 6th
+            harmonic > 5.8 && harmonic < 6.2 // 6th
         })
         .map(|(_, m)| m * m)
         .sum();
 
-    assert!(even_energy_saw > even_energy_square * 2.0,
+    assert!(
+        even_energy_saw > even_energy_square * 2.0,
         "Saw should have more even harmonic content than square. Saw: {}, Square: {}",
-        even_energy_saw, even_energy_square);
+        even_energy_saw,
+        even_energy_square
+    );
 
-    println!("Even harmonic energy - Square: {}, Saw: {}", even_energy_square, even_energy_saw);
+    println!(
+        "Even harmonic energy - Square: {}, Saw: {}",
+        even_energy_square, even_energy_saw
+    );
 }
 
 // ========== Frequency Range Tests ==========
@@ -228,7 +244,11 @@ fn test_square_high_frequency() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.15, "High frequency square should work, RMS: {}", rms);
+    assert!(
+        rms > 0.15,
+        "High frequency square should work, RMS: {}",
+        rms
+    );
     println!("High frequency square RMS: {}", rms);
 }
 
@@ -279,7 +299,11 @@ fn test_square_retro_game() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.03, "Square retro game sound should work, RMS: {}", rms);
+    assert!(
+        rms > 0.03,
+        "Square retro game sound should work, RMS: {}",
+        rms
+    );
     println!("Square retro game RMS: {}", rms);
 }
 
@@ -296,7 +320,11 @@ fn test_square_clarinet_simulation() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.02, "Square clarinet simulation should work, RMS: {}", rms);
+    assert!(
+        rms > 0.02,
+        "Square clarinet simulation should work, RMS: {}",
+        rms
+    );
     println!("Square clarinet RMS: {}", rms);
 }
 
@@ -330,9 +358,11 @@ fn test_square_pattern_frequency() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.1,
+    assert!(
+        rms > 0.1,
         "Square with pattern-modulated frequency should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern frequency RMS: {}", rms);
 }
@@ -348,9 +378,11 @@ fn test_square_pattern_amplitude() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.05,
+    assert!(
+        rms > 0.05,
         "Square with pattern-modulated amplitude should work, RMS: {}",
-        rms);
+        rms
+    );
 
     println!("Pattern amplitude RMS: {}", rms);
 }
@@ -403,7 +435,11 @@ fn test_square_resonant_filter() {
     let buffer = render_dsl(code, 1.0);
     let rms = calculate_rms(&buffer);
 
-    assert!(rms > 0.01, "Square with resonant filter should work, RMS: {}", rms);
+    assert!(
+        rms > 0.01,
+        "Square with resonant filter should work, RMS: {}",
+        rms
+    );
     println!("Square + resonant filter RMS: {}", rms);
 }
 
@@ -419,9 +455,11 @@ fn test_square_no_excessive_clipping() {
     let buffer = render_dsl(code, 1.0);
     let max_amplitude = buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
-    assert!(max_amplitude <= 0.8,
+    assert!(
+        max_amplitude <= 0.8,
         "Square should not excessively clip, max: {}",
-        max_amplitude);
+        max_amplitude
+    );
 
     println!("Square max amplitude: {}", max_amplitude);
 }
@@ -437,9 +475,11 @@ fn test_square_dc_offset() {
     let buffer = render_dsl(code, 1.0);
     let mean: f32 = buffer.iter().sum::<f32>() / buffer.len() as f32;
 
-    assert!(mean.abs() < 0.05,
+    assert!(
+        mean.abs() < 0.05,
         "Square should have no DC offset, mean: {}",
-        mean);
+        mean
+    );
 
     println!("Square DC offset: {}", mean);
 }
@@ -459,7 +499,7 @@ fn test_square_transitions() {
     // Count transitions (large sample-to-sample changes)
     let mut transitions = 0;
     for i in 1..buffer.len() {
-        let diff = (buffer[i] - buffer[i-1]).abs();
+        let diff = (buffer[i] - buffer[i - 1]).abs();
         if diff > 0.3 {
             transitions += 1;
         }
@@ -470,9 +510,11 @@ fn test_square_transitions() {
     let expected_transitions = 880;
     let tolerance_factor = 2.0;
 
-    assert!((transitions as f32) < (expected_transitions as f32 * tolerance_factor),
+    assert!(
+        (transitions as f32) < (expected_transitions as f32 * tolerance_factor),
         "Square should have expected number of transitions, found {}",
-        transitions);
+        transitions
+    );
 
     println!("Square transitions: {}", transitions);
 }
