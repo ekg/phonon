@@ -7,25 +7,50 @@
 //! - Pattern engine (phonon edit) compiles DSL → sends graph via Unix socket
 //! - Audio engine (this) receives graph → synthesizes audio → outputs to speakers
 //! - Separation ensures compilation NEVER blocks audio (< 30ms pattern swaps)
+//!
+//! Note: This binary is Unix-only (requires Unix domain sockets).
 
+#[cfg(not(unix))]
+fn main() {
+    eprintln!("phonon-audio is only supported on Unix platforms (Linux, macOS)");
+    std::process::exit(1);
+}
+
+#[cfg(unix)]
 use arc_swap::ArcSwap;
+#[cfg(unix)]
 use clap::Parser;
+#[cfg(unix)]
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+#[cfg(unix)]
 use hound::{WavSpec, WavWriter};
+#[cfg(unix)]
 use phonon::compositional_compiler::compile_program;
+#[cfg(unix)]
 use phonon::compositional_parser::parse_program;
+#[cfg(unix)]
 use phonon::ipc::{AudioServer, IpcMessage};
+#[cfg(unix)]
 use phonon::unified_graph::UnifiedSignalGraph;
+#[cfg(unix)]
 use ringbuf::traits::{Consumer, Observer, Producer, Split};
+#[cfg(unix)]
 use ringbuf::HeapRb;
+#[cfg(unix)]
 use std::cell::RefCell;
+#[cfg(unix)]
 use std::fs::File;
+#[cfg(unix)]
 use std::io::BufWriter;
+#[cfg(unix)]
 use std::sync::{Arc, Mutex};
+#[cfg(unix)]
 use std::thread;
+#[cfg(unix)]
 use std::time::Duration as StdDuration;
 
 /// Phonon Audio Engine - Real-time audio synthesis
+#[cfg(unix)]
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -38,10 +63,12 @@ struct Args {
 // Can be overridden with PHONON_BUFFER_SIZE environment variable
 // Smaller = lower latency but higher CPU usage
 // Typical values: 64 (1.5ms), 128 (3ms), 256 (6ms), 512 (12ms)
+#[cfg(unix)]
 const DEFAULT_BUFFER_SIZE: usize = 128; // 3ms at 44.1kHz
 
 /// Get audio buffer size from environment variable or use default
 /// Returns value clamped to reasonable bounds (32-2048 samples)
+#[cfg(unix)]
 fn get_buffer_size() -> usize {
     std::env::var("PHONON_BUFFER_SIZE")
         .ok()
@@ -65,6 +92,7 @@ fn get_buffer_size() -> usize {
 /// 1. Save current position as base_cycle_position
 /// 2. Save current time as base_time
 /// 3. Future positions = base_position + (now - base_time) * new_cps
+#[cfg(unix)]
 struct GlobalClock {
     /// Time at last tempo change (or session start)
     base_time: std::time::Instant,
@@ -76,6 +104,7 @@ struct GlobalClock {
     sample_rate: f32,
 }
 
+#[cfg(unix)]
 impl GlobalClock {
     fn new(sample_rate: f32) -> Self {
         Self {
@@ -113,6 +142,7 @@ impl GlobalClock {
     }
 
     /// Get current CPS
+    #[allow(dead_code)]
     fn get_cps(&self) -> f32 {
         self.cps
     }
@@ -129,10 +159,14 @@ impl GlobalClock {
 
 // Newtype wrapper to impl Send+Sync for RefCell<UnifiedSignalGraph>
 // SAFETY: Each GraphCell instance is only accessed by one thread at a time.
+#[cfg(unix)]
 struct GraphCell(RefCell<UnifiedSignalGraph>);
+#[cfg(unix)]
 unsafe impl Send for GraphCell {}
+#[cfg(unix)]
 unsafe impl Sync for GraphCell {}
 
+#[cfg(unix)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
@@ -498,7 +532,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(all(unix, test))]
 mod tests {
     use super::*;
     use std::sync::Mutex;

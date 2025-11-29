@@ -1,12 +1,25 @@
 //! Test for two-process architecture
 //!
 //! Spawns phonon-audio, connects to it, sends a test pattern, waits, then shuts down.
+//!
+//! Note: This binary is Unix-only (requires Unix domain sockets).
 
+#[cfg(not(unix))]
+fn main() {
+    eprintln!("test_two_process is only supported on Unix platforms (Linux, macOS)");
+    std::process::exit(1);
+}
+
+#[cfg(unix)]
 use phonon::ipc::{IpcMessage, PatternClient};
+#[cfg(unix)]
 use std::process::Command;
+#[cfg(unix)]
 use std::thread;
+#[cfg(unix)]
 use std::time::Duration;
 
+#[cfg(unix)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!("🧪 Testing two-process architecture");
 

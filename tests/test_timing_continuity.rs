@@ -1,9 +1,14 @@
-/// Test timing continuity during rapid code reloads (Ctrl-X spam simulation)
-///
-/// This test verifies that pressing Ctrl-X multiple times in phonon edit
-/// does NOT cause beat drops, timing jumps, or cycle resets.
-///
-/// TIME IS IMMUTABLE - the cycle position must never jump.
+//! Test timing continuity during rapid code reloads (Ctrl-X spam simulation)
+//!
+//! This test verifies that pressing Ctrl-X multiple times in phonon edit
+//! does NOT cause beat drops, timing jumps, or cycle resets.
+//!
+//! TIME IS IMMUTABLE - the cycle position must never jump.
+//!
+//! Note: This test is Unix-only (requires Unix domain sockets).
+
+#![cfg(unix)]
+
 use phonon::ipc::{IpcMessage, PatternClient};
 use std::process::{Child, Command};
 use std::thread;

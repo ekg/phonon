@@ -299,6 +299,7 @@ pub mod glicol_dsp_v2;
 pub mod glicol_parser;
 pub mod glicol_parser_v2;
 pub mod glicol_pattern_bridge;
+#[cfg(unix)]
 pub mod ipc;
 pub mod live;
 pub mod live_engine;
