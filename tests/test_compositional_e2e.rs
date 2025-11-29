@@ -234,7 +234,6 @@ out $ s "bd sn" $ fast 2 $ rev
 // ========== Complex Integration Tests ==========
 
 #[test]
-#[ignore = "requires sample files and bus references as function params not yet supported"]
 fn test_e2e_full_track() {
     let code = r#"
 -- Full track with all features
@@ -260,7 +259,6 @@ out $ (~filtered_drums * 0.5 + ~bass * 0.3) # reverb 0.5 0.4 0.2
 }
 
 #[test]
-#[ignore = "bus references as function params not yet supported - uses ~freqs and ~cutoffs directly"]
 fn test_e2e_pattern_controlled_synthesis() {
     let code = r#"
 tempo: 0.5
@@ -332,7 +330,6 @@ out $ (~lpf_out + ~hpf_out + ~bpf_out) * 0.15
 }
 
 #[test]
-#[ignore = "bus references as function params not yet supported - uses ~cutoff_mod directly"]
 fn test_e2e_complex_modulation() {
     let code = r#"
 tempo: 0.5

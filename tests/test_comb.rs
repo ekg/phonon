@@ -197,7 +197,6 @@ fn test_comb_negative_feedback() {
 // ========== Pattern Modulation Tests ==========
 
 #[test]
-#[ignore = "bus references as function params not yet supported - use parenthesized expressions"]
 fn test_comb_pattern_delay() {
     let code = r#"
         tempo: 0.5
@@ -320,7 +319,6 @@ fn test_comb_for_reverb() {
 }
 
 #[test]
-#[ignore = "bus references as function params not yet supported - use parenthesized expressions"]
 fn test_comb_flanging() {
     // Slow LFO modulation of delay time creates flanging
     let code = r#"
