@@ -27,8 +27,8 @@ fn test_formant_produces_sound() {
     // Formant filter should produce sound from a source
     let code = r#"
 tempo: 1.0
-~source: saw 110
-out: formant ~source 730 1090 2440 80 90 120
+~source $ saw 110
+out $ formant ~source 730 1090 2440 80 90 120
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -50,13 +50,13 @@ fn test_formant_filters_source() {
     // Formant should filter the input, not generate sound on its own
     let code_no_source = r#"
 tempo: 1.0
-out: formant 0 730 1090 2440 80 90 120
+out $ formant 0 730 1090 2440 80 90 120
 "#;
 
     let code_with_source = r#"
 tempo: 1.0
-~source: saw 110
-out: formant ~source 730 1090 2440 80 90 120
+~source $ saw 110
+out $ formant ~source 730 1090 2440 80 90 120
 "#;
 
     let (_, statements_no) = parse_program(code_no_source).expect("Failed to parse");
@@ -80,15 +80,15 @@ fn test_formant_different_vowels() {
     // /a/ vowel (father)
     let code_a = r#"
 tempo: 1.0
-~source: saw 110
-out: formant ~source 730 1090 2440 80 90 120
+~source $ saw 110
+out $ formant ~source 730 1090 2440 80 90 120
 "#;
 
     // /i/ vowel (beet)
     let code_i = r#"
 tempo: 1.0
-~source: saw 110
-out: formant ~source 270 2290 3010 60 90 150
+~source $ saw 110
+out $ formant ~source 270 2290 3010 60 90 150
 "#;
 
     let (_, statements_a) = parse_program(code_a).expect("Failed to parse");
@@ -119,14 +119,14 @@ fn test_formant_bandwidth_control() {
     // Narrow bandwidths should be more resonant than wide bandwidths
     let code_narrow = r#"
 tempo: 1.0
-~source: saw 110
-out: formant ~source 730 1090 2440 20 30 40
+~source $ saw 110
+out $ formant ~source 730 1090 2440 20 30 40
 "#;
 
     let code_wide = r#"
 tempo: 1.0
-~source: saw 110
-out: formant ~source 730 1090 2440 200 300 400
+~source $ saw 110
+out $ formant ~source 730 1090 2440 200 300 400
 "#;
 
     let (_, statements_narrow) = parse_program(code_narrow).expect("Failed to parse");
@@ -158,8 +158,8 @@ fn test_formant_pattern_frequency() {
     // Pattern-modulated formant frequencies (vowel morphing)
     let code = r#"
 tempo: 0.5
-~source: saw 110
-out: formant ~source "730 270" 1090 2440 80 90 120
+~source $ saw 110
+out $ formant ~source "730 270" 1090 2440 80 90 120
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -183,8 +183,8 @@ fn test_formant_pattern_bandwidth() {
     // Pattern-modulated bandwidth (resonance modulation)
     let code = r#"
 tempo: 0.5
-~source: saw 110
-out: formant ~source 730 1090 2440 "30 200" 90 120
+~source $ saw 110
+out $ formant ~source 730 1090 2440 "30 200" 90 120
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -209,11 +209,11 @@ fn test_formant_vowel_morphing() {
     // /a/ to /i/ transition
     let code = r#"
 tempo: 0.5
-~source: saw 110
-~f1: "730 270"      -- /a/ to /i/ F1
-~f2: "1090 2290"    -- /a/ to /i/ F2
-~f3: "2440 3010"    -- /a/ to /i/ F3
-out: formant ~source ~f1 ~f2 ~f3 80 90 120
+~source $ saw 110
+~f1 $ "730 270"      -- /a/ to /i/ F1
+~f2 $ "1090 2290"    -- /a/ to /i/ F2
+~f3 $ "2440 3010"    -- /a/ to /i/ F3
+out $ formant ~source ~f1 ~f2 ~f3 80 90 120
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -239,8 +239,8 @@ fn test_formant_pulse_source() {
     // Formant with pulse source (more realistic voice)
     let code = r#"
 tempo: 1.0
-~source: square 110
-out: formant ~source 730 1090 2440 80 90 120
+~source $ square 110
+out $ formant ~source 730 1090 2440 80 90 120
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -263,8 +263,8 @@ fn test_formant_noise_source() {
     // Formant with noise source (whispered voice)
     let code = r#"
 tempo: 1.0
-~source: noise
-out: formant ~source 730 1090 2440 80 90 120 * 0.3
+~source $ noise
+out $ formant ~source 730 1090 2440 80 90 120 * 0.3
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -288,9 +288,9 @@ fn test_formant_singing_melody() {
     // Singing melody with formant synthesis
     let code = r#"
 tempo: 0.5
-~melody: "110 165 220 165"
-~source: saw ~melody
-out: formant ~source 530 1840 2480 80 90 120
+~melody $ "110 165 220 165"
+~source $ saw ~melody
+out $ formant ~source 530 1840 2480 80 90 120
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -314,11 +314,11 @@ fn test_formant_choir() {
     // Choir effect with multiple formant voices
     let code = r#"
 tempo: 1.0
-~source: saw 110
-~voice1: formant ~source 730 1090 2440 80 90 120
-~voice2: formant ~source 530 1840 2480 80 90 120
-~voice3: formant ~source 270 2290 3010 60 90 150
-out: (~voice1 + ~voice2 + ~voice3) * 0.3
+~source $ saw 110
+~voice1 $ formant ~source 730 1090 2440 80 90 120
+~voice2 $ formant ~source 530 1840 2480 80 90 120
+~voice3 $ formant ~source 270 2290 3010 60 90 150
+out $ (~voice1 + ~voice2 + ~voice3) * 0.3
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");

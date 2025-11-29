@@ -13,7 +13,7 @@ tempo: 0.5
 
 -- Play sample at different pitches using note modifier
 -- 0 = original pitch, 5 = perfect fourth up, 7 = perfect fifth up, 12 = octave up
-out: s "bd" # note "0 5 7 12"
+out $ s "bd" # note "0 5 7 12"
 "#;
 
     std::fs::write("/tmp/test_note_modifier.phonon", phonon_code).unwrap();
@@ -79,7 +79,7 @@ fn test_note_modifier_scale() {
 tempo: 0.5
 
 -- Play minor scale using note modifier
-out: s "bd*8" # note "0 2 3 5 7 8 10 12"
+out $ s "bd*8" # note "0 2 3 5 7 8 10 12"
 "#;
 
     std::fs::write("/tmp/test_note_scale.phonon", phonon_code).unwrap();
@@ -126,7 +126,7 @@ fn test_note_modifier_negative() {
 tempo: 0.5
 
 -- Pitch down by octave and fifth
-out: s "bd*4" # note "0 -5 -7 -12"
+out $ s "bd*4" # note "0 -5 -7 -12"
 "#;
 
     std::fs::write("/tmp/test_note_negative.phonon", phonon_code).unwrap();
@@ -173,7 +173,7 @@ fn test_note_modifier_constant() {
 tempo: 0.5
 
 -- Play all samples one octave up
-out: s "bd*4" # note 12
+out $ s "bd*4" # note 12
 "#;
 
     std::fs::write("/tmp/test_note_constant.phonon", phonon_code).unwrap();
@@ -220,7 +220,7 @@ fn test_n_and_note_together() {
 tempo: 0.5
 
 -- Select different samples with different pitches
-out: s "bd*4" # n "0 1 0 1" # note "0 5 7 12"
+out $ s "bd*4" # n "0 1 0 1" # note "0 5 7 12"
 "#;
 
     std::fs::write("/tmp/test_n_note_combo.phonon", phonon_code).unwrap();

@@ -340,7 +340,7 @@ fn test_ad_continuity_across_buffers() {
 
     // Use proper render() flow to advance time between buffers
     let sample_rate = 44100.0;
-    let code = "out: ad 0.01 0.05"; // AD envelope with 10ms attack, 50ms decay
+    let code = "out $ ad 0.01 0.05"; // AD envelope with 10ms attack, 50ms decay
 
     let (_, statements) = parse_program(code).expect("Parse failed");
     let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");

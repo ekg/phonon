@@ -33,7 +33,7 @@ fn calculate_peak(buffer: &[f32]) -> f32 {
 #[test]
 fn test_reverb_stereo_level3_basic() {
     // Test basic reverb application
-    let code = "out: saw 220 # reverb_stereo 0.5 1.0";
+    let code = "out $ saw 220 # reverb_stereo 0.5 1.0";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -52,7 +52,7 @@ fn test_reverb_stereo_level3_wet_sweep() {
     let wet_values = vec![0.0, 0.25, 0.5, 0.75, 1.0];
 
     for wet in &wet_values {
-        let code = format!("out: saw 220 # reverb_stereo {} 1.0", wet);
+        let code = format!("out $ saw 220 # reverb_stereo {} 1.0", wet);
         let audio = render_dsl(&code, 1.0);
         let rms = calculate_rms(&audio);
 
@@ -67,7 +67,7 @@ fn test_reverb_stereo_level3_time_sweep() {
     let times = vec![0.1, 0.5, 1.0, 2.0, 5.0];
 
     for time in &times {
-        let code = format!("out: saw 220 # reverb_stereo 0.5 {}", time);
+        let code = format!("out $ saw 220 # reverb_stereo 0.5 {}", time);
         let audio = render_dsl(&code, 2.0);
         let rms = calculate_rms(&audio);
 
@@ -81,8 +81,8 @@ fn test_reverb_stereo_level3_pattern_modulation() {
     // Test Phonon's killer feature: pattern modulation at audio rate!
     let code = "
         tempo: 0.5
-        ~wet: sine 0.5 * 0.3 + 0.3
-        out: saw 110 # reverb_stereo ~wet 1.5
+        ~wet $ sine 0.5 * 0.3 + 0.3
+        out $ saw 110 # reverb_stereo ~wet 1.5
     ";
     let audio = render_dsl(code, 2.0);
 
@@ -97,8 +97,8 @@ fn test_reverb_stereo_level3_pattern_modulation() {
 #[test]
 fn test_reverb_stereo_level3_vs_dry() {
     // Compare reverb to dry signal
-    let code_reverb = "out: saw 220 # reverb_stereo 0.7 2.0";
-    let code_dry = "out: saw 220";
+    let code_reverb = "out $ saw 220 # reverb_stereo 0.7 2.0";
+    let code_dry = "out $ saw 220";
 
     let audio_reverb = render_dsl(code_reverb, 2.0);
     let audio_dry = render_dsl(code_dry, 2.0);
@@ -118,7 +118,7 @@ fn test_reverb_stereo_level3_tail_length() {
     // Test that long reverb time produces longer tail
     // Send brief signal then measure decay
 
-    let code = "out: saw 220 # reverb_stereo 0.8 3.0";
+    let code = "out $ saw 220 # reverb_stereo 0.8 3.0";
     let audio = render_dsl(code, 4.0); // 4 seconds to hear full tail
 
     let rms = calculate_rms(&audio);
@@ -131,7 +131,7 @@ fn test_reverb_stereo_level3_tail_length() {
 #[test]
 fn test_reverb_stereo_level3_on_drums() {
     // Test reverb on percussive sample
-    let code = "out: s \"bd sn\" # reverb_stereo 0.6 1.5";
+    let code = "out $ s \"bd sn\" # reverb_stereo 0.6 1.5";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -144,7 +144,7 @@ fn test_reverb_stereo_level3_on_drums() {
 #[test]
 fn test_reverb_stereo_level3_zero_wet() {
     // Test that wet=0 passes through mostly dry
-    let code = "out: saw 220 # reverb_stereo 0.0 1.0";
+    let code = "out $ saw 220 # reverb_stereo 0.0 1.0";
     let audio = render_dsl(code, 1.0);
 
     let rms = calculate_rms(&audio);
@@ -158,7 +158,7 @@ fn test_reverb_stereo_level3_zero_wet() {
 #[test]
 fn test_reverb_stereo_level3_full_wet() {
     // Test that wet=1 produces reverb
-    let code = "out: saw 220 # reverb_stereo 1.0 2.0";
+    let code = "out $ saw 220 # reverb_stereo 1.0 2.0";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -172,7 +172,7 @@ fn test_reverb_stereo_level3_full_wet() {
 #[test]
 fn test_reverb_stereo_level3_short_time() {
     // Test very short reverb time
-    let code = "out: saw 220 # reverb_stereo 0.5 0.1";
+    let code = "out $ saw 220 # reverb_stereo 0.5 0.1";
     let audio = render_dsl(code, 1.0);
 
     let rms = calculate_rms(&audio);

@@ -23,9 +23,9 @@ fn test_vocoder_produces_sound() {
     // Simple test: Vocoder produces non-zero output
     let code = r#"
 tempo: 1.0
-~modulator: saw 110
-~carrier: saw 220
-out: vocoder ~modulator ~carrier 8
+~modulator $ saw 110
+~carrier $ saw 220
+out $ vocoder ~modulator ~carrier 8
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -47,9 +47,9 @@ fn test_vocoder_silent_modulator() {
     // Silent modulator should produce silent output
     let code = r#"
 tempo: 1.0
-~modulator: 0
-~carrier: saw 220
-out: vocoder ~modulator ~carrier 8
+~modulator $ 0
+~carrier $ saw 220
+out $ vocoder ~modulator ~carrier 8
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -71,9 +71,9 @@ fn test_vocoder_silent_carrier() {
     // Silent carrier should produce silent output (nothing to modulate)
     let code = r#"
 tempo: 1.0
-~modulator: saw 110
-~carrier: 0
-out: vocoder ~modulator ~carrier 8
+~modulator $ saw 110
+~carrier $ 0
+out $ vocoder ~modulator ~carrier 8
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -99,9 +99,9 @@ fn test_vocoder_different_band_counts() {
         let code = format!(
             r#"
 tempo: 1.0
-~modulator: saw 110
-~carrier: saw 220
-out: vocoder ~modulator ~carrier {}
+~modulator $ saw 110
+~carrier $ saw 220
+out $ vocoder ~modulator ~carrier {}
 "#,
             bands
         );
@@ -129,14 +129,14 @@ fn test_vocoder_modulates_carrier() {
     // Vocoded output should differ from unprocessed carrier
     let code_vocoded = r#"
 tempo: 1.0
-~modulator: saw 110
-~carrier: saw 220
-out: vocoder ~modulator ~carrier 8
+~modulator $ saw 110
+~carrier $ saw 220
+out $ vocoder ~modulator ~carrier 8
 "#;
 
     let code_carrier_only = r#"
 tempo: 1.0
-out: saw 220
+out $ saw 220
 "#;
 
     let (_, statements_vocoded) = parse_program(code_vocoded).expect("Failed to parse");
@@ -170,9 +170,9 @@ fn test_vocoder_pattern_modulator() {
     // Pattern-modulated modulator
     let code = r#"
 tempo: 0.5
-~modulator: saw "110 165 220 165"
-~carrier: saw 440
-out: vocoder ~modulator ~carrier 8
+~modulator $ saw "110 165 220 165"
+~carrier $ saw 440
+out $ vocoder ~modulator ~carrier 8
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -196,9 +196,9 @@ fn test_vocoder_pattern_carrier() {
     // Pattern-modulated carrier
     let code = r#"
 tempo: 0.5
-~modulator: saw 110
-~carrier: saw "220 330 440 330"
-out: vocoder ~modulator ~carrier 8
+~modulator $ saw 110
+~carrier $ saw "220 330 440 330"
+out $ vocoder ~modulator ~carrier 8
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -224,12 +224,12 @@ fn test_vocoder_chord() {
     // Vocoder with chord
     let code = r#"
 tempo: 1.0
-~modulator: saw 110
-~carrier1: saw 220
-~carrier2: saw 275
-~carrier3: saw 330
-~carrier: (~carrier1 + ~carrier2 + ~carrier3) * 0.33
-out: vocoder ~modulator ~carrier 8
+~modulator $ saw 110
+~carrier1 $ saw 220
+~carrier2 $ saw 275
+~carrier3 $ saw 330
+~carrier $ (~carrier1 + ~carrier2 + ~carrier3) * 0.33
+out $ vocoder ~modulator ~carrier 8
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -253,9 +253,9 @@ fn test_vocoder_noise_carrier() {
     // Use 8 bands instead of 16 to avoid excessive computation time
     let code = r#"
 tempo: 1.0
-~modulator: saw 110
-~carrier: noise
-out: vocoder ~modulator ~carrier 8
+~modulator $ saw 110
+~carrier $ noise
+out $ vocoder ~modulator ~carrier 8
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");

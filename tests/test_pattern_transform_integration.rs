@@ -12,7 +12,7 @@ use audio_test_utils::calculate_rms;
 fn test_fast_transform_produces_audio() {
     // Test: $ fast 2 should double the pattern speed
     let input = r#"tempo: 0.5
-out: s "bd" $ fast 2"#;
+out $ s "bd" $ fast 2"#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse fast transform");
     let compiler = DslCompiler::new(44100.0);
@@ -39,7 +39,7 @@ fn test_slow_transform_syntax() {
     // Test: $ slow 2 should half the pattern speed
     let input = r#"
         tempo: 0.5
-        out: s "bd sn" $ slow 2
+        out $ s "bd sn" $ slow 2
     "#;
 
     let result = parse_dsl(input);
@@ -75,7 +75,7 @@ fn test_rev_transform_debug() {
     // CURRENT STATUS: Renders successfully but produces silence - needs investigation
     let input = r#"
         tempo: 1.0
-        out: s "bd sn" $ rev
+        out $ s "bd sn" $ rev
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse rev transform");
@@ -105,7 +105,7 @@ fn test_every_transform_produces_audio() {
     // Test: $ every 4 (fast 2) should apply fast 2 every 4th cycle
     let input = r#"
         tempo: 0.5
-        out: s "bd" $ every 4 (fast 2)
+        out $ s "bd" $ every 4 (fast 2)
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse every transform");
@@ -135,7 +135,7 @@ fn test_chained_transforms() {
     // NOTE: This is a known limitation - chained transforms (a $ f $ g) don't work yet
     let input = r#"
         tempo: 0.5
-        out: s "bd sn hh cp" $ fast 2 $ every 2 (fast 2)
+        out $ s "bd sn hh cp" $ fast 2 $ every 2 (fast 2)
     "#;
 
     let result = parse_dsl(input);
@@ -174,7 +174,7 @@ fn test_bus_reference_with_transform() {
     let input = r#"
         tempo: 1.0
         ~drums:  s "bd sn"
-        out: ~drums $ fast 2
+        out $ ~drums $ fast 2
     "#;
 
     let result = parse_dsl(input);
@@ -209,12 +209,12 @@ fn test_fast_actually_doubles_speed() {
     // Test with FFT/onset detection: Verify fast 2 actually doubles event count
     let input_normal = r#"
         tempo: 1.0
-        out: s "bd"
+        out $ s "bd"
     "#;
 
     let input_fast = r#"
         tempo: 1.0
-        out: s "bd" $ fast 2
+        out $ s "bd" $ fast 2
     "#;
 
     let (_, statements_normal) = parse_dsl(input_normal).unwrap();

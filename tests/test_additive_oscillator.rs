@@ -31,7 +31,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 fn test_additive_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: additive 440 8
+        out $ additive 440 8
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -43,7 +43,7 @@ fn test_additive_compiles() {
 fn test_additive_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: additive 440 8 * 0.3
+        out $ additive 440 8 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -60,7 +60,7 @@ fn test_additive_single_harmonic() {
     // Single harmonic should be like a sine wave
     let code = r#"
         tempo: 0.5
-        o1: additive 440 1 * 0.3
+        out $ additive 440 1 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -75,12 +75,12 @@ fn test_additive_multiple_harmonics() {
     // More harmonics should create richer sound
     let code_few = r#"
         tempo: 0.5
-        o1: additive 220 2 * 0.3
+        out $ additive 220 2 * 0.3
     "#;
 
     let code_many = r#"
         tempo: 0.5
-        o1: additive 220 16 * 0.3
+        out $ additive 220 16 * 0.3
     "#;
 
     let buffer_few = render_dsl(code_few, 1.0);
@@ -104,8 +104,8 @@ fn test_additive_sawtooth_approx() {
     // Sawtooth = sum of harmonics with 1/n falloff
     let code = r#"
         tempo: 0.5
-        ~saw: additive 110 16
-        o1: ~saw * 0.3
+        ~saw $ additive 110 16
+        out $ ~saw * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -120,8 +120,8 @@ fn test_additive_square_approx() {
     // Square = odd harmonics only with 1/n falloff
     let code = r#"
         tempo: 0.5
-        ~square: additive 110 16
-        o1: ~square * 0.3
+        ~square $ additive 110 16
+        out $ ~square * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -137,7 +137,7 @@ fn test_additive_square_approx() {
 fn test_additive_low_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: additive 55 8 * 0.3
+        out $ additive 55 8 * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);  // Longer duration for low freq
@@ -151,7 +151,7 @@ fn test_additive_low_frequency() {
 fn test_additive_high_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: additive 2000 4 * 0.3
+        out $ additive 2000 4 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -165,10 +165,10 @@ fn test_additive_high_frequency() {
 
 #[test]
 fn test_additive_pattern_frequency() {
+    // Pattern-modulated frequency using inline expression
     let code = r#"
         tempo: 0.5
-        ~freq: sine 2 * 50 + 440
-        o1: additive ~freq 8 * 0.3
+        out $ additive (sine 2 * 50 + 440) 8 * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -187,7 +187,7 @@ fn test_additive_pattern_harmonics() {
     // This test demonstrates using the existing API
     let code = r#"
         tempo: 0.5
-        o1: additive 220 "1 0.5 0.33 0.25 0.2 0.17 0.14 0.125" * 0.3
+        out $ additive 220 "1 0.5 0.33 0.25 0.2 0.17 0.14 0.125" * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -207,9 +207,9 @@ fn test_additive_organ_drawbars() {
     // Hammond organ style: specific harmonic weights
     let code = r#"
         tempo: 0.5
-        ~organ: additive 220 8
-        ~env: ad 0.01 0.5
-        o1: ~organ * ~env * 0.3
+        ~organ $ additive 220 8
+        ~env $ ad 0.01 0.5
+        out $ ~organ * ~env * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -225,9 +225,9 @@ fn test_additive_evolving_pad() {
     // NOTE: Current implementation uses fixed amplitudes
     let code = r#"
         tempo: 0.5
-        ~pad: additive 110 "1 0.8 0.6 0.5 0.4 0.3 0.25 0.2 0.15 0.12 0.1 0.08"
-        ~env: ad 0.1 2.0
-        o1: ~pad * ~env * 0.3
+        ~pad $ additive 110 "1 0.8 0.6 0.5 0.4 0.3 0.25 0.2 0.15 0.12 0.1 0.08"
+        ~env $ ad 0.1 2.0
+        out $ ~pad * ~env * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.5);
@@ -242,10 +242,10 @@ fn test_additive_chord() {
     // Multiple additive oscillators for a chord
     let code = r#"
         tempo: 0.5
-        ~root: additive 220 8 * 0.2
-        ~third: additive 277 8 * 0.2
-        ~fifth: additive 330 8 * 0.2
-        o1: ~root + ~third + ~fifth
+        ~root $ additive 220 8 * 0.2
+        ~third $ additive 277 8 * 0.2
+        ~fifth $ additive 330 8 * 0.2
+        out $ ~root + ~third + ~fifth
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -262,7 +262,7 @@ fn test_additive_zero_harmonics_clamped() {
     // Empty string should fail, but a single value should work
     let code = r#"
         tempo: 0.5
-        o1: additive 440 1.0 * 0.3
+        out $ additive 440 1.0 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -278,7 +278,7 @@ fn test_additive_excessive_harmonics_clamped() {
     // More than 32 harmonics should be clamped
     let code = r#"
         tempo: 0.5
-        o1: additive 220 100 * 0.2
+        out $ additive 220 100 * 0.2
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -294,7 +294,7 @@ fn test_additive_nyquist_protection() {
     // High frequency with many harmonics - should skip harmonics above Nyquist
     let code = r#"
         tempo: 0.5
-        o1: additive 10000 32 * 0.2
+        out $ additive 10000 32 * 0.2
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -316,7 +316,7 @@ fn test_additive_nyquist_protection() {
 fn test_additive_no_nan() {
     let code = r#"
         tempo: 0.5
-        o1: additive 440 16 * 0.3
+        out $ additive 440 16 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -331,7 +331,7 @@ fn test_additive_no_nan() {
 fn test_additive_reasonable_amplitude() {
     let code = r#"
         tempo: 0.5
-        o1: additive 220 16 * 0.5
+        out $ additive 220 16 * 0.5
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -348,7 +348,7 @@ fn test_additive_long_duration() {
     // Test that additive synthesis works over longer durations
     let code = r#"
         tempo: 0.5
-        o1: additive 110 8 * 0.3
+        out $ additive 110 8 * 0.3
     "#;
 
     let buffer = render_dsl(code, 5.0);  // 5 seconds

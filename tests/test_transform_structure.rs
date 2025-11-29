@@ -368,12 +368,12 @@ fn test_scramble_level1_different_per_cycle() {
 fn test_zoom_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let zoom_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ zoom 0.0 0.5
+out $ s "bd sn hh cp" $ zoom 0.0 0.5
 "#;
 
     let cycles = 8;
@@ -403,12 +403,12 @@ out: s "bd sn hh cp" $ zoom 0.0 0.5
 fn test_compress_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let compress_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ compress 0.0 0.5
+out $ s "bd sn hh cp" $ compress 0.0 0.5
 "#;
 
     let cycles = 8;
@@ -433,12 +433,12 @@ out: s "bd sn hh cp" $ compress 0.0 0.5
 fn test_spin_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let spin_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ spin 2
+out $ s "bd sn hh cp" $ spin 2
 "#;
 
     let cycles = 8;
@@ -473,12 +473,12 @@ out: s "bd sn hh cp" $ spin 2
 fn test_scramble_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let scramble_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ scramble 1
+out $ s "bd sn hh cp" $ scramble 1
 "#;
 
     let cycles = 8;
@@ -514,7 +514,7 @@ out: s "bd sn hh cp" $ scramble 1
 fn test_zoom_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ zoom 0.0 0.5
+out $ s "bd sn hh cp" $ zoom 0.0 0.5
 "#;
 
     let audio = render_dsl(code, 8);
@@ -549,7 +549,7 @@ out: s "bd sn hh cp" $ zoom 0.0 0.5
 fn test_compress_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ compress 0.0 0.5
+out $ s "bd sn hh cp" $ compress 0.0 0.5
 "#;
 
     let audio = render_dsl(code, 8);
@@ -584,7 +584,7 @@ out: s "bd sn hh cp" $ compress 0.0 0.5
 fn test_spin_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ spin 4
+out $ s "bd sn hh cp" $ spin 4
 "#;
 
     let audio = render_dsl(code, 8);
@@ -619,7 +619,7 @@ out: s "bd sn hh cp" $ spin 4
 fn test_scramble_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ scramble 1
+out $ s "bd sn hh cp" $ scramble 1
 "#;
 
     let audio = render_dsl(code, 8);
@@ -654,12 +654,12 @@ out: s "bd sn hh cp" $ scramble 1
 fn test_scramble_level3_energy_preservation() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let scramble_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ scramble 1
+out $ s "bd sn hh cp" $ scramble 1
 "#;
 
     let base_audio = render_dsl(base_code, 8);

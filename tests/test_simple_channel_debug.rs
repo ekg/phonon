@@ -6,7 +6,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 fn test_single_sample_trigger() {
     let code = r#"
         tempo: 0.5
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let (_, statements) = parse_dsl(code).unwrap();
@@ -27,7 +27,7 @@ fn test_single_sample_trigger() {
 fn test_three_sample_triggers() {
     let code = r#"
         tempo: 0.5
-        o1: s "bd"
+        out $ s "bd"
         o2: s "bd"
         o3: s "bd"
     "#;

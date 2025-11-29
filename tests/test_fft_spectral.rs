@@ -36,9 +36,9 @@ fn test_spectral_freeze_produces_sound() {
     // freeze source trigger
     let code = r#"
 tempo: 1.0
-~source: sine 440
-~trigger: "x ~ ~ ~"
-out: freeze ~source ~trigger
+~source $ sine 440
+~trigger $ "x ~ ~ ~"
+out $ freeze ~source ~trigger
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -60,9 +60,9 @@ fn test_spectral_freeze_without_trigger() {
     // Without trigger, freeze should pass through or be silent
     let code = r#"
 tempo: 1.0
-~source: sine 440
-~trigger: "~ ~ ~ ~"
-out: freeze ~source ~trigger
+~source $ sine 440
+~trigger $ "~ ~ ~ ~"
+out $ freeze ~source ~trigger
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -83,9 +83,9 @@ fn test_spectral_freeze_complex_source() {
     // Freeze should work with complex sounds (chords, noise, etc.)
     let code = r#"
 tempo: 0.5
-~chord: saw "110 220 330"
-~trigger: "x ~ x ~"
-out: freeze ~chord ~trigger * 0.3
+~chord $ saw "110 220 330"
+~trigger $ "x ~ x ~"
+out $ freeze ~chord ~trigger * 0.3
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -110,9 +110,9 @@ fn test_spectral_freeze_pattern_trigger() {
     // Pattern-modulated freeze triggers
     let code = r#"
 tempo: 4.0
-~source: sine "220 330 440 550"
-~trigger: "x x ~ x"
-out: freeze ~source ~trigger * 0.3
+~source $ sine "220 330 440 550"
+~trigger $ "x x ~ x"
+out $ freeze ~source ~trigger * 0.3
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");

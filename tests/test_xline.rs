@@ -9,8 +9,8 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_xline_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~envelope: xline 1.0 0.01 1.0
-out: ~envelope
+~envelope $ xline 1.0 0.01 1.0
+out $ ~envelope
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -34,7 +34,7 @@ out: ~envelope
 fn test_xline_exponential_curve() {
     let dsl = r#"
 tempo: 1.0
-out: xline 1.0 0.001 1.0
+out $ xline 1.0 0.001 1.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -84,7 +84,7 @@ out: xline 1.0 0.001 1.0
 fn test_xline_duration() {
     let dsl = r#"
 tempo: 1.0
-out: xline 1.0 0.1 0.5
+out $ xline 1.0 0.1 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -122,7 +122,7 @@ fn test_xline_bidirectional() {
     // Descending (1.0 -> 0.01)
     let dsl_desc = r#"
 tempo: 1.0
-out: xline 1.0 0.01 1.0
+out $ xline 1.0 0.01 1.0
 "#;
 
     let (_, statements) = parse_program(dsl_desc).unwrap();
@@ -132,7 +132,7 @@ out: xline 1.0 0.01 1.0
     // Ascending (0.01 -> 1.0)
     let dsl_asc = r#"
 tempo: 1.0
-out: xline 0.01 1.0 1.0
+out $ xline 0.01 1.0 1.0
 "#;
 
     let (_, statements) = parse_program(dsl_asc).unwrap();
@@ -158,7 +158,7 @@ out: xline 0.01 1.0 1.0
 fn test_xline_range() {
     let dsl = r#"
 tempo: 1.0
-out: xline 100.0 10.0 1.0
+out $ xline 100.0 10.0 1.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -190,9 +190,9 @@ out: xline 100.0 10.0 1.0
 fn test_xline_pitch_glide() {
     let dsl = r#"
 tempo: 0.5
-~pitch: xline 880.0 110.0 1.0
-~tone: sine ~pitch
-out: ~tone * 0.3
+~pitch $ xline 880.0 110.0 1.0
+~tone $ sine ~pitch
+out $ ~tone * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -216,9 +216,9 @@ out: ~tone * 0.3
 fn test_xline_fade_out() {
     let dsl = r#"
 tempo: 0.5
-~amplitude: xline 1.0 0.001 1.0
-~tone: sine 440
-out: ~tone * ~amplitude
+~amplitude $ xline 1.0 0.001 1.0
+~tone $ sine 440
+out $ ~tone * ~amplitude
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -257,10 +257,10 @@ out: ~tone * ~amplitude
 fn test_xline_pattern_params() {
     let dsl = r#"
 tempo: 1.0
-~start_vals: "1.0 0.5"
-~end_vals: "0.1 0.01"
-~envelope: xline ~start_vals ~end_vals 0.5
-out: ~envelope
+~start_vals $ "1.0 0.5"
+~end_vals $ "0.1 0.01"
+~envelope $ xline ~start_vals ~end_vals 0.5
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -279,10 +279,10 @@ out: ~envelope
 fn test_xline_filter_sweep() {
     let dsl = r#"
 tempo: 0.5
-~cutoff: xline 8000.0 200.0 1.0
-~source: saw 110
-~filtered: ~source # lpf ~cutoff 0.8
-out: ~filtered * 0.3
+~cutoff $ xline 8000.0 200.0 1.0
+~source $ saw 110
+~filtered $ ~source # lpf ~cutoff 0.8
+out $ ~filtered * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

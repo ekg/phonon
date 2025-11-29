@@ -7,7 +7,7 @@ fn debug_degrade_dsl_compilation() {
     // Test what pattern actually ends up in the graph when compiled from DSL
     let input_degraded = r#"
         cps: 2.0
-        out: s("bd bd bd bd" $ degrade) * 0.5
+        out $ s("bd bd bd bd" $ degrade) * 0.5
     "#;
 
     // Parse the DSL

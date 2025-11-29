@@ -9,9 +9,9 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_notch_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440
-~filtered: ~input # notch 440 1.0
-out: ~filtered
+~input $ sine 440
+~filtered $ ~input # notch 440 1.0
+out $ ~filtered
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -35,9 +35,9 @@ out: ~filtered
 fn test_notch_attenuates_center() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440
-~notched: ~input # notch 440 2.0
-out: ~notched
+~input $ sine 440
+~notched $ ~input # notch 440 2.0
+out $ ~notched
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -64,9 +64,9 @@ out: ~notched
 fn test_notch_passes_other_frequencies() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 880
-~notched: ~input # notch 440 2.0
-out: ~notched
+~input $ sine 880
+~notched $ ~input # notch 440 2.0
+out $ ~notched
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -94,9 +94,9 @@ fn test_notch_q_factor() {
     // Narrow notch (high Q)
     let dsl_narrow = r#"
 tempo: 1.0
-~input: sine 450
-~notched: ~input # notch 440 10.0
-out: ~notched
+~input $ sine 450
+~notched $ ~input # notch 440 10.0
+out $ ~notched
 "#;
 
     let (_, statements) = parse_program(dsl_narrow).unwrap();
@@ -108,9 +108,9 @@ out: ~notched
     // Wide notch (low Q)
     let dsl_wide = r#"
 tempo: 1.0
-~input: sine 450
-~notched: ~input # notch 440 0.5
-out: ~notched
+~input $ sine 450
+~notched $ ~input # notch 440 0.5
+out $ ~notched
 "#;
 
     let (_, statements) = parse_program(dsl_wide).unwrap();
@@ -138,9 +138,9 @@ out: ~notched
 fn test_notch_stability() {
     let dsl = r#"
 tempo: 1.0
-~input: white_noise
-~notched: ~input # notch 1000 5.0
-out: ~notched * 0.3
+~input $ white_noise
+~notched $ ~input # notch 1000 5.0
+out $ ~notched * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -167,11 +167,11 @@ out: ~notched * 0.3
 fn test_notch_remove_hum() {
     let dsl = r#"
 tempo: 1.0
-~clean_signal: sine 440
-~hum: sine 60 * 0.3
-~noisy: ~clean_signal + ~hum
-~dehum: ~noisy # notch 60 5.0
-out: ~dehum * 0.3
+~clean_signal $ sine 440
+~hum $ sine 60 * 0.3
+~noisy $ ~clean_signal + ~hum
+~dehum $ ~noisy # notch 60 5.0
+out $ ~dehum * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -195,10 +195,10 @@ out: ~dehum * 0.3
 fn test_notch_pattern_frequency() {
     let dsl = r#"
 tempo: 1.0
-~input: saw 110
-~notch_freqs: "440 880"
-~notched: ~input # notch ~notch_freqs 2.0
-out: ~notched * 0.3
+~input $ saw 110
+~notch_freqs $ "440 880"
+~notched $ ~input # notch ~notch_freqs 2.0
+out $ ~notched * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -217,10 +217,10 @@ out: ~notched * 0.3
 fn test_notch_remove_resonance() {
     let dsl = r#"
 tempo: 1.0
-~source: saw 110
-~resonant: ~source # lpf 2000 8.0
-~clean: ~resonant # notch 2000 3.0
-out: ~clean * 0.3
+~source $ saw 110
+~resonant $ ~source # lpf 2000 8.0
+~clean $ ~resonant # notch 2000 3.0
+out $ ~clean * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -244,11 +244,11 @@ out: ~clean * 0.3
 fn test_multiple_notches() {
     let dsl = r#"
 tempo: 1.0
-~input: white_noise
-~notch1: ~input # notch 440 3.0
-~notch2: ~notch1 # notch 880 3.0
-~notch3: ~notch2 # notch 1320 3.0
-out: ~notch3 * 0.3
+~input $ white_noise
+~notch1 $ ~input # notch 440 3.0
+~notch2 $ ~notch1 # notch 880 3.0
+~notch3 $ ~notch2 # notch 1320 3.0
+out $ ~notch3 * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

@@ -24,7 +24,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 fn test_wavetable_constant_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: wavetable 440
+        out $ wavetable 440
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -37,7 +37,7 @@ fn test_wavetable_pattern_frequency_lfo() {
     // Wavetable with LFO-modulated frequency (vibrato)
     let code = r#"
         tempo: 0.5
-        o1: wavetable (sine 5 * 10 + 440)
+        out $ wavetable (sine 5 * 10 + 440)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -50,7 +50,7 @@ fn test_wavetable_pattern_frequency_sweep() {
     // Wavetable with slow frequency sweep
     let code = r#"
         tempo: 0.5
-        o1: wavetable (sine 0.5 * 220 + 440)
+        out $ wavetable (sine 0.5 * 220 + 440)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -63,12 +63,12 @@ fn test_wavetable_vs_sine_comparison() {
     // Wavetable defaults to sine, should sound similar to sine oscillator
     let wavetable_code = r#"
         tempo: 0.5
-        o1: wavetable 440
+        out $ wavetable 440
     "#;
 
     let sine_code = r#"
         tempo: 0.5
-        o1: sine 440
+        out $ sine 440
     "#;
 
     let wavetable_buffer = render_dsl(wavetable_code, 2.0);
@@ -96,10 +96,10 @@ fn test_wavetable_vs_sine_comparison() {
 
 #[test]
 fn test_granular_constant_parameters() {
+    // Use inline source expression
     let code = r#"
         tempo: 0.5
-        ~source: sine 440
-        o1: granular ~source 50 0.5 1.0
+        out $ granular (sine 440) 50 0.5 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -109,11 +109,10 @@ fn test_granular_constant_parameters() {
 
 #[test]
 fn test_granular_pattern_grain_size() {
-    // Granular with pattern-modulated grain size
+    // Granular with pattern-modulated grain size using inline source
     let code = r#"
         tempo: 0.5
-        ~source: saw 110
-        o1: granular ~source (sine 1.0 * 30 + 50) 0.5 1.0
+        out $ granular (saw 110) (sine 1.0 * 30 + 50) 0.5 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -123,11 +122,10 @@ fn test_granular_pattern_grain_size() {
 
 #[test]
 fn test_granular_pattern_density() {
-    // Granular with pattern-modulated density
+    // Granular with pattern-modulated density using inline source
     let code = r#"
         tempo: 0.5
-        ~source: square 220
-        o1: granular ~source 50 (sine 2.0 * 0.3 + 0.5) 1.0
+        out $ granular (square 220) 50 (sine 2.0 * 0.3 + 0.5) 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -137,11 +135,10 @@ fn test_granular_pattern_density() {
 
 #[test]
 fn test_granular_pattern_pitch() {
-    // Granular with pattern-modulated pitch
+    // Granular with pattern-modulated pitch using inline source
     let code = r#"
         tempo: 0.5
-        ~source: triangle 110
-        o1: granular ~source 50 0.5 (sine 0.5 * 0.5 + 1.0)
+        out $ granular (triangle 110) 50 0.5 (sine 0.5 * 0.5 + 1.0)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -151,11 +148,10 @@ fn test_granular_pattern_pitch() {
 
 #[test]
 fn test_granular_all_patterns() {
-    // Granular with all parameters as patterns
+    // Granular with all parameters as patterns using inline source
     let code = r#"
         tempo: 0.5
-        ~source: saw 55
-        o1: granular ~source (sine 1.0 * 30 + 50) (sine 2.0 * 0.3 + 0.5) (sine 0.5 * 0.5 + 1.0)
+        out $ granular (saw 55) (sine 1.0 * 30 + 50) (sine 2.0 * 0.3 + 0.5) (sine 0.5 * 0.5 + 1.0)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -168,13 +164,13 @@ fn test_granular_produces_different_texture() {
     // Verify granular synthesis produces different texture than direct playback
     let direct_code = r#"
         tempo: 0.5
-        o1: sine 440
+        out $ sine 440
     "#;
 
+    // Use inline source expression
     let granular_code = r#"
         tempo: 0.5
-        ~source: sine 440
-        o1: granular ~source 30 0.8 1.0
+        out $ granular (sine 440) 30 0.8 1.0
     "#;
 
     let direct_buffer = render_dsl(direct_code, 2.0);

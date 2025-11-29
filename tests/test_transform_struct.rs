@@ -132,7 +132,7 @@ fn test_struct_level1_euclidean_pattern() {
 fn test_struct_level2_simple_produces_events() {
     let code = r#"
 tempo: 1.0
-out: s "bd sn hh cp" $ struct "t ~ t ~"
+out $ s "bd sn hh cp" $ struct "t ~ t ~"
 "#;
     let audio = render_dsl(code, 4);
     let onsets = detect_audio_events(&audio, 44100.0, 0.05);
@@ -149,7 +149,7 @@ out: s "bd sn hh cp" $ struct "t ~ t ~"
 fn test_struct_level2_euclidean_timing() {
     let code = r#"
 tempo: 1.0
-out: s "bd" $ struct "t(3,8)"
+out $ s "bd" $ struct "t(3,8)"
 "#;
     let audio = render_dsl(code, 4);
     let onsets = detect_audio_events(&audio, 44100.0, 0.05);
@@ -171,7 +171,7 @@ out: s "bd" $ struct "t(3,8)"
 fn test_struct_level3_produces_audio() {
     let code = r#"
 tempo: 1.0
-out: s "bd sn hh cp" $ struct "t ~ t ~"
+out $ s "bd sn hh cp" $ struct "t ~ t ~"
 "#;
     let audio = render_dsl(code, 4);
     let rms = calculate_rms(&audio);
@@ -188,11 +188,11 @@ fn test_struct_level3_fewer_events_than_original() {
     // struct with sparse structure should produce less energy than original
     let code_original = r#"
 tempo: 1.0
-out: s "bd*8"
+out $ s "bd*8"
 "#;
     let code_struct = r#"
 tempo: 1.0
-out: s "bd*8" $ struct "t ~ t ~"
+out $ s "bd*8" $ struct "t ~ t ~"
 "#;
 
     let audio_original = render_dsl(code_original, 4);
@@ -219,7 +219,7 @@ fn test_struct_integration_livecode_example() {
     // From livecode: struct "t(3,7)" $ s "808mt"
     let code = r#"
 tempo: 1.0
-out: s "bd sn hh" $ struct "t(3,7)"
+out $ s "bd sn hh" $ struct "t(3,7)"
 "#;
     let audio = render_dsl(code, 4);
     let rms = calculate_rms(&audio);
@@ -236,7 +236,7 @@ fn test_struct_integration_simple_rhythm() {
     // Simple four-on-the-floor with struct
     let code = r#"
 tempo: 1.0
-out: s "bd" $ struct "t t t t"
+out $ s "bd" $ struct "t t t t"
 "#;
     let audio = render_dsl(code, 4);
     let onsets = detect_audio_events(&audio, 44100.0, 0.05);

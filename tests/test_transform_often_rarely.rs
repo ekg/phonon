@@ -68,7 +68,7 @@ fn test_rarely_probability() {
 fn test_often_audio() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ often (fast 2)
+out $ s "bd sn" $ often (fast 2)
 "#;
 
     let audio = render_dsl(code, 20);
@@ -82,7 +82,7 @@ out: s "bd sn" $ often (fast 2)
 fn test_rarely_audio() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ rarely (fast 2)
+out $ s "bd sn" $ rarely (fast 2)
 "#;
 
     let audio = render_dsl(code, 20);

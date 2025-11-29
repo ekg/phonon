@@ -6,7 +6,7 @@ use phonon::compositional_parser::parse_program;
 fn test_chunk_transform() {
     // chunk should apply transform to each chunk
     // chunk 4 (rev) divides into 4 chunks and reverses each
-    let input = "cps: 1.0\nout: s \"bd sn hh cp\" $ chunk 4 (rev)";
+    let input = "cps: 1.0\nout $ s \"bd sn hh cp\" $ chunk 4 (rev)";
 
     let (_, statements) = parse_program(input).expect("Should parse");
     let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
@@ -65,7 +65,7 @@ fn test_jux_transform() {
     // jux (rev) plays original on left, reversed on right
     let input = r#"
         cps: 1.0
-        out: s("bd sn hh cp" $ jux (rev)) * 0.5
+        out $ s("bd sn hh cp" $ jux (rev)) * 0.5
     "#;
 
     let (_, statements) = parse_program(input).expect("Should parse");
@@ -121,7 +121,7 @@ fn test_jux_at_pattern_level() {
 #[test]
 fn test_chunk_with_chained_transforms() {
     // chunk should work with other transforms
-    let input = "cps: 1.0\nout: s \"bd sn hh cp\" $ chunk 2 (fast 2) $ slow 0.5";
+    let input = "cps: 1.0\nout $ s \"bd sn hh cp\" $ chunk 2 (fast 2) $ slow 0.5";
 
     let (_, statements) = parse_program(input).expect("Should parse");
     let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
@@ -141,7 +141,7 @@ fn test_jux_with_chained_transforms() {
     // jux should work with other transforms
     let input = r#"
         cps: 1.0
-        out: s("bd sn hh cp" $ jux (fast 2) $ rev) * 0.5
+        out $ s("bd sn hh cp" $ jux (fast 2) $ rev) * 0.5
     "#;
 
     let (_, statements) = parse_program(input).expect("Should parse");

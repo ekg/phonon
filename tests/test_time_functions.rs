@@ -454,8 +454,8 @@ mod dsl_integration {
     fn test_rotl_in_dsl() {
         let code = r#"
             tempo: 1.0
-            ~p: s "bd sn hh cp" $ rotL 1
-            out: ~p
+            ~p $ s "bd sn hh cp" $ rotL 1
+            out $ ~p
         "#;
 
         let graph = compile_dsl(code);
@@ -466,8 +466,8 @@ mod dsl_integration {
     fn test_rotr_in_dsl() {
         let code = r#"
             tempo: 1.0
-            ~p: s "bd sn hh cp" $ rotR 0.25
-            out: ~p
+            ~p $ s "bd sn hh cp" $ rotR 0.25
+            out $ ~p
         "#;
 
         let graph = compile_dsl(code);
@@ -478,8 +478,8 @@ mod dsl_integration {
     fn test_swing_in_dsl() {
         let code = r#"
             tempo: 1.0
-            ~p: s "bd*8" $ swing 0.3
-            out: ~p
+            ~p $ s "bd*8" $ swing 0.3
+            out $ ~p
         "#;
 
         let graph = compile_dsl(code);
@@ -491,8 +491,8 @@ mod dsl_integration {
         // swing amount can be a pattern!
         let code = r#"
             tempo: 1.0
-            ~p: s "bd*8" $ swing "0.1 0.3 0.5 0.2"
-            out: ~p
+            ~p $ s "bd*8" $ swing "0.1 0.3 0.5 0.2"
+            out $ ~p
         "#;
 
         let graph = compile_dsl(code);

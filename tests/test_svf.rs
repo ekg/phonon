@@ -63,7 +63,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 fn test_svf_lowpass_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # svf_lp 1000 0.7
+        out $ saw 110 # svf_lp 1000 0.7
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -75,7 +75,7 @@ fn test_svf_lowpass_compiles() {
 fn test_svf_highpass_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # svf_hp 1000 0.7
+        out $ saw 110 # svf_hp 1000 0.7
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -87,7 +87,7 @@ fn test_svf_highpass_compiles() {
 fn test_svf_bandpass_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # svf_bp 1000 0.7
+        out $ saw 110 # svf_bp 1000 0.7
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -99,7 +99,7 @@ fn test_svf_bandpass_compiles() {
 fn test_svf_notch_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # svf_notch 1000 0.7
+        out $ saw 110 # svf_notch 1000 0.7
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -113,7 +113,7 @@ fn test_svf_notch_compiles() {
 fn test_svf_lowpass_attenuates_highs() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # svf_lp 1000 0.7
+        out $ white_noise # svf_lp 1000 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -144,7 +144,7 @@ fn test_svf_lowpass_attenuates_highs() {
 fn test_svf_lowpass_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # svf_lp 1000 0.7
+        out $ saw 110 # svf_lp 1000 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -160,7 +160,7 @@ fn test_svf_lowpass_generates_audio() {
 fn test_svf_highpass_attenuates_lows() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # svf_hp 1000 0.7
+        out $ white_noise # svf_hp 1000 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -190,7 +190,7 @@ fn test_svf_highpass_attenuates_lows() {
 fn test_svf_highpass_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # svf_hp 500 0.5
+        out $ saw 110 # svf_hp 500 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -206,7 +206,7 @@ fn test_svf_highpass_generates_audio() {
 fn test_svf_bandpass_passes_center_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # svf_bp 1000 2.0
+        out $ white_noise # svf_bp 1000 2.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -245,7 +245,7 @@ fn test_svf_bandpass_passes_center_frequency() {
 fn test_svf_bandpass_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # svf_bp 1000 1.5
+        out $ saw 110 # svf_bp 1000 1.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -261,7 +261,7 @@ fn test_svf_bandpass_generates_audio() {
 fn test_svf_notch_rejects_center_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # svf_notch 1000 2.0
+        out $ white_noise # svf_notch 1000 2.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -291,7 +291,7 @@ fn test_svf_notch_rejects_center_frequency() {
 fn test_svf_notch_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # svf_notch 440 1.0
+        out $ saw 110 # svf_notch 440 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -308,12 +308,12 @@ fn test_svf_lowpass_resonance_boost() {
     // Higher resonance should boost frequencies near cutoff
     let low_res_code = r#"
         tempo: 0.5
-        o1: white_noise # svf_lp 1000 0.1
+        out $ white_noise # svf_lp 1000 0.1
     "#;
 
     let high_res_code = r#"
         tempo: 0.5
-        o1: white_noise # svf_lp 1000 5.0
+        out $ white_noise # svf_lp 1000 5.0
     "#;
 
     let low_res_buffer = render_dsl(low_res_code, 2.0);
@@ -346,8 +346,8 @@ fn test_svf_lowpass_resonance_boost() {
 fn test_svf_pattern_frequency() {
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 4 * 500 + 1000
-        o1: saw 110 # svf_lp ~lfo 0.7
+        ~lfo $ sine 4 * 500 + 1000
+        out $ saw 110 # svf_lp ~lfo 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -364,8 +364,8 @@ fn test_svf_pattern_frequency() {
 fn test_svf_pattern_resonance() {
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 2 * 2.0 + 2.5
-        o1: saw 110 # svf_lp 1000 ~lfo
+        ~lfo $ sine 2 * 2.0 + 2.5
+        out $ saw 110 # svf_lp 1000 ~lfo
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -384,7 +384,7 @@ fn test_svf_pattern_resonance() {
 fn test_svf_no_clipping() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # svf_lp 1000 10.0
+        out $ saw 110 # svf_lp 1000 10.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -403,7 +403,7 @@ fn test_svf_no_clipping() {
 fn test_svf_no_dc_offset() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # svf_lp 500 1.0
+        out $ saw 110 # svf_lp 500 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -419,8 +419,8 @@ fn test_svf_no_dc_offset() {
 fn test_svf_lowpass_sweep() {
     let code = r#"
         tempo: 0.5
-        ~sweep: line 200 5000
-        o1: saw 55 # svf_lp ~sweep 1.0
+        ~sweep $ line 200 5000
+        out $ saw 55 # svf_lp ~sweep 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -434,7 +434,7 @@ fn test_svf_lowpass_sweep() {
 fn test_svf_resonant_bass() {
     let code = r#"
         tempo: 0.5
-        o1: saw 55 # svf_lp 300 4.0
+        out $ saw 55 # svf_lp 300 4.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -448,10 +448,10 @@ fn test_svf_resonant_bass() {
 fn test_svf_bandpass_formant() {
     let code = r#"
         tempo: 0.5
-        ~source: saw 110
-        ~f1: ~source # svf_bp 800 3.0
-        ~f2: ~source # svf_bp 1200 3.0
-        o1: (~f1 + ~f2) * 0.5
+        ~source $ saw 110
+        ~f1 $ ~source # svf_bp 800 3.0
+        ~f2 $ ~source # svf_bp 1200 3.0
+        out $ (~f1 + ~f2) * 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -467,7 +467,7 @@ fn test_svf_bandpass_formant() {
 fn test_svf_very_low_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # svf_lp 50 0.5
+        out $ white_noise # svf_lp 50 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -481,7 +481,7 @@ fn test_svf_very_low_frequency() {
 fn test_svf_very_high_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # svf_lp 15000 0.5
+        out $ white_noise # svf_lp 15000 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -495,7 +495,7 @@ fn test_svf_very_high_frequency() {
 fn test_svf_zero_resonance() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # svf_lp 1000 0.0
+        out $ saw 110 # svf_lp 1000 0.0
     "#;
 
     let buffer = render_dsl(code, 2.0);

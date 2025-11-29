@@ -24,7 +24,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 fn test_chorus_constant_parameters() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # chorus 2.0 0.5
+        out $ saw 110 # chorus 2.0 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -37,7 +37,7 @@ fn test_chorus_pattern_rate() {
     // Chorus with pattern-modulated rate
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # chorus (sine 0.5 * 2.0 + 3.0) 0.7
+        out $ saw 110 # chorus (sine 0.5 * 2.0 + 3.0) 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -50,7 +50,7 @@ fn test_chorus_pattern_depth() {
     // Chorus with pattern-modulated depth
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # chorus 2.0 (sine 1.0 * 0.5 + 0.5)
+        out $ saw 110 # chorus 2.0 (sine 1.0 * 0.5 + 0.5)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -63,7 +63,7 @@ fn test_chorus_both_patterns() {
     // Chorus with both parameters as patterns
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # chorus (sine 0.5 * 2.0 + 3.0) (sine 1.0 * 0.5 + 0.5)
+        out $ saw 110 # chorus (sine 0.5 * 2.0 + 3.0) (sine 1.0 * 0.5 + 0.5)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -77,7 +77,7 @@ fn test_chorus_both_patterns() {
 fn test_flanger_constant_parameters() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # flanger 0.7 0.5 0.5
+        out $ saw 110 # flanger 0.7 0.5 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -90,7 +90,7 @@ fn test_flanger_pattern_rate() {
     // Flanger with pattern-modulated depth (first param)
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # flanger (sine 0.25 * 0.5 + 0.5) 0.5 0.5
+        out $ saw 110 # flanger (sine 0.25 * 0.5 + 0.5) 0.5 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -103,7 +103,7 @@ fn test_flanger_pattern_depth() {
     // Flanger with pattern-modulated rate (second param)
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # flanger 0.7 (sine 2.0 * 0.5 + 0.5) 0.5
+        out $ saw 110 # flanger 0.7 (sine 2.0 * 0.5 + 0.5) 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -116,7 +116,7 @@ fn test_flanger_both_patterns() {
     // Flanger with all parameters as patterns
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # flanger (sine 0.25 * 0.5 + 0.5) (sine 2.0 * 0.5 + 0.5) 0.5
+        out $ saw 110 # flanger (sine 0.25 * 0.5 + 0.5) (sine 2.0 * 0.5 + 0.5) 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -130,7 +130,7 @@ fn test_flanger_both_patterns() {
 fn test_phaser_constant_parameters() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # phaser 1.0 0.8 0.5 4
+        out $ saw 110 # phaser 1.0 0.8 0.5 4
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -143,7 +143,7 @@ fn test_phaser_pattern_rate() {
     // Phaser with pattern-modulated rate
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # phaser (sine 0.5 * 1.0 + 1.0) 0.8 0.5 4
+        out $ saw 110 # phaser (sine 0.5 * 1.0 + 1.0) 0.8 0.5 4
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -156,7 +156,7 @@ fn test_phaser_pattern_feedback() {
     // Phaser with pattern-modulated depth
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # phaser 1.0 (sine 1.0 * 0.5 + 0.5) 0.5 4
+        out $ saw 110 # phaser 1.0 (sine 1.0 * 0.5 + 0.5) 0.5 4
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -169,7 +169,7 @@ fn test_phaser_both_patterns() {
     // Phaser with all parameters as patterns
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # phaser (sine 0.5 * 1.0 + 1.0) (sine 1.0 * 0.5 + 0.5) 0.5 4
+        out $ saw 110 # phaser (sine 0.5 * 1.0 + 1.0) (sine 1.0 * 0.5 + 0.5) 0.5 4
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -183,7 +183,7 @@ fn test_phaser_both_patterns() {
 fn test_tremolo_constant_parameters() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # tremolo 5.0 0.7
+        out $ saw 110 # tremolo 5.0 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -196,7 +196,7 @@ fn test_tremolo_pattern_rate() {
     // Tremolo with pattern-modulated rate
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # tremolo (sine 0.1 * 8 + 8) 0.7
+        out $ saw 110 # tremolo (sine 0.1 * 8 + 8) 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -209,7 +209,7 @@ fn test_tremolo_pattern_depth() {
     // Tremolo with pattern-modulated depth
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # tremolo 5.0 (sine 0.25 * 0.5 + 0.5)
+        out $ saw 110 # tremolo 5.0 (sine 0.25 * 0.5 + 0.5)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -222,7 +222,7 @@ fn test_tremolo_both_patterns() {
     // Tremolo with both parameters as patterns
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # tremolo (sine 0.1 * 8 + 8) (sine 0.25 * 0.5 + 0.5)
+        out $ saw 110 # tremolo (sine 0.1 * 8 + 8) (sine 0.25 * 0.5 + 0.5)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -236,7 +236,7 @@ fn test_tremolo_both_patterns() {
 fn test_vibrato_constant_parameters() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # vibrato 5.0 0.02
+        out $ saw 110 # vibrato 5.0 0.02
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -249,7 +249,7 @@ fn test_vibrato_pattern_rate() {
     // Vibrato with pattern-modulated rate
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # vibrato (sine 0.5 * 5 + 5) 0.02
+        out $ saw 110 # vibrato (sine 0.5 * 5 + 5) 0.02
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -262,7 +262,7 @@ fn test_vibrato_pattern_depth() {
     // Vibrato with pattern-modulated depth
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # vibrato 5.0 (sine 0.25 * 0.01 + 0.01)
+        out $ saw 110 # vibrato 5.0 (sine 0.25 * 0.01 + 0.01)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -275,7 +275,7 @@ fn test_vibrato_both_patterns() {
     // Vibrato with both parameters as patterns
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # vibrato (sine 0.5 * 5 + 5) (sine 0.25 * 0.01 + 0.01)
+        out $ saw 110 # vibrato (sine 0.5 * 5 + 5) (sine 0.25 * 0.01 + 0.01)
     "#;
 
     let buffer = render_dsl(code, 2.0);

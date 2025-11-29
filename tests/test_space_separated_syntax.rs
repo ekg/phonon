@@ -4,7 +4,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 #[ignore = "Space-separated syntax for s function not yet implemented - parser needs update"]
 fn test_space_sep_sample_pattern() {
     // Test: s "bd sn" (space-separated)
-    let input = r#"out: s "bd sn" * 0.5"#;
+    let input = r#"out $ s "bd sn" * 0.5"#;
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse space-separated s function");
 
@@ -15,7 +15,7 @@ fn test_space_sep_sample_pattern() {
 #[test]
 fn test_traditional_sample_pattern() {
     // Test: s "bd sn" (traditional parens)
-    let input = r#"out: s "bd sn" * 0.5"#;
+    let input = r#"out $ s "bd sn" * 0.5"#;
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse traditional s function");
 
@@ -26,7 +26,7 @@ fn test_traditional_sample_pattern() {
 #[test]
 fn test_space_sep_oscillator() {
     // Test: sine 440 (space-separated)
-    let input = "out: sine 440 * 0.2";
+    let input = "out $ sine 440 * 0.2";
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse space-separated sine");
 }
@@ -34,7 +34,7 @@ fn test_space_sep_oscillator() {
 #[test]
 fn test_traditional_oscillator() {
     // Test: sine 440 (traditional parens)
-    let input = "out: sine 440 * 0.2";
+    let input = "out $ sine 440 * 0.2";
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse traditional sine");
 }
@@ -42,7 +42,7 @@ fn test_traditional_oscillator() {
 #[test]
 fn test_space_sep_filter() {
     // Test: lpf input cutoff q (space-separated)
-    let input = r#"out: s "bd" # lpf 1000 0.8"#;
+    let input = r#"out $ s "bd" # lpf 1000 0.8"#;
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse space-separated lpf");
 }
@@ -50,7 +50,7 @@ fn test_space_sep_filter() {
 #[test]
 fn test_traditional_filter() {
     // Test: lpf(input, cutoff, q) (traditional parens)
-    let input = r#"out: s "bd" # lpf 1000 0.8"#;
+    let input = r#"out $ s "bd" # lpf 1000 0.8"#;
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse traditional lpf");
 }
@@ -58,7 +58,7 @@ fn test_traditional_filter() {
 #[test]
 fn test_space_sep_synth() {
     // Test: supersaw freq detune voices (space-separated)
-    let input = "out: supersaw 110 0.5 5 * 0.3";
+    let input = "out $ supersaw 110 0.5 5 * 0.3";
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse space-separated supersaw");
 }
@@ -66,7 +66,7 @@ fn test_space_sep_synth() {
 #[test]
 fn test_traditional_synth() {
     // Test: supersaw(freq, detune, voices) (traditional parens)
-    let input = "out: supersaw(110, 0.5, 5) * 0.3";
+    let input = "out $ supersaw(110, 0.5, 5) * 0.3";
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse traditional supersaw");
 }
@@ -74,7 +74,7 @@ fn test_traditional_synth() {
 #[test]
 fn test_space_sep_effect() {
     // Test: reverb input room_size damping mix (space-separated)
-    let input = r#"out: reverb (s "bd") 0.7 0.5 0.3"#;
+    let input = r#"out $ reverb (s "bd") 0.7 0.5 0.3"#;
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse space-separated reverb");
 }
@@ -82,7 +82,7 @@ fn test_space_sep_effect() {
 #[test]
 fn test_traditional_effect() {
     // Test: reverb(input, room_size, damping, mix) (traditional parens)
-    let input = r#"out: reverb(s "bd", 0.7, 0.5, 0.3)"#;
+    let input = r#"out $ reverb(s "bd", 0.7, 0.5, 0.3)"#;
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse traditional reverb");
 }
@@ -90,7 +90,7 @@ fn test_traditional_effect() {
 #[test]
 fn test_space_sep_scale() {
     // Test: scale "0 1 2" "major" "c4" (space-separated)
-    let input = r#"out: scale "0 1 2" "major" "c4""#;
+    let input = r#"out $ scale "0 1 2" "major" "c4""#;
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse space-separated scale");
 }
@@ -98,7 +98,7 @@ fn test_space_sep_scale() {
 #[test]
 fn test_traditional_scale() {
     // Test: scale("0 1 2", "major", "c4") (traditional parens)
-    let input = r#"out: scale("0 1 2", "major", "c4")"#;
+    let input = r#"out $ scale("0 1 2", "major", "c4")"#;
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse traditional scale");
 }
@@ -108,7 +108,7 @@ fn test_space_sep_synth_pattern() {
     // Test: synth "c4 e4" "saw" (space-separated)
     let input = r#"
         tempo: 0.5
-        out: synth "c4 e4" "saw"
+        out $ synth "c4 e4" "saw"
     "#;
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse space-separated synth pattern");
@@ -119,7 +119,7 @@ fn test_traditional_synth_pattern() {
     // Test: synth("c4 e4", "saw") (traditional parens)
     let input = r#"
         tempo: 0.5
-        out: synth("c4 e4", "saw")
+        out $ synth("c4 e4", "saw")
     "#;
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse traditional synth pattern");
@@ -131,7 +131,7 @@ fn test_mixed_syntax() {
     let input = r#"tempo: 0.5
 ~drums: s "bd sn"
 ~bass: sine 55
-out: ~drums * 0.5 + ~bass * 0.3"#;
+out $ ~drums * 0.5 + ~bass * 0.3"#;
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse mixed syntax");
 
@@ -145,7 +145,7 @@ fn test_space_sep_with_transforms() {
     // Test: s "bd sn" $ fast 2 (space-separated with transform)
     let input = r#"
         tempo: 0.5
-        out: s "bd sn" $ fast 2
+        out $ s "bd sn" $ fast 2
     "#;
     let result = parse_dsl(input);
     assert!(
@@ -157,7 +157,7 @@ fn test_space_sep_with_transforms() {
 #[test]
 fn test_space_sep_delay() {
     // Test: delay input time feedback mix (space-separated)
-    let input = r#"out: delay (s "bd") 0.25 0.5 0.3"#;
+    let input = r#"out $ delay (s "bd") 0.25 0.5 0.3"#;
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse space-separated delay");
 }
@@ -165,7 +165,7 @@ fn test_space_sep_delay() {
 #[test]
 fn test_traditional_delay() {
     // Test: delay(input, time, feedback, mix) (traditional parens)
-    let input = r#"out: delay(s "bd", 0.25, 0.5, 0.3)"#;
+    let input = r#"out $ delay(s "bd", 0.25, 0.5, 0.3)"#;
     let result = parse_dsl(input);
     assert!(result.is_ok(), "Should parse traditional delay");
 }
@@ -176,7 +176,7 @@ fn test_render_space_sep_samples() {
     // Integration test: render audio with space-separated syntax
     let input = r#"
         tempo: 0.5
-        out: s "bd sn" * 0.5
+        out $ s "bd sn" * 0.5
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
     let compiler = DslCompiler::new(44100.0);
@@ -198,7 +198,7 @@ fn test_render_traditional_samples() {
     // Integration test: render audio with traditional syntax
     let input = r#"
         tempo: 0.5
-        out: s "bd sn" * 0.5
+        out $ s "bd sn" * 0.5
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
     let compiler = DslCompiler::new(44100.0);
@@ -221,11 +221,11 @@ fn test_both_syntaxes_produce_same_audio() {
     // Verify both syntaxes produce identical audio
     let space_sep = r#"
         tempo: 0.5
-        out: s "bd sn" * 0.5
+        out $ s "bd sn" * 0.5
     "#;
     let traditional = r#"
         tempo: 0.5
-        out: s "bd sn" * 0.5
+        out $ s "bd sn" * 0.5
     "#;
 
     let (_, statements1) = parse_dsl(space_sep).unwrap();

@@ -21,9 +21,9 @@ fn calculate_rms(samples: &[f32]) -> f32 {
 fn test_vibrato_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~carrier: sine 440
-~vibrato: ~carrier # vibrato 5.0 0.5
-out: ~vibrato
+~carrier $ sine 440
+~vibrato $ ~carrier # vibrato 5.0 0.5
+out $ ~vibrato
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -46,9 +46,9 @@ out: ~vibrato
 fn test_vibrato_modulates_pitch() {
     let dsl = r#"
 tempo: 1.0
-~carrier: sine 440
-~vibrato: ~carrier # vibrato 5.0 1.0
-out: ~vibrato
+~carrier $ sine 440
+~vibrato $ ~carrier # vibrato 5.0 1.0
+out $ ~vibrato
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -70,15 +70,15 @@ out: ~vibrato
 fn test_vibrato_zero_depth() {
     let dsl_no_vibrato = r#"
 tempo: 1.0
-~carrier: sine 440
-out: ~carrier
+~carrier $ sine 440
+out $ ~carrier
 "#;
 
     let dsl_zero_vibrato = r#"
 tempo: 1.0
-~carrier: sine 440
-~vibrato: ~carrier # vibrato 5.0 0.0
-out: ~vibrato
+~carrier $ sine 440
+~vibrato $ ~carrier # vibrato 5.0 0.0
+out $ ~vibrato
 "#;
 
     let (_, statements1) = parse_program(dsl_no_vibrato).unwrap();
@@ -106,9 +106,9 @@ out: ~vibrato
 fn test_vibrato_rate() {
     let dsl = r#"
 tempo: 1.0
-~carrier: sine 440
-~vibrato: ~carrier # vibrato 6.0 0.5
-out: ~vibrato
+~carrier $ sine 440
+~vibrato $ ~carrier # vibrato 6.0 0.5
+out $ ~vibrato
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -126,16 +126,16 @@ out: ~vibrato
 fn test_vibrato_depth() {
     let dsl_shallow = r#"
 tempo: 1.0
-~carrier: sine 440
-~vibrato: ~carrier # vibrato 5.0 0.2
-out: ~vibrato
+~carrier $ sine 440
+~vibrato $ ~carrier # vibrato 5.0 0.2
+out $ ~vibrato
 "#;
 
     let dsl_deep = r#"
 tempo: 1.0
-~carrier: sine 440
-~vibrato: ~carrier # vibrato 5.0 1.0
-out: ~vibrato
+~carrier $ sine 440
+~vibrato $ ~carrier # vibrato 5.0 1.0
+out $ ~vibrato
 "#;
 
     let (_, statements_shallow) = parse_program(dsl_shallow).unwrap();
@@ -159,9 +159,9 @@ out: ~vibrato
 fn test_vibrato_stability() {
     let dsl = r#"
 tempo: 1.0
-~carrier: saw 220
-~vibrato: ~carrier # vibrato 7.0 0.8
-out: ~vibrato
+~carrier $ saw 220
+~vibrato $ ~carrier # vibrato 7.0 0.8
+out $ ~vibrato
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -187,11 +187,11 @@ out: ~vibrato
 fn test_vibrato_pattern_modulation() {
     let dsl = r#"
 tempo: 0.5
-~rate_lfo: sine 0.3 * 2.0 + 5.0
-~depth_lfo: sine 0.2 * 0.3 + 0.5
-~carrier: sine 440
-~vibrato: ~carrier # vibrato ~rate_lfo ~depth_lfo
-out: ~vibrato
+~rate_lfo $ sine 0.3 * 2.0 + 5.0
+~depth_lfo $ sine 0.2 * 0.3 + 0.5
+~carrier $ sine 440
+~vibrato $ ~carrier # vibrato ~rate_lfo ~depth_lfo
+out $ ~vibrato
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -213,9 +213,9 @@ out: ~vibrato
 fn test_vibrato_classic() {
     let dsl = r#"
 tempo: 0.5
-~voice: sine 330
-~vibrato: ~voice # vibrato 5.5 0.4
-out: ~vibrato * 0.4
+~voice $ sine 330
+~vibrato $ ~voice # vibrato 5.5 0.4
+out $ ~vibrato * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -237,9 +237,9 @@ out: ~vibrato * 0.4
 fn test_vibrato_slow() {
     let dsl = r#"
 tempo: 1.0
-~pad: sine 220
-~vibrato: ~pad # vibrato 2.0 0.6
-out: ~vibrato * 0.3
+~pad $ sine 220
+~vibrato $ ~pad # vibrato 2.0 0.6
+out $ ~vibrato * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

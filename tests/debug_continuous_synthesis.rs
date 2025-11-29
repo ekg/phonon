@@ -9,9 +9,9 @@ fn debug_bus_triggered_synth_with_output() {
 
     let code = r#"
 tempo: 0.5
-~synth: sine 440
-~trig: s "~synth"
-out: ~trig
+~synth $ sine 440
+~trig $ s "~synth"
+out $ ~trig
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");

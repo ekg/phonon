@@ -11,11 +11,11 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_mix_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~a: sine 220
-~b: sine 440
-~c: sine 880
-~mixed: mix ~a ~b ~c
-out: ~mixed * 0.3
+~a $ sine 220
+~b $ sine 440
+~c $ sine 880
+~mixed $ mix ~a ~b ~c
+out $ ~mixed * 0.3
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -39,10 +39,10 @@ out: ~mixed * 0.3
 fn test_mix_two_signals() {
     let dsl = r#"
 tempo: 1.0
-~a: sine 220
-~b: sine 440
-~mixed: mix ~a ~b
-out: ~mixed * 0.5
+~a $ sine 220
+~b $ sine 440
+~mixed $ mix ~a ~b
+out $ ~mixed * 0.5
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -72,11 +72,11 @@ out: ~mixed * 0.5
 fn test_mix_three_signals() {
     let dsl = r#"
 tempo: 1.0
-~a: sine 220
-~b: sine 440
-~c: sine 880
-~mixed: mix ~a ~b ~c
-out: ~mixed * 0.3
+~a $ sine 220
+~b $ sine 440
+~c $ sine 880
+~mixed $ mix ~a ~b ~c
+out $ ~mixed * 0.3
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -106,11 +106,11 @@ out: ~mixed * 0.3
 fn test_mix_different_waveforms() {
     let dsl = r#"
 tempo: 1.0
-~sine: sine 220
-~saw: saw 220
-~square: square 220
-~mixed: mix ~sine ~saw ~square
-out: ~mixed * 0.3
+~sine $ sine 220
+~saw $ saw 220
+~square $ square 220
+~mixed $ mix ~sine ~saw ~square
+out $ ~mixed * 0.3
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -140,12 +140,12 @@ out: ~mixed * 0.3
 fn test_mix_with_envelopes() {
     let dsl = r#"
 tempo: 1.0
-~env1: adsr 0.1 0.2 0.7 0.3
-~env2: ad 0.05 0.2
-~a: sine 440 * ~env1
-~b: saw 880 * ~env2
-~mixed: mix ~a ~b
-out: ~mixed * 0.5
+~env1 $ adsr 0.1 0.2 0.7 0.3
+~env2 $ ad 0.05 0.2
+~a $ sine 440 * ~env1
+~b $ saw 880 * ~env2
+~mixed $ mix ~a ~b
+out $ ~mixed * 0.5
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -175,12 +175,12 @@ out: ~mixed * 0.5
 fn test_mix_four_signals() {
     let dsl = r#"
 tempo: 1.0
-~a: sine 220
-~b: sine 330
-~c: sine 440
-~d: sine 550
-~mixed: mix ~a ~b ~c ~d
-out: ~mixed * 0.25
+~a $ sine 220
+~b $ sine 330
+~c $ sine 440
+~d $ sine 550
+~mixed $ mix ~a ~b ~c ~d
+out $ ~mixed * 0.25
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -210,11 +210,11 @@ out: ~mixed * 0.25
 fn test_mix_nested_operations() {
     let dsl = r#"
 tempo: 1.0
-~osc1: sine 220
-~osc2: sine 440
-~filtered: ~osc2 # lpf 1000 0.8
-~mixed: mix ~osc1 ~filtered
-out: ~mixed * 0.5
+~osc1 $ sine 220
+~osc2 $ sine 440
+~filtered $ ~osc2 # lpf 1000 0.8
+~mixed $ mix ~osc1 ~filtered
+out $ ~mixed * 0.5
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();

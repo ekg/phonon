@@ -44,7 +44,7 @@ fn test_supersaw_detune_fundamental_frequency_distribution() {
     let base_freq = 220.0;
 
     // Test with low detune (tight clustering)
-    let input_low = "out: supersaw(220, 0.1, 5) * 0.3";
+    let input_low = "out $ supersaw(220, 0.1, 5) * 0.3";
     let (_, statements_low) = parse_dsl(input_low).unwrap();
     let compiler_low = DslCompiler::new(44100.0);
     let mut graph_low = compiler_low.compile(statements_low);
@@ -53,7 +53,7 @@ fn test_supersaw_detune_fundamental_frequency_distribution() {
     let spread_low = measure_fundamental_spread(&buffer_low, 44100.0, base_freq);
 
     // Test with high detune (wide spread)
-    let input_high = "out: supersaw(220, 0.9, 5) * 0.3";
+    let input_high = "out $ supersaw(220, 0.9, 5) * 0.3";
     let (_, statements_high) = parse_dsl(input_high).unwrap();
     let compiler_high = DslCompiler::new(44100.0);
     let mut graph_high = compiler_high.compile(statements_high);
@@ -62,7 +62,7 @@ fn test_supersaw_detune_fundamental_frequency_distribution() {
     let spread_high = measure_fundamental_spread(&buffer_high, 44100.0, base_freq);
 
     // Test with no detune for baseline
-    let input_zero = "out: supersaw(220, 0.0, 5) * 0.3";
+    let input_zero = "out $ supersaw(220, 0.0, 5) * 0.3";
     let (_, statements_zero) = parse_dsl(input_zero).unwrap();
     let compiler_zero = DslCompiler::new(44100.0);
     let mut graph_zero = compiler_zero.compile(statements_zero);
@@ -146,7 +146,7 @@ fn test_if_pattern_detune_actually_works() {
     // CURRENT STATUS: Test reveals detune parameter has no effect
     // Both detune=0.1 and detune=0.9 produce ~22kHz spread (full spectrum)
     // Test with low detune (tight frequency spread)
-    let input1 = "out: supersaw(220, 0.1, 5) * 0.3";
+    let input1 = "out $ supersaw(220, 0.1, 5) * 0.3";
     let (_, statements1) = parse_dsl(input1).unwrap();
     let compiler1 = DslCompiler::new(44100.0);
     let mut graph1 = compiler1.compile(statements1);
@@ -154,7 +154,7 @@ fn test_if_pattern_detune_actually_works() {
     let spread1 = measure_frequency_spread(&buffer1, 44100.0);
 
     // Test with high detune (wide frequency spread)
-    let input2 = "out: supersaw(220, 0.9, 5) * 0.3";
+    let input2 = "out $ supersaw(220, 0.9, 5) * 0.3";
     let (_, statements2) = parse_dsl(input2).unwrap();
     let compiler2 = DslCompiler::new(44100.0);
     let mut graph2 = compiler2.compile(statements2);
@@ -164,7 +164,7 @@ fn test_if_pattern_detune_actually_works() {
     // Test with pattern detune (should cycle between 0.1 and 0.9)
     let input3 = r#"
         cps: 2.0
-        out: supersaw(220, "0.1 0.9", 5) * 0.3
+        out $ supersaw(220, "0.1 0.9", 5) * 0.3
     "#;
     let (_, statements3) = parse_dsl(input3).unwrap();
     let compiler3 = DslCompiler::new(44100.0);

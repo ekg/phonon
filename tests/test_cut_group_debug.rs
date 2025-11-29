@@ -6,7 +6,7 @@ fn test_cut_group_debug_simple() {
     // Two hi-hats with cut group 1
     let input = r#"
         tempo: 0.5
-        out: s("hh hh", "1.0 1.0", "0 0", "1 1", "1 1")
+        out $ s("hh hh", "1.0 1.0", "0 0", "1 1", "1 1")
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");

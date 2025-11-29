@@ -93,7 +93,7 @@ fn test_sample_playback_with_index_e2e() {
 
     let input = r#"
         cps: 2.0
-        out: s "bd:0 bd:1 bd:2"
+        out $ s "bd:0 bd:1 bd:2"
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse DSL");

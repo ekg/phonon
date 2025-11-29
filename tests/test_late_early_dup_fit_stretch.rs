@@ -33,7 +33,7 @@ fn test_late_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ late 0.25
+out $ "bd sn hh cp" $ late 0.25
 "#,
         "Late by 0.25 cycles",
     );
@@ -45,7 +45,7 @@ fn test_late_small_amount() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ late 0.125
+out $ "bd*8" $ late 0.125
 "#,
         "Late by 0.125 cycles (small delay)",
     );
@@ -57,7 +57,7 @@ fn test_late_large_amount() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ late 1.5
+out $ "bd sn" $ late 1.5
 "#,
         "Late by 1.5 cycles (large delay)",
     );
@@ -69,7 +69,7 @@ fn test_late_with_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ late 0.5 # lpf 1000 0.8
+out $ "bd sn hh*4" $ late 0.5 # lpf 1000 0.8
 "#,
         "Late with chained filter",
     );
@@ -81,7 +81,7 @@ fn test_late_combined_with_fast() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ late 0.25 $ fast 2
+out $ "bd sn hh cp" $ late 0.25 $ fast 2
 "#,
         "Late combined with fast",
     );
@@ -95,7 +95,7 @@ fn test_early_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ early 0.25
+out $ "bd sn hh cp" $ early 0.25
 "#,
         "Early by 0.25 cycles",
     );
@@ -107,7 +107,7 @@ fn test_early_small_amount() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ early 0.125
+out $ "bd*8" $ early 0.125
 "#,
         "Early by 0.125 cycles (small shift)",
     );
@@ -119,7 +119,7 @@ fn test_early_large_amount() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ early 1.5
+out $ "bd sn" $ early 1.5
 "#,
         "Early by 1.5 cycles (large shift)",
     );
@@ -131,7 +131,7 @@ fn test_early_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ early 0.5 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ early 0.5 # reverb 0.5 0.3 0.2
 "#,
         "Early with reverb",
     );
@@ -143,7 +143,7 @@ fn test_early_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ early 0.125 $ rev
+out $ "bd sn hh" $ early 0.125 $ rev
 "#,
         "Early combined with rev",
     );
@@ -157,7 +157,7 @@ fn test_dup_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ dup 2
+out $ "bd sn" $ dup 2
 "#,
         "Dup 2 times",
     );
@@ -169,7 +169,7 @@ fn test_dup_many_times() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ dup 8
+out $ "bd" $ dup 8
 "#,
         "Dup 8 times",
     );
@@ -181,7 +181,7 @@ fn test_dup_with_euclidean() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd(3,8)" $ dup 4
+out $ "bd(3,8)" $ dup 4
 "#,
         "Dup with euclidean pattern",
     );
@@ -193,7 +193,7 @@ fn test_dup_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ dup 3 # distort 2.0 0.5
+out $ "bd sn" $ dup 3 # distort 2.0 0.5
 "#,
         "Dup with distortion",
     );
@@ -205,7 +205,7 @@ fn test_dup_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ dup 4 $ rev
+out $ "bd sn hh" $ dup 4 $ rev
 "#,
         "Dup combined with rev",
     );
@@ -219,7 +219,7 @@ fn test_fit_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ fit 2
+out $ "bd sn hh cp" $ fit 2
 "#,
         "Fit to 2 cycles",
     );
@@ -231,7 +231,7 @@ fn test_fit_many_cycles() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ fit 8
+out $ "bd*8" $ fit 8
 "#,
         "Fit to 8 cycles",
     );
@@ -243,7 +243,7 @@ fn test_fit_with_alternation() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "<bd sn hh cp>" $ fit 4
+out $ "<bd sn hh cp>" $ fit 4
 "#,
         "Fit with alternation",
     );
@@ -255,7 +255,7 @@ fn test_fit_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ fit 3 # delay 0.25 0.5 0.3
+out $ "bd sn hh*2" $ fit 3 # delay 0.25 0.5 0.3
 "#,
         "Fit with delay",
     );
@@ -267,7 +267,7 @@ fn test_fit_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ fit 4 $ fast 2
+out $ "bd sn" $ fit 4 $ fast 2
 "#,
         "Fit combined with fast",
     );
@@ -281,7 +281,7 @@ fn test_stretch_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ stretch
+out $ "bd sn hh cp" $ stretch
 "#,
         "Stretch basic pattern",
     );
@@ -293,7 +293,7 @@ fn test_stretch_with_fast() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4" $ stretch $ fast 2
+out $ "bd*4" $ stretch $ fast 2
 "#,
         "Stretch with fast",
     );
@@ -305,7 +305,7 @@ fn test_stretch_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ stretch # chorus 0.5 0.3 0.2
+out $ "bd sn hh" $ stretch # chorus 0.5 0.3 0.2
 "#,
         "Stretch with chorus",
     );
@@ -317,7 +317,7 @@ fn test_stretch_with_euclidean() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd(3,8)" $ stretch
+out $ "bd(3,8)" $ stretch
 "#,
         "Stretch with euclidean pattern",
     );
@@ -329,7 +329,7 @@ fn test_stretch_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ stretch $ rev
+out $ "bd sn hh*4" $ stretch $ rev
 "#,
         "Stretch combined with rev",
     );
@@ -343,12 +343,12 @@ fn test_all_five_operations_in_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~delayed: "bd*8" $ late 0.25
-~advanced: "sn*4" $ early 0.125
-~duplicated: "hh*2" $ dup 4
-~fitted: "cp*4" $ fit 2
-~stretched: "bd sn" $ stretch
-out: ~delayed + ~advanced + ~duplicated + ~fitted + ~stretched
+~delayed $ "bd*8" $ late 0.25
+~advanced $ "sn*4" $ early 0.125
+~duplicated $ "hh*2" $ dup 4
+~fitted $ "cp*4" $ fit 2
+~stretched $ "bd sn" $ stretch
+out $ ~delayed + ~advanced + ~duplicated + ~fitted + ~stretched
 "#,
         "All five operations in one program",
     );
@@ -360,7 +360,7 @@ fn test_late_and_early_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ late 0.5 $ early 0.5
+out $ "bd sn hh cp" $ late 0.5 $ early 0.5
 "#,
         "Late and early combined",
     );
@@ -372,7 +372,7 @@ fn test_dup_and_fit_interplay() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ dup 4 $ fit 2
+out $ "bd sn" $ dup 4 $ fit 2
 "#,
         "Dup and fit combined",
     );
@@ -384,7 +384,7 @@ fn test_stretch_and_dup() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ stretch $ dup 3
+out $ "bd sn hh" $ stretch $ dup 3
 "#,
         "Stretch and dup",
     );
@@ -396,7 +396,7 @@ fn test_timing_manipulations_with_effects_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ late 0.25 $ early 0.125 $ dup 2 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*4" $ late 0.25 $ early 0.125 $ dup 2 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Timing manipulations with effects chain",
     );
@@ -408,7 +408,7 @@ fn test_fit_with_stretch() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4 sn*4" $ fit 4 $ stretch
+out $ "bd*4 sn*4" $ fit 4 $ stretch
 "#,
         "Fit and stretch combined",
     );

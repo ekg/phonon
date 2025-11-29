@@ -9,8 +9,8 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_env_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~envelope: segments "0 1 0" "0.5 0.5"
-out: ~envelope
+~envelope $ segments "0 1 0" "0.5 0.5"
+out $ ~envelope
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -34,8 +34,8 @@ out: ~envelope
 fn test_env_reaches_targets() {
     let dsl = r#"
 tempo: 1.0
-~envelope: segments "0 1 0.5" "0.25 0.25"
-out: ~envelope
+~envelope $ segments "0 1 0.5" "0.25 0.25"
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -74,8 +74,8 @@ out: ~envelope
 fn test_env_holds_final() {
     let dsl = r#"
 tempo: 1.0
-~envelope: segments "0 1 0" "0.2 0.2"
-out: ~envelope
+~envelope $ segments "0 1 0" "0.2 0.2"
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -107,8 +107,8 @@ out: ~envelope
 fn test_env_single_segment() {
     let dsl = r#"
 tempo: 1.0
-~ramp: segments "0 1" "0.5"
-out: ~ramp
+~ramp $ segments "0 1" "0.5"
+out $ ~ramp
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -136,8 +136,8 @@ out: ~ramp
 fn test_env_multi_segment() {
     let dsl = r#"
 tempo: 1.0
-~env: segments "0 1 0.5 0.8 0" "0.1 0.1 0.1 0.1"
-out: ~env
+~env $ segments "0 1 0.5 0.8 0" "0.1 0.1 0.1 0.1"
+out $ ~env
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -186,8 +186,8 @@ out: ~env
 fn test_env_stability() {
     let dsl = r#"
 tempo: 1.0
-~envelope: segments "0 1 0.5 0" "0.1 0.2 0.1"
-out: ~envelope
+~envelope $ segments "0 1 0.5 0" "0.1 0.2 0.1"
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -214,10 +214,10 @@ out: ~envelope
 fn test_env_adsr_style() {
     let dsl = r#"
 tempo: 1.0
-~adsr: segments "0 1 0.7 0" "0.1 0.2 0.3"
-~carrier: sine 440
-~shaped: ~carrier * ~adsr
-out: ~shaped * 0.3
+~adsr $ segments "0 1 0.7 0" "0.1 0.2 0.3"
+~carrier $ sine 440
+~shaped $ ~carrier * ~adsr
+out $ ~shaped * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -241,10 +241,10 @@ out: ~shaped * 0.3
 fn test_env_percussion() {
     let dsl = r#"
 tempo: 0.5
-~perc: segments "0 1 0" "0.01 0.3"
-~osc: sine 110
-~drum: ~osc * ~perc
-out: ~drum * 0.5
+~perc $ segments "0 1 0" "0.01 0.3"
+~osc $ sine 110
+~drum $ ~osc * ~perc
+out $ ~drum * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -277,10 +277,10 @@ out: ~drum * 0.5
 fn test_env_filter_modulation() {
     let dsl = r#"
 tempo: 1.0
-~filter_env: segments "200 3000 800 200" "0.2 0.3 0.2"
-~carrier: saw 110
-~filtered: ~carrier # lpf ~filter_env 0.8
-out: ~filtered * 0.3
+~filter_env $ segments "200 3000 800 200" "0.2 0.3 0.2"
+~carrier $ saw 110
+~filtered $ ~carrier # lpf ~filter_env 0.8
+out $ ~filtered * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

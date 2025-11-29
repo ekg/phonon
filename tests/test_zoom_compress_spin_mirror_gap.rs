@@ -33,7 +33,7 @@ fn test_zoom_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ zoom 0.25 0.75
+out $ "bd sn hh cp" $ zoom 0.25 0.75
 "#,
         "Zoom to middle half",
     );
@@ -45,7 +45,7 @@ fn test_zoom_first_quarter() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ zoom 0 0.25
+out $ "bd*8" $ zoom 0 0.25
 "#,
         "Zoom to first quarter",
     );
@@ -57,7 +57,7 @@ fn test_zoom_last_third() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp bd sn" $ zoom 0.66 1.0
+out $ "bd sn hh cp bd sn" $ zoom 0.66 1.0
 "#,
         "Zoom to last third",
     );
@@ -69,7 +69,7 @@ fn test_zoom_with_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ zoom 0.5 1.0 # lpf 1000 0.8
+out $ "bd sn hh*4" $ zoom 0.5 1.0 # lpf 1000 0.8
 "#,
         "Zoom with chained filter",
     );
@@ -81,7 +81,7 @@ fn test_zoom_combined_with_fast() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ zoom 0.25 0.75 $ fast 2
+out $ "bd sn hh cp" $ zoom 0.25 0.75 $ fast 2
 "#,
         "Zoom combined with fast",
     );
@@ -95,7 +95,7 @@ fn test_compress_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ compress 0 0.5
+out $ "bd sn hh cp" $ compress 0 0.5
 "#,
         "Compress to first half",
     );
@@ -107,7 +107,7 @@ fn test_compress_to_middle() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4" $ compress 0.25 0.75
+out $ "bd*4" $ compress 0.25 0.75
 "#,
         "Compress to middle section",
     );
@@ -119,7 +119,7 @@ fn test_compress_narrow() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ compress 0.4 0.6
+out $ "bd sn hh" $ compress 0.4 0.6
 "#,
         "Compress to narrow window",
     );
@@ -131,7 +131,7 @@ fn test_compress_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ compress 0 0.5 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ compress 0 0.5 # reverb 0.5 0.3 0.2
 "#,
         "Compress with reverb",
     );
@@ -143,7 +143,7 @@ fn test_compress_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ compress 0.25 0.5 $ rev
+out $ "bd sn" $ compress 0.25 0.5 $ rev
 "#,
         "Compress combined with rev",
     );
@@ -157,7 +157,7 @@ fn test_spin_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ spin 3
+out $ "bd sn hh cp" $ spin 3
 "#,
         "Spin with 3 rotations",
     );
@@ -169,7 +169,7 @@ fn test_spin_large_n() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4" $ spin 8
+out $ "bd*4" $ spin 8
 "#,
         "Spin with 8 rotations",
     );
@@ -181,7 +181,7 @@ fn test_spin_with_euclidean() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd(3,8)" $ spin 4
+out $ "bd(3,8)" $ spin 4
 "#,
         "Spin with euclidean pattern",
     );
@@ -193,7 +193,7 @@ fn test_spin_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ spin 4 # bitcrush 8 8000
+out $ "bd sn hh*2" $ spin 4 # bitcrush 8 8000
 "#,
         "Spin with bitcrush",
     );
@@ -205,7 +205,7 @@ fn test_spin_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ spin 3 $ fast 2
+out $ "bd sn" $ spin 3 $ fast 2
 "#,
         "Spin combined with fast",
     );
@@ -219,7 +219,7 @@ fn test_mirror_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ mirror
+out $ "bd sn hh cp" $ mirror
 "#,
         "Mirror basic pattern",
     );
@@ -231,7 +231,7 @@ fn test_mirror_with_fast() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4" $ mirror $ fast 2
+out $ "bd*4" $ mirror $ fast 2
 "#,
         "Mirror with fast",
     );
@@ -243,7 +243,7 @@ fn test_mirror_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ mirror # delay 0.25 0.5 0.3
+out $ "bd sn hh" $ mirror # delay 0.25 0.5 0.3
 "#,
         "Mirror with delay",
     );
@@ -255,7 +255,7 @@ fn test_mirror_with_alternation() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "<bd sn hh cp>" $ mirror
+out $ "<bd sn hh cp>" $ mirror
 "#,
         "Mirror with alternation",
     );
@@ -269,7 +269,7 @@ fn test_gap_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ gap 2
+out $ "bd sn hh cp" $ gap 2
 "#,
         "Gap every 2 cycles",
     );
@@ -281,7 +281,7 @@ fn test_gap_frequent() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4" $ gap 3
+out $ "bd*4" $ gap 3
 "#,
         "Gap every 3 cycles",
     );
@@ -293,7 +293,7 @@ fn test_gap_large_n() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ gap 8
+out $ "bd sn hh*4" $ gap 8
 "#,
         "Gap every 8 cycles",
     );
@@ -305,7 +305,7 @@ fn test_gap_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ gap 4 # chorus 0.5 0.3 0.2
+out $ "bd sn hh*2" $ gap 4 # chorus 0.5 0.3 0.2
 "#,
         "Gap with chorus",
     );
@@ -317,7 +317,7 @@ fn test_gap_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ gap 2 $ rev
+out $ "bd sn" $ gap 2 $ rev
 "#,
         "Gap combined with rev",
     );
@@ -331,12 +331,12 @@ fn test_all_five_operations_in_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~zoomed: "bd*8" $ zoom 0.25 0.75
-~compressed: "sn*4" $ compress 0 0.5
-~spun: "hh*8" $ spin 4
-~mirrored: "cp*2" $ mirror
-~gapped: "bd sn" $ gap 2
-out: ~zoomed + ~compressed + ~spun + ~mirrored + ~gapped
+~zoomed $ "bd*8" $ zoom 0.25 0.75
+~compressed $ "sn*4" $ compress 0 0.5
+~spun $ "hh*8" $ spin 4
+~mirrored $ "cp*2" $ mirror
+~gapped $ "bd sn" $ gap 2
+out $ ~zoomed + ~compressed + ~spun + ~mirrored + ~gapped
 "#,
         "All five operations in one program",
     );
@@ -348,7 +348,7 @@ fn test_combined_time_manipulations() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ zoom 0.25 0.75 $ compress 0 0.5 $ spin 4
+out $ "bd sn hh cp" $ zoom 0.25 0.75 $ compress 0 0.5 $ spin 4
 "#,
         "Combined zoom + compress + spin",
     );
@@ -360,7 +360,7 @@ fn test_zoom_and_mirror() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ zoom 0.5 1.0 $ mirror
+out $ "bd sn hh*4" $ zoom 0.5 1.0 $ mirror
 "#,
         "Zoom and mirror",
     );
@@ -372,7 +372,7 @@ fn test_compress_and_gap() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4 sn*4 hh*8" $ compress 0.25 0.75 $ gap 3
+out $ "bd*4 sn*4 hh*8" $ compress 0.25 0.75 $ gap 3
 "#,
         "Compress and gap",
     );
@@ -384,7 +384,7 @@ fn test_with_effects_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ zoom 0.25 0.75 $ spin 3 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*4" $ zoom 0.25 0.75 $ spin 3 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Time manipulation with effects chain",
     );

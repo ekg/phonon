@@ -9,9 +9,9 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_peak_follower_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440
-~peak: ~input # peak_follower 0.01 0.1
-out: ~peak
+~input $ sine 440
+~peak $ ~input # peak_follower 0.01 0.1
+out $ ~peak
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -36,9 +36,9 @@ fn test_peak_follower_tracks_peaks() {
     // Slow sine wave - peak follower should track peak values
     let dsl = r#"
 tempo: 1.0
-~slow_sine: sine 2
-~peak: ~slow_sine # peak_follower 0.001 0.1
-out: ~peak
+~slow_sine $ sine 2
+~peak $ ~slow_sine # peak_follower 0.001 0.1
+out $ ~peak
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -67,9 +67,9 @@ fn test_peak_follower_decays() {
     // Peak follower should decay gradually
     let dsl = r#"
 tempo: 1.0
-~impulses: impulse 2.0
-~peak: ~impulses # peak_follower 0.001 0.05
-out: ~peak
+~impulses $ impulse 2.0
+~peak $ ~impulses # peak_follower 0.001 0.05
+out $ ~peak
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -100,9 +100,9 @@ fn test_peak_follower_fast_attack() {
     // Fast attack should quickly reach peak
     let dsl = r#"
 tempo: 1.0
-~square: square 10
-~peak: ~square # peak_follower 0.0001 0.1
-out: ~peak
+~square $ square 10
+~peak $ ~square # peak_follower 0.0001 0.1
+out $ ~peak
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -134,11 +134,11 @@ fn test_peak_follower_slow_release() {
     // Sine wave pulsed by slow LFO - creates peaks with gaps
     let dsl = r#"
 tempo: 1.0
-~tone: sine 440
-~pulse: square 4 * 0.5 + 0.5
-~pulsed: ~tone * ~pulse
-~peak: ~pulsed # peak_follower 0.01 0.3
-out: ~peak
+~tone $ sine 440
+~pulse $ square 4 * 0.5 + 0.5
+~pulsed $ ~tone * ~pulse
+~peak $ ~pulsed # peak_follower 0.01 0.3
+out $ ~peak
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -180,9 +180,9 @@ out: ~peak
 fn test_peak_follower_stability() {
     let dsl = r#"
 tempo: 1.0
-~noise: white_noise
-~peak: ~noise # peak_follower 0.01 0.1
-out: ~peak * 0.5
+~noise $ white_noise
+~peak $ ~noise # peak_follower 0.01 0.1
+out $ ~peak * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -211,10 +211,10 @@ fn test_peak_follower_envelope() {
     // Peak follower should extract the envelope
     let dsl = r#"
 tempo: 1.0
-~lfo: sine 2 * 0.5 + 0.5
-~carrier: sine 440 * ~lfo
-~envelope: ~carrier # peak_follower 0.01 0.05
-out: ~envelope
+~lfo $ sine 2 * 0.5 + 0.5
+~carrier $ sine 440 * ~lfo
+~envelope $ ~carrier # peak_follower 0.01 0.05
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -239,11 +239,11 @@ fn test_peak_follower_sidechain() {
     // Use kick pattern to modulate sustained bass
     let dsl = r#"
 tempo: 0.5
-~kick: impulse 4.0
-~kick_env: ~kick # peak_follower 0.001 0.2
-~bass: saw 55
-~ducked: ~bass * (1.0 - ~kick_env * 0.8)
-out: ~ducked * 0.3
+~kick $ impulse 4.0
+~kick_env $ ~kick # peak_follower 0.001 0.2
+~bass $ saw 55
+~ducked $ ~bass * (1.0 - ~kick_env * 0.8)
+out $ ~ducked * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -267,11 +267,11 @@ out: ~ducked * 0.3
 fn test_peak_follower_variable_params() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440
-~attack_mod: sine 0.5 * 0.01 + 0.01
-~release_mod: sine 0.3 * 0.1 + 0.1
-~peak: ~input # peak_follower ~attack_mod ~release_mod
-out: ~peak
+~input $ sine 440
+~attack_mod $ sine 0.5 * 0.01 + 0.01
+~release_mod $ sine 0.3 * 0.1 + 0.1
+~peak $ ~input # peak_follower ~attack_mod ~release_mod
+out $ ~peak
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

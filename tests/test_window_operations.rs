@@ -7,7 +7,7 @@ fn test_zoom_transform() {
     // zoom 0.0 0.5 focuses on first half of pattern
     let input = r#"
         cps: 1.0
-        out: s("bd sn hh cp" $ zoom 0.0 0.5) * 0.5
+        out $ s("bd sn hh cp" $ zoom 0.0 0.5) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -30,7 +30,7 @@ fn test_focus_transform() {
     // focus 0.25 0.75 focuses on middle half
     let input = r#"
         cps: 1.0
-        out: s("bd sn hh cp" $ focus 0.25 0.75) * 0.5
+        out $ s("bd sn hh cp" $ focus 0.25 0.75) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -52,7 +52,7 @@ fn test_within_transform() {
     // within 0.25 0.75 (fast 2) applies fast(2) to middle half
     let input = r#"
         cps: 1.0
-        out: s("bd sn hh cp" $ within 0.25 0.75 (fast 2)) * 0.5
+        out $ s("bd sn hh cp" $ within 0.25 0.75 (fast 2)) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -185,7 +185,7 @@ fn test_zoom_with_chained_transforms() {
     // zoom should work with other transforms
     let input = r#"
         cps: 1.0
-        out: s("bd sn hh cp" $ zoom 0.0 0.5 $ fast 2) * 0.5
+        out $ s("bd sn hh cp" $ zoom 0.0 0.5 $ fast 2) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");

@@ -33,7 +33,7 @@ fn calculate_peak(buffer: &[f32]) -> f32 {
 #[test]
 fn test_noise_level3_basic() {
     // Test basic noise generator
-    let code = "out: noise";
+    let code = "out $ noise";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -49,7 +49,7 @@ fn test_noise_level3_basic() {
 #[test]
 fn test_noise_level3_amplitude_control() {
     // Test amplitude scaling
-    let code = "out: noise * 0.5";
+    let code = "out $ noise * 0.5";
     let audio = render_dsl(code, 1.0);
 
     let rms = calculate_rms(&audio);
@@ -65,7 +65,7 @@ fn test_noise_level3_amplitude_control() {
 // #[test]
 // fn test_noise_level3_hihat() {
 //     // Hi-hat: high-pass filtered noise (very little energy at 8kHz+)
-//     let code = "out: noise # hpf 8000 0.3";
+//     let code = "out $ noise # hpf 8000 0.3";
 //     let audio = render_dsl(code, 2.0);
 //
 //     let rms = calculate_rms(&audio);
@@ -80,9 +80,9 @@ fn test_noise_level3_amplitude_control() {
 fn test_noise_level3_snare() {
     // Snare: noise + sine body
     let code = r#"
-        ~snare_body: sine 180
-        ~snare_noise: noise # hpf 2000 0.5
-        out: (~snare_body + ~snare_noise) * 0.3
+        ~snare_body $ sine 180
+        ~snare_noise $ noise # hpf 2000 0.5
+        out $ (~snare_body + ~snare_noise) * 0.3
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -96,7 +96,7 @@ fn test_noise_level3_snare() {
 #[test]
 fn test_noise_level3_wind() {
     // Wind: low-pass filtered noise
-    let code = "out: noise # lpf 800 0.3";
+    let code = "out $ noise # lpf 800 0.3";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -111,9 +111,9 @@ fn test_noise_level3_with_envelope() {
     // Noise burst with envelope
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 0.5
-        ~env: ~lfo * 0.4 + 0.6
-        out: noise * ~env * 0.3
+        ~lfo $ sine 0.5
+        ~env $ ~lfo * 0.4 + 0.6
+        out $ noise * ~env * 0.3
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -127,8 +127,8 @@ fn test_noise_level3_with_envelope() {
 #[test]
 fn test_noise_level3_vs_oscillators() {
     // Compare noise to oscillators (different spectrum)
-    let code_noise = "out: noise * 0.3";
-    let code_saw = "out: saw_hz 220";
+    let code_noise = "out $ noise * 0.3";
+    let code_saw = "out $ saw_hz 220";
 
     let audio_noise = render_dsl(code_noise, 1.0);
     let audio_saw = render_dsl(code_saw, 1.0);
@@ -146,7 +146,7 @@ fn test_noise_level3_vs_oscillators() {
 #[test]
 fn test_noise_level3_bandpass() {
     // Band-pass filtered noise (ocean waves)
-    let code = "out: noise # bpf 400 0.5";
+    let code = "out $ noise # bpf 400 0.5";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -160,9 +160,9 @@ fn test_noise_level3_bandpass() {
 fn test_noise_level3_textured_pad() {
     // Textured pad (oscillator + filtered noise)
     let code = r#"
-        ~pad: saw_hz 110
-        ~texture: noise # lpf 500 0.2
-        out: (~pad * 0.8 + ~texture * 0.2) * 0.3
+        ~pad $ saw_hz 110
+        ~texture $ noise # lpf 500 0.2
+        out $ (~pad * 0.8 + ~texture * 0.2) * 0.3
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -178,9 +178,9 @@ fn test_noise_level3_rhythmic() {
     // Rhythmic noise (amplitude modulation)
     let code = r#"
         tempo: 4.0
-        ~lfo: sine 1.0
-        ~env: ~lfo * 0.5 + 0.5
-        out: noise * ~env * 0.3
+        ~lfo $ sine 1.0
+        ~env $ ~lfo * 0.5 + 0.5
+        out $ noise * ~env * 0.3
     "#;
     let audio = render_dsl(code, 1.0);
 

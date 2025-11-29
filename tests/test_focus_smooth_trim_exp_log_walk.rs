@@ -62,7 +62,7 @@ fn test_focus_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ focus 0.0 2.0
+out $ "bd sn hh cp" $ focus 0.0 2.0
 "#,
         "Focus on cycles 0-2",
     );
@@ -74,7 +74,7 @@ fn test_focus_middle_cycles() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ focus 2.0 4.0
+out $ "bd*8" $ focus 2.0 4.0
 "#,
         "Focus on cycles 2-4",
     );
@@ -86,7 +86,7 @@ fn test_focus_single_cycle() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ focus 1.0 2.0
+out $ "bd sn hh cp" $ focus 1.0 2.0
 "#,
         "Focus on single cycle 1-2",
     );
@@ -98,7 +98,7 @@ fn test_focus_fractional() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ focus 0.5 1.5
+out $ "bd sn" $ focus 0.5 1.5
 "#,
         "Focus on fractional cycles 0.5-1.5",
     );
@@ -110,7 +110,7 @@ fn test_focus_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ focus 0.0 3.0 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ focus 0.0 3.0 # reverb 0.5 0.3 0.2
 "#,
         "Focus with reverb",
     );
@@ -122,7 +122,7 @@ fn test_focus_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ focus 1.0 3.0 $ fast 2
+out $ "bd sn hh" $ focus 1.0 3.0 $ fast 2
 "#,
         "Focus combined with fast",
     );
@@ -136,7 +136,7 @@ fn test_smooth_on_sample_pattern_fails() {
     test_compilation_error(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ smooth 0.5
+out $ "bd sn hh cp" $ smooth 0.5
 "#,
         "Smooth on sample pattern should fail",
         "smooth transform only works with numeric patterns",
@@ -149,9 +149,9 @@ fn test_smooth_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 0.5
-~smoothed: ~lfo $ smooth 0.3
-out: saw 110 # lpf (~smoothed * 1000 + 500) 0.8
+~lfo $ sine 0.5
+~smoothed $ ~lfo $ smooth 0.3
+out $ saw 110 # lpf (~smoothed * 1000 + 500) 0.8
 "#,
         "Smooth on oscillator pattern",
     );
@@ -163,9 +163,9 @@ fn test_smooth_small_amount() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 1.0
-~smoothed: ~lfo $ smooth 0.1
-out: saw 110 * ~smoothed
+~lfo $ sine 1.0
+~smoothed $ ~lfo $ smooth 0.1
+out $ saw 110 * ~smoothed
 "#,
         "Smooth with small amount",
     );
@@ -177,9 +177,9 @@ fn test_smooth_large_amount() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 0.25
-~smoothed: ~lfo $ smooth 0.9
-out: saw 110 * ~smoothed
+~lfo $ sine 0.25
+~smoothed $ ~lfo $ smooth 0.9
+out $ saw 110 * ~smoothed
 "#,
         "Smooth with large amount",
     );
@@ -193,7 +193,7 @@ fn test_trim_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ trim 0.25 0.75
+out $ "bd sn hh cp" $ trim 0.25 0.75
 "#,
         "Trim to 0.25-0.75",
     );
@@ -205,7 +205,7 @@ fn test_trim_first_half() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ trim 0.0 0.5
+out $ "bd*8" $ trim 0.0 0.5
 "#,
         "Trim to first half (0.0-0.5)",
     );
@@ -217,7 +217,7 @@ fn test_trim_last_quarter() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ trim 0.75 1.0
+out $ "bd sn hh*4" $ trim 0.75 1.0
 "#,
         "Trim to last quarter (0.75-1.0)",
     );
@@ -229,7 +229,7 @@ fn test_trim_small_range() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ trim 0.4 0.6
+out $ "bd sn hh cp" $ trim 0.4 0.6
 "#,
         "Trim to small range (0.4-0.6)",
     );
@@ -241,7 +241,7 @@ fn test_trim_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ trim 0.0 0.5 # delay 0.25 0.5 0.3
+out $ "bd sn hh*2" $ trim 0.0 0.5 # delay 0.25 0.5 0.3
 "#,
         "Trim with delay",
     );
@@ -253,7 +253,7 @@ fn test_trim_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ trim 0.25 0.75 $ fast 2
+out $ "bd sn hh" $ trim 0.25 0.75 $ fast 2
 "#,
         "Trim combined with fast",
     );
@@ -267,7 +267,7 @@ fn test_exp_on_sample_pattern_fails() {
     test_compilation_error(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ exp 2.0
+out $ "bd sn hh cp" $ exp 2.0
 "#,
         "Exp on sample pattern should fail",
         "exp transform only works with numeric patterns",
@@ -280,9 +280,9 @@ fn test_exp_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 0.5
-~exped: ~lfo $ exp 2.0
-out: saw 110 # lpf (~exped * 1000 + 500) 0.8
+~lfo $ sine 0.5
+~exped $ ~lfo $ exp 2.0
+out $ saw 110 # lpf (~exped * 1000 + 500) 0.8
 "#,
         "Exp on oscillator pattern",
     );
@@ -294,9 +294,9 @@ fn test_exp_different_bases() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo1: sine 1.0 $ exp 2.0
-~lfo2: sine 0.5 $ exp 3.0
-out: saw 110 * ~lfo1 # lpf (~lfo2 * 1000 + 500) 0.8
+~lfout $ sine 1.0 $ exp 2.0
+~lfo2 $ sine 0.5 $ exp 3.0
+out $ saw 110 * ~lfo1 # lpf (~lfo2 * 1000 + 500) 0.8
 "#,
         "Exp with different bases",
     );
@@ -310,7 +310,7 @@ fn test_log_on_sample_pattern_fails() {
     test_compilation_error(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ log 2.0
+out $ "bd sn hh cp" $ log 2.0
 "#,
         "Log on sample pattern should fail",
         "log transform only works with numeric patterns",
@@ -323,9 +323,9 @@ fn test_log_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 0.5
-~logged: ~lfo $ log 2.0
-out: saw 110 # lpf (~logged * 1000 + 500) 0.8
+~lfo $ sine 0.5
+~logged $ ~lfo $ log 2.0
+out $ saw 110 # lpf (~logged * 1000 + 500) 0.8
 "#,
         "Log on oscillator pattern",
     );
@@ -337,9 +337,9 @@ fn test_log_different_bases() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo1: sine 1.0 $ log 2.0
-~lfo2: sine 0.5 $ log 10.0
-out: saw 110 * ~lfo1 # lpf (~lfo2 * 1000 + 500) 0.8
+~lfout $ sine 1.0 $ log 2.0
+~lfo2 $ sine 0.5 $ log 10.0
+out $ saw 110 * ~lfo1 # lpf (~lfo2 * 1000 + 500) 0.8
 "#,
         "Log with different bases",
     );
@@ -353,7 +353,7 @@ fn test_walk_on_sample_pattern_fails() {
     test_compilation_error(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ walk 0.5
+out $ "bd sn hh cp" $ walk 0.5
 "#,
         "Walk on sample pattern should fail",
         "walk transform only works with numeric patterns",
@@ -366,9 +366,9 @@ fn test_walk_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 0.5
-~walked: ~lfo $ walk 0.1
-out: saw 110 # lpf (~walked * 1000 + 500) 0.8
+~lfo $ sine 0.5
+~walked $ ~lfo $ walk 0.1
+out $ saw 110 # lpf (~walked * 1000 + 500) 0.8
 "#,
         "Walk on oscillator pattern",
     );
@@ -380,9 +380,9 @@ fn test_walk_small_step() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 1.0
-~walked: ~lfo $ walk 0.05
-out: saw 110 * ~walked
+~lfo $ sine 1.0
+~walked $ ~lfo $ walk 0.05
+out $ saw 110 * ~walked
 "#,
         "Walk with small step size",
     );
@@ -394,9 +394,9 @@ fn test_walk_large_step() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 0.25
-~walked: ~lfo $ walk 0.3
-out: saw 110 * ~walked
+~lfo $ sine 0.25
+~walked $ ~lfo $ walk 0.3
+out $ saw 110 * ~walked
 "#,
         "Walk with large step size",
     );
@@ -410,13 +410,13 @@ fn test_all_six_operations_in_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~focused: "bd*8" $ focus 0.0 2.0
-~trimmed: "sn*4" $ trim 0.25 0.75
-~lfo1: sine 0.5 $ smooth 0.3
-~lfo2: sine 1.0 $ exp 2.0
-~lfo3: sine 0.25 $ log 2.0
-~lfo4: sine 0.5 $ walk 0.1
-out: ~focused + ~trimmed
+~focused $ "bd*8" $ focus 0.0 2.0
+~trimmed $ "sn*4" $ trim 0.25 0.75
+~lfout $ sine 0.5 $ smooth 0.3
+~lfo2 $ sine 1.0 $ exp 2.0
+~lfo3 $ sine 0.25 $ log 2.0
+~lfo4 $ sine 0.5 $ walk 0.1
+out $ ~focused + ~trimmed
 "#,
         "All six operations in one program",
     );
@@ -428,9 +428,9 @@ fn test_focus_and_trim() {
     test_compilation(
         r#"
 tempo: 0.5
-~focused: "bd sn" $ focus 0.0 3.0
-~trimmed: "hh cp" $ trim 0.0 0.5
-out: ~focused + ~trimmed
+~focused $ "bd sn" $ focus 0.0 3.0
+~trimmed $ "hh cp" $ trim 0.0 0.5
+out $ ~focused + ~trimmed
 "#,
         "Focus and trim in same program",
     );
@@ -442,12 +442,12 @@ fn test_numeric_transforms_together() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo1: sine 0.5 $ smooth 0.2
-~lfo2: sine 1.0 $ exp 2.0
-~lfo3: sine 0.25 $ log 2.0
-~lfo4: sine 0.5 $ walk 0.1
-~saw_osc: saw 110 # lpf (~lfo1 * 1000 + 500) 0.8
-out: ~saw_osc * (~lfo2 + ~lfo3 + ~lfo4)
+~lfout $ sine 0.5 $ smooth 0.2
+~lfo2 $ sine 1.0 $ exp 2.0
+~lfo3 $ sine 0.25 $ log 2.0
+~lfo4 $ sine 0.5 $ walk 0.1
+~saw_osc $ saw 110 # lpf (~lfo1 * 1000 + 500) 0.8
+out $ ~saw_osc * (~lfo2 + ~lfo3 + ~lfo4)
 "#,
         "Numeric transforms together",
     );
@@ -459,7 +459,7 @@ fn test_focus_with_trim() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ focus 1.0 4.0 $ trim 0.25 0.75
+out $ "bd sn hh cp" $ focus 1.0 4.0 $ trim 0.25 0.75
 "#,
         "Focus and trim on same pattern",
     );
@@ -471,7 +471,7 @@ fn test_complex_combination() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ focus 0.0 4.0 $ trim 0.25 0.75 $ fast 2
+out $ "bd sn hh cp" $ focus 0.0 4.0 $ trim 0.25 0.75 $ fast 2
 "#,
         "Complex combination: focus, trim, fast",
     );
@@ -483,7 +483,7 @@ fn test_with_effects_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ focus 0.0 3.0 $ trim 0.0 0.5 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*4" $ focus 0.0 3.0 $ trim 0.0 0.5 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Multiple operations with effects chain",
     );
@@ -495,13 +495,13 @@ fn test_in_complex_multi_bus_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~kick: "bd*4" $ focus 0.0 2.0
-~snare: "~ sn ~ sn" $ trim 0.25 0.75
-~hats: "hh*8" $ focus 1.0 3.0 $ trim 0.0 0.5
-~lfo_smooth: sine 0.5 $ smooth 0.3
-~lfo_exp: sine 1.0 $ exp 2.0
-~filtered: saw 110 # lpf (~lfo_smooth * 1000 + 500) 0.8
-out: (~kick + ~snare) * 0.5 + ~hats * 0.3 + ~filtered * (~lfo_exp * 0.2)
+~kick $ "bd*4" $ focus 0.0 2.0
+~snare $ "~ sn ~ sn" $ trim 0.25 0.75
+~hats $ "hh*8" $ focus 1.0 3.0 $ trim 0.0 0.5
+~lfo_smooth $ sine 0.5 $ smooth 0.3
+~lfo_exp $ sine 1.0 $ exp 2.0
+~filtered $ saw 110 # lpf (~lfo_smooth * 1000 + 500) 0.8
+out $ (~kick + ~snare) * 0.5 + ~hats * 0.3 + ~filtered * (~lfo_exp * 0.2)
 "#,
         "Complex multi-bus program with all operations",
     );

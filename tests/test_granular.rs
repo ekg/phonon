@@ -21,8 +21,8 @@ fn test_granular_produces_sound() {
     // Using a sine wave as source
     let code = r#"
 tempo: 1.0
-~source: sine 440
-out: granular ~source 50 0.1 1.0
+~source $ sine 440
+out $ granular ~source 50 0.1 1.0
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -48,8 +48,8 @@ fn test_granular_grain_size() {
         let code = format!(
             r#"
 tempo: 1.0
-~source: sine 440
-out: granular ~source {} 0.5 1.0
+~source $ sine 440
+out $ granular ~source {} 0.5 1.0
 "#,
             grain_ms
         );
@@ -75,14 +75,14 @@ fn test_granular_density() {
     // Higher density should produce louder output (more overlapping grains)
     let code_sparse = r#"
 tempo: 1.0
-~source: sine 440
-out: granular ~source 50 0.1 1.0
+~source $ sine 440
+out $ granular ~source 50 0.1 1.0
 "#;
 
     let code_dense = r#"
 tempo: 1.0
-~source: sine 440
-out: granular ~source 50 0.9 1.0
+~source $ sine 440
+out $ granular ~source 50 0.9 1.0
 "#;
 
     let (_, statements_sparse) = parse_program(code_sparse).expect("Failed to parse");
@@ -110,8 +110,8 @@ fn test_granular_pitch_shift() {
     // Pitch parameter should affect playback rate
     let code = r#"
 tempo: 1.0
-~source: sine 440
-out: granular ~source 50 0.5 2.0
+~source $ sine 440
+out $ granular ~source 50 0.5 2.0
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -135,8 +135,8 @@ fn test_granular_pattern_grain_size() {
     // Pattern-modulated grain size
     let code = r#"
 tempo: 0.5
-~source: sine 440
-out: granular ~source "25 50 100" 0.5 1.0
+~source $ sine 440
+out $ granular ~source "25 50 100" 0.5 1.0
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -160,8 +160,8 @@ fn test_granular_pattern_density() {
     // Pattern-modulated density
     let code = r#"
 tempo: 0.5
-~source: sine 440
-out: granular ~source 50 "0.3 0.7 0.5" 1.0
+~source $ sine 440
+out $ granular ~source 50 "0.3 0.7 0.5" 1.0
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -187,8 +187,8 @@ fn test_granular_ambient_pad() {
     // Granular synthesis for ambient textures
     let code = r#"
 tempo: 1.0
-~source: sine "110 165 220" $ slow 4
-out: granular ~source 100 0.7 0.8 * 0.3
+~source $ sine "110 165 220" $ slow 4
+out $ granular ~source 100 0.7 0.8 * 0.3
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -210,9 +210,9 @@ fn test_granular_rhythmic() {
     // Granular synthesis with rhythmic patterns
     let code = r#"
 tempo: 0.5
-~source: sine 220
-~density_pattern: "0.9 0.3 0.6 0.2"
-out: granular ~source 30 ~density_pattern 1.0 * 0.4
+~source $ sine 220
+~density_pattern $ "0.9 0.3 0.6 0.2"
+out $ granular ~source 30 ~density_pattern 1.0 * 0.4
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");

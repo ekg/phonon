@@ -61,8 +61,8 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 fn test_lpf_compiles() {
     let code = r#"
         tempo: 0.5
-        ~filtered: sine 440 # lpf 1000
-        o1: ~filtered
+        ~filtered $ sine 440 # lpf 1000
+        out $ ~filtered
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -74,8 +74,8 @@ fn test_lpf_compiles() {
 fn test_lpf_generates_audio() {
     let code = r#"
         tempo: 0.5
-        ~filtered: sine 440 # lpf 2000
-        o1: ~filtered * 0.3
+        ~filtered $ sine 440 # lpf 2000
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -92,13 +92,13 @@ fn test_lpf_passes_low_frequencies() {
     // Sine at 200Hz through 1000Hz LPF should pass mostly unaffected
     let code_filtered = r#"
         tempo: 0.5
-        ~filtered: sine 200 # lpf 1000
-        o1: ~filtered * 0.3
+        ~filtered $ sine 200 # lpf 1000
+        out $ ~filtered * 0.3
     "#;
 
     let code_unfiltered = r#"
         tempo: 0.5
-        o1: sine 200 * 0.3
+        out $ sine 200 * 0.3
     "#;
 
     let buffer_filtered = render_dsl(code_filtered, 1.0);
@@ -121,13 +121,13 @@ fn test_lpf_attenuates_high_frequencies() {
     // Sine at 4000Hz through 1000Hz LPF should be heavily attenuated
     let code_filtered = r#"
         tempo: 0.5
-        ~filtered: sine 4000 # lpf 1000
-        o1: ~filtered * 0.3
+        ~filtered $ sine 4000 # lpf 1000
+        out $ ~filtered * 0.3
     "#;
 
     let code_unfiltered = r#"
         tempo: 0.5
-        o1: sine 4000 * 0.3
+        out $ sine 4000 * 0.3
     "#;
 
     let buffer_filtered = render_dsl(code_filtered, 1.0);
@@ -150,13 +150,13 @@ fn test_lpf_frequency_response_curve() {
     // Test LPF response across frequency spectrum using white noise
     let code_filtered = r#"
         tempo: 0.5
-        ~filtered: white_noise # lpf 1000
-        o1: ~filtered * 0.3
+        ~filtered $ white_noise # lpf 1000
+        out $ ~filtered * 0.3
     "#;
 
     let code_unfiltered = r#"
         tempo: 0.5
-        o1: white_noise * 0.3
+        out $ white_noise * 0.3
     "#;
 
     let buffer_filtered = render_dsl(code_filtered, 2.0);
@@ -193,8 +193,8 @@ fn test_lpf_frequency_response_curve() {
 fn test_lpf_cutoff_500() {
     let code = r#"
         tempo: 0.5
-        ~filtered: white_noise # lpf 500
-        o1: ~filtered * 0.3
+        ~filtered $ white_noise # lpf 500
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -223,8 +223,8 @@ fn test_lpf_cutoff_500() {
 fn test_lpf_cutoff_2000() {
     let code = r#"
         tempo: 0.5
-        ~filtered: white_noise # lpf 2000
-        o1: ~filtered * 0.3
+        ~filtered $ white_noise # lpf 2000
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -254,8 +254,8 @@ fn test_lpf_cutoff_8000() {
     // Very high cutoff - should pass most audio
     let code = r#"
         tempo: 0.5
-        ~filtered: white_noise # lpf 8000
-        o1: ~filtered * 0.3
+        ~filtered $ white_noise # lpf 8000
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -274,9 +274,9 @@ fn test_lpf_cutoff_8000() {
 fn test_lpf_mellow_bass() {
     let code = r#"
         tempo: 0.5
-        ~env: ad 0.01 0.3
-        ~bass: saw 55 # lpf 300
-        o1: ~bass * ~env * 0.4
+        ~env $ ad 0.01 0.3
+        ~bass $ saw 55 # lpf 300
+        out $ ~bass * ~env * 0.4
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -291,8 +291,8 @@ fn test_lpf_removing_harshness() {
     // Square wave through LPF becomes more sine-like
     let code = r#"
         tempo: 0.5
-        ~mellowed: square 440 # lpf 800
-        o1: ~mellowed * 0.3
+        ~mellowed $ square 440 # lpf 800
+        out $ ~mellowed * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -316,9 +316,9 @@ fn test_lpf_removing_harshness() {
 fn test_lpf_warm_pad() {
     let code = r#"
         tempo: 1.0
-        ~env: ad 0.5 0.5
-        ~pad: saw 220 # lpf 1200
-        o1: ~pad * ~env * 0.3
+        ~env $ ad 0.5 0.5
+        ~pad $ saw 220 # lpf 1200
+        out $ ~pad * ~env * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -333,8 +333,8 @@ fn test_lpf_telephone_effect() {
     // Narrow LPF creates telephone/lo-fi effect
     let code = r#"
         tempo: 0.5
-        ~telephone: sine 440 # lpf 3000
-        o1: ~telephone * 0.3
+        ~telephone $ sine 440 # lpf 3000
+        out $ ~telephone * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -351,9 +351,9 @@ fn test_lpf_swept_cutoff() {
     // Cutoff frequency modulated by LFO
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 0.5 * 1000 + 1500
-        ~swept: saw 110 # lpf ~lfo
-        o1: ~swept * 0.3
+        ~lfo $ sine 0.5 * 1000 + 1500
+        ~swept $ saw 110 # lpf ~lfo
+        out $ ~swept * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -371,10 +371,10 @@ fn test_lpf_envelope_controlled_cutoff() {
     // Classic filter envelope
     let code = r#"
         tempo: 0.5
-        ~env: ad 0.01 0.3
-        ~cutoff: ~env * 3000 + 200
-        ~synth: saw 110 # lpf ~cutoff
-        o1: ~synth * ~env * 0.3
+        ~env $ ad 0.01 0.3
+        ~cutoff $ ~env * 3000 + 200
+        ~synth $ saw 110 # lpf ~cutoff
+        out $ ~synth * ~env * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -394,8 +394,8 @@ fn test_lpf_cascade() {
     // Two LPFs in series create steeper rolloff
     let code = r#"
         tempo: 0.5
-        ~filtered: white_noise # lpf 1000 # lpf 1000
-        o1: ~filtered * 0.3
+        ~filtered $ white_noise # lpf 1000 # lpf 1000
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -428,8 +428,8 @@ fn test_lpf_cascade() {
 fn test_lpf_no_clipping() {
     let code = r#"
         tempo: 0.5
-        ~filtered: sine 440 # lpf 2000
-        o1: ~filtered * 0.5
+        ~filtered $ sine 440 # lpf 2000
+        out $ ~filtered * 0.5
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -446,8 +446,8 @@ fn test_lpf_no_clipping() {
 fn test_lpf_consistent_output() {
     let code = r#"
         tempo: 0.5
-        ~filtered: sine 440 # lpf 1000
-        o1: ~filtered * 0.3
+        ~filtered $ sine 440 # lpf 1000
+        out $ ~filtered * 0.3
     "#;
 
     let buffer1 = render_dsl(code, 0.1);
@@ -476,8 +476,8 @@ fn test_lpf_very_low_cutoff() {
     // Very low cutoff removes almost everything
     let code = r#"
         tempo: 0.5
-        ~filtered: white_noise # lpf 50
-        o1: ~filtered * 0.5
+        ~filtered $ white_noise # lpf 50
+        out $ ~filtered * 0.5
     "#;
 
     let buffer = render_dsl(code, 1.0);

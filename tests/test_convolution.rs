@@ -27,8 +27,8 @@ fn test_convolution_produces_sound() {
     // convolve input
     let code = r#"
 tempo: 1.0
-~source: saw 220
-out: convolve ~source
+~source $ saw 220
+out $ convolve ~source
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -50,14 +50,14 @@ fn test_convolution_with_impulse() {
     // Convolution should work as a simple reverb
     let code_dry = r#"
 tempo: 1.0
-~source: saw 220
-out: ~source
+~source $ saw 220
+out $ ~source
 "#;
 
     let code_wet = r#"
 tempo: 1.0
-~source: saw 220
-out: convolve ~source
+~source $ saw 220
+out $ convolve ~source
 "#;
 
     let (_, statements_dry) = parse_program(code_dry).expect("Failed to parse");
@@ -86,8 +86,8 @@ fn test_convolution_percussion() {
     // Using a simple impulse (clap-like sound)
     let code = r#"
 tempo: 0.5
-~kick: saw "55 ~ 82.5 ~" * 0.5
-out: convolve ~kick * 0.3
+~kick $ saw "55 ~ 82.5 ~" * 0.5
+out $ convolve ~kick * 0.3
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -112,8 +112,8 @@ fn test_convolution_with_chords() {
     // Convolution adds space and depth to chord progressions
     let code = r#"
 tempo: 1.0
-~chord: saw "110 165 220" $ slow 2
-out: convolve ~chord * 0.2
+~chord $ saw "110 165 220" $ slow 2
+out $ convolve ~chord * 0.2
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");

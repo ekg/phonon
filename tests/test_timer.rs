@@ -9,9 +9,9 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_timer_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~trigger: impulse 2.0
-~time: ~trigger # timer
-out: ~time
+~trigger $ impulse 2.0
+~time $ ~trigger # timer
+out $ ~time
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -35,9 +35,9 @@ out: ~time
 fn test_timer_counts_up() {
     let dsl = r#"
 tempo: 1.0
-~trigger: impulse 1.0
-~time: ~trigger # timer
-out: ~time
+~trigger $ impulse 1.0
+~time $ ~trigger # timer
+out $ ~time
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -93,9 +93,9 @@ out: ~time
 fn test_timer_resets() {
     let dsl = r#"
 tempo: 1.0
-~trigger: impulse 2.0
-~time: ~trigger # timer
-out: ~time
+~trigger $ impulse 2.0
+~time $ ~trigger # timer
+out $ ~time
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -142,9 +142,9 @@ out: ~time
 fn test_timer_continuous() {
     let dsl = r#"
 tempo: 1.0
-~no_trigger: 0.0
-~time: ~no_trigger # timer
-out: ~time
+~no_trigger $ 0.0
+~time $ ~no_trigger # timer
+out $ ~time
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -190,9 +190,9 @@ out: ~time
 fn test_timer_fast_triggers() {
     let dsl = r#"
 tempo: 1.0
-~fast_trigger: impulse 10.0
-~time: ~fast_trigger # timer
-out: ~time
+~fast_trigger $ impulse 10.0
+~time $ ~fast_trigger # timer
+out $ ~time
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -220,9 +220,9 @@ out: ~time
 fn test_timer_stability() {
     let dsl = r#"
 tempo: 1.0
-~trigger: impulse 4.0
-~time: ~trigger # timer
-out: ~time * 0.1
+~trigger $ impulse 4.0
+~time $ ~trigger # timer
+out $ ~time * 0.1
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -249,12 +249,12 @@ out: ~time * 0.1
 fn test_timer_filter_sweep() {
     let dsl = r#"
 tempo: 1.0
-~trigger: impulse 2.0
-~time: ~trigger # timer
-~carrier: saw 110
-~cutoff: ~time * 4000.0 + 200.0
-~swept: ~carrier # lpf ~cutoff 0.8
-out: ~swept * 0.3
+~trigger $ impulse 2.0
+~time $ ~trigger # timer
+~carrier $ saw 110
+~cutoff $ ~time * 4000.0 + 200.0
+~swept $ ~carrier # lpf ~cutoff 0.8
+out $ ~swept * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -278,10 +278,10 @@ out: ~swept * 0.3
 fn test_timer_gate_measurement() {
     let dsl = r#"
 tempo: 1.0
-~gate: impulse 1.0
-~duration: ~gate # timer
-~tone: sine 440 * ~duration
-out: ~tone * 0.2
+~gate $ impulse 1.0
+~duration $ ~gate # timer
+~tone $ sine 440 * ~duration
+out $ ~tone * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -305,9 +305,9 @@ out: ~tone * 0.2
 fn test_timer_pattern_trigger() {
     let dsl = r#"
 tempo: 0.5
-~triggers: "0.0 1.0 0.0 1.0"
-~time: ~triggers # timer
-out: ~time
+~triggers $ "0.0 1.0 0.0 1.0"
+~time $ ~triggers # timer
+out $ ~time
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

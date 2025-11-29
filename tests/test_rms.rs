@@ -9,9 +9,9 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_rms_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440
-~level: ~input # rms 0.1
-out: ~level
+~input $ sine 440
+~level $ ~input # rms 0.1
+out $ ~level
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -36,9 +36,9 @@ fn test_rms_measures_amplitude() {
     // Known amplitude sine wave
     let dsl = r#"
 tempo: 1.0
-~sine: sine 440
-~rms: ~sine # rms 0.01
-out: ~rms
+~sine $ sine 440
+~rms $ ~sine # rms 0.01
+out $ ~rms
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -70,9 +70,9 @@ fn test_rms_window_size() {
     // Small window (fast response)
     let dsl_small = r#"
 tempo: 1.0
-~impulse: impulse 10.0
-~rms: ~impulse # rms 0.001
-out: ~rms
+~impulse $ impulse 10.0
+~rms $ ~impulse # rms 0.001
+out $ ~rms
 "#;
 
     let (_, statements) = parse_program(dsl_small).unwrap();
@@ -82,9 +82,9 @@ out: ~rms
     // Large window (slow response)
     let dsl_large = r#"
 tempo: 1.0
-~impulse: impulse 10.0
-~rms: ~impulse # rms 0.1
-out: ~rms
+~impulse $ impulse 10.0
+~rms $ ~impulse # rms 0.1
+out $ ~rms
 "#;
 
     let (_, statements) = parse_program(dsl_large).unwrap();
@@ -125,9 +125,9 @@ fn test_rms_tracks_changes() {
     // Compare low amplitude vs high amplitude signals
     let dsl_low = r#"
 tempo: 1.0
-~signal: sine 440 * 0.2
-~rms: ~signal # rms 0.01
-out: ~rms
+~signal $ sine 440 * 0.2
+~rms $ ~signal # rms 0.01
+out $ ~rms
 "#;
 
     let (_, statements) = parse_program(dsl_low).unwrap();
@@ -136,9 +136,9 @@ out: ~rms
 
     let dsl_high = r#"
 tempo: 1.0
-~signal: sine 440 * 1.0
-~rms: ~signal # rms 0.01
-out: ~rms
+~signal $ sine 440 * 1.0
+~rms $ ~signal # rms 0.01
+out $ ~rms
 "#;
 
     let (_, statements) = parse_program(dsl_high).unwrap();
@@ -171,9 +171,9 @@ out: ~rms
 fn test_rms_dc_signal() {
     let dsl = r#"
 tempo: 1.0
-~dc: 0.5
-~rms: ~dc # rms 0.01
-out: ~rms
+~dc $ 0.5
+~rms $ ~dc # rms 0.01
+out $ ~rms
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -201,9 +201,9 @@ out: ~rms
 fn test_rms_stability() {
     let dsl = r#"
 tempo: 1.0
-~noise: white_noise
-~rms: ~noise # rms 0.05
-out: ~rms * 0.5
+~noise $ white_noise
+~rms $ ~noise # rms 0.05
+out $ ~rms * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -230,11 +230,11 @@ out: ~rms * 0.5
 fn test_rms_envelope_follower() {
     let dsl = r#"
 tempo: 0.5
-~kick: impulse 2.0
-~kick_rms: ~kick # rms 0.01
-~pad: saw 110
-~ducked: ~pad * (1.0 - ~kick_rms * 2.0)
-out: ~ducked * 0.3
+~kick $ impulse 2.0
+~kick_rms $ ~kick # rms 0.01
+~pad $ saw 110
+~ducked $ ~pad * (1.0 - ~kick_rms * 2.0)
+out $ ~ducked * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -258,10 +258,10 @@ out: ~ducked * 0.3
 fn test_rms_pattern_window() {
     let dsl = r#"
 tempo: 0.5
-~input: sine 440
-~windows: "0.01 0.05"
-~rms: ~input # rms ~windows
-out: ~rms
+~input $ sine 440
+~windows $ "0.01 0.05"
+~rms $ ~input # rms ~windows
+out $ ~rms
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -280,9 +280,9 @@ out: ~rms
 fn test_rms_vu_meter() {
     let dsl = r#"
 tempo: 1.0
-~music: saw 110 + sine 220 * 0.5 + sine 440 * 0.25
-~level: ~music # rms 0.1
-out: ~level
+~music $ saw 110 + sine 220 * 0.5 + sine 440 * 0.25
+~level $ ~music # rms 0.1
+out $ ~level
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

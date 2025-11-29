@@ -3,9 +3,10 @@ use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_chop_transform() {
     // chop should split each event into n equal parts
-    let input = "cps: 1.0\nout: s \"bd sn\" $ chop 4";
+    let input = "cps: 1.0\nout $ s \"bd sn\" $ chop 4";
 
     let (_, statements) = parse_program(input).expect("Should parse");
     let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
@@ -21,9 +22,10 @@ fn test_chop_transform() {
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_gap_transform() {
     // gap should add silence between events
-    let input = "cps: 1.0\nout: s \"bd sn hh cp\" $ gap 2";
+    let input = "cps: 1.0\nout $ s \"bd sn hh cp\" $ gap 2";
 
     let (_, statements) = parse_program(input).expect("Should parse");
     let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
@@ -38,9 +40,10 @@ fn test_gap_transform() {
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_segment_transform() {
     // segment should divide pattern into n segments
-    let input = "cps: 1.0\nout: s \"bd sn hh cp\" $ segment 2";
+    let input = "cps: 1.0\nout $ s \"bd sn hh cp\" $ segment 2";
 
     let (_, statements) = parse_program(input).expect("Should parse");
     let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");
@@ -165,9 +168,10 @@ fn test_segment_at_pattern_level() {
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_chop_with_chained_transforms() {
     // chop should work with other transforms
-    let input = "cps: 1.0\nout: s \"bd sn\" $ chop 4 $ rev";
+    let input = "cps: 1.0\nout $ s \"bd sn\" $ chop 4 $ rev";
 
     let (_, statements) = parse_program(input).expect("Should parse");
     let mut graph = compile_program(statements, 44100.0, None).expect("Should compile");

@@ -31,7 +31,7 @@ fn test_every_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ every 2 fast 2
+out $ "bd sn hh cp" $ every 2 fast 2
 "#,
         "Every 2 cycles apply fast 2",
     );
@@ -43,7 +43,7 @@ fn test_every_with_rev() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ every 3 rev
+out $ "bd sn hh cp" $ every 3 rev
 "#,
         "Every 3 cycles apply rev",
     );
@@ -55,7 +55,7 @@ fn test_every_with_slow() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ every 4 slow 2
+out $ "bd*8" $ every 4 slow 2
 "#,
         "Every 4 cycles apply slow 2",
     );
@@ -67,7 +67,7 @@ fn test_every_large_interval() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ every 8 fast 4
+out $ "bd sn hh*4" $ every 8 fast 4
 "#,
         "Every 8 cycles apply fast 4",
     );
@@ -79,7 +79,7 @@ fn test_every_with_degrade() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ every 2 degrade
+out $ "bd sn hh cp" $ every 2 degrade
 "#,
         "Every 2 cycles apply degrade",
     );
@@ -93,7 +93,7 @@ fn test_every_with_late() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ every 3 late 0.25
+out $ "bd sn hh cp" $ every 3 late 0.25
 "#,
         "Every 3 cycles delay by 0.25",
     );
@@ -105,7 +105,7 @@ fn test_every_with_early() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ every 2 early 0.125
+out $ "bd sn hh*4" $ every 2 early 0.125
 "#,
         "Every 2 cycles shift early by 0.125",
     );
@@ -117,7 +117,7 @@ fn test_every_with_dup() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ every 4 dup 2
+out $ "bd sn" $ every 4 dup 2
 "#,
         "Every 4 cycles duplicate 2 times",
     );
@@ -129,7 +129,7 @@ fn test_every_with_fit() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ every 3 fit 2
+out $ "bd sn hh cp" $ every 3 fit 2
 "#,
         "Every 3 cycles fit to 2",
     );
@@ -141,7 +141,7 @@ fn test_every_with_stretch() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ every 2 stretch
+out $ "bd sn hh*4" $ every 2 stretch
 "#,
         "Every 2 cycles stretch",
     );
@@ -155,7 +155,7 @@ fn test_every_with_palindrome() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ every 3 palindrome
+out $ "bd sn hh cp" $ every 3 palindrome
 "#,
         "Every 3 cycles palindrome",
     );
@@ -167,7 +167,7 @@ fn test_every_with_stutter() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ every 2 stutter 4
+out $ "bd sn hh*4" $ every 2 stutter 4
 "#,
         "Every 2 cycles stutter 4 times",
     );
@@ -179,7 +179,7 @@ fn test_every_with_chop() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ every 4 chop 8
+out $ "bd sn" $ every 4 chop 8
 "#,
         "Every 4 cycles chop into 8",
     );
@@ -191,7 +191,7 @@ fn test_every_with_zoom() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ every 3 zoom 0.25 0.75
+out $ "bd sn hh cp" $ every 3 zoom 0.25 0.75
 "#,
         "Every 3 cycles zoom to middle half",
     );
@@ -205,7 +205,7 @@ fn test_every_with_effects_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ every 2 fast 2 # lpf 1000 0.8
+out $ "bd sn hh*4" $ every 2 fast 2 # lpf 1000 0.8
 "#,
         "Every 2 cycles fast 2, with lpf",
     );
@@ -217,7 +217,7 @@ fn test_every_before_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ every 3 rev # reverb 0.5 0.3 0.2 # lpf 2000 0.7
+out $ "bd sn hh cp" $ every 3 rev # reverb 0.5 0.3 0.2 # lpf 2000 0.7
 "#,
         "Every 3 cycles rev, then effects",
     );
@@ -231,7 +231,7 @@ fn test_every_chained_with_fast() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ every 2 rev $ fast 2
+out $ "bd sn hh cp" $ every 2 rev $ fast 2
 "#,
         "Every 2 cycles rev, then fast 2",
     );
@@ -243,7 +243,7 @@ fn test_every_chained_with_slow() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ every 3 fast 4 $ slow 2
+out $ "bd*8" $ every 3 fast 4 $ slow 2
 "#,
         "Every 3 cycles fast 4, then slow 2",
     );
@@ -255,9 +255,9 @@ fn test_multiple_every_operations() {
     test_compilation(
         r#"
 tempo: 0.5
-~drums1: "bd sn" $ every 2 fast 2
-~drums2: "hh*4 cp" $ every 3 rev
-out: ~drums1 + ~drums2
+~drums1 $ "bd sn" $ every 2 fast 2
+~drums2 $ "hh*4 cp" $ every 3 rev
+out $ ~drums1 + ~drums2
 "#,
         "Multiple every operations in program",
     );
@@ -271,7 +271,7 @@ fn test_every_with_euclidean() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd(3,8)" $ every 2 fast 2
+out $ "bd(3,8)" $ every 2 fast 2
 "#,
         "Every 2 cycles on euclidean pattern",
     );
@@ -283,7 +283,7 @@ fn test_every_with_alternation() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "<bd sn hh cp>" $ every 3 rev
+out $ "<bd sn hh cp>" $ every 3 rev
 "#,
         "Every 3 cycles on alternation pattern",
     );
@@ -295,7 +295,7 @@ fn test_every_with_subdivision() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4 sn*2 hh*8" $ every 2 slow 2
+out $ "bd*4 sn*2 hh*8" $ every 2 slow 2
 "#,
         "Every 2 cycles on subdivision pattern",
     );
@@ -309,7 +309,7 @@ fn test_every_1() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ every 1 fast 2
+out $ "bd sn hh cp" $ every 1 fast 2
 "#,
         "Every 1 cycle (always applies)",
     );
@@ -321,7 +321,7 @@ fn test_every_with_degradeBy() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4 cp" $ every 2 degradeBy 0.5
+out $ "bd sn hh*4 cp" $ every 2 degradeBy 0.5
 "#,
         "Every 2 cycles degrade by 50%",
     );
@@ -335,7 +335,7 @@ fn test_every_complex_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ every 2 fast 2 $ every 3 rev $ slow 1.5
+out $ "bd sn hh cp" $ every 2 fast 2 $ every 3 rev $ slow 1.5
 "#,
         "Multiple every operations chained",
     );
@@ -347,7 +347,7 @@ fn test_every_with_all_timing_ops() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ every 2 late 0.25 $ every 3 early 0.125 $ every 4 dup 2
+out $ "bd sn hh*4" $ every 2 late 0.25 $ every 3 early 0.125 $ every 4 dup 2
 "#,
         "Every with multiple timing operations",
     );
@@ -359,11 +359,11 @@ fn test_every_in_complex_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~kick: "bd*4" $ every 4 fast 2
-~snare: "~ sn ~ sn" $ every 3 rev
-~hats: "hh*8" $ every 2 degrade
-~perc: "cp*4" $ every 2 late 0.125
-out: ~kick * 0.4 + ~snare * 0.3 + ~hats * 0.2 + ~perc * 0.1
+~kick $ "bd*4" $ every 4 fast 2
+~snare $ "~ sn ~ sn" $ every 3 rev
+~hats $ "hh*8" $ every 2 degrade
+~perc $ "cp*4" $ every 2 late 0.125
+out $ ~kick * 0.4 + ~snare * 0.3 + ~hats * 0.2 + ~perc * 0.1
 "#,
         "Every in complex multi-bus program",
     );

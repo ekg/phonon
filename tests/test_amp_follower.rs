@@ -9,9 +9,9 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_amp_follower_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440
-~amp: ~input # amp_follower 0.01 0.1 0.01
-out: ~amp
+~input $ sine 440
+~amp $ ~input # amp_follower 0.01 0.1 0.01
+out $ ~amp
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -36,10 +36,10 @@ fn test_amp_follower_smooth_tracking() {
     // Modulated sine - amp follower should track the amplitude envelope
     let dsl = r#"
 tempo: 1.0
-~lfo: sine 2 * 0.5 + 0.5
-~modulated: sine 440 * ~lfo
-~envelope: ~modulated # amp_follower 0.02 0.1 0.01
-out: ~envelope
+~lfo $ sine 2 * 0.5 + 0.5
+~modulated $ sine 440 * ~lfo
+~envelope $ ~modulated # amp_follower 0.02 0.1 0.01
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -67,9 +67,9 @@ fn test_amp_follower_smoothing() {
     // White noise has rapid variations - amp follower should smooth them
     let dsl = r#"
 tempo: 1.0
-~noise: white_noise
-~smooth: ~noise # amp_follower 0.05 0.1 0.01
-out: ~smooth
+~noise $ white_noise
+~smooth $ ~noise # amp_follower 0.05 0.1 0.01
+out $ ~smooth
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -97,11 +97,11 @@ fn test_amp_follower_fast_attack() {
     // Square wave amplitude modulation
     let dsl = r#"
 tempo: 1.0
-~carrier: sine 440
-~gate: square 4 * 0.5 + 0.5
-~modulated: ~carrier * ~gate
-~envelope: ~modulated # amp_follower 0.001 0.1 0.005
-out: ~envelope
+~carrier $ sine 440
+~gate $ square 4 * 0.5 + 0.5
+~modulated $ ~carrier * ~gate
+~envelope $ ~modulated # amp_follower 0.001 0.1 0.005
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -130,11 +130,11 @@ fn test_amp_follower_slow_release() {
     // Tone pulsed by slow square wave
     let dsl = r#"
 tempo: 1.0
-~carrier: sine 440
-~pulse: square 4 * 0.5 + 0.5
-~pulsed: ~carrier * ~pulse
-~envelope: ~pulsed # amp_follower 0.01 0.3 0.01
-out: ~envelope
+~carrier $ sine 440
+~pulse $ square 4 * 0.5 + 0.5
+~pulsed $ ~carrier * ~pulse
+~envelope $ ~pulsed # amp_follower 0.01 0.3 0.01
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -162,9 +162,9 @@ out: ~envelope
 fn test_amp_follower_stability() {
     let dsl = r#"
 tempo: 1.0
-~noise: white_noise
-~envelope: ~noise # amp_follower 0.01 0.1 0.01
-out: ~envelope * 0.5
+~noise $ white_noise
+~envelope $ ~noise # amp_follower 0.01 0.1 0.01
+out $ ~envelope * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -191,11 +191,11 @@ out: ~envelope * 0.5
 fn test_amp_follower_sidechain() {
     let dsl = r#"
 tempo: 0.5
-~kick: impulse 4.0
-~kick_envelope: ~kick # amp_follower 0.001 0.2 0.01
-~bass: saw 55
-~ducked: ~bass * (1.0 - ~kick_envelope * 0.7)
-out: ~ducked * 0.3
+~kick $ impulse 4.0
+~kick_envelope $ ~kick # amp_follower 0.001 0.2 0.01
+~bass $ saw 55
+~ducked $ ~bass * (1.0 - ~kick_envelope * 0.7)
+out $ ~ducked * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -219,11 +219,11 @@ out: ~ducked * 0.3
 fn test_amp_follower_tremolo() {
     let dsl = r#"
 tempo: 1.0
-~carrier: saw 220
-~lfo: sine 6 * 0.5 + 0.5
-~modulated: ~carrier * ~lfo
-~smooth_env: ~modulated # amp_follower 0.02 0.05 0.01
-out: ~smooth_env
+~carrier $ saw 220
+~lfo $ sine 6 * 0.5 + 0.5
+~modulated $ ~carrier * ~lfo
+~smooth_env $ ~modulated # amp_follower 0.02 0.05 0.01
+out $ ~smooth_env
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -245,14 +245,12 @@ out: ~smooth_env
 /// Tests that amp follower parameters can be modulated
 #[test]
 fn test_amp_follower_variable_params() {
+    // Use inline expressions for modulated parameters
     let dsl = r#"
 tempo: 1.0
-~input: sine 440
-~attack_mod: sine 0.5 * 0.01 + 0.01
-~release_mod: sine 0.3 * 0.1 + 0.1
-~window_mod: sine 0.2 * 0.01 + 0.01
-~envelope: ~input # amp_follower ~attack_mod ~release_mod ~window_mod
-out: ~envelope
+~input $ sine 440
+~envelope $ ~input # amp_follower (sine 0.5 * 0.01 + 0.01) (sine 0.3 * 0.1 + 0.1) (sine 0.2 * 0.01 + 0.01)
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

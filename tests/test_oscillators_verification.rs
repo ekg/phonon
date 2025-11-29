@@ -64,7 +64,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 fn test_sine_level1_frequency_accuracy() {
     let code = r#"
 bpm: 120
-o1: sine 440
+out $ sine 440
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
@@ -78,7 +78,7 @@ fn test_sine_level2_pure_tone() {
     // Sine should have only fundamental, no harmonics
     let code = r#"
 bpm: 120
-o1: sine 440 * 0.5
+out $ sine 440 * 0.5
 "#;
     let audio = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&audio, 44100.0);
@@ -112,7 +112,7 @@ o1: sine 440 * 0.5
 fn test_sine_level3_amplitude() {
     let code = r#"
 bpm: 120
-o1: sine 440 * 0.5
+out $ sine 440 * 0.5
 "#;
     let audio = render_dsl(code, 1.0);
     let rms = calculate_rms(&audio);
@@ -129,7 +129,7 @@ o1: sine 440 * 0.5
 fn test_saw_level1_frequency_accuracy() {
     let code = r#"
 bpm: 120
-o1: saw 440
+out $ saw 440
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
@@ -143,7 +143,7 @@ fn test_saw_level2_rich_harmonics() {
     // Saw should have all harmonics (odd + even) with 1/n falloff
     let code = r#"
 bpm: 120
-o1: saw 440 * 0.3
+out $ saw 440 * 0.3
 "#;
     let audio = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&audio, 44100.0);
@@ -174,7 +174,7 @@ o1: saw 440 * 0.3
 fn test_saw_level3_amplitude() {
     let code = r#"
 bpm: 120
-o1: saw 440 * 0.5
+out $ saw 440 * 0.5
 "#;
     let audio = render_dsl(code, 1.0);
     let rms = calculate_rms(&audio);
@@ -191,7 +191,7 @@ o1: saw 440 * 0.5
 fn test_square_level1_frequency_accuracy() {
     let code = r#"
 bpm: 120
-o1: square 440
+out $ square 440
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
@@ -205,7 +205,7 @@ fn test_square_level2_odd_harmonics() {
     // Square should have only odd harmonics with 1/n falloff
     let code = r#"
 bpm: 120
-o1: square 440 * 0.3
+out $ square 440 * 0.3
 "#;
     let audio = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&audio, 44100.0);
@@ -242,7 +242,7 @@ o1: square 440 * 0.3
 fn test_square_level3_amplitude() {
     let code = r#"
 bpm: 120
-o1: square 440 * 0.5
+out $ square 440 * 0.5
 "#;
     let audio = render_dsl(code, 1.0);
     let rms = calculate_rms(&audio);
@@ -259,7 +259,7 @@ o1: square 440 * 0.5
 fn test_triangle_level1_frequency_accuracy() {
     let code = r#"
 bpm: 120
-o1: triangle 440
+out $ triangle 440
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
@@ -273,7 +273,7 @@ fn test_triangle_level2_weak_harmonics() {
     // Triangle should have only odd harmonics with 1/n² falloff (weaker than square)
     let code = r#"
 bpm: 120
-o1: triangle 440 * 0.3
+out $ triangle 440 * 0.3
 "#;
     let audio = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&audio, 44100.0);
@@ -312,7 +312,7 @@ o1: triangle 440 * 0.3
 fn test_triangle_level3_amplitude() {
     let code = r#"
 bpm: 120
-o1: triangle 440 * 0.5
+out $ triangle 440 * 0.5
 "#;
     let audio = render_dsl(code, 1.0);
     let rms = calculate_rms(&audio);
@@ -335,7 +335,7 @@ fn test_sine_trig_level1_pattern_triggering() {
     // Note: frequency is specified IN the pattern string, not as separate arg
     let code = r#"
 bpm: 120
-o1: sine_trig "440 ~ 440 ~"
+out $ sine_trig "440 ~ 440 ~"
 "#;
     let audio = render_dsl(code, 2.0); // 2 seconds = 4 cycles at bpm 120
 
@@ -350,7 +350,7 @@ o1: sine_trig "440 ~ 440 ~"
 fn test_sine_trig_level2_silence_between_events() {
     let code = r#"
 bpm: 120
-o1: sine_trig "440 ~ ~ ~"
+out $ sine_trig "440 ~ ~ ~"
 "#;
     let audio = render_dsl(code, 2.0);
     let rms = calculate_rms(&audio);
@@ -358,7 +358,7 @@ o1: sine_trig "440 ~ ~ ~"
     // With "440 ~ ~ ~" pattern, 75% should be silent, so RMS much lower than continuous
     let code_continuous = r#"
 bpm: 120
-o1: sine 440 * 0.5
+out $ sine 440 * 0.5
 "#;
     let audio_continuous = render_dsl(code_continuous, 2.0);
     let rms_continuous = calculate_rms(&audio_continuous);
@@ -372,7 +372,7 @@ o1: sine 440 * 0.5
 fn test_sine_trig_level3_frequency_accuracy() {
     let code = r#"
 bpm: 120
-o1: sine_trig "440"
+out $ sine_trig "440"
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
@@ -385,7 +385,7 @@ o1: sine_trig "440"
 fn test_saw_trig_level1_pattern_triggering() {
     let code = r#"
 bpm: 120
-o1: saw_trig "220 ~ 220 ~"
+out $ saw_trig "220 ~ 220 ~"
 "#;
     let audio = render_dsl(code, 2.0);
 
@@ -399,7 +399,7 @@ o1: saw_trig "220 ~ 220 ~"
 fn test_saw_trig_level2_rich_harmonics() {
     let code = r#"
 bpm: 120
-o1: saw_trig "440"
+out $ saw_trig "440"
 "#;
     let audio = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&audio, 44100.0);
@@ -425,7 +425,7 @@ o1: saw_trig "440"
 fn test_saw_trig_level3_frequency_accuracy() {
     let code = r#"
 bpm: 120
-o1: saw_trig "440"
+out $ saw_trig "440"
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
@@ -438,7 +438,7 @@ o1: saw_trig "440"
 fn test_square_trig_level1_pattern_triggering() {
     let code = r#"
 bpm: 120
-o1: square_trig "330 ~ 330 ~"
+out $ square_trig "330 ~ 330 ~"
 "#;
     let audio = render_dsl(code, 2.0);
 
@@ -452,7 +452,7 @@ o1: square_trig "330 ~ 330 ~"
 fn test_square_trig_level2_odd_harmonics() {
     let code = r#"
 bpm: 120
-o1: square_trig "440"
+out $ square_trig "440"
 "#;
     let audio = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&audio, 44100.0);
@@ -486,7 +486,7 @@ o1: square_trig "440"
 fn test_square_trig_level3_frequency_accuracy() {
     let code = r#"
 bpm: 120
-o1: square_trig "440"
+out $ square_trig "440"
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
@@ -499,7 +499,7 @@ o1: square_trig "440"
 fn test_tri_trig_level1_pattern_triggering() {
     let code = r#"
 bpm: 120
-o1: tri_trig "440 ~ 440 ~"
+out $ tri_trig "440 ~ 440 ~"
 "#;
     let audio = render_dsl(code, 2.0);
 
@@ -513,7 +513,7 @@ o1: tri_trig "440 ~ 440 ~"
 fn test_tri_trig_level2_weak_harmonics() {
     let code = r#"
 bpm: 120
-o1: tri_trig "440"
+out $ tri_trig "440"
 "#;
     let audio = render_dsl(code, 1.0);
     let (frequencies, magnitudes) = analyze_spectrum(&audio, 44100.0);
@@ -552,7 +552,7 @@ o1: tri_trig "440"
 fn test_tri_trig_level3_frequency_accuracy() {
     let code = r#"
 bpm: 120
-o1: tri_trig "440"
+out $ tri_trig "440"
 "#;
     let audio = render_dsl(code, 1.0);
     let freq = find_dominant_frequency(&audio, 44100.0);
@@ -570,10 +570,10 @@ fn test_harmonic_content_ordering() {
     // Note: Band-limited implementations may have slightly different characteristics
     let duration = 1.0;
 
-    let sine_audio = render_dsl("bpm: 120\no1: sine 440 * 0.3", duration);
-    let triangle_audio = render_dsl("bpm: 120\no1: triangle 440 * 0.3", duration);
-    let square_audio = render_dsl("bpm: 120\no1: square 440 * 0.3", duration);
-    let saw_audio = render_dsl("bpm: 120\no1: saw 440 * 0.3", duration);
+    let sine_audio = render_dsl("bpm: 120\nout $ sine 440 * 0.3", duration);
+    let triangle_audio = render_dsl("bpm: 120\nout $ triangle 440 * 0.3", duration);
+    let square_audio = render_dsl("bpm: 120\nout $ square 440 * 0.3", duration);
+    let saw_audio = render_dsl("bpm: 120\nout $ saw 440 * 0.3", duration);
 
     // Measure high-frequency energy (above 1kHz) as proxy for harmonic richness
     fn high_freq_energy(audio: &[f32]) -> f32 {
@@ -633,7 +633,7 @@ fn test_all_oscillators_compile() {
     ];
 
     for osc in oscillators {
-        let code = format!("bpm: 120\no1: {}", osc);
+        let code = format!("bpm: 120\nout $ {}", osc);
         let result = parse_program(&code);
         assert!(result.is_ok(), "Failed to parse: {}", osc);
 

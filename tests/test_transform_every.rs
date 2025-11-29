@@ -151,12 +151,12 @@ fn test_every_level1_total_events() {
 fn test_every_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let every_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ every 2 (fast 2)
+out $ s "bd sn hh cp" $ every 2 (fast 2)
 "#;
 
     let cycles = 8;
@@ -194,7 +194,7 @@ fn test_every_level2_timing_variation() {
     // Verify that every creates timing variation across cycles
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ every 2 (fast 2)
+out $ s "bd sn" $ every 2 (fast 2)
 "#;
 
     let cycles = 4; // 2 normal, 2 fast
@@ -239,7 +239,7 @@ out: s "bd sn" $ every 2 (fast 2)
 fn test_every_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ every 2 (fast 2)
+out $ s "bd sn hh cp" $ every 2 (fast 2)
 "#;
 
     let audio = render_dsl(code, 8);
@@ -277,12 +277,12 @@ fn test_every_level3_compare_to_base() {
     // every should have higher energy than base (more events on transformed cycles)
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let every_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ every 2 (fast 2)
+out $ s "bd sn hh cp" $ every 2 (fast 2)
 "#;
 
     let base_audio = render_dsl(base_code, 8);
@@ -358,7 +358,7 @@ fn test_every_with_rev() {
     // Test every with non-density-changing transform (rev)
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ every 3 rev
+out $ s "bd sn hh cp" $ every 3 rev
 "#;
 
     let audio = render_dsl(code, 9); // 9 cycles to get 3 complete every-3 periods
@@ -374,7 +374,7 @@ fn test_every_with_large_n() {
     // Test every with large cycle interval
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ every 8 (fast 4)
+out $ s "bd sn" $ every 8 (fast 4)
 "#;
 
     let audio = render_dsl(code, 16); // 16 cycles to see pattern

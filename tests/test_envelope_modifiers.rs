@@ -6,7 +6,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 fn test_segments_modifier() {
     let dsl = r#"
         tempo: 0.5
-        out: s "bd sn" # segments "0 1 0" "0.1 0.2"
+        out $ s "bd sn" # segments "0 1 0" "0.1 0.2"
     "#;
 
     let (remaining, statements) = parse_dsl(dsl).expect("Failed to parse DSL");
@@ -22,7 +22,7 @@ fn test_segments_modifier() {
 fn test_adsr_modifier() {
     let dsl = r#"
         tempo: 0.5
-        out: s "bd sn" # adsr 0.01 0.1 0.5 0.2
+        out $ s "bd sn" # adsr 0.01 0.1 0.5 0.2
     "#;
 
     let (remaining, statements) = parse_dsl(dsl).expect("Failed to parse DSL");
@@ -36,7 +36,7 @@ fn test_adsr_modifier() {
 fn test_curve_modifier() {
     let dsl = r#"
         tempo: 0.5
-        out: s "hh*4" # curve 0 1 0.1 2
+        out $ s "hh*4" # curve 0 1 0.1 2
     "#;
 
     let (remaining, statements) = parse_dsl(dsl).expect("Failed to parse DSL");
@@ -52,7 +52,7 @@ fn test_mixed_envelopes() {
         tempo: 0.5
         ~drums: s "bd sn" # segments "0 1 0" "0.1 0.2"
         ~bass: s "bd" # adsr 0.01 0.1 0.5 0.3
-        out: ~drums * 0.5 + ~bass * 0.5
+        out $ ~drums * 0.5 + ~bass * 0.5
     "#;
 
     let (remaining, statements) = parse_dsl(dsl).expect("Failed to parse DSL");

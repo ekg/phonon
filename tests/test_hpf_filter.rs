@@ -61,8 +61,8 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 fn test_hpf_compiles() {
     let code = r#"
         tempo: 0.5
-        ~filtered: sine 440 # hpf 200
-        o1: ~filtered
+        ~filtered $ sine 440 # hpf 200
+        out $ ~filtered
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -74,8 +74,8 @@ fn test_hpf_compiles() {
 fn test_hpf_generates_audio() {
     let code = r#"
         tempo: 0.5
-        ~filtered: sine 440 # hpf 200
-        o1: ~filtered * 0.3
+        ~filtered $ sine 440 # hpf 200
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -92,13 +92,13 @@ fn test_hpf_passes_high_frequencies() {
     // Sine at 2000Hz through 500Hz HPF should pass mostly unaffected
     let code_filtered = r#"
         tempo: 0.5
-        ~filtered: sine 2000 # hpf 500
-        o1: ~filtered * 0.3
+        ~filtered $ sine 2000 # hpf 500
+        out $ ~filtered * 0.3
     "#;
 
     let code_unfiltered = r#"
         tempo: 0.5
-        o1: sine 2000 * 0.3
+        out $ sine 2000 * 0.3
     "#;
 
     let buffer_filtered = render_dsl(code_filtered, 1.0);
@@ -121,13 +121,13 @@ fn test_hpf_attenuates_low_frequencies() {
     // Sine at 100Hz through 1000Hz HPF should be heavily attenuated
     let code_filtered = r#"
         tempo: 0.5
-        ~filtered: sine 100 # hpf 1000
-        o1: ~filtered * 0.3
+        ~filtered $ sine 100 # hpf 1000
+        out $ ~filtered * 0.3
     "#;
 
     let code_unfiltered = r#"
         tempo: 0.5
-        o1: sine 100 * 0.3
+        out $ sine 100 * 0.3
     "#;
 
     let buffer_filtered = render_dsl(code_filtered, 1.0);
@@ -150,13 +150,13 @@ fn test_hpf_frequency_response_curve() {
     // Test HPF response across frequency spectrum using white noise
     let code_filtered = r#"
         tempo: 0.5
-        ~filtered: white_noise # hpf 2000
-        o1: ~filtered * 0.3
+        ~filtered $ white_noise # hpf 2000
+        out $ ~filtered * 0.3
     "#;
 
     let code_unfiltered = r#"
         tempo: 0.5
-        o1: white_noise * 0.3
+        out $ white_noise * 0.3
     "#;
 
     let buffer_filtered = render_dsl(code_filtered, 2.0);
@@ -194,8 +194,8 @@ fn test_hpf_cutoff_200() {
     // Low cutoff - removes sub-bass
     let code = r#"
         tempo: 0.5
-        ~filtered: white_noise # hpf 200
-        o1: ~filtered * 0.3
+        ~filtered $ white_noise # hpf 200
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -224,8 +224,8 @@ fn test_hpf_cutoff_200() {
 fn test_hpf_cutoff_1000() {
     let code = r#"
         tempo: 0.5
-        ~filtered: white_noise # hpf 1000
-        o1: ~filtered * 0.3
+        ~filtered $ white_noise # hpf 1000
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -255,8 +255,8 @@ fn test_hpf_cutoff_5000() {
     // Very high cutoff - only brightest frequencies pass
     let code = r#"
         tempo: 0.5
-        ~filtered: white_noise # hpf 5000
-        o1: ~filtered * 0.5
+        ~filtered $ white_noise # hpf 5000
+        out $ ~filtered * 0.5
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -288,9 +288,9 @@ fn test_hpf_removing_rumble() {
     // Remove low-frequency rumble from bass
     let code = r#"
         tempo: 0.5
-        ~env: ad 0.01 0.3
-        ~bass: saw 55 # hpf 40
-        o1: ~bass * ~env * 0.4
+        ~env $ ad 0.01 0.3
+        ~bass $ saw 55 # hpf 40
+        out $ ~bass * ~env * 0.4
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -305,9 +305,9 @@ fn test_hpf_thin_bass() {
     // Thin out bass for more clarity
     let code = r#"
         tempo: 0.5
-        ~env: ad 0.01 0.3
-        ~bass: saw 110 # hpf 150
-        o1: ~bass * ~env * 0.3
+        ~env $ ad 0.01 0.3
+        ~bass $ saw 110 # hpf 150
+        out $ ~bass * ~env * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -322,8 +322,8 @@ fn test_hpf_air_and_sparkle() {
     // High HPF adds air and sparkle
     let code = r#"
         tempo: 0.5
-        ~sparkle: white_noise # hpf 8000
-        o1: ~sparkle * 0.3
+        ~sparkle $ white_noise # hpf 8000
+        out $ ~sparkle * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -347,8 +347,8 @@ fn test_hpf_telephone_voice() {
     // Telephone voice effect (HPF + LPF)
     let code = r#"
         tempo: 0.5
-        ~voice: sine 250 # hpf 300
-        o1: ~voice * 0.3
+        ~voice $ sine 250 # hpf 300
+        out $ ~voice * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -369,9 +369,9 @@ fn test_hpf_swept_cutoff() {
     // Cutoff frequency modulated by LFO
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 0.5 * 500 + 1000
-        ~swept: white_noise # hpf ~lfo
-        o1: ~swept * 0.3
+        ~lfo $ sine 0.5 * 500 + 1000
+        ~swept $ white_noise # hpf ~lfo
+        out $ ~swept * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -389,10 +389,10 @@ fn test_hpf_envelope_controlled_cutoff() {
     // Envelope opens HPF cutoff
     let code = r#"
         tempo: 0.5
-        ~env: ad 0.02 0.3
-        ~cutoff: ~env * 2000 + 100
-        ~synth: saw 110 # hpf ~cutoff
-        o1: ~synth * ~env * 0.3
+        ~env $ ad 0.02 0.3
+        ~cutoff $ ~env * 2000 + 100
+        ~synth $ saw 110 # hpf ~cutoff
+        out $ ~synth * ~env * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -412,8 +412,8 @@ fn test_hpf_cascade() {
     // Two HPFs in series create steeper rolloff
     let code = r#"
         tempo: 0.5
-        ~filtered: white_noise # hpf 2000 # hpf 2000
-        o1: ~filtered * 0.3
+        ~filtered $ white_noise # hpf 2000 # hpf 2000
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -445,8 +445,8 @@ fn test_hpf_lpf_bandpass() {
     // HPF + LPF creates bandpass effect
     let code = r#"
         tempo: 0.5
-        ~bandpass: white_noise # hpf 500 # lpf 2000
-        o1: ~bandpass * 0.3
+        ~bandpass $ white_noise # hpf 500 # lpf 2000
+        out $ ~bandpass * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -479,8 +479,8 @@ fn test_hpf_lpf_bandpass() {
 fn test_hpf_no_clipping() {
     let code = r#"
         tempo: 0.5
-        ~filtered: sine 2000 # hpf 500
-        o1: ~filtered * 0.5
+        ~filtered $ sine 2000 # hpf 500
+        out $ ~filtered * 0.5
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -497,8 +497,8 @@ fn test_hpf_no_clipping() {
 fn test_hpf_consistent_output() {
     let code = r#"
         tempo: 0.5
-        ~filtered: sine 1000 # hpf 500
-        o1: ~filtered * 0.3
+        ~filtered $ sine 1000 # hpf 500
+        out $ ~filtered * 0.3
     "#;
 
     let buffer1 = render_dsl(code, 0.1);
@@ -527,8 +527,8 @@ fn test_hpf_very_low_cutoff() {
     // Very low cutoff passes almost everything
     let code = r#"
         tempo: 0.5
-        ~filtered: white_noise # hpf 20
-        o1: ~filtered * 0.3
+        ~filtered $ white_noise # hpf 20
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);

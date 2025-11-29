@@ -102,7 +102,7 @@ out2: sine 440 * 0.5
 fn test_mono_render_backward_compat() {
     let dsl = r#"
 tempo: 1.0
-out: sine 440 * 0.5
+out $ sine 440 * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -121,7 +121,7 @@ out: sine 440 * 0.5
 fn test_stereo_mono_compatible() {
     let dsl = r#"
 tempo: 1.0
-~sig: sine 440 * 0.5
+~sig $ sine 440 * 0.5
 out1: ~sig
 out2: ~sig
 "#;

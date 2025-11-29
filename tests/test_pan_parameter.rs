@@ -52,7 +52,7 @@ fn test_pan_center() {
     // LEVEL 2 & 3: Audio verification
     let code = r#"
 tempo: 0.5
-out: s "bd" # pan 0.0
+out $ s "bd" # pan 0.0
 "#;
 
     let buffer = render_dsl(code, 2.0); // 4 cycles
@@ -68,7 +68,7 @@ fn test_pan_full_left() {
     // Test that pan -1.0 doesn't break audio
     let code = r#"
 tempo: 0.5
-out: s "bd" # pan -1.0
+out $ s "bd" # pan -1.0
 "#;
 
     let buffer = render_dsl(code, 0.5); // 1 cycle
@@ -84,7 +84,7 @@ fn test_pan_full_right() {
     // Test that pan 1.0 doesn't break audio
     let code = r#"
 tempo: 0.5
-out: s "bd" # pan 1.0
+out $ s "bd" # pan 1.0
 "#;
 
     let buffer = render_dsl(code, 0.5);
@@ -101,17 +101,17 @@ fn test_pan_values_preserve_energy() {
     // This verifies the equal-power panning law is working correctly
     let pan_left_code = r#"
 tempo: 0.5
-out: s "bd" # pan -1.0
+out $ s "bd" # pan -1.0
 "#;
 
     let pan_center_code = r#"
 tempo: 0.5
-out: s "bd" # pan 0.0
+out $ s "bd" # pan 0.0
 "#;
 
     let pan_right_code = r#"
 tempo: 0.5
-out: s "bd" # pan 1.0
+out $ s "bd" # pan 1.0
 "#;
 
     let left = render_dsl(pan_left_code, 0.5);
@@ -143,7 +143,7 @@ fn test_pan_pattern_based() {
     // Test pattern-based pan values
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # pan "-1 -0.5 0.5 1"
+out $ s "bd*4" # pan "-1 -0.5 0.5 1"
 "#;
 
     let buffer = render_dsl(code, 0.5); // 1 cycle
@@ -159,7 +159,7 @@ fn test_pan_extreme_values() {
     // Test that pan values outside normal range are clamped properly
     let code = r#"
 tempo: 0.5
-out: s "bd*3" # pan "-5 0 5"
+out $ s "bd*3" # pan "-5 0 5"
 "#;
 
     let buffer = render_dsl(code, 0.5);
@@ -175,7 +175,7 @@ fn test_pan_with_gain() {
     // Test that pan works together with gain modifier
     let code = r#"
 tempo: 0.5
-out: s "bd" # gain 0.5 # pan -1.0
+out $ s "bd" # gain 0.5 # pan -1.0
 "#;
 
     let buffer = render_dsl(code, 0.5);

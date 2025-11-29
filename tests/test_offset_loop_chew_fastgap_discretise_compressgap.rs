@@ -34,7 +34,7 @@ fn test_offset_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ offset 0.25
+out $ "bd sn hh cp" $ offset 0.25
 "#,
         "Offset by 0.25",
     );
@@ -46,7 +46,7 @@ fn test_offset_negative() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4" $ offset (-0.125)
+out $ "bd*4" $ offset (-0.125)
 "#,
         "Offset by -0.125 (negative)",
     );
@@ -58,7 +58,7 @@ fn test_offset_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ offset 0.5 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ offset 0.5 # reverb 0.5 0.3 0.2
 "#,
         "Offset with reverb",
     );
@@ -70,7 +70,7 @@ fn test_offset_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ offset 0.125 $ fast 2
+out $ "bd sn hh" $ offset 0.125 $ fast 2
 "#,
         "Offset combined with fast",
     );
@@ -84,7 +84,7 @@ fn test_loop_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ loop 4
+out $ "bd sn" $ loop 4
 "#,
         "Loop 4 times",
     );
@@ -96,7 +96,7 @@ fn test_loop_small_n() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ loop 2
+out $ "bd" $ loop 2
 "#,
         "Loop 2 times",
     );
@@ -108,7 +108,7 @@ fn test_loop_large_n() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ loop 8
+out $ "bd sn hh" $ loop 8
 "#,
         "Loop 8 times",
     );
@@ -120,7 +120,7 @@ fn test_loop_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ loop 3 # delay 0.25 0.5 0.3
+out $ "bd sn" $ loop 3 # delay 0.25 0.5 0.3
 "#,
         "Loop with delay",
     );
@@ -132,7 +132,7 @@ fn test_loop_with_subdivision() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*2 sn*2" $ loop 4
+out $ "bd*2 sn*2" $ loop 4
 "#,
         "Loop with subdivision",
     );
@@ -146,7 +146,7 @@ fn test_chew_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ chew 4
+out $ "bd sn hh cp" $ chew 4
 "#,
         "Chew 4 steps",
     );
@@ -158,7 +158,7 @@ fn test_chew_small_n() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ chew 2
+out $ "bd*8" $ chew 2
 "#,
         "Chew 2 steps",
     );
@@ -170,7 +170,7 @@ fn test_chew_large_n() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4 cp*2" $ chew 16
+out $ "bd sn hh*4 cp*2" $ chew 16
 "#,
         "Chew 16 steps",
     );
@@ -182,7 +182,7 @@ fn test_chew_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ chew 8 # chorus 0.5 0.3 0.2
+out $ "bd sn hh cp" $ chew 8 # chorus 0.5 0.3 0.2
 "#,
         "Chew with chorus",
     );
@@ -194,7 +194,7 @@ fn test_chew_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ chew 4 $ fast 2
+out $ "bd sn hh*4" $ chew 4 $ fast 2
 "#,
         "Chew combined with fast",
     );
@@ -208,7 +208,7 @@ fn test_fastgap_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ fastGap 2.0
+out $ "bd sn hh cp" $ fastGap 2.0
 "#,
         "FastGap factor 2.0",
     );
@@ -220,7 +220,7 @@ fn test_fastgap_small_factor() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4" $ fastGap 1.5
+out $ "bd*4" $ fastGap 1.5
 "#,
         "FastGap factor 1.5",
     );
@@ -232,7 +232,7 @@ fn test_fastgap_large_factor() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ fastGap 4.0
+out $ "bd sn" $ fastGap 4.0
 "#,
         "FastGap factor 4.0",
     );
@@ -244,7 +244,7 @@ fn test_fastgap_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ fastGap 3.0 # distort 2.0 0.5
+out $ "bd sn hh*2" $ fastGap 3.0 # distort 2.0 0.5
 "#,
         "FastGap with distortion",
     );
@@ -256,7 +256,7 @@ fn test_fastgap_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ fastGap 2.0 $ rev
+out $ "bd sn hh" $ fastGap 2.0 $ rev
 "#,
         "FastGap combined with rev",
     );
@@ -270,7 +270,7 @@ fn test_discretise_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ discretise 4
+out $ "bd sn hh cp" $ discretise 4
 "#,
         "Discretise 4 steps",
     );
@@ -282,7 +282,7 @@ fn test_discretise_small_n() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ discretise 2
+out $ "bd*8" $ discretise 2
 "#,
         "Discretise 2 steps",
     );
@@ -294,7 +294,7 @@ fn test_discretise_large_n() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ discretise 16
+out $ "bd sn hh*4" $ discretise 16
 "#,
         "Discretise 16 steps",
     );
@@ -306,7 +306,7 @@ fn test_discretise_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ discretise 8 # bitcrush 4 8000
+out $ "bd sn hh cp" $ discretise 8 # bitcrush 4 8000
 "#,
         "Discretise with bitcrush",
     );
@@ -318,7 +318,7 @@ fn test_discretise_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ discretise 8 $ fast 2
+out $ "bd sn hh" $ discretise 8 $ fast 2
 "#,
         "Discretise combined with fast",
     );
@@ -332,7 +332,7 @@ fn test_compressgap_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ compressGap 0.25 0.75
+out $ "bd sn hh cp" $ compressGap 0.25 0.75
 "#,
         "CompressGap 0.25-0.75",
     );
@@ -344,7 +344,7 @@ fn test_compressgap_first_quarter() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ compressGap 0.0 0.25
+out $ "bd*8" $ compressGap 0.0 0.25
 "#,
         "CompressGap 0.0-0.25 (first quarter)",
     );
@@ -356,7 +356,7 @@ fn test_compressgap_last_quarter() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ compressGap 0.75 1.0
+out $ "bd sn hh*4" $ compressGap 0.75 1.0
 "#,
         "CompressGap 0.75-1.0 (last quarter)",
     );
@@ -368,7 +368,7 @@ fn test_compressgap_small_range() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ compressGap 0.4 0.6
+out $ "bd sn hh cp" $ compressGap 0.4 0.6
 "#,
         "CompressGap 0.4-0.6 (small range)",
     );
@@ -380,7 +380,7 @@ fn test_compressgap_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ compressGap 0.25 0.75 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ compressGap 0.25 0.75 # reverb 0.5 0.3 0.2
 "#,
         "CompressGap with reverb",
     );
@@ -392,7 +392,7 @@ fn test_compressgap_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ compressGap 0.0 0.5 $ fast 2
+out $ "bd sn hh" $ compressGap 0.0 0.5 $ fast 2
 "#,
         "CompressGap combined with fast",
     );
@@ -406,13 +406,13 @@ fn test_all_six_operations_in_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~offset_pat: "bd*8" $ offset 0.125
-~looped: "sn*2" $ loop 4
-~chewed: "hh*8" $ chew 4
-~fastgapped: "cp*4" $ fastGap 2.0
-~discretised: "bd sn" $ discretise 8
-~compressed: "hh cp" $ compressGap 0.25 0.75
-out: ~offset_pat + ~looped + ~chewed + ~fastgapped + ~discretised + ~compressed
+~offset_pat $ "bd*8" $ offset 0.125
+~looped $ "sn*2" $ loop 4
+~chewed $ "hh*8" $ chew 4
+~fastgapped $ "cp*4" $ fastGap 2.0
+~discretised $ "bd sn" $ discretise 8
+~compressed $ "hh cp" $ compressGap 0.25 0.75
+out $ ~offset_pat + ~looped + ~chewed + ~fastgapped + ~discretised + ~compressed
 "#,
         "All six operations in one program",
     );
@@ -424,9 +424,9 @@ fn test_offset_and_loop() {
     test_compilation(
         r#"
 tempo: 0.5
-~offset_pat: "bd sn" $ offset 0.25
-~looped: "hh cp" $ loop 3
-out: ~offset_pat + ~looped
+~offset_pat $ "bd sn" $ offset 0.25
+~looped $ "hh cp" $ loop 3
+out $ ~offset_pat + ~looped
 "#,
         "Offset and loop in same program",
     );
@@ -438,9 +438,9 @@ fn test_chew_and_fastgap() {
     test_compilation(
         r#"
 tempo: 0.5
-~chewed: "bd*4 sn*4" $ chew 8
-~gapped: "hh*4 cp*4" $ fastGap 2.0
-out: ~chewed + ~gapped
+~chewed $ "bd*4 sn*4" $ chew 8
+~gapped $ "hh*4 cp*4" $ fastGap 2.0
+out $ ~chewed + ~gapped
 "#,
         "Chew and fastGap in same program",
     );
@@ -452,9 +452,9 @@ fn test_discretise_and_compressgap() {
     test_compilation(
         r#"
 tempo: 0.5
-~discretised: "bd sn" $ discretise 4
-~compressed: "hh cp" $ compressGap 0.0 0.5
-out: ~discretised + ~compressed
+~discretised $ "bd sn" $ discretise 4
+~compressed $ "hh cp" $ compressGap 0.0 0.5
+out $ ~discretised + ~compressed
 "#,
         "Discretise and compressGap in same program",
     );
@@ -466,7 +466,7 @@ fn test_complex_combination() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ offset 0.125 $ loop 2 $ chew 4 $ fastGap 2.0
+out $ "bd sn hh cp" $ offset 0.125 $ loop 2 $ chew 4 $ fastGap 2.0
 "#,
         "Complex combination: offset, loop, chew, fastGap",
     );
@@ -478,7 +478,7 @@ fn test_with_effects_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ offset 0.25 $ discretise 8 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*4" $ offset 0.25 $ discretise 8 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Multiple operations with effects chain",
     );
@@ -490,12 +490,12 @@ fn test_in_complex_multi_bus_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~kick: "bd*4" $ loop 2 $ offset 0.125
-~snare: "~ sn ~ sn" $ chew 4
-~hats: "hh*8" $ fastGap 2.0
-~perc: "cp*4" $ discretise 8
-~compressed: (~kick + ~snare) $ compressGap 0.25 0.75
-out: ~compressed * 0.5 + ~hats * 0.3 + ~perc * 0.2
+~kick $ "bd*4" $ loop 2 $ offset 0.125
+~snare $ "~ sn ~ sn" $ chew 4
+~hats $ "hh*8" $ fastGap 2.0
+~perc $ "cp*4" $ discretise 8
+~compressed $ (~kick + ~snare) $ compressGap 0.25 0.75
+out $ ~compressed * 0.5 + ~hats * 0.3 + ~perc * 0.2
 "#,
         "Complex multi-bus program with all operations",
     );

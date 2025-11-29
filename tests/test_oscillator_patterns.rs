@@ -24,7 +24,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 fn test_sine_constant_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: sine 440
+        out $ sine 440
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -37,7 +37,7 @@ fn test_sine_pattern_frequency_lfo() {
     // Sine with LFO-modulated frequency (vibrato)
     let code = r#"
         tempo: 0.5
-        o1: sine (sine 5 * 10 + 440)
+        out $ sine (sine 5 * 10 + 440)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -50,7 +50,7 @@ fn test_sine_pattern_frequency_slow_sweep() {
     // Sine with slow frequency sweep
     let code = r#"
         tempo: 0.5
-        o1: sine (sine 0.5 * 220 + 440)
+        out $ sine (sine 0.5 * 220 + 440)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -64,7 +64,7 @@ fn test_sine_pattern_frequency_slow_sweep() {
 fn test_saw_constant_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110
+        out $ saw 110
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -77,7 +77,7 @@ fn test_saw_pattern_frequency_lfo() {
     // Saw with LFO-modulated frequency
     let code = r#"
         tempo: 0.5
-        o1: saw (sine 2 * 55 + 110)
+        out $ saw (sine 2 * 55 + 110)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -90,7 +90,7 @@ fn test_saw_pattern_frequency_fm() {
     // Saw with frequency modulation (FM)
     let code = r#"
         tempo: 0.5
-        o1: saw (square 4 * 110 + 220)
+        out $ saw (square 4 * 110 + 220)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -104,7 +104,7 @@ fn test_saw_pattern_frequency_fm() {
 fn test_square_constant_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: square 220
+        out $ square 220
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -117,7 +117,7 @@ fn test_square_pattern_frequency_lfo() {
     // Square with LFO-modulated frequency
     let code = r#"
         tempo: 0.5
-        o1: square (sine 3 * 110 + 220)
+        out $ square (sine 3 * 110 + 220)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -130,7 +130,7 @@ fn test_square_pattern_frequency_stepped() {
     // Square with stepped frequency pattern (arpeggio)
     let code = r#"
         tempo: 0.5
-        o1: square (square 2 * 110 + 220)
+        out $ square (square 2 * 110 + 220)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -144,7 +144,7 @@ fn test_square_pattern_frequency_stepped() {
 fn test_triangle_constant_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: triangle 330
+        out $ triangle 330
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -157,7 +157,7 @@ fn test_triangle_pattern_frequency_lfo() {
     // Triangle with LFO-modulated frequency
     let code = r#"
         tempo: 0.5
-        o1: triangle (sine 4 * 165 + 330)
+        out $ triangle (sine 4 * 165 + 330)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -170,7 +170,7 @@ fn test_triangle_pattern_frequency_sweep() {
     // Triangle with slow sweep
     let code = r#"
         tempo: 0.5
-        o1: triangle (sine 0.25 * 220 + 330)
+        out $ triangle (sine 0.25 * 220 + 330)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -185,7 +185,7 @@ fn test_oscillator_meta_modulation() {
     // LFO modulating LFO modulating carrier (meta-modulation)
     let code = r#"
         tempo: 0.5
-        o1: sine (sine (sine 0.1 * 2 + 5) * 110 + 440)
+        out $ sine (sine (sine 0.1 * 2 + 5) * 110 + 440)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -198,7 +198,7 @@ fn test_oscillator_fm_synthesis() {
     // Classic FM synthesis (carrier + modulator)
     let code = r#"
         tempo: 0.5
-        o1: sine (sine 880 * 100 + 440)
+        out $ sine (sine 880 * 100 + 440)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -211,11 +211,11 @@ fn test_oscillator_additive_with_modulation() {
     // Additive synthesis with modulated frequencies
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 2
-        ~fund: sine (~lfo * 55 + 110)
-        ~harm2: sine (~lfo * 110 + 220)
-        ~harm3: sine (~lfo * 165 + 330)
-        o1: (~fund + ~harm2 * 0.5 + ~harm3 * 0.25) * 0.5
+        ~lfo $ sine 2
+        ~fund $ sine (~lfo * 55 + 110)
+        ~harm2 $ sine (~lfo * 110 + 220)
+        ~harm3 $ sine (~lfo * 165 + 330)
+        out $ (~fund + ~harm2 * 0.5 + ~harm3 * 0.25) * 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -230,12 +230,12 @@ fn test_sine_pattern_differs_from_constant() {
     // Verify pattern modulation produces different result than constant
     let constant_code = r#"
         tempo: 0.5
-        o1: sine 440
+        out $ sine 440
     "#;
 
     let pattern_code = r#"
         tempo: 0.5
-        o1: sine (sine 5 * 10 + 440)
+        out $ sine (sine 5 * 10 + 440)
     "#;
 
     let constant_buffer = render_dsl(constant_code, 2.0);

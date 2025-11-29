@@ -282,12 +282,12 @@ fn test_iterback_event_count_over_cycles() {
 fn test_rotl_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let rotl_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ rotL 0.25
+out $ s "bd sn hh cp" $ rotL 0.25
 "#;
 
     let cycles = 8;
@@ -322,12 +322,12 @@ out: s "bd sn hh cp" $ rotL 0.25
 fn test_rotr_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let rotr_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ rotR 0.25
+out $ s "bd sn hh cp" $ rotR 0.25
 "#;
 
     let cycles = 8;
@@ -359,12 +359,12 @@ out: s "bd sn hh cp" $ rotR 0.25
 fn test_iterback_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let iterback_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ iterBack 4
+out $ s "bd sn hh cp" $ iterBack 4
 "#;
 
     let cycles = 8;
@@ -400,7 +400,7 @@ out: s "bd sn hh cp" $ iterBack 4
 fn test_rotl_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ rotL 0.25
+out $ s "bd sn hh cp" $ rotL 0.25
 "#;
 
     let audio = render_dsl(code, 8);
@@ -427,7 +427,7 @@ out: s "bd sn hh cp" $ rotL 0.25
 fn test_rotr_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ rotR 0.25
+out $ s "bd sn hh cp" $ rotR 0.25
 "#;
 
     let audio = render_dsl(code, 8);
@@ -454,7 +454,7 @@ out: s "bd sn hh cp" $ rotR 0.25
 fn test_iterback_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ iterBack 4
+out $ s "bd sn hh cp" $ iterBack 4
 "#;
 
     let audio = render_dsl(code, 8);
@@ -485,12 +485,12 @@ out: s "bd sn hh cp" $ iterBack 4
 fn test_rotl_energy_preservation() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let rotl_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ rotL 0.25
+out $ s "bd sn hh cp" $ rotL 0.25
 "#;
 
     let base_audio = render_dsl(base_code, 8);
@@ -520,12 +520,12 @@ out: s "bd sn hh cp" $ rotL 0.25
 fn test_rotr_energy_preservation() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let rotr_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ rotR 0.25
+out $ s "bd sn hh cp" $ rotR 0.25
 "#;
 
     let base_audio = render_dsl(base_code, 8);
@@ -555,12 +555,12 @@ out: s "bd sn hh cp" $ rotR 0.25
 fn test_iterback_energy_preservation() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let iterback_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ iterBack 4
+out $ s "bd sn hh cp" $ iterBack 4
 "#;
 
     let base_audio = render_dsl(base_code, 8);

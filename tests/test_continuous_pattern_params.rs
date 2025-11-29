@@ -12,7 +12,7 @@ fn test_supersaw_freq_pattern_actually_cycles() {
     // Supersaw with PATTERN freq that alternates 110 220
     let input = r#"
         cps: 2.0
-        out: supersaw("110 220", 0.5, 5) * 0.2
+        out $ supersaw("110 220", 0.5, 5) * 0.2
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
     let compiler = DslCompiler::new(44100.0);
@@ -72,7 +72,7 @@ fn test_oscillator_freq_pattern_cycles() {
     // CURRENT STATUS: Detects wrong frequencies (4704 Hz instead of 110 Hz)
     let input = r#"
         cps: 3.0
-        out: sine "110 220 330" * 0.2
+        out $ sine "110 220 330" * 0.2
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
     let compiler = DslCompiler::new(44100.0);

@@ -10,8 +10,8 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_adsr_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~env: adsr 0.01 0.1 0.7 0.2
-out: ~env * sine 440
+~env $ adsr 0.01 0.1 0.7 0.2
+out $ ~env * sine 440
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -40,8 +40,8 @@ fn test_adsr_envelope_shape() {
     let dsl = r#"
 tempo: 1.0
 -- ADSR: attack=0.1s, decay=0.1s, sustain=0.5, release=0.2s
-~env: adsr 0.1 0.1 0.5 0.2
-out: ~env
+~env $ adsr 0.1 0.1 0.5 0.2
+out $ ~env
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -104,9 +104,9 @@ fn test_adsr_musical_example() {
     let dsl = r#"
 tempo: 0.5
 -- Fast attack, slow release envelope
-~env: adsr 0.01 0.05 0.6 0.3
-~tone: sine 440
-out: ~tone * ~env * 0.5
+~env $ adsr 0.01 0.05 0.6 0.3
+~tone $ sine 440
+out $ ~tone * ~env * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -163,9 +163,9 @@ out: ~tone * ~env * 0.5
 fn test_adsr_modulation() {
     let dsl = r#"
 tempo: 1.0
-~env: adsr 0.05 0.1 0.3 0.4
-~saw: saw 110
-out: ~saw * ~env * 0.3
+~env $ adsr 0.05 0.1 0.3 0.4
+~saw $ saw 110
+out $ ~saw * ~env * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -186,12 +186,12 @@ out: ~saw * ~env * 0.3
 /// Test that ADSR parameters can be pattern-controlled
 #[test]
 fn test_adsr_pattern_parameters() {
+    // Use inline pattern for attack time
     let dsl = r#"
 tempo: 1.0
--- Pattern-controlled attack time
-~attack_pattern: "0.01 0.1"
-~env: adsr ~attack_pattern 0.1 0.5 0.2
-out: ~env * sine 220
+-- Pattern-controlled attack time using inline pattern
+~env $ adsr "0.01 0.1" 0.1 0.5 0.2
+out $ ~env * sine 220
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

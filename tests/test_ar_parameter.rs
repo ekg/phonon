@@ -30,7 +30,7 @@ fn test_ar_constant_values() {
     // ar with constant attack and release values
     let code = r#"
         tempo: 0.5
-        o1: s "bd*4" # ar 0.01 0.5
+        out $ s "bd*4" # ar 0.01 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -43,12 +43,12 @@ fn test_ar_vs_separate_attack_release() {
     // Verify that ar 0.01 0.5 produces same result as attack 0.01 # release 0.5
     let ar_code = r#"
         tempo: 0.5
-        o1: s "bd*4" # ar 0.01 0.3
+        out $ s "bd*4" # ar 0.01 0.3
     "#;
 
     let separate_code = r#"
         tempo: 0.5
-        o1: s "bd*4" # attack 0.01 # release 0.3
+        out $ s "bd*4" # attack 0.01 # release 0.3
     "#;
 
     let ar_buffer = render_dsl(ar_code, 2.0);
@@ -77,7 +77,7 @@ fn test_ar_pattern_values() {
     // ar with pattern strings for both attack and release
     let code = r#"
         tempo: 0.5
-        o1: s "bd*8" # ar "0.01 0.1" "0.1 0.5"
+        out $ s "bd*8" # ar "0.01 0.1" "0.1 0.5"
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -90,12 +90,12 @@ fn test_ar_affects_envelope() {
     // Verify that ar actually affects the envelope (longer release = more sustain)
     let short_release = r#"
         tempo: 0.5
-        o1: s "bd*4" # ar 0.01 0.1
+        out $ s "bd*4" # ar 0.01 0.1
     "#;
 
     let long_release = r#"
         tempo: 0.5
-        o1: s "bd*4" # ar 0.01 0.8
+        out $ s "bd*4" # ar 0.01 0.8
     "#;
 
     let short_buffer = render_dsl(short_release, 2.0);

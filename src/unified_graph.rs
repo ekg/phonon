@@ -9672,9 +9672,19 @@ impl UnifiedSignalGraph {
                         // Also supports chord notation: "c4'maj" -> vec![0, 4, 7] (C, E, G)
                         let chord_notes = self.eval_note_signal_as_chord(&note, event_start_abs);
 
+                        // Scale gain by 1/sqrt(n) to prevent clipping when multiple voices sum
+                        // Using sqrt gives perceptually correct loudness (RMS scaling)
+                        let chord_size = chord_notes.len();
+                        let chord_gain_scale = if chord_size > 1 {
+                            1.0 / (chord_size as f32).sqrt()
+                        } else {
+                            1.0
+                        };
+                        gain_val *= chord_gain_scale;
+
                         // DEBUG: Log chord notes
                         if std::env::var("DEBUG_SAMPLE_EVENTS").is_ok() {
-                            eprintln!("    Chord notes for '{}': {:?}", sample_name, chord_notes);
+                            eprintln!("    Chord notes for '{}': {:?} (gain scaled by {:.3})", sample_name, chord_notes, chord_gain_scale);
                         }
 
                         // Evaluate envelope parameters
@@ -10124,6 +10134,17 @@ impl UnifiedSignalGraph {
                         // TRIGGER VOICES FOR EACH NOTE IN CHORD
                         // For chords like "c4'maj", this triggers C, E, G simultaneously
                         // Just like stacking samples!
+
+                        // Scale gain by 1/sqrt(n) to prevent clipping when multiple voices sum
+                        // Using sqrt gives perceptually correct loudness (RMS scaling)
+                        let chord_size = midi_notes.len();
+                        let chord_gain_scale = if chord_size > 1 {
+                            1.0 / (chord_size as f32).sqrt()
+                        } else {
+                            1.0
+                        };
+                        let scaled_gain = gain_val * chord_gain_scale;
+
                         for midi_note in midi_notes {
                             let frequency = midi_to_freq(midi_note) as f32;
 
@@ -10131,7 +10152,7 @@ impl UnifiedSignalGraph {
                                 frequency,
                                 synth_waveform,
                                 adsr,
-                                gain_val,
+                                scaled_gain,
                                 pan_val,
                             );
                         }

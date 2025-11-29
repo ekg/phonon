@@ -57,7 +57,7 @@ impl TransformTest {
 
         if !output.status.success() {
             return Err(format!(
-                "Render failed:\\nstdout: {}\\nstderr: {}",
+                "Render failed:\\nstdout $ {}\\nstderr: {}",
                 String::from_utf8_lossy(&output.stdout),
                 String::from_utf8_lossy(&output.stderr)
             ));
@@ -229,7 +229,7 @@ fn test_verify_single_tone_fft() {
     // Render pure 440Hz tone
     let code = r#"
 tempo: 0.5
-out: sine 440
+out $ sine 440
 "#;
 
     let wav = test.render(code, 1).expect("Failed to render");
@@ -260,7 +260,7 @@ fn test_verify_two_tone_pattern() {
     // Pattern alternates 300Hz and 600Hz
     let code = r#"
 tempo: 0.5
-out: sine "300 600"
+out $ sine "300 600"
 "#;
 
     let wav = test.render(code, 2).expect("Failed to render");
@@ -296,13 +296,13 @@ fn test_fast_doubles_pattern_rate() {
     // Without fast: pattern plays at tempo rate (2 Hz = 0.5s per event)
     let normal = r#"
 tempo: 0.5
-out: sine "200 400"
+out $ sine "200 400"
 "#;
 
     // With fast 2: pattern plays at 4 Hz (0.25s per event)
     let fast = r#"
 tempo: 0.5
-out: sine "200 400" $ fast 2
+out $ sine "200 400" $ fast 2
 "#;
 
     // Both should contain same frequencies, but spectral distribution may differ
@@ -341,7 +341,7 @@ fn test_rev_reverses_pattern_order() {
     // All frequencies should still be present, but spectral evolution differs
     let code = r#"
 tempo: 0.5
-out: sine "100 200 300 400" $ rev
+out $ sine "100 200 300 400" $ rev
 "#;
 
     let wav = test.render(code, 1).expect("Failed to render");
@@ -368,7 +368,7 @@ fn test_slow_halves_pattern_rate() {
     // With slow 2: should be 1 per cycle (pattern spans 2 cycles)
     let code = r#"
 tempo: 0.5
-out: sine "300 600" $ slow 2
+out $ sine "300 600" $ slow 2
 "#;
 
     let wav = test.render(code, 4).expect("Failed to render");
@@ -404,7 +404,7 @@ fn test_palindrome_creates_mirror() {
     // Pattern: 100Hz 200Hz 300Hz → with palindrome → 100 200 300 200 100
     let code = r#"
 tempo: 4.0
-out: sine "100 200 300" $ palindrome
+out $ sine "100 200 300" $ palindrome
 "#;
 
     let wav = test.render(code, 2).expect("Failed to render");
@@ -434,7 +434,7 @@ fn test_iter_repeats_pattern() {
     // iter 3: repeat pattern 3 times
     let code = r#"
 tempo: 3.0
-out: sine "300 600" $ iter 3
+out $ sine "300 600" $ iter 3
 "#;
 
     let wav = test.render(code, 3).expect("Failed to render");
@@ -458,7 +458,7 @@ fn test_euclid_rhythm_pattern() {
     // Use samples (not sine) to get transients for onset detection
     let code = r#"
 tempo: 0.5
-out: s "bd" $ euclid 3 8
+out $ s "bd" $ euclid 3 8
 "#;
 
     let wav = test.render(code, 2).expect("Failed to render");
@@ -494,7 +494,7 @@ fn test_every_alternates_transform() {
     // Should see pattern alternating between normal and fast
     let code = r#"
 tempo: 1.0
-out: sine "200 400" $ every 2 (fast 2)
+out $ sine "200 400" $ every 2 (fast 2)
 "#;
 
     let wav = test.render(code, 4).expect("Failed to render");
@@ -518,7 +518,7 @@ fn test_superimpose_layers_pattern() {
     // Should see both normal timing and fast timing
     let code = r#"
 tempo: 0.5
-out: sine 300 $ superimpose (fast 2)
+out $ sine 300 $ superimpose (fast 2)
 "#;
 
     let wav = test.render(code, 2).expect("Failed to render");
@@ -549,7 +549,7 @@ fn test_chunk_subdivides_pattern() {
     // chunk 4 (fast 2): Apply transform to chunks
     let code = r#"
 tempo: 0.5
-out: sine "100 200 300 400" $ chunk 4 (fast 2)
+out $ sine "100 200 300 400" $ chunk 4 (fast 2)
 "#;
 
     let wav = test.render(code, 2).expect("Failed to render");

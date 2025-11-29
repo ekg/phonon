@@ -11,7 +11,7 @@ tempo: 0.5
 
 -- Select specific bd samples using n modifier
 -- bd:0 is first sample, bd:1 is second, etc.
-out: s "bd" # n "0 1 2 3"
+out $ s "bd" # n "0 1 2 3"
 "#;
 
     std::fs::write("/tmp/test_n_modifier.phonon", phonon_code).unwrap();
@@ -68,7 +68,7 @@ fn test_n_modifier_with_patterns() {
 tempo: 0.5
 
 -- Use n to sequence through samples
-out: s "bd*4" # n "0 1 2 3"
+out $ s "bd*4" # n "0 1 2 3"
 "#;
 
     std::fs::write("/tmp/test_n_pattern.phonon", phonon_code).unwrap();
@@ -115,7 +115,7 @@ fn test_n_modifier_constant() {
 tempo: 0.5
 
 -- Select bd:2 (third sample) for all triggers
-out: s "bd*4" # n 2
+out $ s "bd*4" # n 2
 "#;
 
     std::fs::write("/tmp/test_n_constant.phonon", phonon_code).unwrap();

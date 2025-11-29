@@ -9,8 +9,8 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_impulse_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~pulse: impulse 2.0
-out: ~pulse
+~pulse $ impulse 2.0
+out $ ~pulse
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -34,7 +34,7 @@ out: ~pulse
 fn test_impulse_basic() {
     let dsl = r#"
 tempo: 1.0
-out: impulse 2.0
+out $ impulse 2.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -93,7 +93,7 @@ out: impulse 2.0
 fn test_impulse_frequency() {
     let dsl = r#"
 tempo: 1.0
-out: impulse 10.0
+out $ impulse 10.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -120,7 +120,7 @@ out: impulse 10.0
 fn test_impulse_low_frequency() {
     let dsl = r#"
 tempo: 1.0
-out: impulse 0.5
+out $ impulse 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -147,7 +147,7 @@ out: impulse 0.5
 fn test_impulse_spacing() {
     let dsl = r#"
 tempo: 1.0
-out: impulse 4.0
+out $ impulse 4.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -195,7 +195,7 @@ out: impulse 4.0
 fn test_impulse_amplitude() {
     let dsl = r#"
 tempo: 1.0
-out: impulse 5.0
+out $ impulse 5.0
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -221,9 +221,9 @@ out: impulse 5.0
 fn test_impulse_with_tone() {
     let dsl = r#"
 tempo: 0.5
-~pulse: impulse 2.0
-~tone: sine 440
-out: ~tone * ~pulse
+~pulse $ impulse 2.0
+~tone $ sine 440
+out $ ~tone * ~pulse
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -256,8 +256,8 @@ out: ~tone * ~pulse
 fn test_impulse_pattern_frequency() {
     let dsl = r#"
 tempo: 1.0
-~freq_pattern: "2.0 4.0"
-out: impulse ~freq_pattern
+~freq_pattern $ "2.0 4.0"
+out $ impulse ~freq_pattern
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -276,10 +276,10 @@ out: impulse ~freq_pattern
 fn test_impulse_clock() {
     let dsl = r#"
 tempo: 0.5
-~clock: impulse 8.0
-~bass: sine 55
-~kick: ~bass * ~clock
-out: ~kick
+~clock $ impulse 8.0
+~bass $ sine 55
+~kick $ ~bass * ~clock
+out $ ~kick
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

@@ -63,7 +63,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 fn test_biquad_lowpass_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bq_lp 1000 0.7
+        out $ saw 110 # bq_lp 1000 0.7
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -75,7 +75,7 @@ fn test_biquad_lowpass_compiles() {
 fn test_biquad_highpass_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bq_hp 1000 0.7
+        out $ saw 110 # bq_hp 1000 0.7
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -87,7 +87,7 @@ fn test_biquad_highpass_compiles() {
 fn test_biquad_bandpass_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bq_bp 1000 2.0
+        out $ saw 110 # bq_bp 1000 2.0
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -99,7 +99,7 @@ fn test_biquad_bandpass_compiles() {
 fn test_biquad_notch_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bq_notch 1000 2.0
+        out $ saw 110 # bq_notch 1000 2.0
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -113,7 +113,7 @@ fn test_biquad_notch_compiles() {
 fn test_biquad_lowpass_attenuates_highs() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # bq_lp 1000 0.7
+        out $ white_noise # bq_lp 1000 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -143,7 +143,7 @@ fn test_biquad_lowpass_attenuates_highs() {
 fn test_biquad_lowpass_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bq_lp 1000 0.7
+        out $ saw 110 # bq_lp 1000 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -159,7 +159,7 @@ fn test_biquad_lowpass_generates_audio() {
 fn test_biquad_highpass_attenuates_lows() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # bq_hp 1000 0.7
+        out $ white_noise # bq_hp 1000 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -189,7 +189,7 @@ fn test_biquad_highpass_attenuates_lows() {
 fn test_biquad_highpass_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bq_hp 500 0.5
+        out $ saw 110 # bq_hp 500 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -205,7 +205,7 @@ fn test_biquad_highpass_generates_audio() {
 fn test_biquad_bandpass_passes_band() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # bq_bp 1000 3.0
+        out $ white_noise # bq_bp 1000 3.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -234,7 +234,7 @@ fn test_biquad_bandpass_passes_band() {
 fn test_biquad_bandpass_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bq_bp 1000 2.0
+        out $ saw 110 # bq_bp 1000 2.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -250,7 +250,7 @@ fn test_biquad_bandpass_generates_audio() {
 fn test_biquad_notch_rejects_center() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # bq_notch 1000 3.0
+        out $ white_noise # bq_notch 1000 3.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -280,7 +280,7 @@ fn test_biquad_notch_rejects_center() {
 fn test_biquad_notch_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bq_notch 440 2.0
+        out $ saw 110 # bq_notch 440 2.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -294,10 +294,10 @@ fn test_biquad_notch_generates_audio() {
 
 #[test]
 fn test_biquad_pattern_frequency() {
+    // Use inline expression for filter parameter
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 4 * 500 + 1000
-        o1: saw 110 # bq_lp ~lfo 0.7
+        out $ saw 110 # bq_lp (sine 4 * 500 + 1000) 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -312,10 +312,10 @@ fn test_biquad_pattern_frequency() {
 
 #[test]
 fn test_biquad_pattern_q() {
+    // Use inline expression for Q parameter
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 2 * 2.0 + 3.0
-        o1: saw 110 # bq_lp 1000 ~lfo
+        out $ saw 110 # bq_lp 1000 (sine 2 * 2.0 + 3.0)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -334,7 +334,7 @@ fn test_biquad_pattern_q() {
 fn test_biquad_no_clipping() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bq_lp 1000 10.0
+        out $ saw 110 # bq_lp 1000 10.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -352,7 +352,7 @@ fn test_biquad_no_clipping() {
 fn test_biquad_no_dc_offset() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bq_lp 500 1.0
+        out $ saw 110 # bq_lp 500 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -368,7 +368,7 @@ fn test_biquad_no_dc_offset() {
 fn test_biquad_cascade() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bq_lp 1000 0.7 # bq_hp 200 0.7
+        out $ saw 110 # bq_lp 1000 0.7 # bq_hp 200 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -384,7 +384,7 @@ fn test_biquad_cascade() {
 fn test_biquad_resonant_bass() {
     let code = r#"
         tempo: 0.5
-        o1: saw 55 # bq_lp 300 5.0
+        out $ saw 55 # bq_lp 300 5.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -396,10 +396,10 @@ fn test_biquad_resonant_bass() {
 
 #[test]
 fn test_biquad_filter_sweep() {
+    // Use inline expression for sweep parameter
     let code = r#"
         tempo: 0.5
-        ~sweep: line 200 5000
-        o1: saw 55 # bq_lp ~sweep 1.0
+        out $ saw 55 # bq_lp (line 200 5000) 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -415,7 +415,7 @@ fn test_biquad_filter_sweep() {
 fn test_biquad_very_low_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # bq_lp 50 0.7
+        out $ white_noise # bq_lp 50 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -429,7 +429,7 @@ fn test_biquad_very_low_frequency() {
 fn test_biquad_very_high_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # bq_lp 15000 0.7
+        out $ white_noise # bq_lp 15000 0.7
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -443,7 +443,7 @@ fn test_biquad_very_high_frequency() {
 fn test_biquad_low_q() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bq_lp 1000 0.1
+        out $ saw 110 # bq_lp 1000 0.1
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -457,7 +457,7 @@ fn test_biquad_low_q() {
 fn test_biquad_high_q() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bq_bp 1000 20.0
+        out $ saw 110 # bq_bp 1000 20.0
     "#;
 
     let buffer = render_dsl(code, 2.0);

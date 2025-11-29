@@ -9,9 +9,9 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_parametric_eq_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~input: saw 220
-~eq: parametric_eq ~input 200 3.0 1.0 1000 2.0 1.0 4000 -2.0 1.0
-out: ~eq * 0.5
+~input $ saw 220
+~eq $ parametric_eq ~input 200 3.0 1.0 1000 2.0 1.0 4000 -2.0 1.0
+out $ ~eq * 0.5
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -36,9 +36,9 @@ fn test_parametric_eq_frequency_response() {
     let dsl = r#"
 tempo: 1.0
 -- Boost mid frequencies, cut highs
-~rich: saw 220
-~eq: parametric_eq ~rich 100 0.0 1.0 1000 6.0 1.0 4000 -6.0 1.0
-out: ~eq
+~rich $ saw 220
+~eq $ parametric_eq ~rich 100 0.0 1.0 1000 6.0 1.0 4000 -6.0 1.0
+out $ ~eq
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -87,9 +87,9 @@ fn test_parametric_eq_boost() {
     // With boost
     let dsl_boost = r#"
 tempo: 1.0
-~input: sine 1000
-~eq: parametric_eq ~input 100 0.0 1.0 1000 12.0 1.0 4000 0.0 1.0
-out: ~eq * 0.3
+~input $ sine 1000
+~eq $ parametric_eq ~input 100 0.0 1.0 1000 12.0 1.0 4000 0.0 1.0
+out $ ~eq * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl_boost).unwrap();
@@ -99,9 +99,9 @@ out: ~eq * 0.3
     // Without boost
     let dsl_flat = r#"
 tempo: 1.0
-~input: sine 1000
-~eq: parametric_eq ~input 100 0.0 1.0 1000 0.0 1.0 4000 0.0 1.0
-out: ~eq * 0.3
+~input $ sine 1000
+~eq $ parametric_eq ~input 100 0.0 1.0 1000 0.0 1.0 4000 0.0 1.0
+out $ ~eq * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl_flat).unwrap();
@@ -130,9 +130,9 @@ fn test_parametric_eq_cut() {
     // With cut
     let dsl_cut = r#"
 tempo: 1.0
-~input: sine 1000
-~eq: parametric_eq ~input 100 0.0 1.0 1000 -12.0 1.0 4000 0.0 1.0
-out: ~eq
+~input $ sine 1000
+~eq $ parametric_eq ~input 100 0.0 1.0 1000 -12.0 1.0 4000 0.0 1.0
+out $ ~eq
 "#;
 
     let (_, statements) = parse_program(dsl_cut).unwrap();
@@ -142,9 +142,9 @@ out: ~eq
     // Without cut
     let dsl_flat = r#"
 tempo: 1.0
-~input: sine 1000
-~eq: parametric_eq ~input 100 0.0 1.0 1000 0.0 1.0 4000 0.0 1.0
-out: ~eq
+~input $ sine 1000
+~eq $ parametric_eq ~input 100 0.0 1.0 1000 0.0 1.0 4000 0.0 1.0
+out $ ~eq
 "#;
 
     let (_, statements) = parse_program(dsl_flat).unwrap();
@@ -172,10 +172,10 @@ fn test_parametric_eq_musical_example() {
     let dsl = r#"
 tempo: 0.5
 -- Classic bass boost, mid scoop, treble boost
-~bass: saw 110
-~scooped: parametric_eq ~bass 80 6.0 0.7 500 -4.0 1.0 3000 3.0 1.0
-~env: ad 0.01 0.3
-out: ~scooped * ~env * 0.3
+~bass $ saw 110
+~scooped $ parametric_eq ~bass 80 6.0 0.7 500 -4.0 1.0 3000 3.0 1.0
+~env $ ad 0.01 0.3
+out $ ~scooped * ~env * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -213,10 +213,10 @@ out: ~scooped * ~env * 0.3
 fn test_parametric_eq_pattern_gain() {
     let dsl = r#"
 tempo: 0.5
-~gain_pattern: "0.0 3.0 6.0 -3.0"
-~input: saw 220
-~dynamic_eq: parametric_eq ~input 100 0.0 1.0 1000 ~gain_pattern 1.0 4000 0.0 1.0
-out: ~dynamic_eq * 0.3
+~gain_pattern $ "0.0 3.0 6.0 -3.0"
+~input $ saw 220
+~dynamic_eq $ parametric_eq ~input 100 0.0 1.0 1000 ~gain_pattern 1.0 4000 0.0 1.0
+out $ ~dynamic_eq * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -234,9 +234,9 @@ out: ~dynamic_eq * 0.3
 fn test_parametric_eq_on_noise() {
     let dsl = r#"
 tempo: 1.0
-~noise: white_noise
-~shaped: parametric_eq ~noise 200 6.0 1.0 1000 -3.0 1.0 4000 6.0 1.0
-out: ~shaped * 0.15
+~noise $ white_noise
+~shaped $ parametric_eq ~noise 200 6.0 1.0 1000 -3.0 1.0 4000 6.0 1.0
+out $ ~shaped * 0.15
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -256,9 +256,9 @@ out: ~shaped * 0.15
 fn test_parametric_eq_flat() {
     let dsl_eq = r#"
 tempo: 1.0
-~input: sine 440 * 0.5
-~flat_eq: parametric_eq ~input 100 0.0 1.0 1000 0.0 1.0 4000 0.0 1.0
-out: ~flat_eq
+~input $ sine 440 * 0.5
+~flat_eq $ parametric_eq ~input 100 0.0 1.0 1000 0.0 1.0 4000 0.0 1.0
+out $ ~flat_eq
 "#;
 
     let (_, statements) = parse_program(dsl_eq).unwrap();
@@ -268,8 +268,8 @@ out: ~flat_eq
     // Compare with no EQ
     let dsl_plain = r#"
 tempo: 1.0
-~input: sine 440 * 0.5
-out: ~input
+~input $ sine 440 * 0.5
+out $ ~input
 "#;
 
     let (_, statements) = parse_program(dsl_plain).unwrap();
@@ -297,9 +297,9 @@ out: ~input
 fn test_parametric_eq_extreme_boost() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 1000 * 0.1
-~boosted: parametric_eq ~input 100 0.0 1.0 1000 18.0 1.0 4000 0.0 1.0
-out: ~boosted * 0.05
+~input $ sine 1000 * 0.1
+~boosted $ parametric_eq ~input 100 0.0 1.0 1000 18.0 1.0 4000 0.0 1.0
+out $ ~boosted * 0.05
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

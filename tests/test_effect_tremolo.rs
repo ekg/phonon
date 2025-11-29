@@ -54,7 +54,7 @@ fn test_tremolo_basic() {
     // Basic tremolo should work
     let code = r#"
 tempo: 0.5
-out: sine 440 # tremolo 4.0 0.8
+out $ sine 440 # tremolo 4.0 0.8
 "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -69,12 +69,12 @@ fn test_tremolo_creates_amplitude_variation() {
     // Tremolo should create periodic amplitude changes
     let code_dry = r#"
 tempo: 0.5
-out: sine 440 * 0.3
+out $ sine 440 * 0.3
 "#;
 
     let code_tremolo = r#"
 tempo: 0.5
-out: sine 440 * 0.3 # tremolo 8.0 0.9
+out $ sine 440 * 0.3 # tremolo 8.0 0.9
 "#;
 
     let dry = render_dsl(code_dry, 2.0);
@@ -98,12 +98,12 @@ fn test_tremolo_depth_parameter() {
     // Deeper tremolo should have more amplitude variation
     let code_shallow = r#"
 tempo: 0.5
-out: sine 440 * 0.3 # tremolo 5.0 0.2
+out $ sine 440 * 0.3 # tremolo 5.0 0.2
 "#;
 
     let code_deep = r#"
 tempo: 0.5
-out: sine 440 * 0.3 # tremolo 5.0 0.9
+out $ sine 440 * 0.3 # tremolo 5.0 0.9
 "#;
 
     let shallow = render_dsl(code_shallow, 2.0);
@@ -127,12 +127,12 @@ fn test_tremolo_rate_parameter() {
     // We can detect this by looking at zero-crossings in amplitude envelope
     let code_slow = r#"
 tempo: 0.5
-out: sine 440 * 0.3 # tremolo 2.0 0.8
+out $ sine 440 * 0.3 # tremolo 2.0 0.8
 "#;
 
     let code_fast = r#"
 tempo: 0.5
-out: sine 440 * 0.3 # tremolo 10.0 0.8
+out $ sine 440 * 0.3 # tremolo 10.0 0.8
 "#;
 
     let slow = render_dsl(code_slow, 2.0);
@@ -154,8 +154,8 @@ fn test_tremolo_with_samples() {
     // Tremolo should work on sample playback
     let code = r#"
 tempo: 0.5
-~drums: s "bd sn hh cp"
-out: ~drums # tremolo 6.0 0.7
+~drums $ s "bd sn hh cp"
+out $ ~drums # tremolo 6.0 0.7
 "#;
 
     let buffer = render_dsl(code, 4.0);
@@ -170,9 +170,9 @@ fn test_tremolo_pattern_control() {
     // Pattern-controlled tremolo parameters
     let code = r#"
 tempo: 0.5
-~osc: sine 220 * 0.3
-~rate_pattern: sine 0.5 * 3.0 + 5.0
-out: ~osc # tremolo ~rate_pattern 0.8
+~osc $ sine 220 * 0.3
+~rate_pattern $ sine 0.5 * 3.0 + 5.0
+out $ ~osc # tremolo ~rate_pattern 0.8
 "#;
 
     let buffer = render_dsl(code, 4.0);

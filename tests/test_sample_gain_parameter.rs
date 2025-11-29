@@ -13,7 +13,7 @@ fn test_gain_parameter_affects_amplitude() {
     // Positional args: s("pattern", gain, pan, speed)
     let input = r#"
         tempo: 0.5
-        out: s("bd sn", "0.5 1.0")
+        out $ s("bd sn", "0.5 1.0")
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -53,7 +53,7 @@ fn test_gain_pattern_with_multiple_events() {
     // Four kick drums with descending gain
     let input = r#"
         tempo: 0.5
-        out: s("bd*4", "1.0 0.75 0.5 0.25")
+        out $ s("bd*4", "1.0 0.75 0.5 0.25")
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -110,7 +110,7 @@ fn test_gain_zero_produces_silence() {
     // Sample with gain=0 should produce no audio
     let input = r#"
         tempo: 0.5
-        out: s("bd sn", "0.0 1.0")
+        out $ s("bd sn", "0.0 1.0")
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -139,12 +139,12 @@ fn test_gain_default_is_one() {
     // Without gain parameter, should default to 1.0
     let input_with_gain = r#"
         tempo: 0.5
-        out: s("bd", "1.0")
+        out $ s("bd", "1.0")
     "#;
 
     let input_without_gain = r#"
         tempo: 0.5
-        out: s "bd"
+        out $ s "bd"
     "#;
 
     // Both should produce the same RMS

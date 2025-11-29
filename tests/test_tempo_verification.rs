@@ -95,7 +95,7 @@ fn test_bpm_60_produces_correct_tempo() {
     // With 4 beats per cycle → 0.25 cycles per second
     let code = r#"
         bpm: 60
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let duration = 8.0; // 8 seconds
@@ -145,7 +145,7 @@ fn test_bpm_120_produces_correct_tempo() {
     // With 4 beats per cycle → 0.5 cycles per second
     let code = r#"
         bpm: 120
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let duration = 8.0; // 8 seconds
@@ -195,7 +195,7 @@ fn test_bpm_240_produces_correct_tempo() {
     // With 4 beats per cycle → 1.0 cycles per second
     let code = r#"
         bpm: 240
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let duration = 8.0; // 8 seconds
@@ -244,7 +244,7 @@ fn test_tempo_cps_directly() {
     // tempo: X sets cycles per second directly (not BPM)
     let code = r#"
         tempo: 0.5
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let duration = 4.0; // 4 seconds
@@ -290,7 +290,7 @@ fn test_bpm_with_multiple_events_per_cycle() {
     // BPM 120 with "bd*4" = 4 events per cycle
     let code = r#"
         bpm: 120
-        o1: s "bd*4"
+        out $ s "bd*4"
     "#;
 
     let duration = 4.0; // 4 seconds
@@ -351,7 +351,7 @@ fn test_bpm_120_matches_expected_cycle_duration() {
     // Verify that BPM 120 actually produces 2-second cycles, not 1-second cycles
     let code = r#"
         bpm: 120
-        o1: s "bd ~ ~ ~"
+        out $ s "bd ~ ~ ~"
     "#;
 
     let duration = 8.0; // 8 seconds

@@ -20,7 +20,7 @@ fn calculate_rms(samples: &[f32]) -> f32 {
 fn test_triple_nested_transforms() {
     let input = r#"
         cps: 2.0
-        out: s("bd sn hh cp" |> fast 2 |> rev |> slow 2) * 0.5
+        out $ s("bd sn hh cp" |> fast 2 |> rev |> slow 2) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse triple nested");
@@ -47,7 +47,7 @@ fn test_triple_nested_transforms() {
 fn test_every_with_nested_transform() {
     let input = r#"
         cps: 1.0
-        out: s("bd sn" |> every 2 (fast 2 |> rev)) * 0.5
+        out $ s("bd sn" |> every 2 (fast 2 |> rev)) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse every nested");
@@ -70,7 +70,7 @@ fn test_every_with_nested_transform() {
 fn test_multiple_every_transforms() {
     let input = r#"
         cps: 2.0
-        out: s("bd*4" |> every 2 (fast 2) |> every 3 (rev)) * 0.5
+        out $ s("bd*4" |> every 2 (fast 2) |> every 3 (rev)) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse multiple every");
@@ -549,7 +549,7 @@ fn test_complex_fx_chain_with_patterns() {
         cps: 2.0
         ~bass: saw "55 82.5 110"
         ~filtered: ~bass >> lpf("500 2000" |> fast 2, 0.8)
-        out: ~filtered * 0.3
+        out $ ~filtered * 0.3
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse complex FX");
@@ -586,7 +586,7 @@ fn test_multi_track_with_transforms() {
         ~kick: s("bd*4" |> fast 2, 1.0, 0.0, 1.0, 0, 0.001, 0.08)
         ~snare: s("~ sn" |> every 4 (fast 2), 0.9, 0.1, 1.0, 0, 0.001, 0.15)
         ~hh: s("hh*8" |> rev, 0.6, "-0.2 0.2", 1.0, 1, 0.001, 0.05)
-        out: (~kick + ~snare + ~hh) * 0.4
+        out $ (~kick + ~snare + ~hh) * 0.4
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse multi-track");

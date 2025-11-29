@@ -36,7 +36,7 @@ fn test_pattern_assignment_parsing() {
     // Test that pattern assignments are parsed correctly
     let code = r#"
         %speed: "1 2 3 4"
-        out: s "bd"
+        out $ s "bd"
     "#;
 
     let result = compile_dsl(code, 44100.0);
@@ -52,7 +52,7 @@ fn test_pattern_ref_in_fast() {
     // Test pattern reference in fast transform
     let code = r#"
         %speed: "1 2 3 4"
-        out: s "bd" $ fast %speed
+        out $ s "bd" $ fast %speed
     "#;
 
     let result = compile_dsl(code, 44100.0);
@@ -109,7 +109,7 @@ fn test_pattern_modulating_slow() {
     // Test slow with pattern modulation
     let code = r#"
         %factor: "2 4"
-        out: s "bd*8" $ slow %factor
+        out $ s "bd*8" $ slow %factor
     "#;
 
     let result = compile_dsl(code, 44100.0);
@@ -125,7 +125,7 @@ fn test_pattern_modulating_degradeby() {
     // Test degradeBy with pattern probability
     let code = r#"
         %prob: "0.2 0.8"
-        out: s "bd*8" $ degradeBy %prob
+        out $ s "bd*8" $ degradeBy %prob
     "#;
 
     let result = compile_dsl(code, 44100.0);
@@ -141,7 +141,7 @@ fn test_pattern_modulating_shuffle() {
     // Test shuffle with pattern amount
     let code = r#"
         %amount: "0.1 0.5 0.9"
-        out: s "bd sn hh cp" $ shuffle %amount
+        out $ s "bd sn hh cp" $ shuffle %amount
     "#;
 
     let result = compile_dsl(code, 44100.0);
@@ -160,10 +160,10 @@ fn test_multiple_pattern_assignments() {
         %speed2: "2 4"
         %prob: "0.5 0.8"
 
-        ~drums: s "bd*4" $ fast %speed1
-        ~hats: s "hh*8" $ fast %speed2 $ degradeBy %prob
+        ~drums $ s "bd*4" $ fast %speed1
+        ~hats $ s "hh*8" $ fast %speed2 $ degradeBy %prob
 
-        out: ~drums + ~hats
+        out $ ~drums + ~hats
     "#;
 
     let result = compile_dsl(code, 44100.0);
@@ -181,7 +181,7 @@ fn test_nested_pattern_transforms() {
         %speed: "2 3 4"
         %prob: "0.3 0.7"
 
-        out: s "bd sn hh cp" $ fast %speed $ degradeBy %prob
+        out $ s "bd sn hh cp" $ fast %speed $ degradeBy %prob
     "#;
 
     let result = compile_dsl(code, 44100.0);
@@ -197,7 +197,7 @@ fn test_pattern_ref_undefined_error() {
     // Test that undefined pattern reference gives clear error
     // Use a string pattern directly rather than s function to test pattern transform path
     let code = r#"
-        out: "bd" $ fast %undefined_speed
+        out $ "bd" $ fast %undefined_speed
     "#;
 
     let result = compile_dsl(code, 44100.0);
@@ -216,7 +216,7 @@ fn test_pattern_assignment_from_number() {
     // Test pattern assignment from constant number
     let code = r#"
         %speed: 3.0
-        out: s "bd*4" $ fast %speed
+        out $ s "bd*4" $ fast %speed
     "#;
 
     let result = compile_dsl(code, 44100.0);
@@ -231,9 +231,9 @@ fn test_pattern_assignment_from_number() {
 fn test_pattern_assignment_from_bus() {
     // Test pattern assignment from audio signal (LFO)
     let code = r#"
-        ~lfo: sine 0.5
+        ~lfo $ sine 0.5
         %speed: ~lfo
-        out: s "bd*4" $ fast %speed
+        out $ s "bd*4" $ fast %speed
     "#;
 
     let result = compile_dsl(code, 44100.0);
@@ -249,7 +249,7 @@ fn test_pattern_ref_cannot_be_used_as_signal() {
     // Test that pattern refs can't be used where signals are expected
     let code = r#"
         %speed: "1 2 3"
-        out: %speed
+        out $ %speed
     "#;
 
     let result = compile_dsl(code, 44100.0);
@@ -271,8 +271,8 @@ fn test_pattern_ref_in_bus_assignment() {
     // Test that pattern refs can't be assigned to buses
     let code = r#"
         %speed: "1 2 3"
-        ~drums: %speed
-        out: ~drums
+        ~drums $ %speed
+        out $ ~drums
     "#;
 
     let result = compile_dsl(code, 44100.0);
@@ -287,7 +287,7 @@ fn test_pattern_modulating_every_transform() {
     // Test pattern with every transform
     let code = r#"
         %n: "2 4"
-        out: s "bd sn hh cp" $ every %n rev
+        out $ s "bd sn hh cp" $ every %n rev
     "#;
 
     // Note: every expects integer, so this might need special handling
@@ -313,11 +313,11 @@ fn test_complex_pattern_modulation_scenario() {
         %snare_prob: "0.8 0.6 0.4 0.2"
 
         -- Build drum parts with pattern modulation
-        ~kick: s "bd*4" $ fast %kick_speed $ degradeBy %kick_prob
-        ~snare: s "sn*4" $ fast %snare_speed $ degradeBy %snare_prob
-        ~hats: s "hh*8"
+        ~kick $ s "bd*4" $ fast %kick_speed $ degradeBy %kick_prob
+        ~snare $ s "sn*4" $ fast %snare_speed $ degradeBy %snare_prob
+        ~hats $ s "hh*8"
 
-        out: ~kick + ~snare + ~hats
+        out $ ~kick + ~snare + ~hats
     "#;
 
     let result = compile_dsl(code, 44100.0);
@@ -333,7 +333,7 @@ fn test_pattern_modulation_with_euclidean() {
     // Test pattern modulation with Euclidean patterns
     let code = r#"
         %density: "3 5 7"
-        out: s "bd(8,3)" $ fast %density
+        out $ s "bd(8,3)" $ fast %density
     "#;
 
     let result = compile_dsl(code, 44100.0);

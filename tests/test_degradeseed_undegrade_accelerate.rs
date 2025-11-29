@@ -31,7 +31,7 @@ fn test_degradeseed_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ degradeSeed 42
+out $ "bd sn hh cp" $ degradeSeed 42
 "#,
         "DegradeSeed with seed 42",
     );
@@ -43,7 +43,7 @@ fn test_degradeseed_zero_seed() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ degradeSeed 0
+out $ "bd*8" $ degradeSeed 0
 "#,
         "DegradeSeed with seed 0",
     );
@@ -55,7 +55,7 @@ fn test_degradeseed_large_seed() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ degradeSeed 999999
+out $ "bd sn hh*4" $ degradeSeed 999999
 "#,
         "DegradeSeed with large seed",
     );
@@ -67,10 +67,10 @@ fn test_degradeseed_different_seeds() {
     test_compilation(
         r#"
 tempo: 0.5
-~deg1: "bd*4" $ degradeSeed 1
-~deg2: "sn*4" $ degradeSeed 2
-~deg3: "hh*8" $ degradeSeed 42
-out: ~deg1 + ~deg2 + ~deg3
+~deg1 $ "bd*4" $ degradeSeed 1
+~deg2 $ "sn*4" $ degradeSeed 2
+~deg3 $ "hh*8" $ degradeSeed 42
+out $ ~deg1 + ~deg2 + ~deg3
 "#,
         "DegradeSeed with different seeds",
     );
@@ -82,9 +82,9 @@ fn test_degradeseed_reproducible() {
     test_compilation(
         r#"
 tempo: 0.5
-~deg1: "bd sn hh cp" $ degradeSeed 7
-~deg2: "bd sn hh cp" $ degradeSeed 7
-out: ~deg1 + ~deg2
+~deg1 $ "bd sn hh cp" $ degradeSeed 7
+~deg2 $ "bd sn hh cp" $ degradeSeed 7
+out $ ~deg1 + ~deg2
 "#,
         "DegradeSeed reproducibility with same seed",
     );
@@ -96,7 +96,7 @@ fn test_degradeseed_with_subdivision() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4 sn*4 hh*8" $ degradeSeed 13
+out $ "bd*4 sn*4 hh*8" $ degradeSeed 13
 "#,
         "DegradeSeed with subdivision",
     );
@@ -108,7 +108,7 @@ fn test_degradeseed_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ degradeSeed 5 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ degradeSeed 5 # reverb 0.5 0.3 0.2
 "#,
         "DegradeSeed with reverb",
     );
@@ -120,7 +120,7 @@ fn test_degradeseed_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ degradeSeed 42 $ fast 2
+out $ "bd sn hh" $ degradeSeed 42 $ fast 2
 "#,
         "DegradeSeed combined with fast",
     );
@@ -134,7 +134,7 @@ fn test_undegrade_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ undegrade
+out $ "bd sn hh cp" $ undegrade
 "#,
         "Undegrade basic",
     );
@@ -146,7 +146,7 @@ fn test_undegrade_after_degrade() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ degrade $ undegrade
+out $ "bd*8" $ degrade $ undegrade
 "#,
         "Undegrade after degrade",
     );
@@ -158,7 +158,7 @@ fn test_undegrade_with_subdivision() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4 sn*4 hh*8" $ undegrade
+out $ "bd*4 sn*4 hh*8" $ undegrade
 "#,
         "Undegrade with subdivision",
     );
@@ -170,9 +170,9 @@ fn test_undegrade_identity() {
     test_compilation(
         r#"
 tempo: 0.5
-~original: "bd sn hh cp"
-~undegraded: "bd sn hh cp" $ undegrade
-out: ~original + ~undegraded
+~original $ "bd sn hh cp"
+~undegraded $ "bd sn hh cp" $ undegrade
+out $ ~original + ~undegraded
 "#,
         "Undegrade identity property",
     );
@@ -184,7 +184,7 @@ fn test_undegrade_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ undegrade # delay 0.25 0.5 0.3
+out $ "bd sn hh*2" $ undegrade # delay 0.25 0.5 0.3
 "#,
         "Undegrade with delay",
     );
@@ -196,7 +196,7 @@ fn test_undegrade_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ undegrade $ rev
+out $ "bd sn hh" $ undegrade $ rev
 "#,
         "Undegrade combined with rev",
     );
@@ -208,7 +208,7 @@ fn test_undegrade_multiple() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ undegrade $ undegrade $ undegrade
+out $ "bd sn hh cp" $ undegrade $ undegrade $ undegrade
 "#,
         "Multiple undegrade operations",
     );
@@ -222,7 +222,7 @@ fn test_accelerate_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ accelerate 0.5
+out $ "bd sn hh cp" $ accelerate 0.5
 "#,
         "Accelerate with rate 0.5",
     );
@@ -234,7 +234,7 @@ fn test_accelerate_slow() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ accelerate 0.1
+out $ "bd*8" $ accelerate 0.1
 "#,
         "Accelerate with slow rate (0.1)",
     );
@@ -246,7 +246,7 @@ fn test_accelerate_fast() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ accelerate 2.0
+out $ "bd sn hh*4" $ accelerate 2.0
 "#,
         "Accelerate with fast rate (2.0)",
     );
@@ -258,7 +258,7 @@ fn test_accelerate_negative() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ accelerate (-0.5)
+out $ "bd sn hh cp" $ accelerate (-0.5)
 "#,
         "Accelerate with negative rate (deceleration)",
     );
@@ -270,7 +270,7 @@ fn test_accelerate_zero() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ accelerate 0.0
+out $ "bd sn hh*4" $ accelerate 0.0
 "#,
         "Accelerate with zero rate",
     );
@@ -282,7 +282,7 @@ fn test_accelerate_with_subdivision() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4 sn*4 hh*8" $ accelerate 0.3
+out $ "bd*4 sn*4 hh*8" $ accelerate 0.3
 "#,
         "Accelerate with subdivision",
     );
@@ -294,7 +294,7 @@ fn test_accelerate_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ accelerate 0.7 # chorus 0.5 0.3 0.2
+out $ "bd sn hh*2" $ accelerate 0.7 # chorus 0.5 0.3 0.2
 "#,
         "Accelerate with chorus",
     );
@@ -306,7 +306,7 @@ fn test_accelerate_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ accelerate 0.5 $ fast 2
+out $ "bd sn hh" $ accelerate 0.5 $ fast 2
 "#,
         "Accelerate combined with fast",
     );
@@ -320,10 +320,10 @@ fn test_all_three_operations() {
     test_compilation(
         r#"
 tempo: 0.5
-~degraded: "bd*8" $ degradeSeed 42
-~undegraded: "sn*4" $ undegrade
-~accelerated: "hh*8" $ accelerate 0.5
-out: ~degraded + ~undegraded + ~accelerated
+~degraded $ "bd*8" $ degradeSeed 42
+~undegraded $ "sn*4" $ undegrade
+~accelerated $ "hh*8" $ accelerate 0.5
+out $ ~degraded + ~undegraded + ~accelerated
 "#,
         "All three operations in one program",
     );
@@ -335,9 +335,9 @@ fn test_degradeseed_and_undegrade() {
     test_compilation(
         r#"
 tempo: 0.5
-~deg: "bd sn" $ degradeSeed 7
-~undeg: "hh cp" $ undegrade
-out: ~deg + ~undeg
+~deg $ "bd sn" $ degradeSeed 7
+~undeg $ "hh cp" $ undegrade
+out $ ~deg + ~undeg
 "#,
         "DegradeSeed and undegrade together",
     );
@@ -349,9 +349,9 @@ fn test_degradeseed_and_accelerate() {
     test_compilation(
         r#"
 tempo: 0.5
-~deg: "bd*4 sn*4" $ degradeSeed 13
-~acc: "hh*4 cp*4" $ accelerate 0.3
-out: ~deg + ~acc
+~deg $ "bd*4 sn*4" $ degradeSeed 13
+~acc $ "hh*4 cp*4" $ accelerate 0.3
+out $ ~deg + ~acc
 "#,
         "DegradeSeed and accelerate together",
     );
@@ -363,9 +363,9 @@ fn test_undegrade_and_accelerate() {
     test_compilation(
         r#"
 tempo: 0.5
-~undeg: "bd sn hh" $ undegrade
-~acc: "cp bd sn" $ accelerate 0.5
-out: ~undeg + ~acc
+~undeg $ "bd sn hh" $ undegrade
+~acc $ "cp bd sn" $ accelerate 0.5
+out $ ~undeg + ~acc
 "#,
         "Undegrade and accelerate together",
     );
@@ -377,7 +377,7 @@ fn test_complex_combination() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ degradeSeed 42 $ undegrade $ accelerate 0.7 $ fast 2
+out $ "bd sn hh cp" $ degradeSeed 42 $ undegrade $ accelerate 0.7 $ fast 2
 "#,
         "Complex combination: degradeSeed, undegrade, accelerate, fast",
     );
@@ -389,7 +389,7 @@ fn test_with_effects_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ degradeSeed 7 $ accelerate 0.5 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*4" $ degradeSeed 7 $ accelerate 0.5 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Multiple operations with effects chain",
     );
@@ -401,7 +401,7 @@ fn test_degradeseed_with_other_transforms() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ degradeSeed 9 $ rev $ slow 2
+out $ "bd sn hh cp" $ degradeSeed 9 $ rev $ slow 2
 "#,
         "DegradeSeed with rev and slow",
     );
@@ -413,7 +413,7 @@ fn test_accelerate_with_palindrome() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ accelerate 0.5 $ palindrome
+out $ "bd*8" $ accelerate 0.5 $ palindrome
 "#,
         "Accelerate with palindrome",
     );
@@ -425,7 +425,7 @@ fn test_undegrade_in_every() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ every 2 undegrade
+out $ "bd sn hh cp" $ every 2 undegrade
 "#,
         "Undegrade inside every",
     );
@@ -437,12 +437,12 @@ fn test_in_complex_multi_bus_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~kick: "bd*4" $ degradeSeed 7 $ accelerate 0.2
-~snare: "~ sn ~ sn" $ undegrade
-~hats: "hh*8" $ accelerate 0.5
-~perc: "cp*4" $ degradeSeed 13 $ undegrade
-~mixed: (~kick + ~snare) $ accelerate 0.3
-out: ~mixed * 0.5 + ~hats * 0.3 + ~perc * 0.2
+~kick $ "bd*4" $ degradeSeed 7 $ accelerate 0.2
+~snare $ "~ sn ~ sn" $ undegrade
+~hats $ "hh*8" $ accelerate 0.5
+~perc $ "cp*4" $ degradeSeed 13 $ undegrade
+~mixed $ (~kick + ~snare) $ accelerate 0.3
+out $ ~mixed * 0.5 + ~hats * 0.3 + ~perc * 0.2
 "#,
         "Complex multi-bus program with all operations",
     );
@@ -454,7 +454,7 @@ fn test_nested_operations() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ degradeSeed 42 $ undegrade $ accelerate 0.5 $ fast 2 $ rev
+out $ "bd sn hh cp" $ degradeSeed 42 $ undegrade $ accelerate 0.5 $ fast 2 $ rev
 "#,
         "Nested operations on same pattern",
     );
@@ -466,11 +466,11 @@ fn test_multiple_degradeseed_different_seeds() {
     test_compilation(
         r#"
 tempo: 0.5
-~d1: "bd*8" $ degradeSeed 1
-~d2: "sn*8" $ degradeSeed 2
-~d3: "hh*8" $ degradeSeed 3
-~d4: "cp*8" $ degradeSeed 4
-out: ~d1 + ~d2 + ~d3 + ~d4
+~d1 $ "bd*8" $ degradeSeed 1
+~d2 $ "sn*8" $ degradeSeed 2
+~d3 $ "hh*8" $ degradeSeed 3
+~d4 $ "cp*8" $ degradeSeed 4
+out $ ~d1 + ~d2 + ~d3 + ~d4
 "#,
         "Multiple degradeSeed with different seeds",
     );
@@ -482,7 +482,7 @@ fn test_accelerate_with_stutter() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ accelerate 0.5 $ stutter 3
+out $ "bd sn hh" $ accelerate 0.5 $ stutter 3
 "#,
         "Accelerate with stutter",
     );
@@ -494,7 +494,7 @@ fn test_all_operations_with_reverb() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ degradeSeed 7 $ undegrade $ accelerate 0.5 # reverb 0.5 0.7 0.3
+out $ "bd sn hh*4" $ degradeSeed 7 $ undegrade $ accelerate 0.5 # reverb 0.5 0.7 0.3
 "#,
         "All operations with reverb",
     );
@@ -506,10 +506,10 @@ fn test_degradeseed_reproducibility_verification() {
     test_compilation(
         r#"
 tempo: 0.5
-~a: "bd sn hh cp" $ degradeSeed 42
-~b: "bd sn hh cp" $ degradeSeed 42
-~c: "bd sn hh cp" $ degradeSeed 99
-out: ~a + ~b + ~c
+~a $ "bd sn hh cp" $ degradeSeed 42
+~b $ "bd sn hh cp" $ degradeSeed 42
+~c $ "bd sn hh cp" $ degradeSeed 99
+out $ ~a + ~b + ~c
 "#,
         "DegradeSeed reproducibility verification",
     );

@@ -9,7 +9,7 @@ use phonon::compositional_parser::parse_program;
 fn test_superkick_basic() {
     let code = r#"
 tempo: 0.5
-out: superkick 60
+out $ superkick 60
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -31,7 +31,7 @@ out: superkick 60
 fn test_superkick_with_params() {
     let code = r#"
 tempo: 0.5
-out: superkick 60 0.8 0.4 0.2
+out $ superkick 60 0.8 0.4 0.2
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -50,7 +50,7 @@ out: superkick 60 0.8 0.4 0.2
 fn test_supersaw_basic() {
     let code = r#"
 tempo: 0.5
-out: supersaw 220
+out $ supersaw 220
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -70,7 +70,7 @@ out: supersaw 220
 fn test_supersaw_with_params() {
     let code = r#"
 tempo: 0.5
-out: supersaw 110 0.5 5
+out $ supersaw 110 0.5 5
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -89,7 +89,7 @@ out: supersaw 110 0.5 5
 fn test_superpwm_basic() {
     let code = r#"
 tempo: 0.5
-out: superpwm 110
+out $ superpwm 110
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -108,7 +108,7 @@ out: superpwm 110
 fn test_superchip_basic() {
     let code = r#"
 tempo: 0.5
-out: superchip 440
+out $ superchip 440
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -127,7 +127,7 @@ out: superchip 440
 fn test_superfm_basic() {
     let code = r#"
 tempo: 0.5
-out: superfm 440
+out $ superfm 440
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -144,7 +144,7 @@ out: superfm 440
 fn test_superfm_with_params() {
     let code = r#"
 tempo: 0.5
-out: superfm 440 2.0 1.0
+out $ superfm 440 2.0 1.0
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -163,7 +163,7 @@ out: superfm 440 2.0 1.0
 fn test_supersnare_basic() {
     let code = r#"
 tempo: 0.5
-out: supersnare 200
+out $ supersnare 200
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -182,7 +182,7 @@ out: supersnare 200
 fn test_superhat_basic() {
     let code = r#"
 tempo: 0.5
-out: superhat 0.7 0.05
+out $ superhat 0.7 0.05
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -201,9 +201,9 @@ out: superhat 0.7 0.05
 fn test_synths_in_bus() {
     let code = r#"
 tempo: 0.5
-~kick: superkick 60
-~bass: supersaw 55
-out: ~kick * 0.5 + ~bass * 0.3
+~kick $ superkick 60
+~bass $ supersaw 55
+out $ ~kick * 0.5 + ~bass * 0.3
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -220,7 +220,7 @@ out: ~kick * 0.5 + ~bass * 0.3
 fn test_synth_through_filter() {
     let code = r#"
 tempo: 0.5
-out: supersaw 110 # lpf 2000 0.8
+out $ supersaw 110 # lpf 2000 0.8
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -237,7 +237,7 @@ out: supersaw 110 # lpf 2000 0.8
 fn test_synth_through_effects_chain() {
     let code = r#"
 tempo: 0.5
-out: supersaw 110 0.5 5 # distortion 2.0 0.3 # reverb 0.5 0.5 0.2
+out $ supersaw 110 0.5 5 # distortion 2.0 0.3 # reverb 0.5 0.5 0.2
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -256,8 +256,8 @@ out: supersaw 110 0.5 5 # distortion 2.0 0.3 # reverb 0.5 0.5 0.2
 fn test_synth_with_pattern_freq() {
     let code = r#"
 tempo: 0.5
-~freq: "110 220 440"
-out: supersaw ~freq
+~freq $ "110 220 440"
+out $ supersaw ~freq
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -275,10 +275,10 @@ fn test_drum_kit() {
     // Real drum kit using SuperDirt synths
     let code = r#"
 tempo: 0.5
-~kick: superkick 60 0.5 0.3 0.1
-~snare: supersnare 200 0.8 0.15
-~hat: superhat 0.7 0.05
-out: ~kick * 0.8 + ~snare * 0.6 + ~hat * 0.4
+~kick $ superkick 60 0.5 0.3 0.1
+~snare $ supersnare 200 0.8 0.15
+~hat $ superhat 0.7 0.05
+out $ ~kick * 0.8 + ~snare * 0.6 + ~hat * 0.4
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");

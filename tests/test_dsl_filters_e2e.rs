@@ -57,7 +57,7 @@ fn test_lpf_constant_cutoff() {
     let dsl = r#"
 tempo: 0.5
 ~bass: saw 55 # lpf 2000 0.8
-out: ~bass * 0.3
+out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_constant");
     assert!(
@@ -76,7 +76,7 @@ fn test_lpf_low_cutoff() {
     let dsl = r#"
 tempo: 0.5
 ~bass: saw 110 # lpf 500 0.7
-out: ~bass * 0.3
+out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_low_cut");
     assert!(success, "Failed to render lpf with low cutoff: {}", stderr);
@@ -91,7 +91,7 @@ fn test_lpf_high_cutoff() {
     let dsl = r#"
 tempo: 0.5
 ~bass: saw 55 # lpf 5000 0.5
-out: ~bass * 0.3
+out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_high_cut");
     assert!(success, "Failed to render lpf with high cutoff: {}", stderr);
@@ -106,7 +106,7 @@ fn test_lpf_pattern_cutoff() {
     let dsl = r#"
 tempo: 0.5
 ~bass: saw 55 # lpf "500 1000 1500 2000" 0.8
-out: ~bass * 0.3
+out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_pattern_cut");
     assert!(
@@ -126,7 +126,7 @@ fn test_lpf_low_resonance() {
     let dsl = r#"
 tempo: 0.5
 ~bass: saw 110 # lpf 1000 0.3
-out: ~bass * 0.3
+out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_low_res");
     assert!(
@@ -145,7 +145,7 @@ fn test_lpf_high_resonance() {
     let dsl = r#"
 tempo: 0.5
 ~bass: saw 110 # lpf 1000 0.95
-out: ~bass * 0.2
+out $ ~bass * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_high_res");
     assert!(
@@ -164,7 +164,7 @@ fn test_lpf_pattern_resonance() {
     let dsl = r#"
 tempo: 0.5
 ~bass: saw 55 # lpf 1500 "0.3 0.6 0.8 0.9"
-out: ~bass * 0.3
+out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_pattern_res");
     assert!(
@@ -184,7 +184,7 @@ fn test_lpf_both_patterns() {
     let dsl = r#"
 tempo: 0.5
 ~bass: saw 55 # lpf "500 1500 2500" "0.5 0.8"
-out: ~bass * 0.3
+out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_both_patterns");
     assert!(
@@ -208,7 +208,7 @@ fn test_hpf_constant_cutoff() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 220 # hpf 500 0.7
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_constant");
     assert!(
@@ -227,7 +227,7 @@ fn test_hpf_low_cutoff() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 110 # hpf 100 0.5
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_low_cut");
     assert!(success, "Failed to render hpf with low cutoff: {}", stderr);
@@ -242,7 +242,7 @@ fn test_hpf_high_cutoff() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 220 # hpf 2000 0.8
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_high_cut");
     assert!(success, "Failed to render hpf with high cutoff: {}", stderr);
@@ -256,7 +256,7 @@ fn test_hpf_pattern_cutoff() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 220 # hpf "200 400 800 1600" 0.7
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_pattern_cut");
     assert!(
@@ -280,7 +280,7 @@ fn test_bpf_constant_cutoff() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 110 # bpf 1000 0.7
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_constant");
     assert!(
@@ -300,7 +300,7 @@ fn test_bpf_narrow_bandwidth() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 110 # bpf 1000 0.95
-out: ~sig * 0.2
+out $ ~sig * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_narrow");
     assert!(
@@ -319,7 +319,7 @@ fn test_bpf_wide_bandwidth() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 110 # bpf 1000 0.3
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_wide");
     assert!(
@@ -339,7 +339,7 @@ fn test_bpf_pattern_cutoff() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 110 # bpf "500 1000 2000 4000" 0.8
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_pattern");
     assert!(
@@ -364,7 +364,7 @@ fn test_lpf_lfo_modulated_cutoff() {
 tempo: 0.5
 ~lfo: sine 0.5 * 0.5 + 0.5
 ~bass: saw 55 # lpf (~lfo * 2000 + 500) 0.8
-out: ~bass * 0.4
+out $ ~bass * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "lpf_lfo_cutoff", "4");
     assert!(success, "Failed to render LFO-modulated lpf: {}", stderr);
@@ -381,7 +381,7 @@ fn test_lpf_slow_lfo() {
 tempo: 0.5
 ~lfo: sine 0.25 * 0.5 + 0.5
 ~bass: saw 55 # lpf (~lfo * 3000 + 200) 0.8
-out: ~bass * 0.4
+out $ ~bass * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "lpf_slow_lfo", "8");
     assert!(success, "Failed to render slow LFO filter: {}", stderr);
@@ -398,7 +398,7 @@ fn test_lpf_fast_lfo() {
 tempo: 0.5
 ~lfo: sine 4 * 0.5 + 0.5
 ~bass: saw 110 # lpf (~lfo * 2000 + 800) 0.7
-out: ~bass * 0.4
+out $ ~bass * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_fast_lfo");
     assert!(success, "Failed to render fast LFO filter: {}", stderr);
@@ -415,7 +415,7 @@ fn test_lpf_triangle_lfo() {
 tempo: 0.5
 ~lfo: tri 0.5 * 0.5 + 0.5
 ~bass: saw 55 # lpf (~lfo * 2500 + 500) 0.8
-out: ~bass * 0.4
+out $ ~bass * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "lpf_tri_lfo", "4");
     assert!(success, "Failed to render triangle LFO filter: {}", stderr);
@@ -432,7 +432,7 @@ fn test_lpf_square_lfo() {
 tempo: 0.5
 ~lfo: square 1 * 0.5 + 0.5
 ~bass: saw 110 # lpf (~lfo * 3000 + 500) 0.7
-out: ~bass * 0.4
+out $ ~bass * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_square_lfo");
     assert!(success, "Failed to render square LFO filter: {}", stderr);
@@ -449,7 +449,7 @@ fn test_hpf_lfo_modulated() {
 tempo: 0.5
 ~lfo: sine 0.5 * 0.5 + 0.5
 ~sig: saw 220 # hpf (~lfo * 1500 + 100) 0.7
-out: ~sig * 0.4
+out $ ~sig * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "hpf_lfo", "4");
     assert!(success, "Failed to render LFO-modulated hpf: {}", stderr);
@@ -466,7 +466,7 @@ fn test_bpf_lfo_modulated() {
 tempo: 0.5
 ~lfo: sine 1 * 0.5 + 0.5
 ~sig: saw 110 # bpf (~lfo * 3000 + 500) 0.8
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_lfo");
     assert!(success, "Failed to render LFO-modulated bpf: {}", stderr);
@@ -483,7 +483,7 @@ fn test_lpf_resonance_lfo_modulated() {
 tempo: 0.5
 ~lfo: sine 0.5 * 0.3 + 0.5
 ~bass: saw 55 # lpf 1500 ~lfo
-out: ~bass * 0.3
+out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "lpf_res_lfo", "4");
     assert!(
@@ -502,10 +502,10 @@ out: ~bass * 0.3
 fn test_lpf_both_params_lfo() {
     let dsl = r#"
 tempo: 0.5
-~lfo1: sine 0.5 * 0.5 + 0.5
+~lfout $ sine 0.5 * 0.5 + 0.5
 ~lfo2: tri 0.25 * 0.3 + 0.5
 ~bass: saw 55 # lpf (~lfo1 * 2000 + 500) ~lfo2
-out: ~bass * 0.3
+out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "lpf_both_lfo", "8");
     assert!(success, "Failed to render dual LFO filter: {}", stderr);
@@ -525,7 +525,7 @@ fn test_lpf_on_sine() {
     let dsl = r#"
 tempo: 0.5
 ~sig: sine 880 # lpf 1200 0.8
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_sine");
     assert!(success, "Failed to filter sine wave: {}", stderr);
@@ -538,7 +538,7 @@ fn test_lpf_on_square() {
     let dsl = r#"
 tempo: 0.5
 ~sig: square 220 # lpf 1500 0.7
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_square");
     assert!(success, "Failed to filter square wave: {}", stderr);
@@ -551,7 +551,7 @@ fn test_lpf_on_tri() {
     let dsl = r#"
 tempo: 0.5
 ~sig: tri 110 # lpf 2000 0.8
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_tri");
     assert!(success, "Failed to filter triangle wave: {}", stderr);
@@ -564,7 +564,7 @@ fn test_lpf_on_pattern_osc() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw "55 82.5 110" # lpf 1500 0.8
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_pattern_osc");
     assert!(
@@ -583,7 +583,7 @@ fn test_lpf_on_mixed_signals() {
 tempo: 0.5
 ~mix: sine 440 + saw 110
 ~filtered: ~mix # lpf 2000 0.7
-out: ~filtered * 0.2
+out $ ~filtered * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_mixed");
     assert!(success, "Failed to filter mixed signals: {}", stderr);
@@ -600,7 +600,7 @@ fn test_two_lpf_cascade() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 110 # lpf 2000 0.5 # lpf 1000 0.7
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "cascade_lpf");
     assert!(success, "Failed to cascade two lpf: {}", stderr);
@@ -613,7 +613,7 @@ fn test_lpf_then_hpf() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 110 # lpf 3000 0.6 # hpf 200 0.5
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_hpf_chain");
     assert!(success, "Failed to chain lpf then hpf: {}", stderr);
@@ -626,7 +626,7 @@ fn test_hpf_then_lpf() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 110 # hpf 100 0.5 # lpf 2000 0.7
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_lpf_chain");
     assert!(success, "Failed to chain hpf then lpf: {}", stderr);
@@ -639,7 +639,7 @@ fn test_three_filter_cascade() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 55 # lpf 3000 0.5 # bpf 1500 0.7 # lpf 2000 0.6
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "three_filters");
     assert!(success, "Failed to cascade three filters: {}", stderr);
@@ -658,7 +658,7 @@ fn test_lpf_reverse_flow() {
     let dsl = r#"
 tempo: 0.5
 ~bass: saw 55 # lpf 1500 0.8
-out: ~bass * 0.3
+out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_reverse");
     assert!(success, "Failed to use lpf with forward flow: {}", stderr);
@@ -673,7 +673,7 @@ fn test_hpf_reverse_flow() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 220 # hpf 500 0.7
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_reverse");
     assert!(success, "Failed to use hpf with forward flow: {}", stderr);
@@ -688,7 +688,7 @@ fn test_bpf_reverse_flow() {
     let dsl = r#"
 tempo: 0.5
 ~sig: saw 110 # bpf 1000 0.8
-out: ~sig * 0.3
+out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_reverse");
     assert!(success, "Failed to use bpf with forward flow: {}", stderr);
@@ -705,7 +705,7 @@ fn test_lpf_very_low_cutoff() {
     let dsl = r#"
 tempo: 0.5
 ~bass: saw 110 # lpf 100 0.7
-out: ~bass * 0.4
+out $ ~bass * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_very_low");
     assert!(success, "Failed with very low cutoff: {}", stderr);
@@ -718,7 +718,7 @@ fn test_lpf_very_high_cutoff() {
     let dsl = r#"
 tempo: 0.5
 ~bass: saw 110 # lpf 10000 0.5
-out: ~bass * 0.3
+out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_very_high");
     assert!(success, "Failed with very high cutoff: {}", stderr);
@@ -731,7 +731,7 @@ fn test_lpf_zero_resonance() {
     let dsl = r#"
 tempo: 0.5
 ~bass: saw 110 # lpf 1500 0.0
-out: ~bass * 0.3
+out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_zero_res");
     assert!(success, "Failed with zero resonance: {}", stderr);
@@ -744,7 +744,7 @@ fn test_lpf_near_max_resonance() {
     let dsl = r#"
 tempo: 0.5
 ~bass: saw 110 # lpf 1500 0.99
-out: ~bass * 0.2
+out $ ~bass * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_max_res");
     assert!(success, "Failed with near-max resonance: {}", stderr);

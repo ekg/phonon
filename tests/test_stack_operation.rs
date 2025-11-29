@@ -13,8 +13,8 @@ fn test_stack_basic_oscillators() {
 
     let code = r#"
 tempo: 0.5
-~stacked: stack [sine 220, sine 440]
-out: ~stacked * 0.2
+~stacked $ stack [sine 220, sine 440]
+out $ ~stacked * 0.2
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -39,10 +39,10 @@ fn test_stack_with_different_gains() {
     // This is the key use case: per-voice gain!
     let code = r#"
 tempo: 0.5
-~loud: sine 220 * 0.8
-~quiet: sine 440 * 0.2
-~stacked: stack [~loud, ~quiet]
-out: ~stacked
+~loud $ sine 220 * 0.8
+~quiet $ sine 440 * 0.2
+~stacked $ stack [~loud, ~quiet]
+out $ ~stacked
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -68,11 +68,11 @@ fn test_stack_samples() {
 
     let code = r#"
 tempo: 0.5
-~kick: s "bd"
-~snare: s "~ sn"
-~hh: s "hh*4"
-~drums: stack [~kick, ~snare, ~hh]
-out: ~drums * 0.3
+~kick $ s "bd"
+~snare $ s "~ sn"
+~hh $ s "hh*4"
+~drums $ stack [~kick, ~snare, ~hh]
+out $ ~drums * 0.3
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -94,10 +94,10 @@ fn test_stack_with_transforms() {
 
     let code = r#"
 tempo: 0.5
-~normal: s "bd sn"
-~fast: s "bd sn" $ fast 2
-~stacked: stack [~normal, ~fast]
-out: ~stacked * 0.5
+~normal $ s "bd sn"
+~fast $ s "bd sn" $ fast 2
+~stacked $ stack [~normal, ~fast]
+out $ ~stacked * 0.5
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -122,11 +122,11 @@ fn test_stack_per_voice_gain_e2e() {
     let code = r#"
 tempo: 0.5
 # Three samples with different gain levels
-~kick: s "bd" * 0.8
-~snare: s "~ sn" * 1.0
-~hh: s "hh*4" * 0.4
-~drums: stack [~kick, ~snare, ~hh]
-out: ~drums
+~kick $ s "bd" * 0.8
+~snare $ s "~ sn" * 1.0
+~hh $ s "hh*4" * 0.4
+~drums $ stack [~kick, ~snare, ~hh]
+out $ ~drums
 "#;
 
     std::fs::write("/tmp/test_stack_gain.ph", code).unwrap();
@@ -186,10 +186,10 @@ fn test_stack_oscillator_frequency_blend() {
     // Stack two frequencies - should see both in spectrum
     let code = r#"
 tempo: 0.5
-~low: sine 110 * 0.3
-~high: sine 440 * 0.3
-~blend: stack [~low, ~high]
-out: ~blend
+~low $ sine 110 * 0.3
+~high $ sine 440 * 0.3
+~blend $ stack [~low, ~high]
+out $ ~blend
 "#;
 
     std::fs::write("/tmp/test_stack_freq.ph", code).unwrap();
@@ -235,11 +235,11 @@ fn test_stack_three_way_mix() {
 
     let code = r#"
 tempo: 0.5
-~a: sine 220 * 0.2
-~b: sine 330 * 0.2
-~c: sine 440 * 0.2
-~mix: stack [~a, ~b, ~c]
-out: ~mix
+~a $ sine 220 * 0.2
+~b $ sine 330 * 0.2
+~c $ sine 440 * 0.2
+~mix $ stack [~a, ~b, ~c]
+out $ ~mix
 "#;
 
     std::fs::write("/tmp/test_stack_three.ph", code).unwrap();

@@ -133,12 +133,12 @@ fn test_degrade_level1_deterministic() {
 fn test_degrade_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp"
+out $ s "bd sn hh cp bd sn hh cp"
 "#;
 
     let degrade_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp" $ degrade
+out $ s "bd sn hh cp bd sn hh cp" $ degrade
 "#;
 
     let cycles = 20;
@@ -171,12 +171,12 @@ out: s "bd sn hh cp bd sn hh cp" $ degrade
 fn test_degradeBy_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp"
+out $ s "bd sn hh cp bd sn hh cp"
 "#;
 
     let degrade_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp" $ degradeBy 0.75
+out $ s "bd sn hh cp bd sn hh cp" $ degradeBy 0.75
 "#;
 
     let cycles = 20;
@@ -213,7 +213,7 @@ out: s "bd sn hh cp bd sn hh cp" $ degradeBy 0.75
 fn test_degrade_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp" $ degrade
+out $ s "bd sn hh cp bd sn hh cp" $ degrade
 "#;
 
     let audio = render_dsl(code, 20);
@@ -248,12 +248,12 @@ out: s "bd sn hh cp bd sn hh cp" $ degrade
 fn test_degrade_level3_energy_reduction() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp"
+out $ s "bd sn hh cp bd sn hh cp"
 "#;
 
     let degrade_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp" $ degrade
+out $ s "bd sn hh cp bd sn hh cp" $ degrade
 "#;
 
     let base_audio = render_dsl(base_code, 20);
@@ -282,12 +282,12 @@ out: s "bd sn hh cp bd sn hh cp" $ degrade
 fn test_degradeBy_level3_energy_reduction() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let degrade_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ degradeBy 0.9
+out $ s "bd sn hh cp" $ degradeBy 0.9
 "#;
 
     let base_audio = render_dsl(base_code, 20);

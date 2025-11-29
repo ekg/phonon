@@ -261,7 +261,7 @@ fn test_bus_completion() {
         .enter();
 
     // Now try to reference it
-    harness.type_text("out: ~")
+    harness.type_text("out $ ~")
         .tab();
 
     // Should show completions including ~bass
@@ -286,7 +286,7 @@ fn test_multiline_completion() {
 #[test]
 fn test_completion_with_existing_code() {
     let mut harness = EditorTestHarness::with_content(
-        "tempo: 0.5\n~drums: s \"bd sn\"\nout: ~drums"
+        "tempo: 0.5\n~drums: s \"bd sn\"\nout $ ~drums"
     ).unwrap();
 
     // Move to end and add new line

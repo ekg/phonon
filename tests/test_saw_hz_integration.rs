@@ -33,7 +33,7 @@ fn calculate_peak(buffer: &[f32]) -> f32 {
 #[test]
 fn test_saw_hz_level3_basic() {
     // Test basic saw oscillator
-    let code = "out: saw_hz 220";
+    let code = "out $ saw_hz 220";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -52,7 +52,7 @@ fn test_saw_hz_level3_frequency_sweep() {
     let frequencies = vec![55.0, 110.0, 220.0, 440.0, 880.0];
 
     for freq in &frequencies {
-        let code = format!("out: saw_hz {}", freq);
+        let code = format!("out $ saw_hz {}", freq);
         let audio = render_dsl(&code, 1.0);
         let rms = calculate_rms(&audio);
 
@@ -66,7 +66,7 @@ fn test_saw_hz_level3_pattern_control() {
     // Test pattern-controlled frequency (Phonon's killer feature!)
     let code = r#"
         tempo: 0.5
-        out: saw_hz "110 165 220 330"
+        out $ saw_hz "110 165 220 330"
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -82,9 +82,9 @@ fn test_saw_hz_level3_lfo_modulation() {
     // Test LFO modulation of frequency
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 0.5
-        ~freq: ~lfo * 100 + 220
-        out: saw_hz ~freq
+        ~lfo $ sine 0.5
+        ~freq $ ~lfo * 100 + 220
+        out $ saw_hz ~freq
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -98,7 +98,7 @@ fn test_saw_hz_level3_lfo_modulation() {
 #[test]
 fn test_saw_hz_level3_through_filter() {
     // Test saw through filter
-    let code = "out: saw_hz 110 # lpf 500 0.8";
+    let code = "out $ saw_hz 110 # lpf 500 0.8";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -111,7 +111,7 @@ fn test_saw_hz_level3_through_filter() {
 #[test]
 fn test_saw_hz_level3_bass() {
     // Test bass frequency
-    let code = "out: saw_hz 55";
+    let code = "out $ saw_hz 55";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -124,7 +124,7 @@ fn test_saw_hz_level3_bass() {
 #[test]
 fn test_saw_hz_level3_high() {
     // Test high frequency
-    let code = "out: saw_hz 2000";
+    let code = "out $ saw_hz 2000";
     let audio = render_dsl(code, 1.0);
 
     let rms = calculate_rms(&audio);
@@ -137,7 +137,7 @@ fn test_saw_hz_level3_high() {
 #[test]
 fn test_saw_hz_level3_amplitude_control() {
     // Test amplitude scaling
-    let code = "out: saw_hz 220 * 0.5";
+    let code = "out $ saw_hz 220 * 0.5";
     let audio = render_dsl(code, 1.0);
 
     let rms = calculate_rms(&audio);
@@ -152,9 +152,9 @@ fn test_saw_hz_level3_amplitude_control() {
 fn test_saw_hz_level3_multiple_oscillators() {
     // Test multiple saw oscillators mixed
     let code = r#"
-        ~saw1: saw_hz 220
-        ~saw2: saw_hz 221.5
-        out: (~saw1 + ~saw2) * 0.5
+        ~saw1 $ saw_hz 220
+        ~saw2 $ saw_hz 221.5
+        out $ (~saw1 + ~saw2) * 0.5
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -169,10 +169,10 @@ fn test_saw_hz_level3_multiple_oscillators() {
 fn test_saw_hz_level3_detuned_stack() {
     // Test detuned saw stack (pseudo-supersaw)
     let code = r#"
-        ~saw1: saw_hz 220
-        ~saw2: saw_hz 221.5
-        ~saw3: saw_hz 218.5
-        out: (~saw1 + ~saw2 + ~saw3) * 0.33
+        ~saw1 $ saw_hz 220
+        ~saw2 $ saw_hz 221.5
+        ~saw3 $ saw_hz 218.5
+        out $ (~saw1 + ~saw2 + ~saw3) * 0.33
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -188,9 +188,9 @@ fn test_saw_hz_level3_with_envelope() {
     // Test saw with amplitude envelope
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 0.5
-        ~env: ~lfo * 0.4 + 0.6
-        out: saw_hz 220 * ~env
+        ~lfo $ sine 0.5
+        ~env $ ~lfo * 0.4 + 0.6
+        out $ saw_hz 220 * ~env
     "#;
     let audio = render_dsl(code, 2.0);
 

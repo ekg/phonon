@@ -45,7 +45,7 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 
 #[test]
 fn test_audio_node_simple_constant() {
-    let code = "out: 0.5";
+    let code = "out $ 0.5";
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
         .expect("Should compile");
@@ -63,7 +63,7 @@ fn test_audio_node_simple_constant() {
 fn test_audio_node_sine_440hz() {
     let code = r#"
         tempo: 0.5
-        out: sine 440
+        out $ sine 440
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -88,7 +88,7 @@ fn test_audio_node_sine_440hz() {
 #[test]
 fn test_audio_node_addition() {
     let code = r#"
-        out: 0.3 + 0.2
+        out $ 0.3 + 0.2
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -107,9 +107,9 @@ fn test_audio_node_addition() {
 fn test_audio_node_complex_expression() {
     let code = r#"
         tempo: 0.5
-        ~freq: 220
-        ~osc: sine ~freq
-        out: ~osc
+        ~freq $ 220
+        ~osc $ sine ~freq
+        out $ ~osc
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -131,7 +131,7 @@ fn test_audio_node_complex_expression() {
 fn test_audio_node_tempo_setting() {
     let code = r#"
         tempo: 3.0
-        out: sine 440
+        out $ sine 440
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -148,12 +148,12 @@ fn test_audio_node_graph_traversed_once() {
 
     let code = r#"
         tempo: 0.5
-        ~a: 0.1
-        ~b: 0.2
-        ~c: ~a + ~b
-        ~d: ~c + 0.3
-        ~e: ~d + 0.4
-        out: ~e
+        ~a $ 0.1
+        ~b $ 0.2
+        ~c $ ~a + ~b
+        ~d $ ~c + 0.3
+        ~e $ ~d + 0.4
+        out $ ~e
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -181,7 +181,7 @@ fn test_audio_node_signal_chain() {
     // Example: saw 110 # lpf 1000 0.8
     let code = r#"
         tempo: 0.5
-        out: saw 110 # lpf 1000 0.8
+        out $ saw 110 # lpf 1000 0.8
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -209,8 +209,8 @@ fn test_audio_node_chain_with_bus() {
     // Test chaining with bus reference
     let code = r#"
         tempo: 0.5
-        ~osc: saw 220
-        out: ~osc # lpf 500 0.9
+        ~osc $ saw 220
+        out $ ~osc # lpf 500 0.9
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -229,7 +229,7 @@ fn test_audio_node_delay_effect() {
     // Test delay effect
     let code = r#"
         tempo: 0.5
-        out: sine 440 # delay 0.1
+        out $ sine 440 # delay 0.1
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -248,7 +248,7 @@ fn test_audio_node_reverb_effect() {
     // Test reverb effect
     let code = r#"
         tempo: 0.5
-        out: sine 440 # reverb 0.7 0.5 0.3
+        out $ sine 440 # reverb 0.7 0.5 0.3
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -267,7 +267,7 @@ fn test_audio_node_distortion_effect() {
     // Test distortion effect
     let code = r#"
         tempo: 0.5
-        out: sine 440 # distortion 5.0 0.8
+        out $ sine 440 # distortion 5.0 0.8
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -290,10 +290,10 @@ fn test_audio_node_effect_chain() {
     // Test chaining multiple effects
     let code = r#"
         tempo: 0.5
-        ~osc: saw 110
-        ~filtered: ~osc # lpf 800 0.7
-        ~delayed: ~filtered # delay 0.05
-        out: ~delayed # distortion 3.0 0.5
+        ~osc $ saw 110
+        ~filtered $ ~osc # lpf 800 0.7
+        ~delayed $ ~filtered # delay 0.05
+        out $ ~delayed # distortion 3.0 0.5
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -314,17 +314,17 @@ fn test_audio_node_complex_synthesis() {
         tempo: 0.5
 
         -- FM synthesis
-        ~modulator_freq: 110 * 3
-        ~modulator: sine ~modulator_freq
-        ~mod_amount: 200
-        ~carrier_freq: 110 + (~modulator * ~mod_amount)
-        ~carrier: sine ~carrier_freq
+        ~modulator_freq $ 110 * 3
+        ~modulator $ sine ~modulator_freq
+        ~mod_amount $ 200
+        ~carrier_freq $ 110 + (~modulator * ~mod_amount)
+        ~carrier $ sine ~carrier_freq
 
         -- Filter and effects chain
-        ~filtered: ~carrier # lpf 2000 0.6
-        ~effected: ~filtered # distortion 2.0 0.3
+        ~filtered $ ~carrier # lpf 2000 0.6
+        ~effected $ ~filtered # distortion 2.0 0.3
 
-        out: ~effected
+        out $ ~effected
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -353,19 +353,19 @@ fn test_audio_node_multi_voice_mix() {
         tempo: 0.5
 
         -- Voice 1: Bass
-        ~bass: saw 55 # lpf 300 0.8
+        ~bass $ saw 55 # lpf 300 0.8
 
         -- Voice 2: Pad
-        ~pad_freq: 110 + 0.5
-        ~pad: saw ~pad_freq # lpf 800 0.5
+        ~pad_freq $ 110 + 0.5
+        ~pad $ saw ~pad_freq # lpf 800 0.5
 
         -- Voice 3: Lead
-        ~lead: square 440 # hpf 500 0.4
+        ~lead $ square 440 # hpf 500 0.4
 
         -- Mix
-        ~mix: (~bass * 0.5) + (~pad * 0.3) + (~lead * 0.4)
+        ~mix $ (~bass * 0.5) + (~pad * 0.3) + (~lead * 0.4)
 
-        out: ~mix # reverb 0.5 0.6 0.2
+        out $ ~mix # reverb 0.5 0.6 0.2
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -390,12 +390,12 @@ fn test_audio_node_modulated_parameters() {
         tempo: 0.5
 
         -- LFO for filter cutoff
-        ~lfo: sine 0.5
-        ~cutoff: (~lfo * 1000) + 1500
+        ~lfo $ sine 0.5
+        ~cutoff $ (~lfo * 1000) + 1500
 
         -- Filtered saw
-        ~osc: saw 110
-        out: ~osc # lpf ~cutoff 0.7
+        ~osc $ saw 110
+        out $ ~osc # lpf ~cutoff 0.7
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)

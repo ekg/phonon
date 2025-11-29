@@ -10,8 +10,8 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_line_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~ramp: line 0 1
-out: ~ramp * sine 440
+~ramp $ line 0 1
+out $ ~ramp * sine 440
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -39,8 +39,8 @@ fn test_line_ramp_shape() {
     let dsl = r#"
 tempo: 1.0
 -- Line: from 0 to 1 over one cycle
-~ramp: line 0 1
-out: ~ramp
+~ramp $ line 0 1
+out $ ~ramp
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -96,8 +96,8 @@ out: ~ramp
 fn test_line_descending() {
     let dsl = r#"
 tempo: 0.5
-~ramp: line 1 0
-out: ~ramp
+~ramp $ line 1 0
+out $ ~ramp
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -128,9 +128,9 @@ fn test_line_musical_fade() {
     let dsl = r#"
 tempo: 1.0
 -- Fade in from 0 to 1
-~fade: line 0 1
-~tone: sine 440
-out: ~tone * ~fade * 0.5
+~fade $ line 0 1
+~tone $ sine 440
+out $ ~tone * ~fade * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -197,9 +197,9 @@ fn test_line_frequency_sweep() {
     let dsl = r#"
 tempo: 0.5
 -- Sweep from 100Hz to 1000Hz
-~freq_ramp: line 100 1000
-~sweep: sine ~freq_ramp
-out: ~sweep * 0.3
+~freq_ramp $ line 100 1000
+~sweep $ sine ~freq_ramp
+out $ ~sweep * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -223,9 +223,9 @@ fn test_line_pattern_parameters() {
     let dsl = r#"
 tempo: 0.5
 -- Pattern-controlled end value
-~end_pattern: "0.5 1.0"
-~ramp: line 0 ~end_pattern
-out: ~ramp * sine 440
+~end_pattern $ "0.5 1.0"
+~ramp $ line 0 ~end_pattern
+out $ ~ramp * sine 440
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -246,8 +246,8 @@ out: ~ramp * sine 440
 fn test_line_negative_range() {
     let dsl = r#"
 tempo: 1.0
-~ramp: line -1 1
-out: ~ramp * sine 440
+~ramp $ line -1 1
+out $ ~ramp * sine 440
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

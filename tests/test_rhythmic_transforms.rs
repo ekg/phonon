@@ -33,7 +33,7 @@ fn test_swing_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ swing 0.1
+out $ "bd sn hh cp" $ swing 0.1
 "#,
         "Swing with 0.1 amount",
     );
@@ -45,7 +45,7 @@ fn test_swing_large_amount() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "hh*8" $ swing 0.3
+out $ "hh*8" $ swing 0.3
 "#,
         "Swing with 0.3 amount (larger)",
     );
@@ -57,7 +57,7 @@ fn test_swing_with_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ swing 0.2 # lpf 1000 0.8
+out $ "bd sn hh" $ swing 0.2 # lpf 1000 0.8
 "#,
         "Swing with chained filter",
     );
@@ -69,7 +69,7 @@ fn test_swing_combined_with_fast() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ fast 2 $ swing 0.15
+out $ "bd sn" $ fast 2 $ swing 0.15
 "#,
         "Swing combined with fast",
     );
@@ -83,7 +83,7 @@ fn test_legato_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ legato 2.0
+out $ "bd sn hh cp" $ legato 2.0
 "#,
         "Legato with 2.0 factor",
     );
@@ -95,7 +95,7 @@ fn test_legato_extreme() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4" $ legato 5.0
+out $ "bd*4" $ legato 5.0
 "#,
         "Legato with 5.0 factor (extreme)",
     );
@@ -107,7 +107,7 @@ fn test_legato_with_sample_playback() {
     test_compilation(
         r#"
 tempo: 0.5
-out: s "bd sn hh*4" $ legato 1.5
+out $ s "bd sn hh*4" $ legato 1.5
 "#,
         "Legato with sample playback",
     );
@@ -119,7 +119,7 @@ fn test_legato_with_reverb() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ legato 3.0 # reverb 0.5 0.3 0.2
+out $ "bd sn" $ legato 3.0 # reverb 0.5 0.3 0.2
 "#,
         "Legato with reverb",
     );
@@ -133,7 +133,7 @@ fn test_staccato_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ staccato 0.5
+out $ "bd sn hh cp" $ staccato 0.5
 "#,
         "Staccato with 0.5 factor",
     );
@@ -145,7 +145,7 @@ fn test_staccato_extreme() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ staccato 0.1
+out $ "bd*8" $ staccato 0.1
 "#,
         "Staccato with 0.1 factor (extreme)",
     );
@@ -157,7 +157,7 @@ fn test_staccato_with_euclidean() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd(3,8)" $ staccato 0.3
+out $ "bd(3,8)" $ staccato 0.3
 "#,
         "Staccato with euclidean pattern",
     );
@@ -169,7 +169,7 @@ fn test_staccato_with_bitcrush() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ staccato 0.2 # bitcrush 8 8000
+out $ "bd sn hh*4" $ staccato 0.2 # bitcrush 8 8000
 "#,
         "Staccato with bitcrush",
     );
@@ -183,7 +183,7 @@ fn test_echo_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ echo 3 0.25 0.5
+out $ "bd sn" $ echo 3 0.25 0.5
 "#,
         "Echo with 3 repeats, 0.25 time, 0.5 feedback",
     );
@@ -195,7 +195,7 @@ fn test_echo_long_decay() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ echo 8 0.125 0.7
+out $ "bd" $ echo 8 0.125 0.7
 "#,
         "Echo with long decay (8 repeats)",
     );
@@ -207,7 +207,7 @@ fn test_echo_fast_slapback() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "sn*2" $ echo 2 0.0625 0.3
+out $ "sn*2" $ echo 2 0.0625 0.3
 "#,
         "Fast slapback echo",
     );
@@ -219,7 +219,7 @@ fn test_echo_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ echo 4 0.25 0.6 # lpf 2000 0.5
+out $ "bd sn hh" $ echo 4 0.25 0.6 # lpf 2000 0.5
 "#,
         "Echo with filter",
     );
@@ -233,7 +233,7 @@ fn test_segment_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ segment 4
+out $ "bd sn hh cp" $ segment 4
 "#,
         "Segment into 4 parts",
     );
@@ -245,7 +245,7 @@ fn test_segment_many() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4" $ segment 16
+out $ "bd*4" $ segment 16
 "#,
         "Segment into 16 parts",
     );
@@ -257,7 +257,7 @@ fn test_segment_with_alternation() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "<bd sn hh cp>" $ segment 8
+out $ "<bd sn hh cp>" $ segment 8
 "#,
         "Segment with alternation",
     );
@@ -269,7 +269,7 @@ fn test_segment_with_reverb() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ segment 8 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ segment 8 # reverb 0.5 0.3 0.2
 "#,
         "Segment with reverb",
     );
@@ -283,12 +283,12 @@ fn test_all_five_operations_in_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~swung: "bd*4" $ swing 0.2
-~long: "sn*4" $ legato 2.0
-~short: "hh*8" $ staccato 0.3
-~echoed: "cp" $ echo 4 0.25 0.5
-~segmented: "bd sn hh cp" $ segment 8
-out: ~swung + ~long + ~short + ~echoed + ~segmented
+~swung $ "bd*4" $ swing 0.2
+~long $ "sn*4" $ legato 2.0
+~short $ "hh*8" $ staccato 0.3
+~echoed $ "cp" $ echo 4 0.25 0.5
+~segmented $ "bd sn hh cp" $ segment 8
+out $ ~swung + ~long + ~short + ~echoed + ~segmented
 "#,
         "All five operations in one program",
     );
@@ -300,7 +300,7 @@ fn test_combined_rhythmic_transforms() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ swing 0.15 $ legato 1.5 $ echo 3 0.25 0.4
+out $ "bd sn hh" $ swing 0.15 $ legato 1.5 $ echo 3 0.25 0.4
 "#,
         "Combined swing + legato + echo",
     );
@@ -312,7 +312,7 @@ fn test_segment_with_other_transforms() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ segment 4 $ fast 2 $ staccato 0.2
+out $ "bd sn" $ segment 4 $ fast 2 $ staccato 0.2
 "#,
         "Segment + fast + staccato",
     );
@@ -324,7 +324,7 @@ fn test_rhythmic_transforms_with_effects_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ swing 0.2 $ echo 3 0.25 0.5 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*4" $ swing 0.2 $ echo 3 0.25 0.5 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Rhythmic transforms with effects chain",
     );

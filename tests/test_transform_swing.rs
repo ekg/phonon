@@ -133,12 +133,12 @@ fn test_swing_level1_swing_amount() {
 fn test_swing_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp"
+out $ s "bd sn hh cp bd sn hh cp"
 "#;
 
     let swing_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp" $ swing 0.05
+out $ s "bd sn hh cp bd sn hh cp" $ swing 0.05
 "#;
 
     let cycles = 8;
@@ -175,7 +175,7 @@ out: s "bd sn hh cp bd sn hh cp" $ swing 0.05
 fn test_swing_level2_onset_intervals() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ swing 0.1
+out $ s "bd sn hh cp" $ swing 0.1
 "#;
 
     let audio = render_dsl(code, 4);
@@ -211,7 +211,7 @@ out: s "bd sn hh cp" $ swing 0.1
 fn test_swing_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp" $ swing 0.1
+out $ s "bd sn hh cp bd sn hh cp" $ swing 0.1
 "#;
 
     let audio = render_dsl(code, 8);
@@ -246,12 +246,12 @@ out: s "bd sn hh cp bd sn hh cp" $ swing 0.1
 fn test_swing_level3_energy_preservation() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp"
+out $ s "bd sn hh cp bd sn hh cp"
 "#;
 
     let swing_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp" $ swing 0.1
+out $ s "bd sn hh cp bd sn hh cp" $ swing 0.1
 "#;
 
     let base_audio = render_dsl(base_code, 8);

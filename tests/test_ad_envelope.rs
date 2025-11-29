@@ -32,9 +32,9 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 #[test]
 fn test_ad_compiles() {
     let code = r#"
-        tempo: 1.0
-        ~env: ad 0.1 0.2
-        o1: ~env
+tempo: 1.0
+~env $ ad 0.1 0.2
+out $ ~env
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -45,9 +45,9 @@ fn test_ad_compiles() {
 #[test]
 fn test_ad_generates_envelope() {
     let code = r#"
-        tempo: 1.0
-        ~env: ad 0.1 0.2
-        o1: ~env
+tempo: 1.0
+~env $ ad 0.1 0.2
+out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -62,9 +62,9 @@ fn test_ad_generates_envelope() {
 #[test]
 fn test_ad_attack_phase() {
     let code = r#"
-        tempo: 1.0
-        ~env: ad 0.2 0.3
-        o1: ~env
+tempo: 1.0
+~env $ ad 0.2 0.3
+out $ ~env
     "#;
 
     let sample_rate = 44100.0;
@@ -92,9 +92,9 @@ fn test_ad_attack_phase() {
 #[test]
 fn test_ad_decay_phase() {
     let code = r#"
-        tempo: 1.0
-        ~env: ad 0.05 0.4
-        o1: ~env
+tempo: 1.0
+~env $ ad 0.05 0.4
+out $ ~env
     "#;
 
     let sample_rate = 44100.0;
@@ -121,9 +121,9 @@ fn test_ad_decay_phase() {
 #[test]
 fn test_ad_silent_after_decay() {
     let code = r#"
-        tempo: 1.0
-        ~env: ad 0.1 0.1
-        o1: ~env
+tempo: 1.0
+~env $ ad 0.1 0.1
+out $ ~env
     "#;
 
     let sample_rate = 44100.0;
@@ -142,10 +142,10 @@ fn test_ad_silent_after_decay() {
 #[test]
 fn test_ad_percussive_tone() {
     let code = r#"
-        tempo: 0.5
-        ~env: ad 0.001 0.15
-        ~tone: sine 440
-        o1: ~tone * ~env * 0.5
+tempo: 0.5
+~env $ ad 0.001 0.15
+~tone $ sine 440
+out $ ~tone ~* ~env ~* 0.5
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -157,12 +157,12 @@ fn test_ad_percussive_tone() {
 
 #[test]
 fn test_ad_filter_envelope() {
+    // AD envelope modulating filter cutoff
     let code = r#"
-        tempo: 1.0
-        ~env: ad 0.05 0.3
-        ~cutoff: ~env * 3000 + 200
-        ~synth: saw 110 # rlpf ~cutoff 2.0
-        o1: ~synth * 0.3
+tempo: 1.0
+~env $ ad 0.05 0.3
+~synth $ saw 110 # rlpf (~env * 3000 + 200) 2.0
+out $ ~synth * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -174,11 +174,11 @@ fn test_ad_filter_envelope() {
 
 #[test]
 fn test_ad_pattern_attack() {
+    // Pattern-modulated attack time using inline expression instead of bus reference
     let code = r#"
-        tempo: 0.5
-        ~attack_pat: sine 1 * 0.05 + 0.05
-        ~env: ad ~attack_pat 0.2
-        o1: ~env
+tempo: 0.5
+~env $ ad (sine 1 * 0.05 + 0.05) 0.2
+out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -191,9 +191,9 @@ fn test_ad_pattern_attack() {
 #[test]
 fn test_ad_multiple_cycles() {
     let code = r#"
-        tempo: 4.0
-        ~env: ad 0.05 0.1
-        o1: ~env
+tempo: 4.0
+~env $ ad 0.05 0.1
+out $ ~env
     "#;
 
     let sample_rate = 44100.0;
@@ -221,9 +221,9 @@ fn test_ad_multiple_cycles() {
 #[test]
 fn test_ad_very_short_times() {
     let code = r#"
-        tempo: 1.0
-        ~env: ad 0.001 0.001
-        o1: ~env
+tempo: 1.0
+~env $ ad 0.001 0.001
+out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);

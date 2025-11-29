@@ -33,7 +33,7 @@ fn test_vowel_a() {
     // Test vowel "a" formant
     let code = r#"
 tempo: 0.5
-out: saw 110 # vowel "a"
+out $ saw 110 # vowel "a"
 "#;
 
     let buffer = test_code(code, 2.0);
@@ -52,7 +52,7 @@ fn test_vowel_e() {
     // Test vowel "e" formant
     let code = r#"
 tempo: 0.5
-out: square 220 # vowel "e"
+out $ square 220 # vowel "e"
 "#;
 
     let buffer = test_code(code, 2.0);
@@ -71,7 +71,7 @@ fn test_vowel_pattern() {
     // Test pattern of vowels
     let code = r#"
 tempo: 0.5
-out: saw 110 # vowel "a e i o"
+out $ saw 110 # vowel "a e i o"
 "#;
 
     let buffer = test_code(code, 2.0);
@@ -92,7 +92,7 @@ fn test_all_vowels() {
         let code = format!(
             r#"
 tempo: 0.5
-out: square 440 # vowel "{}"
+out $ square 440 # vowel "{}"
 "#,
             vowel
         );
@@ -115,12 +115,12 @@ fn test_vowel_changes_tone() {
     // Test that different vowels produce different tones
     let vowel_a = r#"
 tempo: 0.5
-out: saw 220 # vowel "a"
+out $ saw 220 # vowel "a"
 "#;
 
     let vowel_i = r#"
 tempo: 0.5
-out: saw 220 # vowel "i"
+out $ saw 220 # vowel "i"
 "#;
 
     let buffer_a = test_code(vowel_a, 2.0);

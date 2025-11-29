@@ -34,7 +34,7 @@ fn test_djf_lowpass() {
     // Test djf in low-pass mode (value < 0.5)
     let code = r#"
 tempo: 0.5
-out: saw 220 # djf 0.2
+out $ saw 220 # djf 0.2
 "#;
 
     let buffer = test_code(code, 2.0);
@@ -53,7 +53,7 @@ fn test_djf_highpass() {
     // Test djf in high-pass mode (value > 0.5)
     let code = r#"
 tempo: 0.5
-out: saw 55 # djf 0.8
+out $ saw 55 # djf 0.8
 "#;
 
     let buffer = test_code(code, 2.0);
@@ -75,7 +75,7 @@ fn test_djf_sweep() {
         let code = format!(
             r#"
 tempo: 0.5
-out: square 880 # djf {}
+out $ square 880 # djf {}
 "#,
             djf_val
         );
@@ -104,12 +104,12 @@ fn test_djf_changes_tone() {
     // Test that djf actually affects the sound differently at different values
     let lowpass_code = r#"
 tempo: 0.5
-out: square 440 # djf 0.1
+out $ square 440 # djf 0.1
 "#;
 
     let highpass_code = r#"
 tempo: 0.5
-out: square 440 # djf 0.9
+out $ square 440 # djf 0.9
 "#;
 
     let lowpass = test_code(lowpass_code, 2.0);

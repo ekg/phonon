@@ -10,8 +10,8 @@ fn test_bus_trigger_simple() {
     // ~kick is a continuous sine wave, s "~kick" should gate it on/off
     let script = r#"
 tempo: 1.0
-~kick: sine 60
-out: s "~kick" * 0.8
+~kick $ sine 60
+out $ s "~kick" * 0.8
 "#;
 
     std::fs::write("/tmp/test_bus_trigger.ph", script).unwrap();
@@ -76,9 +76,9 @@ fn test_bus_trigger_pattern() {
     // Test multiple bus triggers in a pattern
     let script = r#"
 tempo: 1.0
-~kick: sine 60
-~snare: sine 200
-out: s "~kick ~snare ~kick ~snare" * 0.8
+~kick $ sine 60
+~snare $ sine 200
+out $ s "~kick ~snare ~kick ~snare" * 0.8
 "#;
 
     std::fs::write("/tmp/test_bus_trigger_pattern.ph", script).unwrap();
@@ -125,12 +125,13 @@ out: s "~kick ~snare ~kick ~snare" * 0.8
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_bus_trigger_mixed_with_samples() {
     // Test mixing bus triggers with regular samples
     let script = r#"
 tempo: 1.0
-~bass: sine 55
-out: s "~bass bd ~bass sn" * 0.8
+~bass $ sine 55
+out $ s "~bass bd ~bass sn" * 0.8
 "#;
 
     std::fs::write("/tmp/test_bus_mixed.ph", script).unwrap();
@@ -181,8 +182,8 @@ fn test_bus_trigger_with_fast_subdivision() {
     // Test bus triggering with fast subdivision
     let script = r#"
 tempo: 1.0
-~hat: sine 8000
-out: s "~hat*4" * 0.8
+~hat $ sine 8000
+out $ s "~hat*4" * 0.8
 "#;
 
     std::fs::write("/tmp/test_bus_fast.ph", script).unwrap();
@@ -233,7 +234,7 @@ fn test_nonexistent_bus_graceful_failure() {
     // Test that referencing a non-existent bus doesn't crash
     let script = r#"
 tempo: 1.0
-out: s "~nonexistent bd" * 0.8
+out $ s "~nonexistent bd" * 0.8
 "#;
 
     std::fs::write("/tmp/test_bad_bus.ph", script).unwrap();

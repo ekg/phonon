@@ -6,7 +6,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 fn test_scale_parse() {
     // Just test that scale() parses correctly
     let input = r#"
-        out: scale("0 1 2", "major", "60")
+        out $ scale("0 1 2", "major", "60")
     "#;
 
     let result = parse_dsl(input);
@@ -18,7 +18,7 @@ fn test_scale_compile() {
     // Test that scale() compiles without errors
     let input = r#"
         cps: 2.0
-        out: scale("0 1 2 3", "major", "c4")
+        out $ scale("0 1 2 3", "major", "c4")
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();
@@ -35,7 +35,7 @@ fn test_scale_with_sine() {
     // Test scale() feeding into sine()
     let input = r#"
         cps: 2.0
-        out: sine(scale("0 2 4", "major", "60")) * 0.3
+        out $ sine(scale("0 2 4", "major", "60")) * 0.3
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();
@@ -54,7 +54,7 @@ fn test_scale_with_sine() {
 #[test]
 fn test_scale_direct_output() {
     // Test scale() output directly (should output frequencies)
-    let input = "cps: 1.0\nout: scale(\"0\", \"major\", \"60\")";
+    let input = "cps: 1.0\nout $ scale(\"0\", \"major\", \"60\")";
 
     let (_, statements) = parse_dsl(input).unwrap();
     println!("Parsed statements: {:#?}", statements);
@@ -86,7 +86,7 @@ fn test_scale_changes() {
     // Using <> alternation to get one value per cycle
     let input = r#"
         cps: 4.0
-        out: scale("<0 1 2 3>", "major", "60")
+        out $ scale("<0 1 2 3>", "major", "60")
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();

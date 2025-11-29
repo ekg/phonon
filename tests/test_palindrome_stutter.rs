@@ -4,7 +4,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 fn test_palindrome_transform() {
     let input = r#"
         cps: 2.0
-        out: s("bd sn" $ palindrome) * 0.5
+        out $ s("bd sn" $ palindrome) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse DSL");
@@ -29,7 +29,7 @@ fn test_palindrome_transform() {
 fn test_stutter_transform() {
     let input = r#"
         cps: 2.0
-        out: s("bd sn" $ stutter 3) * 0.5
+        out $ s("bd sn" $ stutter 3) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse DSL");
@@ -54,7 +54,7 @@ fn test_stutter_transform() {
 fn test_palindrome_parsing() {
     let input = r#"
         cps: 2.0
-        out: "1 2 3" $ palindrome
+        out $ "1 2 3" $ palindrome
     "#;
 
     let result = parse_dsl(input);
@@ -66,7 +66,7 @@ fn test_palindrome_parsing() {
 fn test_stutter_parsing() {
     let input = r#"
         cps: 2.0
-        out: "1 2 3" $ stutter 4
+        out $ "1 2 3" $ stutter 4
     "#;
 
     let result = parse_dsl(input);

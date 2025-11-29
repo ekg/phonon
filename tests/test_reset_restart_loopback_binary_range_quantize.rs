@@ -62,7 +62,7 @@ fn test_reset_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ reset 2
+out $ "bd sn hh cp" $ reset 2
 "#,
         "Reset every 2 cycles",
     );
@@ -74,7 +74,7 @@ fn test_reset_single_cycle() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ reset 1
+out $ "bd*8" $ reset 1
 "#,
         "Reset every cycle",
     );
@@ -86,7 +86,7 @@ fn test_reset_many_cycles() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ reset 8
+out $ "bd sn hh*4" $ reset 8
 "#,
         "Reset every 8 cycles",
     );
@@ -98,7 +98,7 @@ fn test_reset_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ reset 4 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ reset 4 # reverb 0.5 0.3 0.2
 "#,
         "Reset with reverb",
     );
@@ -110,7 +110,7 @@ fn test_reset_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ reset 3 $ fast 2
+out $ "bd sn hh" $ reset 3 $ fast 2
 "#,
         "Reset combined with fast",
     );
@@ -124,7 +124,7 @@ fn test_restart_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ restart 2
+out $ "bd sn hh cp" $ restart 2
 "#,
         "Restart every 2 cycles",
     );
@@ -136,7 +136,7 @@ fn test_restart_with_subdivision() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4 sn*4" $ restart 4
+out $ "bd*4 sn*4" $ restart 4
 "#,
         "Restart with subdivision",
     );
@@ -148,9 +148,9 @@ fn test_reset_and_restart_equivalence() {
     test_compilation(
         r#"
 tempo: 0.5
-~reset_pat: "bd sn" $ reset 3
-~restart_pat: "hh cp" $ restart 3
-out: ~reset_pat + ~restart_pat
+~reset_pat $ "bd sn" $ reset 3
+~restart_pat $ "hh cp" $ restart 3
+out $ ~reset_pat + ~restart_pat
 "#,
         "Reset and restart equivalence",
     );
@@ -164,7 +164,7 @@ fn test_loopback_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ loopback
+out $ "bd sn hh cp" $ loopback
 "#,
         "Loopback basic",
     );
@@ -176,7 +176,7 @@ fn test_loopback_with_subdivision() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ loopback
+out $ "bd*8" $ loopback
 "#,
         "Loopback with subdivision",
     );
@@ -188,7 +188,7 @@ fn test_loopback_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ loopback # delay 0.25 0.5 0.3
+out $ "bd sn hh*4" $ loopback # delay 0.25 0.5 0.3
 "#,
         "Loopback with delay",
     );
@@ -200,7 +200,7 @@ fn test_loopback_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ loopback $ fast 2
+out $ "bd sn hh" $ loopback $ fast 2
 "#,
         "Loopback combined with fast",
     );
@@ -214,7 +214,7 @@ fn test_binary_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ binary 5
+out $ "bd sn hh cp" $ binary 5
 "#,
         "Binary mask 5 (0b0101)",
     );
@@ -226,7 +226,7 @@ fn test_binary_alternating() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ binary 10
+out $ "bd*8" $ binary 10
 "#,
         "Binary mask 10 (0b1010)",
     );
@@ -238,7 +238,7 @@ fn test_binary_sparse() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ binary 1
+out $ "bd sn hh cp" $ binary 1
 "#,
         "Binary mask 1 (0b0001)",
     );
@@ -250,7 +250,7 @@ fn test_binary_dense() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ binary 15
+out $ "bd sn hh cp" $ binary 15
 "#,
         "Binary mask 15 (0b1111)",
     );
@@ -262,7 +262,7 @@ fn test_binary_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4 cp*2" $ binary 7 # chorus 0.5 0.3 0.2
+out $ "bd sn hh*4 cp*2" $ binary 7 # chorus 0.5 0.3 0.2
 "#,
         "Binary with chorus",
     );
@@ -274,7 +274,7 @@ fn test_binary_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ binary 9 $ fast 2
+out $ "bd sn hh cp" $ binary 9 $ fast 2
 "#,
         "Binary combined with fast",
     );
@@ -288,7 +288,7 @@ fn test_range_on_sample_pattern_fails() {
     test_compilation_error(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ range 0.0 1.0
+out $ "bd sn hh cp" $ range 0.0 1.0
 "#,
         "Range on sample pattern should fail",
         "range transform only works with numeric patterns",
@@ -301,9 +301,9 @@ fn test_range_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 0.5
-~ranged: ~lfo $ range 200.0 2000.0
-out: saw 110 # lpf ~ranged 0.8
+~lfo $ sine 0.5
+~ranged $ ~lfo $ range 200.0 2000.0
+out $ saw 110 # lpf ~ranged 0.8
 "#,
         "Range on oscillator pattern",
     );
@@ -315,9 +315,9 @@ fn test_range_small() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 1.0
-~ranged: ~lfo $ range 0.1 0.9
-out: saw 110 * ~ranged
+~lfo $ sine 1.0
+~ranged $ ~lfo $ range 0.1 0.9
+out $ saw 110 * ~ranged
 "#,
         "Range to small values",
     );
@@ -329,9 +329,9 @@ fn test_range_negative() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 0.25
-~ranged: ~lfo $ range (-1.0) 1.0
-out: saw 110 * ~ranged
+~lfo $ sine 0.25
+~ranged $ ~lfo $ range (-1.0) 1.0
+out $ saw 110 * ~ranged
 "#,
         "Range with negative values",
     );
@@ -345,7 +345,7 @@ fn test_quantize_on_sample_pattern_fails() {
     test_compilation_error(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ quantize 4
+out $ "bd sn hh cp" $ quantize 4
 "#,
         "Quantize on sample pattern should fail",
         "quantize transform only works with numeric patterns",
@@ -358,9 +358,9 @@ fn test_quantize_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 0.5
-~quantized: ~lfo $ quantize 4.0
-out: saw 110 # lpf (~quantized * 1000 + 500) 0.8
+~lfo $ sine 0.5
+~quantized $ ~lfo $ quantize 4.0
+out $ saw 110 # lpf (~quantized * 1000 + 500) 0.8
 "#,
         "Quantize on oscillator pattern",
     );
@@ -372,9 +372,9 @@ fn test_quantize_fine() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 1.0
-~quantized: ~lfo $ quantize 16.0
-out: saw 110 * ~quantized
+~lfo $ sine 1.0
+~quantized $ ~lfo $ quantize 16.0
+out $ saw 110 * ~quantized
 "#,
         "Quantize to 16 steps",
     );
@@ -386,9 +386,9 @@ fn test_quantize_coarse() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo: sine 0.25
-~quantized: ~lfo $ quantize 2.0
-out: saw 110 * ~quantized
+~lfo $ sine 0.25
+~quantized $ ~lfo $ quantize 2.0
+out $ saw 110 * ~quantized
 "#,
         "Quantize to 2 steps",
     );
@@ -402,13 +402,13 @@ fn test_all_six_operations_in_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~reset_pat: "bd*8" $ reset 4
-~restarted: "sn*2" $ restart 3
-~looped_back: "hh*8" $ loopback
-~binaried: "cp*4" $ binary 5
-~lfo1: sine 0.5 $ range 200.0 2000.0
-~lfo2: sine 1.0 $ quantize 8.0
-out: ~reset_pat + ~restarted + ~looped_back + ~binaried
+~reset_pat $ "bd*8" $ reset 4
+~restarted $ "sn*2" $ restart 3
+~looped_back $ "hh*8" $ loopback
+~binaried $ "cp*4" $ binary 5
+~lfout $ sine 0.5 $ range 200.0 2000.0
+~lfo2 $ sine 1.0 $ quantize 8.0
+out $ ~reset_pat + ~restarted + ~looped_back + ~binaried
 "#,
         "All six operations in one program",
     );
@@ -420,9 +420,9 @@ fn test_reset_and_loopback() {
     test_compilation(
         r#"
 tempo: 0.5
-~reset_pat: "bd sn" $ reset 2
-~looped: "hh cp" $ loopback
-out: ~reset_pat + ~looped
+~reset_pat $ "bd sn" $ reset 2
+~looped $ "hh cp" $ loopback
+out $ ~reset_pat + ~looped
 "#,
         "Reset and loopback in same program",
     );
@@ -434,9 +434,9 @@ fn test_binary_and_reset() {
     test_compilation(
         r#"
 tempo: 0.5
-~binaried: "bd*4 sn*4" $ binary 10
-~reset_pat: "hh*4 cp*4" $ reset 3
-out: ~binaried + ~reset_pat
+~binaried $ "bd*4 sn*4" $ binary 10
+~reset_pat $ "hh*4 cp*4" $ reset 3
+out $ ~binaried + ~reset_pat
 "#,
         "Binary and reset in same program",
     );
@@ -448,10 +448,10 @@ fn test_range_and_quantize() {
     test_compilation(
         r#"
 tempo: 0.5
-~lfo1: sine 0.5 $ range 100.0 1000.0
-~lfo2: sine 1.0 $ quantize 4.0
-~filtered: saw 110 # lpf ~lfo1 0.8
-out: ~filtered * ~lfo2
+~lfout $ sine 0.5 $ range 100.0 1000.0
+~lfo2 $ sine 1.0 $ quantize 4.0
+~filtered $ saw 110 # lpf ~lfo1 0.8
+out $ ~filtered * ~lfo2
 "#,
         "Range and quantize together",
     );
@@ -463,7 +463,7 @@ fn test_complex_combination() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ reset 4 $ loopback $ binary 7 $ fast 2
+out $ "bd sn hh cp" $ reset 4 $ loopback $ binary 7 $ fast 2
 "#,
         "Complex combination: reset, loopback, binary, fast",
     );
@@ -475,7 +475,7 @@ fn test_with_effects_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ reset 3 $ binary 5 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*4" $ reset 3 $ binary 5 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Multiple operations with effects chain",
     );
@@ -487,7 +487,7 @@ fn test_loopback_and_restart() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ loopback $ restart 2
+out $ "bd sn hh cp" $ loopback $ restart 2
 "#,
         "Loopback and restart combined",
     );
@@ -499,7 +499,7 @@ fn test_binary_with_reset() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ binary 3 $ reset 4
+out $ "bd sn" $ binary 3 $ reset 4
 "#,
         "Binary with reset",
     );
@@ -511,13 +511,13 @@ fn test_in_complex_multi_bus_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~kick: "bd*4" $ reset 2 $ binary 9
-~snare: "~ sn ~ sn" $ restart 4
-~hats: "hh*8" $ loopback
-~lfo: sine 0.5 $ range 500.0 2000.0
-~quant_lfo: sine 1.0 $ quantize 4.0
-~mixed: (~kick + ~snare) $ reset 3
-out: ~mixed * 0.5 + ~hats * 0.3
+~kick $ "bd*4" $ reset 2 $ binary 9
+~snare $ "~ sn ~ sn" $ restart 4
+~hats $ "hh*8" $ loopback
+~lfo $ sine 0.5 $ range 500.0 2000.0
+~quant_lfo $ sine 1.0 $ quantize 4.0
+~mixed $ (~kick + ~snare) $ reset 3
+out $ ~mixed * 0.5 + ~hats * 0.3
 "#,
         "Complex multi-bus program with all operations",
     );

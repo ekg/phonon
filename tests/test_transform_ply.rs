@@ -120,12 +120,12 @@ fn test_ply_level1_event_timing() {
 fn test_ply_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let ply_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ ply 3
+out $ s "bd sn hh cp" $ ply 3
 "#;
 
     let cycles = 8;
@@ -160,7 +160,7 @@ fn test_ply_level2_rapid_succession() {
     // Verify that ply creates rapid succession of events
     let code = r#"
 tempo: 0.5
-out: s "bd" $ ply 4
+out $ s "bd" $ ply 4
 "#;
 
     let cycles = 2;
@@ -200,7 +200,7 @@ out: s "bd" $ ply 4
 fn test_ply_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ ply 3
+out $ s "bd sn hh cp" $ ply 3
 "#;
 
     let audio = render_dsl(code, 8);
@@ -238,12 +238,12 @@ fn test_ply_level3_compare_to_base() {
     // ply should have higher energy than base (more events)
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let ply_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ ply 3
+out $ s "bd sn hh cp" $ ply 3
 "#;
 
     let base_audio = render_dsl(base_code, 8);
@@ -300,7 +300,7 @@ fn test_ply_with_large_n() {
     // Test ply with large n
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ ply 16
+out $ s "bd sn" $ ply 16
 "#;
 
     let audio = render_dsl(code, 4);

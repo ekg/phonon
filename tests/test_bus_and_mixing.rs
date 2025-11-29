@@ -289,9 +289,9 @@ fn test_parser_bus_and_mixing() {
 
     let phonon_code = r#"
 tempo: 0.5
-~bass: saw 55 # lpf 500 3
-~lead: square 440
-out: ~bass * 0.3 + ~lead * 0.1
+~bass $ saw 55 # lpf 500 3
+~lead $ square 440
+out $ ~bass * 0.3 + ~lead * 0.1
 "#;
 
     // Write test file

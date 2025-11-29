@@ -5,7 +5,7 @@ use phonon::compositional_parser::parse_program;
 fn test_degrade_transform_dsl() {
     let input = r#"
         tempo: 0.5
-        out: s "bd bd bd bd" $ degrade * 0.5
+        out $ s "bd bd bd bd" $ degrade * 0.5
     "#;
 
     let (_, statements) = parse_program(input).expect("Should parse DSL");
@@ -33,7 +33,7 @@ fn test_degrade_transform_dsl() {
 fn test_degrade_by_transform_dsl() {
     let input = r#"
         tempo: 0.5
-        out: s "bd bd bd bd" $ degradeBy 0.9 * 0.5
+        out $ s "bd bd bd bd" $ degradeBy 0.9 * 0.5
     "#;
 
     let (_, statements) = parse_program(input).expect("Should parse DSL");
@@ -58,7 +58,7 @@ fn test_degrade_by_transform_dsl() {
 fn test_degrade_with_sample_pattern() {
     let input = r#"
         tempo: 0.5
-        out: s "bd sn hh cp" $ degrade * 0.5
+        out $ s "bd sn hh cp" $ degrade * 0.5
     "#;
 
     let (_, statements) = parse_program(input).expect("Should parse DSL");

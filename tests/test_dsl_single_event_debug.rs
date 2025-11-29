@@ -9,7 +9,7 @@ fn test_dsl_compiler_single_event_slow() {
     // This should FAIL - produces silence
     let dsl_code = r#"
 tempo: 0.5
-out: s "bd" * 0.8
+out $ s "bd" * 0.8
 "#;
 
     let (_, statements) = parse_dsl(dsl_code).expect("Failed to parse DSL");
@@ -47,7 +47,7 @@ fn test_dsl_compiler_single_event_fast() {
     // This should PASS - produces audio
     let dsl_code = r#"
 tempo: 0.5
-out: s "bd" * 0.8
+out $ s "bd" * 0.8
 "#;
 
     let (_, statements) = parse_dsl(dsl_code).expect("Failed to parse DSL");
@@ -71,7 +71,7 @@ fn test_dsl_compiler_two_events_slow() {
     // This should PASS - 2 events work at slow tempo
     let dsl_code = r#"
 tempo: 0.5
-out: s "bd bd" * 0.8
+out $ s "bd bd" * 0.8
 "#;
 
     let (_, statements) = parse_dsl(dsl_code).expect("Failed to parse DSL");

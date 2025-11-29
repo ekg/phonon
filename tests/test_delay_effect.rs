@@ -61,8 +61,8 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 fn test_delay_compiles() {
     let code = r#"
         tempo: 0.5
-        ~delayed: sine 440 # delay 0.2 0.5
-        o1: ~delayed
+        ~delayed $ sine 440 # delay 0.2 0.5
+        out $ ~delayed
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -74,9 +74,9 @@ fn test_delay_compiles() {
 fn test_delay_generates_audio() {
     let code = r#"
         tempo: 0.5
-        ~source: sine 440 * 0.3
-        ~delayed: ~source # delay 0.2 0.5
-        o1: ~delayed
+        ~source $ sine 440 * 0.3
+        ~delayed $ ~source # delay 0.2 0.5
+        out $ ~delayed
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -93,9 +93,9 @@ fn test_delay_short_delay_time() {
     // Short delay (50ms) - slapback effect
     let code = r#"
         tempo: 0.5
-        ~impulse: ad 0.001 0.05 * sine 440
-        ~delayed: ~impulse # delay 0.05 0.3
-        o1: ~delayed * 0.3
+        ~impulse $ ad 0.001 0.05 * sine 440
+        ~delayed $ ~impulse # delay 0.05 0.3
+        out $ ~delayed * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -110,9 +110,9 @@ fn test_delay_medium_delay_time() {
     // Medium delay (250ms) - classic echo
     let code = r#"
         tempo: 0.5
-        ~impulse: ad 0.001 0.05 * sine 440
-        ~delayed: ~impulse # delay 0.25 0.4
-        o1: ~delayed * 0.3
+        ~impulse $ ad 0.001 0.05 * sine 440
+        ~delayed $ ~impulse # delay 0.25 0.4
+        out $ ~delayed * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.5);
@@ -127,9 +127,9 @@ fn test_delay_long_delay_time() {
     // Long delay (500ms) - spacious echo
     let code = r#"
         tempo: 0.5
-        ~impulse: ad 0.001 0.05 * sine 440
-        ~delayed: ~impulse # delay 0.5 0.4
-        o1: ~delayed * 0.3
+        ~impulse $ ad 0.001 0.05 * sine 440
+        ~delayed $ ~impulse # delay 0.5 0.4
+        out $ ~delayed * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -146,9 +146,9 @@ fn test_delay_no_feedback() {
     // Feedback = 0, only one echo
     let code = r#"
         tempo: 0.5
-        ~impulse: ad 0.001 0.05 * sine 440
-        ~delayed: ~impulse # delay 0.2 0.0
-        o1: ~delayed * 0.3
+        ~impulse $ ad 0.001 0.05 * sine 440
+        ~delayed $ ~impulse # delay 0.2 0.0
+        out $ ~delayed * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -167,9 +167,9 @@ fn test_delay_low_feedback() {
     // Low feedback = few echoes
     let code = r#"
         tempo: 0.5
-        ~impulse: ad 0.001 0.05 * sine 440
-        ~delayed: ~impulse # delay 0.2 0.3
-        o1: ~delayed * 0.3
+        ~impulse $ ad 0.001 0.05 * sine 440
+        ~delayed $ ~impulse # delay 0.2 0.3
+        out $ ~delayed * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.5);
@@ -184,9 +184,9 @@ fn test_delay_high_feedback() {
     // High feedback = many echoes
     let code = r#"
         tempo: 0.5
-        ~impulse: ad 0.001 0.05 * sine 440
-        ~delayed: ~impulse # delay 0.15 0.7
-        o1: ~delayed * 0.3
+        ~impulse $ ad 0.001 0.05 * sine 440
+        ~delayed $ ~impulse # delay 0.15 0.7
+        out $ ~delayed * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -201,16 +201,16 @@ fn test_delay_feedback_comparison() {
     // Compare RMS with different feedback levels
     let code_low = r#"
         tempo: 0.5
-        ~impulse: ad 0.001 0.05 * sine 440
-        ~delayed: ~impulse # delay 0.2 0.2
-        o1: ~delayed * 0.3
+        ~impulse $ ad 0.001 0.05 * sine 440
+        ~delayed $ ~impulse # delay 0.2 0.2
+        out $ ~delayed * 0.3
     "#;
 
     let code_high = r#"
         tempo: 0.5
-        ~impulse: ad 0.001 0.05 * sine 440
-        ~delayed: ~impulse # delay 0.2 0.7
-        o1: ~delayed * 0.3
+        ~impulse $ ad 0.001 0.05 * sine 440
+        ~delayed $ ~impulse # delay 0.2 0.7
+        out $ ~delayed * 0.3
     "#;
 
     let buffer_low = render_dsl(code_low, 2.0);
@@ -234,9 +234,9 @@ fn test_delay_slapback() {
     // Slapback delay - short single echo
     let code = r#"
         tempo: 0.5
-        ~snare: white_noise * ad 0.001 0.1
-        ~slapback: ~snare # delay 0.08 0.2
-        o1: ~slapback * 0.3
+        ~snare $ white_noise * ad 0.001 0.1
+        ~slapback $ ~snare # delay 0.08 0.2
+        out $ ~slapback * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -251,9 +251,9 @@ fn test_delay_echo_rhythmic() {
     // Rhythmic echo synced to tempo
     let code = r#"
         tempo: 0.5
-        ~kick: ad 0.001 0.1 * sine 60
-        ~echo: ~kick # delay 0.25 0.5
-        o1: ~echo * 0.3
+        ~kick $ ad 0.001 0.1 * sine 60
+        ~echo $ ~kick # delay 0.25 0.5
+        out $ ~echo * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -268,9 +268,9 @@ fn test_delay_doubling() {
     // Doubling effect - very short delay
     let code = r#"
         tempo: 0.5
-        ~vocal: sine 220 * 0.3
-        ~doubled: ~vocal # delay 0.03 0.0
-        o1: (~vocal + ~doubled) * 0.2
+        ~vocal $ sine 220 * 0.3
+        ~doubled $ ~vocal # delay 0.03 0.0
+        out $ (~vocal + ~doubled) * 0.2
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -285,9 +285,9 @@ fn test_delay_ambient_wash() {
     // Ambient wash - long delay with high feedback
     let code = r#"
         tempo: 1.0
-        ~pad: sine 220 * ad 0.1 0.3
-        ~wash: ~pad # delay 0.5 0.6
-        o1: ~wash * 0.2
+        ~pad $ sine 220 * ad 0.1 0.3
+        ~wash $ ~pad # delay 0.5 0.6
+        out $ ~wash * 0.2
     "#;
 
     let buffer = render_dsl(code, 3.0);
@@ -302,9 +302,9 @@ fn test_delay_dub_style() {
     // Dub-style delay - medium time, high feedback
     let code = r#"
         tempo: 0.5
-        ~snare: white_noise * ad 0.001 0.1
-        ~dub: ~snare # delay 0.375 0.6
-        o1: ~dub * 0.3
+        ~snare $ white_noise * ad 0.001 0.1
+        ~dub $ ~snare # delay 0.375 0.6
+        out $ ~dub * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -321,10 +321,10 @@ fn test_delay_pattern_delay_time() {
     // Delay time modulated by pattern
     let code = r#"
         tempo: 0.5
-        ~impulse: ad 0.001 0.05 * sine 440
-        ~mod_time: sine 0.5 * 0.1 + 0.2
-        ~delayed: ~impulse # delay ~mod_time 0.4
-        o1: ~delayed * 0.3
+        ~impulse $ ad 0.001 0.05 * sine 440
+        ~mod_time $ sine 0.5 * 0.1 + 0.2
+        ~delayed $ ~impulse # delay ~mod_time 0.4
+        out $ ~delayed * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -342,10 +342,10 @@ fn test_delay_pattern_feedback() {
     // Feedback modulated by envelope
     let code = r#"
         tempo: 0.5
-        ~impulse: ad 0.001 0.05 * sine 440
-        ~env: line 0.2 0.7
-        ~delayed: ~impulse # delay 0.2 ~env
-        o1: ~delayed * 0.3
+        ~impulse $ ad 0.001 0.05 * sine 440
+        ~env $ line 0.2 0.7
+        ~delayed $ ~impulse # delay 0.2 ~env
+        out $ ~delayed * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -365,13 +365,13 @@ fn test_delay_preserves_frequency() {
     // Delay should preserve frequency content
     let code_dry = r#"
         tempo: 0.5
-        o1: sine 440 * 0.3
+        out $ sine 440 * 0.3
     "#;
 
     let code_delayed = r#"
         tempo: 0.5
-        ~delayed: sine 440 # delay 0.2 0.3
-        o1: ~delayed * 0.3
+        ~delayed $ sine 440 # delay 0.2 0.3
+        out $ ~delayed * 0.3
     "#;
 
     let buffer_dry = render_dsl(code_dry, 1.0);
@@ -411,9 +411,9 @@ fn test_delay_cascade() {
     // Multiple delays in series
     let code = r#"
         tempo: 0.5
-        ~impulse: ad 0.001 0.05 * sine 440
-        ~delayed: ~impulse # delay 0.15 0.4 # delay 0.2 0.3
-        o1: ~delayed * 0.3
+        ~impulse $ ad 0.001 0.05 * sine 440
+        ~delayed $ ~impulse # delay 0.15 0.4 # delay 0.2 0.3
+        out $ ~delayed * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -430,9 +430,9 @@ fn test_delay_cascade() {
 fn test_delay_no_excessive_clipping() {
     let code = r#"
         tempo: 0.5
-        ~source: sine 440 * 0.5
-        ~delayed: ~source # delay 0.2 0.5
-        o1: ~delayed
+        ~source $ sine 440 * 0.5
+        ~delayed $ ~source # delay 0.2 0.5
+        out $ ~delayed
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -449,8 +449,8 @@ fn test_delay_no_excessive_clipping() {
 fn test_delay_consistent_output() {
     let code = r#"
         tempo: 0.5
-        ~delayed: sine 440 # delay 0.2 0.5
-        o1: ~delayed * 0.3
+        ~delayed $ sine 440 # delay 0.2 0.5
+        out $ ~delayed * 0.3
     "#;
 
     let buffer1 = render_dsl(code, 0.5);
@@ -477,8 +477,8 @@ fn test_delay_no_dc_offset() {
     // Delay should not introduce DC offset
     let code = r#"
         tempo: 0.5
-        ~delayed: sine 440 # delay 0.2 0.5
-        o1: ~delayed * 0.3
+        ~delayed $ sine 440 # delay 0.2 0.5
+        out $ ~delayed * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -498,9 +498,9 @@ fn test_delay_very_short_time() {
     // Very short delay (10ms) - comb filtering effect
     let code = r#"
         tempo: 0.5
-        ~source: white_noise * 0.3
-        ~delayed: ~source # delay 0.01 0.5
-        o1: ~delayed
+        ~source $ white_noise * 0.3
+        ~delayed $ ~source # delay 0.01 0.5
+        out $ ~delayed
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -518,8 +518,8 @@ fn test_delay_zero_feedback() {
     // Feedback = 0 should not cause issues
     let code = r#"
         tempo: 0.5
-        ~delayed: sine 440 # delay 0.2 0.0
-        o1: ~delayed * 0.3
+        ~delayed $ sine 440 # delay 0.2 0.0
+        out $ ~delayed * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -537,9 +537,9 @@ fn test_delay_max_feedback() {
     // Very high feedback (close to 1.0) - long sustain
     let code = r#"
         tempo: 0.5
-        ~impulse: ad 0.001 0.05 * sine 440
-        ~delayed: ~impulse # delay 0.2 0.95
-        o1: ~delayed * 0.2
+        ~impulse $ ad 0.001 0.05 * sine 440
+        ~delayed $ ~impulse # delay 0.2 0.95
+        out $ ~delayed * 0.2
     "#;
 
     let buffer = render_dsl(code, 3.0);

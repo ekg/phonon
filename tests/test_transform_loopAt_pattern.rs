@@ -113,7 +113,7 @@ fn test_loopAt_level1_pattern_alternation() {
 fn test_loopAt_level2_constant_produces_audio() {
     let code = r#"
 tempo: 1.0
-out: s "bd" $ loopAt 2
+out $ s "bd" $ loopAt 2
 "#;
     let audio = render_dsl(code, 4);
     let onsets = detect_audio_events(&audio, 44100.0, 0.05);
@@ -139,7 +139,7 @@ out: s "bd" $ loopAt 2
 fn test_loopAt_level2_pattern_produces_audio() {
     let code = r#"
 tempo: 1.0
-out: s "bd" $ loopAt "1 2"
+out $ s "bd" $ loopAt "1 2"
 "#;
     let audio = render_dsl(code, 8);
     let onsets = detect_audio_events(&audio, 44100.0, 0.05);
@@ -163,7 +163,7 @@ out: s "bd" $ loopAt "1 2"
 fn test_loopAt_level2_pattern_with_alternation() {
     let code = r#"
 tempo: 1.0
-out: s "bd" $ loopAt "<1 2 4>"
+out $ s "bd" $ loopAt "<1 2 4>"
 "#;
     let audio = render_dsl(code, 12);
     let onsets = detect_audio_events(&audio, 44100.0, 0.05);
@@ -184,7 +184,7 @@ out: s "bd" $ loopAt "<1 2 4>"
 fn test_loopAt_level3_constant_has_audio() {
     let code = r#"
 tempo: 1.0
-out: s "bd" $ loopAt 2
+out $ s "bd" $ loopAt 2
 "#;
     let audio = render_dsl(code, 4);
     let rms = calculate_rms(&audio);
@@ -200,7 +200,7 @@ out: s "bd" $ loopAt 2
 fn test_loopAt_level3_pattern_has_audio() {
     let code = r#"
 tempo: 1.0
-out: s "bd" $ loopAt "1 2"
+out $ s "bd" $ loopAt "1 2"
 "#;
     let audio = render_dsl(code, 8);
     let rms = calculate_rms(&audio);
@@ -221,7 +221,7 @@ fn test_loopAt_integration_with_chop() {
     // From livecode: every 4 (rev) $ loopAt 2 $ chop 16
     let code = r#"
 tempo: 1.0
-out: s "bd" $ loopAt 2 $ chop 16
+out $ s "bd" $ loopAt 2 $ chop 16
 "#;
     let audio = render_dsl(code, 4);
     let rms = calculate_rms(&audio);
@@ -238,7 +238,7 @@ fn test_loopAt_integration_with_slice() {
     // From livecode: slice 8 "0 .. 7" $ loopAt 2
     let code = r#"
 tempo: 1.0
-out: s "bd" $ slice 8 "0 .. 7" $ loopAt 2
+out $ s "bd" $ slice 8 "0 .. 7" $ loopAt 2
 "#;
     let audio = render_dsl(code, 4);
     let rms = calculate_rms(&audio);
@@ -255,7 +255,7 @@ fn test_loopAt_integration_complex_chain() {
     // From livecode: every 4 (rev) $ loopAt 2 $ chop 8
     let code = r#"
 tempo: 1.0
-out: s "bd" $ every 4 (rev) $ loopAt 2 $ chop 8
+out $ s "bd" $ every 4 (rev) $ loopAt 2 $ chop 8
 "#;
     let audio = render_dsl(code, 8);
     let rms = calculate_rms(&audio);
@@ -272,7 +272,7 @@ fn test_loopAt_integration_pattern_complex() {
     // From livecode: loopAt "<16 16 <8 16> 12>"
     let code = r#"
 tempo: 1.0
-out: s "bd" $ loopAt "<1 2 <4 8> 3>"
+out $ s "bd" $ loopAt "<1 2 <4 8> 3>"
 "#;
     let audio = render_dsl(code, 8);
     let rms = calculate_rms(&audio);

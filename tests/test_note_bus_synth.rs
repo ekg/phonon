@@ -1,8 +1,8 @@
 //! Test note parameter with bus-referenced synth voices
 //!
 //! Reproduces the issue from e.ph where:
-//! ~x: saw 220
-//! o1: s "~x" # note "[a3 g3]"
+//! ~x $ saw 220
+//! out $ s "~x" # note "[a3 g3]"
 //!
 //! Expected: Should create polyphonic voices at a3 and g3 frequencies
 //! Actual: User reports "voices don't stack or change"
@@ -32,8 +32,8 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 #[test]
 fn test_note_transposes_bus_synth_single() {
     let code = r#"
-~x: saw 220
-out: s "~x" # note "a3"
+~x $ saw 220
+out $ s "~x" # note "a3"
 "#;
 
     let audio = render_dsl(code, 2.0);
@@ -59,8 +59,8 @@ out: s "~x" # note "a3"
 #[test]
 fn test_note_transposes_bus_synth_chord() {
     let code = r#"
-~x: saw 220
-out: s "~x" # note "[a3, g3]"
+~x $ saw 220
+out $ s "~x" # note "[a3, g3]"
 "#;
     // Note: Using comma [a3, g3] for simultaneous notes (chord)
     // Square brackets without comma [a3 g3] is subdivision (sequential)
@@ -85,13 +85,13 @@ out: s "~x" # note "[a3, g3]"
 fn test_note_vs_baseline_bus_synth() {
     // Baseline: bus synth without note parameter
     let code_baseline = r#"
-~x: saw 220
-out: s "~x"
+~x $ saw 220
+out $ s "~x"
 "#;
 
     let code_with_note = r#"
-~x: saw 220
-out: s "~x" # note "c4"
+~x $ saw 220
+out $ s "~x" # note "c4"
 "#;
 
     let audio_baseline = render_dsl(code_baseline, 2.0);
@@ -130,13 +130,13 @@ fn test_chord_creates_polyphonic_voices() {
     // Test that comma chord notation creates multiple synthesis voices
     // Using comma [a3, e4] for simultaneous notes in the note pattern
     let code_single = r#"
-~x: saw 220
-out: s "~x" # note "a3"
+~x $ saw 220
+out $ s "~x" # note "a3"
 "#;
 
     let code_chord = r#"
-~x: saw 220
-out: s "~x" # note "[a3, e4]"
+~x $ saw 220
+out $ s "~x" # note "[a3, e4]"
 "#;
 
     let audio_single = render_dsl(code_single, 2.0);

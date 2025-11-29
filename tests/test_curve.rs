@@ -9,8 +9,8 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_curve_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~ramp: curve 0.0 1.0 1.0 2.0
-out: ~ramp
+~ramp $ curve 0.0 1.0 1.0 2.0
+out $ ~ramp
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -34,8 +34,8 @@ out: ~ramp
 fn test_curve_upward() {
     let dsl = r#"
 tempo: 1.0
-~ramp: curve 0.0 1.0 1.0 0.0
-out: ~ramp
+~ramp $ curve 0.0 1.0 1.0 0.0
+out $ ~ramp
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -69,8 +69,8 @@ out: ~ramp
 fn test_curve_downward() {
     let dsl = r#"
 tempo: 1.0
-~ramp: curve 1.0 0.0 1.0 0.0
-out: ~ramp
+~ramp $ curve 1.0 0.0 1.0 0.0
+out $ ~ramp
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -104,8 +104,8 @@ out: ~ramp
 fn test_curve_exponential() {
     let dsl = r#"
 tempo: 1.0
-~exp_curve: curve 0.0 1.0 1.0 5.0
-out: ~exp_curve
+~exp_curve $ curve 0.0 1.0 1.0 5.0
+out $ ~exp_curve
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -148,8 +148,8 @@ out: ~exp_curve
 fn test_curve_logarithmic() {
     let dsl = r#"
 tempo: 1.0
-~log_curve: curve 0.0 1.0 1.0 -5.0
-out: ~log_curve
+~log_curve $ curve 0.0 1.0 1.0 -5.0
+out $ ~log_curve
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -192,8 +192,8 @@ out: ~log_curve
 fn test_curve_linear() {
     let dsl = r#"
 tempo: 1.0
-~linear: curve 0.0 1.0 1.0 0.0
-out: ~linear
+~linear $ curve 0.0 1.0 1.0 0.0
+out $ ~linear
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -234,8 +234,8 @@ out: ~linear
 fn test_curve_stability() {
     let dsl = r#"
 tempo: 1.0
-~ramp: curve 0.0 1.0 2.0 3.0
-out: ~ramp
+~ramp $ curve 0.0 1.0 2.0 3.0
+out $ ~ramp
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -262,10 +262,10 @@ out: ~ramp
 fn test_curve_filter_sweep() {
     let dsl = r#"
 tempo: 1.0
-~sweep: curve 200.0 4000.0 2.0 2.0
-~carrier: saw 110
-~filtered: ~carrier # lpf ~sweep 0.8
-out: ~filtered * 0.3
+~sweep $ curve 200.0 4000.0 2.0 2.0
+~carrier $ saw 110
+~filtered $ ~carrier # lpf ~sweep 0.8
+out $ ~filtered * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -289,10 +289,10 @@ out: ~filtered * 0.3
 fn test_curve_fade() {
     let dsl = r#"
 tempo: 1.0
-~fade: curve 1.0 0.0 3.0 -2.0
-~tone: sine 440
-~faded: ~tone * ~fade
-out: ~faded
+~fade $ curve 1.0 0.0 3.0 -2.0
+~tone $ sine 440
+~faded $ ~tone * ~fade
+out $ ~faded
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

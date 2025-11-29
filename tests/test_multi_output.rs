@@ -81,7 +81,7 @@ fn test_multi_output_with_plain_out() {
     // Test that plain "out" still works alongside numbered outputs
     let input = r#"
         tempo: 0.5
-        out: s "bd ~ bd ~" * 0.3
+        out $ s "bd ~ bd ~" * 0.3
         out1: s "~ sn ~ sn" * 0.3
     "#;
 
@@ -98,7 +98,7 @@ fn test_multi_output_with_plain_out() {
         "Mixed plain and numbered output should produce audio, got RMS: {}",
         rms
     );
-    println!("✅ test_multi_output_with_plain_out: RMS = {:.6}", rms);
+    println!("✅ test_multi_output_with_plain_out $ RMS = {:.6}", rms);
 }
 
 #[test]

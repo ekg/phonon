@@ -84,7 +84,7 @@ fn test_hush_silences_single_output() {
     // First, create an output with audio
     let input = r#"
         tempo: 0.5
-        out: sine 440 * 0.5
+        out $ sine 440 * 0.5
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
     let compiler = DslCompiler::new(44100.0);
@@ -113,7 +113,7 @@ fn test_hush_silences_single_output() {
     // Better approach: compile everything together
     let full_input = r#"
         tempo: 0.5
-        out: sine 440 * 0.5
+        out $ sine 440 * 0.5
         hush
     "#;
     let (_, full_statements) = parse_dsl(full_input).unwrap();
@@ -202,7 +202,7 @@ fn test_panic_silences_and_kills_voices() {
     // Create output with sample playback (which uses voices)
     let input = r#"
         tempo: 0.5
-        out: s "bd*4" * 0.5
+        out $ s "bd*4" * 0.5
         panic
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
@@ -224,7 +224,7 @@ fn test_panic_with_synth_pattern() {
     // Create output with synth pattern (which uses voices)
     let input = r#"
         tempo: 0.5
-        out: synth("c4 e4 g4 c5", "saw") * 0.3
+        out $ synth("c4 e4 g4 c5", "saw") * 0.3
         panic
     "#;
     let (_, statements) = parse_dsl(input).unwrap();
@@ -298,7 +298,7 @@ fn test_parse_hush_with_whitespace() {
     // Test that parser handles whitespace correctly
     let input = r#"
         tempo: 0.5
-        out: sine 440
+        out $ sine 440
 
         hush
     "#;
@@ -313,7 +313,7 @@ fn test_parse_hush_with_whitespace() {
 fn test_parse_panic_with_whitespace() {
     let input = r#"
         tempo: 0.5
-        out: s "bd"
+        out $ s "bd"
 
         panic
     "#;

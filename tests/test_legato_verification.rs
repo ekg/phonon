@@ -28,8 +28,8 @@ fn test_legato_parsing() {
     // Test that legato parses without errors at BPM 120
     let code = r#"
         bpm: 120
-        ~synth: sine 440
-        out: s "~synth*4" $ legato 1.0 # note "c4 e4 g4 c5"
+        ~synth $ sine 440
+        out $ s "~synth*4" $ legato 1.0 # note "c4 e4 g4 c5"
     "#;
 
     let audio = render_dsl(code, 4.0); // 4 cycles at BPM 120 = 2 seconds
@@ -44,8 +44,8 @@ fn test_staccato_parsing() {
     // Test that staccato parses without errors
     let code = r#"
         bpm: 120
-        ~synth: sine 440
-        out: s "~synth*4" $ staccato 0.5 # note "c4 e4 g4 c5"
+        ~synth $ sine 440
+        out $ s "~synth*4" $ staccato 0.5 # note "c4 e4 g4 c5"
     "#;
 
     let audio = render_dsl(code, 4.0);
@@ -60,8 +60,8 @@ fn test_stretch_parsing() {
     // Test that stretch parses without errors
     let code = r#"
         bpm: 120
-        ~synth: sine 440
-        out: s "~synth*4" $ stretch # note "c4 e4 g4 c5"
+        ~synth $ sine 440
+        out $ s "~synth*4" $ stretch # note "c4 e4 g4 c5"
     "#;
 
     let audio = render_dsl(code, 4.0);
@@ -76,14 +76,14 @@ fn test_legato_vs_staccato_rms() {
     // Legato should have higher RMS than staccato because notes are longer
     let legato_code = r#"
         bpm: 120
-        ~synth: sine 440
-        out: s "~synth*4" $ legato 1.0 # note "c4"
+        ~synth $ sine 440
+        out $ s "~synth*4" $ legato 1.0 # note "c4"
     "#;
 
     let staccato_code = r#"
         bpm: 120
-        ~synth: sine 440
-        out: s "~synth*4" $ staccato 0.5 # note "c4"
+        ~synth $ sine 440
+        out $ s "~synth*4" $ staccato 0.5 # note "c4"
     "#;
 
     let legato_audio = render_dsl(legato_code, 4.0);

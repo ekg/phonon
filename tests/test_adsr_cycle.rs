@@ -33,8 +33,8 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 fn test_adsr_compiles() {
     let code = r#"
         tempo: 1.0
-        ~env: adsr 0.1 0.1 0.5 0.2
-        o1: ~env
+        ~env $ adsr 0.1 0.1 0.5 0.2
+        out $ ~env
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -46,8 +46,8 @@ fn test_adsr_compiles() {
 fn test_adsr_generates_envelope() {
     let code = r#"
         tempo: 1.0
-        ~env: adsr 0.1 0.1 0.5 0.2
-        o1: ~env
+        ~env $ adsr 0.1 0.1 0.5 0.2
+        out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);  // 1 cycle at tempo 1.0 = 1 second
@@ -64,8 +64,8 @@ fn test_adsr_attack_phase() {
     // Attack = 0.2s in a 1-second cycle
     let code = r#"
         tempo: 1.0
-        ~env: adsr 0.2 0.1 0.7 0.1
-        o1: ~env
+        ~env $ adsr 0.2 0.1 0.7 0.1
+        out $ ~env
     "#;
 
     let sample_rate = 44100.0;
@@ -102,8 +102,8 @@ fn test_adsr_decay_phase() {
     // Instant attack, 0.3s decay to 0.4 sustain
     let code = r#"
         tempo: 1.0
-        ~env: adsr 0.001 0.3 0.4 0.1
-        o1: ~env
+        ~env $ adsr 0.001 0.3 0.4 0.1
+        out $ ~env
     "#;
 
     let sample_rate = 44100.0;
@@ -145,8 +145,8 @@ fn test_adsr_sustain_phase() {
     // Test that sustain holds constant
     let code = r#"
         tempo: 1.0
-        ~env: adsr 0.1 0.1 0.6 0.2
-        o1: ~env
+        ~env $ adsr 0.1 0.1 0.6 0.2
+        out $ ~env
     "#;
 
     let sample_rate = 44100.0;
@@ -185,8 +185,8 @@ fn test_adsr_different_sustain_levels() {
     for sustain_level in [0.2, 0.5, 0.8] {
         let code = format!(r#"
             tempo: 1.0
-            ~env: adsr 0.1 0.1 {} 0.2
-            o1: ~env
+            ~env $ adsr 0.1 0.1 {} 0.2
+            out $ ~env
         "#, sustain_level);
 
         let sample_rate = 44100.0;
@@ -212,8 +212,8 @@ fn test_adsr_release_phase() {
     // Short attack/decay/sustain, 0.3s release
     let code = r#"
         tempo: 1.0
-        ~env: adsr 0.05 0.05 0.7 0.3
-        o1: ~env
+        ~env $ adsr 0.05 0.05 0.7 0.3
+        out $ ~env
     "#;
 
     let sample_rate = 44100.0;
@@ -256,9 +256,9 @@ fn test_adsr_release_phase() {
 fn test_adsr_shaping_tone() {
     let code = r#"
         tempo: 0.5
-        ~env: adsr 0.01 0.05 0.6 0.1
-        ~tone: sine 440
-        o1: ~tone * ~env * 0.5
+        ~env $ adsr 0.01 0.05 0.6 0.1
+        ~tone $ sine 440
+        out $ ~tone * ~env * 0.5
     "#;
 
     let buffer = render_dsl(code, 1.0);  // 2 cycles
@@ -270,13 +270,12 @@ fn test_adsr_shaping_tone() {
 
 #[test]
 fn test_adsr_filter_modulation() {
-    // ADSR controlling filter cutoff
+    // ADSR controlling filter cutoff using inline expression
     let code = r#"
         tempo: 1.0
-        ~env: adsr 0.05 0.2 0.3 0.2
-        ~cutoff: ~env * 2000 + 200
-        ~synth: saw 110 # rlpf ~cutoff 2.0
-        o1: ~synth * 0.3
+        ~env $ adsr 0.05 0.2 0.3 0.2
+        ~synth $ saw 110 # rlpf (~env * 2000 + 200) 2.0
+        out $ ~synth * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -291,9 +290,9 @@ fn test_adsr_percussive_sound() {
     // Fast attack, no sustain, medium decay/release
     let code = r#"
         tempo: 0.5
-        ~env: adsr 0.001 0.05 0.0 0.05
-        ~tone: sine 220
-        o1: ~tone * ~env * 0.5
+        ~env $ adsr 0.001 0.05 0.0 0.05
+        ~tone $ sine 220
+        out $ ~tone * ~env * 0.5
     "#;
 
     let buffer = render_dsl(code, 1.0);  // 2 cycles
@@ -309,9 +308,9 @@ fn test_adsr_pad_sound() {
     // Slow attack, long sustain, slow release
     let code = r#"
         tempo: 1.0
-        ~env: adsr 0.3 0.1 0.7 0.3
-        ~tone: sine 220
-        o1: ~tone * ~env * 0.4
+        ~env $ adsr 0.3 0.1 0.7 0.3
+        ~tone $ sine 220
+        out $ ~tone * ~env * 0.4
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -326,11 +325,11 @@ fn test_adsr_pad_sound() {
 
 #[test]
 fn test_adsr_pattern_attack() {
+    // Pattern-modulated attack time using inline expression
     let code = r#"
         tempo: 0.5
-        ~attack_pat: sine 1 * 0.05 + 0.05
-        ~env: adsr ~attack_pat 0.05 0.5 0.1
-        o1: ~env
+        ~env $ adsr (sine 1 * 0.05 + 0.05) 0.05 0.5 0.1
+        out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -345,11 +344,11 @@ fn test_adsr_pattern_attack() {
 
 #[test]
 fn test_adsr_pattern_sustain() {
+    // Pattern-modulated sustain level using inline expression
     let code = r#"
         tempo: 0.5
-        ~sustain_pat: sine 1 * 0.3 + 0.5
-        ~env: adsr 0.05 0.05 ~sustain_pat 0.1
-        o1: ~env
+        ~env $ adsr 0.05 0.05 (sine 1 * 0.3 + 0.5) 0.1
+        out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -368,8 +367,8 @@ fn test_adsr_pattern_sustain() {
 fn test_adsr_multiple_cycles() {
     let code = r#"
         tempo: 4.0
-        ~env: adsr 0.05 0.05 0.5 0.05
-        o1: ~env
+        ~env $ adsr 0.05 0.05 0.5 0.05
+        out $ ~env
     "#;
 
     let sample_rate = 44100.0;
@@ -409,8 +408,8 @@ fn test_adsr_multiple_cycles() {
 fn test_adsr_very_short_times() {
     let code = r#"
         tempo: 1.0
-        ~env: adsr 0.001 0.001 0.5 0.001
-        o1: ~env
+        ~env $ adsr 0.001 0.001 0.5 0.001
+        out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -425,8 +424,8 @@ fn test_adsr_long_attack() {
     // Attack longer than half the cycle
     let code = r#"
         tempo: 1.0
-        ~env: adsr 0.6 0.1 0.5 0.2
-        o1: ~env
+        ~env $ adsr 0.6 0.1 0.5 0.2
+        out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -440,8 +439,8 @@ fn test_adsr_long_attack() {
 fn test_adsr_zero_sustain() {
     let code = r#"
         tempo: 1.0
-        ~env: adsr 0.1 0.2 0.0 0.2
-        o1: ~env
+        ~env $ adsr 0.1 0.2 0.0 0.2
+        out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -456,8 +455,8 @@ fn test_adsr_zero_sustain() {
 fn test_adsr_full_sustain() {
     let code = r#"
         tempo: 1.0
-        ~env: adsr 0.1 0.1 1.0 0.2
-        o1: ~env
+        ~env $ adsr 0.1 0.1 1.0 0.2
+        out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);

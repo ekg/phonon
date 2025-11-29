@@ -9,9 +9,8 @@ use std::collections::HashMap;
 /// MIDI note number type
 pub type MidiNote = u8;
 
-/// Note names to MIDI mapping
-#[allow(unused_doc_comments)]
 lazy_static::lazy_static! {
+    /// Note names to MIDI mapping
     pub static ref NOTE_TO_MIDI: HashMap<String, MidiNote> = {
         let mut m = HashMap::new();
         // Octave -1

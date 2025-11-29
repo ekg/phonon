@@ -120,9 +120,9 @@ fn test_pulse_level2_pwm_modulation() {
     // Use DSL to create pulse with LFO modulating pulse width
     let code = r#"
 tempo: 0.5
-~lfo: sine 2  # 2 Hz LFO
-~width: ~lfo * 0.25 + 0.5  # Modulate width: 0.25 to 0.75
-out: pulse 220 ~width * 0.3
+~lfo $ sine 2  # 2 Hz LFO
+~width $ ~lfo * 0.25 + 0.5  # Modulate width: 0.25 to 0.75
+out $ pulse 220 ~width * 0.3
 "#;
 
     let duration = 2.0; // 2 seconds = 4 cycles at tempo 2.0
@@ -157,7 +157,7 @@ fn test_pulse_level2_pattern_frequency() {
     // Use DSL to create pulse with pattern-controlled frequency
     let code = r#"
 tempo: 0.5
-out: pulse "110 220 440" 0.5 * 0.3
+out $ pulse "110 220 440" 0.5 * 0.3
 "#;
 
     let duration = 1.5; // 1.5 seconds = 3 cycles at tempo 2.0
@@ -236,7 +236,7 @@ fn test_pulse_dsl_integration() {
     // Test basic DSL syntax: pulse freq width
     let code = r#"
 tempo: 1.0
-out: pulse 440 0.5 * 0.2
+out $ pulse 440 0.5 * 0.2
 "#;
 
     let audio = render_dsl(code, 1.0);
@@ -250,9 +250,9 @@ fn test_pulse_dsl_pwm() {
     // Classic PWM synthesis: LFO modulates pulse width
     let code = r#"
 tempo: 1.0
-~lfo: sine 0.5
-~width: ~lfo * 0.3 + 0.5
-out: pulse 110 ~width * 0.3
+~lfo $ sine 0.5
+~width $ ~lfo * 0.3 + 0.5
+out $ pulse 110 ~width * 0.3
 "#;
 
     let audio = render_dsl(code, 2.0);

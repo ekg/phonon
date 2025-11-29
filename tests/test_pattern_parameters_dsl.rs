@@ -99,7 +99,7 @@ d1: s "bd sn" gain="0.8 1.0" pan="-1.0 1.0" speed="1.0 0.5"
 fn test_continuous_modulation() {
     let code = r#"
 tempo: 0.5
-~lfo: sine 0.25
+~lfo $ sine 0.25
 d1: s "hh*8" pan=~lfo
 "#;
 

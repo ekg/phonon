@@ -129,7 +129,7 @@ fn test_backward_compatibility_colon() {
     let input = r#"
         cps: 1.0
         ~bass: saw 55
-        out: ~bass * 0.3
+        out $ ~bass * 0.3
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should still parse colon syntax");

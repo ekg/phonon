@@ -52,7 +52,7 @@ fn test_gain_normal_level() {
     // LEVEL 2 & 3: Audio verification
     let code = r#"
 tempo: 0.5
-out: s "bd" # gain 1.0
+out $ s "bd" # gain 1.0
 "#;
 
     let buffer = render_dsl(code, 2.0); // 4 cycles at tempo 2.0
@@ -70,12 +70,12 @@ fn test_gain_double_level() {
     // Test that gain 2.0 doubles amplitude
     let normal_code = r#"
 tempo: 0.5
-out: s "bd" # gain 1.0
+out $ s "bd" # gain 1.0
 "#;
 
     let double_code = r#"
 tempo: 0.5
-out: s "bd" # gain 2.0
+out $ s "bd" # gain 2.0
 "#;
 
     let normal = render_dsl(normal_code, 0.5); // 1 cycle
@@ -96,12 +96,12 @@ fn test_gain_half_level() {
     // Test that gain 0.5 halves amplitude
     let normal_code = r#"
 tempo: 0.5
-out: s "bd" # gain 1.0
+out $ s "bd" # gain 1.0
 "#;
 
     let half_code = r#"
 tempo: 0.5
-out: s "bd" # gain 0.5
+out $ s "bd" # gain 0.5
 "#;
 
     let normal = render_dsl(normal_code, 0.5);
@@ -125,12 +125,12 @@ fn test_gain_quiet_level() {
     // Test that gain 0.1 produces very quiet audio
     let normal_code = r#"
 tempo: 0.5
-out: s "bd" # gain 1.0
+out $ s "bd" # gain 1.0
 "#;
 
     let quiet_code = r#"
 tempo: 0.5
-out: s "bd" # gain 0.1
+out $ s "bd" # gain 0.1
 "#;
 
     let normal = render_dsl(normal_code, 0.5);
@@ -150,17 +150,17 @@ fn test_gain_comparison() {
     // Compare multiple gain levels
     let gain_0_5_code = r#"
 tempo: 0.5
-out: s "bd" # gain 0.5
+out $ s "bd" # gain 0.5
 "#;
 
     let gain_1_0_code = r#"
 tempo: 0.5
-out: s "bd" # gain 1.0
+out $ s "bd" # gain 1.0
 "#;
 
     let gain_2_0_code = r#"
 tempo: 0.5
-out: s "bd" # gain 2.0
+out $ s "bd" # gain 2.0
 "#;
 
     let gain_0_5 = render_dsl(gain_0_5_code, 0.5);
@@ -186,7 +186,7 @@ fn test_gain_pattern_based() {
     // Test pattern-based gain values
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # gain "0.5 1.0 1.5 2.0"
+out $ s "bd*4" # gain "0.5 1.0 1.5 2.0"
 "#;
 
     let buffer = render_dsl(code, 0.5); // 1 cycle

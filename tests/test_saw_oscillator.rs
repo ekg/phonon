@@ -63,7 +63,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 fn test_saw_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: saw 440
+        out $ saw 440
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -75,7 +75,7 @@ fn test_saw_compiles() {
 fn test_saw_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: saw 440 * 0.3
+        out $ saw 440 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -92,7 +92,7 @@ fn test_saw_has_harmonics() {
     // Sawtooth should have all harmonics present
     let code = r#"
         tempo: 0.5
-        o1: saw 440 * 0.3
+        out $ saw 440 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -143,12 +143,12 @@ fn test_saw_brighter_than_sine() {
     // Sawtooth should have more high-frequency content than sine
     let code_saw = r#"
         tempo: 0.5
-        o1: saw 440 * 0.3
+        out $ saw 440 * 0.3
     "#;
 
     let code_sine = r#"
         tempo: 0.5
-        o1: sine 440 * 0.3
+        out $ sine 440 * 0.3
     "#;
 
     let buffer_saw = render_dsl(code_saw, 1.0);
@@ -183,7 +183,7 @@ fn test_saw_brighter_than_sine() {
 fn test_saw_bass() {
     let code = r#"
         tempo: 0.5
-        o1: saw 55 * 0.3
+        out $ saw 55 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -197,7 +197,7 @@ fn test_saw_bass() {
 fn test_saw_mid_range() {
     let code = r#"
         tempo: 0.5
-        o1: saw 880 * 0.3
+        out $ saw 880 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -211,7 +211,7 @@ fn test_saw_mid_range() {
 fn test_saw_high_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: saw 4000 * 0.3
+        out $ saw 4000 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -228,10 +228,10 @@ fn test_saw_bass_synth() {
     // Classic analog bass: saw with filter envelope
     let code = r#"
         tempo: 0.5
-        ~env: ad 0.01 0.3
-        ~cutoff: ~env * 3000 + 200
-        ~bass: saw 55 # rlpf ~cutoff 4.0
-        o1: ~bass * 0.3
+        ~env $ ad 0.01 0.3
+        ~cutoff $ ~env * 3000 + 200
+        ~bass $ saw 55 # rlpf ~cutoff 4.0
+        out $ ~bass * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -246,8 +246,8 @@ fn test_saw_lead_synth() {
     // Lead synth: saw with fast envelope
     let code = r#"
         tempo: 0.5
-        ~env: ad 0.001 0.2
-        o1: saw 440 * ~env * 0.3
+        ~env $ ad 0.001 0.2
+        out $ saw 440 * ~env * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -262,9 +262,9 @@ fn test_saw_pad() {
     // Pad sound: filtered saw with slow envelope
     let code = r#"
         tempo: 1.0
-        ~env: ad 0.5 0.5
-        ~pad: saw 220 # rlpf 1500 1.0
-        o1: ~pad * ~env * 0.2
+        ~env $ ad 0.5 0.5
+        ~pad $ saw 220 # rlpf 1500 1.0
+        out $ ~pad * ~env * 0.2
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -279,10 +279,10 @@ fn test_saw_string_section() {
     // String section: multiple detuned saws
     let code = r#"
         tempo: 0.5
-        ~saw1: saw 220
-        ~saw2: saw 221
-        ~saw3: saw 219
-        o1: (~saw1 + ~saw2 + ~saw3) * 0.1
+        ~saw1 $ saw 220
+        ~saw2 $ saw 221
+        ~saw3 $ saw 219
+        out $ (~saw1 + ~saw2 + ~saw3) * 0.1
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -297,12 +297,12 @@ fn test_saw_supersaw() {
     // Supersaw: multiple saws with slight detuning
     let code = r#"
         tempo: 0.5
-        ~s1: saw 440
-        ~s2: saw 441
-        ~s3: saw 439
-        ~s4: saw 442
-        ~s5: saw 438
-        o1: (~s1 + ~s2 + ~s3 + ~s4 + ~s5) * 0.06
+        ~s1 $ saw 440
+        ~s2 $ saw 441
+        ~s3 $ saw 439
+        ~s4 $ saw 442
+        ~s5 $ saw 438
+        out $ (~s1 + ~s2 + ~s3 + ~s4 + ~s5) * 0.06
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -318,8 +318,8 @@ fn test_saw_supersaw() {
 fn test_saw_pattern_frequency() {
     let code = r#"
         tempo: 0.5
-        ~freq: sine 1 * 100 + 440
-        o1: saw ~freq * 0.3
+        ~freq $ sine 1 * 100 + 440
+        out $ saw ~freq * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -336,8 +336,8 @@ fn test_saw_pattern_frequency() {
 fn test_saw_pattern_amplitude() {
     let code = r#"
         tempo: 0.5
-        ~amp: sine 2 * 0.2 + 0.3
-        o1: saw 440 * ~amp
+        ~amp $ sine 2 * 0.2 + 0.3
+        out $ saw 440 * ~amp
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -357,8 +357,8 @@ fn test_saw_lowpass_filter() {
     // Lowpassed saw becomes mellower
     let code = r#"
         tempo: 0.5
-        ~filtered: saw 220 # rlpf 800 2.0
-        o1: ~filtered * 0.3
+        ~filtered $ saw 220 # rlpf 800 2.0
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -373,8 +373,8 @@ fn test_saw_highpass_filter() {
     // Highpassed saw removes bass
     let code = r#"
         tempo: 0.5
-        ~filtered: saw 220 # rhpf 400 2.0
-        o1: ~filtered * 0.3
+        ~filtered $ saw 220 # rhpf 400 2.0
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -389,10 +389,10 @@ fn test_saw_resonant_filter() {
     // Saw through resonant filter
     let code = r#"
         tempo: 0.5
-        ~env: ad 0.01 0.2
-        ~cutoff: ~env * 3000 + 300
-        ~synth: saw 110 # rlpf ~cutoff 8.0
-        o1: ~synth * 0.3
+        ~env $ ad 0.01 0.2
+        ~cutoff $ ~env * 3000 + 300
+        ~synth $ saw 110 # rlpf ~cutoff 8.0
+        out $ ~synth * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -408,7 +408,7 @@ fn test_saw_resonant_filter() {
 fn test_saw_no_excessive_clipping() {
     let code = r#"
         tempo: 0.5
-        o1: saw 440 * 0.5
+        out $ saw 440 * 0.5
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -426,7 +426,7 @@ fn test_saw_dc_offset() {
     // Saw should have no significant DC offset
     let code = r#"
         tempo: 0.5
-        o1: saw 440 * 0.3
+        out $ saw 440 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -446,7 +446,7 @@ fn test_saw_continuous() {
     // Verify saw is mostly continuous (allow for intentional sawtooth discontinuity)
     let code = r#"
         tempo: 0.5
-        o1: saw 440 * 0.3
+        out $ saw 440 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);

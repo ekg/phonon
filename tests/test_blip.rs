@@ -83,7 +83,7 @@ fn find_spectral_peaks(frequencies: &[f32], magnitudes: &[f32], threshold: f32) 
 fn test_blip_constant_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: blip 440
+        out $ blip 440
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -97,7 +97,7 @@ fn test_blip_low_frequency() {
     // Low frequency Blip (audible pulses)
     let code = r#"
         tempo: 0.5
-        o1: blip 110
+        out $ blip 110
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -112,7 +112,7 @@ fn test_blip_high_frequency() {
     // High frequency Blip (more tone-like)
     let code = r#"
         tempo: 0.5
-        o1: blip 2200
+        out $ blip 2200
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -125,7 +125,7 @@ fn test_blip_pattern_frequency_lfo() {
     // Blip with LFO-modulated frequency
     let code = r#"
         tempo: 0.5
-        o1: blip (sine 5 * 110 + 440)
+        out $ blip (sine 5 * 110 + 440)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -138,7 +138,7 @@ fn test_blip_pattern_frequency_sweep() {
     // Blip with slow frequency sweep
     let code = r#"
         tempo: 0.5
-        o1: blip (sine 0.5 * 220 + 440)
+        out $ blip (sine 0.5 * 220 + 440)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -153,7 +153,7 @@ fn test_blip_rich_harmonic_content() {
     // Blip should have rich harmonic spectrum
     let code = r#"
         tempo: 0.5
-        o1: blip 110
+        out $ blip 110
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -185,7 +185,7 @@ fn test_blip_band_limited_no_aliasing() {
     // Blip should be band-limited (no significant content above Nyquist/2)
     let code = r#"
         tempo: 0.5
-        o1: blip 110
+        out $ blip 110
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -221,12 +221,12 @@ fn test_blip_vs_sine_spectral_difference() {
     // Blip should have much richer spectrum than sine
     let sine_code = r#"
         tempo: 0.5
-        o1: sine 110
+        out $ sine 110
     "#;
 
     let blip_code = r#"
         tempo: 0.5
-        o1: blip 110
+        out $ blip 110
     "#;
 
     let sine_buffer = render_dsl(sine_code, 1.0);
@@ -253,12 +253,12 @@ fn test_blip_frequency_affects_harmonic_count() {
     // Higher frequency Blip should have fewer harmonics before Nyquist
     let low_freq_code = r#"
         tempo: 0.5
-        o1: blip 110
+        out $ blip 110
     "#;
 
     let high_freq_code = r#"
         tempo: 0.5
-        o1: blip 2200
+        out $ blip 2200
     "#;
 
     let low_buffer = render_dsl(low_freq_code, 1.0);
@@ -289,7 +289,7 @@ fn test_blip_no_dc_offset() {
     // Blip output should be centered around zero (no DC offset)
     let code = r#"
         tempo: 0.5
-        o1: blip 440
+        out $ blip 440
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -303,7 +303,7 @@ fn test_blip_no_clipping() {
     // Blip output should not clip (stay within -1.0 to 1.0)
     let code = r#"
         tempo: 0.5
-        o1: blip 110
+        out $ blip 110
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -317,7 +317,7 @@ fn test_blip_continuous_output() {
     // Blip should produce continuous periodic output
     let code = r#"
         tempo: 0.5
-        o1: blip 440
+        out $ blip 440
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -333,7 +333,7 @@ fn test_blip_impulsive_characteristic() {
     // Blip should have high peak-to-RMS ratio (impulsive character)
     let code = r#"
         tempo: 0.5
-        o1: blip 110
+        out $ blip 110
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -356,12 +356,12 @@ fn test_blip_vs_saw_brightness() {
     // Blip should be brighter than saw (more high frequency content)
     let saw_code = r#"
         tempo: 0.5
-        o1: saw 110
+        out $ saw 110
     "#;
 
     let blip_code = r#"
         tempo: 0.5
-        o1: blip 110
+        out $ blip 110
     "#;
 
     let saw_buffer = render_dsl(saw_code, 1.0);

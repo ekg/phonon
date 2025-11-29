@@ -14,7 +14,7 @@ fn test_pan_parameter_affects_stereo_position() {
     // Positional args: s("pattern", gain, pan, speed)
     let input = r#"
         tempo: 0.5
-        out: s("bd sn", "1.0 1.0", "-1 1")
+        out $ s("bd sn", "1.0 1.0", "-1 1")
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -57,7 +57,7 @@ fn test_pan_center_produces_equal_stereo() {
     // Sample with center pan (0.0) should produce equal left/right channels
     let input = r#"
         tempo: 0.5
-        out: s("bd", "1.0", "0")
+        out $ s("bd", "1.0", "0")
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -78,7 +78,7 @@ fn test_pan_pattern_with_multiple_events() {
     // Four hi-hats panning from left to right
     let input = r#"
         tempo: 0.5
-        out: s("hh*4", "1.0 1.0 1.0 1.0", "-1 -0.33 0.33 1")
+        out $ s("hh*4", "1.0 1.0 1.0 1.0", "-1 -0.33 0.33 1")
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -115,12 +115,12 @@ fn test_pan_default_is_center() {
     // Without pan parameter, should default to 0.0 (center)
     let input_with_pan = r#"
         tempo: 0.5
-        out: s("bd", "1.0", "0")
+        out $ s("bd", "1.0", "0")
     "#;
 
     let input_without_pan = r#"
         tempo: 0.5
-        out: s "bd"
+        out $ s "bd"
     "#;
 
     // Both should produce similar RMS

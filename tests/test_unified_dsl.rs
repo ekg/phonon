@@ -8,7 +8,7 @@ fn test_parse_and_compile_dsl() {
         ~lfo: sine 0.5 * 0.5 + 0.5
         ~cutoff: ~lfo * 2000 + 500
         ~bass: saw 110 >> lpf(~cutoff, 0.8)
-        out: ~bass * 0.4
+        out $ ~bass * 0.4
     "#;
 
     // Parse the DSL
@@ -38,7 +38,7 @@ fn test_pattern_in_dsl() {
         ~osc: sine 220
         ~gated: ~osc * ~rhythm
         cps: 2
-        out: ~gated
+        out $ ~gated
     "#;
 
     let parse_result = parse_dsl(dsl_code);
@@ -81,7 +81,7 @@ fn test_complex_modulation_dsl() {
         ~carrier: sine(440 + ~mod)
         ~env_speed: 4
         ~env: sine(~env_speed) * 0.5 + 0.5
-        out: ~carrier * ~env * 0.3
+        out $ ~carrier * ~env * 0.3
     "#;
 
     let parse_result = parse_dsl(dsl_code);
@@ -116,7 +116,7 @@ fn test_filter_chain_dsl() {
     let dsl_code = r#"
         ~noise: saw 100
         ~filtered: ~noise >> lpf 1000 2 >> hpf 200 1
-        out: ~filtered * 0.5
+        out $ ~filtered * 0.5
     "#;
 
     let parse_result = parse_dsl(dsl_code);
@@ -135,7 +135,7 @@ fn test_arithmetic_in_dsl() {
         ~sum: ~a + ~b
         ~product: ~a * 2
         ~complex: (~a + ~b) * 0.5 - 100
-        out: sine(~complex)
+        out $ sine(~complex)
     "#;
 
     let parse_result = parse_dsl(dsl_code);
@@ -160,7 +160,7 @@ fn test_pattern_driven_fm_synthesis() {
         ~modulator: sine(~mod_pattern)
         ~carrier: sine(~pitch_pattern + ~modulator)
         ~rhythm: "1 1 0 1"
-        out: ~carrier * ~rhythm * 0.3
+        out $ ~carrier * ~rhythm * 0.3
     "#;
 
     let parse_result = parse_dsl(dsl_code);
@@ -192,7 +192,7 @@ fn test_sidechain_with_patterns() {
         ~bass: saw(~bass_notes)
         ~sidechain: 1 - (~kick * 0.8)
         ~compressed_bass: ~bass * ~sidechain
-        out: ~compressed_bass * 0.4
+        out $ ~compressed_bass * 0.4
     "#;
 
     let parse_result = parse_dsl(dsl_code);

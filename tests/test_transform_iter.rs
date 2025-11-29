@@ -157,12 +157,12 @@ fn test_iter_level1_progressive_shift() {
 fn test_iter_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let iter_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ iter 4
+out $ s "bd sn hh cp" $ iter 4
 "#;
 
     let cycles = 8;
@@ -197,7 +197,7 @@ fn test_iter_level2_timing_progression() {
     // Verify that timing actually shifts across cycles
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ iter 2
+out $ s "bd sn" $ iter 2
 "#;
 
     let cycles = 4; // Two complete iterations (iter 2 wraps every 2 cycles)
@@ -234,7 +234,7 @@ out: s "bd sn" $ iter 2
 fn test_iter_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ iter 4
+out $ s "bd sn hh cp" $ iter 4
 "#;
 
     let audio = render_dsl(code, 8);
@@ -272,12 +272,12 @@ fn test_iter_level3_compare_to_base() {
     // iter should have similar overall energy to base pattern
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let iter_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ iter 4
+out $ s "bd sn hh cp" $ iter 4
 "#;
 
     let base_audio = render_dsl(base_code, 8);
@@ -340,7 +340,7 @@ fn test_iter_with_large_n() {
     // Test iter with large n
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ iter 16
+out $ s "bd sn hh cp" $ iter 16
 "#;
 
     let audio = render_dsl(code, 8);

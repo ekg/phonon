@@ -48,7 +48,7 @@ fn test_reverb_level1_compiles() {
     // Level 1: Verify reverb compiles and produces audio
     let code = r#"
 bpm: 120
-o1: sine 440 # reverb 0.7 0.5 0.3
+out $ sine 440 # reverb 0.7 0.5 0.3
 "#;
     let audio = render_dsl(code, 2.0);
     let rms = calculate_rms(&audio);
@@ -59,8 +59,8 @@ o1: sine 440 # reverb 0.7 0.5 0.3
 fn test_reverb_level2_actually_processes() {
     // Level 2: Verify reverb ACTUALLY transforms the signal
     // Use a short impulse to clearly see reverb tail
-    let dry = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\"", 2.0);
-    let wet = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # reverb 0.9 0.3 0.8", 2.0);
+    let dry = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\"", 2.0);
+    let wet = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # reverb 0.9 0.3 0.8", 2.0);
 
     let dry_rms = calculate_rms(&dry);
     let wet_rms = calculate_rms(&wet);
@@ -83,8 +83,8 @@ fn test_reverb_level2_actually_processes() {
 fn test_reverb_level3_characteristics_tail() {
     // Level 3: Verify reverb adds a tail (audio continues after source)
     // Use a very short sound with high reverb mix
-    let dry = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\"", 2.0);
-    let wet = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # reverb 0.9 0.2 0.9", 2.0);
+    let dry = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\"", 2.0);
+    let wet = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # reverb 0.9 0.2 0.9", 2.0);
 
     let sample_rate = 44100.0;
     let threshold = 0.001; // Low threshold to detect tail
@@ -104,8 +104,8 @@ fn test_reverb_level3_characteristics_tail() {
 #[test]
 fn test_reverb_room_size_parameter() {
     // Verify room_size parameter affects the reverb
-    let small = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # reverb 0.3 0.5 0.5", 2.0);
-    let large = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # reverb 0.9 0.5 0.5", 2.0);
+    let small = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # reverb 0.3 0.5 0.5", 2.0);
+    let large = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # reverb 0.9 0.5 0.5", 2.0);
 
     let sample_rate = 44100.0;
     let threshold = 0.001;
@@ -129,7 +129,7 @@ fn test_delay_level1_compiles() {
     // Level 1: Verify delay compiles and produces audio
     let code = r#"
 bpm: 120
-o1: sine 440 # delay 0.25 0.5 0.5
+out $ sine 440 # delay 0.25 0.5 0.5
 "#;
     let audio = render_dsl(code, 2.0);
     let rms = calculate_rms(&audio);
@@ -139,8 +139,8 @@ o1: sine 440 # delay 0.25 0.5 0.5
 #[test]
 fn test_delay_level2_actually_processes() {
     // Level 2: Verify delay ACTUALLY creates echoes
-    let dry = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\"", 2.0);
-    let wet = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # delay 0.25 0.6 0.8", 2.0);
+    let dry = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\"", 2.0);
+    let wet = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # delay 0.25 0.6 0.8", 2.0);
 
     let dry_rms = calculate_rms(&dry);
     let wet_rms = calculate_rms(&wet);
@@ -162,8 +162,8 @@ fn test_delay_level2_actually_processes() {
 fn test_delay_level3_characteristics_echoes() {
     // Level 3: Verify delay creates distinct echoes with proper timing
     // Use single impulse to clearly see delay repetitions
-    let dry = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\"", 2.0);
-    let wet = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # delay 0.5 0.7 1.0", 2.0);
+    let dry = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\"", 2.0);
+    let wet = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # delay 0.5 0.7 1.0", 2.0);
 
     let sample_rate = 44100.0;
     let threshold = 0.001;
@@ -183,8 +183,8 @@ fn test_delay_level3_characteristics_echoes() {
 #[test]
 fn test_delay_time_parameter() {
     // Verify delay time parameter works
-    let short = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # delay 0.1 0.5 0.7", 2.0);
-    let long = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # delay 0.5 0.5 0.7", 2.0);
+    let short = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # delay 0.1 0.5 0.7", 2.0);
+    let long = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # delay 0.5 0.5 0.7", 2.0);
 
     let short_rms = calculate_rms(&short);
     let long_rms = calculate_rms(&long);
@@ -206,8 +206,8 @@ fn test_delay_time_parameter() {
 #[test]
 fn test_delay_feedback_parameter() {
     // Verify feedback parameter affects number of echoes
-    let low_fb = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # delay 0.25 0.2 0.8", 2.0);
-    let high_fb = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # delay 0.25 0.8 0.8", 2.0);
+    let low_fb = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # delay 0.25 0.2 0.8", 2.0);
+    let high_fb = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # delay 0.25 0.8 0.8", 2.0);
 
     let sample_rate = 44100.0;
     let threshold = 0.001;
@@ -231,7 +231,7 @@ fn test_multitap_level1_compiles() {
     // Level 1: Verify multitap compiles and produces audio
     let code = r#"
 bpm: 120
-o1: sine 440 # multitap 0.1 4 0.5 0.6
+out $ sine 440 # multitap 0.1 4 0.5 0.6
 "#;
     let audio = render_dsl(code, 2.0);
     let rms = calculate_rms(&audio);
@@ -241,8 +241,8 @@ o1: sine 440 # multitap 0.1 4 0.5 0.6
 #[test]
 fn test_multitap_level2_actually_processes() {
     // Level 2: Verify multitap ACTUALLY creates multiple echoes
-    let dry = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\"", 2.0);
-    let wet = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # multitap 0.15 4 0.5 0.8", 2.0);
+    let dry = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\"", 2.0);
+    let wet = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # multitap 0.15 4 0.5 0.8", 2.0);
 
     let dry_rms = calculate_rms(&dry);
     let wet_rms = calculate_rms(&wet);
@@ -266,8 +266,8 @@ fn test_multitap_level2_actually_processes() {
 #[test]
 fn test_multitap_level3_characteristics() {
     // Level 3: Verify multitap creates multiple delay taps
-    let dry = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\"", 2.0);
-    let wet = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # multitap 0.12 5 0.6 0.9", 2.0);
+    let dry = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\"", 2.0);
+    let wet = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # multitap 0.12 5 0.6 0.9", 2.0);
 
     let sample_rate = 44100.0;
     let threshold = 0.001;
@@ -287,8 +287,8 @@ fn test_multitap_level3_characteristics() {
 #[test]
 fn test_multitap_taps_parameter() {
     // Verify number of taps affects the output
-    let few_taps = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # multitap 0.1 2 0.5 0.7", 2.0);
-    let many_taps = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # multitap 0.1 6 0.5 0.7", 2.0);
+    let few_taps = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # multitap 0.1 2 0.5 0.7", 2.0);
+    let many_taps = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # multitap 0.1 6 0.5 0.7", 2.0);
 
     let few_rms = calculate_rms(&few_taps);
     let many_rms = calculate_rms(&many_taps);
@@ -316,7 +316,7 @@ fn test_pingpong_level1_compiles() {
     // Level 1: Verify pingpong compiles and produces audio
     let code = r#"
 bpm: 120
-o1: sine 440 # pingpong 0.25 0.6 0.8 0 0.7
+out $ sine 440 # pingpong 0.25 0.6 0.8 0 0.7
 "#;
     let audio = render_dsl(code, 2.0);
     let rms = calculate_rms(&audio);
@@ -326,8 +326,8 @@ o1: sine 440 # pingpong 0.25 0.6 0.8 0 0.7
 #[test]
 fn test_pingpong_level2_actually_processes() {
     // Level 2: Verify pingpong ACTUALLY creates bouncing echoes
-    let dry = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\"", 2.0);
-    let wet = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # pingpong 0.2 0.7 0.8 0 0.8", 2.0);
+    let dry = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\"", 2.0);
+    let wet = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # pingpong 0.2 0.7 0.8 0 0.8", 2.0);
 
     let dry_rms = calculate_rms(&dry);
     let wet_rms = calculate_rms(&wet);
@@ -350,8 +350,8 @@ fn test_pingpong_level2_actually_processes() {
 #[test]
 fn test_pingpong_level3_characteristics() {
     // Level 3: Verify pingpong creates stereo bouncing effect (tail extension)
-    let dry = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\"", 2.0);
-    let wet = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # pingpong 0.25 0.7 0.9 0 0.9", 2.0);
+    let dry = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\"", 2.0);
+    let wet = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # pingpong 0.25 0.7 0.9 0 0.9", 2.0);
 
     let sample_rate = 44100.0;
     let threshold = 0.001;
@@ -371,8 +371,8 @@ fn test_pingpong_level3_characteristics() {
 #[test]
 fn test_pingpong_feedback_parameter() {
     // Verify feedback affects echo length
-    let low_fb = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # pingpong 0.2 0.3 0.8 0 0.7", 2.0);
-    let high_fb = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # pingpong 0.2 0.8 0.8 0 0.7", 2.0);
+    let low_fb = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # pingpong 0.2 0.3 0.8 0 0.7", 2.0);
+    let high_fb = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # pingpong 0.2 0.8 0.8 0 0.7", 2.0);
 
     let sample_rate = 44100.0;
     let threshold = 0.001;
@@ -396,7 +396,7 @@ fn test_plate_level1_compiles() {
     // Level 1: Verify plate reverb compiles and produces audio
     let code = r#"
 bpm: 120
-o1: sine 440 # plate 20 0.7 0.7 0.3 0.3 0.5
+out $ sine 440 # plate 20 0.7 0.7 0.3 0.3 0.5
 "#;
     let audio = render_dsl(code, 2.0);
     let rms = calculate_rms(&audio);
@@ -406,8 +406,8 @@ o1: sine 440 # plate 20 0.7 0.7 0.3 0.3 0.5
 #[test]
 fn test_plate_level2_actually_processes() {
     // Level 2: Verify plate reverb ACTUALLY transforms the signal
-    let dry = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\"", 2.0);
-    let wet = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # plate 10 0.8 0.7 0.3 0.3 0.8", 2.0);
+    let dry = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\"", 2.0);
+    let wet = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # plate 10 0.8 0.7 0.3 0.3 0.8", 2.0);
 
     let dry_rms = calculate_rms(&dry);
     let wet_rms = calculate_rms(&wet);
@@ -426,8 +426,8 @@ fn test_plate_level2_actually_processes() {
 #[test]
 fn test_plate_level3_characteristics_tail() {
     // Level 3: Verify plate reverb creates dense, long tail
-    let dry = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\"", 2.0);
-    let wet = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # plate 15 0.9 0.8 0.2 0.3 0.9", 2.0);
+    let dry = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\"", 2.0);
+    let wet = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # plate 15 0.9 0.8 0.2 0.3 0.9", 2.0);
 
     let sample_rate = 44100.0;
     let threshold = 0.001;
@@ -447,8 +447,8 @@ fn test_plate_level3_characteristics_tail() {
 #[test]
 fn test_plate_decay_parameter() {
     // Verify decay parameter affects reverb length
-    let short_decay = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # plate 10 0.3 0.7 0.3 0.3 0.7", 2.0);
-    let long_decay = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # plate 10 0.9 0.7 0.3 0.3 0.7", 2.0);
+    let short_decay = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # plate 10 0.3 0.7 0.3 0.3 0.7", 2.0);
+    let long_decay = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # plate 10 0.9 0.7 0.3 0.3 0.7", 2.0);
 
     let sample_rate = 44100.0;
     let threshold = 0.001;
@@ -468,8 +468,8 @@ fn test_plate_decay_parameter() {
 #[test]
 fn test_plate_predelay_parameter() {
     // Verify pre-delay parameter works (adds initial delay before reverb)
-    let no_predelay = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # plate 0 0.7 0.7 0.3 0.3 0.7", 2.0);
-    let with_predelay = render_dsl("bpm: 120\no1: s \"bd ~ ~ ~\" # plate 50 0.7 0.7 0.3 0.3 0.7", 2.0);
+    let no_predelay = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # plate 0 0.7 0.7 0.3 0.3 0.7", 2.0);
+    let with_predelay = render_dsl("bpm: 120\nout $ s \"bd ~ ~ ~\" # plate 50 0.7 0.7 0.3 0.3 0.7", 2.0);
 
     // Both should have audio
     let no_pd_rms = calculate_rms(&no_predelay);

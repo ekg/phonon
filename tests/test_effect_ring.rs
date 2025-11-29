@@ -34,7 +34,7 @@ fn test_ring_basic() {
     // Test basic ring modulation
     let code = r#"
 tempo: 0.5
-out: saw 220 # ring 440
+out $ saw 220 # ring 440
 "#;
 
     let buffer = test_code(code, 2.0);
@@ -51,7 +51,7 @@ fn test_ring_different_frequencies() {
         let code = format!(
             r#"
 tempo: 0.5
-out: square 220 # ring {}
+out $ square 220 # ring {}
 "#,
             freq
         );
@@ -74,12 +74,12 @@ fn test_ring_changes_tone() {
     // Test that ring modulation actually changes the sound
     let normal_code = r#"
 tempo: 0.5
-out: saw 220
+out $ saw 220
 "#;
 
     let ring_code = r#"
 tempo: 0.5
-out: saw 220 # ring 440
+out $ saw 220 # ring 440
 "#;
 
     let normal = test_code(normal_code, 2.0);
@@ -106,7 +106,7 @@ fn test_ring_with_synthesis() {
         let code = format!(
             r#"
 tempo: 0.5
-out: {} 220 # ring 440
+out $ {} 220 # ring 440
 "#,
             osc
         );

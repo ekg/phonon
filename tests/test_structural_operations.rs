@@ -9,7 +9,7 @@ fn test_overlay_transform() {
     // This test will be expanded when we add overlay to DSL parsing
     let input = r#"
         cps: 1.0
-        out: s "bd sn" * 0.5
+        out $ s "bd sn" * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -34,7 +34,7 @@ fn test_append_transform() {
     // This test will be expanded when we add append to DSL parsing
     let input = r#"
         cps: 1.0
-        out: s "bd sn" * 0.5
+        out $ s "bd sn" * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");

@@ -94,15 +94,15 @@ fn test_fast_doubles_event_density() {
 
     let input_normal = r#"
         tempo: 0.5
-        out: s "bd sn hh cp"
+        out $ s "bd sn hh cp"
     "#;
     let input_fast2 = r#"
         tempo: 0.5
-        out: s "bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp"
+        out $ s "bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp"
     "#;
     let input_fast4 = r#"
         tempo: 0.5
-        out: s "bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp"
+        out $ s "bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp"
     "#;
 
     let normal_audio = render_dsl(input_normal, 4.0); // 8 cycles
@@ -168,15 +168,15 @@ fn test_slow_reduces_event_density() {
 
     let input_normal = r#"
         tempo: 0.5
-        out: s("bd sn hh cp")
+        out $ s("bd sn hh cp")
     "#;
     let input_slow2 = r#"
         tempo: 0.5
-        out: s("bd sn hh cp" |> slow 2)
+        out $ s("bd sn hh cp" |> slow 2)
     "#;
     let input_slow4 = r#"
         tempo: 0.5
-        out: s("bd sn hh cp" |> slow 4)
+        out $ s("bd sn hh cp" |> slow 4)
     "#;
 
     let normal_audio = render_dsl(input_normal, 4.0);
@@ -246,11 +246,11 @@ fn test_rev_reverses_pattern_order() {
 
     let input_normal = r#"
         tempo: 0.5
-        out: s("bd sn hh cp")
+        out $ s("bd sn hh cp")
     "#;
     let input_rev = r#"
         tempo: 0.5
-        out: s("bd sn hh cp" |> rev)
+        out $ s("bd sn hh cp" |> rev)
     "#;
 
     let normal_audio = render_dsl(input_normal, 2.0);
@@ -313,7 +313,7 @@ fn test_every_alternates_transformation() {
 
     let input = r#"
         tempo: 0.5
-        out: s("bd sn hh cp" |> every 2 (fast 2))
+        out $ s("bd sn hh cp" |> every 2 (fast 2))
     "#;
 
     let audio = render_dsl(input, 4.0); // 8 cycles
@@ -377,11 +377,11 @@ fn test_degrade_removes_events() {
 
     let input_normal = r#"
         tempo: 0.5
-        out: s("bd*8")
+        out $ s("bd*8")
     "#;
     let input_degrade = r#"
         tempo: 0.5
-        out: s("bd*8" |> degrade)
+        out $ s("bd*8" |> degrade)
     "#;
 
     let normal_audio = render_dsl(input_normal, 4.0);
@@ -436,11 +436,11 @@ fn test_stutter_repeats_events() {
 
     let input_normal = r#"
         tempo: 0.5
-        out: s("bd sn")
+        out $ s("bd sn")
     "#;
     let input_stutter = r#"
         tempo: 0.5
-        out: s("bd sn" |> stutter 3)
+        out $ s("bd sn" |> stutter 3)
     "#;
 
     let normal_audio = render_dsl(input_normal, 2.0);

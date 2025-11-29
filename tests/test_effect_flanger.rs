@@ -52,9 +52,9 @@ fn test_flanger_basic_functionality() {
     // Test that flanger processes audio without silence
     let code = r#"
 tempo: 0.5
-~osc: sine 440
-~flanged: ~osc # flanger 0.5 0.7 0.3
-out: ~flanged
+~osc $ sine 440
+~flanged $ ~osc # flanger 0.5 0.7 0.3
+out $ ~flanged
 "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -69,13 +69,13 @@ fn test_flanger_modulates_spectrum() {
     // Flanger should create notches in the frequency spectrum (comb filtering)
     let code_dry = r#"
 tempo: 0.5
-out: sine 440
+out $ sine 440
 "#;
 
     let code_flanged = r#"
 tempo: 0.5
-~osc: sine 440
-out: ~osc # flanger 0.5 0.7 0.3
+~osc $ sine 440
+out $ ~osc # flanger 0.5 0.7 0.3
 "#;
 
     let dry = render_dsl(code_dry, 2.0);
@@ -100,9 +100,9 @@ fn test_flanger_with_samples() {
     // Test flanger on drum samples
     let code = r#"
 tempo: 0.5
-~drums: s "bd hh sn hh"
-~flanged: ~drums # flanger 1.0 0.5 0.4
-out: ~flanged
+~drums $ s "bd hh sn hh"
+~flanged $ ~drums # flanger 1.0 0.5 0.4
+out $ ~flanged
 "#;
 
     let buffer = render_dsl(code, 4.0);
@@ -117,14 +117,14 @@ fn test_flanger_depth_parameter() {
     // Test that depth affects intensity
     let code_shallow = r#"
 tempo: 0.5
-~osc: sine 440
-out: ~osc # flanger 0.2 0.5 0.3
+~osc $ sine 440
+out $ ~osc # flanger 0.2 0.5 0.3
 "#;
 
     let code_deep = r#"
 tempo: 0.5
-~osc: sine 440
-out: ~osc # flanger 2.0 0.5 0.3
+~osc $ sine 440
+out $ ~osc # flanger 2.0 0.5 0.3
 "#;
 
     let shallow = render_dsl(code_shallow, 2.0);
@@ -151,9 +151,9 @@ fn test_flanger_pattern_control() {
     // Test that parameters can be pattern-controlled
     let code = r#"
 tempo: 0.5
-~osc: sine 440
-~rate: sine 0.25 * 0.5 + 0.5
-out: ~osc # flanger ~rate 0.7 0.3
+~osc $ sine 440
+~rate $ sine 0.25 * 0.5 + 0.5
+out $ ~osc # flanger ~rate 0.7 0.3
 "#;
 
     let buffer = render_dsl(code, 4.0);
@@ -168,14 +168,14 @@ fn test_flanger_mix_parameter() {
     // Test wet/dry mix
     let code_dry_mix = r#"
 tempo: 0.5
-~osc: sine 440
-out: ~osc # flanger 1.0 0.5 0.0
+~osc $ sine 440
+out $ ~osc # flanger 1.0 0.5 0.0
 "#;
 
     let code_wet_mix = r#"
 tempo: 0.5
-~osc: sine 440
-out: ~osc # flanger 1.0 0.5 1.0
+~osc $ sine 440
+out $ ~osc # flanger 1.0 0.5 1.0
 "#;
 
     let dry_mix = render_dsl(code_dry_mix, 2.0);

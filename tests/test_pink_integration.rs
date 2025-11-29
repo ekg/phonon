@@ -33,7 +33,7 @@ fn calculate_peak(buffer: &[f32]) -> f32 {
 #[test]
 fn test_pink_level3_basic() {
     // Test basic pink noise generator
-    let code = "out: pink";
+    let code = "out $ pink";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -49,7 +49,7 @@ fn test_pink_level3_basic() {
 #[test]
 fn test_pink_level3_amplitude_control() {
     // Test amplitude scaling
-    let code = "out: pink * 0.5";
+    let code = "out $ pink * 0.5";
     let audio = render_dsl(code, 1.0);
 
     let rms = calculate_rms(&audio);
@@ -64,9 +64,9 @@ fn test_pink_level3_amplitude_control() {
 fn test_pink_level3_snare() {
     // Snare: pink noise + sine body (more natural than white noise)
     let code = r#"
-        ~snare_body: sine 180
-        ~snare_noise: pink # hpf 2000 0.5
-        out: (~snare_body + ~snare_noise) * 0.3
+        ~snare_body $ sine 180
+        ~snare_noise $ pink # hpf 2000 0.5
+        out $ (~snare_body + ~snare_noise) * 0.3
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -80,7 +80,7 @@ fn test_pink_level3_snare() {
 #[test]
 fn test_pink_level3_hihat() {
     // Hi-hat: high-pass filtered pink noise
-    let code = "out: pink # hpf 5000 0.3";
+    let code = "out $ pink # hpf 5000 0.3";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -95,10 +95,10 @@ fn test_pink_level3_rain() {
     // Rain: pink noise with envelope
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 0.1
-        ~env: ~lfo * 0.5 + 0.5
-        ~filtered: pink # lpf 2000 0.3
-        out: ~filtered * ~env * 0.3
+        ~lfo $ sine 0.1
+        ~env $ ~lfo * 0.5 + 0.5
+        ~filtered $ pink # lpf 2000 0.3
+        out $ ~filtered * ~env * 0.3
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -112,7 +112,7 @@ fn test_pink_level3_rain() {
 #[test]
 fn test_pink_level3_waterfall() {
     // Waterfall: band-pass filtered pink noise
-    let code = "out: pink # bpf 800 0.4";
+    let code = "out $ pink # bpf 800 0.4";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -127,9 +127,9 @@ fn test_pink_level3_with_envelope() {
     // Pink noise burst with envelope
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 0.5
-        ~env: ~lfo * 0.4 + 0.6
-        out: pink * ~env * 0.3
+        ~lfo $ sine 0.5
+        ~env $ ~lfo * 0.4 + 0.6
+        out $ pink * ~env * 0.3
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -143,8 +143,8 @@ fn test_pink_level3_with_envelope() {
 #[test]
 fn test_pink_level3_vs_white_noise() {
     // Compare pink to white noise (different spectrum)
-    let code_pink = "out: pink * 0.3";
-    let code_white = "out: noise * 0.3";
+    let code_pink = "out $ pink * 0.3";
+    let code_white = "out $ noise * 0.3";
 
     let audio_pink = render_dsl(code_pink, 1.0);
     let audio_white = render_dsl(code_white, 1.0);
@@ -163,9 +163,9 @@ fn test_pink_level3_vs_white_noise() {
 fn test_pink_level3_textured_pad() {
     // Textured pad (oscillator + filtered pink noise)
     let code = r#"
-        ~pad: saw_hz 110
-        ~texture: pink # lpf 500 0.2
-        out: (~pad * 0.8 + ~texture * 0.2) * 0.3
+        ~pad $ saw_hz 110
+        ~texture $ pink # lpf 500 0.2
+        out $ (~pad * 0.8 + ~texture * 0.2) * 0.3
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -181,9 +181,9 @@ fn test_pink_level3_rhythmic() {
     // Rhythmic pink noise (amplitude modulation)
     let code = r#"
         tempo: 4.0
-        ~lfo: sine 1.0
-        ~env: ~lfo * 0.5 + 0.5
-        out: pink * ~env * 0.3
+        ~lfo $ sine 1.0
+        ~env $ ~lfo * 0.5 + 0.5
+        out $ pink * ~env * 0.3
     "#;
     let audio = render_dsl(code, 1.0);
 

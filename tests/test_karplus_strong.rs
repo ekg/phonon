@@ -47,7 +47,7 @@ fn test_karplus_strong_produces_sound() {
     // Simple test: Karplus-Strong produces non-zero output
     let code = r#"
 tempo: 1.0
-out: pluck 440 0.5
+out $ pluck 440 0.5
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -70,7 +70,7 @@ fn test_karplus_strong_frequency_accuracy() {
     // Verify Karplus-Strong plays at approximately the correct frequency
     let code = r#"
 tempo: 1.0
-out: pluck 220
+out $ pluck 220
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -101,7 +101,7 @@ fn test_karplus_strong_decay() {
     // Karplus-Strong should decay over time (like a real string)
     let code = r#"
 tempo: 1.0
-out: pluck 440 0.5
+out $ pluck 440 0.5
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -131,12 +131,12 @@ fn test_karplus_strong_damping() {
     // Higher damping should produce shorter decay
     let code_low_damp = r#"
 tempo: 1.0
-out: pluck 440 0.1
+out $ pluck 440 0.1
 "#;
 
     let code_high_damp = r#"
 tempo: 1.0
-out: pluck 440 0.9
+out $ pluck 440 0.9
 "#;
 
     let (_, statements_low) = parse_program(code_low_damp).expect("Failed to parse");
@@ -171,7 +171,7 @@ fn test_karplus_strong_different_frequencies() {
         let code = format!(
             r#"
 tempo: 1.0
-out: pluck {}
+out $ pluck {}
 "#,
             freq
         );
@@ -199,7 +199,7 @@ fn test_karplus_strong_pattern_frequency() {
     // Pattern-modulated frequency (melody)
     let code = r#"
 tempo: 0.5
-out: pluck "220 330 440 330"
+out $ pluck "220 330 440 330"
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -223,7 +223,7 @@ fn test_karplus_strong_pattern_damping() {
     // Pattern-modulated damping
     let code = r#"
 tempo: 0.5
-out: pluck 440 "0.3 0.7"
+out $ pluck 440 "0.3 0.7"
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -249,7 +249,7 @@ fn test_karplus_strong_melody() {
     // Play a simple melody with Karplus-Strong
     let code = r#"
 tempo: 0.5
-out: pluck "220 330 440 330 220" 0.5
+out $ pluck "220 330 440 330 220" 0.5
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -273,7 +273,7 @@ fn test_karplus_strong_bass() {
     // Bass string with low damping
     let code = r#"
 tempo: 0.5
-out: pluck "55 82.5" 0.2
+out $ pluck "55 82.5" 0.2
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");

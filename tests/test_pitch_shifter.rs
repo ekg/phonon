@@ -28,8 +28,8 @@ fn test_pitch_shifter_produces_sound() {
     // pitch_shift source semitones
     let code = r#"
 tempo: 1.0
-~source: saw 220
-out: pitch_shift ~source 0
+~source $ saw 220
+out $ pitch_shift ~source 0
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -51,13 +51,13 @@ fn test_pitch_shifter_zero_shift() {
     // Zero semitone shift should approximate the input
     let code_original = r#"
 tempo: 1.0
-out: saw 220
+out $ saw 220
 "#;
 
     let code_shifted = r#"
 tempo: 1.0
-~source: saw 220
-out: pitch_shift ~source 0
+~source $ saw 220
+out $ pitch_shift ~source 0
 "#;
 
     let (_, statements_orig) = parse_program(code_original).expect("Failed to parse");
@@ -89,8 +89,8 @@ fn test_pitch_shifter_octave_up() {
     // +12 semitones = octave up
     let code = r#"
 tempo: 1.0
-~source: saw 220
-out: pitch_shift ~source 12
+~source $ saw 220
+out $ pitch_shift ~source 12
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -112,8 +112,8 @@ fn test_pitch_shifter_octave_down() {
     // -12 semitones = octave down
     let code = r#"
 tempo: 1.0
-~source: saw 220
-out: pitch_shift ~source -12
+~source $ saw 220
+out $ pitch_shift ~source -12
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -141,8 +141,8 @@ fn test_pitch_shifter_various_shifts() {
         let code = format!(
             r#"
 tempo: 1.0
-~source: saw 220
-out: pitch_shift ~source {}
+~source $ saw 220
+out $ pitch_shift ~source {}
 "#,
             semitones
         );
@@ -170,9 +170,9 @@ fn test_pitch_shifter_pattern_shift() {
     // Pattern-modulated pitch shift (arpeggiator effect)
     let code = r#"
 tempo: 0.5
-~source: saw 220
-~shifts: "0 7 12 7"
-out: pitch_shift ~source ~shifts
+~source $ saw 220
+~shifts $ "0 7 12 7"
+out $ pitch_shift ~source ~shifts
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -198,9 +198,9 @@ fn test_pitch_shifter_harmonizer() {
     // Harmonizer: mix original with shifted version
     let code = r#"
 tempo: 1.0
-~source: saw 220
-~shifted: pitch_shift ~source 7
-out: (~source + ~shifted) * 0.5
+~source $ saw 220
+~shifted $ pitch_shift ~source 7
+out $ (~source + ~shifted) * 0.5
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -222,11 +222,11 @@ fn test_pitch_shifter_chord() {
     // Create a chord from a single voice
     let code = r#"
 tempo: 1.0
-~source: saw 220
-~root: pitch_shift ~source 0
-~third: pitch_shift ~source 4
-~fifth: pitch_shift ~source 7
-out: (~root + ~third + ~fifth) * 0.33
+~source $ saw 220
+~root $ pitch_shift ~source 0
+~third $ pitch_shift ~source 4
+~fifth $ pitch_shift ~source 7
+out $ (~root + ~third + ~fifth) * 0.33
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");

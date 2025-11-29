@@ -40,7 +40,7 @@ fn test_midi_monitoring_basic() {
     // Compile code with ~midi bus
     let code = r#"
 tempo: 0.5
-out: saw ~midi
+out $ saw ~midi
 "#;
     let (_, statements) = parse_program(code).expect("Failed to parse");
     let mut graph = compile_program(statements, 44100.0, Some(queue.clone()))
@@ -74,7 +74,7 @@ fn test_midi_monitoring_frequency_change() {
     // Compile code with ~midi bus
     let code = r#"
 tempo: 0.5
-out: saw ~midi
+out $ saw ~midi
 "#;
     let (_, statements) = parse_program(code).expect("Failed to parse");
     let mut graph = compile_program(statements, 44100.0, Some(queue.clone()))
@@ -112,7 +112,7 @@ fn test_midi_monitoring_channel_filtering() {
     // Compile code with ~midi1 (channel 1 only)
     let code = r#"
 tempo: 0.5
-out: saw ~midi1
+out $ saw ~midi1
 "#;
     let (_, statements) = parse_program(code).expect("Failed to parse");
     let mut graph = compile_program(statements, 44100.0, Some(queue.clone()))
@@ -150,7 +150,7 @@ fn test_midi_monitoring_polyphony_tracking() {
     // Compile code with ~midi bus
     let code = r#"
 tempo: 0.5
-out: saw ~midi
+out $ saw ~midi
 "#;
     let (_, statements) = parse_program(code).expect("Failed to parse");
     let mut graph = compile_program(statements, 44100.0, Some(queue.clone()))
@@ -182,7 +182,7 @@ fn test_midi_monitoring_note_off() {
     // Compile code with ~midi bus
     let code = r#"
 tempo: 0.5
-out: saw ~midi
+out $ saw ~midi
 "#;
     let (_, statements) = parse_program(code).expect("Failed to parse");
     let mut graph = compile_program(statements, 44100.0, Some(queue.clone()))
@@ -221,8 +221,8 @@ fn test_midi_to_saw_integration() {
     // Compile code: ~midi drives saw oscillator frequency
     let code = r#"
 tempo: 0.5
-~freq: ~midi
-out: saw ~freq
+~freq $ ~midi
+out $ saw ~freq
 "#;
     let (_, statements) = parse_program(code).expect("Failed to parse");
     let mut graph = compile_program(statements, 44100.0, Some(queue.clone()))

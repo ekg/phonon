@@ -6,7 +6,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 fn test_dsl_sample_playback_simple() {
     // Does out s "bd" produce audio through DslCompiler?
     // NOTE: No leading whitespace - parser is sensitive to formatting
-    let input = "tempo: 1.0\nout: s(\"bd\")";
+    let input = "tempo: 1.0\nout $ s(\"bd\")";
 
     println!("\n=== DSL Sample Playback Test ===");
 

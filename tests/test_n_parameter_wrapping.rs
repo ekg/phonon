@@ -21,8 +21,8 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_n_parameter_parses() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd" # n 0
-out: ~drums
+~drums $ s "bd" # n 0
+out $ ~drums
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -47,14 +47,14 @@ fn test_n_selects_different_samples() {
     // If only one sample exists, they'll all sound the same - that's OK
     let dsl_0 = r#"
 tempo: 0.5
-~drums: s "bd" # n 0
-out: ~drums
+~drums $ s "bd" # n 0
+out $ ~drums
 "#;
 
     let dsl_1 = r#"
 tempo: 0.5
-~drums: s "bd" # n 1
-out: ~drums
+~drums $ s "bd" # n 1
+out $ ~drums
 "#;
 
     let (_, statements_0) = parse_program(dsl_0).unwrap();
@@ -88,8 +88,8 @@ out: ~drums
 fn test_n_pattern_variation() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd*4" # n "0 1 2 3"
-out: ~drums
+~drums $ s "bd*4" # n "0 1 2 3"
+out $ ~drums
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -115,8 +115,8 @@ fn test_n_wrapping_large_values() {
     // If bd has 3 samples: n=100 should wrap to 100 % 3 = 1
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd" # n 100
-out: ~drums
+~drums $ s "bd" # n 100
+out $ ~drums
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -140,8 +140,8 @@ out: ~drums
 fn test_n_musical_cycle() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd*8" # n "<0 1 2>"
-out: ~drums * 0.5
+~drums $ s "bd*8" # n "<0 1 2>"
+out $ ~drums * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -164,8 +164,8 @@ out: ~drums * 0.5
 fn test_n_with_other_parameters() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd*4" # n "0 1 2 3" # gain "1.0 0.8 0.6 0.4" # pan "-1 -0.5 0.5 1"
-out: ~drums * 0.5
+~drums $ s "bd*4" # n "0 1 2 3" # gain "1.0 0.8 0.6 0.4" # pan "-1 -0.5 0.5 1"
+out $ ~drums * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

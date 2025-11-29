@@ -5,7 +5,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]
 fn test_supersaw_constant_freq_baseline() {
-    let input = "out: supersaw(110, 0.5, 5) * 0.2";
+    let input = "out $ supersaw(110, 0.5, 5) * 0.2";
     let (_, statements) = parse_dsl(input).unwrap();
     let compiler = DslCompiler::new(44100.0);
     let mut graph = compiler.compile(statements);
@@ -20,7 +20,7 @@ fn test_supersaw_constant_freq_baseline() {
 
 #[test]
 fn test_supersaw_pattern_freq_from_dsl() {
-    let input = r#"out: supersaw("110 220", 0.5, 5) * 0.2"#;
+    let input = r#"out $ supersaw("110 220", 0.5, 5) * 0.2"#;
     let (_, statements) = parse_dsl(input).unwrap();
 
     println!("Parsed statements: {:?}", statements);

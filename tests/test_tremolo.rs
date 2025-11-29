@@ -9,9 +9,9 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_tremolo_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~carrier: sine 440
-~tremolo: ~carrier # tremolo 5.0 0.5
-out: ~tremolo
+~carrier $ sine 440
+~tremolo $ ~carrier # tremolo 5.0 0.5
+out $ ~tremolo
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -35,9 +35,9 @@ out: ~tremolo
 fn test_tremolo_modulates_amplitude() {
     let dsl = r#"
 tempo: 1.0
-~carrier: sine 440
-~tremolo: ~carrier # tremolo 4.0 0.5
-out: ~tremolo
+~carrier $ sine 440
+~tremolo $ ~carrier # tremolo 4.0 0.5
+out $ ~tremolo
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -81,9 +81,9 @@ fn test_tremolo_rate() {
     // Fast tremolo
     let dsl_fast = r#"
 tempo: 1.0
-~carrier: sine 440
-~tremolo: ~carrier # tremolo 8.0 0.8
-out: ~tremolo
+~carrier $ sine 440
+~tremolo $ ~carrier # tremolo 8.0 0.8
+out $ ~tremolo
 "#;
 
     let (_, statements) = parse_program(dsl_fast).unwrap();
@@ -122,17 +122,17 @@ fn test_tremolo_depth() {
     // Shallow tremolo
     let dsl_shallow = r#"
 tempo: 1.0
-~carrier: sine 440
-~tremolo: ~carrier # tremolo 5.0 0.2
-out: ~tremolo
+~carrier $ sine 440
+~tremolo $ ~carrier # tremolo 5.0 0.2
+out $ ~tremolo
 "#;
 
     // Deep tremolo
     let dsl_deep = r#"
 tempo: 1.0
-~carrier: sine 440
-~tremolo: ~carrier # tremolo 5.0 0.9
-out: ~tremolo
+~carrier $ sine 440
+~tremolo $ ~carrier # tremolo 5.0 0.9
+out $ ~tremolo
 "#;
 
     let (_, statements_shallow) = parse_program(dsl_shallow).unwrap();
@@ -179,9 +179,9 @@ out: ~tremolo
 fn test_tremolo_zero_depth() {
     let dsl = r#"
 tempo: 1.0
-~carrier: sine 440
-~tremolo: ~carrier # tremolo 5.0 0.0
-out: ~tremolo
+~carrier $ sine 440
+~tremolo $ ~carrier # tremolo 5.0 0.0
+out $ ~tremolo
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -212,9 +212,9 @@ out: ~tremolo
 fn test_tremolo_stability() {
     let dsl = r#"
 tempo: 1.0
-~carrier: saw 110
-~tremolo: ~carrier # tremolo 6.0 0.7
-out: ~tremolo
+~carrier $ saw 110
+~tremolo $ ~carrier # tremolo 6.0 0.7
+out $ ~tremolo
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -241,11 +241,11 @@ out: ~tremolo
 fn test_tremolo_pattern_modulation() {
     let dsl = r#"
 tempo: 0.5
-~rate_lfo: sine 0.5 * 2.0 + 5.0
-~depth_lfo: sine 0.3 * 0.3 + 0.5
-~carrier: sine 440
-~tremolo: ~carrier # tremolo ~rate_lfo ~depth_lfo
-out: ~tremolo
+~rate_lfo $ sine 0.5 * 2.0 + 5.0
+~depth_lfo $ sine 0.3 * 0.3 + 0.5
+~carrier $ sine 440
+~tremolo $ ~carrier # tremolo ~rate_lfo ~depth_lfo
+out $ ~tremolo
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -269,9 +269,9 @@ out: ~tremolo
 fn test_tremolo_classic() {
     let dsl = r#"
 tempo: 0.5
-~guitar: saw 220
-~tremolo: ~guitar # tremolo 6.0 0.6
-out: ~tremolo * 0.3
+~guitar $ saw 220
+~tremolo $ ~guitar # tremolo 6.0 0.6
+out $ ~tremolo * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -295,9 +295,9 @@ out: ~tremolo * 0.3
 fn test_tremolo_slow_swell() {
     let dsl = r#"
 tempo: 1.0
-~pad: sine 220
-~tremolo: ~pad # tremolo 0.5 0.8
-out: ~tremolo * 0.3
+~pad $ sine 220
+~tremolo $ ~pad # tremolo 0.5 0.8
+out $ ~tremolo * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

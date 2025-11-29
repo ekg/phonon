@@ -59,7 +59,7 @@ impl AudioTest {
 
         if !output.status.success() {
             return Err(format!(
-                "Render failed:\nstdout: {}\nstderr: {}",
+                "Render failed:\nstdout $ {}\nstderr: {}",
                 String::from_utf8_lossy(&output.stdout),
                 String::from_utf8_lossy(&output.stderr)
             ));
@@ -238,7 +238,7 @@ fn test_render_simple_pattern() {
     // 440Hz, 550Hz, 660Hz, 770Hz - one per quarter note
     let code = r#"
 tempo: 0.5
-out: sine "440 550 660 770" * 0.3
+out $ sine "440 550 660 770" * 0.3
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -290,7 +290,7 @@ fn test_render_fast_transform() {
     // Resulting in higher zero-crossing rate
     let code = r#"
 tempo: 1.0
-out: sine "100 200" $ fast 2
+out $ sine "100 200" $ fast 2
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -329,7 +329,7 @@ fn test_render_slow_transform() {
     // Use a simple two-tone pattern
     let code = r#"
 tempo: 0.5
-out: sine "200 400" $ slow 2
+out $ sine "200 400" $ slow 2
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -365,7 +365,7 @@ fn test_render_rev_transform() {
     // Test rev with synthesis - should reverse the pattern
     let code = r#"
 tempo: 0.5
-out: sine "300 600 900" $ rev
+out $ sine "300 600 900" $ rev
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -398,7 +398,7 @@ fn test_render_euclid_pattern() {
     // Test euclidean rhythm generation with samples
     let code = r#"
 tempo: 0.5
-out: s "bd" $ euclid 3 8
+out $ s "bd" $ euclid 3 8
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -425,7 +425,7 @@ fn test_render_every_transform() {
 
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ every 2 (fast 2)
+out $ s "bd sn hh cp" $ every 2 (fast 2)
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -443,7 +443,7 @@ fn test_render_sometimes_transform() {
 
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ sometimes (fast 2)
+out $ s "bd sn hh cp" $ sometimes (fast 2)
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -461,7 +461,7 @@ fn test_render_superimpose() {
 
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ superimpose (fast 2)
+out $ s "bd sn" $ superimpose (fast 2)
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -479,7 +479,7 @@ fn test_render_chunk_transform() {
 
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ chunk 2 (fast 2)
+out $ s "bd sn hh cp" $ chunk 2 (fast 2)
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -497,7 +497,7 @@ fn test_render_within_transform() {
 
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ within 0.0 0.5 (fast 2)
+out $ s "bd sn hh cp" $ within 0.0 0.5 (fast 2)
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -518,7 +518,7 @@ tempo: 0.5
 ~kick: s "bd" $ euclid 5 8
 ~snare: s "sn" $ euclid 3 8 $ fast 2
 ~hats: s "hh*8" $ sometimes (fast 2)
-out: ~kick * 0.3 + ~snare * 0.2 + ~hats * 0.2
+out $ ~kick * 0.3 + ~snare * 0.2 + ~hats * 0.2
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -536,7 +536,7 @@ fn test_silence_produces_empty_audio() {
 
     let code = r#"
 tempo: 0.5
-out: sine 0
+out $ sine 0
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -562,7 +562,7 @@ fn test_euclidean_rhythm_timing() {
     // Expected timing: 0.0s, ~0.167s, ~0.333s per cycle
     let code = r#"
 tempo: 0.5
-out: s "bd" $ euclid 3 8
+out $ s "bd" $ euclid 3 8
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -609,7 +609,7 @@ fn test_pattern_frequency_order_verification() {
     // Tempo 1.0 = 1 cycle/sec, so each tone lasts 0.5s
     let code = r#"
 tempo: 1.0
-out: sine "200 400" * 0.3
+out $ sine "200 400" * 0.3
 "#;
 
     let wav_path = test.render(code, 3).expect("Failed to render");
@@ -646,7 +646,7 @@ fn test_cycle_stability_and_repetition() {
     // Simple repetitive pattern that should be stable across cycles
     let code = r#"
 tempo: 0.5
-out: sine 440 * 0.3
+out $ sine 440 * 0.3
 "#;
 
     // Render 8 cycles - pattern should be stable throughout
@@ -681,7 +681,7 @@ fn test_fast_transform_doubles_event_rate() {
     // With fast 2: 4 events per cycle = 0.125s apart
     let code = r#"
 tempo: 0.5
-out: s "bd bd" $ fast 2
+out $ s "bd bd" $ fast 2
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -713,7 +713,7 @@ fn test_euclidean_timing_with_short_samples() {
     // Expected timing: 0.0s, ~0.09375s, ~0.15625s per cycle
     let code = r#"
 tempo: 4.0
-out: s "hh" $ euclid 3 8
+out $ s "hh" $ euclid 3 8
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -764,7 +764,7 @@ fn test_pattern_modulates_filter_cutoff() {
     let code = r#"
 tempo: 1.0
 ~lfo: sine 0.5
-out: saw 110 # lpf (~lfo * 500 + 1000) 0.8
+out $ saw 110 # lpf (~lfo * 500 + 1000) 0.8
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -806,7 +806,7 @@ fn test_pattern_modulates_amplitude() {
     let code = r#"
 tempo: 1.0
 ~env: sine 2.0
-out: sine 440 * (~env * 0.5 + 0.5)
+out $ sine 440 * (~env * 0.5 + 0.5)
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -845,9 +845,9 @@ fn test_pattern_arithmetic() {
     // Two LFOs at different rates combined
     let code = r#"
 tempo: 1.0
-~lfo1: sine 0.5
+~lfout $ sine 0.5
 ~lfo2: sine 0.3
-out: sine 440 * ((~lfo1 * 0.25 + 0.5) + (~lfo2 * 0.25 + 0.5))
+out $ sine 440 * ((~lfo1 * 0.25 + 0.5) + (~lfo2 * 0.25 + 0.5))
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -882,7 +882,7 @@ fn test_pattern_controls_frequency() {
     let code = r#"
 tempo: 1.0
 ~sweep: sine 0.5
-out: sine (~sweep * 220 + 440) * 0.3
+out $ sine (~sweep * 220 + 440) * 0.3
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -913,7 +913,7 @@ fn test_pattern_controls_resonance() {
     let code = r#"
 tempo: 1.0
 ~q_mod: sine 0.5
-out: saw 110 # lpf 400 (~q_mod * 2.5 + 3.0)
+out $ saw 110 # lpf 400 (~q_mod * 2.5 + 3.0)
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -962,7 +962,7 @@ fn test_lpf_removes_high_frequencies() {
     // LPF at 500Hz should remove everything above ~1000Hz
     let code = r#"
 tempo: 1.0
-out: saw 110 # lpf 500 0.8
+out $ saw 110 # lpf 500 0.8
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1004,7 +1004,7 @@ fn test_hpf_removes_low_frequencies() {
     // Should remove fundamental and first few harmonics
     let code = r#"
 tempo: 1.0
-out: saw 55 # hpf 300 0.8
+out $ saw 55 # hpf 300 0.8
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1032,7 +1032,7 @@ fn test_bpf_isolates_frequency_band() {
     // Should isolate 4th harmonic region
     let code = r#"
 tempo: 1.0
-out: saw 110 # bpf 440 0.5
+out $ saw 110 # bpf 440 0.5
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1061,7 +1061,7 @@ fn test_reverb_extends_decay() {
     // Should have extended tail
     let code = r#"
 tempo: 0.5
-out: s "cp" # reverb 0.5 0.7 0.5
+out $ s "cp" # reverb 0.5 0.7 0.5
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -1090,7 +1090,7 @@ fn test_delay_creates_echoes() {
     // Should create multiple onsets
     let code = r#"
 tempo: 4.0
-out: s "cp" # delay 0.25 0.5 0.7
+out $ s "cp" # delay 0.25 0.5 0.7
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -1120,7 +1120,7 @@ fn test_distortion_adds_harmonics() {
     // Pure sine with distortion should add harmonics
     let code = r#"
 tempo: 1.0
-out: sine 110 # distort 0.5 1.0
+out $ sine 110 # distort 0.5 1.0
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1165,12 +1165,12 @@ fn test_effect_chain_order_matters() {
 
     let filter_then_distort = r#"
 tempo: 1.0
-out: sine 110 # lpf 200 0.8 # distort 0.5 1.0
+out $ sine 110 # lpf 200 0.8 # distort 0.5 1.0
 "#;
 
     let distort_then_filter = r#"
 tempo: 1.0
-out: sine 110 # distort 0.5 1.0 # lpf 200 0.8
+out $ sine 110 # distort 0.5 1.0 # lpf 200 0.8
 "#;
 
     let wav1 = test
@@ -1213,7 +1213,7 @@ fn test_many_overlapping_voices() {
     // 16 rapid kick triggers - tests voice allocation
     let code = r#"
 tempo: 4.0
-out: s "bd*16"
+out $ s "bd*16"
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -1238,7 +1238,7 @@ fn test_polyphonic_simultaneous_samples() {
     // 4 simultaneous samples using polyrhythm notation
     let code = r#"
 tempo: 0.5
-out: s "[bd, sn, hh, cp]"
+out $ s "[bd, sn, hh, cp]"
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -1263,7 +1263,7 @@ fn test_rapid_triggering() {
     // Very fast hi-hats - 32 per cycle at fast 4 = 128 triggers/cycle
     let code = r#"
 tempo: 0.5
-out: s "hh*32" $ fast 4
+out $ s "hh*32" $ fast 4
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -1285,7 +1285,7 @@ fn test_voice_stability() {
     let code = r#"
 tempo: 0.5
 ~drums: s "[bd bd, sn sn, hh*4, cp]"
-out: ~drums
+out $ ~drums
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1311,7 +1311,7 @@ fn test_two_bus_mix() {
 tempo: 0.5
 ~kick: s "bd"
 ~snare: s "sn"
-out: ~kick * 0.7 + ~snare * 0.3
+out $ ~kick * 0.7 + ~snare * 0.3
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1335,7 +1335,7 @@ tempo: 1.0
 ~a: sine 440
 ~b: sine 880
 ~c: sine 1320
-out: (~a + ~b + ~c) * 0.33
+out $ (~a + ~b + ~c) * 0.33
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1373,7 +1373,7 @@ fn test_bus_through_effects() {
 tempo: 0.5
 ~dry: s "bd"
 ~wet: ~dry # reverb 0.5 0.7 0.5
-out: ~dry * 0.5 + ~wet * 0.5
+out $ ~dry * 0.5 + ~wet * 0.5
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -1397,7 +1397,7 @@ tempo: 0.5
 ~bass: saw 55
 ~filtered: ~bass # lpf 800 0.8
 ~affected: ~filtered # distort 0.3 1.0
-out: ~affected * 0.5
+out $ ~affected * 0.5
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1423,7 +1423,7 @@ fn test_three_stage_chain() {
     // Saw -> LPF -> Reverb -> Distort
     let code = r#"
 tempo: 1.0
-out: saw 110 # lpf 500 0.8 # reverb 0.3 0.5 0.3 # distort 0.2 1.0
+out $ saw 110 # lpf 500 0.8 # reverb 0.3 0.5 0.3 # distort 0.2 1.0
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1447,7 +1447,7 @@ fn test_sample_through_effects_chain() {
     // Sample through multiple effects
     let code = r#"
 tempo: 0.5
-out: s "bd" # lpf 1000 0.8 # distort 0.2 1.0
+out $ s "bd" # lpf 1000 0.8 # distort 0.2 1.0
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1465,7 +1465,7 @@ fn test_synthesis_effects_chain() {
     // Synthesis with effect chain
     let code = r#"
 tempo: 1.0
-out: sine 220 # distort 0.5 1.0 # hpf 200 0.5
+out $ sine 220 # distort 0.5 1.0 # hpf 200 0.5
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1490,7 +1490,7 @@ fn test_mini_notation_repetition() {
     // *4 should trigger 4 times per cycle
     let code = r#"
 tempo: 0.5
-out: s "bd*4"
+out $ s "bd*4"
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -1508,7 +1508,7 @@ fn test_mini_notation_division() {
     // /2 should trigger every other cycle
     let code = r#"
 tempo: 0.5
-out: s "bd/2"
+out $ s "bd/2"
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -1530,7 +1530,7 @@ fn test_mini_notation_polyrhythm() {
     // [bd bd bd, sn sn] - 3 against 2
     let code = r#"
 tempo: 0.5
-out: s "[bd bd bd, sn sn]"
+out $ s "[bd bd bd, sn sn]"
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1548,7 +1548,7 @@ fn test_mini_notation_alternation() {
     // <bd sn> - alternates each cycle
     let code = r#"
 tempo: 0.5
-out: s "<bd sn>"
+out $ s "<bd sn>"
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -1566,7 +1566,7 @@ fn test_mini_notation_rests() {
     // ~ represents rest
     let code = r#"
 tempo: 0.5
-out: s "bd ~ sn ~"
+out $ s "bd ~ sn ~"
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1588,7 +1588,7 @@ fn test_mini_notation_nested() {
     // Nested structures
     let code = r#"
 tempo: 0.5
-out: s "[bd*2, [sn hh]*2]"
+out $ s "[bd*2, [sn hh]*2]"
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1611,7 +1611,7 @@ fn test_long_render_100_cycles() {
     // Simple pattern over 100 cycles - tests stability
     let code = r#"
 tempo: 4.0
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let wav_path = test.render(code, 100).expect("Failed to render");
@@ -1639,7 +1639,7 @@ fn test_many_simultaneous_voices_64() {
     // Push voice limit with many simultaneous events
     let code = r#"
 tempo: 0.5
-out: s "[bd,sn,hh,cp,bd,sn,hh,cp,bd,sn,hh,cp,bd,sn,hh,cp]*4"
+out $ s "[bd,sn,hh,cp,bd,sn,hh,cp,bd,sn,hh,cp,bd,sn,hh,cp]*4"
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -1665,7 +1665,7 @@ tempo: 0.5
 ~h: s "hh*8" $ sometimes (fast 2)
 ~c: s "cp*4" $ every 3 (rev)
 ~bass: saw 55 # lpf 800 0.8
-out: ~k*0.3 + ~s*0.2 + ~h*0.15 + ~c*0.15 + ~bass*0.2
+out $ ~k*0.3 + ~s*0.2 + ~h*0.15 + ~c*0.15 + ~bass*0.2
 "#;
 
     let wav_path = test.render(code, 8).expect("Failed to render");
@@ -1689,7 +1689,7 @@ fn test_memory_stability_long_render() {
 tempo: 4.0
 ~drums: s "bd sn [hh hh] cp"
 ~synth: sine "440 550 660"
-out: ~drums * 0.5 + ~synth * 0.2
+out $ ~drums * 0.5 + ~synth * 0.2
 "#;
 
     let wav_path = test.render(code, 200).expect("Failed to render");
@@ -1709,7 +1709,7 @@ fn test_edge_case_empty_pattern() {
     // Empty pattern should produce silence
     let code = r#"
 tempo: 0.5
-out: s ""
+out $ s ""
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -1731,7 +1731,7 @@ fn test_edge_case_zero_frequency() {
     // 0 Hz should produce DC offset (very low RMS)
     let code = r#"
 tempo: 1.0
-out: sine 0
+out $ sine 0
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -1752,7 +1752,7 @@ fn test_edge_case_extreme_filter_q() {
     // Very high Q value
     let code = r#"
 tempo: 1.0
-out: saw 110 # lpf 500 20.0
+out $ saw 110 # lpf 500 20.0
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -1770,7 +1770,7 @@ fn test_edge_case_negative_amplitude() {
     // Negative amplitude = phase inversion
     let code = r#"
 tempo: 1.0
-out: sine 440 * -0.5
+out $ sine 440 * -0.5
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -1791,7 +1791,7 @@ fn test_edge_case_very_high_tempo() {
     // Extremely fast tempo
     let code = r#"
 tempo: 20.0
-out: s "bd"
+out $ s "bd"
 "#;
 
     let wav_path = test.render(code, 10).expect("Failed to render");
@@ -1808,7 +1808,7 @@ fn test_edge_case_very_low_tempo() {
     // Very slow tempo
     let code = r#"
 tempo: 0.1
-out: s "bd"
+out $ s "bd"
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1825,7 +1825,7 @@ fn test_edge_case_silence_pattern() {
     // Pattern of only rests
     let code = r#"
 tempo: 0.5
-out: s "~ ~ ~ ~"
+out $ s "~ ~ ~ ~"
 "#;
 
     let wav_path = test.render(code, 1).expect("Failed to render");
@@ -1851,7 +1851,7 @@ fn test_compress_transform_audio() {
     // compress squeezes events into portion of cycle
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ compress 0.0 0.5
+out $ s "bd sn hh cp" $ compress 0.0 0.5
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1888,7 +1888,7 @@ fn test_shuffle_transform_audio() {
     // shuffle randomizes event order
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ shuffle 0.5
+out $ s "bd sn hh cp" $ shuffle 0.5
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1922,7 +1922,7 @@ fn test_spin_transform_audio() {
     // spin rotates events
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ spin 4
+out $ s "bd sn hh cp" $ spin 4
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1956,7 +1956,7 @@ fn test_fit_transform_audio() {
     // fit adjusts pattern length
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ fit 2
+out $ s "bd sn" $ fit 2
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -1983,7 +1983,7 @@ fn test_scramble_transform_audio() {
     // scramble reorders events with seed
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ scramble 42
+out $ s "bd sn hh cp" $ scramble 42
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2021,7 +2021,7 @@ fn test_inside_transform_audio() {
     // inside applies transform only inside specified range
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ inside 0.25 0.75 (fast 2)
+out $ s "bd sn hh cp" $ inside 0.25 0.75 (fast 2)
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2048,7 +2048,7 @@ fn test_outside_transform_audio() {
     // outside applies transform outside specified range
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ outside 0.25 0.75 (fast 2)
+out $ s "bd sn hh cp" $ outside 0.25 0.75 (fast 2)
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2075,7 +2075,7 @@ fn test_wait_transform_audio() {
     // wait delays pattern start
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ wait 0.25
+out $ s "bd sn hh cp" $ wait 0.25
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2102,7 +2102,7 @@ fn test_focus_transform_audio() {
     // focus zooms into portion of pattern
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ focus 0.25 0.75
+out $ s "bd sn hh cp" $ focus 0.25 0.75
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2129,7 +2129,7 @@ fn test_smooth_transform_audio() {
     // smooth interpolates numeric patterns
     let code = r#"
 tempo: 0.5
-out: saw "110 220 330 440" $ smooth
+out $ saw "110 220 330 440" $ smooth
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2162,7 +2162,7 @@ fn test_trim_transform_audio() {
     // trim removes events outside range
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ trim 0.25 0.75
+out $ s "bd sn hh cp" $ trim 0.25 0.75
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2193,7 +2193,7 @@ fn test_chain_multiple_transforms_audio() {
     // Chain multiple transforms together
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ fast 2 $ rev $ euclid 5 8
+out $ s "bd sn hh cp" $ fast 2 $ rev $ euclid 5 8
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2231,12 +2231,12 @@ fn test_chain_order_independence() {
     // Test if order matters for commutative operations
     let code1 = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ fast 2 $ slow 2
+out $ s "bd sn hh cp" $ fast 2 $ slow 2
 "#;
 
     let code2 = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ slow 2 $ fast 2
+out $ s "bd sn hh cp" $ slow 2 $ fast 2
 "#;
 
     let wav1 = test1.render(code1, 2).expect("Failed to render");
@@ -2273,7 +2273,7 @@ fn test_chain_with_higher_order() {
     // Chain with higher-order transform (sometimes)
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ fast 2 $ sometimes (fast 4) $ rev
+out $ s "bd sn hh cp" $ fast 2 $ sometimes (fast 4) $ rev
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2303,7 +2303,7 @@ fn test_chain_structure_and_probability() {
     // Mix structural and probabilistic transforms
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ euclid 3 8 $ often (fast 2) $ rev
+out $ s "bd sn hh cp" $ euclid 3 8 $ often (fast 2) $ rev
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2338,7 +2338,7 @@ fn test_exp_transform_audio() {
     let code = r#"
 tempo: 0.5
 ~lfo: sine 0.5 $ exp 2.0
-out: saw 110 # lpf (~lfo * 1000 + 500) 0.8
+out $ saw 110 # lpf (~lfo * 1000 + 500) 0.8
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2370,7 +2370,7 @@ fn test_log_transform_audio() {
     let code = r#"
 tempo: 0.5
 ~lfo: sine 0.5 $ log 2.0
-out: saw 110 # lpf (~lfo * 1000 + 500) 0.8
+out $ saw 110 # lpf (~lfo * 1000 + 500) 0.8
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2402,7 +2402,7 @@ fn test_walk_transform_audio() {
     let code = r#"
 tempo: 0.5
 ~lfo: sine 1.0 $ walk 0.5
-out: saw 110 # lpf (~lfo * 1000 + 500) 0.8
+out $ saw 110 # lpf (~lfo * 1000 + 500) 0.8
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2437,7 +2437,7 @@ fn test_reset_transform_audio() {
     // reset restarts pattern every N cycles
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ reset 2
+out $ s "bd sn hh cp" $ reset 2
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -2469,7 +2469,7 @@ fn test_restart_transform_audio() {
     // restart is alias for reset
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ restart 2
+out $ s "bd sn hh cp" $ restart 2
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -2501,7 +2501,7 @@ fn test_loopback_transform_audio() {
     // loopback applies pattern to its own output recursively
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ loopback 2 (fast 2)
+out $ s "bd sn hh cp" $ loopback 2 (fast 2)
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2536,7 +2536,7 @@ fn test_binary_transform_audio() {
     // binary interprets number as binary pattern (5 = 101 binary)
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ binary 5
+out $ s "bd sn hh cp" $ binary 5
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2569,7 +2569,7 @@ fn test_range_transform_audio() {
     let code = r#"
 tempo: 0.5
 ~lfo: sine 1.0 $ range 200 800
-out: saw 110 # lpf ~lfo 0.8
+out $ saw 110 # lpf ~lfo 0.8
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2601,7 +2601,7 @@ fn test_quantize_transform_audio() {
     let code = r#"
 tempo: 0.5
 ~lfo: sine 1.0 $ quantize 0.25
-out: saw 110 # lpf (~lfo * 1000 + 500) 0.8
+out $ saw 110 # lpf (~lfo * 1000 + 500) 0.8
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2639,7 +2639,7 @@ fn test_offset_transform_audio() {
     // offset shifts pattern timing by fraction
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ offset 0.25
+out $ s "bd sn hh cp" $ offset 0.25
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2671,7 +2671,7 @@ fn test_loop_transform_audio() {
     // loop repeats first N cycles
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ loop 2
+out $ s "bd sn hh cp" $ loop 2
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -2703,7 +2703,7 @@ fn test_chew_transform_audio() {
     // chew repeats pattern elements by count
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ chew 4
+out $ s "bd sn hh cp" $ chew 4
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2735,7 +2735,7 @@ fn test_fastgap_transform_audio() {
     // fastGap speeds up pattern and adds gaps
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ fastGap 2 0.5
+out $ s "bd sn hh cp" $ fastGap 2 0.5
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2767,7 +2767,7 @@ fn test_discretise_transform_audio() {
     // discretise quantizes event timing to grid
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ discretise 4
+out $ s "bd sn hh cp" $ discretise 4
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2802,7 +2802,7 @@ fn test_compressgap_transform_audio() {
     // compressGap compresses pattern into time slice with gaps
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ compressGap 0.0 0.5
+out $ s "bd sn hh cp" $ compressGap 0.0 0.5
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2841,7 +2841,7 @@ fn test_humanize_transform_audio() {
     // humanize adds random timing and velocity variation
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ humanize 0.1 0.2
+out $ s "bd sn hh cp" $ humanize 0.1 0.2
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2876,7 +2876,7 @@ fn test_euclid_legato_transform_audio() {
     // euclid with legato (overlapping events)
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ euclid 3 8 $ legato 1.5
+out $ s "bd sn hh cp" $ euclid 3 8 $ legato 1.5
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -2912,7 +2912,7 @@ fn test_sometimesby_transform_audio() {
     // sometimesBy applies transform with probability
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ sometimesBy 0.5 (fast 2)
+out $ s "bd sn hh cp" $ sometimesBy 0.5 (fast 2)
 "#;
 
     let wav_path = test.render(code, 8).expect("Failed to render");
@@ -2947,7 +2947,7 @@ fn test_almostalways_transform_audio() {
     // almostAlways applies transform with high probability (0.9)
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ almostAlways (fast 2)
+out $ s "bd sn hh cp" $ almostAlways (fast 2)
 "#;
 
     let wav_path = test.render(code, 8).expect("Failed to render");
@@ -2982,7 +2982,7 @@ fn test_often_transform_audio() {
     // often applies transform with probability 0.75
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ often (fast 2)
+out $ s "bd sn hh cp" $ often (fast 2)
 "#;
 
     let wav_path = test.render(code, 8).expect("Failed to render");
@@ -3014,7 +3014,7 @@ fn test_rarely_transform_audio() {
     // rarely applies transform with probability 0.25
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ rarely (fast 2)
+out $ s "bd sn hh cp" $ rarely (fast 2)
 "#;
 
     let wav_path = test.render(code, 16).expect("Failed to render");
@@ -3050,7 +3050,7 @@ fn test_degradeseed_transform_audio() {
     // degradeSeed randomly drops events with seed
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ degradeSeed 0.5 42
+out $ s "bd sn hh cp" $ degradeSeed 0.5 42
 "#;
 
     let wav_path = test.render(code, 4).expect("Failed to render");
@@ -3081,7 +3081,7 @@ fn test_undegrade_transform_audio() {
     // undegrade restores events after degrade
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ degradeSeed 0.5 42 $ undegrade
+out $ s "bd sn hh cp" $ degradeSeed 0.5 42 $ undegrade
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");
@@ -3116,7 +3116,7 @@ fn test_accelerate_transform_audio() {
     // accelerate changes sample playback speed
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ accelerate 0.5
+out $ s "bd sn hh cp" $ accelerate 0.5
 "#;
 
     let wav_path = test.render(code, 2).expect("Failed to render");

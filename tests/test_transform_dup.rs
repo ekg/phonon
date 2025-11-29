@@ -157,12 +157,12 @@ fn test_dup_equivalence_to_fast() {
 fn test_dup_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let dup_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ dup 3
+out $ s "bd sn hh cp" $ dup 3
 "#;
 
     let cycles = 8;
@@ -197,7 +197,7 @@ fn test_dup_level2_timing_compression() {
     // Verify that dup compresses timing correctly
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ dup 4
+out $ s "bd sn" $ dup 4
 "#;
 
     let cycles = 4;
@@ -242,7 +242,7 @@ out: s "bd sn" $ dup 4
 fn test_dup_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ dup 3
+out $ s "bd sn hh cp" $ dup 3
 "#;
 
     let audio = render_dsl(code, 8);
@@ -280,12 +280,12 @@ fn test_dup_level3_compare_to_base() {
     // dup should have higher energy than base (more events)
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let dup_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ dup 3
+out $ s "bd sn hh cp" $ dup 3
 "#;
 
     let base_audio = render_dsl(base_code, 8);
@@ -361,7 +361,7 @@ fn test_dup_with_large_n() {
     // Test dup with large n
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ dup 16
+out $ s "bd sn" $ dup 16
 "#;
 
     let audio = render_dsl(code, 4);

@@ -30,11 +30,11 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 
 #[test]
 fn test_asr_compiles() {
+    // Use inline expression for gate pattern
     let code = r#"
         tempo: 1.0
-        ~gate: line 0 1
-        ~env: asr ~gate 0.1 0.2
-        o1: ~env
+        ~env $ asr (line 0 1) 0.1 0.2
+        out $ ~env
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -46,9 +46,8 @@ fn test_asr_compiles() {
 fn test_asr_generates_envelope() {
     let code = r#"
         tempo: 1.0
-        ~gate: line 0 1
-        ~env: asr ~gate 0.1 0.2
-        o1: ~env
+        ~env $ asr (line 0 1) 0.1 0.2
+        out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -65,9 +64,8 @@ fn test_asr_attack_on_gate_rise() {
     // Gate rises from 0 to 1 over 0.5s, ASR should attack
     let code = r#"
         tempo: 1.0
-        ~gate: line 0 1
-        ~env: asr ~gate 0.2 0.1
-        o1: ~env
+        ~env $ asr (line 0 1) 0.2 0.1
+        out $ ~env
     "#;
 
     let _sample_rate = 44100.0;
@@ -92,9 +90,8 @@ fn test_asr_sustain_while_gate_high() {
     // Constant high gate should produce sustain
     let code = r#"
         tempo: 1.0
-        ~gate: 1.0
-        ~env: asr ~gate 0.05 0.05
-        o1: ~env
+        ~env $ asr 1.0 0.05 0.05
+        out $ ~env
     "#;
 
     let sample_rate = 44100.0;
@@ -123,9 +120,8 @@ fn test_asr_attack_time() {
     // Gate goes high immediately, verify attack time
     let code = r#"
         tempo: 1.0
-        ~gate: 1.0
-        ~env: asr ~gate 0.3 0.1
-        o1: ~env
+        ~env $ asr 1.0 0.3 0.1
+        out $ ~env
     "#;
 
     let sample_rate = 44100.0;
@@ -150,9 +146,8 @@ fn test_asr_release_on_gate_fall() {
     // Gate falls from 1 to 0, ASR should release
     let code = r#"
         tempo: 1.0
-        ~gate: line 1 0
-        ~env: asr ~gate 0.05 0.3
-        o1: ~env
+        ~env $ asr (line 1 0) 0.05 0.3
+        out $ ~env
     "#;
 
     let sample_rate = 44100.0;
@@ -180,10 +175,9 @@ fn test_asr_organ_tone() {
     // Classic organ-style envelope: instant attack, hold, instant release
     let code = r#"
         tempo: 1.0
-        ~gate: line 0 1
-        ~env: asr ~gate 0.001 0.001
-        ~tone: sine 440
-        o1: ~tone * ~env * 0.3
+        ~env $ asr (line 0 1) 0.001 0.001
+        ~tone $ sine 440
+        out $ ~tone * ~env * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -198,10 +192,9 @@ fn test_asr_pad_sound() {
     // Slow attack and release for pad sounds
     let code = r#"
         tempo: 1.0
-        ~gate: 1.0
-        ~env: asr ~gate 0.5 0.5
-        ~tone: sine 220
-        o1: ~tone * ~env * 0.3
+        ~env $ asr 1.0 0.5 0.5
+        ~tone $ sine 220
+        out $ ~tone * ~env * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -213,14 +206,12 @@ fn test_asr_pad_sound() {
 
 #[test]
 fn test_asr_filter_control() {
-    // ASR controlling filter cutoff
+    // ASR controlling filter cutoff using inline expression for gate
     let code = r#"
         tempo: 1.0
-        ~gate: line 0 1
-        ~env: asr ~gate 0.1 0.2
-        ~cutoff: ~env * 3000 + 200
-        ~synth: saw 110 # rlpf ~cutoff 2.0
-        o1: ~synth * 0.3
+        ~env $ asr (line 0 1) 0.1 0.2
+        ~synth $ saw 110 # rlpf (~env * 3000 + 200) 2.0
+        out $ ~synth * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -234,12 +225,11 @@ fn test_asr_filter_control() {
 
 #[test]
 fn test_asr_pattern_attack() {
+    // Use inline expression for attack pattern
     let code = r#"
         tempo: 1.0
-        ~gate: 1.0
-        ~attack_pat: sine 1 * 0.1 + 0.1
-        ~env: asr ~gate ~attack_pat 0.1
-        o1: ~env
+        ~env $ asr 1.0 (sine 1 * 0.1 + 0.1) 0.1
+        out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -251,12 +241,11 @@ fn test_asr_pattern_attack() {
 
 #[test]
 fn test_asr_pattern_gate() {
-    // Gate modulated by LFO
+    // Gate modulated by LFO using inline expression
     let code = r#"
         tempo: 0.5
-        ~gate_lfo: sine 2
-        ~env: asr ~gate_lfo 0.05 0.05
-        o1: ~env
+        ~env $ asr (sine 2) 0.05 0.05
+        out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -272,9 +261,8 @@ fn test_asr_pattern_gate() {
 fn test_asr_very_short_times() {
     let code = r#"
         tempo: 1.0
-        ~gate: 1.0
-        ~env: asr ~gate 0.0001 0.0001
-        o1: ~env
+        ~env $ asr 1.0 0.0001 0.0001
+        out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -288,9 +276,8 @@ fn test_asr_very_short_times() {
 fn test_asr_long_attack() {
     let code = r#"
         tempo: 1.0
-        ~gate: 1.0
-        ~env: asr ~gate 0.8 0.1
-        o1: ~env
+        ~env $ asr 1.0 0.8 0.1
+        out $ ~env
     "#;
 
     let buffer = render_dsl(code, 1.0);

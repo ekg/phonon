@@ -5,7 +5,7 @@ fn test_debug_event_triggering_alternation() {
     // Simple alternating pattern
     let input = r#"
         tempo: 0.5
-        out: s "bd(<3 5>,8)"
+        out $ s "bd(<3 5>,8)"
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -92,7 +92,7 @@ fn test_compare_alternating_vs_constant() {
     // Test 1: Alternating pattern
     let input_alternating = r#"
         tempo: 0.5
-        out: s "bd(<3 5>,8)"
+        out $ s "bd(<3 5>,8)"
     "#;
 
     let (_, statements) = parse_dsl(input_alternating).expect("Failed to parse DSL");
@@ -120,7 +120,7 @@ fn test_compare_alternating_vs_constant() {
     // Test 2: Constant pattern (4 hits per cycle, no alternation)
     let input_constant = r#"
         tempo: 0.5
-        out: s "bd(4,8)"
+        out $ s "bd(4,8)"
     "#;
 
     let (_, statements) = parse_dsl(input_constant).expect("Failed to parse DSL");

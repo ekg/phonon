@@ -109,12 +109,12 @@ fn test_chop_level1_slicing() {
 fn test_chop_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let chop_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ chop 2
+out $ s "bd sn hh cp" $ chop 2
 "#;
 
     let cycles = 8;
@@ -150,7 +150,7 @@ fn test_chop_level2_layered_sound() {
     // Verify that chop creates layered/thicker sound (stacked slices)
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ chop 2
+out $ s "bd sn" $ chop 2
 "#;
 
     let cycles = 4;
@@ -180,7 +180,7 @@ out: s "bd sn" $ chop 2
 fn test_chop_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ chop 2
+out $ s "bd sn hh cp" $ chop 2
 "#;
 
     let audio = render_dsl(code, 8);
@@ -218,12 +218,12 @@ fn test_chop_level3_compare_to_base() {
     // chop should have similar or higher energy (stacked slices)
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let chop_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ chop 2
+out $ s "bd sn hh cp" $ chop 2
 "#;
 
     let base_audio = render_dsl(base_code, 8);
@@ -280,7 +280,7 @@ fn test_chop_with_large_n() {
     // Test chop with many slices
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ chop 8
+out $ s "bd sn hh cp" $ chop 8
 "#;
 
     let audio = render_dsl(code, 4);

@@ -16,7 +16,7 @@ fn test_speed_parameter_affects_playback_rate() {
     // Positional args: s("pattern", gain, pan, speed)
     let input = r#"
         tempo: 0.5
-        out: s("bd bd", "1.0 1.0", "0 0", "1 2")
+        out $ s("bd bd", "1.0 1.0", "0 0", "1 2")
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -60,12 +60,12 @@ fn test_speed_half_plays_longer() {
     // Half speed should have audio lasting longer
     let input_normal = r#"
         tempo: 1.0
-        out: s("bd", "1.0", "0", "1")
+        out $ s("bd", "1.0", "0", "1")
     "#;
 
     let input_half = r#"
         tempo: 1.0
-        out: s("bd", "1.0", "0", "0.5")
+        out $ s("bd", "1.0", "0", "0.5")
     "#;
 
     // Normal speed
@@ -103,7 +103,7 @@ fn test_speed_pattern_with_multiple_values() {
     // Four samples with different speeds
     let input = r#"
         tempo: 0.5
-        out: s("bd*4", "1 1 1 1", "0 0 0 0", "1 2 0.5 1.5")
+        out $ s("bd*4", "1 1 1 1", "0 0 0 0", "1 2 0.5 1.5")
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse DSL");
@@ -140,12 +140,12 @@ fn test_speed_default_is_one() {
     // Without speed parameter, should default to 1.0 (normal speed)
     let input_with_speed = r#"
         tempo: 0.5
-        out: s("bd", "1.0", "0", "1")
+        out $ s("bd", "1.0", "0", "1")
     "#;
 
     let input_without_speed = r#"
         tempo: 0.5
-        out: s "bd"
+        out $ s "bd"
     "#;
 
     // Both should produce similar output
@@ -178,12 +178,12 @@ fn test_speed_extreme_values() {
     // Test very fast and very slow speeds
     let input_fast = r#"
         tempo: 0.5
-        out: s("bd", "1.0", "0", "4")
+        out $ s("bd", "1.0", "0", "4")
     "#;
 
     let input_slow = r#"
         tempo: 0.5
-        out: s("bd", "1.0", "0", "0.25")
+        out $ s("bd", "1.0", "0", "0.25")
     "#;
 
     // Fast speed (4x)

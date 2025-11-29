@@ -232,7 +232,7 @@ fn test_backwards_compatibility_out_bus() {
     let phonon_code = r#"
 cps: 2.0
 ~bass: saw 55
-~out: ~bass * 0.5
+~out $ ~bass * 0.5
 "#;
 
     fs::write("/tmp/test_out_compat.phonon", phonon_code).unwrap();

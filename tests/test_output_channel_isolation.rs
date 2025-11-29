@@ -43,7 +43,7 @@ fn test_output_channels_sum_correctly_simple() {
     // Render each channel individually
     let o1_code = r#"
         tempo: 0.5
-        o1: sine 220 * 0.3
+        out $ sine 220 * 0.3
     "#;
 
     let o2_code = r#"
@@ -59,7 +59,7 @@ fn test_output_channels_sum_correctly_simple() {
     // Render all together
     let all_code = r#"
         tempo: 0.5
-        o1: sine 220 * 0.3
+        out $ sine 220 * 0.3
         o2: sine 440 * 0.3
         o3: sine 880 * 0.3
     "#;
@@ -133,7 +133,7 @@ fn test_output_channels_sum_correctly_with_samples() {
     // Render each channel individually
     let o1_code = r#"
         tempo: 0.5
-        o1: s "bd ~ bd ~"
+        out $ s "bd ~ bd ~"
     "#;
 
     let o2_code = r#"
@@ -149,7 +149,7 @@ fn test_output_channels_sum_correctly_with_samples() {
     // Render all together
     let all_code = r#"
         tempo: 0.5
-        o1: s "bd ~ bd ~"
+        out $ s "bd ~ bd ~"
         o2: s "~ sn ~ sn"
         o3: s "hh hh hh hh"
     "#;
@@ -231,7 +231,7 @@ fn test_user_reported_bug() {
 
     let all_code = r#"
         tempo: 0.5
-        o1: struct "t(3,8,1)" $ sine "66" # env 0.01 1 1 0.2
+        out $ struct "t(3,8,1)" $ sine "66" # env 0.01 1 1 0.2
         o2: s "808bd(3,8)"
         o3: s "hh hh hh hh" * 0.3
     "#;

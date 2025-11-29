@@ -45,20 +45,20 @@ fn estimate_frequency(samples: &[f32], sample_rate: f32) -> f32 {
 fn test_synth_note_changes_pitch() {
     // Baseline: synth with no note parameter (should stay at 220 Hz)
     let code_baseline = r#"
-~x: saw 220
-out: s "~x"
+~x $ saw 220
+out $ s "~x"
 "#;
 
     // With note "12" = +12 semitones = octave up = 440 Hz
     let code_octave_up = r#"
-~x: saw 220
-out: s "~x" # note "12"
+~x $ saw 220
+out $ s "~x" # note "12"
 "#;
 
     // With note "0" = no change = 220 Hz
     let code_no_change = r#"
-~x: saw 220
-out: s "~x" # note "0"
+~x $ saw 220
+out $ s "~x" # note "0"
 "#;
 
     let audio_baseline = render_dsl(code_baseline, 1.0);
@@ -100,14 +100,14 @@ out: s "~x" # note "0"
 fn test_synth_chord_multiple_voices() {
     // Single note
     let code_single = r#"
-~x: saw 220
-out: s "~x" # note "a3"
+~x $ saw 220
+out $ s "~x" # note "a3"
 "#;
 
     // Two-note chord (comma = simultaneous)
     let code_chord = r#"
-~x: saw 220
-out: s "~x" # note "[a3, e4]"
+~x $ saw 220
+out $ s "~x" # note "[a3, e4]"
 "#;
 
     let audio_single = render_dsl(code_single, 1.0);
@@ -138,23 +138,23 @@ out: s "~x" # note "[a3, e4]"
 fn test_synth_semitone_shift() {
     // All variations with different semitone offsets should produce audio
     let code_base = r#"
-~x: sine 440
-out: s "~x" # note "0"
+~x $ sine 440
+out $ s "~x" # note "0"
 "#;
 
     let code_octave = r#"
-~x: sine 440
-out: s "~x" # note "12"
+~x $ sine 440
+out $ s "~x" # note "12"
 "#;
 
     let code_fifth = r#"
-~x: sine 440
-out: s "~x" # note "7"
+~x $ sine 440
+out $ s "~x" # note "7"
 "#;
 
     let code_negative = r#"
-~x: sine 440
-out: s "~x" # note "-12"
+~x $ sine 440
+out $ s "~x" # note "-12"
 "#;
 
     let audio_base = render_dsl(code_base, 0.5);

@@ -18,7 +18,7 @@ fn test_legato_constant() {
     // Test that legato with a constant number works
     let code = r#"
         tempo: 0.5
-        o1: s "bd*4" $ legato 0.5
+        out $ s "bd*4" $ legato 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0); // 2 seconds = 4 cycles at tempo 2.0
@@ -31,7 +31,7 @@ fn test_legato_pattern() {
     // Test that legato with a pattern works
     let code = r#"
         tempo: 0.5
-        o1: s "bd*4" $ legato "0.5 1.5"
+        out $ s "bd*4" $ legato "0.5 1.5"
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -44,12 +44,12 @@ fn test_legato_affects_duration() {
     // Test that different legato values produce different results
     let short_code = r#"
         tempo: 0.5
-        o1: s "bd*8" $ legato 0.1
+        out $ s "bd*8" $ legato 0.1
     "#;
 
     let long_code = r#"
         tempo: 0.5
-        o1: s "bd*8" $ legato 1.5
+        out $ s "bd*8" $ legato 1.5
     "#;
 
     let short_buffer = render_dsl(short_code, 2.0);
@@ -76,7 +76,7 @@ fn test_legato_pattern_alternating() {
     // Test that pattern-based legato alternates correctly
     let alternating_code = r#"
         tempo: 0.5
-        o1: s "bd*8" $ legato "0.1 1.5"
+        out $ s "bd*8" $ legato "0.1 1.5"
     "#;
 
     let buffer = render_dsl(alternating_code, 2.0);

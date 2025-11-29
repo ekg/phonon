@@ -39,7 +39,7 @@ fn test_scale_major_c4() {
     // Using <> alternation to get one note per cycle
     let input = r#"
         cps: 4.0
-        out: sine(scale("<0 1 2 3 4>", "major", "c4")) * 0.5
+        out $ sine(scale("<0 1 2 3 4>", "major", "c4")) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();
@@ -81,7 +81,7 @@ fn test_scale_minor_a4() {
     // Using <> alternation to get one note per cycle
     let input = r#"
         cps: 3.0
-        out: sine(scale("<0 1 2>", "minor", "a4")) * 0.5
+        out $ sine(scale("<0 1 2>", "minor", "a4")) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();
@@ -118,7 +118,7 @@ fn test_scale_pentatonic() {
     // Using <> alternation to get one note per cycle
     let input = r#"
         cps: 3.0
-        out: sine(scale("<0 1 2>", "pentatonic", "60")) * 0.5
+        out $ sine(scale("<0 1 2>", "pentatonic", "60")) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();
@@ -155,7 +155,7 @@ fn test_scale_octave_wrapping() {
     // Using <> alternation to get one note per cycle
     let input = r#"
         cps: 2.0
-        out: sine(scale("<0 7>", "major", "60")) * 0.5
+        out $ sine(scale("<0 7>", "major", "60")) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();
@@ -191,7 +191,7 @@ fn test_scale_produces_audio() {
     // Basic sanity check that scale() produces audio
     let input = r#"
         cps: 2.0
-        out: sine(scale("0 1 2 3", "major", "c4")) * 0.3
+        out $ sine(scale("0 1 2 3", "major", "c4")) * 0.3
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();
@@ -213,7 +213,7 @@ fn test_scale_with_fast_pattern() {
     // Test scale with fast subdivision (arpeggio effect)
     let input = r#"
         cps: 1.0
-        out: sine(scale("0*4", "major", "60")) * 0.5
+        out $ sine(scale("0*4", "major", "60")) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();

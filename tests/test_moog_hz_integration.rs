@@ -42,7 +42,7 @@ fn calculate_peak(buffer: &[f32]) -> f32 {
 #[test]
 fn test_moog_hz_level3_basic_filtering() {
     // Test that moog_hz filters a saw wave
-    let code = "out: saw 220 # moog_hz 1000 0.7";
+    let code = "out $ saw 220 # moog_hz 1000 0.7";
     let audio = render_dsl(code, 1.0);
 
     let rms = calculate_rms(&audio);
@@ -66,7 +66,7 @@ fn test_moog_hz_level3_cutoff_sweep() {
     let mut rms_values = Vec::new();
 
     for cutoff in &cutoffs {
-        let code = format!("out: saw 220 # moog_hz {} 0.5", cutoff);
+        let code = format!("out $ saw 220 # moog_hz {} 0.5", cutoff);
         let audio = render_dsl(&code, 0.5);
         let rms = calculate_rms(&audio);
         rms_values.push(rms);
@@ -91,7 +91,7 @@ fn test_moog_hz_level3_resonance_sweep() {
     let resonances = vec![0.0, 0.3, 0.5, 0.7, 0.9];
 
     for res in &resonances {
-        let code = format!("out: saw 220 # moog_hz 1000 {}", res);
+        let code = format!("out $ saw 220 # moog_hz 1000 {}", res);
         let audio = render_dsl(&code, 0.5);
         let rms = calculate_rms(&audio);
         let peak = calculate_peak(&audio);
@@ -108,9 +108,9 @@ fn test_moog_hz_level3_pattern_modulation() {
     // Test Phonon's killer feature: pattern modulation at audio rate!
     let code = "
         tempo: 0.5
-        ~lfo: sine 0.5
-        ~cutoff: ~lfo * 2000 + 1000
-        out: saw 110 # moog_hz ~cutoff 0.7
+        ~lfo $ sine 0.5
+        ~cutoff $ ~lfo * 2000 + 1000
+        out $ saw 110 # moog_hz ~cutoff 0.7
     ";
     let audio = render_dsl(code, 2.0);
 
@@ -122,7 +122,7 @@ fn test_moog_hz_level3_pattern_modulation() {
     assert!(rms < 1.0, "Modulated RMS too high: {}", rms);
 
     // Compare to static cutoff
-    let code_static = "out: saw 110 # moog_hz 1000 0.7";
+    let code_static = "out $ saw 110 # moog_hz 1000 0.7";
     let audio_static = render_dsl(code_static, 2.0);
     let rms_static = calculate_rms(&audio_static);
 
@@ -143,8 +143,8 @@ fn test_moog_hz_level3_pattern_modulation() {
 #[test]
 fn test_moog_hz_level3_silence_comparison() {
     // Test that moog_hz actually produces sound (not silence)
-    let code_moog = "out: saw 220 # moog_hz 1000 0.5";
-    let code_silence = "out: sine 0 * 0";
+    let code_moog = "out $ saw 220 # moog_hz 1000 0.5";
+    let code_silence = "out $ sine 0 * 0";
 
     let audio_moog = render_dsl(code_moog, 1.0);
     let audio_silence = render_dsl(code_silence, 1.0);
@@ -167,7 +167,7 @@ fn test_moog_hz_level3_silence_comparison() {
 #[test]
 fn test_moog_hz_level3_low_cutoff() {
     // Test very low cutoff frequency
-    let code = "out: saw 220 # moog_hz 50 0.5";
+    let code = "out $ saw 220 # moog_hz 50 0.5";
     let audio = render_dsl(code, 1.0);
 
     let rms = calculate_rms(&audio);
@@ -186,7 +186,7 @@ fn test_moog_hz_level3_low_cutoff() {
 #[test]
 fn test_moog_hz_level3_high_resonance() {
     // Test high resonance (near self-oscillation)
-    let code = "out: saw 220 # moog_hz 1000 0.95";
+    let code = "out $ saw 220 # moog_hz 1000 0.95";
     let audio = render_dsl(code, 0.5);
 
     let rms = calculate_rms(&audio);
@@ -210,11 +210,11 @@ fn test_moog_hz_level4_vs_custom_moog_ladder() {
     // This validates both implementations!
 
     // fundsp implementation
-    let code_fundsp = "out: saw 220 # moog_hz 1000 0.7";
+    let code_fundsp = "out $ saw 220 # moog_hz 1000 0.7";
     let audio_fundsp = render_dsl(code_fundsp, 1.0);
 
     // Our custom implementation
-    let code_custom = "out: saw 220 # moogLadder 1000 0.7";
+    let code_custom = "out $ saw 220 # moogLadder 1000 0.7";
     let audio_custom = render_dsl(code_custom, 1.0);
 
     let rms_fundsp = calculate_rms(&audio_fundsp);
@@ -248,8 +248,8 @@ fn test_moog_hz_level4_cutoff_comparison() {
     let cutoffs = vec![500, 1000, 2000, 4000];
 
     for cutoff in cutoffs {
-        let code_fundsp = format!("out: saw 220 # moog_hz {} 0.5", cutoff);
-        let code_custom = format!("out: saw 220 # moogLadder {} 0.5", cutoff);
+        let code_fundsp = format!("out $ saw 220 # moog_hz {} 0.5", cutoff);
+        let code_custom = format!("out $ saw 220 # moogLadder {} 0.5", cutoff);
 
         let audio_fundsp = render_dsl(&code_fundsp, 0.5);
         let audio_custom = render_dsl(&code_custom, 0.5);
@@ -281,8 +281,8 @@ fn test_moog_hz_level4_resonance_comparison() {
     let resonances = vec![0.1, 0.3, 0.5, 0.7, 0.9];
 
     for res in resonances {
-        let code_fundsp = format!("out: saw 220 # moog_hz 1000 {}", res);
-        let code_custom = format!("out: saw 220 # moogLadder 1000 {}", res);
+        let code_fundsp = format!("out $ saw 220 # moog_hz 1000 {}", res);
+        let code_custom = format!("out $ saw 220 # moogLadder 1000 {}", res);
 
         let audio_fundsp = render_dsl(&code_fundsp, 0.5);
         let audio_custom = render_dsl(&code_custom, 0.5);
@@ -317,16 +317,16 @@ fn test_moog_hz_level4_pattern_modulation_comparison() {
     // Compare pattern modulation behavior
     let code_fundsp = "
         tempo: 0.5
-        ~lfo: sine 0.5
-        ~cutoff: ~lfo * 2000 + 1000
-        out: saw 110 # moog_hz ~cutoff 0.7
+        ~lfo $ sine 0.5
+        ~cutoff $ ~lfo * 2000 + 1000
+        out $ saw 110 # moog_hz ~cutoff 0.7
     ";
 
     let code_custom = "
         tempo: 0.5
-        ~lfo: sine 0.5
-        ~cutoff: ~lfo * 2000 + 1000
-        out: saw 110 # moogLadder ~cutoff 0.7
+        ~lfo $ sine 0.5
+        ~cutoff $ ~lfo * 2000 + 1000
+        out $ saw 110 # moogLadder ~cutoff 0.7
     ";
 
     let audio_fundsp = render_dsl(code_fundsp, 2.0);

@@ -9,10 +9,10 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_ring_mod_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~carrier: sine 440
-~modulator: sine 110
-~ring: ring_mod ~carrier ~modulator
-out: ~ring * 0.3
+~carrier $ sine 440
+~modulator $ sine 110
+~ring $ ring_mod ~carrier ~modulator
+out $ ~ring * 0.3
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -84,10 +84,10 @@ tempo: 1.0
 -- Ring mod: carrier 440 Hz, modulator 110 Hz
 -- Should create sidebands at 440+110=550 Hz and 440-110=330 Hz
 -- Original frequencies should be suppressed
-~carrier: sine 440
-~modulator: sine 110
-~ring: ring_mod ~carrier ~modulator
-out: ~ring * 0.5
+~carrier $ sine 440
+~modulator $ sine 110
+~ring $ ring_mod ~carrier ~modulator
+out $ ~ring * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -154,10 +154,10 @@ fn test_ring_mod_musical_example() {
     let dsl = r#"
 tempo: 0.5
 -- Metallic bell-like tone using ring modulation
-~carrier: sine 440
-~mod: sine 333
-~bell: ring_mod ~carrier ~mod
-out: ~bell * 0.3
+~carrier $ sine 440
+~mod $ sine 333
+~bell $ ring_mod ~carrier ~mod
+out $ ~bell * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -203,11 +203,11 @@ out: ~bell * 0.3
 fn test_ring_mod_with_envelope() {
     let dsl = r#"
 tempo: 0.5
-~env: ad 0.001 0.1
-~carrier: sine 880
-~mod: sine 200
-~ring: ring_mod ~carrier ~mod
-out: ~ring * ~env * 0.4
+~env $ ad 0.001 0.1
+~carrier $ sine 880
+~mod $ sine 200
+~ring $ ring_mod ~carrier ~mod
+out $ ~ring * ~env * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -242,10 +242,10 @@ fn test_ring_mod_inharmonic() {
     let dsl = r#"
 tempo: 1.0
 -- Non-integer ratio creates inharmonic bell-like tones
-~carrier: sine 440
-~mod: sine 337
-~ring: ring_mod ~carrier ~mod
-out: ~ring * 0.3
+~carrier $ sine 440
+~mod $ sine 337
+~ring $ ring_mod ~carrier ~mod
+out $ ~ring * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -262,11 +262,11 @@ fn test_ring_mod_pattern_modulation() {
     let dsl = r#"
 tempo: 0.5
 -- Carrier frequency varies via pattern
-~carrier_freq: "220 440 330 550"
-~carrier: sine ~carrier_freq
-~mod: sine 100
-~ring: ring_mod ~carrier ~mod
-out: ~ring * 0.3
+~carrier_freq $ "220 440 330 550"
+~carrier $ sine ~carrier_freq
+~mod $ sine 100
+~ring $ ring_mod ~carrier ~mod
+out $ ~ring * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -285,10 +285,10 @@ fn test_ring_mod_with_lfo() {
     let dsl = r#"
 tempo: 1.0
 -- Ring mod with very low frequency creates tremolo-like effect
-~carrier: sine 440
-~lfo: sine 4
-~ring: ring_mod ~carrier ~lfo
-out: ~ring * 0.3
+~carrier $ sine 440
+~lfo $ sine 4
+~ring $ ring_mod ~carrier ~lfo
+out $ ~ring * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

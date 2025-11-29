@@ -62,7 +62,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 fn test_white_noise_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise
+        out $ white_noise
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -74,7 +74,7 @@ fn test_white_noise_compiles() {
 fn test_white_noise_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise * 0.3
+        out $ white_noise * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -90,7 +90,7 @@ fn test_white_noise_generates_audio() {
 fn test_white_noise_mean_near_zero() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise
+        out $ white_noise
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -107,7 +107,7 @@ fn test_white_noise_mean_near_zero() {
 fn test_white_noise_has_variance() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise
+        out $ white_noise
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -129,7 +129,7 @@ fn test_white_noise_has_variance() {
 fn test_white_noise_flat_spectrum() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise
+        out $ white_noise
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -156,7 +156,7 @@ fn test_white_noise_flat_spectrum() {
 fn test_white_noise_full_bandwidth() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise
+        out $ white_noise
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -196,9 +196,9 @@ fn test_white_noise_hi_hat() {
     // Hi-hat: filtered white noise with envelope
     let code = r#"
         tempo: 0.5
-        ~env: ad 0.001 0.05
-        ~hh: white_noise # rhpf 8000 2.0
-        o1: ~hh * ~env * 0.4
+        ~env $ ad 0.001 0.05
+        ~hh $ white_noise # rhpf 8000 2.0
+        out $ ~hh * ~env * 0.4
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -213,10 +213,10 @@ fn test_white_noise_snare() {
     // Snare: mix of tone and filtered noise
     let code = r#"
         tempo: 0.5
-        ~env: ad 0.001 0.15
-        ~tone: sine 180
-        ~noise: white_noise # rlpf 4000 2.0
-        o1: ((~tone + ~noise) * ~env) * 0.3
+        ~env $ ad 0.001 0.15
+        ~tone $ sine 180
+        ~noise $ white_noise # rlpf 4000 2.0
+        out $ ((~tone + ~noise) * ~env) * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -231,9 +231,9 @@ fn test_white_noise_wind() {
     // Wind sound: low-passed noise with slow envelope
     let code = r#"
         tempo: 1.0
-        ~env: line 0.3 0.8
-        ~wind: white_noise # rlpf 800 0.5
-        o1: ~wind * ~env * 0.2
+        ~env $ line 0.3 0.8
+        ~wind $ white_noise # rlpf 800 0.5
+        out $ ~wind * ~env * 0.2
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -248,9 +248,9 @@ fn test_white_noise_crash() {
     // Crash cymbal: bandpassed noise with decay
     let code = r#"
         tempo: 0.5
-        ~env: ad 0.001 0.8
-        ~crash: white_noise # rhpf 3000 1.5 # rlpf 12000 1.5
-        o1: ~crash * ~env * 0.3
+        ~env $ ad 0.001 0.8
+        ~crash $ white_noise # rhpf 3000 1.5 # rlpf 12000 1.5
+        out $ ~crash * ~env * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -266,8 +266,8 @@ fn test_white_noise_crash() {
 fn test_white_noise_lowpass_filter() {
     let code = r#"
         tempo: 0.5
-        ~filtered: white_noise # rlpf 1000 2.0
-        o1: ~filtered * 0.3
+        ~filtered $ white_noise # rlpf 1000 2.0
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -298,8 +298,8 @@ fn test_white_noise_lowpass_filter() {
 fn test_white_noise_highpass_filter() {
     let code = r#"
         tempo: 0.5
-        ~filtered: white_noise # rhpf 5000 2.0
-        o1: ~filtered * 0.3
+        ~filtered $ white_noise # rhpf 5000 2.0
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -332,7 +332,7 @@ fn test_white_noise_highpass_filter() {
 fn test_white_noise_amplitude_scaling() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise * 0.1
+        out $ white_noise * 0.1
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -350,8 +350,8 @@ fn test_white_noise_amplitude_scaling() {
 fn test_white_noise_envelope_shaping() {
     let code = r#"
         tempo: 0.5
-        ~env: ad 0.01 0.2
-        o1: white_noise * ~env * 0.3
+        ~env $ ad 0.01 0.2
+        out $ white_noise * ~env * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);

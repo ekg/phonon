@@ -6,12 +6,12 @@ fn test_bpm_120_equals_cps_2() {
     // bpm 120 should equal cps 2.0 (120 / 60 = 2)
     let input_bpm = r#"
         bpm 120
-        out: s "bd*4" * 0.5
+        out $ s "bd*4" * 0.5
     "#;
 
     let input_cps = r#"
         cps: 2.0
-        out: s "bd*4" * 0.5
+        out $ s "bd*4" * 0.5
     "#;
 
     // Parse both
@@ -56,6 +56,7 @@ fn test_bpm_120_equals_cps_2() {
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_various_bpm_values() {
     // Test common BPM values
     let test_cases = vec![
@@ -69,7 +70,7 @@ fn test_various_bpm_values() {
         let input = format!(
             r#"
             bpm {}
-            out: s "bd sn" * 0.5
+            out $ s "bd sn" * 0.5
         "#,
             bpm
         );
@@ -99,7 +100,7 @@ fn test_bpm_without_colon() {
     // bpm should work without colon (unlike cps/tempo which require colon)
     let input = r#"
         bpm 120
-        out: s "bd sn hh cp" * 0.5
+        out $ s "bd sn hh cp" * 0.5
     "#;
 
     let result = parse_dsl(input);
@@ -115,11 +116,12 @@ fn test_bpm_without_colon() {
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_tempo_alias_still_works() {
     // Make sure tempo: still works as alias for cps:
     let input = r#"
         tempo: 0.5
-        out: s "bd sn" * 0.5
+        out $ s "bd sn" * 0.5
     "#;
 
     let result = parse_dsl(input);

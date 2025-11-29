@@ -189,7 +189,7 @@ fn test_sample_through_phonon_file() {
     use std::process::Command;
 
     // Create a test .phonon file (needs trailing newline for parser)
-    std::fs::write("/tmp/test_sample.phonon", "out: s \"bd\"\n").unwrap();
+    std::fs::write("/tmp/test_sample.phonon", "out $ s \"bd\"\n").unwrap();
 
     // Render it
     let output = Command::new("cargo")

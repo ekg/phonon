@@ -91,11 +91,11 @@ fn test_fast_three_level_verification() {
     // Render audio (using manual repetition since transform syntax needs investigation)
     let input_normal = r#"
         tempo: 0.5
-        out: s "bd sn hh cp"
+        out $ s "bd sn hh cp"
     "#;
     let input_fast2 = r#"
         tempo: 0.5
-        out: s "bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp"
+        out $ s "bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp bd sn hh cp"
     "#;
 
     let audio_normal = render_dsl(input_normal, duration);
@@ -217,11 +217,11 @@ fn test_slow_three_level_verification() {
 
     let input_normal = r#"
         tempo: 0.5
-        out: s "bd*8"
+        out $ s "bd*8"
     "#;
     let input_slow2 = r#"
         tempo: 0.5
-        out: s "bd*4"
+        out $ s "bd*4"
     "#;
 
     let audio_normal = render_dsl(input_normal, duration);

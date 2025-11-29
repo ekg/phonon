@@ -7,7 +7,7 @@ use audio_test_utils::{calculate_rms, find_dominant_frequency};
 
 #[test]
 fn test_saw_synth_produces_audio() {
-    let input = "tempo: 1.0\nout: saw 110 * 0.3";
+    let input = "tempo: 1.0\nout $ saw 110 * 0.3";
 
     let (_, statements) = parse_dsl(input).expect("Parse failed");
     let compiler = DslCompiler::new(44100.0);
@@ -47,7 +47,7 @@ fn test_synth_with_note_pattern() {
     println!("\n=== Pattern-Triggered Synth Test ===");
     println!("This is what the user wants:\n");
     println!("  tempo: 0.5");
-    println!("  out: synth(\"c4 a3 g3 e4\", saw()) * 0.3\n");
+    println!("  out $ synth(\"c4 a3 g3 e4\", saw()) * 0.3\n");
     println!("Each note should:");
     println!("  1. Trigger a new synth voice");
     println!("  2. Set the pitch for that voice");
@@ -66,7 +66,7 @@ fn test_samples_vs_synths_comparison() {
     println!("\n=== Samples vs Synths ===\n");
 
     // Samples work
-    let input_sample = "tempo: 1.0\nout: s(\"bd sn bd sn\")";
+    let input_sample = "tempo: 1.0\nout $ s(\"bd sn bd sn\")";
     let (_, statements1) = parse_dsl(input_sample).expect("Parse failed");
     let compiler1 = DslCompiler::new(44100.0);
     let mut graph1 = compiler1.compile(statements1);
@@ -80,7 +80,7 @@ fn test_samples_vs_synths_comparison() {
     }
 
     // Synths are continuous
-    let input_synth = "tempo: 1.0\nout: saw 110 * 0.3";
+    let input_synth = "tempo: 1.0\nout $ saw 110 * 0.3";
     let (_, statements2) = parse_dsl(input_synth).expect("Parse failed");
     let compiler2 = DslCompiler::new(44100.0);
     let mut graph2 = compiler2.compile(statements2);

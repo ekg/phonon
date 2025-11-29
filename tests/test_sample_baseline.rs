@@ -4,7 +4,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 fn test_sample_without_transform() {
     let input = r#"
         cps: 2.0
-        out: s "bd bd bd bd" * 0.5
+        out $ s "bd bd bd bd" * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse DSL");

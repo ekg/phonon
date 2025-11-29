@@ -6,7 +6,7 @@ fn test_late_transform() {
     // late should shift pattern forward in time
     let input = r#"
         cps: 1.0
-        out: s("bd sn" $ late 0.25) * 0.5
+        out $ s("bd sn" $ late 0.25) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -28,7 +28,7 @@ fn test_early_transform() {
     // early should shift pattern backward in time
     let input = r#"
         cps: 1.0
-        out: s("bd sn" $ early 0.25) * 0.5
+        out $ s("bd sn" $ early 0.25) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -50,12 +50,12 @@ fn test_dup_transform() {
     // dup should repeat pattern n times within one cycle
     let input_normal = r#"
         cps: 1.0
-        out: s "bd sn" * 0.5
+        out $ s "bd sn" * 0.5
     "#;
 
     let input_dup = r#"
         cps: 1.0
-        out: s("bd sn" $ dup 3) * 0.5
+        out $ s("bd sn" $ dup 3) * 0.5
     "#;
 
     // Render normal pattern
@@ -91,7 +91,7 @@ fn test_late_with_chained_transforms() {
     // late should work with other transforms
     let input = r#"
         cps: 1.0
-        out: s("bd sn" $ fast 2 $ late 0.125) * 0.5
+        out $ s("bd sn" $ fast 2 $ late 0.125) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -112,7 +112,7 @@ fn test_early_with_chained_transforms() {
     // early should work with other transforms
     let input = r#"
         cps: 1.0
-        out: s("bd sn" $ fast 2 $ early 0.125) * 0.5
+        out $ s("bd sn" $ fast 2 $ early 0.125) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");

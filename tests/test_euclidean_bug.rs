@@ -164,7 +164,7 @@ mod render_tests {
         let cycles = 32;
         let tempo = 0.4;
 
-        let audio = render_dsl("out: s \"click(2,4)\" # gain 0.8", cycles, tempo);
+        let audio = render_dsl("out $ s \"click(2,4)\" # gain 0.8", cycles, tempo);
         let onsets = detect_onsets(&audio, 44100.0, 0.001); // Adjusted threshold for clicks
 
         println!("Detected {} onsets over {} cycles", onsets.len(), cycles);
@@ -199,7 +199,7 @@ mod render_tests {
         let cycles = 8;  // Reduced for easier analysis
         let tempo = 0.4;
 
-        let audio = render_dsl("out: s \"click(2,4)\" # gain 0.8", cycles as u32, tempo);
+        let audio = render_dsl("out $ s \"click(2,4)\" # gain 0.8", cycles as u32, tempo);
         let detected_onsets = detect_onsets(&audio, 44100.0, 0.001); // Adjusted threshold
         let expected_onsets = expected_euclidean_times(cycles, tempo);
 

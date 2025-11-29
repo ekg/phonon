@@ -9,10 +9,10 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_latch_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440
-~gate: sine 8 # schmidt 0.5 -0.5
-~held: ~input # latch ~gate
-out: ~held
+~input $ sine 440
+~gate $ sine 8 # schmidt 0.5 -0.5
+~held $ ~input # latch ~gate
+out $ ~held
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -37,10 +37,10 @@ fn test_latch_holds_value() {
     // Input ramps from 0 to 1, gate triggers once at start
     let dsl = r#"
 tempo: 1.0
-~input: line 0.0 1.0
-~gate: impulse 1.0
-~held: ~input # latch ~gate
-out: ~held
+~input $ line 0.0 1.0
+~gate $ impulse 1.0
+~held $ ~input # latch ~gate
+out $ ~held
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -82,10 +82,10 @@ fn test_latch_updates_on_trigger() {
     // This will show stepped sampling of the sine
     let dsl = r#"
 tempo: 1.0
-~input: sine 1 * 0.5 + 0.5
-~gate: impulse 4.0
-~held: ~input # latch ~gate
-out: ~held
+~input $ sine 1 * 0.5 + 0.5
+~gate $ impulse 4.0
+~held $ ~input # latch ~gate
+out $ ~held
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -124,10 +124,10 @@ out: ~held
 fn test_latch_creates_steps() {
     let dsl = r#"
 tempo: 1.0
-~smooth: sine 2
-~clock: impulse 10.0
-~stepped: ~smooth # latch ~clock
-out: ~stepped
+~smooth $ sine 2
+~clock $ impulse 10.0
+~stepped $ ~smooth # latch ~clock
+out $ ~stepped
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -171,10 +171,10 @@ out: ~stepped
 fn test_latch_slow_gate() {
     let dsl = r#"
 tempo: 1.0
-~noise: white_noise
-~slow_gate: impulse 2.0
-~held: ~noise # latch ~slow_gate
-out: ~held * 0.5
+~noise $ white_noise
+~slow_gate $ impulse 2.0
+~held $ ~noise # latch ~slow_gate
+out $ ~held * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -202,10 +202,10 @@ out: ~held * 0.5
 fn test_latch_stability() {
     let dsl = r#"
 tempo: 1.0
-~noise: white_noise
-~gate: impulse 20.0
-~held: ~noise # latch ~gate
-out: ~held * 0.5
+~noise $ white_noise
+~gate $ impulse 20.0
+~held $ ~noise # latch ~gate
+out $ ~held * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -232,11 +232,11 @@ out: ~held * 0.5
 fn test_latch_random_melody() {
     let dsl = r#"
 tempo: 0.5
-~noise: white_noise * 200.0 + 440.0
-~notes: impulse 8.0
-~freq: ~noise # latch ~notes
-~melody: sine ~freq
-out: ~melody * 0.2
+~noise $ white_noise * 200.0 + 440.0
+~notes $ impulse 8.0
+~freq $ ~noise # latch ~notes
+~melody $ sine ~freq
+out $ ~melody * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -260,12 +260,12 @@ out: ~melody * 0.2
 fn test_latch_sample_hold_effect() {
     let dsl = r#"
 tempo: 1.0
-~carrier: saw 110
-~modulator: white_noise
-~clock: impulse 16.0
-~held: ~modulator # latch ~clock
-~filtered: ~carrier # lpf ((~held * 0.5 + 0.5) * 2000.0 + 200.0) 0.8
-out: ~filtered * 0.3
+~carrier $ saw 110
+~modulator $ white_noise
+~clock $ impulse 16.0
+~held $ ~modulator # latch ~clock
+~filtered $ ~carrier # lpf ((~held * 0.5 + 0.5) * 2000.0 + 200.0) 0.8
+out $ ~filtered * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -289,10 +289,10 @@ out: ~filtered * 0.3
 fn test_latch_pattern_gate() {
     let dsl = r#"
 tempo: 0.5
-~input: sine 1
-~gates: "0.0 1.0 0.0 1.0"
-~held: ~input # latch ~gates
-out: ~held
+~input $ sine 1
+~gates $ "0.0 1.0 0.0 1.0"
+~held $ ~input # latch ~gates
+out $ ~held
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

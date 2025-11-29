@@ -198,7 +198,7 @@ fn test_every_val_level2_audio_modulation() {
     // Test that every_val actually modulates audio parameters
     let code = r#"
 tempo: 0.5
-out: sine (every_val 2 440 880)
+out $ sine (every_val 2 440 880)
 "#;
 
     let audio = render_dsl(code, 8);
@@ -529,7 +529,7 @@ fn test_every_effect_level1_conditional_application() {
 
     let code = r#"
 tempo: 0.5
-out: sine 440 # every_effect 2 (lpf 500 0.8)
+out $ sine 440 # every_effect 2 (lpf 500 0.8)
 "#;
 
     let audio = render_dsl(code, 8);
@@ -573,7 +573,7 @@ fn test_every_effect_different_intervals() {
     // Test every_effect with interval 3
     let code = r#"
 tempo: 0.5
-out: sine 880 # every_effect 3 (lpf 400 0.8)
+out $ sine 880 # every_effect 3 (lpf 400 0.8)
 "#;
 
     let audio = render_dsl(code, 9);
@@ -614,12 +614,12 @@ fn test_every_effect_level2_maintains_amplitude() {
     // Test that every_effect doesn't significantly change overall amplitude
     let code_normal = r#"
 tempo: 0.5
-out: sine 440
+out $ sine 440
 "#;
 
     let code_every_effect = r#"
 tempo: 0.5
-out: sine 440 # every_effect 2 (lpf 500 0.8)
+out $ sine 440 # every_effect 2 (lpf 500 0.8)
 "#;
 
     let audio_normal = render_dsl(code_normal, 8);
@@ -651,7 +651,7 @@ fn test_sometimes_effect_level1_probabilistic_application() {
 
     let code = r#"
 tempo: 0.5
-out: sine 880 # sometimes_effect (lpf 400 0.8)
+out $ sine 880 # sometimes_effect (lpf 400 0.8)
 "#;
 
     let audio = render_dsl(code, 100);
@@ -706,7 +706,7 @@ fn test_sometimes_effect_deterministic_per_cycle() {
     // Render the same code twice and compare
     let code = r#"
 tempo: 0.5
-out: sine 440 # sometimes_effect (lpf 300 0.8)
+out $ sine 440 # sometimes_effect (lpf 300 0.8)
 "#;
 
     let audio1 = render_dsl(code, 10);
@@ -740,7 +740,7 @@ fn test_whenmod_effect_level1_modulo_application() {
     // Test whenmod_effect 3 0 (lpf 500 0.8) - every 3rd cycle starting at 0
     let code = r#"
 tempo: 0.5
-out: sine 880 # whenmod_effect 3 0 (lpf 400 0.8)
+out $ sine 880 # whenmod_effect 3 0 (lpf 400 0.8)
 "#;
 
     let audio = render_dsl(code, 9);
@@ -781,7 +781,7 @@ fn test_whenmod_effect_with_offset() {
     // Test whenmod_effect 3 1 (lpf 500 0.8) - every 3rd cycle with offset 1
     let code = r#"
 tempo: 0.5
-out: sine 880 # whenmod_effect 3 1 (lpf 400 0.8)
+out $ sine 880 # whenmod_effect 3 1 (lpf 400 0.8)
 "#;
 
     let audio = render_dsl(code, 9);
@@ -820,7 +820,7 @@ fn test_whenmod_effect_different_modulos() {
     // Test whenmod_effect 4 0 (lpf 500 0.8) - every 4th cycle
     let code = r#"
 tempo: 0.5
-out: sine 880 # whenmod_effect 4 0 (lpf 400 0.8)
+out $ sine 880 # whenmod_effect 4 0 (lpf 400 0.8)
 "#;
 
     let audio = render_dsl(code, 12);
@@ -888,7 +888,7 @@ fn test_nested_effects() {
     // Test that effects can be nested/chained
     let code = r#"
 tempo: 0.5
-out: sine 440 # every_effect 2 (lpf 500 0.8) # lpf 2000 0.5
+out $ sine 440 # every_effect 2 (lpf 500 0.8) # lpf 2000 0.5
 "#;
 
     let audio = render_dsl(code, 4);

@@ -9,9 +9,9 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_schmidt_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 2
-~gate: ~input # schmidt 0.5 -0.5
-out: ~gate
+~input $ sine 2
+~gate $ ~input # schmidt 0.5 -0.5
+out $ ~gate
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -35,9 +35,9 @@ out: ~gate
 fn test_schmidt_creates_gate() {
     let dsl = r#"
 tempo: 1.0
-~sine: sine 2
-~gate: ~sine # schmidt 0.5 -0.5
-out: ~gate
+~sine $ sine 2
+~gate $ ~sine # schmidt 0.5 -0.5
+out $ ~gate
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -64,9 +64,9 @@ fn test_schmidt_hysteresis() {
     // With hysteresis, it should NOT trigger rapidly
     let dsl = r#"
 tempo: 1.0
-~noisy: sine 20 * 0.3
-~gate: ~noisy # schmidt 0.5 -0.5
-out: ~gate
+~noisy $ sine 20 * 0.3
+~gate $ ~noisy # schmidt 0.5 -0.5
+out $ ~gate
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -101,9 +101,9 @@ fn test_schmidt_high_threshold() {
     // Use a slow sine wave that goes from 0.0 to 1.0 over 1 second
     let dsl = r#"
 tempo: 1.0
-~sine: sine 0.5 * 0.5 + 0.5
-~gate: ~sine # schmidt 0.7 0.3
-out: ~gate
+~sine $ sine 0.5 * 0.5 + 0.5
+~gate $ ~sine # schmidt 0.7 0.3
+out $ ~gate
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -145,9 +145,9 @@ fn test_schmidt_low_threshold() {
     // sine(1 Hz) * 0.5 + 0.5 gives range [0.0, 1.0]
     let dsl = r#"
 tempo: 1.0
-~sine: sine 1 * 0.5 + 0.5
-~gate: ~sine # schmidt 0.7 0.3
-out: ~gate
+~sine $ sine 1 * 0.5 + 0.5
+~gate $ ~sine # schmidt 0.7 0.3
+out $ ~gate
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -189,9 +189,9 @@ out: ~gate
 fn test_schmidt_stability() {
     let dsl = r#"
 tempo: 1.0
-~noise: white_noise
-~gate: ~noise # schmidt 0.3 -0.3
-out: ~gate * 0.5
+~noise $ white_noise
+~gate $ ~noise # schmidt 0.3 -0.3
+out $ ~gate * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -214,10 +214,10 @@ out: ~gate * 0.5
 fn test_schmidt_gate_from_lfo() {
     let dsl = r#"
 tempo: 0.5
-~lfo: sine 4
-~gate: ~lfo # schmidt 0.3 -0.3
-~pulse: saw 220 * ~gate
-out: ~pulse * 0.3
+~lfo $ sine 4
+~gate $ ~lfo # schmidt 0.3 -0.3
+~pulse $ saw 220 * ~gate
+out $ ~pulse * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -241,11 +241,11 @@ out: ~pulse * 0.3
 fn test_schmidt_pattern_thresholds() {
     let dsl = r#"
 tempo: 0.5
-~input: sine 2
-~highs: "0.5 0.7"
-~lows: "-0.5 -0.7"
-~gate: ~input # schmidt ~highs ~lows
-out: ~gate
+~input $ sine 2
+~highs $ "0.5 0.7"
+~lows $ "-0.5 -0.7"
+~gate $ ~input # schmidt ~highs ~lows
+out $ ~gate
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -264,10 +264,10 @@ out: ~gate
 fn test_schmidt_envelope_gate() {
     let dsl = r#"
 tempo: 1.0
-~env: line 1.0 0.0
-~gate: ~env # schmidt 0.5 0.4
-~tone: sine 440 * ~gate
-out: ~tone * 0.3
+~env $ line 1.0 0.0
+~gate $ ~env # schmidt 0.5 0.4
+~tone $ sine 440 * ~gate
+out $ ~tone * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

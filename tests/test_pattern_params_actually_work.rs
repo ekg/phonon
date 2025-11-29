@@ -4,7 +4,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 #[test]
 fn test_pattern_freq_cycles_verified() {
     // SuperSaw with pattern freq over full cycle
-    let input = r#"out: supersaw("110 220", 0.5, 5) * 0.2"#;
+    let input = r#"out $ supersaw("110 220", 0.5, 5) * 0.2"#;
     let (_, statements) = parse_dsl(input).unwrap();
     let compiler = DslCompiler::new(44100.0);
     let mut graph = compiler.compile(statements);

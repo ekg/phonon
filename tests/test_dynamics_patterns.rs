@@ -24,7 +24,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 fn test_compressor_constant_parameters() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # compressor -12 4.0 0.01 0.1 1.0
+        out $ saw 110 # compressor -12 4.0 0.01 0.1 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -37,7 +37,7 @@ fn test_compressor_pattern_threshold() {
     // Compressor with pattern-modulated threshold
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # compressor (sine 0.5 * -20 + -10) 4.0 0.01 0.1 1.0
+        out $ saw 110 # compressor (sine 0.5 * -20 + -10) 4.0 0.01 0.1 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -50,7 +50,7 @@ fn test_compressor_pattern_ratio() {
     // Compressor with pattern-modulated ratio
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # compressor -12 (sine 1.0 * 4 + 4) 0.01 0.1 1.0
+        out $ saw 110 # compressor -12 (sine 1.0 * 4 + 4) 0.01 0.1 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -63,7 +63,7 @@ fn test_compressor_pattern_attack() {
     // Compressor with pattern-modulated attack
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # compressor -12 4.0 (sine 2.0 * 0.01 + 0.01) 0.1 1.0
+        out $ saw 110 # compressor -12 4.0 (sine 2.0 * 0.01 + 0.01) 0.1 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -76,7 +76,7 @@ fn test_compressor_pattern_release() {
     // Compressor with pattern-modulated release
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # compressor -12 4.0 0.01 (sine 1.0 * 0.1 + 0.1) 1.0
+        out $ saw 110 # compressor -12 4.0 0.01 (sine 1.0 * 0.1 + 0.1) 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -89,7 +89,7 @@ fn test_compressor_all_patterns() {
     // Compressor with all parameters as patterns
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # compressor (sine 0.5 * -20 + -10) (sine 1.0 * 4 + 4) (sine 2.0 * 0.01 + 0.01) (sine 1.0 * 0.1 + 0.1) 1.0
+        out $ saw 110 # compressor (sine 0.5 * -20 + -10) (sine 1.0 * 4 + 4) (sine 2.0 * 0.01 + 0.01) (sine 1.0 * 0.1 + 0.1) 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -103,7 +103,7 @@ fn test_compressor_all_patterns() {
 fn test_bitcrush_constant_bits() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bitcrush 8 44100
+        out $ saw 110 # bitcrush 8 44100
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -116,7 +116,7 @@ fn test_bitcrush_pattern_bits() {
     // Bitcrush with pattern-modulated bit depth
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bitcrush (sine 0.5 * 8 + 8) 44100
+        out $ saw 110 # bitcrush (sine 0.5 * 8 + 8) 44100
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -128,7 +128,7 @@ fn test_bitcrush_pattern_bits() {
 fn test_bitcrush_constant_sample_rate() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bitcrush 8 22050
+        out $ saw 110 # bitcrush 8 22050
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -141,7 +141,7 @@ fn test_bitcrush_pattern_sample_rate() {
     // Bitcrush with pattern-modulated sample rate
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bitcrush 8 (sine 1.0 * 20000 + 22050)
+        out $ saw 110 # bitcrush 8 (sine 1.0 * 20000 + 22050)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -154,8 +154,8 @@ fn test_bitcrush_both_patterns() {
     // Bitcrush with both parameters as patterns
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bitcrush (sine 0.5 * 8 + 8) 44100   -- FIXED: Added sample_rate
-        o1: saw 110 # bitcrush (sine 0.5 * 8 + 8) (sine 1.0 * 20000 + 22050)
+        out $ saw 110 # bitcrush (sine 0.5 * 8 + 8) 44100   -- FIXED: Added sample_rate
+        out $ saw 110 # bitcrush (sine 0.5 * 8 + 8) (sine 1.0 * 20000 + 22050)
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -170,12 +170,12 @@ fn test_compressor_pattern_differs_from_constant() {
     // Verify pattern modulation produces different result than constant
     let constant_code = r#"
         tempo: 0.5
-        o1: saw 110 # compressor -12 4.0 0.01 0.1 1.0
+        out $ saw 110 # compressor -12 4.0 0.01 0.1 1.0
     "#;
 
     let pattern_code = r#"
         tempo: 0.5
-        o1: saw 110 # compressor (sine 0.5 * -20 + -10) 4.0 0.01 0.1 1.0
+        out $ saw 110 # compressor (sine 0.5 * -20 + -10) 4.0 0.01 0.1 1.0
     "#;
 
     let constant_buffer = render_dsl(constant_code, 2.0);
@@ -204,12 +204,12 @@ fn test_bitcrush_pattern_differs_from_constant() {
     // Verify pattern modulation produces different result than constant
     let constant_code = r#"
         tempo: 0.5
-        o1: saw 110 # bitcrush 8 44100
+        out $ saw 110 # bitcrush 8 44100
     "#;
 
     let pattern_code = r#"
         tempo: 0.5
-        o1: saw 110 # bitcrush (sine 0.5 * 8 + 8) 44100
+        out $ saw 110 # bitcrush (sine 0.5 * 8 + 8) 44100
     "#;
 
     let constant_buffer = render_dsl(constant_code, 2.0);

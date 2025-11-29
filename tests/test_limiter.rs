@@ -9,9 +9,9 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_limiter_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~hot_signal: sine 440 * 2.0
-~limited: limiter ~hot_signal 0.8
-out: ~limited * 0.5
+~hot_signal $ sine 440 * 2.0
+~limited $ limiter ~hot_signal 0.8
+out $ ~limited * 0.5
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -36,9 +36,9 @@ fn test_limiter_brick_wall() {
     let dsl = r#"
 tempo: 1.0
 -- Sine wave that would exceed threshold (amplitude 2.0)
-~hot: sine 440 * 2.0
-~limited: limiter ~hot 0.5
-out: ~limited
+~hot $ sine 440 * 2.0
+~limited $ limiter ~hot 0.5
+out $ ~limited
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -89,9 +89,9 @@ fn test_limiter_below_threshold() {
     let dsl = r#"
 tempo: 1.0
 -- Quiet sine wave (amplitude 0.3)
-~quiet: sine 440 * 0.3
-~limited: limiter ~quiet 0.8
-out: ~limited
+~quiet $ sine 440 * 0.3
+~limited $ limiter ~quiet 0.8
+out $ ~limited
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -101,8 +101,8 @@ out: ~limited
     // Compare with unlimited version
     let dsl_unlimited = r#"
 tempo: 1.0
-~quiet: sine 440 * 0.3
-out: ~quiet
+~quiet $ sine 440 * 0.3
+out $ ~quiet
 "#;
     let (_, statements) = parse_program(dsl_unlimited).unwrap();
     let mut graph_unlimited = compile_program(statements, SAMPLE_RATE, None).unwrap();
@@ -129,9 +129,9 @@ out: ~quiet
 fn test_limiter_bipolar() {
     let dsl = r#"
 tempo: 1.0
-~hot: sine 440 * 2.0
-~limited: limiter ~hot 0.6
-out: ~limited
+~hot $ sine 440 * 2.0
+~limited $ limiter ~hot 0.6
+out $ ~limited
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -164,9 +164,9 @@ fn test_limiter_musical_example() {
     let dsl = r#"
 tempo: 0.5
 -- Prevent distortion from hot signal
-~synth: saw 220 * 1.5
-~safe: limiter ~synth 0.7
-out: ~safe * 0.5
+~synth $ saw 220 * 1.5
+~safe $ limiter ~synth 0.7
+out $ ~safe * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -212,10 +212,10 @@ out: ~safe * 0.5
 fn test_limiter_pattern_threshold() {
     let dsl = r#"
 tempo: 0.5
-~threshold_pattern: "0.3 0.5 0.7 0.9"
-~hot: sine 440 * 2.0
-~limited: limiter ~hot ~threshold_pattern
-out: ~limited * 0.5
+~threshold_pattern $ "0.3 0.5 0.7 0.9"
+~hot $ sine 440 * 2.0
+~limited $ limiter ~hot ~threshold_pattern
+out $ ~limited * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -234,12 +234,12 @@ fn test_limiter_prevents_clipping() {
     let dsl = r#"
 tempo: 1.0
 -- Multiple oscillators that would clip when summed
-~osc1: sine 220 * 0.8
-~osc2: sine 330 * 0.8
-~osc3: sine 440 * 0.8
-~mix: ~osc1 + ~osc2 + ~osc3
-~safe: limiter ~mix 1.0
-out: ~safe
+~osc1 $ sine 220 * 0.8
+~osc2 $ sine 330 * 0.8
+~osc3 $ sine 440 * 0.8
+~mix $ ~osc1 + ~osc2 + ~osc3
+~safe $ limiter ~mix 1.0
+out $ ~safe
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -263,11 +263,11 @@ out: ~safe
 fn test_limiter_with_envelope() {
     let dsl = r#"
 tempo: 0.5
-~env: ad 0.01 0.3
-~synth: saw 440 * 2.5
-~hot: ~synth * ~env
-~master: limiter ~hot 0.9
-out: ~master * 0.5
+~env $ ad 0.01 0.3
+~synth $ saw 440 * 2.5
+~hot $ ~synth * ~env
+~master $ limiter ~hot 0.9
+out $ ~master * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

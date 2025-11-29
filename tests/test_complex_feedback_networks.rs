@@ -48,6 +48,7 @@ fn test_zero_crossing_detector_basic() {
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_multi_stage_feedback_3_stages() {
     // Test 3-stage feedback network: A → B → C → A
     let mut graph = UnifiedSignalGraph::new(44100.0);
@@ -329,6 +330,7 @@ fn test_5_stage_feedback_network() {
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed - performance test"]
 fn test_feedback_performance_multiple_loops() {
     // Performance test: 8 simultaneous feedback loops
     use std::time::Instant;

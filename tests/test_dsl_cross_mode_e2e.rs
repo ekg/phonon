@@ -14,10 +14,10 @@ use std::process::Command;
 /// Reference DSL code that should work in ALL modes
 const REFERENCE_DSL: &str = r#"-- Phonon Reference Test
 tempo: 0.5
-~tone: sine 440 * 0.1
-~lfo: sine 0.5 * 0.5 + 0.5
-~bass: saw 55 # lpf (~lfo * 2000 + 500) 0.8
-out: ~tone + ~bass * 0.3
+~tone $ sine 440 * 0.1
+~lfo $ sine 0.5 * 0.5 + 0.5
+~bass $ saw 55 # lpf (~lfo * 2000 + 500) 0.8
+out $ ~tone + ~bass * 0.3
 "#;
 
 /// Test that reference DSL renders successfully via phonon render command
@@ -178,26 +178,26 @@ fn test_dsl_simple_variations() {
         (
             "Simple sine",
             r#"tempo: 0.5
-out: sine 440 * 0.2
+out $ sine 440 * 0.2
 "#,
         ),
         (
             "Saw wave",
             r#"tempo: 0.5
-out: saw 110 * 0.3
+out $ saw 110 * 0.3
 "#,
         ),
         (
             "With bus",
             r#"tempo: 0.5
-~osc: sine 440
-out: ~osc * 0.2
+~osc $ sine 440
+out $ ~osc * 0.2
 "#,
         ),
         (
             "Simple filter",
             r#"tempo: 0.5
-out: saw 110 # lpf 1000 0.8
+out $ saw 110 # lpf 1000 0.8
 "#,
         ),
     ];
@@ -237,7 +237,7 @@ out: saw 110 # lpf 1000 0.8
 fn test_dsl_auto_routing() {
     // This should auto-route ~d1 to master output
     let dsl = r#"tempo: 0.5
-~d1: sine 440 * 0.2
+~d1 $ sine 440 * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).expect("Should parse");
@@ -262,9 +262,9 @@ fn test_dsl_auto_routing() {
 #[test]
 fn test_dsl_multi_bus() {
     let dsl = r#"tempo: 0.5
-~bass: saw 55 * 0.3
-~lead: sine 440 * 0.2
-out: ~bass + ~lead
+~bass $ saw 55 * 0.3
+~lead $ sine 440 * 0.2
+out $ ~bass + ~lead
 "#;
 
     let (_, statements) = parse_program(dsl).expect("Should parse");

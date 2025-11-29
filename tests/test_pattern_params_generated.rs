@@ -29,7 +29,7 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 fn test_hpf_pattern_cutoff() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # hpf (sine 0.5 * 1000 + 2000) 0.8
+        out $ saw 110 # hpf (sine 0.5 * 1000 + 2000) 0.8
     "#;
     let buffer = render_dsl(code, 2.0);
     assert!(calculate_rms(&buffer) > 0.01, "HPF with pattern cutoff should produce audio");
@@ -39,7 +39,7 @@ fn test_hpf_pattern_cutoff() {
 fn test_bpf_pattern_center() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # bpf (sine 0.5 * 1000 + 1500) 2.0
+        out $ saw 110 # bpf (sine 0.5 * 1000 + 1500) 2.0
     "#;
     let buffer = render_dsl(code, 2.0);
     assert!(calculate_rms(&buffer) > 0.01, "BPF with pattern center should produce audio");
@@ -49,7 +49,7 @@ fn test_bpf_pattern_center() {
 fn test_notch_pattern_center() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # notch (sine 1.0 * 500 + 1000) 2.0
+        out $ saw 110 # notch (sine 1.0 * 500 + 1000) 2.0
     "#;
     let buffer = render_dsl(code, 2.0);
     assert!(calculate_rms(&buffer) > 0.01, "Notch with pattern center should produce audio");
@@ -63,7 +63,7 @@ fn test_notch_pattern_center() {
 fn test_saw_pattern_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: saw (sine 2.0 * 100.0 + 220.0)
+        out $ saw (sine 2.0 * 100.0 + 220.0)
     "#;
     let buffer = render_dsl(code, 2.0);
     assert!(calculate_rms(&buffer) > 0.05, "Saw with pattern frequency should produce audio");
@@ -73,7 +73,7 @@ fn test_saw_pattern_frequency() {
 fn test_square_pattern_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: square (sine 2.0 * 100.0 + 220.0)
+        out $ square (sine 2.0 * 100.0 + 220.0)
     "#;
     let buffer = render_dsl(code, 2.0);
     assert!(calculate_rms(&buffer) > 0.05, "Square with pattern frequency should produce audio");
@@ -83,7 +83,7 @@ fn test_square_pattern_frequency() {
 fn test_triangle_pattern_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: triangle (sine 2.0 * 100.0 + 220.0)
+        out $ triangle (sine 2.0 * 100.0 + 220.0)
     "#;
     let buffer = render_dsl(code, 2.0);
     assert!(calculate_rms(&buffer) > 0.05, "Triangle with pattern frequency should produce audio");
@@ -97,7 +97,7 @@ fn test_triangle_pattern_frequency() {
 fn test_delay_pattern_time() {
     let code = r#"
         tempo: 0.5
-        o1: sine 440 # delay (sine 1.0 * 0.2 + 0.1) 0.3
+        out $ sine 440 # delay (sine 1.0 * 0.2 + 0.1) 0.3
     "#;
     let buffer = render_dsl(code, 2.0);
     assert!(calculate_rms(&buffer) > 0.01, "Delay with pattern time should produce audio");
@@ -107,7 +107,7 @@ fn test_delay_pattern_time() {
 fn test_distortion_pattern_drive() {
     let code = r#"
         tempo: 0.5
-        o1: sine 440 # dist (sine 2.0 * 2.0 + 1.0)
+        out $ sine 440 # dist (sine 2.0 * 2.0 + 1.0)
     "#;
     let buffer = render_dsl(code, 2.0);
     assert!(calculate_rms(&buffer) > 0.01, "Distortion with pattern drive should produce audio");
@@ -117,7 +117,7 @@ fn test_distortion_pattern_drive() {
 fn test_chorus_pattern_rate() {
     let code = r#"
         tempo: 0.5
-        o1: sine 440 # chorus (sine 0.5 * 2.0 + 2.0) 0.003 0.5
+        out $ sine 440 # chorus (sine 0.5 * 2.0 + 2.0) 0.003 0.5
     "#;
     let buffer = render_dsl(code, 2.0);
     assert!(calculate_rms(&buffer) > 0.01, "Chorus with pattern rate should produce audio");
@@ -127,7 +127,7 @@ fn test_chorus_pattern_rate() {
 fn test_bitcrush_pattern_bits() {
     let code = r#"
         tempo: 0.5
-        o1: sine 440 # bitcrush (sine 1.0 * 4.0 + 8.0) 44100
+        out $ sine 440 # bitcrush (sine 1.0 * 4.0 + 8.0) 44100
     "#;
     let buffer = render_dsl(code, 2.0);
     assert!(calculate_rms(&buffer) > 0.01, "Bitcrush with pattern bits should produce audio");
@@ -141,9 +141,9 @@ fn test_bitcrush_pattern_bits() {
 fn test_multiple_pattern_modulation() {
     let code = r#"
         tempo: 0.5
-        ~lfo1: sine 0.5 * 1500 + 500
-        ~lfo2: sine 2.0 * 3.0 + 3.0
-        o1: saw 110 # lpf ~lfo1 ~lfo2
+        ~lfout $ sine 0.5 * 1500 + 500
+        ~lfo2 $ sine 2.0 * 3.0 + 3.0
+        out $ saw 110 # lpf ~lfo1 ~lfo2
     "#;
     let buffer = render_dsl(code, 2.0);
     assert!(calculate_rms(&buffer) > 0.01, "Multiple pattern modulation should work");
@@ -153,9 +153,9 @@ fn test_multiple_pattern_modulation() {
 fn test_nested_arithmetic_pattern() {
     let code = r#"
         tempo: 0.5
-        ~lfo1: sine 0.25
-        ~lfo2: sine 0.5
-        o1: sine ((~lfo1 * 100.0 + ~lfo2 * 50.0) + 440.0)
+        ~lfout $ sine 0.25
+        ~lfo2 $ sine 0.5
+        out $ sine ((~lfo1 * 100.0 + ~lfo2 * 50.0) + 440.0)
     "#;
     let buffer = render_dsl(code, 2.0);
     assert!(calculate_rms(&buffer) > 0.05, "Nested arithmetic patterns should work");
@@ -165,9 +165,9 @@ fn test_nested_arithmetic_pattern() {
 fn test_pattern_bus_reference_chain() {
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 0.5
-        ~scaled: ~lfo * 1500 + 500
-        o1: saw 110 # lpf ~scaled 0.8
+        ~lfo $ sine 0.5
+        ~scaled $ ~lfo * 1500 + 500
+        out $ saw 110 # lpf ~scaled 0.8
     "#;
     let buffer = render_dsl(code, 2.0);
     assert!(calculate_rms(&buffer) > 0.01, "Pattern bus reference chain should work");

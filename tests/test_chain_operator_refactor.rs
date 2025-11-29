@@ -28,7 +28,7 @@ fn test_chain_lpf_filter() {
     test_compilation(
         r#"
 tempo: 0.5
-out: sine 440 # lpf 1000 0.8
+out $ sine 440 # lpf 1000 0.8
 "#,
         "Chain LPF filter",
     );
@@ -36,12 +36,14 @@ out: sine 440 # lpf 1000 0.8
 
 #[test]
 fn test_standalone_lpf_filter() {
-    // Test: Low-pass filter in standalone form
+    // Test: Low-pass filter applied to bus via chain syntax
+    // Note: Bus references cannot be used as function parameters directly,
+    // so we use the chain syntax instead of `lpf ~osc 1000 0.8`
     test_compilation(
         r#"
 tempo: 0.5
-~osc: sine 440
-out: lpf ~osc 1000 0.8
+~osc $ sine 440
+out $ ~osc # lpf 1000 0.8
 "#,
         "Standalone LPF filter",
     );
@@ -53,7 +55,7 @@ fn test_chain_hpf_filter() {
     test_compilation(
         r#"
 tempo: 0.5
-out: saw 110 # hpf 500 0.5
+out $ saw 110 # hpf 500 0.5
 "#,
         "Chain HPF filter",
     );
@@ -65,7 +67,7 @@ fn test_chain_bpf_filter() {
     test_compilation(
         r#"
 tempo: 0.5
-out: saw 110 # bpf 1000 2.0
+out $ saw 110 # bpf 1000 2.0
 "#,
         "Chain BPF filter",
     );
@@ -78,7 +80,7 @@ fn test_chain_reverb_with_all_params() {
     test_compilation(
         r#"
 tempo: 0.5
-out: sine 440 # reverb 0.8 0.5 0.3
+out $ sine 440 # reverb 0.8 0.5 0.3
 "#,
         "Chain Reverb with all params",
     );
@@ -86,12 +88,14 @@ out: sine 440 # reverb 0.8 0.5 0.3
 
 #[test]
 fn test_standalone_reverb() {
-    // Test: Reverb in standalone form
+    // Test: Reverb applied to bus via chain syntax
+    // Note: Bus references cannot be used as function parameters directly,
+    // so we use the chain syntax instead of `reverb ~osc 0.8 0.5 0.3`
     test_compilation(
         r#"
 tempo: 0.5
-~osc: sine 440
-out: reverb ~osc 0.8 0.5 0.3
+~osc $ sine 440
+out $ ~osc # reverb 0.8 0.5 0.3
 "#,
         "Standalone Reverb",
     );
@@ -103,7 +107,7 @@ fn test_chain_distortion() {
     test_compilation(
         r#"
 tempo: 0.5
-out: sine 110 # distortion 2.0 0.5
+out $ sine 110 # distortion 2.0 0.5
 "#,
         "Chain Distortion",
     );
@@ -115,7 +119,7 @@ fn test_chain_delay() {
     test_compilation(
         r#"
 tempo: 0.5
-out: sine 440 # delay 0.25 0.5 0.4
+out $ sine 440 # delay 0.25 0.5 0.4
 "#,
         "Chain Delay",
     );
@@ -127,7 +131,7 @@ fn test_chain_chorus() {
     test_compilation(
         r#"
 tempo: 0.5
-out: sine 440 # chorus 0.5 2.0 0.3
+out $ sine 440 # chorus 0.5 2.0 0.3
 "#,
         "Chain Chorus",
     );
@@ -139,7 +143,7 @@ fn test_chain_bitcrush() {
     test_compilation(
         r#"
 tempo: 0.5
-out: sine 440 # bitcrush 8 8000
+out $ sine 440 # bitcrush 8 8000
 "#,
         "Chain Bitcrush",
     );
@@ -151,7 +155,7 @@ fn test_chain_envelope() {
     test_compilation(
         r#"
 tempo: 0.5
-out: sine 440 # env 0.01 0.1 0.7 0.2
+out $ sine 440 # env 0.01 0.1 0.7 0.2
 "#,
         "Chain Envelope",
     );
@@ -164,7 +168,7 @@ fn test_multiple_chains() {
     test_compilation(
         r#"
 tempo: 0.5
-out: sine 440 # lpf 2000 0.8 # reverb 0.5 0.3 0.2
+out $ sine 440 # lpf 2000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Multiple chains (a # b # c)",
     );
@@ -176,7 +180,7 @@ fn test_chain_with_sample_playback() {
     test_compilation(
         r#"
 tempo: 0.5
-out: s "bd sn" # lpf 1000 0.8 # reverb 0.5 0.3 0.2
+out $ s "bd sn" # lpf 1000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Chain with sample playback",
     );
@@ -188,7 +192,7 @@ fn test_chain_with_pattern_controlled_oscillator() {
     test_compilation(
         r#"
 tempo: 0.5
-out: sine "440 550 660" # lpf 2000 0.8
+out $ sine "440 550 660" # lpf 2000 0.8
 "#,
         "Chain with pattern-controlled oscillator",
     );
@@ -200,10 +204,10 @@ fn test_complex_chain_with_bus() {
     test_compilation(
         r#"
 tempo: 0.5
-~bass: saw 55
-~filtered: ~bass # lpf 800 0.7
-~wet: ~filtered # reverb 0.6 0.4 0.3
-out: ~wet * 0.8
+~bass $ saw 55
+~filtered $ ~bass # lpf 800 0.7
+~wet $ ~filtered # reverb 0.6 0.4 0.3
+out $ ~wet * 0.8
 "#,
         "Complex chain with bus references",
     );

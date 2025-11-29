@@ -37,7 +37,7 @@ fn calculate_peak(buffer: &[f32]) -> f32 {
 #[ignore = "Hangs indefinitely - fundsp chorus issue"]
 fn test_fchorus_level3_basic() {
     // Test basic chorus application
-    let code = "out: saw 220 # fchorus 0.015 0.005 0.3";
+    let code = "out $ saw 220 # fchorus 0.015 0.005 0.3";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -57,7 +57,7 @@ fn test_fchorus_level3_separation_sweep() {
     let separations = vec![0.005, 0.010, 0.015, 0.020, 0.030];
 
     for sep in &separations {
-        let code = format!("out: saw 220 # fchorus {} 0.005 0.3", sep);
+        let code = format!("out $ saw 220 # fchorus {} 0.005 0.3", sep);
         let audio = render_dsl(&code, 1.0);
         let rms = calculate_rms(&audio);
 
@@ -73,7 +73,7 @@ fn test_fchorus_level3_variation_sweep() {
     let variations = vec![0.001, 0.003, 0.005, 0.007, 0.010];
 
     for var in &variations {
-        let code = format!("out: saw 220 # fchorus 0.015 {} 0.3", var);
+        let code = format!("out $ saw 220 # fchorus 0.015 {} 0.3", var);
         let audio = render_dsl(&code, 1.0);
         let rms = calculate_rms(&audio);
 
@@ -89,7 +89,7 @@ fn test_fchorus_level3_mod_frequency_sweep() {
     let mod_freqs = vec![0.1, 0.3, 0.5, 1.0, 2.0];
 
     for freq in &mod_freqs {
-        let code = format!("out: saw 220 # fchorus 0.015 0.005 {}", freq);
+        let code = format!("out $ saw 220 # fchorus 0.015 0.005 {}", freq);
         let audio = render_dsl(&code, 2.0); // 2 seconds to hear LFO
         let rms = calculate_rms(&audio);
 
@@ -104,9 +104,9 @@ fn test_fchorus_level3_pattern_modulation() {
     // Test Phonon's killer feature: pattern modulation at audio rate!
     let code = "
         tempo: 0.5
-        ~lfo: sine 0.5
-        ~mod_freq: ~lfo * 0.8 + 0.4
-        out: saw 110 # fchorus 0.015 0.005 ~mod_freq
+        ~lfo $ sine 0.5
+        ~mod_freq $ ~lfo * 0.8 + 0.4
+        out $ saw 110 # fchorus 0.015 0.005 ~mod_freq
     ";
     let audio = render_dsl(code, 2.0);
 
@@ -122,8 +122,8 @@ fn test_fchorus_level3_pattern_modulation() {
 #[ignore = "Hangs indefinitely - fundsp chorus issue"]
 fn test_fchorus_level3_vs_dry() {
     // Compare chorus to dry signal
-    let code_chorus = "out: saw 220 # fchorus 0.020 0.007 0.4";
-    let code_dry = "out: saw 220";
+    let code_chorus = "out $ saw 220 # fchorus 0.020 0.007 0.4";
+    let code_dry = "out $ saw 220";
 
     let audio_chorus = render_dsl(code_chorus, 2.0);
     let audio_dry = render_dsl(code_dry, 2.0);
@@ -142,7 +142,7 @@ fn test_fchorus_level3_vs_dry() {
 #[ignore = "Hangs indefinitely - fundsp chorus issue"]
 fn test_fchorus_level3_on_drums() {
     // Test chorus on percussive sample
-    let code = "out: s \"bd sn\" # fchorus 0.012 0.004 0.25";
+    let code = "out $ s \"bd sn\" # fchorus 0.012 0.004 0.25";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -156,7 +156,7 @@ fn test_fchorus_level3_on_drums() {
 #[ignore = "Hangs indefinitely - fundsp chorus issue"]
 fn test_fchorus_level3_minimal_params() {
     // Test with minimal chorus effect (subtle)
-    let code = "out: saw 220 # fchorus 0.005 0.001 0.2";
+    let code = "out $ saw 220 # fchorus 0.005 0.001 0.2";
     let audio = render_dsl(code, 1.0);
 
     let rms = calculate_rms(&audio);
@@ -170,7 +170,7 @@ fn test_fchorus_level3_minimal_params() {
 #[ignore = "Hangs indefinitely - fundsp chorus issue"]
 fn test_fchorus_level3_maximal_params() {
     // Test with maximal chorus effect (obvious)
-    let code = "out: saw 220 # fchorus 0.030 0.010 1.0";
+    let code = "out $ saw 220 # fchorus 0.030 0.010 1.0";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -184,7 +184,7 @@ fn test_fchorus_level3_maximal_params() {
 #[ignore = "Hangs indefinitely - fundsp chorus issue"]
 fn test_fchorus_level3_on_bass() {
     // Test chorus on bass frequency
-    let code = "out: saw 55 # fchorus 0.020 0.006 0.3";
+    let code = "out $ saw 55 # fchorus 0.020 0.006 0.3";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -198,7 +198,7 @@ fn test_fchorus_level3_on_bass() {
 #[ignore = "Hangs indefinitely - fundsp chorus issue"]
 fn test_fchorus_level3_slow_lfo() {
     // Test very slow LFO for subtle movement
-    let code = "out: saw 220 # fchorus 0.015 0.005 0.05";
+    let code = "out $ saw 220 # fchorus 0.015 0.005 0.05";
     let audio = render_dsl(code, 4.0); // 4 seconds to hear slow LFO
 
     let rms = calculate_rms(&audio);

@@ -9,7 +9,7 @@ use phonon::compositional_parser::parse_program;
 fn test_envelope_basic() {
     let code = r#"
 tempo: 0.5
-out: sine 440 # env 0.01 0.1 0.7 0.2
+out $ sine 440 # env 0.01 0.1 0.7 0.2
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -36,7 +36,7 @@ fn test_envelope_all_waveforms() {
         let code = format!(
             r#"
 tempo: 0.5
-out: {} 220 # env 0.01 0.1 0.7 0.2
+out $ {} 220 # env 0.01 0.1 0.7 0.2
 "#,
             waveform
         );
@@ -62,7 +62,7 @@ fn test_envelope_short_attack() {
     // Test with very short attack (plucky sound)
     let code = r#"
 tempo: 0.5
-out: sine 440 # env 0.001 0.05 0.0 0.1
+out $ sine 440 # env 0.001 0.05 0.0 0.1
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -89,7 +89,7 @@ fn test_envelope_long_attack() {
     // Test with slow attack (pad sound)
     let code = r#"
 tempo: 0.5
-out: saw 110 # env 0.5 0.2 0.8 0.3
+out $ saw 110 # env 0.5 0.2 0.8 0.3
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -116,7 +116,7 @@ fn test_envelope_zero_sustain() {
     // Percussive envelope with zero sustain (like a kick or pluck)
     let code = r#"
 tempo: 0.5
-out: sine 440 # env 0.001 0.1 0.0 0.05
+out $ sine 440 # env 0.001 0.1 0.0 0.05
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -144,7 +144,7 @@ fn test_envelope_full_sustain() {
     // Organ-like envelope with full sustain
     let code = r#"
 tempo: 0.5
-out: square 220 # env 0.01 0.05 1.0 0.1
+out $ square 220 # env 0.01 0.05 1.0 0.1
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -167,8 +167,8 @@ out: square 220 # env 0.01 0.05 1.0 0.1
 fn test_envelope_in_bus() {
     let code = r#"
 tempo: 0.5
-~shaped: sine 440 # env 0.01 0.1 0.7 0.2
-out: ~shaped * 0.5
+~shaped $ sine 440 # env 0.01 0.1 0.7 0.2
+out $ ~shaped * 0.5
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -186,7 +186,7 @@ fn test_envelope_then_filter() {
     // Envelope -> Filter chain
     let code = r#"
 tempo: 0.5
-out: saw 110 # env 0.01 0.2 0.6 0.3 # lpf 2000 0.8
+out $ saw 110 # env 0.01 0.2 0.6 0.3 # lpf 2000 0.8
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -204,8 +204,8 @@ fn test_filter_then_envelope() {
     // Filter -> Envelope chain (different order)
     let code = r#"
 tempo: 0.5
-~filtered: saw 110 # lpf 2000 0.8
-out: ~filtered # env 0.01 0.2 0.6 0.3
+~filtered $ saw 110 # lpf 2000 0.8
+out $ ~filtered # env 0.01 0.2 0.6 0.3
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -223,7 +223,7 @@ fn test_envelope_with_effects() {
     // Complete effects chain with envelope
     let code = r#"
 tempo: 0.5
-out: sine 440 # env 0.01 0.1 0.7 0.2 # distortion 2.0 0.3 # reverb 0.5 0.5 0.3
+out $ sine 440 # env 0.01 0.1 0.7 0.2 # distortion 2.0 0.3 # reverb 0.5 0.5 0.3
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -243,8 +243,8 @@ fn test_pluck_sound() {
     // Guitar/pluck-like envelope
     let code = r#"
 tempo: 0.5
-~pluck: sine 220 # env 0.001 0.3 0.0 0.1
-out: ~pluck * 0.6
+~pluck $ sine 220 # env 0.001 0.3 0.0 0.1
+out $ ~pluck * 0.6
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -262,8 +262,8 @@ fn test_pad_sound() {
     // Pad/string-like envelope
     let code = r#"
 tempo: 0.5
-~pad: saw 110 # env 0.5 0.3 0.8 0.4
-out: ~pad * 0.3
+~pad $ saw 110 # env 0.5 0.3 0.8 0.4
+out $ ~pad * 0.3
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -281,8 +281,8 @@ fn test_bass_sound() {
     // Bass synth with envelope
     let code = r#"
 tempo: 0.5
-~bass: saw 55 # env 0.001 0.2 0.3 0.1 # lpf 800 1.2
-out: ~bass * 0.5
+~bass $ saw 55 # env 0.001 0.2 0.3 0.1 # lpf 800 1.2
+out $ ~bass * 0.5
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -300,9 +300,9 @@ fn test_mixed_enveloped_oscillators() {
     // Multiple oscillators with different envelopes
     let code = r#"
 tempo: 0.5
-~lead: sine 880 # env 0.001 0.1 0.0 0.05
-~pad: saw 220 # env 0.3 0.2 0.7 0.4
-out: ~lead * 0.4 + ~pad * 0.3
+~lead $ sine 880 # env 0.001 0.1 0.0 0.05
+~pad $ saw 220 # env 0.3 0.2 0.7 0.4
+out $ ~lead * 0.4 + ~pad * 0.3
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -323,8 +323,8 @@ fn test_noise_with_envelope() {
     // Noise with short envelope (hi-hat style)
     let code = r#"
 tempo: 0.5
-~hh: noise # env 0.001 0.05 0.0 0.02 # hpf 8000 2.0
-out: ~hh * 0.4
+~hh $ noise # env 0.001 0.05 0.0 0.02 # hpf 8000 2.0
+out $ ~hh * 0.4
 "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");

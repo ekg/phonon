@@ -107,12 +107,12 @@ fn test_palindrome_level1_forward_backward_overlap() {
 fn test_palindrome_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let palindrome_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ palindrome
+out $ s "bd sn hh cp" $ palindrome
 "#;
 
     let cycles = 8;
@@ -147,7 +147,7 @@ fn test_palindrome_level2_timing_symmetry() {
     // Verify that palindrome has temporal symmetry (forward matches backward timing)
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ palindrome
+out $ s "bd sn" $ palindrome
 "#;
 
     let cycles = 2; // One complete palindrome cycle
@@ -190,7 +190,7 @@ out: s "bd sn" $ palindrome
 fn test_palindrome_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ palindrome
+out $ s "bd sn hh cp" $ palindrome
 "#;
 
     let audio = render_dsl(code, 8);
@@ -228,12 +228,12 @@ fn test_palindrome_level3_compare_to_base() {
     // palindrome should have similar energy to base pattern (stacked, not doubled)
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let palindrome_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ palindrome
+out $ s "bd sn hh cp" $ palindrome
 "#;
 
     let base_audio = render_dsl(base_code, 8);
@@ -293,7 +293,7 @@ fn test_palindrome_with_long_pattern() {
     // Test palindrome with longer pattern
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp lt mt ht cp" $ palindrome
+out $ s "bd sn hh cp lt mt ht cp" $ palindrome
 "#;
 
     let audio = render_dsl(code, 8);

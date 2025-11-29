@@ -12,7 +12,7 @@ use phonon::compositional_compiler::compile_program;
 fn test_n_modifier_compiles() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn" # n 2
+out $ s "bd sn" # n 2
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -27,7 +27,7 @@ out: s "bd sn" # n 2
 fn test_gain_modifier_compiles() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn" # gain 0.5
+out $ s "bd sn" # gain 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -42,7 +42,7 @@ out: s "bd sn" # gain 0.5
 fn test_pan_modifier_compiles() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn" # pan 0.5
+out $ s "bd sn" # pan 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -57,7 +57,7 @@ out: s "bd sn" # pan 0.5
 fn test_speed_modifier_compiles() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn" # speed 2.0
+out $ s "bd sn" # speed 2.0
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -72,7 +72,7 @@ out: s "bd sn" # speed 2.0
 fn test_attack_modifier_compiles() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn" # attack 0.01
+out $ s "bd sn" # attack 0.01
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -87,7 +87,7 @@ out: s "bd sn" # attack 0.01
 fn test_release_modifier_compiles() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn" # release 0.5
+out $ s "bd sn" # release 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -102,7 +102,7 @@ out: s "bd sn" # release 0.5
 fn test_ar_modifier_compiles() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn" # ar 0.01 0.5
+out $ s "bd sn" # ar 0.01 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -119,7 +119,7 @@ out: s "bd sn" # ar 0.01 0.5
 fn test_chained_modifiers_compile() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn" # gain 0.8 # pan 0.5
+out $ s "bd sn" # gain 0.8 # pan 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -134,7 +134,7 @@ out: s "bd sn" # gain 0.8 # pan 0.5
 fn test_multiple_chained_modifiers() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn" # gain 0.8 # pan 0.5 # speed 1.5 # attack 0.01
+out $ s "bd sn" # gain 0.8 # pan 0.5 # speed 1.5 # attack 0.01
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -149,7 +149,7 @@ out: s "bd sn" # gain 0.8 # pan 0.5 # speed 1.5 # attack 0.01
 fn test_all_modifiers_chained() {
     let code = r#"
 tempo: 0.5
-out: s "bd" # gain 0.8 # pan 0.5 # speed 1.5 # n 2 # attack 0.01 # release 0.3
+out $ s "bd" # gain 0.8 # pan 0.5 # speed 1.5 # n 2 # attack 0.01 # release 0.3
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -166,7 +166,7 @@ out: s "bd" # gain 0.8 # pan 0.5 # speed 1.5 # n 2 # attack 0.01 # release 0.3
 fn test_pattern_controlled_gain() {
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # gain "0.5 0.8 1.0 0.6"
+out $ s "bd*4" # gain "0.5 0.8 1.0 0.6"
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -181,7 +181,7 @@ out: s "bd*4" # gain "0.5 0.8 1.0 0.6"
 fn test_pattern_controlled_pan() {
     let code = r#"
 tempo: 0.5
-out: s "hh*4" # pan "-1 0 1 0.5"
+out $ s "hh*4" # pan "-1 0 1 0.5"
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -196,7 +196,7 @@ out: s "hh*4" # pan "-1 0 1 0.5"
 fn test_pattern_controlled_n() {
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # n "0 5 7 12"
+out $ s "bd*4" # n "0 5 7 12"
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -211,7 +211,7 @@ out: s "bd*4" # n "0 5 7 12"
 fn test_pattern_controlled_speed() {
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # speed "1 2 0.5 1.5"
+out $ s "bd*4" # speed "1 2 0.5 1.5"
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -228,7 +228,7 @@ out: s "bd*4" # speed "1 2 0.5 1.5"
 fn test_modifiers_with_pattern_transforms() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ fast 2 # gain 0.8 # pan 0.5
+out $ s "bd sn" $ fast 2 # gain 0.8 # pan 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -244,7 +244,7 @@ fn test_complex_real_world_pattern() {
     // This is the pattern from m.ph that failed (simplified to test just the modifier)
     let code = r#"
 tempo: 0.5
-out: s "808bd(3,8)" # n 2
+out $ s "808bd(3,8)" # n 2
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -259,7 +259,7 @@ out: s "808bd(3,8)" # n 2
 fn test_envelope_with_euclidean_pattern() {
     let code = r#"
 tempo: 0.5
-out: s "rave(3,8,1)" # ar 0.1 0.5
+out $ s "rave(3,8,1)" # ar 0.1 0.5
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -276,7 +276,7 @@ out: s "rave(3,8,1)" # ar 0.1 0.5
 fn test_n_modifier_wrong_arg_count() {
     let code = r#"
 tempo: 0.5
-out: s "bd" # n 2 3
+out $ s "bd" # n 2 3
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -294,7 +294,7 @@ out: s "bd" # n 2 3
 fn test_ar_modifier_wrong_arg_count() {
     let code = r#"
 tempo: 0.5
-out: s "bd" # ar 0.1
+out $ s "bd" # ar 0.1
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);
@@ -314,7 +314,7 @@ fn test_modifier_without_chain_operator() {
     // (though this is more of a parser test)
     let code = r#"
 tempo: 0.5
-out: gain 0.5 "bd"
+out $ gain 0.5 "bd"
 "#;
     let (_globals, statements) = parse_program(code).expect("Failed to parse");
     let result = compile_program(statements, 44100.0, None);

@@ -64,7 +64,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 fn test_rhpf_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # rhpf 1000 5.0
+        out $ saw 110 # rhpf 1000 5.0
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -76,7 +76,7 @@ fn test_rhpf_compiles() {
 fn test_rhpf_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # rhpf 500 2.0
+        out $ saw 110 # rhpf 500 2.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -92,7 +92,7 @@ fn test_rhpf_generates_audio() {
 fn test_rhpf_attenuates_lows() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # rhpf 1000 1.0
+        out $ white_noise # rhpf 1000 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -125,7 +125,7 @@ fn test_rhpf_resonance_peak() {
     // High Q should create resonant peak at cutoff
     let code = r#"
         tempo: 0.5
-        o1: white_noise # rhpf 1000 10.0
+        out $ white_noise # rhpf 1000 10.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -163,7 +163,7 @@ fn test_rhpf_low_q_smooth() {
     // Low Q should have smooth rolloff without peak
     let code = r#"
         tempo: 0.5
-        o1: white_noise # rhpf 1000 0.5
+        out $ white_noise # rhpf 1000 0.5
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -179,7 +179,7 @@ fn test_rhpf_extreme_resonance() {
     // Very high Q can self-oscillate
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # rhpf 440 20.0
+        out $ saw 110 # rhpf 440 20.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -195,8 +195,8 @@ fn test_rhpf_extreme_resonance() {
 fn test_rhpf_pattern_cutoff() {
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 4 * 500 + 1000
-        o1: saw 110 # rhpf ~lfo 2.0
+        ~lfo $ sine 4 * 500 + 1000
+        out $ saw 110 # rhpf ~lfo 2.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -213,8 +213,8 @@ fn test_rhpf_pattern_cutoff() {
 fn test_rhpf_pattern_resonance() {
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 2 * 5.0 + 7.0
-        o1: saw 110 # rhpf 500 ~lfo
+        ~lfo $ sine 2 * 5.0 + 7.0
+        out $ saw 110 # rhpf 500 ~lfo
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -233,7 +233,7 @@ fn test_rhpf_pattern_resonance() {
 fn test_rhpf_no_clipping() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # rhpf 500 15.0
+        out $ saw 110 # rhpf 500 15.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -251,7 +251,7 @@ fn test_rhpf_no_clipping() {
 fn test_rhpf_no_dc_offset() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # rhpf 500 2.0
+        out $ saw 110 # rhpf 500 2.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -268,7 +268,7 @@ fn test_rhpf_remove_low_end() {
     // Clean up muddy low end
     let code = r#"
         tempo: 0.5
-        o1: saw 220 # rhpf 150 1.0
+        out $ saw 220 # rhpf 150 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -283,7 +283,7 @@ fn test_rhpf_create_air() {
     // High cutoff for airy sound
     let code = r#"
         tempo: 0.5
-        o1: white_noise # rhpf 8000 2.0
+        out $ white_noise # rhpf 8000 2.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -298,8 +298,8 @@ fn test_rhpf_rhythmic_filtering() {
     // Sweeping highpass for rhythmic effect
     let code = r#"
         tempo: 0.5
-        ~sweep: line 100 2000
-        o1: white_noise # rhpf ~sweep 5.0
+        ~sweep $ line 100 2000
+        out $ white_noise # rhpf ~sweep 5.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -316,7 +316,7 @@ fn test_rhpf_cascade() {
     // Two RHPF in series for steeper rolloff
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # rhpf 800 2.0 # rhpf 1000 2.0
+        out $ saw 110 # rhpf 800 2.0 # rhpf 1000 2.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -333,7 +333,7 @@ fn test_rhpf_rlpf_combo() {
     // RHPF + RLPF creates bandpass
     let code = r#"
         tempo: 0.5
-        o1: white_noise # rhpf 500 1.0 # rlpf 2000 1.0
+        out $ white_noise # rhpf 500 1.0 # rlpf 2000 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -349,7 +349,7 @@ fn test_rhpf_rlpf_combo() {
 fn test_rhpf_very_low_cutoff() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # rhpf 50 2.0
+        out $ white_noise # rhpf 50 2.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -363,7 +363,7 @@ fn test_rhpf_very_low_cutoff() {
 fn test_rhpf_very_high_cutoff() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # rhpf 15000 2.0
+        out $ white_noise # rhpf 15000 2.0
     "#;
 
     let buffer = render_dsl(code, 2.0);

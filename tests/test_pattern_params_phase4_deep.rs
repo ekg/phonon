@@ -51,10 +51,10 @@ fn test_audio_rate_fm_synthesis() {
 
     let code = r#"
 tempo: 1.0
-~carrier: sine 220
-~modulator: sine 440
-~fm: sine (~modulator * 100 + 220)
-out: ~fm
+~carrier $ sine 220
+~modulator $ sine 440
+~fm $ sine (~modulator * 100 + 220)
+out $ ~fm
 "#;
 
     let audio = render_dsl(code, TEST_DURATION);
@@ -83,10 +83,10 @@ fn test_audio_rate_filter_modulation() {
 
     let code = r#"
 tempo: 1.0
-~input: saw 110
-~lfo: sine 10
-~filtered: ~input # lpf (~lfo * 2500 + 2500) 0.8
-out: ~filtered
+~input $ saw 110
+~lfo $ sine 10
+~filtered $ ~input # lpf (~lfo * 2500 + 2500) 0.8
+out $ ~filtered
 "#;
 
     let audio = render_dsl(code, 4.0);  // Longer duration for more LFO cycles
@@ -125,10 +125,10 @@ fn test_audio_rate_tremolo() {
 
     let code = r#"
 tempo: 1.0
-~carrier: saw 220
-~lfo: sine 8
-~tremolo: ~carrier * (~lfo * 0.5 + 0.5)
-out: ~tremolo
+~carrier $ saw 220
+~lfo $ sine 8
+~tremolo $ ~carrier * (~lfo * 0.5 + 0.5)
+out $ ~tremolo
 "#;
 
     let audio = render_dsl(code, TEST_DURATION);
@@ -172,10 +172,10 @@ fn test_audio_rate_ring_modulation() {
 
     let code = r#"
 tempo: 1.0
-~carrier: sine 440
-~modulator: sine 330
-~ring: ~carrier * ~modulator
-out: ~ring
+~carrier $ sine 440
+~modulator $ sine 330
+~ring $ ~carrier * ~modulator
+out $ ~ring
 "#;
 
     let audio = render_dsl(code, TEST_DURATION);
@@ -213,17 +213,17 @@ fn test_spectral_lpf_cutoff_modulation() {
 
     let code_constant = r#"
 tempo: 1.0
-~input: saw 110
-~filtered: ~input # lpf 2000 0.8
-out: ~filtered
+~input $ saw 110
+~filtered $ ~input # lpf 2000 0.8
+out $ ~filtered
 "#;
 
     let code_modulated = r#"
 tempo: 1.0
-~input: saw 110
-~lfo: sine 0.5
-~filtered: ~input # lpf (~lfo * 1500 + 2000) 0.8
-out: ~filtered
+~input $ saw 110
+~lfo $ sine 0.5
+~filtered $ ~input # lpf (~lfo * 1500 + 2000) 0.8
+out $ ~filtered
 "#;
 
     let audio_constant = render_dsl(code_constant, TEST_DURATION);
@@ -246,15 +246,15 @@ fn test_spectral_oscillator_frequency_modulation() {
 
     let code_constant = r#"
 tempo: 1.0
-~osc: sine 440
-out: ~osc
+~osc $ sine 440
+out $ ~osc
 "#;
 
     let code_fm = r#"
 tempo: 1.0
-~lfo: sine 5
-~osc: sine (~lfo * 50 + 440)
-out: ~osc
+~lfo $ sine 5
+~osc $ sine (~lfo * 50 + 440)
+out $ ~osc
 "#;
 
     let audio_constant = render_dsl(code_constant, TEST_DURATION);
@@ -276,10 +276,10 @@ fn test_spectral_resonant_filter_sweep() {
 
     let code = r#"
 tempo: 1.0
-~noise: noise
-~lfo: sine 0.25
-~swept: ~noise # lpf (~lfo * 2000 + 2000) 8.0
-out: ~swept
+~noise $ noise
+~lfo $ sine 0.25
+~swept $ ~noise # lpf (~lfo * 2000 + 2000) 8.0
+out $ ~swept
 "#;
 
     let audio = render_dsl(code, TEST_DURATION);
@@ -320,15 +320,15 @@ fn test_spectral_chorus_modulation() {
 
     let code_dry = r#"
 tempo: 1.0
-~osc: saw 220
-out: ~osc
+~osc $ saw 220
+out $ ~osc
 "#;
 
     let code_chorus = r#"
 tempo: 1.0
-~osc: saw 220
-~chorused: ~osc # chorus 0.5 3.0 0.3
-out: ~chorused
+~osc $ saw 220
+~chorused $ ~osc # chorus 0.5 3.0 0.3
+out $ ~chorused
 "#;
 
     let audio_dry = render_dsl(code_dry, TEST_DURATION);
@@ -361,10 +361,10 @@ fn test_continuous_filter_sweep() {
 
     let code = r#"
 tempo: 1.0
-~noise: noise
-~lfo: sine 0.5
-~swept: ~noise # lpf (~lfo * 2000 + 2000) 4.0
-out: ~swept
+~noise $ noise
+~lfo $ sine 0.5
+~swept $ ~noise # lpf (~lfo * 2000 + 2000) 4.0
+out $ ~swept
 "#;
 
     let audio = render_dsl(code, TEST_DURATION);
@@ -405,9 +405,9 @@ fn test_continuous_frequency_glide() {
 
     let code = r#"
 tempo: 1.0
-~lfo: sine 0.25
-~glide: sine (~lfo * 220 + 440)
-out: ~glide
+~lfo $ sine 0.25
+~glide $ sine (~lfo * 220 + 440)
+out $ ~glide
 "#;
 
     let audio = render_dsl(code, TEST_DURATION);
@@ -447,10 +447,10 @@ fn test_continuous_amplitude_envelope() {
 
     let code = r#"
 tempo: 1.0
-~osc: saw 220
-~lfo: sine 1.0
-~envelope: ~osc * (~lfo * 0.5 + 0.5)
-out: ~envelope
+~osc $ saw 220
+~lfo $ sine 1.0
+~envelope $ ~osc * (~lfo * 0.5 + 0.5)
+out $ ~envelope
 "#;
 
     let audio = render_dsl(code, TEST_DURATION);
@@ -490,9 +490,9 @@ fn test_continuous_vs_stepped_comparison() {
 
     let code = r#"
 tempo: 1.0
-~lfo: sine 2.0
-~modulated: sine (~lfo * 100 + 440)
-out: ~modulated
+~lfo $ sine 2.0
+~modulated $ sine (~lfo * 100 + 440)
+out $ ~modulated
 "#;
 
     let audio = render_dsl(code, TEST_DURATION);
@@ -531,9 +531,9 @@ fn test_parameter_interpolation_across_cycles() {
 
     let code = r#"
 tempo: 0.5
-~input: saw 110
-~filtered: ~input # lpf "500 2000 1000 3000" 0.8
-out: ~filtered
+~input $ saw 110
+~filtered $ ~input # lpf "500 2000 1000 3000" 0.8
+out $ ~filtered
 "#;
 
     let audio = render_dsl(code, TEST_DURATION);
@@ -582,9 +582,9 @@ fn test_fast_pattern_modulation_no_aliasing() {
 
     let code = r#"
 tempo: 8.0
-~input: saw 110
-~filtered: ~input # lpf "500 3000" 0.8
-out: ~filtered
+~input $ saw 110
+~filtered $ ~input # lpf "500 3000" 0.8
+out $ ~filtered
 "#;
 
     let audio = render_dsl(code, TEST_DURATION);

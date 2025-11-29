@@ -165,10 +165,10 @@ fn test_output_long_form() {
 
     let code = r#"
         ~drums: s "bd sn"
-        out: ~drums
+        out $ ~drums
     "#;
 
-    env.eval(code).expect("Failed to parse with out: output");
+    env.eval(code).expect("Failed to parse with out $ output");
 }
 
 #[test]

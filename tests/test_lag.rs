@@ -9,9 +9,9 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_lag_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 1.0
-~smoothed: lag ~input 0.1
-out: ~smoothed
+~input $ sine 1.0
+~smoothed $ lag ~input 0.1
+out $ ~smoothed
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -35,9 +35,9 @@ out: ~smoothed
 fn test_lag_smooth_step() {
     let dsl = r#"
 tempo: 1.0
-~step: "0.0 1.0"
-~smoothed: lag ~step 0.01
-out: ~smoothed
+~step $ "0.0 1.0"
+~smoothed $ lag ~step 0.01
+out $ ~smoothed
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -69,16 +69,16 @@ out: ~smoothed
 fn test_lag_time_response() {
     let dsl_fast = r#"
 tempo: 1.0
-~step: line 0.0 1.0
-~smoothed: lag ~step 0.001
-out: ~smoothed
+~step $ line 0.0 1.0
+~smoothed $ lag ~step 0.001
+out $ ~smoothed
 "#;
 
     let dsl_slow = r#"
 tempo: 1.0
-~step: line 0.0 1.0
-~smoothed: lag ~step 0.1
-out: ~smoothed
+~step $ line 0.0 1.0
+~smoothed $ lag ~step 0.1
+out $ ~smoothed
 "#;
 
     let (_, statements_fast) = parse_program(dsl_fast).unwrap();
@@ -117,9 +117,9 @@ out: ~smoothed
 fn test_lag_dc_preservation() {
     let dsl = r#"
 tempo: 1.0
-~constant: sine 0.0
-~lagged: lag ~constant 0.1
-out: ~lagged
+~constant $ sine 0.0
+~lagged $ lag ~constant 0.1
+out $ ~lagged
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -146,9 +146,9 @@ out: ~lagged
 fn test_lag_with_lfo() {
     let dsl = r#"
 tempo: 1.0
-~lfo: sine 0.5
-~lagged: lag ~lfo 0.05
-out: ~lagged
+~lfo $ sine 0.5
+~lagged $ lag ~lfo 0.05
+out $ ~lagged
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -172,10 +172,10 @@ out: ~lagged
 fn test_lag_portamento() {
     let dsl = r#"
 tempo: 0.5
-~notes: "220 330 440 550"
-~smooth_freq: lag ~notes 0.05
-~tone: sine ~smooth_freq
-out: ~tone * 0.3
+~notes $ "220 330 440 550"
+~smooth_freq $ lag ~notes 0.05
+~tone $ sine ~smooth_freq
+out $ ~tone * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -199,10 +199,10 @@ out: ~tone * 0.3
 fn test_lag_click_removal() {
     let dsl = r#"
 tempo: 4.0
-~gate: "0.0 1.0 0.0 1.0"
-~smooth_gate: lag ~gate 0.01
-~tone: sine 440
-out: ~tone * ~smooth_gate * 0.3
+~gate $ "0.0 1.0 0.0 1.0"
+~smooth_gate $ lag ~gate 0.01
+~tone $ sine 440
+out $ ~tone * ~smooth_gate * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -233,10 +233,10 @@ out: ~tone * ~smooth_gate * 0.3
 fn test_lag_pattern_time() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 1.0
-~lag_times: "0.001 0.1"
-~smoothed: lag ~input ~lag_times
-out: ~smoothed
+~input $ sine 1.0
+~lag_times $ "0.001 0.1"
+~smoothed $ lag ~input ~lag_times
+out $ ~smoothed
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -255,9 +255,9 @@ out: ~smoothed
 fn test_lag_zero_bypass() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440
-~lagged: lag ~input 0.0
-out: ~lagged
+~input $ sine 440
+~lagged $ lag ~input 0.0
+out $ ~lagged
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

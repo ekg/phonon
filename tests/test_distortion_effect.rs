@@ -18,7 +18,7 @@ fn test_distortion_effect_dist_alias() {
     // Test that 'dist' alias works for distortion
     let code = r#"
         tempo: 0.5
-        o1: s "bd*4" # dist 1
+        out $ s "bd*4" # dist 1
     "#;
 
     let buffer = render_dsl(code, 2.0); // 2 seconds = 4 cycles at tempo 2.0
@@ -31,7 +31,7 @@ fn test_distortion_effect_distort_alias() {
     // Test that 'distort' alias also works
     let code = r#"
         tempo: 0.5
-        o1: s "bd*4" # distort 1
+        out $ s "bd*4" # distort 1
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -44,7 +44,7 @@ fn test_distortion_effect_distortion_alias() {
     // Test that 'distortion' alias also works
     let code = r#"
         tempo: 0.5
-        o1: s "bd*4" # distortion 1
+        out $ s "bd*4" # distortion 1
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -59,12 +59,12 @@ fn test_distortion_effect_increases_harmonics() {
 
     let clean_code = r#"
         tempo: 0.5
-        o1: s "bd*4"
+        out $ s "bd*4"
     "#;
 
     let distorted_code = r#"
         tempo: 0.5
-        o1: s "bd*4" # dist 5
+        out $ s "bd*4" # dist 5
     "#;
 
     let clean_buffer = render_dsl(clean_code, 2.0);

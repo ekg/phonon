@@ -27,7 +27,7 @@ fn test_kwargs_syntax_banned_gain() {
     // Kwargs syntax should be rejected - only # chaining allowed
     let code = r#"
 tempo: 0.5
-out: s "bd" gain=0.7
+out $ s "bd" gain=0.7
 "#;
 
     let result = parse_program(code);
@@ -50,7 +50,7 @@ fn test_kwargs_syntax_banned_pan() {
     // Kwargs syntax should be rejected
     let code = r#"
 tempo: 0.5
-out: s "bd" pan=0.5
+out $ s "bd" pan=0.5
 "#;
 
     let result = parse_program(code);
@@ -70,7 +70,7 @@ fn test_kwargs_syntax_banned_speed() {
     // Kwargs syntax should be rejected
     let code = r#"
 tempo: 0.5
-out: s "bd" speed=2.0
+out $ s "bd" speed=2.0
 "#;
 
     let result = parse_program(code);
@@ -90,7 +90,7 @@ fn test_kwargs_syntax_banned_cut() {
     // Kwargs syntax should be rejected
     let code = r#"
 tempo: 0.5
-out: s "bd" cut=1
+out $ s "bd" cut=1
 "#;
 
     let result = parse_program(code);
@@ -110,7 +110,7 @@ fn test_kwargs_syntax_banned_attack() {
     // Kwargs syntax should be rejected
     let code = r#"
 tempo: 0.5
-out: s "bd" attack=0.01
+out $ s "bd" attack=0.01
 "#;
 
     let result = parse_program(code);
@@ -130,7 +130,7 @@ fn test_kwargs_syntax_banned_release() {
     // Kwargs syntax should be rejected
     let code = r#"
 tempo: 0.5
-out: s "bd" release=0.1
+out $ s "bd" release=0.1
 "#;
 
     let result = parse_program(code);
@@ -150,7 +150,7 @@ fn test_kwargs_syntax_banned_multiple() {
     // Multiple kwargs should also be rejected
     let code = r#"
 tempo: 0.5
-out: s "bd" gain=0.7 pan=0.5
+out $ s "bd" gain=0.7 pan=0.5
 "#;
 
     let result = parse_program(code);
@@ -172,12 +172,12 @@ fn test_gain_constant_value() {
     // Test that gain parameter affects amplitude
     let code_normal = r#"
 tempo: 0.5
-out: s "bd*4"
+out $ s "bd*4"
 "#;
 
     let code_quiet = r#"
 tempo: 0.5
-out: s "bd*4" # gain 0.3
+out $ s "bd*4" # gain 0.3
 "#;
 
     let (_rest, statements_normal) = parse_program(code_normal).expect("Failed to parse");
@@ -215,7 +215,7 @@ fn test_gain_pattern() {
     // Test that gain can be controlled by a pattern
     let code = r#"
 tempo: 0.5
-out: s "bd*8" # gain "1.0 0.2 1.0 0.2 1.0 0.2 1.0 0.2"
+out $ s "bd*8" # gain "1.0 0.2 1.0 0.2 1.0 0.2 1.0 0.2"
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -240,7 +240,7 @@ fn test_gain_zero_silences() {
     // Test that gain=0 produces silence
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # gain 0.0
+out $ s "bd*4" # gain 0.0
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -267,7 +267,7 @@ fn test_pan_constant_left() {
     // Test that pan=-1 pans hard left (currently mono, so this is a smoke test)
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # pan -1.0
+out $ s "bd*4" # pan -1.0
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -288,7 +288,7 @@ fn test_pan_constant_right() {
     // Test that pan=1 pans hard right
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # pan 1.0
+out $ s "bd*4" # pan 1.0
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -309,7 +309,7 @@ fn test_pan_pattern() {
     // Test that pan can be controlled by a pattern
     let code = r#"
 tempo: 0.5
-out: s "hh*8" # pan "-1 0 1 0 -1 0 1 0"
+out $ s "hh*8" # pan "-1 0 1 0 -1 0 1 0"
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -336,7 +336,7 @@ fn test_speed_normal() {
     // Test that speed=1.0 plays at normal rate
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # speed 1.0
+out $ s "bd*4" # speed 1.0
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -361,7 +361,7 @@ fn test_speed_double() {
     // Test that speed=2.0 plays twice as fast (octave up)
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # speed 2.0
+out $ s "bd*4" # speed 2.0
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -386,7 +386,7 @@ fn test_speed_half() {
     // Test that speed=0.5 plays half speed (octave down)
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # speed 0.5
+out $ s "bd*4" # speed 0.5
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -411,7 +411,7 @@ fn test_speed_pattern() {
     // Test that speed can be controlled by a pattern
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # speed "1.0 2.0 0.5 1.5"
+out $ s "bd*4" # speed "1.0 2.0 0.5 1.5"
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -439,7 +439,7 @@ fn test_cut_group_basic() {
     // This is hard to test without analyzing timing, but we can verify it compiles
     let code = r#"
 tempo: 0.5
-out: s "hh*16" # cut 1
+out $ s "hh*16" # cut 1
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -464,7 +464,7 @@ fn test_cut_group_pattern() {
     // Test that cut group can be controlled by a pattern
     let code = r#"
 tempo: 0.5
-out: s "hh*8" # cut "1 2 1 2 1 2 1 2"
+out $ s "hh*8" # cut "1 2 1 2 1 2 1 2"
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -491,7 +491,7 @@ fn test_attack_short() {
     // Test that short attack creates fast onset
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # attack 0.001
+out $ s "bd*4" # attack 0.001
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -516,7 +516,7 @@ fn test_release_short() {
     // Test that short release cuts off sample quickly
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # release 0.05
+out $ s "bd*4" # release 0.05
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -541,7 +541,7 @@ fn test_attack_release_together() {
     // Test that attack and release work together
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # attack 0.01 # release 0.1
+out $ s "bd*4" # attack 0.01 # release 0.1
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -568,7 +568,7 @@ fn test_multiple_parameters() {
     // Test that multiple DSP parameters can be used together
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # gain 0.7 # pan 0.5 # speed 1.2
+out $ s "bd*4" # gain 0.7 # pan 0.5 # speed 1.2
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -593,7 +593,7 @@ fn test_all_parameters() {
     // Test that all DSP parameters can be used together
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # gain 0.8 # pan -0.3 # speed 0.9 # cut 1 # attack 0.01 # release 0.2
+out $ s "bd*4" # gain 0.8 # pan -0.3 # speed 0.9 # cut 1 # attack 0.01 # release 0.2
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -618,7 +618,7 @@ fn test_pattern_controlled_parameters() {
     // Test that all parameters can be pattern-controlled simultaneously
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # gain "0.8 1.0 0.6 0.9" # pan "-1 0 1 0" # speed "1.0 1.5 0.8 1.2"
+out $ s "bd*4" # gain "0.8 1.0 0.6 0.9" # pan "-1 0 1 0" # speed "1.0 1.5 0.8 1.2"
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");
@@ -643,7 +643,7 @@ fn test_parameters_with_transforms() {
     // Test that DSP parameters work with pattern transforms
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ fast 2 # gain 0.7 # pan 0.5
+out $ s "bd sn" $ fast 2 # gain 0.7 # pan 0.5
 "#;
 
     let (_rest, statements) = parse_program(code).expect("Failed to parse");

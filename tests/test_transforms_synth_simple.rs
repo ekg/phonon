@@ -64,11 +64,11 @@ fn test_fast_with_synthesis() {
 
     let input_normal = r#"
         tempo: 0.5
-        out: sine "110 220" * 0.3
+        out $ sine "110 220" * 0.3
     "#;
     let input_fast2 = r#"
         tempo: 0.5
-        out: sine "110 220 110 220" * 0.3
+        out $ sine "110 220 110 220" * 0.3
     "#;
 
     let (_, stmt_normal) = parse_dsl(input_normal).expect("Parse normal");
@@ -99,7 +99,7 @@ fn test_plain_sine() {
 
     let input = r#"
         tempo: 0.5
-        out: sine 440 * 0.3
+        out $ sine 440 * 0.3
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Parse");

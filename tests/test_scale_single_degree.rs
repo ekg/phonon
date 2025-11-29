@@ -32,7 +32,7 @@ fn test_single_degree_0() {
     // Test degree 0 = C4 = 261.63 Hz
     let input = r#"
         cps: 1.0
-        out: sine(scale("0", "major", "60")) * 0.5
+        out $ sine(scale("0", "major", "60")) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();
@@ -55,7 +55,7 @@ fn test_single_degree_1() {
     // Test degree 1 = D4 = 293.66 Hz
     let input = r#"
         cps: 1.0
-        out: sine(scale("1", "major", "60")) * 0.5
+        out $ sine(scale("1", "major", "60")) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();
@@ -78,7 +78,7 @@ fn test_single_degree_2() {
     // Test degree 2 = E4 = 329.63 Hz
     let input = r#"
         cps: 1.0
-        out: sine(scale("2", "major", "60")) * 0.5
+        out $ sine(scale("2", "major", "60")) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();
@@ -102,7 +102,7 @@ fn test_alternating_degrees() {
     // Test "0 1" pattern - 2 cycles
     let input = r#"
         cps: 2.0
-        out: sine(scale("0 1", "major", "60")) * 0.5
+        out $ sine(scale("0 1", "major", "60")) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();

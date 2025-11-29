@@ -97,7 +97,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 fn test_dsl_fast_transform() {
     let input = r#"
         tempo: 0.5
-        out: sine("110 220" |> fast 2) * 0.2
+        out $ sine("110 220" |> fast 2) * 0.2
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse");
@@ -122,7 +122,7 @@ fn test_dsl_fast_transform() {
 fn test_dsl_slow_transform() {
     let input = r#"
         tempo: 0.5
-        out: sine("110 220 330 440" |> slow 2) * 0.2
+        out $ sine("110 220 330 440" |> slow 2) * 0.2
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse");
@@ -146,7 +146,7 @@ fn test_dsl_slow_transform() {
 fn test_dsl_rev_transform() {
     let input = r#"
         tempo: 0.5
-        out: sine("110 220 330 440" |> rev) * 0.2
+        out $ sine("110 220 330 440" |> rev) * 0.2
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse");
@@ -170,7 +170,7 @@ fn test_dsl_rev_transform() {
 fn test_dsl_chained_transforms() {
     let input = r#"
         tempo: 0.5
-        out: sine("110 220" |> fast 2 |> rev) * 0.2
+        out $ sine("110 220" |> fast 2 |> rev) * 0.2
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse");
@@ -194,7 +194,7 @@ fn test_dsl_chained_transforms() {
 fn test_dsl_every_transform() {
     let input = r#"
         tempo: 1.0
-        out: sine("110 220" |> every 2 (fast 2)) * 0.2
+        out $ sine("110 220" |> every 2 (fast 2)) * 0.2
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse");
@@ -219,7 +219,7 @@ fn test_dsl_every_transform() {
 fn test_dsl_fast_with_samples() {
     let input = r#"
         tempo: 0.5
-        out: s("bd sn" |> fast 2) * 0.5
+        out $ s("bd sn" |> fast 2) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse");
@@ -243,7 +243,7 @@ fn test_dsl_fast_with_samples() {
 fn test_dsl_rev_with_samples() {
     let input = r#"
         tempo: 0.5
-        out: s("bd sn hh cp" |> rev) * 0.5
+        out $ s("bd sn hh cp" |> rev) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse");
@@ -267,7 +267,7 @@ fn test_dsl_rev_with_samples() {
 fn test_dsl_transform_filter_modulation() {
     let input = r#"
         tempo: 0.5
-        out: saw 55 >> lpf("500 2000" |> fast 2, 0.8) * 0.3
+        out $ saw 55 >> lpf("500 2000" |> fast 2, 0.8) * 0.3
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Failed to parse");
@@ -292,7 +292,7 @@ fn test_dsl_transform_precedence() {
     // This should parse as: (sine("110 220" |> fast 2)) * 0.5
     let input = r#"
         tempo: 0.5
-        out: sine("110 220" |> fast 2) * 0.5
+        out $ sine("110 220" |> fast 2) * 0.5
     "#;
 
     let result = parse_dsl(input);

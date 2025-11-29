@@ -1,7 +1,7 @@
-/// Test multi-output bus assignments (o1:, o2:, etc.) in AudioNode mode
+/// Test multi-output bus assignments (out $, o2:, etc.) in AudioNode mode
 ///
 /// Verifies that:
-/// 1. o1:, o2:, etc. compile correctly
+/// 1. out $, o2:, etc. compile correctly
 /// 2. Multiple outputs are mixed together automatically
 /// 3. Mixed output produces correct audio
 
@@ -39,13 +39,13 @@ fn calculate_rms(buffer: &[f32]) -> f32 {
 
 #[test]
 fn test_single_output_o1() {
-    // Single o1: output should work
+    // Single out $ output should work
     let code = r#"
-        o1: 0.5
+        out $ 0.5
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile o1:");
+        .expect("Should compile out $");
 
     // Render 512 samples
     let audio = graph.render(512).expect("Should render");
@@ -60,12 +60,12 @@ fn test_single_output_o1() {
 fn test_two_outputs_o1_o2() {
     // Two outputs should be mixed together
     let code = r#"
-        o1: 0.3
+        out $ 0.3
         o2: 0.2
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile o1: and o2:");
+        .expect("Should compile out $ and o2:");
 
     // Render 512 samples
     let audio = graph.render(512).expect("Should render");
@@ -81,13 +81,13 @@ fn test_two_outputs_o1_o2() {
 fn test_three_outputs_mixed() {
     // Three outputs should all be mixed together
     let code = r#"
-        o1: 0.1
+        out $ 0.1
         o2: 0.2
         o3: 0.3
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
-        .expect("Should compile o1:, o2:, o3:");
+        .expect("Should compile out $, o2:, o3:");
 
     // Render 512 samples
     let audio = graph.render(512).expect("Should render");
@@ -104,7 +104,7 @@ fn test_output_with_samples() {
     // Multi-output with sample playback
     let code = r#"
         tempo: 0.5
-        o1: s "bd"
+        out $ s "bd"
         o2: s "sn"
     "#;
 
@@ -128,7 +128,7 @@ fn test_output_with_synthesis() {
     // Multi-output with synthesizers
     let code = r#"
         tempo: 0.5
-        o1: sine 220
+        out $ sine 220
         o2: sine 440
     "#;
 
@@ -146,11 +146,11 @@ fn test_output_with_synthesis() {
 
 #[test]
 fn test_explicit_out_overrides_numbered() {
-    // If out: is specified, it should override numbered outputs
+    // If out $ is specified, it should override numbered outputs
     let code = r#"
-        o1: 0.3
+        out $ 0.3
         o2: 0.2
-        out: 1.0
+        out $ 1.0
     "#;
 
     let mut graph = compile_to_audio_nodes(code, 44100.0)
@@ -159,10 +159,10 @@ fn test_explicit_out_overrides_numbered() {
     // Render 512 samples
     let audio = graph.render(512).expect("Should render");
 
-    // All samples should be 1.0 (out: overrides o1: and o2:)
+    // All samples should be 1.0 (out $ overrides out $ and o2:)
     for sample in &audio {
         assert!((sample - 1.0).abs() < 0.001,
-            "Expected 1.0 (out: overrides), got {}", sample);
+            "Expected 1.0 (out $ overrides), got {}", sample);
     }
 }
 
@@ -170,9 +170,9 @@ fn test_explicit_out_overrides_numbered() {
 fn test_bus_references_in_outputs() {
     // Outputs can reference buses
     let code = r#"
-        ~bass: 0.4
-        ~drums: 0.3
-        o1: ~bass
+        ~bass $ 0.4
+        ~drums $ 0.3
+        out $ ~bass
         o2: ~drums
     "#;
 
@@ -194,11 +194,11 @@ fn test_complex_multi_output() {
     // Complex example with multiple buses and outputs
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 0.5
-        ~bass: sine 55
-        ~lead: sine 220
+        ~lfo $ sine 0.5
+        ~bass $ sine 55
+        ~lead $ sine 220
 
-        o1: ~bass * 0.5
+        out $ ~bass * 0.5
         o2: ~lead * 0.3
         o3: ~lfo * 0.1
     "#;

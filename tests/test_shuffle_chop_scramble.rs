@@ -31,7 +31,7 @@ fn test_shuffle_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ shuffle 0.1
+out $ "bd sn hh cp" $ shuffle 0.1
 "#,
         "Shuffle with 0.1 amount",
     );
@@ -43,7 +43,7 @@ fn test_shuffle_large_amount() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ shuffle 0.5
+out $ "bd*8" $ shuffle 0.5
 "#,
         "Shuffle with 0.5 amount",
     );
@@ -55,7 +55,7 @@ fn test_shuffle_with_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ shuffle 0.2 # lpf 1000 0.8
+out $ "bd sn hh" $ shuffle 0.2 # lpf 1000 0.8
 "#,
         "Shuffle with chained filter",
     );
@@ -67,7 +67,7 @@ fn test_shuffle_combined_with_other_transforms() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ fast 2 $ shuffle 0.15
+out $ "bd sn" $ fast 2 $ shuffle 0.15
 "#,
         "Shuffle combined with fast",
     );
@@ -81,7 +81,7 @@ fn test_chop_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ chop 4
+out $ "bd sn hh cp" $ chop 4
 "#,
         "Chop into 4 parts",
     );
@@ -93,7 +93,7 @@ fn test_chop_power_of_two() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4" $ chop 8
+out $ "bd*4" $ chop 8
 "#,
         "Chop into 8 parts",
     );
@@ -105,7 +105,7 @@ fn test_chop_with_euclidean() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd(3,8)" $ chop 16
+out $ "bd(3,8)" $ chop 16
 "#,
         "Chop euclidean pattern",
     );
@@ -117,7 +117,7 @@ fn test_chop_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ chop 4 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ chop 4 # reverb 0.5 0.3 0.2
 "#,
         "Chop with reverb",
     );
@@ -131,7 +131,7 @@ fn test_striate_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ striate 4
+out $ "bd sn hh cp" $ striate 4
 "#,
         "Striate into 4 parts",
     );
@@ -143,7 +143,7 @@ fn test_striate_large_n() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ striate 32
+out $ "bd" $ striate 32
 "#,
         "Striate into 32 parts (granular)",
     );
@@ -155,7 +155,7 @@ fn test_striate_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ striate 8 $ fast 2
+out $ "bd sn" $ striate 8 $ fast 2
 "#,
         "Striate combined with fast",
     );
@@ -169,7 +169,7 @@ fn test_scramble_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ scramble 4
+out $ "bd sn hh cp" $ scramble 4
 "#,
         "Scramble 4 events",
     );
@@ -181,7 +181,7 @@ fn test_scramble_complex_pattern() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4 sn*2 hh*8" $ scramble 8
+out $ "bd*4 sn*2 hh*8" $ scramble 8
 "#,
         "Scramble complex pattern",
     );
@@ -193,7 +193,7 @@ fn test_scramble_with_alternation() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "<bd sn hh cp>" $ scramble 4
+out $ "<bd sn hh cp>" $ scramble 4
 "#,
         "Scramble with alternation",
     );
@@ -205,7 +205,7 @@ fn test_scramble_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ scramble 8 # bitcrush 8 8000
+out $ "bd sn hh*4" $ scramble 8 # bitcrush 8 8000
 "#,
         "Scramble with bitcrush",
     );
@@ -219,10 +219,10 @@ fn test_all_three_operations_in_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~shuffled: "bd*4" $ shuffle 0.2
-~chopped: "sn*4" $ chop 8
-~scrambled: "hh*8" $ scramble 8
-out: ~shuffled + ~chopped + ~scrambled
+~shuffled $ "bd*4" $ shuffle 0.2
+~chopped $ "sn*4" $ chop 8
+~scrambled $ "hh*8" $ scramble 8
+out $ ~shuffled + ~chopped + ~scrambled
 "#,
         "All three operations in one program",
     );
@@ -234,7 +234,7 @@ fn test_chained_reordering_transforms() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ chop 4 $ shuffle 0.1 $ scramble 4
+out $ "bd sn hh cp" $ chop 4 $ shuffle 0.1 $ scramble 4
 "#,
         "Chained reordering transforms",
     );
@@ -246,7 +246,7 @@ fn test_with_pattern_params() {
     test_compilation(
         r#"
 tempo: 0.5
-out: s "bd sn hh*4" $ shuffle 0.15 # lpf 1000 0.8
+out $ s "bd sn hh*4" $ shuffle 0.15 # lpf 1000 0.8
 "#,
         "Shuffle with sample playback and filter",
     );

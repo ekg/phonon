@@ -9,9 +9,9 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_moog_ladder_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~input: saw 220
-~filtered: moog_ladder ~input 1000 0.5
-out: ~filtered * 0.5
+~input $ saw 220
+~filtered $ moog_ladder ~input 1000 0.5
+out $ ~filtered * 0.5
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -37,9 +37,9 @@ fn test_moog_ladder_low_pass_response() {
     let dsl = r#"
 tempo: 1.0
 -- Saw wave (rich in harmonics) filtered at 500 Hz
-~rich: saw 220
-~filtered: moog_ladder ~rich 500 0.1
-out: ~filtered
+~rich $ saw 220
+~filtered $ moog_ladder ~rich 500 0.1
+out $ ~filtered
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -86,9 +86,9 @@ out: ~filtered
 fn test_moog_ladder_resonance() {
     let dsl_low = r#"
 tempo: 1.0
-~input: saw 220
-~filtered: moog_ladder ~input 800 0.1
-out: ~filtered
+~input $ saw 220
+~filtered $ moog_ladder ~input 800 0.1
+out $ ~filtered
 "#;
 
     let (_, statements) = parse_program(dsl_low).unwrap();
@@ -97,9 +97,9 @@ out: ~filtered
 
     let dsl_high = r#"
 tempo: 1.0
-~input: saw 220
-~filtered: moog_ladder ~input 800 0.9
-out: ~filtered
+~input $ saw 220
+~filtered $ moog_ladder ~input 800 0.9
+out $ ~filtered
 "#;
 
     let (_, statements) = parse_program(dsl_high).unwrap();
@@ -127,9 +127,9 @@ fn test_moog_ladder_self_oscillation() {
     let dsl = r#"
 tempo: 1.0
 -- Tiny input signal with very high resonance (should self-oscillate)
-~tiny: sine 220 * 0.01
-~self_osc: moog_ladder ~tiny 1000 0.99
-out: ~self_osc * 0.3
+~tiny $ sine 220 * 0.01
+~self_osc $ moog_ladder ~tiny 1000 0.99
+out $ ~self_osc * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -155,10 +155,10 @@ fn test_moog_ladder_musical_example() {
     let dsl = r#"
 tempo: 0.5
 -- Classic Moog bass sound
-~bass: saw 55
-~moog_bass: moog_ladder ~bass 400 0.7
-~env: ad 0.01 0.3
-out: ~moog_bass * ~env * 0.4
+~bass $ saw 55
+~moog_bass $ moog_ladder ~bass 400 0.7
+~env $ ad 0.01 0.3
+out $ ~moog_bass * ~env * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -196,10 +196,10 @@ out: ~moog_bass * ~env * 0.4
 fn test_moog_ladder_pattern_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~cutoff_pattern: "500 1000 2000 4000"
-~input: saw 110
-~swept: moog_ladder ~input ~cutoff_pattern 0.6
-out: ~swept * 0.3
+~cutoff_pattern $ "500 1000 2000 4000"
+~input $ saw 110
+~swept $ moog_ladder ~input ~cutoff_pattern 0.6
+out $ ~swept * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -217,10 +217,10 @@ out: ~swept * 0.3
 fn test_moog_ladder_pattern_resonance() {
     let dsl = r#"
 tempo: 0.5
-~res_pattern: "0.1 0.4 0.7 0.95"
-~input: saw 110
-~variable_res: moog_ladder ~input 800 ~res_pattern
-out: ~variable_res * 0.3
+~res_pattern $ "0.1 0.4 0.7 0.95"
+~input $ saw 110
+~variable_res $ moog_ladder ~input 800 ~res_pattern
+out $ ~variable_res * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -239,9 +239,9 @@ fn test_moog_ladder_different_inputs() {
     // Test with white noise (should sound like filtered noise)
     let dsl = r#"
 tempo: 1.0
-~noise: white_noise
-~filtered_noise: moog_ladder ~noise 600 0.5
-out: ~filtered_noise * 0.2
+~noise $ white_noise
+~filtered_noise $ moog_ladder ~noise 600 0.5
+out $ ~filtered_noise * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -260,9 +260,9 @@ out: ~filtered_noise * 0.2
     // Test with square wave
     let dsl = r#"
 tempo: 1.0
-~square: square 220
-~filtered_square: moog_ladder ~square 1000 0.6
-out: ~filtered_square * 0.3
+~square $ square 220
+~filtered_square $ moog_ladder ~square 1000 0.6
+out $ ~filtered_square * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -278,10 +278,10 @@ out: ~filtered_square * 0.3
 fn test_moog_ladder_cascade() {
     let dsl = r#"
 tempo: 1.0
-~input: saw 220
-~stage1: moog_ladder ~input 800 0.3
-~stage2: moog_ladder ~stage1 800 0.3
-out: ~stage2 * 0.4
+~input $ saw 220
+~stage1 $ moog_ladder ~input 800 0.3
+~stage2 $ moog_ladder ~stage1 800 0.3
+out $ ~stage2 * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

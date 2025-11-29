@@ -9,7 +9,7 @@ fn test_single_transform_in_dsl() {
     // Baseline: single transform should work
     let input = r#"
         cps: 1.0
-        out: s("bd sn" $ fast 2) * 0.5
+        out $ s("bd sn" $ fast 2) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -32,7 +32,7 @@ fn test_double_chained_transforms_in_dsl() {
     // The bug: this would produce no audio before the fix
     let input = r#"
         cps: 1.0
-        out: s("bd sn" $ fast 2 $ rev) * 0.5
+        out $ s("bd sn" $ fast 2 $ rev) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -55,7 +55,7 @@ fn test_triple_chained_transforms_in_dsl() {
     // Even more complex: three transforms chained
     let input = r#"
         cps: 1.0
-        out: s("bd sn hh" $ fast 2 $ rev $ slow 0.5) * 0.5
+        out $ s("bd sn hh" $ fast 2 $ rev $ slow 0.5) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -78,7 +78,7 @@ fn test_chained_transforms_with_dsp_params() {
     // Verify that DSP parameters (gain, pan, etc.) work with chained transforms
     let input = r#"
         cps: 1.0
-        out: s("bd sn" $ fast 2 $ rev, 0.8, 0.5) * 0.5
+        out $ s("bd sn" $ fast 2 $ rev, 0.8, 0.5) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");
@@ -112,7 +112,7 @@ fn test_different_transform_combinations() {
         let input = format!(
             r#"
             cps: 1.0
-            out: {} * 0.5
+            out $ {} * 0.5
         "#,
             pattern
         );

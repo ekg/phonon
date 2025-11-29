@@ -18,8 +18,8 @@ fn test_signal_as_pattern_compiles() {
     // Test that SignalAsPattern compiles in DSL
     let dsl = r#"
 tempo: 0.5
-~lfo: sine 0.5
-out: sine 440
+~lfo $ sine 0.5
+out $ sine 440
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -70,9 +70,9 @@ fn test_signal_as_pattern_with_bus_reference() {
     // Test that we can reference a bus in DSL (future dynamic modulation)
     let dsl = r#"
 tempo: 1.0
-~lfo: sine 0.25
-~synth: sine 440
-out: ~synth
+~lfo $ sine 0.25
+~synth $ sine 440
+out $ ~synth
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

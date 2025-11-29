@@ -11,8 +11,8 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_colon_syntax_parses() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd:0 bd:1"
-out: ~drums
+~drums $ s "bd:0 bd:1"
+out $ ~drums
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -35,8 +35,8 @@ out: ~drums
 fn test_colon_syntax_produces_audio() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd:0 bd:1 bd:2"
-out: ~drums
+~drums $ s "bd:0 bd:1 bd:2"
+out $ ~drums
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -59,8 +59,8 @@ out: ~drums
 fn test_colon_with_euclidean() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd:0(3,8) bd:1(5,8,2)"
-out: ~drums
+~drums $ s "bd:0(3,8) bd:1(5,8,2)"
+out $ ~drums
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -82,8 +82,8 @@ out: ~drums
 fn test_colon_with_alternation() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "<bd:0 bd:1 bd:2>"
-out: ~drums
+~drums $ s "<bd:0 bd:1 bd:2>"
+out $ ~drums
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -105,10 +105,10 @@ out: ~drums
 fn test_colon_drum_variations() {
     let dsl = r#"
 tempo: 0.5
-~kick: s "bd:0*4"
-~snare: s "~ sn:1 ~ sn:2"
-~hats: s "hh:0*8"
-out: (~kick + ~snare + ~hats) * 0.3
+~kick $ s "bd:0*4"
+~snare $ s "~ sn:1 ~ sn:2"
+~hats $ s "hh:0*8"
+out $ (~kick + ~snare + ~hats) * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

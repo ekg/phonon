@@ -162,12 +162,12 @@ fn test_legato_level1_preserves_start_time() {
 fn test_legato_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp"
+out $ s "bd sn hh cp bd sn hh cp"
 "#;
 
     let legato_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp" $ legato 1.5
+out $ s "bd sn hh cp bd sn hh cp" $ legato 1.5
 "#;
 
     let cycles = 8;
@@ -199,12 +199,12 @@ out: s "bd sn hh cp bd sn hh cp" $ legato 1.5
 fn test_staccato_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let staccato_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ staccato 0.25
+out $ s "bd sn hh cp" $ staccato 0.25
 "#;
 
     let cycles = 8;
@@ -240,7 +240,7 @@ out: s "bd sn hh cp" $ staccato 0.25
 fn test_legato_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ legato 2.0
+out $ s "bd sn hh cp" $ legato 2.0
 "#;
 
     let audio = render_dsl(code, 8);
@@ -275,7 +275,7 @@ out: s "bd sn hh cp" $ legato 2.0
 fn test_staccato_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ staccato 0.5
+out $ s "bd sn hh cp" $ staccato 0.5
 "#;
 
     let audio = render_dsl(code, 8);
@@ -310,12 +310,12 @@ out: s "bd sn hh cp" $ staccato 0.5
 fn test_legato_level3_energy_comparison() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let legato_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ legato 2.0
+out $ s "bd sn hh cp" $ legato 2.0
 "#;
 
     let base_audio = render_dsl(base_code, 8);
@@ -344,12 +344,12 @@ out: s "bd sn hh cp" $ legato 2.0
 fn test_staccato_level3_energy_comparison() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let staccato_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ staccato 0.3
+out $ s "bd sn hh cp" $ staccato 0.3
 "#;
 
     let base_audio = render_dsl(base_code, 8);

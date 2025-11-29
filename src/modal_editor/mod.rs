@@ -489,10 +489,16 @@ impl ModalEditor {
         // If we don't (first load), we need to initialize wall-clock timing
         let has_old_graph = matches!(**self.graph.load(), Some(_));
 
+        // Log new graph's CPS BEFORE any modifications
+        eprintln!("📊 New graph compiled with CPS: {}", new_graph.get_cps());
+
+        // ALWAYS enable wall-clock timing for live mode
+        // This must happen BEFORE transfer_session_timing (which also sets use_wall_clock=true)
+        // but we need a valid session_start_time even if transfer fails
+        new_graph.enable_wall_clock_timing();
+
         if !has_old_graph {
-            // First load - initialize wall-clock timing
-            eprintln!("📊 First load - enabling wall-clock timing");
-            new_graph.enable_wall_clock_timing();
+            eprintln!("📊 First load - wall-clock timing initialized");
         }
 
         // CRITICAL: Transfer state from old graph to prevent clicks and timing shifts
@@ -502,15 +508,17 @@ impl ModalEditor {
         //
         // Use try_borrow() with brief sleeps to avoid spinning CPU
         let current_graph = self.graph.load();
+        eprintln!("📊 Current graph exists: {}", current_graph.is_some());
         if let Some(ref old_graph_cell) = **current_graph {
             let mut state_transferred = false;
 
             // Retry with small sleeps - don't burn CPU with spin-loop!
             // Audio buffer at 512 samples @ 44.1kHz = ~11.6ms per buffer
-            // We retry for ~10ms total, which covers most audio processing times
-            for _attempt in 0..20 {
+            // We retry for ~25ms total (50 attempts × 0.5ms) to handle worst-case timing
+            for attempt in 0..50 {
                 match old_graph_cell.0.try_borrow_mut() {
                     Ok(mut old_graph) => {
+                        eprintln!("📊 Transfer succeeded on attempt {}", attempt);
                         eprintln!("📊 Before transfer - old graph cycle position: {}", old_graph.get_cycle_position());
                         eprintln!("📊 Before transfer - old graph CPS: {}", old_graph.get_cps());
 
@@ -542,7 +550,13 @@ impl ModalEditor {
 
             if !state_transferred {
                 // Still couldn't get it after 10ms of retries - very rare, audio thread might be stuck
-                eprintln!("⚠️  Could not transfer state after retries, using fresh state (may click)");
+                // CRITICAL: Even without transfer, we need valid timing!
+                // The new graph already has wall-clock enabled (from above), so it will
+                // use its own session_start_time. This means timing will restart from 0,
+                // which may cause a beat jump, but at least tempo won't double.
+                eprintln!("⚠️  Could not transfer state after retries!");
+                eprintln!("   New graph starting with fresh timing (beat may jump)");
+                eprintln!("   New graph CPS: {}, wall-clock: {}", new_graph.get_cps(), new_graph.use_wall_clock);
             }
         }
 

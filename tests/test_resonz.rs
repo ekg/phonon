@@ -63,7 +63,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 fn test_resonz_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # resonz 1000 10.0
+        out $ saw 110 # resonz 1000 10.0
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -75,7 +75,7 @@ fn test_resonz_compiles() {
 fn test_resonz_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # resonz 1000 10.0
+        out $ saw 110 # resonz 1000 10.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -91,7 +91,7 @@ fn test_resonz_generates_audio() {
 fn test_resonz_passes_center_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # resonz 1000 20.0
+        out $ white_noise # resonz 1000 20.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -124,7 +124,7 @@ fn test_resonz_high_q_narrow_band() {
     // High Q should produce very narrow passband
     let code = r#"
         tempo: 0.5
-        o1: white_noise # resonz 1000 50.0
+        out $ white_noise # resonz 1000 50.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -157,7 +157,7 @@ fn test_resonz_low_q_wider_band() {
     // Low Q should produce wider passband
     let code = r#"
         tempo: 0.5
-        o1: white_noise # resonz 1000 2.0
+        out $ white_noise # resonz 1000 2.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -191,8 +191,8 @@ fn test_resonz_low_q_wider_band() {
 fn test_resonz_pattern_frequency() {
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 4 * 500 + 1000
-        o1: saw 110 # resonz ~lfo 10.0
+        ~lfo $ sine 4 * 500 + 1000
+        out $ saw 110 # resonz ~lfo 10.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -209,8 +209,8 @@ fn test_resonz_pattern_frequency() {
 fn test_resonz_pattern_q() {
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 2 * 10.0 + 15.0
-        o1: saw 110 # resonz 1000 ~lfo
+        ~lfo $ sine 2 * 10.0 + 15.0
+        out $ saw 110 # resonz 1000 ~lfo
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -229,7 +229,7 @@ fn test_resonz_pattern_q() {
 fn test_resonz_no_clipping() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # resonz 1000 50.0
+        out $ saw 110 # resonz 1000 50.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -247,7 +247,7 @@ fn test_resonz_no_clipping() {
 fn test_resonz_no_dc_offset() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # resonz 500 10.0
+        out $ saw 110 # resonz 500 10.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -263,7 +263,7 @@ fn test_resonz_no_dc_offset() {
 fn test_resonz_cascade() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # resonz 800 10.0 # resonz 1200 10.0
+        out $ saw 110 # resonz 800 10.0 # resonz 1200 10.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -281,11 +281,11 @@ fn test_resonz_formant_synthesis() {
     // Multiple resonz filters can create vocal formants
     let code = r#"
         tempo: 0.5
-        ~src: saw 110
-        ~f1: ~src # resonz 800 15.0
-        ~f2: ~src # resonz 1200 15.0
-        ~f3: ~src # resonz 2600 20.0
-        o1: (~f1 + ~f2 + ~f3) * 0.3
+        ~src $ saw 110
+        ~f1 $ ~src # resonz 800 15.0
+        ~f2 $ ~src # resonz 1200 15.0
+        ~f3 $ ~src # resonz 2600 20.0
+        out $ (~f1 + ~f2 + ~f3) * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -300,8 +300,8 @@ fn test_resonz_formant_synthesis() {
 fn test_resonz_resonant_sweep() {
     let code = r#"
         tempo: 0.5
-        ~sweep: line 200 5000
-        o1: saw 55 # resonz ~sweep 20.0
+        ~sweep $ line 200 5000
+        out $ saw 55 # resonz ~sweep 20.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -316,8 +316,8 @@ fn test_resonz_pluck_simulation() {
     // High Q resonz on noise burst simulates plucked string
     let code = r#"
         tempo: 0.5
-        ~burst: white_noise * (line 1.0 0.0)
-        o1: ~burst # resonz 440 40.0
+        ~burst $ white_noise * (line 1.0 0.0)
+        out $ ~burst # resonz 440 40.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -334,7 +334,7 @@ fn test_resonz_pluck_simulation() {
 fn test_resonz_very_low_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # resonz 50 10.0
+        out $ white_noise # resonz 50 10.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -349,7 +349,7 @@ fn test_resonz_very_low_frequency() {
 fn test_resonz_very_high_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: white_noise # resonz 15000 10.0
+        out $ white_noise # resonz 15000 10.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -363,7 +363,7 @@ fn test_resonz_very_high_frequency() {
 fn test_resonz_extreme_high_q() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # resonz 1000 100.0
+        out $ saw 110 # resonz 1000 100.0
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -377,7 +377,7 @@ fn test_resonz_extreme_high_q() {
 fn test_resonz_low_q() {
     let code = r#"
         tempo: 0.5
-        o1: saw 110 # resonz 1000 1.0
+        out $ saw 110 # resonz 1000 1.0
     "#;
 
     let buffer = render_dsl(code, 2.0);

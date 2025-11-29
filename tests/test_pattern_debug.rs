@@ -85,7 +85,7 @@ fn test_how_dsl_compiles_pattern() {
     use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
     // Parse DSL with pattern
-    let input = r#"out: sine "110 220" * 0.2"#;
+    let input = r#"out $ sine "110 220" * 0.2"#;
     let result = parse_dsl(input);
 
     println!("Parse result: {:?}", result);

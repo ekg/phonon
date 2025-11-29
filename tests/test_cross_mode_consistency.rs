@@ -23,8 +23,8 @@ fn analyze_wav(path: &str) -> String {
 #[test]
 fn test_auto_routing_cross_mode() {
     let code = r#"cps: 2.0
-~d1: saw 110
-~d2: saw 220
+~d1 $ saw 110
+~d2 $ saw 220
 "#;
 
     let sample_rate = 44100.0;
@@ -93,7 +93,7 @@ fn test_auto_routing_cross_mode() {
 #[test]
 fn test_synthesis_cross_mode() {
     let code = r#"cps: 1.0
-~out1: sine 440
+~out1 $ sine 440
 "#;
 
     let sample_rate = 44100.0;
@@ -145,7 +145,7 @@ fn test_synthesis_cross_mode() {
 #[test]
 fn test_effects_cross_mode() {
     let code = r#"cps: 2.0
-~d1: saw 110 # lpf 1000 0.8
+~d1 $ saw 110 # lpf 1000 0.8
 "#;
 
     let _sample_rate = 44100.0;
@@ -188,9 +188,9 @@ fn test_effects_cross_mode() {
 #[test]
 fn test_bus_routing_cross_mode() {
     let code = r#"cps: 2.0
-~bass: saw 55
-~lead: saw 220
-~d1: ~bass + ~lead
+~bass $ saw 55
+~lead $ saw 220
+~d1 $ ~bass + ~lead
 "#;
 
     let sample_rate = 44100.0;
@@ -223,7 +223,7 @@ fn test_bus_routing_cross_mode() {
 #[test]
 fn test_pattern_params_cross_mode() {
     let code = r#"cps: 2.0
-~d1: saw "110 220 440"
+~d1 $ saw "110 220 440"
 "#;
 
     let _sample_rate = 44100.0;
@@ -273,9 +273,9 @@ fn test_unified_vision_same_file_all_modes() {
 cps: 2.0
 
 -- Auto-routing pattern (TidalCycles style)
-~d1: saw 110
-~d2: sine 220
-~out1: square 55
+~d1 $ saw 110
+~d2 $ sine 220
+~out1 $ square 55
 
 -- All three buses should auto-route to master and mix together
 "#;

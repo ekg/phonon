@@ -9,9 +9,9 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_flanger_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440
-~flanged: flanger ~input 0.5 2.0 0.5
-out: ~flanged * 0.5
+~input $ sine 440
+~flanged $ flanger ~input 0.5 2.0 0.5
+out $ ~flanged * 0.5
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -36,9 +36,9 @@ fn test_flanger_delay_modulation() {
     let dsl = r#"
 tempo: 1.0
 -- Flanger parameters: input, depth (0-1), rate (Hz), feedback (0-0.95)
-~input: sine 440
-~flanged: flanger ~input 0.8 0.5 0.3
-out: ~flanged * 0.5
+~input $ sine 440
+~flanged $ flanger ~input 0.8 0.5 0.3
+out $ ~flanged * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -85,9 +85,9 @@ out: ~flanged * 0.5
 fn test_flanger_zero_depth() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440 * 0.5
-~flanged: flanger ~input 0.0 2.0 0.0
-out: ~flanged
+~input $ sine 440 * 0.5
+~flanged $ flanger ~input 0.0 2.0 0.0
+out $ ~flanged
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -97,8 +97,8 @@ out: ~flanged
     // Compare with dry signal
     let dsl_dry = r#"
 tempo: 1.0
-~input: sine 440 * 0.5
-out: ~input
+~input $ sine 440 * 0.5
+out $ ~input
 "#;
     let (_, statements) = parse_program(dsl_dry).unwrap();
     let mut graph_dry = compile_program(statements, SAMPLE_RATE, None).unwrap();
@@ -128,9 +128,9 @@ out: ~input
 fn test_flanger_feedback() {
     let dsl_low = r#"
 tempo: 1.0
-~input: sine 440
-~flanged: flanger ~input 0.5 2.0 0.1
-out: ~flanged * 0.5
+~input $ sine 440
+~flanged $ flanger ~input 0.5 2.0 0.1
+out $ ~flanged * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl_low).unwrap();
@@ -139,9 +139,9 @@ out: ~flanged * 0.5
 
     let dsl_high = r#"
 tempo: 1.0
-~input: sine 440
-~flanged: flanger ~input 0.5 2.0 0.8
-out: ~flanged * 0.5
+~input $ sine 440
+~flanged $ flanger ~input 0.5 2.0 0.8
+out $ ~flanged * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl_high).unwrap();
@@ -169,10 +169,10 @@ fn test_flanger_musical_example() {
     let dsl = r#"
 tempo: 0.5
 -- Classic flanger on guitar-like sound
-~guitar: saw 220
-~flanged: flanger ~guitar 0.7 0.3 0.5
-~env: ad 0.01 0.4
-out: ~flanged * ~env * 0.3
+~guitar $ saw 220
+~flanged $ flanger ~guitar 0.7 0.3 0.5
+~env $ ad 0.01 0.4
+out $ ~flanged * ~env * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -210,10 +210,10 @@ out: ~flanged * ~env * 0.3
 fn test_flanger_pattern_depth() {
     let dsl = r#"
 tempo: 0.5
-~depth_pattern: "0.2 0.5 0.8 1.0"
-~input: sine 440
-~flanged: flanger ~input ~depth_pattern 2.0 0.5
-out: ~flanged * 0.3
+~depth_pattern $ "0.2 0.5 0.8 1.0"
+~input $ sine 440
+~flanged $ flanger ~input ~depth_pattern 2.0 0.5
+out $ ~flanged * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -231,10 +231,10 @@ out: ~flanged * 0.3
 fn test_flanger_pattern_rate() {
     let dsl = r#"
 tempo: 0.5
-~rate_pattern: "0.5 1.0 2.0 4.0"
-~input: saw 220
-~flanged: flanger ~input 0.7 ~rate_pattern 0.4
-out: ~flanged * 0.3
+~rate_pattern $ "0.5 1.0 2.0 4.0"
+~input $ saw 220
+~flanged $ flanger ~input 0.7 ~rate_pattern 0.4
+out $ ~flanged * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -253,9 +253,9 @@ fn test_flanger_different_inputs() {
     // Test with saw wave
     let dsl = r#"
 tempo: 1.0
-~saw: saw 220
-~flanged: flanger ~saw 0.6 1.5 0.4
-out: ~flanged * 0.4
+~saw $ saw 220
+~flanged $ flanger ~saw 0.6 1.5 0.4
+out $ ~flanged * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -268,9 +268,9 @@ out: ~flanged * 0.4
     // Test with square wave
     let dsl = r#"
 tempo: 1.0
-~square: square 220
-~flanged: flanger ~square 0.6 1.5 0.4
-out: ~flanged * 0.4
+~square $ square 220
+~flanged $ flanger ~square 0.6 1.5 0.4
+out $ ~flanged * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

@@ -33,7 +33,7 @@ fn calculate_peak(buffer: &[f32]) -> f32 {
 #[test]
 fn test_square_hz_level3_basic() {
     // Test basic square oscillator
-    let code = "out: square_hz 220";
+    let code = "out $ square_hz 220";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -55,7 +55,7 @@ fn test_square_hz_level3_frequency_sweep() {
     let frequencies = vec![55.0, 110.0, 220.0, 440.0, 880.0];
 
     for freq in &frequencies {
-        let code = format!("out: square_hz {}", freq);
+        let code = format!("out $ square_hz {}", freq);
         let audio = render_dsl(&code, 1.0);
         let rms = calculate_rms(&audio);
 
@@ -69,7 +69,7 @@ fn test_square_hz_level3_pattern_control() {
     // Test pattern-controlled frequency (Phonon's killer feature!)
     let code = r#"
         tempo: 0.5
-        out: square_hz "110 165 220 330"
+        out $ square_hz "110 165 220 330"
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -85,9 +85,9 @@ fn test_square_hz_level3_lfo_modulation() {
     // Test LFO modulation of frequency
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 0.5
-        ~freq: ~lfo * 100 + 220
-        out: square_hz ~freq
+        ~lfo $ sine 0.5
+        ~freq $ ~lfo * 100 + 220
+        out $ square_hz ~freq
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -101,7 +101,7 @@ fn test_square_hz_level3_lfo_modulation() {
 #[test]
 fn test_square_hz_level3_through_filter() {
     // Test square through filter (classic bass sound)
-    let code = "out: square_hz 55 # lpf 200 0.8";
+    let code = "out $ square_hz 55 # lpf 200 0.8";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -114,7 +114,7 @@ fn test_square_hz_level3_through_filter() {
 #[test]
 fn test_square_hz_level3_bass() {
     // Test bass frequency
-    let code = "out: square_hz 55";
+    let code = "out $ square_hz 55";
     let audio = render_dsl(code, 2.0);
 
     let rms = calculate_rms(&audio);
@@ -127,7 +127,7 @@ fn test_square_hz_level3_bass() {
 #[test]
 fn test_square_hz_level3_high() {
     // Test high frequency
-    let code = "out: square_hz 2000";
+    let code = "out $ square_hz 2000";
     let audio = render_dsl(code, 1.0);
 
     let rms = calculate_rms(&audio);
@@ -140,7 +140,7 @@ fn test_square_hz_level3_high() {
 #[test]
 fn test_square_hz_level3_amplitude_control() {
     // Test amplitude scaling
-    let code = "out: square_hz 220 * 0.5";
+    let code = "out $ square_hz 220 * 0.5";
     let audio = render_dsl(code, 1.0);
 
     let rms = calculate_rms(&audio);
@@ -155,9 +155,9 @@ fn test_square_hz_level3_amplitude_control() {
 fn test_square_hz_level3_multiple_oscillators() {
     // Test multiple square oscillators mixed
     let code = r#"
-        ~sq1: square_hz 220
-        ~sq2: square_hz 221.5
-        out: (~sq1 + ~sq2) * 0.5
+        ~sq1 $ square_hz 220
+        ~sq2 $ square_hz 221.5
+        out $ (~sq1 + ~sq2) * 0.5
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -172,10 +172,10 @@ fn test_square_hz_level3_multiple_oscillators() {
 fn test_square_hz_level3_detuned_stack() {
     // Test detuned square stack (pseudo-PWM)
     let code = r#"
-        ~sq1: square_hz 220
-        ~sq2: square_hz 220.5
-        ~sq3: square_hz 219.5
-        out: (~sq1 + ~sq2 + ~sq3) * 0.33
+        ~sq1 $ square_hz 220
+        ~sq2 $ square_hz 220.5
+        ~sq3 $ square_hz 219.5
+        out $ (~sq1 + ~sq2 + ~sq3) * 0.33
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -191,9 +191,9 @@ fn test_square_hz_level3_with_envelope() {
     // Test square with amplitude envelope
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 0.5
-        ~env: ~lfo * 0.4 + 0.6
-        out: square_hz 220 * ~env
+        ~lfo $ sine 0.5
+        ~env $ ~lfo * 0.4 + 0.6
+        out $ square_hz 220 * ~env
     "#;
     let audio = render_dsl(code, 2.0);
 
@@ -207,8 +207,8 @@ fn test_square_hz_level3_with_envelope() {
 #[test]
 fn test_square_hz_level3_vs_saw_hz() {
     // Compare square to saw (different harmonic content)
-    let code_square = "out: square_hz 220";
-    let code_saw = "out: saw_hz 220";
+    let code_square = "out $ square_hz 220";
+    let code_saw = "out $ saw_hz 220";
 
     let audio_square = render_dsl(code_square, 1.0);
     let audio_saw = render_dsl(code_saw, 1.0);

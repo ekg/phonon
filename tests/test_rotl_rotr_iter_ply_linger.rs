@@ -34,7 +34,7 @@ fn test_rotl_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ rotL 0.25
+out $ "bd sn hh cp" $ rotL 0.25
 "#,
         "RotL by 0.25 steps",
     );
@@ -46,7 +46,7 @@ fn test_rotl_small_amount() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ rotL 0.125
+out $ "bd*8" $ rotL 0.125
 "#,
         "RotL by 0.125 steps (small rotation)",
     );
@@ -58,7 +58,7 @@ fn test_rotl_full_cycle() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ rotL 1.0
+out $ "bd sn hh cp" $ rotL 1.0
 "#,
         "RotL by full cycle",
     );
@@ -70,7 +70,7 @@ fn test_rotl_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ rotL 0.5 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ rotL 0.5 # reverb 0.5 0.3 0.2
 "#,
         "RotL with reverb",
     );
@@ -82,7 +82,7 @@ fn test_rotl_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ rotL 0.125 $ fast 2
+out $ "bd sn hh" $ rotL 0.125 $ fast 2
 "#,
         "RotL combined with fast",
     );
@@ -96,7 +96,7 @@ fn test_rotr_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ rotR 0.25
+out $ "bd sn hh cp" $ rotR 0.25
 "#,
         "RotR by 0.25 steps",
     );
@@ -108,7 +108,7 @@ fn test_rotr_small_amount() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ rotR 0.125
+out $ "bd*8" $ rotR 0.125
 "#,
         "RotR by 0.125 steps (small rotation)",
     );
@@ -120,7 +120,7 @@ fn test_rotr_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ rotR 0.5 # delay 0.25 0.5 0.3
+out $ "bd sn hh*4" $ rotR 0.5 # delay 0.25 0.5 0.3
 "#,
         "RotR with delay",
     );
@@ -132,7 +132,7 @@ fn test_rotl_and_rotr_cancel() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ rotL 0.25 $ rotR 0.25
+out $ "bd sn hh cp" $ rotL 0.25 $ rotR 0.25
 "#,
         "RotL and RotR cancel",
     );
@@ -146,7 +146,7 @@ fn test_iter_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ iter 4
+out $ "bd sn hh cp" $ iter 4
 "#,
         "Iter over 4 cycles",
     );
@@ -158,7 +158,7 @@ fn test_iter_small_n() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4" $ iter 2
+out $ "bd*4" $ iter 2
 "#,
         "Iter over 2 cycles",
     );
@@ -170,7 +170,7 @@ fn test_iter_large_n() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4 cp*2" $ iter 8
+out $ "bd sn hh*4 cp*2" $ iter 8
 "#,
         "Iter over 8 cycles",
     );
@@ -182,7 +182,7 @@ fn test_iter_with_euclidean() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd(3,8)" $ iter 3
+out $ "bd(3,8)" $ iter 3
 "#,
         "Iter with euclidean pattern",
     );
@@ -194,7 +194,7 @@ fn test_iter_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ iter 4 # chorus 0.5 0.3 0.2
+out $ "bd sn hh cp" $ iter 4 # chorus 0.5 0.3 0.2
 "#,
         "Iter with chorus",
     );
@@ -208,7 +208,7 @@ fn test_iterback_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ iterBack 4
+out $ "bd sn hh cp" $ iterBack 4
 "#,
         "IterBack over 4 cycles",
     );
@@ -220,7 +220,7 @@ fn test_iterback_with_fast() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ iterBack 3 $ fast 2
+out $ "bd sn hh*4" $ iterBack 3 $ fast 2
 "#,
         "IterBack with fast",
     );
@@ -232,9 +232,9 @@ fn test_iter_and_iterback() {
     test_compilation(
         r#"
 tempo: 0.5
-~forward: "bd sn" $ iter 4
-~backward: "hh cp" $ iterBack 4
-out: ~forward + ~backward
+~forward $ "bd sn" $ iter 4
+~backward $ "hh cp" $ iterBack 4
+out $ ~forward + ~backward
 "#,
         "Iter and IterBack together",
     );
@@ -248,7 +248,7 @@ fn test_ply_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ ply 3
+out $ "bd sn" $ ply 3
 "#,
         "Ply 3 times",
     );
@@ -260,7 +260,7 @@ fn test_ply_many_times() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ ply 8
+out $ "bd" $ ply 8
 "#,
         "Ply 8 times",
     );
@@ -272,7 +272,7 @@ fn test_ply_with_subdivision() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4 sn*4" $ ply 2
+out $ "bd*4 sn*4" $ ply 2
 "#,
         "Ply with subdivision",
     );
@@ -284,7 +284,7 @@ fn test_ply_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ ply 4 # distort 2.0 0.5
+out $ "bd sn hh" $ ply 4 # distort 2.0 0.5
 "#,
         "Ply with distortion",
     );
@@ -296,7 +296,7 @@ fn test_ply_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ ply 3 $ fast 2
+out $ "bd sn" $ ply 3 $ fast 2
 "#,
         "Ply combined with fast",
     );
@@ -310,7 +310,7 @@ fn test_linger_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ linger 2.0
+out $ "bd sn hh cp" $ linger 2.0
 "#,
         "Linger factor 2.0",
     );
@@ -322,7 +322,7 @@ fn test_linger_small_factor() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ linger 1.5
+out $ "bd*8" $ linger 1.5
 "#,
         "Linger factor 1.5",
     );
@@ -334,7 +334,7 @@ fn test_linger_large_factor() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ linger 4.0
+out $ "bd sn hh cp" $ linger 4.0
 "#,
         "Linger factor 4.0",
     );
@@ -346,7 +346,7 @@ fn test_linger_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ linger 3.0 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ linger 3.0 # reverb 0.5 0.3 0.2
 "#,
         "Linger with reverb",
     );
@@ -358,7 +358,7 @@ fn test_linger_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ linger 2.0 $ rev
+out $ "bd sn hh" $ linger 2.0 $ rev
 "#,
         "Linger combined with rev",
     );
@@ -372,13 +372,13 @@ fn test_all_six_operations_in_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~rotated_left: "bd*8" $ rotL 0.25
-~rotated_right: "sn*4" $ rotR 0.125
-~iterated: "hh*8" $ iter 4
-~iterated_back: "cp*2" $ iterBack 3
-~plied: "bd sn" $ ply 4
-~lingered: "hh cp" $ linger 2.0
-out: ~rotated_left + ~rotated_right + ~iterated + ~iterated_back + ~plied + ~lingered
+~rotated_left $ "bd*8" $ rotL 0.25
+~rotated_right $ "sn*4" $ rotR 0.125
+~iterated $ "hh*8" $ iter 4
+~iterated_back $ "cp*2" $ iterBack 3
+~plied $ "bd sn" $ ply 4
+~lingered $ "hh cp" $ linger 2.0
+out $ ~rotated_left + ~rotated_right + ~iterated + ~iterated_back + ~plied + ~lingered
 "#,
         "All six operations in one program",
     );
@@ -390,9 +390,9 @@ fn test_rotation_operations() {
     test_compilation(
         r#"
 tempo: 0.5
-~left: "bd sn hh cp" $ rotL 0.5
-~right: "bd sn hh cp" $ rotR 0.5
-out: ~left + ~right
+~left $ "bd sn hh cp" $ rotL 0.5
+~right $ "bd sn hh cp" $ rotR 0.5
+out $ ~left + ~right
 "#,
         "RotL and RotR in same program",
     );
@@ -404,9 +404,9 @@ fn test_iteration_operations() {
     test_compilation(
         r#"
 tempo: 0.5
-~forward: "bd*4 sn*4" $ iter 4
-~backward: "hh*4 cp*4" $ iterBack 4
-out: ~forward + ~backward
+~forward $ "bd*4 sn*4" $ iter 4
+~backward $ "hh*4 cp*4" $ iterBack 4
+out $ ~forward + ~backward
 "#,
         "Iter and IterBack in same program",
     );
@@ -418,9 +418,9 @@ fn test_ply_and_linger() {
     test_compilation(
         r#"
 tempo: 0.5
-~plied: "bd sn" $ ply 4
-~lingered: "hh cp" $ linger 2.0
-out: ~plied + ~lingered
+~plied $ "bd sn" $ ply 4
+~lingered $ "hh cp" $ linger 2.0
+out $ ~plied + ~lingered
 "#,
         "Ply and linger in same program",
     );
@@ -432,7 +432,7 @@ fn test_complex_combination() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ rotL 0.25 $ iter 4 $ ply 2 $ fast 2
+out $ "bd sn hh cp" $ rotL 0.25 $ iter 4 $ ply 2 $ fast 2
 "#,
         "Complex combination: rotL, iter, ply, fast",
     );
@@ -444,7 +444,7 @@ fn test_with_effects_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ rotL 0.125 $ iter 3 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*4" $ rotL 0.125 $ iter 3 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Multiple operations with effects chain",
     );
@@ -456,7 +456,7 @@ fn test_linger_and_iter() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ linger 2.0 $ iter 4
+out $ "bd sn hh cp" $ linger 2.0 $ iter 4
 "#,
         "Linger and iter combined",
     );
@@ -468,7 +468,7 @@ fn test_ply_with_rotations() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn" $ ply 3 $ rotL 0.25 $ rotR 0.125
+out $ "bd sn" $ ply 3 $ rotL 0.25 $ rotR 0.125
 "#,
         "Ply with rotations",
     );
@@ -480,12 +480,12 @@ fn test_in_complex_multi_bus_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~kick: "bd*4" $ ply 2 $ rotL 0.125
-~snare: "~ sn ~ sn" $ iter 4
-~hats: "hh*8" $ iterBack 3
-~perc: "cp*4" $ linger 1.5
-~mixed: (~kick + ~snare) $ rotR 0.25
-out: ~mixed * 0.5 + ~hats * 0.3 + ~perc * 0.2
+~kick $ "bd*4" $ ply 2 $ rotL 0.125
+~snare $ "~ sn ~ sn" $ iter 4
+~hats $ "hh*8" $ iterBack 3
+~perc $ "cp*4" $ linger 1.5
+~mixed $ (~kick + ~snare) $ rotR 0.25
+out $ ~mixed * 0.5 + ~hats * 0.3 + ~perc * 0.2
 "#,
         "Complex multi-bus program with all operations",
     );

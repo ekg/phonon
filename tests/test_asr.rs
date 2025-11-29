@@ -7,11 +7,11 @@ const SAMPLE_RATE: f32 = 44100.0;
 /// Tests that ASR syntax is parsed and compiled correctly
 #[test]
 fn test_asr_pattern_query() {
+    // Use inline gate pattern
     let dsl = r#"
 tempo: 1.0
-~gate: "1.0 0.0"
-~envelope: asr ~gate 0.1 0.2
-out: ~envelope
+~envelope $ asr "1.0 0.0" 0.1 0.2
+out $ ~envelope
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -33,12 +33,11 @@ out: ~envelope
 /// Tests that envelope attacks from 0 to 1 when gate goes high
 #[test]
 fn test_asr_attack() {
+    // Gate high (constant 1.0) - tests attack phase
     let dsl = r#"
 tempo: 1.0
-~gate_const: sine 0.0
-~gate: ~gate_const * 0.0 + 1.0
-~envelope: asr ~gate 0.1 0.1
-out: ~envelope
+~envelope $ asr 1.0 0.1 0.1
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -70,12 +69,11 @@ out: ~envelope
 /// Tests that envelope holds at peak while gate is high
 #[test]
 fn test_asr_sustain() {
+    // Gate high (constant 1.0) with fast attack - tests sustain
     let dsl = r#"
 tempo: 1.0
-~gate: sine 0.0
-~gate_high: ~gate * 0.0 + 1.0
-~envelope: asr ~gate_high 0.01 0.01
-out: ~envelope
+~envelope $ asr 1.0 0.01 0.01
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -102,36 +100,39 @@ out: ~envelope
 /// Tests that envelope releases to 0 when gate goes low
 #[test]
 fn test_asr_release() {
+    // Inline gate pattern: high then low
+    // With tempo 1.0, one cycle = 1 second
+    // Pattern "1.0 0.0" means gate high for 0.5s, then low for 0.5s
     let dsl = r#"
-tempo: 0.5
-~gate: "1.0 0.0"
-~envelope: asr ~gate 0.01 0.1
-out: ~envelope
+tempo: 1.0
+~envelope $ asr "1.0 0.0" 0.01 0.1
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
     let mut graph = compile_program(statements, SAMPLE_RATE, None).unwrap();
 
     // Render 1 full cycle (gate high for 0.5s, low for 0.5s)
-    let samples = graph.render((SAMPLE_RATE * 0.5) as usize);
+    let samples = graph.render((SAMPLE_RATE * 1.0) as usize);
 
-    // Find where envelope starts releasing (after gate goes low)
-    let mid_point = samples.len() / 2;
-    let release_start = samples[mid_point];
-    let release_end = samples[samples.len() - 1];
+    // At 0.5s, gate goes low. Check the envelope at 0.55s (just after) and 0.95s (near end)
+    let release_start = samples[(SAMPLE_RATE * 0.55) as usize];
+    let release_end = samples[(SAMPLE_RATE * 0.95) as usize];
 
     println!(
-        "Release start: {}, Release end: {}",
+        "Release start (t=0.55s): {}, Release end (t=0.95s): {}",
         release_start, release_end
     );
 
     // Envelope should decay during release
     assert!(
         release_end < release_start,
-        "Envelope should decay during release"
+        "Envelope should decay during release, got start={} end={}",
+        release_start,
+        release_end
     );
 
-    // Should approach 0
+    // Should approach 0 after 0.4s of release (release time is 0.1s)
     assert!(
         release_end < 0.3,
         "Should release toward 0, got {}",
@@ -143,11 +144,11 @@ out: ~envelope
 /// Tests that envelope can retrigger from release phase
 #[test]
 fn test_asr_retrigger() {
+    // Inline gate pattern with multiple triggers
     let dsl = r#"
 tempo: 4.0
-~gate: "1.0 0.0 1.0 0.0"
-~envelope: asr ~gate 0.01 0.01
-out: ~envelope
+~envelope $ asr "1.0 0.0 1.0 0.0" 0.01 0.01
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -185,12 +186,12 @@ out: ~envelope
 /// Tests ASR used for sustained organ sound
 #[test]
 fn test_asr_organ() {
+    // Inline gate pattern for organ
     let dsl = r#"
 tempo: 0.5
-~gate: "1.0 0.0 1.0 1.0"
-~env: asr ~gate 0.02 0.1
-~tone: sine 440
-out: ~tone * ~env * 0.3
+~env $ asr "1.0 0.0 1.0 1.0" 0.02 0.1
+~tone $ sine 440
+out $ ~tone * ~env * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -209,16 +210,14 @@ out: ~tone * ~env * 0.3
 }
 
 /// LEVEL 3: ASR with Variable Attack/Release
-/// Tests that attack and release times can be patterns
+/// Tests that attack and release times can be patterns (inline)
 #[test]
 fn test_asr_pattern_times() {
+    // All parameters as inline patterns
     let dsl = r#"
 tempo: 1.0
-~gate: "1.0 0.0"
-~attack: "0.01 0.1"
-~release: "0.05 0.2"
-~envelope: asr ~gate ~attack ~release
-out: ~envelope
+~envelope $ asr "1.0 0.0" "0.01 0.1" "0.05 0.2"
+out $ ~envelope
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -235,13 +234,13 @@ out: ~envelope
 /// Tests ASR used for gated synthesis
 #[test]
 fn test_asr_gating() {
+    // Inline gate pattern
     let dsl = r#"
 tempo: 4.0
-~gate: "1.0 0.0 1.0 0.0"
-~env: asr ~gate 0.01 0.05
-~synth: saw 110
-~gated: ~synth * ~env
-out: ~gated * 0.3
+~env $ asr "1.0 0.0 1.0 0.0" 0.01 0.05
+~synth $ saw 110
+~gated $ ~synth * ~env
+out $ ~gated * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -266,11 +265,11 @@ out: ~gated * 0.3
 /// Tests asymmetric attack/release times
 #[test]
 fn test_asr_asymmetric() {
+    // Inline gate pattern with asymmetric times
     let dsl = r#"
 tempo: 0.5
-~gate: "1.0 0.0"
-~fast_attack_slow_release: asr ~gate 0.001 0.2
-out: ~fast_attack_slow_release
+~fast_attack_slow_release $ asr "1.0 0.0" 0.001 0.2
+out $ ~fast_attack_slow_release
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

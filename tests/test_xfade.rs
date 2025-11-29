@@ -11,10 +11,10 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_xfade_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~a: sine 440
-~b: sine 880
-~crossfade: xfade ~a ~b 0.5
-out: ~crossfade
+~a $ sine 440
+~b $ sine 880
+~crossfade $ xfade ~a ~b 0.5
+out $ ~crossfade
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -38,10 +38,10 @@ out: ~crossfade
 fn test_xfade_full_signal_a() {
     let dsl = r#"
 tempo: 1.0
-~a: sine 440
-~b: sine 880
-~faded: xfade ~a ~b 0.0
-out: ~faded
+~a $ sine 440
+~b $ sine 880
+~faded $ xfade ~a ~b 0.0
+out $ ~faded
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -72,10 +72,10 @@ out: ~faded
 fn test_xfade_full_signal_b() {
     let dsl = r#"
 tempo: 1.0
-~a: sine 440
-~b: sine 880
-~faded: xfade ~a ~b 1.0
-out: ~faded
+~a $ sine 440
+~b $ sine 880
+~faded $ xfade ~a ~b 1.0
+out $ ~faded
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -106,10 +106,10 @@ out: ~faded
 fn test_xfade_center_position() {
     let dsl = r#"
 tempo: 1.0
-~a: sine 440
-~b: sine 440
-~faded: xfade ~a ~b 0.5
-out: ~faded
+~a $ sine 440
+~b $ sine 440
+~faded $ xfade ~a ~b 0.5
+out $ ~faded
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -140,11 +140,11 @@ out: ~faded
 fn test_xfade_pattern_modulated() {
     let dsl = r#"
 tempo: 1.0
-~a: sine 220
-~b: sine 440
-~position: line 0 1
-~faded: xfade ~a ~b ~position
-out: ~faded * 0.5
+~a $ sine 220
+~b $ sine 440
+~position $ line 0 1
+~faded $ xfade ~a ~b ~position
+out $ ~faded * 0.5
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -175,10 +175,10 @@ out: ~faded * 0.5
 fn test_xfade_different_waveforms() {
     let dsl = r#"
 tempo: 1.0
-~sine: sine 220
-~saw: saw 220
-~faded: xfade ~sine ~saw 0.3
-out: ~faded * 0.5
+~sine $ sine 220
+~saw $ saw 220
+~faded $ xfade ~sine ~saw 0.3
+out $ ~faded * 0.5
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -209,12 +209,12 @@ out: ~faded * 0.5
 fn test_xfade_with_envelopes() {
     let dsl = r#"
 tempo: 1.0
-~env1: adsr 0.1 0.2 0.7 0.3
-~env2: adsr 0.05 0.1 0.5 0.2
-~a: sine 440 * ~env1
-~b: sine 880 * ~env2
-~faded: xfade ~a ~b 0.5
-out: ~faded * 0.5
+~env1 $ adsr 0.1 0.2 0.7 0.3
+~env2 $ adsr 0.05 0.1 0.5 0.2
+~a $ sine 440 * ~env1
+~b $ sine 880 * ~env2
+~faded $ xfade ~a ~b 0.5
+out $ ~faded * 0.5
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();

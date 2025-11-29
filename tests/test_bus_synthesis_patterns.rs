@@ -22,16 +22,17 @@ fn render_in_chunks(graph: &mut phonon::unified_graph::UnifiedSignalGraph, total
 #[test]
 fn test_simple_bus_trigger() {
     let sample_rate = 44100.0;
+    // Use bpm: 120 (2 CPS) so events trigger within 1 second
     let code = r#"
-tempo: 0.5
-~s: sine 440
-~c: s "~s"
-out: ~c
+bpm: 120
+~s $ sine 440
+~c $ s "~s*4"
+out $ ~c
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
     let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
-    let buffer = render_in_chunks(&mut graph, 44100, 128); // 1 second in 128-sample chunks
+    let buffer = render_in_chunks(&mut graph, 88200, 128); // 2 seconds in 128-sample chunks
 
     let rms = calculate_rms(&buffer);
     assert!(rms > 0.01, "Simple bus trigger failed: RMS = {}", rms);
@@ -43,9 +44,9 @@ fn test_bus_trigger_with_pattern() {
     let sample_rate = 44100.0;
     let code = r#"
 tempo: 0.5
-~s: sine 440
-~c: s "~s ~s ~s ~s"
-out: ~c
+~s $ sine 440
+~c $ s "~s ~s ~s ~s"
+out $ ~c
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
@@ -60,16 +61,17 @@ out: ~c
 #[test]
 fn test_bus_trigger_with_gain() {
     let sample_rate = 44100.0;
+    // Use bpm: 120 (2 CPS) so events trigger within render time
     let code = r#"
-tempo: 0.5
-~s: sine 440
-~c: s "~s" # gain 1
-out: ~c
+bpm: 120
+~s $ sine 440
+~c $ s "~s*4" # gain 1
+out $ ~c
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
     let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
-    let buffer = render_in_chunks(&mut graph, 44100, 128);
+    let buffer = render_in_chunks(&mut graph, 88200, 128); // 2 seconds
 
     let rms = calculate_rms(&buffer);
     assert!(rms > 0.01, "Bus with gain failed: RMS = {}", rms);
@@ -79,16 +81,17 @@ out: ~c
 #[test]
 fn test_bus_trigger_with_note() {
     let sample_rate = 44100.0;
+    // Use bpm: 120 (2 CPS) so events trigger within render time
     let code = r#"
-tempo: 0.5
-~s: sine 440
-~c: s "~s" # note "c3"
-out: ~c
+bpm: 120
+~s $ sine 440
+~c $ s "~s*4" # note "c3"
+out $ ~c
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
     let mut graph = compile_program(statements, sample_rate, None).expect("Compilation failed");
-    let buffer = render_in_chunks(&mut graph, 44100, 128);
+    let buffer = render_in_chunks(&mut graph, 88200, 128); // 2 seconds
 
     let rms = calculate_rms(&buffer);
     assert!(rms > 0.01, "Bus with note failed: RMS = {}", rms);
@@ -100,9 +103,9 @@ fn test_bus_trigger_with_euclidean() {
     let sample_rate = 44100.0;
     let code = r#"
 tempo: 0.5
-~s: sine 440
-~c: s "~s(3,8)"
-out: ~c
+~s $ sine 440
+~c $ s "~s(3,8)"
+out $ ~c
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");
@@ -119,9 +122,9 @@ fn test_bus_trigger_euclidean_plus_note_plus_gain() {
     let sample_rate = 44100.0;
     let code = r#"
 tempo: 0.5
-~s: sine 440
-~c: s "~s(3,8)" # note "c3" # gain 1
-out: ~c
+~s $ sine 440
+~c $ s "~s(3,8)" # note "c3" # gain 1
+out $ ~c
 "#;
 
     let (_, statements) = parse_program(code).expect("Parse failed");

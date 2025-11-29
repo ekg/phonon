@@ -3,7 +3,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 
 #[test]
 fn test_s_function_parses() {
-    let input = r#"out: s "bd sn hh cp""#;
+    let input = r#"out $ s "bd sn hh cp""#;
     let result = parse_dsl(input);
 
     println!("Parse result: {:?}", result);
@@ -12,7 +12,7 @@ fn test_s_function_parses() {
 
 #[test]
 fn test_s_function_compiles() {
-    let input = r#"out: s "bd ~ sn ~""#;
+    let input = r#"out $ s "bd ~ sn ~""#;
     let (_, statements) = parse_dsl(input).unwrap();
 
     let compiler = DslCompiler::new(44100.0);
@@ -36,7 +36,7 @@ fn test_s_function_compiles() {
 
 #[test]
 fn test_s_function_with_gain_param() {
-    let input = r#"out: s("bd*4", 0.5)"#;
+    let input = r#"out $ s("bd*4", 0.5)"#;
     let (_, statements) = parse_dsl(input).unwrap();
 
     let compiler = DslCompiler::new(44100.0);
@@ -52,7 +52,7 @@ fn test_s_function_with_gain_param() {
 
 #[test]
 fn test_s_function_with_pattern_gain() {
-    let input = r#"out: s("bd*4", "0.5 1.0 0.7 0.3")"#;
+    let input = r#"out $ s("bd*4", "0.5 1.0 0.7 0.3")"#;
     let (_, statements) = parse_dsl(input).unwrap();
 
     let compiler = DslCompiler::new(44100.0);
@@ -71,7 +71,7 @@ fn test_s_function_with_pattern_gain() {
 fn test_tidal_workflow_basic() {
     // Test basic Tidal Cycles workflow
     let input = r#"
-        out: s "bd sn bd sn"
+        out $ s "bd sn bd sn"
     "#;
 
     let (_, statements) = parse_dsl(input).unwrap();

@@ -34,7 +34,11 @@ fn count_events_in_cycle(pattern: &Pattern<String>, cycle: i32) -> usize {
     pattern.query(&state).len()
 }
 
+// NOTE: Audio verification tests are ignored because they require sample files (dirt-samples)
+// to be available. Run with `cargo test -- --ignored` when samples are installed.
+
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_begin_start_at_beginning() {
     // LEVEL 1: Pattern query verification
     let pattern = parse_mini_notation("bd");
@@ -47,7 +51,7 @@ fn test_begin_start_at_beginning() {
     // LEVEL 2 & 3: Audio verification
     let code = r#"
 tempo: 0.5
-out: s "bd" # begin 0.0
+out $ s "bd" # begin 0.0
 "#;
 
     let buffer = render_dsl(code, 2.0); // 4 cycles
@@ -59,11 +63,12 @@ out: s "bd" # begin 0.0
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_begin_skip_start() {
     // Test that begin 0.5 skips first half of sample and still produces audio
     let begin_half_code = r#"
 tempo: 0.5
-out: s "bd" # begin 0.5
+out $ s "bd" # begin 0.5
 "#;
 
     let begin_half = render_dsl(begin_half_code, 0.5); // 1 cycle
@@ -78,11 +83,12 @@ out: s "bd" # begin 0.5
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_end_full_sample() {
     // Test that end 1.0 plays full sample
     let code = r#"
 tempo: 0.5
-out: s "bd" # end 1.0
+out $ s "bd" # end 1.0
 "#;
 
     let buffer = render_dsl(code, 0.5); // 1 cycle
@@ -94,11 +100,12 @@ out: s "bd" # end 1.0
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_end_truncate_sample() {
     // Test that end 0.5 plays only first half and produces audio
     let end_half_code = r#"
 tempo: 0.5
-out: s "bd" # end 0.5
+out $ s "bd" # end 0.5
 "#;
 
     let end_half = render_dsl(end_half_code, 0.5);
@@ -113,11 +120,12 @@ out: s "bd" # end 0.5
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_begin_and_end_combined() {
     // Test slicing middle portion of sample with both begin and end
     let code = r#"
 tempo: 0.5
-out: s "bd" # begin 0.25 # end 0.75
+out $ s "bd" # begin 0.25 # end 0.75
 "#;
 
     let buffer = render_dsl(code, 0.5);
@@ -129,11 +137,12 @@ out: s "bd" # begin 0.25 # end 0.75
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_begin_end_pattern_based() {
     // Test pattern-based begin/end values
     let code = r#"
 tempo: 0.5
-out: s "bd*4" # begin "0 0.25 0.5 0.75"
+out $ s "bd*4" # begin "0 0.25 0.5 0.75"
 "#;
 
     let buffer = render_dsl(code, 0.5); // 1 cycle
@@ -145,11 +154,12 @@ out: s "bd*4" # begin "0 0.25 0.5 0.75"
 }
 
 #[test]
+#[ignore = "requires sample files (dirt-samples) to be installed"]
 fn test_begin_end_extremes() {
     // Test that begin/end values are clamped properly
     let code = r#"
 tempo: 0.5
-out: s "bd*3" # begin "-1 0 2" # end "0.5 1 3"
+out $ s "bd*3" # begin "-1 0 2" # end "0.5 1 3"
 "#;
 
     let buffer = render_dsl(code, 0.5);
@@ -165,7 +175,7 @@ fn test_begin_larger_than_end() {
     // Test edge case where begin > end (should produce minimal or no sound)
     let code = r#"
 tempo: 0.5
-out: s "bd" # begin 0.8 # end 0.2
+out $ s "bd" # begin 0.8 # end 0.2
 "#;
 
     let buffer = render_dsl(code, 0.5);

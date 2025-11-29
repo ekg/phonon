@@ -29,8 +29,8 @@ fn calculate_spectral_richness(samples: &[f32]) -> f32 {
 fn test_supersaw_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~synth: supersaw 110 0.5
-out: ~synth
+~synth $ supersaw 110 0.5
+out $ ~synth
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -53,8 +53,8 @@ out: ~synth
 fn test_supersaw_produces_sound() {
     let dsl = r#"
 tempo: 1.0
-~synth: supersaw 110 0.5
-out: ~synth * 0.3
+~synth $ supersaw 110 0.5
+out $ ~synth * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -75,8 +75,8 @@ out: ~synth * 0.3
 fn test_supersaw_zero_detune() {
     let dsl_supersaw_zero = r#"
 tempo: 1.0
-~synth: supersaw 110 0.0
-out: ~synth * 0.3
+~synth $ supersaw 110 0.0
+out $ ~synth * 0.3
 "#;
 
     let (_, statements_supersaw) = parse_program(dsl_supersaw_zero).unwrap();
@@ -98,14 +98,14 @@ out: ~synth * 0.3
 fn test_supersaw_detune_affects_sound() {
     let dsl_low_detune = r#"
 tempo: 1.0
-~synth: supersaw 110 0.2
-out: ~synth * 0.2
+~synth $ supersaw 110 0.2
+out $ ~synth * 0.2
 "#;
 
     let dsl_high_detune = r#"
 tempo: 1.0
-~synth: supersaw 110 0.8
-out: ~synth * 0.2
+~synth $ supersaw 110 0.8
+out $ ~synth * 0.2
 "#;
 
     let (_, statements_low) = parse_program(dsl_low_detune).unwrap();
@@ -132,8 +132,8 @@ out: ~synth * 0.2
 fn test_supersaw_stability() {
     let dsl = r#"
 tempo: 1.0
-~synth: supersaw 220 0.7
-out: ~synth * 0.2
+~synth $ supersaw 220 0.7
+out $ ~synth * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -159,8 +159,8 @@ out: ~synth * 0.2
 fn test_supersaw_pattern_frequency() {
     let dsl = r#"
 tempo: 0.5
-~synth: supersaw "110 220" 0.5
-out: ~synth * 0.2
+~synth $ supersaw "110 220" 0.5
+out $ ~synth * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -182,8 +182,8 @@ out: ~synth * 0.2
 fn test_supersaw_bass() {
     let dsl = r#"
 tempo: 0.5
-~bass: supersaw 55 0.3
-out: ~bass * 0.3
+~bass $ supersaw 55 0.3
+out $ ~bass * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -205,8 +205,8 @@ out: ~bass * 0.3
 fn test_supersaw_lead() {
     let dsl = r#"
 tempo: 1.5
-~lead: supersaw 440 0.6
-out: ~lead * 0.2
+~lead $ supersaw 440 0.6
+out $ ~lead * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -228,8 +228,8 @@ out: ~lead * 0.2
 fn test_supersaw_pad() {
     let dsl = r#"
 tempo: 1.0
-~pad: supersaw 110 0.7 # lpf 1500 0.6
-out: ~pad * 0.2
+~pad $ supersaw 110 0.7 # lpf 1500 0.6
+out $ ~pad * 0.2
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

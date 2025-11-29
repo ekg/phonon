@@ -16,7 +16,7 @@ fn compile_dsl(code: &str) -> Result<phonon::unified_graph::UnifiedSignalGraph, 
 fn test_reset_cycles_sets_to_zero() {
     let code = r#"
         tempo: 0.5
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let mut graph = compile_dsl(code).expect("Failed to compile");
@@ -43,7 +43,7 @@ fn test_reset_cycles_in_dsl() {
     let code = r#"
         tempo: 0.5
         resetCycles
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let graph = compile_dsl(code).expect("Failed to compile with resetCycles");
@@ -57,7 +57,7 @@ fn test_reset_cycles_in_dsl() {
 fn test_set_cycle_jumps_to_position() {
     let code = r#"
         tempo: 0.5
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let mut graph = compile_dsl(code).expect("Failed to compile");
@@ -86,7 +86,7 @@ fn test_set_cycle_in_dsl() {
     let code = r#"
         tempo: 0.5
         setCycle 42.7
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let graph = compile_dsl(code).expect("Failed to compile with setCycle");
@@ -99,7 +99,7 @@ fn test_set_cycle_in_dsl() {
 fn test_nudge_shifts_timing() {
     let code = r#"
         tempo: 0.5
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let mut graph = compile_dsl(code).expect("Failed to compile");
@@ -132,7 +132,7 @@ fn test_nudge_in_dsl() {
         tempo: 0.5
         setCycle 5.0
         nudge 0.3
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let graph = compile_dsl(code).expect("Failed to compile with nudge");
@@ -147,7 +147,7 @@ fn test_nudge_negative_in_dsl() {
         tempo: 0.5
         setCycle 10.0
         nudge -0.5
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let graph = compile_dsl(code).expect("Failed to compile with negative nudge");
@@ -160,7 +160,7 @@ fn test_nudge_negative_in_dsl() {
 fn test_commands_work_together() {
     let code = r#"
         tempo: 0.5
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let mut graph = compile_dsl(code).expect("Failed to compile");
@@ -187,7 +187,7 @@ fn test_multiple_commands_in_dsl() {
         nudge 2.5
         nudge -1.0
         setCycle 5.0
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let graph = compile_dsl(code).expect("Failed to compile");
@@ -200,24 +200,24 @@ fn test_multiple_commands_in_dsl() {
 #[test]
 fn test_reset_cycles_syntax_variations() {
     // Test that resetCycles parses correctly
-    let code1 = "resetCycles\ntempo: 1.0\no1: s \"bd\"";
+    let code1 = "resetCycles\ntempo: 1.0\nout $ s \"bd\"";
     assert!(compile_dsl(code1).is_ok(), "resetCycles should parse");
 
     // Case variations don't cause errors - they're just ignored as unknown identifiers
     // This is acceptable DSL behavior (lenient parsing)
-    let code2 = "resetcycles\ntempo: 1.0\no1: s \"bd\"";
+    let code2 = "resetcycles\ntempo: 1.0\nout $ s \"bd\"";
     let _ = compile_dsl(code2); // May or may not error, either is OK
 
-    let code3 = "ResetCycles\ntempo: 1.0\no1: s \"bd\"";
+    let code3 = "ResetCycles\ntempo: 1.0\nout $ s \"bd\"";
     let _ = compile_dsl(code3); // May or may not error, either is OK
 }
 
 #[test]
 fn test_set_cycle_requires_number() {
-    let code1 = "setCycle 42\ntempo: 1.0\no1: s \"bd\"";
+    let code1 = "setCycle 42\ntempo: 1.0\nout $ s \"bd\"";
     assert!(compile_dsl(code1).is_ok(), "setCycle with integer should parse");
 
-    let code2 = "setCycle 3.14159\ntempo: 1.0\no1: s \"bd\"";
+    let code2 = "setCycle 3.14159\ntempo: 1.0\nout $ s \"bd\"";
     assert!(compile_dsl(code2).is_ok(), "setCycle with float should parse");
 
     // setCycle without number might parse but won't work as intended - that's OK
@@ -226,10 +226,10 @@ fn test_set_cycle_requires_number() {
 
 #[test]
 fn test_nudge_requires_number() {
-    let code1 = "nudge 0.1\ntempo: 1.0\no1: s \"bd\"";
+    let code1 = "nudge 0.1\ntempo: 1.0\nout $ s \"bd\"";
     assert!(compile_dsl(code1).is_ok(), "nudge with positive float should parse");
 
-    let code2 = "nudge -0.5\ntempo: 1.0\no1: s \"bd\"";
+    let code2 = "nudge -0.5\ntempo: 1.0\nout $ s \"bd\"";
     assert!(compile_dsl(code2).is_ok(), "nudge with negative float should parse");
 
     // nudge without number might parse but won't work as intended - that's OK
@@ -241,7 +241,7 @@ fn test_timing_persists_through_wall_clock() {
     let code = r#"
         tempo: 0.5
         setCycle 10.0
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let mut graph = compile_dsl(code).expect("Failed to compile");
@@ -269,7 +269,7 @@ fn test_timing_persists_through_wall_clock() {
 fn test_nudge_affects_wall_clock_mode() {
     let code = r#"
         tempo: 0.5
-        o1: s "bd"
+        out $ s "bd"
     "#;
 
     let mut graph = compile_dsl(code).expect("Failed to compile");

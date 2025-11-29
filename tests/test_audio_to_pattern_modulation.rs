@@ -527,7 +527,7 @@ fn test_arithmetic_scaling() {
 ///
 /// Vision: Multiple layers of modulation
 /// ```phonon
-/// ~lfo1: sine 0.25
+/// ~lfout $ sine 0.25
 /// ~lfo2: sine 0.5 * 0.5 + 0.5    -- Unipolar LFO
 /// ~fast_mod: range ~lfo1 0.5 2
 /// ~amp_mod: ~lfo2

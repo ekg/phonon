@@ -8,12 +8,12 @@ fn investigate_degrade_behavior() {
     // Compare raw audio characteristics
     let input_normal = r#"
         cps: 2.0
-        out: s "bd bd bd bd" * 0.5
+        out $ s "bd bd bd bd" * 0.5
     "#;
 
     let input_degraded = r#"
         cps: 2.0
-        out: s("bd bd bd bd" $ degrade) * 0.5
+        out $ s("bd bd bd bd" $ degrade) * 0.5
     "#;
 
     // Render both
@@ -76,12 +76,12 @@ fn investigate_degrade_behavior() {
 fn investigate_stutter_behavior() {
     let input_normal = r#"
         cps: 1.0
-        out: s "bd ~ sn ~" * 0.5
+        out $ s "bd ~ sn ~" * 0.5
     "#;
 
     let input_stutter = r#"
         cps: 1.0
-        out: s("bd ~ sn ~" $ stutter 3) * 0.5
+        out $ s("bd ~ sn ~" $ stutter 3) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input_normal).expect("Should parse");

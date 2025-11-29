@@ -13,7 +13,7 @@ fn test_min_constants() {
     // Test: min of two constants
     let code = r#"
 tempo: 0.5
-out: min 3.0 5.0
+out $ min 3.0 5.0
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -26,9 +26,9 @@ fn test_min_with_oscillators() {
     // Test: min of two oscillators
     let code = r#"
 tempo: 0.5
-~a: sine 0.5
-~b: sine 0.25
-out: min ~a ~b
+~a $ sine 0.5
+~b $ sine 0.25
+out $ min ~a ~b
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -40,7 +40,7 @@ fn test_min_negative_values() {
     // Test: min with negative constant
     let code = r#"
 tempo: 0.5
-out: min -2.0 1.0
+out $ min -2.0 1.0
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -52,7 +52,7 @@ fn test_min_requires_two_args() {
     // Test: min requires exactly 2 arguments
     let code = r#"
 tempo: 0.5
-out: min 1.0
+out $ min 1.0
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -68,7 +68,7 @@ fn test_min_three_args_fails() {
     // Test: min with three arguments should fail
     let code = r#"
 tempo: 0.5
-out: min 1.0 2.0 3.0
+out $ min 1.0 2.0 3.0
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -84,8 +84,8 @@ fn test_min_with_pattern() {
     // Test: min with pattern-controlled signal
     let code = r#"
 tempo: 0.5
-~lfo: sine 0.5
-out: min ~lfo 0.5
+~lfo $ sine 0.5
+out $ min ~lfo 0.5
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -98,12 +98,12 @@ fn test_min_symmetric() {
     // We can't easily test runtime behavior here, but we can verify both compile
     let code1 = r#"
 tempo: 0.5
-out: min 3.0 5.0
+out $ min 3.0 5.0
     "#;
 
     let code2 = r#"
 tempo: 0.5
-out: min 5.0 3.0
+out $ min 5.0 3.0
     "#;
 
     let (_, statements1) = parse_program(code1).expect("Failed to parse 1");

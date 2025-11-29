@@ -189,6 +189,57 @@ impl EditorTestHarness {
         eprintln!("===================");
         self
     }
+
+    /// Send Ctrl+X (evaluate chunk)
+    pub fn ctrl_x(&mut self) -> &mut Self {
+        self.send_key_with_modifiers(KeyCode::Char('x'), KeyModifiers::CONTROL)
+    }
+
+    /// Get CPS from the current graph (if loaded)
+    pub fn get_cps(&self) -> Option<f32> {
+        let graph_snapshot = self.editor.graph.load();
+        if let Some(ref graph_cell) = **graph_snapshot {
+            if let Ok(g) = graph_cell.0.try_borrow() {
+                return Some(g.get_cps());
+            }
+        }
+        None
+    }
+
+    /// Get cycle position from the current graph (if loaded)
+    pub fn get_cycle_position(&self) -> Option<f64> {
+        let graph_snapshot = self.editor.graph.load();
+        if let Some(ref graph_cell) = **graph_snapshot {
+            if let Ok(g) = graph_cell.0.try_borrow() {
+                return Some(g.get_cycle_position());
+            }
+        }
+        None
+    }
+
+    /// Check if wall-clock timing is enabled
+    pub fn is_wall_clock_enabled(&self) -> Option<bool> {
+        let graph_snapshot = self.editor.graph.load();
+        if let Some(ref graph_cell) = **graph_snapshot {
+            if let Ok(g) = graph_cell.0.try_borrow() {
+                return Some(g.use_wall_clock);
+            }
+        }
+        None
+    }
+
+    /// Check if a graph is loaded
+    pub fn has_graph(&self) -> bool {
+        let graph_snapshot = self.editor.graph.load();
+        graph_snapshot.is_some()
+    }
+
+    /// Set content directly (for test setup)
+    pub fn set_content(&mut self, content: &str) -> &mut Self {
+        self.editor.content = content.to_string();
+        self.editor.cursor_pos = content.len();
+        self
+    }
 }
 
 #[cfg(test)]

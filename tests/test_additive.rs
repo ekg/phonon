@@ -22,7 +22,7 @@ fn test_additive_produces_sound() {
     // Simple test: Additive synthesis produces non-zero output
     let code = r#"
 tempo: 1.0
-out: additive 440 "1.0 0.5 0.25"
+out $ additive 440 "1.0 0.5 0.25"
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -44,7 +44,7 @@ fn test_additive_single_partial() {
     // Single partial should sound like a sine wave
     let code = r#"
 tempo: 1.0
-out: additive 440 "1.0"
+out $ additive 440 "1.0"
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -66,12 +66,12 @@ fn test_additive_multiple_partials() {
     // Multiple partials should be louder than single partial
     let code_single = r#"
 tempo: 1.0
-out: additive 440 "1.0"
+out $ additive 440 "1.0"
 "#;
 
     let code_multiple = r#"
 tempo: 1.0
-out: additive 440 "1.0 0.5 0.25"
+out $ additive 440 "1.0 0.5 0.25"
 "#;
 
     let (_, statements_single) = parse_program(code_single).expect("Failed to parse");
@@ -108,7 +108,7 @@ fn test_additive_harmonic_series() {
     // Harmonic series (1, 2, 3, 4...) should produce rich tone
     let code = r#"
 tempo: 1.0
-out: additive 110 "1.0 0.5 0.33 0.25 0.2"
+out $ additive 110 "1.0 0.5 0.33 0.25 0.2"
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -136,7 +136,7 @@ fn test_additive_different_frequencies() {
         let code = format!(
             r#"
 tempo: 1.0
-out: additive {} "1.0 0.5 0.33"
+out $ additive {} "1.0 0.5 0.33"
 "#,
             freq
         );
@@ -162,7 +162,7 @@ fn test_additive_odd_harmonics() {
     // Odd harmonics (1, 3, 5...) should produce square-wave-like tone
     let code = r#"
 tempo: 1.0
-out: additive 220 "1.0 0.0 0.33 0.0 0.2"
+out $ additive 220 "1.0 0.0 0.33 0.0 0.2"
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -186,7 +186,7 @@ fn test_additive_pattern_frequency() {
     // Pattern-modulated fundamental frequency
     let code = r#"
 tempo: 0.5
-out: additive "220 330 440 330" "1.0 0.5 0.25"
+out $ additive "220 330 440 330" "1.0 0.5 0.25"
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -211,8 +211,8 @@ fn test_additive_pattern_amplitudes() {
     // Pattern-modulated partial amplitudes (timbre modulation)
     let code = r#"
 tempo: 0.5
-~amps: "1.0 0.5 0.25" "1.0 0.0 0.5"
-out: additive 220 ~amps
+~amps $ "1.0 0.5 0.25" "1.0 0.0 0.5"
+out $ additive 220 ~amps
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -238,7 +238,7 @@ fn test_additive_melody() {
     // Play a melody with additive synthesis
     let code = r#"
 tempo: 0.5
-out: additive "220 330 440 330 220" "1.0 0.5 0.33 0.25"
+out $ additive "220 330 440 330 220" "1.0 0.5 0.33 0.25"
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -262,7 +262,7 @@ fn test_additive_organ_sound() {
     // Organ-like sound with many harmonics
     let code = r#"
 tempo: 1.0
-out: additive 110 "1.0 0.5 0.33 0.25 0.2 0.17 0.14 0.13"
+out $ additive 110 "1.0 0.5 0.33 0.25 0.2 0.17 0.14 0.13"
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");

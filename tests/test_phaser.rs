@@ -29,9 +29,9 @@ fn calculate_spectral_variance(samples: &[f32]) -> f32 {
 fn test_phaser_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~carrier: saw 220
-~phased: ~carrier # phaser 0.5 0.7 0.3 4
-out: ~phased
+~carrier $ saw 220
+~phased $ ~carrier # phaser 0.5 0.7 0.3 4
+out $ ~phased
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -54,15 +54,15 @@ out: ~phased
 fn test_phaser_modulates_spectrum() {
     let dsl_dry = r#"
 tempo: 1.0
-~carrier: saw 220
-out: ~carrier * 0.5
+~carrier $ saw 220
+out $ ~carrier * 0.5
 "#;
 
     let dsl_wet = r#"
 tempo: 1.0
-~carrier: saw 220
-~phased: ~carrier # phaser 0.5 0.8 0.4 6
-out: ~phased * 0.5
+~carrier $ saw 220
+~phased $ ~carrier # phaser 0.5 0.8 0.4 6
+out $ ~phased * 0.5
 "#;
 
     let (_, statements_dry) = parse_program(dsl_dry).unwrap();
@@ -91,15 +91,15 @@ out: ~phased * 0.5
 fn test_phaser_zero_depth() {
     let dsl_no_phaser = r#"
 tempo: 1.0
-~carrier: saw 220
-out: ~carrier * 0.5
+~carrier $ saw 220
+out $ ~carrier * 0.5
 "#;
 
     let dsl_zero_phaser = r#"
 tempo: 1.0
-~carrier: saw 220
-~phased: ~carrier # phaser 0.5 0.0 0.0 4
-out: ~phased * 0.5
+~carrier $ saw 220
+~phased $ ~carrier # phaser 0.5 0.0 0.0 4
+out $ ~phased * 0.5
 "#;
 
     let (_, statements1) = parse_program(dsl_no_phaser).unwrap();
@@ -127,16 +127,16 @@ out: ~phased * 0.5
 fn test_phaser_rate() {
     let dsl_slow = r#"
 tempo: 1.0
-~carrier: saw 220
-~phased: ~carrier # phaser 0.3 0.7 0.4 4
-out: ~phased * 0.5
+~carrier $ saw 220
+~phased $ ~carrier # phaser 0.3 0.7 0.4 4
+out $ ~phased * 0.5
 "#;
 
     let dsl_fast = r#"
 tempo: 1.0
-~carrier: saw 220
-~phased: ~carrier # phaser 2.0 0.7 0.4 4
-out: ~phased * 0.5
+~carrier $ saw 220
+~phased $ ~carrier # phaser 2.0 0.7 0.4 4
+out $ ~phased * 0.5
 "#;
 
     let (_, statements_slow) = parse_program(dsl_slow).unwrap();
@@ -160,16 +160,16 @@ out: ~phased * 0.5
 fn test_phaser_depth() {
     let dsl_shallow = r#"
 tempo: 1.0
-~carrier: saw 220
-~phased: ~carrier # phaser 0.5 0.2 0.3 4
-out: ~phased * 0.5
+~carrier $ saw 220
+~phased $ ~carrier # phaser 0.5 0.2 0.3 4
+out $ ~phased * 0.5
 "#;
 
     let dsl_deep = r#"
 tempo: 1.0
-~carrier: saw 220
-~phased: ~carrier # phaser 0.5 0.9 0.3 4
-out: ~phased * 0.5
+~carrier $ saw 220
+~phased $ ~carrier # phaser 0.5 0.9 0.3 4
+out $ ~phased * 0.5
 "#;
 
     let (_, statements_shallow) = parse_program(dsl_shallow).unwrap();
@@ -193,9 +193,9 @@ out: ~phased * 0.5
 fn test_phaser_stability() {
     let dsl = r#"
 tempo: 1.0
-~carrier: saw 110
-~phased: ~carrier # phaser 1.5 0.8 0.6 6
-out: ~phased * 0.5
+~carrier $ saw 110
+~phased $ ~carrier # phaser 1.5 0.8 0.6 6
+out $ ~phased * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -221,16 +221,16 @@ out: ~phased * 0.5
 fn test_phaser_feedback() {
     let dsl_no_fb = r#"
 tempo: 1.0
-~carrier: saw 220
-~phased: ~carrier # phaser 0.5 0.7 0.0 4
-out: ~phased * 0.5
+~carrier $ saw 220
+~phased $ ~carrier # phaser 0.5 0.7 0.0 4
+out $ ~phased * 0.5
 "#;
 
     let dsl_high_fb = r#"
 tempo: 1.0
-~carrier: saw 220
-~phased: ~carrier # phaser 0.5 0.7 0.7 4
-out: ~phased * 0.5
+~carrier $ saw 220
+~phased $ ~carrier # phaser 0.5 0.7 0.7 4
+out $ ~phased * 0.5
 "#;
 
     let (_, statements_no_fb) = parse_program(dsl_no_fb).unwrap();
@@ -254,11 +254,11 @@ out: ~phased * 0.5
 fn test_phaser_pattern_modulation() {
     let dsl = r#"
 tempo: 0.5
-~rate_lfo: sine 0.1 * 1.0 + 1.0
-~depth_lfo: sine 0.2 * 0.3 + 0.5
-~carrier: saw 220
-~phased: ~carrier # phaser ~rate_lfo ~depth_lfo 0.4 4
-out: ~phased * 0.5
+~rate_lfo $ sine 0.1 * 1.0 + 1.0
+~depth_lfo $ sine 0.2 * 0.3 + 0.5
+~carrier $ saw 220
+~phased $ ~carrier # phaser ~rate_lfo ~depth_lfo 0.4 4
+out $ ~phased * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -280,9 +280,9 @@ out: ~phased * 0.5
 fn test_phaser_classic() {
     let dsl = r#"
 tempo: 0.5
-~synth: saw 110
-~phased: ~synth # phaser 0.4 0.7 0.5 4
-out: ~phased * 0.4
+~synth $ saw 110
+~phased $ ~synth # phaser 0.4 0.7 0.5 4
+out $ ~phased * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -304,9 +304,9 @@ out: ~phased * 0.4
 fn test_phaser_deep() {
     let dsl = r#"
 tempo: 1.0
-~pad: sine 220
-~deep_phase: ~pad # phaser 0.2 0.9 0.6 8
-out: ~deep_phase * 0.3
+~pad $ sine 220
+~deep_phase $ ~pad # phaser 0.2 0.9 0.6 8
+out $ ~deep_phase * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

@@ -170,7 +170,7 @@ fn test_degrade_by_dsl() {
     // Test degradeBy through the DSL
     let code = r#"
 tempo: 0.5
-out: s "bd*8" $ degradeBy 1.0
+out $ s "bd*8" $ degradeBy 1.0
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -195,7 +195,7 @@ fn test_stutter_dsl() {
     // Test stutter through the DSL
     let code = r#"
 tempo: 0.5
-out: s "bd" $ stutter 3
+out $ s "bd" $ stutter 3
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -216,7 +216,7 @@ fn test_chop_dsl() {
     // Test chop through the DSL
     let code = r#"
 tempo: 0.5
-out: s "bd" $ chop 4
+out $ s "bd" $ chop 4
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -237,7 +237,7 @@ fn test_scramble_dsl() {
     // Test scramble through the DSL
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ scramble 4
+out $ s "bd sn hh cp" $ scramble 4
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");

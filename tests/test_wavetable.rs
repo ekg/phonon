@@ -21,8 +21,8 @@ fn calculate_rms(samples: &[f32]) -> f32 {
 fn test_wavetable_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~synth: wavetable 220
-out: ~synth
+~synth $ wavetable 220
+out $ ~synth
 "#;
 
     let (remaining, statements) = parse_program(dsl).unwrap();
@@ -45,8 +45,8 @@ out: ~synth
 fn test_wavetable_produces_sound() {
     let dsl = r#"
 tempo: 1.0
-~synth: wavetable 220
-out: ~synth * 0.5
+~synth $ wavetable 220
+out $ ~synth * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -67,14 +67,14 @@ out: ~synth * 0.5
 fn test_wavetable_frequencies() {
     let dsl_low = r#"
 tempo: 1.0
-~synth: wavetable 110
-out: ~synth * 0.5
+~synth $ wavetable 110
+out $ ~synth * 0.5
 "#;
 
     let dsl_high = r#"
 tempo: 1.0
-~synth: wavetable 440
-out: ~synth * 0.5
+~synth $ wavetable 440
+out $ ~synth * 0.5
 "#;
 
     let (_, statements_low) = parse_program(dsl_low).unwrap();
@@ -98,8 +98,8 @@ out: ~synth * 0.5
 fn test_wavetable_stability() {
     let dsl = r#"
 tempo: 1.0
-~synth: wavetable 440
-out: ~synth * 0.5
+~synth $ wavetable 440
+out $ ~synth * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -125,8 +125,8 @@ out: ~synth * 0.5
 fn test_wavetable_pattern_frequency() {
     let dsl = r#"
 tempo: 0.5
-~synth: wavetable "110 220 440"
-out: ~synth * 0.5
+~synth $ wavetable "110 220 440"
+out $ ~synth * 0.5
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -148,8 +148,8 @@ out: ~synth * 0.5
 fn test_wavetable_bass() {
     let dsl = r#"
 tempo: 0.5
-~bass: wavetable 55
-out: ~bass * 0.4
+~bass $ wavetable 55
+out $ ~bass * 0.4
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -171,8 +171,8 @@ out: ~bass * 0.4
 fn test_wavetable_lead() {
     let dsl = r#"
 tempo: 1.5
-~lead: wavetable 440
-out: ~lead * 0.3
+~lead $ wavetable 440
+out $ ~lead * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();
@@ -194,8 +194,8 @@ out: ~lead * 0.3
 fn test_wavetable_pad() {
     let dsl = r#"
 tempo: 1.0
-~pad: wavetable 220 # lpf 1000 0.5
-out: ~pad * 0.3
+~pad $ wavetable 220 # lpf 1000 0.5
+out $ ~pad * 0.3
 "#;
 
     let (_, statements) = parse_program(dsl).unwrap();

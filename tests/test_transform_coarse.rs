@@ -33,7 +33,7 @@ fn test_coarse_with_synthesis() {
     // Test coarse on synthesized sound
     let code = r#"
 tempo: 0.5
-out: saw 110 # coarse 3
+out $ saw 110 # coarse 3
 "#;
 
     let buffer = test_code(code, 2.0);
@@ -53,13 +53,13 @@ fn test_coarse_reduces_quality() {
     // Original sound
     let original_code = r#"
 tempo: 0.5
-out: sine 440
+out $ sine 440
 "#;
 
     // Coarse sound (half sample rate)
     let coarse_code = r#"
 tempo: 0.5
-out: sine 440 # coarse 2
+out $ sine 440 # coarse 2
 "#;
 
     let original = test_code(original_code, 2.0);
@@ -92,7 +92,7 @@ fn test_coarse_different_rates() {
         let code = format!(
             r#"
 tempo: 0.5
-out: saw 220 # coarse {}
+out $ saw 220 # coarse {}
 "#,
             coarse_val
         );

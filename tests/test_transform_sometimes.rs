@@ -116,12 +116,12 @@ fn test_sometimes_level1_deterministic_behavior() {
 fn test_sometimes_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let sometimes_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ sometimes (fast 2)
+out $ s "bd sn hh cp" $ sometimes (fast 2)
 "#;
 
     let cycles = 20; // More cycles to observe probability
@@ -157,7 +157,7 @@ fn test_sometimes_level2_varied_timing() {
     // Verify that sometimes creates varied timing across cycles
     let code = r#"
 tempo: 0.5
-out: s "bd sn" $ sometimes (fast 3)
+out $ s "bd sn" $ sometimes (fast 3)
 "#;
 
     let cycles = 16;
@@ -187,7 +187,7 @@ out: s "bd sn" $ sometimes (fast 3)
 fn test_sometimes_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ sometimes (fast 2)
+out $ s "bd sn hh cp" $ sometimes (fast 2)
 "#;
 
     let audio = render_dsl(code, 20);
@@ -225,12 +225,12 @@ fn test_sometimes_level3_compare_to_base() {
     // sometimes should have higher energy than base (more events on ~50% of cycles)
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let sometimes_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ sometimes (fast 2)
+out $ s "bd sn hh cp" $ sometimes (fast 2)
 "#;
 
     let base_audio = render_dsl(base_code, 20);
@@ -287,7 +287,7 @@ fn test_sometimes_with_rev() {
     // Test sometimes with non-density-changing transform (rev)
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ sometimes rev
+out $ s "bd sn hh cp" $ sometimes rev
 "#;
 
     let audio = render_dsl(code, 20);

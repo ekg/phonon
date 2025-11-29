@@ -28,10 +28,10 @@ fn test_dsl_syntax_variations() {
     // Test 2: With colon
     let input2 = r#"
         tempo 1.0
-        out: s "bd"
+        out $ s "bd"
     "#;
 
-    println!("\nTest 2: out: s(\"bd\") (with colon)");
+    println!("\nTest 2: out $ s(\"bd\") (with colon)");
     match parse_dsl(input2) {
         Ok((remaining, statements)) => {
             println!("  ✅ Parsed");
@@ -45,9 +45,9 @@ fn test_dsl_syntax_variations() {
     }
 
     // Test 3: Just output
-    let input3 = "out: s(\"bd\")";
+    let input3 = "out $ s(\"bd\")";
 
-    println!("\nTest 3: out: s(\"bd\") (single line)");
+    println!("\nTest 3: out $ s(\"bd\") (single line)");
     match parse_dsl(input3) {
         Ok((remaining, statements)) => {
             println!("  ✅ Parsed");
@@ -63,10 +63,10 @@ fn test_dsl_syntax_variations() {
     // Test 4: tempo (not "tempo", should be "cps")
     let input4 = r#"
         cps: 1.0
-        out: s "bd"
+        out $ s "bd"
     "#;
 
-    println!("\nTest 4: cps: 1.0 + out: s(\"bd\")");
+    println!("\nTest 4: cps: 1.0 + out $ s(\"bd\")");
     match parse_dsl(input4) {
         Ok((remaining, statements)) => {
             println!("  ✅ Parsed");
@@ -83,7 +83,7 @@ fn test_dsl_syntax_variations() {
     let input5 = r#"
         cps: 1.0
         ~drums: s "bd"
-        out: ~drums
+        out $ ~drums
     "#;
 
     println!("\nTest 5: Full example with bus");

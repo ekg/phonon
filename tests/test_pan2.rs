@@ -9,7 +9,7 @@ const SAMPLE_RATE: f32 = 44100.0;
 fn test_pan2_pattern_query() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440 * 0.5
+~input $ sine 440 * 0.5
 out1: pan2_l ~input 0.0
 out2: pan2_r ~input 0.0
 "#;
@@ -35,7 +35,7 @@ out2: pan2_r ~input 0.0
 fn test_pan2_hard_left() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440 * 0.5
+~input $ sine 440 * 0.5
 out1: pan2_l ~input -1.0
 out2: pan2_r ~input -1.0
 "#;
@@ -76,7 +76,7 @@ out2: pan2_r ~input -1.0
 fn test_pan2_hard_right() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440 * 0.5
+~input $ sine 440 * 0.5
 out1: pan2_l ~input 1.0
 out2: pan2_r ~input 1.0
 "#;
@@ -117,7 +117,7 @@ out2: pan2_r ~input 1.0
 fn test_pan2_center() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440 * 0.5
+~input $ sine 440 * 0.5
 out1: pan2_l ~input 0.0
 out2: pan2_r ~input 0.0
 "#;
@@ -170,7 +170,7 @@ out2: pan2_r ~input 0.0
 fn test_pan2_partial_left() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440 * 0.5
+~input $ sine 440 * 0.5
 out1: pan2_l ~input -0.5
 out2: pan2_r ~input -0.5
 "#;
@@ -207,13 +207,13 @@ out2: pan2_r ~input -0.5
 fn test_pan2_musical_example() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 55 * 0.3
-~bass_left: pan2_l ~bass -0.8
-~bass_right: pan2_r ~bass -0.8
+~bass $ saw 55 * 0.3
+~bass_left $ pan2_l ~bass -0.8
+~bass_right $ pan2_r ~bass -0.8
 
-~lead: saw 440 * 0.2
-~lead_left: pan2_l ~lead 0.8
-~lead_right: pan2_r ~lead 0.8
+~lead $ saw 440 * 0.2
+~lead_left $ pan2_l ~lead 0.8
+~lead_right $ pan2_r ~lead 0.8
 
 out1: ~bass_left + ~lead_left
 out2: ~bass_right + ~lead_right
@@ -252,8 +252,8 @@ out2: ~bass_right + ~lead_right
 fn test_pan2_pattern_modulation() {
     let dsl = r#"
 tempo: 0.5
-~pan_pattern: "-1.0 0.0 1.0"
-~input: sine 440 * 0.5
+~pan_pattern $ "-1.0 0.0 1.0"
+~input $ sine 440 * 0.5
 out1: pan2_l ~input ~pan_pattern
 out2: pan2_r ~input ~pan_pattern
 "#;
@@ -273,18 +273,18 @@ out2: pan2_r ~input ~pan_pattern
 fn test_pan2_different_waveforms() {
     let dsl = r#"
 tempo: 1.0
-~saw: saw 220 * 0.3
-~square: square 330 * 0.3
-~noise: white_noise * 0.2
+~saw $ saw 220 * 0.3
+~square $ square 330 * 0.3
+~noise $ white_noise * 0.2
 
-~saw_l: pan2_l ~saw -0.7
-~saw_r: pan2_r ~saw -0.7
+~saw_l $ pan2_l ~saw -0.7
+~saw_r $ pan2_r ~saw -0.7
 
-~square_l: pan2_l ~square 0.0
-~square_r: pan2_r ~square 0.0
+~square_l $ pan2_l ~square 0.0
+~square_r $ pan2_r ~square 0.0
 
-~noise_l: pan2_l ~noise 0.7
-~noise_r: pan2_r ~noise 0.7
+~noise_l $ pan2_l ~noise 0.7
+~noise_r $ pan2_r ~noise 0.7
 
 out1: ~saw_l + ~square_l + ~noise_l
 out2: ~saw_r + ~square_r + ~noise_r
@@ -308,7 +308,7 @@ out2: ~saw_r + ~square_r + ~noise_r
 fn test_pan2_position_clamping() {
     let dsl = r#"
 tempo: 1.0
-~input: sine 440 * 0.5
+~input $ sine 440 * 0.5
 out1: pan2_l ~input 5.0
 out2: pan2_r ~input 5.0
 "#;

@@ -48,7 +48,7 @@ fn test_waveguide_produces_sound() {
     // Simple test: Waveguide produces non-zero output
     let code = r#"
 tempo: 1.0
-out: waveguide 440 0.5 0.5
+out $ waveguide 440 0.5 0.5
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -71,7 +71,7 @@ fn test_waveguide_frequency_accuracy() {
     // Verify waveguide plays at approximately the correct frequency
     let code = r#"
 tempo: 1.0
-out: waveguide 220 0.3 0.5
+out $ waveguide 220 0.3 0.5
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -101,7 +101,7 @@ fn test_waveguide_decay() {
     // Waveguide should decay over time (like a real string)
     let code = r#"
 tempo: 1.0
-out: waveguide 440 0.5 0.5
+out $ waveguide 440 0.5 0.5
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -131,12 +131,12 @@ fn test_waveguide_damping() {
     // Higher damping should produce shorter decay
     let code_low_damp = r#"
 tempo: 1.0
-out: waveguide 440 0.1 0.5
+out $ waveguide 440 0.1 0.5
 "#;
 
     let code_high_damp = r#"
 tempo: 1.0
-out: waveguide 440 0.9 0.5
+out $ waveguide 440 0.9 0.5
 "#;
 
     let (_, statements_low) = parse_program(code_low_damp).expect("Failed to parse");
@@ -166,12 +166,12 @@ fn test_waveguide_pickup_position() {
     // Center (0.5) emphasizes fundamental, off-center emphasizes harmonics
     let code_center = r#"
 tempo: 1.0
-out: waveguide 220 0.3 0.5
+out $ waveguide 220 0.3 0.5
 "#;
 
     let code_off_center = r#"
 tempo: 1.0
-out: waveguide 220 0.3 0.25
+out $ waveguide 220 0.3 0.25
 "#;
 
     let (_, statements_center) = parse_program(code_center).expect("Failed to parse");
@@ -207,7 +207,7 @@ fn test_waveguide_different_frequencies() {
         let code = format!(
             r#"
 tempo: 1.0
-out: waveguide {} 0.5 0.5
+out $ waveguide {} 0.5 0.5
 "#,
             freq
         );
@@ -235,7 +235,7 @@ fn test_waveguide_pattern_frequency() {
     // Pattern-modulated frequency (melody)
     let code = r#"
 tempo: 0.5
-out: waveguide "220 330 440 330" 0.5 0.5
+out $ waveguide "220 330 440 330" 0.5 0.5
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -259,7 +259,7 @@ fn test_waveguide_pattern_damping() {
     // Pattern-modulated damping
     let code = r#"
 tempo: 0.5
-out: waveguide 440 "0.3 0.7" 0.5
+out $ waveguide 440 "0.3 0.7" 0.5
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -285,7 +285,7 @@ fn test_waveguide_melody() {
     // Play a simple melody with waveguide
     let code = r#"
 tempo: 0.5
-out: waveguide "220 330 440 330 220" 0.4 0.5
+out $ waveguide "220 330 440 330 220" 0.4 0.5
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");
@@ -309,7 +309,7 @@ fn test_waveguide_bass() {
     // Bass string with low damping
     let code = r#"
 tempo: 0.5
-out: waveguide "55 82.5" 0.2 0.5
+out $ waveguide "55 82.5" 0.2 0.5
 "#;
 
     let (rest, statements) = parse_program(code).expect("Failed to parse");

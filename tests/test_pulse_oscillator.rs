@@ -63,7 +63,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 fn test_pulse_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: pulse 440 0.5
+        out $ pulse 440 0.5
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -75,7 +75,7 @@ fn test_pulse_compiles() {
 fn test_pulse_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: pulse 440 0.5 * 0.3
+        out $ pulse 440 0.5 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -92,7 +92,7 @@ fn test_pulse_width_50_is_square() {
     // Width = 0.5 should produce square wave (only odd harmonics)
     let code = r#"
         tempo: 0.5
-        o1: pulse 440 0.5 * 0.3
+        out $ pulse 440 0.5 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -118,7 +118,7 @@ fn test_pulse_width_narrow() {
     // Narrow pulse (width = 0.1) creates brighter sound
     let code = r#"
         tempo: 0.5
-        o1: pulse 440 0.1 * 0.3
+        out $ pulse 440 0.1 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -133,7 +133,7 @@ fn test_pulse_width_wide() {
     // Wide pulse (width = 0.9) creates different timbre
     let code = r#"
         tempo: 0.5
-        o1: pulse 440 0.9 * 0.3
+        out $ pulse 440 0.9 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -150,8 +150,8 @@ fn test_pwm_slow_modulation() {
     // Slow PWM creates chorusing effect
     let code = r#"
         tempo: 0.5
-        ~width: sine 0.5 * 0.2 + 0.5
-        o1: pulse 440 ~width * 0.3
+        ~width $ sine 0.5 * 0.2 + 0.5
+        out $ pulse 440 ~width * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -166,8 +166,8 @@ fn test_pwm_fast_modulation() {
     // Fast PWM creates complex timbre
     let code = r#"
         tempo: 0.5
-        ~width: sine 4 * 0.25 + 0.5
-        o1: pulse 440 ~width * 0.3
+        ~width $ sine 4 * 0.25 + 0.5
+        out $ pulse 440 ~width * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -184,8 +184,8 @@ fn test_pulse_bass() {
     // Classic analog bass sound: square wave with envelope
     let code = r#"
         tempo: 0.5
-        ~env: adsr 0.01 0.1 0.5 0.2
-        o1: pulse 55 0.5 * ~env * 0.4
+        ~env $ adsr 0.01 0.1 0.5 0.2
+        out $ pulse 55 0.5 * ~env * 0.4
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -200,9 +200,9 @@ fn test_pulse_pad() {
     // Pad sound with slow PWM
     let code = r#"
         tempo: 1.0
-        ~width: sine 0.2 * 0.15 + 0.5
-        ~env: adsr 0.5 0.2 0.8 1.0
-        o1: pulse 220 ~width * ~env * 0.3
+        ~width $ sine 0.2 * 0.15 + 0.5
+        ~env $ adsr 0.5 0.2 0.8 1.0
+        out $ pulse 220 ~width * ~env * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -217,8 +217,8 @@ fn test_pulse_lead() {
     // Lead synth: narrow pulse, fast attack
     let code = r#"
         tempo: 0.5
-        ~env: adsr 0.001 0.05 0.7 0.1
-        o1: pulse 440 0.3 * ~env * 0.4
+        ~env $ adsr 0.001 0.05 0.7 0.1
+        out $ pulse 440 0.3 * ~env * 0.4
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -234,8 +234,8 @@ fn test_pulse_lead() {
 fn test_pulse_pattern_frequency() {
     let code = r#"
         tempo: 0.5
-        ~freq: sine 1 * 50 + 220
-        o1: pulse ~freq 0.5 * 0.3
+        ~freq $ sine 1 * 50 + 220
+        out $ pulse ~freq 0.5 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -252,8 +252,8 @@ fn test_pulse_pattern_frequency() {
 fn test_pulse_pattern_width() {
     let code = r#"
         tempo: 0.5
-        ~width_pat: sine 2 * 0.3 + 0.5
-        o1: pulse 440 ~width_pat * 0.3
+        ~width_pat $ sine 2 * 0.3 + 0.5
+        out $ pulse 440 ~width_pat * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -273,8 +273,8 @@ fn test_pulse_lowpass_filter() {
     // Lowpassed pulse creates mellower sound
     let code = r#"
         tempo: 0.5
-        ~filtered: pulse 220 0.5 # rlpf 1000 2.0
-        o1: ~filtered * 0.3
+        ~filtered $ pulse 220 0.5 # rlpf 1000 2.0
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -289,10 +289,10 @@ fn test_pulse_resonant_filter() {
     // Pulse through resonant filter
     let code = r#"
         tempo: 0.5
-        ~env: adsr 0.01 0.2 0.3 0.2
-        ~cutoff: ~env * 3000 + 200
-        ~synth: pulse 110 0.5 # rlpf ~cutoff 8.0
-        o1: ~synth * 0.3
+        ~env $ adsr 0.01 0.2 0.3 0.2
+        ~cutoff $ ~env * 3000 + 200
+        ~synth $ pulse 110 0.5 # rlpf ~cutoff 8.0
+        out $ ~synth * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -309,7 +309,7 @@ fn test_pulse_very_narrow() {
     // Very narrow pulse (width = 0.01)
     let code = r#"
         tempo: 0.5
-        o1: pulse 440 0.01 * 0.3
+        out $ pulse 440 0.01 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -324,7 +324,7 @@ fn test_pulse_very_wide() {
     // Very wide pulse (width = 0.99)
     let code = r#"
         tempo: 0.5
-        o1: pulse 440 0.99 * 0.3
+        out $ pulse 440 0.99 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -338,7 +338,7 @@ fn test_pulse_very_wide() {
 fn test_pulse_low_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: pulse 55 0.5 * 0.3
+        out $ pulse 55 0.5 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -352,7 +352,7 @@ fn test_pulse_low_frequency() {
 fn test_pulse_high_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: pulse 4000 0.5 * 0.3
+        out $ pulse 4000 0.5 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);

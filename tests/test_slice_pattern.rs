@@ -105,7 +105,7 @@ fn test_slice_level1_reverses_chunks() {
 fn test_slice_level2_produces_audio() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ slice 4 "0 1 2 3"
+out $ s "bd sn hh cp" $ slice 4 "0 1 2 3"
 "#;
 
     let audio = render_dsl(code, 8);
@@ -127,12 +127,12 @@ out: s "bd sn hh cp" $ slice 4 "0 1 2 3"
 fn test_slice_level2_reordered_vs_normal() {
     let normal_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let reordered_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ slice 4 "3 2 1 0"
+out $ s "bd sn hh cp" $ slice 4 "3 2 1 0"
 "#;
 
     let normal = render_dsl(normal_code, 8);
@@ -176,7 +176,7 @@ out: s "bd sn hh cp" $ slice 4 "3 2 1 0"
 fn test_slice_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ slice 4 "0 2 1 3"
+out $ s "bd sn hh cp" $ slice 4 "0 2 1 3"
 "#;
 
     let audio = render_dsl(code, 8);
@@ -191,12 +191,12 @@ out: s "bd sn hh cp" $ slice 4 "0 2 1 3"
 fn test_slice_level3_preserves_energy() {
     let normal_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let sliced_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ slice 4 "1 3 0 2"
+out $ s "bd sn hh cp" $ slice 4 "1 3 0 2"
 "#;
 
     let normal = render_dsl(normal_code, 8);
@@ -229,7 +229,7 @@ fn test_slice_reverse_chunks() {
     // Reverse the order of 4 chunks
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ slice 4 "3 2 1 0"
+out $ s "bd sn hh cp" $ slice 4 "3 2 1 0"
 "#;
 
     let audio = render_dsl(code, 4);
@@ -244,7 +244,7 @@ fn test_slice_repeat_chunk() {
     // Repeat first chunk 4 times
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ slice 4 "0 0 0 0"
+out $ s "bd sn hh cp" $ slice 4 "0 0 0 0"
 "#;
 
     let audio = render_dsl(code, 4);
@@ -259,7 +259,7 @@ fn test_slice_skip_chunks() {
     // Only play chunks 0 and 2 (skip 1 and 3)
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ slice 4 "0 2 0 2"
+out $ s "bd sn hh cp" $ slice 4 "0 2 0 2"
 "#;
 
     let audio = render_dsl(code, 4);
@@ -274,7 +274,7 @@ fn test_slice_with_effects() {
     // Slice with effects chain
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ slice 4 "3 1 2 0" # lpf 2000 0.8
+out $ s "bd sn hh cp" $ slice 4 "3 1 2 0" # lpf 2000 0.8
 "#;
 
     let audio = render_dsl(code, 4);
@@ -289,7 +289,7 @@ fn test_slice_pattern_controlled_indices() {
     // Use pattern for indices (alternating chunks)
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ slice 4 "0 2"
+out $ s "bd sn hh cp" $ slice 4 "0 2"
 "#;
 
     let audio = render_dsl(code, 8);
@@ -304,7 +304,7 @@ fn test_slice_complex_reordering() {
     // Complex reordering for breakbeat-style cuts
     let code = r#"
 tempo: 0.5
-out: s "bd*4" $ slice 8 "7 5 3 1 6 4 2 0"
+out $ s "bd*4" $ slice 8 "7 5 3 1 6 4 2 0"
 "#;
 
     let audio = render_dsl(code, 8);

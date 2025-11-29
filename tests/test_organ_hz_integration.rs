@@ -41,7 +41,7 @@ fn calculate_peak(buffer: &[f32]) -> f32 {
 #[test]
 fn test_organ_hz_level3_basic_tone() {
     // Test that organ_hz generates a stable tone
-    let code = "out: organ_hz 440";
+    let code = "out $ organ_hz 440";
     let audio = render_dsl(code, 1.0);
 
     // Level 3: Audio characteristics
@@ -64,7 +64,7 @@ fn test_organ_hz_level3_frequency_sweep() {
     let frequencies = vec![110.0, 220.0, 440.0, 880.0];
 
     for freq in frequencies {
-        let code = format!("out: organ_hz {}", freq);
+        let code = format!("out $ organ_hz {}", freq);
         let audio = render_dsl(&code, 0.5);
 
         let rms = calculate_rms(&audio);
@@ -82,8 +82,8 @@ fn test_organ_hz_level3_pattern_modulation() {
     // Test Phonon's killer feature: pattern modulation at audio rate!
     let code = "
         tempo: 0.5
-        ~freq: sine 0.5 * 110 + 440
-        out: organ_hz ~freq
+        ~freq $ sine 0.5 * 110 + 440
+        out $ organ_hz ~freq
     ";
     let audio = render_dsl(code, 2.0);
 
@@ -95,7 +95,7 @@ fn test_organ_hz_level3_pattern_modulation() {
     assert!(rms < 0.5, "Modulated RMS too high: {}", rms);
 
     // Compare to static frequency
-    let code_static = "out: organ_hz 440";
+    let code_static = "out $ organ_hz 440";
     let audio_static = render_dsl(code_static, 2.0);
     let rms_static = calculate_rms(&audio_static);
 
@@ -116,7 +116,7 @@ fn test_organ_hz_level3_pattern_modulation() {
 #[test]
 fn test_organ_hz_level3_dc_offset() {
     // Test that organ_hz has minimal DC offset
-    let code = "out: organ_hz 440";
+    let code = "out $ organ_hz 440";
     let audio = render_dsl(code, 1.0);
 
     // Calculate DC offset (average value)
@@ -131,8 +131,8 @@ fn test_organ_hz_level3_dc_offset() {
 #[test]
 fn test_organ_hz_level3_silence_comparison() {
     // Test that organ_hz actually produces sound (not silence)
-    let code_organ = "out: organ_hz 440";
-    let code_silence = "out: sine 0 * 0";
+    let code_organ = "out $ organ_hz 440";
+    let code_silence = "out $ sine 0 * 0";
 
     let audio_organ = render_dsl(code_organ, 1.0);
     let audio_silence = render_dsl(code_silence, 1.0);
@@ -157,7 +157,7 @@ fn test_organ_hz_level3_multiple_cycles() {
     // Test that organ_hz is stable over multiple cycles
     let code = "
         tempo: 0.5
-        out: organ_hz 440
+        out $ organ_hz 440
     ";
 
     // Render 8 cycles
@@ -194,14 +194,14 @@ fn test_organ_hz_level3_pattern_arithmetic() {
     // Test that organ_hz works with arithmetic pattern expressions
     let code = "
         tempo: 0.5
-        out: organ_hz (220 * 2)
+        out $ organ_hz (220 * 2)
     ";
     let audio = render_dsl(code, 1.0);
 
     let rms = calculate_rms(&audio);
 
     // Should produce same output as organ_hz 440
-    let code_direct = "out: organ_hz 440";
+    let code_direct = "out $ organ_hz 440";
     let audio_direct = render_dsl(code_direct, 1.0);
     let rms_direct = calculate_rms(&audio_direct);
 
@@ -224,7 +224,7 @@ fn test_organ_hz_level3_pattern_arithmetic() {
 #[test]
 fn test_organ_hz_level3_low_frequency() {
     // Test very low frequency (sub-audio range)
-    let code = "out: organ_hz 55"; // A1 - very low
+    let code = "out $ organ_hz 55"; // A1 - very low
     let audio = render_dsl(code, 1.0);
 
     let rms = calculate_rms(&audio);
@@ -240,7 +240,7 @@ fn test_organ_hz_level3_low_frequency() {
 #[test]
 fn test_organ_hz_level3_high_frequency() {
     // Test high frequency (near Nyquist)
-    let code = "out: organ_hz 8000"; // High but below Nyquist (22050 Hz)
+    let code = "out $ organ_hz 8000"; // High but below Nyquist (22050 Hz)
     let audio = render_dsl(code, 0.5);
 
     let rms = calculate_rms(&audio);

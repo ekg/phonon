@@ -34,7 +34,7 @@ fn test_compress_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ compress 0.25 0.75
+out $ "bd sn hh cp" $ compress 0.25 0.75
 "#,
         "Compress to 0.25-0.75",
     );
@@ -46,7 +46,7 @@ fn test_compress_first_quarter() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ compress 0.0 0.25
+out $ "bd*8" $ compress 0.0 0.25
 "#,
         "Compress to first quarter (0.0-0.25)",
     );
@@ -58,7 +58,7 @@ fn test_compress_last_third() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ compress 0.66 1.0
+out $ "bd sn hh*4" $ compress 0.66 1.0
 "#,
         "Compress to last third (0.66-1.0)",
     );
@@ -70,7 +70,7 @@ fn test_compress_tiny_window() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ compress 0.4 0.6
+out $ "bd sn hh cp" $ compress 0.4 0.6
 "#,
         "Compress to tiny window (0.4-0.6)",
     );
@@ -82,7 +82,7 @@ fn test_compress_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ compress 0.0 0.5 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ compress 0.0 0.5 # reverb 0.5 0.3 0.2
 "#,
         "Compress with reverb",
     );
@@ -94,7 +94,7 @@ fn test_compress_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ compress 0.25 0.75 $ fast 2
+out $ "bd sn hh" $ compress 0.25 0.75 $ fast 2
 "#,
         "Compress combined with fast",
     );
@@ -108,7 +108,7 @@ fn test_shuffle_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ shuffle 0.5
+out $ "bd sn hh cp" $ shuffle 0.5
 "#,
         "Shuffle with amount 0.5",
     );
@@ -120,7 +120,7 @@ fn test_shuffle_small_amount() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ shuffle 0.1
+out $ "bd*8" $ shuffle 0.1
 "#,
         "Shuffle with small amount (0.1)",
     );
@@ -132,7 +132,7 @@ fn test_shuffle_large_amount() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ shuffle 0.9
+out $ "bd sn hh*4" $ shuffle 0.9
 "#,
         "Shuffle with large amount (0.9)",
     );
@@ -144,7 +144,7 @@ fn test_shuffle_with_subdivision() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*4 sn*4 hh*8" $ shuffle 0.5
+out $ "bd*4 sn*4 hh*8" $ shuffle 0.5
 "#,
         "Shuffle with subdivision",
     );
@@ -156,7 +156,7 @@ fn test_shuffle_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ shuffle 0.5 # delay 0.25 0.5 0.3
+out $ "bd sn hh*2" $ shuffle 0.5 # delay 0.25 0.5 0.3
 "#,
         "Shuffle with delay",
     );
@@ -168,7 +168,7 @@ fn test_shuffle_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ shuffle 0.5 $ fast 2
+out $ "bd sn hh" $ shuffle 0.5 $ fast 2
 "#,
         "Shuffle combined with fast",
     );
@@ -182,7 +182,7 @@ fn test_spin_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ spin 4
+out $ "bd sn hh cp" $ spin 4
 "#,
         "Spin 4 versions",
     );
@@ -194,7 +194,7 @@ fn test_spin_double() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ spin 2
+out $ "bd*8" $ spin 2
 "#,
         "Spin 2 versions",
     );
@@ -206,7 +206,7 @@ fn test_spin_many() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ spin 8
+out $ "bd sn hh*4" $ spin 8
 "#,
         "Spin 8 versions",
     );
@@ -218,7 +218,7 @@ fn test_spin_negative() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ spin (-2)
+out $ "bd sn hh cp" $ spin (-2)
 "#,
         "Spin with negative direction",
     );
@@ -230,7 +230,7 @@ fn test_spin_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ spin 4 # chorus 0.5 0.3 0.2
+out $ "bd sn hh*2" $ spin 4 # chorus 0.5 0.3 0.2
 "#,
         "Spin with chorus",
     );
@@ -242,7 +242,7 @@ fn test_spin_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ spin 3 $ slow 2
+out $ "bd sn hh" $ spin 3 $ slow 2
 "#,
         "Spin combined with slow",
     );
@@ -256,7 +256,7 @@ fn test_fit_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ fit 2
+out $ "bd sn hh cp" $ fit 2
 "#,
         "Fit to 2 cycles",
     );
@@ -268,7 +268,7 @@ fn test_fit_single_cycle() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ fit 1
+out $ "bd*8" $ fit 1
 "#,
         "Fit to 1 cycle",
     );
@@ -280,7 +280,7 @@ fn test_fit_many_cycles() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ fit 8
+out $ "bd sn hh*4" $ fit 8
 "#,
         "Fit to 8 cycles",
     );
@@ -292,7 +292,7 @@ fn test_fit_negative() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ fit (-3)
+out $ "bd sn hh cp" $ fit (-3)
 "#,
         "Fit with negative cycles",
     );
@@ -304,7 +304,7 @@ fn test_fit_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ fit 4 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ fit 4 # reverb 0.5 0.3 0.2
 "#,
         "Fit with reverb",
     );
@@ -316,7 +316,7 @@ fn test_fit_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ fit 3 $ rev
+out $ "bd sn hh" $ fit 3 $ rev
 "#,
         "Fit combined with rev",
     );
@@ -330,7 +330,7 @@ fn test_scramble_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ scramble 42
+out $ "bd sn hh cp" $ scramble 42
 "#,
         "Scramble with seed 42",
     );
@@ -342,9 +342,9 @@ fn test_scramble_different_seeds() {
     test_compilation(
         r#"
 tempo: 0.5
-~scr1: "bd*4" $ scramble 1
-~scr2: "sn*4" $ scramble 2
-out: ~scr1 + ~scr2
+~scr1 $ "bd*4" $ scramble 1
+~scr2 $ "sn*4" $ scramble 2
+out $ ~scr1 + ~scr2
 "#,
         "Scramble with different seeds",
     );
@@ -356,7 +356,7 @@ fn test_scramble_zero_seed() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ scramble 0
+out $ "bd sn hh*4" $ scramble 0
 "#,
         "Scramble with seed 0",
     );
@@ -368,7 +368,7 @@ fn test_scramble_large_seed() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ scramble 999999
+out $ "bd sn hh cp" $ scramble 999999
 "#,
         "Scramble with large seed",
     );
@@ -380,7 +380,7 @@ fn test_scramble_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ scramble 7 # distort 2.0 0.5
+out $ "bd sn hh*2" $ scramble 7 # distort 2.0 0.5
 "#,
         "Scramble with distortion",
     );
@@ -392,7 +392,7 @@ fn test_scramble_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ scramble 5 $ fast 2
+out $ "bd sn hh" $ scramble 5 $ fast 2
 "#,
         "Scramble combined with fast",
     );
@@ -406,7 +406,7 @@ fn test_segment_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ segment 4
+out $ "bd sn hh cp" $ segment 4
 "#,
         "Segment into 4 pieces",
     );
@@ -418,7 +418,7 @@ fn test_segment_two() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ segment 2
+out $ "bd*8" $ segment 2
 "#,
         "Segment into 2 pieces",
     );
@@ -430,7 +430,7 @@ fn test_segment_many() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ segment 16
+out $ "bd sn hh*4" $ segment 16
 "#,
         "Segment into 16 pieces",
     );
@@ -442,7 +442,7 @@ fn test_segment_single() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ segment 1
+out $ "bd sn hh cp" $ segment 1
 "#,
         "Segment into 1 piece",
     );
@@ -454,7 +454,7 @@ fn test_segment_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ segment 8 # lpf 1000 0.8
+out $ "bd sn hh*2" $ segment 8 # lpf 1000 0.8
 "#,
         "Segment with lpf",
     );
@@ -466,7 +466,7 @@ fn test_segment_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ segment 4 $ rev
+out $ "bd sn hh" $ segment 4 $ rev
 "#,
         "Segment combined with rev",
     );
@@ -480,13 +480,13 @@ fn test_all_six_operations_in_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~compressed: "bd*8" $ compress 0.25 0.75
-~shuffled: "sn*4" $ shuffle 0.5
-~spun: "hh*8" $ spin 4
-~fitted: "cp*2" $ fit 3
-~scrambled: "bd sn" $ scramble 42
-~segmented: "hh cp" $ segment 8
-out: ~compressed + ~shuffled + ~spun + ~fitted
+~compressed $ "bd*8" $ compress 0.25 0.75
+~shuffled $ "sn*4" $ shuffle 0.5
+~spun $ "hh*8" $ spin 4
+~fitted $ "cp*2" $ fit 3
+~scrambled $ "bd sn" $ scramble 42
+~segmented $ "hh cp" $ segment 8
+out $ ~compressed + ~shuffled + ~spun + ~fitted
 "#,
         "All six operations in one program",
     );
@@ -498,9 +498,9 @@ fn test_compress_and_shuffle() {
     test_compilation(
         r#"
 tempo: 0.5
-~compressed: "bd sn" $ compress 0.0 0.5
-~shuffled: "hh cp" $ shuffle 0.5
-out: ~compressed + ~shuffled
+~compressed $ "bd sn" $ compress 0.0 0.5
+~shuffled $ "hh cp" $ shuffle 0.5
+out $ ~compressed + ~shuffled
 "#,
         "Compress and shuffle together",
     );
@@ -512,9 +512,9 @@ fn test_spin_and_fit() {
     test_compilation(
         r#"
 tempo: 0.5
-~spun: "bd*4 sn*4" $ spin 4
-~fitted: "hh*4 cp*4" $ fit 2
-out: ~spun + ~fitted
+~spun $ "bd*4 sn*4" $ spin 4
+~fitted $ "hh*4 cp*4" $ fit 2
+out $ ~spun + ~fitted
 "#,
         "Spin and fit together",
     );
@@ -526,9 +526,9 @@ fn test_scramble_and_segment() {
     test_compilation(
         r#"
 tempo: 0.5
-~scrambled: "bd sn hh" $ scramble 7
-~segmented: "cp bd sn" $ segment 4
-out: ~scrambled + ~segmented
+~scrambled $ "bd sn hh" $ scramble 7
+~segmented $ "cp bd sn" $ segment 4
+out $ ~scrambled + ~segmented
 "#,
         "Scramble and segment together",
     );
@@ -540,7 +540,7 @@ fn test_complex_combination() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ compress 0.25 0.75 $ shuffle 0.3 $ spin 4 $ fast 2
+out $ "bd sn hh cp" $ compress 0.25 0.75 $ shuffle 0.3 $ spin 4 $ fast 2
 "#,
         "Complex combination: compress, shuffle, spin, fast",
     );
@@ -552,7 +552,7 @@ fn test_with_effects_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ compress 0.0 0.5 $ shuffle 0.5 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*4" $ compress 0.0 0.5 $ shuffle 0.5 # lpf 1000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Multiple operations with effects chain",
     );
@@ -564,7 +564,7 @@ fn test_scramble_with_fit() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ scramble 9 $ fit 4
+out $ "bd sn hh cp" $ scramble 9 $ fit 4
 "#,
         "Scramble with fit",
     );
@@ -576,7 +576,7 @@ fn test_compress_with_segment() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ compress 0.25 0.75 $ segment 8
+out $ "bd sn hh cp" $ compress 0.25 0.75 $ segment 8
 "#,
         "Compress with segment",
     );
@@ -588,7 +588,7 @@ fn test_shuffle_with_spin() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ shuffle 0.5 $ spin 4
+out $ "bd*8" $ shuffle 0.5 $ spin 4
 "#,
         "Shuffle with spin",
     );
@@ -600,12 +600,12 @@ fn test_in_complex_multi_bus_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~kick: "bd*4" $ compress 0.25 0.75 $ shuffle 0.2
-~snare: "~ sn ~ sn" $ spin 4 $ scramble 7
-~hats: "hh*8" $ fit 2 $ segment 4
-~perc: "cp*4" $ compress 0.0 0.5 $ fit 3
-~mixed: (~kick + ~snare) $ shuffle 0.3
-out: ~mixed * 0.5 + ~hats * 0.3 + ~perc * 0.2
+~kick $ "bd*4" $ compress 0.25 0.75 $ shuffle 0.2
+~snare $ "~ sn ~ sn" $ spin 4 $ scramble 7
+~hats $ "hh*8" $ fit 2 $ segment 4
+~perc $ "cp*4" $ compress 0.0 0.5 $ fit 3
+~mixed $ (~kick + ~snare) $ shuffle 0.3
+out $ ~mixed * 0.5 + ~hats * 0.3 + ~perc * 0.2
 "#,
         "Complex multi-bus program with all operations",
     );
@@ -617,7 +617,7 @@ fn test_nested_operations() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ compress 0.25 0.75 $ shuffle 0.5 $ spin 2 $ fit 4 $ segment 8
+out $ "bd sn hh cp" $ compress 0.25 0.75 $ shuffle 0.5 $ spin 2 $ fit 4 $ segment 8
 "#,
         "Nested operations on same pattern",
     );
@@ -629,11 +629,11 @@ fn test_multiple_compress_operations() {
     test_compilation(
         r#"
 tempo: 0.5
-~c1: "bd*8" $ compress 0.0 0.25
-~c2: "sn*8" $ compress 0.25 0.5
-~c3: "hh*8" $ compress 0.5 0.75
-~c4: "cp*8" $ compress 0.75 1.0
-out: ~c1 + ~c2 + ~c3 + ~c4
+~c1 $ "bd*8" $ compress 0.0 0.25
+~c2 $ "sn*8" $ compress 0.25 0.5
+~c3 $ "hh*8" $ compress 0.5 0.75
+~c4 $ "cp*8" $ compress 0.75 1.0
+out $ ~c1 + ~c2 + ~c3 + ~c4
 "#,
         "Multiple compress operations at different ranges",
     );
@@ -645,7 +645,7 @@ fn test_fit_with_segment() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ fit 3 $ segment 12
+out $ "bd sn hh" $ fit 3 $ segment 12
 "#,
         "Fit with segment",
     );
@@ -657,7 +657,7 @@ fn test_all_operations_with_reverb() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ compress 0.25 0.75 $ shuffle 0.3 $ spin 4 $ fit 2 $ scramble 5 $ segment 8 # reverb 0.5 0.7 0.3
+out $ "bd sn hh*4" $ compress 0.25 0.75 $ shuffle 0.3 $ spin 4 $ fit 2 $ scramble 5 $ segment 8 # reverb 0.5 0.7 0.3
 "#,
         "All operations with reverb",
     );

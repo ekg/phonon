@@ -31,7 +31,7 @@ fn test_humanize_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ humanize 0.1 0.2
+out $ "bd sn hh cp" $ humanize 0.1 0.2
 "#,
         "Humanize with 0.1 time, 0.2 velocity",
     );
@@ -43,7 +43,7 @@ fn test_humanize_subtle() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ humanize 0.05 0.1
+out $ "bd*8" $ humanize 0.05 0.1
 "#,
         "Subtle humanization",
     );
@@ -55,7 +55,7 @@ fn test_humanize_strong() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ humanize 0.3 0.5
+out $ "bd sn hh*4" $ humanize 0.3 0.5
 "#,
         "Strong humanization",
     );
@@ -67,7 +67,7 @@ fn test_humanize_time_only() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ humanize 0.2 0.0
+out $ "bd sn hh cp" $ humanize 0.2 0.0
 "#,
         "Humanize timing only",
     );
@@ -79,7 +79,7 @@ fn test_humanize_velocity_only() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ humanize 0.0 0.3
+out $ "bd sn hh cp" $ humanize 0.0 0.3
 "#,
         "Humanize velocity only",
     );
@@ -91,7 +91,7 @@ fn test_humanize_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ humanize 0.15 0.2 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*2" $ humanize 0.15 0.2 # reverb 0.5 0.3 0.2
 "#,
         "Humanize with reverb",
     );
@@ -103,7 +103,7 @@ fn test_humanize_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ humanize 0.1 0.2 $ fast 2
+out $ "bd sn hh" $ humanize 0.1 0.2 $ fast 2
 "#,
         "Humanize combined with fast",
     );
@@ -117,7 +117,7 @@ fn test_within_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ within 0.0 0.5 (fast 2)
+out $ "bd sn hh cp" $ within 0.0 0.5 (fast 2)
 "#,
         "Within 0.0-0.5 with fast 2",
     );
@@ -129,7 +129,7 @@ fn test_within_second_half() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd*8" $ within 0.5 1.0 rev
+out $ "bd*8" $ within 0.5 1.0 rev
 "#,
         "Within 0.5-1.0 with rev",
     );
@@ -141,7 +141,7 @@ fn test_within_middle() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ within 0.33 0.67 (slow 2)
+out $ "bd sn hh*4" $ within 0.33 0.67 (slow 2)
 "#,
         "Within 0.33-0.67 with slow 2",
     );
@@ -153,7 +153,7 @@ fn test_within_small_window() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ within 0.25 0.35 (fast 3)
+out $ "bd sn hh cp" $ within 0.25 0.35 (fast 3)
 "#,
         "Within small window (0.25-0.35)",
     );
@@ -165,7 +165,7 @@ fn test_within_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*2" $ within 0.0 0.5 (fast 2) # delay 0.25 0.5 0.3
+out $ "bd sn hh*2" $ within 0.0 0.5 (fast 2) # delay 0.25 0.5 0.3
 "#,
         "Within with delay",
     );
@@ -177,7 +177,7 @@ fn test_within_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ within 0.25 0.75 (fast 2) $ slow 2
+out $ "bd sn hh" $ within 0.25 0.75 (fast 2) $ slow 2
 "#,
         "Within combined with slow",
     );
@@ -189,11 +189,11 @@ fn test_within_multiple() {
     test_compilation(
         r#"
 tempo: 0.5
-~w1: "bd*8" $ within 0.0 0.25 (fast 2)
-~w2: "sn*8" $ within 0.25 0.5 rev
-~w3: "hh*8" $ within 0.5 0.75 (slow 2)
-~w4: "cp*8" $ within 0.75 1.0 (fast 3)
-out: ~w1 + ~w2 + ~w3 + ~w4
+~w1 $ "bd*8" $ within 0.0 0.25 (fast 2)
+~w2 $ "sn*8" $ within 0.25 0.5 rev
+~w3 $ "hh*8" $ within 0.5 0.75 (slow 2)
+~w4 $ "cp*8" $ within 0.75 1.0 (fast 3)
+out $ ~w1 + ~w2 + ~w3 + ~w4
 "#,
         "Multiple within operations",
     );
@@ -207,7 +207,7 @@ fn test_euclid_basic() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ euclid 3 8
+out $ "bd" $ euclid 3 8
 "#,
         "Euclid 3 8 (basic euclidean rhythm)",
     );
@@ -219,7 +219,7 @@ fn test_euclid_four_four() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ euclid 4 4
+out $ "bd" $ euclid 4 4
 "#,
         "Euclid 4 4 (four on the floor)",
     );
@@ -231,7 +231,7 @@ fn test_euclid_sparse() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ euclid 3 16
+out $ "bd" $ euclid 3 16
 "#,
         "Euclid 3 16 (sparse pattern)",
     );
@@ -243,7 +243,7 @@ fn test_euclid_dense() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "hh" $ euclid 7 8
+out $ "hh" $ euclid 7 8
 "#,
         "Euclid 7 8 (dense pattern)",
     );
@@ -255,7 +255,7 @@ fn test_euclid_clave() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "cp" $ euclid 5 8
+out $ "cp" $ euclid 5 8
 "#,
         "Euclid 5 8 (clave pattern)",
     );
@@ -267,7 +267,7 @@ fn test_euclid_with_sample() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ euclid 5 13
+out $ "bd sn hh" $ euclid 5 13
 "#,
         "Euclid with multiple samples",
     );
@@ -279,7 +279,7 @@ fn test_euclid_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ euclid 3 8 # chorus 0.5 0.3 0.2
+out $ "bd" $ euclid 3 8 # chorus 0.5 0.3 0.2
 "#,
         "Euclid with chorus",
     );
@@ -291,7 +291,7 @@ fn test_euclid_combined() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ euclid 5 16 $ fast 2
+out $ "bd" $ euclid 5 16 $ fast 2
 "#,
         "Euclid combined with fast",
     );
@@ -305,10 +305,10 @@ fn test_all_three_operations() {
     test_compilation(
         r#"
 tempo: 0.5
-~human: "bd*8" $ humanize 0.15 0.2
-~within_fast: "sn*4" $ within 0.0 0.5 (fast 2)
-~eucl: "hh" $ euclid 5 8
-out: ~human + ~within_fast + ~eucl
+~human $ "bd*8" $ humanize 0.15 0.2
+~within_fast $ "sn*4" $ within 0.0 0.5 (fast 2)
+~eucl $ "hh" $ euclid 5 8
+out $ ~human + ~within_fast + ~eucl
 "#,
         "All three operations in one program",
     );
@@ -320,9 +320,9 @@ fn test_humanize_and_within() {
     test_compilation(
         r#"
 tempo: 0.5
-~h: "bd sn" $ humanize 0.1 0.15
-~w: "hh cp" $ within 0.25 0.75 (fast 2)
-out: ~h + ~w
+~h $ "bd sn" $ humanize 0.1 0.15
+~w $ "hh cp" $ within 0.25 0.75 (fast 2)
+out $ ~h + ~w
 "#,
         "Humanize and within together",
     );
@@ -334,7 +334,7 @@ fn test_humanize_and_euclid() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ euclid 5 8 $ humanize 0.1 0.2
+out $ "bd" $ euclid 5 8 $ humanize 0.1 0.2
 "#,
         "Humanize euclidean pattern",
     );
@@ -346,7 +346,7 @@ fn test_within_and_euclid() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ euclid 3 8 $ within 0.0 0.5 (fast 2)
+out $ "bd" $ euclid 3 8 $ within 0.0 0.5 (fast 2)
 "#,
         "Within with euclidean pattern",
     );
@@ -358,7 +358,7 @@ fn test_nested_within() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ within 0.0 0.5 (within 0.0 0.5 (fast 2))
+out $ "bd sn hh cp" $ within 0.0 0.5 (within 0.0 0.5 (fast 2))
 "#,
         "Nested within transforms",
     );
@@ -370,7 +370,7 @@ fn test_complex_combination() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ euclid 5 8 $ humanize 0.1 0.15 $ within 0.25 0.75 (fast 2) $ slow 2
+out $ "bd" $ euclid 5 8 $ humanize 0.1 0.15 $ within 0.25 0.75 (fast 2) $ slow 2
 "#,
         "Complex combination: euclid, humanize, within, slow",
     );
@@ -382,7 +382,7 @@ fn test_with_effects_chain() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh*4" $ humanize 0.1 0.2 $ within 0.0 0.5 (fast 2) # lpf 1000 0.8 # reverb 0.5 0.3 0.2
+out $ "bd sn hh*4" $ humanize 0.1 0.2 $ within 0.0 0.5 (fast 2) # lpf 1000 0.8 # reverb 0.5 0.3 0.2
 "#,
         "Multiple operations with effects chain",
     );
@@ -394,10 +394,10 @@ fn test_euclidean_polyrhythm() {
     test_compilation(
         r#"
 tempo: 0.5
-~kick: "bd" $ euclid 4 16
-~snare: "sn" $ euclid 3 16
-~hats: "hh" $ euclid 7 16
-out: ~kick + ~snare + ~hats
+~kick $ "bd" $ euclid 4 16
+~snare $ "sn" $ euclid 3 16
+~hats $ "hh" $ euclid 7 16
+out $ ~kick + ~snare + ~hats
 "#,
         "Euclidean polyrhythm",
     );
@@ -409,12 +409,12 @@ fn test_in_complex_multi_bus_program() {
     test_compilation(
         r#"
 tempo: 0.5
-~kick: "bd" $ euclid 5 16 $ humanize 0.05 0.1
-~snare: "sn" $ euclid 3 8 $ within 0.0 0.5 (fast 2)
-~hats: "hh" $ euclid 11 16 $ humanize 0.1 0.15
-~perc: "cp" $ euclid 5 13 $ within 0.25 0.75 (slow 2)
-~mixed: (~kick + ~snare) $ humanize 0.08 0.12
-out: ~mixed * 0.5 + ~hats * 0.3 + ~perc * 0.2
+~kick $ "bd" $ euclid 5 16 $ humanize 0.05 0.1
+~snare $ "sn" $ euclid 3 8 $ within 0.0 0.5 (fast 2)
+~hats $ "hh" $ euclid 11 16 $ humanize 0.1 0.15
+~perc $ "cp" $ euclid 5 13 $ within 0.25 0.75 (slow 2)
+~mixed $ (~kick + ~snare) $ humanize 0.08 0.12
+out $ ~mixed * 0.5 + ~hats * 0.3 + ~perc * 0.2
 "#,
         "Complex multi-bus program with all operations",
     );
@@ -426,10 +426,10 @@ fn test_humanize_different_amounts() {
     test_compilation(
         r#"
 tempo: 0.5
-~subtle: "bd*4" $ humanize 0.05 0.05
-~moderate: "sn*4" $ humanize 0.15 0.15
-~strong: "hh*8" $ humanize 0.3 0.3
-out: ~subtle + ~moderate + ~strong
+~subtle $ "bd*4" $ humanize 0.05 0.05
+~moderate $ "sn*4" $ humanize 0.15 0.15
+~strong $ "hh*8" $ humanize 0.3 0.3
+out $ ~subtle + ~moderate + ~strong
 "#,
         "Different humanization amounts",
     );
@@ -441,11 +441,11 @@ fn test_within_different_windows() {
     test_compilation(
         r#"
 tempo: 0.5
-~w1: "bd*8" $ within 0.0 0.25 (fast 2)
-~w2: "sn*8" $ within 0.25 0.5 rev
-~w3: "hh*8" $ within 0.5 0.75 (slow 2)
-~w4: "cp*8" $ within 0.75 1.0 (fast 3)
-out: ~w1 + ~w2 + ~w3 + ~w4
+~w1 $ "bd*8" $ within 0.0 0.25 (fast 2)
+~w2 $ "sn*8" $ within 0.25 0.5 rev
+~w3 $ "hh*8" $ within 0.5 0.75 (slow 2)
+~w4 $ "cp*8" $ within 0.75 1.0 (fast 3)
+out $ ~w1 + ~w2 + ~w3 + ~w4
 "#,
         "Different time windows",
     );
@@ -457,11 +457,11 @@ fn test_euclidean_variations() {
     test_compilation(
         r#"
 tempo: 0.5
-~e1: "bd" $ euclid 3 8
-~e2: "sn" $ euclid 5 8
-~e3: "hh" $ euclid 7 16
-~e4: "cp" $ euclid 5 13
-out: ~e1 + ~e2 + ~e3 + ~e4
+~e1 $ "bd" $ euclid 3 8
+~e2 $ "sn" $ euclid 5 8
+~e3 $ "hh" $ euclid 7 16
+~e4 $ "cp" $ euclid 5 13
+out $ ~e1 + ~e2 + ~e3 + ~e4
 "#,
         "Euclidean rhythm variations",
     );
@@ -473,7 +473,7 @@ fn test_all_with_reverb() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ euclid 5 8 $ humanize 0.1 0.15 $ within 0.0 0.5 (fast 2) # reverb 0.5 0.7 0.3
+out $ "bd" $ euclid 5 8 $ humanize 0.1 0.15 $ within 0.0 0.5 (fast 2) # reverb 0.5 0.7 0.3
 "#,
         "All operations with reverb",
     );
@@ -485,7 +485,7 @@ fn test_humanize_with_stutter() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh" $ stutter 3 $ humanize 0.1 0.2
+out $ "bd sn hh" $ stutter 3 $ humanize 0.1 0.2
 "#,
         "Humanize with stutter",
     );
@@ -497,7 +497,7 @@ fn test_within_in_every() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd sn hh cp" $ every 2 (within 0.0 0.5 (fast 2))
+out $ "bd sn hh cp" $ every 2 (within 0.0 0.5 (fast 2))
 "#,
         "Within inside every",
     );
@@ -509,7 +509,7 @@ fn test_euclid_with_sometimes() {
     test_compilation(
         r#"
 tempo: 0.5
-out: "bd" $ euclid 5 8 $ sometimes (fast 2)
+out $ "bd" $ euclid 5 8 $ sometimes (fast 2)
 "#,
         "Euclid with sometimes",
     );

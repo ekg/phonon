@@ -30,7 +30,7 @@ fn test_cat_two_patterns() {
     test_compilation(
         r#"
 tempo: 0.5
-out: cat ["bd", "sn"]
+out $ cat ["bd", "sn"]
 "#,
         "Cat with 2 patterns",
     );
@@ -42,7 +42,7 @@ fn test_cat_three_patterns() {
     test_compilation(
         r#"
 tempo: 0.5
-out: cat ["bd", "sn", "hh"]
+out $ cat ["bd", "sn", "hh"]
 "#,
         "Cat with 3 patterns",
     );
@@ -54,7 +54,7 @@ fn test_cat_single_pattern() {
     test_compilation(
         r#"
 tempo: 0.5
-out: cat ["bd*4"]
+out $ cat ["bd*4"]
 "#,
         "Cat with single pattern",
     );
@@ -66,7 +66,7 @@ fn test_cat_complex_patterns() {
     test_compilation(
         r#"
 tempo: 0.5
-out: cat ["bd*4", "~ sn ~ sn", "hh*8"]
+out $ cat ["bd*4", "~ sn ~ sn", "hh*8"]
 "#,
         "Cat with complex patterns",
     );
@@ -78,7 +78,7 @@ fn test_cat_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: cat ["bd", "sn", "hh"] # lpf 1000 0.8
+out $ cat ["bd", "sn", "hh"] # lpf 1000 0.8
 "#,
         "Cat with filter effect",
     );
@@ -92,7 +92,7 @@ fn test_slowcat_two_patterns() {
     test_compilation(
         r#"
 tempo: 0.5
-out: slowcat ["bd*4", "sn*4"]
+out $ slowcat ["bd*4", "sn*4"]
 "#,
         "Slowcat with 2 patterns",
     );
@@ -104,7 +104,7 @@ fn test_slowcat_three_patterns() {
     test_compilation(
         r#"
 tempo: 0.5
-out: slowcat ["bd*4", "sn*4", "hh*8"]
+out $ slowcat ["bd*4", "sn*4", "hh*8"]
 "#,
         "Slowcat with 3 patterns",
     );
@@ -116,7 +116,7 @@ fn test_slowcat_single_pattern() {
     test_compilation(
         r#"
 tempo: 0.5
-out: slowcat ["bd ~ sn ~"]
+out $ slowcat ["bd ~ sn ~"]
 "#,
         "Slowcat with single pattern",
     );
@@ -128,7 +128,7 @@ fn test_slowcat_complex_patterns() {
     test_compilation(
         r#"
 tempo: 0.5
-out: slowcat ["bd(3,8)", "sn*4", "<hh oh>*8"]
+out $ slowcat ["bd(3,8)", "sn*4", "<hh oh>*8"]
 "#,
         "Slowcat with complex patterns",
     );
@@ -140,7 +140,7 @@ fn test_slowcat_with_effects() {
     test_compilation(
         r#"
 tempo: 0.5
-out: slowcat ["bd*4", "sn*2"] # reverb 0.5 0.3 0.2
+out $ slowcat ["bd*4", "sn*2"] # reverb 0.5 0.3 0.2
 "#,
         "Slowcat with reverb",
     );
@@ -154,9 +154,9 @@ fn test_cat_and_slowcat_mixed() {
     test_compilation(
         r#"
 tempo: 0.5
-~drums1: cat ["bd", "sn", "hh"]
-~drums2: slowcat ["bd*4", "sn*4"]
-out: ~drums1 + ~drums2 * 0.5
+~drums1 $ cat ["bd", "sn", "hh"]
+~drums2 $ slowcat ["bd*4", "sn*4"]
+out $ ~drums1 + ~drums2 * 0.5
 "#,
         "Cat and slowcat mixed",
     );
@@ -165,4 +165,4 @@ out: ~drums1 + ~drums2 * 0.5
 // NOTE: Bus references in cat/slowcat don't work yet because buses are compiled to NodeIds
 // This is a known limitation documented in KLUDGES_AND_IMPROVEMENTS.md
 // To combine patterns from buses, you need to use stack instead:
-//   ~combined: stack [~kicks, ~snares]
+//   ~combined $ stack [~kicks, ~snares]

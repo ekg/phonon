@@ -116,15 +116,15 @@ fn test_render_complex_compositional_example() {
     let code = r#"
         tempo: 0.5
 
-        ~kick: s "bd*4"
-        ~snare: s "~ sn ~ sn"
+        ~kick $ s "bd*4"
+        ~snare $ s "~ sn ~ sn"
 
-        ~cutoffs: "500 1000 2000 4000" $ fast 4
-        ~filtered: ~kick # lpf ~cutoffs 0.8
+        ~cutoffs $ "500 1000 2000 4000" $ fast 4
+        ~filtered $ ~kick # lpf ~cutoffs 0.8
 
-        ~bass: saw 55 # lpf 400 0.6
+        ~bass $ saw 55 # lpf 400 0.6
 
-        out: ~filtered * 0.5 + ~snare * 0.4 + ~bass * 0.3
+        out $ ~filtered * 0.5 + ~snare * 0.4 + ~bass * 0.3
     "#;
 
     println!("🔍 Parsing complex example...");

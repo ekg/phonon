@@ -62,7 +62,7 @@ fn analyze_spectrum(buffer: &[f32], sample_rate: f32) -> (Vec<f32>, Vec<f32>) {
 fn test_sine_compiles() {
     let code = r#"
         tempo: 0.5
-        o1: sine 440
+        out $ sine 440
     "#;
 
     let (_, statements) = parse_program(code).expect("Failed to parse");
@@ -74,7 +74,7 @@ fn test_sine_compiles() {
 fn test_sine_generates_audio() {
     let code = r#"
         tempo: 0.5
-        o1: sine 440 * 0.3
+        out $ sine 440 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -91,7 +91,7 @@ fn test_sine_single_harmonic() {
     // Sine wave should only have fundamental, no harmonics
     let code = r#"
         tempo: 0.5
-        o1: sine 440 * 0.3
+        out $ sine 440 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -131,7 +131,7 @@ fn test_sine_frequency_accuracy() {
     // Verify sine generates correct frequency
     let code = r#"
         tempo: 0.5
-        o1: sine 440 * 0.3
+        out $ sine 440 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -163,7 +163,7 @@ fn test_sine_sub_bass() {
     // Very low frequency sine
     let code = r#"
         tempo: 0.5
-        o1: sine 40 * 0.3
+        out $ sine 40 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -177,7 +177,7 @@ fn test_sine_sub_bass() {
 fn test_sine_mid_range() {
     let code = r#"
         tempo: 0.5
-        o1: sine 1000 * 0.3
+        out $ sine 1000 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -191,7 +191,7 @@ fn test_sine_mid_range() {
 fn test_sine_high_frequency() {
     let code = r#"
         tempo: 0.5
-        o1: sine 8000 * 0.3
+        out $ sine 8000 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -208,9 +208,9 @@ fn test_sine_bass() {
     // Deep sine bass with envelope
     let code = r#"
         tempo: 0.5
-        ~env: ad 0.01 0.3
-        ~bass: sine 55
-        o1: ~bass * ~env * 0.4
+        ~env $ ad 0.01 0.3
+        ~bass $ sine 55
+        out $ ~bass * ~env * 0.4
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -225,9 +225,9 @@ fn test_sine_lfo() {
     // Sine as LFO modulating another sine
     let code = r#"
         tempo: 0.5
-        ~lfo: sine 0.5
-        ~freq: ~lfo * 100 + 440
-        o1: sine ~freq * 0.3
+        ~lfo $ sine 0.5
+        ~freq $ ~lfo * 100 + 440
+        out $ sine ~freq * 0.3
     "#;
 
     let buffer = render_dsl(code, 2.0);
@@ -242,8 +242,8 @@ fn test_sine_vibrato() {
     // Vibrato effect (fast frequency modulation)
     let code = r#"
         tempo: 0.5
-        ~vibrato: sine 6 * 10
-        o1: sine (440 + ~vibrato) * 0.3
+        ~vibrato $ sine 6 * 10
+        out $ sine (440 + ~vibrato) * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -258,8 +258,8 @@ fn test_sine_tremolo() {
     // Tremolo effect (amplitude modulation)
     let code = r#"
         tempo: 0.5
-        ~trem: sine 5 * 0.3 + 0.7
-        o1: sine 440 * ~trem * 0.3
+        ~trem $ sine 5 * 0.3 + 0.7
+        out $ sine 440 * ~trem * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -274,10 +274,10 @@ fn test_sine_chord() {
     // Multiple sines for chord
     let code = r#"
         tempo: 0.5
-        ~root: sine 220
-        ~third: sine 277
-        ~fifth: sine 330
-        o1: (~root + ~third + ~fifth) * 0.1
+        ~root $ sine 220
+        ~third $ sine 277
+        ~fifth $ sine 330
+        out $ (~root + ~third + ~fifth) * 0.1
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -293,8 +293,8 @@ fn test_sine_chord() {
 fn test_sine_pattern_frequency() {
     let code = r#"
         tempo: 0.5
-        ~freq: sine 1 * 100 + 440
-        o1: sine ~freq * 0.3
+        ~freq $ sine 1 * 100 + 440
+        out $ sine ~freq * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -311,8 +311,8 @@ fn test_sine_pattern_frequency() {
 fn test_sine_pattern_amplitude() {
     let code = r#"
         tempo: 0.5
-        ~amp: sine 2 * 0.2 + 0.3
-        o1: sine 440 * ~amp
+        ~amp $ sine 2 * 0.2 + 0.3
+        out $ sine 440 * ~amp
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -332,8 +332,8 @@ fn test_sine_through_lowpass() {
     // Sine through lowpass (should be mostly unchanged)
     let code = r#"
         tempo: 0.5
-        ~filtered: sine 440 # rlpf 2000 2.0
-        o1: ~filtered * 0.3
+        ~filtered $ sine 440 # rlpf 2000 2.0
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -348,8 +348,8 @@ fn test_sine_through_highpass() {
     // Sine through highpass (removes fundamental if cutoff too high)
     let code = r#"
         tempo: 0.5
-        ~filtered: sine 1000 # rhpf 500 2.0
-        o1: ~filtered * 0.3
+        ~filtered $ sine 1000 # rhpf 500 2.0
+        out $ ~filtered * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -365,7 +365,7 @@ fn test_sine_through_highpass() {
 fn test_sine_no_clipping() {
     let code = r#"
         tempo: 0.5
-        o1: sine 440 * 0.5
+        out $ sine 440 * 0.5
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -383,7 +383,7 @@ fn test_sine_dc_offset() {
     // Sine should have no DC offset (mean near zero)
     let code = r#"
         tempo: 0.5
-        o1: sine 440 * 0.3
+        out $ sine 440 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);
@@ -403,7 +403,7 @@ fn test_sine_continuous() {
     // Verify sine is continuous (no pops/clicks)
     let code = r#"
         tempo: 0.5
-        o1: sine 440 * 0.3
+        out $ sine 440 * 0.3
     "#;
 
     let buffer = render_dsl(code, 1.0);

@@ -271,12 +271,12 @@ fn test_late_level1_preserves_values() {
 fn test_late_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp"
+out $ s "bd sn hh cp bd sn hh cp"
 "#;
 
     let late_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp" $ late 0.05
+out $ s "bd sn hh cp bd sn hh cp" $ late 0.05
 "#;
 
     let cycles = 8;
@@ -308,12 +308,12 @@ out: s "bd sn hh cp bd sn hh cp" $ late 0.05
 fn test_early_level2_audio_onsets() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let early_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ early 0.05
+out $ s "bd sn hh cp" $ early 0.05
 "#;
 
     let cycles = 8;
@@ -346,12 +346,12 @@ fn test_late_level2_timing_shift() {
     // Verify that late actually shifts onset timing forward
     let base_code = r#"
 tempo: 0.5
-out: s "bd ~ ~ ~"
+out $ s "bd ~ ~ ~"
 "#;
 
     let late_code = r#"
 tempo: 0.5
-out: s "bd ~ ~ ~" $ late 0.25
+out $ s "bd ~ ~ ~" $ late 0.25
 "#;
 
     let cycles = 4;
@@ -393,12 +393,12 @@ fn test_early_level2_timing_shift() {
     // Verify that early actually shifts onset timing backward
     let base_code = r#"
 tempo: 0.5
-out: s "~ bd ~ ~"
+out $ s "~ bd ~ ~"
 "#;
 
     let early_code = r#"
 tempo: 0.5
-out: s "~ bd ~ ~" $ early 0.25
+out $ s "~ bd ~ ~" $ early 0.25
 "#;
 
     let cycles = 4;
@@ -443,7 +443,7 @@ out: s "~ bd ~ ~" $ early 0.25
 fn test_late_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp" $ late 0.1
+out $ s "bd sn hh cp bd sn hh cp" $ late 0.1
 "#;
 
     let audio = render_dsl(code, 8);
@@ -478,7 +478,7 @@ out: s "bd sn hh cp bd sn hh cp" $ late 0.1
 fn test_early_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ early 0.05
+out $ s "bd sn hh cp" $ early 0.05
 "#;
 
     let audio = render_dsl(code, 8);
@@ -513,12 +513,12 @@ out: s "bd sn hh cp" $ early 0.05
 fn test_late_level3_energy_preservation() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp"
+out $ s "bd sn hh cp bd sn hh cp"
 "#;
 
     let late_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp bd sn hh cp" $ late 0.1
+out $ s "bd sn hh cp bd sn hh cp" $ late 0.1
 "#;
 
     let base_audio = render_dsl(base_code, 8);
@@ -547,12 +547,12 @@ out: s "bd sn hh cp bd sn hh cp" $ late 0.1
 fn test_early_level3_energy_preservation() {
     let base_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp"
+out $ s "bd sn hh cp"
 "#;
 
     let early_code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ early 0.1
+out $ s "bd sn hh cp" $ early 0.1
 "#;
 
     let base_audio = render_dsl(base_code, 8);
@@ -581,7 +581,7 @@ out: s "bd sn hh cp" $ early 0.1
 fn test_offset_level3_audio_quality() {
     let code = r#"
 tempo: 0.5
-out: s "bd sn hh cp" $ offset 0.15
+out $ s "bd sn hh cp" $ offset 0.15
 "#;
 
     let audio = render_dsl(code, 8);

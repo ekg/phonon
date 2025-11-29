@@ -9,7 +9,7 @@ fn test_basic_pattern_verification() {
     // Test that a simple pattern produces events at expected times
     let input = r#"
         cps: 2.0
-        out: s "bd sn hh cp" * 0.5
+        out $ s "bd sn hh cp" * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse DSL");
@@ -66,12 +66,12 @@ fn test_fast_transform_verification() {
     // Test that fast(2) doubles the event rate
     let input_normal = r#"
         cps: 1.0
-        out: s "bd sn" * 0.5
+        out $ s "bd sn" * 0.5
     "#;
 
     let input_fast = r#"
         cps: 1.0
-        out: s("bd sn" $ fast 2) * 0.5
+        out $ s("bd sn" $ fast 2) * 0.5
     "#;
 
     // Render normal pattern
@@ -108,12 +108,12 @@ fn test_slow_transform_verification() {
     // Test that slow(2) halves the event rate
     let input_normal = r#"
         cps: 2.0
-        out: s "bd sn hh cp" * 0.5
+        out $ s "bd sn hh cp" * 0.5
     "#;
 
     let input_slow = r#"
         cps: 2.0
-        out: s("bd sn hh cp" $ slow 2) * 0.5
+        out $ s("bd sn hh cp" $ slow 2) * 0.5
     "#;
 
     // Render normal pattern
@@ -149,12 +149,12 @@ fn test_degrade_transform_verification() {
     // Test that degrade drops approximately 50% of events
     let input_normal = r#"
         cps: 2.0
-        out: s "bd bd bd bd" * 0.5
+        out $ s "bd bd bd bd" * 0.5
     "#;
 
     let input_degraded = r#"
         cps: 2.0
-        out: s("bd bd bd bd" $ degrade) * 0.5
+        out $ s("bd bd bd bd" $ degrade) * 0.5
     "#;
 
     // Render normal pattern
@@ -191,12 +191,12 @@ fn test_stutter_transform_verification() {
     // Test that stutter(3) triples the event count
     let input_normal = r#"
         cps: 1.0
-        out: s "bd sn" * 0.5
+        out $ s "bd sn" * 0.5
     "#;
 
     let input_stutter = r#"
         cps: 1.0
-        out: s("bd sn" $ stutter 3) * 0.5
+        out $ s("bd sn" $ stutter 3) * 0.5
     "#;
 
     // Render normal pattern
@@ -281,7 +281,7 @@ fn test_combined_transforms_verification() {
     // Test that combining transforms works correctly: fast 2 then rev
     let input = r#"
         cps: 1.0
-        out: s("bd sn" $ fast 2 $ rev) * 0.5
+        out $ s("bd sn" $ fast 2 $ rev) * 0.5
     "#;
 
     let (_, statements) = parse_dsl(input).expect("Should parse");

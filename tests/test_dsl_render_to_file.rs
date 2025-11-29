@@ -6,7 +6,7 @@ use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
 fn test_dsl_render_to_wav() {
     let dsl_code = r#"
 tempo: 0.5
-out: s "bd" * 0.8
+out $ s "bd" * 0.8
 "#;
 
     let (_, statements) = parse_dsl(dsl_code).expect("Failed to parse DSL");

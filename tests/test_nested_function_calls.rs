@@ -35,12 +35,12 @@ fn test_single_level_nesting() {
 
     let base_code = r#"
         bpm 120
-        out: sine 440 * 0.2
+        out $ sine 440 * 0.2
     "#;
 
     let reverb_code = r#"
         bpm 120
-        out: reverb (sine 440) 0.7 0.5 0.5 * 0.2
+        out $ reverb (sine 440) 0.7 0.5 0.5 * 0.2
     "#;
 
     // Render base
@@ -87,12 +87,12 @@ fn test_double_level_nesting() {
 
     let bright_code = r#"
         bpm 120
-        out: saw 110 * 0.2
+        out $ saw 110 * 0.2
     "#;
 
     let filtered_code = r#"
         bpm 120
-        out: lpf (saw 110) 200 0.5 * 0.2
+        out $ lpf (saw 110) 200 0.5 * 0.2
     "#;
 
     // Render bright version
@@ -131,7 +131,7 @@ fn test_triple_level_nesting() {
     // Three levels: reverb(lpf(sine(pattern), ...), ...)
     let code = r#"
         bpm 120
-        out: reverb (delay (lpf (sine 440) 1000 0.8) 0.25 0.5 0.5) 0.7 0.5 0.5
+        out $ reverb (delay (lpf (sine 440) 1000 0.8) 0.25 0.5 0.5) 0.7 0.5 0.5
     "#;
 
     let (remaining, statements) = parse_dsl(code).expect("Should parse triple-level nesting");
@@ -150,13 +150,13 @@ fn test_nesting_with_arithmetic() {
 
     let static_code = r#"
         bpm 120
-        out: lpf (sine 440) 1250 0.8 * 0.3
+        out $ lpf (sine 440) 1250 0.8 * 0.3
     "#;
 
     let modulated_code = r#"
         bpm 120
         ~lfo: sine 0.5
-        out: lpf (sine 440) (~lfo * 2000 + 500) 0.8 * 0.3
+        out $ lpf (sine 440) (~lfo * 2000 + 500) 0.8 * 0.3
     "#;
 
     // Render static version
@@ -209,12 +209,12 @@ fn test_multiple_nested_calls_in_expression() {
 
     let single_code = r#"
         bpm 120
-        out: lpf (sine 440) 1000 0.8 * 0.5
+        out $ lpf (sine 440) 1000 0.8 * 0.5
     "#;
 
     let combined_code = r#"
         bpm 120
-        out: (lpf (sine 440) 1000 0.8) + (lpf (sine 220) 2000 0.5) * 0.5
+        out $ (lpf (sine 440) 1000 0.8) + (lpf (sine 220) 2000 0.5) * 0.5
     "#;
 
     // Render single source
@@ -255,12 +255,12 @@ fn test_nesting_with_pattern_strings() {
 
     let constant_code = r#"
         bpm 120
-        out: lpf (sine 330) 1500 0.8 * 0.3
+        out $ lpf (sine 330) 1500 0.8 * 0.3
     "#;
 
     let pattern_code = r#"
         bpm 120
-        out: lpf (sine "220 440 330") 1500 0.8 * 0.3
+        out $ lpf (sine "220 440 330") 1500 0.8 * 0.3
     "#;
 
     // Render constant frequency
@@ -314,7 +314,7 @@ fn test_nesting_with_sample_patterns() {
     // Nesting with sample patterns
     let code = r#"
         bpm 120
-        out: reverb (s "bd sn") 0.5 0.3 0.4 * 50
+        out $ reverb (s "bd sn") 0.5 0.3 0.4 * 50
     "#;
 
     let (remaining, statements) = parse_dsl(code).expect("Should parse nesting with samples");
@@ -332,7 +332,7 @@ fn test_nesting_with_bus_refs() {
     let code = r#"
         bpm 120
         ~osc: sine 440
-        out: lpf ~osc 1000 0.8 * 0.3
+        out $ lpf ~osc 1000 0.8 * 0.3
     "#;
 
     let (remaining, statements) = parse_dsl(code).expect("Should parse nesting with bus refs");
@@ -359,7 +359,7 @@ fn test_deeply_nested_with_mixed_types() {
     let code = r#"
         bpm 120
         ~lfo: sine 0.25
-        out: reverb (delay (lpf (saw "110 220") (~lfo * 1000 + 500) 0.8) 0.25 0.5 0.3) 0.7 0.5 0.4 * 0.2
+        out $ reverb (delay (lpf (saw "110 220") (~lfo * 1000 + 500) 0.8) 0.25 0.5 0.3) 0.7 0.5 0.4 * 0.2
     "#;
 
     let (remaining, statements) = parse_dsl(code).expect("Should parse deeply nested mixed types");
@@ -385,7 +385,7 @@ fn test_nesting_with_chaining() {
     // Nesting combined with # operator chaining
     let code = r#"
         bpm 120
-        out: lpf (s "bd sn" # gain 0.8) 2000 0.5 * 50
+        out $ lpf (s "bd sn" # gain 0.8) 2000 0.5 * 50
     "#;
 
     let (remaining, statements) = parse_dsl(code).expect("Should parse nesting with chaining");
@@ -402,7 +402,7 @@ fn test_quadruple_level_nesting() {
     // Four levels of nesting - stress test
     let code = r#"
         bpm 120
-        out: reverb (delay (lpf (sine 440) 1000 0.8) 0.25 0.5 0.3) 0.7 0.5 0.5 * 0.2
+        out $ reverb (delay (lpf (sine 440) 1000 0.8) 0.25 0.5 0.3) 0.7 0.5 0.5 * 0.2
     "#;
 
     let (remaining, statements) = parse_dsl(code).expect("Should parse quadruple-level nesting");
@@ -419,7 +419,7 @@ fn test_parallel_nested_calls() {
     // Multiple nested calls at same level (in addition)
     let code = r#"
         bpm 120
-        out: (reverb (sine 440) 0.5 0.3 0.4) + (delay (saw 220) 0.25 0.5 0.3) * 0.3
+        out $ (reverb (sine 440) 0.5 0.3 0.4) + (delay (saw 220) 0.25 0.5 0.3) * 0.3
     "#;
 
     let (remaining, statements) = parse_dsl(code).expect("Should parse parallel nested calls");
@@ -445,7 +445,7 @@ fn test_asymmetric_nesting() {
     // Different nesting depths in same expression
     let code = r#"
         bpm 120
-        out: (lpf (sine 440) 1000 0.8) + (sine 220) * 0.3
+        out $ (lpf (sine 440) 1000 0.8) + (sine 220) * 0.3
     "#;
 
     let (remaining, statements) = parse_dsl(code).expect("Should parse asymmetric nesting");
@@ -471,7 +471,7 @@ fn test_nesting_with_all_numeric_args() {
     // Ensure numeric args are parsed correctly in nested context
     let code = r#"
         bpm 120
-        out: delay (sine 440) 0.25 0.5 0.3 * 0.2
+        out $ delay (sine 440) 0.25 0.5 0.3 * 0.2
     "#;
 
     let (remaining, statements) = parse_dsl(code).expect("Should parse nesting with numeric args");
@@ -488,7 +488,7 @@ fn test_nesting_stops_at_operators() {
     // Ensure parser correctly stops at operators
     let code = r#"
         bpm 120
-        out: (sine 440) * 0.5 + (saw 220) * 0.3
+        out $ (sine 440) * 0.5 + (saw 220) * 0.3
     "#;
 
     let (remaining, statements) = parse_dsl(code).expect("Should parse with operator boundaries");
