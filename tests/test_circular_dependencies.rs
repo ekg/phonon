@@ -1,13 +1,14 @@
 /// Circular Bus Dependency Tests
 ///
 /// These tests verify that circular bus dependencies work in the DSL:
-/// - Self-referential buses (~a $ ~a + ...)
-/// - Two-bus cycles (~a $ ~b, ~b $ ~a)
-/// - Three-bus cycles (~a $ ~b, ~b $ ~c, ~c $ ~a)
+/// - Self-referential buses (~a $ ~a + ...) - WORKING
+/// - Two-bus cycles (~a $ ~b, ~b $ ~a) - WORKING
+/// - Three-bus cycles (~a $ ~b, ~b $ ~c, ~c $ ~a) - STACK OVERFLOW
 ///
-/// These patterns are ESSENTIAL for feedback routing and were specifically
-/// requested by the user. They currently FAIL because the DSL compiler
-/// doesn't support forward references.
+/// Simple self-referential and two-bus cycles now work via placeholder nodes.
+/// Complex multi-bus cross-feedback patterns (where bus A references both B and C,
+/// B references A and C, etc.) cause stack overflow and need explicit delay-line
+/// evaluation to break the recursive evaluation cycle.
 
 use phonon::compositional_compiler::compile_program;
 use phonon::compositional_parser::parse_program;
@@ -29,7 +30,6 @@ fn render_dsl(code: &str, duration: f32) -> Vec<f32> {
 // ============================================================================
 
 #[test]
-#[ignore = "circular dependencies cause stack overflow - needs delay-line implementation"]
 fn test_self_referential_feedback_basic() {
     // Basic self-feedback: signal mixes with delayed version of itself
     let code = r#"
@@ -46,7 +46,6 @@ fn test_self_referential_feedback_basic() {
 }
 
 #[test]
-#[ignore = "circular dependencies cause stack overflow - needs delay-line implementation"]
 fn test_self_referential_with_processing() {
     // Self-feedback with filtering
     let code = r#"
@@ -63,7 +62,6 @@ fn test_self_referential_with_processing() {
 }
 
 #[test]
-#[ignore = "circular dependencies cause stack overflow - needs delay-line implementation"]
 fn test_self_referential_reverb_injection() {
     // The exact pattern from the original question:
     // "we have a reverb or delay in a hard self loop and then
@@ -86,7 +84,6 @@ fn test_self_referential_reverb_injection() {
 // ============================================================================
 
 #[test]
-#[ignore = "circular dependencies cause stack overflow - needs delay-line implementation"]
 fn test_two_bus_cycle_basic() {
     // The exact pattern from the user's question: "a -> b -> a"
     let code = r#"
@@ -105,7 +102,6 @@ fn test_two_bus_cycle_basic() {
 }
 
 #[test]
-#[ignore = "circular dependencies cause stack overflow - needs delay-line implementation"]
 fn test_two_bus_cycle_with_input() {
     // Two-bus cycle with external input injection
     let code = r#"
@@ -123,7 +119,7 @@ fn test_two_bus_cycle_with_input() {
 }
 
 #[test]
-#[ignore = "circular dependencies cause stack overflow - needs delay-line implementation"]
+#[ignore = "stack overflow: complex cross-feedback patterns need explicit delay-line evaluation"]
 fn test_two_bus_cross_feedback_delay() {
     // Stereo ping-pong delay (cross-feedback)
     let code = r#"
@@ -145,7 +141,7 @@ fn test_two_bus_cross_feedback_delay() {
 // ============================================================================
 
 #[test]
-#[ignore = "circular dependencies cause stack overflow - needs delay-line implementation"]
+#[ignore = "stack overflow: complex cross-feedback patterns need explicit delay-line evaluation"]
 fn test_three_bus_cycle() {
     // Three buses in circular dependency
     let code = r#"
@@ -164,7 +160,7 @@ fn test_three_bus_cycle() {
 }
 
 #[test]
-#[ignore = "circular dependencies cause stack overflow - needs delay-line implementation"]
+#[ignore = "stack overflow: complex cross-feedback patterns need explicit delay-line evaluation"]
 fn test_three_bus_cycle_different_effects() {
     // Three buses with different processing
     let code = r#"
@@ -187,8 +183,7 @@ fn test_three_bus_cycle_different_effects() {
 // ============================================================================
 
 #[test]
-#[ignore = "circular dependencies cause stack overflow - needs delay-line implementation"]
-#[ignore = "causes stack overflow due to circular dependency evaluation - needs delay-line based feedback"]
+#[ignore = "stack overflow: complex cross-feedback patterns need explicit delay-line evaluation"]
 fn test_fm_in_self_feedback_loop() {
     // FM synthesis where modulator is in self-feedback loop
     // "or a fm synth or something" from the user's question
@@ -207,7 +202,7 @@ fn test_fm_in_self_feedback_loop() {
 }
 
 #[test]
-#[ignore = "circular dependencies cause stack overflow - needs delay-line implementation"]
+#[ignore = "stack overflow: complex cross-feedback patterns need explicit delay-line evaluation"]
 fn test_four_tap_cross_feedback_network() {
     // Four delay taps with cross-feedback (reverb-like diffusion)
     let code = r#"
@@ -227,7 +222,6 @@ fn test_four_tap_cross_feedback_network() {
 }
 
 #[test]
-#[ignore = "circular dependencies cause stack overflow - needs delay-line implementation"]
 fn test_karplus_strong_feedback() {
     // Karplus-Strong plucked string (self-referential delay)
     let code = r#"
@@ -244,8 +238,7 @@ fn test_karplus_strong_feedback() {
 }
 
 #[test]
-#[ignore = "circular dependencies cause stack overflow - needs delay-line implementation"]
-#[ignore = "mix with bus reference as function param not yet supported"]
+#[ignore = "mix function with bus reference as param not yet supported"]
 fn test_mix_function_in_circular_feedback() {
     // Mix function used in circular feedback
     let code = r#"
