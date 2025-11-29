@@ -632,6 +632,15 @@ pub enum SignalNode {
     /// Generates uniformly distributed random samples in range [-1, 1]
     WhiteNoise,
 
+    /// UnitDelay (z^-1) for feedback loops
+    /// Returns the previous sample's value of a bus, enabling self-referential feedback
+    /// This is the fundamental building block for IIR filters and feedback systems
+    /// Example: ~x $ ~input * 0.5 + ~x * 0.3
+    /// The ~x reference becomes a UnitDelay that reads the previous sample
+    UnitDelay {
+        bus_name: String, // Name of the bus to read previous value from
+    },
+
     /// Pink noise generator (1/f spectrum)
     /// Generates noise with equal energy per octave
     /// Uses Voss-McCartney algorithm with octave bins
@@ -4370,6 +4379,12 @@ pub struct UnifiedSignalGraph {
     /// Value: phase value in [0, 1)
     /// This allows each pitch variant (chord note) to maintain its own phase continuity
     synthesis_phase_cache: std::cell::RefCell<HashMap<(usize, i32), f32>>,
+
+    /// z^-1 storage for feedback loops
+    /// Stores the previous sample's output value for each bus
+    /// Used by UnitDelay nodes to implement feedback without cycles
+    /// Updated at the end of each sample after all buses are evaluated
+    bus_previous_values: HashMap<String, f32>,
 }
 
 // SAFETY: UnifiedSignalGraph contains RefCell which is !Send and !Sync, but we ensure
@@ -4416,6 +4431,7 @@ impl Clone for UnifiedSignalGraph {
             buffer_cache_enabled: std::cell::Cell::new(false),
             nodes_initialized: false, // Cloned graph needs initialization on first buffer
             synthesis_phase_cache: RefCell::new(HashMap::new()), // Fresh phase cache
+            bus_previous_values: self.bus_previous_values.clone(), // Preserve feedback state
         }
     }
 }
@@ -4458,6 +4474,7 @@ impl UnifiedSignalGraph {
             buffer_cache_enabled: std::cell::Cell::new(false),
             nodes_initialized: false,
             synthesis_phase_cache: RefCell::new(HashMap::new()),
+            bus_previous_values: HashMap::new(),
         }
     }
 
@@ -6117,6 +6134,9 @@ impl UnifiedSignalGraph {
         // NO cycle_position increment needed!
         // Clock is wall-clock based - it advances automatically via get_cycle_position()
 
+        // Update z^-1 storage for feedback loops
+        self.update_bus_previous_values();
+
         // Increment sample counter (for debugging only)
         self.sample_count += 1;
 
@@ -6877,6 +6897,14 @@ impl UnifiedSignalGraph {
                 let mut rng = rand::thread_rng();
                 // Generate uniformly distributed random sample in [-1, 1]
                 rng.gen_range(-1.0..1.0)
+            }
+
+            // z^-1 unit delay for feedback loops
+            // Returns the previous sample's value of the named bus
+            SignalNode::UnitDelay { bus_name } => {
+                // Look up the previous sample's value for this bus
+                // Returns 0.0 on first sample (no history yet)
+                self.bus_previous_values.get(bus_name).copied().unwrap_or(0.0)
             }
 
             SignalNode::PinkNoise { state } => {
@@ -12142,10 +12170,30 @@ impl UnifiedSignalGraph {
         // Advance cycle position
         // REMOVED: Wall-clock based timing - no increment needed!
 
+        // Update z^-1 storage for feedback loops
+        // This stores the current sample's bus values for next sample's UnitDelay nodes
+        self.update_bus_previous_values();
+
         // Increment sample counter
         self.sample_count += 1;
 
         mixed_output
+    }
+
+    /// Update bus_previous_values with current sample's bus outputs
+    /// Called at the end of each sample after all buses have been evaluated
+    /// This enables z^-1 (unit delay) for feedback loops
+    fn update_bus_previous_values(&mut self) {
+        // Collect bus names first to avoid borrow issues
+        let bus_names: Vec<String> = self.buses.keys().cloned().collect();
+
+        for bus_name in bus_names {
+            if let Some(&node_id) = self.buses.get(&bus_name) {
+                // Evaluate the bus (will hit cache if already evaluated this sample)
+                let value = self.eval_node(&node_id);
+                self.bus_previous_values.insert(bus_name, value);
+            }
+        }
     }
 
     /// Process one sample and return stereo output (left, right)
@@ -12189,6 +12237,9 @@ impl UnifiedSignalGraph {
             total_left += l;
             total_right += r;
         }
+
+        // Update z^-1 storage for feedback loops
+        self.update_bus_previous_values();
 
         self.sample_count += 1;
 
@@ -12654,6 +12705,9 @@ impl UnifiedSignalGraph {
 
             // Increment sample counter
             self.sample_count += 1;
+
+            // Update bus previous values for z^-1 feedback
+            self.update_bus_previous_values();
 
             buffer[i] = mixed_output;
         }

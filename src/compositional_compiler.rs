@@ -31,6 +31,9 @@ pub struct CompilerContext {
     buses: HashMap<String, NodeId>,
     /// Map of bus names to their original expressions (for transformer bus re-instantiation)
     bus_expressions: HashMap<String, Expr>,
+    /// Current bus being compiled (for self-reference detection)
+    /// When set, references to this bus will create UnitDelay nodes (z^-1)
+    current_bus: Option<String>,
     /// Map of template names to their expressions
     templates: HashMap<String, Expr>,
     /// Map of function names to their definitions
@@ -152,6 +155,7 @@ impl CompilerContext {
         Self {
             buses: HashMap::new(),
             bus_expressions: HashMap::new(),
+            current_bus: None,
             templates: HashMap::new(),
             functions: HashMap::new(),
             effect_buses: HashMap::new(),
@@ -394,11 +398,17 @@ pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Res
 
                 if ctx.use_audio_nodes {
                     // NEW: AudioNode path
+                    // Set current_bus for self-reference detection (z^-1 feedback)
+                    ctx.current_bus = Some(name.clone());
                     let node_id = compile_expr_audio_node(ctx, expr)?;
+                    ctx.current_bus = None;
                     ctx.buses.insert(name.clone(), NodeId(node_id));
                 } else {
                     // OLD: SignalNode path
+                    // Set current_bus for self-reference detection (z^-1 feedback)
+                    ctx.current_bus = Some(name.clone());
                     let node_id = compile_expr(ctx, expr)?;
+                    ctx.current_bus = None;
                     ctx.buses.insert(name.clone(), node_id);
                     ctx.graph.add_bus(name, node_id); // Register bus in graph for auto-routing
                 }
@@ -607,6 +617,17 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
         }
 
         Expr::BusRef(name) => {
+            // Check for self-reference (z^-1 feedback)
+            // When compiling a bus like `~accum $ ~input + ~accum * 0.3`,
+            // the reference to ~accum inside the expression should create a UnitDelay
+            // node that reads the previous sample's value, enabling feedback loops.
+            if ctx.current_bus.as_ref() == Some(&name) {
+                // Create UnitDelay node for feedback (z^-1)
+                return Ok(ctx.graph.add_node(SignalNode::UnitDelay {
+                    bus_name: name.clone(),
+                }));
+            }
+
             // Check for MIDI input buses (~midi or ~midi1-16)
             if name == "midi" {
                 // ~midi = all MIDI channels
