@@ -1571,7 +1571,9 @@ impl VoiceManager {
         // }
 
         // SIMD fast path: Process voices in batches of 8 when AVX2 is available
+        // Currently disabled (false &&) - TODO: re-enable once SIMD implementation is verified
         #[cfg(target_arch = "x86_64")]
+        #[allow(clippy::overly_complex_bool_expr)]
         if false && is_avx2_supported() && self.voices.len() >= 8 {
             let num_full_batches = self.voices.len() / 8;
 
