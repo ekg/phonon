@@ -60,7 +60,7 @@ jobs:
       run: cargo clippy || true
 
     - name: Run tests
-      run: cargo test --release
+      run: cargo test --release -- --test-threads=2
 
   build:
     name: Build Check
