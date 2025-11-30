@@ -17,9 +17,15 @@ jobs:
     steps:
     - name: Free Disk Space
       run: |
+        # Free up disk space to avoid linker Bus errors during test compilation
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /opt/ghc
         sudo rm -rf /usr/local/share/boost
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+        sudo rm -rf /usr/share/swift
+        sudo rm -rf /usr/local/.ghcup
+        sudo apt-get clean
         df -h
 
     - uses: actions/checkout@v4
@@ -47,10 +53,7 @@ jobs:
       run: cargo clippy || true
 
     - name: Run tests
-      run: cargo test
-
-    - name: Build release
-      run: cargo build --release
+      run: cargo test --release
 
   build:
     name: Build Check
