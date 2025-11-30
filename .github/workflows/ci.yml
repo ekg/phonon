@@ -8,7 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_INCREMENTAL: 0
 
 jobs:
   test:
@@ -17,15 +16,11 @@ jobs:
 
     steps:
     - name: Free Disk Space
-      uses: jlumbroso/free-disk-space@main
-      with:
-        tool-cache: true
-        android: true
-        dotnet: true
-        haskell: true
-        large-packages: true
-        docker-images: true
-        swap-storage: true
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/share/boost
+        df -h
 
     - uses: actions/checkout@v4
 
@@ -51,11 +46,11 @@ jobs:
     - name: Run clippy
       run: cargo clippy || true
 
-    # NOTE: Full test suite (1860+ tests) requires more disk space than
-    # GitHub Actions runners provide. Run `cargo test` locally before pushing.
-    # Build Checks on all 3 platforms verify compilation succeeds.
-    - name: Run quick smoke tests
-      run: cargo test --lib -- --test-threads=1
+    - name: Run tests
+      run: cargo test
+
+    - name: Build release
+      run: cargo build --release
 
   build:
     name: Build Check
