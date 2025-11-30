@@ -8,6 +8,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Disable incremental compilation to save disk space on CI
+  CARGO_INCREMENTAL: 0
 
 jobs:
   test:
@@ -17,15 +19,34 @@ jobs:
     steps:
     - name: Free Disk Space
       run: |
-        # Free up disk space to avoid linker Bus errors during test compilation
+        # Free up disk space aggressively to avoid linker Bus errors
+        echo "=== Before cleanup ==="
+        df -h
+
+        # Remove large unused software
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /opt/ghc
         sudo rm -rf /usr/local/share/boost
         sudo rm -rf /usr/local/lib/android
         sudo rm -rf /opt/hostedtoolcache/CodeQL
+        sudo rm -rf /opt/hostedtoolcache/go
+        sudo rm -rf /opt/hostedtoolcache/node
         sudo rm -rf /usr/share/swift
         sudo rm -rf /usr/local/.ghcup
+        sudo rm -rf /usr/share/miniconda
+        sudo rm -rf /usr/share/az_*
+        sudo rm -rf /opt/microsoft
+        sudo rm -rf /opt/google
+        sudo rm -rf /opt/az
+        sudo rm -rf /usr/share/gradle*
+        sudo rm -rf /usr/share/sbt
+        sudo rm -rf /usr/lib/jvm
+
+        # Clean apt cache
         sudo apt-get clean
+        sudo apt-get autoremove -y
+
+        echo "=== After cleanup ==="
         df -h
 
     - uses: actions/checkout@v4
@@ -50,10 +71,14 @@ jobs:
       run: cargo fmt -- --check
 
     - name: Run clippy
-      run: cargo clippy || true
+      run: |
+        cargo clippy || true
+        # Clean up clippy build artifacts to save space before test compilation
+        rm -rf target/debug
+        df -h
 
     - name: Run tests
-      # Exclude examples to save disk space - examples are large binaries
+      # Exclude examples and doc-tests to save disk space
       run: cargo test --release --lib --bins --tests
 
   build:
