@@ -4340,6 +4340,12 @@ pub struct UnifiedSignalGraph {
     /// Computed values cache for current sample
     value_cache: HashMap<NodeId, f32>,
 
+    /// Per-sample cache for stateful nodes (ASR, ADSR, oscillators, filters)
+    /// Unlike value_cache which is only cleared at buffer start, this is cleared
+    /// at the start of EACH sample to ensure stateful nodes are evaluated exactly
+    /// once per sample (not twice due to update_bus_previous_values calling eval_node)
+    stateful_value_cache: HashMap<NodeId, f32>,
+
     /// Pattern event cache for current buffer (Option B optimization)
     /// Maps Pattern node ID -> (cycle_position, Vec of events in buffer span)
     /// Pre-computed once per buffer to avoid 512 pattern.query() calls
@@ -4434,6 +4440,7 @@ impl Clone for UnifiedSignalGraph {
             cached_cycle_position: self.cached_cycle_position,
             next_node_id: self.next_node_id,
             value_cache: HashMap::new(), // Fresh cache for cloned instance
+            stateful_value_cache: HashMap::new(), // Fresh per-sample cache for cloned instance
             pattern_event_cache: HashMap::new(), // Fresh cache for cloned instance
             node_buffers: HashMap::new(), // Fresh buffers for cloned instance
             sample_bank: RefCell::new(self.sample_bank.borrow().clone()), // Clone loaded samples (cheap Arc increment)
@@ -4477,6 +4484,7 @@ impl UnifiedSignalGraph {
             cached_cycle_position: 0.0,
             next_node_id: 0,
             value_cache: HashMap::new(),
+            stateful_value_cache: HashMap::new(),
             pattern_event_cache: HashMap::new(),
             node_buffers: HashMap::new(),
             sample_bank: RefCell::new(SampleBank::new()),
@@ -6746,11 +6754,17 @@ impl UnifiedSignalGraph {
         static CACHE_MISSES: std::sync::atomic::AtomicUsize =
             std::sync::atomic::AtomicUsize::new(0);
 
-        // Check cache first
+        // Check cache first (for non-stateful nodes, cleared per buffer)
         if let Some(&cached) = self.value_cache.get(node_id) {
             if std::env::var("PROFILE_CACHE").is_ok() {
                 CACHE_HITS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
+            return cached;
+        }
+
+        // Check stateful cache (for stateful nodes, cleared per sample)
+        // This prevents double evaluation of stateful nodes like ASR within a single sample
+        if let Some(&cached) = self.stateful_value_cache.get(node_id) {
             return cached;
         }
 
@@ -7330,6 +7344,14 @@ impl UnifiedSignalGraph {
                 let gate_val = self.eval_signal(&gate);
                 let attack_time = self.eval_signal(&attack).max(0.0001);
                 let release_time = self.eval_signal(&release).max(0.0001);
+
+                // DEBUG: Log ASR parameters on first sample
+                if std::env::var("DEBUG_ASR").is_ok() && self.sample_count < 10 {
+                    eprintln!(
+                        "ASR DEBUG sample {}: gate={:.4}, attack_time={:.4}, release_time={:.4}, sample_rate={}",
+                        self.sample_count, gate_val, attack_time, release_time, self.sample_rate
+                    );
+                }
 
                 let current_phase = state.phase.borrow().clone();
                 let current_level = state.current_level;
@@ -12442,10 +12464,15 @@ impl UnifiedSignalGraph {
             }
         };
 
-        // Cache the value (but ONLY for non-stateful nodes!)
-        // Stateful nodes (oscillators, filters) have internal state that changes
-        // every sample, so caching them across samples gives incorrect results.
-        if !is_stateful {
+        // Cache the value appropriately:
+        // - Non-stateful nodes go in value_cache (cleared per buffer - very fast)
+        // - Stateful nodes go in stateful_value_cache (cleared per sample - prevents double eval)
+        if is_stateful {
+            // Stateful nodes: cache in per-sample cache to prevent double evaluation
+            // within the same sample (e.g., from output eval + update_bus_previous_values)
+            self.stateful_value_cache.insert(*node_id, value);
+        } else {
+            // Non-stateful nodes: cache in per-buffer cache (faster, less clearing)
             self.value_cache.insert(*node_id, value);
         }
 
@@ -12458,12 +12485,15 @@ impl UnifiedSignalGraph {
         // CRITICAL: Update cycle position from wall-clock ONCE per sample
         self.update_cycle_position_from_clock();
 
-        // OPTIMIZATION: Don't clear cache every sample!
+        // OPTIMIZATION: Don't clear value_cache every sample!
         // Pattern values only change at event boundaries, not per-sample.
         // Clearing every sample forces re-evaluation of the entire graph 44,100 times/second.
         // This was causing 4x slowdown in file rendering vs buffer processing.
         // TODO: Only clear cache when cycle position crosses event boundary
         // self.value_cache.clear();
+
+        // Clear stateful_value_cache every sample to prevent double evaluation of stateful nodes
+        self.stateful_value_cache.clear();
 
         // Process voice manager ONCE per sample and cache per-node outputs
         // This separates outputs so each output only hears its own samples
@@ -12572,6 +12602,9 @@ impl UnifiedSignalGraph {
     pub fn process_sample_stereo(&mut self) -> (f32, f32) {
         // CRITICAL: Update cycle position from wall-clock ONCE per sample
         self.update_cycle_position_from_clock();
+
+        // Clear stateful_value_cache every sample to prevent double evaluation of stateful nodes
+        self.stateful_value_cache.clear();
 
         // Process voice manager in STEREO mode - this gives us panned sample output
         // We use process_per_node_stereo to get stereo per source node
@@ -13045,7 +13078,11 @@ impl UnifiedSignalGraph {
             if i == 0 {
                 self.value_cache.clear();
             }
-            // DON'T clear cache per-sample - that's the bottleneck!
+            // DON'T clear value_cache per-sample - that's the bottleneck!
+
+            // Clear stateful_value_cache EVERY sample to ensure stateful nodes (ASR, ADSR, etc.)
+            // are evaluated once per sample but not twice (from output eval + update_bus_previous_values)
+            self.stateful_value_cache.clear();
 
             // NOTE: Synthesis buffer generation moved BEFORE the sample loop (buffer-based!)
             // No more per-sample synthesis evaluation - all done in buffers now
