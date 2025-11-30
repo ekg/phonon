@@ -16,8 +16,6 @@
 //! - **Pattern transform**: `a $ transform` - Apply pattern transform (e.g., `fast 2`, `rev`)
 //! - **Signal chain**: `a # b` - Chain signals/effects (output of `a` feeds input of `b`)
 //!
-//! Note: Legacy colon syntax (`~name: expression`, `out: expression`) is still supported.
-//!
 //! ## Expressions
 //!
 //! ### Oscillators
@@ -1327,7 +1325,7 @@ fn bus_definition(input: &str) -> IResult<&str, DslStatement> {
     map(
         tuple((
             preceded(char('~'), identifier),
-            // Accept $ or # only (Tidal-style syntax)
+            // Accept $ or # (Tidal-style syntax)
             alt((ws(char('$')), ws(char('#')))),
             expression,
         )),
@@ -1354,7 +1352,7 @@ fn output_definition(input: &str) -> IResult<&str, DslStatement> {
                 map_res(digit1, |s: &str| s.parse::<usize>()),
                 value(0, tag("")), // Default to channel 0 for plain "out"
             )),
-            // Accept $ or # only (Tidal-style syntax)
+            // Accept $ or # (Tidal-style syntax)
             alt((ws(char('$')), ws(char('#')))),
             expression,
         )),
