@@ -251,12 +251,14 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore] // Requires audio device
     fn test_harness_basic_typing() {
         let mut harness = EditorTestHarness::new().unwrap();
         harness.type_text("hello").assert_line("hello");
     }
 
     #[test]
+    #[ignore] // Requires audio device
     fn test_harness_multiline() {
         let mut harness = EditorTestHarness::new().unwrap();
         harness
@@ -267,6 +269,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // Requires audio device
     fn test_harness_with_initial_content() {
         let mut harness = EditorTestHarness::with_content("initial text").unwrap();
         harness.assert_line("initial text");
