@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
 
 jobs:
   test:
@@ -51,7 +52,7 @@ jobs:
       run: cargo clippy || true
 
     - name: Run tests
-      run: cargo test --release -- --test-threads=2
+      run: cargo test -- --test-threads=2
 
   build:
     name: Build Check
