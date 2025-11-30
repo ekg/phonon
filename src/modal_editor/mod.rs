@@ -65,8 +65,8 @@ pub struct ModalEditor {
     error_message: Option<String>,
     /// Shared audio graph (lock-free with ring buffer)
     graph: Arc<ArcSwap<Option<GraphCell>>>,
-    /// Audio stream (kept alive)
-    _stream: cpal::Stream,
+    /// Audio stream (kept alive) - None in headless mode for testing
+    _stream: Option<cpal::Stream>,
     /// Sample rate
     sample_rate: f32,
     /// Flash highlight for evaluated chunk (start_line, end_line, frames_remaining)
@@ -422,7 +422,7 @@ impl ModalEditor {
             is_playing: false,
             error_message: None,
             graph,
-            _stream: stream,
+            _stream: Some(stream),
             sample_rate,
             flash_highlight: None,
             kill_buffer: String::new(),
@@ -457,6 +457,58 @@ impl ModalEditor {
         };
 
         Ok(editor)
+    }
+
+    /// Create a headless editor for testing (no audio device required)
+    /// This allows running editor tests in CI environments without audio hardware
+    pub fn new_headless() -> Result<Self, Box<dyn std::error::Error>> {
+        let sample_rate = 44100.0;
+        let graph = Arc::new(ArcSwap::from_pointee(None::<GraphCell>));
+        let underrun_count = Arc::new(AtomicUsize::new(0));
+        let synth_time_us = Arc::new(AtomicUsize::new(0));
+        let ring_fill_percent = Arc::new(AtomicUsize::new(100));
+        let should_clear_ring = Arc::new(AtomicBool::new(false));
+
+        let content = String::new();
+        let bus_names = completion::extract_bus_names(&content);
+
+        Ok(Self {
+            cursor_pos: 0,
+            content,
+            file_path: None,
+            status_message: "Headless test mode".to_string(),
+            is_playing: false,
+            error_message: None,
+            graph,
+            _stream: None, // No audio stream in headless mode
+            sample_rate,
+            flash_highlight: None,
+            kill_buffer: String::new(),
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+            console_messages: Vec::new(),
+            completion_state: completion::CompletionState::new(),
+            sample_names: completion::discover_samples(),
+            bus_names,
+            command_console: CommandConsole::new(),
+            underrun_count,
+            synth_time_us,
+            ring_fill_percent,
+            should_clear_ring,
+            midi_input: None,
+            midi_recorder: None,
+            midi_recording: false,
+            midi_recorded_pattern: None,
+            midi_recorded_n_pattern: None,
+            midi_recorded_velocity: None,
+            midi_recorded_legato: None,
+            midi_recorded_base_note: None,
+            midi_recorded_cycles: 0,
+            recording_counter: 0,
+            midi_devices: Vec::new(),
+            midi_quantize: 16,
+            show_config_panel: false,
+        })
     }
 
     /// Load and compile DSL code into the audio graph

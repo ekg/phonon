@@ -13,8 +13,9 @@ pub struct EditorTestHarness {
 
 impl EditorTestHarness {
     /// Create a new test harness with an empty editor
+    /// Uses headless mode to work in CI environments without audio hardware
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let mut editor = ModalEditor::new(0.0, None)?;
+        let mut editor = ModalEditor::new_headless()?;
         // Clear the default template content for clean testing
         editor.content = String::new();
         editor.cursor_pos = 0;
