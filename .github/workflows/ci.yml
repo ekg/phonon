@@ -52,16 +52,15 @@ jobs:
     - name: Check formatting
       run: cargo fmt -- --check
 
-    - name: Run clippy
-      run: |
-        cargo clippy || true
-        # Clean up clippy build artifacts to save space before test compilation
-        rm -rf target/debug
-        df -h
+    # Skip clippy in CI to save disk space - it creates debug artifacts
+    # that consume significant disk space before release test compilation
 
     - name: Run tests
       # Exclude examples and doc-tests to save disk space
-      run: cargo test --release --lib --bins --tests
+      run: |
+        df -h
+        cargo test --release --lib --bins --tests
+        df -h
 
   build:
     name: Build Check
