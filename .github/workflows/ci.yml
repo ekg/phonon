@@ -53,7 +53,8 @@ jobs:
       run: cargo clippy || true
 
     - name: Run tests
-      run: cargo test --release
+      # Exclude examples to save disk space - examples are large binaries
+      run: cargo test --release --lib --bins --tests
 
   build:
     name: Build Check
