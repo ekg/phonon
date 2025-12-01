@@ -6865,7 +6865,9 @@ impl UnifiedSignalGraph {
                         }
 
                         // Check for zero-crossing (sign change from negative to positive)
-                        if let Some(_pending) = *pending_freq.borrow() {
+                        // Must check and clear pending_freq without overlapping borrows
+                        let has_pending = pending_freq.borrow().is_some();
+                        if has_pending {
                             if *last_sample.borrow() < 0.0 && sample >= 0.0 {
                                 // Zero-crossing detected! Apply the frequency change
                                 *pending_freq.borrow_mut() = None; // Clear pending

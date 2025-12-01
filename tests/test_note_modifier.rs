@@ -265,6 +265,170 @@ out $ s "bd*4" # n "0 1 0 1" # note "0 5 7 12"
     println!("✅ n + note combination test passed");
 }
 
+/// Test note modifier with letter names (c3, d4, etc.)
+/// This specifically tests the issue where phonon edit was reported to hang with note "c3"
+#[test]
+fn test_note_modifier_with_letter_names() {
+    println!("Testing note modifier with letter note names...");
+
+    let phonon_code = r#"
+tempo: 0.5
+
+-- Test with letter note name c3 (MIDI 48, which is -12 semitones from C4)
+out $ s "bd*4" # note "c3"
+"#;
+
+    std::fs::write("/tmp/test_note_letter.phonon", phonon_code).unwrap();
+
+    let output = Command::new("cargo")
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_note_letter.phonon",
+            "/tmp/test_note_letter.wav",
+            "--duration",
+            "2",
+        ])
+        .output()
+        .expect("Failed to run phonon render");
+
+    assert!(
+        output.status.success(),
+        "note modifier with letter name c3 render failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let analysis = analyze_wav("/tmp/test_note_letter.wav");
+
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "note modifier with letter name c3 produced no audio!\n{}",
+        analysis
+    );
+
+    println!("✅ note modifier with letter name test passed");
+}
+
+/// Test that note modifier does not hang in simulated real-time processing
+/// This simulates the modal editor's audio thread behavior
+#[test]
+fn test_note_modifier_realtime_simulation() {
+    use phonon::compositional_compiler::compile_program;
+    use phonon::compositional_parser::parse_program;
+    use std::time::{Duration, Instant};
+
+    println!("Testing note modifier in simulated real-time processing...");
+
+    let code = r#"
+tempo: 0.5
+out $ s "bd*4" # note "c3"
+"#;
+
+    // Parse and compile
+    let (_, statements) = parse_program(code).expect("Parse failed");
+    let mut graph =
+        compile_program(statements, 44100.0, None).expect("Compile failed");
+
+    // Simulate modal editor's real-time loop: render 512 samples at a time
+    // Process 2 seconds worth of audio (like the modal editor would)
+    let mut buffer = [0.0f32; 512];
+    let chunks_per_second = 44100 / 512;
+    let total_chunks = chunks_per_second * 2; // 2 seconds
+
+    let start = Instant::now();
+    let timeout = Duration::from_secs(10); // Should complete in < 10 seconds
+
+    for i in 0..total_chunks {
+        if start.elapsed() > timeout {
+            panic!(
+                "Real-time processing timeout after {} chunks! Possible infinite loop.",
+                i
+            );
+        }
+
+        let chunk_start = Instant::now();
+        graph.process_buffer(&mut buffer);
+        let chunk_time = chunk_start.elapsed();
+
+        // Real-time budget: 512 samples at 44100 Hz = ~11.6ms
+        // If any chunk takes > 100ms, something is very wrong
+        if chunk_time.as_millis() > 100 {
+            panic!(
+                "Chunk {} took {:?} - exceeds real-time budget!",
+                i, chunk_time
+            );
+        }
+    }
+
+    let total_time = start.elapsed();
+    println!(
+        "  Processed {} chunks ({} seconds of audio) in {:?}",
+        total_chunks,
+        total_chunks * 512 / 44100,
+        total_time
+    );
+
+    // Should process faster than real-time
+    assert!(
+        total_time < Duration::from_secs(5),
+        "Processing took {:?}, should be much faster than real-time",
+        total_time
+    );
+
+    println!("✅ note modifier real-time simulation test passed");
+}
+
+/// Test note modifier with various letter note patterns
+#[test]
+fn test_note_modifier_various_letter_notes() {
+    println!("Testing note modifier with various letter notes...");
+
+    let phonon_code = r#"
+tempo: 0.5
+
+-- Test multiple letter notes including c3, d4, e4, g4
+out $ s "bd*8" # note "c3 d4 e4 g4 c4 a3 f4 b4"
+"#;
+
+    std::fs::write("/tmp/test_note_various_letters.phonon", phonon_code).unwrap();
+
+    let output = Command::new("cargo")
+        .args(&[
+            "run",
+            "--bin",
+            "phonon",
+            "--quiet",
+            "--",
+            "render",
+            "/tmp/test_note_various_letters.phonon",
+            "/tmp/test_note_various_letters.wav",
+            "--duration",
+            "2",
+        ])
+        .output()
+        .expect("Failed to run phonon render");
+
+    assert!(
+        output.status.success(),
+        "note modifier with various letter notes render failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let analysis = analyze_wav("/tmp/test_note_various_letters.wav");
+
+    assert!(
+        analysis.contains("✅ Contains audio signal"),
+        "note modifier with various letter notes produced no audio!\n{}",
+        analysis
+    );
+
+    println!("✅ note modifier with various letter notes test passed");
+}
+
 // Helper functions
 fn analyze_wav(path: &str) -> String {
     let output = Command::new("cargo")

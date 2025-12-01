@@ -245,6 +245,76 @@ impl EditorTestHarness {
         self.editor.cursor_pos = content.len();
         self
     }
+
+    /// Process audio chunks through the graph (simulating real-time audio callback)
+    /// Returns the number of chunks processed, or panics on timeout
+    /// This tests the exact code path used by phonon edit's audio thread
+    pub fn process_audio_chunks(
+        &self,
+        num_chunks: usize,
+        timeout_ms: u64,
+    ) -> Result<usize, String> {
+        use std::time::{Duration, Instant};
+
+        let graph_snapshot = self.editor.graph.load();
+        if let Some(ref graph_cell) = **graph_snapshot {
+            let start = Instant::now();
+            let timeout = Duration::from_millis(timeout_ms);
+            let mut buffer = [0.0f32; 512];
+            let mut processed = 0;
+
+            for i in 0..num_chunks {
+                if start.elapsed() > timeout {
+                    return Err(format!(
+                        "Timeout after {} chunks ({}ms)! Possible infinite loop.",
+                        i,
+                        timeout_ms
+                    ));
+                }
+
+                let chunk_start = Instant::now();
+
+                match graph_cell.0.try_borrow_mut() {
+                    Ok(mut graph) => {
+                        graph.process_buffer(&mut buffer);
+                        processed += 1;
+                    }
+                    Err(e) => {
+                        return Err(format!("Failed to borrow graph: {}", e));
+                    }
+                }
+
+                let chunk_time = chunk_start.elapsed();
+                // If any chunk takes > 100ms, something is very wrong
+                if chunk_time.as_millis() > 100 {
+                    return Err(format!(
+                        "Chunk {} took {:?} - exceeds real-time budget!",
+                        i, chunk_time
+                    ));
+                }
+            }
+
+            Ok(processed)
+        } else {
+            Err("No graph loaded".to_string())
+        }
+    }
+
+    /// Enable wall-clock timing on the graph (mimics modal editor behavior)
+    pub fn enable_wall_clock_timing(&self) -> Result<(), String> {
+        let graph_snapshot = self.editor.graph.load();
+        if let Some(ref graph_cell) = **graph_snapshot {
+            match graph_cell.0.try_borrow_mut() {
+                Ok(mut graph) => {
+                    graph.enable_wall_clock_timing();
+                    Ok(())
+                }
+                Err(e) => Err(format!("Failed to borrow graph: {}", e)),
+            }
+        } else {
+            Err("No graph loaded".to_string())
+        }
+    }
 }
 
 #[cfg(test)]
