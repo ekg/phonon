@@ -395,7 +395,7 @@ use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::{Fraction, Pattern, State, TimeSpan};
 use crate::sample_loader::SampleBank;
 use crate::synth_voice_manager::SynthVoiceManager;
-use crate::voice_manager::VoiceManager;
+use crate::voice_manager::{VoiceBuffers, VoiceManager};
 use rayon::prelude::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -4365,10 +4365,21 @@ pub struct UnifiedSignalGraph {
     /// Cached voice manager output for current sample (processed once per sample)
     /// Maps source node ID -> mixed voice output for that node
     /// This allows multiple outputs to have independent sample streams
+    /// DEPRECATED: Use voice_buffers + current_sample_idx for O(1) lookup
     voice_output_cache: HashMap<usize, f32>,
 
     /// Stereo version of voice output cache: Maps source node ID -> (left, right)
     voice_output_cache_stereo: HashMap<usize, (f32, f32)>,
+
+    /// OPTIMIZED: Vec-based voice buffers for O(1) lookup in hot loop
+    /// Replaces per-sample HashMap rebuilding with direct array indexing
+    voice_buffers: VoiceBuffers,
+
+    /// Current sample index within the buffer (for voice_buffers lookup)
+    current_sample_idx: usize,
+
+    /// Maximum node ID in the graph (for pre-sizing VoiceBuffers)
+    max_node_id: usize,
 
     /// Synth voice manager for polyphonic synthesis
     synth_voice_manager: RefCell<SynthVoiceManager>,
@@ -4447,6 +4458,9 @@ impl Clone for UnifiedSignalGraph {
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(), // Fresh cache
             voice_output_cache_stereo: HashMap::new(), // Fresh stereo cache
+            voice_buffers: VoiceBuffers::default(), // Fresh Vec-based buffers
+            current_sample_idx: 0,
+            max_node_id: self.max_node_id,
             synth_voice_manager: RefCell::new(SynthVoiceManager::new(self.sample_rate)),
             cycle_bus_cache: self.cycle_bus_cache.clone(),
             sample_count: self.sample_count,
@@ -4491,6 +4505,9 @@ impl UnifiedSignalGraph {
             voice_manager: RefCell::new(VoiceManager::new()),
             voice_output_cache: HashMap::new(),
             voice_output_cache_stereo: HashMap::new(),
+            voice_buffers: VoiceBuffers::default(),
+            current_sample_idx: 0,
+            max_node_id: 0,
             synth_voice_manager: RefCell::new(SynthVoiceManager::new(sample_rate)),
             cycle_bus_cache: CycleBusCache::default(),
             sample_count: 0,
@@ -5262,6 +5279,11 @@ impl UnifiedSignalGraph {
     pub fn add_node(&mut self, node: SignalNode) -> NodeId {
         let id = NodeId(self.next_node_id);
         self.next_node_id += 1;
+
+        // Track max node ID for VoiceBuffers pre-sizing
+        if id.0 > self.max_node_id {
+            self.max_node_id = id.0;
+        }
 
         // Ensure vector is large enough
         while self.nodes.len() <= id.0 {
@@ -10118,8 +10140,22 @@ impl UnifiedSignalGraph {
                         // Loop over all chord notes (for single notes, this is just one iteration)
                         for &note_semitones in &chord_notes {
                             // Calculate pitch shift for this specific chord note
-                            let pitch_shift_multiplier = if note_semitones != 0.0 {
-                                2.0_f32.powf(note_semitones / 12.0)
+                            // note_semitones can be:
+                            // - >= 1000: ABSOLUTE MIDI (offset by 1000), e.g., 1048 = C3 (MIDI 48)
+                            // - < 1000: RELATIVE semitones, e.g., 12 = one octave up
+                            // For samples, we convert absolute MIDI to relative semitones from C4 (MIDI 60)
+                            let relative_semitones = if note_semitones >= 1000.0 {
+                                // Absolute MIDI: convert to semitones relative to C4 (MIDI 60)
+                                // C3 (MIDI 48) -> 48 - 60 = -12 semitones (one octave down)
+                                // C5 (MIDI 72) -> 72 - 60 = +12 semitones (one octave up)
+                                note_semitones - 1000.0 - 60.0
+                            } else {
+                                // Already relative semitones
+                                note_semitones
+                            };
+
+                            let pitch_shift_multiplier = if relative_semitones != 0.0 {
+                                2.0_f32.powf(relative_semitones / 12.0)
                             } else {
                                 1.0
                             };
@@ -10402,19 +10438,21 @@ impl UnifiedSignalGraph {
                 // The voice manager was processed ONCE at the start of process_sample()
                 // Each Sample node returns only its own voice mix (by node ID)
                 // This allows multiple outputs to have independent sample streams
-                let output = self
-                    .voice_output_cache
-                    .get(&node_id.0)
-                    .copied()
-                    .unwrap_or(0.0);
+                //
+                // OPTIMIZED: Use Vec-based voice_buffers for O(1) lookup
+                // voice_output_cache is only used for newly triggered voices within this buffer
+                let buffer_output = self.voice_buffers.get(node_id.0, self.current_sample_idx);
+                let newly_triggered = self.voice_output_cache.get(&node_id.0).copied().unwrap_or(0.0);
+                let output = buffer_output + newly_triggered;
+
                 // Debug for samples 520-530 (second buffer, after synthesis should be mixed)
                 if std::env::var("DEBUG_VOICE_CACHE").is_ok()
                     && self.sample_count >= 520
                     && self.sample_count < 530
                 {
                     eprintln!(
-                        "[VOICE_CACHE] sample_count={}, Sample node {} reading: {:.6}",
-                        self.sample_count, node_id.0, output
+                        "[VOICE_CACHE] sample_count={}, Sample node {} reading: buf={:.6} + new={:.6} = {:.6}",
+                        self.sample_count, node_id.0, buffer_output, newly_triggered, output
                     );
                 }
                 output
@@ -12815,10 +12853,12 @@ impl UnifiedSignalGraph {
             }
         }
 
-        let mut voice_buffers = self
+        // OPTIMIZED: Use Vec-based VoiceBuffers for O(1) lookup in hot loop
+        // This replaces HashMap<usize, Vec<f32>> with direct array indexing
+        self.voice_buffers = self
             .voice_manager
             .borrow_mut()
-            .process_buffer_per_node(buffer.len());
+            .process_buffer_vec(buffer.len(), self.max_node_id);
         if let Some(start) = voice_start {
             voice_time_us = start.elapsed().as_micros();
         }
@@ -12966,12 +13006,12 @@ impl UnifiedSignalGraph {
                     .borrow_mut()
                     .process_synthesis_buffers(&synthesis_buffers, buffer.len());
 
-                // Mix synthesis outputs into voice_buffers
+                // Mix synthesis outputs into voice_buffers (now VoiceBuffers)
                 if std::env::var("DEBUG_SYNTH_MIX").is_ok() {
                     eprintln!(
-                        "[SYNTH_MIX] synthesis_voice_buffers.len()={}, voice_buffers.len()={}",
+                        "[SYNTH_MIX] synthesis_voice_buffers.len()={}, voice_buffers.max_active_node={}",
                         synthesis_voice_buffers.len(),
-                        voice_buffers.len()
+                        self.voice_buffers.max_active_node
                     );
                     // Check samples 10 and 100 instead of 0 (sin(0)=0)
                     for idx in [10, 100] {
@@ -12982,21 +13022,35 @@ impl UnifiedSignalGraph {
                         }
                     }
                 }
+                // Merge synthesis buffers into VoiceBuffers
                 for (i, synth_outputs) in synthesis_voice_buffers.iter().enumerate() {
                     for (&source_node, &value) in synth_outputs {
-                        voice_buffers[i]
-                            .entry(source_node)
-                            .and_modify(|v| *v += value)
-                            .or_insert(value);
+                        // Ensure buffer exists for this source_node
+                        while self.voice_buffers.buffers.len() <= source_node {
+                            self.voice_buffers.buffers.push(Vec::new());
+                        }
+                        let buf = &mut self.voice_buffers.buffers[source_node];
+                        if buf.is_empty() {
+                            *buf = vec![0.0; buffer.len()];
+                        }
+                        if i < buf.len() {
+                            buf[i] += value;
+                        }
+                        if source_node > self.voice_buffers.max_active_node {
+                            self.voice_buffers.max_active_node = source_node;
+                        }
                     }
                 }
                 // DEBUG: Check voice_buffers AFTER mixing
                 if std::env::var("DEBUG_SYNTH_MIX").is_ok() {
-                    if let Some(sample_10) = voice_buffers.get(10) {
-                        eprintln!(
-                            "[SYNTH_MIX] voice_buffers[10] AFTER mix: {:?}",
-                            sample_10.iter().collect::<Vec<_>>()
-                        );
+                    for node_id in 0..=self.voice_buffers.max_active_node {
+                        let buf = &self.voice_buffers.buffers[node_id];
+                        if buf.len() > 10 {
+                            eprintln!(
+                                "[SYNTH_MIX] voice_buffers[{}] sample 10: {:.6}",
+                                node_id, buf[10]
+                            );
+                        }
                     }
                 }
             }
@@ -13089,9 +13143,12 @@ impl UnifiedSignalGraph {
             // NOTE: Synthesis buffer generation moved BEFORE the sample loop (buffer-based!)
             // No more per-sample synthesis evaluation - all done in buffers now
 
-            // Use pre-computed voice outputs from buffer processing
-            // PERFORMANCE: Use take instead of clone to avoid HashMap allocation (512x per buffer!)
-            self.voice_output_cache = std::mem::take(&mut voice_buffers[i]);
+            // OPTIMIZED: Just set current sample index for O(1) lookup via voice_buffers.get()
+            // This replaces per-sample HashMap rebuilding (~800μs/buffer savings)
+            self.current_sample_idx = i;
+
+            // Clear voice_output_cache - now only used for newly triggered voices
+            self.voice_output_cache.clear();
 
             // CRITICAL FIX: Check if new voices were triggered in previous samples
             // Process them live for this sample

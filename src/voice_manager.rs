@@ -103,6 +103,97 @@ pub enum VoiceState {
     Releasing,
 }
 
+/// Vec-based voice buffer storage for O(1) lookup in hot loop
+///
+/// This replaces HashMap<usize, Vec<f32>> for performance:
+/// - HashMap lookup: ~20-50ns per access (hash + probe)
+/// - Vec index: ~1ns per access (direct memory access)
+///
+/// In a 4096-sample buffer with 10 source nodes queried per sample,
+/// this saves ~800μs per buffer (40,960 HashMap lookups eliminated).
+#[derive(Clone, Debug)]
+pub struct VoiceBuffers {
+    /// Buffers indexed by source_node_id, each containing buffer_size samples
+    /// buffers[node_id][sample_idx] gives O(1) access
+    /// Nodes without active voices have empty Vec (zero allocation)
+    pub buffers: Vec<Vec<f32>>,
+
+    /// Buffer size (number of samples per node buffer)
+    pub buffer_size: usize,
+
+    /// Maximum node ID with active data (for bounds checking)
+    pub max_active_node: usize,
+}
+
+impl VoiceBuffers {
+    /// Create empty VoiceBuffers with capacity for max_node_id
+    pub fn new(max_node_id: usize, buffer_size: usize) -> Self {
+        let mut buffers = Vec::with_capacity(max_node_id + 1);
+        for _ in 0..=max_node_id {
+            buffers.push(Vec::new()); // Empty vecs for unused nodes
+        }
+        Self {
+            buffers,
+            buffer_size,
+            max_active_node: 0,
+        }
+    }
+
+    /// Get sample value for a node at a specific sample index
+    /// Returns 0.0 for nodes without active voices or out-of-bounds access
+    #[inline(always)]
+    pub fn get(&self, node_id: usize, sample_idx: usize) -> f32 {
+        if node_id < self.buffers.len() {
+            let buf = &self.buffers[node_id];
+            if sample_idx < buf.len() {
+                return buf[sample_idx];
+            }
+        }
+        0.0
+    }
+
+    /// Check if a node has any active samples
+    #[inline(always)]
+    pub fn has_data(&self, node_id: usize) -> bool {
+        node_id < self.buffers.len() && !self.buffers[node_id].is_empty()
+    }
+
+    /// Add samples to a node's buffer (accumulates if buffer exists)
+    pub fn add_to_node(&mut self, node_id: usize, samples: &[f32]) {
+        // Grow buffers vector if needed
+        while self.buffers.len() <= node_id {
+            self.buffers.push(Vec::new());
+        }
+
+        let buf = &mut self.buffers[node_id];
+        if buf.is_empty() {
+            // First voice for this node: clone the samples
+            *buf = samples.to_vec();
+        } else {
+            // Accumulate into existing buffer
+            for (i, &val) in samples.iter().enumerate() {
+                if i < buf.len() {
+                    buf[i] += val;
+                }
+            }
+        }
+
+        if node_id > self.max_active_node {
+            self.max_active_node = node_id;
+        }
+    }
+}
+
+impl Default for VoiceBuffers {
+    fn default() -> Self {
+        Self {
+            buffers: Vec::new(),
+            buffer_size: 0,
+            max_active_node: 0,
+        }
+    }
+}
+
 /// A single voice that plays a sample OR generates continuous synthesis
 #[derive(Clone)]
 pub struct Voice {
@@ -545,7 +636,10 @@ impl Voice {
 
                 (left, right)
             } else {
-                // Sample finished, but envelope might still be ringing
+                // Sample finished - trigger envelope release if not already releasing
+                // This ensures ADSR envelopes properly fade out instead of staying in Sustain
+                self.envelope.release();
+
                 // Check if envelope also finished
                 if !self.envelope.is_active() {
                     self.state = VoiceState::Free;
@@ -1550,107 +1644,135 @@ impl VoiceManager {
     ///
     /// PARALLEL SIMD: When ≥16 voices, processes multiple SIMD batches in parallel
     /// using scoped threads for additional 2-4× speedup (6-12× total with SIMD)
+    /// Process all voices for the entire buffer, returning buffers grouped by source_node.
+    /// Returns HashMap<source_node, Vec<f32>> - one buffer per source node.
+    /// This is much more efficient than the old Vec<HashMap> (one HashMap per sample).
     pub fn process_buffer_per_node(
         &mut self,
         buffer_size: usize,
-    ) -> Vec<std::collections::HashMap<usize, f32>> {
+    ) -> std::collections::HashMap<usize, Vec<f32>> {
         use std::collections::HashMap;
 
-        // Pre-allocate output: one HashMap per sample in buffer
-        let mut output: Vec<HashMap<usize, f32>> = vec![HashMap::new(); buffer_size];
+        // Output: source_node -> buffer of samples (much more efficient than HashMap per sample!)
+        let mut output: HashMap<usize, Vec<f32>> = HashMap::new();
 
         if self.voices.is_empty() {
             return output;
         }
 
-        // PARALLEL SIMD fast path: DISABLED - causes crashes with multiple buses
-        // TODO: Fix thread-safety issues before re-enabling
-        // #[cfg(target_arch = "x86_64")]
-        // if is_avx2_supported() && self.voices.len() >= 16 {
-        //     return self.process_buffer_parallel_simd(buffer_size);
-        // }
-
-        // SIMD fast path: Process voices in batches of 8 when AVX2 is available
-        // Currently disabled (false &&) - TODO: re-enable once SIMD implementation is verified
-        #[cfg(target_arch = "x86_64")]
-        #[allow(clippy::overly_complex_bool_expr)]
-        if false && is_avx2_supported() && self.voices.len() >= 8 {
-            let num_full_batches = self.voices.len() / 8;
-
-            // Process full batches of 8 voices with SIMD
-            for batch_idx in 0..num_full_batches {
-                let start = batch_idx * 8;
-                let end = start + 8;
-                let voice_batch = &mut self.voices[start..end];
-                Self::process_voice_batch_simd(voice_batch, &mut output, buffer_size);
-            }
-
-            // Process remainder voices (non-multiple of 8) with scalar
-            let remainder_start = num_full_batches * 8;
-            for voice in &mut self.voices[remainder_start..] {
-                let source_node = voice.source_node;
-                for i in 0..buffer_size {
-                    let (l, r) = voice.process_stereo();
-                    let mono = (l + r) / std::f32::consts::SQRT_2;
-                    output[i]
-                        .entry(source_node)
-                        .and_modify(|v| *v += mono)
-                        .or_insert(mono);
-                }
-            }
-
-            return output;
-        }
-
-        // Fallback: Original parallel/sequential processing
-        // Process each voice for the ENTIRE buffer, then accumulate
-        // This gives much better cache locality than sample-by-sample processing
-        // RE-ENABLED: Now safe with deep node cloning!
-        //
-        // IMPORTANT: Skip synthesis voices - they need sample-by-sample processing
-        // because synthesis_sample_cache is updated per-sample in the main loop
+        // Process each voice for the ENTIRE buffer
+        // Skip synthesis voices - they're processed sample-by-sample in main loop
         if self.voices.len() >= self.parallel_threshold {
             // Parallel: process voices in parallel, each generating full buffer
-            let voice_buffers: Vec<(Vec<(f32, f32)>, usize)> = self
+            let voice_buffers: Vec<(Vec<f32>, usize)> = self
                 .voices
                 .par_iter_mut()
-                .filter(|v| v.synthesis_node_id.is_none()) // Skip synthesis voices
+                .filter(|v| v.synthesis_node_id.is_none())
                 .map(|voice| {
                     let mut buffer = Vec::with_capacity(buffer_size);
                     for _ in 0..buffer_size {
-                        buffer.push(voice.process_stereo());
+                        let (l, r) = voice.process_stereo();
+                        let mono = (l + r) / std::f32::consts::SQRT_2;
+                        buffer.push(mono);
                     }
                     (buffer, voice.source_node)
                 })
                 .collect();
 
-            // Accumulate all voice buffers into output HashMaps
+            // Accumulate voice buffers by source_node
             for (voice_buffer, source_node) in voice_buffers {
-                for (i, (l, r)) in voice_buffer.into_iter().enumerate() {
-                    let mono = (l + r) / std::f32::consts::SQRT_2;
-                    output[i]
-                        .entry(source_node)
-                        .and_modify(|v| *v += mono)
-                        .or_insert(mono);
-                }
+                output
+                    .entry(source_node)
+                    .and_modify(|existing: &mut Vec<f32>| {
+                        for (i, &val) in voice_buffer.iter().enumerate() {
+                            existing[i] += val;
+                        }
+                    })
+                    .or_insert(voice_buffer);
             }
         } else {
-            // Sequential: process voices sequentially (FORCED - parallel is broken)
+            // Sequential processing
             for voice in &mut self.voices {
-                // Skip synthesis voices - they're processed sample-by-sample in main loop
                 if voice.synthesis_node_id.is_some() {
                     continue;
                 }
 
                 let source_node = voice.source_node;
+
+                // Get or create buffer for this source_node
+                let buffer = output
+                    .entry(source_node)
+                    .or_insert_with(|| vec![0.0; buffer_size]);
+
                 for i in 0..buffer_size {
                     let (l, r) = voice.process_stereo();
                     let mono = (l + r) / std::f32::consts::SQRT_2;
-                    output[i]
-                        .entry(source_node)
-                        .and_modify(|v| *v += mono)
-                        .or_insert(mono);
+                    buffer[i] += mono;
                 }
+            }
+        }
+
+        output
+    }
+
+    /// OPTIMIZED: Process all voices for the entire buffer, returning Vec-based buffers.
+    /// Returns VoiceBuffers with O(1) lookup by node_id and sample_idx.
+    ///
+    /// This is the high-performance version that eliminates HashMap overhead in the hot loop:
+    /// - No HashMap allocation per sample
+    /// - No hash computation or probing
+    /// - Direct array indexing: buffers[node_id][sample_idx]
+    ///
+    /// Caller provides max_node_id to pre-size the buffers vector.
+    pub fn process_buffer_vec(&mut self, buffer_size: usize, max_node_id: usize) -> VoiceBuffers {
+        let mut output = VoiceBuffers::new(max_node_id, buffer_size);
+
+        if self.voices.is_empty() {
+            return output;
+        }
+
+        // Process each voice for the ENTIRE buffer
+        // Skip synthesis voices - they're processed sample-by-sample in main loop
+        if self.voices.len() >= self.parallel_threshold {
+            // Parallel: process voices in parallel, each generating full buffer
+            let voice_buffers: Vec<(Vec<f32>, usize)> = self
+                .voices
+                .par_iter_mut()
+                .filter(|v| v.synthesis_node_id.is_none())
+                .map(|voice| {
+                    let mut buffer = Vec::with_capacity(buffer_size);
+                    for _ in 0..buffer_size {
+                        let (l, r) = voice.process_stereo();
+                        let mono = (l + r) / std::f32::consts::SQRT_2;
+                        buffer.push(mono);
+                    }
+                    (buffer, voice.source_node)
+                })
+                .collect();
+
+            // Accumulate voice buffers by source_node into VoiceBuffers
+            for (voice_buffer, source_node) in voice_buffers {
+                output.add_to_node(source_node, &voice_buffer);
+            }
+        } else {
+            // Sequential processing
+            for voice in &mut self.voices {
+                if voice.synthesis_node_id.is_some() {
+                    continue;
+                }
+
+                let source_node = voice.source_node;
+
+                // Render full buffer for this voice
+                let mut voice_buffer = Vec::with_capacity(buffer_size);
+                for _ in 0..buffer_size {
+                    let (l, r) = voice.process_stereo();
+                    let mono = (l + r) / std::f32::consts::SQRT_2;
+                    voice_buffer.push(mono);
+                }
+
+                // Add to output buffers
+                output.add_to_node(source_node, &voice_buffer);
             }
         }
 
