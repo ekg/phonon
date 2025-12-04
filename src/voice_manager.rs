@@ -2209,6 +2209,32 @@ impl VoiceManager {
         self.reset();
     }
 
+    /// Release all synthesis voices with quick fade
+    /// Called during graph swap to clean up voices that reference old graph's nodes
+    /// Uses quick release (10ms fade) to avoid clicks while freeing resources quickly
+    pub fn release_synthesis_voices(&mut self) {
+        for voice in &mut self.voices {
+            if voice.synthesis_node_id.is_some() && voice.state != VoiceState::Free {
+                // Trigger quick release instead of hard-stop to avoid clicks
+                voice.envelope.trigger_quick_release(0.01); // 10ms fade-out
+                // Clear the synthesis node reference so voice won't be processed as synthesis
+                voice.synthesis_node_id = None;
+            }
+        }
+    }
+
+    /// Release all sample voices with quick fade
+    /// Called during graph swap to clean up sample voices from the old pattern
+    /// Uses quick release (10ms fade) to avoid clicks while freeing resources quickly
+    pub fn release_sample_voices(&mut self) {
+        for voice in &mut self.voices {
+            if voice.sample_data.is_some() && voice.state != VoiceState::Free {
+                // Trigger quick release instead of hard-stop to avoid clicks
+                voice.envelope.trigger_quick_release(0.01); // 10ms fade-out
+            }
+        }
+    }
+
     /// Get peak voice count since startup
     pub fn peak_voice_count(&self) -> usize {
         self.peak_voice_count
@@ -2222,6 +2248,27 @@ impl VoiceManager {
     /// Get current pool size
     pub fn pool_size(&self) -> usize {
         self.voices.len()
+    }
+
+    /// Get breakdown of voice types (for diagnostics)
+    /// Returns (sample_voices, synthesis_voices, free_voices)
+    pub fn voice_type_breakdown(&self) -> (usize, usize, usize) {
+        let mut sample_count = 0;
+        let mut synthesis_count = 0;
+        let mut free_count = 0;
+        for voice in &self.voices {
+            if voice.state == VoiceState::Free {
+                free_count += 1;
+            } else if voice.synthesis_node_id.is_some() {
+                synthesis_count += 1;
+            } else if voice.sample_data.is_some() {
+                sample_count += 1;
+            } else {
+                // Voice is active but has neither sample nor synthesis - should be freed soon
+                sample_count += 1; // Count as sample for now
+            }
+        }
+        (sample_count, synthesis_count, free_count)
     }
 
     /// Adjust parallelism threshold based on recent performance

@@ -4594,9 +4594,23 @@ impl UnifiedSignalGraph {
     }
 
     /// Transfer a VoiceManager into this graph (from old graph)
-    /// This preserves active voices across graph swaps for click-free live coding
-    pub fn transfer_voice_manager(&mut self, voice_manager: crate::voice_manager::VoiceManager) {
+    /// Release all voices with quick fade to prevent accumulation during rapid graph swaps
+    pub fn transfer_voice_manager(&mut self, mut voice_manager: crate::voice_manager::VoiceManager) {
+        // Release synthesis voices - they reference old graph's node IDs which no longer exist
+        voice_manager.release_synthesis_voices();
+        // Release sample voices - they would accumulate during rapid graph swaps
+        voice_manager.release_sample_voices();
         *self.voice_manager.get_mut() = voice_manager;
+    }
+
+    /// Get the number of nodes in the graph (for diagnostics)
+    pub fn node_count(&self) -> usize {
+        self.nodes.iter().filter(|n| n.is_some()).count()
+    }
+
+    /// Get the voice pool size (for diagnostics)
+    pub fn voice_pool_size(&self) -> usize {
+        self.voice_manager.borrow().pool_size()
     }
 
     /// Transfer session timing from old graph to maintain global clock continuity
@@ -5979,6 +5993,12 @@ impl UnifiedSignalGraph {
     /// Get the number of currently active voices
     pub fn active_voice_count(&self) -> usize {
         self.voice_manager.borrow().active_voice_count()
+    }
+
+    /// Get breakdown of voice types (for diagnostics)
+    /// Returns (sample_voices, synthesis_voices, free_voices)
+    pub fn voice_type_breakdown(&self) -> (usize, usize, usize) {
+        self.voice_manager.borrow().voice_type_breakdown()
     }
 
     // ========================================================================
