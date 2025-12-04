@@ -2790,6 +2790,12 @@ fn compile_function_call(
         // ========== Pattern Structure ==========
         "struct" => compile_struct(ctx, args),
 
+        // ========== Triggered Envelopes ==========
+        "tar" => compile_tar(ctx, args),
+        "tadsr" => compile_tadsr(ctx, args),
+        "gate" => compile_gate(ctx, args),
+        "trig" => compile_trig(ctx, args),
+
         // ========== Pattern Generators (Numeric) ==========
         "run" => compile_run(ctx, args),
         "scan" => compile_scan(ctx, args),
@@ -8978,6 +8984,138 @@ fn compile_struct(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, 
         sustain: 0.0,  // No sustain (percussive)
         release: 0.05, // 50ms release
         state: EnvState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile tar: triggered AR envelope
+/// Usage: tar "t(3,8)" 0.1 0.5 -> envelope that attacks/releases on each pattern event
+fn compile_tar(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 3 {
+        return Err(format!(
+            "tar requires 3 arguments (pattern_string, attack, release), got {}",
+            args.len()
+        ));
+    }
+
+    // First argument: pattern string
+    let pattern_str = match &args[0] {
+        Expr::String(s) => s.clone(),
+        _ => return Err("tar requires a pattern string as first argument".to_string()),
+    };
+
+    // Parse boolean pattern
+    let bool_pattern =
+        parse_mini_notation(&pattern_str).fmap(|s: String| s == "t" || s == "x" || s == "1");
+
+    // Compile attack and release as signals
+    let attack_node = compile_expr(ctx, args[1].clone())?;
+    let release_node = compile_expr(ctx, args[2].clone())?;
+
+    use crate::unified_graph::EnvState;
+
+    let node = SignalNode::TriggeredAR {
+        pattern_str: pattern_str.clone(),
+        pattern: bool_pattern,
+        attack: Signal::Node(attack_node),
+        release: Signal::Node(release_node),
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        state: EnvState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile tadsr: triggered ADSR envelope
+/// Usage: tadsr "t(3,8)" 0.1 0.1 0.8 0.5 -> envelope with attack/decay/sustain/release
+fn compile_tadsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 5 {
+        return Err(format!(
+            "tadsr requires 5 arguments (pattern_string, attack, decay, sustain, release), got {}",
+            args.len()
+        ));
+    }
+
+    let pattern_str = match &args[0] {
+        Expr::String(s) => s.clone(),
+        _ => return Err("tadsr requires a pattern string as first argument".to_string()),
+    };
+
+    let bool_pattern =
+        parse_mini_notation(&pattern_str).fmap(|s: String| s == "t" || s == "x" || s == "1");
+
+    let attack_node = compile_expr(ctx, args[1].clone())?;
+    let decay_node = compile_expr(ctx, args[2].clone())?;
+    let sustain_node = compile_expr(ctx, args[3].clone())?;
+    let release_node = compile_expr(ctx, args[4].clone())?;
+
+    use crate::unified_graph::EnvState;
+
+    let node = SignalNode::TriggeredADSR {
+        pattern_str: pattern_str.clone(),
+        pattern: bool_pattern,
+        attack: Signal::Node(attack_node),
+        decay: Signal::Node(decay_node),
+        sustain: Signal::Node(sustain_node),
+        release: Signal::Node(release_node),
+        last_trigger_time: -1.0,
+        last_cycle: -1,
+        state: EnvState::default(),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile gate: pattern to gate signal
+/// Usage: gate "t(3,8)" -> outputs 1.0 during pattern events, 0.0 otherwise
+fn compile_gate(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "gate requires 1 argument (pattern_string), got {}",
+            args.len()
+        ));
+    }
+
+    let pattern_str = match &args[0] {
+        Expr::String(s) => s.clone(),
+        _ => return Err("gate requires a pattern string as argument".to_string()),
+    };
+
+    let bool_pattern =
+        parse_mini_notation(&pattern_str).fmap(|s: String| s == "t" || s == "x" || s == "1");
+
+    let node = SignalNode::PatternGate {
+        pattern_str: pattern_str.clone(),
+        pattern: bool_pattern,
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile trig: pattern to trigger pulse
+/// Usage: trig "t(3,8)" -> outputs 1.0 for one sample at each event start
+fn compile_trig(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "trig requires 1 argument (pattern_string), got {}",
+            args.len()
+        ));
+    }
+
+    let pattern_str = match &args[0] {
+        Expr::String(s) => s.clone(),
+        _ => return Err("trig requires a pattern string as argument".to_string()),
+    };
+
+    let bool_pattern =
+        parse_mini_notation(&pattern_str).fmap(|s: String| s == "t" || s == "x" || s == "1");
+
+    let node = SignalNode::PatternTrigger {
+        pattern_str: pattern_str.clone(),
+        pattern: bool_pattern,
+        last_trigger_time: -1.0,
     };
 
     Ok(ctx.graph.add_node(node))

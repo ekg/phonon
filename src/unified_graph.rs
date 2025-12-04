@@ -984,6 +984,48 @@ pub enum SignalNode {
         state: EnvState,
     },
 
+    /// Triggered AR envelope - outputs envelope value (0-1) triggered by pattern
+    /// Unlike StructuredSignal, this outputs the envelope directly (not multiplied by input)
+    /// Usage: tar "t(3,8)" 0.1 0.5 -> envelope that attacks on each pattern event
+    TriggeredAR {
+        pattern_str: String,
+        pattern: Pattern<bool>,
+        attack: Signal,
+        release: Signal,
+        last_trigger_time: f32,
+        last_cycle: i32,
+        state: EnvState,
+    },
+
+    /// Triggered ADSR envelope - outputs envelope value (0-1) triggered by pattern
+    /// Usage: tadsr "t(3,8)" 0.1 0.1 0.8 0.5
+    TriggeredADSR {
+        pattern_str: String,
+        pattern: Pattern<bool>,
+        attack: Signal,
+        decay: Signal,
+        sustain: Signal,
+        release: Signal,
+        last_trigger_time: f32,
+        last_cycle: i32,
+        state: EnvState,
+    },
+
+    /// Pattern to gate signal - outputs 1.0 during pattern events, 0.0 otherwise
+    /// Usage: gate "t(3,8)" -> continuous gate signal
+    PatternGate {
+        pattern_str: String,
+        pattern: Pattern<bool>,
+    },
+
+    /// Pattern to trigger pulse - outputs 1.0 for one sample at event onset, 0.0 otherwise
+    /// Usage: trig "t(3,8)" -> trigger pulses
+    PatternTrigger {
+        pattern_str: String,
+        pattern: Pattern<bool>,
+        last_trigger_time: f32,
+    },
+
     /// Voice output - outputs mixed audio from all triggered samples
     /// This allows sample playback to be routed through effects
     VoiceOutput,
@@ -11855,6 +11897,370 @@ impl UnifiedSignalGraph {
                 input_val * output_level
             }
 
+            SignalNode::TriggeredAR {
+                pattern,
+                attack,
+                release,
+                last_trigger_time,
+                last_cycle,
+                state,
+                ..
+            } => {
+                let attack_val = self.eval_signal(&attack).max(0.001);
+                let release_val = self.eval_signal(&release).max(0.001);
+
+                // Query boolean pattern for trigger events
+                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                let current_cycle = self.get_cycle_position().floor() as i32;
+
+                let query_state = State {
+                    span: TimeSpan::new(
+                        Fraction::from_float(self.get_cycle_position()),
+                        Fraction::from_float(self.get_cycle_position() + sample_width),
+                    ),
+                    controls: HashMap::new(),
+                };
+                let events = pattern.query(&query_state);
+
+                // Get last event start time
+                let (last_event_start, prev_cycle) =
+                    if let Some(Some(node)) = self.nodes.get(node_id.0) {
+                        if let SignalNode::TriggeredAR {
+                            last_trigger_time: lt,
+                            last_cycle: lc,
+                            ..
+                        } = &**node
+                        {
+                            (*lt as f64, *lc)
+                        } else {
+                            (-1.0, -1)
+                        }
+                    } else {
+                        (-1.0, -1)
+                    };
+
+                let mut latest_triggered_start = last_event_start;
+                let mut new_trigger = false;
+                let cycle_changed = current_cycle != prev_cycle;
+
+                // Check for new trigger events
+                for event in events.iter() {
+                    if !event.value {
+                        continue;
+                    }
+
+                    let event_start_abs = if let Some(whole) = &event.whole {
+                        whole.begin.to_float()
+                    } else {
+                        event.part.begin.to_float()
+                    };
+
+                    let tolerance = sample_width * 0.001;
+                    let event_is_new =
+                        event_start_abs > last_event_start + tolerance || cycle_changed;
+
+                    if event_is_new && event_start_abs > latest_triggered_start {
+                        latest_triggered_start = event_start_abs;
+                        new_trigger = true;
+                    }
+                }
+
+                // On new trigger, restart envelope from attack phase
+                if new_trigger {
+                    *state.phase.borrow_mut() = EnvPhase::Attack;
+                    *state.time_in_phase.borrow_mut() = 0.0;
+                }
+
+                // Advance envelope
+                let dt = 1.0 / self.sample_rate;
+                *state.time_in_phase.borrow_mut() += dt;
+
+                let current_phase = state.phase.borrow().clone();
+                match current_phase {
+                    EnvPhase::Attack => {
+                        let new_level = *state.time_in_phase.borrow() / attack_val;
+                        *state.level.borrow_mut() = new_level.min(1.0);
+                        if new_level >= 1.0 {
+                            *state.phase.borrow_mut() = EnvPhase::Release;
+                            *state.time_in_phase.borrow_mut() = 0.0;
+                            *state.release_start_level.borrow_mut() = 1.0;
+                        }
+                    }
+                    EnvPhase::Release => {
+                        let progress = (*state.time_in_phase.borrow() / release_val).min(1.0);
+                        *state.level.borrow_mut() =
+                            *state.release_start_level.borrow() * (1.0 - progress);
+                        if progress >= 1.0 {
+                            *state.level.borrow_mut() = 0.0;
+                            *state.phase.borrow_mut() = EnvPhase::Idle;
+                        }
+                    }
+                    _ => {
+                        *state.level.borrow_mut() = 0.0;
+                    }
+                }
+
+                let output = *state.level.borrow();
+
+                // Update state
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::TriggeredAR {
+                        last_trigger_time: lt,
+                        last_cycle: lc,
+                        ..
+                    } = node
+                    {
+                        *lt = latest_triggered_start as f32;
+                        *lc = current_cycle;
+                    }
+                }
+
+                output
+            }
+
+            SignalNode::TriggeredADSR {
+                pattern,
+                attack,
+                decay,
+                sustain,
+                release,
+                last_trigger_time,
+                last_cycle,
+                state,
+                ..
+            } => {
+                let attack_val = self.eval_signal(&attack).max(0.001);
+                let decay_val = self.eval_signal(&decay).max(0.001);
+                let sustain_val = self.eval_signal(&sustain).clamp(0.0, 1.0);
+                let release_val = self.eval_signal(&release).max(0.001);
+
+                // Query boolean pattern
+                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                let current_cycle = self.get_cycle_position().floor() as i32;
+
+                let query_state = State {
+                    span: TimeSpan::new(
+                        Fraction::from_float(self.get_cycle_position()),
+                        Fraction::from_float(self.get_cycle_position() + sample_width),
+                    ),
+                    controls: HashMap::new(),
+                };
+                let events = pattern.query(&query_state);
+
+                let (last_event_start, prev_cycle) =
+                    if let Some(Some(node)) = self.nodes.get(node_id.0) {
+                        if let SignalNode::TriggeredADSR {
+                            last_trigger_time: lt,
+                            last_cycle: lc,
+                            ..
+                        } = &**node
+                        {
+                            (*lt as f64, *lc)
+                        } else {
+                            (-1.0, -1)
+                        }
+                    } else {
+                        (-1.0, -1)
+                    };
+
+                let mut latest_triggered_start = last_event_start;
+                let mut trigger_active = false;
+                let mut new_trigger = false;
+                let cycle_changed = current_cycle != prev_cycle;
+
+                for event in events.iter() {
+                    if !event.value {
+                        continue;
+                    }
+
+                    trigger_active = true;
+
+                    let event_start_abs = if let Some(whole) = &event.whole {
+                        whole.begin.to_float()
+                    } else {
+                        event.part.begin.to_float()
+                    };
+
+                    let tolerance = sample_width * 0.001;
+                    let event_is_new =
+                        event_start_abs > last_event_start + tolerance || cycle_changed;
+
+                    if event_is_new && event_start_abs > latest_triggered_start {
+                        latest_triggered_start = event_start_abs;
+                        new_trigger = true;
+                    }
+                }
+
+                // Start attack on new trigger
+                if new_trigger {
+                    *state.phase.borrow_mut() = EnvPhase::Attack;
+                    *state.time_in_phase.borrow_mut() = 0.0;
+                }
+
+                // Handle gate-off (release phase)
+                {
+                    let phase = state.phase.borrow();
+                    if !trigger_active
+                        && matches!(
+                            *phase,
+                            EnvPhase::Attack | EnvPhase::Decay | EnvPhase::Sustain
+                        )
+                    {
+                        drop(phase);
+                        *state.release_start_level.borrow_mut() = *state.level.borrow();
+                        *state.phase.borrow_mut() = EnvPhase::Release;
+                        *state.time_in_phase.borrow_mut() = 0.0;
+                    }
+                }
+
+                // Advance envelope
+                let dt = 1.0 / self.sample_rate;
+                *state.time_in_phase.borrow_mut() += dt;
+
+                let current_phase = state.phase.borrow().clone();
+                match current_phase {
+                    EnvPhase::Attack => {
+                        let new_level = *state.time_in_phase.borrow() / attack_val;
+                        *state.level.borrow_mut() = new_level.min(1.0);
+                        if new_level >= 1.0 {
+                            *state.phase.borrow_mut() = EnvPhase::Decay;
+                            *state.time_in_phase.borrow_mut() = 0.0;
+                        }
+                    }
+                    EnvPhase::Decay => {
+                        let new_level =
+                            1.0 - (1.0 - sustain_val) * (*state.time_in_phase.borrow() / decay_val);
+                        *state.level.borrow_mut() = new_level.max(sustain_val);
+                        if new_level <= sustain_val {
+                            *state.phase.borrow_mut() = EnvPhase::Sustain;
+                        }
+                    }
+                    EnvPhase::Sustain => {
+                        *state.level.borrow_mut() = sustain_val;
+                    }
+                    EnvPhase::Release => {
+                        let progress = (*state.time_in_phase.borrow() / release_val).min(1.0);
+                        *state.level.borrow_mut() =
+                            *state.release_start_level.borrow() * (1.0 - progress);
+                        if progress >= 1.0 {
+                            *state.level.borrow_mut() = 0.0;
+                            *state.phase.borrow_mut() = EnvPhase::Idle;
+                        }
+                    }
+                    EnvPhase::Idle => {
+                        *state.level.borrow_mut() = 0.0;
+                    }
+                }
+
+                let output = *state.level.borrow();
+
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::TriggeredADSR {
+                        last_trigger_time: lt,
+                        last_cycle: lc,
+                        ..
+                    } = node
+                    {
+                        *lt = latest_triggered_start as f32;
+                        *lc = current_cycle;
+                    }
+                }
+
+                output
+            }
+
+            SignalNode::PatternGate { pattern, .. } => {
+                // Query pattern and output 1.0 if inside a true event, 0.0 otherwise
+                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+
+                let query_state = State {
+                    span: TimeSpan::new(
+                        Fraction::from_float(self.get_cycle_position()),
+                        Fraction::from_float(self.get_cycle_position() + sample_width),
+                    ),
+                    controls: HashMap::new(),
+                };
+                let events = pattern.query(&query_state);
+
+                // Output 1.0 if any true event is active
+                let gate_active = events.iter().any(|e| e.value);
+                if gate_active {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+
+            SignalNode::PatternTrigger {
+                pattern,
+                last_trigger_time,
+                ..
+            } => {
+                // Output 1.0 for one sample at the start of each true event
+                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+
+                let query_state = State {
+                    span: TimeSpan::new(
+                        Fraction::from_float(self.get_cycle_position()),
+                        Fraction::from_float(self.get_cycle_position() + sample_width),
+                    ),
+                    controls: HashMap::new(),
+                };
+                let events = pattern.query(&query_state);
+
+                let last_event_start = if let Some(Some(node)) = self.nodes.get(node_id.0) {
+                    if let SignalNode::PatternTrigger {
+                        last_trigger_time: lt,
+                        ..
+                    } = &**node
+                    {
+                        *lt as f64
+                    } else {
+                        -1.0
+                    }
+                } else {
+                    -1.0
+                };
+
+                let mut output = 0.0_f32;
+                let mut latest_triggered = last_event_start;
+
+                for event in events.iter() {
+                    if !event.value {
+                        continue;
+                    }
+
+                    let event_start_abs = if let Some(whole) = &event.whole {
+                        whole.begin.to_float()
+                    } else {
+                        event.part.begin.to_float()
+                    };
+
+                    let tolerance = sample_width * 0.001;
+                    if event_start_abs > last_event_start + tolerance {
+                        output = 1.0;
+                        if event_start_abs > latest_triggered {
+                            latest_triggered = event_start_abs;
+                        }
+                    }
+                }
+
+                if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
+                    let node = Rc::make_mut(node_rc);
+                    if let SignalNode::PatternTrigger {
+                        last_trigger_time: lt,
+                        ..
+                    } = node
+                    {
+                        *lt = latest_triggered as f32;
+                    }
+                }
+
+                output
+            }
+
             SignalNode::Delay {
                 input,
                 time,
@@ -13065,7 +13471,14 @@ impl UnifiedSignalGraph {
 
         // Initialize node timing state on first buffer after graph swap
         if !self.nodes_initialized {
-            let current_pos_f32 = buffer_start_cycle as f32;
+            // CRITICAL FIX: For cycle 0, use -1.0 to allow first event to trigger
+            // Events at time 0.0 need last_trigger_time < 0.0 to pass the check
+            // "event_start_abs > last_event_start + epsilon"
+            let init_trigger_time = if buffer_start_cycle < 0.001 {
+                -1.0_f32
+            } else {
+                buffer_start_cycle as f32
+            };
             let current_cycle_i32 = buffer_start_cycle.floor() as i32;
 
             for node_opt in self.nodes.iter_mut() {
@@ -13078,17 +13491,17 @@ impl UnifiedSignalGraph {
                             ..
                         } => {
                             *last_cycle = current_cycle_i32;
-                            *last_trigger_time = current_pos_f32;
+                            *last_trigger_time = init_trigger_time;
                         }
                         SignalNode::Pattern {
                             last_trigger_time, ..
                         } => {
-                            *last_trigger_time = current_pos_f32;
+                            *last_trigger_time = init_trigger_time;
                         }
                         SignalNode::SynthPattern {
                             last_trigger_time, ..
                         } => {
-                            *last_trigger_time = current_pos_f32;
+                            *last_trigger_time = init_trigger_time;
                         }
                         SignalNode::EnvelopePattern {
                             last_cycle,
@@ -13096,7 +13509,7 @@ impl UnifiedSignalGraph {
                             ..
                         } => {
                             *last_cycle = current_cycle_i32;
-                            *last_trigger_time = current_pos_f32;
+                            *last_trigger_time = init_trigger_time;
                         }
                         _ => {}
                     }

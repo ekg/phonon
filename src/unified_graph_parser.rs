@@ -356,6 +356,12 @@ pub enum DslExpression {
         sustain: Box<DslExpression>,
         release: Box<DslExpression>,
     },
+    /// Generic function call: name arg1 arg2 ...
+    /// Used for functions like: struct, gate, tar, trig, tadsr
+    FunctionCall {
+        name: String,
+        args: Vec<DslExpression>,
+    },
 }
 
 /// Pattern transformation operations
@@ -570,6 +576,26 @@ fn space_separated_args(input: &str) -> IResult<&str, Vec<DslExpression>> {
 /// NEW (REQUIRED): s "bd", lpf 1000 0.8
 fn function_args(input: &str) -> IResult<&str, Vec<DslExpression>> {
     space_separated_args(input)
+}
+
+/// Parse generic function calls for extensible functions
+/// This handles: struct, gate, tar, trig, tadsr
+fn generic_function_call(input: &str) -> IResult<&str, DslExpression> {
+    // List of extensible function names
+    let func_names = alt((
+        tag("struct"),
+        tag("gate"),
+        tag("trig"),
+        tag("tadsr"),
+        tag("tar"),
+    ));
+
+    map(tuple((func_names, function_args)), |(name, args)| {
+        DslExpression::FunctionCall {
+            name: name.to_string(),
+            args,
+        }
+    })(input)
 }
 
 /// Parse oscillator: sine 440, saw "110 220"
@@ -1209,28 +1235,34 @@ fn parse_transform_op_group2(input: &str) -> IResult<&str, PatternTransformOp> {
 
 /// Parse primary expression
 fn primary(input: &str) -> IResult<&str, DslExpression> {
+    // Split into two nested alt calls to avoid exceeding nom's 21-parser limit
     alt((
-        bus_ref,
-        scale_expr,          // MUST come before sample_pattern_expr!
-        sample_pattern_expr, // s() would match the 's' in scale()
-        synth_pattern_expr,  // Pattern-triggered synth: synth("notes", "waveform", ...)
-        synth_expr,          // SuperDirt continuous synths
-        effect_expr,
-        gain_modifier, // Tidal-style DSP modifiers
-        pan_modifier,
-        speed_modifier,
-        cut_modifier,
-        n_modifier,
-        note_modifier,
-        envelope_modifier, // Envelope modifiers (segments, curve, adsr)
-        oscillator,
-        filter,
-        delay,
-        rms_analyzer,
-        when_expr,
-        pattern_string,
-        value_expr,
-        delimited(ws(char('(')), expression, ws(char(')'))),
+        alt((
+            bus_ref,
+            scale_expr,          // MUST come before sample_pattern_expr!
+            sample_pattern_expr, // s() would match the 's' in scale()
+            synth_pattern_expr,  // Pattern-triggered synth: synth("notes", "waveform", ...)
+            synth_expr,          // SuperDirt continuous synths
+            effect_expr,
+            gain_modifier, // Tidal-style DSP modifiers
+            pan_modifier,
+            speed_modifier,
+            cut_modifier,
+            n_modifier,
+            note_modifier,
+        )),
+        alt((
+            envelope_modifier, // Envelope modifiers (segments, curve, adsr)
+            generic_function_call, // Generic functions: struct, gate, tar, trig, tadsr
+            oscillator,
+            filter,
+            delay,
+            rms_analyzer,
+            when_expr,
+            pattern_string,
+            value_expr,
+            delimited(ws(char('(')), expression, ws(char(')'))),
+        )),
     ))(input)
 }
 
@@ -2812,6 +2844,142 @@ impl DslCompiler {
                     }
                     _ => {
                         eprintln!("Warning: Pattern transforms currently only work on pattern strings, not {:?}", *pattern);
+                        self.graph.add_node(SignalNode::Constant { value: 0.0 })
+                    }
+                }
+            }
+            DslExpression::FunctionCall { name, args } => {
+                // Handle generic function calls (struct, gate, tar, trig, tadsr)
+                match name.as_str() {
+                    "struct" => {
+                        // struct "pattern" signal
+                        // Output: signal when pattern is active, 0 otherwise
+                        let pattern_str = match args.first() {
+                            Some(DslExpression::Pattern(s)) => s.clone(),
+                            _ => {
+                                eprintln!("struct requires a pattern string as first argument");
+                                return self.graph.add_node(SignalNode::Constant { value: 0.0 });
+                            }
+                        };
+                        let signal = args.get(1).cloned().unwrap_or(DslExpression::Value(1.0));
+                        let signal_compiled = self.compile_expression_to_signal(signal);
+
+                        // Parse the pattern as a boolean pattern
+                        let pattern = parse_mini_notation(&pattern_str);
+                        // Map to bool: non-rest events become true
+                        let bool_pattern = pattern.fmap(|s| !s.is_empty() && s != "~");
+
+                        let gate_id = self.graph.add_node(SignalNode::PatternGate {
+                            pattern_str: pattern_str.clone(),
+                            pattern: bool_pattern,
+                        });
+                        // Now multiply by the signal
+                        self.graph.add_node(SignalNode::Multiply {
+                            a: Signal::Node(gate_id),
+                            b: signal_compiled,
+                        })
+                    }
+                    "gate" => {
+                        // gate "pattern" -> gate signal (1 during event, 0 otherwise)
+                        let pattern_str = match args.first() {
+                            Some(DslExpression::Pattern(s)) => s.clone(),
+                            _ => {
+                                eprintln!("gate requires a pattern string as first argument");
+                                return self.graph.add_node(SignalNode::Constant { value: 0.0 });
+                            }
+                        };
+
+                        let pattern = parse_mini_notation(&pattern_str);
+                        let bool_pattern = pattern.fmap(|s| !s.is_empty() && s != "~");
+
+                        self.graph.add_node(SignalNode::PatternGate {
+                            pattern_str,
+                            pattern: bool_pattern,
+                        })
+                    }
+                    "trig" => {
+                        // trig "pattern" -> trigger pulse (1 for one sample at onset)
+                        let pattern_str = match args.first() {
+                            Some(DslExpression::Pattern(s)) => s.clone(),
+                            _ => {
+                                eprintln!("trig requires a pattern string as first argument");
+                                return self.graph.add_node(SignalNode::Constant { value: 0.0 });
+                            }
+                        };
+
+                        let pattern = parse_mini_notation(&pattern_str);
+                        let bool_pattern = pattern.fmap(|s| !s.is_empty() && s != "~");
+
+                        self.graph.add_node(SignalNode::PatternTrigger {
+                            pattern_str,
+                            pattern: bool_pattern,
+                            last_trigger_time: -1.0,
+                        })
+                    }
+                    "tar" => {
+                        // tar "pattern" attack release -> triggered AR envelope
+                        let pattern_str = match args.first() {
+                            Some(DslExpression::Pattern(s)) => s.clone(),
+                            _ => {
+                                eprintln!("tar requires a pattern string as first argument");
+                                return self.graph.add_node(SignalNode::Constant { value: 0.0 });
+                            }
+                        };
+                        let attack = args.get(1).cloned().unwrap_or(DslExpression::Value(0.01));
+                        let release = args.get(2).cloned().unwrap_or(DslExpression::Value(0.3));
+
+                        let attack_signal = self.compile_expression_to_signal(attack);
+                        let release_signal = self.compile_expression_to_signal(release);
+
+                        let pattern = parse_mini_notation(&pattern_str);
+                        let bool_pattern = pattern.fmap(|s| !s.is_empty() && s != "~");
+
+                        self.graph.add_node(SignalNode::TriggeredAR {
+                            pattern_str,
+                            pattern: bool_pattern,
+                            attack: attack_signal,
+                            release: release_signal,
+                            last_trigger_time: -1.0,
+                            last_cycle: -1,
+                            state: Default::default(),
+                        })
+                    }
+                    "tadsr" => {
+                        // tadsr "pattern" attack decay sustain release
+                        let pattern_str = match args.first() {
+                            Some(DslExpression::Pattern(s)) => s.clone(),
+                            _ => {
+                                eprintln!("tadsr requires a pattern string as first argument");
+                                return self.graph.add_node(SignalNode::Constant { value: 0.0 });
+                            }
+                        };
+                        let attack = args.get(1).cloned().unwrap_or(DslExpression::Value(0.01));
+                        let decay = args.get(2).cloned().unwrap_or(DslExpression::Value(0.1));
+                        let sustain = args.get(3).cloned().unwrap_or(DslExpression::Value(0.7));
+                        let release = args.get(4).cloned().unwrap_or(DslExpression::Value(0.3));
+
+                        let attack_signal = self.compile_expression_to_signal(attack);
+                        let decay_signal = self.compile_expression_to_signal(decay);
+                        let sustain_signal = self.compile_expression_to_signal(sustain);
+                        let release_signal = self.compile_expression_to_signal(release);
+
+                        let pattern = parse_mini_notation(&pattern_str);
+                        let bool_pattern = pattern.fmap(|s| !s.is_empty() && s != "~");
+
+                        self.graph.add_node(SignalNode::TriggeredADSR {
+                            pattern_str,
+                            pattern: bool_pattern,
+                            attack: attack_signal,
+                            decay: decay_signal,
+                            sustain: sustain_signal,
+                            release: release_signal,
+                            last_trigger_time: -1.0,
+                            last_cycle: -1,
+                            state: Default::default(),
+                        })
+                    }
+                    _ => {
+                        eprintln!("Unknown function: {}", name);
                         self.graph.add_node(SignalNode::Constant { value: 0.0 })
                     }
                 }
