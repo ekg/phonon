@@ -49,6 +49,26 @@ enum EnvelopePhase {
     Release,
 }
 
+/// Filter parameters for per-voice filtering
+#[derive(Debug, Clone, Copy)]
+pub struct FilterParams {
+    pub cutoff: f32,     // Base cutoff frequency in Hz
+    pub resonance: f32,  // Q factor (0.0 = no resonance, 1.0 = self-oscillating)
+    pub env_amount: f32, // Envelope modulation amount in Hz (cutoff += env_amount * envelope)
+    pub enabled: bool,   // Whether filter is enabled
+}
+
+impl Default for FilterParams {
+    fn default() -> Self {
+        Self {
+            cutoff: 20000.0, // Wide open by default
+            resonance: 0.0,
+            env_amount: 0.0, // No envelope modulation by default
+            enabled: false,
+        }
+    }
+}
+
 /// A single synthesizer voice
 struct SynthVoice {
     // Oscillator state
@@ -64,6 +84,11 @@ struct SynthVoice {
 
     // ADSR parameters
     adsr: ADSRParams,
+
+    // Filter state (biquad SVF)
+    filter: FilterParams,
+    filter_ic1eq: f32, // integrator 1 state
+    filter_ic2eq: f32, // integrator 2 state
 
     // Voice parameters
     gain: f32,
@@ -85,6 +110,9 @@ impl SynthVoice {
             time_in_phase: 0.0,
             release_start_level: 0.0,
             adsr: ADSRParams::default(),
+            filter: FilterParams::default(),
+            filter_ic1eq: 0.0,
+            filter_ic2eq: 0.0,
             gain: 1.0,
             pan: 0.0,
             age: 0,
@@ -98,12 +126,14 @@ impl SynthVoice {
         frequency: f32,
         waveform: SynthWaveform,
         adsr: ADSRParams,
+        filter: FilterParams,
         gain: f32,
         pan: f32,
     ) {
         self.frequency = frequency;
         self.waveform = waveform;
         self.adsr = adsr;
+        self.filter = filter;
         self.gain = gain;
         self.pan = pan;
 
@@ -112,6 +142,10 @@ impl SynthVoice {
         self.envelope_level = 0.0;
         self.time_in_phase = 0.0;
         self.release_start_level = 0.0;
+
+        // Reset filter state
+        self.filter_ic1eq = 0.0;
+        self.filter_ic2eq = 0.0;
 
         // Reset oscillator phase for consistent sound
         *self.phase.borrow_mut() = 0.0;
@@ -229,11 +263,42 @@ impl SynthVoice {
             }
         }
 
+        // Apply filter if enabled (SVF lowpass)
+        let filtered_sample = if self.filter.enabled {
+            // Calculate modulated cutoff: base + env_amount * envelope_level
+            let modulated_cutoff = self.filter.cutoff + self.filter.env_amount * self.envelope_level;
+            // Clamp cutoff to valid range
+            let cutoff = modulated_cutoff.max(20.0).min(sample_rate * 0.45);
+            // Convert resonance (0-1) to Q (0.5-20)
+            let q = 0.5 + self.filter.resonance * 19.5;
+
+            // SVF coefficients
+            let g = (PI * cutoff / sample_rate).tan();
+            let k = 1.0 / q;
+            let a1 = 1.0 / (1.0 + g * (g + k));
+            let a2 = g * a1;
+            let a3 = g * a2;
+
+            // Process SVF
+            let v3 = osc_sample - self.filter_ic2eq;
+            let v1 = a1 * self.filter_ic1eq + a2 * v3;
+            let v2 = self.filter_ic2eq + a2 * self.filter_ic1eq + a3 * v3;
+
+            // Update state
+            self.filter_ic1eq = 2.0 * v1 - self.filter_ic1eq;
+            self.filter_ic2eq = 2.0 * v2 - self.filter_ic2eq;
+
+            // Lowpass output
+            v2
+        } else {
+            osc_sample
+        };
+
         // Increment age
         self.age += 1;
 
         // Apply envelope and gain
-        osc_sample * self.envelope_level * self.gain
+        filtered_sample * self.envelope_level * self.gain
     }
 }
 
@@ -266,12 +331,13 @@ impl SynthVoiceManager {
         frequency: f32,
         waveform: SynthWaveform,
         adsr: ADSRParams,
+        filter: FilterParams,
         gain: f32,
         pan: f32,
     ) {
         // Find a free voice or steal the oldest
         let voice_idx = self.find_free_voice();
-        self.voices[voice_idx].trigger(frequency, waveform, adsr, gain, pan);
+        self.voices[voice_idx].trigger(frequency, waveform, adsr, filter, gain, pan);
     }
 
     /// Find a free voice or steal the oldest one
@@ -359,7 +425,7 @@ mod tests {
         let mut manager = SynthVoiceManager::new(44100.0);
 
         // Trigger a note
-        manager.trigger_note(440.0, SynthWaveform::Sine, ADSRParams::default(), 1.0, 0.0);
+        manager.trigger_note(440.0, SynthWaveform::Sine, ADSRParams::default(), FilterParams::default(), 1.0, 0.0);
 
         assert_eq!(manager.active_voice_count(), 1);
 
@@ -389,10 +455,10 @@ mod tests {
         let mut manager = SynthVoiceManager::new(44100.0);
 
         // Trigger 4 notes simultaneously (C major chord)
-        manager.trigger_note(261.63, SynthWaveform::Sine, ADSRParams::default(), 0.5, 0.0); // C4
-        manager.trigger_note(329.63, SynthWaveform::Sine, ADSRParams::default(), 0.5, 0.0); // E4
-        manager.trigger_note(392.00, SynthWaveform::Sine, ADSRParams::default(), 0.5, 0.0); // G4
-        manager.trigger_note(523.25, SynthWaveform::Sine, ADSRParams::default(), 0.5, 0.0); // C5
+        manager.trigger_note(261.63, SynthWaveform::Sine, ADSRParams::default(), FilterParams::default(), 0.5, 0.0); // C4
+        manager.trigger_note(329.63, SynthWaveform::Sine, ADSRParams::default(), FilterParams::default(), 0.5, 0.0); // E4
+        manager.trigger_note(392.00, SynthWaveform::Sine, ADSRParams::default(), FilterParams::default(), 0.5, 0.0); // G4
+        manager.trigger_note(523.25, SynthWaveform::Sine, ADSRParams::default(), FilterParams::default(), 0.5, 0.0); // C5
 
         assert_eq!(manager.active_voice_count(), 4);
     }
@@ -408,7 +474,7 @@ mod tests {
             release: 0.1, // 100ms release
         };
 
-        manager.trigger_note(440.0, SynthWaveform::Sine, adsr, 1.0, 0.0);
+        manager.trigger_note(440.0, SynthWaveform::Sine, adsr, FilterParams::default(), 1.0, 0.0);
 
         // Let attack finish
         for _ in 0..(44100.0 * 0.01) as usize {
@@ -436,7 +502,7 @@ mod tests {
         // Trigger 64 notes (max capacity)
         for i in 0..64 {
             let freq = 220.0 * (1.0 + i as f32 * 0.01);
-            manager.trigger_note(freq, SynthWaveform::Sine, ADSRParams::default(), 0.5, 0.0);
+            manager.trigger_note(freq, SynthWaveform::Sine, ADSRParams::default(), FilterParams::default(), 0.5, 0.0);
         }
 
         assert_eq!(manager.active_voice_count(), 64);
@@ -447,7 +513,7 @@ mod tests {
         }
 
         // Trigger 65th note (should steal oldest)
-        manager.trigger_note(880.0, SynthWaveform::Sine, ADSRParams::default(), 0.5, 0.0);
+        manager.trigger_note(880.0, SynthWaveform::Sine, ADSRParams::default(), FilterParams::default(), 0.5, 0.0);
 
         assert_eq!(
             manager.active_voice_count(),

@@ -230,6 +230,9 @@ pub enum DslExpression {
         waveform: Waveform,
         freq: Box<DslExpression>,
         duty: Option<f32>,
+        filter_cutoff: Option<f32>,     // Pending filter cutoff for SynthPattern
+        filter_resonance: Option<f32>,  // Pending filter resonance for SynthPattern
+        filter_env_amount: Option<f32>, // Filter envelope modulation amount in Hz
     },
     /// Filter: lpf(input, cutoff, q), hpf(input, cutoff, q)
     Filter {
@@ -355,6 +358,21 @@ pub enum DslExpression {
         decay: Box<DslExpression>,
         sustain: Box<DslExpression>,
         release: Box<DslExpression>,
+    },
+    /// AR envelope: s "bd" # ar 0.01 0.1
+    ARModifier {
+        attack: Box<DslExpression>,
+        release: Box<DslExpression>,
+    },
+    /// Filter envelope amount: saw "c4" # lpf 200 0.8 # fenv 2000
+    /// Modulates filter cutoff by envelope: cutoff = base + amount * envelope
+    FilterEnvModifier {
+        amount: f32,
+    },
+    /// LPF modifier for synth patterns: saw "c4" # lpf 1000 0.8 # ar 0.01 0.1
+    LPFModifier {
+        cutoff: Box<DslExpression>,
+        resonance: Box<DslExpression>,
     },
     /// Generic function call: name arg1 arg2 ...
     /// Used for functions like: struct, gate, tar, trig, tadsr
@@ -617,6 +635,9 @@ fn oscillator(input: &str) -> IResult<&str, DslExpression> {
             waveform: wf,
             freq: Box::new(freq),
             duty,
+            filter_cutoff: None,
+            filter_resonance: None,
+            filter_env_amount: None,
         }
     })(input)
 }
@@ -760,6 +781,21 @@ fn envelope_modifier(input: &str) -> IResult<&str, DslExpression> {
                 sustain: Box::new(args.get(2).cloned().unwrap_or(DslExpression::Value(0.7))),
                 release: Box::new(args.get(3).cloned().unwrap_or(DslExpression::Value(0.2))),
             }
+        }),
+        // ar 0.01 0.1 (attack/release envelope - no sustain)
+        map(preceded(tag("ar"), function_args), |args| {
+            DslExpression::ARModifier {
+                attack: Box::new(args.get(0).cloned().unwrap_or(DslExpression::Value(0.01))),
+                release: Box::new(args.get(1).cloned().unwrap_or(DslExpression::Value(0.1))),
+            }
+        }),
+        // fenv 2000 (filter envelope modulation amount in Hz)
+        map(preceded(tag("fenv"), function_args), |args| {
+            let amount = match args.first() {
+                Some(DslExpression::Value(v)) => *v,
+                _ => 1000.0, // Default 1000Hz modulation
+            };
+            DslExpression::FilterEnvModifier { amount }
         }),
     ))(input)
 }
@@ -1784,6 +1820,79 @@ impl DslCompiler {
         }
     }
 
+    /// Extract oscillator info from a potentially nested chain expression.
+    /// This handles cases like `saw "c4" # lpf 800 0.7` where we need to extract
+    /// the oscillator with accumulated filter params for conversion to SynthPattern.
+    /// Returns: (waveform, freq, filter_cutoff, filter_resonance, filter_env_amount)
+    fn extract_oscillator_from_chain(
+        &self,
+        expr: &DslExpression,
+    ) -> Option<(Waveform, Box<DslExpression>, Option<f32>, Option<f32>, Option<f32>)> {
+        match expr {
+            // Direct oscillator
+            DslExpression::Oscillator {
+                waveform,
+                freq,
+                filter_cutoff,
+                filter_resonance,
+                filter_env_amount,
+                ..
+            } => Some((
+                *waveform,
+                freq.clone(),
+                *filter_cutoff,
+                *filter_resonance,
+                *filter_env_amount,
+            )),
+
+            // Chain: check if it's Oscillator # Filter or # fenv
+            DslExpression::Chain { left, right } => {
+                // Check for # fenv modifier (filter envelope amount)
+                if let DslExpression::FilterEnvModifier { amount } = &**right {
+                    if let Some((waveform, freq, cutoff, resonance, _)) =
+                        self.extract_oscillator_from_chain(left)
+                    {
+                        return Some((waveform, freq, cutoff, resonance, Some(*amount)));
+                    }
+                }
+
+                // Check if right is a Filter applied to an Oscillator on the left
+                // NOTE: In chain syntax `lpf 800 0.7`, the parser puts:
+                //   - first arg (800) in `input` field
+                //   - second arg (0.7) in `cutoff` field
+                //   - default (1.0) in `q` field
+                // So we need to read: cutoff from `input`, resonance from `cutoff`
+                if let DslExpression::Filter {
+                    filter_type: FilterType::LowPass,
+                    input,  // This is actually the cutoff in chain syntax!
+                    cutoff, // This is actually the resonance in chain syntax!
+                    ..
+                } = &**right
+                {
+                    // Try to extract oscillator from left
+                    if let Some((waveform, freq, _, _, env_amount)) =
+                        self.extract_oscillator_from_chain(left)
+                    {
+                        // Extract filter values (note the field swap!)
+                        let cutoff_val = match &**input {
+                            DslExpression::Value(v) => Some(*v),
+                            _ => Some(1000.0),
+                        };
+                        let resonance_val = match &**cutoff {
+                            DslExpression::Value(v) => Some(*v),
+                            _ => Some(0.5),
+                        };
+                        return Some((waveform, freq, cutoff_val, resonance_val, env_amount));
+                    }
+                }
+                // Check if left is an oscillator (possibly with filters already applied)
+                self.extract_oscillator_from_chain(left)
+            }
+
+            _ => None,
+        }
+    }
+
     fn compile_expression(&mut self, expr: DslExpression) -> crate::unified_graph::NodeId {
         match expr {
             DslExpression::BusRef(name) => {
@@ -1955,6 +2064,61 @@ impl DslCompiler {
                         sustain,
                         release,
                     } => {
+                        // Try to extract oscillator from left (handles both direct Oscillator
+                        // and nested chains like `saw "c4" # lpf 800 0.7`)
+                        if let Some((
+                            waveform,
+                            freq,
+                            filter_cutoff,
+                            filter_resonance,
+                            filter_env_amount,
+                        )) = self.extract_oscillator_from_chain(&left)
+                        {
+                            // Extract pattern string from freq
+                            if let DslExpression::Pattern(pattern_str) = *freq {
+                                // Get ADSR values
+                                let attack_val = match **attack {
+                                    DslExpression::Value(v) => v,
+                                    _ => 0.01,
+                                };
+                                let decay_val = match **decay {
+                                    DslExpression::Value(v) => v,
+                                    _ => 0.1,
+                                };
+                                let sustain_val = match **sustain {
+                                    DslExpression::Value(v) => v,
+                                    _ => 0.7,
+                                };
+                                let release_val = match **release {
+                                    DslExpression::Value(v) => v,
+                                    _ => 0.2,
+                                };
+
+                                // Parse pattern and create SynthPattern node
+                                use crate::mini_notation_v3::parse_mini_notation;
+                                let pattern = parse_mini_notation(&pattern_str);
+
+                                // Create SynthPattern node with ADSR envelope
+                                // Use stored filter params if available
+                                return self.graph.add_node(SignalNode::SynthPattern {
+                                    pattern_str: pattern_str.clone(),
+                                    pattern,
+                                    last_trigger_time: -1.0,
+                                    waveform,
+                                    attack: attack_val,
+                                    decay: decay_val,
+                                    sustain: sustain_val,
+                                    release: release_val,
+                                    filter_cutoff: filter_cutoff.unwrap_or(20000.0),
+                                    filter_resonance: filter_resonance.unwrap_or(0.0),
+                                    filter_env_amount: filter_env_amount.unwrap_or(0.0),
+                                    gain: Signal::Value(1.0),
+                                    pan: Signal::Value(0.0),
+                                });
+                            }
+                        }
+
+                        // Fall back to sample modifier
                         let decay = decay.clone();
                         let sustain = sustain.clone();
                         let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
@@ -1967,6 +2131,104 @@ impl DslCompiler {
                             sample
                         });
                         self.compile_expression(modified_left)
+                    }
+                    DslExpression::ARModifier { attack, release } => {
+                        // Try to extract oscillator from left (handles both direct Oscillator
+                        // and nested chains like `saw "c4" # lpf 800 0.7`)
+                        if let Some((
+                            waveform,
+                            freq,
+                            filter_cutoff,
+                            filter_resonance,
+                            filter_env_amount,
+                        )) = self.extract_oscillator_from_chain(&left)
+                        {
+                            // Extract pattern string from freq
+                            if let DslExpression::Pattern(pattern_str) = *freq {
+                                // Get attack/release values
+                                let attack_val = match **attack {
+                                    DslExpression::Value(v) => v,
+                                    _ => 0.01,
+                                };
+                                let release_val = match **release {
+                                    DslExpression::Value(v) => v,
+                                    _ => 0.1,
+                                };
+
+                                // Parse pattern and create SynthPattern node
+                                use crate::mini_notation_v3::parse_mini_notation;
+                                let pattern = parse_mini_notation(&pattern_str);
+
+                                // Create SynthPattern node with AR envelope (no sustain)
+                                // Use stored filter params if available
+                                return self.graph.add_node(SignalNode::SynthPattern {
+                                    pattern_str: pattern_str.clone(),
+                                    pattern,
+                                    last_trigger_time: -1.0,
+                                    waveform,
+                                    attack: attack_val,
+                                    decay: 0.0,    // No decay for AR
+                                    sustain: 0.0,  // No sustain for AR
+                                    release: release_val,
+                                    filter_cutoff: filter_cutoff.unwrap_or(20000.0),
+                                    filter_resonance: filter_resonance.unwrap_or(0.0),
+                                    filter_env_amount: filter_env_amount.unwrap_or(0.0),
+                                    gain: Signal::Value(1.0),
+                                    pan: Signal::Value(0.0),
+                                });
+                            }
+                        }
+
+                        // Fall back to sample modifier for Sample nodes
+                        let modified_left = self.apply_modifier_to_sample(*left, |mut sample| {
+                            sample.attack = Some(attack.clone());
+                            sample.release = Some(release.clone());
+                            // AR envelope: no decay or sustain (instant attack, immediate release)
+                            sample.envelope_type = None; // Use simple AR (no decay/sustain)
+                            sample
+                        });
+                        self.compile_expression(modified_left)
+                    }
+                    // Filter applied to Oscillator - store filter params for later SynthPattern
+                    DslExpression::Filter {
+                        filter_type: FilterType::LowPass,
+                        cutoff,
+                        q,
+                        ..
+                    } => {
+                        // If left is an Oscillator, store the filter params
+                        if let DslExpression::Oscillator {
+                            waveform,
+                            freq,
+                            duty,
+                            filter_env_amount,
+                            ..
+                        } = *left.clone()
+                        {
+                            // Extract cutoff and resonance values
+                            let cutoff_val = match **cutoff {
+                                DslExpression::Value(v) => Some(v),
+                                _ => Some(1000.0), // Default cutoff
+                            };
+                            let resonance_val = match **q {
+                                DslExpression::Value(v) => Some(v),
+                                _ => Some(0.5), // Default resonance
+                            };
+
+                            // Return Oscillator with filter params stored
+                            return self.compile_expression(DslExpression::Oscillator {
+                                waveform,
+                                freq,
+                                duty,
+                                filter_cutoff: cutoff_val,
+                                filter_resonance: resonance_val,
+                                filter_env_amount,
+                            });
+                        }
+                        // Fall through to default handling for non-Oscillator inputs
+                        let left_id = self.compile_expression(*left);
+                        let modified_right = self.inject_chain_input(*right, left_id);
+                        self.compile_expression(modified_right)
                     }
                     // Default: standard chain behavior (for effects, etc.)
                     _ => {
@@ -2477,6 +2739,9 @@ impl DslCompiler {
                     decay: decay_val,
                     sustain: sustain_val,
                     release: release_val,
+                    filter_cutoff: 20000.0,     // No filter by default
+                    filter_resonance: 0.0,
+                    filter_env_amount: 0.0,     // No envelope modulation by default
                     gain: gain_signal,
                     pan: pan_signal,
                 })

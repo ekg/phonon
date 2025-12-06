@@ -949,6 +949,9 @@ pub enum SignalNode {
         decay: f32,
         sustain: f32,
         release: f32,
+        filter_cutoff: f32,      // Base filter cutoff frequency in Hz (20000 = no filter)
+        filter_resonance: f32,   // Filter resonance/Q (0.0-1.0)
+        filter_env_amount: f32,  // Filter envelope modulation amount in Hz
         gain: Signal,
         pan: Signal,
     },
@@ -10528,12 +10531,15 @@ impl UnifiedSignalGraph {
                 decay,
                 sustain,
                 release,
+                filter_cutoff,
+                filter_resonance,
+                filter_env_amount,
                 gain,
                 pan,
                 ..
             } => {
                 use crate::pattern_tonal::{midi_to_freq, note_to_midi};
-                use crate::synth_voice_manager::{ADSRParams, SynthWaveform};
+                use crate::synth_voice_manager::{ADSRParams, FilterParams, SynthWaveform};
 
                 // Evaluate DSP parameters
                 let gain_val = self.eval_signal(&gain).max(0.0).min(10.0);
@@ -10608,6 +10614,15 @@ impl UnifiedSignalGraph {
                             release: *release,
                         };
 
+                        // Filter parameters (same for all chord notes)
+                        // Enable filter if cutoff is below Nyquist-ish OR if there's envelope modulation
+                        let filter = FilterParams {
+                            cutoff: *filter_cutoff,
+                            resonance: *filter_resonance,
+                            env_amount: *filter_env_amount,
+                            enabled: *filter_cutoff < 19000.0 || *filter_env_amount != 0.0,
+                        };
+
                         // TRIGGER VOICES FOR EACH NOTE IN CHORD
                         // For chords like "c4'maj", this triggers C, E, G simultaneously
                         // Just like stacking samples!
@@ -10629,6 +10644,7 @@ impl UnifiedSignalGraph {
                                 frequency,
                                 synth_waveform,
                                 adsr,
+                                filter,
                                 scaled_gain,
                                 pan_val,
                             );

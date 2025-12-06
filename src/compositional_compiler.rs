@@ -4357,6 +4357,9 @@ fn compile_synth_pattern(
         decay,
         sustain,
         release,
+        filter_cutoff: 20000.0,     // No filter by default
+        filter_resonance: 0.0,
+        filter_env_amount: 0.0,     // No envelope modulation by default
         gain: Signal::Value(1.0),
         pan: Signal::Value(0.0),
     };
