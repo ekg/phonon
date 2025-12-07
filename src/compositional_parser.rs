@@ -21,14 +21,24 @@ use nom::{
 // AST - Clean expression types with no special cases
 // ============================================================================
 
+/// Bus type: Signal ($) produces audio, Modifier (#) stores effect chains for expansion
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BusType {
+    /// Signal bus: ~name $ expr - produces audio signal
+    Signal,
+    /// Modifier bus: ~name # expr - stores modifier chain for expansion
+    Modifier,
+}
+
 /// Top-level statement in a Phonon program
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
-    /// Bus assignment: ~name $ expr OR ~name param1 param2 $ expr (function bus)
+    /// Bus assignment: ~name $ expr (signal) OR ~name # expr (modifier)
     BusAssignment {
         name: String,
         params: Vec<String>,
         expr: Expr,
+        bus_type: BusType,
     },
     /// Template assignment: @name: expr
     TemplateAssignment { name: String, expr: Expr },
@@ -366,6 +376,8 @@ pub enum Transform {
     Compose(Vec<Transform>),
     /// Template reference: @name
     TemplateRef(String),
+    /// Transform bus reference: ~name (for transform buses)
+    TransformBusRef(String),
 }
 
 /// Binary operators
@@ -612,8 +624,8 @@ fn parse_function_def(input: &str) -> IResult<&str, Statement> {
     ))
 }
 
-/// Parse bus assignment: ~name $ expr or ~name param1 param2 $ expr (function bus)
-/// $ is for function application/transforms, # is for chaining
+/// Parse bus assignment: ~name $ expr (signal) or ~name # expr (modifier)
+/// $ creates signal buses (audio), # creates modifier buses (effect chains for expansion)
 fn parse_bus_assignment(input: &str) -> IResult<&str, Statement> {
     let (input, _) = char('~')(input)?;
     let (input, name) = parse_identifier(input)?;
@@ -626,11 +638,8 @@ fn parse_bus_assignment(input: &str) -> IResult<&str, Statement> {
 
     // Keep parsing identifiers until we hit $ or #
     loop {
-        // Try to match $ or #
-        if let Ok((after_op, _)) =
-            alt::<_, _, nom::error::Error<&str>, _>((char('$'), char('#')))(current_input)
-        {
-            // Found the operator, done parsing params
+        // Try to match $ (signal bus) first
+        if let Ok((after_op, _)) = char::<_, nom::error::Error<&str>>('$')(current_input) {
             let (input, _) = space0(after_op)?;
             let (input, expr) = parse_expr(input)?;
 
@@ -640,6 +649,23 @@ fn parse_bus_assignment(input: &str) -> IResult<&str, Statement> {
                     name: name.to_string(),
                     params,
                     expr,
+                    bus_type: BusType::Signal,
+                },
+            ));
+        }
+
+        // Try to match # (modifier bus)
+        if let Ok((after_op, _)) = char::<_, nom::error::Error<&str>>('#')(current_input) {
+            let (input, _) = space0(after_op)?;
+            let (input, expr) = parse_expr(input)?;
+
+            return Ok((
+                input,
+                Statement::BusAssignment {
+                    name: name.to_string(),
+                    params,
+                    expr,
+                    bus_type: BusType::Modifier,
                 },
             ));
         }
@@ -925,16 +951,116 @@ fn convert_call_to_transform_if_applicable(expr: Expr) -> Expr {
     }
 }
 
+/// Convert a Transform back to an Expr::Call representation
+/// Used when parsing a standalone transform (no following $ or inner expr)
+/// e.g., "fast 4" in "~quick $ fast 4" should become Expr::Call { name: "fast", args: [4] }
+fn transform_to_call_expr(transform: &Transform) -> Option<Expr> {
+    match transform {
+        Transform::Fast(arg) => Some(Expr::Call {
+            name: "fast".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        Transform::Slow(arg) => Some(Expr::Call {
+            name: "slow".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        Transform::Hurry(arg) => Some(Expr::Call {
+            name: "hurry".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        Transform::Rev => Some(Expr::Call {
+            name: "rev".to_string(),
+            args: vec![],
+        }),
+        Transform::Palindrome => Some(Expr::Call {
+            name: "palindrome".to_string(),
+            args: vec![],
+        }),
+        Transform::Degrade => Some(Expr::Call {
+            name: "degrade".to_string(),
+            args: vec![],
+        }),
+        Transform::DegradeBy(arg) => Some(Expr::Call {
+            name: "degradeBy".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        Transform::Stutter(arg) => Some(Expr::Call {
+            name: "stutter".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        Transform::Shuffle(arg) => Some(Expr::Call {
+            name: "shuffle".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        Transform::FastGap(arg) => Some(Expr::Call {
+            name: "fastGap".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        Transform::Iter(arg) => Some(Expr::Call {
+            name: "iter".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        Transform::LoopAt(arg) => Some(Expr::Call {
+            name: "loopAt".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        Transform::Early(arg) => Some(Expr::Call {
+            name: "early".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        Transform::Late(arg) => Some(Expr::Call {
+            name: "late".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        Transform::Every { n, transform } => Some(Expr::Call {
+            name: "every".to_string(),
+            args: vec![
+                (**n).clone(),
+                transform_to_call_expr(transform).unwrap_or(Expr::Var("_transform".to_string())),
+            ],
+        }),
+        Transform::RotL(arg) => Some(Expr::Call {
+            name: "rotL".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        Transform::RotR(arg) => Some(Expr::Call {
+            name: "rotR".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        Transform::Struct(arg) => Some(Expr::Call {
+            name: "struct".to_string(),
+            args: vec![(**arg).clone()],
+        }),
+        // For composed transforms, represent as a list
+        Transform::Compose(transforms) => {
+            let mut args = vec![];
+            for t in transforms {
+                if let Some(expr) = transform_to_call_expr(t) {
+                    args.push(expr);
+                }
+            }
+            Some(Expr::Call {
+                name: "_compose".to_string(),
+                args,
+            })
+        }
+        // TransformBusRef stays as a bus reference
+        Transform::TransformBusRef(name) => Some(Expr::BusRef(name.clone())),
+        // For other transforms, return None (will fall back to default parsing)
+        _ => None,
+    }
+}
+
 /// Parse $ operator: generic function application (like Tidal)
 /// This is right-associative with low precedence: f $ g $ x = f (g x)
 /// Supports both: function $ arg  AND  expr $ transform
 fn parse_transform_expr(input: &str) -> IResult<&str, Expr> {
     // First, try to parse: transform $ expr (for backward compatibility)
     if let Ok((input_after_transform, transform)) = parse_transform(input) {
-        let (input, _) = space0(input_after_transform)?;
+        let (input_check, _) = space0(input_after_transform)?;
 
         // Check for $ operator
-        if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('$')(input) {
+        if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('$')(input_check) {
             let (input, _) = space0(input)?;
             let (input, mut expr) = parse_transform_expr(input)?; // Right-associative!
 
@@ -951,6 +1077,21 @@ fn parse_transform_expr(input: &str) -> IResult<&str, Expr> {
                 },
             ));
         }
+
+        // No $ operator - convert standalone transform to Expr::Call if possible
+        // This handles cases like "~quick $ fast 4" where "fast 4" should be parsed
+        // as an expression (Expr::Call) for storage in transform buses
+        //
+        // IMPORTANT: Don't early-return for TransformBusRef here!
+        // If we have "~drums + ~kicks", parse_transform matches "~drums" as TransformBusRef,
+        // but we need to fall through to parse_additive_expr to handle the full "~drums + ~kicks"
+        // arithmetic expression.
+        if !matches!(transform, Transform::TransformBusRef(_)) {
+            if let Some(call_expr) = transform_to_call_expr(&transform) {
+                return Ok((input_after_transform, call_expr));
+            }
+        }
+        // If we can't convert (or it's a TransformBusRef), fall through to normal parsing
     }
 
     // Parse left side (could be a function or expression)
@@ -1423,6 +1564,11 @@ fn parse_transform(input: &str) -> IResult<&str, Transform> {
             terminated(char('('), space0),
             parse_transform_chain,
             preceded(space0, char(')')),
+        ),
+        // Transform bus reference: ~name (must come before group parsers to catch ~name)
+        map(
+            preceded(char('~'), take_while1(|c: char| c.is_alphanumeric() || c == '_')),
+            |name: &str| Transform::TransformBusRef(name.to_string()),
         ),
         // Unparenthesized transforms
         parse_transform_group_1,
@@ -2362,9 +2508,21 @@ mod tests {
     fn test_parse_bus_assignment() {
         let result = parse_statement("~drums $ s \"bd sn hh cp\"");
         assert!(result.is_ok());
-        if let Ok((_, Statement::BusAssignment { name, params, expr })) = result {
+        if let Ok((_, Statement::BusAssignment { name, params, expr, bus_type })) = result {
             assert_eq!(name, "drums");
             assert!(params.is_empty());
+            assert_eq!(bus_type, BusType::Signal);
+        }
+    }
+
+    #[test]
+    fn test_parse_modifier_bus_assignment() {
+        let result = parse_statement("~waver # speed \"0.5 0.66\"");
+        assert!(result.is_ok());
+        if let Ok((_, Statement::BusAssignment { name, params, expr, bus_type })) = result {
+            assert_eq!(name, "waver");
+            assert!(params.is_empty());
+            assert_eq!(bus_type, BusType::Modifier);
         }
     }
 

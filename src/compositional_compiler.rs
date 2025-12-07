@@ -4,7 +4,7 @@
 //! Compiles the clean compositional AST into the AudioNode architecture.
 //! Uses block-based buffer passing for efficient DAW-style processing.
 
-use crate::compositional_parser::{BinOp, Expr, Statement, Transform, UnOp};
+use crate::compositional_parser::{BinOp, BusType, Expr, Statement, Transform, UnOp};
 use crate::midi_input::MidiEventQueue;
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
@@ -34,6 +34,12 @@ pub struct CompilerContext {
     buses: HashMap<String, NodeId>,
     /// Map of bus names to their original expressions (for transformer bus re-instantiation)
     bus_expressions: HashMap<String, Expr>,
+    /// Modifier buses: store modifier chains for expansion (# syntax)
+    /// When ~modifier_bus is used in a chain, the stored expr is spliced in
+    modifier_buses: HashMap<String, Expr>,
+    /// Transform buses: store pattern transforms for expansion ($ syntax with pure transforms)
+    /// When pattern $ ~transform_bus is used, the stored transform is applied
+    transform_buses: HashMap<String, Expr>,
     /// Current bus being compiled (for self-reference detection)
     /// When set, references to this bus will create UnitDelay nodes (z^-1)
     current_bus: Option<String>,
@@ -153,6 +159,8 @@ impl CompilerContext {
         Self {
             buses: HashMap::new(),
             bus_expressions: HashMap::new(),
+            modifier_buses: HashMap::new(),
+            transform_buses: HashMap::new(),
             current_bus: None,
             templates: HashMap::new(),
             functions: HashMap::new(),
@@ -398,16 +406,56 @@ pub fn compile_program(
 /// Reserved signal function names that cannot be used as bus names
 const RESERVED_SIGNAL_NAMES: &[&str] = &["add", "sub", "mul", "div"];
 
+/// Names of pattern transform functions (operate on patterns, not signals)
+const PATTERN_TRANSFORM_NAMES: &[&str] = &[
+    "fast", "slow", "rev", "palindrome", "degrade", "degradeBy", "stutter",
+    "shuffle", "fastGap", "iter", "loopAt", "early", "late", "slice", "squeeze",
+    "hurry", "chop", "striate", "chunk", "within", "every", "sometimes", "often",
+    "rarely", "almostNever", "almostAlways", "someCycles", "struct", "euclid",
+    "rotL", "rotR", "ply", "press", "pressBy", "ghost", "ghostWith", "swing",
+    "inside", "outside", "zoom", "compress", "off", "superimpose", "layer",
+    "jux", "juxBy", "bite", "mask", "select", "sew", "stitch", "when",
+];
+
+/// Check if an expression is a pure pattern transform (no signal source)
+/// e.g., `fast 2` or `rev` - these need a pattern to operate on
+fn is_pure_transform(expr: &Expr) -> bool {
+    match expr {
+        Expr::Call { name, args: _ } => PATTERN_TRANSFORM_NAMES.contains(&name.as_str()),
+        Expr::Transform { .. } => true,
+        _ => false,
+    }
+}
+
 /// Compile a single statement
 pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Result<(), String> {
     match statement {
-        Statement::BusAssignment { name, params, expr } => {
+        Statement::BusAssignment {
+            name,
+            params,
+            expr,
+            bus_type,
+        } => {
             // Check for reserved signal function names
             if RESERVED_SIGNAL_NAMES.contains(&name.as_str()) {
                 return Err(format!(
                     "'~{}' is a reserved signal function name and cannot be used as a bus name",
                     name
                 ));
+            }
+
+            // Handle modifier buses: ~name # expr
+            // These store the expression for later expansion, not as a compiled signal
+            if bus_type == BusType::Modifier {
+                ctx.modifier_buses.insert(name.clone(), expr);
+                return Ok(());
+            }
+
+            // Handle transform buses: ~name $ fast 2 (pure transform with no source)
+            // These store the transform expression for later expansion when used as: pattern $ ~name
+            if bus_type == BusType::Signal && is_pure_transform(&expr) {
+                ctx.transform_buses.insert(name.clone(), expr);
+                return Ok(());
             }
 
             if params.is_empty() {
@@ -6566,6 +6614,14 @@ fn compile_chain(ctx: &mut CompilerContext, left: Expr, right: Expr) -> Result<N
             compile_function_call(ctx, &name, args)
         }
         Expr::BusRef(bus_name) => {
+            // Check for modifier bus first: ~name # expr
+            // Modifier buses store effect chains that get expanded when used
+            if let Some(modifier_expr) = ctx.modifier_buses.get(&bus_name).cloned() {
+                // Expand the modifier bus: s "bd" # ~waver becomes s "bd" # speed "0.5 0.66"
+                // The modifier_expr is the stored expression (e.g., speed "0.5 0.66")
+                return compile_chain(ctx, left, modifier_expr);
+            }
+
             // Transformer bus: re-instantiate the bus's expression with the chain input
             // This allows `~fx $ lpf 1000 0.8` to work as `saw 110 # ~fx`
 
@@ -7319,6 +7375,55 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                 apply_transform_to_pattern(ctx, pattern, transform)
             } else {
                 Err(format!("Template @{} is not a transform function", name))
+            }
+        }
+        // Transform bus reference: look up transform bus and apply stored transform
+        Transform::TransformBusRef(name) => {
+            // Look up the transform bus expression
+            let transform_expr = ctx
+                .transform_buses
+                .get(&name)
+                .cloned()
+                .ok_or_else(|| format!("Undefined transform bus: ~{}", name))?;
+
+            // The transform bus should be a transform function call
+            // Extract the transform from the expression
+            if let Expr::Call {
+                name: fn_name,
+                args,
+            } = transform_expr
+            {
+                // Match against known transform functions
+                let transform = match fn_name.as_str() {
+                    "fast" if args.len() == 1 => Transform::Fast(Box::new(args[0].clone())),
+                    "slow" if args.len() == 1 => Transform::Slow(Box::new(args[0].clone())),
+                    "squeeze" if args.len() == 1 => Transform::Squeeze(Box::new(args[0].clone())),
+                    "rev" if args.is_empty() => Transform::Rev,
+                    "palindrome" if args.is_empty() => Transform::Palindrome,
+                    "degrade" if args.is_empty() => Transform::Degrade,
+                    "degradeBy" if args.len() == 1 => {
+                        Transform::DegradeBy(Box::new(args[0].clone()))
+                    }
+                    "stutter" if args.len() == 1 => Transform::Stutter(Box::new(args[0].clone())),
+                    "shuffle" if args.len() == 1 => Transform::Shuffle(Box::new(args[0].clone())),
+                    "swing" if args.len() == 1 => Transform::Swing(Box::new(args[0].clone())),
+                    "chop" if args.len() == 1 => Transform::Chop(Box::new(args[0].clone())),
+                    "slice" if args.len() == 2 => Transform::Slice {
+                        n: Box::new(args[0].clone()),
+                        indices: Box::new(args[1].clone()),
+                    },
+                    "scramble" if args.len() == 1 => Transform::Scramble(Box::new(args[0].clone())),
+                    "iter" if args.len() == 1 => Transform::Iter(Box::new(args[0].clone())),
+                    "loopAt" if args.len() == 1 => Transform::LoopAt(Box::new(args[0].clone())),
+                    "early" if args.len() == 1 => Transform::Early(Box::new(args[0].clone())),
+                    "late" if args.len() == 1 => Transform::Late(Box::new(args[0].clone())),
+                    _ => return Err(format!("Transform bus ~{} is not a valid transform", name)),
+                };
+
+                // Recursively apply the extracted transform
+                apply_transform_to_pattern(ctx, pattern, transform)
+            } else {
+                Err(format!("Transform bus ~{} is not a transform function", name))
             }
         }
         Transform::Fast(speed_expr) => {

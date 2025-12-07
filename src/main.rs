@@ -239,12 +239,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Master gain: {gain:.1}");
             println!();
 
-            // Parse and render using the unified_graph_parser (supports $ and # syntax)
-            use phonon::unified_graph_parser::{parse_dsl, DslCompiler};
+            // Parse and compile using compositional parser (supports $ and # and new transform bus syntax)
+            use phonon::compositional_compiler::compile_program;
+            use phonon::compositional_parser::parse_program;
 
             // Parse the DSL
             let (remaining, statements) =
-                parse_dsl(&dsl_code).map_err(|e| format!("Failed to parse DSL: {:?}", e))?;
+                parse_program(&dsl_code).map_err(|e| format!("Failed to parse DSL: {:?}", e))?;
 
             // Check for parse errors (unparsed input remaining)
             if !remaining.trim().is_empty() {
@@ -270,9 +271,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 eprintln!();
             }
 
-            // Compile to graph using DslCompiler
-            let compiler = DslCompiler::new(sample_rate as f32);
-            let mut graph = compiler.compile(statements);
+            // Compile to graph using compositional compiler
+            let mut graph = compile_program(statements, sample_rate as f32, None)
+                .map_err(|e| format!("Compile error: {}", e))?;
 
             // Print auto-routing info if it happened
             if graph.has_output() && !graph.get_all_bus_names().is_empty() {
