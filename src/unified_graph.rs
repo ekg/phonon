@@ -4374,6 +4374,10 @@ pub struct UnifiedSignalGraph {
     /// Cycles per second (tempo)
     pub cps: f32,
 
+    /// Buffer size for audio processing (samples per buffer)
+    /// Default is 512, can be set via "buffer: 1024" in code
+    pub buffer_size: usize,
+
     /// Cached cycle position for current sample
     /// Updated once at start of process_sample(), then stays constant during processing
     /// This ensures all evaluations within a single sample see the same time
@@ -4514,6 +4518,7 @@ impl Clone for UnifiedSignalGraph {
             nodes_initialized: false, // Cloned graph needs initialization on first buffer
             synthesis_phase_cache: RefCell::new(HashMap::new()), // Fresh phase cache
             bus_previous_values: self.bus_previous_values.clone(), // Preserve feedback state
+            buffer_size: self.buffer_size,
         }
     }
 }
@@ -4540,6 +4545,7 @@ impl UnifiedSignalGraph {
             cycle_offset: 0.0,
             use_wall_clock: false, // Default to sample-based for offline rendering
             cps: 0.5,              // Default 0.5 cycles per second
+            buffer_size: 512,      // Default buffer size
             cached_cycle_position: 0.0,
             next_node_id: 0,
             value_cache: HashMap::new(),
@@ -4570,6 +4576,65 @@ impl UnifiedSignalGraph {
 
     pub fn get_cps(&self) -> f32 {
         self.cps
+    }
+
+    pub fn set_buffer_size(&mut self, size: usize) {
+        self.buffer_size = size.clamp(64, 16384);
+    }
+
+    pub fn get_buffer_size(&self) -> usize {
+        self.buffer_size
+    }
+
+    /// Preload all samples referenced in pattern nodes
+    /// This should be called before swapping a graph into the audio thread
+    /// to avoid disk I/O during audio processing
+    pub fn preload_samples(&self) {
+        use std::collections::HashSet;
+        let mut sample_names: HashSet<String> = HashSet::new();
+
+        // Walk through all nodes and collect sample names from Pattern<String> patterns
+        for opt_node in &self.nodes {
+            if let Some(node_rc) = opt_node {
+                match &**node_rc {
+                    SignalNode::Sample { pattern, .. } => {
+                        // Query the pattern for several cycles to capture all samples
+                        // (handles euclidean patterns, alternation, etc.)
+                        for cycle in 0..16 {
+                            let state = crate::pattern::State {
+                                span: crate::pattern::TimeSpan::new(
+                                    crate::pattern::Fraction::from_float(cycle as f64),
+                                    crate::pattern::Fraction::from_float((cycle + 1) as f64),
+                                ),
+                                controls: std::collections::HashMap::new(),
+                            };
+                            for event in pattern.query(&state) {
+                                // Skip rest markers
+                                let name = event.value.trim();
+                                if !name.is_empty() && name != "~" {
+                                    sample_names.insert(name.to_string());
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Preload all discovered samples
+        if !sample_names.is_empty() {
+            let mut bank = self.sample_bank.borrow_mut();
+            let start = std::time::Instant::now();
+            for name in &sample_names {
+                let _ = bank.get_sample(name);
+            }
+            eprintln!(
+                "🎵 Preloaded {} samples in {:.1}ms",
+                sample_names.len(),
+                start.elapsed().as_secs_f64() * 1000.0
+            );
+        }
     }
 
     /// Get reference to buffer cache enabled flag (for testing)

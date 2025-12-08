@@ -128,7 +128,10 @@ impl ModalEditor {
     pub fn new(
         _duration: f32, // Deprecated parameter, kept for API compatibility
         file_path: Option<PathBuf>,
+        buffer_size: Option<usize>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
+        // Buffer size from CLI arg, clamped to valid range (default 512)
+        let synthesis_buffer_size = buffer_size.unwrap_or(512).clamp(64, 16384);
         // Suppress ALSA error messages that would break the TUI
         // ALSA lib prints directly to stderr from C code, which we can't intercept in Rust
         // Redirect stderr to log file to prevent TUI corruption
@@ -163,7 +166,7 @@ impl ModalEditor {
         // Use default buffer size (ring buffer handles buffering)
         let config: cpal::StreamConfig = default_config.into();
 
-        eprintln!("🎵 Audio: {} Hz, {} channels", sample_rate as u32, channels);
+        eprintln!("🎵 Audio: {} Hz, {} channels, buffer: {} samples", sample_rate as u32, channels, synthesis_buffer_size);
         eprintln!("🔧 Using ring buffer architecture for parallel synthesis");
 
         // Graph for background synthesis thread (lock-free swap)
@@ -181,9 +184,9 @@ impl ModalEditor {
         let should_clear_ring = Arc::new(AtomicBool::new(false));
 
         // Ring buffer: background synth writes, audio callback reads
-        // Size: ~100ms = responsive live coding (Tidal-like instant transitions)
-        // Smaller buffer = faster response to C-x evaluations
-        let ring_buffer_size = ((sample_rate as usize) / 10).max(4096);
+        // Size: ~200ms - balance between latency and cushion for variation
+        // With sample preloading, we don't need a huge buffer for initialization spikes
+        let ring_buffer_size = (sample_rate as usize / 5).max(4410); // ~200ms
         let ring = HeapRb::<f32>::new(ring_buffer_size);
         let (mut ring_producer, mut ring_consumer) = ring.split();
 
@@ -192,7 +195,8 @@ impl ModalEditor {
         let synth_time_us_clone = Arc::clone(&synth_time_us);
         let ring_fill_clone = Arc::clone(&ring_fill_percent);
         thread::spawn(move || {
-            let mut buffer = [0.0f32; 512]; // Render in chunks of 512 samples
+            // Render in chunks of synthesis_buffer_size samples
+            let mut buffer = vec![0.0f32; synthesis_buffer_size];
             let mut iterations = 0u64;
             let mut renders = 0u64;
             let mut sleeps = 0u64;
@@ -635,6 +639,10 @@ impl ModalEditor {
                 );
             }
         }
+
+        // CRITICAL: Preload all samples BEFORE swapping graph into audio thread
+        // This prevents disk I/O during audio processing (which causes underruns)
+        new_graph.preload_samples();
 
         // Hot-swap the graph atomically using lock-free ArcSwap
         // Background synthesis thread will pick up new graph on next render

@@ -117,6 +117,10 @@ enum Commands {
         /// Duration for each render (default: 4.0)
         #[arg(short, long, default_value = "4.0")]
         duration: f32,
+
+        /// Audio buffer size in samples (default: 512, range: 64-16384)
+        #[arg(short, long)]
+        buffer_size: Option<usize>,
     },
 
     /// Run tests on DSL files
@@ -2023,10 +2027,10 @@ out sine(440) * 0.2
             repl.run()?;
         }
 
-        Commands::Edit { file, duration } => {
+        Commands::Edit { file, duration, buffer_size } => {
             use phonon::modal_editor::ModalEditor;
 
-            let mut editor = ModalEditor::new(duration, file.clone())?;
+            let mut editor = ModalEditor::new(duration, file.clone(), buffer_size)?;
             editor.run()?;
         }
 

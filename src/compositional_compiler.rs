@@ -418,11 +418,16 @@ const PATTERN_TRANSFORM_NAMES: &[&str] = &[
 ];
 
 /// Check if an expression is a pure pattern transform (no signal source)
-/// e.g., `fast 2` or `rev` - these need a pattern to operate on
+/// e.g., `fast 2` or `rev $ fast 2` - these need a pattern to operate on
+/// Returns false for transforms applied to sources like `s "bd sn" $ fast 2`
 fn is_pure_transform(expr: &Expr) -> bool {
     match expr {
         Expr::Call { name, args: _ } => PATTERN_TRANSFORM_NAMES.contains(&name.as_str()),
-        Expr::Transform { .. } => true,
+        Expr::Transform { expr: inner, .. } => {
+            // Recursively check the base of the transform chain
+            // Only pure if the base is also a pure transform
+            is_pure_transform(inner)
+        }
         _ => false,
     }
 }
@@ -576,6 +581,12 @@ pub fn compile_statement(ctx: &mut CompilerContext, statement: Statement) -> Res
             let cps = bpm / (beats_per_bar * 60.0);
 
             ctx.set_cps(cps);
+            Ok(())
+        }
+        Statement::BufferSize(size) => {
+            // buffer: value sets buffer size in samples (64-16384)
+            // Example: buffer: 1024 → 1024 samples per buffer
+            ctx.graph.set_buffer_size(size);
             Ok(())
         }
         Statement::OutputMixMode(mode_str) => {
@@ -8375,6 +8386,30 @@ fn apply_transform_to_pattern<T: Clone + Send + Sync + Debug + 'static>(
                     Err(e) => panic!("Transform error in juxBy: {}", e),
                 }
             }))
+        }
+
+        Transform::Off { time, transform } => {
+            // off time transform: layer original with delayed, transformed copy
+            // Result: original + (late time . transform) applied to original
+            let time_val = extract_number(&time)?;
+            let inner_transform = (*transform).clone();
+            let templates_clone = ctx.templates.clone();
+
+            // Create the transformed, delayed copy
+            let original = pattern.clone();
+            let transformed_delayed = {
+                // First apply the transform
+                let transformed = apply_transform_to_pattern_simple(
+                    &templates_clone,
+                    original.clone(),
+                    inner_transform,
+                )?;
+                // Then delay it
+                transformed.late(Pattern::pure(time_val))
+            };
+
+            // Layer original with transformed/delayed copy using stack
+            Ok(Pattern::stack(vec![original, transformed_delayed]))
         }
 
         Transform::Compose(transforms) => {
