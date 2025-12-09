@@ -327,6 +327,144 @@ mod tests {
         harness.type_text("hello").assert_line("hello");
     }
 
+    /// Simulate 30 seconds of realtime audio with d.ph to measure underruns
+    #[test]
+    fn test_d_ph_realtime_simulation() {
+        use std::time::{Duration, Instant};
+        use crate::compositional_compiler::compile_program;
+        use crate::compositional_parser::parse_program;
+        use std::cell::RefCell;
+
+        // Load d.ph content
+        let d_ph_content = std::fs::read_to_string("d.ph").expect("Failed to read d.ph");
+
+        // Parse and compile directly (like modal editor does)
+        let (_, statements) = parse_program(&d_ph_content).expect("Failed to parse d.ph");
+        let mut graph = compile_program(statements, 44100.0, None).expect("Failed to compile d.ph");
+
+        // Enable wall-clock timing (like modal editor does)
+        graph.enable_wall_clock_timing();
+
+        // Preload samples (like modal editor does)
+        graph.preload_samples();
+
+        // Wrap in RefCell to simulate modal editor's GraphCell
+        let graph_cell = RefCell::new(graph);
+
+        // Simulate 30 seconds of realtime audio
+        // At 44100 Hz with 512-sample buffers, that's ~86 buffers/second
+        // For 30 seconds: 30 * 86 = 2580 buffers
+        let duration_secs = 30.0;
+        let buffers_per_second = 44100.0 / 512.0; // ~86.13
+        let total_buffers = (duration_secs * buffers_per_second) as usize;
+        let buffer_duration = Duration::from_secs_f64(512.0 / 44100.0); // ~11.6ms
+
+        println!("\n=== d.ph Realtime Simulation ({}s) ===", duration_secs);
+        println!("Total buffers to process: {}", total_buffers);
+        println!("Budget per buffer: {:?}", buffer_duration);
+
+        let start = Instant::now();
+        let mut buffer = [0.0f32; 512];
+        let mut processed = 0;
+        let mut underruns = 0;
+        let mut max_time_us = 0u128;
+        let mut total_time_us = 0u128;
+        let mut times_us: Vec<u128> = Vec::with_capacity(total_buffers);
+
+        // Process buffers at realtime pace
+        for i in 0..total_buffers {
+            let expected_time = Duration::from_secs_f64(i as f64 / buffers_per_second);
+
+            // Wait until we're at the right time (simulating realtime)
+            while start.elapsed() < expected_time {
+                std::thread::sleep(Duration::from_micros(100));
+            }
+
+            let chunk_start = Instant::now();
+
+            match graph_cell.try_borrow_mut() {
+                Ok(mut graph) => {
+                    graph.process_buffer(&mut buffer);
+                    processed += 1;
+                }
+                Err(_) => {
+                    underruns += 1;
+                    continue;
+                }
+            }
+
+            let chunk_time = chunk_start.elapsed();
+            let chunk_us = chunk_time.as_micros();
+            times_us.push(chunk_us);
+            total_time_us += chunk_us;
+
+            if chunk_us > max_time_us {
+                max_time_us = chunk_us;
+            }
+
+            // Check if we exceeded budget (underrun)
+            if chunk_time > buffer_duration {
+                underruns += 1;
+                if underruns <= 10 {
+                    let voice_count = graph_cell
+                        .try_borrow()
+                        .map(|g| g.active_voice_count())
+                        .unwrap_or(0);
+                    println!(
+                        "  ⚠️  Underrun #{}: buffer {} took {:?} ({}% budget) | voices: {}",
+                        underruns,
+                        i,
+                        chunk_time,
+                        chunk_us * 100 / 11610,
+                        voice_count
+                    );
+                }
+            }
+
+            // Progress update every 5 seconds
+            if i > 0 && i % (5 * 86) == 0 {
+                println!(
+                    "  Progress: {:.0}s - {} underruns so far",
+                    i as f64 / buffers_per_second,
+                    underruns
+                );
+            }
+        }
+
+        let total_elapsed = start.elapsed();
+
+        // Calculate statistics
+        times_us.sort();
+        let min_us = times_us.first().copied().unwrap_or(0);
+        let median_us = times_us.get(times_us.len() / 2).copied().unwrap_or(0);
+        let p95_us = times_us
+            .get((times_us.len() as f64 * 0.95) as usize)
+            .copied()
+            .unwrap_or(0);
+        let avg_us = if processed > 0 {
+            total_time_us / processed as u128
+        } else {
+            0
+        };
+
+        println!("\n=== Results ===");
+        println!("Duration: {:?}", total_elapsed);
+        println!("Buffers processed: {}/{}", processed, total_buffers);
+        println!("Underruns: {} ({:.1}%)", underruns, underruns as f64 * 100.0 / total_buffers as f64);
+        println!("\nTiming (budget: 11610 µs):");
+        println!("  Min:    {} µs ({:.1}%)", min_us, min_us as f64 * 100.0 / 11610.0);
+        println!("  Avg:    {} µs ({:.1}%)", avg_us, avg_us as f64 * 100.0 / 11610.0);
+        println!("  Median: {} µs ({:.1}%)", median_us, median_us as f64 * 100.0 / 11610.0);
+        println!("  P95:    {} µs ({:.1}%)", p95_us, p95_us as f64 * 100.0 / 11610.0);
+        println!("  Max:    {} µs ({:.1}%)", max_time_us, max_time_us as f64 * 100.0 / 11610.0);
+
+        if underruns > 0 {
+            println!("\n❌ FAILED: {} underruns detected!", underruns);
+        } else {
+            println!("\n✅ PASSED: No underruns!");
+        }
+    }
+
     #[test]
     fn test_harness_multiline() {
         let mut harness = EditorTestHarness::new().unwrap();

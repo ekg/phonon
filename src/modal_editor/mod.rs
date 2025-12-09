@@ -207,9 +207,16 @@ impl ModalEditor {
 
                 // Log stats every second to diagnose blocking
                 if last_log.elapsed().as_secs() >= 1 {
+                    // Calculate required renders for realtime: ~86 buffers/second (44100 / 512)
+                    let required_renders = 86;
+                    let status = if renders >= required_renders {
+                        "✅"
+                    } else {
+                        "❌ UNDERRUN RISK"
+                    };
                     eprintln!(
-                        "🔧 Synth thread: {} iters/s, {} renders/s, {} sleeps/s",
-                        iterations, renders, sleeps
+                        "🔧 Synth: {} renders/s (need {}) {} | {} iters, {} sleeps",
+                        renders, required_renders, status, iterations, sleeps
                     );
                     iterations = 0;
                     renders = 0;
@@ -240,6 +247,22 @@ impl ModalEditor {
 
                                 let elapsed_us = start.elapsed().as_micros() as usize;
                                 synth_time_us_clone.store(elapsed_us, Ordering::Relaxed);
+
+                                // DEBUG: Track peak synthesis times
+                                static MAX_SYNTH_US: std::sync::atomic::AtomicUsize =
+                                    std::sync::atomic::AtomicUsize::new(0);
+                                let prev_max = MAX_SYNTH_US.fetch_max(elapsed_us, Ordering::Relaxed);
+                                if elapsed_us > prev_max && elapsed_us > 11610 {
+                                    // Log when we exceed budget for first time at this level
+                                    let voice_count = graph.active_voice_count();
+                                    eprintln!(
+                                        "🔥 NEW PEAK: {} us ({:.1}ms) - {}% budget | voices: {}",
+                                        elapsed_us,
+                                        elapsed_us as f64 / 1000.0,
+                                        elapsed_us * 100 / 11610,
+                                        voice_count
+                                    );
+                                }
 
                                 // Write to ring buffer
                                 let written = ring_producer.push_slice(&buffer);
@@ -351,6 +374,11 @@ impl ModalEditor {
                 )
             }
             cpal::SampleFormat::I16 => {
+                // Pre-allocate conversion buffer OUTSIDE the callback to avoid
+                // allocation in the realtime audio thread (critical for performance!)
+                // Initial size 4096 handles most buffer sizes; resizes are rare and amortized
+                let mut conversion_buffer: Vec<f32> = vec![0.0; 4096];
+
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
@@ -364,21 +392,34 @@ impl ModalEditor {
 
                         let available = ring_consumer.occupied_len();
 
+                        // Ensure conversion buffer is large enough (rare resize, amortized)
+                        if conversion_buffer.len() < data.len() {
+                            conversion_buffer.resize(data.len(), 0.0);
+                        }
+
                         if available >= data.len() {
                             // Read from ring buffer and convert to i16
-                            let mut temp = vec![0.0f32; data.len()];
-                            ring_consumer.pop_slice(&mut temp);
+                            // Use pre-allocated buffer slice - NO ALLOCATION!
+                            let temp = &mut conversion_buffer[..data.len()];
+                            ring_consumer.pop_slice(temp);
                             for (dst, src) in data.iter_mut().zip(temp.iter()) {
                                 *dst = (*src * 32767.0) as i16;
                             }
                         } else {
-                            // Underrun
-                            let mut temp = vec![0.0f32; available];
-                            ring_consumer.pop_slice(&mut temp);
-                            for (i, dst) in data.iter_mut().enumerate() {
-                                if i < temp.len() {
-                                    *dst = (temp[i] * 32767.0) as i16;
-                                } else {
+                            // Underrun - read what's available
+                            if available > 0 {
+                                let temp = &mut conversion_buffer[..available];
+                                ring_consumer.pop_slice(temp);
+                                for (i, dst) in data.iter_mut().enumerate() {
+                                    if i < available {
+                                        *dst = (temp[i] * 32767.0) as i16;
+                                    } else {
+                                        *dst = 0;
+                                    }
+                                }
+                            } else {
+                                // No samples at all, fill with silence
+                                for dst in data.iter_mut() {
                                     *dst = 0;
                                 }
                             }
