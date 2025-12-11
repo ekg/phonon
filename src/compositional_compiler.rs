@@ -728,6 +728,13 @@ fn compile_expr(ctx: &mut CompilerContext, expr: Expr) -> Result<NodeId, String>
                 return ctx.compile_effect_bus(&name);
             }
 
+            // Check if this is a modifier bus (~name # expr)
+            // Modifier buses store expressions that should be compiled when referenced
+            if let Some(modifier_expr) = ctx.modifier_buses.get(&name).cloned() {
+                // Compile the stored expression
+                return compile_expr(ctx, modifier_expr);
+            }
+
             // Otherwise, look up normal bus reference
             ctx.buses
                 .get(&name)
