@@ -184,6 +184,49 @@ fn test_signal_mul_scales_amplitude() {
 }
 
 // ============================================================================
+// Modifier Bus Tests - Signal operators with # buses
+// ============================================================================
+
+#[test]
+fn test_signal_mul_with_modifier_bus() {
+    // Test that ~* works with modifier buses (# syntax)
+    let code = r#"
+~amp # 0.5
+out $ sine 440 ~* ~amp
+"#;
+    let output = render_code(code, 4410);
+    let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
+    println!("sine 440 ~* ~amp (0.5): RMS = {:.6}", rms);
+    assert!(rms > 0.1, "Signal multiply with modifier bus should produce output, got RMS={}", rms);
+}
+
+#[test]
+fn test_signal_add_with_modifier_bus() {
+    // Test that ~+ works with modifier buses
+    let code = r#"
+~offset # 0.5
+out $ sine 440 ~+ ~offset
+"#;
+    let output = render_code(code, 4410);
+    let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
+    println!("sine 440 ~+ ~offset (0.5): RMS = {:.6}", rms);
+    assert!(rms > 0.1, "Signal add with modifier bus should produce output, got RMS={}", rms);
+}
+
+#[test]
+fn test_signal_mul_with_pattern_modifier_bus() {
+    // Test that ~* works with pattern modifier buses
+    let code = r#"
+~amp # "1 0.5 0.25"
+out $ sine 440 ~* ~amp
+"#;
+    let output = render_code(code, 44100); // 1 second
+    let rms: f32 = (output.iter().map(|s| s * s).sum::<f32>() / output.len() as f32).sqrt();
+    println!("sine 440 ~* ~amp (pattern): RMS = {:.6}", rms);
+    assert!(rms > 0.1, "Signal multiply with pattern modifier bus should produce output, got RMS={}", rms);
+}
+
+// ============================================================================
 // Reserved Name Tests
 // ============================================================================
 
