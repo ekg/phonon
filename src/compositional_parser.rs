@@ -74,6 +74,8 @@ pub enum Statement {
     SetCycle(f64),
     /// Nudge timing by small amount (positive = later, negative = earlier)
     Nudge(f64),
+    /// Buffer size for audio processing: buffer: 1024
+    BufferSize(usize),
 }
 
 /// Expression - the core of the language
@@ -366,6 +368,12 @@ pub enum Transform {
         amount: Box<Expr>,
         transform: Box<Transform>,
     },
+    /// off time transform: layer pattern with delayed, transformed copy
+    /// Example: off (1/8) (# crush 8) layers original with crushed version offset by 1/8
+    Off {
+        time: Box<Expr>,
+        transform: Box<Transform>,
+    },
     /// effect chain: apply effect chain within transform
     /// Example: every 4 (# lpf 300) becomes Every { n: 4, transform: Effect(lpf_expr) }
     /// Enables conditional application of effects
@@ -589,6 +597,7 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
         parse_output_or_channel, // Try output (combines channel + single)
         parse_bpm,               // Try BPM before tempo (bpm: vs tempo:)
         parse_tempo,
+        parse_buffer_size,       // Buffer size configuration
         parse_outmix, // Output mixing mode
     ))(input)
 }
@@ -766,6 +775,19 @@ fn parse_tempo(input: &str) -> IResult<&str, Statement> {
     let (input, value) = parse_number(input)?;
 
     Ok((input, Statement::Tempo(value)))
+}
+
+/// Parse buffer size: buffer: 1024 (in samples)
+fn parse_buffer_size(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = tag("buffer")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(':')(input)?;
+    let (input, _) = space0(input)?;
+    let (input, value) = parse_number(input)?;
+
+    // Convert to usize, clamping to valid range (64-16384)
+    let size = (value as usize).clamp(64, 16384);
+    Ok((input, Statement::BufferSize(size)))
 }
 
 /// Parse time signature like "4/4"
@@ -1459,11 +1481,30 @@ fn parse_bus_call_arg(input: &str) -> IResult<&str, Expr> {
     ))(input)
 }
 
-/// Parse bus reference: ~name
+/// Parse bus reference: ~name or ~name:modifier:modifier
+/// Extended format supports scale locking: ~midi:c:major
 fn parse_bus_ref_expr(input: &str) -> IResult<&str, Expr> {
     let (input, _) = char('~')(input)?;
     let (input, name) = parse_identifier(input)?;
-    Ok((input, Expr::BusRef(name.to_string())))
+
+    // Check for extended bus syntax with colons (e.g., ~midi:c:major)
+    let (input, extensions) = many0(preceded(
+        char(':'),
+        parse_identifier,
+    ))(input)?;
+
+    let full_name = if extensions.is_empty() {
+        name.to_string()
+    } else {
+        let mut full = name.to_string();
+        for ext in extensions {
+            full.push(':');
+            full.push_str(ext);
+        }
+        full
+    };
+
+    Ok((input, Expr::BusRef(full_name)))
 }
 
 /// Parse template reference: @name
@@ -1698,6 +1739,18 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
             preceded(terminated(tag("jux"), space1), parse_transform),
             |transform| Transform::Jux(Box::new(transform)),
         ),
+        // off time transform - layer with delayed, transformed copy
+        map(
+            tuple((
+                terminated(tag("off"), space1),
+                terminated(parse_primary_expr, space1),
+                parse_transform,
+            )),
+            |(_, time, transform)| Transform::Off {
+                time: Box::new(time),
+                transform: Box::new(transform),
+            },
+        ),
         // fast n
         map(
             preceded(terminated(tag("fast"), space1), parse_primary_expr),
@@ -1708,8 +1761,8 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
             preceded(terminated(tag("slow"), space1), parse_primary_expr),
             |expr| Transform::Slow(Box::new(expr)),
         ),
-        // rev
-        value(Transform::Rev, tag("rev")),
+        // rev (must use keyword() to avoid matching "reverb")
+        value(Transform::Rev, keyword("rev")),
         // degradeBy p (MUST come before degrade!)
         map(
             preceded(terminated(tag("degradeBy"), space1), parse_primary_expr),
@@ -1720,15 +1773,15 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
             preceded(terminated(tag("degradeSeed"), space1), parse_primary_expr),
             |expr| Transform::DegradeSeed(Box::new(expr)),
         ),
-        // degrade
-        value(Transform::Degrade, tag("degrade")),
+        // degrade (use keyword() for word boundary)
+        value(Transform::Degrade, keyword("degrade")),
         // stutter n
         map(
             preceded(terminated(tag("stutter"), space1), parse_primary_expr),
             |expr| Transform::Stutter(Box::new(expr)),
         ),
-        // palindrome
-        value(Transform::Palindrome, tag("palindrome")),
+        // palindrome (use keyword() for word boundary)
+        value(Transform::Palindrome, keyword("palindrome")),
         // shuffle amount
         map(
             preceded(terminated(tag("shuffle"), space1), parse_primary_expr),
@@ -1755,7 +1808,7 @@ fn parse_transform_group_1(input: &str) -> IResult<&str, Transform> {
             |expr| Transform::Staccato(Box::new(expr)),
         ),
         // stretch (legato 1.0)
-        value(Transform::Stretch, tag("stretch")),
+        value(Transform::Stretch, keyword("stretch")),
         parse_transform_group_1b,
     ))(input)
 }
@@ -1945,7 +1998,7 @@ fn parse_transform_group_2(input: &str) -> IResult<&str, Transform> {
             |expr| Transform::Spin(Box::new(expr)),
         ),
         // mirror
-        value(Transform::Mirror, tag("mirror")),
+        value(Transform::Mirror, keyword("mirror")),
         // gap n
         map(
             preceded(terminated(tag("gap"), space1), parse_primary_expr),
@@ -1972,7 +2025,7 @@ fn parse_transform_group_2(input: &str) -> IResult<&str, Transform> {
             |expr| Transform::Fit(Box::new(expr)),
         ),
         // stretch
-        value(Transform::Stretch, tag("stretch")),
+        value(Transform::Stretch, keyword("stretch")),
         // rotL n
         map(
             preceded(terminated(tag("rotL"), space1), parse_primary_expr),
@@ -2062,7 +2115,7 @@ fn parse_transform_group_3(input: &str) -> IResult<&str, Transform> {
             |expr| Transform::Reset(Box::new(expr)),
         ),
         // loopback
-        value(Transform::Loopback, tag("loopback")),
+        value(Transform::Loopback, keyword("loopback")),
         // binary n
         map(
             preceded(terminated(tag("binary"), space1), parse_primary_expr),
@@ -2252,7 +2305,7 @@ fn parse_transform_group_4(input: &str) -> IResult<&str, Transform> {
             |expr| Transform::Weave(Box::new(expr)),
         ),
         // undegrade
-        value(Transform::Undegrade, tag("undegrade")),
+        value(Transform::Undegrade, keyword("undegrade")),
         // accelerate rate
         map(
             preceded(terminated(tag("accelerate"), space1), parse_primary_expr),
@@ -2349,6 +2402,24 @@ fn space1(input: &str) -> IResult<&str, &str> {
 /// Used for function call arguments to prevent consuming next statement
 fn hspace1(input: &str) -> IResult<&str, &str> {
     take_while1(|c: char| c == ' ' || c == '\t')(input)
+}
+
+/// Match a keyword followed by a word boundary (not followed by alphanumeric)
+/// This prevents "rev" from matching the prefix of "reverb"
+fn keyword(kw: &'static str) -> impl Fn(&str) -> IResult<&str, &str> {
+    move |input: &str| {
+        let (rest, matched) = tag(kw)(input)?;
+        // Peek at next char - must not be alphanumeric or underscore (word boundary)
+        if let Some(c) = rest.chars().next() {
+            if c.is_alphanumeric() || c == '_' {
+                return Err(nom::Err::Error(nom::error::Error::new(
+                    input,
+                    nom::error::ErrorKind::Tag,
+                )));
+            }
+        }
+        Ok((rest, matched))
+    }
 }
 
 /// Parse a comment: -- followed by anything until end of line

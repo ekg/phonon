@@ -5,7 +5,7 @@
 //! Uses block-based buffer passing for efficient DAW-style processing.
 
 use crate::compositional_parser::{BinOp, BusType, Expr, Statement, Transform, UnOp};
-use crate::midi_input::MidiEventQueue;
+use crate::midi_input::{ArpPattern, Arpeggiator, MidiEventQueue, Scale, parse_root_note};
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::Pattern;
 use crate::superdirt_synths::SynthLibrary;
@@ -2751,6 +2751,10 @@ fn compile_function_call(
         "square_trig" => compile_synth_pattern(ctx, Waveform::Square, args),
         "tri_trig" => compile_synth_pattern(ctx, Waveform::Triangle, args),
 
+        // ========== MIDI-triggered synths ==========
+        "synth" => compile_midi_synth(ctx, args),
+        "midiSynth" | "midi_synth" => compile_midi_synth(ctx, args),
+
         // ========== SuperDirt Synths ==========
         "superkick" => compile_superkick(ctx, args),
         "supersaw" => compile_supersaw(ctx, args),
@@ -3270,16 +3274,37 @@ fn compile_sew(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, Str
 ///   sine 440           - positional
 ///   sine :freq 440     - keyword
 ///   sine 440 +0.5      - with semitone offset
+///
+/// Special case: When frequency argument is ~midi, creates a MidiPolySynth
+/// that handles polyphonic MIDI note triggering with proper voice allocation.
+
+/// Check if an expression references the ~midi bus
+fn is_midi_bus_ref(expr: &Expr) -> bool {
+    match expr {
+        Expr::BusRef(name) => name == "midi" || name.starts_with("midi"),
+        _ => false,
+    }
+}
+
 fn compile_oscillator(
     ctx: &mut CompilerContext,
     waveform: Waveform,
     args: Vec<Expr>,
 ) -> Result<NodeId, String> {
+    use crate::unified_graph::MidiPolyVoice;
+
     // Use ParamExtractor for keyword argument support
     let extractor = ParamExtractor::new(args);
 
     // Required parameter: frequency
     let freq_expr = extractor.get_required(0, "freq")?;
+
+    // Check if this is a MIDI-controlled oscillator
+    if is_midi_bus_ref(&freq_expr) {
+        // Create a MidiPolySynth that wraps this oscillator
+        return compile_midi_poly_synth(ctx, waveform, &freq_expr);
+    }
+
     let freq_node = compile_expr(ctx, freq_expr)?;
 
     // Optional parameter: semitone offset (default 0.0)
@@ -3313,6 +3338,105 @@ fn compile_oscillator(
         last_sample: RefCell::new(0.0),
     };
     Ok(ctx.graph.add_node(node))
+}
+
+/// Compile a MIDI-controlled polyphonic synthesizer
+/// Creates per-voice oscillators with ASR envelope that respond to MIDI note-on/off
+/// Voices grow as needed (no stealing), release naturally when notes are released
+///
+/// Supports scale locking and arpeggiator syntax:
+/// - ~midi:c:major - scale lock to C major
+/// - ~midi:arp:up:4 - arpeggiator up pattern, 1/4 notes
+/// - ~midi:c:major:arp:up:4 - both scale lock and arpeggiator
+///
+/// Format: ~midi[channel][:root:scale][:arp:pattern:division]
+fn compile_midi_poly_synth(
+    ctx: &mut CompilerContext,
+    waveform: Waveform,
+    midi_expr: &Expr,
+) -> Result<NodeId, String> {
+    // Get MIDI event queue
+    let event_queue = ctx
+        .midi_event_queue
+        .clone()
+        .ok_or("MIDI input not available - no MIDI device connected")?;
+
+    // Parse bus name for channel, scale, and arpeggiator info
+    let (channel, scale_root, scale_type, arpeggiator) = if let Expr::BusRef(name) = midi_expr {
+        let parts: Vec<&str> = name.split(':').collect();
+        let base = parts[0];
+
+        // Parse channel from base (midi, midi1, midi2, etc.)
+        let channel = if base == "midi" {
+            None // All channels
+        } else if let Some(suffix) = base.strip_prefix("midi") {
+            suffix.parse::<u8>().ok().map(|ch| ch.saturating_sub(1)) // ~midi1 = channel 0
+        } else {
+            None
+        };
+
+        let mut scale_root = None;
+        let mut scale_type = None;
+        let mut arpeggiator = None;
+
+        // Parse remaining parts for scale and arp info
+        let mut i = 1;
+        while i < parts.len() {
+            if parts[i] == "arp" && i + 2 < parts.len() {
+                // Parse arp pattern and division: arp:up:4
+                let pattern = match parts[i + 1] {
+                    "up" => ArpPattern::Up,
+                    "down" => ArpPattern::Down,
+                    "updown" => ArpPattern::UpDown,
+                    "downup" => ArpPattern::DownUp,
+                    "random" => ArpPattern::Random,
+                    "played" => ArpPattern::AsPlayed,
+                    _ => ArpPattern::Up, // Default
+                };
+                let division = parts[i + 2].parse::<u8>().unwrap_or(4);
+                let mut arp = Arpeggiator::new(pattern, division);
+                // Set tempo - use graph's cps (default 2.0 = 120 BPM)
+                let bpm = ctx.graph.cps * 60.0;
+                arp.set_tempo(bpm, ctx.graph.sample_rate());
+                arpeggiator = Some(arp);
+                i += 3;
+            } else if i + 1 < parts.len() {
+                // Try to parse as scale: root:scale
+                if let Some(root) = parse_root_note(parts[i]) {
+                    if let Some(scale) = Scale::from_str(parts[i + 1]) {
+                        scale_root = Some(root);
+                        scale_type = Some(scale);
+                        i += 2;
+                        continue;
+                    }
+                }
+                i += 1;
+            } else {
+                i += 1;
+            }
+        }
+
+        (channel, scale_root, scale_type, arpeggiator)
+    } else {
+        (None, None, None, None)
+    };
+
+    // Create the MidiPolySynth node with per-voice oscillators computed inline
+    // Default envelope: fast attack (10ms), medium release (300ms)
+    let poly_synth_node = ctx.graph.add_node(SignalNode::MidiPolySynth {
+        waveform,
+        attack: 0.01,   // 10ms attack
+        release: 0.3,   // 300ms release
+        voices: RefCell::new(Vec::new()),
+        event_queue,
+        note_to_voice: RefCell::new(HashMap::new()),
+        channel,
+        scale_root,
+        scale_type,
+        arpeggiator: RefCell::new(arpeggiator),
+    });
+
+    Ok(poly_synth_node)
 }
 
 /// Compile FM oscillator
@@ -4421,6 +4545,72 @@ fn compile_synth_pattern(
         filter_env_amount: 0.0,     // No envelope modulation by default
         gain: Signal::Value(1.0),
         pan: Signal::Value(0.0),
+    };
+
+    Ok(ctx.graph.add_node(node))
+}
+
+/// Compile MIDI-triggered synth node
+/// Syntax: synth "saw" or synth "sine"
+/// Creates a polyphonic synthesizer that responds to MIDI note events
+fn compile_midi_synth(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+
+    if args.is_empty() {
+        return Err("synth requires waveform argument (\"saw\", \"sine\", \"square\", \"tri\")".to_string());
+    }
+
+    // First argument should be waveform string
+    let waveform_str = match &args[0] {
+        Expr::String(s) => s.clone(),
+        Expr::Var(s) => s.clone(),
+        Expr::Call { name, args: _ } => name.clone(), // Handle `synth saw` as bare identifier
+        _ => {
+            return Err(
+                "synth requires waveform as first argument (\"saw\", \"sine\", \"square\", \"tri\")"
+                    .to_string(),
+            )
+        }
+    };
+
+    let waveform = match waveform_str.as_str() {
+        "saw" => Waveform::Saw,
+        "sine" => Waveform::Sine,
+        "square" => Waveform::Square,
+        "tri" | "triangle" => Waveform::Triangle,
+        _ => {
+            return Err(format!(
+                "Unknown waveform '{}'. Use: saw, sine, square, tri",
+                waveform_str
+            ))
+        }
+    };
+
+    // Get MIDI event queue
+    let event_queue = ctx
+        .midi_event_queue
+        .clone()
+        .ok_or("MIDI input not available - no MIDI device connected")?;
+
+    // Default ADSR for piano-like sound
+    let attack = 0.01;
+    let decay = 0.1;
+    let sustain = 0.7;
+    let release = 0.3;
+
+    let node = SignalNode::MidiSynth {
+        waveform,
+        attack,
+        decay,
+        sustain,
+        release,
+        filter_cutoff: 20000.0, // No filter by default
+        filter_resonance: 0.0,
+        channel: None, // All MIDI channels
+        event_queue,
+        note_to_voice: RefCell::new(HashMap::new()),
+        gain: Signal::Value(1.0),
     };
 
     Ok(ctx.graph.add_node(node))
@@ -6271,7 +6461,24 @@ fn compile_adsr(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, St
 
                 Ok(ctx.graph.add_node(new_sample))
             } else {
-                Err("adsr modifier can only be used with sample (s) patterns".to_string())
+                // For non-sample signals (oscillators etc), create ADSR envelope and multiply
+                use crate::unified_graph::ADSRState;
+
+                let adsr_node = SignalNode::ADSR {
+                    attack: Signal::Node(attack_node),
+                    decay: Signal::Node(decay_node),
+                    sustain: Signal::Node(sustain_node),
+                    release: Signal::Node(release_node),
+                    state: ADSRState::default(),
+                };
+                let adsr_id = ctx.graph.add_node(adsr_node);
+
+                // Multiply input signal by ADSR envelope
+                let mult_node = SignalNode::Multiply {
+                    a: Signal::Node(sample_node_id),
+                    b: Signal::Node(adsr_id),
+                };
+                Ok(ctx.graph.add_node(mult_node))
             }
         } else {
             Err("adsr modifier requires input from chain operator (#)".to_string())

@@ -391,6 +391,7 @@
 //! - [`SampleBank`] - Sample loading from dirt-samples
 //! - [`mini_notation_v3`] - Pattern parsing and querying
 
+use crate::midi_input::{ArpPattern, Arpeggiator, Scale, scale_lock};
 use crate::mini_notation_v3::parse_mini_notation;
 use crate::pattern::{Fraction, Pattern, State, TimeSpan};
 use crate::sample_loader::SampleBank;
@@ -954,6 +955,62 @@ pub enum SignalNode {
         filter_env_amount: f32,  // Filter envelope modulation amount in Hz
         gain: Signal,
         pan: Signal,
+    },
+
+    /// MIDI-triggered polyphonic synthesizer
+    /// Each MIDI note-on triggers a new synth voice with ADSR envelope
+    /// Note-off releases the voice's envelope
+    MidiSynth {
+        waveform: Waveform,
+        attack: f32,
+        decay: f32,
+        sustain: f32,
+        release: f32,
+        filter_cutoff: f32,
+        filter_resonance: f32,
+        channel: Option<u8>,  // None = all channels
+        event_queue: crate::midi_input::MidiEventQueue,
+        /// Maps MIDI note number to voice index for proper release
+        note_to_voice: RefCell<HashMap<u8, usize>>,
+        gain: Signal,
+    },
+
+    /// MIDI Voice Frequency - reads from per-voice frequency context
+    /// Used within MidiPolySynth signal templates to get the current voice's pitch
+    /// Returns 0.0 if called outside of voice context
+    MidiVoiceFreq,
+
+    /// MIDI Voice Gate - reads from per-voice gate context
+    /// Returns 1.0 when note is held, 0.0 when released
+    /// Used to drive envelope generators within MidiPolySynth signal templates
+    MidiVoiceGate,
+
+    /// Composable polyphonic MIDI synthesizer
+    /// Each voice has its own oscillator phase and envelope state
+    /// Voices grow as needed (no stealing) and release naturally
+    ///
+    /// Example: `saw ~midi` creates per-voice saw oscillators with ASR envelope
+    MidiPolySynth {
+        /// Waveform type for per-voice oscillators
+        waveform: Waveform,
+        /// Attack time in seconds
+        attack: f32,
+        /// Release time in seconds
+        release: f32,
+        /// Per-voice state including note, frequency, phase, envelope
+        voices: RefCell<Vec<MidiPolyVoice>>,
+        /// Shared event queue from MIDI input handler
+        event_queue: crate::midi_input::MidiEventQueue,
+        /// Maps MIDI note number to voice index for proper release
+        note_to_voice: RefCell<HashMap<u8, usize>>,
+        /// MIDI channel filter: None = all channels, Some(0-15) = specific channel
+        channel: Option<u8>,
+        /// Scale root note (MIDI note number, e.g., 60 for C4)
+        scale_root: Option<u8>,
+        /// Scale type for quantizing incoming notes
+        scale_type: Option<Scale>,
+        /// Optional arpeggiator state (None = disabled)
+        arpeggiator: RefCell<Option<Arpeggiator>>,
     },
 
     /// Pattern-triggered envelope gate
@@ -3605,6 +3662,69 @@ impl Default for ASRState {
     }
 }
 
+/// MIDI polyphonic voice state
+/// Represents a single voice in the MidiPolySynth node
+#[derive(Debug, Clone)]
+pub struct MidiPolyVoice {
+    /// MIDI note number (0-127)
+    pub note: u8,
+    /// Calculated frequency in Hz
+    pub frequency: f32,
+    /// Gate value: 1.0 when note is held, 0.0 after release
+    pub gate: f32,
+    /// Whether this voice is actively producing sound
+    /// (remains true during release phase until envelope completes)
+    pub active: bool,
+    /// Sample counter since voice started (for voice stealing priority)
+    pub age: u64,
+    /// Per-voice oscillator phase (0.0 to 1.0)
+    pub phase: f32,
+    /// Per-voice envelope level (ASR envelope)
+    pub envelope_level: f32,
+    /// Release time remaining (samples) - voice becomes inactive when 0
+    pub release_samples_remaining: u32,
+}
+
+impl MidiPolyVoice {
+    pub fn new() -> Self {
+        Self {
+            note: 0,
+            frequency: 0.0,
+            gate: 0.0,
+            active: false,
+            age: 0,
+            phase: 0.0,
+            envelope_level: 0.0,
+            release_samples_remaining: 0,
+        }
+    }
+
+    /// Trigger this voice with a new note
+    pub fn trigger(&mut self, note: u8, frequency: f32) {
+        self.note = note;
+        self.frequency = frequency;
+        self.gate = 1.0;
+        self.active = true;
+        self.age = 0;
+        self.phase = 0.0; // Reset phase on retrigger
+        self.envelope_level = 0.0;
+        self.release_samples_remaining = 0;
+    }
+
+    /// Release this voice (note-off)
+    pub fn release(&mut self) {
+        self.gate = 0.0;
+        // Voice stays active during release phase
+        // MidiPolySynth will set release_samples_remaining based on signal template
+    }
+}
+
+impl Default for MidiPolyVoice {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Compressor state
 #[derive(Debug, Clone)]
 pub struct CompressorState {
@@ -4465,6 +4585,17 @@ pub struct UnifiedSignalGraph {
     /// Used by UnitDelay nodes to implement feedback without cycles
     /// Updated at the end of each sample after all buses are evaluated
     bus_previous_values: HashMap<String, f32>,
+
+    /// Per-voice frequency context for polyphonic MIDI synthesis
+    /// When evaluating a signal template within MidiPolySynth, this is set to
+    /// the current voice's frequency, allowing `~midi` references to resolve
+    /// to the appropriate pitch for each voice
+    pub current_voice_frequency: std::cell::Cell<Option<f32>>,
+
+    /// Per-voice gate context for polyphonic MIDI synthesis
+    /// 1.0 when note is held, 0.0 when released
+    /// Used by envelope nodes within signal templates
+    pub current_voice_gate: std::cell::Cell<Option<f32>>,
 }
 
 // SAFETY: UnifiedSignalGraph contains RefCell which is !Send and !Sync, but we ensure
@@ -4519,6 +4650,8 @@ impl Clone for UnifiedSignalGraph {
             synthesis_phase_cache: RefCell::new(HashMap::new()), // Fresh phase cache
             bus_previous_values: self.bus_previous_values.clone(), // Preserve feedback state
             buffer_size: self.buffer_size,
+            current_voice_frequency: std::cell::Cell::new(None),
+            current_voice_gate: std::cell::Cell::new(None),
         }
     }
 }
@@ -4567,6 +4700,8 @@ impl UnifiedSignalGraph {
             nodes_initialized: false,
             synthesis_phase_cache: RefCell::new(HashMap::new()),
             bus_previous_values: HashMap::new(),
+            current_voice_frequency: std::cell::Cell::new(None),
+            current_voice_gate: std::cell::Cell::new(None),
         }
     }
 
@@ -6496,16 +6631,29 @@ impl UnifiedSignalGraph {
             Signal::Node(id) => {
                 if let Some(Some(node)) = self.nodes.get(id.0) {
                     if let SignalNode::Pattern { pattern, .. } = &**node {
-                        let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-                        let state = State {
-                            span: TimeSpan::new(
-                                Fraction::from_float(cycle_pos),
-                                Fraction::from_float(cycle_pos + sample_width),
-                            ),
-                            controls: HashMap::new(),
-                        };
-
-                        let events = pattern.query(&state);
+                        // PERFORMANCE FIX: Use pre-computed pattern_event_cache if available
+                        let events: Vec<crate::pattern::Hap<String>> =
+                            if let Some(cached_events) = self.pattern_event_cache.get(id) {
+                                cached_events
+                                    .iter()
+                                    .filter(|event| {
+                                        let begin = event.part.begin.to_float();
+                                        let end = event.part.end.to_float();
+                                        cycle_pos >= begin && cycle_pos < end
+                                    })
+                                    .cloned()
+                                    .collect()
+                            } else {
+                                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                                let state = State {
+                                    span: TimeSpan::new(
+                                        Fraction::from_float(cycle_pos),
+                                        Fraction::from_float(cycle_pos + sample_width),
+                                    ),
+                                    controls: HashMap::new(),
+                                };
+                                pattern.query(&state)
+                            };
 
                         if let Some(event) = events.first() {
                             let s = event.value.as_str();
@@ -6747,16 +6895,32 @@ impl UnifiedSignalGraph {
                         ..
                     } = &**node
                     {
-                        let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
-                        let state = State {
-                            span: TimeSpan::new(
-                                Fraction::from_float(cycle_pos),
-                                Fraction::from_float(cycle_pos + sample_width),
-                            ),
-                            controls: HashMap::new(),
-                        };
-
-                        let events = pattern.query(&state);
+                        // PERFORMANCE FIX: Use pre-computed pattern_event_cache if available
+                        // This eliminates 44,100 pattern.query() calls per second per pattern parameter!
+                        let (events, cache_hit): (Vec<crate::pattern::Hap<String>>, bool) =
+                            if let Some(cached_events) = self.pattern_event_cache.get(id) {
+                                // Filter cached events to find one active at cycle_pos
+                                (cached_events
+                                    .iter()
+                                    .filter(|event| {
+                                        let begin = event.part.begin.to_float();
+                                        let end = event.part.end.to_float();
+                                        cycle_pos >= begin && cycle_pos < end
+                                    })
+                                    .cloned()
+                                    .collect(), true)
+                            } else {
+                                // Fallback: query pattern directly (shouldn't happen if cache is populated)
+                                let sample_width = 1.0 / self.sample_rate as f64 / self.cps as f64;
+                                let state = State {
+                                    span: TimeSpan::new(
+                                        Fraction::from_float(cycle_pos),
+                                        Fraction::from_float(cycle_pos + sample_width),
+                                    ),
+                                    controls: HashMap::new(),
+                                };
+                                (pattern.query(&state), false)
+                            };
 
                         // DEBUG: Log pattern signal evaluation
                         if std::env::var("DEBUG_PATTERN").is_ok()
@@ -10740,6 +10904,318 @@ impl UnifiedSignalGraph {
                 self.synth_voice_manager.borrow_mut().process()
             }
 
+            SignalNode::MidiSynth {
+                waveform,
+                attack,
+                decay,
+                sustain,
+                release,
+                filter_cutoff,
+                filter_resonance,
+                channel,
+                event_queue,
+                note_to_voice,
+                gain,
+            } => {
+                use crate::midi_input::MidiMessageType;
+                use crate::synth_voice_manager::{ADSRParams, FilterParams, SynthWaveform};
+
+                let gain_val = self.eval_signal(gain).max(0.0).min(10.0);
+
+                // Process MIDI events from queue
+                if let Ok(mut queue) = event_queue.lock() {
+                    while let Some(event) = queue.pop_front() {
+                        // Filter by channel if specified
+                        if let Some(ch) = channel {
+                            if event.channel != *ch {
+                                continue;
+                            }
+                        }
+
+                        match event.message_type {
+                            MidiMessageType::NoteOn { note, velocity } if velocity > 0 => {
+                                // Note on: trigger a new voice
+                                let freq = midi_note_to_freq(note);
+                                let vel_gain = velocity as f32 / 127.0;
+
+                                let synth_waveform = match waveform {
+                                    Waveform::Sine => SynthWaveform::Sine,
+                                    Waveform::Saw => SynthWaveform::Saw,
+                                    Waveform::Square => SynthWaveform::Square,
+                                    Waveform::Triangle => SynthWaveform::Triangle,
+                                };
+
+                                let adsr_params = ADSRParams {
+                                    attack: *attack,
+                                    decay: *decay,
+                                    sustain: *sustain,
+                                    release: *release,
+                                };
+
+                                let filter_params = FilterParams {
+                                    cutoff: *filter_cutoff,
+                                    resonance: *filter_resonance,
+                                    env_amount: 0.0,
+                                    enabled: *filter_cutoff < 19000.0,
+                                };
+
+                                // Trigger voice and track note->voice mapping
+                                let mut manager = self.synth_voice_manager.borrow_mut();
+                                manager.trigger_note(
+                                    freq,
+                                    synth_waveform,
+                                    adsr_params,
+                                    filter_params,
+                                    gain_val * vel_gain,
+                                    0.0, // pan
+                                );
+                                // Note: We don't track voice index since SynthVoiceManager
+                                // handles voice allocation internally. For proper release,
+                                // we'd need to extend SynthVoiceManager to return voice index.
+                            }
+                            MidiMessageType::NoteOff { note, .. }
+                            | MidiMessageType::NoteOn { note, velocity: 0 } => {
+                                // Note off: release voices playing this note
+                                // For now, we release all voices since we can't track
+                                // which voice is playing which note without extending SynthVoiceManager
+                                // TODO: Add note-based release to SynthVoiceManager
+                                let freq = midi_note_to_freq(note);
+                                let mut manager = self.synth_voice_manager.borrow_mut();
+                                manager.release_note(freq);
+                            }
+                            _ => {} // Ignore other MIDI messages
+                        }
+                    }
+                }
+
+                // Output mixed audio from all synth voices
+                self.synth_voice_manager.borrow_mut().process()
+            }
+
+            SignalNode::MidiVoiceFreq => {
+                // Return the current voice's frequency from context
+                // This is set by MidiPolySynth when evaluating each voice
+                self.current_voice_frequency.get().unwrap_or(0.0)
+            }
+
+            SignalNode::MidiVoiceGate => {
+                // Return the current voice's gate value from context
+                // 1.0 when note is held, 0.0 after release
+                self.current_voice_gate.get().unwrap_or(0.0)
+            }
+
+            SignalNode::MidiPolySynth {
+                waveform,
+                attack,
+                release,
+                voices,
+                event_queue,
+                note_to_voice,
+                channel,
+                scale_root,
+                scale_type,
+                arpeggiator,
+            } => {
+                use crate::midi_input::MidiMessageType;
+
+                let sample_rate = self.sample_rate;
+                let attack_rate = if *attack > 0.0 { 1.0 / (*attack * sample_rate) } else { 1.0 };
+                let release_rate = if *release > 0.0 { 1.0 / (*release * sample_rate) } else { 1.0 };
+                let release_samples = (*release * sample_rate) as u32;
+
+                // Helper to trigger a voice
+                let trigger_voice = |note: u8, voices: &RefCell<Vec<MidiPolyVoice>>, note_map: &RefCell<HashMap<u8, usize>>, scale_root: &Option<u8>, scale_type: &Option<Scale>| {
+                    // Apply scale locking if configured
+                    let effective_note = if let (Some(root), Some(scale)) = (scale_root, scale_type) {
+                        scale_lock(note, *root, *scale)
+                    } else {
+                        note
+                    };
+
+                    let freq = midi_note_to_freq(effective_note);
+                    let mut voices_mut = voices.borrow_mut();
+                    let mut note_map_mut = note_map.borrow_mut();
+
+                    // Find an inactive voice or create new one (no stealing!)
+                    let voice_idx = if let Some(free_idx) = voices_mut.iter().position(|v| !v.active) {
+                        free_idx
+                    } else {
+                        voices_mut.push(MidiPolyVoice::new());
+                        voices_mut.len() - 1
+                    };
+
+                    voices_mut[voice_idx].trigger(effective_note, freq);
+                    note_map_mut.insert(note, voice_idx);
+                };
+
+                // Helper to release a voice
+                let release_voice = |note: u8, voices: &RefCell<Vec<MidiPolyVoice>>, note_map: &RefCell<HashMap<u8, usize>>, release_samples: u32| {
+                    let note_map_ref = note_map.borrow();
+                    if let Some(&voice_idx) = note_map_ref.get(&note) {
+                        drop(note_map_ref);
+                        let mut voices_mut = voices.borrow_mut();
+                        if voice_idx < voices_mut.len() {
+                            voices_mut[voice_idx].release();
+                            voices_mut[voice_idx].release_samples_remaining = release_samples;
+                        }
+                    }
+                };
+
+                // Check if arpeggiator is enabled
+                let arp_enabled = arpeggiator.borrow().is_some();
+
+                // Process MIDI events from queue
+                if let Ok(mut queue) = event_queue.lock() {
+                    while let Some(event) = queue.pop_front() {
+                        // Filter by channel if specified
+                        if let Some(ch) = channel {
+                            if event.channel != *ch {
+                                continue;
+                            }
+                        }
+
+                        match event.message_type {
+                            MidiMessageType::NoteOn { note, velocity } if velocity > 0 => {
+                                if arp_enabled {
+                                    // Route to arpeggiator
+                                    if let Some(ref mut arp) = *arpeggiator.borrow_mut() {
+                                        arp.note_on(note);
+                                    }
+                                } else {
+                                    // Direct trigger
+                                    trigger_voice(note, voices, note_to_voice, scale_root, scale_type);
+                                }
+                            }
+                            MidiMessageType::NoteOff { note, .. }
+                            | MidiMessageType::NoteOn { note, velocity: 0 } => {
+                                if arp_enabled {
+                                    // Route to arpeggiator
+                                    if let Some(ref mut arp) = *arpeggiator.borrow_mut() {
+                                        arp.note_off(note);
+                                    }
+                                } else {
+                                    // Direct release
+                                    release_voice(note, voices, note_to_voice, release_samples);
+                                }
+                            }
+                            _ => {} // Ignore other MIDI messages
+                        }
+                    }
+                }
+
+                // Process arpeggiator output (if enabled)
+                if let Some(ref mut arp) = *arpeggiator.borrow_mut() {
+                    let (note_on, note_off) = arp.process_sample();
+
+                    // Handle arp note off first
+                    if let Some(off_note) = note_off {
+                        let note_map_ref = note_to_voice.borrow();
+                        if let Some(&voice_idx) = note_map_ref.get(&off_note) {
+                            drop(note_map_ref);
+                            let mut voices_mut = voices.borrow_mut();
+                            if voice_idx < voices_mut.len() {
+                                voices_mut[voice_idx].release();
+                                voices_mut[voice_idx].release_samples_remaining = release_samples;
+                            }
+                        }
+                    }
+
+                    // Handle arp note on
+                    if let Some(on_note) = note_on {
+                        // Apply scale locking if configured
+                        let effective_note = if let (Some(root), Some(scale)) = (scale_root, scale_type) {
+                            scale_lock(on_note, *root, *scale)
+                        } else {
+                            on_note
+                        };
+
+                        let freq = midi_note_to_freq(effective_note);
+                        let mut voices_mut = voices.borrow_mut();
+                        let mut note_map_mut = note_to_voice.borrow_mut();
+
+                        // Find an inactive voice or create new one
+                        let voice_idx = if let Some(free_idx) = voices_mut.iter().position(|v| !v.active) {
+                            free_idx
+                        } else {
+                            voices_mut.push(MidiPolyVoice::new());
+                            voices_mut.len() - 1
+                        };
+
+                        voices_mut[voice_idx].trigger(effective_note, freq);
+                        note_map_mut.insert(on_note, voice_idx);
+                    }
+                }
+
+                // Sum output from all active voices with per-voice oscillator + envelope
+                let mut output = 0.0f32;
+                let mut active_count = 0usize;
+
+                {
+                    let mut voices_mut = voices.borrow_mut();
+
+                    for voice in voices_mut.iter_mut() {
+                        if !voice.active {
+                            continue;
+                        }
+
+                        // Update envelope (simple ASR)
+                        if voice.gate > 0.0 {
+                            // Attack phase
+                            voice.envelope_level = (voice.envelope_level + attack_rate).min(1.0);
+                        } else {
+                            // Release phase
+                            voice.envelope_level = (voice.envelope_level - release_rate).max(0.0);
+                            if voice.release_samples_remaining > 0 {
+                                voice.release_samples_remaining -= 1;
+                            }
+                            if voice.envelope_level <= 0.0 {
+                                voice.active = false;
+                                continue;
+                            }
+                        }
+
+                        // Compute oscillator with per-voice phase
+                        let phase_inc = voice.frequency / sample_rate;
+                        voice.phase += phase_inc;
+                        if voice.phase >= 1.0 {
+                            voice.phase -= 1.0;
+                        }
+
+                        let osc_out = match waveform {
+                            Waveform::Sine => (voice.phase * std::f32::consts::TAU).sin(),
+                            Waveform::Saw => 2.0 * voice.phase - 1.0,
+                            Waveform::Square => if voice.phase < 0.5 { 1.0 } else { -1.0 },
+                            Waveform::Triangle => {
+                                if voice.phase < 0.5 {
+                                    4.0 * voice.phase - 1.0
+                                } else {
+                                    3.0 - 4.0 * voice.phase
+                                }
+                            }
+                        };
+
+                        // Apply envelope and sum
+                        output += osc_out * voice.envelope_level;
+                        active_count += 1;
+                    }
+                } // voices_mut borrow dropped here
+
+                // Clean up note map for deactivated voices
+                {
+                    let voices_ref = voices.borrow();
+                    note_to_voice.borrow_mut().retain(|_, &mut idx| {
+                        idx < voices_ref.len() && voices_ref[idx].active
+                    });
+                }
+
+                // Scale output for polyphony (soft knee)
+                if active_count > 1 {
+                    output /= (active_count as f32).sqrt();
+                }
+
+                output
+            }
+
             SignalNode::VoiceOutput => {
                 // Output the mixed audio from all active voices
                 // This is the same as what Sample nodes output,
@@ -13320,7 +13796,7 @@ impl UnifiedSignalGraph {
 
         // Check if hybrid architecture is enabled
         if std::env::var("USE_HYBRID_ARCH").is_ok() {
-            return self.process_buffer_hybrid(buffer);
+            return self.process_buffer_hybrid(buffer, buffer_start_cycle, sample_increment);
         }
 
         // DEBUG: Write to file to confirm this is being called
@@ -13826,9 +14302,17 @@ impl UnifiedSignalGraph {
     /// PHASE 1: Pattern evaluation + voice triggering (sample-accurate)
     /// PHASE 2: Voice rendering (block-based)
     /// PHASE 3: DSP evaluation from buffers
-    pub fn process_buffer_hybrid(&mut self, buffer: &mut [f32]) {
+    pub fn process_buffer_hybrid(
+        &mut self,
+        buffer: &mut [f32],
+        buffer_start_cycle: f64,
+        sample_increment: f64,
+    ) {
         let buffer_size = buffer.len();
         let enable_profiling = std::env::var("PROFILE_BUFFER").is_ok();
+
+        // Set cycle position to start of buffer
+        self.cached_cycle_position = buffer_start_cycle;
 
         // CRITICAL: Clear buffer cache at start of each buffer render
         // This prevents stale cached values from previous buffer
@@ -13847,9 +14331,14 @@ impl UnifiedSignalGraph {
             None
         };
 
+        // Reset cycle position to buffer start for Phase 1
+        self.cached_cycle_position = buffer_start_cycle;
+
         for i in 0..buffer_size {
-            // Update cycle position for this sample
-            self.update_cycle_position_from_clock();
+            // Increment cycle position (skip first sample since we already set it)
+            if i > 0 {
+                self.cached_cycle_position += sample_increment;
+            }
 
             // Evaluate all Sample nodes to trigger voices with correct offset
             for node_id in 0..self.nodes.len() {
@@ -13881,7 +14370,8 @@ impl UnifiedSignalGraph {
         } else {
             None
         };
-        let voice_buffers = self.voice_manager.borrow_mut().render_block(buffer_size);
+        let voice_buffers_map = self.voice_manager.borrow_mut().render_block(buffer_size);
+
         let phase2_time_us = phase2_start.map(|t| t.elapsed().as_micros()).unwrap_or(0);
 
         // PHASE 3: DSP evaluation from voice buffers
@@ -13891,17 +14381,44 @@ impl UnifiedSignalGraph {
             None
         };
 
+        // Convert HashMap to VoiceBuffers struct for O(1) lookup by Sample nodes
+        // This is critical - Sample nodes read from self.voice_buffers, not voice_output_cache!
+        let max_node_id = voice_buffers_map.keys().max().copied().unwrap_or(0).max(self.max_node_id);
+        let mut vb = crate::voice_manager::VoiceBuffers::new(max_node_id, buffer_size);
+
+        for (node_id, node_buffer) in voice_buffers_map {
+            if node_id < vb.buffers.len() {
+                vb.buffers[node_id] = node_buffer;
+                if node_id > vb.max_active_node {
+                    vb.max_active_node = node_id;
+                }
+            }
+        }
+
+        self.voice_buffers = vb;
+
         // Pre-collect outputs to avoid borrow checker issues
         let output_channels: Vec<(usize, NodeId)> =
             self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
 
+        // Reset cycle position to buffer start for Phase 3 DSP evaluation
+        self.cached_cycle_position = buffer_start_cycle;
+
         for i in 0..buffer_size {
-            // Set voice_output_cache from pre-rendered voice buffers
-            let mut voice_output = HashMap::new();
-            for (node_id, node_buffer) in &voice_buffers {
-                voice_output.insert(*node_id, node_buffer.get(i).copied().unwrap_or(0.0));
+            // Increment cycle position (skip first sample since we already set it)
+            if i > 0 {
+                self.cached_cycle_position += sample_increment;
             }
-            self.voice_output_cache = voice_output;
+
+            // Set current sample index for voice_buffers lookup
+            self.current_sample_idx = i;
+
+            // Clear caches appropriately
+            // Only clear value_cache on first sample (matches normal path)
+            if i == 0 {
+                self.value_cache.clear();
+            }
+            self.voice_output_cache.clear();
 
             // Evaluate DSP graph for this sample
             let mut mixed_output = if let Some(output_id) = self.output {
