@@ -149,6 +149,11 @@ impl ParamExtractor {
     fn has_kwarg(&self, name: &str) -> bool {
         self.kwargs.contains_key(name)
     }
+
+    /// Get a keyword-only argument (doesn't look at positional)
+    fn get_optional_keyword(&self, name: &str) -> Option<Expr> {
+        self.kwargs.get(name).cloned()
+    }
 }
 
 impl CompilerContext {
@@ -3293,12 +3298,85 @@ fn is_midi_bus_ref(expr: &Expr) -> bool {
     }
 }
 
+/// Check if a string contains note patterns (e.g., "c4", "e#3", "Bb2")
+/// Notes are letter a-g (case insensitive), optional # or b, followed by octave digit
+fn is_note_pattern_string(s: &str) -> bool {
+    // Scan through the string looking for note patterns
+    // A note is: [a-gA-G][#b]?[0-9]
+    let chars: Vec<char> = s.chars().collect();
+    let len = chars.len();
+
+    for i in 0..len {
+        let c = chars[i].to_ascii_lowercase();
+        // Check for letter a-g
+        if c >= 'a' && c <= 'g' {
+            // Check what follows
+            let mut next_idx = i + 1;
+
+            // Optional accidental (#/b)
+            if next_idx < len && (chars[next_idx] == '#' || chars[next_idx] == 'b') {
+                // Make sure 'b' is accidental, not next note
+                // An accidental 'b' must be followed by a digit
+                if chars[next_idx] == 'b' {
+                    if next_idx + 1 < len && chars[next_idx + 1].is_ascii_digit() {
+                        next_idx += 1;
+                    }
+                    // If 'b' not followed by digit, it might be note 'b', continue
+                } else {
+                    next_idx += 1;
+                }
+            }
+
+            // Must have octave digit
+            if next_idx < len && chars[next_idx].is_ascii_digit() {
+                // Check that it's not part of a longer identifier (e.g., "bd808")
+                // Must be preceded by word boundary or start
+                let has_boundary_before = i == 0 || !chars[i - 1].is_ascii_alphanumeric();
+                // Check end of note
+                let note_end = next_idx + 1;
+                let has_boundary_after = note_end >= len || !chars[note_end].is_ascii_alphanumeric();
+
+                if has_boundary_before && has_boundary_after {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
 fn compile_oscillator(
     ctx: &mut CompilerContext,
     waveform: Waveform,
     args: Vec<Expr>,
 ) -> Result<NodeId, String> {
     use crate::unified_graph::MidiPolyVoice;
+
+    // Check first arg before consuming with extractor
+    // If it's a note pattern string, route to triggered synth
+    if let Some(Expr::String(s)) = args.first() {
+        if is_note_pattern_string(s) {
+            // Route to compile_synth_pattern for per-note triggering
+            return compile_synth_pattern(ctx, waveform, args);
+        }
+    }
+
+    // Check for bus reference that contains a note pattern
+    // e.g., ~notes $ "c4 e4 g4"; saw ~notes
+    if let Some(Expr::BusRef(bus_name)) = args.first() {
+        if let Some(bus_expr) = ctx.bus_expressions.get(bus_name).cloned() {
+            if let Expr::String(s) = &bus_expr {
+                if is_note_pattern_string(s) {
+                    // Bus contains a note pattern - route to triggered synth
+                    // Replace the bus ref with the actual pattern string for compile_synth_pattern
+                    let mut new_args = args.clone();
+                    new_args[0] = bus_expr;
+                    return compile_synth_pattern(ctx, waveform, new_args);
+                }
+            }
+        }
+    }
 
     // Use ParamExtractor for keyword argument support
     let extractor = ParamExtractor::new(args);
@@ -3308,8 +3386,18 @@ fn compile_oscillator(
 
     // Check if this is a MIDI-controlled oscillator
     if is_midi_bus_ref(&freq_expr) {
+        // Extract optional envelope parameters for MIDI polysynth
+        // Syntax: sine ~midi :attack 0.1 :release 2.0
+        let attack = match extractor.get_optional_keyword("attack") {
+            Some(Expr::Number(n)) => n as f32,
+            _ => 0.01, // Default 10ms
+        };
+        let release = match extractor.get_optional_keyword("release") {
+            Some(Expr::Number(n)) => n as f32,
+            _ => 0.3, // Default 300ms
+        };
         // Create a MidiPolySynth that wraps this oscillator
-        return compile_midi_poly_synth(ctx, waveform, &freq_expr);
+        return compile_midi_poly_synth(ctx, waveform, &freq_expr, attack, release);
     }
 
     let freq_node = compile_expr(ctx, freq_expr)?;
@@ -3356,11 +3444,16 @@ fn compile_oscillator(
 /// - ~midi:arp:up:4 - arpeggiator up pattern, 1/4 notes
 /// - ~midi:c:major:arp:up:4 - both scale lock and arpeggiator
 ///
+/// Envelope parameters can be customized:
+/// - sine ~midi :attack 0.1 :release 2.0
+///
 /// Format: ~midi[channel][:root:scale][:arp:pattern:division]
 fn compile_midi_poly_synth(
     ctx: &mut CompilerContext,
     waveform: Waveform,
     midi_expr: &Expr,
+    attack: f32,
+    release: f32,
 ) -> Result<NodeId, String> {
     // Get MIDI event queue
     let event_queue = ctx
@@ -3429,11 +3522,10 @@ fn compile_midi_poly_synth(
     };
 
     // Create the MidiPolySynth node with per-voice oscillators computed inline
-    // Default envelope: fast attack (10ms), medium release (300ms)
     let poly_synth_node = ctx.graph.add_node(SignalNode::MidiPolySynth {
         waveform,
-        attack: 0.01,   // 10ms attack
-        release: 0.3,   // 300ms release
+        attack,
+        release,
         voices: RefCell::new(Vec::new()),
         event_queue,
         note_to_voice: RefCell::new(HashMap::new()),
@@ -6987,10 +7079,26 @@ fn modify_sample_param(
         ..
     } = sample_node
     {
-        // Create new Sample with updated parameter
+        // Check if new_value is a Pattern node and extract its pattern for structure combination
+        let combined_pattern = if let Signal::Node(node_id) = &new_value {
+            if let Some(SignalNode::Pattern { pattern: param_pattern, .. }) = ctx.graph.get_node(*node_id) {
+                // Combine sample pattern with parameter pattern using union_right
+                // This gives structure from the parameter pattern (right side in Tidal's # operator)
+                Some(pattern.clone().union_right(param_pattern.clone()))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // Use combined pattern if available, otherwise keep original
+        let final_pattern = combined_pattern.unwrap_or_else(|| pattern.clone());
+
+        // Create new Sample with updated parameter and potentially combined pattern
         let new_sample = SignalNode::Sample {
             pattern_str: pattern_str.clone(),
-            pattern: pattern.clone(),
+            pattern: final_pattern,
             last_trigger_time: -1.0,
             last_cycle: -1,
             playback_positions: HashMap::new(),
@@ -8959,33 +9067,63 @@ fn compile_n_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<Node
     Ok(result)
 }
 
-/// Compile note modifier: s "bd" # note "0 5 7"
-/// Sets the pitch shift in semitones for sample playback
-/// For note NAMES (c4, d4, etc.) uses absolute pitch mode
+/// Compile note function/modifier
+///
+/// Two modes:
+/// 1. Standalone: `note "c4 e4 g4"` → creates a frequency pattern (for use with oscillators)
+/// 2. Modifier: `s "bd" # note "0 5 7"` → sets pitch shift for sample playback
+///
+/// For note NAMES (c4, d4, etc.) uses absolute pitch mode (converts to frequencies)
 /// For NUMBERS uses relative semitone offset mode
 fn compile_note_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<NodeId, String> {
-    if args.len() != 2 {
-        return Err(format!(
-            "note requires 2 arguments (sample_input, note_pattern), got {}",
-            args.len()
-        ));
-    }
-
-    // First arg should be ChainInput pointing to a Sample node
-    let sample_node_id = match &args[0] {
-        Expr::ChainInput(node_id) => *node_id,
-        _ => {
-            return Err(
-                "note must be used with the chain operator: s \"bd\" # note \"0 5 7\"".to_string(),
-            )
+    match args.len() {
+        // Standalone mode: note "c4 e4 g4" → frequency pattern
+        1 => {
+            // Create a Pattern node from the note pattern string
+            // The Pattern node already handles note-to-frequency conversion
+            let pattern_expr = args[0].clone();
+            match pattern_expr {
+                Expr::String(pattern_str) => {
+                    let pattern = parse_mini_notation(&pattern_str);
+                    let node = SignalNode::Pattern {
+                        pattern_str: pattern_str.clone(),
+                        pattern,
+                        last_value: 0.0,
+                        last_trigger_time: -1.0,
+                    };
+                    Ok(ctx.graph.add_node(node))
+                }
+                _ => {
+                    // If not a string, compile it as an expression
+                    compile_expr(ctx, pattern_expr)
+                }
+            }
         }
-    };
 
-    // Second arg is the note pattern (note names or semitone offsets)
-    let note_value = compile_expr(ctx, args[1].clone())?;
+        // Modifier mode: signal # note "pattern"
+        2 => {
+            // First arg should be ChainInput pointing to a Sample node
+            let sample_node_id = match &args[0] {
+                Expr::ChainInput(node_id) => *node_id,
+                _ => {
+                    return Err(
+                        "note modifier requires chain operator: s \"bd\" # note \"0 5 7\"".to_string(),
+                    )
+                }
+            };
 
-    // Modify the Sample node's note parameter
-    modify_sample_param(ctx, sample_node_id, "note", Signal::Node(note_value))
+            // Second arg is the note pattern (note names or semitone offsets)
+            let note_value = compile_expr(ctx, args[1].clone())?;
+
+            // Modify the Sample node's note parameter
+            modify_sample_param(ctx, sample_node_id, "note", Signal::Node(note_value))
+        }
+
+        _ => Err(format!(
+            "note requires 1 or 2 arguments, got {}. Usage: note \"c4 e4 g4\" or s \"bd\" # note \"0 5 7\"",
+            args.len()
+        ))
+    }
 }
 
 /// Compile gain modifier: s "bd" # gain "0.8 0.5 1.0"

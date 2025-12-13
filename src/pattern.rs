@@ -1722,6 +1722,68 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 impl Pattern<String> {
     // hurry() is now implemented in the general Pattern<T> impl block above
     // (accepts Pattern<f64> parameter and uses context to pass speed)
+
+    /// Helper: Create a query state at the event's onset time (start of whole)
+    /// This ensures values are sampled at event onset, not at the current query point
+    fn onset_query_state(hap: &Hap<String>, controls: HashMap<String, f64>) -> State {
+        // Use the event's whole timespan if available, otherwise use part
+        // Create a tiny span at the onset (start) of the event
+        let onset = hap
+            .whole
+            .as_ref()
+            .map(|w| w.begin)
+            .unwrap_or(hap.part.begin);
+        let epsilon = Fraction::new(1, 1000000); // Tiny span
+        State {
+            span: TimeSpan::new(onset, onset + epsilon),
+            controls,
+        }
+    }
+
+    /// Union left structure (|>): structure from self, take values from other
+    /// This is like Tidal's # operator - left determines when, right provides values
+    /// "bd bd bd" |> "c4 e4" = 3 events with values [c4, e4, c4]
+    pub fn union_left(self, other: Pattern<String>) -> Pattern<String> {
+        Pattern::new(move |state| {
+            let structure_events = self.query(state);
+
+            structure_events
+                .into_iter()
+                .map(|mut hap| {
+                    let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                    let other_haps = other.query(&query_state);
+
+                    // Take value from other, keep self's timing
+                    if let Some(other_hap) = other_haps.first() {
+                        hap.value = other_hap.value.clone();
+                    }
+                    hap
+                })
+                .collect()
+        })
+    }
+
+    /// Union right structure (<|): structure from other, take values from self
+    /// "c4 e4" <| "bd bd bd" = 3 events with values [c4, c4, e4]
+    pub fn union_right(self, other: Pattern<String>) -> Pattern<String> {
+        Pattern::new(move |state| {
+            let structure_events = other.query(state);
+
+            structure_events
+                .into_iter()
+                .map(|mut hap| {
+                    let query_state = Self::onset_query_state(&hap, state.controls.clone());
+                    let self_haps = self.query(&query_state);
+
+                    // Take value from self, keep other's timing
+                    if let Some(self_hap) = self_haps.first() {
+                        hap.value = self_hap.value.clone();
+                    }
+                    hap
+                })
+                .collect()
+        })
+    }
 }
 
 // ============= Euclidean Rhythms =============
