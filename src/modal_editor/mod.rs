@@ -121,6 +121,14 @@ pub struct ModalEditor {
     midi_quantize: u8,
     /// Whether to show configuration panel
     show_config_panel: bool,
+    /// Live recording preview line (displayed during recording)
+    recording_preview_line: Option<String>,
+    /// Currently held notes during recording (for live display)
+    recording_held_notes: String,
+    /// Vertical scroll offset (line number of first visible line)
+    scroll_offset: u16,
+    /// Last known viewport height (for scroll calculations)
+    viewport_height: u16,
 }
 
 impl ModalEditor {
@@ -499,7 +507,14 @@ impl ModalEditor {
                 .collect(),
             midi_quantize: 16, // Default to 16th note quantization
             show_config_panel: false,
+            recording_preview_line: None,
+            recording_held_notes: String::new(),
+            scroll_offset: 0,
+            viewport_height: 20,
         };
+
+        // Auto-connect to first MIDI device if available
+        editor.auto_connect_midi();
 
         Ok(editor)
     }
@@ -553,6 +568,10 @@ impl ModalEditor {
             midi_devices: Vec::new(),
             midi_quantize: 16,
             show_config_panel: false,
+            recording_preview_line: None,
+            recording_held_notes: String::new(),
+            scroll_offset: 0,
+            viewport_height: 20,
         })
     }
 
@@ -1083,11 +1102,15 @@ impl ModalEditor {
             .borders(Borders::ALL)
             .style(Style::default().fg(Color::White));
 
+        // Update viewport height and ensure cursor is visible
+        self.viewport_height = editor_chunk.height;
+        self.ensure_cursor_visible();
+
         let content_with_cursor = self.content_with_cursor();
         let paragraph = Paragraph::new(content_with_cursor)
             .block(editor_block)
             .wrap(Wrap { trim: false })
-            .scroll((0, 0))
+            .scroll((self.scroll_offset, 0))
             .style(Style::default().fg(Color::White).bg(Color::Black));
 
         f.render_widget(paragraph, editor_chunk);
@@ -1235,6 +1258,47 @@ impl ModalEditor {
                 .style(Style::default().bg(Color::Black));
 
             f.render_widget(config_paragraph, config_area);
+        }
+
+        // Recording preview overlay (shown during MIDI recording)
+        if self.midi_recording {
+            if let Some(ref preview_line) = self.recording_preview_line {
+                // Calculate preview area - bottom of editor, spanning full width
+                let preview_height = 3u16;
+                let preview_y = editor_chunk.y + editor_chunk.height.saturating_sub(preview_height + 1);
+
+                let preview_area = ratatui::layout::Rect {
+                    x: editor_chunk.x + 1,
+                    y: preview_y,
+                    width: editor_chunk.width.saturating_sub(2),
+                    height: preview_height,
+                };
+
+                // Build preview content with held notes indicator
+                let held_indicator = if !self.recording_held_notes.is_empty() {
+                    format!("  ♪ {}", self.recording_held_notes)
+                } else {
+                    String::new()
+                };
+
+                let preview_content = format!(
+                    "{}{}",
+                    preview_line,
+                    held_indicator
+                );
+
+                let preview_block = Block::default()
+                    .title(" 🔴 RECORDING ")
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Red))
+                    .style(Style::default().bg(Color::Black));
+
+                let preview_paragraph = Paragraph::new(preview_content)
+                    .block(preview_block)
+                    .style(Style::default().fg(Color::Yellow).bg(Color::Black));
+
+                f.render_widget(preview_paragraph, preview_area);
+            }
         }
 
         // Status area with performance stats
@@ -1965,6 +2029,46 @@ impl ModalEditor {
 
     // ==================== MIDI INPUT ====================
 
+    /// Auto-connect to the first available MIDI device on startup
+    fn auto_connect_midi(&mut self) {
+        // Refresh device list
+        self.midi_devices = MidiInputHandler::list_devices()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|d| d.name)
+            .collect();
+
+        if self.midi_devices.is_empty() {
+            // No devices - that's fine, user can connect later
+            return;
+        }
+
+        // Prefer real hardware over virtual ports like "Midi Through"
+        // Virtual ports are useful for routing but we want actual keyboards
+        let device_name = self.midi_devices
+            .iter()
+            .find(|name| {
+                let lower = name.to_lowercase();
+                !lower.contains("midi through") && !lower.contains("virtual")
+            })
+            .cloned()
+            .unwrap_or_else(|| self.midi_devices[0].clone());
+        match MidiInputHandler::new() {
+            Ok(mut handler) => {
+                if let Err(e) = handler.connect(&device_name) {
+                    eprintln!("🎹 MIDI auto-connect failed: {}", e);
+                } else {
+                    eprintln!("🎹 MIDI auto-connected: {}", device_name);
+                    self.midi_input = Some(handler);
+                    self.status_message = format!("🎹 MIDI: {} (Alt+R to record)", device_name);
+                }
+            }
+            Err(e) => {
+                eprintln!("🎹 MIDI init failed: {}", e);
+            }
+        }
+    }
+
     /// Cycle through available MIDI input devices
     fn cycle_midi_device(&mut self) {
         // Refresh device list
@@ -2020,40 +2124,84 @@ impl ModalEditor {
     /// Toggle MIDI recording on/off
     fn toggle_midi_recording(&mut self) {
         if self.midi_input.is_none() {
-            self.status_message = "🎹 Connect MIDI first (Alt+M)".to_string();
-            return;
+            // Try auto-connect first
+            self.auto_connect_midi();
+            if self.midi_input.is_none() {
+                self.status_message = "🎹 No MIDI device found (Alt+M to refresh)".to_string();
+                return;
+            }
         }
 
         if self.midi_recording {
             // Stop recording
             self.midi_recording = false;
+            self.recording_preview_line = None;
+            self.recording_held_notes.clear();
 
-            // Convert recorded events to pattern
-            if let Some(ref recorder) = self.midi_recorder {
+            // Extract all data from recorder first (before any mutable borrows)
+            let recording_data = if let Some(ref recorder) = self.midi_recorder {
                 let beats_per_cycle = 4.0;
-
-                if let Some(recorded) = recorder.to_recorded_pattern(beats_per_cycle) {
-                    self.midi_recorded_pattern = Some(recorded.notes.clone());
-                    self.midi_recorded_n_pattern = Some(recorded.n_offsets.clone());
-                    self.midi_recorded_velocity = Some(recorded.velocities.clone());
-                    self.midi_recorded_legato = Some(recorded.legato.clone());
-                    self.midi_recorded_base_note = Some(recorded.base_note_name.clone());
-                    self.midi_recorded_cycles = recorded.cycle_count;
-
+                recorder.to_recorded_pattern(beats_per_cycle).map(|recorded| {
                     let summary = recorder.get_recording_summary(beats_per_cycle);
+                    (recorded, summary)
+                })
+            } else {
+                None
+            };
 
-                    // Include hint about using slow if recorded over multiple cycles
-                    let slow_hint = if recorded.cycle_count > 1 {
-                        format!(" (use $ slow {})", recorded.cycle_count)
-                    } else {
-                        String::new()
-                    };
+            // Now process the extracted data (recorder borrow is dropped)
+            if let Some((recorded, summary)) = recording_data {
+                // Store for manual insertion if needed
+                self.midi_recorded_pattern = Some(recorded.notes.clone());
+                self.midi_recorded_n_pattern = Some(recorded.n_offsets.clone());
+                self.midi_recorded_velocity = Some(recorded.velocities.clone());
+                self.midi_recorded_legato = Some(recorded.legato.clone());
+                self.midi_recorded_base_note = Some(recorded.base_note_name.clone());
+                self.midi_recorded_cycles = recorded.cycle_count;
 
-                    self.status_message =
-                        format!("⏹️ {} - Alt+I/N/V to insert{}", summary, slow_hint);
+                // Increment counter for next recording
+                self.recording_counter += 1;
+                let bus_name = format!("~rec{}", self.recording_counter);
+
+                // Generate full code line with slow wrapper if needed
+                let slow_wrapper = if recorded.cycle_count > 1 {
+                    format!("slow {} $ ", recorded.cycle_count)
                 } else {
-                    self.status_message = "⏹️ Recording stopped (no notes)".to_string();
+                    String::new()
+                };
+
+                let code_line = format!(
+                    "{} $ {}n \"{}\"",
+                    bus_name, slow_wrapper, recorded.notes
+                );
+
+                // Ensure we're at a new line
+                if self.cursor_pos > 0 {
+                    let before_cursor = &self.content[..self.cursor_pos];
+                    if !before_cursor.ends_with('\n') {
+                        self.insert_char('\n');
+                    }
                 }
+
+                // Insert the code line
+                for c in code_line.chars() {
+                    self.insert_char(c);
+                }
+                self.insert_char('\n');
+
+                // Add to console
+                self.add_console_message(&format!("📝 Recorded: {}", code_line));
+
+                // Auto-execute the recorded pattern immediately
+                self.eval_chunk();
+
+                // Update status
+                self.status_message = format!(
+                    "🎵 {} playing as {}",
+                    summary, bus_name
+                );
+            } else {
+                self.status_message = "⏹️ Recording stopped (no notes)".to_string();
             }
         } else {
             // Start recording
@@ -2117,15 +2265,15 @@ impl ModalEditor {
         self.status_message = format!("⚙️  Quantization: {}", quantize_str);
     }
 
-    /// Update recording status with current cycle position
+    /// Update recording status with current cycle position and live preview
     fn update_recording_status(&mut self) {
         if let Some(ref recorder) = self.midi_recorder {
-            // Get current cycle position from graph
-            let current_cycle = {
+            // Get current cycle position and beats_per_cycle from graph
+            let (current_cycle, beats_per_cycle) = {
                 let graph_arc = self.graph.load();
                 if let Some(ref graph_cell) = **graph_arc {
                     if let Ok(graph) = graph_cell.0.try_borrow() {
-                        graph.get_cycle_position()
+                        (graph.get_cycle_position(), 4.0) // Default 4 beats per cycle
                     } else {
                         return; // Can't get cycle if graph is borrowed
                     }
@@ -2134,12 +2282,34 @@ impl ModalEditor {
                 }
             };
 
-            let start_cycle = recorder.get_recording_start_cycle();
-            let elapsed_cycles = current_cycle - start_cycle;
+            // Generate live preview using the new methods
+            let preview = recorder.live_preview(beats_per_cycle);
+            let bus_name = format!("~rec{}", self.recording_counter + 1);
+            let code_preview = recorder.generate_code_preview(beats_per_cycle, &bus_name);
+
+            // Store preview line for UI display
+            self.recording_preview_line = Some(code_preview.clone());
+            self.recording_held_notes = preview.currently_held.clone();
+
+            // Build status message with cycle info and held notes
+            let held_display = if preview.currently_held.is_empty() {
+                String::new()
+            } else {
+                format!(" | Playing: {}", preview.currently_held)
+            };
+
+            let slow_indicator = if preview.total_cycles > 1 {
+                format!(" (slow {})", preview.total_cycles)
+            } else {
+                String::new()
+            };
 
             self.status_message = format!(
-                "⏺️ Recording MIDI... Cycle {:.2} (elapsed: {:.2}) - Alt+R to stop",
-                current_cycle, elapsed_cycles
+                "🔴 REC cycle {} | {} notes{}{} | Alt+R stop",
+                preview.current_cycle,
+                preview.note_count,
+                slow_indicator,
+                held_display
             );
         }
     }
@@ -2399,6 +2569,26 @@ impl ModalEditor {
         // If we're at the end, return last line
         let line_count = self.content.split('\n').count();
         (line_count.saturating_sub(1), 0)
+    }
+
+    /// Ensure the cursor line is visible by adjusting scroll_offset
+    fn ensure_cursor_visible(&mut self) {
+        let (cursor_line, _) = self.pos_to_line_col(self.cursor_pos);
+        let cursor_line = cursor_line as u16;
+
+        // Leave some margin (2 lines) at top and bottom when possible
+        let margin = 2u16;
+        let visible_height = self.viewport_height.saturating_sub(4); // Account for borders
+
+        // If cursor is above visible area, scroll up
+        if cursor_line < self.scroll_offset + margin {
+            self.scroll_offset = cursor_line.saturating_sub(margin);
+        }
+
+        // If cursor is below visible area, scroll down
+        if cursor_line >= self.scroll_offset + visible_height.saturating_sub(margin) {
+            self.scroll_offset = cursor_line.saturating_sub(visible_height.saturating_sub(margin + 1));
+        }
     }
 
     /// Trigger completion or cycle to next if already active

@@ -1,6 +1,29 @@
 use phonon::compositional_parser::parse_program;
 
 #[test]
+fn test_off_transform_parse() {
+    // Test off transform parsing
+    let tests = vec![
+        ("~drums $ s \"bd sn\" $ off 0.125 (fast 2)", "off with fast"),
+        ("~drums $ s \"bd sn\" $ off 0.5 rev", "off with rev"),
+    ];
+
+    for (input, desc) in tests {
+        println!("\nTest: {} -> '{}'", desc, input);
+        match parse_program(input) {
+            Ok((remaining, stmts)) => {
+                println!("  Remaining: {:?}", remaining);
+                println!("  Statements: {:?}", stmts);
+                let remaining_trimmed = remaining.trim();
+                assert!(remaining_trimmed.is_empty(),
+                    "Unparsed input remaining for '{}': '{}'\nStatements: {:?}", desc, remaining, stmts);
+            }
+            Err(e) => panic!("  Parse error for '{}': {:?}", desc, e),
+        }
+    }
+}
+
+#[test]
 fn test_transform_bus_basic() {
     // Test simple case
     let test1 = "~quick $ fast 2";

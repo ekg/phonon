@@ -5,16 +5,31 @@ use phonon::compositional_parser::parse_program;
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Load test pattern
-    let pattern_code = std::fs::read_to_string("q.ph")?;
+    // Get file from command line or use default
+    let args: Vec<String> = std::env::args().collect();
+    let filename = args.get(1).map(|s| s.as_str()).unwrap_or("q.ph");
+    let use_wall_clock = args.iter().any(|a| a == "--wall-clock" || a == "-w");
 
-    println!("=== PROFILING SYNTHESIS PERFORMANCE ===\n");
+    // Load test pattern
+    let pattern_code = std::fs::read_to_string(filename)?;
+
+    println!("=== PROFILING SYNTHESIS PERFORMANCE ===");
+    println!("File: {}", filename);
+    println!("Wall-clock timing: {}\n", use_wall_clock);
 
     // Compile
     let compile_start = Instant::now();
     let (_, statements) =
         parse_program(&pattern_code).map_err(|e| format!("Parse error: {:?}", e))?;
     let mut graph = compile_program(statements, 44100.0, None)?;
+
+    // Enable wall-clock timing if requested (mimics modal editor behavior)
+    if use_wall_clock {
+        graph.enable_wall_clock_timing();
+    }
+
+    // Preload samples (like modal editor does)
+    graph.preload_samples();
     println!(
         "✓ Compilation: {:.2}ms\n",
         compile_start.elapsed().as_micros() as f64 / 1000.0

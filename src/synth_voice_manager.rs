@@ -379,6 +379,17 @@ impl SynthVoiceManager {
         }
     }
 
+    /// Release voices playing a specific frequency (for MIDI note-off)
+    /// Uses frequency matching with small tolerance for floating point
+    pub fn release_note(&mut self, frequency: f32) {
+        const FREQ_TOLERANCE: f32 = 0.5; // Hz tolerance for frequency matching
+        for voice in &mut self.voices {
+            if voice.is_active && (voice.frequency - frequency).abs() < FREQ_TOLERANCE {
+                voice.release();
+            }
+        }
+    }
+
     /// Kill all voices immediately (panic/hush)
     pub fn kill_all(&mut self) {
         for voice in &mut self.voices {
