@@ -13738,6 +13738,104 @@ impl UnifiedSignalGraph {
         }
     }
 
+    /// EVENT-DRIVEN pattern triggering - O(events) instead of O(buffer_size * nodes)
+    ///
+    /// This is the key performance optimization. Instead of iterating over every sample
+    /// and checking if any events should trigger, we iterate over the cached events directly
+    /// and trigger voices only at the exact sample offsets where events occur.
+    ///
+    /// For a typical 512-sample buffer with ~4 events, this reduces iterations from
+    /// 512 * N_sample_nodes to just 4, a ~100x improvement.
+    fn process_pattern_events_event_driven(
+        &mut self,
+        buffer_size: usize,
+        buffer_start_cycle: f64,
+        sample_increment: f64,
+    ) {
+        let buffer_end_cycle = buffer_start_cycle + (buffer_size as f64 * sample_increment);
+
+        // Collect (node_id, event_start_cycle, sample_offset) tuples for all events in this buffer
+        // We need to collect first because we'll be mutating self when triggering
+        let mut trigger_list: Vec<(usize, f64, usize)> = Vec::new();
+
+        for (node_id, events) in &self.pattern_event_cache {
+            // Only process Sample nodes (not Pattern nodes - those are for value patterns)
+            let is_sample_node = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                matches!(&**node_rc, SignalNode::Sample { .. })
+            } else {
+                false
+            };
+
+            if !is_sample_node {
+                continue;
+            }
+
+            // Get last trigger time for deduplication
+            let last_trigger_time = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                if let SignalNode::Sample { last_trigger_time, .. } = &**node_rc {
+                    *last_trigger_time as f64
+                } else {
+                    -1.0
+                }
+            } else {
+                -1.0
+            };
+
+            for event in events {
+                let sample_name = event.value.trim();
+
+                // Skip rests
+                if sample_name == "~" || sample_name.is_empty() {
+                    continue;
+                }
+
+                // Get event start time
+                let event_start = if let Some(whole) = &event.whole {
+                    whole.begin.to_float()
+                } else {
+                    event.part.begin.to_float()
+                };
+
+                // Skip already triggered (dedup)
+                let epsilon = 1e-6;
+                if event_start <= last_trigger_time + epsilon {
+                    continue;
+                }
+
+                // Skip events outside this buffer
+                if event_start < buffer_start_cycle - epsilon || event_start >= buffer_end_cycle {
+                    continue;
+                }
+
+                // Calculate sample offset within buffer
+                let cycles_into_buffer = event_start - buffer_start_cycle;
+                let sample_offset = ((cycles_into_buffer / sample_increment).round() as usize)
+                    .min(buffer_size.saturating_sub(1));
+
+                trigger_list.push((node_id.0, event_start, sample_offset));
+            }
+        }
+
+        // Sort by sample offset to process in chronological order
+        trigger_list.sort_by_key(|&(_, _, offset)| offset);
+
+        // Now trigger voices for each event
+        for (node_id, event_start, sample_offset) in trigger_list {
+            // Set cycle position to just after the event start (so it passes the "event_is_new" check)
+            self.cached_cycle_position = event_start + 1e-6;
+
+            // Set the default source node for voice triggering
+            self.voice_manager.borrow_mut().set_default_source_node(node_id);
+
+            // Evaluate the Sample node - this will trigger the voice
+            // The node's logic will see the event as "new" and trigger it
+            let _ = self.eval_node(&NodeId(node_id));
+
+            // Set the trigger offset for sample-accurate playback
+            self.voice_manager.borrow_mut().set_last_voice_trigger_offset(sample_offset);
+        }
+    }
+
     /// Process a buffer of audio samples with timing provided by GlobalClock
     ///
     /// CRITICAL: This is the main entry point for live audio rendering.
@@ -13794,8 +13892,9 @@ impl UnifiedSignalGraph {
         // Enable buffer caching for this render pass
         self.buffer_cache_enabled.set(true);
 
-        // Check if hybrid architecture is enabled
-        if std::env::var("USE_HYBRID_ARCH").is_ok() {
+        // Use optimized hybrid architecture by default (event-driven + buffer-based)
+        // Set DISABLE_HYBRID_ARCH=1 to use legacy sample-by-sample processing
+        if std::env::var("DISABLE_HYBRID_ARCH").is_err() {
             return self.process_buffer_hybrid(buffer, buffer_start_cycle, sample_increment);
         }
 
@@ -14324,43 +14423,20 @@ impl UnifiedSignalGraph {
         // Pre-compute pattern events once
         self.precompute_pattern_events(buffer_size);
 
-        // PHASE 1: Pattern evaluation and voice triggering (sample-accurate)
+        // PHASE 1: Event-driven pattern triggering - O(events) instead of O(buffer_size * nodes)
+        // This is the key performance optimization: instead of 512 iterations checking every
+        // sample for events, we iterate only over the actual events (~0-4 per buffer typically)
         let phase1_start = if enable_profiling {
             Some(std::time::Instant::now())
         } else {
             None
         };
 
-        // Reset cycle position to buffer start for Phase 1
-        self.cached_cycle_position = buffer_start_cycle;
+        // Use event-driven triggering instead of sample-by-sample iteration
+        self.process_pattern_events_event_driven(buffer_size, buffer_start_cycle, sample_increment);
 
-        for i in 0..buffer_size {
-            // Increment cycle position (skip first sample since we already set it)
-            if i > 0 {
-                self.cached_cycle_position += sample_increment;
-            }
-
-            // Evaluate all Sample nodes to trigger voices with correct offset
-            for node_id in 0..self.nodes.len() {
-                if let Some(Some(node_rc)) = self.nodes.get(node_id) {
-                    if let SignalNode::Sample { .. } = &**node_rc {
-                        // Set trigger offset for any voices triggered during this eval
-                        // Temporarily store current buffer position
-                        let current_buffer_pos = i;
-
-                        // Evaluate Sample node (triggers voices, but we'll discard audio output)
-                        let _ = self.eval_node(&NodeId(node_id));
-
-                        // Set trigger offset for the last triggered voice
-                        self.voice_manager
-                            .borrow_mut()
-                            .set_last_voice_trigger_offset(current_buffer_pos);
-                    }
-                }
-            }
-
-            self.sample_count += 1;
-        }
+        // Update sample count for the whole buffer
+        self.sample_count += buffer_size;
 
         let phase1_time_us = phase1_start.map(|t| t.elapsed().as_micros()).unwrap_or(0);
 
@@ -14404,41 +14480,38 @@ impl UnifiedSignalGraph {
         // Reset cycle position to buffer start for Phase 3 DSP evaluation
         self.cached_cycle_position = buffer_start_cycle;
 
-        for i in 0..buffer_size {
-            // Increment cycle position (skip first sample since we already set it)
-            if i > 0 {
-                self.cached_cycle_position += sample_increment;
+        // BUFFER-BASED DSP EVALUATION
+        // Instead of 512 per-sample eval_node() calls, we use eval_node_buffer() once per output
+        // This enables SIMD auto-vectorization and reduces function call overhead
+
+        // Clear caches once at start
+        self.value_cache.clear();
+        self.buffer_cache.borrow_mut().clear();
+
+        // Start with the main output (for backwards compatibility)
+        if let Some(output_id) = self.output {
+            if !self.hushed_channels.contains(&0) {
+                self.eval_node_buffer(&output_id, buffer);
             }
+        }
 
-            // Set current sample index for voice_buffers lookup
-            self.current_sample_idx = i;
-
-            // Clear caches appropriately
-            // Only clear value_cache on first sample (matches normal path)
-            if i == 0 {
-                self.value_cache.clear();
-            }
-            self.voice_output_cache.clear();
-
-            // Evaluate DSP graph for this sample
-            let mut mixed_output = if let Some(output_id) = self.output {
-                if !self.hushed_channels.contains(&0) {
-                    self.eval_node(&output_id)
-                } else {
-                    0.0
-                }
-            } else {
-                0.0
-            };
-
-            // Mix in numbered outputs
+        // Mix in numbered outputs using buffer-based evaluation
+        if !output_channels.is_empty() {
+            let mut temp_buffer = vec![0.0; buffer_size];
             for (ch, node_id) in &output_channels {
                 if !self.hushed_channels.contains(ch) {
-                    mixed_output += self.eval_node(node_id);
+                    // Clear temp buffer and buffer cache for each output
+                    temp_buffer.fill(0.0);
+                    self.buffer_cache.borrow_mut().clear();
+
+                    self.eval_node_buffer(node_id, &mut temp_buffer);
+
+                    // Mix into main buffer
+                    for i in 0..buffer_size {
+                        buffer[i] += temp_buffer[i];
+                    }
                 }
             }
-
-            buffer[i] = mixed_output;
         }
 
         let phase3_time_us = phase3_start.map(|t| t.elapsed().as_micros()).unwrap_or(0);
@@ -17194,13 +17267,23 @@ impl UnifiedSignalGraph {
             }
 
             SignalNode::Sample { .. } => {
-                // CRITICAL: Sample nodes are STATEFUL (patterns advance with time)
-                // They must NEVER be cached, and must be evaluated sample-by-sample
-                // to advance cycle position and trigger events at correct times
-
-                // Use sample-by-sample evaluation to properly advance time state
-                for i in 0..buffer_size {
-                    output[i] = self.eval_node(node_id);
+                // In hybrid mode, Sample nodes read from voice_buffers which contain
+                // pre-rendered audio from Phase 2. Just copy the buffer directly.
+                let node_idx = node_id.0;
+                if node_idx < self.voice_buffers.buffers.len() {
+                    let voice_buf = &self.voice_buffers.buffers[node_idx];
+                    if voice_buf.len() >= buffer_size {
+                        output.copy_from_slice(&voice_buf[..buffer_size]);
+                    } else if !voice_buf.is_empty() {
+                        output[..voice_buf.len()].copy_from_slice(voice_buf);
+                    }
+                    // Else: voice_buffers is empty for this node, output stays at 0.0
+                } else {
+                    // Fallback: sample-by-sample if voice_buffers not available
+                    for i in 0..buffer_size {
+                        self.current_sample_idx = i;
+                        output[i] = self.eval_node(node_id);
+                    }
                 }
             }
 
@@ -17327,8 +17410,10 @@ impl UnifiedSignalGraph {
             }
 
             // Fallback: Use old sample-by-sample evaluation for not-yet-migrated nodes
+            // CRITICAL: Update current_sample_idx so Sample nodes read correct voice_buffers index
             _ => {
                 for i in 0..buffer_size {
+                    self.current_sample_idx = i;
                     output[i] = self.eval_node(node_id);
                 }
             }
