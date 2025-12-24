@@ -6208,6 +6208,175 @@ impl UnifiedSignalGraph {
     // DEPENDENCY ANALYSIS FOR BLOCK-BASED PARALLEL PROCESSING
     // ========================================================================
 
+    /// Collect all Sample node IDs reachable from output nodes.
+    /// These are the only Sample nodes that should trigger voices in Phase 1.
+    fn collect_output_sample_nodes(&self) -> std::collections::HashSet<usize> {
+        let mut sample_nodes = std::collections::HashSet::new();
+        let mut visited = std::collections::HashSet::new();
+
+        // Collect all output node IDs
+        let mut output_ids: Vec<NodeId> = Vec::new();
+        if let Some(output) = self.output {
+            output_ids.push(output);
+        }
+        for &node_id in self.outputs.values() {
+            output_ids.push(node_id);
+        }
+
+        // Traverse from each output to find reachable Sample nodes
+        for output_id in output_ids {
+            self.collect_sample_nodes_recursive(output_id, &mut visited, &mut sample_nodes);
+        }
+
+        sample_nodes
+    }
+
+    /// Recursively traverse graph to find Sample nodes
+    fn collect_sample_nodes_recursive(
+        &self,
+        node_id: NodeId,
+        visited: &mut std::collections::HashSet<NodeId>,
+        sample_nodes: &mut std::collections::HashSet<usize>,
+    ) {
+        if visited.contains(&node_id) {
+            return;
+        }
+        visited.insert(node_id);
+
+        if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+            // If this is a Sample or SynthPattern node, add it to the set
+            // Both need pattern evaluation and voice triggering in Phase 1
+            if matches!(&**node_rc, SignalNode::Sample { .. } | SignalNode::SynthPattern { .. }) {
+                sample_nodes.insert(node_id.0);
+            }
+
+            // Continue traversing to find dependencies
+            // This handles nodes with Signal inputs
+            self.traverse_node_for_samples(&**node_rc, visited, sample_nodes);
+        }
+    }
+
+    /// Traverse a node's children to find Sample nodes
+    fn traverse_node_for_samples(
+        &self,
+        node: &SignalNode,
+        visited: &mut std::collections::HashSet<NodeId>,
+        sample_nodes: &mut std::collections::HashSet<usize>,
+    ) {
+        // Extract all Signal fields from the node and traverse them
+        match node {
+            SignalNode::Oscillator { freq, .. } => {
+                self.traverse_signal_for_samples(freq, visited, sample_nodes);
+            }
+            SignalNode::Add { a, b }
+            | SignalNode::Multiply { a, b }
+            | SignalNode::Min { a, b } => {
+                self.traverse_signal_for_samples(a, visited, sample_nodes);
+                self.traverse_signal_for_samples(b, visited, sample_nodes);
+            }
+            SignalNode::Mix { signals } => {
+                for signal in signals {
+                    self.traverse_signal_for_samples(signal, visited, sample_nodes);
+                }
+            }
+            SignalNode::Output { input }
+            | SignalNode::Delay { input, .. }
+            | SignalNode::Allpass { input, .. }
+            | SignalNode::Chorus { input, .. }
+            | SignalNode::BitCrush { input, .. }
+            | SignalNode::SampleAndHold { input, .. }
+            | SignalNode::LowPass { input, .. }
+            | SignalNode::HighPass { input, .. }
+            | SignalNode::BandPass { input, .. }
+            | SignalNode::Reverb { input, .. }
+            | SignalNode::DattorroReverb { input, .. }
+            | SignalNode::Convolution { input, .. }
+            | SignalNode::MoogLadder { input, .. }
+            | SignalNode::Limiter { input, .. }
+            | SignalNode::SVF { input, .. }
+            | SignalNode::Biquad { input, .. }
+            | SignalNode::Resonz { input, .. }
+            | SignalNode::RLPF { input, .. }
+            | SignalNode::RHPF { input, .. }
+            | SignalNode::DJFilter { input, .. }
+            | SignalNode::Notch { input, .. }
+            | SignalNode::Comb { input, .. }
+            | SignalNode::Distortion { input, .. }
+            | SignalNode::Pan2Left { input, .. }
+            | SignalNode::Pan2Right { input, .. }
+            | SignalNode::PitchShift { input, .. } => {
+                self.traverse_signal_for_samples(input, visited, sample_nodes);
+            }
+            SignalNode::Sample { .. } | SignalNode::SynthPattern { .. } => {
+                // Sample and SynthPattern nodes are leaf nodes for this traversal
+                // (they don't have Signal children we need to traverse)
+            }
+            SignalNode::Constant { .. }
+            | SignalNode::WhiteNoise
+            | SignalNode::PinkNoise { .. }
+            | SignalNode::BrownNoise { .. }
+            | SignalNode::Noise { .. }
+            | SignalNode::UnitDelay { .. }
+            | SignalNode::VoiceOutput
+            | SignalNode::MidiVoiceFreq
+            | SignalNode::MidiVoiceGate => {
+                // Leaf nodes - no children
+            }
+            _ => {
+                // For any other nodes, we rely on the catchall
+                // The main Sample/output traversal paths are covered above
+            }
+        }
+    }
+
+    /// Traverse a Signal to find Sample nodes
+    fn traverse_signal_for_samples(
+        &self,
+        signal: &Signal,
+        visited: &mut std::collections::HashSet<NodeId>,
+        sample_nodes: &mut std::collections::HashSet<usize>,
+    ) {
+        match signal {
+            Signal::Node(node_id) => {
+                self.collect_sample_nodes_recursive(*node_id, visited, sample_nodes);
+            }
+            Signal::Bus(bus_name) => {
+                if let Some(&bus_id) = self.buses.get(bus_name) {
+                    self.collect_sample_nodes_recursive(bus_id, visited, sample_nodes);
+                }
+            }
+            Signal::Expression(expr) => {
+                self.traverse_expr_for_samples(expr, visited, sample_nodes);
+            }
+            Signal::Value(_) | Signal::Pattern(_) => {
+                // No children
+            }
+        }
+    }
+
+    /// Traverse a SignalExpr to find Sample nodes
+    fn traverse_expr_for_samples(
+        &self,
+        expr: &SignalExpr,
+        visited: &mut std::collections::HashSet<NodeId>,
+        sample_nodes: &mut std::collections::HashSet<usize>,
+    ) {
+        match expr {
+            SignalExpr::Add(a, b)
+            | SignalExpr::Multiply(a, b)
+            | SignalExpr::Subtract(a, b)
+            | SignalExpr::Divide(a, b)
+            | SignalExpr::Modulo(a, b)
+            | SignalExpr::Min(a, b) => {
+                self.traverse_signal_for_samples(a, visited, sample_nodes);
+                self.traverse_signal_for_samples(b, visited, sample_nodes);
+            }
+            SignalExpr::Scale { input, .. } => {
+                self.traverse_signal_for_samples(input, visited, sample_nodes);
+            }
+        }
+    }
+
     /// Find all nodes that a given node depends on (recursive)
     fn find_node_dependencies(
         &self,
@@ -13892,9 +14061,10 @@ impl UnifiedSignalGraph {
         // Enable buffer caching for this render pass
         self.buffer_cache_enabled.set(true);
 
-        // Use optimized hybrid architecture by default (event-driven + buffer-based)
-        // Set DISABLE_HYBRID_ARCH=1 to use legacy sample-by-sample processing
-        if std::env::var("DISABLE_HYBRID_ARCH").is_err() {
+        // TEMPORARILY DISABLED: Hybrid architecture has bugs in live audio
+        // Use legacy sample-by-sample processing by default
+        // Set ENABLE_HYBRID_ARCH=1 to test the new path
+        if std::env::var("ENABLE_HYBRID_ARCH").is_ok() {
             return self.process_buffer_hybrid(buffer, buffer_start_cycle, sample_increment);
         }
 
@@ -14423,20 +14593,50 @@ impl UnifiedSignalGraph {
         // Pre-compute pattern events once
         self.precompute_pattern_events(buffer_size);
 
-        // PHASE 1: Event-driven pattern triggering - O(events) instead of O(buffer_size * nodes)
-        // This is the key performance optimization: instead of 512 iterations checking every
-        // sample for events, we iterate only over the actual events (~0-4 per buffer typically)
+        // PHASE 1: Pattern evaluation and voice triggering (sample-accurate)
+        // Only trigger Sample nodes that are reachable from output nodes.
+        // Intermediate Sample nodes (e.g., inputs to # note, # n modifiers) must NOT
+        // be triggered directly - they're wrapped by the output Sample nodes.
         let phase1_start = if enable_profiling {
             Some(std::time::Instant::now())
         } else {
             None
         };
 
-        // Use event-driven triggering instead of sample-by-sample iteration
-        self.process_pattern_events_event_driven(buffer_size, buffer_start_cycle, sample_increment);
+        // Collect only output-reachable Sample nodes (avoids triggering intermediate nodes)
+        let output_sample_nodes = self.collect_output_sample_nodes();
 
-        // Update sample count for the whole buffer
-        self.sample_count += buffer_size;
+        // Reset cycle position to buffer start for Phase 1
+        self.cached_cycle_position = buffer_start_cycle;
+
+        for i in 0..buffer_size {
+            // Increment cycle position (skip first sample since we already set it)
+            if i > 0 {
+                self.cached_cycle_position += sample_increment;
+            }
+
+            // Only evaluate output-reachable Sample nodes
+            for &node_id in &output_sample_nodes {
+                // Temporarily store current buffer position
+                let current_buffer_pos = i;
+
+                // Track voice count before eval to detect new triggers
+                let voice_count_before = self.voice_manager.borrow().active_voice_count();
+
+                // Evaluate Sample node (triggers voices, but we'll discard audio output)
+                let _ = self.eval_node(&NodeId(node_id));
+
+                // Only set trigger offset if a voice was actually triggered
+                let voice_count_after = self.voice_manager.borrow().active_voice_count();
+                if voice_count_after > voice_count_before {
+                    self.voice_manager
+                        .borrow_mut()
+                        .set_last_voice_trigger_offset(current_buffer_pos);
+                }
+            }
+
+            self.sample_count += 1;
+        }
 
         let phase1_time_us = phase1_start.map(|t| t.elapsed().as_micros()).unwrap_or(0);
 
@@ -14538,6 +14738,10 @@ impl UnifiedSignalGraph {
             eprintln!("TOTAL:                  {:.2}ms", total_ms);
             eprintln!();
         }
+
+        // CRITICAL: Advance cycle position to end of buffer for next render() call
+        // Without this, consecutive buffers would start at the same cycle position
+        self.cached_cycle_position = buffer_start_cycle + (buffer_size as f64 * sample_increment);
     }
 
     /// Render a buffer of audio (mono - mixes all channels)
@@ -17412,10 +17616,24 @@ impl UnifiedSignalGraph {
             // Fallback: Use old sample-by-sample evaluation for not-yet-migrated nodes
             // CRITICAL: Update current_sample_idx so Sample nodes read correct voice_buffers index
             _ => {
+                // Save base cycle position and compute sample increment
+                let base_cycle_pos = self.cached_cycle_position;
+                let sample_increment = self.cps as f64 / self.sample_rate as f64;
+
                 for i in 0..buffer_size {
                     self.current_sample_idx = i;
+                    // Set correct cycle position for this sample (needed for Pattern nodes)
+                    self.cached_cycle_position = base_cycle_pos + (i as f64 * sample_increment);
+                    // CRITICAL: Clear stateful_value_cache per sample to ensure stateful nodes
+                    // (Envelope, ASR, ADSR, etc.) are evaluated properly each sample
+                    self.stateful_value_cache.clear();
                     output[i] = self.eval_node(node_id);
                 }
+
+                // CRITICAL: Restore cycle position to BASE, not end of buffer!
+                // Other nodes evaluated at the same buffer level need the same base position.
+                // The main process_buffer_hybrid will advance cycle_position after all outputs.
+                self.cached_cycle_position = base_cycle_pos;
             }
         }
 
@@ -17426,9 +17644,10 @@ impl UnifiedSignalGraph {
         // CRITICAL: NEVER cache Sample nodes - they are STATEFUL (pattern advances with time)
         // Caching would freeze patterns and cause timing issues
         let should_cache = self.buffer_cache_enabled.get() && {
-            // Check if this node is a Sample node
+            // Check if this node is a Sample or SynthPattern node (both are STATEFUL)
+            // Caching would freeze patterns and cause timing issues
             if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
-                !matches!(&**node_rc, SignalNode::Sample { .. })
+                !matches!(&**node_rc, SignalNode::Sample { .. } | SignalNode::SynthPattern { .. })
             } else {
                 true // If node doesn't exist, safe to cache (will be silence anyway)
             }
