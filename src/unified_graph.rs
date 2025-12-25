@@ -14629,9 +14629,11 @@ impl UnifiedSignalGraph {
                 // Only set trigger offset if a voice was actually triggered
                 let voice_count_after = self.voice_manager.borrow().active_voice_count();
                 if voice_count_after > voice_count_before {
+                    // CRITICAL: Match old path timing - voice triggered at sample i produces
+                    // first audio at sample i+1 (old path detects new voices AFTER eval_node)
                     self.voice_manager
                         .borrow_mut()
-                        .set_last_voice_trigger_offset(current_buffer_pos);
+                        .set_last_voice_trigger_offset(current_buffer_pos + 1);
                 }
             }
 
@@ -14739,9 +14741,10 @@ impl UnifiedSignalGraph {
             eprintln!();
         }
 
-        // CRITICAL: Advance cycle position to end of buffer for next render() call
-        // Without this, consecutive buffers would start at the same cycle position
-        self.cached_cycle_position = buffer_start_cycle + (buffer_size as f64 * sample_increment);
+        // Match old path behavior: leave cycle position at last sample's position
+        // Old path increments BEFORE processing, so ends at (N-1) * increment
+        // Next buffer will start at same position (i=0 has no increment)
+        self.cached_cycle_position = buffer_start_cycle + ((buffer_size - 1) as f64 * sample_increment);
     }
 
     /// Render a buffer of audio (mono - mixes all channels)
@@ -17473,6 +17476,7 @@ impl UnifiedSignalGraph {
             SignalNode::Sample { .. } => {
                 // In hybrid mode, Sample nodes read from voice_buffers which contain
                 // pre-rendered audio from Phase 2. Just copy the buffer directly.
+                // CRITICAL: Do NOT fall back to eval_node - that would re-trigger voices!
                 let node_idx = node_id.0;
                 if node_idx < self.voice_buffers.buffers.len() {
                     let voice_buf = &self.voice_buffers.buffers[node_idx];
@@ -17482,13 +17486,8 @@ impl UnifiedSignalGraph {
                         output[..voice_buf.len()].copy_from_slice(voice_buf);
                     }
                     // Else: voice_buffers is empty for this node, output stays at 0.0
-                } else {
-                    // Fallback: sample-by-sample if voice_buffers not available
-                    for i in 0..buffer_size {
-                        self.current_sample_idx = i;
-                        output[i] = self.eval_node(node_id);
-                    }
                 }
+                // No fallback - if voice_buffers not available, output stays silent
             }
 
             SignalNode::ADSR {
@@ -17610,6 +17609,15 @@ impl UnifiedSignalGraph {
                     if let SignalNode::AD { state: s, .. } = node {
                         *s = ad_state;
                     }
+                }
+            }
+
+            // SynthPattern nodes: Read from voice_buffers (voice triggering was done in Phase 1)
+            // CRITICAL: Do NOT call eval_node - that would re-trigger voices!
+            SignalNode::SynthPattern { .. } => {
+                // Just read from pre-rendered voice buffers
+                for i in 0..buffer_size {
+                    output[i] = self.voice_buffers.get(node_id.0, i);
                 }
             }
 
