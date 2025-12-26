@@ -14055,6 +14055,29 @@ impl UnifiedSignalGraph {
         buffer_start_cycle: f64,
         sample_increment: f64,
     ) {
+        // CRITICAL: Initialize Sample node timing on first buffer to prevent double-triggering
+        // When a graph is first used, Sample nodes have last_trigger_time = -1.0 (uninitialized)
+        // This would cause ALL events at the current cycle position to trigger, even those
+        // that already triggered in the previous graph. Fix: set last_trigger_time to just
+        // before buffer_start_cycle so only NEW events in this buffer will trigger.
+        for node_opt in self.nodes.iter_mut() {
+            if let Some(node_rc) = node_opt {
+                let node = std::rc::Rc::make_mut(node_rc);
+                if let SignalNode::Sample {
+                    last_trigger_time,
+                    last_cycle,
+                    ..
+                } = node
+                {
+                    // Only initialize if uninitialized (-1.0 is the default)
+                    if *last_trigger_time < 0.0 {
+                        *last_trigger_time = buffer_start_cycle as f32 - 0.001;
+                        *last_cycle = buffer_start_cycle.floor() as i32;
+                    }
+                }
+            }
+        }
+
         // CRITICAL: Clear buffer cache at start of each buffer render
         // This prevents stale cached values from previous buffer
         self.buffer_cache.borrow_mut().clear();
@@ -14584,6 +14607,9 @@ impl UnifiedSignalGraph {
 
         // Set cycle position to start of buffer
         self.cached_cycle_position = buffer_start_cycle;
+
+        // Note: Sample node timing initialization is done in process_buffer_internal()
+        // before this method is called, so we don't need to do it here.
 
         // CRITICAL: Clear buffer cache at start of each buffer render
         // This prevents stale cached values from previous buffer

@@ -266,6 +266,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let graph_snapshot = graph_clone_synth.load();
 
                 if let Some(ref graph_cell) = **graph_snapshot {
+                    // DEBUG: Log buffer timing (enable with DEBUG_BUFFER_TIMING=1)
+                    static DEBUG_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+                    let counter = DEBUG_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if std::env::var("DEBUG_BUFFER_TIMING").is_ok() && counter % 100 == 0 {
+                        eprintln!("📊 Buffer {}: cycle={:.4}, incr={:.8}, cps={:.2}",
+                            counter, buffer_start_cycle, sample_increment, cps);
+                    }
+
                     // Synthesize samples using optimized buffer processing
                     // CRITICAL: Pass timing FROM GlobalClock TO the graph
                     // The graph does NOT calculate timing - it receives it as a parameter
@@ -461,12 +469,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     // CRITICAL: Update GlobalClock's tempo if it changed
                                     // GlobalClock.set_cps() handles timing continuity automatically!
                                     // No need for cycle_offset calculation - GlobalClock tracks position.
-                                    {
+                                    let (old_pos, new_pos, old_cps) = {
                                         let mut clock = global_clock.lock().unwrap();
+                                        let old_cps = clock.get_cps();
+                                        let old_pos = clock.get_position();
                                         clock.set_cps(new_graph.cps);
-                                    }
+                                        let new_pos = clock.get_position();
+                                        (old_pos, new_pos, old_cps)
+                                    };
 
-                                    eprintln!("🔄 Graph updated: new_cps={:.2}", new_graph.cps);
+                                    // DEBUG: Log timing continuity during graph swap
+                                    eprintln!("🔄 Graph swap: pos={:.4} -> {:.4} (delta={:.6}), cps={:.2} -> {:.2}",
+                                        old_pos, new_pos, new_pos - old_pos, old_cps, new_graph.cps);
 
                                     // Swap in new graph (atomic, lock-free)
                                     // Graph does NOT own timing - it receives timing from GlobalClock
