@@ -7185,9 +7185,75 @@ fn modify_sample_param(
         };
 
         Ok(ctx.graph.add_node(new_sample))
+    } else if let SignalNode::SynthPattern {
+        pattern_str,
+        pattern,
+        waveform,
+        attack,
+        decay,
+        sustain,
+        release,
+        filter_cutoff,
+        filter_resonance,
+        filter_env_amount,
+        gain,
+        pan,
+        ..
+    } = sample_node
+    {
+        // Handle SynthPattern modifiers (created by saw # note "c4" etc.)
+        // Extract f32 value from Signal for numeric parameters
+        let extract_f32 = |signal: &Signal| -> f32 {
+            match signal {
+                Signal::Value(v) => *v,
+                _ => 0.0, // Default for node references
+            }
+        };
+
+        let new_synth = SignalNode::SynthPattern {
+            pattern_str: pattern_str.clone(),
+            pattern: pattern.clone(),
+            last_trigger_time: -1.0,
+            waveform: *waveform,
+            attack: if param_name == "attack" {
+                extract_f32(&new_value)
+            } else {
+                *attack
+            },
+            decay: *decay,
+            sustain: *sustain,
+            release: if param_name == "release" {
+                extract_f32(&new_value)
+            } else {
+                *release
+            },
+            filter_cutoff: if param_name == "lpf" || param_name == "cutoff" {
+                extract_f32(&new_value)
+            } else {
+                *filter_cutoff
+            },
+            filter_resonance: if param_name == "resonance" || param_name == "res" {
+                extract_f32(&new_value)
+            } else {
+                *filter_resonance
+            },
+            filter_env_amount: *filter_env_amount,
+            gain: if param_name == "gain" {
+                new_value.clone()
+            } else {
+                gain.clone()
+            },
+            pan: if param_name == "pan" {
+                new_value.clone()
+            } else {
+                pan.clone()
+            },
+        };
+
+        Ok(ctx.graph.add_node(new_synth))
     } else {
         Err(format!(
-            "{} can only be used with sample (s) patterns, not other signals",
+            "{} can only be used with sample (s) patterns or synth patterns, not other signals",
             param_name
         ))
     }
@@ -9163,8 +9229,8 @@ fn compile_note_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
 
         // Modifier mode: signal # note "pattern"
         2 => {
-            // First arg should be ChainInput pointing to a Sample node
-            let sample_node_id = match &args[0] {
+            // First arg should be ChainInput
+            let input_node_id = match &args[0] {
                 Expr::ChainInput(node_id) => *node_id,
                 _ => {
                     return Err(
@@ -9173,11 +9239,57 @@ fn compile_note_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
                 }
             };
 
-            // Second arg is the note pattern (note names or semitone offsets)
-            let note_value = compile_expr(ctx, args[1].clone())?;
+            // Check if input is an Oscillator - if so, create a SynthPattern
+            let is_oscillator = if let Some(Some(node)) = ctx.graph.nodes.get(input_node_id.0) {
+                matches!(&**node, SignalNode::Oscillator { .. })
+            } else {
+                false
+            };
 
-            // Modify the Sample node's note parameter
-            modify_sample_param(ctx, sample_node_id, "note", Signal::Node(note_value))
+            if is_oscillator {
+                // Extract waveform from oscillator and create SynthPattern
+                let waveform = if let Some(Some(node)) = ctx.graph.nodes.get(input_node_id.0) {
+                    if let SignalNode::Oscillator { waveform, .. } = &**node {
+                        *waveform
+                    } else {
+                        Waveform::Sine
+                    }
+                } else {
+                    Waveform::Sine
+                };
+
+                // Get the note pattern string
+                let pattern_str = match &args[1] {
+                    Expr::String(s) => s.clone(),
+                    _ => return Err("note pattern must be a string".to_string()),
+                };
+
+                // Parse the pattern
+                let pattern = parse_mini_notation(&pattern_str);
+
+                // Create SynthPattern with sensible defaults
+                // User can override with # ar, # lpf, etc.
+                let node = SignalNode::SynthPattern {
+                    pattern_str: pattern_str.clone(),
+                    pattern,
+                    last_trigger_time: -1.0,
+                    waveform,
+                    attack: 0.01,        // 10ms default attack
+                    decay: 0.1,          // 100ms decay
+                    sustain: 0.7,        // 70% sustain
+                    release: 0.3,        // 300ms release
+                    filter_cutoff: 20000.0,  // No filter by default
+                    filter_resonance: 0.0,
+                    filter_env_amount: 0.0,
+                    gain: Signal::Value(1.0),
+                    pan: Signal::Value(0.0),
+                };
+                Ok(ctx.graph.add_node(node))
+            } else {
+                // Original behavior: modify Sample node's note parameter
+                let note_value = compile_expr(ctx, args[1].clone())?;
+                modify_sample_param(ctx, input_node_id, "note", Signal::Node(note_value))
+            }
         }
 
         _ => Err(format!(
