@@ -2027,11 +2027,14 @@ impl VoiceManager {
         let mut output: HashMap<usize, Vec<f32>> = HashMap::new();
 
         // PARALLEL: Process voices in parallel when count is high
+        // NOTE: This only renders SAMPLE voices. Synthesis voices are handled separately
+        // by process_synthesis_buffers() because they need pre-generated oscillator buffers.
         if self.voices.len() >= self.parallel_threshold {
             // Each voice renders its full buffer independently
             let voice_buffers: Vec<(Vec<f32>, usize)> = self
                 .voices
                 .par_iter_mut()
+                .filter(|voice| voice.synthesis_node_id.is_none()) // Skip synthesis voices
                 .map(|voice| {
                     let source_node = voice.source_node;
                     let trigger_offset = voice.buffer_trigger_offset.unwrap_or(0);
@@ -2071,7 +2074,13 @@ impl VoiceManager {
             }
         } else {
             // SEQUENTIAL: For low voice counts, process sequentially
+            // NOTE: Skip synthesis voices - they are handled by process_synthesis_buffers()
             for voice in &mut self.voices {
+                // Skip synthesis voices - they need pre-generated oscillator buffers
+                if voice.synthesis_node_id.is_some() {
+                    continue;
+                }
+
                 let source_node = voice.source_node;
                 let trigger_offset = voice.buffer_trigger_offset.unwrap_or(0);
 

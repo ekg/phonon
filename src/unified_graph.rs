@@ -14655,7 +14655,138 @@ impl UnifiedSignalGraph {
         } else {
             None
         };
-        let voice_buffers_map = self.voice_manager.borrow_mut().render_block(buffer_size);
+
+        // PHASE 2a: Render sample voices (these work with render_block)
+        let mut voice_buffers_map = self.voice_manager.borrow_mut().render_block(buffer_size);
+
+        // PHASE 2b: Render synthesis voices (these need pre-generated buffers)
+        // This mirrors the legacy path's synthesis handling
+        let node_pitch_pairs = self
+            .voice_manager
+            .borrow()
+            .get_active_synthesis_node_ids_with_pitch();
+
+        if !node_pitch_pairs.is_empty() {
+            // Generate buffers for each unique (node_id, semitone_offset) combination
+            let mut synthesis_buffers: std::collections::HashMap<(usize, i32), Vec<f32>> =
+                std::collections::HashMap::new();
+
+            for &(node_id, semitone_offset) in &node_pitch_pairs {
+                let semitone_key = (semitone_offset * 100.0).round() as i32;
+                let buffer_key = (node_id, semitone_key);
+
+                // Skip if we already generated this combination
+                if synthesis_buffers.contains_key(&buffer_key) {
+                    continue;
+                }
+
+                // Find ALL oscillator nodes in the signal chain
+                let oscillator_ids = self.find_oscillator_nodes_in_chain(node_id);
+
+                // Store original offsets AND phases for all oscillators
+                let mut original_state: Vec<(usize, f32, f32)> = Vec::new();
+                for &osc_id in &oscillator_ids {
+                    if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
+                        if let SignalNode::Oscillator {
+                            semitone_offset: node_offset,
+                            phase,
+                            ..
+                        } = &**node_rc
+                        {
+                            original_state.push((osc_id, *node_offset, *phase.borrow()));
+                        }
+                    }
+                }
+
+                // Apply pitch offset to ALL oscillators in the chain
+                for &osc_id in &oscillator_ids {
+                    if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
+                        let node = std::rc::Rc::make_mut(node_rc);
+                        if let SignalNode::Oscillator {
+                            semitone_offset: node_offset,
+                            phase,
+                            ..
+                        } = node
+                        {
+                            // Get cached phase for this (osc, pitch) combination
+                            let phase_key = (osc_id, semitone_key);
+                            let cached_phase = self
+                                .synthesis_phase_cache
+                                .borrow()
+                                .get(&phase_key)
+                                .copied()
+                                .unwrap_or(0.0);
+                            *node_offset = semitone_offset;
+                            *phase.borrow_mut() = cached_phase;
+                        }
+                    }
+                }
+
+                // CRITICAL: Clear buffer cache before generating buffer with new semitone_offset
+                self.buffer_cache.borrow_mut().clear();
+
+                // Generate buffer with the temporary semitone_offset(s)
+                let mut synth_buffer = vec![0.0; buffer_size];
+                self.eval_node_buffer(&NodeId(node_id), &mut synth_buffer);
+
+                synthesis_buffers.insert(buffer_key, synth_buffer);
+
+                // Save phase to per-pitch cache BEFORE restoring original state
+                for &osc_id in &oscillator_ids {
+                    if let Some(Some(node_rc)) = self.nodes.get(osc_id) {
+                        if let SignalNode::Oscillator { phase, .. } = &**node_rc {
+                            let phase_key = (osc_id, semitone_key);
+                            let new_phase = *phase.borrow();
+                            self.synthesis_phase_cache
+                                .borrow_mut()
+                                .insert(phase_key, new_phase);
+                        }
+                    }
+                }
+
+                // Restore original state for all oscillators
+                for (osc_id, original_offset, original_phase) in original_state {
+                    if let Some(Some(node_rc)) = self.nodes.get_mut(osc_id) {
+                        let node = std::rc::Rc::make_mut(node_rc);
+                        if let SignalNode::Oscillator {
+                            semitone_offset: node_offset,
+                            phase,
+                            ..
+                        } = node
+                        {
+                            *node_offset = original_offset;
+                            *phase.borrow_mut() = original_phase;
+                        }
+                    }
+                }
+            }
+
+            // Process synthesis voices with envelopes and mix
+            let synthesis_voice_buffers = self
+                .voice_manager
+                .borrow_mut()
+                .process_synthesis_buffers(&synthesis_buffers, buffer_size);
+
+            // Mix synthesis outputs into voice_buffers_map
+            for (i, sample_map) in synthesis_voice_buffers.into_iter().enumerate() {
+                for (source_node, sample) in sample_map {
+                    voice_buffers_map
+                        .entry(source_node)
+                        .and_modify(|buf| {
+                            if i < buf.len() {
+                                buf[i] += sample;
+                            }
+                        })
+                        .or_insert_with(|| {
+                            let mut new_buf = vec![0.0; buffer_size];
+                            if i < new_buf.len() {
+                                new_buf[i] = sample;
+                            }
+                            new_buf
+                        });
+                }
+            }
+        }
 
         let phase2_time_us = phase2_start.map(|t| t.elapsed().as_micros()).unwrap_or(0);
 
