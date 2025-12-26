@@ -7013,12 +7013,9 @@ impl UnifiedSignalGraph {
                                 }
                             }
 
-                            // If no valid notes were found, return 0 (no pitch change)
-                            if all_notes.is_empty() {
-                                vec![0.0]
-                            } else {
-                                all_notes
-                            }
+                            // If no valid notes were found (all rests), return empty vector
+                            // This signals "don't play anything" rather than "play at default pitch"
+                            all_notes
                         }
                     } else {
                         vec![self.eval_node(id)]
@@ -10508,6 +10505,12 @@ impl UnifiedSignalGraph {
                         // Supports: numbers (5), letter notes (c4, e4, g4), solfège (do, re, mi)
                         // Also supports chord notation: "c4'maj" -> vec![0, 4, 7] (C, E, G)
                         let chord_notes = self.eval_note_signal_as_chord(&note, event_start_abs);
+
+                        // CRITICAL: If note pattern returned empty (rest), skip this event entirely
+                        // This handles `# note "~ c4"` where ~ should produce silence
+                        if chord_notes.is_empty() {
+                            continue;
+                        }
 
                         // Scale gain by 1/sqrt(n) to prevent clipping when multiple voices sum
                         // Using sqrt gives perceptually correct loudness (RMS scaling)
