@@ -94,6 +94,10 @@ criterion = { version = "0.5", features = ["html_reports"] }
 name = "wav_analyze"
 path = "src/bin/wav_analyze.rs"
 
+[[bin]]
+name = "test_live_vs_offline"
+path = "src/bin/test_live_vs_offline.rs"
+
 [[bench]]
 name = "voice_simd_bench"
 harness = false

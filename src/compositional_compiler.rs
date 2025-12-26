@@ -2066,8 +2066,41 @@ fn compile_expr_audio_node(ctx: &mut CompilerContext, expr: Expr) -> Result<usiz
 
                     Ok(node_id)
                 }
+                Expr::BusRef(bus_name) => {
+                    // Handle bus reference with transform: ~base $ fast 2
+                    // Look up the original expression and apply the transform
+                    if let Some(bus_expr) = ctx.bus_expressions.get(bus_name).cloned() {
+                        // Create a new Transform expression with the original bus expression
+                        let transformed_expr = Expr::Transform {
+                            expr: Box::new(bus_expr),
+                            transform: transform.clone(),
+                        };
+                        // Recursively compile - this will handle string patterns correctly
+                        compile_expr_audio_node(ctx, transformed_expr)
+                    } else {
+                        Err(format!(
+                            "Bus '~{}' not found when applying transform {:?}",
+                            bus_name, transform
+                        ))
+                    }
+                }
+                Expr::Transform { expr: inner_expr, transform: inner_transform } => {
+                    // Handle nested transforms: ~base $ fast 2 $ rev
+                    // Apply transforms in order (outer transform wraps inner)
+                    // First create a transform with the inner expression and inner transform
+                    let inner_result = Expr::Transform {
+                        expr: inner_expr.clone(),
+                        transform: inner_transform.clone(),
+                    };
+                    // Then wrap with outer transform
+                    let full_transform = Expr::Transform {
+                        expr: Box::new(inner_result),
+                        transform: transform.clone(),
+                    };
+                    compile_expr_audio_node(ctx, full_transform)
+                }
                 _ => {
-                    // For non-pattern expressions, compile without transform
+                    // For other non-pattern expressions, compile without transform
                     // (transforms only apply to patterns)
                     eprintln!(
                         "⚠️  Transform on non-pattern expression not yet supported: {:?}",
@@ -7510,7 +7543,7 @@ fn compile_transform(
             }
         }
 
-        let mut all_transforms = vec![transform];
+        let mut all_transforms = vec![transform.clone()];
         let base_expr = collect_transforms(
             Expr::Transform {
                 expr: inner_expr,
@@ -7570,7 +7603,37 @@ fn compile_transform(
                 };
                 return Ok(ctx.graph.add_node(node));
             }
+            Expr::BusRef(bus_name) => {
+                // Handle bus reference with transforms: ~base $ fast 2 $ rev
+                // Look up the original expression and apply all transforms
+                if let Some(bus_expr) = ctx.bus_expressions.get(&bus_name).cloned() {
+                    // Create a new Transform expression with all collected transforms
+                    let mut current_expr = bus_expr;
+                    for t in all_transforms.iter().rev() {
+                        current_expr = Expr::Transform {
+                            expr: Box::new(current_expr),
+                            transform: t.clone(),
+                        };
+                    }
+                    // Recursively compile - this will handle string patterns correctly
+                    return compile_expr(ctx, current_expr);
+                }
+            }
             _ => {}
+        }
+    }
+
+    // Handle BusRef directly (not nested in transform chain)
+    if let Expr::BusRef(bus_name) = &expr {
+        // Look up the original expression and apply the transform
+        if let Some(bus_expr) = ctx.bus_expressions.get(bus_name).cloned() {
+            // Create a new Transform expression with the original bus expression
+            let transformed_expr = Expr::Transform {
+                expr: Box::new(bus_expr),
+                transform: transform.clone(),
+            };
+            // Recursively compile - this will handle string patterns correctly
+            return compile_expr(ctx, transformed_expr);
         }
     }
 

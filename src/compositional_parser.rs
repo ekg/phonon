@@ -1078,26 +1078,32 @@ fn transform_to_call_expr(transform: &Transform) -> Option<Expr> {
 /// Supports both: function $ arg  AND  expr $ transform
 fn parse_transform_expr(input: &str) -> IResult<&str, Expr> {
     // First, try to parse: transform $ expr (for backward compatibility)
+    // BUT NOT for TransformBusRef - those should be parsed as expressions!
+    // e.g., "~base $ fast 2" should be: Transform { expr: BusRef("base"), transform: Fast(2) }
+    // NOT: Transform { expr: fast(2), transform: TransformBusRef("base") }
     if let Ok((input_after_transform, transform)) = parse_transform(input) {
-        let (input_check, _) = space0(input_after_transform)?;
+        // Skip transform-first parsing for TransformBusRef - these are bus references, not transforms
+        if !matches!(transform, Transform::TransformBusRef(_)) {
+            let (input_check, _) = space0(input_after_transform)?;
 
-        // Check for $ operator
-        if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('$')(input_check) {
-            let (input, _) = space0(input)?;
-            let (input, mut expr) = parse_transform_expr(input)?; // Right-associative!
+            // Check for $ operator
+            if let Ok((input, _)) = char::<_, nom::error::Error<&str>>('$')(input_check) {
+                let (input, _) = space0(input)?;
+                let (input, mut expr) = parse_transform_expr(input)?; // Right-associative!
 
-            // CRITICAL FIX: Check if expr is a function call that should be a transform
-            // e.g., Call { name: "fast", args: [2] } should become Transform { transform: Fast(2), ... }
-            expr = convert_call_to_transform_if_applicable(expr);
+                // CRITICAL FIX: Check if expr is a function call that should be a transform
+                // e.g., Call { name: "fast", args: [2] } should become Transform { transform: Fast(2), ... }
+                expr = convert_call_to_transform_if_applicable(expr);
 
-            // Return transform applied to expr
-            return Ok((
-                input,
-                Expr::Transform {
-                    expr: Box::new(expr),
-                    transform,
-                },
-            ));
+                // Return transform applied to expr
+                return Ok((
+                    input,
+                    Expr::Transform {
+                        expr: Box::new(expr),
+                        transform,
+                    },
+                ));
+            }
         }
 
         // No $ operator - convert standalone transform to Expr::Call if possible

@@ -1266,13 +1266,35 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
 
         let len = patterns.len();
         Pattern::new(move |state| {
-            // Determine which pattern is active based on the cycle number
-            let cycle = state.span.begin.to_float().floor() as usize;
-            let pattern_idx = cycle % len;
-            let pattern = &patterns[pattern_idx];
+            let mut all_haps = Vec::new();
 
-            // Query the selected pattern with the current time span
-            pattern.query(state)
+            // For multi-cycle queries, we need to query each cycle's pattern separately
+            let start_cycle = state.span.begin.to_float().floor() as i64;
+            let end_cycle = state.span.end.to_float().ceil() as i64;
+
+            for cycle in start_cycle..end_cycle {
+                // Select the pattern for this cycle
+                let pattern_idx = (cycle as usize) % len;
+                let pattern = &patterns[pattern_idx];
+
+                // Create sub-state clipped to this cycle
+                let cycle_begin = Fraction::from_float(cycle as f64);
+                let cycle_end = Fraction::from_float((cycle + 1) as f64);
+
+                // Clip to query span
+                let clipped_begin = cycle_begin.max(state.span.begin);
+                let clipped_end = cycle_end.min(state.span.end);
+
+                if clipped_end > clipped_begin {
+                    let sub_state = State {
+                        span: TimeSpan::new(clipped_begin, clipped_end),
+                        controls: state.controls.clone(),
+                    };
+                    all_haps.extend(pattern.query(&sub_state));
+                }
+            }
+
+            all_haps
         })
     }
 

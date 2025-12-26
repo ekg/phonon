@@ -177,16 +177,20 @@ out $ ~filtered * 0.3
 fn test_pattern_modulating_pattern_parameter() {
     // Test 5: Pattern controlling another pattern's speed
     // This is meta-level: patterns modifying pattern behavior
+    //
+    // The ~speed_mod LFO (0.25 Hz) is automatically mapped to a sensible range
+    // for the fast transform (0.25x to 4x speed). This demonstrates how audio
+    // signals can control pattern parameters.
     let code = r#"
 tempo: 0.5
 
--- Speed modulation pattern
+-- Speed modulation LFO (0.25 Hz sine wave)
+-- When used with fast, automatically mapped to 0.25x - 4x range
 ~speed_mod $ sine 0.25
 
 -- Base pattern with modulated speed
--- The $ fast operator uses ~speed_mod as its parameter
 ~base $ "220 440 330 550"
-~modulated $ ~base $ fast (~speed_mod * 2 + 3)
+~modulated $ ~base $ fast ~speed_mod
 
 ~osc $ sine ~modulated
 out $ ~osc * 0.3
