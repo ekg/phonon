@@ -190,6 +190,7 @@ enum Alignment {
     Choose,       // Random choice (with |)
     Alternate,    // Alternation with < >
     FastSequence, // Fast sequence in [ ]
+    Feet,         // Equal division with . (each foot gets equal time)
 }
 
 #[derive(Debug, Clone)]
@@ -445,8 +446,8 @@ impl MiniNotationParser {
 
     /// Parse the entire pattern (internal use only)
     fn parse(&mut self) -> AstNode {
-        // Parse first part
-        let first = self.parse_sequence();
+        // Parse first part (handles dots for feet)
+        let first = self.parse_feet();
 
         // Check if there's a pipe for stacking
         if let Some(Token::Pipe) = self.current() {
@@ -454,13 +455,37 @@ impl MiniNotationParser {
 
             while let Some(Token::Pipe) = self.current() {
                 self.advance(); // consume pipe
-                patterns.push(self.parse_sequence());
+                patterns.push(self.parse_feet());
             }
 
             // Create a stacked pattern
             AstNode::Pattern {
                 children: patterns,
                 alignment: Alignment::Stack,
+            }
+        } else {
+            first
+        }
+    }
+
+    /// Parse feet (dot-separated equal divisions)
+    /// "bd sd . hh hh hh" -> 2 feet, each taking half the cycle
+    fn parse_feet(&mut self) -> AstNode {
+        let first = self.parse_sequence();
+
+        // Check if there are dots for feet division
+        if let Some(Token::Dot) = self.current() {
+            let mut feet = vec![first];
+
+            while let Some(Token::Dot) = self.current() {
+                self.advance(); // consume dot
+                feet.push(self.parse_sequence());
+            }
+
+            // Create feet pattern (each foot gets equal time)
+            AstNode::Pattern {
+                children: feet,
+                alignment: Alignment::Feet,
             }
         } else {
             first
@@ -475,7 +500,7 @@ impl MiniNotationParser {
             // Check for end of sequence markers
             match token {
                 Token::CloseBracket | Token::CloseAngle | Token::CloseParen => break,
-                Token::Comma | Token::Pipe => break,
+                Token::Comma | Token::Pipe | Token::Dot => break, // Dot ends a foot
                 _ => {}
             }
 
@@ -871,6 +896,7 @@ fn ast_to_pattern_value(ast: AstNode) -> Pattern<PatternValue> {
                 }
                 Alignment::Alternate => Pattern::slowcat(patterns),
                 Alignment::FastSequence => Pattern::fastcat(patterns),
+                Alignment::Feet => Pattern::cat(patterns), // Each foot gets equal time
             }
         }
 
@@ -954,6 +980,7 @@ fn ast_to_pattern(ast: AstNode) -> Pattern<String> {
                 }
                 Alignment::Alternate => Pattern::slowcat(patterns),
                 Alignment::FastSequence => Pattern::fastcat(patterns),
+                Alignment::Feet => Pattern::cat(patterns), // Each foot gets equal time
             }
         }
 
@@ -1283,5 +1310,67 @@ mod tests {
     fn test_nested_patterns() {
         let pattern = parse_mini_notation("[bd(3,8), <cp sn>*2]");
         // Should handle nested patterns correctly
+    }
+
+    #[test]
+    fn test_dot_feet_syntax() {
+        use crate::pattern::{Fraction, State, TimeSpan};
+        use std::collections::HashMap;
+
+        // "bd sd . hh hh hh" should divide cycle into 2 equal feet
+        // First foot (0.0-0.5): bd sd -> bd at 0.0, sd at 0.25
+        // Second foot (0.5-1.0): hh hh hh -> hh at 0.5, 0.667, 0.833
+        let pattern = parse_mini_notation("bd sd . hh hh hh");
+
+        let state = State {
+            span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),
+            controls: HashMap::new(),
+        };
+
+        let events = pattern.query(&state);
+        assert_eq!(events.len(), 5, "Should have 5 events");
+
+        // Check event times (with tolerance for floating point)
+        let times: Vec<f64> = events.iter().map(|e| e.part.begin.to_float()).collect();
+        let expected = vec![0.0, 0.25, 0.5, 0.6667, 0.8333];
+
+        for (i, (actual, expect)) in times.iter().zip(expected.iter()).enumerate() {
+            assert!(
+                (actual - expect).abs() < 0.01,
+                "Event {} at {:.4}, expected {:.4}",
+                i,
+                actual,
+                expect
+            );
+        }
+
+        // Check values
+        assert_eq!(events[0].value, "bd");
+        assert_eq!(events[1].value, "sd");
+        assert_eq!(events[2].value, "hh");
+        assert_eq!(events[3].value, "hh");
+        assert_eq!(events[4].value, "hh");
+    }
+
+    #[test]
+    fn test_dot_three_feet() {
+        use crate::pattern::{Fraction, State, TimeSpan};
+        use std::collections::HashMap;
+
+        // "a . b . c" should divide into 3 equal parts
+        let pattern = parse_mini_notation("a . b . c");
+
+        let state = State {
+            span: TimeSpan::new(Fraction::from_float(0.0), Fraction::from_float(1.0)),
+            controls: HashMap::new(),
+        };
+
+        let events = pattern.query(&state);
+        assert_eq!(events.len(), 3, "Should have 3 events");
+
+        let times: Vec<f64> = events.iter().map(|e| e.part.begin.to_float()).collect();
+        assert!((times[0] - 0.0).abs() < 0.01);
+        assert!((times[1] - 0.333).abs() < 0.01);
+        assert!((times[2] - 0.667).abs() < 0.01);
     }
 }
