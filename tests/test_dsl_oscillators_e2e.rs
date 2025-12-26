@@ -203,8 +203,8 @@ out $ tri "220 330 440 550" * 0.2
 fn test_two_sines_mixed() {
     let dsl = r#"
 tempo: 0.5
-~osc1: sine 440 * 0.1
-~osc2: sine 880 * 0.1
+~osc1 $ sine 440 * 0.1
+~osc2 $ sine 880 * 0.1
 out $ ~osc1 + ~osc2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "two_sines");
@@ -219,10 +219,10 @@ out $ ~osc1 + ~osc2
 fn test_all_oscillator_types_mixed() {
     let dsl = r#"
 tempo: 0.5
-~s: sine 440 * 0.05
-~saw: saw 220 * 0.05
-~sq: square 110 * 0.05
-~t: tri 880 * 0.05
+~s $ sine 440 * 0.05
+~saw $ saw 220 * 0.05
+~sq $ square 110 * 0.05
+~t $ tri 880 * 0.05
 out $ ~s + ~saw + ~sq + ~t
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "all_oscs_mixed");
@@ -237,9 +237,9 @@ out $ ~s + ~saw + ~sq + ~t
 fn test_weighted_oscillator_mix() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 55 * 0.3
-~mid: square 220 * 0.2
-~high: sine 880 * 0.1
+~bass $ saw 55 * 0.3
+~mid $ square 220 * 0.2
+~high $ sine 880 * 0.1
 out $ ~bass + ~mid + ~high
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "weighted_mix");
@@ -258,8 +258,8 @@ out $ ~bass + ~mid + ~high
 fn test_lfo_amplitude_modulation() {
     let dsl = r#"
 tempo: 0.5
-~lfo: sine 2 * 0.5 + 0.5
-~carrier: sine 440
+~lfo $ sine 2 * 0.5 + 0.5
+~carrier $ sine 440
 out $ ~carrier * ~lfo * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lfo_am");
@@ -279,8 +279,8 @@ out $ ~carrier * ~lfo * 0.2
 fn test_slow_lfo() {
     let dsl = r#"
 tempo: 0.5
-~lfo: sine 0.25 * 0.5 + 0.5
-~carrier: saw 110
+~lfo $ sine 0.25 * 0.5 + 0.5
+~carrier $ saw 110
 out $ ~carrier * ~lfo * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "slow_lfo", "4");
@@ -296,8 +296,8 @@ out $ ~carrier * ~lfo * 0.2
 fn test_fast_lfo_vibrato() {
     let dsl = r#"
 tempo: 0.5
-~lfo: sine 6 * 10
-~carrier: sine (440 + ~lfo)
+~lfo $ sine 6 * 10
+~carrier $ sine (440 + ~lfo)
 out $ ~carrier * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "fast_lfo");
@@ -312,8 +312,8 @@ out $ ~carrier * 0.2
 fn test_triangle_lfo() {
     let dsl = r#"
 tempo: 0.5
-~lfo: tri 1 * 0.5 + 0.5
-~carrier: sine 440
+~lfo $ tri 1 * 0.5 + 0.5
+~carrier $ sine 440
 out $ ~carrier * ~lfo * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "tri_lfo");
@@ -442,8 +442,8 @@ out $ sine "220 247.5 275 330 370" * 0.2
 fn test_simple_fm_synthesis() {
     let dsl = r#"
 tempo: 0.5
-~modulator: sine 55 * 100
-~carrier: sine (440 + ~modulator)
+~modulator $ sine 55 * 100
+~carrier $ sine (440 + ~modulator)
 out $ ~carrier * 0.1
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "simple_fm");
@@ -458,8 +458,8 @@ out $ ~carrier * 0.1
 fn test_deep_fm_modulation() {
     let dsl = r#"
 tempo: 0.5
-~mod: sine 110 * 500
-~car: sine (220 + ~mod)
+~mod $ sine 110 * 500
+~car $ sine (220 + ~mod)
 out $ ~car * 0.1
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "deep_fm");
@@ -474,8 +474,8 @@ out $ ~car * 0.1
 fn test_pattern_controlled_fm() {
     let dsl = r#"
 tempo: 0.5
-~mod: sine "55 82.5" * 200
-~car: sine (440 + ~mod)
+~mod $ sine "55 82.5" * 200
+~car $ sine (440 + ~mod)
 out $ ~car * 0.1
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "pattern_fm");
@@ -583,9 +583,9 @@ out $ sine 440 * sine 2 * 0.2
 fn test_complex_arithmetic() {
     let dsl = r#"
 tempo: 0.5
-~a: sine 440
-~b: sine 880
-~c: saw 220
+~a $ sine 440
+~b $ sine 880
+~c $ saw 220
 out $ (~a + ~b * 0.5) * ~c * 0.05
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "complex_math");
@@ -604,7 +604,7 @@ out $ (~a + ~b * 0.5) * ~c * 0.05
 fn test_oscillator_through_bus() {
     let dsl = r#"
 tempo: 0.5
-~osc: sine 440
+~osc $ sine 440
 out $ ~osc * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bus_routing");
@@ -620,9 +620,9 @@ out $ ~osc * 0.2
 fn test_multiple_buses_to_output() {
     let dsl = r#"
 tempo: 0.5
-~bus1: sine 220
-~bus2: saw 110
-~bus3: square 440
+~bus1 $ sine 220
+~bus2 $ saw 110
+~bus3 $ square 440
 out $ ~bus1 * 0.1 + ~bus2 * 0.1 + ~bus3 * 0.1
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "multi_bus");
@@ -637,9 +637,9 @@ out $ ~bus1 * 0.1 + ~bus2 * 0.1 + ~bus3 * 0.1
 fn test_nested_bus_routing() {
     let dsl = r#"
 tempo: 0.5
-~osc1: sine 440
-~osc2: saw 220
-~mix: ~osc1 + ~osc2
+~osc1 $ sine 440
+~osc2 $ saw 220
+~mix $ ~osc1 + ~osc2
 out $ ~mix * 0.15
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "nested_bus");

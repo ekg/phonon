@@ -29,6 +29,7 @@ fn render_and_verify_duration(
     let output = Command::new("cargo")
         .args(&[
             "run",
+            "--release",
             "--bin",
             "phonon",
             "--quiet",
@@ -56,7 +57,7 @@ fn render_and_verify_duration(
 fn test_lpf_constant_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 55 # lpf 2000 0.8
+~bass $ saw 55 # lpf 2000 0.8
 out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_constant");
@@ -75,7 +76,7 @@ out $ ~bass * 0.3
 fn test_lpf_low_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 110 # lpf 500 0.7
+~bass $ saw 110 # lpf 500 0.7
 out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_low_cut");
@@ -90,7 +91,7 @@ out $ ~bass * 0.3
 fn test_lpf_high_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 55 # lpf 5000 0.5
+~bass $ saw 55 # lpf 5000 0.5
 out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_high_cut");
@@ -105,7 +106,7 @@ out $ ~bass * 0.3
 fn test_lpf_pattern_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 55 # lpf "500 1000 1500 2000" 0.8
+~bass $ saw 55 # lpf "500 1000 1500 2000" 0.8
 out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_pattern_cut");
@@ -125,7 +126,7 @@ out $ ~bass * 0.3
 fn test_lpf_low_resonance() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 110 # lpf 1000 0.3
+~bass $ saw 110 # lpf 1000 0.3
 out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_low_res");
@@ -144,7 +145,7 @@ out $ ~bass * 0.3
 fn test_lpf_high_resonance() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 110 # lpf 1000 0.95
+~bass $ saw 110 # lpf 1000 0.95
 out $ ~bass * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_high_res");
@@ -163,7 +164,7 @@ out $ ~bass * 0.2
 fn test_lpf_pattern_resonance() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 55 # lpf 1500 "0.3 0.6 0.8 0.9"
+~bass $ saw 55 # lpf 1500 "0.3 0.6 0.8 0.9"
 out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_pattern_res");
@@ -183,7 +184,7 @@ out $ ~bass * 0.3
 fn test_lpf_both_patterns() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 55 # lpf "500 1500 2500" "0.5 0.8"
+~bass $ saw 55 # lpf "500 1500 2500" "0.5 0.8"
 out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_both_patterns");
@@ -207,7 +208,7 @@ out $ ~bass * 0.3
 fn test_hpf_constant_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~sig: saw 220 # hpf 500 0.7
+~sig $ saw 220 # hpf 500 0.7
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_constant");
@@ -226,7 +227,7 @@ out $ ~sig * 0.3
 fn test_hpf_low_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~sig: saw 110 # hpf 100 0.5
+~sig $ saw 110 # hpf 100 0.5
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_low_cut");
@@ -241,7 +242,7 @@ out $ ~sig * 0.3
 fn test_hpf_high_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~sig: saw 220 # hpf 2000 0.8
+~sig $ saw 220 # hpf 2000 0.8
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_high_cut");
@@ -255,7 +256,7 @@ out $ ~sig * 0.3
 fn test_hpf_pattern_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~sig: saw 220 # hpf "200 400 800 1600" 0.7
+~sig $ saw 220 # hpf "200 400 800 1600" 0.7
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_pattern_cut");
@@ -279,7 +280,7 @@ out $ ~sig * 0.3
 fn test_bpf_constant_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~sig: saw 110 # bpf 1000 0.7
+~sig $ saw 110 # bpf 1000 0.7
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_constant");
@@ -299,7 +300,7 @@ out $ ~sig * 0.3
 fn test_bpf_narrow_bandwidth() {
     let dsl = r#"
 tempo: 0.5
-~sig: saw 110 # bpf 1000 0.95
+~sig $ saw 110 # bpf 1000 0.95
 out $ ~sig * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_narrow");
@@ -318,7 +319,7 @@ out $ ~sig * 0.2
 fn test_bpf_wide_bandwidth() {
     let dsl = r#"
 tempo: 0.5
-~sig: saw 110 # bpf 1000 0.3
+~sig $ saw 110 # bpf 1000 0.3
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_wide");
@@ -338,7 +339,7 @@ out $ ~sig * 0.3
 fn test_bpf_pattern_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~sig: saw 110 # bpf "500 1000 2000 4000" 0.8
+~sig $ saw 110 # bpf "500 1000 2000 4000" 0.8
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_pattern");
@@ -362,8 +363,8 @@ out $ ~sig * 0.3
 fn test_lpf_lfo_modulated_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~lfo: sine 0.5 * 0.5 + 0.5
-~bass: saw 55 # lpf (~lfo * 2000 + 500) 0.8
+~lfo $ sine 0.5 * 0.5 + 0.5
+~bass $ saw 55 # lpf (~lfo * 2000 + 500) 0.8
 out $ ~bass * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "lpf_lfo_cutoff", "4");
@@ -379,8 +380,8 @@ out $ ~bass * 0.4
 fn test_lpf_slow_lfo() {
     let dsl = r#"
 tempo: 0.5
-~lfo: sine 0.25 * 0.5 + 0.5
-~bass: saw 55 # lpf (~lfo * 3000 + 200) 0.8
+~lfo $ sine 0.25 * 0.5 + 0.5
+~bass $ saw 55 # lpf (~lfo * 3000 + 200) 0.8
 out $ ~bass * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "lpf_slow_lfo", "8");
@@ -396,8 +397,8 @@ out $ ~bass * 0.4
 fn test_lpf_fast_lfo() {
     let dsl = r#"
 tempo: 0.5
-~lfo: sine 4 * 0.5 + 0.5
-~bass: saw 110 # lpf (~lfo * 2000 + 800) 0.7
+~lfo $ sine 4 * 0.5 + 0.5
+~bass $ saw 110 # lpf (~lfo * 2000 + 800) 0.7
 out $ ~bass * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_fast_lfo");
@@ -413,8 +414,8 @@ out $ ~bass * 0.4
 fn test_lpf_triangle_lfo() {
     let dsl = r#"
 tempo: 0.5
-~lfo: tri 0.5 * 0.5 + 0.5
-~bass: saw 55 # lpf (~lfo * 2500 + 500) 0.8
+~lfo $ tri 0.5 * 0.5 + 0.5
+~bass $ saw 55 # lpf (~lfo * 2500 + 500) 0.8
 out $ ~bass * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "lpf_tri_lfo", "4");
@@ -430,8 +431,8 @@ out $ ~bass * 0.4
 fn test_lpf_square_lfo() {
     let dsl = r#"
 tempo: 0.5
-~lfo: square 1 * 0.5 + 0.5
-~bass: saw 110 # lpf (~lfo * 3000 + 500) 0.7
+~lfo $ square 1 * 0.5 + 0.5
+~bass $ saw 110 # lpf (~lfo * 3000 + 500) 0.7
 out $ ~bass * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_square_lfo");
@@ -447,8 +448,8 @@ out $ ~bass * 0.4
 fn test_hpf_lfo_modulated() {
     let dsl = r#"
 tempo: 0.5
-~lfo: sine 0.5 * 0.5 + 0.5
-~sig: saw 220 # hpf (~lfo * 1500 + 100) 0.7
+~lfo $ sine 0.5 * 0.5 + 0.5
+~sig $ saw 220 # hpf (~lfo * 1500 + 100) 0.7
 out $ ~sig * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "hpf_lfo", "4");
@@ -464,8 +465,8 @@ out $ ~sig * 0.4
 fn test_bpf_lfo_modulated() {
     let dsl = r#"
 tempo: 0.5
-~lfo: sine 1 * 0.5 + 0.5
-~sig: saw 110 # bpf (~lfo * 3000 + 500) 0.8
+~lfo $ sine 1 * 0.5 + 0.5
+~sig $ saw 110 # bpf (~lfo * 3000 + 500) 0.8
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_lfo");
@@ -481,8 +482,8 @@ out $ ~sig * 0.3
 fn test_lpf_resonance_lfo_modulated() {
     let dsl = r#"
 tempo: 0.5
-~lfo: sine 0.5 * 0.3 + 0.5
-~bass: saw 55 # lpf 1500 ~lfo
+~lfo $ sine 0.5 * 0.3 + 0.5
+~bass $ saw 55 # lpf 1500 ~lfo
 out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "lpf_res_lfo", "4");
@@ -502,9 +503,9 @@ out $ ~bass * 0.3
 fn test_lpf_both_params_lfo() {
     let dsl = r#"
 tempo: 0.5
-~lfout $ sine 0.5 * 0.5 + 0.5
-~lfo2: tri 0.25 * 0.3 + 0.5
-~bass: saw 55 # lpf (~lfo1 * 2000 + 500) ~lfo2
+~lfo1 $ sine 0.5 * 0.5 + 0.5
+~lfo2 $ tri 0.25 * 0.3 + 0.5
+~bass $ saw 55 # lpf (~lfo1 * 2000 + 500) ~lfo2
 out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "lpf_both_lfo", "8");
@@ -524,7 +525,7 @@ out $ ~bass * 0.3
 fn test_lpf_on_sine() {
     let dsl = r#"
 tempo: 0.5
-~sig: sine 880 # lpf 1200 0.8
+~sig $ sine 880 # lpf 1200 0.8
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_sine");
@@ -537,7 +538,7 @@ out $ ~sig * 0.3
 fn test_lpf_on_square() {
     let dsl = r#"
 tempo: 0.5
-~sig: square 220 # lpf 1500 0.7
+~sig $ square 220 # lpf 1500 0.7
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_square");
@@ -550,7 +551,7 @@ out $ ~sig * 0.3
 fn test_lpf_on_tri() {
     let dsl = r#"
 tempo: 0.5
-~sig: tri 110 # lpf 2000 0.8
+~sig $ tri 110 # lpf 2000 0.8
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_tri");
@@ -563,7 +564,7 @@ out $ ~sig * 0.3
 fn test_lpf_on_pattern_osc() {
     let dsl = r#"
 tempo: 0.5
-~sig: saw "55 82.5 110" # lpf 1500 0.8
+~sig $ saw "55 82.5 110" # lpf 1500 0.8
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_pattern_osc");
@@ -581,8 +582,8 @@ out $ ~sig * 0.3
 fn test_lpf_on_mixed_signals() {
     let dsl = r#"
 tempo: 0.5
-~mix: sine 440 + saw 110
-~filtered: ~mix # lpf 2000 0.7
+~mix $ sine 440 + saw 110
+~filtered $ ~mix # lpf 2000 0.7
 out $ ~filtered * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_mixed");
@@ -599,7 +600,7 @@ out $ ~filtered * 0.2
 fn test_two_lpf_cascade() {
     let dsl = r#"
 tempo: 0.5
-~sig: saw 110 # lpf 2000 0.5 # lpf 1000 0.7
+~sig $ saw 110 # lpf 2000 0.5 # lpf 1000 0.7
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "cascade_lpf");
@@ -612,7 +613,7 @@ out $ ~sig * 0.3
 fn test_lpf_then_hpf() {
     let dsl = r#"
 tempo: 0.5
-~sig: saw 110 # lpf 3000 0.6 # hpf 200 0.5
+~sig $ saw 110 # lpf 3000 0.6 # hpf 200 0.5
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_hpf_chain");
@@ -625,7 +626,7 @@ out $ ~sig * 0.3
 fn test_hpf_then_lpf() {
     let dsl = r#"
 tempo: 0.5
-~sig: saw 110 # hpf 100 0.5 # lpf 2000 0.7
+~sig $ saw 110 # hpf 100 0.5 # lpf 2000 0.7
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_lpf_chain");
@@ -638,7 +639,7 @@ out $ ~sig * 0.3
 fn test_three_filter_cascade() {
     let dsl = r#"
 tempo: 0.5
-~sig: saw 55 # lpf 3000 0.5 # bpf 1500 0.7 # lpf 2000 0.6
+~sig $ saw 55 # lpf 3000 0.5 # bpf 1500 0.7 # lpf 2000 0.6
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "three_filters");
@@ -657,7 +658,7 @@ fn test_lpf_reverse_flow() {
     // Using standard forward flow (#) instead
     let dsl = r#"
 tempo: 0.5
-~bass: saw 55 # lpf 1500 0.8
+~bass $ saw 55 # lpf 1500 0.8
 out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_reverse");
@@ -672,7 +673,7 @@ fn test_hpf_reverse_flow() {
     // Using standard forward flow (#) instead
     let dsl = r#"
 tempo: 0.5
-~sig: saw 220 # hpf 500 0.7
+~sig $ saw 220 # hpf 500 0.7
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_reverse");
@@ -687,7 +688,7 @@ fn test_bpf_reverse_flow() {
     // Using standard forward flow (#) instead
     let dsl = r#"
 tempo: 0.5
-~sig: saw 110 # bpf 1000 0.8
+~sig $ saw 110 # bpf 1000 0.8
 out $ ~sig * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_reverse");
@@ -704,7 +705,7 @@ out $ ~sig * 0.3
 fn test_lpf_very_low_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 110 # lpf 100 0.7
+~bass $ saw 110 # lpf 100 0.7
 out $ ~bass * 0.4
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_very_low");
@@ -717,7 +718,7 @@ out $ ~bass * 0.4
 fn test_lpf_very_high_cutoff() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 110 # lpf 10000 0.5
+~bass $ saw 110 # lpf 10000 0.5
 out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_very_high");
@@ -730,7 +731,7 @@ out $ ~bass * 0.3
 fn test_lpf_zero_resonance() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 110 # lpf 1500 0.0
+~bass $ saw 110 # lpf 1500 0.0
 out $ ~bass * 0.3
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_zero_res");
@@ -743,7 +744,7 @@ out $ ~bass * 0.3
 fn test_lpf_near_max_resonance() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 110 # lpf 1500 0.99
+~bass $ saw 110 # lpf 1500 0.99
 out $ ~bass * 0.2
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_max_res");

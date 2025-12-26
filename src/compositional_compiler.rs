@@ -412,6 +412,8 @@ pub fn compile_program(
 const RESERVED_SIGNAL_NAMES: &[&str] = &["add", "sub", "mul", "div"];
 
 /// Names of pattern transform functions (operate on patterns, not signals)
+/// NOTE: "select" is intentionally NOT here - it's a signal multiplexer function,
+/// not a pattern transform. Pattern selection uses "sew" or "stitch" instead.
 const PATTERN_TRANSFORM_NAMES: &[&str] = &[
     "fast", "slow", "rev", "palindrome", "degrade", "degradeBy", "stutter",
     "shuffle", "fastGap", "iter", "loopAt", "early", "late", "slice", "squeeze",
@@ -419,7 +421,7 @@ const PATTERN_TRANSFORM_NAMES: &[&str] = &[
     "rarely", "almostNever", "almostAlways", "someCycles", "struct", "euclid",
     "rotL", "rotR", "ply", "press", "pressBy", "ghost", "ghostWith", "swing",
     "inside", "outside", "zoom", "compress", "off", "superimpose", "layer",
-    "jux", "juxBy", "bite", "mask", "select", "sew", "stitch", "when",
+    "jux", "juxBy", "bite", "mask", "sew", "stitch", "when",
 ];
 
 /// Check if an expression is a pure pattern transform (no signal source)

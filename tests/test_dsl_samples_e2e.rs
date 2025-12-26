@@ -29,6 +29,7 @@ fn render_and_verify_duration(
     let output = Command::new("cargo")
         .args(&[
             "run",
+            "--release",
             "--bin",
             "phonon",
             "--quiet",
@@ -531,7 +532,7 @@ out $ s "bd(7,16)" * 0.8
 fn test_samples_fast_transform() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd sn"
+~drums $ s "bd sn"
 out $ (~drums $ fast 2) * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "fast_drums");
@@ -549,7 +550,7 @@ out $ (~drums $ fast 2) * 0.8
 fn test_samples_slow_transform() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd sn hh cp"
+~drums $ s "bd sn hh cp"
 out $ (~drums $ slow 2) * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "slow_drums");
@@ -567,7 +568,7 @@ out $ (~drums $ slow 2) * 0.8
 fn test_samples_rev_transform() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd sn hh cp"
+~drums $ s "bd sn hh cp"
 out $ (~drums $ rev) * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "rev_drums");
@@ -585,7 +586,7 @@ out $ (~drums $ rev) * 0.8
 fn test_samples_every_transform() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd sn"
+~drums $ s "bd sn"
 out $ (~drums $ every 2 rev) * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "every_drums");
@@ -603,7 +604,7 @@ out $ (~drums $ every 2 rev) * 0.8
 fn test_samples_chained_transforms() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd sn hh"
+~drums $ s "bd sn hh"
 out $ (~drums $ fast 2 $ rev) * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "chained_drums");
@@ -625,7 +626,7 @@ out $ (~drums $ fast 2 $ rev) * 0.8
 fn test_samples_through_lpf() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd sn hh*4 cp" # lpf 2000 0.8
+~drums $ s "bd sn hh*4 cp" # lpf 2000 0.8
 out $ ~drums * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "lpf_drums");
@@ -644,7 +645,7 @@ out $ ~drums * 0.8
 fn test_samples_through_hpf() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd sn hh*4 cp" # hpf 500 0.7
+~drums $ s "bd sn hh*4 cp" # hpf 500 0.7
 out $ ~drums * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "hpf_drums");
@@ -663,7 +664,7 @@ out $ ~drums * 0.8
 fn test_samples_through_bpf() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd sn hh*4 cp" # bpf 1000 0.8
+~drums $ s "bd sn hh*4 cp" # bpf 1000 0.8
 out $ ~drums * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bpf_drums");
@@ -682,8 +683,8 @@ out $ ~drums * 0.8
 fn test_samples_lfo_filter() {
     let dsl = r#"
 tempo: 0.5
-~lfo: sine 0.5 * 0.5 + 0.5
-~drums: s "bd sn hh*4" # lpf (~lfo * 2000 + 500) 0.8
+~lfo $ sine 0.5 * 0.5 + 0.5
+~drums $ s "bd sn hh*4" # lpf (~lfo * 2000 + 500) 0.8
 out $ ~drums * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify_duration(dsl, "lfo_filter_drums", "4");
@@ -707,8 +708,8 @@ out $ ~drums * 0.8
 fn test_samples_pattern_filter() {
     let dsl = r#"
 tempo: 0.5
-~cutoff: "1000 2000 3000"
-~drums: s "bd sn hh" # lpf ~cutoff 0.7
+~cutoff $ "1000 2000 3000"
+~drums $ s "bd sn hh" # lpf ~cutoff 0.7
 out $ ~drums * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "pattern_filter_drums");
@@ -730,8 +731,8 @@ out $ ~drums * 0.8
 fn test_two_sample_patterns_mixed() {
     let dsl = r#"
 tempo: 0.5
-~kicks: s "bd ~ bd ~"
-~snares: s "~ sn ~ sn"
+~kicks $ s "bd ~ bd ~"
+~snares $ s "~ sn ~ sn"
 out $ (~kicks + ~snares) * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "two_patterns");
@@ -749,9 +750,9 @@ out $ (~kicks + ~snares) * 0.8
 fn test_three_sample_patterns_mixed() {
     let dsl = r#"
 tempo: 0.5
-~kicks: s "bd ~ bd ~"
-~snares: s "~ sn ~ sn"
-~hats: s "hh*8"
+~kicks $ s "bd ~ bd ~"
+~snares $ s "~ sn ~ sn"
+~hats $ s "hh*8"
 out $ (~kicks + ~snares + ~hats) * 0.6
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "three_patterns");
@@ -769,9 +770,9 @@ out $ (~kicks + ~snares + ~hats) * 0.6
 fn test_layered_drums() {
     let dsl = r#"
 tempo: 0.5
-~layer1: s "bd sn"
-~layer2: s "hh*4"
-~layer3: s "~ cp"
+~layer1 $ s "bd sn"
+~layer2 $ s "hh*4"
+~layer3 $ s "~ cp"
 out $ (~layer1 + ~layer2 * 0.7 + ~layer3 * 0.8) * 0.7
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "layered_drums");
@@ -793,8 +794,8 @@ out $ (~layer1 + ~layer2 * 0.7 + ~layer3 * 0.8) * 0.7
 fn test_samples_with_bass() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 55 * 0.3
-~drums: s "bd sn hh*4 cp"
+~bass $ saw 55 * 0.3
+~drums $ s "bd sn hh*4 cp"
 out $ ~bass + ~drums * 0.6
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "drums_with_bass");
@@ -813,8 +814,8 @@ out $ ~bass + ~drums * 0.6
 fn test_samples_with_melody() {
     let dsl = r#"
 tempo: 0.5
-~melody: sine "220 330 440 550" * 0.2
-~drums: s "bd sn hh cp"
+~melody $ sine "220 330 440 550" * 0.2
+~drums $ s "bd sn hh cp"
 out $ ~melody + ~drums * 0.6
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "drums_with_melody");
@@ -832,9 +833,9 @@ out $ ~melody + ~drums * 0.6
 fn test_complete_track_with_samples() {
     let dsl = r#"
 tempo: 0.5
-~bass: saw 55 * 0.3
-~melody: sine "220 440" * 0.1
-~drums: s "bd sn hh*4 cp"
+~bass $ saw 55 * 0.3
+~melody $ sine "220 440" * 0.1
+~drums $ s "bd sn hh*4 cp"
 out $ ~bass + ~melody + ~drums * 0.6
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "complete_track");
@@ -895,7 +896,7 @@ out $ s "bd sn hh cp" * 1.0
 fn test_samples_pattern_amplitude() {
     let dsl = r#"
 tempo: 0.5
-~amp: "0.5 1.0 0.7 0.9"
+~amp $ "0.5 1.0 0.7 0.9"
 out $ s "bd sn hh cp" * ~amp
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "pattern_amp_samples");
@@ -1040,7 +1041,7 @@ out $ s "bd ~ ~ ~ ~ ~ ~ ~" * 0.8
 fn test_samples_through_bus() {
     let dsl = r#"
 tempo: 0.5
-~drums: s "bd sn hh cp"
+~drums $ s "bd sn hh cp"
 out $ ~drums * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "bus_routing");
@@ -1058,9 +1059,9 @@ out $ ~drums * 0.8
 fn test_multiple_sample_buses() {
     let dsl = r#"
 tempo: 0.5
-~bus1: s "bd ~"
-~bus2: s "~ sn"
-~bus3: s "hh*8"
+~bus1 $ s "bd ~"
+~bus2 $ s "~ sn"
+~bus3 $ s "hh*8"
 out $ ~bus1 + ~bus2 + ~bus3 * 0.7
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "multi_bus_samples");
@@ -1075,9 +1076,9 @@ out $ ~bus1 + ~bus2 + ~bus3 * 0.7
 fn test_nested_sample_bus() {
     let dsl = r#"
 tempo: 0.5
-~kicks: s "bd ~ bd ~"
-~snares: s "~ sn ~ sn"
-~drums: ~kicks + ~snares
+~kicks $ s "bd ~ bd ~"
+~snares $ s "~ sn ~ sn"
+~drums $ ~kicks + ~snares
 out $ ~drums * 0.8
 "#;
     let (success, stderr, wav_path) = render_and_verify(dsl, "nested_bus_samples");

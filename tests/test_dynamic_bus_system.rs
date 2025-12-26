@@ -12,7 +12,7 @@ tempo: 1.0
 ~condition $ sine 0.5
 ~wet $ sine 440
 ~dry $ sine 220
-~output $ if ~condition ~wet ~dry
+~output $ if (~condition) (~wet) (~dry)
 out $ ~output
 "#;
 
@@ -42,7 +42,7 @@ tempo: 1.0
 -- Two different signals
 ~signal_a $ sine 440
 ~signal_b $ sine 880
-~output $ if ~condition_high ~signal_a ~signal_b
+~output $ if (~condition_high) (~signal_a) (~signal_b)
 out $ ~output * 0.3
 "#;
 
@@ -82,7 +82,7 @@ tempo: 0.5
 ~condition $ sine 0.5
 ~high_freq $ 880
 ~low_freq $ 220
-~selected_freq $ if ~condition ~high_freq ~low_freq
+~selected_freq $ if (~condition) (~high_freq) (~low_freq)
 ~output $ sine ~selected_freq
 out $ ~output * 0.3
 "#;
@@ -133,7 +133,7 @@ tempo: 1.0
 ~bus1 $ sine 330
 ~bus2 $ sine 440
 ~bus3 $ sine 550
-~output $ select ~index ~bus0 ~bus1 ~bus2 ~bus3
+~output $ select (~index) (~bus0) (~bus1) (~bus2) (~bus3)
 out $ ~output
 "#;
 
@@ -164,7 +164,7 @@ tempo: 1.0
 ~bus1 $ sine 330
 ~bus2 $ sine 440
 ~bus3 $ sine 550
-~output $ select ~index ~bus0 ~bus1 ~bus2 ~bus3
+~output $ select (~index) (~bus0) (~bus1) (~bus2) (~bus3)
 out $ ~output * 0.3
 "#;
 
@@ -196,7 +196,7 @@ tempo: 0.5
 ~bus1 $ sine 330
 ~bus2 $ sine 440
 ~bus3 $ sine 550
-~output $ select ~index ~bus0 ~bus1 ~bus2 ~bus3
+~output $ select (~index) (~bus0) (~bus1) (~bus2) (~bus3)
 out $ ~output * 0.3
 "#;
 
@@ -237,7 +237,7 @@ tempo: 1.0
 ~bus1 $ sine 330
 ~bus2 $ sine 440
 ~bus3 $ sine 550
-~output $ select ~index ~bus0 ~bus1 ~bus2 ~bus3
+~output $ select (~index) (~bus0) (~bus1) (~bus2) (~bus3)
 out $ ~output * 0.3
 "#;
 
@@ -267,7 +267,7 @@ tempo: 0.5
 ~env $ adsr 0.01 0.1 0.5 0.2
 ~dry $ sine 440
 ~wet $ ~dry # lpf 800 0.8
-~output $ if ~env ~wet ~dry
+~output $ if (~env) (~wet) (~dry)
 out $ ~output * 0.3
 "#;
 
@@ -322,7 +322,7 @@ tempo: 0.5
 
 -- Pattern selects which tone to play: 0=220Hz, 1=330Hz, 2=440Hz, 3=550Hz
 ~selector $ "0 1 2 3"
-~output $ select ~selector ~tone1 ~tone2 ~tone3 ~tone4
+~output $ select (~selector) (~tone1) (~tone2) (~tone3) (~tone4)
 
 out $ ~output * 0.3
 "#;
@@ -380,7 +380,7 @@ tempo: 1.0
 ~bus0 $ sine 220
 ~bus1 $ sine 330
 ~bus2 $ sine 440
-~output $ select ~index ~bus0 ~bus1 ~bus2
+~output $ select (~index) (~bus0) (~bus1) (~bus2)
 out $ ~output * 0.3
 "#;
 
@@ -409,7 +409,7 @@ tempo: 1.0
 ~condition $ 0.5
 ~then_signal $ 1.0
 ~else_signal $ 0.0
-~output $ if ~condition ~then_signal ~else_signal
+~output $ if (~condition) (~then_signal) (~else_signal)
 out $ ~output
 "#;
 
@@ -432,7 +432,7 @@ tempo: 1.0
 ~condition $ 0.51
 ~then_signal $ 1.0
 ~else_signal $ 0.0
-~output $ if ~condition ~then_signal ~else_signal
+~output $ if (~condition) (~then_signal) (~else_signal)
 out $ ~output
 "#;
 
