@@ -7112,21 +7112,17 @@ fn modify_sample_param(
         ..
     } = sample_node
     {
-        // Check if new_value is a Pattern node and extract its pattern for structure combination
-        let combined_pattern = if let Signal::Node(node_id) = &new_value {
-            if let Some(SignalNode::Pattern { pattern: param_pattern, .. }) = ctx.graph.get_node(*node_id) {
-                // Combine sample pattern with parameter pattern using union_right
-                // This gives structure from the parameter pattern (right side in Tidal's # operator)
-                Some(pattern.clone().union_right(param_pattern.clone()))
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        // Use combined pattern if available, otherwise keep original
-        let final_pattern = combined_pattern.unwrap_or_else(|| pattern.clone());
+        // IMPORTANT: For sample pattern modifiers, we KEEP the original sample pattern structure.
+        // The modifier value (gain, note, pan, etc.) is evaluated at each sample trigger time.
+        //
+        // We do NOT use union_right here because:
+        // 1. For s "~bus(3,8)" # note "c3 e3", we want triggers at euclidean times (3,8)
+        // 2. The note pattern just provides the pitch value at each trigger
+        // 3. Using union_right would give structure from the note pattern, breaking bus references
+        //
+        // The sample pattern contains the sample NAMES (like "bd" or "~mybuss")
+        // The modifier patterns are stored separately and evaluated per-event
+        let final_pattern = pattern.clone();
 
         // Create new Sample with updated parameter and potentially combined pattern
         let new_sample = SignalNode::Sample {
