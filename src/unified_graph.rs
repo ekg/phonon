@@ -8802,7 +8802,7 @@ impl UnifiedSignalGraph {
             } => {
                 let input_val = self.eval_signal(&input);
                 let factor_val = self.eval_signal(&factor).max(1.0); // Clamp to minimum 1.0
-                let smooth_val = self.eval_signal(&smooth).clamp(0.0, 1.0); // Clamp to [0, 1]
+                let smooth_val = self.eval_signal(&smooth).clamp(0.0, 0.99); // Clamp to [0, 0.99] - must be <1.0 to allow new values through
 
                 // Increment sample counter
                 let mut counter = sample_counter.borrow_mut();
@@ -10302,6 +10302,7 @@ impl UnifiedSignalGraph {
                     // Use cached events (computed once per buffer for entire buffer span)
                     // Filter to current cycle
                     let current_cycle_start = self.get_cycle_position().floor();
+
                     cached_events
                         .iter()
                         .filter(|event| {
@@ -14061,8 +14062,9 @@ impl UnifiedSignalGraph {
         // Enable buffer caching for this render pass
         self.buffer_cache_enabled.set(true);
 
-        // TEMPORARILY DISABLED: Hybrid architecture has bugs in live audio
-        // Use legacy sample-by-sample processing by default
+        // TEMPORARILY DISABLED: Hybrid architecture has timing bugs
+        // Produces audio immediately instead of waiting for sample triggers
+        // Legacy RMS: 0.047, Hybrid RMS: 0.786 - not correctly timing
         // Set ENABLE_HYBRID_ARCH=1 to test the new path
         if std::env::var("ENABLE_HYBRID_ARCH").is_ok() {
             return self.process_buffer_hybrid(buffer, buffer_start_cycle, sample_increment);
@@ -14615,6 +14617,11 @@ impl UnifiedSignalGraph {
                 self.cached_cycle_position += sample_increment;
             }
 
+            // CRITICAL: Clear stateful_value_cache for each sample to allow re-evaluation
+            // Without this, Sample nodes return cached values from sample 0 and never trigger
+            // subsequent events. Legacy path clears this at line 14401.
+            self.stateful_value_cache.clear();
+
             // Only evaluate output-reachable Sample nodes
             for &node_id in &output_sample_nodes {
                 // Temporarily store current buffer position
@@ -14675,6 +14682,17 @@ impl UnifiedSignalGraph {
 
         self.voice_buffers = vb;
 
+        // DEBUG: Check voice_buffers content
+        if std::env::var("DEBUG_VOICE_BUFFERS").is_ok() {
+            let non_empty: Vec<_> = self.voice_buffers.buffers.iter().enumerate()
+                .filter(|(_, b)| !b.is_empty())
+                .map(|(i, b)| (i, b.len(), b.iter().take(5).cloned().collect::<Vec<_>>()))
+                .collect();
+            if !non_empty.is_empty() {
+                eprintln!("[VOICE_BUFFERS] Non-empty buffers: {:?}", non_empty);
+            }
+        }
+
         // Pre-collect outputs to avoid borrow checker issues
         let output_channels: Vec<(usize, NodeId)> =
             self.outputs.iter().map(|(&ch, &node)| (ch, node)).collect();
@@ -14690,9 +14708,17 @@ impl UnifiedSignalGraph {
         self.value_cache.clear();
         self.buffer_cache.borrow_mut().clear();
 
+        // Count active channels for gain compensation (matches legacy path)
+        let mut num_active_channels = 0;
+
+        // CRITICAL: Zero the buffer first! Without this, buffer accumulates across calls
+        // when self.output is None and numbered outputs just ADD to it.
+        buffer.fill(0.0);
+
         // Start with the main output (for backwards compatibility)
         if let Some(output_id) = self.output {
             if !self.hushed_channels.contains(&0) {
+                num_active_channels += 1;
                 self.eval_node_buffer(&output_id, buffer);
             }
         }
@@ -14702,17 +14728,62 @@ impl UnifiedSignalGraph {
             let mut temp_buffer = vec![0.0; buffer_size];
             for (ch, node_id) in &output_channels {
                 if !self.hushed_channels.contains(ch) {
+                    num_active_channels += 1;
                     // Clear temp buffer and buffer cache for each output
                     temp_buffer.fill(0.0);
                     self.buffer_cache.borrow_mut().clear();
 
                     self.eval_node_buffer(node_id, &mut temp_buffer);
 
+                    // DEBUG
+                    if std::env::var("DEBUG_OUTPUT_BUFFER").is_ok() {
+                        let rms: f32 = (temp_buffer.iter().map(|x| x*x).sum::<f32>() / temp_buffer.len() as f32).sqrt();
+                        let node_type = if let Some(Some(node_rc)) = self.nodes.get(node_id.0) {
+                            format!("{:?}", std::mem::discriminant(&**node_rc))
+                        } else {
+                            "Unknown".to_string()
+                        };
+                        eprintln!("[OUTPUT_BUFFER] ch={}, node={}, type={}, RMS={:.4}", ch, node_id.0, node_type, rms);
+                    }
+
                     // Mix into main buffer
                     for i in 0..buffer_size {
                         buffer[i] += temp_buffer[i];
                     }
                 }
+            }
+        }
+
+        // Apply output mixing strategy (matches legacy path)
+        match self.output_mix_mode {
+            OutputMixMode::Gain => {
+                if num_active_channels > 1 {
+                    let gain = 1.0 / num_active_channels as f32;
+                    for sample in buffer.iter_mut() {
+                        *sample *= gain;
+                    }
+                }
+            }
+            OutputMixMode::Sqrt => {
+                if num_active_channels > 1 {
+                    let gain = 1.0 / (num_active_channels as f32).sqrt();
+                    for sample in buffer.iter_mut() {
+                        *sample *= gain;
+                    }
+                }
+            }
+            OutputMixMode::Tanh => {
+                for sample in buffer.iter_mut() {
+                    *sample = sample.tanh();
+                }
+            }
+            OutputMixMode::Hard => {
+                for sample in buffer.iter_mut() {
+                    *sample = sample.clamp(-1.0, 1.0);
+                }
+            }
+            OutputMixMode::None => {
+                // Direct sum - no gain compensation
             }
         }
 
@@ -15571,9 +15642,15 @@ impl UnifiedSignalGraph {
                 time,
                 feedback,
                 mix,
-                buffer,
-                write_idx,
+                buffer: _,
+                write_idx: _,
             } => {
+                // Clone signals for evaluation (needed due to borrowing rules)
+                let input = input.clone();
+                let time = time.clone();
+                let feedback = feedback.clone();
+                let mix = mix.clone();
+
                 // Allocate buffers for input and parameters
                 let mut input_buffer = vec![0.0; buffer_size];
                 let mut time_buffer = vec![0.0; buffer_size];
@@ -15581,57 +15658,54 @@ impl UnifiedSignalGraph {
                 let mut mix_buffer = vec![0.0; buffer_size];
 
                 // Evaluate signals
-                self.eval_signal_buffer(input, &mut input_buffer);
-                self.eval_signal_buffer(time, &mut time_buffer);
-                self.eval_signal_buffer(feedback, &mut feedback_buffer);
-                self.eval_signal_buffer(mix, &mut mix_buffer);
+                self.eval_signal_buffer(&input, &mut input_buffer);
+                self.eval_signal_buffer(&time, &mut time_buffer);
+                self.eval_signal_buffer(&feedback, &mut feedback_buffer);
+                self.eval_signal_buffer(&mix, &mut mix_buffer);
 
-                // Get current write index
-                let mut current_write_idx = *write_idx;
-                let buffer_len = buffer.len();
-
-                // Make a copy of the delay buffer to read from
-                // (we need this because we're updating it as we go)
-                let mut delay_buffer = buffer.clone();
-
-                // Process buffer: for each sample, read from delay line, write new sample
-                for i in 0..buffer_size {
-                    // Clamp parameters to reasonable ranges
-                    let delay_time = time_buffer[i].max(0.0).min(2.0);
-                    let fb = feedback_buffer[i].max(0.0).min(0.99);
-                    let mix_val = mix_buffer[i].max(0.0).min(1.0);
-
-                    // Convert delay time to samples
-                    let delay_samples = (delay_time * self.sample_rate) as usize;
-                    let delay_samples = delay_samples.min(buffer_len - 1).max(1);
-
-                    // Read from delay line
-                    let read_idx = (current_write_idx + buffer_len - delay_samples) % buffer_len;
-                    let delayed = delay_buffer[read_idx];
-
-                    // Write to delay line (input + feedback)
-                    // Apply soft clipping to prevent feedback explosion
-                    let to_write = (input_buffer[i] + delayed * fb).tanh();
-                    delay_buffer[current_write_idx] = to_write;
-
-                    // Mix dry and wet
-                    output[i] = input_buffer[i] * (1.0 - mix_val) + delayed * mix_val;
-
-                    // Advance write index
-                    current_write_idx = (current_write_idx + 1) % buffer_len;
-                }
-
-                // Update delay buffer and write index
+                // Get mutable access to the delay buffer and process in-place
+                // This avoids the expensive clone() of the 44100-sample buffer
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
                     let node = Rc::make_mut(node_rc);
                     if let SignalNode::Delay {
-                        buffer: buf,
-                        write_idx: idx,
+                        buffer: delay_buffer,
+                        write_idx,
                         ..
                     } = node
                     {
-                        *buf = delay_buffer;
-                        *idx = current_write_idx;
+                        let buffer_len = delay_buffer.len();
+                        let mut current_write_idx = *write_idx;
+
+                        // Process buffer: for each sample, read from delay line, write new sample
+                        for i in 0..buffer_size {
+                            // Clamp parameters to reasonable ranges
+                            let delay_time = time_buffer[i].max(0.0).min(2.0);
+                            let fb = feedback_buffer[i].max(0.0).min(0.99);
+                            let mix_val = mix_buffer[i].max(0.0).min(1.0);
+
+                            // Convert delay time to samples
+                            let delay_samples = (delay_time * self.sample_rate) as usize;
+                            let delay_samples = delay_samples.min(buffer_len - 1).max(1);
+
+                            // Read from delay line
+                            let read_idx =
+                                (current_write_idx + buffer_len - delay_samples) % buffer_len;
+                            let delayed = delay_buffer[read_idx];
+
+                            // Write to delay line (input + feedback)
+                            // Apply soft clipping to prevent feedback explosion
+                            let to_write = (input_buffer[i] + delayed * fb).tanh();
+                            delay_buffer[current_write_idx] = to_write;
+
+                            // Mix dry and wet
+                            output[i] = input_buffer[i] * (1.0 - mix_val) + delayed * mix_val;
+
+                            // Advance write index
+                            current_write_idx = (current_write_idx + 1) % buffer_len;
+                        }
+
+                        // Update write index
+                        *write_idx = current_write_idx;
                     }
                 }
             }
@@ -15640,62 +15714,65 @@ impl UnifiedSignalGraph {
                 input,
                 frequency,
                 feedback,
-                buffer,
-                write_pos,
+                buffer: _,
+                write_pos: _,
             } => {
+                // Clone signals for evaluation (needed due to borrowing rules)
+                let input = input.clone();
+                let frequency = frequency.clone();
+                let feedback = feedback.clone();
+
                 // Allocate buffers for input and parameters
                 let mut input_buffer = vec![0.0; buffer_size];
                 let mut frequency_buffer = vec![0.0; buffer_size];
                 let mut feedback_buffer = vec![0.0; buffer_size];
 
                 // Evaluate signals
-                self.eval_signal_buffer(input, &mut input_buffer);
-                self.eval_signal_buffer(frequency, &mut frequency_buffer);
-                self.eval_signal_buffer(feedback, &mut feedback_buffer);
+                self.eval_signal_buffer(&input, &mut input_buffer);
+                self.eval_signal_buffer(&frequency, &mut frequency_buffer);
+                self.eval_signal_buffer(&feedback, &mut feedback_buffer);
 
-                // Get current write position
-                let mut current_write_pos = *write_pos;
-                let buffer_len = buffer.len();
-
-                // Make a copy of the comb buffer to read from
-                let mut comb_buffer = buffer.clone();
-
-                // Process buffer: for each sample, read from delay line and apply comb filter
-                for i in 0..buffer_size {
-                    // Clamp parameters to reasonable ranges
-                    let freq = frequency_buffer[i].max(20.0).min(20000.0);
-                    let fb = feedback_buffer[i].clamp(0.0, 0.99);
-
-                    // Convert frequency to delay time in samples
-                    let delay_samples = (self.sample_rate / freq).round() as usize;
-                    let delay_samples = delay_samples.clamp(1, buffer_len - 1);
-
-                    // Calculate read position (write_pos - delay_samples, wrapped)
-                    let read_pos = (current_write_pos + buffer_len - delay_samples) % buffer_len;
-                    let delayed = comb_buffer[read_pos];
-
-                    // Comb filter: output = input + feedback * delayed_output
-                    let out_sample = input_buffer[i] + fb * delayed;
-                    output[i] = out_sample;
-
-                    // Write output to buffer (feedback loop)
-                    comb_buffer[current_write_pos] = out_sample;
-
-                    // Advance write position
-                    current_write_pos = (current_write_pos + 1) % buffer_len;
-                }
-
-                // Update comb buffer and write position
+                // Get mutable access to the comb buffer and process in-place
+                // This avoids the expensive clone() of the buffer
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
                     let node = Rc::make_mut(node_rc);
                     if let SignalNode::Comb {
-                        buffer: buf,
-                        write_pos: pos,
+                        buffer: comb_buffer,
+                        write_pos,
                         ..
                     } = node
                     {
-                        *buf = comb_buffer;
-                        *pos = current_write_pos;
+                        let buffer_len = comb_buffer.len();
+                        let mut current_write_pos = *write_pos;
+
+                        // Process buffer: for each sample, read from delay line and apply comb filter
+                        for i in 0..buffer_size {
+                            // Clamp parameters to reasonable ranges
+                            let freq = frequency_buffer[i].max(20.0).min(20000.0);
+                            let fb = feedback_buffer[i].clamp(0.0, 0.99);
+
+                            // Convert frequency to delay time in samples
+                            let delay_samples = (self.sample_rate / freq).round() as usize;
+                            let delay_samples = delay_samples.clamp(1, buffer_len - 1);
+
+                            // Calculate read position (write_pos - delay_samples, wrapped)
+                            let read_pos =
+                                (current_write_pos + buffer_len - delay_samples) % buffer_len;
+                            let delayed = comb_buffer[read_pos];
+
+                            // Comb filter: output = input + feedback * delayed_output
+                            let out_sample = input_buffer[i] + fb * delayed;
+                            output[i] = out_sample;
+
+                            // Write output to buffer (feedback loop)
+                            comb_buffer[current_write_pos] = out_sample;
+
+                            // Advance write position
+                            current_write_pos = (current_write_pos + 1) % buffer_len;
+                        }
+
+                        // Update write position
+                        *write_pos = current_write_pos;
                     }
                 }
             }
@@ -17482,6 +17559,13 @@ impl UnifiedSignalGraph {
                     let voice_buf = &self.voice_buffers.buffers[node_idx];
                     if voice_buf.len() >= buffer_size {
                         output.copy_from_slice(&voice_buf[..buffer_size]);
+                        // DEBUG
+                        if std::env::var("DEBUG_SAMPLE_BUFFER").is_ok() {
+                            let rms: f32 = (output.iter().map(|x| x*x).sum::<f32>() / output.len() as f32).sqrt();
+                            if rms > 0.001 {
+                                eprintln!("[SAMPLE_BUFFER] node={}, RMS={:.4}", node_idx, rms);
+                            }
+                        }
                     } else if !voice_buf.is_empty() {
                         output[..voice_buf.len()].copy_from_slice(voice_buf);
                     }
