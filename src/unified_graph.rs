@@ -4620,6 +4620,11 @@ pub struct UnifiedSignalGraph {
     /// None = normal mode (each clone has independent state)
     /// Some = parallel mode (all clones share state)
     pub shared_state: Option<crate::shared_effect_state::SharedStateRegistry>,
+
+    /// When true, sequential effects (reverb, delay) pass through unchanged (output = input)
+    /// Used for pipelined rendering where dry signal is computed in parallel
+    /// and sequential effects are applied in a separate sequential pass
+    pub bypass_sequential_effects: bool,
 }
 
 // SAFETY: UnifiedSignalGraph contains RefCell which is !Send and !Sync, but we ensure
@@ -4678,6 +4683,7 @@ impl Clone for UnifiedSignalGraph {
             current_voice_gate: std::cell::Cell::new(None),
             // Shared state is preserved on clone (Arc gives cheap reference)
             shared_state: self.shared_state.clone(),
+            bypass_sequential_effects: self.bypass_sequential_effects,
         }
     }
 }
@@ -4729,6 +4735,7 @@ impl UnifiedSignalGraph {
             current_voice_frequency: std::cell::Cell::new(None),
             current_voice_gate: std::cell::Cell::new(None),
             shared_state: None, // Disabled by default
+            bypass_sequential_effects: false, // Normal mode by default
         }
     }
 
@@ -4746,6 +4753,13 @@ impl UnifiedSignalGraph {
 
     pub fn get_buffer_size(&self) -> usize {
         self.buffer_size
+    }
+
+    /// Set bypass mode for sequential effects (reverb, delay)
+    /// When true, these effects pass through unchanged (output = input)
+    /// Used for pipelined rendering
+    pub fn set_bypass_sequential_effects(&mut self, bypass: bool) {
+        self.bypass_sequential_effects = bypass;
     }
 
     /// Enable shared state for parallel rendering
@@ -5136,6 +5150,67 @@ impl UnifiedSignalGraph {
             }
         }
         false
+    }
+
+    /// Apply sequential effects (reverb, delay) to a pre-rendered dry sample
+    /// Used in pipelined rendering where dry signal is computed in parallel
+    /// and sequential effects are applied in a separate pass
+    pub fn apply_sequential_effects(&mut self, dry_sample: f32) -> f32 {
+        // First, find LushReverb node IDs and clone their parameter signals
+        let mut reverb_nodes: Vec<(usize, Signal, Signal, Signal, Signal, Signal, Signal, Signal, Signal, Signal)> = Vec::new();
+
+        for (node_id, opt_node) in self.nodes.iter().enumerate() {
+            if let Some(node_rc) = opt_node {
+                if let SignalNode::LushReverb {
+                    predelay, decay, size, diffusion, damping,
+                    spin, wander, freeze, mix, ..
+                } = &**node_rc {
+                    reverb_nodes.push((
+                        node_id,
+                        predelay.clone(), decay.clone(), size.clone(),
+                        diffusion.clone(), damping.clone(), spin.clone(),
+                        wander.clone(), freeze.clone(), mix.clone()
+                    ));
+                }
+            }
+        }
+
+        let mut result = dry_sample;
+
+        // Now process each reverb node
+        for (node_id, predelay, decay, size, diffusion, damping, spin, wander, freeze, mix) in reverb_nodes {
+            // Evaluate reverb parameters
+            let predelay_val = self.eval_signal(&predelay);
+            let decay_val = self.eval_signal(&decay);
+            let size_val = self.eval_signal(&size);
+            let diffusion_val = self.eval_signal(&diffusion);
+            let damping_val = self.eval_signal(&damping);
+            let spin_val = self.eval_signal(&spin);
+            let wander_val = self.eval_signal(&wander);
+            let freeze_val = self.eval_signal(&freeze);
+            let mix_val = self.eval_signal(&mix);
+
+            // Get mutable access to state and process
+            if let Some(Some(node_rc)) = self.nodes.get_mut(node_id) {
+                let node = std::rc::Rc::make_mut(node_rc);
+                if let SignalNode::LushReverb { state: s, .. } = node {
+                    result = s.process(
+                        result, // Chain through previous reverbs if multiple
+                        predelay_val,
+                        decay_val,
+                        size_val,
+                        diffusion_val,
+                        damping_val,
+                        spin_val,
+                        wander_val,
+                        freeze_val,
+                        mix_val,
+                    );
+                }
+            }
+        }
+
+        result
     }
 
     /// Preload all samples referenced in pattern nodes
@@ -8379,6 +8454,12 @@ impl UnifiedSignalGraph {
             } => {
                 // Evaluate pattern-modulatable parameters
                 let source_sample = self.eval_signal(&source);
+
+                // BYPASS MODE: For pipelined rendering, pass through unchanged
+                if self.bypass_sequential_effects {
+                    return source_sample;
+                }
+
                 let grain_ms = self.eval_signal(&grain_size_ms).max(5.0).min(500.0);
                 let density_val = self.eval_signal(&density).clamp(0.0, 1.0);
                 let pitch_val = self.eval_signal(&pitch).max(0.1).min(4.0);
@@ -8421,6 +8502,11 @@ impl UnifiedSignalGraph {
                 last_freq,
                 last_trigger,
             } => {
+                // BYPASS MODE: For pipelined rendering, generators produce silence
+                if self.bypass_sequential_effects {
+                    return 0.0;
+                }
+
                 // Evaluate pattern-modulatable parameters
                 let f = self.eval_signal(&freq).max(20.0).min(10000.0);
                 let damp = self.eval_signal(&damping).clamp(0.0, 1.0);
@@ -8473,6 +8559,11 @@ impl UnifiedSignalGraph {
                 state,
                 last_freq,
             } => {
+                // BYPASS MODE: For pipelined rendering, generators produce silence
+                if self.bypass_sequential_effects {
+                    return 0.0;
+                }
+
                 // Evaluate pattern-modulatable parameters
                 let f = self.eval_signal(&freq).max(20.0).min(10000.0);
                 let damp = self.eval_signal(&damping).clamp(0.0, 1.0);
@@ -8610,6 +8701,11 @@ impl UnifiedSignalGraph {
                 let mod_sample = self.eval_signal(&modulator);
                 let carr_sample = self.eval_signal(&carrier);
 
+                // BYPASS MODE: For pipelined rendering, pass through carrier unchanged
+                if self.bypass_sequential_effects {
+                    return carr_sample;
+                }
+
                 // Get mutable state and process
                 if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
                     let node = Rc::make_mut(node_rc);
@@ -8628,6 +8724,12 @@ impl UnifiedSignalGraph {
             } => {
                 // Evaluate input and semitones
                 let input_sample = self.eval_signal(&input);
+
+                // BYPASS MODE: For pipelined rendering, pass through unchanged
+                if self.bypass_sequential_effects {
+                    return input_sample;
+                }
+
                 let semitones_val = self.eval_signal(&semitones);
 
                 // Get mutable state and process
@@ -9385,6 +9487,12 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 let input_val = self.eval_signal(&input);
+
+                // BYPASS MODE: For pipelined rendering, pass through unchanged
+                if self.bypass_sequential_effects {
+                    return input_val;
+                }
+
                 let room = self.eval_signal(&room_size).clamp(0.0, 1.0);
                 let damp = self.eval_signal(&damping).clamp(0.0, 1.0);
                 let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
@@ -9453,6 +9561,12 @@ impl UnifiedSignalGraph {
                 // Full Dattorro reverb implementation
                 // Based on Jon Dattorro's 1997 AES paper
                 let input_val = self.eval_signal(&input);
+
+                // BYPASS MODE: For pipelined rendering, pass through unchanged
+                if self.bypass_sequential_effects {
+                    return input_val;
+                }
+
                 let pre_delay_ms = self.eval_signal(&pre_delay).clamp(0.0, 500.0);
                 let decay_val = self.eval_signal(&decay).clamp(0.1, 10.0);
                 let diffusion_val = self.eval_signal(&diffusion).clamp(0.0, 1.0);
@@ -9687,8 +9801,15 @@ impl UnifiedSignalGraph {
                 mix,
                 state: _,
             } => {
-                // Evaluate all parameters
+                // Evaluate input first
                 let input_val = self.eval_signal(&input);
+
+                // BYPASS MODE: For pipelined rendering, pass through unchanged
+                if self.bypass_sequential_effects {
+                    return input_val;
+                }
+
+                // Evaluate remaining parameters
                 let predelay_val = self.eval_signal(&predelay);
                 let decay_val = self.eval_signal(&decay);
                 let size_val = self.eval_signal(&size);
@@ -9747,6 +9868,11 @@ impl UnifiedSignalGraph {
             SignalNode::Convolution { input, state } => {
                 let input_val = self.eval_signal(&input);
 
+                // BYPASS MODE: For pipelined rendering, pass through unchanged
+                if self.bypass_sequential_effects {
+                    return input_val;
+                }
+
                 // Process through convolution
                 let output = if let Some(Some(node_rc)) = self.nodes.get_mut(node_id.0) {
                     let node = Rc::make_mut(node_rc);
@@ -9768,6 +9894,12 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 let input_val = self.eval_signal(&input);
+
+                // BYPASS MODE: For pipelined rendering, pass through unchanged
+                if self.bypass_sequential_effects {
+                    return input_val;
+                }
+
                 let trigger_val = self.eval_signal(&trigger);
 
                 // Process through spectral freeze
@@ -12215,6 +12347,12 @@ impl UnifiedSignalGraph {
                 write_pos,
             } => {
                 let input_val = self.eval_signal(&input);
+
+                // BYPASS MODE: For pipelined rendering, pass through unchanged
+                if self.bypass_sequential_effects {
+                    return input_val;
+                }
+
                 let freq = self.eval_signal(&frequency).max(20.0).min(20000.0);
                 let fb = self.eval_signal(&feedback).clamp(0.0, 0.99);
 
@@ -13507,6 +13645,12 @@ impl UnifiedSignalGraph {
                 write_idx,
             } => {
                 let input_val = self.eval_signal(&input);
+
+                // BYPASS MODE: For pipelined rendering, pass through unchanged
+                if self.bypass_sequential_effects {
+                    return input_val;
+                }
+
                 let delay_time = self.eval_signal(&time).max(0.0).min(2.0);
                 let fb = self.eval_signal(&feedback).max(0.0).min(0.99);
                 let mix_val = self.eval_signal(&mix).max(0.0).min(1.0);
@@ -13553,6 +13697,12 @@ impl UnifiedSignalGraph {
                 state,
             } => {
                 let input_val = self.eval_signal(&input);
+
+                // BYPASS MODE: For pipelined rendering, pass through unchanged
+                if self.bypass_sequential_effects {
+                    return input_val;
+                }
+
                 let delay_time = self.eval_signal(&time).max(0.001).min(1.0);
                 let fb = self.eval_signal(&feedback).clamp(0.0, 0.95);
                 let wow_r = self.eval_signal(&wow_rate).clamp(0.1, 2.0);
@@ -13634,6 +13784,12 @@ impl UnifiedSignalGraph {
                 write_idx,
             } => {
                 let input_val = self.eval_signal(&input);
+
+                // BYPASS MODE: For pipelined rendering, pass through unchanged
+                if self.bypass_sequential_effects {
+                    return input_val;
+                }
+
                 let base_time = self.eval_signal(&time).max(0.001).min(1.0);
                 let fb = self.eval_signal(&feedback).clamp(0.0, 0.95);
                 let mix_val = self.eval_signal(&mix).clamp(0.0, 1.0);
@@ -13689,6 +13845,12 @@ impl UnifiedSignalGraph {
                 write_idx,
             } => {
                 let input_val = self.eval_signal(&input);
+
+                // BYPASS MODE: For pipelined rendering, pass through unchanged
+                if self.bypass_sequential_effects {
+                    return input_val;
+                }
+
                 let delay_time = self.eval_signal(&time).max(0.001).min(1.0);
                 let fb = self.eval_signal(&feedback).clamp(0.0, 0.95);
                 let width = self.eval_signal(&stereo_width).clamp(0.0, 1.0);

@@ -1340,43 +1340,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!();
             } else if realtime {
                 // REALTIME MODE: Use process_buffer() like live mode for profiling
-                if parallel {
+                const BLOCK_SIZE: usize = 512;
+                let num_blocks = (total_samples + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+                // Check if graph contains effects that need sequential processing
+                let needs_sequential = graph.has_sequential_dependencies();
+
+                // Force sequential mode for graphs with reverb/delay
+                // These effects have block-to-block state dependencies that cannot be parallelized
+                let use_parallel = parallel && !needs_sequential;
+
+                if use_parallel {
                     println!("🔬 Profiling mode: Using realtime process_buffer() path WITH PARALLEL PROCESSING");
                     println!("   Cores available: {}", rayon::current_num_threads());
+                } else if parallel && needs_sequential {
+                    println!("🔬 Profiling mode: Sequential (reverb/delay effects require ordered processing)");
                 } else {
                     println!(
                         "🔬 Profiling mode: Using realtime process_buffer() path (single-threaded)"
                     );
                 }
 
-                const BLOCK_SIZE: usize = 512;
-                let num_blocks = (total_samples + BLOCK_SIZE - 1) / BLOCK_SIZE;
-
                 use std::time::Instant;
                 let mut total_process_time = std::time::Duration::ZERO;
                 let mut min_block_time = std::time::Duration::MAX;
                 let mut max_block_time = std::time::Duration::ZERO;
 
-                // Check if graph contains effects that need sequential processing
-                let needs_sequential = graph.has_sequential_dependencies();
-                let effective_parallel = parallel && !needs_sequential;
-
-                if needs_sequential && parallel {
-                    println!(
-                        "   ⚠️  Graph contains reverb/delay effects - falling back to sequential mode"
-                    );
-                    println!(
-                        "      (These effects have sequential dependencies that require ordered processing)"
-                    );
-                }
-
-                if effective_parallel {
-                    // PARALLEL MODE: Process multiple blocks concurrently
+                if use_parallel {
+                    // PURE PARALLEL MODE: No sequential effects
                     use rayon::prelude::*;
 
                     let start = Instant::now();
-
-                    // Create graph instances (one per thread) - no mutex needed with chunks
                     let num_threads = rayon::current_num_threads();
 
                     println!(
@@ -1396,40 +1390,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .filter(|chunk| !chunk.is_empty())
                         .collect();
 
-                    // SHARED STATE: Enable shared state for parallel rendering
-                    // This allows stateful effects (reverbs, delays, filters) to share
-                    // their state across parallel graph clones via Arc<RwLock<>>
-                    graph.enable_shared_state();
+                    // Pre-clone graphs for parallel processing
+                    let graph_clones: Vec<_> = chunks.iter().map(|_| graph.clone()).collect();
 
-                    // CRITICAL FIX: Pre-clone graphs BEFORE parallel processing
-                    // Multiple threads calling graph.clone() simultaneously causes RefCell issues
-                    // Using clone_for_parallel() preserves shared state registry
-                    let graph_clones: Vec<_> = chunks.iter().map(|_| graph.clone_for_parallel()).collect();
-
-                    // Process chunks in parallel - each thread gets its own pre-cloned graph
+                    // Process chunks in parallel
                     let mut all_blocks: Vec<(usize, Vec<f32>, std::time::Duration)> = chunks
                         .into_par_iter()
                         .zip(graph_clones.into_par_iter())
                         .flat_map(|(block_range, mut my_graph)| {
-                            // Each thread uses its pre-cloned graph
                             let mut thread_blocks = Vec::new();
 
                             for block_idx in block_range {
-                                // Calculate block size (last block might be smaller)
                                 let block_start = block_idx * BLOCK_SIZE;
                                 let block_samples = (total_samples - block_start).min(BLOCK_SIZE);
 
-                                // Seek graph to correct time position for this block
-                                let block_start_sample = block_idx * BLOCK_SIZE;
-                                my_graph.seek_to_sample(block_start_sample);
-
-                                // Process this block
+                                my_graph.seek_to_sample(block_idx * BLOCK_SIZE);
                                 let mut block_buffer = vec![0.0f32; block_samples];
                                 let block_start_time = Instant::now();
                                 my_graph.process_buffer(&mut block_buffer);
                                 let block_time = block_start_time.elapsed();
 
-                                // Apply gain and clamp
                                 for sample in &mut block_buffer {
                                     *sample = (*sample * gain).clamp(-1.0, 1.0);
                                 }
@@ -1446,7 +1426,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     // Sort blocks by index to maintain correct order
                     all_blocks.sort_by_key(|(idx, _, _)| *idx);
 
-                    // Find min/max block times and concatenate buffers
                     for (_, block_buffer, block_time) in all_blocks {
                         min_block_time = min_block_time.min(block_time);
                         max_block_time = max_block_time.max(block_time);
