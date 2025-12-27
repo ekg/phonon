@@ -67,6 +67,8 @@ pub struct CompilerContext {
     pattern_registry: HashMap<String, Pattern<f64>>,
     /// MIDI event queue for real-time monitoring (~midi, ~midi1-16 buses)
     pub midi_event_queue: Option<MidiEventQueue>,
+    /// Counter for generating anonymous bus names (for inline synth syntax)
+    anon_bus_counter: usize,
 }
 
 /// Function definition storage
@@ -179,7 +181,15 @@ impl CompilerContext {
             sample_node_metadata: HashMap::new(),
             pattern_registry: HashMap::new(),
             midi_event_queue: None,
+            anon_bus_counter: 0,
         }
+    }
+
+    /// Generate a unique anonymous bus name
+    fn generate_anon_bus_name(&mut self) -> String {
+        let name = format!("_anon_{}", self.anon_bus_counter);
+        self.anon_bus_counter += 1;
+        name
     }
 
     /// Get the compiled graph (OLD architecture)
@@ -9247,44 +9257,58 @@ fn compile_note_modifier(ctx: &mut CompilerContext, args: Vec<Expr>) -> Result<N
             };
 
             if is_oscillator {
-                // Extract waveform from oscillator and create SynthPattern
-                let waveform = if let Some(Some(node)) = ctx.graph.nodes.get(input_node_id.0) {
-                    if let SignalNode::Oscillator { waveform, .. } = &**node {
-                        *waveform
-                    } else {
-                        Waveform::Sine
-                    }
-                } else {
-                    Waveform::Sine
-                };
+                // UNIFIED SYNTHESIS ARCHITECTURE:
+                // Instead of creating a SynthPattern (which uses synth_voice_manager with ADSR),
+                // we internally create a bus and use the Sample path (which uses voice_manager with AR).
+                // This ensures `saw # note "c2"` behaves identically to `~synth $ saw; s "~synth" # note "c2"`.
 
-                // Get the note pattern string
-                let pattern_str = match &args[1] {
+                // 1. Generate an anonymous bus name
+                let anon_bus_name = ctx.generate_anon_bus_name();
+
+                // 2. Register the oscillator as that bus
+                ctx.buses.insert(anon_bus_name.clone(), input_node_id);
+                ctx.graph.add_bus(anon_bus_name.clone(), input_node_id);
+
+                // 3. Get the note pattern string
+                let note_pattern_str = match &args[1] {
                     Expr::String(s) => s.clone(),
                     _ => return Err("note pattern must be a string".to_string()),
                 };
 
-                // Parse the pattern
-                let pattern = parse_mini_notation(&pattern_str);
+                // 4. Parse the note pattern to get its structure
+                let note_pattern = parse_mini_notation(&note_pattern_str);
 
-                // Create SynthPattern with sensible defaults
-                // User can override with # ar, # lpf, etc.
-                let node = SignalNode::SynthPattern {
-                    pattern_str: pattern_str.clone(),
-                    pattern,
+                // 5. Create a sample pattern that references the bus with same timing as note pattern
+                // Transform each note value into the bus reference
+                let bus_ref = format!("~{}", anon_bus_name);
+                let sample_pattern = note_pattern.clone().fmap(move |_| bus_ref.clone());
+
+                // 6. Create a Sample node with the bus reference pattern
+                let sample_node = SignalNode::Sample {
+                    pattern_str: format!("~{} (from inline synth)", anon_bus_name),
+                    pattern: sample_pattern,
                     last_trigger_time: -1.0,
-                    waveform,
-                    attack: 0.01,        // 10ms default attack
-                    decay: 0.1,          // 100ms decay
-                    sustain: 0.7,        // 70% sustain
-                    release: 0.3,        // 300ms release
-                    filter_cutoff: 20000.0,  // No filter by default
-                    filter_resonance: 0.0,
-                    filter_env_amount: 0.0,
+                    last_cycle: -1,
+                    playback_positions: HashMap::new(),
                     gain: Signal::Value(1.0),
                     pan: Signal::Value(0.0),
+                    speed: Signal::Value(1.0),
+                    cut_group: Signal::Value(0.0),
+                    n: Signal::Value(0.0),
+                    note: Signal::Value(0.0), // Will be set below
+                    attack: Signal::Value(0.01),  // 10ms attack
+                    release: Signal::Value(0.3),  // 300ms release
+                    envelope_type: None,
+                    unit_mode: Signal::Value(0.0),
+                    loop_enabled: Signal::Value(0.0),
+                    begin: Signal::Value(0.0),
+                    end: Signal::Value(1.0),
                 };
-                Ok(ctx.graph.add_node(node))
+                let sample_node_id = ctx.graph.add_node(sample_node);
+
+                // 7. Apply the note pattern to the Sample node
+                let note_value = compile_expr(ctx, args[1].clone())?;
+                modify_sample_param(ctx, sample_node_id, "note", Signal::Node(note_value))
             } else {
                 // Original behavior: modify Sample node's note parameter
                 let note_value = compile_expr(ctx, args[1].clone())?;
